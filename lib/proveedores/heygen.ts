@@ -1,5 +1,8 @@
 import { estimarSegundos, palabras, valorDefinido } from "@/lib/dominio/estimaciones"
-import { Falla } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+
+/** Above this the script is too long for a Reel; 30 to 60 s works best. */
+export const SEGUNDOS_MAXIMOS_REEL = 90
 
 export const MODELOS_ELEVEN = new Set(["eleven_multilingual_v2", "eleven_v3", "eleven_turbo_v2_5", "eleven_flash_v2_5"])
 
@@ -75,7 +78,7 @@ export function armarPedido(entrada: {
 
   const avatar = valorDefinido(avatarId || hg.avatar_id)
   if (!avatar) {
-    throw new Falla("Falta heygen.avatar_id en la configuración.")
+    throw new FallaDeConfiguracion("Falta heygen.avatar_id en la configuración.")
   }
   const cuerpo: PedidoHeygen = {
     type: "avatar",
@@ -91,13 +94,13 @@ export function armarPedido(entrada: {
   const referencia = valorDefinido(hg.referencia_movimiento)
   if (hg.motor === "avatar_v") {
     if (!referencia) {
-      throw new Falla(
+      throw new FallaDeConfiguracion(
         "Con motor avatar_v falta heygen.referencia_movimiento (un digital_twin del grupo). Sin ella, HeyGen puede usar el movimiento de un look público de otra persona.",
       )
     }
     cuerpo.engine = { type: "avatar_v", reference_look_id: referencia }
   } else if (referencia) {
-    throw new Falla("heygen.referencia_movimiento solo sirve con motor avatar_v.")
+    throw new FallaDeConfiguracion("heygen.referencia_movimiento solo sirve con motor avatar_v.")
   } else if (hg.motor) {
     cuerpo.engine = { type: hg.motor }
   }
@@ -107,11 +110,11 @@ export function armarPedido(entrada: {
     cuerpo.audio_asset_id = audioAssetId
     ruta = "B"
   } else if (config.ruta_voz === "elevenlabs") {
-    throw new Falla("La Ruta B necesita el audio de ElevenLabs subido a HeyGen (audio_asset_id).")
+    throw new FallaDeConfiguracion("La Ruta B necesita el audio de ElevenLabs subido a HeyGen (audio_asset_id).")
   } else {
     const voz = valorDefinido(hg.voice_id)
     if (!voz) {
-      throw new Falla("Falta heygen.voice_id en la configuración.")
+      throw new FallaDeConfiguracion("Falta heygen.voice_id en la configuración.")
     }
     cuerpo.script = texto
     cuerpo.voice_id = voz
@@ -120,7 +123,7 @@ export function armarPedido(entrada: {
     // Like coni.py, an empty settings object counts as no settings.
     if (ajustes && Object.keys(ajustes).length > 0) {
       if (ajustes.model && !MODELOS_ELEVEN.has(ajustes.model)) {
-        throw new Falla(`Modelo de ElevenLabs no válido: ${ajustes.model}`)
+        throw new FallaDeConfiguracion(`Modelo de ElevenLabs no válido: ${ajustes.model}`)
       }
       const stability = ajustes.stability
       if (
@@ -129,9 +132,10 @@ export function armarPedido(entrada: {
         stability !== null &&
         ![0, 0.5, 1].includes(stability)
       ) {
-        throw new Falla("Con eleven_v3, stability debe ser 0, 0.5 o 1.")
+        throw new FallaDeConfiguracion("Con eleven_v3, stability debe ser 0, 0.5 o 1.")
       }
-      ajustesVoz.engine_settings = { engine_type: "elevenlabs", ...ajustes }
+      // Spread first: a config key must not override the engine, which would silently change what a render costs.
+      ajustesVoz.engine_settings = { ...ajustes, engine_type: "elevenlabs" }
     }
     if (typeof hg.velocidad === "number" && hg.velocidad !== 1) {
       ajustesVoz.speed = hg.velocidad
@@ -143,6 +147,9 @@ export function armarPedido(entrada: {
   }
 
   const segundos = estimarSegundos(texto)
-  const avisos = segundos > 90 ? ["El guion pasa de 90 s. Para Reels conviene de 30 a 60 s."] : []
+  const avisos =
+    segundos > SEGUNDOS_MAXIMOS_REEL
+      ? [`El guion pasa de ${SEGUNDOS_MAXIMOS_REEL} s. Para Reels conviene de 30 a 60 s.`]
+      : []
   return { cuerpo, ruta, palabras: palabras(texto).length, segundos, avisos }
 }

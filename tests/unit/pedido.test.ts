@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { Falla } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { armarPedido, type ConfigProduccion } from "@/lib/proveedores/heygen"
 
 const GUION = "¿Peleas siempre por lo mismo?\n\nSoy Coni del Rosario."
@@ -29,6 +29,15 @@ function config(): ConfigProduccion {
 
 function pedido(cfg = config(), extra: { audioAssetId?: string; avatarId?: string; guion?: string | null } = {}) {
   return armarPedido({ config: cfg, guion: GUION, titulo: TITULO, ...extra })
+}
+
+function errorDe(accion: () => unknown): unknown {
+  try {
+    accion()
+  } catch (error) {
+    return error
+  }
+  throw new Error("Se esperaba un error y no hubo ninguno.")
 }
 
 describe("armarPedido", () => {
@@ -79,14 +88,22 @@ describe("armarPedido", () => {
     // Without a reference, HeyGen may animate the photo with a public look's motion (another person).
     const cfg = config()
     cfg.heygen.motor = "avatar_v"
-    expect(() => pedido(cfg)).toThrow(Falla)
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("referencia_movimiento")
   })
 
   it("falla cuando hay referencia de movimiento sin avatar_v", () => {
     const cfg = config()
     cfg.heygen.referencia_movimiento = "gemelo_1"
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("solo sirve con motor avatar_v")
+  })
+
+  it("ignora un engine_type distinto en los ajustes", () => {
+    // Deliberate divergence from coni.py, where a config key could override the engine and burn credits.
+    const cfg = config()
+    cfg.heygen.ajustes_elevenlabs = { model: "eleven_multilingual_v2", stability: 0.5, engine_type: "openai" }
+    expect(pedido(cfg).cuerpo.voice_settings?.engine_settings?.engine_type).toBe("elevenlabs")
   })
 
   it("omite ajustes de voz cuando no vienen de elevenlabs", () => {
@@ -128,38 +145,50 @@ describe("armarPedido", () => {
   it("falla cuando la ruta b no trae audio asset id", () => {
     const cfg = config()
     cfg.ruta_voz = "elevenlabs"
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("audio_asset_id")
   })
 
   it("falla cuando el avatar sigue pendiente", () => {
     const cfg = config()
     cfg.heygen.avatar_id = "PENDIENTE"
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("avatar_id")
   })
 
   it("falla cuando la voz sigue pendiente en la ruta a", () => {
     const cfg = config()
     cfg.heygen.voice_id = "PENDIENTE"
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("voice_id")
   })
 
   it("falla cuando el modelo de elevenlabs no existe", () => {
     const cfg = config()
     cfg.heygen.ajustes_elevenlabs = { model: "eleven_inventado", stability: 0.5 }
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("Modelo de ElevenLabs no válido")
   })
 
   it("falla cuando eleven_v3 trae una stability no permitida", () => {
     const cfg = config()
     cfg.heygen.ajustes_elevenlabs = { model: "eleven_v3", stability: 0.3 }
+    expect(errorDe(() => pedido(cfg))).toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(cfg)).toThrow("stability")
   })
 
-  it("falla cuando no hay guion", () => {
+  // A missing or empty script is Coni's to fix, so it must not be tagged as a WAV-only configuration error.
+  it("falla con un mensaje para Coni cuando no hay guion", () => {
+    const error = errorDe(() => pedido(config(), { guion: null }))
+    expect(error).toBeInstanceOf(Falla)
+    expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(config(), { guion: null })).toThrow("Falta")
   })
 
-  it("falla cuando el guion está vacío", () => {
+  it("falla con un mensaje para Coni cuando el guion está vacío", () => {
+    const error = errorDe(() => pedido(config(), { guion: "  \n" }))
+    expect(error).toBeInstanceOf(Falla)
+    expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(config(), { guion: "  \n" })).toThrow("vacío")
   })
 })
