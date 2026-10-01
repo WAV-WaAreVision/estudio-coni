@@ -7,6 +7,10 @@ import { almacenReal } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import type { DepsProduccion } from "./producir"
 
+// Three calls of at most two attempts each must fit in the task's 900 s (trigger.config.ts), unlike the SDK's
+// default of 10 minutes and two retries, where one hung call would end the run.
+const CLAUDE_ESPERA_MS = 120_000
+
 /** The dependencies of a Trigger.dev run. Cheap checks come first, so a missing setting fails before any spend. */
 export async function depsReales(): Promise<DepsProduccion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
@@ -17,5 +21,10 @@ export async function depsReales(): Promise<DepsProduccion> {
   if (!llaveDeAnthropic) {
     throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de Anthropic en Ajustes.")
   }
-  return { db, claude: new Anthropic({ apiKey: llaveDeAnthropic }), almacen, ahora: () => new Date().toISOString() }
+  return {
+    db,
+    claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    almacen,
+    ahora: () => new Date().toISOString(),
+  }
 }

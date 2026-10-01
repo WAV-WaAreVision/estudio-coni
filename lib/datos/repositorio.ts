@@ -91,8 +91,9 @@ export function revisionAJson(hallazgos: readonly Hallazgo[]): Json {
 
 export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }
 
-/** The cap error is the contract of `reservar_gasto` (supabase/migrations/20261001000400_gastos.sql). */
+/** The errors of `reservar_gasto` are its contract (supabase/migrations/20261001000400_gastos.sql). */
 const ERROR_DE_TOPE = "tope_alcanzado"
+const ERROR_SIN_AJUSTES = "ajustes_faltantes"
 
 export async function reservarGasto(
   db: Db,
@@ -115,6 +116,10 @@ export async function reservarGasto(
   })
   if (error) {
     if (error.message === ERROR_DE_TOPE) return { tope: true }
+    // Without the settings row there is no cap to check, and retrying will not create it.
+    if (error.message === ERROR_SIN_AJUSTES) {
+      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
+    }
     throw fallo("No pude reservar el gasto", error)
   }
   return { tope: false, gasto: data }
@@ -134,5 +139,6 @@ export async function liberarGasto(db: Db, clave: string): Promise<void> {
 export async function leerSecreto(db: Db, nombre: string): Promise<string | null> {
   const { data, error } = await db.rpc("leer_secreto", { p_nombre: nombre })
   if (error) throw fallo(`No pude leer la llave de ${nombre}`, error)
-  return data || null
+  // A key pasted with a trailing newline is an invalid header value, which would look like a network failure.
+  return data?.trim() || null
 }

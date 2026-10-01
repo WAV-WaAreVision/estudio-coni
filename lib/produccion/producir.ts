@@ -222,7 +222,8 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
         return { resultado: "rechazado" }
       }
       borrador = redactado.borrador
-      // Saved before the spend is confirmed: a retry that finds the spend confirmed can then resume from it.
+      // Saved before the spend is confirmed, so a retry that finds it confirmed can resume from the saved draft. If
+      // the run dies between these two calls the retry finds the spend still reserved and writes the script again.
       const guardada = await actualizarPieza(db, fila.id, fila.version, {
         version: fila.version + 1,
         guion: borrador.guion,

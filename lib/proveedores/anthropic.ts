@@ -179,7 +179,10 @@ async function pedirJson<S extends z.ZodType>(
   if (respuesta.stop_reason === "max_tokens") {
     throw new Error("Claude se quedó sin espacio antes de terminar la respuesta.")
   }
-  const bloque = respuesta.content.find((candidato) => candidato.type === "text")
+  // After a fallback, `content` holds what the declined model wrote (possibly half a JSON), a `fallback` block, and
+  // then the answer of the model that served the request: only the last part is the answer.
+  const respuestaFinal = respuesta.content.slice(respuesta.content.findLastIndex((b) => b.type === "fallback") + 1)
+  const bloque = respuestaFinal.find((candidato) => candidato.type === "text")
   if (!bloque) {
     throw new Error("Claude no devolvió una respuesta que se pueda leer.")
   }

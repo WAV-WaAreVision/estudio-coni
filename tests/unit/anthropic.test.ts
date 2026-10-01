@@ -205,11 +205,29 @@ describe("escribirGuion", () => {
     expect(resultado.uso).toMatchObject(USO)
   })
 
-  it("ignores thinking and fallback blocks around the answer", async () => {
+  it("ignores the thinking block that comes before the answer", async () => {
     respondiendo(() =>
       HttpResponse.json(
         mensaje([
           { type: "thinking", thinking: "", signature: "firma" },
+          { type: "text", text: JSON.stringify(guionOk) },
+        ]),
+      ),
+    )
+    expect((await escribir()).guion).toBe(guionOk.guion)
+  })
+
+  it("reads the answer of the model that served the request after a fallback, not the declined model's half answer", async () => {
+    respondiendo(() =>
+      HttpResponse.json(
+        mensaje([
+          { type: "text", text: '{"guion": "Una idea sim' },
+          {
+            type: "fallback",
+            from: { model: "claude-opus-5-5" },
+            to: { model: "claude-opus-4-8" },
+            trigger: { type: "refusal", category: "cyber" },
+          },
           { type: "text", text: JSON.stringify(guionOk) },
         ]),
       ),

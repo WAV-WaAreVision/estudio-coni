@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { reservarGasto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, estimarCostoVoz, producirPieza } from "@/lib/produccion/producir"
@@ -544,6 +545,36 @@ describe("producirPieza", () => {
 
     await expect(producirPieza(deps(), id)).rejects.toBeInstanceOf(FallaDeConfiguracion)
     expect(sim.escrituras).toHaveLength(0)
+  })
+
+  it("uses the ElevenLabs key without the spaces and newline it may have been pasted with", async () => {
+    const id = await crearPiezaEnProduccion()
+    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+    await pool.query("select vault.create_secret($1, 'elevenlabs')", [`  ${CLAVE_ELEVENLABS}\n`])
+    const sim = simular()
+
+    await producirPieza(deps(), id)
+
+    expect(sim.voces[0]?.llave).toBe(CLAVE_ELEVENLABS)
+  })
+
+  it("fails as a configuration error when the settings row that holds the cap is missing", async () => {
+    const id = await crearPiezaEnProduccion()
+    await pool.query("delete from public.ajustes")
+    try {
+      await expect(
+        reservarGasto(clienteDeServicio(), {
+          piezaId: id,
+          proveedor: "anthropic",
+          paso: "guion",
+          estimadoUsd: 0.5,
+          clave: "clave-sin-ajustes",
+          ahora: new Date().toISOString(),
+        }),
+      ).rejects.toBeInstanceOf(FallaDeConfiguracion)
+    } finally {
+      await pool.query("insert into public.ajustes default values")
+    }
   })
 
   it("fails as a configuration error when the production config is invalid", async () => {
