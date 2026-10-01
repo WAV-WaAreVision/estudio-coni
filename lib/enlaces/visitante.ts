@@ -4,12 +4,18 @@ import { createHmac, randomBytes } from "node:crypto"
 // whose salt changes every day and is derived from a server secret: nothing about the visitor is stored, the salt is
 // never stored with the click, and yesterday's hashes cannot be matched to today's.
 
-/** The secret behind the daily salt. Without `SAL_DE_CLICS` each server instance makes its own, which only means a
- * visitor can be counted once per instance instead of once overall (it never links anyone). */
-const SECRETO_DE_ESTA_INSTANCIA = randomBytes(32).toString("hex")
+/** A throwaway secret for development only: one per process, so the dedupe can be tried without configuring anything. */
+const SECRETO_DE_DESARROLLO = randomBytes(32).toString("hex")
 
-export function secretoDeClics(entorno: Record<string, string | undefined> = process.env): string {
-  return entorno.SAL_DE_CLICS?.trim() || SECRETO_DE_ESTA_INSTANCIA
+/**
+ * The secret behind the daily salt: `SAL_DE_CLICS`. In production without it there is none (null) and nothing is
+ * counted: a secret made per server instance would hash the same visitor differently on each instance, and the count
+ * would grow with the traffic of the servers instead of the people.
+ */
+export function secretoDeClics(entorno: Record<string, string | undefined> = process.env): string | null {
+  const configurado = entorno.SAL_DE_CLICS?.trim()
+  if (configurado) return configurado
+  return entorno.NODE_ENV === "production" ? null : SECRETO_DE_DESARROLLO
 }
 
 /** The salt of one day: a keyed hash of the day, recomputable by the server and by nobody else. */

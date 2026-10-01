@@ -62,6 +62,12 @@ export async function guardarLecturaDeReel(db: Db, lectura: LecturaDeReel): Prom
   if (error) throw fallo("No pude guardar las métricas del reel", error)
 }
 
+/** Deletes the click counter's visitor hashes from before `antesDe` (`2026-10-09`). */
+export async function olvidarVisitasDeClics(db: Db, antesDe: string): Promise<void> {
+  const { error } = await db.rpc("olvidar_visitas_clic", { p_antes_de: antesDe })
+  if (error) throw fallo("No pude olvidar las visitas del contador", error)
+}
+
 export async function guardarLecturaDeCuenta(db: Db, dia: string, toquesPerfil: number): Promise<void> {
   const { error } = await db
     .from("metricas_cuenta")
@@ -70,7 +76,6 @@ export async function guardarLecturaDeCuenta(db: Db, dia: string, toquesPerfil: 
 }
 
 const DIAS_DE_HISTORIA = 7 * 12
-const DIAS_DE_LECTURAS = 30
 
 /** Everything the Métricas screen shows, through Coni's session: row level security decides what she can read. */
 export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<EntradaDeMetricas> {
@@ -83,10 +88,10 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
       .eq("estado", "publicado")
       .not("puerta2_publicar_en", "is", null)
       .order("puerta2_publicar_en", { ascending: false }),
+    // One row per reel (the newest): the table keeps a row per day and would hit the API's row cap in a few months.
     db
-      .from("metricas_reel")
-      .select("pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio")
-      .gte("dia", sumarDias(hoy, -DIAS_DE_LECTURAS)),
+      .from("metricas_reel_ultima")
+      .select("pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio"),
     db
       .from("consultas")
       .select("anotada_en")
@@ -116,15 +121,22 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
           ]
         : [],
     ),
-    lecturas: lecturas.data.map((fila) => ({
-      piezaId: fila.pieza_id,
-      dia: fila.dia,
-      alcance: fila.alcance,
-      guardados: fila.guardados,
-      compartidos: fila.compartidos,
-      comentarios: fila.comentarios,
-      tiempoPromedio: fila.tiempo_promedio,
-    })),
+    // A view types every column as nullable; a row without its reel or its day cannot come out of the primary key.
+    lecturas: lecturas.data.flatMap((fila) =>
+      fila.pieza_id && fila.dia
+        ? [
+            {
+              piezaId: fila.pieza_id,
+              dia: fila.dia,
+              alcance: fila.alcance,
+              guardados: fila.guardados,
+              compartidos: fila.compartidos,
+              comentarios: fila.comentarios,
+              tiempoPromedio: fila.tiempo_promedio,
+            },
+          ]
+        : [],
+    ),
     consultas: consultas.data.map((fila) => fila.anotada_en),
     clics: [...clicsPorDia].map(([dia, total]) => ({ dia, clics: total })),
   }

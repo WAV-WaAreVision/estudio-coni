@@ -21,7 +21,7 @@ export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
   }
   return (
     <div className="grid gap-4">
-      <p className="text-[1.0625rem]">{ritmo.resumen}</p>
+      <p className="text-body">{ritmo.resumen}</p>
       <div
         className="grid items-center gap-1.5"
         style={{ gridTemplateColumns: `4.5rem repeat(${ritmo.columnas.length}, minmax(0, 1fr))` }}
@@ -53,7 +53,7 @@ function RitmoSemana({ semana }: { semana: Ritmo["semanas"][number] }) {
             data-pilar={celda.pilar ?? undefined}
             title={celda.titulo}
             className={cn(
-              "grid min-h-11 place-items-center rounded-[10px] px-1 text-center text-label font-semibold leading-tight",
+              "grid min-h-11 place-items-center rounded-sm px-1 text-center text-label font-semibold leading-tight",
               celda.pilar ? "bg-pilar-tinte-fuerte text-pilar-tinta" : "bg-hundido text-tinta",
             )}
           >
@@ -63,7 +63,7 @@ function RitmoSemana({ semana }: { semana: Ritmo["semanas"][number] }) {
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: one cell per day of the schedule, in order
             key={i}
-            className="grid min-h-11 place-items-center rounded-[10px] border-[1.5px] border-linea border-dashed text-label text-apagado"
+            className="grid min-h-11 place-items-center rounded-sm border-[1.5px] border-linea border-dashed text-label text-apagado"
           >
             libre
           </span>

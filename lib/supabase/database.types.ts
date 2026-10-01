@@ -500,7 +500,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      metricas_reel_ultima: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          compartidos: number | null
+          dia: string | null
+          guardados: number | null
+          pieza_id: string | null
+          tiempo_promedio: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       confirmar_gasto: {
@@ -608,6 +627,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean

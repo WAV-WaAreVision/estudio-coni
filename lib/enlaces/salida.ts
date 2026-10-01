@@ -9,8 +9,9 @@ export interface DepsSalida {
   registrarClic: (enlace: string, huella: string, dia: string) => Promise<boolean>
   ahora: () => number
   zona: string
-  secreto: string
-  /** Where a failure is reported. A visitor is never kept from the link by a broken counter. */
+  /** The secret behind the daily hashes; null when it is not configured, and then nothing is counted. */
+  secreto: string | null
+  /** Where a failure is logged. A visitor is never kept from the link by a broken counter. */
   avisarFalla?: (contexto: string, error: unknown) => void
 }
 
@@ -51,6 +52,11 @@ export async function resolverSalida(entrada: {
   const elegido = enlaces.find((candidato) => candidato.id === enlace)
   if (!elegido) return { destino: VOLVER, contado: false }
   if (!contar || !esVisitaHumana(cabeceras)) return { destino: elegido.url, contado: false }
+
+  if (deps.secreto === null) {
+    avisar("No cuento el clic: falta SAL_DE_CLICS en el servidor", new Error("SAL_DE_CLICS vacío"))
+    return { destino: elegido.url, contado: false }
+  }
 
   try {
     const ahora = deps.ahora()

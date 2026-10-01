@@ -13,7 +13,7 @@ async function salir(request: NextRequest, contexto: ContextoDeRuta, contar: boo
   const { enlace } = await contexto.params
   let destino = "/l"
   try {
-    destino = (await resolverSalida({ enlace, cabeceras: request.headers, deps: depsDeSalida(), contar })).destino
+    destino = (await resolverSalida({ enlace, cabeceras: request.headers, deps: await depsDeSalida(), contar })).destino
   } catch (error) {
     // The public page never shows an error: without its settings the visitor goes back to the page.
     console.error("/l/ir no pudo resolver el enlace", error)

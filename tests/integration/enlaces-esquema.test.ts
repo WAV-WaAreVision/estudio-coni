@@ -119,3 +119,21 @@ describe("ajustes.enlaces", () => {
     })
   })
 })
+
+describe("olvidar_visitas_clic", () => {
+  it("forgets the visitors from before a day, keeps the counts and is for the service only", async () => {
+    await como(comoServicio, async (c) => {
+      await clic(c, "agenda", HUELLA_A, "2026-10-09")
+      await clic(c, "libros", HUELLA_B, "2026-10-09")
+      const { rows } = await c.query<{ n: number }>("select public.olvidar_visitas_clic('2026-10-10'::date) as n")
+      expect(rows[0]?.n).toBe(2)
+      expect((await c.query("select * from public.visitas_clic")).rowCount).toBe(0)
+      expect(await total(c, "agenda", "2026-10-09")).toBe(1)
+    })
+    await como(comoPostgres, async (c) => {
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, "select public.olvidar_visitas_clic('2026-10-10'::date)")
+      expect(error.message).toMatch(/permission denied/)
+    })
+  })
+})

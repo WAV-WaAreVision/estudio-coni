@@ -79,6 +79,21 @@ describe("resolverSalida", () => {
     expect(registrarClic).not.toHaveBeenCalled()
   })
 
+  it("sends a person to the link without counting when the server has no secret for the hashes, and says so", async () => {
+    const { deps, cabeceras, registrarClic } = armar()
+    const registrar = vi.fn()
+
+    const salida = await resolverSalida({
+      enlace: "agenda",
+      cabeceras,
+      deps: { ...deps, secreto: null, avisarFalla: registrar },
+    })
+
+    expect(salida).toEqual({ destino: "https://agenda.test/coni", contado: false })
+    expect(registrarClic).not.toHaveBeenCalled()
+    expect(registrar).toHaveBeenCalledWith(expect.stringContaining("SAL_DE_CLICS"), expect.anything())
+  })
+
   it("does not count a request that only asks where the link goes", async () => {
     const { deps, cabeceras, registrarClic } = armar()
 

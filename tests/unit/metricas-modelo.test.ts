@@ -48,7 +48,7 @@ describe("construirMetricas", () => {
     )
 
     expect(modelo.mes).toBe("octubre")
-    expect(modelo.resumen).toBe("1 reel publicado · 2 consultas · 15 clics en tu link")
+    expect(modelo.resumen).toBe("1 reel publicado · 2 consultas · 15 toques en tu link")
   })
 
   it("says plainly that nothing is published yet, and still counts consultations", () => {
@@ -56,7 +56,7 @@ describe("construirMetricas", () => {
 
     expect(modelo.vacio).toBe(true)
     expect(modelo.barras).toEqual([])
-    expect(modelo.resumen).toBe("0 reels publicados · 1 consulta · 0 clics en tu link")
+    expect(modelo.resumen).toBe("0 reels publicados · 1 consulta · 0 toques en tu link")
   })
 
   it("orders the bars by saves per 1,000 and scales them to the best one, with the numbers and the theme's n beside", () => {
@@ -123,13 +123,14 @@ describe("construirMetricas", () => {
 
   it("shows the sample size and refuses to conclude while no two themes have eight reels", () => {
     const publicadas = [0, 1, 2].map((i) => publicada(`a${i}`, "autoestima", `2026-10-0${i + 1}T22:00:00.000Z`))
-    publicadas.push(publicada("p0", "pareja", "2026-10-08T22:00:00.000Z"))
+    publicadas.push(publicada("p0", "pareja", "2026-10-07T22:00:00.000Z"))
     const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
 
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
       titulo: "Todavía es temprano para concluir",
-      texto: "Comparo temas cuando haya 8 reels de cada uno. El tema con más reels lleva 3 de 8.",
+      texto:
+        "Comparo temas cuando haya 8 reels de cada uno. El tema con más reels lleva 3 de 8. Cuento los reels desde que cumplen una semana.",
       avance: 3,
       meta: 8,
       temas: [
@@ -142,14 +143,15 @@ describe("construirMetricas", () => {
   it("says when one theme has reached eight and another has not", () => {
     const publicadas = [
       ...Array.from({ length: 8 }, (_, i) => publicada(`a${i}`, "autoestima", `2026-09-${10 + i}T22:00:00.000Z`)),
-      publicada("p0", "pareja", "2026-10-08T22:00:00.000Z"),
-      publicada("p1", "pareja", "2026-10-09T22:00:00.000Z"),
+      publicada("p0", "pareja", "2026-10-06T22:00:00.000Z"),
+      publicada("p1", "pareja", "2026-10-07T22:00:00.000Z"),
     ]
     const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
 
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
-      texto: "Autoestima ya tiene 8 reels. Comparo cuando otro tema también llegue a 8; el siguiente lleva 2 de 8.",
+      texto:
+        "Autoestima ya tiene 8 reels. Comparo cuando otro tema también llegue a 8; el siguiente lleva 2 de 8. Cuento los reels desde que cumplen una semana.",
       avance: 2,
     })
   })
@@ -174,8 +176,22 @@ describe("construirMetricas", () => {
       "Pareja y conversación · 8 reels · promedio 11 cada 1.000 (entre 9,9 y 12,1)",
     ])
     expect(comparacion.frase).toContain("Autoestima va por delante de Pareja y conversación por 10 cada 1.000")
-    expect(comparacion.frase).toContain("se distingue del azar")
-    expect(comparacion.cautela).toMatch(/lo ya publicado/)
+    expect(comparacion.frase).toContain("La diferencia es mayor que lo que varían tus reels entre sí.")
+    expect(comparacion.cautela).toContain("lo ya publicado")
+    expect(comparacion.cautela).toContain("últimos 7 días")
+  })
+
+  it("leaves the reels of the last seven days out of the comparison: their saves are still adding up", () => {
+    const antiguos = [
+      ...Array.from({ length: 8 }, (_, i) => publicada(`a${i}`, "autoestima", `2026-08-${10 + i}T22:00:00.000Z`)),
+      ...Array.from({ length: 7 }, (_, i) => publicada(`p${i}`, "pareja", `2026-08-${20 + i}T22:00:00.000Z`)),
+    ]
+    const reciente = publicada("p7", "pareja", "2026-10-13T22:00:00.000Z")
+    const todas = [...antiguos, reciente]
+
+    const modelo = construirMetricas(entrada({ publicadas: todas, lecturas: todas.map((p) => lectura(p.id)) }))
+
+    expect(modelo.comparacion?.tipo).toBe("temprano")
   })
 
   it("groups the last weeks, newest first, with their reels' raw numbers", () => {
@@ -199,13 +215,13 @@ describe("construirMetricas", () => {
       "Semana del 5 al 11 de octubre",
     ])
     const semana = modelo.semanas[1]
-    expect(semana?.resumen).toBe("1 consulta · 8 clics en tu link")
+    expect(semana?.resumen).toBe("1 consulta · 8 toques en tu link")
     expect(semana?.reels).toEqual([
       {
         piezaId: "a",
         titulo: "Si van a discutir",
         pilar: "pareja",
-        meta: "121 guardados · 2.400 de alcance · se vio 24 s",
+        meta: "121 guardados · 2.400 de alcance · en promedio se vio 24 s",
       },
     ])
     expect(modelo.semanas[0]?.reels[0]?.meta).toBe("Todavía sin números")
@@ -215,6 +231,18 @@ describe("construirMetricas", () => {
     const modelo = construirMetricas(entrada({ consultas: ["2026-01-07T15:00:00.000Z", "2026-10-07T15:00:00.000Z"] }))
 
     expect(modelo.semanas.map((s) => s.titulo)).toEqual(["Semana del 5 al 11 de octubre"])
+  })
+
+  it("warns when reels have been out for days and not one reading has arrived", () => {
+    const modelo = construirMetricas(entrada({ publicadas: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")] }))
+
+    expect(modelo.aviso).toBe("Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico.")
+  })
+
+  it("does not warn about a reel that went out today and has no reading yet", () => {
+    const modelo = construirMetricas(entrada({ publicadas: [publicada("a", "pareja", "2026-10-15T13:00:00.000Z")] }))
+
+    expect(modelo.aviso).toBeNull()
   })
 
   it("warns, with the day it shows, when the morning reading did not arrive", () => {

@@ -12,7 +12,8 @@ export const CONFIGURACION_METRICAS = {
   id: "metricas-diarias",
   cron: { pattern: "0 7 * * *", timezone: "America/Santiago" },
   queue: { concurrencyLimit: 1 },
-  maxDuration: 600,
+  // Each reel can take its 30 s timeout: sequential reads of a few dozen reels need more than ten minutes.
+  maxDuration: 900,
 } as const
 
 export const metricasDiariasTask = schedules.task({

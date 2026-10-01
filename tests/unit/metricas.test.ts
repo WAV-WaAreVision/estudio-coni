@@ -52,8 +52,13 @@ describe("guardadosPorMil", () => {
 describe("segundosVistos", () => {
   it("reads Instagram's raw average watch time as milliseconds", () => {
     expect(segundosVistos(24_400)).toBe(24)
-    expect(segundosVistos(0)).toBe(0)
     expect(segundosVistos(null)).toBeNull()
+  })
+
+  it("hides a figure that would read as under a second: if Instagram's unit were seconds, it would be a wrong number", () => {
+    expect(segundosVistos(24.4)).toBeNull()
+    expect(segundosVistos(0)).toBeNull()
+    expect(segundosVistos(499)).toBeNull()
   })
 })
 
@@ -192,6 +197,16 @@ describe("compararTemas", () => {
     expect(resultado.diferencia.desde).toBeGreaterThan(8)
     expect(resultado.diferencia.hasta).toBeLessThan(12)
     expect(resultado.diferencia.distinguible).toBe(true)
+  })
+
+  it("never shows a theme's interval below zero: saves cannot be negative", () => {
+    const resultado = compararTemas([
+      ...reels("autoestima", [0, 0, 0, 0, 0, 0, 0, 40]),
+      ...reels("pareja", [1, 1, 1, 1, 1, 1, 1, 1]),
+    ])
+    if (resultado.estado !== "comparable") throw new Error("Se esperaba comparable")
+    const autoestima = resultado.temas.find((t) => t.pilar === "autoestima")
+    expect(autoestima?.desde).toBe(0)
   })
 
   it("calls a gap indistinguishable when its interval includes zero", () => {

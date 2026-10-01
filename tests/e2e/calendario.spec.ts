@@ -71,7 +71,7 @@ test("the rhythm shows the last four weeks by the days of the schedule and has n
 
   await expect(page.getByRole("link", { name: "Ritmo" })).toHaveAttribute("aria-current", "page")
   await expect(
-    page.getByText(/^Tu horario tiene 3 espacios por semana\. En estas 4 semanas van \d de 12\.$/),
+    page.getByText(/^Tu horario tiene 3 espacios por semana\. En estas 4 semanas van \d de \d+\.$/),
   ).toBeVisible()
   await expect(page.getByText("Mar", { exact: true })).toBeVisible()
   await expect(page.getByText("casi siempre quedan libres")).toHaveCount(0)

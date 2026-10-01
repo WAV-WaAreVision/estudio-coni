@@ -36,8 +36,8 @@ export default async function PaginaPublica() {
     <div data-superficie="marca" className="min-h-dvh bg-acento text-sobre-acento">
       <main className="mx-auto grid w-full max-w-[560px] content-start gap-7 px-5.5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
         <header className="grid gap-2.5">
-          <h1 className="font-serif text-[2.75rem] leading-none tracking-[-0.01em] text-balance">{NOMBRE_PUBLICO}</h1>
-          <p className="text-[1.0625rem]">{TITULO_PUBLICO}</p>
+          <h1 className="font-serif text-marca tracking-[-0.01em] text-balance">{NOMBRE_PUBLICO}</h1>
+          <p className="text-body">{TITULO_PUBLICO}</p>
         </header>
 
         {enlaces.length > 0 ? (
@@ -49,7 +49,7 @@ export default async function PaginaPublica() {
                     href={`/l/ir/${enlace.id}`}
                     className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 py-4 outline-offset-2 transition-colors duration-150 ease-out focus-visible:outline-sobre-acento active:bg-acento-profundo motion-reduce:transition-none"
                   >
-                    <span className="text-[1.1875rem] font-semibold leading-tight">{enlace.titulo}</span>
+                    <span className="text-body font-semibold leading-tight">{enlace.titulo}</span>
                     <ArrowRight aria-hidden="true" size={22} className="row-span-2" />
                     {enlace.detalle ? <span className="text-meta">{enlace.detalle}</span> : null}
                   </a>

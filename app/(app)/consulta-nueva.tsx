@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { useAccion } from "@/components/use-accion"
@@ -24,6 +24,8 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
   const [total, setTotal] = useState(inicial)
   const [anotada, setAnotada] = useState<{ id: string; totalDelMes: number } | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
+  // Stable, so the toast keeps its 4.5 s clock when the screen re-renders.
+  const cerrarAviso = useCallback(() => setAnotada(null), [])
 
   function anotar() {
     ejecutar(alAnotar, (resultado) => {
@@ -46,14 +48,14 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
         Llegó una consulta
       </Boton>
       {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
+        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-meta text-error-tinta">
           {error}
         </p>
       ) : null}
       {anotada ? (
         <Aviso
           mensaje={`Anotada. Van ${anotada.totalDelMes} en ${mes}.`}
-          alCerrar={() => setAnotada(null)}
+          alCerrar={cerrarAviso}
           alDeshacer={() => deshacer(anotada.id)}
         />
       ) : null}

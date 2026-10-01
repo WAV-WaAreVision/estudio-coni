@@ -15,7 +15,7 @@ export default async function Metricas() {
     <div className="grid gap-5.5">
       <header className="grid gap-1.5">
         <h1 className="font-serif text-display capitalize">{modelo.mes}</h1>
-        <p className="text-[1.0625rem] text-apagado">{modelo.resumen}</p>
+        <p className="text-body text-apagado">{modelo.resumen}</p>
       </header>
 
       {modelo.aviso ? <Nota tipo="aviso" titulo={modelo.aviso} /> : null}
@@ -41,6 +41,7 @@ export default async function Metricas() {
       {modelo.comparacion ? <PanelDeComparacion panel={modelo.comparacion} /> : null}
 
       <Seccion titulo="Semana a semana" id="semanas">
+        <p className="text-meta text-apagado">Los toques en tu link cuentan una vez por persona, por link y por día.</p>
         {modelo.semanas.length === 0 ? (
           <p className="text-apagado">Cuando haya reels, consultas o clics, los verás aquí por semana.</p>
         ) : (

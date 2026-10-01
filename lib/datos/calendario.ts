@@ -17,9 +17,9 @@ const DIAS_DE_HISTORIA = 35
 export async function leerDatosDeCalendario(
   db: Db,
   ahora: number,
-): Promise<{ piezas: PiezaDeCalendario[]; horario: Horario }> {
+): Promise<{ piezas: PiezaDeCalendario[]; horario: Horario; primeraPublicacion: string | null }> {
   const desde = new Date(ahora - DIAS_DE_HISTORIA * 86_400_000).toISOString()
-  const [piezas, ajustes] = await Promise.all([
+  const [piezas, ajustes, primera] = await Promise.all([
     db
       .from("piezas")
       .select("id, titulo, estado, puerta2_publicar_en, creada_en, ideas(pilar)")
@@ -28,9 +28,19 @@ export async function leerDatosDeCalendario(
       .order("creada_en", { ascending: false })
       .limit(PIEZAS_A_LEER),
     db.from("ajustes").select("dias_publicacion, hora_publicacion, zona").maybeSingle(),
+    // The window above is short; the rhythm needs to know when she really started.
+    db
+      .from("piezas")
+      .select("puerta2_publicar_en")
+      .in("estado", ["publicado", "programado"])
+      .not("puerta2_publicar_en", "is", null)
+      .order("puerta2_publicar_en", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas del calendario", piezas.error)
   if (ajustes.error) throw fallo("No pude leer los horarios", ajustes.error)
+  if (primera.error) throw fallo("No pude leer la primera publicación", primera.error)
   return {
     piezas: piezas.data.map((fila) => ({
       id: fila.id,
@@ -41,6 +51,7 @@ export async function leerDatosDeCalendario(
       publicarEn: fila.puerta2_publicar_en,
       creadaEn: fila.creada_en,
     })),
+    primeraPublicacion: primera.data?.puerta2_publicar_en ?? null,
     horario: {
       dias: ajustes.data?.dias_publicacion ?? [2, 4, 6],
       hora: ajustes.data?.hora_publicacion ?? "19:00",

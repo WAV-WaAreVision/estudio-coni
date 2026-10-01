@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { guardarLecturaDeCuenta, guardarLecturaDeReel, leerReelsPublicados, leerZona } from "@/lib/datos/metricas"
+import {
+  guardarLecturaDeCuenta,
+  guardarLecturaDeReel,
+  leerReelsPublicados,
+  leerZona,
+  olvidarVisitasDeClics,
+} from "@/lib/datos/metricas"
 import { leerCuentaMeta, leerSecreto } from "@/lib/datos/repositorio"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
 import { sumarDias } from "@/lib/dominio/metricas"
 import { enSerie } from "@/lib/mantenimiento/ejecutar"
@@ -14,7 +21,10 @@ export interface DepsMetricas {
   ahora: () => string
 }
 
-export type ResultadoMetricas = { estado: "sin_cuenta" } | { estado: "leidas"; reels: number; dias: number }
+export type ResultadoMetricas =
+  | { estado: "sin_cuenta" }
+  /** `sinLectura` counts reels Instagram refuses for good (deleted, no insights): they show "sin números". */
+  | { estado: "leidas"; reels: number; sinLectura: number; dias: number }
 
 /**
  * The account figure lags up to 48 hours (Meta's docs), so each run reads the last three complete days: a number that
@@ -22,10 +32,11 @@ export type ResultadoMetricas = { estado: "sin_cuenta" } | { estado: "leidas"; r
  */
 const DIAS_DE_CUENTA = 3
 
-async function leerReels(deps: DepsMetricas, token: string, dia: string): Promise<number> {
+async function leerReels(deps: DepsMetricas, token: string, dia: string) {
   const reels = await leerReelsPublicados(deps.db)
-  const errores: Error[] = []
+  const pasajeras: Error[] = []
   let leidos = 0
+  let sinLectura = 0
   for (const reel of reels) {
     try {
       const metricas = await leerMetricasDeReel({ token, mediaId: reel.mediaId })
@@ -35,16 +46,23 @@ async function leerReels(deps: DepsMetricas, token: string, dia: string): Promis
       // A dead token fails every reel the same way: stop, the message is the same for all of them.
       if (error instanceof TokenVencido) throw error
       if (!(error instanceof Error)) throw error
-      errores.push(new Error(`Reel ${reel.mediaId}: ${error.message}`, { cause: error }))
+      if (error instanceof FallaDeConfiguracion) {
+        // Instagram refuses this reel for good (deleted, no insights): asking again every day will not change it, and
+        // failing the run would alert WAV daily about one reel. It is reported and shows as "sin números".
+        console.error(`Instagram no da métricas del reel ${reel.mediaId}`, error)
+        sinLectura += 1
+        continue
+      }
+      pasajeras.push(new Error(`Reel ${reel.mediaId}: ${error.message}`, { cause: error }))
     }
   }
-  if (errores.length > 0) {
+  if (pasajeras.length > 0) {
     throw new AggregateError(
-      errores,
-      `No pude leer ${errores.length} reels: ${errores.map((e) => e.message).join(" | ")}`,
+      pasajeras,
+      `No pude leer ${pasajeras.length} reels: ${pasajeras.map((e) => e.message).join(" | ")}`,
     )
   }
-  return leidos
+  return { leidos, sinLectura }
 }
 
 async function leerCuenta(deps: DepsMetricas, token: string, cuentaId: string, zona: string, hoy: string) {
@@ -74,9 +92,20 @@ export async function registrarMetricasDiarias(deps: DepsMetricas): Promise<Resu
 
   const zona = await leerZona(deps.db)
   const hoy = diaLocal(Date.parse(deps.ahora()), zona)
+  let tokenMuerto = false
   const hecho = await enSerie({
-    reels: () => leerReels(deps, token, hoy),
-    cuenta: () => leerCuenta(deps, token, cuentaId, zona, hoy),
+    reels: async () => {
+      try {
+        return await leerReels(deps, token, hoy)
+      } catch (error) {
+        tokenMuerto = error instanceof TokenVencido
+        throw error
+      }
+    },
+    // The account call would fail the same way with a dead token.
+    cuenta: async () => (tokenMuerto ? 0 : leerCuenta(deps, token, cuentaId, zona, hoy)),
+    // The click counter keeps a visitor's hash for the day only; this makes sure it goes even on a quiet page.
+    visitas: () => olvidarVisitasDeClics(deps.db, sumarDias(hoy, -1)),
   })
-  return { estado: "leidas", reels: hecho.reels, dias: hecho.cuenta }
+  return { estado: "leidas", reels: hecho.reels.leidos, sinLectura: hecho.reels.sinLectura, dias: hecho.cuenta }
 }

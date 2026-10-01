@@ -48,12 +48,10 @@ describe("leerDatosDeMetricas", () => {
     expect(datos.zona).toBe("America/Santiago")
     expect(datos.publicadas).toHaveLength(1)
     expect(datos.publicadas[0]).toMatchObject({ id: publicada, titulo: "Ser tu propia diosa", pilar: "autoestima" })
-    expect(datos.lecturas.map((l) => [l.dia, l.alcance, l.guardados, l.tiempoPromedio])).toEqual(
-      expect.arrayContaining([
-        ["2026-10-14", 900, 20, 24400.5],
-        ["2026-10-15", 1000, 30, 25000],
-      ]),
-    )
+    // Only the newest reading of the reel comes back.
+    expect(datos.lecturas.map((l) => [l.dia, l.alcance, l.guardados, l.tiempoPromedio])).toEqual([
+      ["2026-10-15", 1000, 30, 25000],
+    ])
     expect(datos.consultas).toEqual(["2026-10-10T15:00:00+00:00"])
     expect([...datos.clics].sort((a, b) => a.dia.localeCompare(b.dia))).toEqual([
       { dia: "2026-10-14", clics: 5 },
@@ -69,15 +67,14 @@ describe("leerDatosDeMetricas", () => {
     expect(datos.publicadas[0]).toMatchObject({ titulo: "Sin idea", pilar: null })
   })
 
-  it("lets the maintainer read the same numbers and leaves out readings older than thirty days", async () => {
+  it("lets the maintainer read the same numbers, however old the newest reading of a reel is", async () => {
     const publicada = await sembrarPieza("publicado", { titulo: "Reel" })
-    await pool.query(
-      "insert into public.metricas_reel (pieza_id, dia, alcance) values ($1, '2026-08-01', 5), ($1, '2026-10-15', 7)",
-      [publicada],
-    )
+    await pool.query("insert into public.metricas_reel (pieza_id, dia, alcance) values ($1, '2026-08-01', 5)", [
+      publicada,
+    ])
 
     const datos = await leerDatosDeMetricas(mantenedor, AHORA)
 
-    expect(datos.lecturas.map((l) => l.dia)).toEqual(["2026-10-15"])
+    expect(datos.lecturas.map((l) => [l.piezaId, l.dia, l.alcance])).toEqual([[publicada, "2026-08-01", 5]])
   })
 })

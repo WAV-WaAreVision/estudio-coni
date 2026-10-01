@@ -27,6 +27,9 @@ export async function clienteDeUsuario(correo: string): Promise<SupabaseClient<D
   })
   const sesion = await cliente.auth.verifyOtp({ email: correo, token: data.properties.email_otp, type: "email" })
   if (sesion.error) throw new Error(`No pude entrar como ${correo}: ${sesion.error.message}`, { cause: sesion.error })
+  // GoTrue stamps the token with its own clock and PostgREST rejects a token "issued at future" when it checks it in
+  // the same second; the local stack's containers disagree by a fraction of a second.
+  await new Promise((resolver) => setTimeout(resolver, 1100))
   return cliente
 }
 

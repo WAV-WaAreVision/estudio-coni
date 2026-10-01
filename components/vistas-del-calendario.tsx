@@ -24,7 +24,7 @@ export function VistasDelCalendario({ activa }: { activa: Vista }) {
               replace
               aria-current={activa === vista.clave ? "page" : undefined}
               className={cn(
-                "grid min-h-11 place-items-center rounded-[10px] text-label font-semibold",
+                "grid min-h-11 place-items-center rounded-sm text-label font-semibold",
                 "transition-[background-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
                 activa === vista.clave ? "bg-superficie text-tinta shadow-sm" : "text-apagado",
               )}

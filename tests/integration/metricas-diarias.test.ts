@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { registrarMetricasDiarias } from "@/lib/metricas/diarias"
 import { servidor } from "../msw"
 import { pool } from "./db"
@@ -67,12 +67,14 @@ const deps = () => ({ db: clienteDeServicio(), ahora: () => AHORA })
 beforeEach(async () => {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.metricas_cuenta")
+  await pool.query("delete from public.visitas_clic")
   await pool.query("delete from vault.secrets where name = 'meta'")
   await pool.query("select vault.create_secret($1, 'meta')", [TOKEN])
   await pool.query("update public.ajustes set meta_cuenta_id = $1", [CUENTA])
 })
 
 afterEach(async () => {
+  await pool.query("delete from public.visitas_clic")
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.metricas_cuenta")
   await pool.query("delete from vault.secrets where name = 'meta'")
@@ -100,7 +102,7 @@ describe("registrarMetricasDiarias", () => {
 
     const resultado = await registrarMetricasDiarias(deps())
 
-    expect(resultado).toEqual({ estado: "leidas", reels: 2, dias: 0 })
+    expect(resultado).toEqual({ estado: "leidas", reels: 2, sinLectura: 0, dias: 0 })
     expect(await lecturas(a)).toEqual([
       { dia: HOY, alcance: 2400, guardados: 121, compartidos: 30, comentarios: 7, tiempo_promedio: "24400.000" },
     ])
@@ -127,7 +129,7 @@ describe("registrarMetricasDiarias", () => {
 
     const resultado = await registrarMetricasDiarias(deps())
 
-    expect(resultado).toEqual({ estado: "leidas", reels: 0, dias: 0 })
+    expect(resultado).toEqual({ estado: "leidas", reels: 0, sinLectura: 0, dias: 0 })
     expect(await lecturas(programada)).toEqual([])
     expect(pedidos.filter((url) => url.searchParams.get("metric") !== "profile_links_taps")).toEqual([])
   })
@@ -170,7 +172,7 @@ describe("registrarMetricasDiarias", () => {
     ])
   })
 
-  it("keeps the readings it could take when one reel fails, and then says so", async () => {
+  it("leaves a reel Instagram refuses for good without numbers, keeps the others and does not fail the run", async () => {
     const mala = await reelPublicado("m-mala")
     const buena = await reelPublicado("m-buena")
     simularInsights({
@@ -179,26 +181,59 @@ describe("registrarMetricasDiarias", () => {
         "m-buena": { data: [dato("reach", 500), dato("saved", 5)] },
       },
     })
+    const fallas = vi.spyOn(console, "error").mockImplementation(() => {})
 
-    await expect(registrarMetricasDiarias(deps())).rejects.toThrow(/m-mala/)
+    const resultado = await registrarMetricasDiarias(deps())
 
+    expect(resultado).toMatchObject({ estado: "leidas", reels: 1, sinLectura: 1 })
     expect(await lecturas(mala)).toEqual([])
+    expect(await lecturas(buena)).toMatchObject([{ guardados: 5 }])
+    // Not silent: WAV can see which reel and why.
+    expect(fallas.mock.calls.flat().join(" ")).toContain("m-mala")
+    fallas.mockRestore()
+  })
+
+  it("keeps the readings it could take when a reel fails for a reason that may pass, and then fails the run to retry", async () => {
+    const lenta = await reelPublicado("m-lenta")
+    const buena = await reelPublicado("m-buena")
+    simularInsights({
+      medias: {
+        "m-lenta": HttpResponse.json({ error: { message: "Service unavailable" } }, { status: 503 }),
+        "m-buena": { data: [dato("reach", 500), dato("saved", 5)] },
+      },
+    })
+
+    await expect(registrarMetricasDiarias(deps())).rejects.toThrow(/m-lenta/)
+
+    expect(await lecturas(lenta)).toEqual([])
     expect(await lecturas(buena)).toMatchObject([{ guardados: 5 }])
   })
 
-  it("stops at an expired token without reading anything else", async () => {
+  it("stops at an expired token without reading any other reel or the account", async () => {
     await reelPublicado("m-1")
     await reelPublicado("m-2")
-    const pedidos = simularInsights({
-      medias: {
-        "m-1": HttpResponse.json({ error: { message: "Session has expired", code: 190 } }, { status: 400 }),
-        "m-2": HttpResponse.json({ error: { message: "Session has expired", code: 190 } }, { status: 400 }),
-      },
-    })
+    const muerto = () => HttpResponse.json({ error: { message: "Session has expired", code: 190 } }, { status: 400 })
+    const pedidos = simularInsights({ medias: { "m-1": muerto(), "m-2": muerto() }, toques: () => muerto() })
 
     await expect(registrarMetricasDiarias(deps())).rejects.toThrow(/Instagram respondió HTTP 400/)
 
     expect(pedidos.filter((url) => url.pathname.includes("m-"))).toHaveLength(1)
+    expect(pedidos.filter((url) => url.searchParams.get("metric") === "profile_links_taps")).toEqual([])
+  })
+
+  it("forgets the click visitors from before yesterday, even if nobody clicked since", async () => {
+    await pool.query(
+      `insert into public.visitas_clic (dia, enlace, visitante) values
+         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-08', 'agenda', repeat('b', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
+    )
+    simularInsights({ medias: {} })
+
+    await registrarMetricasDiarias(deps())
+
+    const { rows } = await pool.query<{ dia: string }>(
+      "select to_char(dia, 'YYYY-MM-DD') as dia from public.visitas_clic order by dia",
+    )
+    expect(rows.map((r) => r.dia)).toEqual(["2026-10-08", "2026-10-09"])
   })
 
   it("does nothing while Instagram is not connected", async () => {

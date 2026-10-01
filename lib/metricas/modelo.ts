@@ -4,6 +4,7 @@ import {
   type Comparacion,
   compararTemas,
   contarEnMes,
+  DIAS_PARA_COMPARAR,
   guardadosPorMil,
   limitesDelMes,
   lunesDeLaSemana,
@@ -101,6 +102,8 @@ export interface ModeloDeMetricas {
 
 const SEMANAS_A_MOSTRAR = 12
 
+const REGLA_DE_LA_SEMANA = "Cuento los reels desde que cumplen una semana."
+
 const numero = (valor: number) => valor.toLocaleString("es-CL")
 
 function plural(cantidad: number, singular: string, varios: string): string {
@@ -142,7 +145,7 @@ function metaDeReel(lectura: LecturaDeReel | undefined): string {
   if (lectura.guardados !== null) partes.push(plural(lectura.guardados, "guardado", "guardados"))
   if (lectura.alcance !== null) partes.push(`${numero(lectura.alcance)} de alcance`)
   const segundos = segundosVistos(lectura.tiempoPromedio)
-  if (segundos !== null) partes.push(`se vio ${segundos} s`)
+  if (segundos !== null) partes.push(`en promedio se vio ${segundos} s`)
   return partes.join(" · ")
 }
 
@@ -172,8 +175,8 @@ function panelDeComparacion(comparacion: Comparacion): PanelDeComparacion {
     const yaLlego = (lider?.n ?? 0) >= UMBRAL_DE_REELS
     const avance = yaLlego ? (segundo?.n ?? 0) : (lider?.n ?? 0)
     const texto = yaLlego
-      ? `${nombre} ya tiene ${UMBRAL_DE_REELS} reels. Comparo cuando otro tema también llegue a ${UMBRAL_DE_REELS}; el siguiente lleva ${avance} de ${UMBRAL_DE_REELS}.`
-      : `Comparo temas cuando haya ${UMBRAL_DE_REELS} reels de cada uno. El tema con más reels lleva ${avance} de ${UMBRAL_DE_REELS}.`
+      ? `${nombre} ya tiene ${UMBRAL_DE_REELS} reels. Comparo cuando otro tema también llegue a ${UMBRAL_DE_REELS}; el siguiente lleva ${avance} de ${UMBRAL_DE_REELS}. ${REGLA_DE_LA_SEMANA}`
+      : `Comparo temas cuando haya ${UMBRAL_DE_REELS} reels de cada uno. El tema con más reels lleva ${avance} de ${UMBRAL_DE_REELS}. ${REGLA_DE_LA_SEMANA}`
     return {
       tipo: "temprano",
       titulo: "Todavía es temprano para concluir",
@@ -195,15 +198,16 @@ function panelDeComparacion(comparacion: Comparacion): PanelDeComparacion {
       texto: `${NOMBRE_DE_PILAR[tema.pilar]} · ${plural(tema.n, "reel", "reels")} · promedio ${numero(tema.media)} cada 1.000 (entre ${numero(tema.desde)} y ${numero(tema.hasta)})`,
     })),
     frase: diferencia.distinguible
-      ? `${mayor} va por delante de ${menor} por ${gap}. Con estos reels la diferencia se distingue del azar.`
-      : `${mayor} va por delante de ${menor} por ${gap}, pero con estos reels no se distingue del azar todavía.`,
-    cautela: "Es una comparación de lo ya publicado: entre un tema y otro cambian también el gancho y el día.",
+      ? `${mayor} va por delante de ${menor} por ${gap}. La diferencia es mayor que lo que varían tus reels entre sí.`
+      : `${mayor} va por delante de ${menor} por ${gap}. Todavía no es mayor que lo que varían tus reels entre sí.`,
+    cautela:
+      "Es una comparación de lo ya publicado: entre un tema y otro cambian también el gancho y el día. No entran los reels de los últimos 7 días, que aún están sumando guardados.",
     pendientes: comparacion.pendientes,
   }
 }
 
 function resumenDeSemana(consultas: number, clics: number): string {
-  return `${plural(consultas, "consulta", "consultas")} · ${plural(clics, "clic", "clics")} en tu link`
+  return `${plural(consultas, "consulta", "consultas")} · ${plural(clics, "toque", "toques")} en tu link`
 }
 
 export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas {
@@ -226,7 +230,8 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     const lectura = ultimas.get(pieza.id)
     if (lectura) medidos.push(reelMedido(pieza, lectura))
   }
-  const comparacion = compararTemas(medidos)
+  const corte = ahora - DIAS_PARA_COMPARAR * 86_400_000
+  const comparacion = compararTemas(medidos.filter((reel) => Date.parse(reel.publicadoEn) <= corte))
   const reelsPorTema = new Map<Pilar, number>()
   for (const reel of medidos) {
     if (reel.pilar !== null && guardadosPorMil(reel.guardados, reel.alcance) !== null) {
@@ -268,13 +273,16 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     null,
   )
   const alDia = metricasAlDia({ ultimoDia, ahora, zona })
+  const sinNingunaLectura =
+    ultimoDia === null && entrada.publicadas.some((pieza) => Date.parse(pieza.publicadoEn) < ahora - 2 * 86_400_000)
 
   return {
     mes: mes.nombre,
-    resumen: `${plural(reelsDelMes, "reel publicado", "reels publicados")} · ${plural(consultasDelMes, "consulta", "consultas")} · ${plural(clicsDelMes, "clic", "clics")} en tu link`,
+    resumen: `${plural(reelsDelMes, "reel publicado", "reels publicados")} · ${plural(consultasDelMes, "consulta", "consultas")} · ${plural(clicsDelMes, "toque", "toques")} en tu link`,
     vacio: entrada.publicadas.length === 0,
-    aviso:
-      alDia || ultimoDia === null
+    aviso: sinNingunaLectura
+      ? "Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico."
+      : alDia || ultimoDia === null
         ? null
         : `No pude traer las métricas de hoy; muestro las del ${etiquetaDelDia(ultimoDia)}.`,
     barras,

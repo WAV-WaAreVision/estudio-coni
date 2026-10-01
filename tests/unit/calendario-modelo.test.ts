@@ -22,8 +22,8 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
   }
 }
 
-function calendario(piezas: PiezaDeCalendario[], ahora = AHORA) {
-  return construirCalendario({ piezas, horario: HORARIO, ahora })
+function calendario(piezas: PiezaDeCalendario[], ahora = AHORA, primeraPublicacion?: string) {
+  return construirCalendario({ piezas, horario: HORARIO, ahora, primeraPublicacion })
 }
 
 describe("Mes", () => {
@@ -167,6 +167,17 @@ describe("Agenda", () => {
     expect(huecos[3]?.ocupante).toMatchObject({ estado: "Guion en preparación", tono: "neutro", href: null })
   })
 
+  it("keeps a scheduled piece whose time just passed on the agenda until it goes out, but not an old one", () => {
+    const reciente = pieza({ estado: "programado", publicarEn: "2026-10-15T14:30:00.000Z", titulo: "Por salir" }) // 11:30
+    const vieja = pieza({ estado: "programado", publicarEn: "2026-10-15T13:00:00.000Z", titulo: "Muy atrasada" }) // 10:00
+
+    const { agenda } = calendario([reciente, vieja])
+
+    const titulos = agenda.semanas.flatMap((s) => s.huecos.map((h) => h.ocupante?.titulo))
+    expect(titulos).toContain("Por salir")
+    expect(titulos).not.toContain("Muy atrasada")
+  })
+
   it("lists the pieces that are being recorded as recording", () => {
     const { agenda } = calendario([pieza({ estado: "en_render", titulo: "En grabación" })])
 
@@ -200,7 +211,39 @@ describe("Ritmo", () => {
     expect(ritmo.semanas.map((s) => s.etiqueta)).toEqual(["21 sep", "28 sep", "5 oct", "12 oct"])
     expect(ritmo.semanas[1]?.celdas.map((c) => c.tipo)).toEqual(["llena", "llena", "libre"])
     expect(ritmo.semanas[3]?.celdas.map((c) => c.tipo)).toEqual(["llena", "llena", "llena"])
-    expect(ritmo.resumen).toBe("Tu horario tiene 3 espacios por semana. En estas 4 semanas van 6 de 12.")
+    expect(ritmo.resumen).toBe("Tu horario tiene 3 espacios por semana. En estas 4 semanas van 6 de 9.")
+  })
+
+  it("does not count the slots before her first reel as free days, not even in the week she started", () => {
+    // Her first reel is Thursday 1 Oct: Tuesday 29 Sep of that week was never expected to have one.
+    const { ritmo } = calendario([
+      pieza({ estado: "publicado", publicarEn: "2026-10-01T22:00:00.000Z" }),
+      pieza({ estado: "publicado", publicarEn: "2026-10-03T22:00:00.000Z" }),
+    ])
+
+    expect(ritmo.semanas[1]?.celdas.map((c) => (c.tipo === "libre" ? c.falta : "llena"))).toEqual([
+      false,
+      "llena",
+      "llena",
+    ])
+    expect(ritmo.semanas[2]?.celdas[0]).toEqual({ tipo: "libre", falta: true })
+  })
+
+  it("counts only the slots that were expected: ahead ones are not part of the total", () => {
+    const { ritmo } = calendario([pieza({ estado: "publicado", publicarEn: alas19(8) })])
+
+    // Thu 8 (done), Sat 10 and Tue 13 (free, past); Thu 15 and Sat 17 are still ahead and not counted.
+    expect(ritmo.resumen).toBe("Tu horario tiene 3 espacios por semana. En estas 4 semanas van 1 de 3.")
+  })
+
+  it("takes the real first reel when the page is given it, so older free days count", () => {
+    const { ritmo } = calendario(
+      [pieza({ estado: "publicado", publicarEn: alas19(8) })],
+      AHORA,
+      "2026-08-01T22:00:00.000Z",
+    )
+
+    expect(ritmo.semanas[0]?.celdas.every((c) => c.tipo === "libre" && c.falta)).toBe(true)
   })
 
   it("does not suggest changes while there are two weeks or fewer of history", () => {

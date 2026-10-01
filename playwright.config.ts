@@ -64,6 +64,8 @@ export default defineConfig({
       SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: CLAVE_DE_SERVICIO,
       CORREO_CONI: CORREO_DE_CONI,
+      // `next start` runs in production mode, where the click counter of /l needs its secret.
+      SAL_DE_CLICS: "secreto-de-prueba-que-solo-vive-en-el-e2e",
       DISPARO_DE_PRUEBA: "1",
       DISPARO_DE_PRUEBA_ARCHIVO: ARCHIVO_DE_DISPAROS,
     },

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
-import { huellaDeVisitante, ipDeLaSolicitud, salDelDia } from "@/lib/enlaces/visitante"
+import { huellaDeVisitante, ipDeLaSolicitud, salDelDia, secretoDeClics } from "@/lib/enlaces/visitante"
 
 const SECRETO = "secreto-del-servidor-que-nunca-se-guarda"
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) Safari/604.1"
@@ -49,5 +49,22 @@ describe("ipDeLaSolicitud", () => {
   it("falls back to x-real-ip, then to nothing", () => {
     expect(ipDeLaSolicitud(new Headers({ "x-real-ip": "190.20.30.40" }))).toBe("190.20.30.40")
     expect(ipDeLaSolicitud(new Headers())).toBe("")
+  })
+})
+
+describe("secretoDeClics", () => {
+  it("is the configured secret", () => {
+    expect(secretoDeClics({ SAL_DE_CLICS: "  un-secreto-largo  ", NODE_ENV: "production" })).toBe("un-secreto-largo")
+  })
+
+  it("is nothing in production without it: no count is better than a count that one server instance cannot repeat", () => {
+    expect(secretoDeClics({ NODE_ENV: "production" })).toBeNull()
+    expect(secretoDeClics({ SAL_DE_CLICS: "   ", NODE_ENV: "production" })).toBeNull()
+  })
+
+  it("is one stable throwaway secret when developing, so the dedupe can be tried without configuring anything", () => {
+    const primero = secretoDeClics({ NODE_ENV: "development" })
+    expect(primero).toMatch(/^[0-9a-f]{64}$/)
+    expect(secretoDeClics({ NODE_ENV: "development" })).toBe(primero)
   })
 })

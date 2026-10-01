@@ -56,7 +56,10 @@ export interface ProximaPublicacion {
   fecha: string
 }
 
-export type CeldaDeRitmo = { tipo: "llena"; pilar: Pilar | null; titulo: string } | { tipo: "libre"; pasada: boolean }
+export type CeldaDeRitmo =
+  | { tipo: "llena"; pilar: Pilar | null; titulo: string }
+  /** `falta`: the slot was expected to have a reel (it is past and came after her first one) and has none. */
+  | { tipo: "libre"; falta: boolean }
 
 export interface ModeloDeCalendario {
   mes: {
@@ -79,6 +82,8 @@ const SEMANAS_DE_AGENDA = 4
 const SEMANAS_DE_RITMO = 4
 /** The platform proposes slots at least this far ahead (design, "Calendario"). */
 const ANTELACION_MS = 2 * 60 * 60 * 1000
+/** A scheduled piece whose time just passed is about to go out: it stays on the agenda for this long. */
+const MARGEN_DE_PUBLICACION_MS = 60 * 60 * 1000
 const PROXIMOS = 3
 const SEMANAS_PARA_OPINAR = 3
 const CELDAS_PARA_OPINAR = 3
@@ -225,7 +230,7 @@ function construirAgenda(
   // An approved time that no longer matches the schedule keeps its place: changing the settings never moves it.
   for (const pieza of programadas) {
     const instante = Date.parse(pieza.publicarEn)
-    if (instante >= ahora && instante < fin) instantes.add(instante)
+    if (instante >= ahora - MARGEN_DE_PUBLICACION_MS && instante < fin) instantes.add(instante)
   }
 
   const huecos: Hueco[] = [...instantes]
@@ -275,6 +280,7 @@ function construirRitmo(
   piezas: readonly PiezaDeCalendario[],
   horario: Horario,
   ahora: number,
+  primeraPublicacion: string | null | undefined,
 ): ModeloDeCalendario["ritmo"] {
   const { zona } = horario
   const dias = [...horario.dias].sort((a, b) => a - b)
@@ -284,7 +290,10 @@ function construirRitmo(
     sumarDias(lunesActual, -7 * (SEMANAS_DE_RITMO - 1 - i)),
   )
 
-  const primera = fechadas.map((pieza) => Date.parse(pieza.publicarEn)).sort((a, b) => a - b)[0]
+  // Her real first reel when the page knows it; otherwise the first one in the pieces it was given.
+  const delasPiezas = fechadas.map((pieza) => Date.parse(pieza.publicarEn)).sort((a, b) => a - b)[0]
+  const dada = primeraPublicacion ? Date.parse(primeraPublicacion) : Number.NaN
+  const primera = Number.isNaN(dada) ? delasPiezas : Math.min(dada, delasPiezas ?? dada)
   const lunesDeLaPrimera = primera === undefined ? null : lunesDeLaSemana(primera, zona)
 
   const semanas = lunes.map((inicio) => ({
@@ -293,11 +302,14 @@ function construirRitmo(
       const dia = sumarDias(inicio, diaIso - 1)
       const pieza = fechadas.find((candidata) => diaLocal(Date.parse(candidata.publicarEn), zona) === dia)
       if (pieza) return { tipo: "llena", pilar: pieza.pilar, titulo: pieza.titulo }
-      return { tipo: "libre", pasada: instanteDeHueco(dia, horario.hora, zona) < ahora }
+      const instante = instanteDeHueco(dia, horario.hora, zona)
+      return { tipo: "libre", falta: instante < ahora && primera !== undefined && instante >= primera }
     }),
   }))
 
   const usados = semanas.reduce((suma, s) => suma + s.celdas.filter((c) => c.tipo === "llena").length, 0)
+  // What was expected so far: the slots with a reel and the free ones that already passed (after her first reel).
+  const esperados = semanas.reduce((suma, s) => suma + s.celdas.filter((c) => c.tipo === "llena" || c.falta).length, 0)
   const espacios = dias.length
   const etiqueta = (inicio: string) => `${partesDeDia(inicio).dia} ${MES_CORTO[partesDeDia(inicio).mes - 1]}`
 
@@ -305,7 +317,7 @@ function construirRitmo(
     vacio: fechadas.length === 0,
     columnas: dias.map((d) => DIA_CORTO[d - 1] ?? ""),
     semanas: semanas.map((s) => ({ etiqueta: etiqueta(s.inicio), celdas: s.celdas })),
-    resumen: `Tu horario tiene ${espacios} ${espacios === 1 ? "espacio" : "espacios"} por semana. En estas ${SEMANAS_DE_RITMO} semanas van ${usados} de ${espacios * SEMANAS_DE_RITMO}.`,
+    resumen: `Tu horario tiene ${espacios} ${espacios === 1 ? "espacio" : "espacios"} por semana. En estas ${SEMANAS_DE_RITMO} semanas van ${usados} de ${esperados}.`,
     sugerencia: sugerirCambio({ semanas, dias, lunesDeLaPrimera }),
   }
 }
@@ -329,7 +341,7 @@ function sugerirCambio(entrada: {
   for (const columna of dias.keys()) {
     const pasadas = evaluadas.flatMap((s) => {
       const celda = s.celdas[columna]
-      return !celda || (celda.tipo === "libre" && !celda.pasada) ? [] : [celda]
+      return !celda || (celda.tipo === "libre" && !celda.falta) ? [] : [celda]
     })
     if (pasadas.length < CELDAS_PARA_OPINAR) continue
     const faltas = pasadas.filter((celda) => celda.tipo === "libre").length
@@ -347,11 +359,13 @@ export function construirCalendario(entrada: {
   piezas: readonly PiezaDeCalendario[]
   horario: Horario
   ahora: number
+  /** When her first reel went out or was scheduled for, if the pieces given do not go back that far. */
+  primeraPublicacion?: string | null
 }): ModeloDeCalendario {
-  const { piezas, horario, ahora } = entrada
+  const { piezas, horario, ahora, primeraPublicacion } = entrada
   return {
     mes: construirMes(piezas, ahora, horario.zona),
     agenda: construirAgenda(piezas, horario, ahora),
-    ritmo: construirRitmo(piezas, horario, ahora),
+    ritmo: construirRitmo(piezas, horario, ahora, primeraPublicacion),
   }
 }

@@ -84,3 +84,31 @@ describe("tablas de métricas", () => {
     })
   })
 })
+
+describe("metricas_reel_ultima", () => {
+  it("gives the newest reading of each reel, for whoever can read the table", async () => {
+    await como(comoPostgres, async (c) => {
+      const a = await nuevaPieza(c)
+      const b = await nuevaPieza(c)
+      await c.query(
+        `insert into public.metricas_reel (pieza_id, dia, guardados) values
+           ($1, '2026-10-01', 1), ($1, '2026-10-03', 3), ($1, '2026-10-02', 2), ($2, '2026-09-20', 9)`,
+        [a, b],
+      )
+      await asumir(c, comoConi)
+      const { rows } = await c.query<{ pieza_id: string; guardados: number }>(
+        "select pieza_id, guardados from public.metricas_reel_ultima order by guardados",
+      )
+      expect(rows.map((r) => r.guardados)).toEqual([3, 9])
+    })
+  })
+
+  it("shows nothing to a signed-in user who is not a member: the table's policy still applies", async () => {
+    await como(comoPostgres, async (c) => {
+      const a = await nuevaPieza(c)
+      await c.query("insert into public.metricas_reel (pieza_id, dia, guardados) values ($1, '2026-10-01', 1)", [a])
+      await asumir(c, comoOtra)
+      expect((await c.query("select * from public.metricas_reel_ultima")).rowCount).toBe(0)
+    })
+  })
+})

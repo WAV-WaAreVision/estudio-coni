@@ -58,18 +58,24 @@ async function reelPublicado(opciones: {
 test("with few reels it orders by what served, shows the sample size and refuses to compare themes", async ({
   page,
 }) => {
-  await reelPublicado({ titulo: "Ser tu propia diosa", pilar: "autoestima", haceDias: 6, alcance: 2000, guardados: 10 })
+  await reelPublicado({
+    titulo: "Ser tu propia diosa",
+    pilar: "autoestima",
+    haceDias: 20,
+    alcance: 2000,
+    guardados: 10,
+  })
   await reelPublicado({
     titulo: "Si van a discutir, siéntense del mismo lado",
     pilar: "pareja",
-    haceDias: 3,
+    haceDias: 12,
     alcance: 2400,
     guardados: 121,
   })
   await reelPublicado({
     titulo: "El deseo no se apaga, se esconde",
     pilar: "deseo",
-    haceDias: 1,
+    haceDias: 8,
     alcance: 1000,
     guardados: 12,
   })
@@ -80,7 +86,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
 
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   // How many of the three went out this month depends on the day the test runs; the unit tests pin that count.
-  await expect(page.getByText(/^\d reels? publicados? · 1 consulta · 8 clics en tu link$/)).toBeVisible()
+  await expect(page.getByText(/^\d reels? publicados? · 1 consulta · 8 toques en tu link$/)).toBeVisible()
   const barras = page.getByRole("region", { name: "Lo que sirvió" }).getByRole("listitem")
   await expect(barras.nth(0)).toContainText("Si van a discutir, siéntense del mismo lado")
   await expect(barras.nth(0)).toContainText("50,4 cada 1.000 · 121 guardados de 2.400 personas")
@@ -90,12 +96,14 @@ test("with few reels it orders by what served, shows the sample size and refuses
 
   // The panel that stops the order from being read as a conclusion sits right under the bars.
   const panel = page.getByRole("region", { name: "Todavía es temprano para concluir" })
-  await expect(panel).toContainText("El tema con más reels lleva 1 de 8.")
+  await expect(panel).toContainText(
+    "El tema con más reels lleva 1 de 8. Cuento los reels desde que cumplen una semana.",
+  )
   await expect(panel).toContainText("Autoestima · 1")
   await expect(page.getByText("Comparación de temas")).toHaveCount(0)
 
   await expect(page.getByRole("heading", { name: "Semana a semana" })).toBeVisible()
-  await expect(page.getByText(/se vio 24 s/).first()).toBeVisible()
+  await expect(page.getByText(/en promedio se vio 24 s/).first()).toBeVisible()
   await expect(page.getByRole("link", { name: "Métricas" })).toHaveAttribute("aria-current", "page")
   await capturar(page, "metricas-temprano")
 })
@@ -106,7 +114,7 @@ test("without published reels it says so and still counts consultations", async 
   await page.goto("/metricas")
 
   await expect(page.getByText("Todavía no hay reels publicados.")).toBeVisible()
-  await expect(page.getByText("0 reels publicados · 1 consulta · 0 clics en tu link")).toBeVisible()
+  await expect(page.getByText("0 reels publicados · 1 consulta · 0 toques en tu link")).toBeVisible()
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)
   await capturar(page, "metricas-vacio")
 })
@@ -129,7 +137,7 @@ test("compares themes only once two of them have eight reels, with the interval"
   const panel = page.getByRole("region", { name: "Comparación de temas" })
   await expect(panel).toContainText("Autoestima · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)")
   await expect(panel).toContainText("Autoestima va por delante de Pareja y conversación por 10 cada 1.000")
-  await expect(panel).toContainText("se distingue del azar")
+  await expect(panel).toContainText("La diferencia es mayor que lo que varían tus reels entre sí.")
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)
   await capturar(page, "metricas-comparable")
 })

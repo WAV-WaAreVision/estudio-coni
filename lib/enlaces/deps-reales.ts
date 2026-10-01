@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { leerZona } from "@/lib/datos/metricas"
 import { exigirEnv } from "@/lib/env"
 import type { Database } from "@/lib/supabase/database.types"
 import { leerEnlaces } from "./config"
@@ -14,8 +15,18 @@ export function clienteDeEnlaces() {
   )
 }
 
-export function depsDeSalida(): DepsSalida {
+const ZONA_POR_DEFECTO = "America/Santiago"
+
+/** The days of the counter are the days of the app: the zone of `ajustes`, like Métricas groups them. */
+export async function depsDeSalida(): Promise<DepsSalida> {
   const db = clienteDeEnlaces()
+  let zona = ZONA_POR_DEFECTO
+  try {
+    zona = await leerZona(db)
+  } catch (error) {
+    // A failed read of the zone must not keep the visitor from the link: the usual zone is the right one anyway.
+    console.error("/l/ir no pudo leer la zona horaria; uso la de siempre", error)
+  }
   return {
     leerEnlaces: () => leerEnlaces(db),
     registrarClic: async (enlace, huella, dia) => {
@@ -24,7 +35,7 @@ export function depsDeSalida(): DepsSalida {
       return data
     },
     ahora: () => Date.now(),
-    zona: "America/Santiago",
+    zona,
     secreto: secretoDeClics(),
   }
 }

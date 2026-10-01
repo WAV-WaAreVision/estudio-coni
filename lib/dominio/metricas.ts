@@ -38,8 +38,14 @@ export function guardadosPorMil(guardados: number | null, alcance: number | null
  * metrics have been reported in milliseconds, so that is read here, in one place, until a real account confirms it.
  */
 export function segundosVistos(bruto: number | null): number | null {
-  return bruto === null ? null : Math.round(bruto / 1000)
+  if (bruto === null) return null
+  const segundos = Math.round(bruto / 1000)
+  // Under a second is what a figure in seconds would look like if read as milliseconds: better none than a wrong one.
+  return segundos >= 1 ? segundos : null
 }
+
+/** A reel's saves are still adding up in its first days; the comparison of themes waits this long for each reel. */
+export const DIAS_PARA_COMPARAR = 7
 
 function partesDeDia(dia: string): { anio: number; mes: number; dia: number } {
   const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dia)
@@ -268,7 +274,8 @@ export function compararTemas(reels: readonly ReelMedido[]): Comparacion {
       pilar,
       n,
       media: redondear(m),
-      desde: redondear(d),
+      // Saves cannot be negative, so neither can the lowest plausible mean.
+      desde: Math.max(0, redondear(d)),
       hasta: redondear(h),
     })),
     pendientes: temas.filter((tema) => tema.n < UMBRAL_DE_REELS).map(({ pilar, n }) => ({ pilar, n })),
