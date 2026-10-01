@@ -128,3 +128,16 @@ const Registro = z.array(z.object({ metodo: z.string(), ruta: z.string(), cuerpo
 export async function registroDeServicios() {
   return Registro.parse(await (await fetch(`${URL_SERVICIOS}/__registro`)).json())
 }
+
+const HOSTS_PERMITIDOS = new Set(["127.0.0.1", "localhost", "almacen.test"])
+
+/**
+ * Nothing real is reachable from a spec: every request to a host that is not the app, the local stack or the fake store
+ * is aborted. Routes a spec registers afterwards take precedence, so it can still answer a specific external address.
+ */
+export async function bloquearRedExterna(page: Page): Promise<void> {
+  await page.route(
+    (url) => !HOSTS_PERMITIDOS.has(url.hostname),
+    (ruta) => ruta.abort("blockedbyclient"),
+  )
+}

@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { sembrarIdea, vaciarPiezasEIdeas } from "../integration/siembra"
-import { alerta, capturar, configurarServicios, registroDeServicios } from "./ayudas"
+import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
 
 const ALERTA = [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }]
 
-test.beforeEach(async () => {
+test.beforeEach(async ({ page }) => {
+  await bloquearRedExterna(page)
   await vaciarPiezasEIdeas()
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await configurarServicios()

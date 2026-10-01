@@ -1,0 +1,137 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest"
+import { type EstadoDeCuenta, estadoDeAjustes } from "@/lib/ajustes/estado"
+
+const AHORA = Date.parse("2026-10-01T15:00:00Z")
+const DIA = 24 * 60 * 60 * 1000
+
+const lista = (cuenta: EstadoDeCuenta["cuenta"]): EstadoDeCuenta => ({ cuenta, estado: "lista" })
+const TODAS_LISTAS: EstadoDeCuenta[] = [lista("instagram"), lista("heygen"), lista("elevenlabs"), lista("anthropic")]
+const con = (...cambios: EstadoDeCuenta[]) =>
+  TODAS_LISTAS.map((cuenta) => cambios.find((c) => c.cuenta === cuenta.cuenta) ?? cuenta)
+
+describe("estadoDeAjustes", () => {
+  it("says everything is connected, and when it was checked, when all four answered", () => {
+    const estado = estadoDeAjustes({ cuentas: TODAS_LISTAS, ahora: AHORA, zona: "America/Santiago" })
+
+    expect(estado).toMatchObject({
+      tipo: "todo_bien",
+      titulo: "Todo conectado",
+      texto: "Instagram, HeyGen, ElevenLabs y Claude respondieron hoy a las 12:00.",
+    })
+    expect(estado.accion).toBeUndefined()
+  })
+
+  it("is setting up while any account is missing, counting the steps done and offering the next one", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "falta" }, { cuenta: "elevenlabs", estado: "falta" }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.tipo).toBe("configurando")
+    expect(estado.titulo).toBe("Configuración: 2 de 4 listos")
+    expect(estado.pasos).toEqual([
+      { etiqueta: "Instagram conectado", listo: false },
+      { etiqueta: "HeyGen con tu avatar", listo: true },
+      { etiqueta: "ElevenLabs con tu voz", listo: false },
+      { etiqueta: "Claude (Anthropic)", listo: true },
+    ])
+    expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
+  })
+
+  it("offers the key field of the first missing account when it is not Instagram", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "#cuenta-heygen" })
+  })
+
+  it("warns when Instagram expires within a week, with days, and offers to renew it", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "vence", expiraEn: AHORA + 6 * DIA }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado).toMatchObject({
+      tipo: "atencion",
+      titulo: "Instagram vence en 6 días",
+      texto: "Renueva la conexión para que los reels sigan saliendo.",
+      accion: { etiqueta: "Renovar Instagram", href: "/api/meta/conectar" },
+    })
+  })
+
+  it("says tomorrow, and not '1 días'", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "vence", expiraEn: AHORA + 0.5 * DIA }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.titulo).toBe("Instagram vence mañana")
+  })
+
+  it("says it already expired when it did", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "vencida" }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado).toMatchObject({ tipo: "atencion", titulo: "Instagram dejó de estar conectado" })
+  })
+
+  it("warns about a key that an account rejected, and points to its field", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "anthropic", estado: "rechazada", motivo: "HTTP 401" }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado).toMatchObject({
+      tipo: "atencion",
+      titulo: "Claude no aceptó la llave",
+      accion: { etiqueta: "Cambiar la llave de Claude", href: "#cuenta-anthropic" },
+    })
+  })
+
+  it("puts setting up before warnings, and warnings before the check that could not run", () => {
+    const faltaYVence = estadoDeAjustes({
+      cuentas: con(
+        { cuenta: "heygen", estado: "falta" },
+        { cuenta: "instagram", estado: "vence", expiraEn: AHORA + DIA },
+      ),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    const venceYSinRespuesta = estadoDeAjustes({
+      cuentas: con(
+        { cuenta: "heygen", estado: "sin_respuesta" },
+        { cuenta: "instagram", estado: "vence", expiraEn: AHORA + DIA },
+      ),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(faltaYVence.tipo).toBe("configurando")
+    expect(venceYSinRespuesta.tipo).toBe("atencion")
+  })
+
+  it("admits it could not check, instead of saying everything is fine", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "sin_respuesta" }),
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado).toMatchObject({
+      tipo: "sin_revision",
+      titulo: "No pude revisar las cuentas ahora",
+      texto: "Lo intento de nuevo cuando abras Ajustes.",
+    })
+  })
+})

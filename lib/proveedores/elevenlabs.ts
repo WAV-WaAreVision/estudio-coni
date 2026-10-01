@@ -88,7 +88,8 @@ export async function generarVoz(entrada: {
   )
 }
 
-export type ResultadoVerificacion = { ok: true; nombre: string } | { ok: false; motivo: string }
+/** `http` is the status ElevenLabs answered with; it is absent when it could not be reached or the answer was unreadable. */
+export type ResultadoVerificacion = { ok: true; nombre: string } | { ok: false; motivo: string; http?: number }
 
 /** Looks the voice up the way `verificar` does in coni.py. A failure is a result, not an exception. */
 export async function verificarVoz(entrada: {
@@ -106,6 +107,7 @@ export async function verificarVoz(entrada: {
         if (!respuesta.ok) {
           return {
             ok: false,
+            http: respuesta.status,
             motivo: `HTTP ${respuesta.status} · ${await motivoDelError(respuesta, clave)} · Revisa el voice_id y que la llave tenga permiso de lectura de Voices.`,
           }
         }

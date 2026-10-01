@@ -6,6 +6,7 @@ import { createActionClient } from "@/lib/supabase/action"
 
 export async function cerrarSesionAccion(): Promise<void> {
   const db = await createActionClient()
-  await db.auth.signOut()
+  // This device only: her phone and the computer where WAV helps her are separate sessions.
+  await db.auth.signOut({ scope: "local" })
   redirect(RUTA_DE_INGRESO)
 }

@@ -48,7 +48,9 @@ const servidor = createServer((req, res) => {
     registro.push({
       metodo,
       ruta,
-      cuerpo: cuerpo.replace(/"(client_secret|access_token|code)":"[^"]*"/g, '"$1":"[x]"'),
+      cuerpo: cuerpo
+        .replace(/"(client_secret|access_token|code)":"[^"]*"/g, '"$1":"[x]"')
+        .replace(/\b(client_secret|access_token|code)=[^&]*/g, "$1=[x]"),
     })
 
     // Anthropic: POST /v1/messages (classify an idea), GET /v1/models (check the key)
@@ -73,6 +75,8 @@ const servidor = createServer((req, res) => {
       })
     }
     if (ruta === "/v1/models") {
+      if (estado.anthropic === "500")
+        return responder(res, 500, { type: "error", error: { type: "api_error", message: "x" } })
       if (estado.anthropic === "401") {
         return responder(res, 401, {
           type: "error",

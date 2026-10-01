@@ -36,6 +36,8 @@ export type Database = {
     Tables: {
       ajustes: {
         Row: {
+          avisos_resumen: boolean
+          avisos_urgentes: boolean
           dias_publicacion: number[]
           hora_publicacion: string
           id: boolean
@@ -47,6 +49,8 @@ export type Database = {
           zona: string
         }
         Insert: {
+          avisos_resumen?: boolean
+          avisos_urgentes?: boolean
           dias_publicacion?: number[]
           hora_publicacion?: string
           id?: boolean
@@ -58,6 +62,8 @@ export type Database = {
           zona?: string
         }
         Update: {
+          avisos_resumen?: boolean
+          avisos_urgentes?: boolean
           dias_publicacion?: number[]
           hora_publicacion?: string
           id?: boolean
@@ -393,6 +399,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      conectar_instagram: {
+        Args: { p_cuenta: string; p_expira_en: string; p_token: string }
+        Returns: undefined
+      }
       confirmar_gasto: {
         Args: { p_clave: string; p_real: number }
         Returns: {
