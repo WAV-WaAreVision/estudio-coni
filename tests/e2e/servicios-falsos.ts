@@ -8,9 +8,10 @@ interface Estado {
   heygen: "ok" | "401"
   elevenlabs: "ok" | "401"
   instagram: "ok" | "rechazo"
+  push: "ok" | "410" | "503"
 }
 
-const INICIAL: Estado = { anthropic: "ok", heygen: "ok", elevenlabs: "ok", instagram: "ok" }
+const INICIAL: Estado = { anthropic: "ok", heygen: "ok", elevenlabs: "ok", instagram: "ok", push: "ok" }
 
 let estado: Estado = { ...INICIAL }
 let registro: { metodo: string; ruta: string; cuerpo: string }[] = []
@@ -44,6 +45,15 @@ const servidor = createServer((req, res) => {
       registro = []
       return responder(res, 200, estado)
     }
+    // Web Push: POST /push/<token>, what a push service answers (RFC 8030). The path is a capability and the body is
+    // encrypted, so the log only says that a push arrived and how big it was.
+    if (ruta.startsWith("/push/") && metodo === "POST") {
+      registro.push({ metodo, ruta: "/push/[x]", cuerpo: `[cifrado, ${Buffer.byteLength(cuerpo)} bytes]` })
+      if (estado.push === "410") return responder(res, 410, { error: "gone" })
+      if (estado.push === "503") return responder(res, 503, { error: "unavailable" })
+      return responder(res, 201, {})
+    }
+
     // The keys never go into the log: only that they were sent.
     registro.push({
       metodo,

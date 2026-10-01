@@ -119,7 +119,11 @@ async function fallar(
   const guardada = await actualizarPieza(deps.db, fila.id, fila.version, cambiosDesdePieza(pieza))
   // Null means the piece moved in the meantime (the run it was waiting for finished): nothing to give up on.
   if (!guardada) return null
-  await deps.avisos.aConi(explicacion, true)
+  await deps.avisos.aConi(explicacion, true, {
+    tipo: "error_definitivo",
+    clave: `error_definitivo:${fila.id}:conciliar:${fila.intento}`,
+    piezaId: fila.id,
+  })
   await deps.avisos.aWav(
     "Un video se quedó sin terminar",
     `pieza ${fila.id} («${fila.titulo}»), estado ${fila.estado}, render ${fila.render_id ?? "ninguno"}: ${motivo}.`,
