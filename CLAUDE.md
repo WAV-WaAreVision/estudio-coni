@@ -30,6 +30,10 @@ pnpm test:run         # vitest single run (CI)
 pnpm test:e2e         # playwright
 pnpm lint             # biome check
 pnpm format           # biome format --write
+pnpm db:start         # local Supabase (Docker, ports 54420-54429)
+pnpm db:reset         # rebuild the local database from migrations + seed
+pnpm test:db          # integration tests against the local database
+pnpm db:types         # regenerate lib/supabase/database.types.ts
 ```
 
 ## Workflow

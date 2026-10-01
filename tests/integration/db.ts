@@ -1,0 +1,38 @@
+import pg from "pg"
+
+export const URL_DB = process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres"
+
+export const CONI = "c0000000-0000-4000-8000-000000000001"
+export const MANTENEDOR = "a0000000-0000-4000-8000-000000000002"
+export const OTRA = "b0000000-0000-4000-8000-000000000003"
+
+export type Sesion = { tipo: "usuario"; id: string } | { tipo: "servicio" } | { tipo: "postgres" }
+
+export const comoConi: Sesion = { tipo: "usuario", id: CONI }
+export const comoMantenedor: Sesion = { tipo: "usuario", id: MANTENEDOR }
+export const comoOtra: Sesion = { tipo: "usuario", id: OTRA }
+export const comoServicio: Sesion = { tipo: "servicio" }
+export const comoPostgres: Sesion = { tipo: "postgres" }
+
+export const pool = new pg.Pool({ connectionString: URL_DB, max: 4 })
+
+/** Impersonates an actor the way PostgREST does, for the current transaction only. */
+export async function asumir(cliente: pg.PoolClient, sesion: Sesion): Promise<void> {
+  if (sesion.tipo === "postgres") return
+  const claims = sesion.tipo === "usuario" ? { sub: sesion.id, role: "authenticated" } : { role: "service_role" }
+  await cliente.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(claims)])
+  await cliente.query(`set local role ${sesion.tipo === "usuario" ? "authenticated" : "service_role"}`)
+}
+
+/** Runs `fn` as `sesion` inside a transaction that is always rolled back, so tests leave no data behind. */
+export async function como<T>(sesion: Sesion, fn: (cliente: pg.PoolClient) => Promise<T>): Promise<T> {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await asumir(cliente, sesion)
+    return await fn(cliente)
+  } finally {
+    await cliente.query("rollback")
+    cliente.release()
+  }
+}
