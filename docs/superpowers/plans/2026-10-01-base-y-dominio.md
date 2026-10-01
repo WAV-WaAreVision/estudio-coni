@@ -2000,7 +2000,7 @@ instead of CLI stderr; the request builder returns `ruta` and `avisos` instead o
 |---|---|---|
 | `TestEsperar` (4) | Plan 3, T7 `grabar-pieza` | Polling becomes a Trigger.dev waitpoint plus reconciliation |
 | `TestSubtitulos` (6) | Plan 3, T7 `grabar-pieza` | ffmpeg, fetching the SRT and the size limit run in the container |
-| `TestVerificarElevenLabs` (1) | Plan 3, T6 `producir-pieza` | ElevenLabs over HTTP with MSW |
+| `TestVerificarElevenLabs` (2) | Plan 3, T6 `producir-pieza` | ElevenLabs over HTTP with MSW |
 
 ## Not ported (terminal commands)
 
@@ -2012,7 +2012,7 @@ instead of CLI stderr; the request builder returns `ruta` and `avisos` instead o
 ```bash
 pnpm test:run && pnpm lint && pnpm type && pnpm build
 ```
-Expected: 72 tests pass (2 env + 5 estimaciones + 3 errores + 6 secuencias + 6 subtítulos + 2 goldens + 17 pedido + 15 puertas + 16 estados), 0 failures; Biome clean; `tsc` exit 0; `next build` succeeds.
+Expected: 328 tests pass across 12 files, 0 failures; Biome clean; `tsc` exit 0; `next build` succeeds.
 
 - [ ] **Step 3: Commit**
 
@@ -2028,3 +2028,26 @@ git commit -m "docs(tests): map the coni.py port"
 - **Spec coverage:** T1 local scope (Task 1), T2 (Tasks 2–7, 29 cases + 2 goldens; 11 cases explicitly deferred with owner), T4 (Tasks 8–10: transitions table, version/intento, gate hashes, idempotency keys, invalidations, A3, A11, R2-1, R2-3, R2-4, R2-5). Gate test "escritura con rol de servicio" is Plan 2 by design (it is a database trigger).
 - **Deviation recorded:** gate 1 hash excludes the caption (Task 8). Update the design doc's "Las puertas, a prueba de errores" in the same PR that merges this plan.
 - **Out of this plan:** cloud accounts (Supabase project, Trigger.dev, R2, Resend, Vercel, GitHub remote) need Federico's go-ahead; they are the first steps of Plan 2.
+
+## Execution notes (2026-10-01)
+
+The code on `feat/base-y-dominio` is the source of truth; these reviewed deviations supersede the code blocks above.
+
+- Task 1: Biome formatter without semicolons and 120 columns; `type` = `next typegen && tsc --noEmit`; `.env.example`; real README; `@types/node` 24.
+- Task 3: `mensajeErrorHeygen` trims, never returns empty, caps at 400 characters, narrows with `esRegistro`.
+- Task 4: 6 tie/window cases plus a 200-case Python fixture; unreachable extension loops removed.
+- Task 5: full `splitlines` regex; strict timestamps; ASS escaping; empty-input guards; wording for Coni.
+- Task 6: the golden compares every `Style` field except the font name.
+- Task 7: parity fixes (`{}` settings, absent `velocidad`); `engine_type` fixed to ElevenLabs; `FallaDeConfiguracion`; `SEGUNDOS_MAXIMOS_REEL`; real-request pins.
+- Task 8: `claveIdempotencia` rejects non-integer attempts and non-SHA-256 hashes.
+- Task 9 (final review): `editar_texto` from `programado` and `politica_contenido` bump `intento`, so a re-approval never reuses the key of a cancelled publish or a refused render; new `hora_vencida` event (`programado` to `video_por_aprobar`, `puerta2` cleared, cancels the post) that the publish task emits when `puedePublicar` says `hora_vencida`; `descartar` from `error_publicacion` also cancels the post; `estadoAntesDelError` narrowed to `en_render | subtitulando | programado`.
+- Task 9 (instants and errors): `instanteEstricto` accepts only ISO 8601 with `Z` or an explicit offset (no zone-less strings, bare numbers or impossible dates) and normalises to UTC; `aprobar_guion`, `aprobar_video` and `reintentar` use it and store the UTC string. An unreadable `publicarEn` is a `Falla` for Coni; an unreadable server-clock field (`en`, `ahora`) is a plain `Error`. `TransicionInvalida` and `ArtefactoCambio` carry messages written for Coni; `TransicionInvalida` exposes `estado` and `evento` for logs. A non-Coni approval throws `AprobacionNoAutorizada` (not a `Falla`), checked before the state so it is never masked as a stale screen. `FallaDeConfiguracion` now extends `Error`, so a generic "catch `Falla`, show Coni" never leaks WAV messages.
+- Task 9 (table test): "acepta solo los eventos de la tabla del diseño" pins, for every state and event, the allowed set from the design table plus `hora_vencida` and caption-only edits, and checks `version + 1` and that the input piece is not mutated.
+- Task 10: unreadable times never publish; `puedePublicar` reads both `ahora` and the approved time with `instanteEstricto` (unreadable or zone-less gives `hora_vencida`); unreadable approval dates are rejected; a publish retry whose stored approved time is unreadable goes back to approval.
+
+### Carried to later plans
+
+- Plan 2: zod boundary for `ConfigProduccion` (strict ElevenLabs keys, enums for `ruta_voz` and `motor`, nullish normalisation, `PENDIENTE` to null on import); confirm Vercel builds with pnpm 12; database trigger and tests that reject approvals written with `service_role`.
+- Plan 3: reject `{`, `}` and `\` in scripts at gate 1 (deterministic review); container `fontselect` test with Montserrat Bold, including a line with a backslash; port `error_elevenlabs`; callers handle `FallaDeConfiguracion` on its own (it is no longer a `Falla`); call `armarPedido` only after the voice step; wrap HeyGen's English messages in Spanish notices; store HeyGen's render id on the piece and check it before `POST /v3/videos` on a retry; treat late webhooks on error or discarded pieces as no-ops.
+- Plan 4: Trigger.dev idempotency keys with `scope: "global"`; explicit `idempotencyKeyTTL` for publishes scheduled more than 30 days ahead; the publish task emits `hora_vencida` when `puedePublicar` says `hora_vencida` (otherwise the piece stays `programado` forever); the retry threshold must account for the 5-minute cron (a retry at minute 26 lands past the 30-minute window); consider `hashPuerta2({videoId, hashTexto, publicarEn})` for the publish key; enforce the actor of `regrabar` and `reintentar` in the Server Action or a database trigger.
+- Plan 5: normalise script input (CRLF to LF, NFC) where it is saved; placeholder `NEXT_PUBLIC_*` env in the CI build once a page creates a Supabase client at render; `lang="es-CL"` and real metadata in `app/layout.tsx`; Server Actions catch `Falla` and return its message (Next redacts thrown messages).

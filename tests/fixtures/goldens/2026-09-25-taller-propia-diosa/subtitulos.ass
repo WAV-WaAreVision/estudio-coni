@@ -1,0 +1,44 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Coni,AvenirNext-Bold,84,&H00FFFFFF,&H00FFFFFF,&H14000000,&H00000000,-1,0,0,0,100,100,0,0,1,7,0,5,140,140,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.08,0:00:01.16,Coni,,0,0,0,,{\an5\pos(540,1344)}¿Te cuesta sentirte la
+Dialogue: 0,0:00:01.22,0:00:02.20,Coni,,0,0,0,,{\an5\pos(540,1344)}protagonista de tu
+Dialogue: 0,0:00:02.28,0:00:02.96,Coni,,0,0,0,,{\an5\pos(540,1344)}propia vida?
+Dialogue: 0,0:00:04.22,0:00:05.80,Coni,,0,0,0,,{\an5\pos(540,1344)}Es súper común dudar de
+Dialogue: 0,0:00:05.86,0:00:07.96,Coni,,0,0,0,,{\an5\pos(540,1344)}lo que vales. Que el qué
+Dialogue: 0,0:00:08.00,0:00:09.78,Coni,,0,0,0,,{\an5\pos(540,1344)}dirán pese más que tu
+Dialogue: 0,0:00:09.84,0:00:10.44,Coni,,0,0,0,,{\an5\pos(540,1344)}propia voz.
+Dialogue: 0,0:00:11.38,0:00:12.86,Coni,,0,0,0,,{\an5\pos(540,1344)}Pero esas dudas no son
+Dialogue: 0,0:00:12.92,0:00:13.80,Coni,,0,0,0,,{\an5\pos(540,1344)}un defecto tuyo.
+Dialogue: 0,0:00:14.82,0:00:15.60,Coni,,0,0,0,,{\an5\pos(540,1344)}Tienen historia:
+Dialogue: 0,0:00:16.44,0:00:17.68,Coni,,0,0,0,,{\an5\pos(540,1344)}creencias que aprendiste
+Dialogue: 0,0:00:18.00,0:00:19.24,Coni,,0,0,0,,{\an5\pos(540,1344)}y formas de vincularte
+Dialogue: 0,0:00:19.78,0:00:20.94,Coni,,0,0,0,,{\an5\pos(540,1344)}que nunca elegiste.
+Dialogue: 0,0:00:21.92,0:00:23.34,Coni,,0,0,0,,{\an5\pos(540,1344)}Por eso te invito a mi
+Dialogue: 0,0:00:23.40,0:00:24.38,Coni,,0,0,0,,{\an5\pos(540,1344)}taller online.
+Dialogue: 0,0:00:25.18,0:00:26.12,Coni,,0,0,0,,{\an5\pos(540,1344)}Lo haces a tu ritmo,
+Dialogue: 0,0:00:26.58,0:00:27.30,Coni,,0,0,0,,{\an5\pos(540,1344)}cuando quieras.
+Dialogue: 0,0:00:28.22,0:00:29.58,Coni,,0,0,0,,{\an5\pos(540,1344)}Vas a entender de dónde
+Dialogue: 0,0:00:29.62,0:00:30.64,Coni,,0,0,0,,{\an5\pos(540,1344)}vienen esas dudas.
+Dialogue: 0,0:00:31.46,0:00:32.66,Coni,,0,0,0,,{\an5\pos(540,1344)}Vas a aprender a cambiar
+Dialogue: 0,0:00:32.92,0:00:34.20,Coni,,0,0,0,,{\an5\pos(540,1344)}las ideas que te frenan.
+Dialogue: 0,0:00:35.08,0:00:36.44,Coni,,0,0,0,,{\an5\pos(540,1344)}Y vas a cultivar tu amor
+Dialogue: 0,0:00:36.58,0:00:38.06,Coni,,0,0,0,,{\an5\pos(540,1344)}propio y tu inteligencia
+Dialogue: 0,0:00:38.10,0:00:38.66,Coni,,0,0,0,,{\an5\pos(540,1344)}emocional.
+Dialogue: 0,0:00:39.58,0:00:40.94,Coni,,0,0,0,,{\an5\pos(540,1344)}Si ya te cansaste de
+Dialogue: 0,0:00:40.98,0:00:42.52,Coni,,0,0,0,,{\an5\pos(540,1344)}dudar de ti, estás lista
+Dialogue: 0,0:00:42.54,0:00:43.36,Coni,,0,0,0,,{\an5\pos(540,1344)}para ser tu propia
+Dialogue: 0,0:00:43.38,0:00:43.74,Coni,,0,0,0,,{\an5\pos(540,1344)}diosa.
+Dialogue: 0,0:00:44.22,0:00:45.28,Coni,,0,0,0,,{\an5\pos(540,1344)}El link está en mi
+Dialogue: 0,0:00:45.30,0:00:45.68,Coni,,0,0,0,,{\an5\pos(540,1344)}perfil.
+Dialogue: 0,0:00:46.10,0:00:47.26,Coni,,0,0,0,,{\an5\pos(540,1344)}Soy Coni del Rosario.
