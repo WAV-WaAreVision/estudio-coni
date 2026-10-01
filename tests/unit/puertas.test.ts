@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
-import { claveIdempotencia, hashPuerta1, hashTexto, puedeGrabar, puedePublicar } from "@/lib/dominio/puertas"
+import {
+  claveIdempotencia,
+  hashPuerta1,
+  hashPuerta2,
+  hashTexto,
+  puedeGrabar,
+  puedePublicar,
+} from "@/lib/dominio/puertas"
 
 describe("hashes de las puertas", () => {
   const base = { guion: "Soy Coni del Rosario.", audioId: "audio_1" }
@@ -22,6 +29,30 @@ describe("hashes de las puertas", () => {
   it("separa el hash del texto de publicación del hash del guion", () => {
     expect(hashTexto("Soy Coni del Rosario.")).not.toBe(hashPuerta1(base))
     expect(hashTexto("Hola")).not.toBe(hashTexto("Hola."))
+  })
+})
+
+describe("hashPuerta2", () => {
+  const base = {
+    videoId: "videos/p/abc.mp4",
+    hashTexto: hashTexto("Un texto."),
+    publicarEn: "2026-10-08T22:00:00.000Z",
+  }
+
+  it("da el mismo hash para el mismo video, texto y hora", () => {
+    expect(hashPuerta2(base)).toBe(hashPuerta2({ ...base }))
+    expect(hashPuerta2(base)).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it("cambia cuando cambia el video, el texto o la hora aprobada, para que cada publicación tenga su clave", () => {
+    expect(hashPuerta2({ ...base, videoId: "videos/p/otro.mp4" })).not.toBe(hashPuerta2(base))
+    expect(hashPuerta2({ ...base, hashTexto: hashTexto("Otro texto.") })).not.toBe(hashPuerta2(base))
+    expect(hashPuerta2({ ...base, publicarEn: "2026-10-09T22:00:00.000Z" })).not.toBe(hashPuerta2(base))
+  })
+
+  it("no se confunde con el hash de la puerta 1 ni con el del texto", () => {
+    expect(hashPuerta2(base)).not.toBe(hashPuerta1({ guion: base.videoId, audioId: base.hashTexto }))
+    expect(hashPuerta2(base)).not.toBe(base.hashTexto)
   })
 })
 

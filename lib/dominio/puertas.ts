@@ -18,6 +18,11 @@ export function hashTexto(texto: string): string {
   return sha256(["texto", texto])
 }
 
+/** Gate 2 binds the exact video, caption and time; the publish key is built from it so each approval has its own. */
+export function hashPuerta2(aprobacion: { videoId: string; hashTexto: string; publicarEn: string }): string {
+  return sha256(["puerta2", aprobacion.videoId, aprobacion.hashTexto, aprobacion.publicarEn])
+}
+
 export type Paso = "producir" | "grabar" | "publicar"
 
 /**

@@ -178,3 +178,20 @@ export async function leerSecreto(db: Db, nombre: string): Promise<string | null
   // A key pasted with a trailing newline is an invalid header value, which would look like a network failure.
   return data?.trim() || null
 }
+
+/**
+ * Hands the next due scheduled piece to this run and leases it (`tomar_para_publicar`): null when there is none, or
+ * when the rest are held by another run. The returned row carries the version the lease wrote.
+ */
+export async function tomarParaPublicar(db: Db, ahora: string, arriendoSegundos: number): Promise<FilaDePieza | null> {
+  const { data, error } = await db.rpc("tomar_para_publicar", { p_ahora: ahora, p_arriendo_segundos: arriendoSegundos })
+  if (error) throw fallo("No pude tomar piezas para publicar", error)
+  return data[0] ?? null
+}
+
+/** The Instagram account id (`IG_ID`) Coni connected; null until "Conectar Instagram" has been used. */
+export async function leerCuentaMeta(db: Db): Promise<string | null> {
+  const { data, error } = await db.from("ajustes").select("meta_cuenta_id").maybeSingle()
+  if (error) throw fallo("No pude leer la cuenta de Instagram", error)
+  return data?.meta_cuenta_id?.trim() || null
+}

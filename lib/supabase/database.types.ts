@@ -40,6 +40,7 @@ export type Database = {
           hora_publicacion: string
           id: boolean
           meta: string
+          meta_cuenta_id: string | null
           produccion: Json
           tope_mensual_usd: number
           zona: string
@@ -49,6 +50,7 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           meta?: string
+          meta_cuenta_id?: string | null
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
@@ -58,6 +60,7 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           meta?: string
+          meta_cuenta_id?: string | null
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
@@ -267,6 +270,8 @@ export type Database = {
         Row: {
           actualizada_en: string
           audio_id: string | null
+          contenedor_clave: string | null
+          contenedor_id: string | null
           creada_en: string
           estado: Database["public"]["Enums"]["estado_pieza"]
           estado_antes_del_error:
@@ -277,6 +282,10 @@ export type Database = {
           id: string
           idea_id: string | null
           intento: number
+          media_id: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
           puerta1_hash: string | null
           puerta1_por: string | null
@@ -295,6 +304,8 @@ export type Database = {
         Insert: {
           actualizada_en?: string
           audio_id?: string | null
+          contenedor_clave?: string | null
+          contenedor_id?: string | null
           creada_en?: string
           estado?: Database["public"]["Enums"]["estado_pieza"]
           estado_antes_del_error?:
@@ -305,6 +316,10 @@ export type Database = {
           id?: string
           idea_id?: string | null
           intento?: number
+          media_id?: string | null
+          permalink?: string | null
+          publicacion_enviada_en?: string | null
+          publicacion_reclamada_hasta?: string | null
           puerta1_en?: string | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
@@ -323,6 +338,8 @@ export type Database = {
         Update: {
           actualizada_en?: string
           audio_id?: string | null
+          contenedor_clave?: string | null
+          contenedor_id?: string | null
           creada_en?: string
           estado?: Database["public"]["Enums"]["estado_pieza"]
           estado_antes_del_error?:
@@ -333,6 +350,10 @@ export type Database = {
           id?: string
           idea_id?: string | null
           intento?: number
+          media_id?: string | null
+          permalink?: string | null
+          publicacion_enviada_en?: string | null
+          publicacion_reclamada_hasta?: string | null
           puerta1_en?: string | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
@@ -399,6 +420,8 @@ export type Database = {
         Returns: {
           actualizada_en: string
           audio_id: string | null
+          contenedor_clave: string | null
+          contenedor_id: string | null
           creada_en: string
           estado: Database["public"]["Enums"]["estado_pieza"]
           estado_antes_del_error:
@@ -409,6 +432,10 @@ export type Database = {
           id: string
           idea_id: string | null
           intento: number
+          media_id: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
           puerta1_hash: string | null
           puerta1_por: string | null
@@ -483,6 +510,49 @@ export type Database = {
           to: "gastos"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      tomar_para_publicar: {
+        Args: { p_ahora: string; p_arriendo_segundos?: number }
+        Returns: {
+          actualizada_en: string
+          audio_id: string | null
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_en: string | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          revision: Json
+          texto: string | null
+          titulo: string
+          version: number
+          video_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
     }

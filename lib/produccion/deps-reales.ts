@@ -5,6 +5,8 @@ import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 import { almacenReal } from "@/lib/proveedores/almacen"
+import { avisosReales } from "@/lib/proveedores/avisos"
+import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
 import type { DepsGrabacion } from "./grabar"
@@ -65,5 +67,23 @@ export async function depsGrabacion(
     esperarRender: espera.esperarRender,
     callbackUrl: espera.callbackUrl,
     ahora: () => new Date().toISOString(),
+  }
+}
+
+// Instagram asks to read the container status about once a minute, for no more than five minutes.
+const SONDEO_INSTAGRAM = { cadaMs: 60_000, veces: 5 }
+
+/** The dependencies of a `publicar-pendientes` run. A missing R2 setting fails before a piece is taken. */
+export function depsPublicacion(): DepsPublicacion {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return {
+    db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    // A plain sleep, not `wait.for`: a waiting run gives up its place in the queue, and this one must keep it.
+    dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
+    sondeo: SONDEO_INSTAGRAM,
   }
 }
