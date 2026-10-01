@@ -29,7 +29,7 @@ Design decision D7 (2026-09-30): port the behaviour cases and pin the output of 
 |---|---|---|
 | `TestEsperar` (4) | Plan 3, T7 `grabar-pieza` | Polling becomes a Trigger.dev waitpoint plus reconciliation |
 | `TestSubtitulos` (6) | Plan 3, T7 `grabar-pieza` | ffmpeg, fetching the SRT and the size limit run in the container |
-| `TestVerificarElevenLabs` (1) and `error_elevenlabs` | Plan 3, T6 `producir-pieza` | ElevenLabs over HTTP with MSW |
+| `TestVerificarElevenLabs` (2) and `error_elevenlabs` | Plan 3, T6 `producir-pieza` | ElevenLabs over HTTP with MSW |
 
 ## Not ported (terminal commands)
 
