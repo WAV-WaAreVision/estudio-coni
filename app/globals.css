@@ -79,6 +79,9 @@
   --radius-lg: 20px;
   --radius-xl: 24px;
 
+  /* The name on the public page of the bio link (brand register): larger than the product scale. */
+  --text-marca: 2.75rem;
+  --text-marca--line-height: 1;
   --text-display: 1.875rem;
   --text-display--line-height: 1.12;
   --text-title: 1.5rem;
@@ -207,4 +210,8 @@ body {
       transform: none;
     }
   }
+}
+/* The public page of the bio link is raspberry edge to edge, overscroll included (DESIGN.md, Excepción de `/l`). */
+body:has([data-superficie="marca"]) {
+  background: var(--acento);
 }

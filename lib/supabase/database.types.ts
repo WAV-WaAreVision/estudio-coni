@@ -39,6 +39,7 @@ export type Database = {
           avisos_resumen: boolean
           avisos_urgentes: boolean
           dias_publicacion: number[]
+          enlaces: Json
           hora_publicacion: string
           id: boolean
           meta: string
@@ -52,6 +53,7 @@ export type Database = {
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]
+          enlaces?: Json
           hora_publicacion?: string
           id?: boolean
           meta?: string
@@ -65,6 +67,7 @@ export type Database = {
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]
+          enlaces?: Json
           hora_publicacion?: string
           id?: boolean
           meta?: string
@@ -73,6 +76,39 @@ export type Database = {
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
+        }
+        Relationships: []
+      }
+      clics_enlace_dia: {
+        Row: {
+          clics: number
+          dia: string
+          enlace: string
+        }
+        Insert: {
+          clics?: number
+          dia: string
+          enlace: string
+        }
+        Update: {
+          clics?: number
+          dia?: string
+          enlace?: string
+        }
+        Relationships: []
+      }
+      consultas: {
+        Row: {
+          anotada_en: string
+          id: string
+        }
+        Insert: {
+          anotada_en?: string
+          id?: string
+        }
+        Update: {
+          anotada_en?: string
+          id?: string
         }
         Relationships: []
       }
@@ -260,6 +296,65 @@ export type Database = {
           },
         ]
       }
+      metricas_cuenta: {
+        Row: {
+          dia: string
+          leido_en: string
+          toques_perfil: number
+        }
+        Insert: {
+          dia: string
+          leido_en?: string
+          toques_perfil: number
+        }
+        Update: {
+          dia?: string
+          leido_en?: string
+          toques_perfil?: number
+        }
+        Relationships: []
+      }
+      metricas_reel: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          compartidos: number | null
+          dia: string
+          guardados: number | null
+          leido_en: string
+          pieza_id: string
+          tiempo_promedio: number | null
+        }
+        Insert: {
+          alcance?: number | null
+          comentarios?: number | null
+          compartidos?: number | null
+          dia: string
+          guardados?: number | null
+          leido_en?: string
+          pieza_id: string
+          tiempo_promedio?: number | null
+        }
+        Update: {
+          alcance?: number | null
+          comentarios?: number | null
+          compartidos?: number | null
+          dia?: string
+          guardados?: number | null
+          leido_en?: string
+          pieza_id?: string
+          tiempo_promedio?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       miembros: {
         Row: {
           creado_en: string
@@ -394,9 +489,46 @@ export type Database = {
           },
         ]
       }
+      visitas_clic: {
+        Row: {
+          dia: string
+          enlace: string
+          visitante: string
+        }
+        Insert: {
+          dia: string
+          enlace: string
+          visitante: string
+        }
+        Update: {
+          dia?: string
+          enlace?: string
+          visitante?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      metricas_reel_ultima: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          compartidos: number | null
+          dia: string | null
+          guardados: number | null
+          pieza_id: string | null
+          tiempo_promedio: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       conectar_instagram: {
@@ -556,6 +688,11 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      registrar_clic: {
+        Args: { p_dia: string; p_enlace: string; p_visitante: string }
+        Returns: boolean
       }
       reservar_gasto: {
         Args: {

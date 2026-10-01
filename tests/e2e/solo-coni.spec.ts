@@ -32,8 +32,9 @@ test("without a session every screen sends her to sign in", async ({ browser }) 
   const contexto = await browser.newContext({ storageState: { cookies: [], origins: [] } })
   const page = await contexto.newPage()
 
-  await page.goto("/guion/00000000-0000-4000-8000-000000000000")
-
-  await expect(page).toHaveURL(/\/ingreso$/)
+  for (const ruta of ["/guion/00000000-0000-4000-8000-000000000000", "/metricas", "/calendario"]) {
+    await page.goto(ruta)
+    await expect(page).toHaveURL(/\/ingreso$/)
+  }
   await contexto.close()
 })
