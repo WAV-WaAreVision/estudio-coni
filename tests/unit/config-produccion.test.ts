@@ -74,6 +74,44 @@ describe("leerConfigProduccion", () => {
     expect(config.elevenlabs.voice_settings).not.toHaveProperty("_nota")
   })
 
+  it("ignores keys that start with an underscore at the top level, in heygen and in elevenlabs", () => {
+    const config = leerConfigProduccion(
+      editar(["_nueva", "nota"], ["heygen._nueva", "nota"], ["elevenlabs._nueva", "nota"]),
+    )
+    expect(config).not.toHaveProperty("_nueva")
+    expect(config.heygen).not.toHaveProperty("_nueva")
+    expect(config.elevenlabs).not.toHaveProperty("_nueva")
+  })
+
+  it("rejects an unknown key at the top level, naming the key and not its value", () => {
+    const error = falla(editar(["ruta_vos", "valor-escrito-por-error"]))
+    expect(error.message).toContain("ruta_vos")
+    expect(error.message).not.toContain("valor-escrito-por-error")
+  })
+
+  it("rejects a misspelled key inside heygen instead of silently dropping the setting", () => {
+    const error = falla(
+      editar(
+        ["heygen.ajustes_elevenlabs", undefined],
+        ["heygen.ajuste_elevenlabs", { model: "valor-escrito-por-error" }],
+      ),
+    )
+    expect(error.message).toContain("heygen.ajuste_elevenlabs")
+    expect(error.message).not.toContain("valor-escrito-por-error")
+  })
+
+  it("rejects an unknown key inside elevenlabs, naming the key and not its value", () => {
+    const error = falla(editar(["elevenlabs.modelo_id", "valor-escrito-por-error"]))
+    expect(error.message).toContain("elevenlabs.modelo_id")
+    expect(error.message).not.toContain("valor-escrito-por-error")
+  })
+
+  it("accepts the keys of the real config that this code does not use yet, and does not expose them", () => {
+    const config = leerConfigProduccion(fixture)
+    expect(config).not.toMatchObject({ metricool: expect.anything() })
+    expect(config.heygen).not.toMatchObject({ subtitulos_quemados: expect.anything() })
+  })
+
   it("turns PENDIENTE, an empty string and a missing id into null", () => {
     const config = leerConfigProduccion(
       editar(

@@ -32,6 +32,14 @@ const textoConDefecto = (defecto: string) =>
     .nullish()
     .transform((valor) => valor || defecto)
 
+// Keys of the real coni.config.json that the course tooling reads (burned subtitles, Metricool) and this code does
+// not use yet. They are listed so the strict objects accept the real file, and dropped so nothing here depends on a
+// value that nothing here validates.
+const delOtroLector = z
+  .unknown()
+  .transform(() => undefined)
+  .optional()
+
 const ajustesElevenlabs = z.strictObject({
   model: z.string().optional(),
   stability: z.number().optional(),
@@ -48,16 +56,16 @@ const vozDeElevenlabs = z.strictObject({
   speed: z.number().optional(),
 })
 
-const esquemaElevenlabs = z.object({
+const esquemaElevenlabs = z.strictObject({
   voice_id: id,
   model_id: textoConDefecto(MODELO_ELEVEN_POR_DEFECTO),
   voice_settings: vozDeElevenlabs.optional(),
   output_format: textoConDefecto(FORMATO_POR_DEFECTO),
 })
 
-const esquema = z.object({
+const esquema = z.strictObject({
   ruta_voz: z.enum(["heygen", "elevenlabs"]),
-  heygen: z.object({
+  heygen: z.strictObject({
     avatar_id: id,
     voice_id: id,
     ajustes_elevenlabs: ajustesElevenlabs.nullish().transform((valor) => valor ?? null),
@@ -67,12 +75,14 @@ const esquema = z.object({
       .transform((valor) => valor ?? null),
     aspect_ratio: textoOpcional,
     resolution: textoOpcional,
+    subtitulos_quemados: delOtroLector,
     motor: z
       .enum(["avatar_iv", "avatar_v"])
       .nullish()
       .transform((valor) => valor ?? null),
     referencia_movimiento: id,
   }),
+  metricool: delOtroLector,
   // A missing section behaves like an empty one: every default applies and the voice stays unconfigured.
   elevenlabs: esquemaElevenlabs.default({
     voice_id: null,
