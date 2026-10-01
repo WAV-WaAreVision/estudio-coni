@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { almacenEnMemoria, claveAudio } from "@/lib/proveedores/almacen"
+import { almacenEnMemoria, claveAudio, claveVideo } from "@/lib/proveedores/almacen"
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
 const OTRA_PIEZA = "99999999-2222-4333-8444-555555555555"
@@ -68,5 +68,22 @@ describe("claveAudio", () => {
   it("rejects an id that is not a UUID, so a key never escapes its folder", () => {
     expect(() => claveAudio("../otra", MP3)).toThrow()
     expect(() => claveAudio("", MP3)).toThrow()
+  })
+})
+
+describe("claveVideo", () => {
+  it("is videos/<piece>/<sha256 of the bytes>.mp4", () => {
+    const hash = createHash("sha256").update(MP3).digest("hex")
+    expect(claveVideo(PIEZA, MP3)).toBe(`videos/${PIEZA}/${hash}.mp4`)
+  })
+
+  it("changes with the bytes and with the piece, so each render is its own object", () => {
+    expect(claveVideo(PIEZA, new Uint8Array([...MP3, 0]))).not.toBe(claveVideo(PIEZA, MP3))
+    expect(claveVideo(OTRA_PIEZA, MP3)).not.toBe(claveVideo(PIEZA, MP3))
+  })
+
+  it("rejects an id that is not a UUID, so a key never escapes its folder", () => {
+    expect(() => claveVideo("../otra", MP3)).toThrow()
+    expect(() => claveVideo("", MP3)).toThrow()
   })
 })

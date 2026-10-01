@@ -29,6 +29,19 @@ export function mensajeErrorHeygen(cuerpo: string): string {
   return (partes.join(" · ") || "sin detalle").slice(0, LARGO_MAXIMO)
 }
 
+/** Machine-readable `error.code` of a HeyGen v3 error body (`content_policy_violation`, `unauthorized`, ...), if any. */
+export function codigoErrorHeygen(cuerpo: string): string | null {
+  let datos: unknown
+  try {
+    datos = JSON.parse(cuerpo)
+  } catch {
+    // Not JSON (a proxy page, a plain-text error): there is no code to read.
+    return null
+  }
+  const error = esRegistro(datos) ? datos.error : undefined
+  return esRegistro(error) && typeof error.code === "string" ? error.code : null
+}
+
 /**
  * Readable reason from an ElevenLabs error body: `{"detail": {"status", "message"}}` or `{"detail": "text"}`.
  * Port of `error_elevenlabs` in coni.py, but never empty and never longer than 400 characters.

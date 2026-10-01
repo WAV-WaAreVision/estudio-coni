@@ -20,6 +20,7 @@ import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import { aCuatroDecimales, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type Almacen, claveAudio } from "@/lib/proveedores/almacen"
 import { costoClaude, escribirGuion, RechazoDeClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
@@ -41,7 +42,6 @@ export type ResultadoProduccion =
   | { resultado: "tope" }
   | { resultado: "rechazado" }
 
-const TEXTO_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
 // A script and its review fit well under this; the real cost is confirmed afterwards.
 const ESTIMADO_CLAUDE_USD = 0.5
 /**
@@ -50,11 +50,6 @@ const ESTIMADO_CLAUDE_USD = 0.5
  * confirmed amount is this same estimate until the plan reads the `character-cost` header.
  */
 const USD_POR_CARACTER_ELEVENLABS = 0.0003
-const MINIMO_USD = 0.0001
-
-function aCuatroDecimales(usd: number): number {
-  return Math.round(usd * 10_000) / 10_000
-}
 
 /** `gastos.estimado_usd` must be positive, so a (hypothetical) empty text still reserves the minimum. */
 export function estimarCostoVoz(texto: string): number {
@@ -160,16 +155,6 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
     )
   }
   return { guion: fila.guion, texto: fila.texto, revision: fila.revision }
-}
-
-function piezaCambio(): Error {
-  return new Error("La pieza cambió mientras se producía.")
-}
-
-/** Writes only the explanation: the piece stays where it is and Coni reads why nothing happened. */
-async function explicar(deps: DepsProduccion, fila: FilaDePieza, explicacion: string): Promise<void> {
-  const guardada = await actualizarPieza(deps.db, fila.id, fila.version, { version: fila.version + 1, explicacion })
-  if (!guardada) throw piezaCambio()
 }
 
 /**
