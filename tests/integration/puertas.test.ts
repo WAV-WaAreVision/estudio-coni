@@ -260,6 +260,78 @@ describe("quién entra a las puertas", () => {
   })
 })
 
+describe("revisión automática", () => {
+  const escribirRevision = "update public.piezas set revision = $2::jsonb, version = version + 1 where id = $1"
+
+  it("rechaza aprobar el guion cuando la revisión tiene un hallazgo que bloquea", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "cierre", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const err = await fallaCon(
+        c,
+        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, estado = 'en_render', version = version + 1
+         where id = $1`,
+        [id, aprobarPuerta1.puerta1_hash, aprobarPuerta1.puerta1_en],
+      )
+      expect(err.code).toBe("42501")
+      expect(err.message).toBe("revision_bloquea")
+    })
+  })
+
+  it("deja aprobar el guion cuando la revisión solo advierte", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "largo", tipo: "advierte", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const { rows } = await c.query(
+        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, estado = 'en_render', version = version + 1
+         where id = $1 returning estado, puerta1_por`,
+        [id, aprobarPuerta1.puerta1_hash, aprobarPuerta1.puerta1_en],
+      )
+      expect(rows[0].estado).toBe("en_render")
+      expect(rows[0].puerta1_por).toBe(CONI)
+    })
+  })
+
+  it("rechaza que coni borre la revisión cuando quiere aprobar con un hallazgo que bloquea", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "cierre", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const err = await fallaCon(c, escribirRevision, [id, "[]"])
+      expect(err.code).toBe("42501")
+      expect(err.message).toBe("revision_solo_servidor")
+    })
+  })
+
+  it("rechaza programar cuando la revisión del texto bloquea", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "video_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "aviso_avatar", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const err = await fallaCon(
+        c,
+        `update public.piezas set puerta2_video_id = $2, puerta2_hash_texto = $3, puerta2_publicar_en = $4,
+           puerta2_en = $5, estado = 'programado', version = version + 1 where id = $1`,
+        [
+          id,
+          aprobarPuerta2.puerta2_video_id,
+          aprobarPuerta2.puerta2_hash_texto,
+          aprobarPuerta2.puerta2_publicar_en,
+          aprobarPuerta2.puerta2_en,
+        ],
+      )
+      expect(err.code).toBe("42501")
+      expect(err.message).toBe("revision_bloquea")
+    })
+  })
+})
+
 describe("invalidar aprobaciones", () => {
   it("deja al servicio borrar la puerta 1 cuando la política de contenido rechaza el guion", async () => {
     await como(comoPostgres, async (c) => {
