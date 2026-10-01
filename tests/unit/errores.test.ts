@@ -23,7 +23,6 @@ describe("mensajeErrorHeygen", () => {
   it("dice sin detalle cuando error no trae mensaje ni pista", () => {
     expect(mensajeErrorHeygen('{"error":{}}')).toBe("sin detalle")
     expect(mensajeErrorHeygen('{"error":{"message":"","hint":"  "}}')).toBe("sin detalle")
-    expect(mensajeErrorHeygen('{"error":[]}')).toBe('{"error":[]}')
   })
 
   it("usa el mensaje cuando el cuerpo es el de la API v3", () => {
@@ -39,11 +38,17 @@ describe("mensajeErrorHeygen", () => {
     expect(mensajeErrorHeygen('{"detail":"x"}')).toBe('{"detail":"x"}')
     expect(mensajeErrorHeygen("[1]")).toBe("[1]")
     expect(mensajeErrorHeygen("null")).toBe("null")
+    expect(mensajeErrorHeygen('{"error":[]}')).toBe('{"error":[]}')
   })
 
   it("recorta a 400 caracteres cuando el cuerpo no es JSON", () => {
     const resultado = mensajeErrorHeygen(`<html>${"x".repeat(1000)}`)
     expect(resultado).toHaveLength(400)
     expect(resultado.startsWith("<html>")).toBe(true)
+  })
+
+  it("recorta a 400 caracteres cuando el mensaje de error es enorme", () => {
+    const cuerpo = JSON.stringify({ error: { message: "y".repeat(1000), hint: "h" } })
+    expect(mensajeErrorHeygen(cuerpo)).toHaveLength(400)
   })
 })

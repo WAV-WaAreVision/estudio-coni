@@ -26,5 +26,5 @@ export function mensajeErrorHeygen(cuerpo: string): string {
   const partes = [error.message, error.hint]
     .filter((parte): parte is string => typeof parte === "string" && parte.trim() !== "")
     .map((parte) => parte.trim())
-  return partes.join(" · ") || "sin detalle"
+  return (partes.join(" · ") || "sin detalle").slice(0, LARGO_MAXIMO)
 }
