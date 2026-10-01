@@ -37,7 +37,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Pages only: the manifest, the icons and Next's own files must load without a session. `/l` is the public page of
+  // Pages only: the manifest, the service worker, the icons and Next's own files must load without a session. `/l` is the public page of
   // the bio link and its redirect (`/l/ir/...`): they read no session, so no cookie is touched for a visitor.
-  matcher: ["/((?!_next/|l(?:/|$)|manifest.webmanifest|icon|apple-icon|favicon.ico).*)"],
+  matcher: ["/((?!_next/|l(?:/|$)|manifest.webmanifest|sw\\.js$|icon|apple-icon|favicon.ico).*)"],
 }
