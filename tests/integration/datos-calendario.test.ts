@@ -53,4 +53,17 @@ describe("leerDatosDeCalendario", () => {
     expect(datos.piezas.map((p) => p.titulo)).not.toContain("La primera")
     expect(Date.now() - Date.parse(datos.primeraPublicacion ?? "")).toBeGreaterThan(199 * 86_400_000)
   })
+
+  it("reads the pieces Coni uploads by hand, and counts them for when she started", async () => {
+    await sembrarPieza("para_subir_a_mano", { titulo: "Por subir" })
+    await sembrarPieza("publicado_a_mano", { titulo: "Ya subida" })
+
+    const datos = await leerDatosDeCalendario(coni, Date.now())
+
+    expect(datos.piezas.map((p) => [p.titulo, p.estado]).sort()).toEqual([
+      ["Por subir", "para_subir_a_mano"],
+      ["Ya subida", "publicado_a_mano"],
+    ])
+    expect(datos.primeraPublicacion).not.toBeNull()
+  })
 })

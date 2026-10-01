@@ -141,3 +141,70 @@ describe("construirInicio", () => {
     expect(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA }).semana).toBe("Semana del 5 al 11 de octubre")
   })
 })
+
+describe("construirInicio: subir a mano", () => {
+  it("lists what waits for her to upload, the oldest first, with the way to the screen that has the tools", () => {
+    const tarde = pieza("para_subir_a_mano", { publicarEn: "2026-10-06T22:00:00Z" })
+    const antes = pieza("para_subir_a_mano", { publicarEn: "2026-10-03T22:00:00Z" })
+
+    const inicio = construirInicio({ piezas: [tarde, antes], ahora: AHORA, zona: ZONA })
+
+    expect(inicio.porSubir).toEqual([
+      {
+        id: antes.id,
+        titulo: antes.titulo,
+        pilar: "deseo",
+        meta: "Para subir · sábado 3 · 19:00",
+        href: `/video/${antes.id}`,
+      },
+      {
+        id: tarde.id,
+        titulo: tarde.titulo,
+        pilar: "deseo",
+        meta: "Para subir · martes 6 · 19:00",
+        href: `/video/${tarde.id}`,
+      },
+    ])
+  })
+
+  it("does not count them as a signature or as something on its way", () => {
+    const inicio = construirInicio({
+      piezas: [pieza("para_subir_a_mano", { publicarEn: "2026-10-06T22:00:00Z" })],
+      ahora: AHORA,
+      zona: ZONA,
+    })
+
+    expect(inicio.firma).toEqual([])
+    expect(inicio.camino).toEqual([])
+    expect(inicio.resumen).toBe("Esta semana está al día")
+    expect(inicio.avisos).toEqual([])
+  })
+
+  it("confirms a reel she uploaded in the last two days as 'Subido a mano', with her link when she pasted it", () => {
+    const vieja = pieza("publicado_a_mano", { actualizadaEn: "2026-10-01T22:00:00Z" })
+    const reciente = pieza("publicado_a_mano", {
+      actualizadaEn: "2026-10-07T14:00:00Z",
+      permalink: "https://www.instagram.com/reel/abc/",
+    })
+
+    const { avisos } = construirInicio({ piezas: [vieja, reciente], ahora: AHORA, zona: ZONA })
+
+    expect(avisos).toEqual([
+      {
+        tipo: "ok",
+        titulo: `${reciente.titulo}: subido a mano hoy a las 11:00`,
+        texto: "Quedó anotado como subido por ti, con la etiqueta de IA.",
+        accion: { etiqueta: "Ver en Instagram", href: "https://www.instagram.com/reel/abc/", externo: true },
+      },
+    ])
+  })
+
+  it("confirms one uploaded without a link and offers nothing to open", () => {
+    const sinEnlace = pieza("publicado_a_mano", { actualizadaEn: "2026-10-07T14:00:00Z" })
+
+    const { avisos } = construirInicio({ piezas: [sinEnlace], ahora: AHORA, zona: ZONA })
+
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0]).not.toHaveProperty("accion")
+  })
+})

@@ -32,7 +32,7 @@ export async function leerDatosDeCalendario(
     db
       .from("piezas")
       .select("puerta2_publicar_en")
-      .in("estado", ["publicado", "programado"])
+      .in("estado", ["publicado", "programado", "para_subir_a_mano", "publicado_a_mano"])
       .not("puerta2_publicar_en", "is", null)
       .order("puerta2_publicar_en", { ascending: true })
       .limit(1)
