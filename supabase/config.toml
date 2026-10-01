@@ -421,3 +421,24 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Hosted project (WAV org, sa-east-1). `supabase config push` merges these over the local values above.
+# The SMTP password is read from RESEND_API_KEY in the shell that runs the push; it is never stored here.
+[remotes.production]
+project_id = "mvfytttfxmzzjajecsch"
+
+[remotes.production.auth]
+site_url = "https://estudio-coni.vercel.app"
+additional_redirect_urls = ["https://estudio-coni.vercel.app/**", "https://*-federico-1787s-projects.vercel.app/**"]
+
+[remotes.production.auth.email]
+max_frequency = "60s"
+
+[remotes.production.auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "avisos@wearevision.cl"
+sender_name = "Estudio de Coni"
