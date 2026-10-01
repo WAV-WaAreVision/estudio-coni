@@ -94,6 +94,12 @@ describe("transicionar", () => {
     expect(() => transicionar(pieza, aprobarVideo({ publicarEn: ANTES }))).toThrow("ya pasó")
   })
 
+  it("rechaza la puerta 2 cuando la fecha de publicación o la de aprobación no se pueden leer", () => {
+    const pieza = en("video_por_aprobar", { videoId: "video_1" })
+    expect(() => transicionar(pieza, aprobarVideo({ publicarEn: "pronto" }))).toThrow("no es válida")
+    expect(() => transicionar(pieza, aprobarVideo({ en: "ahora" }))).toThrow("no es válida")
+  })
+
   it("borra la voz cuando coni pide cambios al guion", () => {
     const { pieza } = transicionar(en("guion_por_aprobar", { audioId: "audio_1" }), { tipo: "pedir_cambios" })
     expect(pieza.estado).toBe("guion_en_proceso")
@@ -176,6 +182,12 @@ describe("transicionar", () => {
     const { pieza } = transicionar(fallida, { tipo: "reintentar", ahora: "2026-10-08T22:30:00.000Z" })
     expect(pieza).toMatchObject({ estado: "programado", intento: 1 })
     expect(pieza.puerta2?.publicarEn).toBe(HORA)
+  })
+
+  it("pide una fecha nueva cuando coni reintenta la publicación y la hora actual no se puede leer", () => {
+    const fallida = transicionar(programada, { tipo: "falla_publicacion", explicacion: "Instagram no respondió" }).pieza
+    const { pieza } = transicionar(fallida, { tipo: "reintentar", ahora: "no es una fecha" })
+    expect(pieza).toMatchObject({ estado: "video_por_aprobar", puerta2: null })
   })
 
   it("pide una fecha nueva cuando coni reintenta la publicación con la hora aprobada vencida", () => {

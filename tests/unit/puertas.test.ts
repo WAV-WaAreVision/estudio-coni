@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { claveIdempotencia, hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
+import { claveIdempotencia, hashPuerta1, hashTexto, puedeGrabar, puedePublicar } from "@/lib/dominio/puertas"
 
 describe("hashes de las puertas", () => {
   const base = { guion: "Soy Coni del Rosario.", audioId: "audio_1" }
@@ -46,5 +47,85 @@ describe("claveIdempotencia", () => {
   it("falla cuando el hash no es un sha-256", () => {
     expect(() => claveIdempotencia({ ...clave, hash: "abc" })).toThrow("SHA-256")
     expect(() => claveIdempotencia({ ...clave, hash: "A".repeat(64) })).toThrow("SHA-256")
+  })
+})
+
+const HORA = "2026-10-08T22:00:00.000Z"
+const APROBADA = "2026-10-06T15:00:00.000Z"
+
+function pieza(cambios: Partial<Pieza>): Pieza {
+  return { ...piezaNueva(), ...cambios }
+}
+
+describe("puedeGrabar", () => {
+  const enRender = pieza({ estado: "en_render", audioId: "audio_1", puerta1: { hash: "h1", en: APROBADA } })
+
+  it("deja grabar cuando lo actual es lo que coni aprobó", () => {
+    expect(puedeGrabar(enRender, "h1")).toEqual({ ok: true })
+  })
+
+  it("no deja grabar cuando no hay aprobación", () => {
+    expect(puedeGrabar({ ...enRender, puerta1: null }, "h1")).toEqual({ ok: false, motivo: "sin_aprobacion" })
+  })
+
+  it("no deja grabar cuando el guion o la voz cambiaron después de aprobar", () => {
+    expect(puedeGrabar(enRender, "h2")).toEqual({ ok: false, motivo: "artefacto_cambio" })
+  })
+
+  it("no deja grabar cuando la pieza no está en render", () => {
+    expect(puedeGrabar({ ...enRender, estado: "guion_por_aprobar" }, "h1")).toEqual({ ok: false, motivo: "estado" })
+  })
+})
+
+describe("puedePublicar", () => {
+  const programada = pieza({
+    estado: "programado",
+    videoId: "video_1",
+    puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: APROBADA },
+  })
+  const actual = (ahora: string, hashTexto = "t1") => ({ ahora, hashTexto })
+
+  it("deja publicar desde la hora aprobada hasta 30 minutos después", () => {
+    expect(puedePublicar(programada, actual(HORA))).toEqual({ ok: true })
+    expect(puedePublicar(programada, actual("2026-10-08T22:30:00.000Z"))).toEqual({ ok: true })
+  })
+
+  it("no publica antes de la hora aprobada", () => {
+    expect(puedePublicar(programada, actual("2026-10-08T21:59:00.000Z"))).toEqual({
+      ok: false,
+      motivo: "antes_de_hora",
+    })
+  })
+
+  it("no publica cuando la hora aprobada venció hace más de 30 minutos", () => {
+    expect(puedePublicar(programada, actual("2026-10-08T22:30:01.000Z"))).toEqual({
+      ok: false,
+      motivo: "hora_vencida",
+    })
+  })
+
+  it("no publica cuando el texto o el video cambiaron después de aprobar", () => {
+    expect(puedePublicar(programada, actual(HORA, "t2"))).toEqual({ ok: false, motivo: "artefacto_cambio" })
+    expect(puedePublicar({ ...programada, videoId: "video_2" }, actual(HORA))).toEqual({
+      ok: false,
+      motivo: "artefacto_cambio",
+    })
+  })
+
+  it("no publica cuando la pieza no está programada o no tiene puerta 2", () => {
+    expect(puedePublicar({ ...programada, estado: "video_por_aprobar" }, actual(HORA))).toEqual({
+      ok: false,
+      motivo: "estado",
+    })
+    expect(puedePublicar({ ...programada, puerta2: null }, actual(HORA))).toEqual({
+      ok: false,
+      motivo: "sin_aprobacion",
+    })
+  })
+
+  it("no publica cuando la hora no se puede leer", () => {
+    expect(puedePublicar(programada, actual("no es una fecha"))).toEqual({ ok: false, motivo: "hora_vencida" })
+    const ilegible = { ...programada, puerta2: programada.puerta2 && { ...programada.puerta2, publicarEn: "pronto" } }
+    expect(puedePublicar(ilegible, actual(HORA))).toEqual({ ok: false, motivo: "hora_vencida" })
   })
 })

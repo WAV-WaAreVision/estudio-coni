@@ -171,7 +171,12 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       if (evento.videoVisto !== pieza.videoId || evento.hashTextoVisto !== evento.hashTextoActual) {
         throw new ArtefactoCambio()
       }
-      if (Date.parse(evento.publicarEn) <= Date.parse(evento.en)) {
+      const publicarEn = Date.parse(evento.publicarEn)
+      const aprobadoEn = Date.parse(evento.en)
+      if (Number.isNaN(publicarEn) || Number.isNaN(aprobadoEn)) {
+        throw new Falla("La fecha de publicación no es válida.")
+      }
+      if (publicarEn <= aprobadoEn) {
         throw new Falla("La fecha de publicación ya pasó. Elige una hora futura.")
       }
       const puerta2 = {
@@ -212,7 +217,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
         const atraso = pieza.puerta2
           ? Date.parse(evento.ahora) - Date.parse(pieza.puerta2.publicarEn)
           : Number.POSITIVE_INFINITY
-        if (atraso > MARGEN_HORA_APROBADA_MS) {
+        // An unreadable current time is treated as late: ask Coni again instead of rescheduling blindly.
+        if (Number.isNaN(atraso) || atraso > MARGEN_HORA_APROBADA_MS) {
           return a("video_por_aprobar", {
             estadoAntesDelError: null,
             puerta2: null,
