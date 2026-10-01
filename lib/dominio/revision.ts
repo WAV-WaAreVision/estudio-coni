@@ -2,12 +2,14 @@ import { palabras } from "@/lib/dominio/estimaciones"
 
 export type Regla = "cierre" | "simbolos" | "aviso_avatar" | "lineas_ayuda" | "largo" | "numeros"
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
-export type ReglaClaude =
-  | "diagnostico"
-  | "caso_particular"
-  | "lenguaje_explicito"
-  | "cifra_sin_verificar"
-  | "tema_de_riesgo"
+export const REGLAS_CLAUDE = [
+  "diagnostico",
+  "caso_particular",
+  "lenguaje_explicito",
+  "cifra_sin_verificar",
+  "tema_de_riesgo",
+] as const
+export type ReglaClaude = (typeof REGLAS_CLAUDE)[number]
 
 export interface Hallazgo {
   regla: Regla | ReglaClaude
