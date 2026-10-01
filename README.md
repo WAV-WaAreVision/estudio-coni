@@ -1,66 +1,43 @@
-# create-wav-app
+# estudio-coni
 
-Template oficial para nuevos proyectos de Federico / WAV.
+Mobile web app where Coni del Rosario, a Chilean clinical psychologist, approves and publishes the
+content of her AI avatar. Every video passes two human gates: Coni approves the script and voice
+first, then the finished video, caption and publish date. Nothing is rendered or published without
+her explicit approval.
 
-## Uso
+## Requirements
 
-No clones este repo directamente. Usa el wizard `wnew`:
+- Node 24
+- pnpm 12.6
+
+## Setup
 
 ```bash
-wnew
+pnpm install
+cp .env.example .env.local   # then fill in the Supabase values
 ```
 
-El wizard te preguntará nombre + tipo, clonará este template a `~/Projects/<nombre>`, personalizará `CLAUDE.md`, y abrirá Claude Code para iniciar brainstorming.
+## Scripts
 
-## Stack incluido
+| Script | What it does |
+|---|---|
+| `pnpm dev` | Dev server (Turbopack) |
+| `pnpm build` | Production build |
+| `pnpm type` | `next typegen` + `tsc --noEmit` |
+| `pnpm test` | Vitest in watch mode |
+| `pnpm test:run` | Vitest single run (CI) |
+| `pnpm test:e2e` | Playwright end-to-end tests |
+| `pnpm lint` | Biome check (read only) |
+| `pnpm check` | Biome check with safe fixes (`--write`) |
 
-- **Next.js 16** (App Router) + **TypeScript** strict
-- **Tailwind v4** (sin config JS, runtime CSS)
-- **Biome** (linter + formatter)
-- **Supabase** (clients para browser, server component, server action)
-- **Animation pack**: GSAP + ScrollTrigger + Lenis + Three.js + R3F + Drei + Framer Motion + Lottie
-- **Testing**: Vitest (unit) + Playwright (E2E)
-- **CI**: GitHub Actions con docs-only workflow para PRs de documentación
+## Layout
 
-## Filosofía
+- `lib/dominio/`: pure domain logic (no network, no database, no implicit clock).
+- `lib/proveedores/`: providers (HeyGen, ElevenLabs, Anthropic, Meta, R2).
+- `tests/unit/`: Vitest unit tests.
+- `docs/superpowers/plans/`: build plans.
 
-**Todo preinstalado.** Las deps que no usas no estorban: son 50 MB de `node_modules`, irrelevantes para producción. El bundle final solo incluye lo que importas. Eliminar deps después es trivial; agregarlas con consistencia con el resto del setup es lo que paga.
+## Design
 
-## Estructura
-
-```
-create-wav-app/
-├── app/                    # Next.js App Router
-├── components/ui/          # shadcn primitives (vacío, llenar con pnpm dlx shadcn@latest add ...)
-├── lib/
-│   ├── supabase/           # browser/server/action clients
-│   ├── animation/          # GSAP + Lenis helpers
-│   └── utils.ts            # cn() helper
-├── tests/
-│   ├── unit/               # Vitest
-│   └── e2e/                # Playwright
-├── .claude/
-│   └── CLAUDE.md.template  # wnew lo personaliza al crear proyecto
-├── .github/workflows/
-│   ├── ci.yml
-│   └── docs-only.yml
-└── .env.example
-```
-
-## pnpm 11
-
-Este template usa la sintaxis nueva de pnpm 11 en `pnpm-workspace.yaml`:
-
-```yaml
-allowBuilds:
-  sharp: true
-  '@biomejs/biome': true
-  unrs-resolver: true
-```
-
-Si copias esto a un proyecto con pnpm 10, usa la sintaxis legacy (`onlyBuiltDependencies` en package.json).
-
-## Ver también
-
-- `~/.claude/CLAUDE.md` — reglas universales
-- Wizard `wnew` (Fase 3b del setup global)
+Decisions live in `~/Projects/coni-heygen/docs/designs/plataforma-coni.md`; the "Cambios aceptados"
+section takes precedence over the body. `PRODUCT.md` and `DESIGN.md` sit next to it.
