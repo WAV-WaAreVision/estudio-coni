@@ -2,7 +2,7 @@
 export const PALABRAS_POR_MINUTO = 150
 export const PENDIENTE = "PENDIENTE"
 
-/** Python's `str.split()`: split on whitespace runs and drop empty pieces. */
+/** Python's `str.split()` for real text. It differs only on U+001C to U+001F and U+0085 (Python splits) and U+FEFF (JS splits); neither appears in scripts. */
 export function palabras(texto: string): string[] {
   return texto.split(/\s+/).filter(Boolean)
 }

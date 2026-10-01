@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { estimarSegundos, mmss, pendiente, redondearPar, valorDefinido } from "@/lib/dominio/estimaciones"
+import { estimarSegundos, mmss, palabras, pendiente, redondearPar, valorDefinido } from "@/lib/dominio/estimaciones"
 
 describe("estimaciones", () => {
   it("estima sesenta segundos cuando hay ciento cincuenta palabras", () => {
@@ -21,6 +21,22 @@ describe("estimaciones", () => {
     expect(redondearPar(112.5)).toBe(112)
     expect(redondearPar(137.5)).toBe(138)
     expect(redondearPar(112.4999)).toBe(112)
+  })
+
+  it("coincide con Python cuando el valor es negativo o trae ruido de punto flotante", () => {
+    expect(redondearPar(-2.5)).toBe(-2)
+    expect(redondearPar(-3.5)).toBe(-4)
+    expect(redondearPar(-0.5)).toBeCloseTo(0)
+    expect(redondearPar(1.125 * 100)).toBe(112)
+    expect(redondearPar(112.4999999999)).toBe(112)
+    expect(redondearPar(112.5000000001)).toBe(113)
+    expect(redondearPar(2.675 * 100)).toBe(268)
+  })
+
+  it("separa palabras como str.split de Python cuando hay espacios, saltos y signos", () => {
+    expect(palabras("")).toEqual([])
+    expect(palabras("  \n ")).toEqual([])
+    expect(palabras("a b\n\n¿Qué?  ¡Sí!")).toEqual(["a", "b", "¿Qué?", "¡Sí!"])
   })
 
   it("marca pendiente cuando el valor falta o dice pendiente", () => {
