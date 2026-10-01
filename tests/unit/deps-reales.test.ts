@@ -1,20 +1,17 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { depsReales } from "@/lib/produccion/deps-reales"
 
-const ANTES = { url: process.env.SUPABASE_URL, clave: process.env.SUPABASE_SERVICE_ROLE_KEY }
+const VARIABLES = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "R2_ACCOUNT_ID"] as const
+const ANTES = Object.fromEntries(VARIABLES.map((nombre) => [nombre, process.env[nombre]]))
 
 beforeEach(() => {
-  delete process.env.SUPABASE_URL
-  delete process.env.SUPABASE_SERVICE_ROLE_KEY
+  for (const nombre of VARIABLES) delete process.env[nombre]
 })
 
 afterEach(() => {
-  for (const [nombre, valor] of [
-    ["SUPABASE_URL", ANTES.url],
-    ["SUPABASE_SERVICE_ROLE_KEY", ANTES.clave],
-  ] as const) {
+  for (const nombre of VARIABLES) {
+    const valor = ANTES[nombre]
     if (valor === undefined) delete process.env[nombre]
     else process.env[nombre] = valor
   }
@@ -30,11 +27,9 @@ describe("depsReales", () => {
     await expect(depsReales()).rejects.toThrow("SUPABASE_SERVICE_ROLE_KEY")
   })
 
-  it("fails as a configuration error before touching the network while the R2 store does not exist (Plan 3b)", async () => {
+  it("names the missing R2 variable before touching the network", async () => {
     process.env.SUPABASE_URL = "http://127.0.0.1:1"
     process.env.SUPABASE_SERVICE_ROLE_KEY = "clave-de-prueba"
-    const error = await depsReales().catch((e: unknown) => e)
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error).toMatchObject({ message: expect.stringContaining("R2") })
+    await expect(depsReales()).rejects.toThrow("R2_ACCOUNT_ID")
   })
 })
