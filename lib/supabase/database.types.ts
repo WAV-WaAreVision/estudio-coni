@@ -37,6 +37,7 @@ export type Database = {
       ajustes: {
         Row: {
           dias_publicacion: number[]
+          enlaces: Json
           hora_publicacion: string
           id: boolean
           meta: string
@@ -48,6 +49,7 @@ export type Database = {
         }
         Insert: {
           dias_publicacion?: number[]
+          enlaces?: Json
           hora_publicacion?: string
           id?: boolean
           meta?: string
@@ -59,6 +61,7 @@ export type Database = {
         }
         Update: {
           dias_publicacion?: number[]
+          enlaces?: Json
           hora_publicacion?: string
           id?: boolean
           meta?: string
@@ -67,6 +70,24 @@ export type Database = {
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
+        }
+        Relationships: []
+      }
+      clics_enlace_dia: {
+        Row: {
+          clics: number
+          dia: string
+          enlace: string
+        }
+        Insert: {
+          clics?: number
+          dia: string
+          enlace: string
+        }
+        Update: {
+          clics?: number
+          dia?: string
+          enlace?: string
         }
         Relationships: []
       }
@@ -459,6 +480,24 @@ export type Database = {
           },
         ]
       }
+      visitas_clic: {
+        Row: {
+          dia: string
+          enlace: string
+          visitante: string
+        }
+        Insert: {
+          dia: string
+          enlace: string
+          visitante: string
+        }
+        Update: {
+          dia?: string
+          enlace?: string
+          visitante?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -568,6 +607,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      registrar_clic: {
+        Args: { p_dia: string; p_enlace: string; p_visitante: string }
+        Returns: boolean
       }
       reservar_gasto: {
         Args: {

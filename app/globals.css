@@ -188,3 +188,8 @@ body {
 .deslizador[data-activo="false"]::-moz-range-thumb {
   background: var(--apagado);
 }
+
+/* The public page of the bio link is raspberry edge to edge, overscroll included (DESIGN.md, Excepción de `/l`). */
+body:has([data-superficie="marca"]) {
+  background: var(--acento);
+}
