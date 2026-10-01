@@ -17,13 +17,14 @@ Tipo: **Web app autenticada (ERP-style)**
 - Motion: solo CSS, feedback de estado de 150 a 250 ms (sin pack de animación)
 - Biome (linter + formatter)
 - Vitest (unit) + Playwright (E2E)
-- pnpm 11+ / Node 24+
+- pnpm 12.6 / Node 24
 
 ## Comandos
 
 ```bash
 pnpm dev              # dev server (Turbopack)
 pnpm build            # production build
+pnpm type             # next typegen + tsc --noEmit
 pnpm test             # vitest watch
 pnpm test:run         # vitest single run (CI)
 pnpm test:e2e         # playwright
