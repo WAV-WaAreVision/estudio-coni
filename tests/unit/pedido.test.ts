@@ -95,6 +95,20 @@ describe("armarPedido", () => {
     expect(pedido(cfg).cuerpo).not.toHaveProperty("voice_settings")
   })
 
+  it("omite ajustes de voz cuando los ajustes de elevenlabs vienen vacíos", () => {
+    // coni.py treats an empty settings dict as "none", so the body carries no engine_settings.
+    const cfg = config()
+    cfg.heygen.ajustes_elevenlabs = {}
+    expect(pedido(cfg).cuerpo).not.toHaveProperty("voice_settings")
+  })
+
+  it("omite ajustes de voz cuando la velocidad no está en la config", () => {
+    const cfg = config()
+    cfg.heygen.ajustes_elevenlabs = null
+    cfg.heygen.velocidad = undefined
+    expect(pedido(cfg).cuerpo).not.toHaveProperty("voice_settings")
+  })
+
   it("usa el audio propio cuando hay audio asset id", () => {
     const cfg = config()
     cfg.ruta_voz = "elevenlabs"

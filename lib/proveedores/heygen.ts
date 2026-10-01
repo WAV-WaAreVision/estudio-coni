@@ -16,7 +16,7 @@ export interface ConfigProduccion {
     avatar_id: string | null
     voice_id: string | null
     ajustes_elevenlabs: AjustesElevenlabs | null
-    velocidad: number | null
+    velocidad?: number | null
     aspect_ratio: string | null
     resolution: string | null
     motor: string | null
@@ -117,7 +117,8 @@ export function armarPedido(entrada: {
     cuerpo.voice_id = voz
     const ajustesVoz: NonNullable<PedidoHeygen["voice_settings"]> = {}
     const ajustes = hg.ajustes_elevenlabs
-    if (ajustes) {
+    // Like coni.py, an empty settings object counts as no settings.
+    if (ajustes && Object.keys(ajustes).length > 0) {
       if (ajustes.model && !MODELOS_ELEVEN.has(ajustes.model)) {
         throw new Falla(`Modelo de ElevenLabs no válido: ${ajustes.model}`)
       }
@@ -132,7 +133,7 @@ export function armarPedido(entrada: {
       }
       ajustesVoz.engine_settings = { engine_type: "elevenlabs", ...ajustes }
     }
-    if (hg.velocidad !== null && hg.velocidad !== 1) {
+    if (typeof hg.velocidad === "number" && hg.velocidad !== 1) {
       ajustesVoz.speed = hg.velocidad
     }
     if (Object.keys(ajustesVoz).length > 0) {
