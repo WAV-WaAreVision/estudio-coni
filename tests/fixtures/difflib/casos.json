@@ -1,0 +1,1223 @@
+[
+  {
+    "a": "bcccc",
+    "b": "acaaca",
+    "ratio": 0.36363636363636365,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 2, 1, 2],
+      ["insert", 2, 2, 2, 4],
+      ["equal", 2, 3, 4, 5],
+      ["replace", 3, 5, 5, 6]
+    ]
+  },
+  { "a": "", "b": "bb", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 2]] },
+  {
+    "a": "acbbb",
+    "b": "baa",
+    "ratio": 0.25,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["replace", 1, 5, 2, 3]]
+  },
+  {
+    "a": "fcd",
+    "b": "bcdeffa",
+    "ratio": 0.4,
+    "opcodes": [["replace", 0, 1, 0, 1], ["equal", 1, 3, 1, 3], ["insert", 3, 3, 3, 7]]
+  },
+  {
+    "a": "edaadd",
+    "b": "db",
+    "ratio": 0.25,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["replace", 2, 6, 1, 2]]
+  },
+  {
+    "a": "adda",
+    "b": "bdfeedbdf",
+    "ratio": 0.3076923076923077,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 2, 1, 2],
+      ["insert", 2, 2, 2, 5],
+      ["equal", 2, 3, 5, 6],
+      ["replace", 3, 4, 6, 9]
+    ]
+  },
+  {
+    "a": "bbabbbacb",
+    "b": "accabdd",
+    "ratio": 0.25,
+    "opcodes": [["replace", 0, 2, 0, 3], ["equal", 2, 4, 3, 5], ["replace", 4, 9, 5, 7]]
+  },
+  {
+    "a": "cdceebbc",
+    "b": "adbbeae",
+    "ratio": 0.4,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 2, 1, 2],
+      ["delete", 2, 5, 2, 2],
+      ["equal", 5, 7, 2, 4],
+      ["replace", 7, 8, 4, 7]
+    ]
+  },
+  {
+    "a": "babbdec",
+    "b": "bbe",
+    "ratio": 0.6,
+    "opcodes": [
+      ["delete", 0, 2, 0, 0],
+      ["equal", 2, 4, 0, 2],
+      ["delete", 4, 5, 2, 2],
+      ["equal", 5, 6, 2, 3],
+      ["delete", 6, 7, 3, 3]
+    ]
+  },
+  {
+    "a": "bbcba",
+    "b": "dbbbbcd",
+    "ratio": 0.5,
+    "opcodes": [["insert", 0, 0, 0, 3], ["equal", 0, 3, 3, 6], ["replace", 3, 5, 6, 7]]
+  },
+  { "a": "", "b": "bbadabbdbd", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 10]] },
+  {
+    "a": "bbbbbbab",
+    "b": "ababababba",
+    "ratio": 0.6666666666666666,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 1, 1, 2],
+      ["insert", 1, 1, 2, 3],
+      ["equal", 1, 2, 3, 4],
+      ["insert", 2, 2, 4, 5],
+      ["equal", 2, 3, 5, 6],
+      ["replace", 3, 4, 6, 7],
+      ["equal", 4, 7, 7, 10],
+      ["delete", 7, 8, 10, 10]
+    ]
+  },
+  {
+    "a": "cebbc",
+    "b": "ebad",
+    "ratio": 0.4444444444444444,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 3, 0, 2], ["replace", 3, 5, 2, 4]]
+  },
+  {
+    "a": "baebccdbb",
+    "b": "e",
+    "ratio": 0.2,
+    "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 3, 0, 1], ["delete", 3, 9, 1, 1]]
+  },
+  {
+    "a": "abbccdaecb",
+    "b": "dabb",
+    "ratio": 0.42857142857142855,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 3, 1, 4], ["delete", 3, 10, 4, 4]]
+  },
+  { "a": "bcba", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 4, 0, 0]] },
+  {
+    "a": "baebaeaba",
+    "b": "debecee",
+    "ratio": 0.375,
+    "opcodes": [
+      ["replace", 0, 2, 0, 1],
+      ["equal", 2, 4, 1, 3],
+      ["delete", 4, 5, 3, 3],
+      ["equal", 5, 6, 3, 4],
+      ["replace", 6, 9, 4, 7]
+    ]
+  },
+  {
+    "a": "acb",
+    "b": "abaacaccba",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 2, 3, 5],
+      ["insert", 2, 2, 5, 8],
+      ["equal", 2, 3, 8, 9],
+      ["insert", 3, 3, 9, 10]
+    ]
+  },
+  {
+    "a": "dbccddc",
+    "b": "aaecdacdba",
+    "ratio": 0.23529411764705882,
+    "opcodes": [["insert", 0, 0, 0, 7], ["equal", 0, 2, 7, 9], ["replace", 2, 7, 9, 10]]
+  },
+  {
+    "a": "cadaabddba",
+    "b": "ccbdaacac",
+    "ratio": 0.5263157894736842,
+    "opcodes": [
+      ["equal", 0, 1, 0, 1],
+      ["replace", 1, 2, 1, 3],
+      ["equal", 2, 5, 3, 6],
+      ["replace", 5, 9, 6, 7],
+      ["equal", 9, 10, 7, 8],
+      ["insert", 10, 10, 8, 9]
+    ]
+  },
+  {
+    "a": "b",
+    "b": "abbccc",
+    "ratio": 0.2857142857142857,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["insert", 1, 1, 2, 6]]
+  },
+  {
+    "a": "ebcbadc",
+    "b": "fdb",
+    "ratio": 0.2,
+    "opcodes": [["replace", 0, 1, 0, 2], ["equal", 1, 2, 2, 3], ["delete", 2, 7, 3, 3]]
+  },
+  {
+    "a": "b",
+    "b": "abcbcccb",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["insert", 1, 1, 2, 8]]
+  },
+  {
+    "a": "babbbbbbba",
+    "b": "bb",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 4, 0, 2], ["delete", 4, 10, 2, 2]]
+  },
+  {
+    "a": "bacbdacaed",
+    "b": "cbcadcba",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 6], ["equal", 0, 2, 6, 8], ["delete", 2, 10, 8, 8]]
+  },
+  { "a": "", "b": "feebbd", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 6]] },
+  { "a": "", "b": "a", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 1]] },
+  { "a": "cce", "b": "ba", "ratio": 0.0, "opcodes": [["replace", 0, 3, 0, 2]] },
+  {
+    "a": "bd",
+    "b": "ddca",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["insert", 2, 2, 1, 4]]
+  },
+  {
+    "a": "bddcdabba",
+    "b": "bcab",
+    "ratio": 0.6153846153846154,
+    "opcodes": [
+      ["equal", 0, 1, 0, 1],
+      ["delete", 1, 3, 1, 1],
+      ["equal", 3, 4, 1, 2],
+      ["delete", 4, 5, 2, 2],
+      ["equal", 5, 7, 2, 4],
+      ["delete", 7, 9, 4, 4]
+    ]
+  },
+  {
+    "a": "aeeddbcb",
+    "b": "babebc",
+    "ratio": 0.5714285714285714,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 1, 1, 2],
+      ["insert", 1, 1, 2, 3],
+      ["equal", 1, 2, 3, 4],
+      ["delete", 2, 5, 4, 4],
+      ["equal", 5, 7, 4, 6],
+      ["delete", 7, 8, 6, 6]
+    ]
+  },
+  { "a": "cd", "b": "dacd", "ratio": 0.6666666666666666, "opcodes": [["insert", 0, 0, 0, 2], ["equal", 0, 2, 2, 4]] },
+  {
+    "a": "adcbabddbb",
+    "b": "c",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 3, 0, 1], ["delete", 3, 10, 1, 1]]
+  },
+  { "a": "c", "b": "cacaca", "ratio": 0.2857142857142857, "opcodes": [["equal", 0, 1, 0, 1], ["insert", 1, 1, 1, 6]] },
+  {
+    "a": "aaabbacc",
+    "b": "cbd",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["replace", 0, 3, 0, 1], ["equal", 3, 4, 1, 2], ["replace", 4, 8, 2, 3]]
+  },
+  { "a": "", "b": "accbcbbc", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 8]] },
+  { "a": "c", "b": "aba", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 3]] },
+  {
+    "a": "caeceb",
+    "b": "cbe",
+    "ratio": 0.4444444444444444,
+    "opcodes": [["equal", 0, 1, 0, 1], ["replace", 1, 2, 1, 2], ["equal", 2, 3, 2, 3], ["delete", 3, 6, 3, 3]]
+  },
+  {
+    "a": "cb",
+    "b": "ffffcfe",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 1, 4, 5], ["replace", 1, 2, 5, 7]]
+  },
+  {
+    "a": "cede",
+    "b": "addbeb",
+    "ratio": 0.2,
+    "opcodes": [["replace", 0, 1, 0, 4], ["equal", 1, 2, 4, 5], ["replace", 2, 4, 5, 6]]
+  },
+  { "a": "abccdaaaab", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 10, 0, 0]] },
+  {
+    "a": "abba",
+    "b": "bbaabbb",
+    "ratio": 0.5454545454545454,
+    "opcodes": [["insert", 0, 0, 0, 3], ["equal", 0, 3, 3, 6], ["replace", 3, 4, 6, 7]]
+  },
+  { "a": "aaabb", "b": "a", "ratio": 0.3333333333333333, "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 5, 1, 1]] },
+  { "a": "", "b": "eedbededd", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 9]] },
+  {
+    "a": "baabbaaba",
+    "b": "abbab",
+    "ratio": 0.7142857142857143,
+    "opcodes": [
+      ["delete", 0, 2, 0, 0],
+      ["equal", 2, 6, 0, 4],
+      ["delete", 6, 7, 4, 4],
+      ["equal", 7, 8, 4, 5],
+      ["delete", 8, 9, 5, 5]
+    ]
+  },
+  {
+    "a": "ae",
+    "b": "dabea",
+    "ratio": 0.5714285714285714,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 1, 1, 2],
+      ["insert", 1, 1, 2, 3],
+      ["equal", 1, 2, 3, 4],
+      ["insert", 2, 2, 4, 5]
+    ]
+  },
+  {
+    "a": "eccdaeab",
+    "b": "dddaddecd",
+    "ratio": 0.35294117647058826,
+    "opcodes": [
+      ["insert", 0, 0, 0, 6],
+      ["equal", 0, 2, 6, 8],
+      ["delete", 2, 3, 8, 8],
+      ["equal", 3, 4, 8, 9],
+      ["delete", 4, 8, 9, 9]
+    ]
+  },
+  {
+    "a": "cabcaae",
+    "b": "acda",
+    "ratio": 0.36363636363636365,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 1, 1, 2],
+      ["insert", 1, 1, 2, 3],
+      ["equal", 1, 2, 3, 4],
+      ["delete", 2, 7, 4, 4]
+    ]
+  },
+  {
+    "a": "aabaa",
+    "b": "bbabbba",
+    "ratio": 0.5,
+    "opcodes": [
+      ["replace", 0, 1, 0, 2],
+      ["equal", 1, 3, 2, 4],
+      ["insert", 3, 3, 4, 6],
+      ["equal", 3, 4, 6, 7],
+      ["delete", 4, 5, 7, 7]
+    ]
+  },
+  {
+    "a": "dbddbac",
+    "b": "dbcac",
+    "ratio": 0.6666666666666666,
+    "opcodes": [["equal", 0, 2, 0, 2], ["replace", 2, 5, 2, 3], ["equal", 5, 7, 3, 5]]
+  },
+  { "a": "de", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 2, 0, 0]] },
+  { "a": "abaa", "b": "ab", "ratio": 0.6666666666666666, "opcodes": [["equal", 0, 2, 0, 2], ["delete", 2, 4, 2, 2]] },
+  {
+    "a": "dcdfcd",
+    "b": "cfeeed",
+    "ratio": 0.16666666666666666,
+    "opcodes": [["insert", 0, 0, 0, 5], ["equal", 0, 1, 5, 6], ["delete", 1, 6, 6, 6]]
+  },
+  {
+    "a": "aaaacbcac",
+    "b": "b",
+    "ratio": 0.2,
+    "opcodes": [["delete", 0, 5, 0, 0], ["equal", 5, 6, 0, 1], ["delete", 6, 9, 1, 1]]
+  },
+  { "a": "bcccaa", "b": "b", "ratio": 0.2857142857142857, "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 6, 1, 1]] },
+  {
+    "a": "ccaabcc",
+    "b": "acbbbabb",
+    "ratio": 0.4,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 1, 1, 2],
+      ["replace", 1, 3, 2, 5],
+      ["equal", 3, 5, 5, 7],
+      ["replace", 5, 7, 7, 8]
+    ]
+  },
+  { "a": "", "b": "bcb", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 3]] },
+  {
+    "a": "aabbbabaa",
+    "b": "babbbabbb",
+    "ratio": 0.6666666666666666,
+    "opcodes": [["replace", 0, 1, 0, 1], ["equal", 1, 7, 1, 7], ["replace", 7, 9, 7, 9]]
+  },
+  {
+    "a": "baabbb",
+    "b": "a",
+    "ratio": 0.2857142857142857,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["delete", 2, 6, 1, 1]]
+  },
+  {
+    "a": "abbaa",
+    "b": "abbbbabbba",
+    "ratio": 0.6666666666666666,
+    "opcodes": [
+      ["equal", 0, 3, 0, 3],
+      ["insert", 3, 3, 3, 5],
+      ["equal", 3, 4, 5, 6],
+      ["insert", 4, 4, 6, 9],
+      ["equal", 4, 5, 9, 10]
+    ]
+  },
+  {
+    "a": "fd",
+    "b": "dce",
+    "ratio": 0.4,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["insert", 2, 2, 1, 3]]
+  },
+  {
+    "a": "aaaa",
+    "b": "ababbabbb",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["equal", 0, 1, 0, 1],
+      ["insert", 1, 1, 1, 2],
+      ["equal", 1, 2, 2, 3],
+      ["insert", 2, 2, 3, 5],
+      ["equal", 2, 3, 5, 6],
+      ["replace", 3, 4, 6, 9]
+    ]
+  },
+  {
+    "a": "aaddb",
+    "b": "becb",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["delete", 0, 4, 0, 0], ["equal", 4, 5, 0, 1], ["insert", 5, 5, 1, 4]]
+  },
+  { "a": "", "b": "", "ratio": 1.0, "opcodes": [] },
+  { "a": "d", "b": "bf", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 2]] },
+  {
+    "a": "bdb",
+    "b": "becefeacd",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["equal", 0, 1, 0, 1], ["insert", 1, 1, 1, 8], ["equal", 1, 2, 8, 9], ["delete", 2, 3, 9, 9]]
+  },
+  {
+    "a": "bcdeabd",
+    "b": "fda",
+    "ratio": 0.4,
+    "opcodes": [
+      ["replace", 0, 2, 0, 1],
+      ["equal", 2, 3, 1, 2],
+      ["delete", 3, 4, 2, 2],
+      ["equal", 4, 5, 2, 3],
+      ["delete", 5, 7, 3, 3]
+    ]
+  },
+  {
+    "a": "bbaabbbbba",
+    "b": "b",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 10, 1, 1]]
+  },
+  {
+    "a": "becfcaa",
+    "b": "edef",
+    "ratio": 0.36363636363636365,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 2, 0, 1],
+      ["replace", 2, 3, 1, 3],
+      ["equal", 3, 4, 3, 4],
+      ["delete", 4, 7, 4, 4]
+    ]
+  },
+  {
+    "a": "efbfcbac",
+    "b": "dabeddcda",
+    "ratio": 0.35294117647058826,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 1, 3, 4],
+      ["replace", 1, 4, 4, 6],
+      ["equal", 4, 5, 6, 7],
+      ["replace", 5, 6, 7, 8],
+      ["equal", 6, 7, 8, 9],
+      ["delete", 7, 8, 9, 9]
+    ]
+  },
+  {
+    "a": "dbaabaca",
+    "b": "addba",
+    "ratio": 0.46153846153846156,
+    "opcodes": [["insert", 0, 0, 0, 2], ["equal", 0, 3, 2, 5], ["delete", 3, 8, 5, 5]]
+  },
+  {
+    "a": "dfea",
+    "b": "acfeed",
+    "ratio": 0.4,
+    "opcodes": [["replace", 0, 1, 0, 2], ["equal", 1, 3, 2, 4], ["replace", 3, 4, 4, 6]]
+  },
+  {
+    "a": "beabbddbd",
+    "b": "cb",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["delete", 1, 9, 2, 2]]
+  },
+  {
+    "a": "bcbacb",
+    "b": "babcaab",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["insert", 0, 0, 0, 2],
+      ["equal", 0, 2, 2, 4],
+      ["insert", 2, 2, 4, 6],
+      ["equal", 2, 3, 6, 7],
+      ["delete", 3, 6, 7, 7]
+    ]
+  },
+  {
+    "a": "bdabddac",
+    "b": "ddaab",
+    "ratio": 0.46153846153846156,
+    "opcodes": [["delete", 0, 4, 0, 0], ["equal", 4, 7, 0, 3], ["replace", 7, 8, 3, 5]]
+  },
+  { "a": "", "b": "edebdcc", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 7]] },
+  {
+    "a": "ccbcbaeecd",
+    "b": "cbdb",
+    "ratio": 0.42857142857142855,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 3, 0, 2],
+      ["replace", 3, 4, 2, 3],
+      ["equal", 4, 5, 3, 4],
+      ["delete", 5, 10, 4, 4]
+    ]
+  },
+  {
+    "a": "aabbaaa",
+    "b": "aaabaabba",
+    "ratio": 0.625,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 5, 4, 9], ["delete", 5, 7, 9, 9]]
+  },
+  { "a": "aabbaa", "b": "bbaa", "ratio": 0.8, "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 6, 0, 4]] },
+  {
+    "a": "dadaadde",
+    "b": "bdfbcefdde",
+    "ratio": 0.4444444444444444,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["replace", 1, 5, 2, 7], ["equal", 5, 8, 7, 10]]
+  },
+  { "a": "eaaeebebbb", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 10, 0, 0]] },
+  { "a": "baabbaaaa", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 9, 0, 0]] },
+  { "a": "baaa", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 4, 0, 0]] },
+  {
+    "a": "cab",
+    "b": "fcceadca",
+    "ratio": 0.36363636363636365,
+    "opcodes": [["insert", 0, 0, 0, 6], ["equal", 0, 2, 6, 8], ["delete", 2, 3, 8, 8]]
+  },
+  {
+    "a": "cbdaadcbed",
+    "b": "cadad",
+    "ratio": 0.5333333333333333,
+    "opcodes": [
+      ["equal", 0, 1, 0, 1],
+      ["replace", 1, 2, 1, 2],
+      ["equal", 2, 4, 2, 4],
+      ["delete", 4, 5, 4, 4],
+      ["equal", 5, 6, 4, 5],
+      ["delete", 6, 10, 5, 5]
+    ]
+  },
+  {
+    "a": "cbbcccbbac",
+    "b": "ca",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 8, 1, 1], ["equal", 8, 9, 1, 2], ["delete", 9, 10, 2, 2]]
+  },
+  { "a": "", "b": "", "ratio": 1.0, "opcodes": [] },
+  {
+    "a": "d",
+    "b": "aacadbaa",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 1, 4, 5], ["insert", 1, 1, 5, 8]]
+  },
+  {
+    "a": "caaabbccb",
+    "b": "bbca",
+    "ratio": 0.46153846153846156,
+    "opcodes": [["delete", 0, 4, 0, 0], ["equal", 4, 7, 0, 3], ["replace", 7, 9, 3, 4]]
+  },
+  { "a": "dd", "b": "bba", "ratio": 0.0, "opcodes": [["replace", 0, 2, 0, 3]] },
+  {
+    "a": "abacbcccb",
+    "b": "aab",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 2, 1, 3], ["delete", 2, 9, 3, 3]]
+  },
+  { "a": "accccbaa", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 8, 0, 0]] },
+  { "a": "e", "b": "cb", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 2]] },
+  {
+    "a": "ebacfd",
+    "b": "cfc",
+    "ratio": 0.4444444444444444,
+    "opcodes": [["delete", 0, 3, 0, 0], ["equal", 3, 5, 0, 2], ["replace", 5, 6, 2, 3]]
+  },
+  { "a": "bddccabcb", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 9, 0, 0]] },
+  {
+    "a": "cbaaacaccb",
+    "b": "acaababbca",
+    "ratio": 0.4,
+    "opcodes": [
+      ["delete", 0, 4, 0, 0],
+      ["equal", 4, 7, 0, 3],
+      ["insert", 7, 7, 3, 8],
+      ["equal", 7, 8, 8, 9],
+      ["replace", 8, 10, 9, 10]
+    ]
+  },
+  {
+    "a": "cb",
+    "b": "bccacbca",
+    "ratio": 0.4,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 2, 4, 6], ["insert", 2, 2, 6, 8]]
+  },
+  {
+    "a": "baba",
+    "b": "abbbaaaaa",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 2, 3, 5],
+      ["delete", 2, 3, 5, 5],
+      ["equal", 3, 4, 5, 6],
+      ["insert", 4, 4, 6, 9]
+    ]
+  },
+  {
+    "a": "baaba",
+    "b": "bb",
+    "ratio": 0.5714285714285714,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 3, 1, 1], ["equal", 3, 4, 1, 2], ["delete", 4, 5, 2, 2]]
+  },
+  {
+    "a": "acdabae",
+    "b": "cdec",
+    "ratio": 0.5454545454545454,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 3, 0, 2],
+      ["delete", 3, 6, 2, 2],
+      ["equal", 6, 7, 2, 3],
+      ["insert", 7, 7, 3, 4]
+    ]
+  },
+  {
+    "a": "adaa",
+    "b": "dbbc",
+    "ratio": 0.25,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["replace", 2, 4, 1, 4]]
+  },
+  {
+    "a": "ababbbaa",
+    "b": "ababbbabbb",
+    "ratio": 0.7777777777777778,
+    "opcodes": [["equal", 0, 7, 0, 7], ["replace", 7, 8, 7, 10]]
+  },
+  { "a": "", "b": "da", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 2]] },
+  {
+    "a": "aaa",
+    "b": "caacc",
+    "ratio": 0.5,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 2, 1, 3], ["replace", 2, 3, 3, 5]]
+  },
+  {
+    "a": "cdfbf",
+    "b": "ede",
+    "ratio": 0.25,
+    "opcodes": [["replace", 0, 1, 0, 1], ["equal", 1, 2, 1, 2], ["replace", 2, 5, 2, 3]]
+  },
+  { "a": "bcbac", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 5, 0, 0]] },
+  {
+    "a": "acbababccc",
+    "b": "babb",
+    "ratio": 0.5714285714285714,
+    "opcodes": [
+      ["delete", 0, 2, 0, 0],
+      ["equal", 2, 5, 0, 3],
+      ["delete", 5, 6, 3, 3],
+      ["equal", 6, 7, 3, 4],
+      ["delete", 7, 10, 4, 4]
+    ]
+  },
+  {
+    "a": "bb",
+    "b": "ababbaaa",
+    "ratio": 0.4,
+    "opcodes": [["insert", 0, 0, 0, 3], ["equal", 0, 2, 3, 5], ["insert", 2, 2, 5, 8]]
+  },
+  {
+    "a": "aacba",
+    "b": "acb",
+    "ratio": 0.75,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 4, 0, 3], ["delete", 4, 5, 3, 3]]
+  },
+  { "a": "abcfffcadc", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 10, 0, 0]] },
+  {
+    "a": "eecaaceef",
+    "b": "acdcff",
+    "ratio": 0.4,
+    "opcodes": [
+      ["delete", 0, 4, 0, 0],
+      ["equal", 4, 6, 0, 2],
+      ["replace", 6, 8, 2, 4],
+      ["equal", 8, 9, 4, 5],
+      ["insert", 9, 9, 5, 6]
+    ]
+  },
+  { "a": "dacccbb", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 7, 0, 0]] },
+  {
+    "a": "abbaa",
+    "b": "ba",
+    "ratio": 0.5714285714285714,
+    "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 4, 0, 2], ["delete", 4, 5, 2, 2]]
+  },
+  {
+    "a": "aafc",
+    "b": "cdbeeedeba",
+    "ratio": 0.14285714285714285,
+    "opcodes": [["insert", 0, 0, 0, 9], ["equal", 0, 1, 9, 10], ["delete", 1, 4, 10, 10]]
+  },
+  {
+    "a": "ecddd",
+    "b": "ecdaddc",
+    "ratio": 0.8333333333333334,
+    "opcodes": [["equal", 0, 3, 0, 3], ["insert", 3, 3, 3, 4], ["equal", 3, 5, 4, 6], ["insert", 5, 5, 6, 7]]
+  },
+  {
+    "a": "baaabbbabb",
+    "b": "bab",
+    "ratio": 0.46153846153846156,
+    "opcodes": [["delete", 0, 6, 0, 0], ["equal", 6, 9, 0, 3], ["delete", 9, 10, 3, 3]]
+  },
+  { "a": "eb", "b": "cfcfeb", "ratio": 0.5, "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 2, 4, 6]] },
+  { "a": "c", "b": "cbdcaa", "ratio": 0.2857142857142857, "opcodes": [["equal", 0, 1, 0, 1], ["insert", 1, 1, 1, 6]] },
+  {
+    "a": "eefced",
+    "b": "deb",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["replace", 1, 6, 2, 3]]
+  },
+  {
+    "a": "aabbdb",
+    "b": "abb",
+    "ratio": 0.6666666666666666,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 4, 0, 3], ["delete", 4, 6, 3, 3]]
+  },
+  {
+    "a": "ddc",
+    "b": "ccaebcc",
+    "ratio": 0.2,
+    "opcodes": [["delete", 0, 2, 0, 0], ["equal", 2, 3, 0, 1], ["insert", 3, 3, 1, 7]]
+  },
+  { "a": "b", "b": "a", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 1]] },
+  {
+    "a": "cdcbca",
+    "b": "db",
+    "ratio": 0.5,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 2, 0, 1],
+      ["delete", 2, 3, 1, 1],
+      ["equal", 3, 4, 1, 2],
+      ["delete", 4, 6, 2, 2]
+    ]
+  },
+  {
+    "a": "cba",
+    "b": "baaa",
+    "ratio": 0.5714285714285714,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 3, 0, 2], ["insert", 3, 3, 2, 4]]
+  },
+  { "a": "bbaccacbaa", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 10, 0, 0]] },
+  {
+    "a": "eabaecaaca",
+    "b": "aacb",
+    "ratio": 0.42857142857142855,
+    "opcodes": [["delete", 0, 6, 0, 0], ["equal", 6, 9, 0, 3], ["replace", 9, 10, 3, 4]]
+  },
+  { "a": "", "b": "bbabab", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 6]] },
+  {
+    "a": "d",
+    "b": "fddbf",
+    "ratio": 0.3333333333333333,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["insert", 1, 1, 2, 5]]
+  },
+  {
+    "a": "abebdaebe",
+    "b": "beedeabcd",
+    "ratio": 0.3333333333333333,
+    "opcodes": [
+      ["insert", 0, 0, 0, 5],
+      ["equal", 0, 2, 5, 7],
+      ["replace", 2, 4, 7, 8],
+      ["equal", 4, 5, 8, 9],
+      ["delete", 5, 9, 9, 9]
+    ]
+  },
+  { "a": "aabaa", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 5, 0, 0]] },
+  {
+    "a": "c",
+    "b": "aaacaab",
+    "ratio": 0.25,
+    "opcodes": [["insert", 0, 0, 0, 3], ["equal", 0, 1, 3, 4], ["insert", 1, 1, 4, 7]]
+  },
+  {
+    "a": "aaabbb",
+    "b": "b",
+    "ratio": 0.2857142857142857,
+    "opcodes": [["delete", 0, 3, 0, 0], ["equal", 3, 4, 0, 1], ["delete", 4, 6, 1, 1]]
+  },
+  { "a": "b", "b": "cc", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 2]] },
+  {
+    "a": "ccac",
+    "b": "bcccccaa",
+    "ratio": 0.5,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 3, 4, 7], ["replace", 3, 4, 7, 8]]
+  },
+  {
+    "a": "dabadc",
+    "b": "adcddcb",
+    "ratio": 0.46153846153846156,
+    "opcodes": [["delete", 0, 3, 0, 0], ["equal", 3, 6, 0, 3], ["insert", 6, 6, 3, 7]]
+  },
+  {
+    "a": "cdacabb",
+    "b": "cadd",
+    "ratio": 0.36363636363636365,
+    "opcodes": [["delete", 0, 3, 0, 0], ["equal", 3, 5, 0, 2], ["replace", 5, 7, 2, 4]]
+  },
+  {
+    "a": "bcbbacbb",
+    "b": "adcbac",
+    "ratio": 0.5714285714285714,
+    "opcodes": [
+      ["replace", 0, 1, 0, 2],
+      ["equal", 1, 2, 2, 3],
+      ["delete", 2, 3, 3, 3],
+      ["equal", 3, 6, 3, 6],
+      ["delete", 6, 8, 6, 6]
+    ]
+  },
+  {
+    "a": "babbccaac",
+    "b": "cabcaaa",
+    "ratio": 0.625,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 3, 1, 3],
+      ["delete", 3, 5, 3, 3],
+      ["equal", 5, 8, 3, 6],
+      ["replace", 8, 9, 6, 7]
+    ]
+  },
+  {
+    "a": "dabbadb",
+    "b": "dbada",
+    "ratio": 0.6666666666666666,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 3, 1, 1], ["equal", 3, 6, 1, 4], ["replace", 6, 7, 4, 5]]
+  },
+  { "a": "", "b": "bba", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 3]] },
+  { "a": "beda", "b": "f", "ratio": 0.0, "opcodes": [["replace", 0, 4, 0, 1]] },
+  {
+    "a": "cedbfef",
+    "b": "ebdadfebde",
+    "ratio": 0.47058823529411764,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 2, 0, 1],
+      ["insert", 2, 2, 1, 2],
+      ["equal", 2, 3, 2, 3],
+      ["replace", 3, 4, 3, 5],
+      ["equal", 4, 6, 5, 7],
+      ["replace", 6, 7, 7, 10]
+    ]
+  },
+  {
+    "a": "c",
+    "b": "accaabca",
+    "ratio": 0.2222222222222222,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["insert", 1, 1, 2, 8]]
+  },
+  { "a": "", "b": "bbdb", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 4]] },
+  { "a": "abcba", "b": "ddd", "ratio": 0.0, "opcodes": [["replace", 0, 5, 0, 3]] },
+  { "a": "bbabbbb", "b": "b", "ratio": 0.25, "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 7, 1, 1]] },
+  { "a": "", "b": "cbbdcddb", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 8]] },
+  {
+    "a": "dbdcaa",
+    "b": "adbacddcee",
+    "ratio": 0.5,
+    "opcodes": [
+      ["insert", 0, 0, 0, 1],
+      ["equal", 0, 2, 1, 3],
+      ["insert", 2, 2, 3, 6],
+      ["equal", 2, 4, 6, 8],
+      ["replace", 4, 6, 8, 10]
+    ]
+  },
+  {
+    "a": "aba",
+    "b": "ca",
+    "ratio": 0.4,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["delete", 1, 3, 2, 2]]
+  },
+  { "a": "bb", "b": "abcbb", "ratio": 0.5714285714285714, "opcodes": [["insert", 0, 0, 0, 3], ["equal", 0, 2, 3, 5]] },
+  { "a": "cdfdcbeff", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 9, 0, 0]] },
+  {
+    "a": "bbbb",
+    "b": "aaabbaaba",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 2, 3, 5],
+      ["insert", 2, 2, 5, 7],
+      ["equal", 2, 3, 7, 8],
+      ["replace", 3, 4, 8, 9]
+    ]
+  },
+  {
+    "a": "cada",
+    "b": "bbbd",
+    "ratio": 0.25,
+    "opcodes": [["replace", 0, 2, 0, 3], ["equal", 2, 3, 3, 4], ["delete", 3, 4, 4, 4]]
+  },
+  {
+    "a": "bb",
+    "b": "adbcbacaaa",
+    "ratio": 0.3333333333333333,
+    "opcodes": [
+      ["insert", 0, 0, 0, 2],
+      ["equal", 0, 1, 2, 3],
+      ["insert", 1, 1, 3, 4],
+      ["equal", 1, 2, 4, 5],
+      ["insert", 2, 2, 5, 10]
+    ]
+  },
+  {
+    "a": "adabbbbbb",
+    "b": "bddbddcb",
+    "ratio": 0.35294117647058826,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 2, 1, 2],
+      ["replace", 2, 3, 2, 3],
+      ["equal", 3, 4, 3, 4],
+      ["insert", 4, 4, 4, 7],
+      ["equal", 4, 5, 7, 8],
+      ["delete", 5, 9, 8, 8]
+    ]
+  },
+  {
+    "a": "bbcbbacaaa",
+    "b": "bacacaaba",
+    "ratio": 0.631578947368421,
+    "opcodes": [
+      ["delete", 0, 4, 0, 0],
+      ["equal", 4, 8, 0, 4],
+      ["insert", 8, 8, 4, 5],
+      ["equal", 8, 10, 5, 7],
+      ["insert", 10, 10, 7, 9]
+    ]
+  },
+  { "a": "", "b": "", "ratio": 1.0, "opcodes": [] },
+  {
+    "a": "beadacbcd",
+    "b": "ecacdacbad",
+    "ratio": 0.7368421052631579,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 2, 0, 1],
+      ["insert", 2, 2, 1, 2],
+      ["equal", 2, 3, 2, 3],
+      ["insert", 3, 3, 3, 4],
+      ["equal", 3, 7, 4, 8],
+      ["replace", 7, 8, 8, 9],
+      ["equal", 8, 9, 9, 10]
+    ]
+  },
+  {
+    "a": "abac",
+    "b": "aaaa",
+    "ratio": 0.5,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 2, 1, 1], ["equal", 2, 3, 1, 2], ["replace", 3, 4, 2, 4]]
+  },
+  {
+    "a": "babaa",
+    "b": "abbccabb",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 3, 0, 2],
+      ["insert", 3, 3, 2, 5],
+      ["equal", 3, 4, 5, 6],
+      ["replace", 4, 5, 6, 8]
+    ]
+  },
+  {
+    "a": "bcaacaca",
+    "b": "abb",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["insert", 0, 0, 0, 1], ["equal", 0, 1, 1, 2], ["replace", 1, 8, 2, 3]]
+  },
+  {
+    "a": "ababbbbaab",
+    "b": "aaabaaa",
+    "ratio": 0.5882352941176471,
+    "opcodes": [
+      ["insert", 0, 0, 0, 2],
+      ["equal", 0, 3, 2, 5],
+      ["delete", 3, 7, 5, 5],
+      ["equal", 7, 9, 5, 7],
+      ["delete", 9, 10, 7, 7]
+    ]
+  },
+  {
+    "a": "ccbedccaae",
+    "b": "aecdab",
+    "ratio": 0.25,
+    "opcodes": [["delete", 0, 8, 0, 0], ["equal", 8, 10, 0, 2], ["insert", 10, 10, 2, 6]]
+  },
+  {
+    "a": "cebbbec",
+    "b": "bcacddcce",
+    "ratio": 0.25,
+    "opcodes": [["insert", 0, 0, 0, 7], ["equal", 0, 2, 7, 9], ["delete", 2, 7, 9, 9]]
+  },
+  { "a": "", "b": "eeaeae", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 6]] },
+  { "a": "", "b": "accbac", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 6]] },
+  { "a": "ecabba", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 6, 0, 0]] },
+  {
+    "a": "cccdb",
+    "b": "aedcac",
+    "ratio": 0.36363636363636365,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 1, 3, 4],
+      ["insert", 1, 1, 4, 5],
+      ["equal", 1, 2, 5, 6],
+      ["delete", 2, 5, 6, 6]
+    ]
+  },
+  { "a": "e", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 1, 0, 0]] },
+  {
+    "a": "caaa",
+    "b": "baccbba",
+    "ratio": 0.36363636363636365,
+    "opcodes": [
+      ["insert", 0, 0, 0, 2],
+      ["equal", 0, 1, 2, 3],
+      ["insert", 1, 1, 3, 6],
+      ["equal", 1, 2, 6, 7],
+      ["delete", 2, 4, 7, 7]
+    ]
+  },
+  {
+    "a": "abbbaaabba",
+    "b": "a",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["equal", 0, 1, 0, 1], ["delete", 1, 10, 1, 1]]
+  },
+  {
+    "a": "adacbb",
+    "b": "b",
+    "ratio": 0.2857142857142857,
+    "opcodes": [["delete", 0, 4, 0, 0], ["equal", 4, 5, 0, 1], ["delete", 5, 6, 1, 1]]
+  },
+  {
+    "a": "eaeffbbb",
+    "b": "ba",
+    "ratio": 0.2,
+    "opcodes": [["replace", 0, 1, 0, 1], ["equal", 1, 2, 1, 2], ["delete", 2, 8, 2, 2]]
+  },
+  {
+    "a": "cabccccacb",
+    "b": "addcbc",
+    "ratio": 0.375,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 1, 3, 4],
+      ["delete", 1, 2, 4, 4],
+      ["equal", 2, 4, 4, 6],
+      ["delete", 4, 10, 6, 6]
+    ]
+  },
+  {
+    "a": "babba",
+    "b": "aabbbabbb",
+    "ratio": 0.5714285714285714,
+    "opcodes": [["insert", 0, 0, 0, 4], ["equal", 0, 4, 4, 8], ["replace", 4, 5, 8, 9]]
+  },
+  {
+    "a": "bbccccbb",
+    "b": "cbabbbab",
+    "ratio": 0.5,
+    "opcodes": [
+      ["insert", 0, 0, 0, 3],
+      ["equal", 0, 2, 3, 5],
+      ["delete", 2, 6, 5, 5],
+      ["equal", 6, 7, 5, 6],
+      ["insert", 7, 7, 6, 7],
+      ["equal", 7, 8, 7, 8]
+    ]
+  },
+  { "a": "b", "b": "baea", "ratio": 0.4, "opcodes": [["equal", 0, 1, 0, 1], ["insert", 1, 1, 1, 4]] },
+  {
+    "a": "aaadadbc",
+    "b": "cdbddabcba",
+    "ratio": 0.4444444444444444,
+    "opcodes": [
+      ["replace", 0, 3, 0, 4],
+      ["equal", 3, 5, 4, 6],
+      ["delete", 5, 6, 6, 6],
+      ["equal", 6, 8, 6, 8],
+      ["insert", 8, 8, 8, 10]
+    ]
+  },
+  {
+    "a": "ccbdeaada",
+    "b": "eb",
+    "ratio": 0.18181818181818182,
+    "opcodes": [["replace", 0, 2, 0, 1], ["equal", 2, 3, 1, 2], ["delete", 3, 9, 2, 2]]
+  },
+  {
+    "a": "baaabbba",
+    "b": "baa",
+    "ratio": 0.5454545454545454,
+    "opcodes": [["equal", 0, 3, 0, 3], ["delete", 3, 8, 3, 3]]
+  },
+  {
+    "a": "aaabaab",
+    "b": "bbbbbbb",
+    "ratio": 0.2857142857142857,
+    "opcodes": [
+      ["delete", 0, 3, 0, 0],
+      ["equal", 3, 4, 0, 1],
+      ["delete", 4, 6, 1, 1],
+      ["equal", 6, 7, 1, 2],
+      ["insert", 7, 7, 2, 7]
+    ]
+  },
+  {
+    "a": "bcabdabc",
+    "b": "dcbad",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["insert", 0, 0, 0, 2],
+      ["equal", 0, 1, 2, 3],
+      ["delete", 1, 2, 3, 3],
+      ["equal", 2, 3, 3, 4],
+      ["delete", 3, 4, 4, 4],
+      ["equal", 4, 5, 4, 5],
+      ["delete", 5, 8, 5, 5]
+    ]
+  },
+  { "a": "af", "b": "dcd", "ratio": 0.0, "opcodes": [["replace", 0, 2, 0, 3]] },
+  {
+    "a": "cceecbdcdd",
+    "b": "abbee",
+    "ratio": 0.26666666666666666,
+    "opcodes": [["replace", 0, 2, 0, 3], ["equal", 2, 4, 3, 5], ["delete", 4, 10, 5, 5]]
+  },
+  { "a": "d", "b": "aa", "ratio": 0.0, "opcodes": [["replace", 0, 1, 0, 2]] },
+  { "a": "adda", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 4, 0, 0]] },
+  {
+    "a": "abbabcbcd",
+    "b": "cdbcdc",
+    "ratio": 0.5333333333333333,
+    "opcodes": [
+      ["delete", 0, 5, 0, 0],
+      ["equal", 5, 6, 0, 1],
+      ["insert", 6, 6, 1, 2],
+      ["equal", 6, 9, 2, 5],
+      ["insert", 9, 9, 5, 6]
+    ]
+  },
+  { "a": "cb", "b": "ddb", "ratio": 0.4, "opcodes": [["replace", 0, 1, 0, 2], ["equal", 1, 2, 2, 3]] },
+  { "a": "cca", "b": "ccedece", "ratio": 0.4, "opcodes": [["equal", 0, 2, 0, 2], ["replace", 2, 3, 2, 7]] },
+  { "a": "", "b": "aabbabaa", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 8]] },
+  { "a": "c", "b": "cccbdad", "ratio": 0.25, "opcodes": [["equal", 0, 1, 0, 1], ["insert", 1, 1, 1, 7]] },
+  {
+    "a": "adaecabdd",
+    "b": "bddceaa",
+    "ratio": 0.375,
+    "opcodes": [["delete", 0, 6, 0, 0], ["equal", 6, 9, 0, 3], ["insert", 9, 9, 3, 7]]
+  },
+  { "a": "", "b": "aeaededea", "ratio": 0.0, "opcodes": [["insert", 0, 0, 0, 9]] },
+  {
+    "a": "adadce",
+    "b": "d",
+    "ratio": 0.2857142857142857,
+    "opcodes": [["delete", 0, 1, 0, 0], ["equal", 1, 2, 0, 1], ["delete", 2, 6, 1, 1]]
+  },
+  {
+    "a": "acbabcc",
+    "b": "ccbbaa",
+    "ratio": 0.46153846153846156,
+    "opcodes": [
+      ["replace", 0, 1, 0, 1],
+      ["equal", 1, 3, 1, 3],
+      ["insert", 3, 3, 3, 4],
+      ["equal", 3, 4, 4, 5],
+      ["replace", 4, 7, 5, 6]
+    ]
+  },
+  {
+    "a": "cbcbacba",
+    "b": "bbabba",
+    "ratio": 0.7142857142857143,
+    "opcodes": [
+      ["delete", 0, 1, 0, 0],
+      ["equal", 1, 2, 0, 1],
+      ["delete", 2, 3, 1, 1],
+      ["equal", 3, 5, 1, 3],
+      ["replace", 5, 6, 3, 4],
+      ["equal", 6, 8, 4, 6]
+    ]
+  },
+  {
+    "a": "bacabaaab",
+    "b": "baaccbaabb",
+    "ratio": 0.5263157894736842,
+    "opcodes": [
+      ["delete", 0, 4, 0, 0],
+      ["equal", 4, 7, 0, 3],
+      ["insert", 7, 7, 3, 7],
+      ["equal", 7, 9, 7, 9],
+      ["insert", 9, 9, 9, 10]
+    ]
+  },
+  { "a": "cdddacb", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 7, 0, 0]] },
+  { "a": "d", "b": "", "ratio": 0.0, "opcodes": [["delete", 0, 1, 0, 0]] },
+  {
+    "a": "fffafaeca",
+    "b": "fdbeaecac",
+    "ratio": 0.5555555555555556,
+    "opcodes": [["equal", 0, 1, 0, 1], ["replace", 1, 5, 1, 4], ["equal", 5, 9, 4, 8], ["insert", 9, 9, 8, 9]]
+  }
+]
