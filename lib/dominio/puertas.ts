@@ -24,5 +24,12 @@ export type Paso = "producir" | "grabar" | "publicar"
  * Regrabar, retries after an error and date changes bump the attempt (finding R2-1).
  */
 export function claveIdempotencia(clave: { piezaId: string; paso: Paso; hash: string; intento: number }): string {
+  // A NaN or fractional attempt, or a non-SHA-256 hash, would make every retry reuse the same key.
+  if (!Number.isSafeInteger(clave.intento) || clave.intento < 0) {
+    throw new Error(`Intento inválido para la clave de idempotencia: ${clave.intento}`)
+  }
+  if (!/^[0-9a-f]{64}$/.test(clave.hash)) {
+    throw new Error("El hash del artefacto debe ser un SHA-256 en hexadecimal.")
+  }
   return `${clave.piezaId}:${clave.paso}:${clave.hash.slice(0, 16)}:${clave.intento}`
 }

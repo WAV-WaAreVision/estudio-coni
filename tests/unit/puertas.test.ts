@@ -36,4 +36,15 @@ describe("claveIdempotencia", () => {
     expect(claveIdempotencia({ ...clave, intento: 1 })).not.toBe(claveIdempotencia(clave))
     expect(claveIdempotencia({ ...clave, hash: "b".repeat(64) })).not.toBe(claveIdempotencia(clave))
   })
+
+  it("falla cuando el intento no es un entero no negativo", () => {
+    expect(() => claveIdempotencia({ ...clave, intento: Number.NaN })).toThrow("Intento inválido")
+    expect(() => claveIdempotencia({ ...clave, intento: -1 })).toThrow("Intento inválido")
+    expect(() => claveIdempotencia({ ...clave, intento: 1.5 })).toThrow("Intento inválido")
+  })
+
+  it("falla cuando el hash no es un sha-256", () => {
+    expect(() => claveIdempotencia({ ...clave, hash: "abc" })).toThrow("SHA-256")
+    expect(() => claveIdempotencia({ ...clave, hash: "A".repeat(64) })).toThrow("SHA-256")
+  })
 })
