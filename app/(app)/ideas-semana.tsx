@@ -1,0 +1,96 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import { Aviso } from "@/components/ui/aviso"
+import { Boton } from "@/components/ui/boton"
+import { PildoraPilar } from "@/components/ui/pildora-pilar"
+import type { Resultado } from "@/lib/acciones/resultado"
+import type { Pilar } from "@/lib/dominio/pilares"
+
+export const IDEAS_POR_ELEGIR = 3
+
+export interface IdeaParaElegir {
+  id: string
+  gancho: string
+  pilar: Pilar
+}
+
+interface PropiedadesDeIdeas {
+  ideas: readonly IdeaParaElegir[]
+  alElegir: (ideaIds: string[]) => Promise<Resultado<{ piezas: string[] }>>
+}
+
+export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
+  const [elegidas, setElegidas] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [pendiente, empezar] = useTransition()
+
+  if (ideas.length === 0) {
+    return <p className="text-apagado">Usaste todas las ideas del banco. Pronto podrás escribir una idea nueva.</p>
+  }
+
+  const faltan = IDEAS_POR_ELEGIR - elegidas.length
+  const lista = faltan === 0
+
+  function alternar(id: string, marcada: boolean) {
+    setError(null)
+    setElegidas((actuales) => (marcada ? [...actuales, id] : actuales.filter((actual) => actual !== id)))
+  }
+
+  function escribir() {
+    setError(null)
+    empezar(async () => {
+      const resultado = await alElegir(elegidas)
+      if (!resultado.ok) {
+        setError(resultado.error)
+        return
+      }
+      setElegidas([])
+      setAviso(`Escribiendo ${resultado.piezas.length} guiones. Te aviso cuando estén.`)
+    })
+  }
+
+  return (
+    <div className="grid gap-3.5 rounded-lg border border-linea bg-superficie p-4">
+      <ul className="grid gap-1">
+        {ideas.map((idea) => {
+          const marcada = elegidas.includes(idea.id)
+          const bloqueada = !marcada && lista
+          return (
+            <li key={idea.id}>
+              <label
+                data-pilar={idea.pilar}
+                className="grid min-h-11 cursor-pointer grid-cols-[26px_1fr] items-start gap-3 py-2 has-[:disabled]:cursor-default has-[:disabled]:opacity-60"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-6 accent-acento"
+                  checked={marcada}
+                  disabled={bloqueada || pendiente}
+                  onChange={(evento) => alternar(idea.id, evento.target.checked)}
+                />
+                <span className="grid justify-items-start gap-1.5">
+                  <span>{idea.gancho}</span>
+                  <PildoraPilar pilar={idea.pilar} />
+                </span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+      {error ? (
+        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
+          {error}
+        </p>
+      ) : null}
+      <Boton deshabilitado={!lista} cargando={pendiente} onClick={escribir}>
+        Escribir {IDEAS_POR_ELEGIR} guiones
+      </Boton>
+      <p className="text-center text-meta text-apagado">
+        {lista ? "Te aviso cuando estén listos." : `Elige ${faltan} más.`}
+      </p>
+      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
+    </div>
+  )
+}

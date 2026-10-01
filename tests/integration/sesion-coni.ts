@@ -1,0 +1,34 @@
+import { execFileSync } from "node:child_process"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { z } from "zod"
+import type { Database } from "@/lib/supabase/database.types"
+import { clienteDeServicio, credencialesDeServicio } from "./servicio"
+
+const Estado = z.object({ ANON_KEY: z.string().min(1) })
+let anon: string | undefined
+
+function claveAnonima(): string {
+  if (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!anon) {
+    anon = Estado.parse(JSON.parse(execFileSync("supabase", ["status", "-o", "json"], { encoding: "utf-8" }))).ANON_KEY
+  }
+  return anon
+}
+
+/**
+ * A client signed in as a seed user through the real Auth flow: the admin API mints the emailed code, `verifyOtp`
+ * exchanges it for a session, so PostgREST sees the same JWT a browser would send. Row level security applies.
+ */
+export async function clienteDeUsuario(correo: string): Promise<SupabaseClient<Database>> {
+  const { data, error } = await clienteDeServicio().auth.admin.generateLink({ type: "magiclink", email: correo })
+  if (error) throw new Error(`No pude generar el código de ${correo}: ${error.message}`, { cause: error })
+  const cliente = createClient<Database>(credencialesDeServicio().url, claveAnonima(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const sesion = await cliente.auth.verifyOtp({ email: correo, token: data.properties.email_otp, type: "email" })
+  if (sesion.error) throw new Error(`No pude entrar como ${correo}: ${sesion.error.message}`, { cause: sesion.error })
+  return cliente
+}
+
+export const clienteDeConi = () => clienteDeUsuario("coni@estudio.test")
+export const clienteDelMantenedor = () => clienteDeUsuario("wav@estudio.test")

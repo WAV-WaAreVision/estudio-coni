@@ -1,26 +1,190 @@
 @import "tailwindcss";
 
+/*
+ * Tokens of docs/DESIGN.md. This is the only place with literal colours: components use the names below
+ * (bg-fondo, text-tinta, bg-acento, ...). The theme is light on purpose (PRODUCT.md: the scene is daytime).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --fondo: #fbf6f8;
+  --superficie: #fffcfd;
+  --hundido: #f5ecf0;
+  --tinta: #2b1830;
+  --apagado: #6f5d74;
+  --linea: #eadde4;
+  --acento: #b3285f;
+  --acento-profundo: #8e1d4a;
+  --acento-suave: #f6e3ec;
+  --acento-claro: #f0b4cd;
+  --sobre-acento: #fff7fa;
+  --ok-tinta: #1d6743;
+  --ok-fondo: #e5f3ea;
+  --aviso-tinta: #7a4b00;
+  --aviso-fondo: #fdf1dc;
+  --error-tinta: #a12a2a;
+  --error-fondo: #fbe8e6;
+}
+
+/* Pillars: one hue each; tint, strong tint, ink and dot all derive from it (DESIGN.md, Pillar Palette Rule). */
+[data-pilar="pareja"] {
+  --p-h: 245;
+}
+[data-pilar="deseo"] {
+  --p-h: 320;
+}
+[data-pilar="autoestima"] {
+  --p-h: 50;
+}
+[data-pilar="limites"] {
+  --p-h: 160;
+}
+[data-pilar="bienestar"] {
+  --p-h: 85;
+}
+[data-pilar] {
+  --p-tinte: oklch(0.955 0.028 var(--p-h));
+  --p-tinte-fuerte: oklch(0.91 0.05 var(--p-h));
+  --p-tinta: oklch(0.43 0.09 var(--p-h));
+  --p-punto: oklch(0.62 0.12 var(--p-h));
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-hundido: var(--hundido);
+  --color-tinta: var(--tinta);
+  --color-apagado: var(--apagado);
+  --color-linea: var(--linea);
+  --color-acento: var(--acento);
+  --color-acento-profundo: var(--acento-profundo);
+  --color-acento-suave: var(--acento-suave);
+  --color-acento-claro: var(--acento-claro);
+  --color-sobre-acento: var(--sobre-acento);
+  --color-ok-tinta: var(--ok-tinta);
+  --color-ok-fondo: var(--ok-fondo);
+  --color-aviso-tinta: var(--aviso-tinta);
+  --color-aviso-fondo: var(--aviso-fondo);
+  --color-error-tinta: var(--error-tinta);
+  --color-error-fondo: var(--error-fondo);
+  --color-pilar-tinte: var(--p-tinte);
+  --color-pilar-tinte-fuerte: var(--p-tinte-fuerte);
+  --color-pilar-tinta: var(--p-tinta);
+  --color-pilar-punto: var(--p-punto);
+
+  --font-serif: var(--font-young-serif), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-hanken), system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+
+  --text-display: 1.875rem;
+  --text-display--line-height: 1.12;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.15;
+  --text-script: 1.25rem;
+  --text-script--line-height: 1.55;
+  --text-body: 1.125rem;
+  --text-body--line-height: 1.5;
+  --text-label: 0.9375rem;
+  --text-label--line-height: 1.3;
+  --text-meta: 0.9375rem;
+  --text-meta--line-height: 1.4;
+
+  --shadow-flotante: 0 10px 28px -14px rgb(43 24 48 / 0.45);
+  --ease-fuerte: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* The toast slides in 8 px and fades; a transition (not a keyframe) so a second toast retargets smoothly. */
+.aviso {
+  transition:
+    transform 220ms var(--ease-fuerte),
+    opacity 220ms var(--ease-fuerte);
+}
+@starting-style {
+  .aviso {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Loading: a slow pulse of opacity, never a spinner in the middle of the content. */
+@keyframes latido {
+  50% {
+    opacity: 0.55;
+  }
+}
+.esqueleto {
+  animation: latido 1.6s ease-in-out infinite;
+  background: var(--linea);
+  border-radius: 999px;
+}
+
+/* Reduced motion keeps the opacity and colour changes that explain a state and drops the movement. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .esqueleto {
+    animation: none;
+  }
+  @starting-style {
+    .aviso {
+      transform: none;
+    }
+  }
+}
+
+/* The approve slider: a native range input restyled as a pill with a 52 px thumb (DESIGN.md, slide-approve). */
+.deslizador {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--acento-suave);
+  touch-action: pan-y;
+}
+.deslizador[data-activo="false"] {
+  background: var(--hundido);
+}
+.deslizador::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--acento);
+  box-shadow: 0 2px 6px rgb(43 24 48 / 0.25);
+}
+.deslizador::-moz-range-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--acento);
+}
+.deslizador[data-activo="false"]::-webkit-slider-thumb {
+  background: var(--apagado);
+}
+.deslizador[data-activo="false"]::-moz-range-thumb {
+  background: var(--apagado);
 }
