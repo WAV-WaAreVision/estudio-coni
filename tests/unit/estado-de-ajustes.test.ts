@@ -47,6 +47,43 @@ describe("estadoDeAjustes", () => {
     expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
   })
 
+  it("says plainly that Instagram is not connected and that reels wait for a manual upload meanwhile", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.tipo).toBe("configurando")
+    expect(estado.texto).toBe("Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano.")
+    expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
+  })
+
+  it("keeps the manual upload line and mentions the rest when more than Instagram is missing", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "instagram", estado: "falta" }, { cuenta: "heygen", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.texto).toBe(
+      "Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano. También falta lo que sigue.",
+    )
+  })
+
+  it("does not talk about manual upload when Instagram is connected and something else is missing", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.texto).toBe("Falta lo que sigue; el resto ya está.")
+  })
+
   it("offers the key field of the first missing account when it is not Instagram", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "heygen", estado: "falta" }),
