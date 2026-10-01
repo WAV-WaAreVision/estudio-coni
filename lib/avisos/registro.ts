@@ -52,12 +52,13 @@ export async function marcarEnviados(
   if (error) throw fallo("marcar avisos como enviados", error)
 }
 
-/** Everything not sent yet, oldest first: what the next summary carries. */
-export async function leerPendientes(db: Db): Promise<FilaDeAviso[]> {
+/** Everything not sent yet since `desde`, oldest first: what the next summary carries. */
+export async function leerPendientes(db: Db, desde: string): Promise<FilaDeAviso[]> {
   const { data, error } = await db
     .from("avisos")
     .select("*")
     .is("enviado_en", null)
+    .gte("creado_en", desde)
     .order("creado_en", { ascending: true })
     .order("id", { ascending: true })
   if (error) throw fallo("leer los avisos pendientes", error)

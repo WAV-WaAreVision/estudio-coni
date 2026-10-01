@@ -46,6 +46,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await pool.query("delete from public.avisos")
+  await pool.query("update public.ajustes set avisos_resumen = true")
   await borrarSembrado(piezas, ideas)
 })
 
@@ -91,6 +92,26 @@ describe("enviarResumenDelDia", () => {
     expect(memoria.resumenesEnviados[0]?.texto).not.toContain("Ya publicado.")
   })
 
+  it("sends nothing when Coni turned the summary off in Ajustes, and keeps the notices for the app", async () => {
+    await pool.query("update public.ajustes set avisos_resumen = false")
+    await aviso("video_listo", "video_listo:c:3", "Tu video está listo.")
+    const memoria = notificadorEnMemoria()
+    expect(await enviarResumenDelDia(armar(MARTES_0830, memoria).deps)).toEqual({ enviado: false })
+    expect(memoria.resumenesEnviados).toEqual([])
+    expect((await filas())[0]?.enviado_en).toBeNull()
+  })
+
+  it("does not carry a week-old notice into today's summary when she turns it on again", async () => {
+    await aviso("video_listo", "video_listo:viejo:3", "Un video de hace tiempo.")
+    await pool.query("update public.avisos set creado_en = $1", [
+      new Date(Date.parse(MARTES_0830) - 8 * DIA_MS).toISOString(),
+    ])
+    await aviso("guion_listo", "guion_listo:nuevo:1", "Un guion de ayer.")
+    const memoria = notificadorEnMemoria()
+    expect(await enviarResumenDelDia(armar(MARTES_0830, memoria).deps)).toMatchObject({ enviado: true, avisos: 1 })
+    expect(memoria.resumenesEnviados[0]?.texto).not.toContain("hace tiempo")
+  })
+
   it("keeps the notices unsent when the sending fails, so tomorrow's summary carries them", async () => {
     await aviso("video_listo", "video_listo:c:3", "Tu video está listo.")
     const canal: Notificador = {
@@ -131,7 +152,7 @@ describe("enviarResumenDelDia", () => {
 
     it("counts Monday in Santiago, not in UTC: Sunday night UTC is still Sunday there", async () => {
       ideas.push(await sembrarIdea())
-      // Monday 05:00 UTC is Monday 02:00 in Santiago: Monday. Sunday 23:30 in Santiago is Monday 02:30 UTC: still Sunday.
+      // Monday 02:30 UTC is Sunday 23:30 in Santiago.
       expect(await enviarResumenDelDia(armar("2026-10-05T02:30:00.000Z").deps)).toEqual({ enviado: false })
     })
   })

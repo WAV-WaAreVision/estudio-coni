@@ -32,7 +32,10 @@ function armar(canal: Notificador = notificadorEnMemoria()) {
 }
 
 beforeEach(() => pool.query("delete from public.avisos"))
-afterEach(() => pool.query("delete from public.avisos"))
+afterEach(async () => {
+  await pool.query("delete from public.avisos")
+  await pool.query("update public.ajustes set avisos_urgentes = true")
+})
 
 describe("notificadorConRegistro", () => {
   it("stores an urgent notice, sends it at once and notes the channel that carried it", async () => {
@@ -111,6 +114,15 @@ describe("notificadorConRegistro", () => {
     await notificador.aConi("Tu reel ya está publicado.", false, DIFERIDO)
     expect(memoria.aConiEnviados).toEqual([])
     expect(await filas()).toHaveLength(1)
+  })
+
+  it("keeps an urgent notice for the summary when Coni turned off the immediate ones in Ajustes", async () => {
+    await pool.query("update public.ajustes set avisos_urgentes = false")
+    const memoria = notificadorEnMemoria()
+    const { notificador } = armar(memoria)
+    expect(await notificador.aConi("Algo falló.", true, URGENTE)).toBeNull()
+    expect(memoria.aConiEnviados).toEqual([])
+    expect((await filas())[0]).toMatchObject({ tipo: "error_definitivo", enviado_en: null })
   })
 
   it("passes WAV's alerts and the summary straight to the channel", async () => {
