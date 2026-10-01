@@ -339,8 +339,83 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirmar_gasto: {
+        Args: { p_clave: string; p_real: number }
+        Returns: {
+          clave: string
+          creado_en: string
+          estado: string
+          estimado_usd: number
+          id: number
+          mes: string
+          paso: string
+          pieza_id: string | null
+          proveedor: string
+          real_usd: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      guardar_secreto: {
+        Args: { p_nombre: string; p_valor: string }
+        Returns: undefined
+      }
+      leer_secreto: { Args: { p_nombre: string }; Returns: string }
+      liberar_gasto: {
+        Args: { p_clave: string }
+        Returns: {
+          clave: string
+          creado_en: string
+          estado: string
+          estimado_usd: number
+          id: number
+          mes: string
+          paso: string
+          pieza_id: string | null
+          proveedor: string
+          real_usd: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reservar_gasto: {
+        Args: {
+          p_ahora?: string
+          p_clave: string
+          p_estimado: number
+          p_paso: string
+          p_pieza: string
+          p_proveedor: string
+        }
+        Returns: {
+          clave: string
+          creado_en: string
+          estado: string
+          estimado_usd: number
+          id: number
+          mes: string
+          paso: string
+          pieza_id: string | null
+          proveedor: string
+          real_usd: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       estado_pieza:
