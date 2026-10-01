@@ -151,6 +151,28 @@ describe("intervenciones", () => {
       expect(err.message).toMatch(/row-level security/)
     })
   })
+
+  it("rechaza una intervención cuando el mantenedor la firma con otro id", async () => {
+    await como(comoMantenedor, async (c) => {
+      const err = await fallaCon(
+        c,
+        "insert into public.intervenciones (quien, que, canal, registrada_por) values ('x', 'y', 'sql', $1)",
+        [CONI],
+      )
+      expect(err.code).toBe("42501")
+      expect(err.message).toMatch(/row-level security/)
+    })
+  })
+})
+
+describe("funciones de trigger", () => {
+  it("no deja llamar funciones de trigger como rpc", async () => {
+    await como(comoConi, async (c) => {
+      const err = await fallaCon(c, "select public.registrar_evento()")
+      expect(err.code).toBe("42501")
+      expect(err.message).toMatch(/permission denied/)
+    })
+  })
 })
 
 describe("registros que solo se agregan", () => {
