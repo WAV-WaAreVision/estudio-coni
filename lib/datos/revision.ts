@@ -10,7 +10,7 @@ const esquemaDeHallazgo = z.object({
 })
 
 /**
- * The findings of `piezas.revision`. The column is written by tasks and by `editarTexto`, never by Coni, so a shape
+ * The findings of `piezas.revision`. The column is written by tasks and, through `editar_texto_como_coni`, by `editarTexto`; Coni never writes it directly, so a shape
  * that does not parse is a bug to fix, not something to show her: it throws a plain Error.
  */
 export function leerRevision(valor: Json): Hallazgo[] {

@@ -49,7 +49,6 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error } = {})
   const disparos: Disparo[] = []
   const deps: DepsAcciones = {
     db,
-    servicio: () => servicio,
     disparar: {
       async producir(piezaId, clave) {
         if (fallos.producir) throw fallos.producir
@@ -340,6 +339,19 @@ describe("editarTexto", () => {
     )
     expect(guardada.version).toBe(versionVista + 1)
     expect(guardada.revision).toEqual([])
+  })
+
+  it("leaves Coni, not the service role, as the actor of the edit in the audit log", async () => {
+    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    const { deps } = armar()
+
+    await editarTexto(deps, id, await versionDe(id), "Un texto nuevo.\nVideo hecho con mi avatar digital.")
+
+    const { rows } = await pool.query(
+      "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 and operacion = 'update' order by id desc limit 1",
+      [id],
+    )
+    expect(rows[0]).toEqual({ actor_usuario: CONI, actor_rol: "authenticated" })
   })
 
   it("flags a caption that forgets the avatar notice as blocking, and clears it once it is back", async () => {

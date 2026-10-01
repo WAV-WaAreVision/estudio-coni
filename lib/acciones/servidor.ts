@@ -1,21 +1,10 @@
-import { createClient } from "@supabase/supabase-js"
 import type { z } from "zod"
-import { exigirEnv } from "@/lib/env"
 import { createActionClient } from "@/lib/supabase/action"
-import type { Database } from "@/lib/supabase/database.types"
 import { disparosDeEntorno } from "./disparos-entorno"
 import type { DepsAcciones } from "./piezas"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "./resultado"
 
 const ERROR_SOLICITUD = "No entendí esa solicitud. Vuelve a abrir la pantalla."
-
-function clienteDeServicio() {
-  return createClient<Database>(
-    exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL),
-    exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY),
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  )
-}
 
 /**
  * Runs a Server Action as the signed-in Coni. A Server Action is a public endpoint, so the session is checked here
@@ -40,7 +29,6 @@ export async function comoConi<E extends z.ZodType, T extends object>(
     if (!esConi) return { ok: false, error: "Esta app es solo para Coni." }
     deps = {
       db,
-      servicio: clienteDeServicio,
       // Resolved on use: a missing Trigger.dev key must not stop an approval that does not start a run.
       disparar: {
         producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
