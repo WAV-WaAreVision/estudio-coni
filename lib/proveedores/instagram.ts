@@ -101,7 +101,7 @@ async function pedir(url: string, init: RequestInit, esperaMs: number, token: st
   }
 }
 
-function leer<T>(esquema: z.ZodType<T>, cuerpo: unknown, ruta: string): T {
+export function leer<T>(esquema: z.ZodType<T>, cuerpo: unknown, ruta: string): T {
   const resultado = esquema.safeParse(cuerpo)
   if (!resultado.success) {
     throw new Error(`Instagram devolvió una respuesta inesperada en ${ruta}.`)
@@ -123,7 +123,7 @@ async function escribir(ruta: string, cuerpo: Record<string, unknown>, token: st
   )
 }
 
-async function consultar(ruta: string, parametros: Record<string, string>, token: string, versionada = true) {
+export async function consultar(ruta: string, parametros: Record<string, string>, token: string, versionada = true) {
   const consulta = new URLSearchParams({ ...parametros, access_token: token })
   const base = versionada ? `${BASE}/${VERSION}` : BASE
   return pedir(`${base}${ruta}?${consulta.toString()}`, { method: "GET" }, ESPERA_LEER_MS, token)

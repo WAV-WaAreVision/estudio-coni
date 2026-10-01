@@ -251,6 +251,65 @@ export type Database = {
           },
         ]
       }
+      metricas_cuenta: {
+        Row: {
+          dia: string
+          leido_en: string
+          toques_perfil: number
+        }
+        Insert: {
+          dia: string
+          leido_en?: string
+          toques_perfil: number
+        }
+        Update: {
+          dia?: string
+          leido_en?: string
+          toques_perfil?: number
+        }
+        Relationships: []
+      }
+      metricas_reel: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          compartidos: number | null
+          dia: string
+          guardados: number | null
+          leido_en: string
+          pieza_id: string
+          tiempo_promedio: number | null
+        }
+        Insert: {
+          alcance?: number | null
+          comentarios?: number | null
+          compartidos?: number | null
+          dia: string
+          guardados?: number | null
+          leido_en?: string
+          pieza_id: string
+          tiempo_promedio?: number | null
+        }
+        Update: {
+          alcance?: number | null
+          comentarios?: number | null
+          compartidos?: number | null
+          dia?: string
+          guardados?: number | null
+          leido_en?: string
+          pieza_id?: string
+          tiempo_promedio?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       miembros: {
         Row: {
           creado_en: string
