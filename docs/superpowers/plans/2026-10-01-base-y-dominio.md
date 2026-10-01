@@ -2028,3 +2028,23 @@ git commit -m "docs(tests): map the coni.py port"
 - **Spec coverage:** T1 local scope (Task 1), T2 (Tasks 2–7, 29 cases + 2 goldens; 11 cases explicitly deferred with owner), T4 (Tasks 8–10: transitions table, version/intento, gate hashes, idempotency keys, invalidations, A3, A11, R2-1, R2-3, R2-4, R2-5). Gate test "escritura con rol de servicio" is Plan 2 by design (it is a database trigger).
 - **Deviation recorded:** gate 1 hash excludes the caption (Task 8). Update the design doc's "Las puertas, a prueba de errores" in the same PR that merges this plan.
 - **Out of this plan:** cloud accounts (Supabase project, Trigger.dev, R2, Resend, Vercel, GitHub remote) need Federico's go-ahead; they are the first steps of Plan 2.
+
+## Execution notes (2026-10-01)
+
+The code on `feat/base-y-dominio` is the source of truth; these reviewed deviations supersede the code blocks above.
+
+- Task 1: Biome formatter without semicolons and 120 columns; `type` = `next typegen && tsc --noEmit`; `.env.example`; real README; `@types/node` 24.
+- Task 3: `mensajeErrorHeygen` trims, never returns empty, caps at 400 characters, narrows with `esRegistro`.
+- Task 4: 6 tie/window cases plus a 200-case Python fixture; unreachable extension loops removed.
+- Task 5: full `splitlines` regex; strict timestamps; ASS escaping; empty-input guards; wording for Coni.
+- Task 6: the golden compares every `Style` field except the font name.
+- Task 7: parity fixes (`{}` settings, absent `velocidad`); `engine_type` fixed to ElevenLabs; `FallaDeConfiguracion`; `SEGUNDOS_MAXIMOS_REEL`; real-request pins.
+- Task 8: `claveIdempotencia` rejects non-integer attempts and non-SHA-256 hashes.
+- Task 10: unreadable times never publish; unreadable approval dates are rejected; a publish retry with an unreadable current time goes back to approval.
+
+### Carried to later plans
+
+- Plan 2: zod boundary for `ConfigProduccion` (strict ElevenLabs keys, enums for `ruta_voz` and `motor`, nullish normalisation, `PENDIENTE` to null on import); confirm Vercel builds with pnpm 12; database trigger and tests that reject approvals written with `service_role`.
+- Plan 3: reject `{`, `}` and `\` in scripts at gate 1 (deterministic review); container `fontselect` test with Montserrat Bold, including a line with a backslash; port `error_elevenlabs`; callers check `FallaDeConfiguracion` before `Falla`; call `armarPedido` only after the voice step; wrap HeyGen's English messages in Spanish notices.
+- Plan 4: Trigger.dev idempotency keys with `scope: "global"`; explicit `idempotencyKeyTTL` for publishes scheduled more than 30 days ahead.
+- Plan 5: normalise script input (CRLF to LF, NFC) where it is saved; placeholder `NEXT_PUBLIC_*` env in the CI build once a page creates a Supabase client at render; `lang="es-CL"` and real metadata in `app/layout.tsx`; Server Actions catch `Falla` and return its message (Next redacts thrown messages).
