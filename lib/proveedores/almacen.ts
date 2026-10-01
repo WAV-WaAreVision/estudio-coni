@@ -16,7 +16,8 @@ export interface Almacen {
   bajar(clave: string): Promise<Uint8Array>
   /** Deleting an object that is not there is not an error, like S3. */
   borrar(clave: string): Promise<void>
-  urlFirmada(clave: string, segundos: number): Promise<string>
+  /** `descargarComo` makes the link answer as a download with that file name instead of playing in the browser. */
+  urlFirmada(clave: string, segundos: number, opciones?: { descargarComo?: string }): Promise<string>
   /** Every object whose key starts with `prefijo`, in key order, with its size in bytes. */
   listar(prefijo: string): Promise<{ clave: string; bytes: number }[]>
 }
@@ -29,6 +30,15 @@ function exigirVigencia(segundos: number): void {
     throw new Error(
       `Una URL firmada necesita una vigencia de 1 a ${VIGENCIA_MAXIMA_SEGUNDOS} segundos enteros: ${segundos}`,
     )
+  }
+}
+
+/** A name that goes inside a quoted header value: plain letters, digits and dashes, with an extension. */
+const NOMBRE_DE_DESCARGA = /^[\w.-]{1,100}$/
+
+function exigirNombreDeDescarga(nombre: string | undefined): void {
+  if (nombre !== undefined && !NOMBRE_DE_DESCARGA.test(nombre)) {
+    throw new Error(`Nombre de descarga inválido: ${JSON.stringify(nombre)}`)
   }
 }
 
@@ -62,10 +72,12 @@ export function almacenEnMemoria(): AlmacenEnMemoria {
     async borrar(clave) {
       objetos.delete(clave)
     },
-    async urlFirmada(clave, segundos) {
+    async urlFirmada(clave, segundos, opciones = {}) {
       exigirVigencia(segundos)
+      exigirNombreDeDescarga(opciones.descargarComo)
       if (!objetos.has(clave)) throw noExiste(clave)
-      return `https://almacen.test/${clave}?expira=${segundos}`
+      const descarga = opciones.descargarComo ? `&descarga=${opciones.descargarComo}` : ""
+      return `https://almacen.test/${clave}?expira=${segundos}${descarga}`
     },
     async listar(prefijo) {
       return [...objetos.entries()]
@@ -194,12 +206,23 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
         } while (siguiente !== undefined)
         return objetos
       }),
-    urlFirmada: async (clave, segundos) => {
+    urlFirmada: async (clave, segundos, opciones = {}) => {
       exigirVigencia(segundos)
+      exigirNombreDeDescarga(opciones.descargarComo)
       // The same contract as the in-memory store: no link for an object that is not there.
       await envolver("firmar", clave, () => cliente.send(new HeadObjectCommand({ Bucket: balde, Key: clave })))
       return envolver("firmar", clave, () =>
-        getSignedUrl(cliente, new GetObjectCommand({ Bucket: balde, Key: clave }), { expiresIn: segundos }),
+        getSignedUrl(
+          cliente,
+          new GetObjectCommand({
+            Bucket: balde,
+            Key: clave,
+            ...(opciones.descargarComo
+              ? { ResponseContentDisposition: `attachment; filename="${opciones.descargarComo}"` }
+              : {}),
+          }),
+          { expiresIn: segundos },
+        ),
       )
     },
   }

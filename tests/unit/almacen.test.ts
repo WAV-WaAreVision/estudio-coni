@@ -19,6 +19,15 @@ describe("almacenEnMemoria", () => {
     expect(url).toContain("600")
   })
 
+  it("marks the signed URL as a download when a name is given", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir("videos/a.mp4", MP3, "video/mp4")
+
+    const url = await almacen.urlFirmada("videos/a.mp4", 600, { descargarComo: "reel.mp4" })
+
+    expect(url).toContain("descarga=reel.mp4")
+  })
+
   it("keeps its own copy of the bytes, so later changes to the buffer do not change the stored object", async () => {
     const almacen = almacenEnMemoria()
     const datos = new Uint8Array([1, 2, 3])

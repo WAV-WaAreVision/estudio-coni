@@ -5,7 +5,12 @@ import { z } from "zod"
 import { Nota } from "@/components/nota"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { leerContextoDeFechas, leerCostoDeGrabar, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import {
+  leerContextoDeFechas,
+  leerCostoDeGrabar,
+  leerInstagramConectado,
+  leerPantallaDePieza,
+} from "@/lib/datos/pantallas"
 import { leerRevision } from "@/lib/datos/revision"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
@@ -13,7 +18,9 @@ import { esPilar } from "@/lib/dominio/pilares"
 import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado, VolverAInicio } from "../../estado-de-pieza"
+import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { PantallaVideo } from "./pantalla-video"
+import { SubirAMano } from "./subir-a-mano"
 
 const UNA_HORA_MS = 60 * 60 * 1000
 const FECHAS_A_OFRECER = 4
@@ -31,18 +38,68 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       break
     case "programado": {
       const zona = (await leerContextoDeFechas(db, fila.id)).horario.zona
+      const sinInstagram = !(await leerInstagramConectado(db))
       return (
         <EstadoSencillo titulo={fila.titulo}>
           <Nota
             tipo="ok"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
           >
-            <p>Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique.</p>
+            <p>
+              {sinInstagram
+                ? "Instagram todavía no está conectado, así que este reel no sale solo. A esa hora te aviso y lo subes tú."
+                : "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."}
+            </p>
           </Nota>
+          {sinInstagram && fila.texto !== null ? (
+            <SubirAMano
+              piezaId={fila.id}
+              version={fila.version}
+              texto={fila.texto}
+              alDescargar={descargarVideoAccion}
+              alMarcar={marcarSubidoAManoAccion}
+            />
+          ) : null}
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
         </EstadoSencillo>
       )
     }
+    case "para_subir_a_mano":
+      if (fila.texto === null) throw new Error(`La pieza ${fila.id} espera subirse sin texto guardado.`)
+      return (
+        <EstadoSencillo titulo={fila.titulo}>
+          <Nota tipo="aviso" titulo="Listo para que lo subas a Instagram">
+            <p>Instagram todavía no está conectado, así que este reel no sale solo. Súbelo tú con estos pasos.</p>
+          </Nota>
+          <SubirAMano
+            piezaId={fila.id}
+            version={fila.version}
+            texto={fila.texto}
+            alDescargar={descargarVideoAccion}
+            alMarcar={marcarSubidoAManoAccion}
+          />
+          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
+        </EstadoSencillo>
+      )
+    case "publicado_a_mano":
+      return (
+        <EstadoSencillo titulo={fila.titulo}>
+          <Nota tipo="ok" titulo="Subido a mano">
+            <p>Lo subiste tú a Instagram, con la etiqueta de IA.</p>
+            {fila.permalink ? (
+              <Link
+                href={fila.permalink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}
+              >
+                Ver en Instagram
+                <ExternalLink aria-hidden="true" size={18} />
+              </Link>
+            ) : null}
+          </Nota>
+        </EstadoSencillo>
+      )
     case "publicado":
       return (
         <EstadoSencillo titulo={fila.titulo}>

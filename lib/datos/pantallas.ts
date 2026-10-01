@@ -25,6 +25,16 @@ export async function leerPantallaDePieza(db: Db, id: string): Promise<PiezaConI
   return { fila, idea: fila.idea_id ? await leerIdea(db, fila.idea_id) : null }
 }
 
+/**
+ * Whether an Instagram account was ever connected, as far as Coni's session can tell (the token lives in the Vault and
+ * is not hers to read): the screens offer the manual upload while it is not.
+ */
+export async function leerInstagramConectado(db: Db): Promise<boolean> {
+  const { data, error } = await db.from("ajustes").select("meta_cuenta_id").maybeSingle()
+  if (error) throw fallo("No pude leer la cuenta de Instagram", error)
+  return data?.meta_cuenta_id != null
+}
+
 export interface ContextoDeFechas {
   horario: Horario
   /** Times already taken by a scheduled piece (other than the one being looked at). */

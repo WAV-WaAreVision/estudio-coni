@@ -162,6 +162,27 @@ describe("almacenR2", () => {
       expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
     })
 
+    it("asks R2 to answer as a download with the file name chosen when a name is given", async () => {
+      capturando(() => new HttpResponse(null, { status: 200 }))
+
+      const url = new URL(await r2().urlFirmada(CLAVE_OBJETO, 600, { descargarComo: "reel-ab12cd34.mp4" }))
+
+      expect(url.searchParams.get("response-content-disposition")).toBe('attachment; filename="reel-ab12cd34.mp4"')
+      expect(url.searchParams.get("X-Amz-Expires")).toBe("600")
+    })
+
+    it("does not turn a link into a download unless asked", async () => {
+      capturando(() => new HttpResponse(null, { status: 200 }))
+      const url = new URL(await r2().urlFirmada(CLAVE_OBJETO, 600))
+      expect(url.searchParams.has("response-content-disposition")).toBe(false)
+    })
+
+    it("refuses a download name that could break out of the header", async () => {
+      capturando(() => new HttpResponse(null, { status: 200 }))
+      await expect(r2().urlFirmada(CLAVE_OBJETO, 600, { descargarComo: 'a"; x=y' })).rejects.toThrow()
+      await expect(r2().urlFirmada(CLAVE_OBJETO, 600, { descargarComo: "a\r\nb.mp4" })).rejects.toThrow()
+    })
+
     it("refuses to sign a URL for an object that is not there", async () => {
       capturando(errorS3("NotFound", "Not Found", 404))
       const error = await rechazo(r2().urlFirmada(CLAVE_OBJETO, 600))

@@ -10,7 +10,9 @@ import {
   descartar,
   editarTexto,
   elegirIdeas,
+  marcarSubidoAMano,
   pedirCambios,
+  pedirDescargaDelVideo,
   regrabar,
   reintentar,
   reintentarGuion,
@@ -654,5 +656,130 @@ describe("errores que no son de Coni", () => {
 
     expect(resultado).toMatchObject({ ok: true })
     expect(registro).toHaveBeenCalled()
+  })
+})
+
+describe("subir a mano", () => {
+  const ENLACE = "https://www.instagram.com/reel/DAbc123xyz/"
+
+  async function ultimoEvento(id: string) {
+    const { rows } = await pool.query(
+      "select actor_usuario, actor_rol, datos ->> 'estado' as estado from public.eventos where pieza_id = $1 order by id desc limit 1",
+      [id],
+    )
+    return rows[0]
+  }
+
+  it("marks a piece as uploaded by hand as Coni, with her name in the audit log", async () => {
+    const id = await pieza("para_subir_a_mano")
+    const { deps } = armar()
+
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({ estado: "publicado_a_mano", permalink: null })
+    expect(await ultimoEvento(id)).toEqual({
+      actor_usuario: CONI,
+      actor_rol: "authenticated",
+      estado: "publicado_a_mano",
+    })
+  })
+
+  it("keeps the Instagram link she pastes, without the tracking part", async () => {
+    const id = await pieza("para_subir_a_mano")
+    const { deps } = armar()
+
+    await marcarSubidoAMano(deps, id, await versionDe(id), `${ENLACE}?igsh=abc`)
+
+    expect(await fila(id)).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
+  })
+
+  it("lets her mark a scheduled piece before its time, so the scheduled publication cannot also happen", async () => {
+    const id = await pieza("programado")
+    const { deps } = armar()
+
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+
+    expect(resultado.ok).toBe(true)
+    expect((await fila(id)).estado).toBe("publicado_a_mano")
+  })
+
+  it("refuses a link that is not Instagram's and leaves the piece as it was", async () => {
+    const id = await pieza("para_subir_a_mano")
+    const { deps } = armar()
+
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "https://malo.example/reel/abc")
+
+    expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("enlace") })
+    expect((await fila(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("refuses a piece that is not waiting to be uploaded, and a screen that went stale", async () => {
+    const enAprobacion = await pieza("video_por_aprobar")
+    expect(await marcarSubidoAMano(armar().deps, enAprobacion, await versionDe(enAprobacion), "")).toMatchObject({
+      ok: false,
+    })
+    const espera = await pieza("para_subir_a_mano")
+    const vista = await versionDe(espera)
+    expect(await marcarSubidoAMano(armar().deps, espera, vista - 1, "")).toMatchObject({ ok: false })
+    expect((await fila(espera)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("does not let the maintainer say a reel was uploaded", async () => {
+    const id = await pieza("para_subir_a_mano")
+    const { deps } = armar(await clienteDelMantenedor())
+
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+
+    expect(resultado.ok).toBe(false)
+    expect((await fila(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("can still discard a piece that waits to be uploaded", async () => {
+    const id = await pieza("para_subir_a_mano")
+
+    expect((await descartar(armar().deps, id, await versionDe(id))).ok).toBe(true)
+    expect((await fila(id)).estado).toBe("descartado")
+  })
+
+  describe("pedirDescargaDelVideo", () => {
+    const firmar = vi.fn(async (clave: string, nombre: string) => `https://almacen.test/${clave}?descarga=${nombre}`)
+
+    it("signs the approved video of a piece waiting for upload or scheduled, under a name she will recognise", async () => {
+      for (const destino of ["para_subir_a_mano", "programado"] as const) {
+        const id = await pieza(destino)
+
+        const resultado = await pedirDescargaDelVideo(armar().deps, id, firmar)
+
+        expect(resultado).toEqual({
+          ok: true,
+          url: `https://almacen.test/${VIDEO}?descarga=reel-${id.slice(0, 8)}.mp4`,
+        })
+      }
+    })
+
+    it("refuses a piece that is not waiting to be uploaded", async () => {
+      const id = await pieza("video_por_aprobar")
+
+      expect(await pedirDescargaDelVideo(armar().deps, id, firmar)).toMatchObject({ ok: false })
+    })
+
+    it("tells her to try again when the link cannot be signed", async () => {
+      const id = await pieza("para_subir_a_mano")
+
+      const resultado = await pedirDescargaDelVideo(armar().deps, id, async () => null)
+
+      expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("descargar") })
+    })
+
+    it("does not sign anything for the maintainer", async () => {
+      const id = await pieza("para_subir_a_mano")
+      const llamadas = firmar.mock.calls.length
+
+      const resultado = await pedirDescargaDelVideo(armar(await clienteDelMantenedor()).deps, id, firmar)
+
+      expect(resultado.ok).toBe(false)
+      expect(firmar.mock.calls.length).toBe(llamadas)
+    })
   })
 })
