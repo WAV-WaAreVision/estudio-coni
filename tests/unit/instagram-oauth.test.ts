@@ -37,7 +37,11 @@ describe("urlDeAutorizacion", () => {
   })
 
   it("asks to publish and to read the account, and nothing else", () => {
-    expect(SCOPES_DE_INSTAGRAM).toEqual(["instagram_business_basic", "instagram_business_content_publish"])
+    expect(SCOPES_DE_INSTAGRAM).toEqual([
+      "instagram_business_basic",
+      "instagram_business_content_publish",
+      "instagram_business_manage_insights",
+    ])
   })
 
   it("never puts the app secret in the address", () => {

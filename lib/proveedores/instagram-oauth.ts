@@ -14,9 +14,14 @@ import { baseDe } from "./bases"
 //   4. GET /me?fields=user_id,username returns the Instagram professional account id (`user_id`, the <IG_ID> of
 //      `/<IG_ID>/media`) (https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started).
 // Scopes of this login (https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login):
-// instagram_business_basic, instagram_business_content_publish, instagram_business_manage_comments and
-// instagram_business_manage_messages. Publishing needs the first two; the app never answers comments or messages.
-export const SCOPES_DE_INSTAGRAM = ["instagram_business_basic", "instagram_business_content_publish"] as const
+// instagram_business_basic, instagram_business_content_publish, instagram_business_manage_insights,
+// instagram_business_manage_comments and instagram_business_manage_messages. Publishing needs the first two and
+// metricas-diarias reads /insights, which needs manage_insights; the app never answers comments or messages.
+export const SCOPES_DE_INSTAGRAM = [
+  "instagram_business_basic",
+  "instagram_business_content_publish",
+  "instagram_business_manage_insights",
+] as const
 
 const VENTANA = "https://www.instagram.com/oauth/authorize"
 const BASE_OAUTH = "https://api.instagram.com"

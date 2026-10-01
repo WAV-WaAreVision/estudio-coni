@@ -175,7 +175,9 @@ test.describe("Conectar Instagram", () => {
       const destino = new URL(respuesta.headers().location ?? "")
       expect(`${destino.origin}${destino.pathname}`).toBe("https://www.instagram.com/oauth/authorize")
       expect(destino.searchParams.get("client_id")).toBe("1234567890")
-      expect(destino.searchParams.get("scope")).toBe("instagram_business_basic,instagram_business_content_publish")
+      expect(destino.searchParams.get("scope")).toBe(
+        "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights",
+      )
       expect(destino.searchParams.get("redirect_uri")).toBe(`${URL_DE_LA_APP}/api/meta/callback`)
       const estado = destino.searchParams.get("state") ?? ""
       await ruta.fulfill({
