@@ -56,4 +56,24 @@ describe("sugerirIdeas", () => {
       sugerirIdeas({ banco, recientes: [], cuantas: 3 }),
     )
   })
+
+  it("offers first the ideas she added to the week from the bank, in the order of the bank", () => {
+    const comun = idea("pareja", "alta")
+    const fijadaTarde = { ...idea("bienestar", "baja"), fijada: true }
+    const fijadaTemprana = { ...idea("deseo", "media"), fijada: true, numero: 2 }
+
+    const elegidas = sugerirIdeas({ banco: [comun, fijadaTarde, fijadaTemprana], recientes: [], cuantas: 3 })
+
+    expect(elegidas.map((e) => e.id)).toEqual([fijadaTemprana.id, fijadaTarde.id, comun.id])
+  })
+
+  it("still fills the rest with the usual rotation when fewer ideas are added than asked", () => {
+    const fijada = { ...idea("deseo", "baja"), fijada: true }
+    const banco = [fijada, idea("pareja"), idea("limites"), idea("bienestar")]
+
+    const elegidas = sugerirIdeas({ banco, recientes: [], cuantas: 4 })
+
+    expect(elegidas[0]?.id).toBe(fijada.id)
+    expect(new Set(elegidas.map((e) => e.pilar)).size).toBe(4)
+  })
 })

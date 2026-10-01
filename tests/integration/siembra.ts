@@ -37,10 +37,17 @@ export async function leerFila(id: string) {
   return rows[0]
 }
 
-export async function sembrarIdea(extra: { pilar?: string; gancho?: string; alertas?: unknown } = {}): Promise<string> {
+export async function sembrarIdea(
+  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number } = {},
+): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb) returning id",
-    [extra.pilar ?? "deseo", extra.gancho ?? "El deseo no se apaga, se esconde", JSON.stringify(extra.alertas ?? [])],
+    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4) returning id",
+    [
+      extra.pilar ?? "deseo",
+      extra.gancho ?? "El deseo no se apaga, se esconde",
+      JSON.stringify(extra.alertas ?? []),
+      extra.numero ?? null,
+    ],
   )
   const id = rows[0]?.id
   if (!id) throw new Error("No se creó la idea")

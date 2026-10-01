@@ -107,13 +107,17 @@ function clienteDeServicio() {
   return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
-/** The dependencies of the ten-minute maintenance run. `dispararGrabacion` comes from the task: it needs the task object. */
-export function depsFrecuente(dispararGrabacion: DepsFrecuente["dispararGrabacion"]): DepsFrecuente {
+/** The dependencies of the ten-minute maintenance run. The two starters come from the task: they need the task objects. */
+export function depsFrecuente(
+  dispararGrabacion: DepsFrecuente["dispararGrabacion"],
+  dispararProduccion: DepsFrecuente["dispararProduccion"],
+): DepsFrecuente {
   return {
     db: clienteDeServicio(),
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
     dispararGrabacion,
+    dispararProduccion,
   }
 }
 

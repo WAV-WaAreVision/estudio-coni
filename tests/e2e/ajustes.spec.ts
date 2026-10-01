@@ -1,0 +1,267 @@
+import { expect, test } from "@playwright/test"
+import coniConfig from "../fixtures/coni.config.json"
+import { pool } from "../integration/db"
+import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
+import { URL_DE_LA_APP } from "./entorno"
+
+const NOMBRES_DE_LLAVES = "('heygen','elevenlabs','anthropic','meta')"
+const DIA = 24 * 60 * 60 * 1000
+
+async function limpiar() {
+  await pool.query(`delete from vault.secrets where name in ${NOMBRES_DE_LLAVES}`)
+  await pool.query(
+    "update public.ajustes set produccion = '{}'::jsonb, meta_cuenta_id = null, meta_token_expira_en = null, meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, avisos_resumen = true, avisos_urgentes = true",
+  )
+  await pool.query("delete from public.gastos")
+}
+
+async function conectarTodo(vence: number = 40 * DIA) {
+  for (const nombre of ["heygen", "elevenlabs", "anthropic", "meta"]) {
+    await pool.query("select vault.create_secret($1, $2)", [`llave-de-${nombre}-e2e`, nombre])
+  }
+  await pool.query(
+    "update public.ajustes set produccion = $1::jsonb, meta_cuenta_id = '17841400000000000', meta_token_expira_en = $2",
+    [JSON.stringify(coniConfig), new Date(Date.now() + vence).toISOString()],
+  )
+}
+
+async function ajustes() {
+  const { rows } = await pool.query("select * from public.ajustes")
+  return rows[0]
+}
+
+test.beforeEach(async ({ page }) => {
+  await bloquearRedExterna(page)
+  await limpiar()
+  await configurarServicios()
+})
+
+test.afterAll(limpiar)
+
+test("while nothing is set up the block counts the steps and offers the first one", async ({ page }) => {
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "Ajustes", level: 1 })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 0 de 4 listos" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Conectar Instagram" }).first()).toHaveAttribute(
+    "href",
+    "/api/meta/conectar",
+  )
+  await expect(page.getByRole("link", { name: "Ajustes" })).toHaveAttribute("aria-current", "page")
+  await capturar(page, "ajustes-configurando")
+})
+
+test("when every account answers, the block says everything is connected", async ({ page }) => {
+  await conectarTodo()
+
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "Todo conectado" })).toBeVisible()
+  await expect(page.getByText(/respondieron hoy a las \d\d:\d\d\./)).toBeVisible()
+  await expect(page.getByText("Conectada", { exact: true })).toHaveCount(4)
+  await capturar(page, "ajustes-todo-bien")
+})
+
+test("when Instagram is about to expire, the block warns with the days and one action", async ({ page }) => {
+  await conectarTodo(6 * DIA - 60_000)
+
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "Instagram vence en 6 días" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Renovar Instagram" }).first()).toHaveAttribute(
+    "href",
+    "/api/meta/conectar",
+  )
+  await capturar(page, "ajustes-vence")
+})
+
+test("a key a provider refuses is flagged, and one that cannot be checked is not blamed", async ({ page }) => {
+  await conectarTodo()
+  await configurarServicios({ heygen: "401", anthropic: "500" })
+
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "HeyGen no aceptó la llave" })).toBeVisible()
+  await expect(page.getByText("No aceptó la llave", { exact: true })).toBeVisible()
+  await expect(page.getByText("Sin revisar")).toBeVisible()
+})
+
+test("settings save by themselves, can be undone, and are logged with her as the actor", async ({ page }) => {
+  // `eventos` is append-only, so earlier runs stay: only what this test writes is looked at.
+  const { rows: previos } = await pool.query("select coalesce(max(id), 0) as id from public.eventos")
+  await page.goto("/ajustes")
+
+  await page.getByText("Talleres", { exact: true }).click()
+  await expect(page.getByText("Guardado")).toBeVisible()
+  await expect.poll(async () => (await ajustes()).meta).toBe("talleres")
+  await page.getByRole("button", { name: "Deshacer" }).click()
+  await expect.poll(async () => (await ajustes()).meta).toBe("consultas")
+  await expect(page.getByRole("radio", { name: "Consultas" })).toBeChecked()
+
+  await page.getByRole("button", { name: "Lun" }).click()
+  await expect.poll(async () => (await ajustes()).dias_publicacion).toEqual([1, 2, 4, 6])
+
+  const hora = page.getByLabel("Hora de publicación")
+  await hora.fill("20:30")
+  await hora.blur()
+  await expect.poll(async () => (await ajustes()).hora_publicacion).toBe("20:30:00")
+
+  await page.getByRole("button", { name: "Subir el tope" }).click()
+  await page.getByRole("button", { name: "Subir el tope" }).click()
+  await expect(page.getByText("US$ 50")).toBeVisible()
+  await expect.poll(async () => Number((await ajustes()).tope_mensual_usd)).toBe(50)
+  const { rows } = await pool.query(
+    "select actor_usuario from public.eventos where id > $1 and tabla = 'ajustes' and datos ->> 'tope_mensual_usd' = '50.00'",
+    [previos[0].id],
+  )
+  expect(rows.map((r) => r.actor_usuario)).toEqual(["c0000000-0000-4000-8000-000000000001"])
+
+  await page.getByRole("checkbox", { name: "Avisarme apenas falle algo" }).uncheck()
+  await expect.poll(async () => (await ajustes()).avisos_urgentes).toBe(false)
+
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByText("US$ 50")).toBeVisible()
+  await capturar(page, "ajustes-editar")
+})
+
+test("a cap under what was spent is saved with a warning", async ({ page }) => {
+  await pool.query(
+    "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'e2e', date_trunc('month', now() at time zone 'America/Santiago')::date, 20, 22, 'confirmado', 'e2e-ajustes-gasto')",
+  )
+  await page.goto("/ajustes")
+  await expect(page.getByText("Llevas US$ 22,00 este mes")).toBeVisible()
+
+  for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Bajar el tope" }).click()
+
+  await expect(page.getByText("Ya gastaste US$ 22,00; con este tope no grabo más hasta el próximo mes.")).toBeVisible()
+  await expect.poll(async () => Number((await ajustes()).tope_mensual_usd)).toBe(10)
+})
+
+test("she enters a key: it is checked with the provider, saved only if it works, and the status follows", async ({
+  page,
+}) => {
+  await configurarServicios({ heygen: "401" })
+  await page.goto("/ajustes")
+
+  await page.getByRole("button", { name: "Agregar la llave de HeyGen" }).click()
+  await page.getByLabel("Llave de HeyGen").fill("hg-la-llave-mala-de-prueba")
+  await page.getByRole("button", { name: "Guardar y comprobar" }).click()
+  await expect(alerta(page, "HeyGen no aceptó esa llave")).toBeVisible()
+  const { rows: antes } = await pool.query("select 1 from vault.secrets where name = 'heygen'")
+  expect(antes).toEqual([])
+
+  await configurarServicios({ heygen: "ok" })
+  await page.getByLabel("Llave de HeyGen").fill("hg-la-llave-buena-de-prueba")
+  await page.getByRole("button", { name: "Guardar y comprobar" }).click()
+
+  await expect(page.getByText("Guardada y comprobada.")).toBeVisible()
+  const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'heygen'")
+  expect(rows[0].decrypted_secret).toBe("hg-la-llave-buena-de-prueba")
+  await expect(page.getByRole("heading", { name: "Configuración: 1 de 4 listos" })).toBeVisible()
+  // The key is never written back into the page.
+  expect(await page.content()).not.toContain("hg-la-llave-buena-de-prueba")
+})
+
+test.describe("Conectar Instagram", () => {
+  /**
+   * Instagram's window, answered by the test: it sends her back with a code, the state it was given, or a refusal.
+   * Chromium does not hand a server redirect's next hop to `page.route`, so the real Instagram would be reached. The
+   * redirect is read here, where the app answers it, and the hop to Instagram is replaced by the way back.
+   */
+  async function instagramResponde(page: import("@playwright/test").Page, llegada: (estado: string) => string) {
+    await page.route(`${URL_DE_LA_APP}/api/meta/conectar`, async (ruta) => {
+      const respuesta = await ruta.fetch({ maxRedirects: 0 })
+      const destino = new URL(respuesta.headers().location ?? "")
+      expect(`${destino.origin}${destino.pathname}`).toBe("https://www.instagram.com/oauth/authorize")
+      expect(destino.searchParams.get("client_id")).toBe("1234567890")
+      expect(destino.searchParams.get("scope")).toBe("instagram_business_basic,instagram_business_content_publish")
+      expect(destino.searchParams.get("redirect_uri")).toBe(`${URL_DE_LA_APP}/api/meta/callback`)
+      const estado = destino.searchParams.get("state") ?? ""
+      await ruta.fulfill({
+        response: respuesta,
+        headers: { ...respuesta.headers(), location: `${URL_DE_LA_APP}/api/meta/callback${llegada(estado)}` },
+      })
+    })
+  }
+
+  test("she says yes: the token, the account and the expiry are saved and the status follows", async ({ page }) => {
+    await instagramResponde(page, (estado) => `?code=el-codigo-e2e&state=${estado}`)
+    await page.goto("/ajustes")
+
+    await page.getByRole("link", { name: "Conectar Instagram" }).first().click()
+
+    await expect(page).toHaveURL(/\/ajustes\?instagram=conectada$/)
+    await expect(page.getByText("Instagram quedó conectado.")).toBeVisible()
+    const fila = await ajustes()
+    expect(fila.meta_cuenta_id).toBe("17841400000000000")
+    expect(Date.parse(fila.meta_token_expira_en) - Date.now()).toBeGreaterThan(59 * DIA)
+    const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'meta'")
+    expect(rows[0].decrypted_secret).toBe("IGQ_largo_falso")
+    const rutas = (await registroDeServicios()).map((l) => l.ruta)
+    expect(rutas).toEqual(["/oauth/access_token", "/access_token", "/v25.0/me"])
+    // The secrets never reach the log of the fake service.
+    expect((await registroDeServicios()).map((l) => l.cuerpo).join("")).not.toContain("secreto-de-la-app-e2e")
+    await capturar(page, "ajustes-instagram-conectado")
+  })
+
+  test("a callback that did not start here is refused and saves nothing", async ({ page }) => {
+    await page.goto("/api/meta/callback?code=cualquiera&state=inventado")
+
+    await expect(page).toHaveURL(/\/ajustes\?instagram=estado$/)
+    await expect(page.getByText("La conexión con Instagram venció antes de terminar.")).toBeVisible()
+    expect((await ajustes()).meta_cuenta_id).toBeNull()
+    expect(await registroDeServicios()).toEqual([])
+  })
+
+  test("the state works once: replaying the callback is refused", async ({ page }) => {
+    let usado = ""
+    await instagramResponde(page, (estado) => {
+      usado = estado
+      return `?code=el-codigo-e2e&state=${estado}`
+    })
+    await page.goto("/api/meta/conectar")
+    await expect(page).toHaveURL(/instagram=conectada$/)
+
+    await page.goto(`/api/meta/callback?code=otra-vez&state=${usado}`)
+
+    await expect(page).toHaveURL(/instagram=estado$/)
+  })
+
+  test("she cancels in Instagram's window and nothing changes", async ({ page }) => {
+    await instagramResponde(page, (estado) => `?error=access_denied&error_reason=user_denied&state=${estado}`)
+
+    await page.goto("/api/meta/conectar")
+
+    await expect(page).toHaveURL(/\/ajustes\?instagram=cancelada$/)
+    await expect(page.getByText("Cancelaste la conexión con Instagram.")).toBeVisible()
+    expect((await ajustes()).meta_cuenta_id).toBeNull()
+  })
+
+  test("Instagram refuses the code: she is told and nothing is saved", async ({ page }) => {
+    await configurarServicios({ instagram: "rechazo" })
+    await instagramResponde(page, (estado) => `?code=vencido&state=${estado}`)
+
+    await page.goto("/api/meta/conectar")
+
+    await expect(page).toHaveURL(/instagram=rechazada$/)
+    await expect(alerta(page, "Instagram no aceptó la conexión.")).toBeVisible()
+    expect((await ajustes()).meta_cuenta_id).toBeNull()
+  })
+})
+
+test("signing out takes her to the code screen and the app asks for it again", async ({ browser }) => {
+  // Its own session, so it does not end the one the other specs share.
+  const { entrarComo } = await import("./ayudas")
+  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await entrarComo(contexto, "coni@estudio.test")
+  const page = await contexto.newPage()
+  await page.goto("/ajustes")
+
+  await page.getByRole("button", { name: "Cerrar sesión" }).click()
+
+  await expect(page).toHaveURL(/\/ingreso$/)
+  await page.goto("/ajustes")
+  await expect(page).toHaveURL(/\/ingreso$/)
+  await contexto.close()
+})

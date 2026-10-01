@@ -30,6 +30,8 @@ export const AVISO_AVATAR = "Video hecho con mi avatar digital."
 export const LINEAS_AYUDA =
   "Líneas de ayuda en Chile: Fono 1455 (violencia contra la mujer), *4141 (prevención del suicidio, gratis, 24 horas) y 133 (emergencias)."
 export const TIPO_ALERTA_LINEAS_AYUDA = "líneas de ayuda"
+/** The types of alert an idea can carry, spelled as the bank writes them. */
+export const TIPOS_DE_ALERTA = ["verificar dato", TIPO_ALERTA_LINEAS_AYUDA, "no es terapia", "nota"] as const
 
 const MINIMO_PALABRAS = 75
 const MAXIMO_PALABRAS = 150

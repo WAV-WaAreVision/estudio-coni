@@ -131,6 +131,19 @@ export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }
 const ERROR_DE_TOPE = "tope_alcanzado"
 const ERROR_SIN_AJUSTES = "ajustes_faltantes"
 
+function resultadoDeReserva(error: { message: string } | null, gasto: FilaDeGasto | null): Reserva {
+  if (error) {
+    if (error.message === ERROR_DE_TOPE) return { tope: true }
+    // Without the settings row there is no cap to check, and retrying will not create it.
+    if (error.message === ERROR_SIN_AJUSTES) {
+      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
+    }
+    throw fallo("No pude reservar el gasto", error)
+  }
+  if (!gasto) throw new Error("La base no devolvió el gasto reservado.")
+  return { tope: false, gasto }
+}
+
 export async function reservarGasto(
   db: Db,
   reserva: {
@@ -150,15 +163,28 @@ export async function reservarGasto(
     p_clave: reserva.clave,
     p_ahora: reserva.ahora,
   })
-  if (error) {
-    if (error.message === ERROR_DE_TOPE) return { tope: true }
-    // Without the settings row there is no cap to check, and retrying will not create it.
-    if (error.message === ERROR_SIN_AJUSTES) {
-      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
-    }
-    throw fallo("No pude reservar el gasto", error)
-  }
-  return { tope: false, gasto: data }
+  return resultadoDeReserva(error, data)
+}
+
+/** A spend that belongs to no piece (`reservar_gasto_general`); it counts against the monthly cap all the same. */
+export async function reservarGastoGeneral(
+  db: Db,
+  reserva: {
+    proveedor: "heygen" | "elevenlabs" | "anthropic"
+    paso: string
+    estimadoUsd: number
+    clave: string
+    ahora: string
+  },
+): Promise<Reserva> {
+  const { data, error } = await db.rpc("reservar_gasto_general", {
+    p_proveedor: reserva.proveedor,
+    p_paso: reserva.paso,
+    p_estimado: reserva.estimadoUsd,
+    p_clave: reserva.clave,
+    p_ahora: reserva.ahora,
+  })
+  return resultadoDeReserva(error, data)
 }
 
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {
@@ -254,4 +280,35 @@ export async function leerExpiracionMeta(db: Db): Promise<string | null> {
 export async function guardarTokenMeta(db: Db, token: string, expiraEn: string): Promise<void> {
   const { error } = await db.rpc("guardar_token_meta", { p_token: token, p_expira_en: expiraEn })
   if (error) throw fallo("No pude guardar el token de Instagram renovado", error)
+}
+
+/**
+ * Pieces whose first run never seems to have started, so it can be started again: approved for recording with no
+ * render and no reason, and a script round with no reason, each quiet since its own cut-off. A reason on the piece
+ * means the run did start and left a message for Coni, so those are not here.
+ */
+export async function leerPiezasSinArrancar(
+  db: Db,
+  corte: { grabarAntesDe: string; producirAntesDe: string },
+): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[] }> {
+  const [aGrabar, aProducir] = await Promise.all([
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "en_render")
+      .is("render_id", null)
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.grabarAntesDe)
+      .order("actualizada_en"),
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "guion_en_proceso")
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.producirAntesDe)
+      .order("actualizada_en"),
+  ])
+  if (aGrabar.error) throw fallo("No pude leer las piezas sin grabar", aGrabar.error)
+  if (aProducir.error) throw fallo("No pude leer las piezas sin guion", aProducir.error)
+  return { aGrabar: aGrabar.data, aProducir: aProducir.data }
 }

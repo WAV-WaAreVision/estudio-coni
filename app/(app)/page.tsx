@@ -79,6 +79,9 @@ export default async function Inicio() {
             })}
             alElegir={elegirIdeasAccion}
           />
+          <Link href="/ideas" className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}>
+            Ver todas las ideas
+          </Link>
         </Seccion>
       </div>
 

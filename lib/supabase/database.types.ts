@@ -36,6 +36,8 @@ export type Database = {
     Tables: {
       ajustes: {
         Row: {
+          avisos_resumen: boolean
+          avisos_urgentes: boolean
           dias_publicacion: number[]
           hora_publicacion: string
           id: boolean
@@ -47,6 +49,8 @@ export type Database = {
           zona: string
         }
         Insert: {
+          avisos_resumen?: boolean
+          avisos_urgentes?: boolean
           dias_publicacion?: number[]
           hora_publicacion?: string
           id?: boolean
@@ -58,6 +62,8 @@ export type Database = {
           zona?: string
         }
         Update: {
+          avisos_resumen?: boolean
+          avisos_urgentes?: boolean
           dias_publicacion?: number[]
           hora_publicacion?: string
           id?: boolean
@@ -176,6 +182,7 @@ export type Database = {
           alertas: Json
           creada_en: string
           estado: string
+          fijada_en: string | null
           formato: string
           fuentes: Json
           fuerza: string
@@ -189,6 +196,7 @@ export type Database = {
           alertas?: Json
           creada_en?: string
           estado?: string
+          fijada_en?: string | null
           formato?: string
           fuentes?: Json
           fuerza: string
@@ -202,6 +210,7 @@ export type Database = {
           alertas?: Json
           creada_en?: string
           estado?: string
+          fijada_en?: string | null
           formato?: string
           fuentes?: Json
           fuerza?: string
@@ -390,6 +399,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      conectar_instagram: {
+        Args: { p_cuenta: string; p_expira_en: string; p_token: string }
+        Returns: undefined
+      }
       confirmar_gasto: {
         Args: { p_clave: string; p_real: number }
         Returns: {
@@ -407,6 +420,55 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      editar_texto_como_coni: {
+        Args: {
+          p_pieza: string
+          p_revision: Json
+          p_texto: string
+          p_version: number
+        }
+        Returns: {
+          actualizada_en: string
+          archivos_borrados_en: string | null
+          audio_id: string | null
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_en: string | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          revision: Json
+          texto: string | null
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -502,6 +564,33 @@ export type Database = {
           p_estimado: number
           p_paso: string
           p_pieza: string
+          p_proveedor: string
+        }
+        Returns: {
+          clave: string
+          creado_en: string
+          estado: string
+          estimado_usd: number
+          id: number
+          mes: string
+          paso: string
+          pieza_id: string | null
+          proveedor: string
+          real_usd: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reservar_gasto_general: {
+        Args: {
+          p_ahora?: string
+          p_clave: string
+          p_estimado: number
+          p_paso: string
           p_proveedor: string
         }
         Returns: {

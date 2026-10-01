@@ -41,7 +41,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       .not("estado", "in", "(idea,descartado)")
       .order("actualizada_en", { ascending: false })
       .limit(PIEZAS_A_LEER),
-    db.from("ideas").select("id, gancho, pilar, fuerza, numero").eq("estado", "idea"),
+    db.from("ideas").select("id, gancho, pilar, fuerza, numero, fijada_en").eq("estado", "idea"),
     db.from("ajustes").select("zona").maybeSingle(),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas", piezas.error)
@@ -64,7 +64,11 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
     recientes: piezas.data.flatMap((fila) =>
       fila.ideas && Date.parse(fila.creada_en) >= desde ? [fila.ideas.pilar] : [],
     ),
-    banco: ideas.data.map((idea) => ({ ...idea, fuerza: fuerzaDe(idea.fuerza) })),
+    banco: ideas.data.map(({ fijada_en, ...idea }) => ({
+      ...idea,
+      fuerza: fuerzaDe(idea.fuerza),
+      fijada: fijada_en !== null,
+    })),
     zona: ajustes.data?.zona ?? "America/Santiago",
   }
 }

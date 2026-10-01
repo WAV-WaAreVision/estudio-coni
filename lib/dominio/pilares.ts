@@ -10,6 +10,15 @@ export const NOMBRE_DE_PILAR: Record<Pilar, string> = {
   bienestar: "Bienestar emocional",
 }
 
+/** For filters and chips, where the long names do not fit. */
+export const NOMBRE_CORTO_DE_PILAR: Record<Pilar, string> = {
+  pareja: "Pareja",
+  deseo: "Deseo",
+  autoestima: "Autoestima",
+  limites: "Límites",
+  bienestar: "Bienestar",
+}
+
 export function esPilar(valor: string | null | undefined): valor is Pilar {
   return PILARES.some((pilar) => pilar === valor)
 }

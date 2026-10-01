@@ -22,8 +22,6 @@ type Db = SupabaseClient<Database>
 export interface DepsAcciones {
   /** Coni's session client: the database records who approved from it, and row level security applies. */
   db: Db
-  /** A `service_role` client, asked for only by `editarTexto` (the review column is written by the server alone). */
-  servicio: () => Db
   disparar: Disparos
   ahora: () => string
 }
@@ -239,7 +237,8 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
     if (fila.guion === null) throw new Error(`La pieza ${fila.id} tiene texto por editar pero no guion.`)
-    const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "editar_texto" })
+    // The state change is validated here and applied by the function below, which repeats it in SQL.
+    transicionar(piezaDesdeFila(fila), { tipo: "editar_texto" })
 
     const juicios = leerRevision(fila.revision).filter(esJuicioDeClaude)
     const idea = fila.idea_id ? await leerIdea(deps.db, fila.idea_id) : null
@@ -250,9 +249,14 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
       ...juicios,
     ]
 
-    // Only the server writes `revision` (a trigger refuses Coni's session), so this one write uses the service role.
-    // The version check still guards it, and the caption is hers: it was read through her own session above.
-    await guardar(deps.servicio(), fila, { ...cambiosDesdePieza(pieza), texto, revision: revisionAJson(revision) })
+    // Written as Coni (the database function is hers alone), so the audit row names her and not the service role.
+    const { error } = await deps.db.rpc("editar_texto_como_coni", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_texto: texto,
+      p_revision: revisionAJson(revision),
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
     return {}
   })
 }

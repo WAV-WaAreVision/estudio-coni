@@ -2,7 +2,16 @@ import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import { z } from "zod"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { type Alerta, AVISO_AVATAR, CIERRE, type Hallazgo, LINEAS_AYUDA, REGLAS_CLAUDE } from "@/lib/dominio/revision"
+import { PILARES } from "@/lib/dominio/pilares"
+import {
+  type Alerta,
+  AVISO_AVATAR,
+  CIERRE,
+  type Hallazgo,
+  LINEAS_AYUDA,
+  REGLAS_CLAUDE,
+  TIPOS_DE_ALERTA,
+} from "@/lib/dominio/revision"
 
 export const MODELO = "claude-opus-5-5"
 // Routes a declined request to the fallback Anthropic recommends for that refusal category.
@@ -230,4 +239,55 @@ export async function revisarConClaude(entrada: {
     (h): Hallazgo => ({ regla: h.regla, tipo: "advierte", mensaje: h.mensaje, frase: h.frase }),
   )
   return { hallazgos, uso }
+}
+
+const SalidaIdea = z.object({
+  pilar: z.enum(PILARES),
+  formato: z.string(),
+  alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string() })),
+})
+
+export type PropuestaDeIdea = z.infer<typeof SalidaIdea>
+
+function pedidoDeClasificacion(entrada: { gancho: string; tema: string }): string {
+  return `Coni del Rosario escribió una idea propia para un reel. Propón en qué pilar de la línea editorial va, qué formato le calza y qué alertas necesita antes de escribir el guion. Ella confirma o corrige lo que propongas.
+
+PILARES (usa exactamente estos nombres)
+- pareja: Pareja y conversación
+- deseo: Deseo y sexualidad
+- autoestima: Autoestima y "ser tu propia diosa"
+- limites: Género y límites
+- bienestar: Bienestar emocional
+
+FORMATOS (elige uno de la línea editorial; si ninguno calza, escribe «otro: » y dos o tres palabras)
+Mito o realidad, Tres señales, Ejercicio de la semana, Pregunta de la audiencia, Idea de sus libros
+
+ALERTAS (usa exactamente estos tipos; propón solo las que de verdad apliquen, la lista puede ir vacía)
+- verificar dato: la idea se apoya en una cifra, un estudio o una afirmación científica que habría que confirmar.
+- líneas de ayuda: el tema toca violencia, abuso, suicidio o autolesiones.
+- no es terapia: el tema roza el diagnóstico o el consejo para un caso particular.
+- nota: una indicación editorial sobre cómo tomar la idea.
+Cada alerta lleva un texto de una oración para Coni, en español de Chile, sin rayas largas.
+
+<idea>
+Gancho: ${entrada.gancho}
+Tema: ${entrada.tema || "(sin tema escrito)"}
+</idea>`
+}
+
+/** Proposes the pillar, format and alerts of an idea Coni wrote herself (design A12). She confirms them on screen. */
+export async function clasificarIdea(entrada: {
+  cliente: Anthropic
+  guia: string
+  gancho: string
+  tema: string
+}): Promise<{ propuesta: PropuestaDeIdea; uso: UsoClaude }> {
+  const { cliente, guia, gancho, tema } = entrada
+  const { salida, uso } = await pedirJson(cliente, {
+    guia,
+    usuario: pedidoDeClasificacion({ gancho, tema }),
+    effort: "low",
+    esquema: SalidaIdea,
+  })
+  return { propuesta: salida, uso }
 }

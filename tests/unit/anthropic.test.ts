@@ -4,7 +4,7 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
-import { costoClaude, escribirGuion, revisarConClaude } from "@/lib/proveedores/anthropic"
+import { clasificarIdea, costoClaude, escribirGuion, revisarConClaude } from "@/lib/proveedores/anthropic"
 import { servidor } from "../msw"
 
 const CLAVE = "sk-ant-clave-de-prueba"
@@ -421,5 +421,60 @@ describe("costoClaude", () => {
 
   it("costs nothing for no usage", () => {
     expect(costoClaude({ input_tokens: 0, output_tokens: 0 })).toBe(0)
+  })
+})
+
+describe("clasificarIdea", () => {
+  const propuesta = {
+    pilar: "pareja",
+    formato: "Ejercicio de la semana",
+    alertas: [{ tipo: "no es terapia", texto: "Presentarlo como ejercicio general." }],
+  }
+
+  function clasificar(extra: Partial<Parameters<typeof clasificarIdea>[0]> = {}) {
+    return clasificarIdea({
+      cliente: cliente(),
+      guia: GUIA,
+      gancho: "¿Tu pareja te escucha o solo espera su turno?",
+      tema: "Escuchar de verdad",
+      ...extra,
+    })
+  }
+
+  it("asks for the pillar, the format and the alerts with the guide cached and the idea in the user message", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+
+    await clasificar()
+
+    const { cuerpo } = pedidos[0] as PedidoCapturado
+    expect(cuerpo.output_config.effort).toBe("low")
+    expect(Object.keys(cuerpo.output_config.format.schema.properties).sort()).toEqual(["alertas", "formato", "pilar"])
+    expect(cuerpo.system).toEqual([{ type: "text", text: GUIA, cache_control: { type: "ephemeral" } }])
+    const usuario = JSON.stringify(cuerpo.messages[0]?.content)
+    expect(usuario).toContain("¿Tu pareja te escucha o solo espera su turno?")
+    expect(usuario).toContain("Escuchar de verdad")
+    for (const tipo of ["verificar dato", "líneas de ayuda", "no es terapia", "nota"]) expect(usuario).toContain(tipo)
+  })
+
+  it("returns the proposal and the usage", async () => {
+    respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+
+    const resultado = await clasificar()
+
+    expect(resultado.propuesta).toEqual(propuesta)
+    expect(resultado.uso).toEqual(USO)
+  })
+
+  it("does not accept a pillar or an alert type the app does not have", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "negocios" })))
+    expect((await rechazo(clasificar())).message).toMatch(/formato/i)
+
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, alertas: [{ tipo: "peligro", texto: "x" }] })))
+    expect((await rechazo(clasificar())).message).toMatch(/formato/i)
+  })
+
+  it("treats a refusal as a refusal", async () => {
+    respondiendo(() => HttpResponse.json(mensaje([], { stop_reason: "refusal" })))
+    expect((await rechazo(clasificar())).name).toBe("RechazoDeClaude")
   })
 })

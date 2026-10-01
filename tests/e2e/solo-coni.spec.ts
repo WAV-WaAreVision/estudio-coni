@@ -19,6 +19,11 @@ test("anyone else who signs in, the maintainer included, only sees that the app 
   await expect(page.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
   await expect(page.getByText("Un guion de Coni")).toHaveCount(0)
 
+  await page.goto("/ajustes")
+  await expect(page.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
+  await page.goto("/ideas")
+  await expect(page.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
+
   await contexto.close()
 })
 
