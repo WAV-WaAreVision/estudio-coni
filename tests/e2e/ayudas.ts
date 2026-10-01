@@ -58,10 +58,10 @@ export function alerta(page: Page, texto: string) {
   return page.getByRole("alert").filter({ hasText: texto })
 }
 
-export async function capturar(page: Page, nombre: string): Promise<string> {
+export async function capturar(page: Page, nombre: string, opciones: { completa?: boolean } = {}): Promise<string> {
   mkdirSync(CARPETA_DE_CAPTURAS, { recursive: true })
   const ruta = join(CARPETA_DE_CAPTURAS, `${nombre}.png`)
-  await page.screenshot({ path: ruta })
+  await page.screenshot({ path: ruta, fullPage: opciones.completa ?? false })
   return ruta
 }
 
