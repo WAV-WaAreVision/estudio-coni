@@ -18,7 +18,8 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
     "test:db": "vitest run --config vitest.integration.config.ts",
-    "test:eval": "vitest run --config vitest.eval.config.ts"
+    "test:eval": "vitest run --config vitest.eval.config.ts",
+    "importar:banco": "tsx scripts/importar-banco.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
@@ -53,6 +54,7 @@
     "msw": "^2.15.0",
     "pg": "^8.23.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.5"
   },
