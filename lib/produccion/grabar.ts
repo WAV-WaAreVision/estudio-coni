@@ -183,9 +183,19 @@ async function crearElVideo({ contexto, gasto }: Entrada): Promise<string> {
     throw new FallaDeConfiguracion(`La pieza ${fila.id} no tiene voz guardada.`)
   }
   const voz = await deps.almacen.bajar(fila.audio_id)
-  const audioAssetId = await subirAsset({ clave: llave, datos: voz, tipo: "audio/mpeg", idempotencia: clave })
+  const audioAssetId = await subirAsset({
+    clave: llave,
+    datos: voz,
+    tipo: "audio/mpeg",
+    idempotencia: `${clave}:asset`,
+  })
   const { cuerpo } = armarPedido({ config, guion, titulo: fila.titulo, audioAssetId })
-  const videoId = await crearVideo({ clave: llave, pedido: cuerpo, callbackUrl: deps.callbackUrl, idempotencia: clave })
+  const videoId = await crearVideo({
+    clave: llave,
+    pedido: cuerpo,
+    callbackUrl: deps.callbackUrl,
+    idempotencia: `${clave}:video`,
+  })
   // Before waiting. If this write is lost, the retry asks again with the same idempotency key and HeyGen replays
   // its first answer instead of charging a second time.
   await guardarRender(contexto, videoId)

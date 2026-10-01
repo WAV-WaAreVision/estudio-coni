@@ -277,7 +277,7 @@ describe("grabarPieza", () => {
     expect([...(d.sondeados[0] ?? [])]).toEqual([...VIDEO_FINAL])
   })
 
-  it("sends HeyGen the voice as an asset and the video request with the callback, the key of Coni and one idempotency key", async () => {
+  it("sends HeyGen the voice as an asset and the video request with the callback, the key of Coni and one idempotency key per call", async () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
@@ -288,11 +288,11 @@ describe("grabarPieza", () => {
     const clave = claveDeGasto(id, 0)
     expect(sim.assets).toHaveLength(1)
     expect(sim.assets[0]?.cabeceras.get("x-api-key")).toBe(CLAVE_HEYGEN)
-    expect(sim.assets[0]?.cabeceras.get("idempotency-key")).toBe(clave)
+    expect(sim.assets[0]?.cabeceras.get("idempotency-key")).toBe(`${clave}:asset`)
     expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
     expect(sim.creaciones).toHaveLength(1)
     expect(sim.creaciones[0]?.cabeceras.get("x-api-key")).toBe(CLAVE_HEYGEN)
-    expect(sim.creaciones[0]?.cabeceras.get("idempotency-key")).toBe(clave)
+    expect(sim.creaciones[0]?.cabeceras.get("idempotency-key")).toBe(`${clave}:video`)
     expect(sim.creaciones[0]?.cuerpo).toMatchObject({
       type: "avatar",
       avatar_id: coniConfig.heygen.avatar_id,
@@ -554,8 +554,10 @@ describe("grabarPieza reintentos", () => {
     expect(segunda.resultado).toBe("grabada")
     expect(sim.creaciones).toHaveLength(2)
     const llaves = sim.creaciones.map((c) => c.cabeceras.get("idempotency-key"))
-    expect(llaves[0]).toBe(claveDeGasto(id, 0))
+    expect(llaves[0]).toBe(`${claveDeGasto(id, 0)}:video`)
     expect(llaves[1]).toBe(llaves[0])
+    const llavesAsset = sim.assets.map((a) => a.cabeceras.get("idempotency-key"))
+    expect(llavesAsset).toEqual([`${claveDeGasto(id, 0)}:asset`, `${claveDeGasto(id, 0)}:asset`])
     expect((await pieza(id)).render_id).toBe(`${VIDEO_ID}_0`)
     expect(await gastos(id)).toHaveLength(1)
   })
@@ -889,7 +891,8 @@ describe("la entrada a en_render con el flujo real", () => {
 
     expect(segunda.resultado).toBe("grabada")
     expect(sim.creaciones).toHaveLength(2)
-    expect(sim.creaciones[1]?.cabeceras.get("idempotency-key")).toBe(claveDeGasto(id, 1))
+    expect(sim.creaciones[1]?.cabeceras.get("idempotency-key")).toBe(`${claveDeGasto(id, 1)}:video`)
+    expect(sim.assets[1]?.cabeceras.get("idempotency-key")).toBe(`${claveDeGasto(id, 1)}:asset`)
     expect(sim.creaciones[1]?.cabeceras.get("idempotency-key")).not.toBe(
       sim.creaciones[0]?.cabeceras.get("idempotency-key"),
     )
