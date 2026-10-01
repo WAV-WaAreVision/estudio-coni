@@ -41,6 +41,7 @@ export type Database = {
           id: boolean
           meta: string
           meta_cuenta_id: string | null
+          meta_token_expira_en: string | null
           produccion: Json
           tope_mensual_usd: number
           zona: string
@@ -51,6 +52,7 @@ export type Database = {
           id?: boolean
           meta?: string
           meta_cuenta_id?: string | null
+          meta_token_expira_en?: string | null
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
@@ -61,6 +63,7 @@ export type Database = {
           id?: boolean
           meta?: string
           meta_cuenta_id?: string | null
+          meta_token_expira_en?: string | null
           produccion?: Json
           tope_mensual_usd?: number
           zona?: string
@@ -269,6 +272,7 @@ export type Database = {
       piezas: {
         Row: {
           actualizada_en: string
+          archivos_borrados_en: string | null
           audio_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
@@ -303,6 +307,7 @@ export type Database = {
         }
         Insert: {
           actualizada_en?: string
+          archivos_borrados_en?: string | null
           audio_id?: string | null
           contenedor_clave?: string | null
           contenedor_id?: string | null
@@ -337,6 +342,7 @@ export type Database = {
         }
         Update: {
           actualizada_en?: string
+          archivos_borrados_en?: string | null
           audio_id?: string | null
           contenedor_clave?: string | null
           contenedor_id?: string | null
@@ -419,6 +425,7 @@ export type Database = {
         }
         Returns: {
           actualizada_en: string
+          archivos_borrados_en: string | null
           audio_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
@@ -460,6 +467,10 @@ export type Database = {
       }
       guardar_secreto: {
         Args: { p_nombre: string; p_valor: string }
+        Returns: undefined
+      }
+      guardar_token_meta: {
+        Args: { p_expira_en: string; p_token: string }
         Returns: undefined
       }
       leer_secreto: { Args: { p_nombre: string }; Returns: string }
@@ -516,6 +527,7 @@ export type Database = {
         Args: { p_ahora: string; p_arriendo_segundos?: number }
         Returns: {
           actualizada_en: string
+          archivos_borrados_en: string | null
           audio_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null

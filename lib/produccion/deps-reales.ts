@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
+import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
+import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
@@ -96,5 +98,32 @@ export function depsFalla(): DepsFalla {
   return {
     db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
     avisos: avisosReales(),
+  }
+}
+
+function clienteDeServicio() {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+/** The dependencies of the ten-minute maintenance run. `dispararGrabacion` comes from the task: it needs the task object. */
+export function depsFrecuente(dispararGrabacion: DepsFrecuente["dispararGrabacion"]): DepsFrecuente {
+  return {
+    db: clienteDeServicio(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    dispararGrabacion,
+  }
+}
+
+/** The dependencies of the nightly run. A missing database URL is the backup's failure, and WAV is told by it. */
+export function depsNocturno(): DepsNocturno {
+  return {
+    db: clienteDeServicio(),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    volcarBase: () => volcarConPgDump(exigirEnv("RESPALDO_DB_URL", process.env.RESPALDO_DB_URL)),
   }
 }

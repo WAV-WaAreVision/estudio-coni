@@ -195,3 +195,63 @@ export async function leerCuentaMeta(db: Db): Promise<string | null> {
   if (error) throw fallo("No pude leer la cuenta de Instagram", error)
   return data?.meta_cuenta_id?.trim() || null
 }
+
+/** Pieces being rendered or subtitled that have not been written to since `antesDe` (the job of `mantenimiento`). */
+export async function leerPiezasAtascadas(db: Db, antesDe: string): Promise<FilaDePieza[]> {
+  const { data, error } = await db
+    .from("piezas")
+    .select("*")
+    .in("estado", ["en_render", "subtitulando"])
+    .lt("actualizada_en", antesDe)
+    .order("actualizada_en")
+  if (error) throw fallo("No pude leer las piezas atascadas", error)
+  return data
+}
+
+/** Reservations still open that were made before `antesDe`, with the piece each one belongs to (if any). */
+export async function leerGastosAbiertos(
+  db: Db,
+  antesDe: string,
+): Promise<{ gasto: FilaDeGasto; pieza: FilaDePieza | null }[]> {
+  const { data: gastos, error } = await db
+    .from("gastos")
+    .select("*")
+    .eq("estado", "reservado")
+    .lt("creado_en", antesDe)
+    .order("id")
+  if (error) throw fallo("No pude leer los gastos abiertos", error)
+  const ids = [...new Set(gastos.flatMap((gasto) => (gasto.pieza_id ? [gasto.pieza_id] : [])))]
+  const piezas = new Map<string, FilaDePieza>()
+  if (ids.length > 0) {
+    const { data, error: errorPiezas } = await db.from("piezas").select("*").in("id", ids)
+    if (errorPiezas) throw fallo("No pude leer las piezas de los gastos", errorPiezas)
+    for (const pieza of data) piezas.set(pieza.id, pieza)
+  }
+  return gastos.map((gasto) => ({ gasto, pieza: gasto.pieza_id ? (piezas.get(gasto.pieza_id) ?? null) : null }))
+}
+
+/** Published or discarded pieces, last written before `antesDe`, whose files have not been deleted yet. */
+export async function leerPiezasParaRetencion(db: Db, antesDe: string): Promise<FilaDePieza[]> {
+  const { data, error } = await db
+    .from("piezas")
+    .select("*")
+    .in("estado", ["publicado", "descartado"])
+    .is("archivos_borrados_en", null)
+    .lt("actualizada_en", antesDe)
+    .order("actualizada_en")
+  if (error) throw fallo("No pude leer las piezas para la retención", error)
+  return data
+}
+
+/** When the Instagram token stops working, as Coni's connection or the last renewal set it; null when unknown. */
+export async function leerExpiracionMeta(db: Db): Promise<string | null> {
+  const { data, error } = await db.from("ajustes").select("meta_token_expira_en").maybeSingle()
+  if (error) throw fallo("No pude leer la fecha del token de Instagram", error)
+  return data?.meta_token_expira_en ?? null
+}
+
+/** Replaces the `meta` secret and moves its expiry in one transaction (`guardar_token_meta`). */
+export async function guardarTokenMeta(db: Db, token: string, expiraEn: string): Promise<void> {
+  const { error } = await db.rpc("guardar_token_meta", { p_token: token, p_expira_en: expiraEn })
+  if (error) throw fallo("No pude guardar el token de Instagram renovado", error)
+}

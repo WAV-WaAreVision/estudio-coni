@@ -89,7 +89,62 @@ describe("almacenEnMemoria (the rest of the contract)", () => {
   })
 })
 
+describe("almacenEnMemoria.listar", () => {
+  it("lists the objects under a prefix with their size, and nothing else", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir("respaldos/2026-10-01.sql.gz", new Uint8Array(5), "application/gzip")
+    await almacen.subir("respaldos/2026-10-02.sql.gz", new Uint8Array(7), "application/gzip")
+    await almacen.subir("videos/p/a.mp4", MP4, "video/mp4")
+
+    expect(await almacen.listar("respaldos/")).toEqual([
+      { clave: "respaldos/2026-10-01.sql.gz", bytes: 5 },
+      { clave: "respaldos/2026-10-02.sql.gz", bytes: 7 },
+    ])
+    expect(await almacen.listar("nada/")).toEqual([])
+  })
+})
+
 describe("almacenR2", () => {
+  describe("listar", () => {
+    // https://developers.cloudflare.com/r2/api/s3/api/ : ListObjectsV2 with `prefix`, `continuation-token`, `max-keys`.
+    it("lists a prefix with ListObjectsV2 and follows the continuation token", async () => {
+      const paginas = [
+        `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>t2</NextContinuationToken><Contents><Key>respaldos/a.sql.gz</Key><Size>10</Size></Contents></ListBucketResult>`,
+        `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>respaldos/b.sql.gz</Key><Size>20</Size></Contents></ListBucketResult>`,
+      ]
+      const { capturas } = capturando(
+        () => new HttpResponse(paginas.shift(), { status: 200, headers: { "Content-Type": "application/xml" } }),
+      )
+
+      const objetos = await r2().listar("respaldos/")
+
+      expect(objetos).toEqual([
+        { clave: "respaldos/a.sql.gz", bytes: 10 },
+        { clave: "respaldos/b.sql.gz", bytes: 20 },
+      ])
+      expect(capturas.map((c) => c.url.searchParams.get("prefix"))).toEqual(["respaldos/", "respaldos/"])
+      expect(capturas.map((c) => c.url.searchParams.get("continuation-token"))).toEqual([null, "t2"])
+      expect(capturas.map((c) => c.metodo)).toEqual(["GET", "GET"])
+    })
+
+    it("returns an empty list for a prefix with nothing in it", async () => {
+      capturando(
+        () =>
+          new HttpResponse(
+            `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>`,
+            { status: 200, headers: { "Content-Type": "application/xml" } },
+          ),
+      )
+      expect(await r2().listar("respaldos/")).toEqual([])
+    })
+
+    it("fails with a plain error that never carries the secret", async () => {
+      capturando(errorS3("InternalError", `boom ${SECRETO}`, 500))
+      const error = await rechazo(r2().listar("respaldos/"))
+      expect(error.message).not.toContain(SECRETO)
+    })
+  })
+
   describe("urlFirmada", () => {
     it("signs a GET URL on the account host with the bucket and key in the path and the expiry asked for", async () => {
       const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))

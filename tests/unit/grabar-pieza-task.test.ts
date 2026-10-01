@@ -15,9 +15,9 @@ describe("grabarPiezaTask", () => {
 })
 
 describe("trigger.config.ts", () => {
-  it("adds ffmpeg and the subtitle fonts to the container", () => {
+  it("adds ffmpeg, the subtitle fonts and a pg_dump as new as the database to the container", () => {
     const extensiones = (config.build?.extensions ?? []).map((extension) => extension.name)
-    expect(extensiones).toEqual(["ffmpeg", "additionalFiles"])
+    expect(extensiones).toEqual(["ffmpeg", "additionalFiles", "postgresql-client-17"])
   })
 
   it("makes process.cwd() the build folder in dev as in production, where the fonts are found", () => {
