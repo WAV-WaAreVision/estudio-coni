@@ -1,0 +1,145 @@
+[
+  {
+    "numero": 2,
+    "pilar": "pareja",
+    "gancho": "Hay una palabra que enciende cualquier discusión de pareja.",
+    "tema": "Cambiar el '¿por qué hiciste eso?' por preguntas con 'qué' o 'cómo' para que una conversación difícil de pareja no empiece en defensa.",
+    "formato": "otro: una palabra que cambiar",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "La explicación sobre la infancia es una hipótesis de la fuente sin dato: no presentarla como hecho."
+      }
+    ]
+  },
+  {
+    "numero": 21,
+    "pilar": "pareja",
+    "gancho": "Las parejas sanas también se hieren. Lo que cambia es la reparación.",
+    "tema": "Un vínculo sano no es el que nunca hiere, sino el que repara: reconocer el daño, hacerse cargo y volver a acercarse.",
+    "formato": "Mito o realidad",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "líneas de ayuda",
+        "texto": "Dejar claro que reparar aplica a roces, no a violencia: si hay miedo o control constante, derivar a ayuda."
+      }
+    ]
+  },
+  {
+    "numero": 31,
+    "pilar": "deseo",
+    "gancho": "¿Tu deseo se apagó o tu cuerpo está en modo alerta?",
+    "tema": "El estrés sostenido pone al cuerpo en modo alerta y puede apagar el deseo: no siempre es falta de amor, a veces es falta de espacio interno. Distinguir deseo apagado de cuerpo en alerta y hablarlo en pareja sin culpa.",
+    "formato": "Mito o realidad",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "Se apoya en afirmaciones científicas de la fuente (sistema nervioso simpático, cortisol, libido) y en una cifra (90% o 91,4% de las preocupaciones nunca ocurre): Coni debe verificarlas o no usarlas. Hay otras causas del bajo deseo; sin consejos para casos particulares."
+      }
+    ]
+  },
+  {
+    "numero": 32,
+    "pilar": "deseo",
+    "gancho": "¿Por qué nos cuesta tanto decir 'vulva' en voz alta?",
+    "tema": "Llamar a las partes del cuerpo y a la sexualidad por su nombre (vulva, clítoris, pene) sin eufemismos: hablar claro baja la vergüenza y mejora la conversación sexual en pareja.",
+    "formato": "Ejercicio de la semana",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "nota",
+        "texto": "Mantener lenguaje educativo con nombres anatómicos, sin descripciones explícitas. La fuente habla de confianza social en general (ejemplos 'plata' y 'baño'): el puente a sexualidad es de Coni."
+      }
+    ]
+  },
+  {
+    "numero": 41,
+    "pilar": "autoestima",
+    "gancho": "Cuenta cuántas veces hoy te dijiste 'debería'.",
+    "tema": "Contar cuántos 'debería' y 'tengo que' te dices al día y detectar de quién es esa voz (mandatos sobre cómo ser mujer, madre o pareja), cambiándolos por 'elijo' o 'quiero'.",
+    "formato": "Ejercicio de la semana",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "Cita un estudio de 2015 (metas 'debería' frente a 'quiero') sin autor: verificar o no citarlo."
+      },
+      {
+        "tipo": "verificar dato",
+        "texto": "La fuente lo atribuye a la programación neurolingüística (sin respaldo científico sólido): no nombrarla. Cuidar que \"elijo\" no suene a culpar a la persona por límites reales (por ejemplo, crianza)."
+      }
+    ]
+  },
+  {
+    "numero": 45,
+    "pilar": "autoestima",
+    "gancho": "¿Quién te enseñó que cuidarte era egoísmo?",
+    "tema": "Autocuidado como preservarte (cuerpo, mente y emociones), no como capricho ni egoísmo; ligado al mandato de cuidar a todos antes que a una misma.",
+    "formato": "Mito o realidad",
+    "fuerza": "alta",
+    "alertas": []
+  },
+  {
+    "numero": 81,
+    "pilar": "limites",
+    "gancho": "Tu 'sí' automático tiene un costo que nadie ve.",
+    "tema": "Responder 'déjame revisarlo y te aviso' en vez del 'sí' automático, para ganar tiempo antes de aceptar un pedido que no quieres o no puedes.",
+    "formato": "Ejercicio de la semana",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "La fuente afirma que basta demorar 50 a 100 milisegundos para decidir mejor: dato poco creíble, no citarlo. Los guiones son laborales; adaptar a familia y pareja."
+      }
+    ]
+  },
+  {
+    "numero": 98,
+    "pilar": "limites",
+    "gancho": "¿Un 'no' es un test o es simplemente un no?",
+    "tema": "Mito: que una mujer te ponga a prueba o te lleve la contra sea 'parte del juego'. Una incomodidad o un no son límites, no tests; y nadie necesita 'liderar' la interacción.",
+    "formato": "Mito o realidad",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "líneas de ayuda",
+        "texto": "Consentimiento y posible acoso: las fuentes normalizan 'probar' al hombre, 'el hombre lidera' y desviar con humor los temas serios de ella. Tratar con encuadre educativo, sin casos particulares; ante insistencia o violencia, mencionar líneas de ayuda."
+      }
+    ]
+  },
+  {
+    "numero": 108,
+    "pilar": "bienestar",
+    "gancho": "Cuando tu mente inventa lo peor, pídele pruebas.",
+    "tema": "Cuando la mente inventa lo peor: un ejercicio de cuatro pasos (qué pasó, qué sentiste, qué pensaste, qué podría pasar de verdad) para bajar la espiral de sobrepensar.",
+    "formato": "Ejercicio de la semana",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "no es terapia",
+        "texto": "Técnica de corte cognitivo-conductual: presentarla como ejercicio general, no como terapia. Si la ansiedad es intensa o persistente, sugerir consultar a un profesional."
+      }
+    ]
+  },
+  {
+    "numero": 119,
+    "pilar": "bienestar",
+    "gancho": "¿Dónde sientes la ansiedad en tu cuerpo? Ahí empieza.",
+    "tema": "Mapa corporal de la emoción: ubicar dónde sientes la rabia, el miedo o la ansiedad y ponerles nombre antes de reaccionar.",
+    "formato": "Ejercicio de la semana",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "La fuente afirma localizaciones corporales por emoción y 'nombrar baja la tensión': afirmaciones científicas simplificadas, verificar. Lista 'depresión' y 'ansiedad' como emociones: no equivalen a un diagnóstico."
+      },
+      {
+        "tipo": "no es terapia",
+        "texto": "La fuente afirma localizaciones corporales por emoción y 'nombrar baja la tensión': afirmaciones científicas simplificadas, verificar. Lista 'depresión' y 'ansiedad' como emociones: no equivalen a un diagnóstico."
+      }
+    ]
+  }
+]

@@ -176,7 +176,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "pedir_cambios":
       if (estado !== "guion_por_aprobar") throw invalida()
-      return a("guion_en_proceso", { audioId: null })
+      // A new script round is a new attempt: its Claude and voice spend must not reuse the keys of the old round.
+      return a("guion_en_proceso", { audioId: null, intento: pieza.intento + 1 })
 
     case "editar_texto":
       if (estado === "guion_por_aprobar") return a("guion_por_aprobar", {}, ["revisar_texto"])
@@ -236,7 +237,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "cambiar_guion":
       if (estado !== "video_por_aprobar") throw invalida()
-      return a("guion_en_proceso", { puerta1: null, audioId: null, videoId: null })
+      return a("guion_en_proceso", { puerta1: null, audioId: null, videoId: null, intento: pieza.intento + 1 })
 
     case "cambiar_fecha":
       if (estado !== "programado") throw invalida()

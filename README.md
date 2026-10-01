@@ -33,15 +33,19 @@ cp .env.example .env.local   # then fill in the Supabase values
 | `pnpm db:reset` | Rebuild the local database from `supabase/migrations` and `supabase/seed.sql` |
 | `pnpm test:db` | Integration tests against the local database |
 | `pnpm db:types` | Regenerate `lib/supabase/database.types.ts` |
+| `pnpm test:eval` | Evals against the real Claude API (they cost money: skipped unless `RUN_EVALS=1` and `ANTHROPIC_API_KEY` are set) |
 
 ## Layout
 
 - `lib/dominio/`: pure domain logic (no network, no database, no implicit clock).
 - `lib/proveedores/`: providers (HeyGen, ElevenLabs, Anthropic, Meta, R2).
-- `lib/datos/`: mapping between database rows and the domain.
+- `lib/datos/`: mapping between database rows and the domain, and the typed reads and writes the tasks use.
+- `lib/produccion/`: task orchestration with injected dependencies (`producirPieza`).
+- `trigger/`: Trigger.dev v4 tasks, thin wrappers over `lib/produccion/`.
 - `supabase/`: local stack config, migrations and the local-only seed.
 - `tests/integration/`: tests that talk to the local database.
-- `tests/unit/`: Vitest unit tests.
+- `tests/unit/`: Vitest unit tests. Every external HTTP call is intercepted by MSW (`tests/msw.ts`) and an unmocked one fails.
+- `tests/eval/`: evals that call the real API.
 - `docs/superpowers/plans/`: build plans.
 
 ## Database
@@ -59,7 +63,8 @@ pnpm db:types    # regenerate lib/supabase/database.types.ts after changing a mi
 The database enforces the two human gates on its own: only Coni can approve or move a piece into
 `en_render` or `programado`, every write is audited with its actor, the monthly spend cap is reserved
 atomically (`reservar_gasto`) and Coni's API keys live in Vault, readable only by `service_role`.
-Set `SUPABASE_DB_URL` to point the tests at another database.
+Set `SUPABASE_DB_URL` to point the tests at another database. The tests that run a task read the service-role
+key of the local stack from `supabase status`, or from `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` when set.
 
 ## Design
 

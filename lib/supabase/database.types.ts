@@ -144,6 +144,27 @@ export type Database = {
           },
         ]
       }
+      guias: {
+        Row: {
+          creada_en: string
+          texto: string
+          version: number
+          vigente: boolean
+        }
+        Insert: {
+          creada_en?: string
+          texto: string
+          version: number
+          vigente?: boolean
+        }
+        Update: {
+          creada_en?: string
+          texto?: string
+          version?: number
+          vigente?: boolean
+        }
+        Relationships: []
+      }
       ideas: {
         Row: {
           alertas: Json
@@ -265,6 +286,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          revision: Json
           texto: string | null
           titulo: string
           version: number
@@ -292,6 +314,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          revision?: Json
           texto?: string | null
           titulo: string
           version?: number
@@ -319,6 +342,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          revision?: Json
           texto?: string | null
           titulo?: string
           version?: number
@@ -362,6 +386,51 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      guardar_borrador: {
+        Args: {
+          p_clave: string
+          p_guion: string
+          p_pieza: string
+          p_real: number
+          p_revision: Json
+          p_texto: string
+          p_version: number
+        }
+        Returns: {
+          actualizada_en: string
+          audio_id: string | null
+          creada_en: string
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          puerta1_en: string | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_en: string | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          revision: Json
+          texto: string | null
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       guardar_secreto: {
         Args: { p_nombre: string; p_valor: string }
         Returns: undefined
