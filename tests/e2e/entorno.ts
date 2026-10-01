@@ -19,7 +19,8 @@ function leerEstadoLocal() {
 
 const estado = leerEstadoLocal()
 
-export const PUERTO = 3200
+// E2E_PUERTO lets a second worktree run its own app next to another one.
+export const PUERTO = Number(process.env.E2E_PUERTO ?? 3200)
 export const URL_DE_LA_APP = `http://127.0.0.1:${PUERTO}`
 export const CORREO_DE_CONI = "coni@estudio.test"
 export const CORREO_DEL_MANTENEDOR = "wav@estudio.test"
