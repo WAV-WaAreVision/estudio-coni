@@ -12,6 +12,8 @@ export const ALTO_REEL = 1920
 export const CENTRO_SUBTITULO = [540, 1344] as const
 export const MARGEN_LATERAL_SUBTITULO = 140
 // coni.py used Avenir Next, which only exists on macOS; the render container ships Montserrat.
+// The style asks for Bold (-1), so the container's fontsdir must hold the Montserrat Bold face too
+// (design Q3: check it with `fontselect`).
 export const FUENTE_SUBTITULO = "Montserrat"
 
 // Python's str.splitlines() also breaks on \r, \v, \f, \x1c-\x1e, \x85 and the Unicode line separators.
@@ -22,6 +24,7 @@ function marcaIlegible(texto: string): Falla {
   return new Falla(`Los subtítulos de HeyGen traen una marca de tiempo ilegible: "${texto.trim()}".`)
 }
 
+// Math.round(x * 1000) / 1000 equals Python's round(x, 3) for SRTs with millisecond precision.
 function aSegundos(marca: string): number {
   const partes = /^(\d+):(\d+):(\d+(?:\.\d+)?)$/.exec(marca.trim().replaceAll(",", "."))
   if (!partes) throw marcaIlegible(marca)

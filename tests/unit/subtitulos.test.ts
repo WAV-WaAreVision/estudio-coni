@@ -101,3 +101,83 @@ describe("subtítulos", () => {
     expect(() => alinearConGuion([], "")).toThrow("El guion está vacío.")
   })
 })
+
+// Expected values below come from running coni.alinear_con_guion / leer_srt / _marca_ass.
+describe("subtítulos: bordes que fija el port", () => {
+  it("reparte las palabras del guion entre dos frases cuando el reemplazo cruza el borde", () => {
+    const srt = [
+      [0, 1, "a1 a2 a3 a4 a5 a6 a7 a8 p"],
+      [1, 2, "q r b1 b2 b3 b4 b5 b6 b7 b8"],
+    ] as const
+    const guion = "a1 a2 a3 a4 a5 a6 a7 a8 x y z w b1 b2 b3 b4 b5 b6 b7 b8"
+    expect(alinearConGuion(srt, guion)).toEqual([
+      [0, 1, "a1 a2 a3 a4 a5 a6 a7 a8 x y"],
+      [1, 2, "z w b1 b2 b3 b4 b5 b6 b7 b8"],
+    ])
+  })
+
+  it("deja en la última frase las palabras del guion que quedan al final", () => {
+    const srt = [
+      [0, 1, "hola a"],
+      [1, 2, "todas"],
+    ] as const
+    expect(alinearConGuion(srt, "hola a todas ustedes")).toEqual([
+      [0, 1, "hola a"],
+      [1, 2, "todas ustedes"],
+    ])
+  })
+
+  it("descarta la frase del srt cuando ninguna palabra del guion le corresponde", () => {
+    const srt = [
+      [0, 1, "hola"],
+      [1, 2, "eh"],
+      [2, 3, "mundo"],
+    ] as const
+    expect(alinearConGuion(srt, "hola mundo")).toEqual([
+      [0, 1, "hola"],
+      [2, 3, "mundo"],
+    ])
+  })
+
+  it("acepta justo el 80% de coincidencia y falla con menos", () => {
+    expect(alinearConGuion([[0, 1, "a b c d x"]], "a b c d y")).toEqual([[0, 1, "a b c d y"]])
+    expect(() => alinearConGuion([[0, 1, "a b c x y"]], "a b c d e")).toThrow("no calzan con el guion")
+  })
+
+  it("lee el srt cuando las líneas se separan solo con retorno de carro", () => {
+    expect(leerSrt("1\r00:00:01,000 --> 00:00:02,000\rhola\r")).toEqual([[1, 2, "hola"]])
+  })
+
+  it("une las líneas del texto cuando el srt las separa con el separador de línea unicode", () => {
+    expect(leerSrt("1\n00:00:01,000 --> 00:00:02,000\nhola\u2028mundo\n")).toEqual([[1, 2, "hola mundo"]])
+  })
+
+  it("no trata año y ao como la misma palabra al comparar", () => {
+    expect(() => alinearConGuion([[0, 1, "ao ao ao ao ao"]], "año año año año año")).toThrow("no calzan con el guion")
+    expect(alinearConGuion([[0, 1, "Año, AÑO ño"]], "año año Ño")).toEqual([[0, 1, "año año Ño"]])
+  })
+
+  it("arma solo el encabezado cuando no hay frases", () => {
+    const encabezado = [
+      "[Script Info]",
+      "ScriptType: v4.00+",
+      "PlayResX: 1080",
+      "PlayResY: 1920",
+      "WrapStyle: 0",
+      "ScaledBorderAndShadow: yes",
+      "",
+      "[V4+ Styles]",
+      "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+      "Style: Coni,Montserrat,84,&H00FFFFFF,&H00FFFFFF,&H14000000,&H00000000,-1,0,0,0,100,100,0,0,1,7,0,5,140,140,0,1",
+      "",
+      "[Events]",
+      "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ].join("\n")
+    expect(assDe([])).toBe(`${encabezado}\n\n`)
+  })
+
+  it("formatea horas y arrastra el redondeo al minuto siguiente", () => {
+    expect(marcaAss(3725.5)).toBe("1:02:05.50")
+    expect(marcaAss(59.995)).toBe("0:01:00.00")
+  })
+})
