@@ -9,7 +9,7 @@ export const clasesDeBoton = cva(
   [
     "inline-flex items-center justify-center gap-2 rounded-md text-center text-label font-semibold",
     "transition-[transform,background-color,opacity] duration-150 ease-fuerte",
-    "active:scale-[0.97] aria-disabled:active:scale-100",
+    "active:scale-[0.97] aria-disabled:active:scale-100 motion-reduce:transition-[background-color,opacity] motion-reduce:active:scale-100",
   ],
   {
     variants: {

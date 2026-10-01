@@ -139,13 +139,10 @@ body {
   border-radius: 999px;
 }
 
+/* Reduced motion keeps the opacity and colour changes that explain a state and drops the movement. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-property: opacity, color, background-color !important;
-    transition-duration: 150ms !important;
+  html {
+    scroll-behavior: auto;
   }
   .esqueleto {
     animation: none;
