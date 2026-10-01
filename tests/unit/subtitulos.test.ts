@@ -45,7 +45,7 @@ describe("subtítulos", () => {
   it("falla cuando el srt no corresponde al guion", () => {
     const srt = [[0, 2, "un texto que no tiene nada que ver"]] as const
     expect(() => alinearConGuion(srt, GUION)).toThrow(Falla)
-    expect(() => alinearConGuion(srt, GUION)).toThrow("no calza con el guion")
+    expect(() => alinearConGuion(srt, GUION)).toThrow("no calzan con el guion")
   })
 
   it("arma el ass centrado en la zona segura con la fuente de coni", () => {
@@ -62,5 +62,42 @@ describe("subtítulos", () => {
   it("redondea los centésimos al par cuando el tiempo cae justo en la mitad, igual que Python", () => {
     expect(marcaAss(1.125)).toBe("0:00:01.12")
     expect(marcaAss(1.375)).toBe("0:00:01.38")
+  })
+
+  it("falla cuando el srt trae una marca de tiempo ilegible", () => {
+    const srts = [
+      "1\n00:xx --> 00:00:02,000\nhola\n",
+      "1\n00:01 --> 00:02\nhola\n",
+      "1\n00:00:01,000 --> 00:00:02,000 --> 00:00:03,000\nhola\n",
+    ]
+    for (const srt of srts) {
+      expect(() => leerSrt(srt)).toThrow(Falla)
+      expect(() => leerSrt(srt)).toThrow("ilegible")
+    }
+  })
+
+  it("escapa llaves y barras cuando el guion las trae", () => {
+    const ass = assDe([[0, 1, "Dile {a tu pareja} \\N que sí"]])
+    expect(ass).toContain("Dile \\{a tu pareja\\} \\\u200BN que sí")
+  })
+
+  it("falla cuando el guion no tiene palabras", () => {
+    const srt = [[0, 1, "hola"]] as const
+    expect(() => alinearConGuion(srt, " \n ")).toThrow(Falla)
+    expect(() => alinearConGuion(srt, " \n ")).toThrow("El guion está vacío.")
+  })
+
+  it("falla cuando el srt no tiene palabras", () => {
+    const sinFrases = [[0, 1, "  "]] as const
+    for (const srt of [[], sinFrases]) {
+      expect(() => alinearConGuion(srt, "hola mundo")).toThrow(Falla)
+      expect(() => alinearConGuion(srt, "hola mundo")).toThrow(
+        "HeyGen entregó subtítulos sin texto. Vuelve a bajarlos.",
+      )
+    }
+  })
+
+  it("avisa que el guion está vacío cuando el guion y el srt están vacíos", () => {
+    expect(() => alinearConGuion([], "")).toThrow("El guion está vacío.")
   })
 })

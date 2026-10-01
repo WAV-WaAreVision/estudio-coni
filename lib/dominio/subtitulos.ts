@@ -18,8 +18,14 @@ export const FUENTE_SUBTITULO = "Montserrat"
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are the point, they mirror splitlines()
 const SALTO_DE_LINEA = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/
 
-function segundos(marca: string): number {
-  const [h, m, s] = marca.trim().replaceAll(",", ".").split(":")
+function marcaIlegible(texto: string): Falla {
+  return new Falla(`Los subtítulos de HeyGen traen una marca de tiempo ilegible: "${texto.trim()}".`)
+}
+
+function aSegundos(marca: string): number {
+  const partes = /^(\d+):(\d+):(\d+(?:\.\d+)?)$/.exec(marca.trim().replaceAll(",", "."))
+  if (!partes) throw marcaIlegible(marca)
+  const [, h, m, s] = partes
   const total = Number.parseInt(h, 10) * 3600 + Number.parseInt(m, 10) * 60 + Number.parseFloat(s)
   return Math.round(total * 1000) / 1000
 }
@@ -34,13 +40,15 @@ export function leerSrt(texto: string): Cue[] {
     const lineas = bloque.split(SALTO_DE_LINEA)
     const i = lineas.findIndex((linea) => linea.includes("-->"))
     if (i === -1) continue
-    const [inicio, fin] = lineas[i].split("-->")
+    const marcas = lineas[i].split("-->")
+    if (marcas.length !== 2) throw marcaIlegible(lineas[i])
+    const [inicio, fin] = marcas
     const frase = lineas
       .slice(i + 1)
       .map((linea) => linea.trim())
       .filter(Boolean)
       .join(" ")
-    if (frase) cues.push([segundos(inicio), segundos(fin), frase])
+    if (frase) cues.push([aSegundos(inicio), aSegundos(fin), frase])
   }
   return cues
 }
@@ -56,14 +64,16 @@ function comparable(palabra: string): string {
  * and words HeyGen did not transcribe go to the neighbouring phrase.
  */
 export function alinearConGuion(cues: readonly Cue[], guion: string): Cue[] {
-  const delSrt = cues.flatMap(([, , frase], n) => palabras(frase).map((palabra) => [n, palabra] as const))
   const delGuion = palabras(guion)
+  if (delGuion.length === 0) throw new Falla("El guion está vacío.")
+  const delSrt = cues.flatMap(([, , frase], n) => palabras(frase).map((palabra) => [n, palabra] as const))
+  if (delSrt.length === 0) throw new Falla("HeyGen entregó subtítulos sin texto. Vuelve a bajarlos.")
   const { ratio, opcodes } = compararSecuencias(
     delGuion.map(comparable),
     delSrt.map(([, palabra]) => comparable(palabra)),
   )
   if (ratio < 0.8) {
-    throw new Falla("El SRT de HeyGen no calza con el guion. ¿Cambió el guion después del render?")
+    throw new Falla("Los subtítulos de HeyGen no calzan con el guion. ¿Cambió el guion después del render?")
   }
 
   const fraseDe: (number | null)[] = delGuion.map(() => null)
@@ -103,6 +113,13 @@ export function marcaAss(segundos: number): string {
   return `${Math.floor(cs / 360000)}:${dos(Math.floor(cs / 6000) % 60)}:${dos(Math.floor(cs / 100) % 60)}.${dos(cs % 100)}`
 }
 
+// libass reads {..} as override tags and \N \n \h as breaks; the script is free text.
+// Braces use libass' own escapes; a backslash gets a zero-width space so "\N" is drawn as text.
+// Backslash first: escaping braces first would put the space inside the new "\{".
+function escaparAss(frase: string): string {
+  return frase.replaceAll("\\", "\\\u200B").replaceAll("{", "\\{").replaceAll("}", "\\}")
+}
+
 /** ASS subtitles for a Reel: bold white text with an outline, centred in the safe zone. */
 export function assDe(cues: readonly Cue[]): string {
   const [x, y] = CENTRO_SUBTITULO
@@ -124,7 +141,7 @@ export function assDe(cues: readonly Cue[]): string {
   ]
   const dialogos = cues.map(
     ([inicio, fin, frase]) =>
-      `Dialogue: 0,${marcaAss(inicio)},${marcaAss(fin)},Coni,,0,0,0,,{\\an5\\pos(${x},${y})}${frase}`,
+      `Dialogue: 0,${marcaAss(inicio)},${marcaAss(fin)},Coni,,0,0,0,,{\\an5\\pos(${x},${y})}${escaparAss(frase)}`,
   )
   return `${encabezado.join("\n")}\n${dialogos.join("\n")}\n`
 }
