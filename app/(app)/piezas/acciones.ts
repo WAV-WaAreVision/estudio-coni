@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { urlParaDescargar } from "@/lib/acciones/medios"
 import {
   aprobarGuion,
   aprobarVideo,
@@ -9,7 +10,9 @@ import {
   descartar,
   editarTexto,
   elegirIdeas,
+  marcarSubidoAMano,
   pedirCambios,
+  pedirDescargaDelVideo,
   regrabar,
   reintentar,
   reintentarGuion,
@@ -102,5 +105,23 @@ export async function descartarAccion(piezaId: string, version: number) {
 export async function reintentarAccion(piezaId: string, version: number) {
   return refrescar(
     await comoConi("reintentar", sobrePieza, { piezaId, version }, (deps, d) => reintentar(deps, d.piezaId, d.version)),
+  )
+}
+
+/** Not revalidated: it only hands out a link and changes nothing on the piece. */
+export async function descargarVideoAccion(piezaId: string) {
+  return comoConi("pedirDescargaDelVideo", z.object({ piezaId: z.uuid() }), { piezaId }, (deps, d) =>
+    pedirDescargaDelVideo(deps, d.piezaId, urlParaDescargar),
+  )
+}
+
+export async function marcarSubidoAManoAccion(piezaId: string, version: number, enlace: string) {
+  return refrescar(
+    await comoConi(
+      "marcarSubidoAMano",
+      sobrePieza.extend({ enlace: z.string().max(500) }),
+      { piezaId, version, enlace },
+      (deps, d) => marcarSubidoAMano(deps, d.piezaId, d.version, d.enlace),
+    ),
   )
 }

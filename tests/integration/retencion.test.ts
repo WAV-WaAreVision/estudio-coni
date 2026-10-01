@@ -98,6 +98,32 @@ describe("aplicarRetencion", () => {
     expect(almacen.claves()).toEqual([])
   })
 
+  it("deletes the final video 30 days after Coni uploaded it by hand", async () => {
+    const p = await pieza("publicado_a_mano")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+
+    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })).toEqual({
+      piezas: 1,
+      archivos: 1,
+    })
+
+    expect(almacen.claves()).toEqual([p.audio])
+  })
+
+  it("keeps the video of a piece that still waits for Coni to upload it, however old", async () => {
+    const p = await pieza("para_subir_a_mano")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+
+    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(400) })).toEqual({
+      piezas: 0,
+      archivos: 0,
+    })
+
+    expect(almacen.claves()).toHaveLength(2)
+  })
+
   it("never touches a piece that is still in the flow, however old", async () => {
     const p = await pieza("video_por_aprobar")
     const almacen = almacenEnMemoria()

@@ -52,3 +52,25 @@ lint, type, unit, integration, build, E2E all green; screenshots 390x844 of the 
 - **Real iPhone test** (iOS 16.4+): install from Safari, activate, "Enviar uno de prueba", tap the notification (it must open the right screen), deny and re-enable through iOS Settings.
 - The push with the app closed was never run here (no real push service): only the worker's handlers (in a vm) and the sender's request were tested.
 - `web-push` still calls `url.parse` (Node deprecation warning in the server log); harmless.
+
+## Manual upload notes (2026-10-01)
+
+Branch `feat/subir-a-mano`. Migrations `20261001001600_estados_a_mano` (enum values, alone because a new value cannot be used in its own transaction) and `20261001001610_subir_a_mano` (constraints, `proteger_pieza`, notice kind). Final counts: 1201 unit, 525 integration, 65 E2E; lint, type and build clean.
+
+### Decisions
+
+- **States and events.** `para_subir_a_mano` and `publicado_a_mano`; events `entregar_para_subir` (system, from `programado`) and `subido_a_mano` (Coni only, from `programado` or `para_subir_a_mano`). Marking a still-`programado` piece cancels its scheduled publication, so connecting Instagram later cannot publish a reel she already uploaded. `descartar` stays allowed from `para_subir_a_mano`. Both states keep gate 2 (video, text, time).
+- **Branches in `publicarPendientes`.** Never connected = no account id AND no `meta` secret, and no container or media id on the piece: `entregar_para_subir` plus notice `listo_para_subir`, no 30 minute window (`puedeEntregarseParaSubir`: still never before the approved time, still checks the approved text and video). One of the two present = broken connection: unchanged error and reconnect notice (pinned by tests, both directions). Nothing retroactive: pieces already in `para_subir_a_mano` are not touched when Instagram is connected.
+- **Notice.** `listo_para_subir` goes out at once (`urgente = true` is the only way to be immediate in Plan 6's registry), but it is a normal kind: not `error_definitivo`, and the email subject drops "importante" for it. Push copy: "Tu reel está listo para subir a Instagram". Key per piece and attempt. Obeys the "Avisarme apenas falle algo" switch like the urgent ones (off: waits for the summary).
+- **Only Coni.** `publicado_a_mano` is entered by `proteger_pieza` for Coni alone (service role and maintainer refused); audit row carries her id (tested). The page actions use her session.
+- **Download.** `Almacen.urlFirmada(clave, segundos, { descargarComo })` adds `response-content-disposition: attachment`; 10 minute link signed on tap by `descargarVideoAccion` from the approved `puerta2_video_id`; the file goes R2 to phone.
+- **Gate on the label.** "Ya lo subí" stays disabled until she ticks "Activé la etiqueta Información de IA" (stricter than a reminder; remove if it turns out to be friction). The Instagram link is optional, https on instagram.com only, query string dropped, never fetched.
+- **Screens.** Video: `para_subir_a_mano` and `programado` while `ajustes.meta_cuenta_id` is null (the token is in the Vault, so "connected" for the screen means the account id exists). Calendar: Mes "Para subir" list and screen reader notes, Agenda labels "Para subir" / "Subido a mano". Inicio: "Para subir a Instagram" section and a "subido a mano" confirmation. Ajustes block says Instagram is not connected and that reels wait for manual upload.
+- **Metrics.** They read `estado = 'publicado'` with a media id, so pieces uploaded by hand are ignored with or without a link (tested). Retention treats `publicado_a_mano` like `publicado` (video deleted after 30 days); `para_subir_a_mano` is never retained.
+
+### Risks and gaps
+
+- No reminder if a piece stays in `para_subir_a_mano` for days (only the first notice and Inicio).
+- Downloading on iOS Safari (attachment from R2, then Save to Photos) and the Instagram label wording were not tried on a real phone; the label text is Instagram's name for it as given in the design.
+- No download after `publicado_a_mano`.
+- Clipboard needs a secure context; the fallback message asks her to copy by hand.

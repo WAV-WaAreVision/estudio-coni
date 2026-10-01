@@ -44,6 +44,21 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
               </Link>
             </div>
           ) : null}
+          {calendario.mes.porSubir.length > 0 ? (
+            <Seccion titulo="Para subir" id="por-subir">
+              <ul>
+                {calendario.mes.porSubir.map((fila) => (
+                  <FilaPieza
+                    key={fila.piezaId}
+                    titulo={fila.titulo}
+                    meta={`Para subir · ${fila.fecha}`}
+                    pilar={fila.pilar}
+                    href={`/video/${fila.piezaId}`}
+                  />
+                ))}
+              </ul>
+            </Seccion>
+          ) : null}
           {calendario.mes.proximos.length > 0 ? (
             <Seccion titulo="Próximos" id="proximos">
               <ul>

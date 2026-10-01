@@ -32,6 +32,14 @@ export interface FilaEnCamino {
   ocupada: boolean
 }
 
+export interface FilaPorSubir {
+  id: string
+  titulo: string
+  pilar: Pilar | null
+  meta: string
+  href: string
+}
+
 export interface AvisoDeInicio {
   tipo: "error" | "ok"
   titulo: string
@@ -43,6 +51,8 @@ export interface Inicio {
   semana: string
   resumen: string
   firma: FilaDeFirma[]
+  /** Reels whose time came while Instagram was not connected: she uploads them herself. */
+  porSubir: FilaPorSubir[]
   camino: FilaEnCamino[]
   avisos: AvisoDeInicio[]
 }
@@ -127,18 +137,38 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   }
 }
 
-function avisoDePublicacion(pieza: PiezaDeInicio, ahora: number, zona: string): AvisoDeInicio {
-  const publicadaEn = Date.parse(pieza.actualizadaEn)
+function cuandoSePublico(pieza: PiezaDeInicio, ahora: number, zona: string): string {
   const hora = etiquetaDeFecha(pieza.actualizadaEn, zona, "corta").split(" · ")[1] ?? ""
-  const cuando =
-    diaLocal(publicadaEn, zona) === diaLocal(ahora, zona)
-      ? `hoy a las ${hora}`
-      : `el ${etiquetaDeFecha(pieza.actualizadaEn, zona, "corta").replace(" · ", " a las ")}`
+  return diaLocal(Date.parse(pieza.actualizadaEn), zona) === diaLocal(ahora, zona)
+    ? `hoy a las ${hora}`
+    : `el ${etiquetaDeFecha(pieza.actualizadaEn, zona, "corta").replace(" · ", " a las ")}`
+}
+
+function avisoDePublicacion(pieza: PiezaDeInicio, ahora: number, zona: string): AvisoDeInicio {
   return {
     tipo: "ok",
-    titulo: `${pieza.titulo} se publicó ${cuando}`,
+    titulo: `${pieza.titulo} se publicó ${cuandoSePublico(pieza, ahora, zona)}`,
     texto: "La etiqueta de IA quedó puesta en Instagram.",
     ...(pieza.permalink ? { accion: { etiqueta: "Ver en Instagram", href: pieza.permalink, externo: true } } : {}),
+  }
+}
+
+function avisoDeSubidaAMano(pieza: PiezaDeInicio, ahora: number, zona: string): AvisoDeInicio {
+  return {
+    tipo: "ok",
+    titulo: `${pieza.titulo}: subido a mano ${cuandoSePublico(pieza, ahora, zona)}`,
+    texto: "Quedó anotado como subido por ti, con la etiqueta de IA.",
+    ...(pieza.permalink ? { accion: { etiqueta: "Ver en Instagram", href: pieza.permalink, externo: true } } : {}),
+  }
+}
+
+function filaPorSubir(pieza: PiezaDeInicio, zona: string): FilaPorSubir {
+  return {
+    id: pieza.id,
+    titulo: pieza.titulo,
+    pilar: pieza.pilar,
+    meta: `Para subir${pieza.publicarEn ? ` · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : ""}`,
+    href: `/video/${pieza.id}`,
   }
 }
 
@@ -168,11 +198,23 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
     )
     .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
   if (reciente) avisos.push(avisoDePublicacion(reciente, ahora, zona))
+  const recienteAMano = piezas
+    .filter(
+      (pieza) =>
+        pieza.estado === "publicado_a_mano" && ahora - Date.parse(pieza.actualizadaEn) <= DIAS_DE_CELEBRACION_MS,
+    )
+    .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
+  if (recienteAMano) avisos.push(avisoDeSubidaAMano(recienteAMano, ahora, zona))
+  const porSubir = piezas
+    .filter((pieza) => pieza.estado === "para_subir_a_mano")
+    .sort((a, b) => Date.parse(a.publicarEn ?? a.actualizadaEn) - Date.parse(b.publicarEn ?? b.actualizadaEn))
+    .map((pieza) => filaPorSubir(pieza, zona))
 
   return {
     semana: `Semana del ${semanaDe(ahora, zona)}`,
     resumen: resumenDeFirmas(firma.length),
     firma,
+    porSubir,
     camino,
     avisos,
   }

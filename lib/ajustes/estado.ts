@@ -47,6 +47,12 @@ function plazo(expiraEn: number, ahora: number): string {
   return dias <= 1 ? "mañana" : `en ${dias} días`
 }
 
+/** Without a connection the reels do not stop: each one waits for her to upload it by hand. */
+function textoSinInstagram(faltaMas: boolean): string {
+  const base = "Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano."
+  return faltaMas ? `${base} También falta lo que sigue.` : base
+}
+
 function accionDeFalta(cuenta: NombreDeCuenta): NonNullable<BloqueDeEstado["accion"]> {
   return cuenta === "instagram"
     ? { etiqueta: "Conectar Instagram", href: CONECTAR }
@@ -102,10 +108,11 @@ export function estadoDeAjustes(entrada: {
 
   const primeraQueFalta = faltan[0]
   if (primeraQueFalta) {
+    const sinInstagram = primeraQueFalta.cuenta === "instagram"
     return {
       tipo: "configurando",
       titulo: `Configuración: ${pasos.filter((p) => p.listo).length} de ${pasos.length} listos`,
-      texto: "Falta lo que sigue; el resto ya está.",
+      texto: sinInstagram ? textoSinInstagram(faltan.length > 1) : "Falta lo que sigue; el resto ya está.",
       pasos,
       accion: accionDeFalta(primeraQueFalta.cuenta),
     }

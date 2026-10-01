@@ -315,6 +315,44 @@ describe("mensajes y tipos", () => {
   })
 })
 
+describe("subir a mano", () => {
+  it("entrega la pieza programada para subir sin tocar lo aprobado", () => {
+    const { pieza, efectos } = transicionar(programada, { tipo: "entregar_para_subir" })
+    expect(pieza).toMatchObject({
+      estado: "para_subir_a_mano",
+      puerta2: programada.puerta2,
+      videoId: "video_1",
+      explicacion: null,
+      version: programada.version + 1,
+    })
+    expect(efectos).toEqual([])
+  })
+
+  it("deja a la pieza en publicado_a_mano cuando Coni dice que ya la subió", () => {
+    const entregada = transicionar(programada, { tipo: "entregar_para_subir" }).pieza
+    const { pieza } = transicionar(entregada, { tipo: "subido_a_mano", actor: "coni" })
+    expect(pieza.estado).toBe("publicado_a_mano")
+    expect(pieza.puerta2).toEqual(programada.puerta2)
+  })
+
+  it("permite marcarla como subida antes de la hora y retira la publicación programada", () => {
+    const { pieza, efectos } = transicionar(programada, { tipo: "subido_a_mano", actor: "coni" })
+    expect(pieza.estado).toBe("publicado_a_mano")
+    expect(efectos).toEqual(["cancelar_publicacion"])
+  })
+
+  it("solo deja que Coni la marque como subida", () => {
+    for (const actor of ["sistema", "admin"] as const) {
+      expect(() => transicionar(programada, { tipo: "subido_a_mano", actor })).toThrow(AprobacionNoAutorizada)
+    }
+  })
+
+  it("no admite entregar para subir una pieza que ya salió o que está en error", () => {
+    expect(() => transicionar(en("error_publicacion"), { tipo: "entregar_para_subir" })).toThrow(TransicionInvalida)
+    expect(() => transicionar(en("publicado"), { tipo: "entregar_para_subir" })).toThrow(TransicionInvalida)
+  })
+})
+
 describe("instanteEstricto", () => {
   it("acepta solo instantes con Z o con desfase explícito y los normaliza a UTC", () => {
     expect(instanteEstricto("2026-10-08T22:00:00Z")).toBe(HORA)
@@ -351,8 +389,19 @@ describe("tabla del diseño", () => {
     en_render: ["render_entregado", "politica_contenido", "falla_produccion", "descartar"],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
-    programado: ["publicado", "cambiar_fecha", "falla_publicacion", "hora_vencida", "editar_texto", "descartar"],
+    programado: [
+      "publicado",
+      "cambiar_fecha",
+      "falla_publicacion",
+      "hora_vencida",
+      "editar_texto",
+      "entregar_para_subir",
+      "subido_a_mano",
+      "descartar",
+    ],
+    para_subir_a_mano: ["subido_a_mano", "descartar"],
     publicado: [],
+    publicado_a_mano: [],
     error_produccion: ["reintentar", "descartar"],
     error_publicacion: ["reintentar", "descartar"],
     descartado: [],
@@ -375,6 +424,8 @@ describe("tabla del diseño", () => {
     publicado: { tipo: "publicado" },
     falla_publicacion: { tipo: "falla_publicacion", explicacion: "Metricool no respondió" },
     hora_vencida: { tipo: "hora_vencida" },
+    entregar_para_subir: { tipo: "entregar_para_subir" },
+    subido_a_mano: { tipo: "subido_a_mano", actor: "coni" },
     reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
     descartar: { tipo: "descartar" },
   }
@@ -390,7 +441,9 @@ describe("tabla del diseño", () => {
     subtitulando: en("subtitulando", { ...avance, audioId: "audio_1", puerta1 }),
     video_por_aprobar: en("video_por_aprobar", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1 }),
     programado: en("programado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
+    para_subir_a_mano: en("para_subir_a_mano", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     publicado: en("publicado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
+    publicado_a_mano: en("publicado_a_mano", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     error_produccion: en("error_produccion", {
       ...avance,
       audioId: "audio_1",

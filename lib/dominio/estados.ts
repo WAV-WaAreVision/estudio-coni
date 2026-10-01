@@ -8,7 +8,9 @@ export const ESTADOS = [
   "subtitulando",
   "video_por_aprobar",
   "programado",
+  "para_subir_a_mano",
   "publicado",
+  "publicado_a_mano",
   "error_produccion",
   "error_publicacion",
   "descartado",
@@ -76,6 +78,9 @@ export type Evento =
   | { tipo: "publicado" }
   | { tipo: "falla_publicacion"; explicacion: string }
   | { tipo: "hora_vencida" }
+  /** Instagram is not connected and the approved time came: the piece waits for Coni to upload it herself. */
+  | { tipo: "entregar_para_subir" }
+  | { tipo: "subido_a_mano"; actor: Actor }
   | { tipo: "reintentar"; ahora: string }
   | { tipo: "descartar" }
 
@@ -263,6 +268,17 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
         ["cancelar_publicacion"],
       )
 
+    case "entregar_para_subir":
+      if (estado !== "programado") throw invalida()
+      return a("para_subir_a_mano")
+
+    case "subido_a_mano":
+      // Only she can say it: nobody else knows the reel is on Instagram.
+      soloConi(evento.actor)
+      if (estado !== "programado" && estado !== "para_subir_a_mano") throw invalida()
+      // Before the approved time the scheduled publication must not happen too, or the reel would go out twice.
+      return a("publicado_a_mano", {}, estado === "programado" ? ["cancelar_publicacion"] : [])
+
     case "reintentar": {
       const ahora = instanteDelServidor(evento.ahora)
       const intento = pieza.intento + 1
@@ -288,7 +304,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
     }
 
     case "descartar":
-      if (estado === "publicado" || estado === "descartado") throw invalida()
+      if (estado === "publicado" || estado === "publicado_a_mano" || estado === "descartado") throw invalida()
       // error_publicacion also cancels: the provider may still hold the post if it answers late.
       return a(
         "descartado",

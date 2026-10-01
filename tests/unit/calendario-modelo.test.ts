@@ -281,3 +281,64 @@ describe("Ritmo", () => {
     expect(ritmo.vacio).toBe(true)
   })
 })
+
+describe("subir a mano", () => {
+  const paraSubir = (dia: number, titulo: string) =>
+    pieza({ estado: "para_subir_a_mano", publicarEn: alas19(dia), titulo })
+
+  it("lists in Mes what waits for her to upload, the oldest first, and no longer says nothing is scheduled", () => {
+    const { mes } = calendario([paraSubir(13, "Martes"), paraSubir(8, "Jueves pasado")])
+
+    expect(mes.porSubir.map((p) => [p.titulo, p.fecha])).toEqual([
+      ["Jueves pasado", "jueves 8 · 19:00"],
+      ["Martes", "martes 13 · 19:00"],
+    ])
+    expect(mes.sinPublicaciones).toBe(false)
+  })
+
+  it("keeps the uploaded ones out of that list and says on the day how each one stands", () => {
+    const { mes } = calendario([
+      paraSubir(13, "Pendiente"),
+      pieza({ estado: "publicado_a_mano", publicarEn: alas19(8), pilar: "deseo" }),
+    ])
+
+    expect(mes.porSubir.map((p) => p.titulo)).toEqual(["Pendiente"])
+    expect(mes.celdas.find((c) => c.dia === 8)?.descripcion).toBe("jueves 8: Deseo y sexualidad, subido a mano")
+    expect(mes.celdas.find((c) => c.dia === 13)?.descripcion).toBe("martes 13: Pareja y conversación, para subir")
+    expect(mes.celdas.find((c) => c.dia === 8)?.puntos).toEqual(["deseo"])
+  })
+
+  it("puts a piece for upload in the slot of this week it was approved for, even if the time passed hours ago", () => {
+    const espera = paraSubir(13, "Martes")
+    const { agenda } = calendario([espera])
+
+    const hueco = agenda.semanas[0]?.huecos.find((h) => h.dia === "Martes 13")
+    expect(hueco?.ocupante).toMatchObject({
+      estado: "Para subir",
+      tono: "aviso",
+      provisional: false,
+      href: `/video/${espera.id}`,
+    })
+  })
+
+  it("shows what she uploaded this week as 'Subido a mano' and leaves older weeks to Mes", () => {
+    const hecha = pieza({ estado: "publicado_a_mano", publicarEn: alas19(13), titulo: "Subida" })
+    const vieja = pieza({ estado: "publicado_a_mano", publicarEn: alas19(6), titulo: "Vieja" })
+    const { agenda } = calendario([hecha, vieja])
+
+    const huecos = agenda.semanas.flatMap((s) => s.huecos)
+    expect(huecos.find((h) => h.dia === "Martes 13")?.ocupante).toMatchObject({ estado: "Subido a mano", tono: "ok" })
+    expect(huecos.map((h) => h.ocupante?.titulo)).not.toContain("Vieja")
+  })
+
+  it("counts a reel uploaded by hand as a slot used in Ritmo", () => {
+    const { ritmo } = calendario(
+      [pieza({ estado: "publicado_a_mano", publicarEn: alas19(13) })],
+      AHORA,
+      "2026-09-29T22:00:00.000Z",
+    )
+
+    expect(ritmo.vacio).toBe(false)
+    expect(ritmo.semanas.at(-1)?.celdas[0]).toMatchObject({ tipo: "llena" })
+  })
+})

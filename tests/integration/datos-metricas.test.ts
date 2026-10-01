@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { leerDatosDeMetricas } from "@/lib/datos/metricas"
+import { leerDatosDeMetricas, leerReelsPublicados } from "@/lib/datos/metricas"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
+import { clienteDeServicio as clienteDeServicioParaMetricas } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
 
@@ -76,5 +77,23 @@ describe("leerDatosDeMetricas", () => {
     const datos = await leerDatosDeMetricas(mantenedor, AHORA)
 
     expect(datos.lecturas.map((l) => [l.piezaId, l.dia, l.alcance])).toEqual([[publicada, "2026-08-01", 5]])
+  })
+})
+
+describe("reels subidos a mano", () => {
+  it("never reaches the screen or the daily Instagram reading, with or without the link she pasted", async () => {
+    await sembrarPieza("publicado_a_mano", { titulo: "Sin enlace" })
+    await sembrarPieza("publicado_a_mano", {
+      titulo: "Con enlace",
+      permalink: "https://www.instagram.com/reel/DAbc123/",
+    })
+    await sembrarPieza("para_subir_a_mano", { titulo: "Todavía sin subir" })
+    const publicada = await sembrarPieza("publicado", { titulo: "Publicada por la plataforma", media_id: "media_1" })
+
+    const datos = await leerDatosDeMetricas(coni, AHORA)
+    const paraLeer = await leerReelsPublicados(clienteDeServicioParaMetricas())
+
+    expect(datos.publicadas.map((p) => p.titulo)).toEqual(["Publicada por la plataforma"])
+    expect(paraLeer).toEqual([{ piezaId: publicada, mediaId: "media_1" }])
   })
 })

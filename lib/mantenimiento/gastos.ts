@@ -13,7 +13,15 @@ const HORAS_PARA_MIRAR = 1
 const HORAS_PARA_LIBERAR = 24
 
 /** Past the HeyGen step: the video was created (and charged) or the piece moved on from the render. */
-const DESPUES_DEL_RENDER = ["subtitulando", "video_por_aprobar", "programado", "publicado", "error_publicacion"]
+const DESPUES_DEL_RENDER = [
+  "subtitulando",
+  "video_por_aprobar",
+  "programado",
+  "para_subir_a_mano",
+  "publicado",
+  "publicado_a_mano",
+  "error_publicacion",
+]
 /** Before the script step is over: nothing was saved from it. */
 const ANTES_DEL_GUION = ["idea", "guion_en_proceso"]
 

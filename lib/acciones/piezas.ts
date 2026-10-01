@@ -9,6 +9,7 @@ import {
   revisionAJson,
 } from "@/lib/datos/repositorio"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
+import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
@@ -338,5 +339,47 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
     // Back in the render steps a run has to start again; back on the schedule, the cron takes it at its time.
     if (guardada.estado !== "en_render" && guardada.estado !== "subtitulando") return {}
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+  })
+}
+
+/**
+ * Instagram is not connected: Coni uploaded the reel herself and says so. It is written with her session, so the audit
+ * row carries her name and the database refuses anybody else. The link is optional, checked as text and never fetched.
+ */
+export function marcarSubidoAMano(deps: DepsAcciones, piezaId: string, versionVista: number, enlace: string) {
+  return aResultado("marcarSubidoAMano", async () => {
+    const permalink = enlaceDeInstagram(enlace)
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    await guardarEvento(deps.db, fila, { tipo: "subido_a_mano", actor: "coni" }, permalink ? { permalink } : {})
+    return {}
+  })
+}
+
+const TEXTO_SIN_DESCARGA = "No pude preparar el video para descargarlo. Inténtalo de nuevo en unos minutos."
+
+/**
+ * The signed address she downloads the approved video from. The file goes from R2 to her phone: nothing of it passes
+ * through the server. `firmar` is the storage port with a short expiry and the name the file will have.
+ */
+export function pedirDescargaDelVideo(
+  deps: DepsAcciones,
+  piezaId: string,
+  firmar: (clave: string, nombreDeArchivo: string) => Promise<string | null>,
+) {
+  return aResultado("pedirDescargaDelVideo", async () => {
+    const { data: esConi, error } = await deps.db.rpc("es_coni")
+    if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
+    if (!esConi) throw new Falla("Esta app es solo para Coni.")
+    const fila = await leerObligatoria(deps.db, piezaId)
+    if (fila.estado !== "para_subir_a_mano" && fila.estado !== "programado") {
+      throw new Falla("Este reel ya no está esperando que lo subas.")
+    }
+    // The video she approved, not whatever the piece points to now.
+    const clave = fila.puerta2_video_id
+    if (clave === null) throw new Error(`La pieza ${fila.id} espera subirse sin video aprobado.`)
+    const url = await firmar(clave, `reel-${fila.id.slice(0, 8)}.mp4`)
+    if (url === null) throw new Falla(TEXTO_SIN_DESCARGA)
+    return { url }
   })
 }

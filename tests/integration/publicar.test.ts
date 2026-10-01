@@ -541,3 +541,119 @@ describe("publicarPendientes", () => {
     expect(await pieza(id)).toMatchObject({ estado: "publicado", media_id: "media_previo" })
   })
 })
+
+describe("publicarPendientes sin Instagram conectado", () => {
+  async function sinInstagram(): Promise<void> {
+    await pool.query("delete from vault.secrets where name = 'meta'")
+    await pool.query("update public.ajustes set meta_cuenta_id = null")
+  }
+
+  it("hands the piece to Coni at the approved time, without an error and with a notice that is not an alert", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    const sim = simular()
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+    const { intento } = await pieza(id)
+
+    const resultado = await publicarPendientes(d.deps)
+
+    expect(resultado).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(await pieza(id)).toMatchObject({
+      estado: "para_subir_a_mano",
+      explicacion: null,
+      estado_antes_del_error: null,
+      publicacion_reclamada_hasta: null,
+      contenedor_id: null,
+      media_id: null,
+    })
+    expect(sim.contenedores).toEqual([])
+    expect(d.avisos.avisosEnviados).toEqual([
+      { tipo: "listo_para_subir", clave: `listo_para_subir:${id}:${intento}`, piezaId: id },
+    ])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toMatch(/listo para que lo subas a Instagram/)
+    expect(d.avisos.aConiEnviados[0]?.mensaje).not.toContain("—")
+    expect(d.avisos.aWavEnviados).toEqual([])
+  })
+
+  it("does not apply the 30 minute window: nothing is published, so a late piece is still handed over", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    const d = doble(() => despues(300))
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect((await pieza(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("never hands over a piece before its approved time", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    const d = doble(() => despues(-1))
+
+    expect(await publicarPendientes(d.deps)).toEqual([])
+    expect((await pieza(id)).estado).toBe("programado")
+    expect(d.avisos.aConiEnviados).toEqual([])
+  })
+
+  it("hands a piece over once: a second run finds nothing and says nothing again", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+    expect(await publicarPendientes(d.deps)).toEqual([])
+    expect(d.avisos.aConiEnviados).toHaveLength(1)
+    expect((await pieza(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("still refuses to hand over a piece whose caption changed after she approved it", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    await pool.query("update public.piezas set texto = 'Otro texto', version = version + 1 where id = $1", [id])
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect((await pieza(id)).estado).toBe("error_publicacion")
+  })
+
+  it("keeps the reconnect error when the account is saved but the token is missing", async () => {
+    const id = await crearProgramada()
+    await pool.query("delete from vault.secrets where name = 'meta'")
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect(await pieza(id)).toMatchObject({ estado: "error_publicacion", explicacion: EXPLICACION_RECONECTAR })
+    expect(d.avisos.aConiEnviados[0]).toMatchObject({ mensaje: EXPLICACION_RECONECTAR, urgente: true })
+  })
+
+  it("keeps the reconnect error when the token is saved but the account is missing", async () => {
+    const id = await crearProgramada()
+    await pool.query("update public.ajustes set meta_cuenta_id = null")
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect(await pieza(id)).toMatchObject({ estado: "error_publicacion", explicacion: EXPLICACION_RECONECTAR })
+  })
+
+  it("does nothing retroactive once Instagram is connected: the waiting piece stays, a new one publishes", async () => {
+    const espera = await crearProgramada()
+    await sinInstagram()
+    const antes = doble(() => despues(1))
+    await publicarPendientes(antes.deps)
+
+    await pool.query("update public.ajustes set meta_cuenta_id = $1", [CUENTA])
+    await pool.query("select vault.create_secret($1, 'meta')", [TOKEN])
+    const nueva = await crearProgramada(despues(10))
+    simular()
+    const despuesDeConectar = doble(() => despues(11))
+    await conVideoEnAlmacen(despuesDeConectar.almacen)
+
+    const resultado = await publicarPendientes(despuesDeConectar.deps)
+
+    expect(resultado).toEqual([{ piezaId: nueva, resultado: "publicada" }])
+    expect((await pieza(espera)).estado).toBe("para_subir_a_mano")
+  })
+})

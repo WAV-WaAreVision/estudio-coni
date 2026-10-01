@@ -56,6 +56,16 @@ export default async function Inicio() {
         marcar={marcarAvisoLeidoAccion}
       />
 
+      {inicio.porSubir.length > 0 ? (
+        <Seccion titulo="Para subir a Instagram" id="por-subir">
+          <ul>
+            {inicio.porSubir.map((fila) => (
+              <FilaPieza key={fila.id} titulo={fila.titulo} meta={fila.meta} pilar={fila.pilar} href={fila.href} />
+            ))}
+          </ul>
+        </Seccion>
+      ) : null}
+
       <Seccion titulo="Necesita tu firma" id="firma">
         {inicio.firma.length > 0 ? (
           <ul>

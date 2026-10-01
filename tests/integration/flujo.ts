@@ -89,6 +89,11 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
   (c, id) => aplicar(c, id, comoServicio, { tipo: "publicado" }),
 ]
 
+/** The two states that come after `programado` without Instagram: the last steps replace `publicado`. */
+const PASO_A_MANO: Partial<Record<Estado, (c: pg.PoolClient, id: string) => Promise<FilaLeida>>> = {
+  para_subir_a_mano: (c, id) => aplicar(c, id, comoServicio, { tipo: "entregar_para_subir" }),
+}
+
 const PASOS_HASTA: Partial<Record<Estado, number>> = {
   idea: 0,
   guion_en_proceso: 1,
@@ -98,6 +103,8 @@ const PASOS_HASTA: Partial<Record<Estado, number>> = {
   video_por_aprobar: 5,
   programado: 6,
   publicado: 7,
+  para_subir_a_mano: 7,
+  publicado_a_mano: 7,
 }
 
 /** Creates a piece and walks it through the real flow, each step written by the actor the design assigns to it. */
@@ -105,8 +112,12 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado): Promise<s
   const pasos = PASOS_HASTA[destino]
   if (pasos === undefined) throw new Error(`Sin ruta de prueba hacia ${destino}`)
   const id = await crearPieza(c)
-  for (const paso of PASOS.slice(0, pasos)) {
+  const hastaProgramado = destino === "publicado_a_mano" || destino in PASO_A_MANO ? 6 : pasos
+  for (const paso of PASOS.slice(0, hastaProgramado)) {
     await paso(c, id)
   }
+  const aMano = PASO_A_MANO[destino]
+  if (aMano) await aMano(c, id)
+  if (destino === "publicado_a_mano") await aplicar(c, id, comoConi, { tipo: "subido_a_mano", actor: "coni" })
   return id
 }

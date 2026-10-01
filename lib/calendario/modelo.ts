@@ -67,6 +67,8 @@ export interface ModeloDeCalendario {
     celdas: CeldaDeMes[]
     sinPublicaciones: boolean
     proximos: ProximaPublicacion[]
+    /** Approved for a time that came while Instagram was not connected: she has to upload them. Oldest first. */
+    porSubir: ProximaPublicacion[]
   }
   agenda: { semanas: { titulo: string; huecos: Hueco[] }[] }
   ritmo: {
@@ -108,8 +110,16 @@ function mayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
+const ESTADOS_FECHADOS: readonly Estado[] = ["publicado", "programado", "para_subir_a_mano", "publicado_a_mano"]
+
 function esFechada(pieza: PiezaDeCalendario): pieza is PiezaDeCalendario & { publicarEn: string } {
-  return (pieza.estado === "publicado" || pieza.estado === "programado") && pieza.publicarEn !== null
+  return ESTADOS_FECHADOS.includes(pieza.estado) && pieza.publicarEn !== null
+}
+
+/** What a screen reader hears after the theme for the pieces that Coni handles by hand. */
+const NOTA_DE_MANO: Partial<Record<Estado, string>> = {
+  para_subir_a_mano: ", para subir",
+  publicado_a_mano: ", subido a mano",
 }
 
 function nombreDeTema(pilar: Pilar | null): string {
@@ -147,7 +157,9 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
       hoy: texto === hoy,
       puntos: delDia.map((pieza) => pieza.pilar),
       descripcion:
-        delDia.length > 0 ? `${nombre}: ${delDia.map((pieza) => nombreDeTema(pieza.pilar)).join(", ")}` : nombre,
+        delDia.length > 0
+          ? `${nombre}: ${delDia.map((pieza) => `${nombreDeTema(pieza.pilar)}${NOTA_DE_MANO[pieza.estado] ?? ""}`).join(", ")}`
+          : nombre,
     })
   }
 
@@ -155,10 +167,20 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
     const instante = Date.parse(pieza.publicarEn)
     return instante >= mes.desde && instante < mes.hasta
   })
+  const aLaLista = (pieza: PiezaDeCalendario & { publicarEn: string }): ProximaPublicacion => ({
+    piezaId: pieza.id,
+    titulo: pieza.titulo,
+    pilar: pieza.pilar,
+    fecha: etiquetaDeFecha(pieza.publicarEn, zona, "corta"),
+  })
   return {
     nombre: mes.nombre,
     celdas,
     sinPublicaciones: delMes.length === 0,
+    porSubir: fechadas
+      .filter((pieza) => pieza.estado === "para_subir_a_mano")
+      .sort((a, b) => Date.parse(a.publicarEn) - Date.parse(b.publicarEn))
+      .map(aLaLista),
     proximos: fechadas
       .filter((pieza) => pieza.estado === "programado" && Date.parse(pieza.publicarEn) >= ahora)
       .sort((a, b) => Date.parse(a.publicarEn) - Date.parse(b.publicarEn))
@@ -180,6 +202,10 @@ function ocupanteDe(pieza: PiezaDeCalendario, provisional: boolean): Ocupante {
   switch (pieza.estado) {
     case "programado":
       return { ...base, estado: "Programado", tono: "ok", href: `/video/${pieza.id}` }
+    case "para_subir_a_mano":
+      return { ...base, estado: "Para subir", tono: "aviso", href: `/video/${pieza.id}` }
+    case "publicado_a_mano":
+      return { ...base, estado: "Subido a mano", tono: "ok", href: `/video/${pieza.id}` }
     case "video_por_aprobar":
       return { ...base, estado: "Falta tu firma: video y fecha", tono: "aviso", href: `/video/${pieza.id}` }
     case "guion_por_aprobar":
@@ -214,7 +240,8 @@ function construirAgenda(
   const fin = instanteDeHueco(sumarDias(lunes, 7 * SEMANAS_DE_AGENDA), "00:00", zona)
   const programadas = piezas.filter(
     (pieza): pieza is PiezaDeCalendario & { publicarEn: string } =>
-      pieza.estado === "programado" && pieza.publicarEn !== null,
+      (pieza.estado === "programado" || pieza.estado === "para_subir_a_mano" || pieza.estado === "publicado_a_mano") &&
+      pieza.publicarEn !== null,
   )
   const programadasPorInstante = new Map(programadas.map((pieza) => [Date.parse(pieza.publicarEn), pieza]))
 
@@ -228,9 +255,13 @@ function construirAgenda(
     .filter((instante) => instante < fin)
   const instantes = new Set(horarios)
   // An approved time that no longer matches the schedule keeps its place: changing the settings never moves it.
+  const inicioDeLaSemana = instanteDeHueco(lunes, "00:00", zona)
   for (const pieza of programadas) {
     const instante = Date.parse(pieza.publicarEn)
-    if (instante >= ahora - MARGEN_DE_PUBLICACION_MS && instante < fin) instantes.add(instante)
+    // What she handles by hand stays in the week it belongs to: its time passed and it is still hers to do or to see.
+    const cuenta =
+      pieza.estado === "programado" ? instante >= ahora - MARGEN_DE_PUBLICACION_MS : instante >= inicioDeLaSemana
+    if (cuenta && instante < fin) instantes.add(instante)
   }
 
   const huecos: Hueco[] = [...instantes]

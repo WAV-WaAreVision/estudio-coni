@@ -54,18 +54,39 @@ export function puedeGrabar(pieza: Pieza, hashActual: string): Veredicto {
   return { ok: true }
 }
 
-/** The publish task calls this right before publishing; it never publishes at an unapproved time. */
-export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
+/** What both exits of a scheduled piece (publish, hand over for manual upload) require of what Coni approved. */
+function aprobacionVigente(pieza: Pieza, hashTextoActual: string): Veredicto {
   if (pieza.estado !== "programado") return no("estado")
   const aprobacion = pieza.puerta2
   if (!aprobacion) return no("sin_aprobacion")
-  if (aprobacion.videoId !== pieza.videoId || aprobacion.hashTexto !== actual.hashTexto) return no("artefacto_cambio")
+  if (aprobacion.videoId !== pieza.videoId || aprobacion.hashTexto !== hashTextoActual) return no("artefacto_cambio")
+  return { ok: true }
+}
+
+/** The publish task calls this right before publishing; it never publishes at an unapproved time. */
+export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
+  const vigente = aprobacionVigente(pieza, actual.hashTexto)
+  if (!vigente.ok || !pieza.puerta2) return vigente
   const ahora = instanteEstricto(actual.ahora)
-  const publicarEn = instanteEstricto(aprobacion.publicarEn)
+  const publicarEn = instanteEstricto(pieza.puerta2.publicarEn)
   // An unreadable or zone-less time never publishes: Date.parse would guess a zone, and NaN compares false both ways.
   if (!ahora || !publicarEn) return no("hora_vencida")
   const atraso = Date.parse(ahora) - Date.parse(publicarEn)
   if (atraso < 0) return no("antes_de_hora")
   if (atraso > MARGEN_HORA_APROBADA_MS) return no("hora_vencida")
+  return { ok: true }
+}
+
+/**
+ * Instagram is not connected: at the approved time the piece is handed to Coni to upload herself. Nothing is published,
+ * so a late hour is no risk and there is no 30-minute window; the piece still never leaves before its time and still
+ * has to be what she approved.
+ */
+export function puedeEntregarseParaSubir(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
+  const vigente = aprobacionVigente(pieza, actual.hashTexto)
+  if (!vigente.ok || !pieza.puerta2) return vigente
+  const ahora = instanteEstricto(actual.ahora)
+  const publicarEn = instanteEstricto(pieza.puerta2.publicarEn)
+  if (!ahora || !publicarEn || Date.parse(ahora) < Date.parse(publicarEn)) return no("antes_de_hora")
   return { ok: true }
 }

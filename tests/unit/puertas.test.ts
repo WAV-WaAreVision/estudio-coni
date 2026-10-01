@@ -5,6 +5,7 @@ import {
   hashPuerta1,
   hashPuerta2,
   hashTexto,
+  puedeEntregarseParaSubir,
   puedeGrabar,
   puedePublicar,
 } from "@/lib/dominio/puertas"
@@ -167,5 +168,42 @@ describe("puedePublicar", () => {
 
   it("lee la hora actual con un desfase explícito", () => {
     expect(puedePublicar(programada, actual("2026-10-08T19:00:00-03:00"))).toEqual({ ok: true })
+  })
+})
+
+describe("puedeEntregarseParaSubir", () => {
+  const programada = pieza({
+    estado: "programado",
+    videoId: "video_1",
+    puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: APROBADA },
+  })
+  const actual = (ahora: string, hashTexto = "t1") => ({ ahora, hashTexto })
+
+  it("entrega desde la hora aprobada, tarde o temprano, porque no se publica nada", () => {
+    expect(puedeEntregarseParaSubir(programada, actual(HORA))).toEqual({ ok: true })
+    expect(puedeEntregarseParaSubir(programada, actual("2026-10-08T22:30:01.000Z"))).toEqual({ ok: true })
+    expect(puedeEntregarseParaSubir(programada, actual("2026-10-12T10:00:00.000Z"))).toEqual({ ok: true })
+  })
+
+  it("nunca entrega antes de la hora aprobada, ni cuando la hora no se puede leer", () => {
+    const antes = { ok: false, motivo: "antes_de_hora" }
+    expect(puedeEntregarseParaSubir(programada, actual("2026-10-08T21:59:59.000Z"))).toEqual(antes)
+    expect(puedeEntregarseParaSubir(programada, actual("no es una fecha"))).toEqual(antes)
+    expect(puedeEntregarseParaSubir(programada, actual("2026-10-08T22:00:00"))).toEqual(antes)
+  })
+
+  it("pide lo mismo que publicar sobre lo aprobado: estado, aprobación, texto y video", () => {
+    expect(puedeEntregarseParaSubir({ ...programada, estado: "error_publicacion" }, actual(HORA))).toEqual({
+      ok: false,
+      motivo: "estado",
+    })
+    expect(puedeEntregarseParaSubir({ ...programada, puerta2: null }, actual(HORA))).toEqual({
+      ok: false,
+      motivo: "sin_aprobacion",
+    })
+    expect(puedeEntregarseParaSubir(programada, actual(HORA, "t2"))).toEqual({
+      ok: false,
+      motivo: "artefacto_cambio",
+    })
   })
 })

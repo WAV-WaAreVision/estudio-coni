@@ -890,6 +890,8 @@ export type Database = {
         | "error_produccion"
         | "error_publicacion"
         | "descartado"
+        | "para_subir_a_mano"
+        | "publicado_a_mano"
       pilar: "pareja" | "deseo" | "autoestima" | "limites" | "bienestar"
     }
     CompositeTypes: {
@@ -1033,6 +1035,8 @@ export const Constants = {
         "error_produccion",
         "error_publicacion",
         "descartado",
+        "para_subir_a_mano",
+        "publicado_a_mano",
       ],
       pilar: ["pareja", "deseo", "autoestima", "limites", "bienestar"],
     },

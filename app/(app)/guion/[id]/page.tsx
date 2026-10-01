@@ -63,7 +63,9 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
       )
     case "video_por_aprobar":
     case "programado":
+    case "para_subir_a_mano":
     case "publicado":
+    case "publicado_a_mano":
     case "error_publicacion":
       return redirect(`/video/${fila.id}`)
     default:
