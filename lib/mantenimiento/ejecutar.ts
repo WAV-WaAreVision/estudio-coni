@@ -1,3 +1,4 @@
+import { type DepsArranques, reanudarArranques } from "./arranques"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
@@ -28,12 +29,13 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
   return resultados as { [K in keyof T]: Awaited<ReturnType<T[K]>> }
 }
 
-export type DepsFrecuente = DepsConciliacion
+export type DepsFrecuente = DepsConciliacion & DepsArranques
 export type DepsNocturno = DepsRetencion & DepsTokenMeta & DepsRespaldo
 
-/** Every ten minutes: renders that lost their callback and reservations that outlived their run. */
+/** Every ten minutes: runs that never started, renders that lost their callback and reservations that outlived their run. */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
+    arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     gastos: () => barrerGastos(deps),
   })

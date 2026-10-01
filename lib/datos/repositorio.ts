@@ -255,3 +255,34 @@ export async function guardarTokenMeta(db: Db, token: string, expiraEn: string):
   const { error } = await db.rpc("guardar_token_meta", { p_token: token, p_expira_en: expiraEn })
   if (error) throw fallo("No pude guardar el token de Instagram renovado", error)
 }
+
+/**
+ * Pieces whose first run never seems to have started, so it can be started again: approved for recording with no
+ * render and no reason, and a script round with no reason, each quiet since its own cut-off. A reason on the piece
+ * means the run did start and left a message for Coni, so those are not here.
+ */
+export async function leerPiezasSinArrancar(
+  db: Db,
+  corte: { grabarAntesDe: string; producirAntesDe: string },
+): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[] }> {
+  const [aGrabar, aProducir] = await Promise.all([
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "en_render")
+      .is("render_id", null)
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.grabarAntesDe)
+      .order("actualizada_en"),
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "guion_en_proceso")
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.producirAntesDe)
+      .order("actualizada_en"),
+  ])
+  if (aGrabar.error) throw fallo("No pude leer las piezas sin grabar", aGrabar.error)
+  if (aProducir.error) throw fallo("No pude leer las piezas sin guion", aProducir.error)
+  return { aGrabar: aGrabar.data, aProducir: aProducir.data }
+}
