@@ -24,3 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "PR contains only documentation changes; skipping typecheck and build."
+
+  db:
+    name: Database integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "PR contains only documentation changes; skipping database tests."

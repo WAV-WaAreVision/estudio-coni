@@ -29,13 +29,37 @@ cp .env.example .env.local   # then fill in the Supabase values
 | `pnpm test:e2e` | Playwright end-to-end tests |
 | `pnpm lint` | Biome check (read only) |
 | `pnpm check` | Biome check with safe fixes (`--write`) |
+| `pnpm db:start` | Start the local Supabase stack (Docker) |
+| `pnpm db:reset` | Rebuild the local database from `supabase/migrations` and `supabase/seed.sql` |
+| `pnpm test:db` | Integration tests against the local database |
+| `pnpm db:types` | Regenerate `lib/supabase/database.types.ts` |
 
 ## Layout
 
 - `lib/dominio/`: pure domain logic (no network, no database, no implicit clock).
 - `lib/proveedores/`: providers (HeyGen, ElevenLabs, Anthropic, Meta, R2).
+- `lib/datos/`: mapping between database rows and the domain.
+- `supabase/`: local stack config, migrations and the local-only seed.
+- `tests/integration/`: tests that talk to the local database.
 - `tests/unit/`: Vitest unit tests.
 - `docs/superpowers/plans/`: build plans.
+
+## Database
+
+Postgres 17 through the Supabase CLI (Docker must be running). The ports are 54420 to 54429, so the stack
+can run next to another Supabase project that uses the default 54321 to 54324.
+
+```bash
+pnpm db:start    # first run pulls images and can take several minutes
+pnpm db:reset    # migrations + seed (three @estudio.test users: Coni, a maintainer, an unrelated user)
+pnpm test:db     # integration tests, one file at a time
+pnpm db:types    # regenerate lib/supabase/database.types.ts after changing a migration
+```
+
+The database enforces the two human gates on its own: only Coni can approve or move a piece into
+`en_render` or `programado`, every write is audited with its actor, the monthly spend cap is reserved
+atomically (`reservar_gasto`) and Coni's API keys live in Vault, readable only by `service_role`.
+Set `SUPABASE_DB_URL` to point the tests at another database.
 
 ## Design
 
