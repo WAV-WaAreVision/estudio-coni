@@ -70,6 +70,21 @@ export type Database = {
         }
         Relationships: []
       }
+      consultas: {
+        Row: {
+          anotada_en: string
+          id: string
+        }
+        Insert: {
+          anotada_en?: string
+          id?: string
+        }
+        Update: {
+          anotada_en?: string
+          id?: string
+        }
+        Relationships: []
+      }
       eventos: {
         Row: {
           actor_rol: string

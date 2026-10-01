@@ -4,10 +4,14 @@ import { FilaPieza } from "@/components/fila-pieza"
 import { Nota } from "@/components/nota"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
+import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
 import { type AvisoDeInicio, construirInicio } from "@/lib/inicio/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { ConsultaNueva } from "./consulta-nueva"
+import { anotarConsultaAccion, deshacerConsultaAccion } from "./consultas/acciones"
 import { IdeasSemana } from "./ideas-semana"
 import { elegirIdeasAccion } from "./piezas/acciones"
 
@@ -20,6 +24,8 @@ export default async function Inicio() {
   const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
+  const mes = limitesDelMes(ahora, datos.zona)
+  const consultas = await leerConsultas(db, new Date(mes.desde).toISOString())
 
   return (
     <div className="grid gap-5.5">
@@ -83,7 +89,12 @@ export default async function Inicio() {
       </div>
 
       <Seccion titulo="Consultas" id="consultas">
-        <p className="text-apagado">Muy pronto podrás anotar aquí las consultas que lleguen.</p>
+        <ConsultaNueva
+          total={contarEnMes(consultas, mes.clave, datos.zona)}
+          mes={mes.nombre}
+          alAnotar={anotarConsultaAccion}
+          alDeshacer={deshacerConsultaAccion}
+        />
       </Seccion>
     </div>
   )

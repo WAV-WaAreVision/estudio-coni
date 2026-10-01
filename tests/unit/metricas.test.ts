@@ -4,6 +4,7 @@ import {
   compararTemas,
   contarEnMes,
   guardadosPorMil,
+  limitesDelMes,
   lunesDeLaSemana,
   metricasAlDia,
   type ReelMedido,
@@ -104,6 +105,27 @@ describe("contarEnMes", () => {
       "2026-11-01T03:30:00.000Z", // 1 Nov 00:30
     ]
     expect(contarEnMes(consultas, "2026-10", ZONA)).toBe(3)
+  })
+})
+
+describe("limitesDelMes", () => {
+  it("gives the month Coni is living, in words, with its exact edges in her zone", () => {
+    const mes = limitesDelMes(Date.parse("2026-10-15T15:00:00.000Z"), ZONA)
+    expect(mes.clave).toBe("2026-10")
+    expect(mes.nombre).toBe("octubre")
+    expect(new Date(mes.desde).toISOString()).toBe("2026-10-01T03:00:00.000Z")
+    expect(new Date(mes.hasta).toISOString()).toBe("2026-11-01T03:00:00.000Z")
+  })
+
+  it("is still the previous month in Chile when UTC has already turned over", () => {
+    const mes = limitesDelMes(Date.parse("2026-11-01T02:30:00.000Z"), ZONA)
+    expect(mes.clave).toBe("2026-10")
+  })
+
+  it("crosses a year end", () => {
+    const mes = limitesDelMes(Date.parse("2026-12-20T15:00:00.000Z"), ZONA)
+    expect(mes.nombre).toBe("diciembre")
+    expect(new Date(mes.hasta).toISOString()).toBe("2027-01-01T03:00:00.000Z")
   })
 })
 

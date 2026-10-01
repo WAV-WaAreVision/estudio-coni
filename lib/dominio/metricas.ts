@@ -1,4 +1,4 @@
-import { diaLocal } from "@/lib/dominio/fechas"
+import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
 import type { Pilar } from "@/lib/dominio/pilares"
 
 // What Instagram's numbers say, and how little they are allowed to say (design "Métricas y aprendizaje"): nothing is
@@ -104,6 +104,33 @@ export function agruparPorSemana(entrada: {
       reels: [...semana.reels].sort((a, b) => Date.parse(a.publicadoEn) - Date.parse(b.publicadoEn)),
     }))
     .sort((a, b) => b.lunes.localeCompare(a.lunes))
+}
+
+export interface MesVivido {
+  /** `2026-10`. */
+  clave: string
+  /** `octubre`. */
+  nombre: string
+  /** First instant of the month in the zone, and first instant of the next one (exclusive), in milliseconds. */
+  desde: number
+  hasta: number
+}
+
+/** The month that holds the instant, as Coni lives it: it starts and ends at her midnight, not at UTC's. */
+export function limitesDelMes(ms: number, zona: string): MesVivido {
+  const p = partesDeDia(diaLocal(ms, zona))
+  const siguiente = new Date(Date.UTC(p.anio, p.mes, 1))
+  return {
+    clave: `${p.anio}-${String(p.mes).padStart(2, "0")}`,
+    nombre: new Intl.DateTimeFormat("es-CL", { timeZone: "UTC", month: "long" }).format(
+      new Date(Date.UTC(p.anio, p.mes - 1, 15)),
+    ),
+    desde: instanteLocal({ anio: p.anio, mes: p.mes, dia: 1, hora: 0, minuto: 0 }, zona),
+    hasta: instanteLocal(
+      { anio: siguiente.getUTCFullYear(), mes: siguiente.getUTCMonth() + 1, dia: 1, hora: 0, minuto: 0 },
+      zona,
+    ),
+  }
 }
 
 /** How many consultations were noted in a month (`2026-10`), counting days the way Coni lives them. */
