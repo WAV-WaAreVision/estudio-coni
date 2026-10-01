@@ -31,6 +31,8 @@ function postgresClient17(): BuildExtension {
 export default defineConfig({
   // The real project ref arrives with the WAV Trigger.dev project; until then this placeholder keeps tsc and builds green.
   project: process.env.TRIGGER_PROJECT_REF ?? "proj_estudio_coni_local",
+  // The default runtime is Node 21, which Trigger.dev stops deploying on 2026-10-05; match the app's Node 24 LTS.
+  runtime: "node-24",
   dirs: ["./trigger"],
   maxDuration: 900,
   // With process.cwd() as the build folder in dev as in production, `assets/fuentes` is found the same way in both.
