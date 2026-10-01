@@ -37,6 +37,10 @@ cp .env.example .env.local   # then fill in the Supabase values
 
 ## Layout
 
+- `app/`: the Next.js app. `app/ingreso/` signs in with an emailed code; `app/(app)/` is Coni's side (Inicio, Guion,
+  Video, and the Server Actions in `app/(app)/piezas/acciones.ts`). `proxy.ts` refreshes the session.
+- `components/`: screen components; `components/ui/` holds the base ones from `docs/DESIGN.md`.
+- `lib/acciones/`: what the Server Actions do, with the database client and the Trigger.dev runs injected.
 - `lib/dominio/`: pure domain logic (no network, no database, no implicit clock).
 - `lib/proveedores/`: providers (HeyGen, ElevenLabs, Anthropic, Meta, R2).
 - `lib/datos/`: mapping between database rows and the domain, and the typed reads and writes the tasks use.
@@ -44,9 +48,19 @@ cp .env.example .env.local   # then fill in the Supabase values
 - `trigger/`: Trigger.dev v4 tasks, thin wrappers over `lib/produccion/`.
 - `supabase/`: local stack config, migrations and the local-only seed.
 - `tests/integration/`: tests that talk to the local database.
+- `tests/e2e/`: Playwright on an iPhone-sized viewport against `next start` and the local stack.
 - `tests/unit/`: Vitest unit tests. Every external HTTP call is intercepted by MSW (`tests/msw.ts`) and an unmocked one fails.
 - `tests/eval/`: evals that call the real API.
 - `docs/superpowers/plans/`: build plans.
+
+## End-to-end tests
+
+`pnpm test:e2e` builds the app, starts it on port 3200 and drives it with Playwright at 390 x 844. It needs the local
+Supabase stack (`pnpm db:start`) and owns its database for the run: it empties `piezas` and `ideas`. Nothing real is
+called: the sign-in code is read from the local mail catcher (port 54424), the runs the app would start in Trigger.dev
+are written to `test-results/disparos.jsonl` (`DISPARO_DE_PRUEBA=1`, refused on Vercel) and the voice and video are two
+small files served in place of the signed R2 links. Screenshots land in `test-results/capturas/`. If the Chromium this
+Playwright version wants is not installed, set `PLAYWRIGHT_CHROMIUM_PATH` to one that is.
 
 ## Database
 
