@@ -4,7 +4,9 @@
 
 export type Etiqueta = "equal" | "replace" | "delete" | "insert"
 export type Opcode = [Etiqueta, number, number, number, number]
+// [i, j, k]: a[i..i+k) equals b[j..j+k).
 type Bloque = [number, number, number]
+// [alo, ahi, blo, bhi]: the half-open window [alo, ahi) x [blo, bhi) of a and b.
 type Tramo = [number, number, number, number]
 
 export function compararSecuencias(a: readonly string[], b: readonly string[]): { ratio: number; opcodes: Opcode[] } {
@@ -29,13 +31,13 @@ function indicesEnB(b: readonly string[]): Map<string, number[]> {
 
 function coincidenciaMasLarga(
   a: readonly string[],
-  b: readonly string[],
   indices: Map<string, number[]>,
   [alo, ahi, blo, bhi]: Tramo,
 ): Bloque {
   let mejorI = alo
   let mejorJ = blo
   let mejorK = 0
+  // largoEn.get(j): length of the longest match ending at a[i - 1] and b[j]
   let largoEn = new Map<number, number>()
   for (let i = alo; i < ahi; i++) {
     const nuevo = new Map<number, number>()
@@ -52,16 +54,8 @@ function coincidenciaMasLarga(
     }
     largoEn = nuevo
   }
-  // difflib extends the match over equal neighbours afterwards. Without junk these loops never move
-  // anything, but they are kept so the port reads line-for-line against the Python source.
-  while (mejorI > alo && mejorJ > blo && a[mejorI - 1] === b[mejorJ - 1]) {
-    mejorI--
-    mejorJ--
-    mejorK++
-  }
-  while (mejorI + mejorK < ahi && mejorJ + mejorK < bhi && a[mejorI + mejorK] === b[mejorJ + mejorK]) {
-    mejorK++
-  }
+  // CPython then extends the match over equal neighbours; with no junk the DP result is already
+  // maximal, so that step is omitted.
   return [mejorI, mejorJ, mejorK]
 }
 
@@ -71,7 +65,7 @@ function bloquesIguales(a: readonly string[], b: readonly string[]): Bloque[] {
   const bloques: Bloque[] = []
   for (let tramo = cola.pop(); tramo; tramo = cola.pop()) {
     const [alo, ahi, blo, bhi] = tramo
-    const [i, j, k] = coincidenciaMasLarga(a, b, indices, tramo)
+    const [i, j, k] = coincidenciaMasLarga(a, indices, tramo)
     if (k) {
       bloques.push([i, j, k])
       if (alo < i && blo < j) cola.push([alo, i, blo, j])
@@ -83,6 +77,7 @@ function bloquesIguales(a: readonly string[], b: readonly string[]): Bloque[] {
   const unidos: Bloque[] = []
   let [i1, j1, k1] = [0, 0, 0]
   for (const [i2, j2, k2] of bloques) {
+    // With no junk, this merge branch only absorbs the initial (0, 0, 0) placeholder.
     if (i1 + k1 === i2 && j1 + k1 === j2) {
       k1 += k2
     } else {
