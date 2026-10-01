@@ -1,7 +1,8 @@
 import { schemaTask, wait } from "@trigger.dev/sdk"
 import { z } from "zod"
-import { depsGrabacion } from "@/lib/produccion/deps-reales"
+import { depsFalla, depsGrabacion } from "@/lib/produccion/deps-reales"
 import { terminarEspera } from "@/lib/produccion/espera"
+import { alFallarDeTarea } from "@/lib/produccion/fallas"
 import { grabarPieza } from "@/lib/produccion/grabar"
 import { decisionDeReintento } from "@/lib/produccion/reintentos"
 
@@ -19,6 +20,8 @@ export const grabarPiezaTask = schemaTask({
   ...CONFIGURACION_GRABAR,
   schema: z.object({ piezaId: z.string().uuid() }),
   catchError: ({ error }) => decisionDeReintento(error),
+  // Once the retries are over: the piece is left readable for Coni and the alerts go out (design A9).
+  onFailure: alFallarDeTarea("grabar-pieza", depsFalla),
   run: async ({ piezaId }, { ctx }) => {
     // One token per run, not per attempt: a retry of this run gets the same token back (same key), so it does not
     // wait a second hour for a callback that HeyGen already sent, or will send, to the first one.

@@ -4,9 +4,14 @@ import { createClient } from "@supabase/supabase-js"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
+import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
+import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import { almacenReal } from "@/lib/proveedores/almacen"
+import { avisosReales } from "@/lib/proveedores/avisos"
+import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
+import type { DepsFalla } from "./fallas"
 import type { DepsGrabacion } from "./grabar"
 import type { DepsProduccion } from "./producir"
 
@@ -65,5 +70,60 @@ export async function depsGrabacion(
     esperarRender: espera.esperarRender,
     callbackUrl: espera.callbackUrl,
     ahora: () => new Date().toISOString(),
+  }
+}
+
+// Instagram asks to read the container status about once a minute, for no more than five minutes.
+const SONDEO_INSTAGRAM = { cadaMs: 60_000, veces: 5 }
+
+/** The dependencies of a `publicar-pendientes` run. A missing R2 setting fails before a piece is taken. */
+export function depsPublicacion(): DepsPublicacion {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return {
+    db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    // A plain sleep, not `wait.for`: a waiting run gives up its place in the queue, and this one must keep it.
+    dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
+    sondeo: SONDEO_INSTAGRAM,
+  }
+}
+
+/** What the `onFailure` hooks need: the database and the alerts. */
+export function depsFalla(): DepsFalla {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return {
+    db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    avisos: avisosReales(),
+  }
+}
+
+function clienteDeServicio() {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+/** The dependencies of the ten-minute maintenance run. `dispararGrabacion` comes from the task: it needs the task object. */
+export function depsFrecuente(dispararGrabacion: DepsFrecuente["dispararGrabacion"]): DepsFrecuente {
+  return {
+    db: clienteDeServicio(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    dispararGrabacion,
+  }
+}
+
+/** The dependencies of the nightly run. A missing database URL is the backup's failure, and WAV is told by it. */
+export function depsNocturno(): DepsNocturno {
+  return {
+    db: clienteDeServicio(),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    volcarBase: () => volcarConPgDump(exigirEnv("RESPALDO_DB_URL", process.env.RESPALDO_DB_URL)),
   }
 }

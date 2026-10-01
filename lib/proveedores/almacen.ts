@@ -3,6 +3,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
@@ -16,6 +17,8 @@ export interface Almacen {
   /** Deleting an object that is not there is not an error, like S3. */
   borrar(clave: string): Promise<void>
   urlFirmada(clave: string, segundos: number): Promise<string>
+  /** Every object whose key starts with `prefijo`, in key order, with its size in bytes. */
+  listar(prefijo: string): Promise<{ clave: string; bytes: number }[]>
 }
 
 /** SigV4 does not sign a URL for longer than a week. */
@@ -63,6 +66,12 @@ export function almacenEnMemoria(): AlmacenEnMemoria {
       exigirVigencia(segundos)
       if (!objetos.has(clave)) throw noExiste(clave)
       return `https://almacen.test/${clave}?expira=${segundos}`
+    },
+    async listar(prefijo) {
+      return [...objetos.entries()]
+        .filter(([clave]) => clave.startsWith(prefijo))
+        .map(([clave, objeto]) => ({ clave, bytes: objeto.datos.byteLength }))
+        .sort((a, b) => a.clave.localeCompare(b.clave))
     },
     obtener: (clave) => objetos.get(clave),
     claves: () => [...objetos.keys()],
@@ -168,6 +177,22 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
     borrar: (clave) =>
       envolver("borrar", clave, async () => {
         await cliente.send(new DeleteObjectCommand({ Bucket: balde, Key: clave }))
+      }),
+    listar: (prefijo) =>
+      envolver("listar", prefijo, async () => {
+        // https://developers.cloudflare.com/r2/api/s3/api/ : ListObjectsV2 with `prefix` and `continuation-token`.
+        const objetos: { clave: string; bytes: number }[] = []
+        let siguiente: string | undefined
+        do {
+          const pagina = await cliente.send(
+            new ListObjectsV2Command({ Bucket: balde, Prefix: prefijo, ContinuationToken: siguiente }),
+          )
+          for (const objeto of pagina.Contents ?? []) {
+            if (objeto.Key !== undefined) objetos.push({ clave: objeto.Key, bytes: objeto.Size ?? 0 })
+          }
+          siguiente = pagina.IsTruncated ? pagina.NextContinuationToken : undefined
+        } while (siguiente !== undefined)
+        return objetos
       }),
     urlFirmada: async (clave, segundos) => {
       exigirVigencia(segundos)
