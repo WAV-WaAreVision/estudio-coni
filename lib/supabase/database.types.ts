@@ -36,6 +36,7 @@ export type Database = {
     Tables: {
       ajustes: {
         Row: {
+          avatar_visto_en: string | null
           avisos_resumen: boolean
           avisos_urgentes: boolean
           dias_publicacion: number[]
@@ -50,6 +51,7 @@ export type Database = {
           zona: string
         }
         Insert: {
+          avatar_visto_en?: string | null
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]
@@ -64,6 +66,7 @@ export type Database = {
           zona?: string
         }
         Update: {
+          avatar_visto_en?: string | null
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]

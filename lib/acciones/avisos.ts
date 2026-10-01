@@ -82,3 +82,15 @@ export function enviarPrueba(deps: DepsAvisos): Promise<Resultado<{ enviados: nu
     throw new Falla("No pude mandarlo ahora. Inténtalo en unos minutos.")
   })
 }
+
+/** "Así se ve tu avatar": she saw it once. Only the first time counts, and only she can mark it. */
+export function marcarAvatarVisto(db: Db): Promise<Resultado> {
+  return aResultado("marcarAvatarVisto", async () => {
+    const { error } = await db
+      .from("ajustes")
+      .update({ avatar_visto_en: new Date().toISOString() })
+      .is("avatar_visto_en", null)
+    if (error) throw fallo("marcar el mensaje de primera vez", error)
+    return {}
+  })
+}

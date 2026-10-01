@@ -122,9 +122,16 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         fechas,
         costoDeRegrabar: costo.estimadoUsd === null ? null : `Regrabar cuesta unos ${dolares(costo.estimadoUsd)}.`,
         explicacion: fila.explicacion,
+        primeraVez: await esPrimeraVez(db),
       }}
     />
   )
+}
+
+async function esPrimeraVez(db: Awaited<ReturnType<typeof exigirConi>>["db"]): Promise<boolean> {
+  const { data, error } = await db.from("ajustes").select("avatar_visto_en").maybeSingle()
+  if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
+  return data?.avatar_visto_en === null
 }
 
 function EstadoSencillo({ titulo, children }: { titulo: string; children: React.ReactNode }) {

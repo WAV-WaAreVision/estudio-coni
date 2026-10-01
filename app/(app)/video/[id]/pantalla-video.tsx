@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { MensajeDePrimeraVez } from "@/components/mensaje-primera-vez"
 import { ReproductorVideo } from "@/components/reproductor-video"
 import { Seccion } from "@/components/seccion"
 import { TextoDeInstagram } from "@/components/texto-de-instagram"
@@ -14,6 +15,7 @@ import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import { useAccion } from "@/components/use-accion"
 import type { Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { aprobarVideoAccion, regrabarAccion } from "../../piezas/acciones"
 
 export interface FechaPropuesta {
@@ -37,6 +39,8 @@ export interface DatosDeVideo {
   /** "Regrabar cuesta unos US$ 2,40"; null when the setup cannot say. */
   costoDeRegrabar: string | null
   explicacion: string | null
+  /** She has never opened a ready video before: show "Así se ve tu avatar". */
+  primeraVez: boolean
 }
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
@@ -100,6 +104,8 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           </span>
         </div>
       </header>
+
+      {datos.primeraVez ? <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} /> : null}
 
       {datos.explicacion ? (
         <p role="alert" className="rounded-lg bg-aviso-fondo p-4 text-[1.0625rem] text-aviso-tinta">

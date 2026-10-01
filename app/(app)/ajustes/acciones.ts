@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { guardarAjuste, guardarLlave } from "@/lib/acciones/ajustes"
-import { enviarPrueba, guardarSuscripcion, quitarSuscripcion } from "@/lib/acciones/avisos"
+import { enviarPrueba, guardarSuscripcion, marcarAvatarVisto, quitarSuscripcion } from "@/lib/acciones/avisos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
 import { servicioPushReal } from "@/lib/proveedores/push"
@@ -56,6 +56,10 @@ export async function quitarSuscripcionAccion(endpoint: string) {
       quitarSuscripcion(depsDeAvisos(db), d.endpoint),
     ),
   )
+}
+
+export async function marcarAvatarVistoAccion() {
+  return conSesionDeConi("marcarAvatarVisto", z.object({}), {}, (db) => marcarAvatarVisto(db))
 }
 
 export async function enviarPruebaAccion() {

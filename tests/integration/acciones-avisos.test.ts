@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { generateVAPIDKeys } from "web-push"
-import { enviarPrueba, guardarSuscripcion, quitarSuscripcion } from "@/lib/acciones/avisos"
+import { enviarPrueba, guardarSuscripcion, marcarAvatarVisto, quitarSuscripcion } from "@/lib/acciones/avisos"
 import { servicioPushVapid } from "@/lib/proveedores/push"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
@@ -48,7 +48,10 @@ beforeAll(async () => {
   mantenedor = await clienteDelMantenedor()
 })
 
-beforeEach(() => pool.query("delete from public.suscripciones_push"))
+beforeEach(async () => {
+  await pool.query("delete from public.suscripciones_push")
+  await pool.query("update public.ajustes set avatar_visto_en = null")
+})
 afterAll(async () => {
   await pool.query("delete from public.suscripciones_push")
   await pool.end()
@@ -133,5 +136,30 @@ describe("enviarPrueba", () => {
       },
     })
     expect(resultado.ok).toBe(false)
+  })
+})
+
+describe("marcarAvatarVisto", () => {
+  async function visto() {
+    const { rows } = await pool.query<{ avatar_visto_en: Date | null }>("select avatar_visto_en from public.ajustes")
+    return rows[0]?.avatar_visto_en ?? null
+  }
+
+  it("remembers the first time, in the database", async () => {
+    expect(await marcarAvatarVisto(coni)).toEqual({ ok: true })
+    expect(Math.abs(Date.now() - ((await visto())?.getTime() ?? 0))).toBeLessThan(10_000)
+  })
+
+  it("keeps the first moment when asked again", async () => {
+    await marcarAvatarVisto(coni)
+    const primera = await visto()
+    await new Promise((resolver) => setTimeout(resolver, 20))
+    await marcarAvatarVisto(coni)
+    expect(await visto()).toEqual(primera)
+  })
+
+  it("is not the maintainer's to mark: it is her message", async () => {
+    await marcarAvatarVisto(mantenedor)
+    expect(await visto()).toBeNull()
   })
 })
