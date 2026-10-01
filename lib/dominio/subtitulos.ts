@@ -70,7 +70,7 @@ export function alinearConGuion(cues: readonly Cue[], guion: string): Cue[] {
   const delGuion = palabras(guion)
   if (delGuion.length === 0) throw new Falla("El guion está vacío.")
   const delSrt = cues.flatMap(([, , frase], n) => palabras(frase).map((palabra) => [n, palabra] as const))
-  if (delSrt.length === 0) throw new Falla("HeyGen entregó subtítulos sin texto. Vuelve a bajarlos.")
+  if (delSrt.length === 0) throw new Falla("HeyGen entregó subtítulos sin texto. Intenta de nuevo en unos minutos.")
   const { ratio, opcodes } = compararSecuencias(
     delGuion.map(comparable),
     delSrt.map(([, palabra]) => comparable(palabra)),

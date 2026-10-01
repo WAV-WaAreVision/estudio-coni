@@ -92,7 +92,7 @@ describe("subtítulos", () => {
     for (const srt of [[], sinFrases]) {
       expect(() => alinearConGuion(srt, "hola mundo")).toThrow(Falla)
       expect(() => alinearConGuion(srt, "hola mundo")).toThrow(
-        "HeyGen entregó subtítulos sin texto. Vuelve a bajarlos.",
+        "HeyGen entregó subtítulos sin texto. Intenta de nuevo en unos minutos.",
       )
     }
   })
