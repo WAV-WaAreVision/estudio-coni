@@ -1,0 +1,53 @@
+{
+  "_nota": "Ficha técnica del avatar de Coni. Estos IDs no son secretos; las llaves van en `heygen auth login` y en .env. Reemplaza cada PENDIENTE y luego corre: python3 scripts/coni.py verificar",
+
+  "ruta_voz": "elevenlabs",
+  "_ruta_voz": "heygen = Ruta A (HeyGen usa la voz de ElevenLabs que ya importaste en el curso). elevenlabs = Ruta B (el audio se genera en ElevenLabs y HeyGen solo mueve los labios).",
+
+  "heygen": {
+    "avatar_id": "13affb25ba2d4273b0a63d82c8b9fd5a",
+    "_avatar_id": "ID del look (no del grupo). Usa una foto real de Coni (los looks \"Photo Avatar\") o un gemelo digital, no un look generado por IA: esos redibujan su cara. Búscalo con: heygen avatar looks list --group-id <id-del-grupo>",
+
+    "voice_id": "PENDIENTE",
+    "_voice_id": "Solo Ruta A. ID de tu voz de ElevenLabs tal como la ve HeyGen: heygen voice list --type private",
+
+    "ajustes_elevenlabs": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0.0,
+      "use_speaker_boost": true
+    },
+    "_ajustes_elevenlabs": "Solo Ruta A. Modelos válidos: eleven_multilingual_v2, eleven_v3, eleven_turbo_v2_5, eleven_flash_v2_5. Con eleven_v3, stability solo puede ser 0, 0.5 o 1. Si tu voz en HeyGen no viene de ElevenLabs, pon null.",
+
+    "velocidad": 1.0,
+    "aspect_ratio": "9:16",
+    "resolution": "1080p",
+    "subtitulos_quemados": true,
+    "_subtitulos_quemados": "true: coni.py subtitulos quema el texto del guion en la zona segura de Reels (video-final.mp4). Necesita ffmpeg con libass: brew install ffmpeg-full.",
+    "motor": "avatar_v",
+    "_motor": "avatar_v anima el look con el movimiento del gemelo digital de referencia_movimiento (48 créditos/min). null usa Avatar IV (16 créditos/min con foto), con gestos que salen solo del audio. verificar dice qué motores admite el look.",
+    "referencia_movimiento": "f6d7ea2438514719b6b76e0b743fa7d3",
+    "_referencia_movimiento": "Obligatorio con avatar_v. ID del look digital_twin del mismo grupo cuyos gestos se copian. Si el avatar_id ya es un gemelo, pon su mismo ID. Sin referencia, HeyGen puede animar la foto con el movimiento de un look público de otra persona."
+  },
+
+  "metricool": {
+    "marca_id": "PENDIENTE",
+    "_marca_id": "ID de la marca de Coni en Metricool (blog_id). Claude lo obtiene con get_brand_settings la primera vez que programa.",
+    "zona_horaria": "America/Santiago"
+  },
+
+  "elevenlabs": {
+    "voice_id": "F2SkAeaaVSlAUrRS3rDg",
+    "_voice_id": "Solo Ruta B. ID de la voz en ElevenLabs (Voices → tu voz → ID).",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0.0,
+      "use_speaker_boost": true,
+      "speed": 1.0
+    },
+    "output_format": "mp3_44100_128"
+  }
+}
