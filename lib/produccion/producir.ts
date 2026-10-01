@@ -5,6 +5,7 @@ import {
   actualizarPieza,
   confirmarGasto,
   type FilaDePieza,
+  guardarBorrador,
   type IdeaLeida,
   leerGuiaVigente,
   leerIdea,
@@ -208,7 +209,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
       await explicar(deps, fila, new RechazoDeClaude().message)
       return { resultado: "rechazado" }
     case "confirmado":
-      // The script was saved before the spend was confirmed, so it is still on the piece.
+      // The script is saved in the same transaction that confirms the spend, so it is on the piece.
       borrador = borradorGuardado(fila)
       break
     default: {
@@ -222,17 +223,19 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
         return { resultado: "rechazado" }
       }
       borrador = redactado.borrador
-      // Saved before the spend is confirmed, so a retry that finds it confirmed can resume from the saved draft. If
-      // the run dies between these two calls the retry finds the spend still reserved and writes the script again.
-      const guardada = await actualizarPieza(db, fila.id, fila.version, {
-        version: fila.version + 1,
+      // The draft and the confirmation of its spend are one transaction: a retry that finds the spend confirmed
+      // always finds the draft, and one that finds it reserved never has a draft to resume from.
+      const guardada = await guardarBorrador(db, {
+        piezaId: fila.id,
+        versionLeida: fila.version,
         guion: borrador.guion,
         texto: borrador.texto,
         revision: borrador.revision,
+        clave: claveClaude,
+        realUsd: aCuatroDecimales(redactado.costoUsd),
       })
       if (!guardada) throw piezaCambio()
       fila = guardada
-      await confirmarGasto(db, claveClaude, aCuatroDecimales(redactado.costoUsd))
     }
   }
 

@@ -80,6 +80,42 @@ export async function actualizarPieza(
   return data
 }
 
+/** The errors of `guardar_borrador` are its contract (supabase/migrations/20261001000900_guardar_borrador.sql). */
+const ERROR_VERSION_DESFASADA = "version_desfasada"
+
+/**
+ * Saves the script and confirms the Claude spend that paid for it in one transaction, so a run that dies half way
+ * cannot leave the draft saved with its spend still reserved. Null means the piece changed in the meantime (the
+ * same contract as `actualizarPieza`): nothing was saved and the spend stays reserved.
+ */
+export async function guardarBorrador(
+  db: Db,
+  borrador: {
+    piezaId: string
+    versionLeida: number
+    guion: string
+    texto: string
+    revision: Json
+    clave: string
+    realUsd: number
+  },
+): Promise<FilaDePieza | null> {
+  const { data, error } = await db.rpc("guardar_borrador", {
+    p_pieza: borrador.piezaId,
+    p_version: borrador.versionLeida,
+    p_guion: borrador.guion,
+    p_texto: borrador.texto,
+    p_revision: borrador.revision,
+    p_clave: borrador.clave,
+    p_real: borrador.realUsd,
+  })
+  if (error) {
+    if (error.message === ERROR_VERSION_DESFASADA) return null
+    throw fallo("No pude guardar el borrador", error)
+  }
+  return data
+}
+
 /** Findings as the plain JSON the `revision` column stores. */
 export function revisionAJson(hallazgos: readonly Hallazgo[]): Json {
   return hallazgos.map((h) =>

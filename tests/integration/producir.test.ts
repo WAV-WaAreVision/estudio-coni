@@ -538,6 +538,39 @@ describe("producirPieza", () => {
     ])
   })
 
+  it("keeps the spend reserved and the piece alone when it changed while Claude was writing", async () => {
+    const id = await crearPiezaEnProduccion()
+    simular({
+      enEscritura: () =>
+        pool
+          .query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
+          .then(() => undefined),
+    })
+
+    await expect(producirPieza(deps(), id)).rejects.toThrow("La pieza cambió mientras se producía.")
+
+    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", guion: null, texto: null, version: 2 })
+    expect(await gastos(id)).toEqual([
+      { proveedor: "anthropic", paso: "guion", estado: "reservado", estimado: 0.5, real: null },
+    ])
+  })
+
+  it("saves no draft when its spend was already settled, because the draft and its payment are saved together", async () => {
+    const id = await crearPiezaEnProduccion()
+    simular({
+      // Another run of the same round settles the spend while this one is still waiting for Claude.
+      enEscritura: () =>
+        pool
+          .query("select public.confirmar_gasto(clave, 0.01) from public.gastos where pieza_id = $1", [id])
+          .then(() => undefined),
+    })
+
+    await expect(producirPieza(deps(), id)).rejects.toThrow("gasto_no_reservado")
+
+    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", guion: null, texto: null, version: 1 })
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado, g.real])).toEqual([["anthropic", "confirmado", 0.01]])
+  })
+
   it("fails as a configuration error when the piece has no idea", async () => {
     const id = await crearPiezaEnProduccion()
     await pool.query("update public.piezas set idea_id = null, version = version + 1 where id = $1", [id])
