@@ -8,7 +8,7 @@ Why: the burned subtitles ask libass for the family `Montserrat` in bold (`lib/d
 machine without the folder it settles for whatever variant it finds (a Mac with Adobe Fonts synced picked Montserrat
 Black) and says nothing (design Q3). So the render container gets the file through Trigger.dev's `additionalFiles`
 build extension (`trigger.config.ts`), `lib/video/ffmpeg.ts` passes this folder as an explicit `fontsdir`, and the
-`fontselect` line of `ffmpeg -v verbose` is checked in `tests/integration/ffmpeg.test.ts` and before every burn.
+`fontselect` line of `ffmpeg -v verbose` is checked in `tests/integration/ffmpeg.test.ts` and at the start of every `grabar-pieza` run, before anything is spent.
 
 At runtime the folder is `CONI_FONTSDIR` when set, otherwise `assets/fuentes` under the working directory.
 

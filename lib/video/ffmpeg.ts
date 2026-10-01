@@ -3,7 +3,8 @@ import { access, constants, mkdtemp, readFile, rm, symlink, writeFile } from "no
 import { tmpdir } from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { promisify } from "node:util"
-import { FUENTE_SUBTITULO } from "@/lib/dominio/subtitulos"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { assDe, FUENTE_SUBTITULO } from "@/lib/dominio/subtitulos"
 import { type InfoVideo, infoDesdeFfprobe } from "@/lib/video/chequeos"
 
 const ejecutar = promisify(execFile)
@@ -237,6 +238,24 @@ export async function fuenteElegida(entrada: {
     }
     return fuente
   })
+}
+
+/** The PostScript name of the face the ASS style asks for: family Montserrat, bold. */
+export const FUENTE_ESPERADA = "Montserrat-Bold"
+
+/**
+ * Fails, before any credit is spent, when libass would not draw the subtitles in Montserrat Bold from `fontsdir`:
+ * a container without the fonts folder, a renamed file, or a machine whose own fonts win. Probes with a cue of its own.
+ */
+export async function exigirMontserratBold(entrada: { ffmpeg: string; fontsdir: string }): Promise<FuenteElegida> {
+  const { ffmpeg, fontsdir } = entrada
+  const fuente = await fuenteElegida({ ffmpeg, ass: assDe([[0, 1, "Prueba"]]), fontsdir })
+  if (fuente.nombre !== FUENTE_ESPERADA) {
+    throw new FallaDeConfiguracion(
+      `libass eligió ${fuente.nombre} en vez de ${FUENTE_ESPERADA} para los subtítulos. Revisa que ${fontsdir} tenga Montserrat-Bold.ttf (CONI_FONTSDIR).`,
+    )
+  }
+  return fuente
 }
 
 /** Reads the video with `ffprobe -v error -show_streams -show_format -of json` and parses it. */

@@ -42,6 +42,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@trigger.dev/build": "^4.6.4",
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",

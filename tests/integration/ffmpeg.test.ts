@@ -6,8 +6,16 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
+import { depsGrabacion } from "@/lib/produccion/deps-reales"
 import { revisarVideo } from "@/lib/video/chequeos"
-import { buscarFfmpeg, buscarFfprobe, fuenteElegida, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
+import {
+  buscarFfmpeg,
+  buscarFfprobe,
+  exigirMontserratBold,
+  fuenteElegida,
+  quemarSubtitulos,
+  sondear,
+} from "@/lib/video/ffmpeg"
 
 const ejecutar = promisify(execFile)
 
@@ -162,4 +170,54 @@ describe.skipIf(!FFMPEG)("ffmpeg with libass (skipped without it: brew install f
       expect(fuente.nombre).toBe("Montserrat-Bold")
     },
   )
+
+  it.skipIf(!existsSync(MONTSERRAT_BOLD))(
+    "passes the check the container runs before a render when assets/fuentes holds Montserrat Bold (skipped without it)",
+    async () => {
+      await expect(exigirMontserratBold({ ffmpeg, fontsdir: FUENTES })).resolves.toMatchObject({
+        nombre: "Montserrat-Bold",
+      })
+    },
+  )
+
+  describe("depsGrabacion", () => {
+    const VARIABLES = {
+      SUPABASE_URL: "http://127.0.0.1:1",
+      SUPABASE_SERVICE_ROLE_KEY: "clave-de-prueba",
+      R2_ACCOUNT_ID: "cuenta",
+      R2_ACCESS_KEY_ID: "llave",
+      R2_SECRET_ACCESS_KEY: "secreto",
+      R2_BUCKET: "balde",
+      CONI_FFMPEG: ffmpeg,
+    }
+    const antes: Record<string, string | undefined> = {}
+
+    beforeAll(() => {
+      for (const nombre of [...Object.keys(VARIABLES), "CONI_FONTSDIR"]) antes[nombre] = process.env[nombre]
+      Object.assign(process.env, VARIABLES)
+      delete process.env.CONI_FONTSDIR
+    })
+
+    afterAll(() => {
+      for (const [nombre, valor] of Object.entries(antes)) {
+        if (valor === undefined) delete process.env[nombre]
+        else process.env[nombre] = valor
+      }
+    })
+
+    it.skipIf(!existsSync(MONTSERRAT_BOLD))(
+      "finds the fonts under the working directory and burns and checks a clip with the real programs",
+      async () => {
+        const deps = await depsGrabacion({
+          callbackUrl: "https://api.trigger.dev/callback",
+          esperarRender: async () => {},
+        })
+
+        const final = await deps.quemar({ video: await clip(ffmpeg, 6), ass: ASS })
+        const hallazgos = revisarVideo(await deps.sondear(final))
+
+        expect(hallazgos).toEqual([])
+      },
+    )
+  })
 })

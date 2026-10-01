@@ -3,11 +3,12 @@ import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { Falla } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { assDe } from "@/lib/dominio/subtitulos"
 import {
   buscarFfmpeg,
   buscarFfprobe,
+  exigirMontserratBold,
   fuenteElegida,
   leerFontselect,
   quemarSubtitulos,
@@ -327,5 +328,39 @@ echo '${JSON.stringify(SONDA)}'`)
       `echo '${JSON.stringify({ streams: [{ codec_type: "audio" }], format: { size: "1" } })}'`,
     )
     await expect(sondear({ ffprobe, bytes: new Uint8Array([1]) })).rejects.toBeInstanceOf(Falla)
+  })
+})
+
+describe("exigirMontserratBold", () => {
+  let fuentes: string
+
+  beforeAll(async () => {
+    fuentes = join(raiz, "fuentes-exigidas")
+    await mkdir(fuentes, { recursive: true })
+  })
+
+  it("accepts the face libass chose when it is Montserrat Bold", async () => {
+    const ffmpeg = await falso(`echo "${FONTSELECT}" >&2`)
+    await expect(exigirMontserratBold({ ffmpeg, fontsdir: fuentes })).resolves.toMatchObject({
+      nombre: "Montserrat-Bold",
+    })
+  })
+
+  it("fails as a configuration error naming the face libass chose instead", async () => {
+    const ffmpeg = await falso(
+      'echo "fontselect: (Montserrat, 700, 0) -> /Users/x/.r/.37470.otf, -1, Montserrat-Black" >&2',
+    )
+    const error = await exigirMontserratBold({ ffmpeg, fontsdir: fuentes }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toMatchObject({ message: expect.stringContaining("Montserrat-Black") })
+    expect(error).toMatchObject({ message: expect.stringContaining(fuentes) })
+  })
+
+  it("probes with a cue of its own, so it needs no subtitles", async () => {
+    const ffmpeg = await falso(`{ for a in "$@"; do printf 'ARG:%s\\n' "$a"; done; } > "${registro("exigida")}"
+echo "${FONTSELECT}" >&2`)
+    await exigirMontserratBold({ ffmpeg, fontsdir: fuentes })
+    const argumentos = (await readFile(registro("exigida"), "utf8")).split("\n")
+    expect(argumentos).toContain("ARG:subtitles=subtitulos.ass:fontsdir=fuentes")
   })
 })

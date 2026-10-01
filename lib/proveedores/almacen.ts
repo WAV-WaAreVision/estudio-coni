@@ -71,15 +71,32 @@ export function almacenEnMemoria(): AlmacenEnMemoria {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+function sha256(datos: Uint8Array): string {
+  return createHash("sha256").update(datos).digest("hex")
+}
+
+function exigirUuid(piezaId: string): void {
+  if (!UUID.test(piezaId)) {
+    throw new Error(`El id de la pieza no es un UUID: ${piezaId}`)
+  }
+}
+
 /**
  * Content-addressed: a regenerated voice has other bytes, so it gets another key, and since the key is the
  * `audio_id` that gate 1 binds, the approval of the old voice no longer applies.
  */
 export function claveAudio(piezaId: string, mp3: Uint8Array): string {
-  if (!UUID.test(piezaId)) {
-    throw new Error(`El id de la pieza no es un UUID: ${piezaId}`)
-  }
-  return `voces/${piezaId}/${createHash("sha256").update(mp3).digest("hex")}.mp3`
+  exigirUuid(piezaId)
+  return `voces/${piezaId}/${sha256(mp3)}.mp3`
+}
+
+/**
+ * The final video, content-addressed like the voice: this key is the `video_id` that gate 2 binds, so a regrabar
+ * (other bytes, other key) voids the approval of the old video by construction.
+ */
+export function claveVideo(piezaId: string, mp4: Uint8Array): string {
+  exigirUuid(piezaId)
+  return `videos/${piezaId}/${sha256(mp4)}.mp4`
 }
 
 export interface OpcionesR2 {
