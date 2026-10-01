@@ -1,5 +1,6 @@
 import { schedules } from "@trigger.dev/sdk"
-import { depsPublicacion } from "@/lib/produccion/deps-reales"
+import { depsFalla, depsPublicacion } from "@/lib/produccion/deps-reales"
+import { alFallarDeTarea } from "@/lib/produccion/fallas"
 import { publicarPendientes } from "@/lib/publicacion/publicar"
 
 /**
@@ -18,5 +19,6 @@ export const CONFIGURACION_PUBLICAR = {
 
 export const publicarPendientesTask = schedules.task({
   ...CONFIGURACION_PUBLICAR,
+  onFailure: alFallarDeTarea("publicar-pendientes", depsFalla),
   run: async () => publicarPendientes(depsPublicacion()),
 })

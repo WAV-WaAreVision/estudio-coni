@@ -9,6 +9,7 @@ import { avisosReales } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
+import type { DepsFalla } from "./fallas"
 import type { DepsGrabacion } from "./grabar"
 import type { DepsProduccion } from "./producir"
 
@@ -85,5 +86,15 @@ export function depsPublicacion(): DepsPublicacion {
     // A plain sleep, not `wait.for`: a waiting run gives up its place in the queue, and this one must keep it.
     dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
     sondeo: SONDEO_INSTAGRAM,
+  }
+}
+
+/** What the `onFailure` hooks need: the database and the alerts. */
+export function depsFalla(): DepsFalla {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return {
+    db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    avisos: avisosReales(),
   }
 }
