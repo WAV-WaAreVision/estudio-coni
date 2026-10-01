@@ -34,6 +34,7 @@ pnpm db:start         # local Supabase (Docker, ports 54420-54429)
 pnpm db:reset         # rebuild the local database from migrations + seed
 pnpm test:db          # integration tests against the local database
 pnpm db:types         # regenerate lib/supabase/database.types.ts
+pnpm test:eval        # evals con la API real de Claude (gastan plata: solo con RUN_EVALS=1)
 ```
 
 ## Workflow
