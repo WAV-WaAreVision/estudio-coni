@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest"
+import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { asumir, CONI, como, comoConi, comoMantenedor, comoPostgres, comoServicio, fallaCon, OTRA, pool } from "./db"
 import { actualizar, aplicar, crearPieza, crearPiezaEn, leer, TEXTO, VIDEO } from "./flujo"
 
@@ -415,6 +416,34 @@ describe("restricciones de estado", () => {
       )
       expect(err.code).toBe("23514")
       expect(err.constraint).toBe("error_con_origen")
+    })
+  })
+})
+
+describe("lectura en el dominio", () => {
+  const conMicrosegundos =
+    "update public.piezas set puerta1_en = '2026-10-08 22:00:00.123456+00', version = version + 1 where id = $1"
+
+  it("lee los instantes cuando la fila llega como json igual que desde supabase-js", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "en_render")
+      await asumir(c, comoServicio)
+      await c.query(conMicrosegundos, [id])
+      const { rows } = await c.query("select to_jsonb(p) as fila from public.piezas p where id = $1", [id])
+      expect(rows[0].fila.puerta1_en).toMatch(/^2026-10-08T22:00:00\.123456\+00:00$/)
+      expect(piezaDesdeFila(rows[0].fila).puerta1?.en).toBe("2026-10-08T22:00:00.123Z")
+    })
+  })
+
+  it("lee los instantes cuando postgres los entrega como texto con microsegundos", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "en_render")
+      await asumir(c, comoServicio)
+      await c.query(conMicrosegundos, [id])
+      const { rows } = await c.query("select p.puerta1_en::text as puerta1_en from public.piezas p where id = $1", [id])
+      expect(rows[0].puerta1_en).toBe("2026-10-08 22:00:00.123456+00")
+      const fila = await leer(c, id)
+      expect(piezaDesdeFila({ ...fila, puerta1_en: rows[0].puerta1_en }).puerta1?.en).toBe("2026-10-08T22:00:00.123Z")
     })
   })
 })
