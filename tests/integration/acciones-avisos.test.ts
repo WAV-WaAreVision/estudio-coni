@@ -3,7 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { generateVAPIDKeys } from "web-push"
-import { enviarPrueba, guardarSuscripcion, marcarAvatarVisto, quitarSuscripcion } from "@/lib/acciones/avisos"
+import {
+  enviarPrueba,
+  guardarSuscripcion,
+  marcarAvatarVisto,
+  marcarAvisoLeido,
+  quitarSuscripcion,
+} from "@/lib/acciones/avisos"
+import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { servicioPushVapid } from "@/lib/proveedores/push"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
@@ -161,5 +168,45 @@ describe("marcarAvatarVisto", () => {
   it("is not the maintainer's to mark: it is her message", async () => {
     await marcarAvatarVisto(mantenedor)
     expect(await visto()).toBeNull()
+  })
+})
+
+describe("avisos sin leer", () => {
+  async function sembrar(clave: string, creado: string, leido: string | null = null) {
+    await pool.query(
+      "insert into public.avisos (tipo, clave, mensaje, creado_en, leido_en) values ('publicado', $1, $1, $2, $3)",
+      [clave, creado, leido],
+    )
+  }
+
+  beforeEach(() => pool.query("delete from public.avisos"))
+  afterAll(() => pool.query("delete from public.avisos"))
+
+  it("lists what she has not opened, newest first, up to the limit", async () => {
+    await sembrar("viejo", "2031-03-01T10:00:00Z")
+    await sembrar("nuevo", "2031-03-03T10:00:00Z")
+    await sembrar("leido", "2031-03-04T10:00:00Z", "2031-03-04T11:00:00Z")
+    await sembrar("medio", "2031-03-02T10:00:00Z")
+    expect((await leerAvisosSinLeer(coni, 10)).map((a) => a.clave)).toEqual(["nuevo", "medio", "viejo"])
+    expect((await leerAvisosSinLeer(coni, 2)).map((a) => a.clave)).toEqual(["nuevo", "medio"])
+  })
+
+  it("marks one as read and keeps the first time it was read", async () => {
+    await sembrar("uno", "2031-03-01T10:00:00Z")
+    const { rows } = await pool.query<{ id: string }>("select id from public.avisos")
+    const id = rows[0]?.id ?? ""
+    expect(await marcarAvisoLeido(coni, id)).toEqual({ ok: true })
+    expect(await leerAvisosSinLeer(coni, 10)).toEqual([])
+    const primera = (await pool.query("select leido_en from public.avisos")).rows[0]?.leido_en
+    await new Promise((resolver) => setTimeout(resolver, 20))
+    await marcarAvisoLeido(coni, id)
+    expect((await pool.query("select leido_en from public.avisos")).rows[0]?.leido_en).toEqual(primera)
+  })
+
+  it("does not let the maintainer mark Coni's notices as read", async () => {
+    await sembrar("uno", "2031-03-01T10:00:00Z")
+    const { rows } = await pool.query<{ id: string }>("select id from public.avisos")
+    await marcarAvisoLeido(mantenedor, rows[0]?.id ?? "")
+    expect(await leerAvisosSinLeer(coni, 10)).toHaveLength(1)
   })
 })

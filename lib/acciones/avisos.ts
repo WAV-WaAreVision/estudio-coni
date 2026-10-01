@@ -94,3 +94,16 @@ export function marcarAvatarVisto(db: Db): Promise<Resultado> {
     return {}
   })
 }
+
+/** She opened a notice. Only the first time counts. */
+export function marcarAvisoLeido(db: Db, id: string): Promise<Resultado> {
+  return aResultado("marcarAvisoLeido", async () => {
+    const { error } = await db
+      .from("avisos")
+      .update({ leido_en: new Date().toISOString() })
+      .eq("id", id)
+      .is("leido_en", null)
+    if (error) throw fallo("marcar el aviso como leído", error)
+    return {}
+  })
+}

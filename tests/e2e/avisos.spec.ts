@@ -1,6 +1,7 @@
 import { createECDH, randomBytes } from "node:crypto"
 import { expect, type Page, test } from "@playwright/test"
 import { pool } from "../integration/db"
+import { sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { bloquearRedExterna, capturar as capturarPantalla, configurarServicios, registroDeServicios } from "./ayudas"
 
 const ENDPOINT = "https://push.fake.test/push/dispositivo-de-coni"
@@ -166,4 +167,37 @@ test("a device the push service forgot is dropped and she is told to turn them o
 
   await expect(page.getByRole("alert").filter({ hasText: "Este celular ya no recibe avisos" })).toBeVisible()
   expect(await suscripciones()).toEqual([])
+})
+
+test.describe("Avisos en Inicio", () => {
+  test.beforeEach(vaciarPiezasEIdeas)
+
+  test("lists what she has not opened, opens the piece on a tap and does not list it again", async ({ page }) => {
+    const id = await sembrarPieza("guion_por_aprobar")
+    await pool.query(
+      "insert into public.avisos (tipo, clave, mensaje) values ('ideas_propuestas', 'ideas_propuestas:e2e', 'Ya tienes ideas nuevas para elegir esta semana.')",
+    )
+    await page.goto("/")
+
+    const seccion = page.getByRole("region", { name: "Avisos" })
+    await expect(seccion.getByRole("link")).toHaveCount(2)
+    await expect(seccion.getByText("Tu guion «Prueba» está listo para revisar.")).toBeVisible()
+    await seccion.scrollIntoViewIfNeeded()
+    await capturarPantalla(page, "avisos-inicio")
+
+    await seccion.getByRole("link", { name: /Prueba/ }).click()
+    await expect(page).toHaveURL(new RegExp(`/guion/${id}$`))
+    const { rows } = await pool.query("select leido_en from public.avisos where tipo = 'guion_listo'")
+    expect(rows[0]?.leido_en).not.toBeNull()
+
+    await page.goto("/")
+    await expect(seccion.getByRole("link")).toHaveCount(1)
+    await expect(seccion.getByText(/Prueba/)).toHaveCount(0)
+  })
+
+  test("shows no Avisos block when there is nothing unread", async ({ page }) => {
+    await page.goto("/")
+    await expect(page.getByRole("heading", { name: "Hola, Coni" })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Avisos" })).toHaveCount(0)
+  })
 })

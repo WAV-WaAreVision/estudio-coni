@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { guardarAjuste, guardarLlave } from "@/lib/acciones/ajustes"
-import { enviarPrueba, guardarSuscripcion, marcarAvatarVisto, quitarSuscripcion } from "@/lib/acciones/avisos"
+import {
+  enviarPrueba,
+  guardarSuscripcion,
+  marcarAvatarVisto,
+  marcarAvisoLeido,
+  quitarSuscripcion,
+} from "@/lib/acciones/avisos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
 import { servicioPushReal } from "@/lib/proveedores/push"
@@ -64,4 +70,12 @@ export async function marcarAvatarVistoAccion() {
 
 export async function enviarPruebaAccion() {
   return conSesionDeConi("enviarPrueba", z.object({}), {}, (db) => enviarPrueba(depsDeAvisos(db)))
+}
+
+export async function marcarAvisoLeidoAccion(id: string) {
+  return refrescar(
+    await conSesionDeConi("marcarAvisoLeido", z.object({ id: z.uuid() }), { id }, (db, d) =>
+      marcarAvisoLeido(db, d.id),
+    ),
+  )
 }
