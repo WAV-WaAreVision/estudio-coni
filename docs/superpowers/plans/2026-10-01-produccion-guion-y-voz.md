@@ -141,3 +141,10 @@ The code on `feat/produccion-guion-y-voz` is the source of truth; these reviewed
 - If the confirm call fails after the final write, the voice reservation stays `reservado` (it counts its estimate against the cap) and the retry finds the piece finished; a reconciliation job closes it.
 - A regenerated voice that fails the final write leaves its first MP3 orphaned in the store.
 - The editorial guide now exists in three places (`coni-heygen/contenido/linea-editorial.md`, the fixture and the seed); only the last two are compared by a test.
+
+### Review follow-ups (2026-10-01)
+
+- `exigir_revision_limpia` (migration 0800): the database refuses `guion_por_aprobar → en_render` and `video_por_aprobar → programado` while `revision` has a `bloquea` finding, and only server tasks may write `revision`.
+- `guardar_borrador` (migration 0900): the draft and its Claude spend confirmation are written in one transaction, closing the double-payment window on retry.
+- The production config rejects unknown keys at every level (`_` comments still ignored; `metricool` and `heygen.subtitulos_quemados` accepted and dropped).
+- Carried to Plan 4 (`mantenimiento`): a voice spend can stay `reservado` if the run dies between the final write and its confirmation; sweep `reservado` rows older than one hour whose piece already left `guion_en_proceso` and confirm them at their estimate.
