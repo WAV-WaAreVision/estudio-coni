@@ -131,7 +131,7 @@ describe("limitesDelMes", () => {
 
 describe("metricasAlDia", () => {
   it("accepts yesterday's snapshot before the morning run, and wants today's after it", () => {
-    const seisAm = Date.parse("2026-10-10T09:00:00.000Z") // 06:00 in Santiago (UTC-3 from 4 Oct 2026)
+    const seisAm = Date.parse("2026-10-10T09:00:00.000Z") // 06:00 in Santiago (summer time, UTC-3, since early September)
     const mediodia = Date.parse("2026-10-10T15:00:00.000Z") // 12:00
     expect(metricasAlDia({ ultimoDia: "2026-10-09", ahora: seisAm, zona: ZONA })).toBe(true)
     expect(metricasAlDia({ ultimoDia: "2026-10-09", ahora: mediodia, zona: ZONA })).toBe(false)

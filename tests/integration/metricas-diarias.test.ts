@@ -10,7 +10,7 @@ afterAll(() => pool.end())
 
 const TOKEN = "IGAA_token_actual_de_coni"
 const CUENTA = "17841400000000001"
-// 23:00 on 9 Oct in Santiago (UTC-3 since 4 Oct 2026): UTC has already moved on to the 10th.
+// 23:00 on 9 Oct in Santiago (summer time, UTC-3): UTC has already moved on to the 10th.
 const AHORA = "2026-10-10T02:00:00.000Z"
 const HOY = "2026-10-09"
 

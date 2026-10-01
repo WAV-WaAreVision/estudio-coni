@@ -76,6 +76,10 @@ export default async function Inicio() {
         </Seccion>
       ) : null}
 
+      <Link href="/calendario" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+        Ver calendario
+      </Link>
+
       <div id="ideas" className="scroll-mt-4">
         <Seccion titulo="Ideas de la semana" id="ideas-titulo">
           <IdeasSemana
