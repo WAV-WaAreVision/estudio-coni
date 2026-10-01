@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { mensajeErrorElevenlabs, mensajeErrorHeygen } from "@/lib/proveedores/errores"
+import { codigoErrorHeygen, mensajeErrorElevenlabs, mensajeErrorHeygen } from "@/lib/proveedores/errores"
 
 describe("mensajeErrorHeygen", () => {
   it("une mensaje y pista cuando el cuerpo es JSON", () => {
@@ -99,5 +99,26 @@ describe("mensajeErrorElevenlabs", () => {
     expect(mensajeErrorElevenlabs("x".repeat(1000))).toHaveLength(400)
     expect(mensajeErrorElevenlabs(JSON.stringify({ detail: "y".repeat(1000) }))).toHaveLength(400)
     expect(mensajeErrorElevenlabs(JSON.stringify({ detail: { message: "z".repeat(1000) } }))).toHaveLength(400)
+  })
+})
+
+describe("codigoErrorHeygen", () => {
+  it("lee el código del cuerpo de error de la API v3", () => {
+    const cuerpo = '{"error":{"code":"content_policy_violation","message":"No","doc_url":"https://x"}}'
+    expect(codigoErrorHeygen(cuerpo)).toBe("content_policy_violation")
+  })
+
+  it("devuelve null cuando el cuerpo no es JSON", () => {
+    expect(codigoErrorHeygen("<html>Bad gateway</html>")).toBeNull()
+    expect(codigoErrorHeygen("")).toBeNull()
+  })
+
+  it("devuelve null cuando el JSON no trae un código de texto", () => {
+    expect(codigoErrorHeygen('{"error":{"message":"x"}}')).toBeNull()
+    expect(codigoErrorHeygen('{"error":{"code":5}}')).toBeNull()
+    expect(codigoErrorHeygen('{"error":"x"}')).toBeNull()
+    expect(codigoErrorHeygen('{"detail":"x"}')).toBeNull()
+    expect(codigoErrorHeygen("[1]")).toBeNull()
+    expect(codigoErrorHeygen("null")).toBeNull()
   })
 })
