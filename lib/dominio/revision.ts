@@ -1,6 +1,7 @@
 import { palabras } from "@/lib/dominio/estimaciones"
 
-export type Regla = "cierre" | "simbolos" | "aviso_avatar" | "lineas_ayuda" | "largo" | "numeros"
+export const REGLAS_DETERMINISTAS = ["cierre", "simbolos", "aviso_avatar", "lineas_ayuda", "largo", "numeros"] as const
+export type Regla = (typeof REGLAS_DETERMINISTAS)[number]
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
 export const REGLAS_CLAUDE = [
   "diagnostico",
