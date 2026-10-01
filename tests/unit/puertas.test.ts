@@ -128,4 +128,13 @@ describe("puedePublicar", () => {
     const ilegible = { ...programada, puerta2: programada.puerta2 && { ...programada.puerta2, publicarEn: "pronto" } }
     expect(puedePublicar(ilegible, actual(HORA))).toEqual({ ok: false, motivo: "hora_vencida" })
   })
+
+  it("no publica cuando la hora actual no trae zona horaria", () => {
+    expect(puedePublicar(programada, actual("2026-10-08T22:00:00"))).toEqual({ ok: false, motivo: "hora_vencida" })
+    expect(puedePublicar(programada, actual("1"))).toEqual({ ok: false, motivo: "hora_vencida" })
+  })
+
+  it("lee la hora actual con un desfase explícito", () => {
+    expect(puedePublicar(programada, actual("2026-10-08T19:00:00-03:00"))).toEqual({ ok: true })
+  })
 })

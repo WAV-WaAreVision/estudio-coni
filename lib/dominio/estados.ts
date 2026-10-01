@@ -15,6 +15,8 @@ export const ESTADOS = [
 ] as const
 export type Estado = (typeof ESTADOS)[number]
 export type Actor = "coni" | "sistema" | "admin"
+/** Steps a failed piece can be retried from. */
+export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado"
 
 /** An approved time this late goes back to Coni instead of being published (accepted change A3). */
 export const MARGEN_HORA_APROBADA_MS = 30 * 60 * 1000
@@ -37,7 +39,7 @@ export interface Pieza {
   version: number
   /** Part of the idempotency key: Regrabar, retries and date changes bump it (R2-1). */
   intento: number
-  estadoAntesDelError: Estado | null
+  estadoAntesDelError: EstadoAntesDelError | null
   audioId: string | null
   videoId: string | null
   puerta1: AprobacionGuion | null
@@ -45,6 +47,10 @@ export interface Pieza {
   explicacion: string | null
 }
 
+/**
+ * `en` and `ahora` come from the server clock, never from the client. `hashActual` and `hashTextoActual` are
+ * recomputed from the database row in the same transaction as the `version` check.
+ */
 export type Evento =
   | { tipo: "elegir" }
   | { tipo: "guion_listo"; audioId: string }
@@ -69,6 +75,7 @@ export type Evento =
   | { tipo: "cambiar_fecha" }
   | { tipo: "publicado" }
   | { tipo: "falla_publicacion"; explicacion: string }
+  | { tipo: "hora_vencida" }
   | { tipo: "reintentar"; ahora: string }
   | { tipo: "descartar" }
 
@@ -81,17 +88,53 @@ export interface Transicion {
 }
 
 export class TransicionInvalida extends Falla {
-  constructor(estado: Estado, evento: Evento["tipo"]) {
-    super(`No se puede hacer "${evento}" cuando la pieza está en "${estado}".`)
+  constructor(
+    readonly estado: Estado,
+    readonly evento: Evento["tipo"],
+  ) {
+    super("Esta pieza cambió mientras la mirabas. Vuelve a abrirla.")
     this.name = "TransicionInvalida"
   }
 }
 
 export class ArtefactoCambio extends Falla {
   constructor() {
-    super("Lo que aprobaste cambió mientras lo revisabas. Vuelve a revisarlo.")
+    super("Esto cambió mientras lo revisabas y no quedó aprobado. Vuelve a revisarlo.")
     this.name = "ArtefactoCambio"
   }
+}
+
+/** Not a Falla on purpose: an approval from another actor is a bug or a security event, never shown to Coni. */
+export class AprobacionNoAutorizada extends Error {
+  constructor(readonly actor: Actor) {
+    super(`Solo Coni puede aprobar (actor recibido: ${actor}).`)
+    this.name = "AprobacionNoAutorizada"
+  }
+}
+
+// Date.parse alone accepts "1" and zone-less strings (read in the server's zone), which would shift an approved time.
+const INSTANTE =
+  /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/
+
+/** Accepts only ISO 8601 with `Z` or an explicit offset and returns it normalised to UTC; null when unreadable. */
+export function instanteEstricto(texto: string): string | null {
+  const partes = INSTANTE.exec(texto)
+  if (!partes) return null
+  const mes = Number(partes[2]) - 1
+  const dia = Number(partes[3])
+  // Date.parse rolls "02-30" over to March instead of rejecting it.
+  const calendario = new Date(Date.UTC(Number(partes[1]), mes, dia))
+  if (calendario.getUTCMonth() !== mes || calendario.getUTCDate() !== dia) return null
+  const ms = Date.parse(texto)
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString()
+}
+
+function instanteDelServidor(texto: string): string {
+  const instante = instanteEstricto(texto)
+  if (!instante) {
+    throw new Error(`Instante inválido del reloj del servidor: ${texto}`)
+  }
+  return instante
 }
 
 export function piezaNueva(): Pieza {
@@ -110,7 +153,7 @@ export function piezaNueva(): Pieza {
 
 function soloConi(actor: Actor): void {
   if (actor !== "coni") {
-    throw new Falla("Solo Coni puede aprobar.")
+    throw new AprobacionNoAutorizada(actor)
   }
 }
 
@@ -139,15 +182,19 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       if (estado === "guion_por_aprobar") return a("guion_por_aprobar", {}, ["revisar_texto"])
       if (estado === "video_por_aprobar") return a("video_por_aprobar", { puerta2: null }, ["revisar_texto"])
       if (estado === "programado") {
-        return a("video_por_aprobar", { puerta2: null }, ["cancelar_publicacion", "revisar_texto"])
+        return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1 }, [
+          "cancelar_publicacion",
+          "revisar_texto",
+        ])
       }
       throw invalida()
 
     case "aprobar_guion":
-      if (estado !== "guion_por_aprobar" || !pieza.audioId) throw invalida()
+      // The actor is checked first so an unauthorised attempt is flagged even on a stale piece.
       soloConi(evento.actor)
+      if (estado !== "guion_por_aprobar" || !pieza.audioId) throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
-      return a("en_render", { puerta1: { hash: evento.hashVisto, en: evento.en } })
+      return a("en_render", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
 
     case "render_entregado":
       if (estado !== "en_render") throw invalida()
@@ -155,7 +202,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "politica_contenido":
       if (estado !== "en_render") throw invalida()
-      return a("guion_por_aprobar", { puerta1: null, explicacion: evento.explicacion })
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1, explicacion: evento.explicacion })
 
     case "falla_produccion":
       if (estado !== "en_render" && estado !== "subtitulando") throw invalida()
@@ -166,25 +213,20 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       return a("video_por_aprobar", { videoId: evento.videoId })
 
     case "aprobar_video": {
-      if (estado !== "video_por_aprobar") throw invalida()
       soloConi(evento.actor)
+      if (estado !== "video_por_aprobar") throw invalida()
       if (evento.videoVisto !== pieza.videoId || evento.hashTextoVisto !== evento.hashTextoActual) {
         throw new ArtefactoCambio()
       }
-      const publicarEn = Date.parse(evento.publicarEn)
-      const aprobadoEn = Date.parse(evento.en)
-      if (Number.isNaN(publicarEn) || Number.isNaN(aprobadoEn)) {
+      const aprobadoEn = instanteDelServidor(evento.en)
+      const publicarEn = instanteEstricto(evento.publicarEn)
+      if (!publicarEn) {
         throw new Falla("La fecha de publicación no es válida.")
       }
-      if (publicarEn <= aprobadoEn) {
+      if (Date.parse(publicarEn) <= Date.parse(aprobadoEn)) {
         throw new Falla("La fecha de publicación ya pasó. Elige una hora futura.")
       }
-      const puerta2 = {
-        videoId: evento.videoVisto,
-        hashTexto: evento.hashTextoVisto,
-        publicarEn: evento.publicarEn,
-        en: evento.en,
-      }
+      const puerta2 = { videoId: evento.videoVisto, hashTexto: evento.hashTextoVisto, publicarEn, en: aprobadoEn }
       return a("programado", { puerta2 })
     }
 
@@ -208,16 +250,29 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       if (estado !== "programado") throw invalida()
       return a("error_publicacion", { estadoAntesDelError: "programado", explicacion: evento.explicacion })
 
+    case "hora_vencida":
+      if (estado !== "programado") throw invalida()
+      return a(
+        "video_por_aprobar",
+        {
+          puerta2: null,
+          intento: pieza.intento + 1,
+          explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha.",
+        },
+        ["cancelar_publicacion"],
+      )
+
     case "reintentar": {
+      const ahora = instanteDelServidor(evento.ahora)
       const intento = pieza.intento + 1
       if (estado === "error_produccion" && pieza.estadoAntesDelError) {
         return a(pieza.estadoAntesDelError, { estadoAntesDelError: null, intento })
       }
       if (estado === "error_publicacion") {
         const atraso = pieza.puerta2
-          ? Date.parse(evento.ahora) - Date.parse(pieza.puerta2.publicarEn)
+          ? Date.parse(ahora) - Date.parse(pieza.puerta2.publicarEn)
           : Number.POSITIVE_INFINITY
-        // An unreadable current time is treated as late: ask Coni again instead of rescheduling blindly.
+        // An unreadable stored time is treated as late: ask Coni again instead of rescheduling blindly.
         if (Number.isNaN(atraso) || atraso > MARGEN_HORA_APROBADA_MS) {
           return a("video_por_aprobar", {
             estadoAntesDelError: null,
@@ -233,6 +288,11 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "descartar":
       if (estado === "publicado" || estado === "descartado") throw invalida()
-      return a("descartado", { puerta1: null, puerta2: null }, estado === "programado" ? ["cancelar_publicacion"] : [])
+      // error_publicacion also cancels: the provider may still hold the post if it answers late.
+      return a(
+        "descartado",
+        { puerta1: null, puerta2: null },
+        estado === "programado" || estado === "error_publicacion" ? ["cancelar_publicacion"] : [],
+      )
   }
 }

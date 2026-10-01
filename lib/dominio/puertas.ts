@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { MARGEN_HORA_APROBADA_MS, type Pieza } from "@/lib/dominio/estados"
+import { instanteEstricto, MARGEN_HORA_APROBADA_MS, type Pieza } from "@/lib/dominio/estados"
 
 // A JSON array keeps field boundaries unambiguous ("a|b" + "c" never equals "a" + "b|c").
 function sha256(partes: readonly string[]): string {
@@ -55,9 +55,11 @@ export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: 
   const aprobacion = pieza.puerta2
   if (!aprobacion) return no("sin_aprobacion")
   if (aprobacion.videoId !== pieza.videoId || aprobacion.hashTexto !== actual.hashTexto) return no("artefacto_cambio")
-  const atraso = Date.parse(actual.ahora) - Date.parse(aprobacion.publicarEn)
-  // NaN compares false both ways: without this an unreadable time would fall through to ok.
-  if (Number.isNaN(atraso)) return no("hora_vencida")
+  const ahora = instanteEstricto(actual.ahora)
+  const publicarEn = instanteEstricto(aprobacion.publicarEn)
+  // An unreadable or zone-less time never publishes: Date.parse would guess a zone, and NaN compares false both ways.
+  if (!ahora || !publicarEn) return no("hora_vencida")
+  const atraso = Date.parse(ahora) - Date.parse(publicarEn)
   if (atraso < 0) return no("antes_de_hora")
   if (atraso > MARGEN_HORA_APROBADA_MS) return no("hora_vencida")
   return { ok: true }

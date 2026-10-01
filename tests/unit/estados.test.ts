@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, expectTypeOf, it } from "vitest"
 import {
+  AprobacionNoAutorizada,
   ArtefactoCambio,
+  ESTADOS,
+  type Estado,
   type Evento,
+  instanteEstricto,
   type Pieza,
   piezaNueva,
+  type Transicion,
   TransicionInvalida,
   transicionar,
 } from "@/lib/dominio/estados"
+import { Falla } from "@/lib/dominio/falla"
 
 const HORA = "2026-10-08T22:00:00.000Z" // jueves 8 de octubre, 19:00 en Santiago
 const ANTES = "2026-10-06T15:00:00.000Z"
@@ -42,6 +48,15 @@ const aprobarVideo = (cambios: Partial<Extract<Evento, { tipo: "aprobar_video" }
   ...cambios,
 })
 
+function capturar(accion: () => unknown): unknown {
+  try {
+    accion()
+  } catch (error) {
+    return error
+  }
+  throw new Error("Se esperaba que lanzara un error.")
+}
+
 describe("transicionar", () => {
   it("recorre el camino feliz y sube la versión en cada paso", () => {
     const eventos: Evento[] = [
@@ -72,10 +87,21 @@ describe("transicionar", () => {
 
   it("rechaza la aprobación cuando no la hace coni", () => {
     const pieza = en("guion_por_aprobar", { audioId: "audio_1" })
-    expect(() => transicionar(pieza, aprobarGuion({ actor: "sistema" }))).toThrow("Solo Coni puede aprobar")
-    expect(() => transicionar(pieza, aprobarGuion({ actor: "admin" }))).toThrow("Solo Coni puede aprobar")
+    expect(() => transicionar(pieza, aprobarGuion({ actor: "sistema" }))).toThrow(AprobacionNoAutorizada)
+    expect(() => transicionar(pieza, aprobarGuion({ actor: "admin" }))).toThrow(AprobacionNoAutorizada)
     const video = en("video_por_aprobar", { videoId: "video_1" })
-    expect(() => transicionar(video, aprobarVideo({ actor: "sistema" }))).toThrow("Solo Coni puede aprobar")
+    expect(() => transicionar(video, aprobarVideo({ actor: "sistema" }))).toThrow(AprobacionNoAutorizada)
+  })
+
+  it("trata la aprobación de otro actor como un bug o un evento de seguridad, nunca como un mensaje para coni", () => {
+    const error = capturar(() =>
+      transicionar(en("guion_por_aprobar", { audioId: "audio_1" }), aprobarGuion({ actor: "admin" })),
+    )
+    expect(error).toBeInstanceOf(AprobacionNoAutorizada)
+    expect(error).not.toBeInstanceOf(Falla)
+    // The attempt is flagged even when the piece is in the wrong state, so it is never masked as a stale screen.
+    expect(() => transicionar(piezaNueva(), aprobarGuion({ actor: "sistema" }))).toThrow(AprobacionNoAutorizada)
+    expect(() => transicionar(piezaNueva(), aprobarVideo({ actor: "sistema" }))).toThrow(AprobacionNoAutorizada)
   })
 
   it("rechaza la puerta 1 cuando el guion o la voz cambiaron mientras coni revisaba", () => {
@@ -94,10 +120,43 @@ describe("transicionar", () => {
     expect(() => transicionar(pieza, aprobarVideo({ publicarEn: ANTES }))).toThrow("ya pasó")
   })
 
-  it("rechaza la puerta 2 cuando la fecha de publicación o la de aprobación no se pueden leer", () => {
+  it("rechaza la puerta 2 cuando la hora de publicación no trae zona horaria o no se puede leer", () => {
     const pieza = en("video_por_aprobar", { videoId: "video_1" })
-    expect(() => transicionar(pieza, aprobarVideo({ publicarEn: "pronto" }))).toThrow("no es válida")
-    expect(() => transicionar(pieza, aprobarVideo({ en: "ahora" }))).toThrow("no es válida")
+    for (const publicarEn of ["2026-10-08T19:00", "1", "pronto", "2026-02-30T10:00:00Z"]) {
+      const error = capturar(() => transicionar(pieza, aprobarVideo({ publicarEn })))
+      expect(error, publicarEn).toBeInstanceOf(Falla)
+      expect(error, publicarEn).toHaveProperty("message", "La fecha de publicación no es válida.")
+    }
+  })
+
+  it("guarda la hora aprobada normalizada a UTC cuando coni la elige con un desfase explícito", () => {
+    const pieza = en("video_por_aprobar", { videoId: "video_1" })
+    const { pieza: nueva } = transicionar(pieza, aprobarVideo({ publicarEn: "2026-10-08T19:00:00-03:00" }))
+    expect(nueva.puerta2?.publicarEn).toBe("2026-10-08T22:00:00.000Z")
+  })
+
+  it("lanza un error común cuando el reloj del servidor trae un instante ilegible", () => {
+    const video = en("video_por_aprobar", { videoId: "video_1" })
+    const errores = [
+      capturar(() => transicionar(video, aprobarVideo({ en: "ahora" }))),
+      capturar(() => transicionar(video, aprobarVideo({ en: "2026-10-06T15:00" }))),
+      capturar(() =>
+        transicionar(en("guion_por_aprobar", { audioId: "audio_1" }), aprobarGuion({ en: "2026-10-06T15:00" })),
+      ),
+      capturar(() =>
+        transicionar(en("error_produccion", { estadoAntesDelError: "en_render" }), { tipo: "reintentar", ahora: "1" }),
+      ),
+    ]
+    for (const error of errores) {
+      expect(error).toBeInstanceOf(Error)
+      expect(error).not.toBeInstanceOf(Falla)
+    }
+  })
+
+  it("guarda la hora de la aprobación del guion normalizada a UTC", () => {
+    const pieza = en("guion_por_aprobar", { audioId: "audio_1" })
+    const { pieza: nueva } = transicionar(pieza, aprobarGuion({ en: "2026-10-06T12:00:00-03:00" }))
+    expect(nueva.puerta1).toEqual({ hash: "h1", en: ANTES })
   })
 
   it("borra la voz cuando coni pide cambios al guion", () => {
@@ -112,6 +171,8 @@ describe("transicionar", () => {
     expect(nueva.estado).toBe("guion_por_aprobar")
     expect(nueva.puerta1).toBeNull()
     expect(nueva.explicacion).toBe("HeyGen marcó una frase.")
+    // Re-approving the same script must not reuse the key of the render that HeyGen refused.
+    expect(nueva.intento).toBe(1)
   })
 
   it("regraba con un intento nuevo cuando coni pide regrabar, sin tocar la puerta 1", () => {
@@ -149,7 +210,13 @@ describe("transicionar", () => {
     expect(enVideo.pieza.puerta1).toEqual({ hash: "h1", en: ANTES })
 
     const programado = transicionar(programada, { tipo: "editar_texto" })
-    expect(programado.pieza).toMatchObject({ estado: "video_por_aprobar", puerta2: null, videoId: "video_1" })
+    // Re-approving the identical caption must not reuse the key of the publish that was cancelled.
+    expect(programado.pieza).toMatchObject({
+      estado: "video_por_aprobar",
+      puerta2: null,
+      videoId: "video_1",
+      intento: 1,
+    })
     expect(programado.efectos).toEqual(["cancelar_publicacion", "revisar_texto"])
   })
 
@@ -164,6 +231,26 @@ describe("transicionar", () => {
     expect(pieza).toMatchObject({ estado: "descartado", puerta1: null, puerta2: null })
     expect(efectos).toEqual(["cancelar_publicacion"])
     expect(transicionar(en("guion_por_aprobar"), { tipo: "descartar" }).efectos).toEqual([])
+  })
+
+  it("cancela la publicación cuando se descarta una pieza con la publicación fallida, por si el proveedor la conserva", () => {
+    const fallida = transicionar(programada, { tipo: "falla_publicacion", explicacion: "Metricool no respondió" }).pieza
+    expect(transicionar(fallida, { tipo: "descartar" }).efectos).toEqual(["cancelar_publicacion"])
+    const producion = transicionar(en("en_render"), { tipo: "falla_produccion", explicacion: "HeyGen falló" }).pieza
+    expect(transicionar(producion, { tipo: "descartar" }).efectos).toEqual([])
+  })
+
+  it("pide una fecha nueva y cancela la publicación cuando la hora aprobada pasó sin publicarse", () => {
+    const { pieza, efectos } = transicionar(programada, { tipo: "hora_vencida" })
+    expect(pieza).toMatchObject({
+      estado: "video_por_aprobar",
+      puerta2: null,
+      videoId: "video_1",
+      intento: 1,
+      explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha.",
+    })
+    expect(efectos).toEqual(["cancelar_publicacion"])
+    expect(() => transicionar(en("video_por_aprobar"), { tipo: "hora_vencida" })).toThrow(TransicionInvalida)
   })
 
   it("vuelve al paso donde falló con un intento nuevo cuando coni reintenta un error de producción", () => {
@@ -184,9 +271,12 @@ describe("transicionar", () => {
     expect(pieza.puerta2?.publicarEn).toBe(HORA)
   })
 
-  it("pide una fecha nueva cuando coni reintenta la publicación y la hora actual no se puede leer", () => {
-    const fallida = transicionar(programada, { tipo: "falla_publicacion", explicacion: "Instagram no respondió" }).pieza
-    const { pieza } = transicionar(fallida, { tipo: "reintentar", ahora: "no es una fecha" })
+  it("pide una fecha nueva cuando coni reintenta la publicación y la hora aprobada guardada no se puede leer", () => {
+    const corrupta = en("error_publicacion", {
+      estadoAntesDelError: "programado",
+      puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: "pronto", en: ANTES },
+    })
+    const { pieza } = transicionar(corrupta, { tipo: "reintentar", ahora: HORA })
     expect(pieza).toMatchObject({ estado: "video_por_aprobar", puerta2: null })
   })
 
@@ -195,5 +285,149 @@ describe("transicionar", () => {
     const { pieza } = transicionar(fallida, { tipo: "reintentar", ahora: "2026-10-08T22:31:00.000Z" })
     expect(pieza).toMatchObject({ estado: "video_por_aprobar", puerta2: null, intento: 1 })
     expect(pieza.explicacion).toContain("La hora aprobada ya pasó")
+  })
+})
+
+describe("mensajes y tipos", () => {
+  it("avisa a coni sin jerga cuando la pieza cambió mientras la miraba", () => {
+    const error = capturar(() => transicionar(piezaNueva(), aprobarGuion()))
+    expect(error).toBeInstanceOf(TransicionInvalida)
+    expect(error).toHaveProperty("message", "Esta pieza cambió mientras la mirabas. Vuelve a abrirla.")
+    expect(error).toMatchObject({ estado: "idea", evento: "aprobar_guion" })
+  })
+
+  it("avisa a coni que no quedó aprobado cuando lo que revisaba cambió", () => {
+    const error = capturar(() =>
+      transicionar(en("guion_por_aprobar", { audioId: "audio_1" }), aprobarGuion({ hashActual: "h2" })),
+    )
+    expect(error).toBeInstanceOf(ArtefactoCambio)
+    expect(error).toHaveProperty(
+      "message",
+      "Esto cambió mientras lo revisabas y no quedó aprobado. Vuelve a revisarlo.",
+    )
+  })
+
+  it("limita el estado anterior al error a los pasos que se pueden reintentar", () => {
+    expectTypeOf<Pieza["estadoAntesDelError"]>().toEqualTypeOf<"en_render" | "subtitulando" | "programado" | null>()
+  })
+})
+
+describe("instanteEstricto", () => {
+  it("acepta solo instantes con Z o con desfase explícito y los normaliza a UTC", () => {
+    expect(instanteEstricto("2026-10-08T22:00:00Z")).toBe(HORA)
+    expect(instanteEstricto("2026-10-08T19:00:00-03:00")).toBe(HORA)
+    expect(instanteEstricto("2026-10-08T22:00Z")).toBe(HORA)
+    expect(instanteEstricto("2026-10-08T22:00:00.5Z")).toBe("2026-10-08T22:00:00.500Z")
+  })
+
+  it("rechaza fechas sin zona horaria, números sueltos, fechas imposibles y texto cualquiera", () => {
+    const ilegibles = [
+      "2026-10-08T19:00",
+      "2026-10-08T19:00:00",
+      "2026-10-08",
+      "1",
+      "",
+      "pronto",
+      "2026-02-30T10:00:00Z",
+      "2026-10-08T24:00:00Z",
+      "2026-10-08 22:00:00Z",
+    ]
+    for (const texto of ilegibles) {
+      expect(instanteEstricto(texto), texto).toBeNull()
+    }
+  })
+})
+
+// Expected from the design doc's "Estados y transiciones" table (+ hora_vencida and the caption-only edits),
+// not derived from the implementation.
+describe("tabla del diseño", () => {
+  const permitidos: Record<Estado, readonly Evento["tipo"][]> = {
+    idea: ["elegir", "descartar"],
+    guion_en_proceso: ["guion_listo", "descartar"],
+    guion_por_aprobar: ["pedir_cambios", "editar_texto", "aprobar_guion", "descartar"],
+    en_render: ["render_entregado", "politica_contenido", "falla_produccion", "descartar"],
+    subtitulando: ["video_listo", "falla_produccion", "descartar"],
+    video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
+    programado: ["publicado", "cambiar_fecha", "falla_publicacion", "hora_vencida", "editar_texto", "descartar"],
+    publicado: [],
+    error_produccion: ["reintentar", "descartar"],
+    error_publicacion: ["reintentar", "descartar"],
+    descartado: [],
+  }
+
+  const eventos: Record<Evento["tipo"], Evento> = {
+    elegir: { tipo: "elegir" },
+    guion_listo: { tipo: "guion_listo", audioId: "audio_2" },
+    pedir_cambios: { tipo: "pedir_cambios" },
+    editar_texto: { tipo: "editar_texto" },
+    aprobar_guion: aprobarGuion(),
+    render_entregado: { tipo: "render_entregado" },
+    politica_contenido: { tipo: "politica_contenido", explicacion: "HeyGen marcó una frase." },
+    falla_produccion: { tipo: "falla_produccion", explicacion: "HeyGen falló" },
+    video_listo: { tipo: "video_listo", videoId: "video_2" },
+    aprobar_video: aprobarVideo(),
+    regrabar: { tipo: "regrabar" },
+    cambiar_guion: { tipo: "cambiar_guion" },
+    cambiar_fecha: { tipo: "cambiar_fecha" },
+    publicado: { tipo: "publicado" },
+    falla_publicacion: { tipo: "falla_publicacion", explicacion: "Metricool no respondió" },
+    hora_vencida: { tipo: "hora_vencida" },
+    reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
+    descartar: { tipo: "descartar" },
+  }
+
+  const puerta1 = { hash: "h1", en: ANTES }
+  const puerta2 = { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES }
+  const avance = { version: 4, intento: 2 }
+  const piezas: Record<Estado, Pieza> = {
+    idea: en("idea", avance),
+    guion_en_proceso: en("guion_en_proceso", avance),
+    guion_por_aprobar: en("guion_por_aprobar", { ...avance, audioId: "audio_1" }),
+    en_render: en("en_render", { ...avance, audioId: "audio_1", puerta1 }),
+    subtitulando: en("subtitulando", { ...avance, audioId: "audio_1", puerta1 }),
+    video_por_aprobar: en("video_por_aprobar", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1 }),
+    programado: en("programado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
+    publicado: en("publicado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
+    error_produccion: en("error_produccion", {
+      ...avance,
+      audioId: "audio_1",
+      puerta1,
+      estadoAntesDelError: "en_render",
+    }),
+    error_publicacion: en("error_publicacion", {
+      ...avance,
+      audioId: "audio_1",
+      videoId: "video_1",
+      puerta1,
+      puerta2,
+      estadoAntesDelError: "programado",
+    }),
+    descartado: en("descartado", avance),
+  }
+
+  function intentar(pieza: Pieza, evento: Evento): Transicion | null {
+    try {
+      return transicionar(pieza, evento)
+    } catch (error) {
+      if (error instanceof TransicionInvalida) return null
+      throw error
+    }
+  }
+
+  it("acepta solo los eventos de la tabla del diseño", () => {
+    for (const estado of ESTADOS) {
+      const pieza = piezas[estado]
+      const aceptados: Evento["tipo"][] = []
+      for (const evento of Object.values(eventos)) {
+        const antes = structuredClone(pieza)
+        const resultado = intentar(pieza, evento)
+        expect(pieza, `${estado} + ${evento.tipo} no debe mutar la pieza`).toEqual(antes)
+        if (resultado) {
+          aceptados.push(evento.tipo)
+          expect(resultado.pieza.version, `${estado} + ${evento.tipo}`).toBe(pieza.version + 1)
+        }
+      }
+      expect(aceptados.sort(), estado).toEqual([...permitidos[estado]].sort())
+    }
   })
 })
