@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest"
 import { armarPedido, type ConfigProduccion } from "@/lib/proveedores/heygen"
 
@@ -33,7 +32,6 @@ describe("armarPedido contra los reels reales", () => {
       guion: GUION,
       titulo: "Coni · 2026-09-25-taller-propia-diosa",
       audioAssetId: "fc40366e87b743b99143922fd262fd94",
-      avatarId: "13affb25ba2d4273b0a63d82c8b9fd5a",
     })
     expect(cuerpo).toEqual({
       type: "avatar",

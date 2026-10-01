@@ -137,6 +137,16 @@ describe("armarPedido", () => {
     expect(ruta).toBe("B")
   })
 
+  it("usa el audio propio aunque la ruta sea heygen cuando hay audio asset id", () => {
+    // Same as coni.py: an explicit audio asset wins over ruta_voz.
+    const { cuerpo, ruta } = pedido(config(), { audioAssetId: "asset_9" })
+    expect(cuerpo.audio_asset_id).toBe("asset_9")
+    for (const campo of ["script", "voice_id", "voice_settings"]) {
+      expect(cuerpo).not.toHaveProperty(campo)
+    }
+    expect(ruta).toBe("B")
+  })
+
   it("avisa cuando el guion pasa de noventa segundos", () => {
     const { avisos } = pedido(config(), { guion: "palabra ".repeat(240) })
     expect(avisos.join(" ")).toContain("pasa de 90 s")
