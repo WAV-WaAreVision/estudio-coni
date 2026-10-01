@@ -1,8 +1,10 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { Pilar } from "@/lib/dominio/pilares"
@@ -27,7 +29,14 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   const [pendiente, empezar] = useTransition()
 
   if (ideas.length === 0) {
-    return <p className="text-apagado">Usaste todas las ideas del banco. Pronto podrás escribir una idea nueva.</p>
+    return (
+      <div className="grid gap-1.5">
+        <p className="text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
+        <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+          Escribir una idea
+        </Link>
+      </div>
+    )
   }
 
   const faltan = IDEAS_POR_ELEGIR - elegidas.length

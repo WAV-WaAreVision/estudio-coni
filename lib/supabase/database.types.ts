@@ -176,6 +176,7 @@ export type Database = {
           alertas: Json
           creada_en: string
           estado: string
+          fijada_en: string | null
           formato: string
           fuentes: Json
           fuerza: string
@@ -189,6 +190,7 @@ export type Database = {
           alertas?: Json
           creada_en?: string
           estado?: string
+          fijada_en?: string | null
           formato?: string
           fuentes?: Json
           fuerza: string
@@ -202,6 +204,7 @@ export type Database = {
           alertas?: Json
           creada_en?: string
           estado?: string
+          fijada_en?: string | null
           formato?: string
           fuentes?: Json
           fuerza?: string
@@ -551,6 +554,33 @@ export type Database = {
           p_estimado: number
           p_paso: string
           p_pieza: string
+          p_proveedor: string
+        }
+        Returns: {
+          clave: string
+          creado_en: string
+          estado: string
+          estimado_usd: number
+          id: number
+          mes: string
+          paso: string
+          pieza_id: string | null
+          proveedor: string
+          real_usd: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gastos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reservar_gasto_general: {
+        Args: {
+          p_ahora?: string
+          p_clave: string
+          p_estimado: number
+          p_paso: string
           p_proveedor: string
         }
         Returns: {

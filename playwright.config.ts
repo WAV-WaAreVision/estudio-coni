@@ -6,8 +6,10 @@ import {
   CORREO_DE_CONI,
   ESTADO_DE_SESION,
   PUERTO,
+  PUERTO_SERVICIOS,
   SUPABASE_URL,
   URL_DE_LA_APP,
+  URL_SERVICIOS,
 } from "./tests/e2e/entorno"
 
 // An iPhone-sized phone on Chromium: the same layout and touch settings, without installing WebKit.
@@ -50,22 +52,36 @@ export default defineConfig({
   ],
   // Built and started here so the public variables are inlined with the local stack's values. No real service is
   // reachable from this run: DISPARO_DE_PRUEBA writes the runs to a file instead of calling Trigger.dev.
-  webServer: {
-    command: `pnpm exec next build && node node_modules/next/dist/bin/next start -p ${PUERTO}`,
-    // `next start` runs the server as its own child: a SIGTERM lets it pass the signal on; a SIGKILL would orphan it.
-    gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
-    url: `${URL_DE_LA_APP}/ingreso`,
-    // E2E_REUSE_SERVER=1 keeps a server you started yourself on this port while you iterate on a spec.
-    reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
-    timeout: 300_000,
-    env: {
-      NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: CLAVE_ANONIMA,
-      SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: CLAVE_DE_SERVICIO,
-      CORREO_CONI: CORREO_DE_CONI,
-      DISPARO_DE_PRUEBA: "1",
-      DISPARO_DE_PRUEBA_ARCHIVO: ARCHIVO_DE_DISPAROS,
+  webServer: [
+    {
+      // The outside world: nothing real is reachable from this run.
+      command: "node --import tsx tests/e2e/servicios-falsos.ts",
+      gracefulShutdown: { signal: "SIGTERM", timeout: 3000 },
+      url: `${URL_SERVICIOS}/__salud`,
+      env: { PUERTO_SERVICIOS_FALSOS: String(PUERTO_SERVICIOS) },
+      reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
+      timeout: 60_000,
     },
-  },
+    {
+      command: `pnpm exec next build && node node_modules/next/dist/bin/next start -p ${PUERTO}`,
+      // `next start` runs the server as its own child: a SIGTERM lets it pass the signal on; a SIGKILL would orphan it.
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
+      url: `${URL_DE_LA_APP}/ingreso`,
+      // E2E_REUSE_SERVER=1 keeps a server you started yourself on this port while you iterate on a spec.
+      reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
+      timeout: 300_000,
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: CLAVE_ANONIMA,
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: CLAVE_DE_SERVICIO,
+        CORREO_CONI: CORREO_DE_CONI,
+        DISPARO_DE_PRUEBA: "1",
+        DISPARO_DE_PRUEBA_ARCHIVO: ARCHIVO_DE_DISPAROS,
+        ANTHROPIC_BASE_URL: URL_SERVICIOS,
+        HEYGEN_BASE_URL: URL_SERVICIOS,
+        ELEVENLABS_BASE_URL: URL_SERVICIOS,
+      },
+    },
+  ],
 })

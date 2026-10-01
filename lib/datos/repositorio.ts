@@ -131,6 +131,19 @@ export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }
 const ERROR_DE_TOPE = "tope_alcanzado"
 const ERROR_SIN_AJUSTES = "ajustes_faltantes"
 
+function resultadoDeReserva(error: { message: string } | null, gasto: FilaDeGasto | null): Reserva {
+  if (error) {
+    if (error.message === ERROR_DE_TOPE) return { tope: true }
+    // Without the settings row there is no cap to check, and retrying will not create it.
+    if (error.message === ERROR_SIN_AJUSTES) {
+      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
+    }
+    throw fallo("No pude reservar el gasto", error)
+  }
+  if (!gasto) throw new Error("La base no devolvió el gasto reservado.")
+  return { tope: false, gasto }
+}
+
 export async function reservarGasto(
   db: Db,
   reserva: {
@@ -150,15 +163,28 @@ export async function reservarGasto(
     p_clave: reserva.clave,
     p_ahora: reserva.ahora,
   })
-  if (error) {
-    if (error.message === ERROR_DE_TOPE) return { tope: true }
-    // Without the settings row there is no cap to check, and retrying will not create it.
-    if (error.message === ERROR_SIN_AJUSTES) {
-      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
-    }
-    throw fallo("No pude reservar el gasto", error)
-  }
-  return { tope: false, gasto: data }
+  return resultadoDeReserva(error, data)
+}
+
+/** A spend that belongs to no piece (`reservar_gasto_general`); it counts against the monthly cap all the same. */
+export async function reservarGastoGeneral(
+  db: Db,
+  reserva: {
+    proveedor: "heygen" | "elevenlabs" | "anthropic"
+    paso: string
+    estimadoUsd: number
+    clave: string
+    ahora: string
+  },
+): Promise<Reserva> {
+  const { data, error } = await db.rpc("reservar_gasto_general", {
+    p_proveedor: reserva.proveedor,
+    p_paso: reserva.paso,
+    p_estimado: reserva.estimadoUsd,
+    p_clave: reserva.clave,
+    p_ahora: reserva.ahora,
+  })
+  return resultadoDeReserva(error, data)
 }
 
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {

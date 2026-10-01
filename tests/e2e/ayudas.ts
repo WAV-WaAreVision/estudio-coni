@@ -12,6 +12,7 @@ import {
   CLAVE_DE_SERVICIO,
   SUPABASE_URL,
   URL_DE_LA_APP,
+  URL_SERVICIOS,
 } from "./entorno"
 
 const Mensajes = z.object({
@@ -107,3 +108,23 @@ export const GUION_VALIDO = readFileSync(
 ).trim()
 export const TEXTO_VALIDO =
   "El deseo no se apaga: se esconde detrás del cansancio y la rutina.\n\nVideo hecho con mi avatar digital."
+
+interface EstadoDeServicios {
+  anthropic?: "ok" | "401" | "500"
+  heygen?: "ok" | "401"
+  elevenlabs?: "ok" | "401"
+  instagram?: "ok" | "rechazo"
+}
+
+/** Steers the fake outside world and clears what it remembers. */
+export async function configurarServicios(estado: EstadoDeServicios = {}): Promise<void> {
+  const respuesta = await fetch(`${URL_SERVICIOS}/__estado`, { method: "POST", body: JSON.stringify(estado) })
+  if (!respuesta.ok) throw new Error(`No pude configurar los servicios falsos: ${respuesta.status}`)
+}
+
+const Registro = z.array(z.object({ metodo: z.string(), ruta: z.string(), cuerpo: z.string() }))
+
+/** What the fake outside world was asked since `configurarServicios`. */
+export async function registroDeServicios() {
+  return Registro.parse(await (await fetch(`${URL_SERVICIOS}/__registro`)).json())
+}

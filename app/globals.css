@@ -188,3 +188,23 @@ body {
 .deslizador[data-activo="false"]::-moz-range-thumb {
   background: var(--apagado);
 }
+
+/* A new card of the idea bank slides up 8 px and fades in; a transition on mount, so a quick second tap retargets it. */
+.carta-idea {
+  transition:
+    transform 220ms var(--ease-fuerte),
+    opacity 220ms var(--ease-fuerte);
+}
+@starting-style {
+  .carta-idea {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .carta-idea {
+      transform: none;
+    }
+  }
+}

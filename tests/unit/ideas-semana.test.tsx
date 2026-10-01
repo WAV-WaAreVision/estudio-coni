@@ -69,5 +69,6 @@ describe("IdeasSemana", () => {
     render(<IdeasSemana ideas={[]} alElegir={vi.fn()} />)
 
     expect(screen.getByText(/usaste todas las ideas/i)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Escribir una idea" })).toHaveAttribute("href", "/ideas")
   })
 })

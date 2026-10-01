@@ -1,5 +1,5 @@
 import type { Pilar } from "@/lib/dominio/pilares"
-import type { Alerta } from "@/lib/dominio/revision"
+import { type Alerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 
 /** An idea as `contenido/ideas/banco.md` writes it, ready for the `ideas` table. */
 export interface IdeaDelBanco {
@@ -23,8 +23,6 @@ const PILAR_POR_TITULO: Record<string, Pilar> = {
   "Bienestar emocional": "bienestar",
 }
 
-/** The types of alert the bank uses; `lib/dominio/revision.ts` reads "líneas de ayuda" by this exact spelling. */
-const TIPOS_DE_ALERTA = ["verificar dato", "líneas de ayuda", "no es terapia", "nota"]
 const FUERZAS = ["alta", "media", "baja"] as const
 const COLUMNAS = 8
 
@@ -45,7 +43,7 @@ function leerAlertas(celda: string, numero: string): Alerta[] {
     if (!partes?.[1]) throw new Error(`La idea ${numero} tiene una alerta que no se entiende: «${segmento.trim()}».`)
     const texto = (partes[2] ?? "").trim()
     for (const tipo of partes[1].split("·").map((t) => t.trim())) {
-      if (!TIPOS_DE_ALERTA.includes(tipo))
+      if (!TIPOS_DE_ALERTA.some((conocido) => conocido === tipo))
         throw new Error(`La idea ${numero} tiene un tipo de alerta desconocido: ${tipo}.`)
       const textos = textosPorTipo.get(tipo) ?? []
       if (!textos.includes(texto)) textos.push(texto)
