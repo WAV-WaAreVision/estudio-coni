@@ -36,6 +36,7 @@ export type Database = {
     Tables: {
       ajustes: {
         Row: {
+          avatar_visto_en: string | null
           avisos_resumen: boolean
           avisos_urgentes: boolean
           dias_publicacion: number[]
@@ -50,6 +51,7 @@ export type Database = {
           zona: string
         }
         Insert: {
+          avatar_visto_en?: string | null
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]
@@ -64,6 +66,7 @@ export type Database = {
           zona?: string
         }
         Update: {
+          avatar_visto_en?: string | null
           avisos_resumen?: boolean
           avisos_urgentes?: boolean
           dias_publicacion?: number[]
@@ -78,6 +81,50 @@ export type Database = {
           zona?: string
         }
         Relationships: []
+      }
+      avisos: {
+        Row: {
+          canal: string | null
+          clave: string
+          creado_en: string
+          enviado_en: string | null
+          id: string
+          leido_en: string | null
+          mensaje: string
+          pieza_id: string | null
+          tipo: string
+        }
+        Insert: {
+          canal?: string | null
+          clave: string
+          creado_en?: string
+          enviado_en?: string | null
+          id?: string
+          leido_en?: string | null
+          mensaje: string
+          pieza_id?: string | null
+          tipo: string
+        }
+        Update: {
+          canal?: string | null
+          clave?: string
+          creado_en?: string
+          enviado_en?: string | null
+          id?: string
+          leido_en?: string | null
+          mensaje?: string
+          pieza_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clics_enlace_dia: {
         Row: {
@@ -488,6 +535,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      suscripciones_push: {
+        Row: {
+          auth: string
+          creada_en: string
+          endpoint: string
+          fallos: number
+          id: string
+          p256dh: string
+          ultimo_ok_en: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          creada_en?: string
+          endpoint: string
+          fallos?: number
+          id?: string
+          p256dh: string
+          ultimo_ok_en?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          auth?: string
+          creada_en?: string
+          endpoint?: string
+          fallos?: number
+          id?: string
+          p256dh?: string
+          ultimo_ok_en?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       visitas_clic: {
         Row: {

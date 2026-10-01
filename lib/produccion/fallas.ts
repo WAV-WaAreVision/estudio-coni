@@ -87,7 +87,7 @@ export async function avisarFalla(deps: DepsFalla, entrada: EntradaDeFalla): Pro
   lineas.push(detalleTecnico(entrada.error))
 
   const fallos: Error[] = []
-  const enviar = async (envio: () => Promise<void>) => {
+  const enviar = async (envio: () => Promise<unknown>) => {
     try {
       await envio()
     } catch (error) {
@@ -95,7 +95,14 @@ export async function avisarFalla(deps: DepsFalla, entrada: EntradaDeFalla): Pro
       fallos.push(error)
     }
   }
-  if (explicacion) await enviar(() => deps.avisos.aConi(explicacion, true))
+  if (explicacion) {
+    const aviso = {
+      tipo: "error_definitivo",
+      clave: `error_definitivo:${entrada.corrida}`,
+      ...(entrada.piezaId ? { piezaId: entrada.piezaId } : {}),
+    } as const
+    await enviar(() => deps.avisos.aConi(explicacion, true, aviso))
+  }
   await enviar(() => deps.avisos.aWav(`Falló ${entrada.tarea}`, lineas.join("\n")))
   if (fallos.length > 0) {
     throw new AggregateError(fallos, `No pude enviar un aviso de falla: ${fallos.map((f) => f.message).join(" | ")}`)

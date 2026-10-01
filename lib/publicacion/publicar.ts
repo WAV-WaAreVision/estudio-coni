@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { DatosDeAviso } from "@/lib/avisos/tipos"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -114,13 +115,20 @@ function problemasDeLaLectura(lectura: Publicacion, aprobado: { texto: string; e
   return problemas
 }
 
-async function avisar(contexto: Contexto, envio: () => Promise<void>): Promise<void> {
+async function avisar(contexto: Contexto, envio: () => Promise<unknown>): Promise<void> {
   try {
     await envio()
   } catch (error) {
     if (!(error instanceof Error)) throw error
     contexto.avisosFallidos.push(error)
   }
+}
+
+/** One key per piece, kind and attempt (`intento` goes up on a retry), so a repeated run says nothing twice. */
+function avisoDe(contexto: Contexto, tipo: "error_definitivo" | "publicado", motivo?: string): DatosDeAviso {
+  const { fila } = contexto
+  const partes = [tipo, fila.id, ...(motivo ? [motivo] : []), String(fila.intento)]
+  return { tipo, clave: partes.join(":"), piezaId: fila.id }
 }
 
 function descripcion(contexto: Contexto): string {
@@ -165,7 +173,7 @@ async function fallar(
   const extra: CambiosDePieza = opciones.envioRechazado ? { publicacion_enviada_en: null } : {}
   await escribirTransicion(contexto, { tipo: "falla_publicacion", explicacion }, extra)
   const { avisos } = contexto.deps
-  await avisar(contexto, () => avisos.aConi(explicacion, true))
+  await avisar(contexto, () => avisos.aConi(explicacion, true, avisoDe(contexto, "error_definitivo", "falla")))
   await avisar(contexto, () => avisos.aWav("Falló una publicación en Instagram", detalleParaWav(contexto, detalle)))
   return { piezaId: contexto.fila.id, resultado: "falla_publicacion" }
 }
@@ -174,7 +182,9 @@ async function fallar(
 async function vencer(contexto: Contexto): Promise<ResultadoPublicacion> {
   await escribirTransicion(contexto, { tipo: "hora_vencida" })
   const mensaje = `Tu reel «${contexto.fila.titulo}» no salió a la hora que aprobaste. Elige una nueva fecha para publicarlo.`
-  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, true))
+  await avisar(contexto, () =>
+    contexto.deps.avisos.aConi(mensaje, true, avisoDe(contexto, "error_definitivo", "hora_vencida")),
+  )
   return { piezaId: contexto.fila.id, resultado: "hora_vencida" }
 }
 
@@ -233,7 +243,7 @@ async function confirmar(
   }
   await escribirTransicion(contexto, { tipo: "publicado" }, { permalink: lectura.permalink })
   const mensaje = `Tu reel «${fila.titulo}» ya está publicado en Instagram. Míralo aquí: ${lectura.permalink}`
-  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false))
+  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false, avisoDe(contexto, "publicado")))
   return { piezaId: fila.id, resultado: "publicada" }
 }
 

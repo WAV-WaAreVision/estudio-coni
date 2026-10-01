@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
+import { generateVAPIDKeys } from "web-push"
 import {
   ARCHIVO_DE_DISPAROS,
   CLAVE_ANONIMA,
@@ -11,6 +12,9 @@ import {
   URL_DE_LA_APP,
   URL_SERVICIOS,
 } from "./tests/e2e/entorno"
+
+// Throwaway VAPID keys for this run only: the app signs its test push with them and the fake push service ignores them.
+const vapid = generateVAPIDKeys()
 
 // An iPhone-sized phone on Chromium: the same layout and touch settings, without installing WebKit.
 // PLAYWRIGHT_CHROMIUM_PATH points at a Chromium already on the machine when the one this Playwright version wants is
@@ -85,6 +89,10 @@ export default defineConfig({
         ELEVENLABS_BASE_URL: URL_SERVICIOS,
         INSTAGRAM_OAUTH_BASE_URL: URL_SERVICIOS,
         INSTAGRAM_GRAPH_BASE_URL: URL_SERVICIOS,
+        PUSH_BASE_URL: URL_SERVICIOS,
+        VAPID_PUBLIC_KEY: vapid.publicKey,
+        VAPID_PRIVATE_KEY: vapid.privateKey,
+        VAPID_SUBJECT: "mailto:wav@estudio.test",
         META_APP_ID: "1234567890",
         META_APP_SECRET: "secreto-de-la-app-e2e",
         META_REDIRECT_URI: `${URL_DE_LA_APP}/api/meta/callback`,

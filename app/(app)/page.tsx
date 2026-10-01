@@ -4,18 +4,24 @@ import { FilaPieza } from "@/components/fila-pieza"
 import { Nota } from "@/components/nota"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { rutaDeAviso } from "@/lib/avisos/tipos"
+import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
 import { type AvisoDeInicio, construirInicio } from "@/lib/inicio/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { marcarAvisoLeidoAccion } from "./ajustes/acciones"
+import { AvisosSinLeer } from "./avisos-sin-leer"
 import { ConsultaNueva } from "./consulta-nueva"
 import { anotarConsultaAccion, deshacerConsultaAccion } from "./consultas/acciones"
 import { IdeasSemana } from "./ideas-semana"
 import { elegirIdeasAccion } from "./piezas/acciones"
 
 const IDEAS_DE_LA_SEMANA = 5
+const AVISOS_A_MOSTRAR = 5
 
 export default async function Inicio() {
   const { db } = await exigirConi()
@@ -26,6 +32,7 @@ export default async function Inicio() {
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
   const mes = limitesDelMes(ahora, datos.zona)
   const consultas = await leerConsultas(db, new Date(mes.desde).toISOString())
+  const sinLeer = await leerAvisosSinLeer(db, AVISOS_A_MOSTRAR)
 
   return (
     <div className="grid gap-5.5">
@@ -38,6 +45,16 @@ export default async function Inicio() {
       {inicio.avisos.map((aviso) => (
         <AvisoEnInicio key={`${aviso.titulo}-${aviso.texto}`} aviso={aviso} />
       ))}
+
+      <AvisosSinLeer
+        avisos={sinLeer.map((aviso) => ({
+          id: aviso.id,
+          mensaje: aviso.mensaje,
+          href: rutaDeAviso({ tipo: aviso.tipo, piezaId: aviso.pieza_id }),
+          cuando: etiquetaDeFecha(aviso.creado_en, datos.zona, "corta"),
+        }))}
+        marcar={marcarAvisoLeidoAccion}
+      />
 
       <Seccion titulo="Necesita tu firma" id="firma">
         {inicio.firma.length > 0 ? (

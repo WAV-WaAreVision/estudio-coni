@@ -42,7 +42,7 @@ test("while nothing is set up the block counts the steps and offers the first on
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "Ajustes", level: 1 })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Configuración: 0 de 4 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 0 de 5 listos" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Conectar Instagram" }).first()).toHaveAttribute(
     "href",
     "/api/meta/conectar",
@@ -158,7 +158,7 @@ test("she enters a key: it is checked with the provider, saved only if it works,
   await expect(page.getByText("Guardada y comprobada.")).toBeVisible()
   const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'heygen'")
   expect(rows[0].decrypted_secret).toBe("hg-la-llave-buena-de-prueba")
-  await expect(page.getByRole("heading", { name: "Configuración: 1 de 4 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 1 de 5 listos" })).toBeVisible()
   // The key is never written back into the page.
   expect(await page.content()).not.toContain("hg-la-llave-buena-de-prueba")
 })

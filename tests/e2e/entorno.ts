@@ -34,6 +34,6 @@ export const ARCHIVO_DE_DISPAROS = join(process.cwd(), "test-results", "disparos
 export const CARPETA_DE_CAPTURAS = process.env.CAPTURAS_E2E ?? join(process.cwd(), "test-results", "capturas")
 export const ESTADO_DE_SESION = join(process.cwd(), "tests", "e2e", ".auth", "coni.json")
 
-/** The fake Anthropic, HeyGen, ElevenLabs and Instagram of the run (tests/e2e/servicios-falsos.ts). */
-export const PUERTO_SERVICIOS = 3201
+/** The fake Anthropic, HeyGen, ElevenLabs, Instagram and push service of the run (tests/e2e/servicios-falsos.ts). */
+export const PUERTO_SERVICIOS = Number(process.env.E2E_PUERTO_SERVICIOS ?? 3201)
 export const URL_SERVICIOS = `http://127.0.0.1:${PUERTO_SERVICIOS}`

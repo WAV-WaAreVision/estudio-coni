@@ -124,3 +124,21 @@ test("a scheduled piece shows its date and lets her change it", async ({ page })
   await expect(page.getByRole("slider", { name: ETIQUETA })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("video_por_aprobar")
 })
+
+test("the first ready video she opens says how to read it, once, and the database remembers", async ({ page }) => {
+  await pool.query("update public.ajustes set avatar_visto_en = null")
+  const id = await videoPorAprobar()
+  await simularMedios(page)
+  const mensaje = page.getByText("Así se ve tu avatar. Si algo no te calza, regrábalo.")
+
+  await page.goto(`/video/${id}`)
+  await expect(mensaje).toBeVisible()
+  await capturar(page, "primera-vez-avatar")
+  await expect
+    .poll(async () => (await pool.query("select avatar_visto_en from public.ajustes")).rows[0]?.avatar_visto_en)
+    .not.toBeNull()
+
+  await page.reload()
+  await expect(page.getByText("Avatar IA")).toBeVisible()
+  await expect(mensaje).toHaveCount(0)
+})

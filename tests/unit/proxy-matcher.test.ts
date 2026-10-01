@@ -23,4 +23,9 @@ describe("matcher del proxy", () => {
       expect(pasaPorElProxy(ruta)).toBe(false)
     }
   })
+
+  it("serves the service worker without a session: the browser fetches it on its own, with no cookie to speak of", () => {
+    expect(pasaPorElProxy("/sw.js")).toBe(false)
+    expect(pasaPorElProxy("/sw.json")).toBe(true)
+  })
 })

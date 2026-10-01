@@ -6,6 +6,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, estimarCostoVoz, producirPieza } from "@/lib/produccion/producir"
 import { almacenEnMemoria, claveAudio } from "@/lib/proveedores/almacen"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
@@ -191,9 +192,13 @@ async function comoConiConfirmado(id: string): Promise<void> {
   }
 }
 
-function deps(almacen = almacenEnMemoria()): DepsProduccion & { almacen: ReturnType<typeof almacenEnMemoria> } {
+function deps(
+  almacen = almacenEnMemoria(),
+  avisos = notificadorEnMemoria(),
+): DepsProduccion & { almacen: ReturnType<typeof almacenEnMemoria> } {
   return {
     db: clienteDeServicio(),
+    avisos,
     // Retries belong to Trigger.dev; a failing test should not wait for the SDK's backoff.
     claude: new Anthropic({ apiKey: "sk-ant-de-prueba", maxRetries: 0 }),
     almacen,
@@ -369,10 +374,13 @@ describe("producirPieza", () => {
     const id = await crearPiezaEnProduccion()
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     const sim = simular()
+    const avisos = notificadorEnMemoria()
 
-    const resultado = await producirPieza(deps(), id)
+    const resultado = await producirPieza(deps(undefined, avisos), id)
 
     expect(resultado).toEqual({ resultado: "tope" })
+    expect(avisos.aConiEnviados).toEqual([{ mensaje: TOPE, urgente: true }])
+    expect(avisos.avisosEnviados).toEqual([{ tipo: "tope_alcanzado", clave: `tope_alcanzado:${id}:0`, piezaId: id }])
     const fila = await pieza(id)
     expect(fila).toMatchObject({ estado: "guion_en_proceso", explicacion: TOPE, guion: null, audio_id: null })
     expect(fila.version).toBe(2)

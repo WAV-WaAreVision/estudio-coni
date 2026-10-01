@@ -24,3 +24,31 @@ Same as Plan 5b ("Both tracks"): TDD; never `as any`, `@ts-expect-error`, non-nu
 ## Done when
 
 lint, type, unit, integration, build, E2E all green; screenshots 390x844 of the Ajustes "Avisos" states and the first-time message in `test-results/capturas/`; "Plan 6 notes" appended to this file (decisions, pending for production: VAPID keys in Vercel, real iPhone test).
+
+## Plan 6 notes (2026-10-01)
+
+**Migrations:** `20261001001500_avisos`, `...1510_suscripciones_push`, `...1520_avisos_automaticos`, `...1530_avatar_visto`.
+
+### Decisions
+
+- **Notifier layers.** `Notificador.aConi(mensaje, urgente, aviso)` now takes the notice identity (`tipo`, dedup `clave`, `piezaId`) and answers the channel (`push|correo`) or `null` when kept for the summary; `resumenAConi` is the new method for the daily summary. `notificadorResend` (email), `notificadorPush` (push, email fallback, dead devices deleted on 404/410, failures counted) and `notificadorConRegistro` (writes `avisos` once per key, sends urgent ones now, defers the rest) wrap each other; `avisosReales()` builds all three, `canalReal()` is push+email without the registry (the summary uses it).
+- **Urgency stays where A9 already had it** (`urgente` at each call site): `error_definitivo` (task failures, publication failed, time passed, stuck render), `tope_alcanzado` (new: `avisarTope` in producir and grabar, so both deps got `avisos`), `instagram_por_vencer` (one per day). Publication failure is `error_definitivo`: the design has no separate kind.
+- **`guion_listo` and `video_listo` are written by a database trigger** when a piece enters `guion_por_aprobar` / `video_por_aprobar` (key = kind, piece, `version`), so no code path can forget them and a crash cannot lose them. `ideas_propuestas` has no producer in the code (the "Monday 8:00 ideas" is copy), so the summary run writes it on Mondays in Coni's zone if the bank has ideas.
+- **Summary** (`resumen-diario`, `schedules.task`, `30 8 * * *` America/Santiago, default retries): writes Monday ideas and 48 h reminders, sends all unsent notices as one message (push line: the kind's words for one notice, "Tienes N avisos nuevos" for more; email: the full list), marks them with the channel. Nothing new, nothing sent. A failed send marks nothing. Notices older than 7 days are not carried. The two switches of Ajustes are honoured: summary off sends nothing (notices are still written for the app); immediate notices off defers urgent ones to the summary.
+- **48 h reminder:** one per piece ever (`recordatorio_48h:<pieza>`), clocked from the latest "ready for you" notice of the piece (not `actualizada_en`, which moves with any save) and only while the piece is still in that state.
+- **WAV on repeated failure:** `fallas.ts` already emails WAV when a run fails for good (after the retries of its task, which is 2 or 3 attempts, 1 for the crons); not duplicated. `resumen-diario` uses the same `onFailure`.
+- **Push privacy:** push words come from the kind only (`mensajePush`), never from `mensaje` (which can carry a title); the service worker adds no action button and only opens paths of its own origin. Test message is a fixed sentence.
+- **Sender:** `web-push` builds the encrypted, VAPID-signed request (`generateRequestDetails`); it is sent with `fetch` (timeout, MSW). `PUSH_BASE_URL` replaces the origin of the endpoint for the E2E and is refused on Vercel like the other overrides. Without any `VAPID_*` variable notices go by email only; with only some it throws.
+- **`suscripciones_push` is not audited** (the audit log is readable by WAV and would copy the keys) and is invisible to the maintainer. Re-subscribing the same endpoint is delete + insert (she has no UPDATE).
+- **`avisos.pieza_id` cascades on delete** so cleaning pieces in tests never trips over a notice.
+- **Ajustes:** a fifth step "Avisos en tu celular" in the checklist (never what makes the block say "setting up") and a section with the five states (install sheet on iOS outside standalone, ready, blocked with the iOS Settings path, on with "Enviar uno de prueba" and "Desactivar", not available). The worker is registered only inside the tap on "Activar avisos". The VAPID public key reaches the page at request time, not as a `NEXT_PUBLIC_` variable.
+- **First-time message** lives in `ajustes.avatar_visto_en`; it is marked when the message appears, so it shows once.
+- **Inicio** lists up to 5 unread notices; a tap marks one read and opens `/guion/<id>` (script ready) or `/video/<id>`.
+- **Local stack gotcha:** after `supabase db reset` from a worktree the Auth container lost the code template (the sign-in E2E found "Your sign-in link"); `supabase stop && supabase start` restored it.
+
+### Pending for production
+
+- Generate the VAPID pair (`pnpm exec web-push generate-vapid-keys`) and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` in **Vercel and Trigger.dev**; deploy the `resumen-diario` schedule.
+- **Real iPhone test** (iOS 16.4+): install from Safari, activate, "Enviar uno de prueba", tap the notification (it must open the right screen), deny and re-enable through iOS Settings.
+- The push with the app closed was never run here (no real push service): only the worker's handlers (in a vm) and the sender's request were tested.
+- `web-push` still calls `url.parse` (Node deprecation warning in the server log); harmless.

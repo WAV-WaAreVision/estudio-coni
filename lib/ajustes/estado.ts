@@ -26,6 +26,7 @@ const PASO_DE_CUENTA: Record<NombreDeCuenta, string> = {
 }
 
 const ORDEN: readonly NombreDeCuenta[] = ["instagram", "heygen", "elevenlabs", "anthropic"]
+const PASO_DE_AVISOS = "Avisos en tu celular"
 const DIA_MS = 24 * 60 * 60 * 1000
 export const DIAS_DE_AVISO_DE_INSTAGRAM = 7
 
@@ -82,16 +83,22 @@ function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeE
 /** The block at the top of Ajustes, from what the live checks found. Pure: the checks and the clock come in. */
 export function estadoDeAjustes(entrada: {
   cuentas: readonly EstadoDeCuenta[]
+  /** Coni has a device that receives notices. A step of the list, never the reason for the block to say "setting up". */
+  avisosActivos: boolean
   ahora: number
   zona: string
 }): BloqueDeEstado {
-  const { cuentas, ahora, zona } = entrada
+  const { cuentas, avisosActivos, ahora, zona } = entrada
   const ordenadas = ORDEN.flatMap((nombre) => cuentas.find((c) => c.cuenta === nombre) ?? [])
   const faltan = ordenadas.filter((c) => c.estado === "falta")
-  const pasos = ORDEN.map((nombre) => ({
-    etiqueta: PASO_DE_CUENTA[nombre],
-    listo: ordenadas.find((c) => c.cuenta === nombre)?.estado !== "falta",
-  }))
+  const pasos = [
+    ...ORDEN.map((nombre) => ({
+      etiqueta: PASO_DE_CUENTA[nombre],
+      listo: ordenadas.find((c) => c.cuenta === nombre)?.estado !== "falta",
+    })),
+    // The email reaches her without it, so a missing device does not make the block "setting up" or take the action.
+    { etiqueta: PASO_DE_AVISOS, listo: avisosActivos },
+  ]
 
   const primeraQueFalta = faltan[0]
   if (primeraQueFalta) {

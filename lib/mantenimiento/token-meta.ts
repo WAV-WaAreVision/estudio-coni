@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { DatosDeAviso } from "@/lib/avisos/tipos"
 import { guardarTokenMeta, leerExpiracionMeta, leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -40,19 +41,24 @@ export async function mantenerTokenMeta(deps: DepsTokenMeta): Promise<ResultadoT
     return "renovado"
   } catch (error) {
     if (error instanceof TokenVencido) {
-      await deps.avisos.aConi(EXPLICACION_RECONECTAR, true)
+      await deps.avisos.aConi(EXPLICACION_RECONECTAR, true, avisoDelDia(ahora))
       await deps.avisos.aWav("El token de Instagram venció", error.message)
       return "fallo"
     }
     if (error instanceof FallaDeConfiguracion) {
-      if (pocoTiempo) await deps.avisos.aConi(mensajeDeVencimiento(dias), true)
+      if (pocoTiempo) await deps.avisos.aConi(mensajeDeVencimiento(dias), true, avisoDelDia(ahora))
       await deps.avisos.aWav("No pude renovar el token de Instagram", error.message)
       return "fallo"
     }
     // A temporary failure: tomorrow's run tries again, and the last week is no time to stay quiet.
-    if (pocoTiempo) await deps.avisos.aConi(mensajeDeVencimiento(dias), true)
+    if (pocoTiempo) await deps.avisos.aConi(mensajeDeVencimiento(dias), true, avisoDelDia(ahora))
     throw error
   }
+}
+
+/** At most one per day: the nightly run is the only caller and a retry of the same night must not repeat it. */
+function avisoDelDia(ahora: number): DatosDeAviso {
+  return { tipo: "instagram_por_vencer", clave: `instagram_por_vencer:${new Date(ahora).toISOString().slice(0, 10)}` }
 }
 
 function mensajeDeVencimiento(dias: number | null): string {
