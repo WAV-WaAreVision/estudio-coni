@@ -1,0 +1,694 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio de Coni, segunda ronda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Young+Serif&display=swap">
+<style>
+/* Layout: review page with six screen tabs; five phone frames per screen, all on the approved system (DESIGN.md). */
+:root {
+  --bg: #f7f2f4; --panel: #fffbfc; --fg: #2b1830; --muted: #6e5d73; --line: #e6d8df; --accent: #b3285f; --accent-ink: #fff7fa; --bezel: #2b1830;
+  --a-bg: #fbf6f8; --a-surface: #fffcfd; --a-sunken: #f5ecf0; --a-ink: #2b1830; --a-muted: #6f5d74; --a-line: #eadde4;
+  --a-accent: #b3285f; --a-accent-deep: #8e1d4a; --a-accent-soft: #f6e3ec; --a-on-accent: #fff7fa;
+  --a-ok-ink: #1d6743; --a-ok-bg: #e5f3ea; --a-warn-ink: #7a4b00; --a-warn-bg: #fdf1dc; --a-err-ink: #a12a2a; --a-err-bg: #fbe8e6;
+  --serif: "Young Serif", Georgia, "Times New Roman", serif;
+  --sans: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #1b1220; --panel: #241829; --fg: #f3e8ee; --muted: #b9a6bd; --line: #3a2a40; --accent: #e0779f; --accent-ink: #24101a; --bezel: #0e0912; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #1b1220; --panel: #241829; --fg: #f3e8ee; --muted: #b9a6bd; --line: #3a2a40; --accent: #e0779f; --accent-ink: #24101a; --bezel: #0e0912; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5; padding-inline: 16px; padding-block: 24px 64px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 24px; }
+.page-head h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.1; margin: 0; text-wrap: balance; }
+.page-head p { margin: 8px 0 0; color: var(--muted); max-width: 64ch; }
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 2px; }
+.tabs button { font: 600 15px/1 var(--sans); color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 12px 16px; min-height: 44px; cursor: pointer; white-space: nowrap; transition: background-color 160ms ease, color 160ms ease; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.intro { color: var(--muted); max-width: 70ch; margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 40px 28px; justify-items: center; }
+.dir { width: min(380px, 100%); display: grid; gap: 14px; align-content: start; }
+.dir-head { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: baseline; }
+.dir-num { font: 600 14px/1 var(--sans); color: var(--accent); border: 1px solid var(--line); border-radius: 999px; width: 30px; height: 30px; display: grid; place-items: center; grid-row: span 2; }
+.dir-head h2 { font: 600 18px/1.3 var(--sans); margin: 0; }
+.dir-head p { grid-column: 2; margin: 0; color: var(--muted); font-size: 14.5px; min-height: 3em; }
+.like { grid-column: 2; display: inline-flex; gap: 8px; align-items: center; font-size: 14.5px; margin-top: 6px; cursor: pointer; min-height: 32px; }
+.like input { width: 20px; height: 20px; accent-color: var(--accent); }
+.picks { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: grid; gap: 12px; }
+.picks h2 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; margin: 0; }
+.picks p { margin: 0; color: var(--muted); }
+.picks pre { white-space: pre-wrap; font: 15px/1.5 var(--sans); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0; }
+.picks textarea { width: 100%; min-height: 90px; font: 16px/1.5 var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.picks .row2 { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn-page { font: 600 16px/1 var(--sans); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 12px; padding: 14px 18px; min-height: 48px; cursor: pointer; }
+.copied { color: var(--muted); font-size: 14px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* phone */
+.phone { width: min(360px, 100%); height: 740px; border: 9px solid var(--bezel); border-radius: 44px; background: var(--a-bg); overflow: hidden; position: relative; color: var(--a-ink); font-family: var(--sans); font-size: 18px; line-height: 1.5; box-shadow: 0 18px 40px -24px rgba(43,24,48,.45); }
+.screen { height: 100%; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; scrollbar-width: none; }
+.screen::-webkit-scrollbar { display: none; }
+.sbar { display: flex; justify-content: space-between; padding: 12px 24px 4px; font: 600 14px/1 var(--sans); flex: none; }
+.body { padding: 8px 18px 22px; display: grid; gap: 22px; align-content: start; flex: 1; }
+.title { font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.12; margin: 0; text-wrap: balance; }
+.title-s { font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.15; margin: 0; text-wrap: balance; }
+.h-sec { font: 600 15px/1.3 var(--sans); color: var(--a-muted); margin: 0 0 6px; }
+.meta { color: var(--a-muted); font-size: 15.5px; margin: 0; }
+.lead { font-size: 17px; color: var(--a-muted); margin: 0; }
+.ex { justify-self: start; display: inline-block; font: 600 12.5px/1 var(--sans); color: var(--a-muted); border: 1px dashed var(--a-line); border-radius: 999px; padding: 5px 8px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--a-line); background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font: inherit; color: inherit; min-height: 60px; }
+.row:last-child { border-bottom: 0; }
+.row .rt { font-weight: 600; font-size: 17.5px; line-height: 1.3; }
+.row .rm { grid-column: 2; font-size: 15px; color: var(--a-muted); }
+.row .rv { grid-row: span 2; font-size: 15px; color: var(--a-muted); text-align: right; }
+.dot { width: 10px; height: 10px; border-radius: 999px; background: var(--p-dot, var(--a-muted)); grid-row: span 2; align-self: start; margin-top: 8px; }
+.p-pareja { --p-h: 245; } .p-deseo { --p-h: 320; } .p-autoestima { --p-h: 50; } .p-limites { --p-h: 160; } .p-bienestar { --p-h: 85; }
+[class*="p-"] { --p-tint: oklch(0.955 0.028 var(--p-h, 0)); --p-tint-2: oklch(0.91 0.05 var(--p-h, 0)); --p-ink: oklch(0.43 0.09 var(--p-h, 0)); --p-dot: oklch(0.62 0.12 var(--p-h, 0)); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 13.5px/1 var(--sans); color: var(--p-ink); background: var(--p-tint); border-radius: 999px; padding: 6px 10px; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--p-dot); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn { font: 600 17px/1.2 var(--sans); min-height: 52px; border-radius: 14px; padding: 14px 18px; border: 0; cursor: pointer; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: transform 160ms var(--ease-out); }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--a-accent); color: var(--a-on-accent); }
+.btn-line { background: var(--a-surface); color: var(--a-ink); border: 1px solid var(--a-line); }
+.btn-quiet { background: transparent; color: var(--a-accent); min-height: 48px; }
+.btn-small { width: auto; min-height: 44px; padding: 10px 14px; font-size: 15.5px; border-radius: 12px; }
+.link { color: var(--a-accent); font: 600 16px/1 var(--sans); background: none; border: 0; padding: 10px 0; min-height: 44px; cursor: pointer; justify-self: start; display: inline-flex; gap: 6px; align-items: center; }
+.panel { background: var(--a-surface); border: 1px solid var(--a-line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font: 600 13.5px/1 var(--sans); border-radius: 999px; padding: 6px 10px; white-space: nowrap; }
+.status.ok { background: var(--a-ok-bg); color: var(--a-ok-ink); }
+.status.warn { background: var(--a-warn-bg); color: var(--a-warn-ink); }
+.status.err { background: var(--a-err-bg); color: var(--a-err-ink); }
+.note { border-radius: 14px; padding: 14px; display: grid; gap: 6px; font-size: 16.5px; }
+.note.warn { background: var(--a-warn-bg); color: var(--a-warn-ink); }
+.note.ok { background: var(--a-ok-bg); color: var(--a-ok-ink); }
+.note b { color: var(--a-ink); font-weight: 600; }
+.nav { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--a-line); background: var(--a-surface); padding: 6px 4px 14px; flex: none; position: sticky; bottom: 0; }
+.nav span { display: grid; justify-items: center; gap: 3px; font: 500 12.5px/1.1 var(--sans); color: var(--a-muted); padding: 6px 0; }
+.nav span.on { color: var(--a-accent); font-weight: 600; }
+.back { display: inline-flex; align-items: center; gap: 6px; color: var(--a-accent); font: 600 16px/1 var(--sans); background: none; border: 0; padding: 10px 0; min-height: 44px; justify-self: start; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 14px/1 var(--sans); border-radius: 999px; padding: 10px 12px; min-height: 40px; border: 1px solid var(--a-line); background: var(--a-surface); color: var(--a-ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--a-ink); color: var(--a-bg); border-color: var(--a-ink); }
+.chip.p-pareja[aria-pressed="true"], .chip.p-deseo[aria-pressed="true"], .chip.p-autoestima[aria-pressed="true"], .chip.p-limites[aria-pressed="true"], .chip.p-bienestar[aria-pressed="true"] { background: var(--p-tint); color: var(--p-ink); border-color: var(--p-dot); }
+input.field { width: 100%; font: 400 18px/1.4 var(--sans); color: var(--a-ink); background: var(--a-surface); border: 1px solid var(--a-line); border-radius: 12px; padding: 14px; min-height: 52px; }
+label.lbl { font: 600 15px/1.3 var(--sans); color: var(--a-ink); display: grid; gap: 6px; }
+.toggle { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; min-height: 52px; font-size: 17px; }
+.toggle input { width: 46px; height: 28px; accent-color: var(--a-accent); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--a-sunken); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { font: 600 15px/1.2 var(--sans); border: 0; border-radius: 9px; padding: 10px 6px; min-height: 44px; background: transparent; color: var(--a-muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--a-surface); color: var(--a-ink); box-shadow: 0 1px 3px rgba(43,24,48,.15); }
+
+/* metrics */
+.num { font-variant-numeric: tabular-nums; }
+.hbar { height: 10px; border-radius: 999px; background: var(--a-sunken); overflow: hidden; }
+.hbar i { display: block; height: 100%; background: var(--p-dot, var(--a-accent)); border-radius: 999px; }
+.mrow { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--a-line); }
+.mrow:last-child { border-bottom: 0; }
+.mrow .mt { font-weight: 600; font-size: 16.5px; line-height: 1.3; }
+.trip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.trip div { display: grid; gap: 2px; }
+.trip b { font: 600 19px/1.1 var(--sans); font-variant-numeric: tabular-nums; }
+.trip span { font-size: 13.5px; color: var(--a-muted); }
+.prog { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.prog i { height: 8px; border-radius: 999px; background: var(--a-line); }
+.prog i.on { background: var(--a-accent); }
+.qa { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--a-line); }
+.qa h3 { font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2; margin: 0; }
+.qa p { margin: 0; font-size: 16.5px; }
+.week-h { font: 600 15px/1.2 var(--sans); margin: 0 0 4px; }
+.watchbar { position: relative; height: 10px; border-radius: 999px; background: var(--a-sunken); }
+.watchbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--p-dot); }
+
+/* calendar */
+.month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.month .dh { font: 600 12.5px/1 var(--sans); color: var(--a-muted); padding: 6px 0; }
+.month .d { aspect-ratio: 1; border-radius: 12px; display: grid; align-content: center; justify-items: center; gap: 3px; font: 500 15px/1 var(--sans); font-variant-numeric: tabular-nums; background: transparent; }
+.month .d.today { background: var(--a-accent-soft); color: var(--a-accent); font-weight: 700; }
+.month .d.out { color: var(--a-line); }
+.month .d i { width: 7px; height: 7px; border-radius: 999px; background: var(--p-dot); }
+.slotrow { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--a-line); }
+.slotrow .sd { font: 600 15px/1.2 var(--sans); }
+.slotrow .sd small { display: block; color: var(--a-muted); font-weight: 500; }
+.empty-slot { border: 1.5px dashed var(--a-line); border-radius: 12px; padding: 10px 12px; color: var(--a-muted); font-size: 15.5px; }
+.filled { border-radius: 12px; padding: 10px 12px; background: var(--p-tint); color: var(--p-ink); font-size: 15.5px; display: grid; gap: 2px; }
+.filled b { color: var(--a-ink); font-weight: 600; }
+.rhythm { display: grid; grid-template-columns: 70px repeat(3, 1fr); gap: 6px; align-items: center; }
+.rhythm .wk { font: 600 13.5px/1.2 var(--sans); color: var(--a-muted); }
+.rhythm .cell { height: 44px; border-radius: 10px; display: grid; place-items: center; font: 600 12.5px/1.1 var(--sans); }
+.rhythm .cell.f { background: var(--p-tint-2); color: var(--p-ink); }
+.rhythm .cell.e { border: 1.5px dashed var(--a-line); color: var(--a-muted); }
+.rhythm .colh { font: 600 13px/1 var(--sans); color: var(--a-muted); text-align: center; }
+
+/* login */
+.otp { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.otp input { width: 100%; aspect-ratio: 0.82; text-align: center; font: 600 24px/1 var(--sans); font-variant-numeric: tabular-nums; border: 1.5px solid var(--a-line); border-radius: 12px; background: var(--a-surface); color: var(--a-ink); }
+.otp input:focus { border-color: var(--a-accent); outline: none; box-shadow: 0 0 0 3px var(--a-accent-soft); }
+.bigcode { font: 600 28px/1 var(--sans); letter-spacing: .3em; text-align: center; font-variant-numeric: tabular-nums; }
+.portrait { border-radius: 24px; aspect-ratio: 4 / 5; background: oklch(0.9 0.03 350); display: grid; place-items: end start; padding: 14px; color: var(--a-ink); font: 600 13.5px/1.3 var(--sans); border: 1px dashed oklch(0.7 0.05 350); }
+.portrait.round { border-radius: 999px; aspect-ratio: 1; width: 132px; place-items: center; text-align: center; padding: 10px; }
+
+/* ideas */
+.idea { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--a-line); }
+.idea .it { font-weight: 600; font-size: 17px; line-height: 1.3; }
+.idea .im { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; color: var(--a-muted); }
+.alert { font: 600 12.5px/1 var(--sans); border-radius: 999px; padding: 5px 8px; background: var(--a-warn-bg); color: var(--a-warn-ink); }
+.deck { border-radius: 24px; background: var(--p-tint); padding: 22px 20px; display: grid; gap: 14px; min-height: 340px; align-content: space-between; }
+.deck .title { font-size: 28px; }
+.group { border-radius: 18px; background: var(--p-tint); padding: 12px 14px; }
+.group summary { font: 600 16px/1.2 var(--sans); color: var(--p-ink); cursor: pointer; list-style: none; display: flex; justify-content: space-between; min-height: 40px; align-items: center; }
+.group summary::-webkit-details-marker { display: none; }
+.group .idea { border-bottom-color: var(--p-tint-2); }
+
+/* settings */
+.set-g { display: grid; gap: 0; background: var(--a-surface); border: 1px solid var(--a-line); border-radius: 16px; padding: 0 14px; }
+.set-r { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--a-line); min-height: 56px; }
+.set-r:last-child { border-bottom: 0; }
+.set-r .sl { font-size: 17px; }
+.set-r .sm { grid-column: 1; font-size: 14.5px; color: var(--a-muted); }
+.set-r .sv { grid-row: span 2; font-size: 15px; color: var(--a-muted); display: inline-flex; align-items: center; gap: 6px; }
+.health { border-radius: 20px; padding: 18px; display: grid; gap: 8px; }
+.health.ok { background: var(--a-ok-bg); color: var(--a-ok-ink); }
+.health.warn { background: var(--a-warn-bg); color: var(--a-warn-ink); }
+.health .title-s { color: var(--a-ink); }
+.steps-h { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.steps-h i { height: 6px; border-radius: 999px; background: var(--a-line); }
+.steps-h i.on { background: var(--a-ok-ink); }
+.stepper { display: grid; grid-template-columns: 44px auto 44px; align-items: center; gap: 10px; }
+.stepper button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--a-line); background: var(--a-surface); font: 600 20px/1 var(--sans); color: var(--a-ink); cursor: pointer; }
+.stepper b { font: 600 20px/1 var(--sans); font-variant-numeric: tabular-nums; text-align: center; min-width: 70px; }
+
+/* /l (brand, public) */
+.lwrap { min-height: 100%; }
+.lpage { display: grid; align-content: start; gap: 22px; padding: 26px 22px 30px; }
+.lname { font-family: var(--serif); font-weight: 400; font-size: 44px; line-height: 1; margin: 0; letter-spacing: -0.01em; }
+.lrole { font-size: 17px; margin: 0; }
+.llinks { display: grid; gap: 0; }
+.llink { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 16px 0; border-bottom: 1px solid currentColor; border-bottom-color: color-mix(in oklch, currentColor 18%, transparent); color: inherit; text-decoration: none; min-height: 64px; }
+.llink .lt { font-weight: 600; font-size: 19px; line-height: 1.25; }
+.llink .ls { grid-column: 1; font-size: 15px; opacity: .78; }
+.llink .la { grid-row: span 2; }
+.disclaimer { font-size: 13.5px; opacity: .8; margin: 0; }
+.drench { background: var(--a-accent); color: var(--a-on-accent); }
+.drench .llink { border-bottom-color: rgba(255,247,250,.28); }
+/* on raspberry, any opacity drops small text below 4.5:1 */
+.drench .ls, .drench .disclaimer { opacity: 1; }
+.book { border-radius: 14px; padding: 16px 14px; min-height: 170px; display: grid; align-content: space-between; color: var(--a-on-accent); }
+.book .bt { font-family: var(--serif); font-size: 20px; line-height: 1.1; }
+.book .bs { font-size: 13px; opacity: .85; }
+.books { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cta-l { display: grid; gap: 4px; border-radius: 18px; padding: 18px; background: var(--a-accent); color: var(--a-on-accent); text-decoration: none; }
+.cta-l b { font-size: 20px; }
+.cta-l span { font-size: 15px; opacity: .9; }
+
+/* chosen direction */
+.badge { display: inline-block; font: 600 12.5px/1 var(--sans); background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 5px 9px; margin-left: 6px; vertical-align: 2px; }
+.dir.chosen .dir-num { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.stbar { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+.stbar button { font: 600 13.5px/1 var(--sans); border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 999px; padding: 9px 12px; min-height: 36px; cursor: pointer; }
+.stbar button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.hrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.stack { display: grid; gap: 18px; }
+.health.setup { background: var(--a-surface); border: 1px solid var(--a-line); color: var(--a-ink); }
+.filled .status { justify-self: start; margin-top: 6px; }
+button.empty-slot { font: inherit; text-align: left; background: none; width: 100%; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:active { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header class="page-head">
+    <h1>Estudio de Coni, segunda ronda</h1>
+    <p>Cinco propuestas para cada pantalla que faltaba y, primero, la elegida: combina lo que marcaste. Todo va sobre el sistema aprobado; las métricas usan números de ejemplo.</p>
+  </header>
+  <div class="controls">
+    <div class="tabs" role="tablist" aria-label="Pantalla">
+      <button role="tab" aria-selected="true" data-tab="metricas">Métricas</button>
+      <button role="tab" aria-selected="false" data-tab="ideas">Banco de ideas</button>
+      <button role="tab" aria-selected="false" data-tab="calendario">Calendario</button>
+      <button role="tab" aria-selected="false" data-tab="ajustes">Ajustes</button>
+      <button role="tab" aria-selected="false" data-tab="login">Ingreso</button>
+      <button role="tab" aria-selected="false" data-tab="l">/l (link de la bio)</button>
+    </div>
+  </div>
+  <p class="intro" id="intro"></p>
+  <main id="grid" class="grid" aria-live="polite"></main>
+  <section class="picks" aria-labelledby="picks-h">
+    <h2 id="picks-h">Tus elecciones</h2>
+    <p>Se arman solas con lo que marcas. Agrega notas y cópialo para pegarlo en el chat.</p>
+    <pre id="picks-out">Todavía no marcas ninguna propuesta.</pre>
+    <label for="picks-notes" class="meta">Notas (qué mezclar, qué cambiar)</label>
+    <textarea id="picks-notes" placeholder="Por ejemplo: Métricas 3 con el informe de la 5."></textarea>
+    <div class="row2"><button class="btn-page" id="copy">Copiar elecciones</button><span class="copied" id="copied" role="status"></span></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var PIL = { pareja: "Pareja y conversación", deseo: "Deseo y sexualidad", autoestima: "Autoestima", limites: "Género y límites", bienestar: "Bienestar emocional" };
+  function pill(k) { return '<span class="pill p-' + k + '">' + PIL[k] + '</span>'; }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ico(name, size) {
+    var s = size || 20, p = {
+      chev: '<path d="M9 6l6 6-6 6"/>', back: '<path d="M15 6l-6 6 6 6"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+      home: '<path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>', chart: '<path d="M5 20V10M12 20V4M19 20v-7"/>',
+      gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>', warn: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.5"/>'
+    }[name];
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+  }
+  function sbar() { return '<div class="sbar"><span>9:41</span><span>5G</span></div>'; }
+  function nav(on) {
+    return '<div class="nav" aria-label="Navegación">' + [["home", "Inicio"], ["chart", "Métricas"], ["gear", "Ajustes"]].map(function (it) {
+      return '<span class="' + (it[1] === on ? "on" : "") + '">' + ico(it[0], 22) + it[1] + '</span>';
+    }).join("") + '</div>';
+  }
+  function app(inner, on, back) { return sbar() + '<div class="body">' + (back ? '<span class="back">' + ico("back") + ' ' + back + '</span>' : "") + inner + '</div>' + (on ? nav(on) : ""); }
+
+  /* example data, clearly marked in the UI */
+  var REELS = [
+    { t: "Si van a discutir, siéntense del mismo lado", p: "pareja", d: "10 oct", alc: 4050, gua: 121, com: 58, seg: 29, dur: 44 },
+    { t: "El deseo no se apaga, se esconde", p: "deseo", d: "15 oct", alc: 3200, gua: 84, com: 31, seg: 24, dur: 46 },
+    { t: "Ser tu propia diosa", p: "autoestima", d: "8 oct", alc: 2150, gua: 40, com: 12, seg: 19, dur: 49 },
+    { t: "Cuando tu mente inventa lo peor, pídele pruebas", p: "bienestar", d: "17 oct", alc: 1880, gua: 37, com: 9, seg: 17, dur: 41 }
+  ];
+  function fmt(n) { return n.toLocaleString("es-CL"); }
+  function per1000(r) { return Math.round(r.gua / r.alc * 1000); }
+
+  var IDEAS = [
+    { t: "¿Cuántas veces al día pides perdón sin haber hecho nada?", p: "autoestima", f: "alta", a: "verificar dato" },
+    { t: "Si van a discutir, siéntense del mismo lado.", p: "pareja", f: "alta", a: "usada" },
+    { t: "Cuando tu mente inventa lo peor, pídele pruebas.", p: "bienestar", f: "alta", a: "no es terapia" },
+    { t: "Puedes decir que no sin dar explicaciones larguísimas.", p: "limites", f: "alta", a: "" },
+    { t: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?", p: "deseo", f: "alta", a: "verificar dato" },
+    { t: "Antes de dar un consejo, hazle una pregunta a tu pareja.", p: "pareja", f: "alta", a: "" },
+    { t: "Te hablaron como si no entendieras. ¿Qué haces ahora?", p: "limites", f: "alta", a: "líneas de ayuda" },
+    { t: "Te acuestas a descansar y se te llena la cabeza.", p: "bienestar", f: "alta", a: "no es terapia" },
+    { t: "¿Te da culpa sentirte sexy? Hablemos de eso.", p: "deseo", f: "media", a: "líneas de ayuda" },
+    { t: "Ser agradable con todos te está costando ser tú.", p: "autoestima", f: "alta", a: "" }
+  ];
+
+  var SCREENS = {
+    metricas: { label: "Métricas", intro: "Meta vigente: consultas. Las primeras 8 semanas no hay comparaciones: solo números por reel y el avance hacia los 8 reels por grupo.", items: [
+      { name: "Por reel", why: "Una fila por reel con sus tres números; nada de tarjetas gigantes.", r: mPorReel },
+      { name: "Lo que sirvió", why: "Ordena por guardados cada 1.000 personas alcanzadas, en barras a escala.", r: mSirvio },
+      { name: "Preguntas", why: "Responde preguntas concretas en su voz, con el tamaño de la muestra a la vista.", r: mPreguntas },
+      { name: "Semana a semana", why: "Una línea de tiempo: qué salió cada semana y qué pasó con las consultas.", r: mSemanas },
+      { name: "Informe del lunes", why: "Una carta corta, como el informe semanal, con una tabla debajo.", r: mInforme },
+      { name: "Lo que sirvió y semanas", why: "Combina 2 y 4: arriba lo que sirvió, abajo semana a semana con las consultas.", r: mElegida, chosen: true }
+    ]},
+    ideas: { label: "Banco de ideas", intro: "Las 130 ideas del banco. Coni también puede escribir las suyas; Claude propone pilar y alertas y ella confirma.", items: [
+      { name: "Lista con filtros", why: "Filtros por pilar que funcionan; alertas como etiquetas.", r: iLista },
+      { name: "Por pilar", why: "Grupos plegables por pilar, con cuántas ideas quedan en cada uno.", r: iPilar },
+      { name: "Una a la vez", why: "Una idea grande; Usar o Después. Botones, no solo deslizar.", r: iMazo },
+      { name: "Buscar primero", why: "Buscador arriba y filtros de fuerza y alertas.", r: iBuscar },
+      { name: "Para esta semana", why: "Cinco sugeridas según la rotación de pilares; el resto, a un toque.", r: iSemana },
+      { name: "Una a la vez con Buscar", why: "Combina 3 y 4: una idea a la vez y, arriba, Buscar para ir a una en particular.", r: iElegida, chosen: true }
+    ]},
+    calendario: { label: "Calendario", intro: "Horarios por defecto: martes, jueves y sábado a las 19:00, hora de Chile.", items: [
+      { name: "Mes", why: "Grilla del mes con un punto del color del pilar por publicación.", r: cMes },
+      { name: "Agenda", why: "Lista por día de lo que sale y lo que falta aprobar.", r: cAgenda },
+      { name: "Horarios", why: "Los tres horarios de cada semana, llenos o vacíos.", r: cHorarios },
+      { name: "Lo próximo", why: "Franja de la semana y los tres próximos reels.", r: cProximo },
+      { name: "Ritmo", why: "Cuadrícula de semanas por horario: se ve de un vistazo si se sostiene el ritmo.", r: cRitmo },
+      { name: "Mes, Agenda y Ritmo", why: "Combina 1, 2, 3 y 5: tres vistas en una pantalla; la Agenda muestra los horarios libres.", r: cElegida, chosen: true }
+    ]},
+    ajustes: { label: "Ajustes", intro: "Cuentas conectadas, meta, horarios, tope de gasto, avisos y sesión.", items: [
+      { name: "Lista agrupada", why: "Como los ajustes del iPhone: grupos con su valor a la derecha.", r: aLista },
+      { name: "Estado primero", why: "Arriba, si todo está conectado o qué hay que renovar.", r: aEstado },
+      { name: "Editar en el lugar", why: "Todo se cambia ahí mismo: meta, horarios, tope y avisos.", r: aEditar },
+      { name: "Configuración guiada", why: "Lista de la sesión inicial con WAV: 4 de 5 listos.", r: aGuiada },
+      { name: "Cuentas aparte", why: "Ajustes del día a día arriba; las cuentas, abajo y protegidas.", r: aCuentas },
+      { name: "Estado y edición", why: "Combina 2, 3 y 4: arriba el estado o la configuración pendiente; todo se edita ahí mismo.", r: aElegida, chosen: true, states: [["warn", "Algo vence"], ["ok", "Todo bien"], ["setup", "Configurando"]] }
+    ]},
+    login: { label: "Ingreso", intro: "Código de un solo uso por correo, escrito dentro de la app instalada. Sin contraseña ni registro público.", items: [
+      { name: "Seis casillas", why: "Una casilla por número; acepta pegar el código entero.", r: lCasillas, chosen: true },
+      { name: "Un solo campo", why: "Un campo grande con botón Pegar.", r: lCampo },
+      { name: "Con su foto", why: "La foto de Coni arriba: la app se siente suya.", r: lFoto },
+      { name: "Dos pasos", why: "Primero el correo, después el código, con su progreso.", r: lPasos },
+      { name: "Ayuda a la vista", why: "Qué hacer si el código no llega, sin buscarlo.", r: lAyuda }
+    ]},
+    l: { label: "/l", intro: "La única pantalla pública. Sobria, como exige el art. 16.3.1: nombre, título y especialidad, sin promesas. El lugar de la foto de Coni queda marcado.", items: [
+      { name: "Editorial", why: "Su nombre en grande y una lista limpia de links.", r: bEditorial },
+      { name: "Frambuesa", why: "Todo el fondo en su color: la marca se reconoce al tiro.", r: bFrambuesa, chosen: true },
+      { name: "Con su foto", why: "La foto manda; los links debajo.", r: bFoto },
+      { name: "Sus libros", why: "Los libros como portadas; la consulta como acción principal.", r: bLibros },
+      { name: "Temas", why: "Los cinco temas de los que habla, con los links agrupados.", r: bTemas }
+    ]}
+  };
+
+  /* ---------- métricas ---------- */
+  function trip(r) { return '<div class="trip"><div><b>' + fmt(r.alc) + '</b><span>alcance</span></div><div><b>' + r.gua + '</b><span>guardados</span></div><div><b>' + r.seg + ' s</b><span>de ' + r.dur + ' s vistos</span></div></div>'; }
+  function progress(n) { return '<div class="prog">' + Array.from({ length: 8 }, function (_, i) { return '<i class="' + (i < n ? "on" : "") + '"></i>'; }).join("") + '</div>'; }
+  function mHead() { return '<h1 class="title-s">Octubre</h1><span class="ex">Números de ejemplo</span>'; }
+  function mPorReel() {
+    var h = mHead() + '<p class="lead">4 reels publicados · 2 consultas · 15 clics a tu agenda (toda la cuenta)</p>';
+    h += '<section><h2 class="h-sec">Por reel</h2>' + REELS.map(function (r) { return '<div class="mrow p-' + r.p + '"><span class="mt">' + esc(r.t) + '</span><span class="meta">' + r.d + ' · ' + PIL[r.p] + '</span>' + trip(r) + '</div>'; }).join("") + '</section>';
+    h += '<section class="panel"><h2 class="h-sec" style="margin:0">Para comparar</h2><p class="meta">Con 8 reels por grupo te muestro qué funciona mejor. Llevas 4 de 8.</p>' + progress(4) + '</section>';
+    return app(h, "Métricas");
+  }
+  function sirvioList() {
+    var max = Math.max.apply(null, REELS.map(per1000));
+    var sorted = REELS.slice().sort(function (a, b) { return per1000(b) - per1000(a); });
+    return '<div>' + sorted.map(function (r) { var v = per1000(r); return '<div class="mrow p-' + r.p + '"><span class="mt">' + esc(r.t) + '</span><div class="hbar"><i style="width:' + Math.round(v / max * 100) + '%"></i></div><span class="meta num">' + v + ' cada 1.000 · ' + r.gua + ' guardados · ' + PIL[r.p] + '</span></div>'; }).join("") + '</div>';
+  }
+  function mSirvio() {
+    var h = mHead() + '<p class="lead">Guardados cada 1.000 personas que lo vieron. Guardar es la mejor señal de que le sirvió a alguien.</p>';
+    h += '<section>' + sirvioList() + '</section>';
+    h += '<p class="meta">Con 4 reels todavía es temprano para concluir. Faltan 4 para comparar con confianza.</p>';
+    return app(h, "Métricas");
+  }
+  function mPreguntas() {
+    var h = mHead();
+    h += '<div class="qa"><h3>¿Qué se guardó más?</h3><p>Si van a discutir, siéntense del mismo lado: 121 guardados. Es el que más le sirvió a la gente hasta ahora.</p></div>';
+    h += '<div class="qa p-deseo"><h3>¿Cuánto se ve de cada video?</h3><p>En promedio, la mitad. El de deseo retiene 24 de 46 segundos.</p><div class="watchbar"><i style="width:52%"></i></div></div>';
+    h += '<div class="qa"><h3>¿Llegan consultas?</h3><p>2 en octubre y 15 clics a tu agenda. Es poco para saber qué reel las trajo; lo vemos a fin de mes.</p></div>';
+    h += '<div class="qa"><h3>¿Ya puedo comparar temas?</h3><p>Todavía no: llevas 4 de 8 reels. Te aviso cuando haya suficientes.</p>' + progress(4) + '</div>';
+    return app(h, "Métricas");
+  }
+  var WEEKS = [["Semana del 5", [REELS[2], REELS[0]], "1 consulta · 8 clics a tu agenda"], ["Semana del 12", [REELS[1], REELS[3]], "1 consulta · 7 clics a tu agenda"]];
+  function weeksList(tag) {
+    return WEEKS.map(function (w) {
+      return '<section><' + tag + ' class="week-h">' + w[0] + '</' + tag + '>' + w[1].map(function (r) { return '<div class="row p-' + r.p + '"><span class="dot"></span><span class="rt">' + esc(r.t) + '</span><span class="rv num">' + r.gua + ' guard.</span><span class="rm">' + fmt(r.alc) + ' de alcance · ' + r.seg + ' s vistos</span></div>'; }).join("") + '<p class="meta">' + w[2] + '</p></section>';
+    }).join("");
+  }
+  function mSemanas() { return app(mHead() + weeksList("h2"), "Métricas"); }
+  function mElegida() {
+    var h = mHead() + '<p class="lead">4 reels publicados · 2 consultas · 15 clics a tu agenda</p>';
+    h += '<section><h2 class="h-sec">Lo que sirvió</h2><p class="meta">Guardados cada 1.000 personas que lo vieron.</p>' + sirvioList() + '</section>';
+    h += '<section class="panel"><p class="meta">Con 4 reels todavía es temprano para concluir. Comparo temas cuando haya 8 por grupo; llevas 4 de 8.</p>' + progress(4) + '</section>';
+    h += '<section class="stack"><h2 class="h-sec" style="margin:0">Semana a semana</h2>' + weeksList("h3") + '</section>';
+    return app(h, "Métricas");
+  }
+  function mInforme() {
+    var h = '<h1 class="title-s">Informe del lunes</h1><span class="ex">Números de ejemplo</span>';
+    h += '<p style="margin:0;font-size:18px;line-height:1.55">Esta semana salieron dos reels. <b>Si van a discutir, siéntense del mismo lado</b> sigue siendo el más guardado del mes. El de deseo se vio, en promedio, 24 de sus 46 segundos. Llegó una consulta y hubo 7 clics a tu agenda.</p>';
+    h += '<p style="margin:0;font-size:18px;line-height:1.55">Todavía no comparo temas: llevas 4 de 8 reels.</p>';
+    h += '<div class="panel"><h2 class="h-sec" style="margin:0">Detalle</h2>' + [REELS[1], REELS[3]].map(function (r) { return '<div class="mrow p-' + r.p + '"><span class="mt">' + esc(r.t) + '</span>' + trip(r) + '</div>'; }).join("") + '</div>';
+    return app(h, "Métricas");
+  }
+
+  /* ---------- ideas ---------- */
+  var ideaFilter = {};
+  function ideaRow(it) {
+    return '<div class="idea p-' + it.p + '"><span class="it">' + esc(it.t) + '</span><span class="im">' + pill(it.p) + (it.a === "usada" ? '<span class="status ok">Usada</span>' : it.a ? '<span class="alert">' + it.a + '</span>' : "") + '<span>Fuerza ' + it.f + '</span></span></div>';
+  }
+  function iLista(n) {
+    var f = ideaFilter[n] || "todos";
+    var chips = '<div class="chips"><button class="chip" data-act="if" data-v="todos" aria-pressed="' + (f === "todos") + '">Todos</button>' + Object.keys(PIL).map(function (k) { return '<button class="chip p-' + k + '" data-act="if" data-v="' + k + '" aria-pressed="' + (f === k) + '">' + PIL[k].split(" ")[0] + '</button>'; }).join("") + '</div>';
+    var list = IDEAS.filter(function (it) { return f === "todos" || it.p === f; });
+    var h = '<h1 class="title-s">Banco de ideas</h1><p class="meta">130 ideas de 9 cuentas referentes</p>' + chips + '<section>' + list.map(ideaRow).join("") + '</section><button class="btn btn-line">' + ico("plus") + ' Nueva idea</button>';
+    return app(h, null, "Inicio");
+  }
+  function iPilar() {
+    var counts = { pareja: 30, deseo: 8, autoestima: 42, limites: 23, bienestar: 27 };
+    var h = '<h1 class="title-s">Banco de ideas</h1><p class="meta">Deseo tiene pocas ideas: conviene sumar desde tus libros.</p>';
+    h += Object.keys(PIL).map(function (k, i) {
+      var items = IDEAS.filter(function (it) { return it.p === k; });
+      return '<details class="group p-' + k + '"' + (i === 0 ? " open" : "") + '><summary><span>' + PIL[k] + '</span><span class="num">' + counts[k] + '</span></summary>' + items.map(ideaRow).join("") + '</details>';
+    }).join("");
+    h += '<button class="btn btn-line">' + ico("plus") + ' Nueva idea</button>';
+    return app(h, null, "Inicio");
+  }
+  var deckIdx = {};
+  function deckBody(n) {
+    var i = (deckIdx[n] || 0) % IDEAS.length, it = IDEAS[i];
+    var h = '<p class="meta">' + (i + 1) + ' de 130</p>';
+    h += '<div class="deck p-' + it.p + '"><div style="display:grid;gap:10px">' + pill(it.p) + '<h2 class="title">' + esc(it.t) + '</h2></div><span class="meta" style="color:var(--p-ink)">Fuerza ' + it.f + (it.a && it.a !== "usada" ? ' · ' + it.a : "") + '</span></div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-line" data-act="deck">Después</button><button class="btn btn-primary" data-act="deck">Usar esta</button></div><button class="btn btn-quiet">' + ico("plus") + ' Escribir una idea mía</button>';
+    return h;
+  }
+  function iMazo(n) { return app('<h1 class="title-s">Ideas</h1>' + deckBody(n), null, "Inicio"); }
+  var query = {};
+  function searchBody(n) {
+    var q = (query[n] || "").toLowerCase();
+    var list = IDEAS.filter(function (it) { return !q || it.t.toLowerCase().indexOf(q) >= 0 || PIL[it.p].toLowerCase().indexOf(q) >= 0; });
+    var h = '<label class="lbl" for="q-' + n + '">Buscar por palabra o tema<input class="field" id="q-' + n + '" data-act="q" value="' + esc(query[n] || "") + '" placeholder="culpa, celos, deseo"></label>';
+    h += '<div class="seg"><button aria-pressed="true">Fuerza alta</button><button aria-pressed="false">Sin alertas</button><button aria-pressed="false">Sin usar</button></div>';
+    h += '<p class="meta">' + list.length + ' resultados</p><section data-list>' + list.map(ideaRow).join("") + '</section>';
+    return h;
+  }
+  function iBuscar(n) { return app('<h1 class="title-s">Buscar ideas</h1>' + searchBody(n), null, "Inicio"); }
+  var ideaMode = {};
+  function iElegida(n) {
+    var search = ideaMode[n] === "search";
+    var head = '<div class="hrow"><h1 class="title-s">' + (search ? "Buscar ideas" : "Ideas") + '</h1><button class="btn btn-line btn-small" data-act="imode" data-v="' + (search ? "deck" : "search") + '">' + (search ? "Una a la vez" : ico("search", 18) + " Buscar") + '</button></div>';
+    return app(head + (search ? searchBody(n) : deckBody(n)), null, "Inicio");
+  }
+  function iSemana() {
+    var pick = [IDEAS[0], IDEAS[2], IDEAS[3], IDEAS[5], IDEAS[8]];
+    var h = '<h1 class="title-s">Ideas para esta semana</h1><p class="lead">Elegí una por pilar para que no se repitan temas. Marca las que quieras grabar.</p>';
+    h += '<section>' + pick.map(function (it) { return '<label class="idea p-' + it.p + '" style="grid-template-columns:28px 1fr;align-items:start;cursor:pointer"><input type="checkbox" style="width:24px;height:24px;accent-color:var(--a-accent);margin-top:2px"><span style="display:grid;gap:6px"><span class="it">' + esc(it.t) + '</span><span class="im">' + pill(it.p) + '</span></span></label>'; }).join("") + '</section>';
+    h += '<button class="btn btn-primary">Escribir 3 guiones</button><button class="link">Ver las 130 ideas ' + ico("chev", 18) + '</button>';
+    return app(h, null, "Inicio");
+  }
+
+  /* ---------- calendario ---------- */
+  var PUBS = { 8: "autoestima", 10: "pareja", 15: "deseo", 17: "bienestar", 20: "limites", 22: "pareja" };
+  function monthGrid() {
+    var h = '<div class="month">' + ["L", "M", "M", "J", "V", "S", "D"].map(function (d) { return '<span class="dh">' + d + '</span>'; }).join("");
+    h += '<span class="d out"></span><span class="d out"></span><span class="d out"></span>';
+    for (var d = 1; d <= 31; d++) h += '<span class="d' + (d === 6 ? " today" : "") + (PUBS[d] ? " p-" + PUBS[d] : "") + '">' + d + (PUBS[d] ? "<i></i>" : "") + '</span>';
+    return h + '</div>';
+  }
+  function proximos() {
+    return '<section><h2 class="h-sec">Próximos</h2>' + [[8, "Ser tu propia diosa", "Falta aprobar el video"], [10, "Si van a discutir, siéntense del mismo lado", "Programado · 19:00"], [15, "El deseo no se apaga, se esconde", "Falta aprobar el guion"]].map(function (x) {
+      return '<div class="row p-' + PUBS[x[0]] + '"><span class="dot"></span><span class="rt">' + x[1] + '</span><span class="rv">' + x[0] + ' oct</span><span class="rm">' + x[2] + '</span></div>';
+    }).join("") + '</section>';
+  }
+  function cMes() { return app('<h1 class="title-s">Octubre</h1>' + monthGrid() + proximos(), null, "Inicio"); }
+  function cAgenda() {
+    var days = [["Jueves 8", "autoestima", "Ser tu propia diosa", "19:00 · falta aprobar video y fecha", "warn"], ["Sábado 10", "pareja", "Si van a discutir, siéntense del mismo lado", "19:00 · programado", "ok"], ["Jueves 15", "deseo", "El deseo no se apaga, se esconde", "19:00 · falta aprobar guion", "warn"], ["Sábado 17", "bienestar", "Cuando tu mente inventa lo peor, pídele pruebas", "19:00 · guion en preparación", ""]];
+    var h = '<h1 class="title-s">Lo que viene</h1>';
+    h += days.map(function (d) { return '<section><h2 class="week-h">' + d[0] + '</h2><div class="row p-' + d[1] + '"><span class="dot"></span><span class="rt">' + d[2] + '</span><span></span><span class="rm">' + d[3] + '</span></div>' + (d[4] === "warn" ? '<span class="status warn">Necesita tu firma</span>' : d[4] === "ok" ? '<span class="status ok">Listo</span>' : "") + '</section>'; }).join("");
+    return app(h, null, "Inicio");
+  }
+  function cHorarios() {
+    var wk = [["Semana del 5", [["Mar 6", null], ["Jue 8", ["autoestima", "Ser tu propia diosa"]], ["Sáb 10", ["pareja", "Si van a discutir…"]]]], ["Semana del 12", [["Mar 13", null], ["Jue 15", ["deseo", "El deseo no se apaga…"]], ["Sáb 17", ["bienestar", "Cuando tu mente inventa lo peor…"]]]]];
+    var h = '<h1 class="title-s">Horarios</h1><p class="meta">Martes, jueves y sábado · 19:00</p>';
+    h += wk.map(function (w) { return '<section><h2 class="week-h">' + w[0] + '</h2>' + w[1].map(function (s) { return '<div class="slotrow"><span class="sd">' + s[0] + '<small>19:00</small></span>' + (s[1] ? '<div class="filled p-' + s[1][0] + '"><b>' + s[1][1] + '</b>' + PIL[s[1][0]] + '</div>' : '<div class="empty-slot">Libre · elige una idea</div>') + '</div>'; }).join("") + '</section>'; }).join("");
+    return app(h, null, "Inicio");
+  }
+  function cProximo() {
+    var days = [["L", 5], ["M", 6], ["M", 7], ["J", 8], ["V", 9], ["S", 10], ["D", 11]];
+    var h = '<h1 class="title-s">Esta semana</h1><div class="month" style="grid-template-columns:repeat(7,1fr)">' + days.map(function (d) { return '<span class="d' + (d[1] === 6 ? " today" : "") + (PUBS[d[1]] ? " p-" + PUBS[d[1]] : "") + '" style="aspect-ratio:auto;padding:8px 0;gap:4px"><span class="dh" style="padding:0">' + d[0] + '</span>' + d[1] + (PUBS[d[1]] ? "<i></i>" : "") + '</span>'; }).join("") + '</div>';
+    h += '<section><h2 class="h-sec">Los próximos tres</h2>' + [[8, "autoestima", "Ser tu propia diosa", "Jueves 8 · 19:00"], [10, "pareja", "Si van a discutir, siéntense del mismo lado", "Sábado 10 · 19:00"], [15, "deseo", "El deseo no se apaga, se esconde", "Jueves 15 · 19:00"]].map(function (x) { return '<div class="panel p-' + x[1] + '" style="background:var(--p-tint);border:0;gap:6px"><span class="meta" style="color:var(--p-ink)">' + x[3] + '</span><b style="font-size:18px">' + x[2] + '</b></div>'; }).join('<div style="height:8px"></div>') + '</section>';
+    h += '<button class="link">Ver el mes completo ' + ico("chev", 18) + '</button>';
+    return app(h, null, "Inicio");
+  }
+  var RHYTHM = [["5 oct", ["e", "autoestima", "pareja"]], ["12 oct", ["e", "deseo", "bienestar"]], ["19 oct", ["limites", "pareja", "e"]], ["26 oct", ["e", "e", "e"]]];
+  var RHYTHM_LEAD = '<p class="lead">La meta son 3 por semana. En estas cuatro semanas van 6 de 12.</p>';
+  var RHYTHM_NOTE = '<div class="note warn"><b>Martes casi siempre queda libre.</b>¿Cambiamos el horario a domingo o publicamos 2 por semana?</div>';
+  function rhythmGrid() {
+    return '<div class="rhythm"><span></span><span class="colh">Mar</span><span class="colh">Jue</span><span class="colh">Sáb</span>' + RHYTHM.map(function (r) { return '<span class="wk">' + r[0] + '</span>' + r[1].map(function (c) { return c === "e" ? '<span class="cell e">libre</span>' : '<span class="cell f p-' + c + '">' + PIL[c].split(" ")[0] + '</span>'; }).join(""); }).join("") + '</div>';
+  }
+  function cRitmo() { return app('<h1 class="title-s">Ritmo</h1>' + RHYTHM_LEAD + rhythmGrid() + RHYTHM_NOTE, null, "Inicio"); }
+  var SLOTS = [["Semana del 5", [["Mar 6", null], ["Jue 8", ["autoestima", "Ser tu propia diosa", "warn", "Falta tu firma: video y fecha"]], ["Sáb 10", ["pareja", "Si van a discutir, siéntense del mismo lado", "ok", "Programado"]]]], ["Semana del 12", [["Mar 13", null], ["Jue 15", ["deseo", "El deseo no se apaga, se esconde", "warn", "Falta tu firma: guion"]], ["Sáb 17", ["bienestar", "Cuando tu mente inventa lo peor, pídele pruebas", "", "Guion en preparación"]]]]];
+  function slotWeeks() {
+    return '<p class="meta">Martes, jueves y sábado · 19:00</p>' + SLOTS.map(function (w) {
+      return '<section><h2 class="week-h">' + w[0] + '</h2>' + w[1].map(function (s) {
+        var f = s[1];
+        return '<div class="slotrow"><span class="sd">' + s[0] + '<small>19:00</small></span>' + (f ? '<div class="filled p-' + f[0] + '"><b>' + f[1] + '</b>' + PIL[f[0]] + (f[2] ? '<span class="status ' + f[2] + '">' + f[3] + '</span>' : '<span>' + f[3] + '</span>') + '</div>' : '<button class="empty-slot">Libre · elige una idea</button>') + '</div>';
+      }).join("") + '</section>';
+    }).join("");
+  }
+  var calView = {};
+  function cElegida(n) {
+    var v = calView[n] || "mes";
+    var h = '<h1 class="title-s">Octubre</h1><div class="seg" role="group" aria-label="Vista del calendario">' + [["mes", "Mes"], ["agenda", "Agenda"], ["ritmo", "Ritmo"]].map(function (x) { return '<button data-act="cal" data-v="' + x[0] + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + '</button>'; }).join("") + '</div>';
+    if (v === "mes") h += monthGrid() + proximos();
+    if (v === "agenda") h += slotWeeks();
+    if (v === "ritmo") h += RHYTHM_LEAD + rhythmGrid() + RHYTHM_NOTE;
+    return app(h, null, "Inicio");
+  }
+
+  /* ---------- ajustes ---------- */
+  var ACC = [["Instagram", "warn", "Vence en 6 días"], ["HeyGen", "ok", "Conectada"], ["ElevenLabs", "ok", "Conectada"], ["Claude (Anthropic)", "ok", "Conectada"]];
+  function setRow(l, v, m) { return '<div class="set-r"><span class="sl">' + l + '</span><span class="sv">' + v + ' ' + ico("chev", 16) + '</span>' + (m ? '<span class="sm">' + m + '</span>' : "") + '</div>'; }
+  function aLista() {
+    var h = '<h1 class="title-s">Ajustes</h1>';
+    h += '<section><h2 class="h-sec">Contenido</h2><div class="set-g">' + setRow("Meta", "Consultas") + setRow("Horarios", "Mar, Jue, Sáb · 19:00") + setRow("Tope de gasto", "US$ 40 al mes", "Llevas US$ 12,80") + '</div></section>';
+    h += '<section><h2 class="h-sec">Avisos</h2><div class="set-g">' + setRow("Resumen diario", "08:30") + setRow("Urgentes", "Siempre") + '</div></section>';
+    h += '<section><h2 class="h-sec">Cuentas conectadas</h2><div class="set-g">' + ACC.map(function (a) { return setRow(a[0], '<span class="status ' + a[1] + '">' + a[2] + '</span>'); }).join("") + '</div></section>';
+    h += '<button class="btn btn-quiet">Cerrar sesión</button>';
+    return app(h, "Ajustes");
+  }
+  function aEstado() {
+    var h = '<h1 class="title-s">Ajustes</h1>';
+    h += '<div class="health warn"><h2 class="title-s">Instagram vence en 6 días</h2><span>Renueva la conexión para que los reels sigan saliendo.</span><button class="btn btn-primary" style="margin-top:6px">Renovar Instagram</button></div>';
+    h += '<p class="meta">HeyGen, ElevenLabs y Claude están conectadas.</p>';
+    h += '<div class="set-g">' + setRow("Meta", "Consultas") + setRow("Horarios", "Mar, Jue, Sáb") + setRow("Tope de gasto", "US$ 40") + setRow("Avisos", "08:30") + '</div>';
+    return app(h, "Ajustes");
+  }
+  function editBody() {
+    var h = '<section><h2 class="h-sec">Meta de este mes</h2><div class="seg"><button aria-pressed="true">Consultas</button><button aria-pressed="false">Talleres</button><button aria-pressed="false">Marca</button></div></section>';
+    h += '<section><h2 class="h-sec">Días de publicación</h2><div class="chips">' + ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(function (d) { var on = d === "Mar" || d === "Jue" || d === "Sáb"; return '<button class="chip" aria-pressed="' + on + '">' + d + '</button>'; }).join("") + '</div><p class="meta" style="margin-top:6px">A las 19:00, hora de Chile</p></section>';
+    h += '<section><h2 class="h-sec">Tope de gasto al mes</h2><div class="stepper"><button aria-label="Bajar" data-act="tope" data-v="-5">−</button><b>US$ 40</b><button aria-label="Subir" data-act="tope" data-v="5">+</button></div><p class="meta" style="margin-top:6px">Llevas US$ 12,80 este mes</p></section>';
+    h += '<section><h2 class="h-sec">Avisos</h2><label class="toggle">Resumen diario a las 08:30<input type="checkbox" checked></label><label class="toggle">Avisarme apenas falle algo<input type="checkbox" checked></label></section>';
+    return h;
+  }
+  function aEditar() { return app('<h1 class="title-s">Ajustes</h1>' + editBody(), "Ajustes"); }
+  var SETUP = [["Instagram conectado", true], ["HeyGen con tu avatar", true], ["ElevenLabs con tu voz", true], ["Claude (Anthropic)", true], ["Avisos en este iPhone", false]];
+  function setupList(boxed) {
+    var rows = SETUP.map(function (x) { return '<div class="set-r"><span class="sl">' + x[0] + '</span><span class="sv">' + (x[1] ? '<span class="status ok">' + ico("check", 14) + ' Listo</span>' : '<span class="status warn">Falta</span>') + '</span></div>'; }).join("");
+    return '<div class="steps-h">' + SETUP.map(function (x) { return '<i class="' + (x[1] ? "on" : "") + '"></i>'; }).join("") + '</div><div' + (boxed ? ' class="set-g"' : "") + '>' + rows + '</div>';
+  }
+  function aGuiada() {
+    var h = '<h1 class="title-s">Configuración</h1><p class="lead">4 de 5 listos. Lo hicimos en la sesión con WAV.</p>' + setupList(true);
+    h += '<button class="btn btn-primary">Activar avisos</button><button class="link">Probar todas las conexiones ' + ico("chev", 18) + '</button>';
+    return app(h, "Ajustes");
+  }
+  var ajState = {};
+  function aElegida(n) {
+    var st = ajState[n] || "warn", h = '<h1 class="title-s">Ajustes</h1>';
+    if (st === "setup") h += '<div class="health setup"><h2 class="title-s">Configuración: 4 de 5 listos</h2><span class="meta">Lo hicimos en la sesión con WAV. Falta un paso.</span>' + setupList(false) + '<button class="btn btn-primary">Activar avisos</button></div>';
+    if (st === "ok") h += '<div class="health ok"><h2 class="title-s">Todo conectado</h2><span>Instagram, HeyGen, ElevenLabs y Claude respondieron hoy a las 08:00.</span><button class="link">Ver cuentas ' + ico("chev", 18) + '</button></div>';
+    if (st === "warn") h += '<div class="health warn"><h2 class="title-s">Instagram vence en 6 días</h2><span>Renueva la conexión para que los reels sigan saliendo.</span><button class="btn btn-primary" style="margin-top:6px">Renovar Instagram</button></div><p class="meta">HeyGen, ElevenLabs y Claude están conectadas.</p>';
+    h += editBody() + '<p class="meta">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p><button class="btn btn-quiet">Cerrar sesión</button>';
+    return app(h, "Ajustes");
+  }
+  function aCuentas() {
+    var h = '<h1 class="title-s">Ajustes</h1>';
+    h += '<div class="set-g">' + setRow("Meta", "Consultas") + setRow("Horarios", "Mar, Jue, Sáb · 19:00") + setRow("Tope de gasto", "US$ 40") + setRow("Avisos", "08:30") + '</div>';
+    h += '<section class="panel"><h2 class="h-sec" style="margin:0">Cuentas y llaves</h2><p class="meta">Se cambian rara vez. Si algo falla, te aviso y te digo qué tocar.</p>' + ACC.map(function (a) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px"><span>' + a[0] + '</span><span class="status ' + a[1] + '">' + a[2] + '</span></div>'; }).join("") + '</section>';
+    h += '<button class="btn btn-quiet">Cerrar sesión</button>';
+    return app(h, "Ajustes");
+  }
+
+  /* ---------- login ---------- */
+  function otpBoxes(n) { return '<div class="otp" role="group" aria-label="Código de 6 números">' + Array.from({ length: 6 }, function (_, i) { return '<input inputmode="numeric" autocomplete="' + (i === 0 ? "one-time-code" : "off") + '" maxlength="1" aria-label="Número ' + (i + 1) + '" data-otp="' + n + '">'; }).join("") + '</div>'; }
+  function lCasillas(n) {
+    var h = '<div style="height:40px"></div><h1 class="title">Entra con el código que te mandé</h1><p class="lead">Lo envié a coni@…delrosario.cl. Vence en 1 hora.</p>' + otpBoxes(n) + '<button class="btn btn-primary">Entrar</button><button class="btn btn-quiet">Mandar otro código</button>';
+    return app(h);
+  }
+  function lCampo() {
+    var h = '<div style="height:40px"></div><h1 class="title">Tu código</h1><p class="lead">Revisa tu correo. Son 6 números.</p><label class="lbl" for="code-1">Código<input class="field bigcode" id="code-1" inputmode="numeric" autocomplete="one-time-code" placeholder="000000"></label><button class="btn btn-line">Pegar código</button><button class="btn btn-primary">Entrar</button>';
+    return app(h);
+  }
+  function lFoto(n) {
+    var h = '<div class="portrait round" style="justify-self:start">Foto de Coni</div><h1 class="title">Hola, Coni</h1><p class="lead">Escribe el código que te llegó al correo.</p>' + otpBoxes(n) + '<button class="btn btn-primary">Entrar</button>';
+    return app(h);
+  }
+  function lPasos() {
+    var h = '<div style="height:28px"></div><p class="meta">Paso 2 de 2</p><div class="steps-h" style="grid-template-columns:1fr 1fr"><i class="on"></i><i class="on"></i></div><h1 class="title">Escribe el código</h1><div class="panel" style="gap:4px"><span class="meta">Correo</span><span>coni@…delrosario.cl</span><button class="link" style="padding:4px 0">Cambiar</button></div><label class="lbl" for="code-2">Código de 6 números<input class="field bigcode" id="code-2" inputmode="numeric" autocomplete="one-time-code"></label><button class="btn btn-primary">Entrar</button>';
+    return app(h);
+  }
+  function lAyuda(n) {
+    var h = '<div style="height:28px"></div><h1 class="title">Entra con tu código</h1>' + otpBoxes(n) + '<button class="btn btn-primary">Entrar</button><div class="panel"><h2 class="h-sec" style="margin:0">¿No llega?</h2><p class="meta">Revisa la carpeta de spam. Puedes pedir otro en 45 segundos.</p><p class="meta">Si sigue sin llegar, escríbele a Federico por WhatsApp.</p></div>';
+    return app(h);
+  }
+
+  /* ---------- /l (public, brand) ---------- */
+  var LINKS = [["Agenda una consulta", "Adolescentes, adultos y parejas"], ["Taller Ser tu propia diosa", "Próximas fechas"], ["Mis libros", "Si la cama hablara… y Soy mi propia diosa"], ["Fundación Ring!", "Relaciones Inteligentes"]];
+  function linkRows(list) { return '<nav class="llinks" aria-label="Links">' + list.map(function (l) { return '<a class="llink" href="#"><span class="lt">' + l[0] + '</span><span class="la">' + ico("arrow") + '</span><span class="ls">' + l[1] + '</span></a>'; }).join("") + '</nav>'; }
+  var DISC = '<p class="disclaimer">Contenido educativo. No reemplaza una consulta. Algunos videos usan mi avatar digital.</p>';
+  function lp(inner, cls) { return '<div class="lwrap ' + (cls || "") + '">' + sbar() + '<div class="lpage">' + inner + '</div></div>'; }
+  function bEditorial() { return lp('<div style="display:grid;gap:10px"><h1 class="lname">Coni del Rosario</h1><p class="lrole">Psicóloga clínica y sexóloga</p></div>' + linkRows(LINKS) + DISC); }
+  function bFrambuesa() { return lp('<div style="display:grid;gap:10px"><h1 class="lname">Coni del Rosario</h1><p class="lrole">Psicóloga clínica y sexóloga</p></div>' + linkRows(LINKS) + DISC, "drench"); }
+  function bFoto() { return lp('<div class="portrait">Foto de Coni (retrato real)</div><div style="display:grid;gap:6px"><h1 class="lname" style="font-size:38px">Coni del Rosario</h1><p class="lrole">Psicóloga clínica y sexóloga</p></div>' + linkRows(LINKS) + DISC); }
+  function bLibros() {
+    return lp('<div style="display:grid;gap:8px"><h1 class="lname" style="font-size:38px">Coni del Rosario</h1><p class="lrole">Psicóloga clínica y sexóloga</p></div><a class="cta-l" href="#"><b>Agenda una consulta</b><span>Adolescentes, adultos y parejas</span></a><div class="books"><a class="book" href="#" style="background:var(--a-accent-deep)"><span class="bt">Si la cama hablara…</span><span class="bs">¿Y todas íbamos a ser reinas?</span></a><a class="book" href="#" style="background:var(--a-ink)"><span class="bt">Soy mi propia diosa</span><span class="bs">(aunque a veces se me olvide)</span></a></div>' + linkRows([LINKS[1], LINKS[3]]) + DISC);
+  }
+  function bTemas() {
+    return lp('<div style="display:grid;gap:8px"><h1 class="lname" style="font-size:38px">Coni del Rosario</h1><p class="lrole">Psicóloga clínica y sexóloga</p></div><div style="display:grid;gap:8px"><p class="meta">De qué hablo</p><div class="tags">' + Object.keys(PIL).map(pill).join("") + '</div></div>' + linkRows(LINKS) + DISC);
+  }
+
+  /* ---------- render ---------- */
+  var tab = "metricas", grid = document.getElementById("grid");
+  var likes = {}; Object.keys(SCREENS).forEach(function (k) { likes[k] = []; });
+  try { var saved = JSON.parse(localStorage.getItem("coni-likes-2") || "null"); if (saved) likes = Object.assign(likes, saved); } catch (e) { /* storage unavailable: keep defaults */ }
+  function renderAll() {
+    var sc = SCREENS[tab];
+    document.getElementById("intro").textContent = sc.intro + " Tu elección va primero; las demás quedan de referencia.";
+    var order = sc.items.map(function (_, i) { return i; }).sort(function (a, b) { return (sc.items[b].chosen ? 1 : 0) - (sc.items[a].chosen ? 1 : 0) || a - b; });
+    grid.innerHTML = order.map(function (i) {
+      var it = sc.items[i], n = i + 1, liked = likes[tab].indexOf(n) >= 0;
+      var states = it.states ? '<div class="stbar" role="group" aria-label="Estado de ejemplo"><span>Ver estado:</span>' + it.states.map(function (x) { return '<button data-st="' + x[0] + '" data-n="' + n + '" aria-pressed="' + ((ajState[n] || it.states[0][0]) === x[0]) + '">' + x[1] + '</button>'; }).join("") + '</div>' : "";
+      return '<article class="dir' + (it.chosen ? " chosen" : "") + '"><header class="dir-head"><span class="dir-num">' + n + '</span><h2>' + it.name + (it.chosen ? ' <span class="badge">Elegida</span>' : "") + '</h2><p>' + it.why + '</p><label class="like"><input type="checkbox" id="like-' + tab + '-' + n + '" data-like="' + n + '"' + (liked ? " checked" : "") + '> Me gusta para ' + sc.label + '</label>' + states + '</header><div class="phone" data-n="' + n + '"><div class="screen">' + it.r(n) + '</div></div></article>';
+    }).join("");
+    renderPicks();
+  }
+  function renderOne(n) {
+    var ph = grid.querySelector('.phone[data-n="' + n + '"]'); if (!ph) return;
+    var sc = ph.querySelector(".screen"), top = sc.scrollTop;
+    sc.innerHTML = SCREENS[tab].items[n - 1].r(n); sc.scrollTop = top;
+  }
+  function renderPicks() {
+    var parts = Object.keys(SCREENS).map(function (k) { var l = likes[k].slice().sort(); return SCREENS[k].label + ": " + (l.length ? l.map(function (n) { return n + " (" + SCREENS[k].items[n - 1].name + ")"; }).join(", ") : "sin elegir"); });
+    var any = Object.keys(likes).some(function (k) { return likes[k].length; });
+    document.getElementById("picks-out").textContent = any ? parts.join("\n") : "Todavía no marcas ninguna propuesta.";
+  }
+  document.querySelector(".tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-tab]"); if (!b) return;
+    tab = b.dataset.tab;
+    document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+    renderAll();
+  });
+  grid.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.dataset.like) {
+      var n = +t.dataset.like, arr = likes[tab], i = arr.indexOf(n);
+      if (t.checked && i < 0) arr.push(n); if (!t.checked && i >= 0) arr.splice(i, 1);
+      try { localStorage.setItem("coni-likes-2", JSON.stringify(likes)); } catch (err) { /* storage unavailable: choices stay in memory */ }
+      renderPicks();
+    }
+  });
+  grid.addEventListener("input", function (e) {
+    var t = e.target, ph = t.closest(".phone"); if (!ph) return;
+    var n = +ph.dataset.n;
+    if (t.dataset.act === "q") {
+      query[n] = t.value;
+      var q = t.value.toLowerCase(), list = IDEAS.filter(function (it) { return !q || it.t.toLowerCase().indexOf(q) >= 0 || PIL[it.p].toLowerCase().indexOf(q) >= 0; });
+      var sec = ph.querySelector("[data-list]"); if (sec) sec.innerHTML = list.map(ideaRow).join("");
+      var cnt = sec && sec.previousElementSibling; if (cnt) cnt.textContent = list.length + " resultados";
+    }
+    if (t.dataset.otp && t.value) {
+      var boxes = Array.prototype.slice.call(ph.querySelectorAll("[data-otp]")), idx = boxes.indexOf(t);
+      if (t.value.length > 1) { t.value.replace(/\D/g, "").slice(0, 6).split("").forEach(function (ch, j) { if (boxes[j]) boxes[j].value = ch; }); return; }
+      if (boxes[idx + 1]) boxes[idx + 1].focus();
+    }
+  });
+  grid.addEventListener("paste", function (e) {
+    var t = e.target; if (!t.dataset || !t.dataset.otp) return;
+    var txt = (e.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "").slice(0, 6); if (!txt) return;
+    e.preventDefault();
+    var boxes = t.closest(".phone").querySelectorAll("[data-otp]"); txt.split("").forEach(function (ch, j) { if (boxes[j]) boxes[j].value = ch; });
+  });
+  grid.addEventListener("click", function (e) {
+    var stb = e.target.closest("[data-st]");
+    if (stb) {
+      var sn = +stb.dataset.n; ajState[sn] = stb.dataset.st;
+      stb.parentElement.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === stb)); });
+      renderOne(sn); return;
+    }
+    var b = e.target.closest("[data-act]"); if (!b) return;
+    var ph = b.closest(".phone"); if (!ph) return; var n = +ph.dataset.n;
+    if (b.dataset.act === "if") { ideaFilter[n] = b.dataset.v; renderOne(n); }
+    if (b.dataset.act === "deck") { deckIdx[n] = (deckIdx[n] || 0) + 1; renderOne(n); }
+    if (b.dataset.act === "imode") { ideaMode[n] = b.dataset.v; renderOne(n); }
+    if (b.dataset.act === "cal") { calView[n] = b.dataset.v; renderOne(n); }
+    if (b.dataset.act === "tope") {
+      var out = b.parentElement.querySelector("b"), v = parseInt(out.textContent.replace(/\D/g, ""), 10) + Number(b.dataset.v);
+      out.textContent = "US$ " + Math.min(200, Math.max(10, v));
+    }
+  });
+  grid.addEventListener("click", function (e) {
+    var seg = e.target.closest(".seg button:not([data-act])");
+    if (seg) { seg.parentElement.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === seg)); }); return; }
+    var chip = e.target.closest(".chip:not([data-act])");
+    if (chip) chip.setAttribute("aria-pressed", String(chip.getAttribute("aria-pressed") !== "true"));
+  });
+  document.getElementById("copy").addEventListener("click", function () {
+    var txt = "Elecciones de diseño, segunda ronda\n" + document.getElementById("picks-out").textContent + "\nNotas: " + (document.getElementById("picks-notes").value || "sin notas");
+    var out = document.getElementById("copied");
+    function fallback() { var r = document.createRange(); r.selectNodeContents(document.getElementById("picks-out")); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); out.textContent = "No pude copiar solo: el texto quedó seleccionado, cópialo a mano."; }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { out.textContent = "Copiado. Pégalo en el chat."; }, fallback); else fallback();
+  });
+  renderAll();
+})();
+</script>
