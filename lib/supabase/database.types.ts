@@ -79,6 +79,50 @@ export type Database = {
         }
         Relationships: []
       }
+      avisos: {
+        Row: {
+          canal: string | null
+          clave: string
+          creado_en: string
+          enviado_en: string | null
+          id: string
+          leido_en: string | null
+          mensaje: string
+          pieza_id: string | null
+          tipo: string
+        }
+        Insert: {
+          canal?: string | null
+          clave: string
+          creado_en?: string
+          enviado_en?: string | null
+          id?: string
+          leido_en?: string | null
+          mensaje: string
+          pieza_id?: string | null
+          tipo: string
+        }
+        Update: {
+          canal?: string | null
+          clave?: string
+          creado_en?: string
+          enviado_en?: string | null
+          id?: string
+          leido_en?: string | null
+          mensaje?: string
+          pieza_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clics_enlace_dia: {
         Row: {
           clics: number
