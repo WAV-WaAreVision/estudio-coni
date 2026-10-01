@@ -96,6 +96,17 @@ describe("barrerGastos", () => {
     expect((await gasto(clave)).estado).toBe("confirmado")
   })
 
+  it("confirms a HeyGen reservation whose piece is waiting to be uploaded by hand or already was", async () => {
+    for (const destino of ["para_subir_a_mano", "publicado_a_mano"] as const) {
+      const id = await pieza(destino)
+      const clave = await reservar(id, "heygen", "grabar")
+
+      await barrerGastos(deps(dentroDe(2)))
+
+      expect((await gasto(clave)).estado, destino).toBe("confirmado")
+    }
+  })
+
   it("confirms the Claude and voice reservations of a piece whose script is already waiting for Coni", async () => {
     const id = await pieza("guion_por_aprobar")
     const claude = await reservar(id, "anthropic", "guion")

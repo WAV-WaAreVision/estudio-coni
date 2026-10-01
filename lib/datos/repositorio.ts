@@ -256,12 +256,12 @@ export async function leerGastosAbiertos(
   return gastos.map((gasto) => ({ gasto, pieza: gasto.pieza_id ? (piezas.get(gasto.pieza_id) ?? null) : null }))
 }
 
-/** Published or discarded pieces, last written before `antesDe`, whose files have not been deleted yet. */
+/** Published (also by hand) or discarded pieces, last written before `antesDe`, whose files have not been deleted yet. */
 export async function leerPiezasParaRetencion(db: Db, antesDe: string): Promise<FilaDePieza[]> {
   const { data, error } = await db
     .from("piezas")
     .select("*")
-    .in("estado", ["publicado", "descartado"])
+    .in("estado", ["publicado", "publicado_a_mano", "descartado"])
     .is("archivos_borrados_en", null)
     .lt("actualizada_en", antesDe)
     .order("actualizada_en")
