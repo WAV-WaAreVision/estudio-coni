@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
+    setupFiles: ["./tests/setup-msw.ts"],
     // One database: files run one after another so concurrency tests are not disturbed.
     fileParallelism: false,
     testTimeout: 20_000,

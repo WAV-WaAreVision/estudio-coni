@@ -28,3 +28,30 @@ export function mensajeErrorHeygen(cuerpo: string): string {
     .map((parte) => parte.trim())
   return (partes.join(" · ") || "sin detalle").slice(0, LARGO_MAXIMO)
 }
+
+/**
+ * Readable reason from an ElevenLabs error body: `{"detail": {"status", "message"}}` or `{"detail": "text"}`.
+ * Port of `error_elevenlabs` in coni.py, but never empty and never longer than 400 characters.
+ */
+export function mensajeErrorElevenlabs(cuerpo: string): string {
+  const texto = cuerpo.trim()
+  const crudo = texto.slice(0, LARGO_MAXIMO) || "sin detalle"
+  let datos: unknown
+  try {
+    datos = JSON.parse(texto)
+  } catch {
+    // Not JSON (a gateway page, plain text): the raw text is the best explanation we have.
+    return crudo
+  }
+  const detalle = esRegistro(datos) ? datos.detail : undefined
+  if (typeof detalle === "string") {
+    return detalle.trim().slice(0, LARGO_MAXIMO) || "sin detalle"
+  }
+  if (esRegistro(detalle)) {
+    const partes = [detalle.status, detalle.message]
+      .filter((parte): parte is string => typeof parte === "string" && parte.trim() !== "")
+      .map((parte) => parte.trim())
+    return (partes.join(" · ") || crudo).slice(0, LARGO_MAXIMO)
+  }
+  return crudo
+}
