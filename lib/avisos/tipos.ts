@@ -13,6 +13,14 @@ export type TipoDeAviso = (typeof TIPOS_DE_AVISO)[number]
 
 export type CanalDeAviso = "push" | "correo"
 
+export function esTipoDeAviso(valor: string): valor is TipoDeAviso {
+  return (TIPOS_DE_AVISO as readonly string[]).includes(valor)
+}
+
+export function esCanalDeAviso(valor: string): valor is CanalDeAviso {
+  return valor === "push" || valor === "correo"
+}
+
 /**
  * What identifies a notice. `clave` is the dedup key: the same event (a retried run) has the same key and is stored
  * once. `piezaId` is the piece the notice opens when she taps it.

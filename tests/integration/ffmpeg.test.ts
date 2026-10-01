@@ -184,6 +184,10 @@ describe.skipIf(!FFMPEG)("ffmpeg with libass (skipped without it: brew install f
     const VARIABLES = {
       SUPABASE_URL: "http://127.0.0.1:1",
       SUPABASE_SERVICE_ROLE_KEY: "clave-de-prueba",
+      RESEND_API_KEY: "re_de_prueba",
+      AVISOS_REMITENTE: "Estudio <avisos@estudio.test>",
+      AVISOS_CORREO_CONI: "coni@estudio.test",
+      AVISOS_CORREO_WAV: "wav@estudio.test",
       R2_ACCOUNT_ID: "cuenta",
       R2_ACCESS_KEY_ID: "llave",
       R2_SECRET_ACCESS_KEY: "secreto",

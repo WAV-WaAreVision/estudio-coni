@@ -13,6 +13,10 @@ const VARIABLES = [
   "R2_ACCESS_KEY_ID",
   "R2_SECRET_ACCESS_KEY",
   "R2_BUCKET",
+  "RESEND_API_KEY",
+  "AVISOS_REMITENTE",
+  "AVISOS_CORREO_CONI",
+  "AVISOS_CORREO_WAV",
   "CONI_FFMPEG",
   "FFMPEG_PATH",
   "CONI_FONTSDIR",
@@ -44,6 +48,10 @@ function entornoCompleto(): void {
   process.env.R2_ACCESS_KEY_ID = "llave"
   process.env.R2_SECRET_ACCESS_KEY = "secreto"
   process.env.R2_BUCKET = "balde"
+  process.env.RESEND_API_KEY = "re_de_prueba"
+  process.env.AVISOS_REMITENTE = "Estudio <avisos@estudio.test>"
+  process.env.AVISOS_CORREO_CONI = "coni@estudio.test"
+  process.env.AVISOS_CORREO_WAV = "wav@estudio.test"
   process.env.CONI_FFMPEG = ffmpegBueno
   process.env.CONI_FONTSDIR = join(raiz, "fuentes")
 }

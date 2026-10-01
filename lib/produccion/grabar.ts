@@ -16,8 +16,9 @@ import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashPuerta1, puedeGrabar } from "@/lib/dominio/puertas"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
-import { aCuatroDecimales, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type Almacen, claveVideo } from "@/lib/proveedores/almacen"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
 import { armarPedido } from "@/lib/proveedores/heygen"
 import {
@@ -35,6 +36,7 @@ import { type InfoVideo, revisarVideo } from "@/lib/video/chequeos"
 export interface DepsGrabacion {
   /** A `service_role` client: the database triggers keep enforcing the gates on everything it writes. */
   db: SupabaseClient<Database>
+  avisos: Notificador
   almacen: Almacen
   /** Burns the ASS subtitles into the video and returns the final mp4 (`quemarSubtitulos` with ffmpeg and fonts). */
   quemar: (entrada: { video: Uint8Array; ass: string }) => Promise<Uint8Array>
@@ -284,6 +286,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
   })
   if (reserva.tope) {
     await explicar(deps, contexto.fila, TEXTO_TOPE)
+    await avisarTope(deps, contexto.fila)
     return { resultado: "tope" }
   }
   const { gasto } = reserva

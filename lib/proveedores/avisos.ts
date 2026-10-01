@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { notificadorConRegistro } from "@/lib/avisos/registrado"
 import { type CanalDeAviso, type DatosDeAviso, type MensajePush, mensajePush, TITULO_DE_PUSH } from "@/lib/avisos/tipos"
 import {
   anotarEntrega,
@@ -20,9 +21,9 @@ export interface Notificador {
   /**
    * `urgente` is an alert that goes out now; the rest can wait for the daily summary (08:30 America/Santiago).
    * `mensaje` is what an email says; a push is worded from `aviso.tipo` (a lock screen is public). Answers the channel
-   * that carried it.
+   * that carried it, or `null` when it was kept for the daily summary instead of going out now.
    */
-  aConi(mensaje: string, urgente: boolean, aviso: DatosDeAviso): Promise<CanalDeAviso>
+  aConi(mensaje: string, urgente: boolean, aviso: DatosDeAviso): Promise<CanalDeAviso | null>
   /** The one summary of the day: `cuerpoPush` is its short line, `texto` the whole thing for an email. */
   resumenAConi(resumen: ResumenDelDia): Promise<CanalDeAviso>
   aWav(asunto: string, detalle: string): Promise<void>
@@ -200,12 +201,20 @@ export function notificadorPush(opciones: OpcionesPush): Notificador {
   }
 }
 
+function clienteDeServicio(entorno: Record<string, string | undefined>): SupabaseClient<Database> {
+  return createClient<Database>(
+    exigirEnv("SUPABASE_URL", entorno.SUPABASE_URL),
+    exigirEnv("SUPABASE_SERVICE_ROLE_KEY", entorno.SUPABASE_SERVICE_ROLE_KEY),
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+}
+
 /**
- * The notifier the tasks use in production, from the variables of the Trigger.dev environment. Without any `VAPID_*`
- * variable push is simply not set up yet and everything goes by email; with some of them it fails loudly instead of
- * quietly dropping the push.
+ * What carries a notice to Coni in production: push to her installed app with email as the fallback. Without any
+ * `VAPID_*` variable push is simply not set up yet and everything goes by email; with some of them it fails loudly
+ * instead of quietly dropping the push.
  */
-export function avisosReales(entorno: Record<string, string | undefined> = process.env): Notificador {
+export function canalReal(entorno: Record<string, string | undefined> = process.env): Notificador {
   const correo = notificadorResend({
     clave: exigirEnv("RESEND_API_KEY", entorno.RESEND_API_KEY),
     remitente: exigirEnv("AVISOS_REMITENTE", entorno.AVISOS_REMITENTE),
@@ -214,10 +223,17 @@ export function avisosReales(entorno: Record<string, string | undefined> = proce
   })
   const sinPush = !entorno.VAPID_PUBLIC_KEY && !entorno.VAPID_PRIVATE_KEY && !entorno.VAPID_SUBJECT
   if (sinPush) return correo
-  const db = createClient<Database>(
-    exigirEnv("SUPABASE_URL", entorno.SUPABASE_URL),
-    exigirEnv("SUPABASE_SERVICE_ROLE_KEY", entorno.SUPABASE_SERVICE_ROLE_KEY),
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  )
-  return notificadorPush({ db, servicio: servicioPushReal(entorno), correo })
+  return notificadorPush({ db: clienteDeServicio(entorno), servicio: servicioPushReal(entorno), correo })
+}
+
+/**
+ * The notifier the tasks use in production, from the variables of the Trigger.dev environment: every notice to Coni is
+ * stored in `avisos` once, the urgent ones go out through `canalReal` and the rest wait for the 08:30 summary.
+ */
+export function avisosReales(entorno: Record<string, string | undefined> = process.env): Notificador {
+  return notificadorConRegistro({
+    db: clienteDeServicio(entorno),
+    canal: canalReal(entorno),
+    ahora: () => new Date().toISOString(),
+  })
 }

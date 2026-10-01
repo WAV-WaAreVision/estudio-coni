@@ -6,6 +6,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashPuerta1 } from "@/lib/dominio/puertas"
 import { type DepsGrabacion, estimarCostoVideo, grabarPieza } from "@/lib/produccion/grabar"
 import { almacenEnMemoria, claveVideo } from "@/lib/proveedores/almacen"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
@@ -127,6 +128,7 @@ function doble(cambios: Partial<DepsGrabacion> = {}): Doble {
   const esperas: string[] = []
   const deps: DepsGrabacion = {
     db: clienteDeServicio(),
+    avisos: notificadorEnMemoria(),
     almacen,
     quemar: async (entrada) => {
       quemados.push(entrada)
@@ -470,6 +472,10 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     const resultado = await grabarPieza(d.deps, id)
 
     expect(resultado).toEqual({ resultado: "tope" })
+    expect(d.deps.avisos).toMatchObject({
+      aConiEnviados: [{ mensaje: TOPE, urgente: true }],
+      avisosEnviados: [{ tipo: "tope_alcanzado", clave: `tope_alcanzado:${id}:0`, piezaId: id }],
+    })
     expect(sim.assets).toHaveLength(0)
     expect(sim.creaciones).toHaveLength(0)
     expect(await gastos(id)).toEqual([])

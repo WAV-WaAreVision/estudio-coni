@@ -1,13 +1,14 @@
 import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
+import type { DepsResumen } from "@/lib/avisos/resumen"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import { almacenReal } from "@/lib/proveedores/almacen"
-import { avisosReales } from "@/lib/proveedores/avisos"
+import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
@@ -31,6 +32,7 @@ export async function depsReales(): Promise<DepsProduccion> {
   }
   return {
     db,
+    avisos: avisosReales(),
     claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
     almacen,
     ahora: () => new Date().toISOString(),
@@ -64,6 +66,7 @@ export async function depsGrabacion(
   const ffprobe = await buscarFfprobe(ffmpeg)
   return {
     db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    avisos: avisosReales(),
     almacen,
     quemar: ({ video, ass }) => quemarSubtitulos({ ffmpeg, video, ass, fontsdir }),
     sondear: (bytes) => sondear({ ffprobe, bytes }),
@@ -119,6 +122,11 @@ export function depsFrecuente(
     dispararGrabacion,
     dispararProduccion,
   }
+}
+
+/** The dependencies of the 08:30 summary: the channel, not the notifier that stores notices (the summary stores none). */
+export function depsResumen(): DepsResumen {
+  return { db: clienteDeServicio(), canal: canalReal(), ahora: () => new Date().toISOString() }
 }
 
 /** The dependencies of the nightly run. A missing database URL is the backup's failure, and WAV is told by it. */

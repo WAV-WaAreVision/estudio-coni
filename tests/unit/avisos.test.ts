@@ -2,7 +2,7 @@
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { avisosReales, notificadorEnMemoria, notificadorResend } from "@/lib/proveedores/avisos"
+import { avisosReales, canalReal, notificadorEnMemoria, notificadorResend } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 
 const AVISO = { tipo: "publicado", clave: "publicado:p1:0" } as const
@@ -136,7 +136,7 @@ describe("notificadorEnMemoria", () => {
   })
 })
 
-describe("avisosReales", () => {
+describe("canalReal y avisosReales", () => {
   const CORREO = {
     RESEND_API_KEY: CLAVE,
     AVISOS_REMITENTE: OPCIONES.remitente,
@@ -146,11 +146,15 @@ describe("avisosReales", () => {
 
   it("sends everything by email while push is not set up (no VAPID variable at all)", async () => {
     const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
-    expect(await avisosReales(CORREO).aConi("hola", false, AVISO)).toBe("correo")
+    expect(await canalReal(CORREO).aConi("hola", false, AVISO)).toBe("correo")
     expect(capturas).toHaveLength(1)
   })
 
   it("fails loudly when push is half set up instead of quietly dropping it", () => {
-    expect(() => avisosReales({ ...CORREO, VAPID_SUBJECT: "mailto:wav@estudio.test" })).toThrow(/SUPABASE_URL|VAPID/)
+    expect(() => canalReal({ ...CORREO, VAPID_SUBJECT: "mailto:wav@estudio.test" })).toThrow(/SUPABASE_URL/)
+  })
+
+  it("needs the database to store notices, and says which variable is missing", () => {
+    expect(() => avisosReales(CORREO)).toThrow(/SUPABASE_URL/)
   })
 })
