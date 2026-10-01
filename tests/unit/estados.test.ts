@@ -159,10 +159,12 @@ describe("transicionar", () => {
     expect(nueva.puerta1).toEqual({ hash: "h1", en: ANTES })
   })
 
-  it("borra la voz cuando coni pide cambios al guion", () => {
+  it("borra la voz y abre un intento nuevo cuando coni pide cambios al guion", () => {
     const { pieza } = transicionar(en("guion_por_aprobar", { audioId: "audio_1" }), { tipo: "pedir_cambios" })
     expect(pieza.estado).toBe("guion_en_proceso")
     expect(pieza.audioId).toBeNull()
+    // The new script round must not reuse the spend key of the round that Coni asked to redo.
+    expect(pieza.intento).toBe(1)
   })
 
   it("vuelve a la puerta 1 con la explicación cuando heygen rechaza el contenido", () => {
@@ -196,6 +198,7 @@ describe("transicionar", () => {
     })
     const { pieza: nueva } = transicionar(pieza, { tipo: "cambiar_guion" })
     expect(nueva).toMatchObject({ estado: "guion_en_proceso", puerta1: null, audioId: null, videoId: null })
+    expect(nueva.intento).toBe(1)
   })
 
   it("pide revisar el texto sin regrabar cuando coni edita solo el texto de publicación", () => {

@@ -8,7 +8,14 @@ export const MODELO = "claude-opus-5-5"
 // Routes a declined request to the fallback Anthropic recommends for that refusal category.
 const BETA_FALLBACK = "server-side-fallback-2026-07-01"
 const MAX_TOKENS = 16_000
-const RECHAZO = "Claude no quiso escribir este guion. Prueba con otra idea."
+
+/** Claude declined, even after the fallback. A Falla so Coni reads it; its own class so callers can tell it from other Fallas. */
+export class RechazoDeClaude extends Falla {
+  constructor() {
+    super("Claude no quiso escribir este guion. Prueba con otra idea.")
+    this.name = "RechazoDeClaude"
+  }
+}
 
 // Opus 5.5 list prices, USD per million tokens. A cache write costs 1.25x the input price.
 const USD_ENTRADA = 4
@@ -167,7 +174,7 @@ async function pedirJson<S extends z.ZodType>(
     throw traducirError(error)
   }
   if (respuesta.stop_reason === "refusal") {
-    throw new Falla(RECHAZO)
+    throw new RechazoDeClaude()
   }
   if (respuesta.stop_reason === "max_tokens") {
     throw new Error("Claude se quedó sin espacio antes de terminar la respuesta.")

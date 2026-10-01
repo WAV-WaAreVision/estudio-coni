@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 
 /** Private object storage. The R2 implementation arrives in Plan 3b; tasks and tests only see this port. */
 export interface Almacen {
@@ -49,4 +50,14 @@ export function claveAudio(piezaId: string, mp3: Uint8Array): string {
     throw new Error(`El id de la pieza no es un UUID: ${piezaId}`)
   }
   return `voces/${piezaId}/${createHash("sha256").update(mp3).digest("hex")}.mp3`
+}
+
+/**
+ * The store the tasks use in production. Plan 3b replaces the body with the R2 client; until then it fails before
+ * the task has spent anything.
+ */
+export function almacenReal(): Almacen {
+  throw new FallaDeConfiguracion(
+    "El almacenamiento privado (R2) llega con el Plan 3b: esta tarea todavía no puede correr.",
+  )
 }
