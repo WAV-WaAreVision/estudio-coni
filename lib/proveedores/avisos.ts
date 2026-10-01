@@ -127,10 +127,12 @@ async function enviar(opciones: OpcionesResend, mensaje: { a: string; asunto: st
  */
 export function notificadorResend(opciones: OpcionesResend): Notificador {
   return {
-    async aConi(mensaje, urgente) {
+    async aConi(mensaje, urgente, aviso) {
+      // A reel ready to upload goes out at once because its time is now, but it is good news, not an alert.
+      const importante = urgente && aviso.tipo !== "listo_para_subir"
       await enviar(opciones, {
         a: opciones.correoConi,
-        asunto: urgente ? "Aviso importante de tu estudio" : "Aviso de tu estudio",
+        asunto: importante ? "Aviso importante de tu estudio" : "Aviso de tu estudio",
         texto: mensaje,
       })
       return "correo"

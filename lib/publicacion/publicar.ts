@@ -12,7 +12,14 @@ import {
 } from "@/lib/datos/repositorio"
 import { type Evento, type Pieza, transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { claveIdempotencia, hashPuerta2, hashTexto, puedePublicar, type Veredicto } from "@/lib/dominio/puertas"
+import {
+  claveIdempotencia,
+  hashPuerta2,
+  hashTexto,
+  puedeEntregarseParaSubir,
+  puedePublicar,
+  type Veredicto,
+} from "@/lib/dominio/puertas"
 import { piezaCambio } from "@/lib/produccion/comun"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -40,7 +47,7 @@ export interface DepsPublicacion {
 
 export type ResultadoPublicacion = {
   piezaId: string
-  resultado: "publicada" | "hora_vencida" | "falla_publicacion" | "esperando"
+  resultado: "publicada" | "hora_vencida" | "falla_publicacion" | "esperando" | "para_subir_a_mano"
 }
 
 /** How long a run holds a piece. Longer than the 5-minute cron, so a piece that is waiting is not retaken at once. */
@@ -65,10 +72,17 @@ interface Credenciales {
   cuentaId: string
 }
 
+/**
+ * `nunca`: Instagram was never connected (no account and no token), so the piece goes to Coni for a manual upload.
+ * `incompleta`: one of the two is there and the other is missing, which means a connection that broke: the piece
+ * keeps failing with the reconnect message instead.
+ */
+type Conexion = ({ tipo: "conectada" } & Credenciales) | { tipo: "nunca" } | { tipo: "incompleta" }
+
 interface Contexto {
   deps: DepsPublicacion
   fila: FilaDePieza
-  credenciales: () => Promise<Credenciales | null>
+  conexion: () => Promise<Conexion>
   /** Failures to send an alert: the piece is already settled, so they are raised at the end of the run. */
   avisosFallidos: Error[]
 }
@@ -125,7 +139,11 @@ async function avisar(contexto: Contexto, envio: () => Promise<unknown>): Promis
 }
 
 /** One key per piece, kind and attempt (`intento` goes up on a retry), so a repeated run says nothing twice. */
-function avisoDe(contexto: Contexto, tipo: "error_definitivo" | "publicado", motivo?: string): DatosDeAviso {
+function avisoDe(
+  contexto: Contexto,
+  tipo: "error_definitivo" | "publicado" | "listo_para_subir",
+  motivo?: string,
+): DatosDeAviso {
   const { fila } = contexto
   const partes = [tipo, fila.id, ...(motivo ? [motivo] : []), String(fila.intento)]
   return { tipo, clave: partes.join(":"), piezaId: fila.id }
@@ -370,13 +388,36 @@ async function publicarPieza(contexto: Contexto, credenciales: Credenciales): Pr
   return confirmar(contexto, credenciales, mediaId)
 }
 
+/** Nothing was ever sent to Instagram for this piece, so handing it to Coni cannot leave a post behind. */
+function sinRastroEnInstagram(contexto: Contexto): boolean {
+  const { fila } = contexto
+  return fila.contenedor_id === null && fila.media_id === null && fila.publicacion_enviada_en === null
+}
+
+/** Instagram is not connected: at the approved time the piece waits for Coni to upload it herself. */
+async function entregarParaSubir(contexto: Contexto): Promise<ResultadoPublicacion> {
+  const pieza = piezaDesdeFila(contexto.fila)
+  const texto = contexto.fila.texto
+  if (pieza.puerta2 === null || texto === null) {
+    return fallar(contexto, EXPLICACION_CAMBIO, "la pieza programada no tiene aprobación o texto guardados")
+  }
+  const veredicto = puedeEntregarseParaSubir(pieza, { hashTexto: hashTexto(texto), ahora: contexto.deps.ahora() })
+  if (!veredicto.ok) return rechazarPorElGuardia(contexto, veredicto)
+  await escribirTransicion(contexto, { tipo: "entregar_para_subir" })
+  const mensaje = `Tu reel «${contexto.fila.titulo}» está listo para que lo subas a Instagram. Entra a la app para descargar el video y copiar el texto.`
+  // Sent at once because its time is now; it is good news, so it is not an urgent kind and carries no error.
+  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, true, avisoDe(contexto, "listo_para_subir")))
+  return { piezaId: contexto.fila.id, resultado: "para_subir_a_mano" }
+}
+
 async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
-    const credenciales = await contexto.credenciales()
-    if (!credenciales) {
+    const conexion = await contexto.conexion()
+    if (conexion.tipo === "nunca" && sinRastroEnInstagram(contexto)) return await entregarParaSubir(contexto)
+    if (conexion.tipo !== "conectada") {
       return await fallar(contexto, EXPLICACION_RECONECTAR, "Falta el token de Instagram (secreto meta) o la cuenta.")
     }
-    return await publicarPieza(contexto, credenciales)
+    return await publicarPieza(contexto, conexion)
   } catch (error) {
     if (error instanceof Rechazo) {
       return await fallar(contexto, error.explicacion, error.detalle, { envioRechazado: error.envioRechazado })
@@ -395,19 +436,20 @@ export async function publicarPendientes(deps: DepsPublicacion): Promise<Resulta
   const resultados: ResultadoPublicacion[] = []
   const errores: Error[] = []
   const avisosFallidos: Error[] = []
-  let credenciales: Promise<Credenciales | null> | undefined
-  const leerCredenciales = () => {
-    credenciales ??= (async () => {
+  let conexion: Promise<Conexion> | undefined
+  const leerConexion = () => {
+    conexion ??= (async (): Promise<Conexion> => {
       const [token, cuentaId] = await Promise.all([leerSecreto(deps.db, "meta"), leerCuentaMeta(deps.db)])
-      return token && cuentaId ? { token, cuentaId } : null
+      if (token && cuentaId) return { tipo: "conectada", token, cuentaId }
+      return !token && !cuentaId ? { tipo: "nunca" } : { tipo: "incompleta" }
     })()
-    return credenciales
+    return conexion
   }
 
   for (;;) {
     const fila = await tomarParaPublicar(deps.db, deps.ahora(), ARRIENDO_SEGUNDOS)
     if (!fila) break
-    const contexto: Contexto = { deps, fila, credenciales: leerCredenciales, avisosFallidos }
+    const contexto: Contexto = { deps, fila, conexion: leerConexion, avisosFallidos }
     try {
       resultados.push(await procesar(contexto))
     } catch (error) {

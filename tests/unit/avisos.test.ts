@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
+import { esTipoDeAviso, mensajePush, rutaDeAviso } from "@/lib/avisos/tipos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { avisosReales, canalReal, notificadorEnMemoria, notificadorResend } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
@@ -44,6 +45,15 @@ function esReintentable(error: Error): boolean {
   return !(error instanceof FallaDeConfiguracion) && !(error instanceof Falla)
 }
 
+describe("avisos de subir a mano", () => {
+  it("opens the video screen of the piece and says it in the push without naming the reel", () => {
+    const aviso = { tipo: "listo_para_subir", piezaId: "p1" } as const
+    expect(rutaDeAviso(aviso)).toBe("/video/p1")
+    expect(mensajePush(aviso)).toMatchObject({ cuerpo: "Tu reel está listo para subir a Instagram", url: "/video/p1" })
+    expect(esTipoDeAviso("listo_para_subir")).toBe(true)
+  })
+})
+
 describe("notificadorResend", () => {
   // https://resend.com/docs/api-reference/emails/send-email : POST https://api.resend.com/emails, Bearer key,
   // `from`, `to`, `subject` and `text`; answers `{ "id": "..." }`.
@@ -68,6 +78,16 @@ describe("notificadorResend", () => {
     expect(asuntos[0]).not.toBe(asuntos[1])
     expect(asuntos[0]).toContain("importante")
     expect(asuntos.join(" ")).not.toContain("—")
+  })
+
+  it("does not call a reel ready for upload an important notice, even though it goes out at once", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
+    await notificadorResend(OPCIONES).aConi("Tu reel está listo.", true, {
+      tipo: "listo_para_subir",
+      clave: "listo_para_subir:p1",
+      piezaId: "p1",
+    })
+    expect(String(capturas[0]?.cuerpo.subject)).not.toContain("importante")
   })
 
   it("sends the daily summary to her address under its own subject", async () => {

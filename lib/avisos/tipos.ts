@@ -8,6 +8,7 @@ export const TIPOS_DE_AVISO = [
   "tope_alcanzado",
   "instagram_por_vencer",
   "recordatorio_48h",
+  "listo_para_subir",
 ] as const
 export type TipoDeAviso = (typeof TIPOS_DE_AVISO)[number]
 
@@ -49,6 +50,7 @@ const CUERPO_DE_PUSH: Record<TipoDeAviso, string> = {
   tope_alcanzado: "Llegaste al tope de gasto de este mes",
   instagram_por_vencer: "Tu conexión con Instagram necesita atención",
   recordatorio_48h: "Tienes algo esperando tu firma",
+  listo_para_subir: "Tu reel está listo para subir a Instagram",
 }
 
 /** Where tapping a notice leads: the piece it is about, or Inicio. Never an approve action. */
