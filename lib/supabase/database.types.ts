@@ -144,6 +144,27 @@ export type Database = {
           },
         ]
       }
+      guias: {
+        Row: {
+          creada_en: string
+          texto: string
+          version: number
+          vigente: boolean
+        }
+        Insert: {
+          creada_en?: string
+          texto: string
+          version: number
+          vigente?: boolean
+        }
+        Update: {
+          creada_en?: string
+          texto?: string
+          version?: number
+          vigente?: boolean
+        }
+        Relationships: []
+      }
       ideas: {
         Row: {
           alertas: Json
@@ -265,6 +286,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          revision: Json
           texto: string | null
           titulo: string
           version: number
@@ -292,6 +314,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          revision?: Json
           texto?: string | null
           titulo: string
           version?: number
@@ -319,6 +342,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          revision?: Json
           texto?: string | null
           titulo?: string
           version?: number
