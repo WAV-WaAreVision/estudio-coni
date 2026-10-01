@@ -7,7 +7,14 @@ import { filaDeCuenta } from "@/lib/ajustes/presentar"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { cerrarSesionAccion } from "../acciones"
-import { guardarAjusteAccion, guardarLlaveAccion } from "./acciones"
+import {
+  enviarPruebaAccion,
+  guardarAjusteAccion,
+  guardarLlaveAccion,
+  guardarSuscripcionAccion,
+  quitarSuscripcionAccion,
+} from "./acciones"
+import { AvisosDelCelular } from "./avisos-del-celular"
 import { BloqueDeEstado } from "./bloque-de-estado"
 import { CuentasConectadas } from "./cuentas-conectadas"
 import { EditorDeAjustes } from "./editor-de-ajustes"
@@ -20,6 +27,12 @@ export default async function Ajustes({ searchParams }: { searchParams: Promise<
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   if (!ajustes) throw new Error("Falta la fila de ajustes.")
   const presupuesto = await leerPresupuesto(db, Date.now(), ajustes.zona)
+  const { count: dispositivos, error: errorDeDispositivos } = await db
+    .from("suscripciones_push")
+    .select("id", { count: "exact", head: true })
+  if (errorDeDispositivos) throw new Error(`No pude leer tus aparatos: ${errorDeDispositivos.message}`)
+  // Read at request time on purpose: it is not a NEXT_PUBLIC variable, so the build does not freeze it.
+  const claveVapid = process.env.VAPID_PUBLIC_KEY || null
   const aviso = avisoDeInstagram(instagram)
 
   return (
@@ -33,8 +46,19 @@ export default async function Ajustes({ searchParams }: { searchParams: Promise<
       ) : null}
 
       <Suspense fallback={<EsqueletoDelBloque />}>
-        <BloqueDeEstado zona={ajustes.zona} />
+        <BloqueDeEstado zona={ajustes.zona} avisosActivos={(dispositivos ?? 0) > 0} />
       </Suspense>
+
+      <Seccion titulo="Avisos en tu celular" id="avisos">
+        <AvisosDelCelular
+          claveVapid={claveVapid}
+          acciones={{
+            guardar: guardarSuscripcionAccion,
+            quitar: quitarSuscripcionAccion,
+            probar: enviarPruebaAccion,
+          }}
+        />
+      </Seccion>
 
       <EditorDeAjustes
         inicial={{

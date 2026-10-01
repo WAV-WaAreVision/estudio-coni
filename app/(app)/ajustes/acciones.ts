@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { guardarAjuste, guardarLlave } from "@/lib/acciones/ajustes"
+import { enviarPrueba, guardarSuscripcion, quitarSuscripcion } from "@/lib/acciones/avisos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
+import { servicioPushReal } from "@/lib/proveedores/push"
 
 const deps = (db: Parameters<typeof guardarAjuste>[0]["db"]) => ({ db, ahora: () => new Date().toISOString() })
 
@@ -29,4 +31,33 @@ export async function guardarLlaveAccion(cuenta: string, valor: string) {
   return refrescar(
     await conSesionDeConi("guardarLlave", llave, { cuenta, llave: valor }, (db, d) => guardarLlave(deps(db), d)),
   )
+}
+
+const suscripcion = z.object({
+  endpoint: z.url().startsWith("https://").max(2048),
+  p256dh: z.string().min(1).max(512),
+  auth: z.string().min(1).max(512),
+  userAgent: z.string().max(300).optional(),
+})
+
+const depsDeAvisos = (db: Parameters<typeof guardarSuscripcion>[0]["db"]) => ({ db, push: () => servicioPushReal() })
+
+export async function guardarSuscripcionAccion(entrada: z.input<typeof suscripcion>) {
+  return refrescar(
+    await conSesionDeConi("guardarSuscripcion", suscripcion, entrada, (db, d) =>
+      guardarSuscripcion(depsDeAvisos(db), d),
+    ),
+  )
+}
+
+export async function quitarSuscripcionAccion(endpoint: string) {
+  return refrescar(
+    await conSesionDeConi("quitarSuscripcion", z.object({ endpoint: z.string().max(2048) }), { endpoint }, (db, d) =>
+      quitarSuscripcion(depsDeAvisos(db), d.endpoint),
+    ),
+  )
+}
+
+export async function enviarPruebaAccion() {
+  return conSesionDeConi("enviarPrueba", z.object({}), {}, (db) => enviarPrueba(depsDeAvisos(db)))
 }

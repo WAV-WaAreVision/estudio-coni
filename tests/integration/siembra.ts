@@ -63,6 +63,8 @@ export async function borrarSembrado(piezas: readonly string[], ideas: readonly 
 
 /** For the E2E run, which owns the whole local database for its duration. */
 export async function vaciarPiezasEIdeas(): Promise<void> {
+  await pool.query("delete from public.avisos")
+  await pool.query("delete from public.suscripciones_push")
   await pool.query("delete from public.gastos")
   await pool.query("delete from public.intervenciones where pieza_id is not null")
   await pool.query("delete from public.piezas")

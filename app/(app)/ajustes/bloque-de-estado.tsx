@@ -12,8 +12,8 @@ const FONDO: Record<Bloque["tipo"], string> = {
 }
 
 /** The block on top of Ajustes (docs/DESIGN.md, status-block): setting up, all good, or something needs her. */
-export async function BloqueDeEstado({ zona }: { zona: string }) {
-  const bloque = estadoDeAjustes({ cuentas: await revisionDeCuentas(), ahora: Date.now(), zona })
+export async function BloqueDeEstado({ zona, avisosActivos }: { zona: string; avisosActivos: boolean }) {
+  const bloque = estadoDeAjustes({ cuentas: await revisionDeCuentas(), avisosActivos, ahora: Date.now(), zona })
 
   return (
     <section aria-labelledby="estado-titulo" className={cn("grid gap-2.5 rounded-lg p-4.5", FONDO[bloque.tipo])}>

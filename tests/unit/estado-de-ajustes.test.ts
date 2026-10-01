@@ -12,7 +12,12 @@ const con = (...cambios: EstadoDeCuenta[]) =>
 
 describe("estadoDeAjustes", () => {
   it("says everything is connected, and when it was checked, when all four answered", () => {
-    const estado = estadoDeAjustes({ cuentas: TODAS_LISTAS, ahora: AHORA, zona: "America/Santiago" })
+    const estado = estadoDeAjustes({
+      cuentas: TODAS_LISTAS,
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
 
     expect(estado).toMatchObject({
       tipo: "todo_bien",
@@ -25,17 +30,19 @@ describe("estadoDeAjustes", () => {
   it("is setting up while any account is missing, counting the steps done and offering the next one", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "instagram", estado: "falta" }, { cuenta: "elevenlabs", estado: "falta" }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
 
     expect(estado.tipo).toBe("configurando")
-    expect(estado.titulo).toBe("Configuración: 2 de 4 listos")
+    expect(estado.titulo).toBe("Configuración: 3 de 5 listos")
     expect(estado.pasos).toEqual([
       { etiqueta: "Instagram conectado", listo: false },
       { etiqueta: "HeyGen con tu avatar", listo: true },
       { etiqueta: "ElevenLabs con tu voz", listo: false },
       { etiqueta: "Claude (Anthropic)", listo: true },
+      { etiqueta: "Avisos en tu celular", listo: true },
     ])
     expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
   })
@@ -43,6 +50,7 @@ describe("estadoDeAjustes", () => {
   it("offers the key field of the first missing account when it is not Instagram", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "heygen", estado: "falta" }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -53,6 +61,7 @@ describe("estadoDeAjustes", () => {
   it("warns when Instagram expires within a week, with days, and offers to renew it", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "instagram", estado: "vence", expiraEn: AHORA + 6 * DIA }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -68,6 +77,7 @@ describe("estadoDeAjustes", () => {
   it("says tomorrow, and not '1 días'", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "instagram", estado: "vence", expiraEn: AHORA + 0.5 * DIA }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -78,6 +88,7 @@ describe("estadoDeAjustes", () => {
   it("says it already expired when it did", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "instagram", estado: "vencida" }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -88,6 +99,7 @@ describe("estadoDeAjustes", () => {
   it("warns about a key that an account rejected, and points to its field", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "anthropic", estado: "rechazada", motivo: "HTTP 401" }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -105,6 +117,7 @@ describe("estadoDeAjustes", () => {
         { cuenta: "heygen", estado: "falta" },
         { cuenta: "instagram", estado: "vence", expiraEn: AHORA + DIA },
       ),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -113,6 +126,7 @@ describe("estadoDeAjustes", () => {
         { cuenta: "heygen", estado: "sin_respuesta" },
         { cuenta: "instagram", estado: "vence", expiraEn: AHORA + DIA },
       ),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -124,6 +138,7 @@ describe("estadoDeAjustes", () => {
   it("admits it could not check, instead of saying everything is fine", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "heygen", estado: "sin_respuesta" }),
+      avisosActivos: true,
       ahora: AHORA,
       zona: "America/Santiago",
     })
@@ -133,5 +148,29 @@ describe("estadoDeAjustes", () => {
       titulo: "No pude revisar las cuentas ahora",
       texto: "Lo intento de nuevo cuando abras Ajustes.",
     })
+  })
+
+  it("lists the notices as one more step that is missing until she turns them on, without making that the next action", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }),
+      avisosActivos: false,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.titulo).toBe("Configuración: 3 de 5 listos")
+    expect(estado.pasos.at(-1)).toEqual({ etiqueta: "Avisos en tu celular", listo: false })
+    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "#cuenta-heygen" })
+  })
+
+  it("does not call it setting up when only the notices are missing: the email reaches her anyway", () => {
+    const estado = estadoDeAjustes({
+      cuentas: TODAS_LISTAS,
+      avisosActivos: false,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.tipo).toBe("todo_bien")
   })
 })
