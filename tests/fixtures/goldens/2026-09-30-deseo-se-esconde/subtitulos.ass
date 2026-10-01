@@ -1,0 +1,47 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Coni,AvenirNext-Bold,84,&H00FFFFFF,&H00FFFFFF,&H14000000,&H00000000,-1,0,0,0,100,100,0,0,1,7,0,5,140,140,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:01.02,Coni,,0,0,0,,{\an5\pos(540,1344)}El deseo en la pareja no
+Dialogue: 0,0:00:01.10,0:00:02.74,Coni,,0,0,0,,{\an5\pos(540,1344)}se apaga. Se esconde.
+Dialogue: 0,0:00:03.32,0:00:04.38,Coni,,0,0,0,,{\an5\pos(540,1344)}Hay un mito que escucho
+Dialogue: 0,0:00:04.44,0:00:05.88,Coni,,0,0,0,,{\an5\pos(540,1344)}todo el tiempo: si hay
+Dialogue: 0,0:00:05.94,0:00:07.40,Coni,,0,0,0,,{\an5\pos(540,1344)}amor, el deseo aparece
+Dialogue: 0,0:00:07.50,0:00:07.78,Coni,,0,0,0,,{\an5\pos(540,1344)}solo.
+Dialogue: 0,0:00:08.34,0:00:09.30,Coni,,0,0,0,,{\an5\pos(540,1344)}Y cuando no aparece,
+Dialogue: 0,0:00:09.74,0:00:11.28,Coni,,0,0,0,,{\an5\pos(540,1344)}muchas personas sienten
+Dialogue: 0,0:00:11.38,0:00:12.20,Coni,,0,0,0,,{\an5\pos(540,1344)}que algo anda mal.
+Dialogue: 0,0:00:12.80,0:00:13.78,Coni,,0,0,0,,{\an5\pos(540,1344)}Pero en una relación
+Dialogue: 0,0:00:13.82,0:00:15.22,Coni,,0,0,0,,{\an5\pos(540,1344)}larga, el deseo muchas
+Dialogue: 0,0:00:15.26,0:00:16.30,Coni,,0,0,0,,{\an5\pos(540,1344)}veces no llega solo.
+Dialogue: 0,0:00:16.92,0:00:17.76,Coni,,0,0,0,,{\an5\pos(540,1344)}Se esconde detrás del
+Dialogue: 0,0:00:17.82,0:00:19.86,Coni,,0,0,0,,{\an5\pos(540,1344)}cansancio, la rutina, el
+Dialogue: 0,0:00:19.96,0:00:21.38,Coni,,0,0,0,,{\an5\pos(540,1344)}celular y la lista de
+Dialogue: 0,0:00:21.44,0:00:22.18,Coni,,0,0,0,,{\an5\pos(540,1344)}pendientes.
+Dialogue: 0,0:00:22.42,0:00:23.32,Coni,,0,0,0,,{\an5\pos(540,1344)}No es que se haya ido.
+Dialogue: 0,0:00:23.82,0:00:24.64,Coni,,0,0,0,,{\an5\pos(540,1344)}Es que no tiene dónde
+Dialogue: 0,0:00:24.66,0:00:25.18,Coni,,0,0,0,,{\an5\pos(540,1344)}aparecer.
+Dialogue: 0,0:00:25.72,0:00:26.76,Coni,,0,0,0,,{\an5\pos(540,1344)}Te propongo algo para
+Dialogue: 0,0:00:26.80,0:00:28.52,Coni,,0,0,0,,{\an5\pos(540,1344)}esta semana. Reserva un
+Dialogue: 0,0:00:28.58,0:00:29.90,Coni,,0,0,0,,{\an5\pos(540,1344)}rato para ustedes dos,
+Dialogue: 0,0:00:30.36,0:00:31.94,Coni,,0,0,0,,{\an5\pos(540,1344)}sin pantallas y sin
+Dialogue: 0,0:00:32.00,0:00:33.10,Coni,,0,0,0,,{\an5\pos(540,1344)}hablar de pendientes.
+Dialogue: 0,0:00:33.66,0:00:34.74,Coni,,0,0,0,,{\an5\pos(540,1344)}No tiene que terminar en
+Dialogue: 0,0:00:34.78,0:00:35.10,Coni,,0,0,0,,{\an5\pos(540,1344)}nada.
+Dialogue: 0,0:00:35.58,0:00:37.14,Coni,,0,0,0,,{\an5\pos(540,1344)}Conversen, ríanse,
+Dialogue: 0,0:00:37.48,0:00:38.92,Coni,,0,0,0,,{\an5\pos(540,1344)}abrácense sin apuro.
+Dialogue: 0,0:00:39.46,0:00:40.68,Coni,,0,0,0,,{\an5\pos(540,1344)}Y si la falta de deseo
+Dialogue: 0,0:00:40.86,0:00:41.60,Coni,,0,0,0,,{\an5\pos(540,1344)}te hace sufrir,
+Dialogue: 0,0:00:42.08,0:00:43.06,Coni,,0,0,0,,{\an5\pos(540,1344)}conversarlo con una
+Dialogue: 0,0:00:43.12,0:00:44.32,Coni,,0,0,0,,{\an5\pos(540,1344)}profesional también
+Dialogue: 0,0:00:44.36,0:00:44.76,Coni,,0,0,0,,{\an5\pos(540,1344)}ayuda.
+Dialogue: 0,0:00:45.38,0:00:46.60,Coni,,0,0,0,,{\an5\pos(540,1344)}Soy Coni del Rosario.
