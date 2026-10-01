@@ -20,9 +20,10 @@ import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { CIERRE } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import { CONI, comoConi, pool } from "./db"
-import { AUDIO, aplicar, crearPiezaEn, TEXTO, VIDEO } from "./flujo"
+import { AUDIO, aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
+import { ajustarPieza, borrarSembrado, leerFila, sembrarIdea, sembrarPieza } from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -64,46 +65,21 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error } = {})
   return { deps, disparos }
 }
 
-/** Walks a piece to `destino` with the real flow, committing, and remembers it for the cleanup. */
-async function pieza(destino: Parameters<typeof crearPiezaEn>[1], ajustes: Record<string, unknown> = {}) {
-  const cliente = await pool.connect()
-  try {
-    await cliente.query("begin")
-    const id = await crearPiezaEn(cliente, destino)
-    await cliente.query("commit")
-    piezasCreadas.push(id)
-    if (Object.keys(ajustes).length > 0) await ajustarComoPostgres(id, ajustes)
-    return id
-  } catch (error) {
-    await cliente.query("rollback")
-    throw error
-  } finally {
-    cliente.release()
-  }
+async function pieza(destino: Parameters<typeof sembrarPieza>[0], ajustes: Record<string, unknown> = {}) {
+  const id = await sembrarPieza(destino, ajustes)
+  piezasCreadas.push(id)
+  return id
 }
 
-async function ajustarComoPostgres(id: string, columnas: Record<string, unknown>) {
-  const nombres = Object.keys(columnas)
-  const asignaciones = ["version = version + 1", ...nombres.map((n, i) => `${n} = $${i + 2}`)].join(", ")
-  await pool.query(`update public.piezas set ${asignaciones} where id = $1`, [id, ...nombres.map((n) => columnas[n])])
-}
+const ajustarComoPostgres = ajustarPieza
+const fila = leerFila
 
 async function versionDe(id: string): Promise<number> {
   return (await fila(id)).version
 }
 
-async function fila(id: string) {
-  const { rows } = await pool.query("select * from public.piezas where id = $1", [id])
-  return rows[0]
-}
-
 async function idea(extra: { pilar?: string; alertas?: unknown } = {}): Promise<string> {
-  const { rows } = await pool.query<{ id: string }>(
-    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb) returning id",
-    [extra.pilar ?? "deseo", "El deseo no se apaga, se esconde", JSON.stringify(extra.alertas ?? [])],
-  )
-  const id = rows[0]?.id
-  if (!id) throw new Error("No se creó la idea")
+  const id = await sembrarIdea(extra)
   ideasCreadas.push(id)
   return id
 }
@@ -118,10 +94,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  // Pieces and ideas cannot be deleted by anyone but the owner role; the audit rows stay (append-only).
-  await pool.query("delete from public.gastos where pieza_id = any($1)", [piezasCreadas])
-  await pool.query("delete from public.piezas where id = any($1)", [piezasCreadas])
-  await pool.query("delete from public.ideas where id = any($1)", [ideasCreadas])
+  await borrarSembrado(piezasCreadas, ideasCreadas)
   await pool.end()
 })
 
@@ -512,6 +485,19 @@ describe("aprobarVideo", () => {
     expect(resultado).toMatchObject({ ok: false })
     expect(!resultado.ok && resultado.error).toContain("Falta el aviso de avatar.")
     expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("refuses a time that another reel already has, so two never go out together", async () => {
+    const primera = await paraAprobar()
+    const segunda = await paraAprobar()
+    const { deps } = armar()
+    const hora = "2098-03-03T19:00:00-03:00"
+    expect(await aprobarVideo(deps, primera, await versionDe(primera), hora)).toMatchObject({ ok: true })
+
+    const resultado = await aprobarVideo(deps, segunda, await versionDe(segunda), hora)
+
+    expect(resultado).toEqual({ ok: false, error: "Ese horario ya lo tiene otro reel. Elige otro." })
+    expect((await fila(segunda)).estado).toBe("video_por_aprobar")
   })
 
   it("does not let the maintainer schedule", async () => {

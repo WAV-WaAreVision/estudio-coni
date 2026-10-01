@@ -5,9 +5,8 @@ import { createActionClient } from "@/lib/supabase/action"
 import type { Database } from "@/lib/supabase/database.types"
 import { disparosDeEntorno } from "./disparos-entorno"
 import type { DepsAcciones } from "./piezas"
-import { ERROR_GENERICO, type Resultado } from "./resultado"
+import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "./resultado"
 
-export const ERROR_SESION_VENCIDA = "Tu sesión venció. Entra de nuevo."
 const ERROR_SOLICITUD = "No entendí esa solicitud. Vuelve a abrir la pantalla."
 
 function clienteDeServicio() {

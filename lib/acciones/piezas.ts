@@ -9,7 +9,7 @@ import {
   revisionAJson,
 } from "@/lib/datos/repositorio"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
-import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
+import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
@@ -257,6 +257,21 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
   })
 }
 
+/** Two reels at the same minute would go out together: the slot has to be free. An unreadable time is the domain's to refuse. */
+async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): Promise<void> {
+  const instante = instanteEstricto(publicarEn)
+  if (instante === null) return
+  const { data, error } = await db
+    .from("piezas")
+    .select("id")
+    .eq("estado", "programado")
+    .eq("puerta2_publicar_en", instante)
+    .neq("id", piezaId)
+    .limit(1)
+  if (error) throw new Error(`No pude revisar si el horario está libre: ${error.message}`, { cause: error })
+  if (data.length > 0) throw new Falla("Ese horario ya lo tiene otro reel. Elige otro.")
+}
+
 export function aprobarVideo(deps: DepsAcciones, piezaId: string, versionVista: number, publicarEn: string) {
   return aResultado("aprobarVideo", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
@@ -266,6 +281,7 @@ export function aprobarVideo(deps: DepsAcciones, piezaId: string, versionVista: 
       throw new Error(`La pieza ${fila.id} está por aprobar sin video o sin texto.`)
     }
     exigirRevisionLimpia(fila)
+    await exigirHorarioLibre(deps.db, fila.id, publicarEn)
     const hash = hashTexto(fila.texto)
     await guardarEvento(deps.db, fila, {
       tipo: "aprobar_video",

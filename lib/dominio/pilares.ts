@@ -9,3 +9,7 @@ export const NOMBRE_DE_PILAR: Record<Pilar, string> = {
   limites: "Género y límites",
   bienestar: "Bienestar emocional",
 }
+
+export function esPilar(valor: string | null | undefined): valor is Pilar {
+  return PILARES.some((pilar) => pilar === valor)
+}

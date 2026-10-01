@@ -6,20 +6,21 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 const PESTANAS = [
-  { href: "/", etiqueta: "Inicio", icono: House, rutasHijas: ["/guion", "/video"] },
-  { href: "/metricas", etiqueta: "Métricas", icono: ChartColumn, rutasHijas: [] },
-  { href: "/ajustes", etiqueta: "Ajustes", icono: Settings, rutasHijas: [] },
+  { href: "/", etiqueta: "Inicio", icono: House },
+  { href: "/metricas", etiqueta: "Métricas", icono: ChartColumn },
+  { href: "/ajustes", etiqueta: "Ajustes", icono: Settings },
 ] as const
 
 function estaActiva(ruta: string, pestana: (typeof PESTANAS)[number]): boolean {
-  if (pestana.href === "/") {
-    return ruta === "/" || pestana.rutasHijas.some((hija) => ruta === hija || ruta.startsWith(`${hija}/`))
-  }
-  return ruta === pestana.href || ruta.startsWith(`${pestana.href}/`)
+  return pestana.href === "/" ? ruta === "/" : ruta === pestana.href || ruta.startsWith(`${pestana.href}/`)
 }
+
+// On the screens that approve something, the approve bar takes the bottom of the screen (DESIGN.md).
+const RUTAS_DE_DETALLE = ["/guion/", "/video/"]
 
 export function NavInferior() {
   const ruta = usePathname()
+  if (RUTAS_DE_DETALLE.some((prefijo) => ruta.startsWith(prefijo))) return null
 
   return (
     <nav

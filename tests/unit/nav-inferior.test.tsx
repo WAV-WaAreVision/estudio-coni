@@ -26,10 +26,13 @@ describe("NavInferior", () => {
     expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current")
   })
 
-  it("keeps Inicio current inside the script and video screens that open from it", () => {
-    usePathname.mockReturnValue("/guion/abc")
-    render(<NavInferior />)
+  it.each(["/guion/abc", "/video/abc"])(
+    "steps aside on %s so the approve bar owns the bottom of the screen",
+    (ruta) => {
+      usePathname.mockReturnValue(ruta)
+      render(<NavInferior />)
 
-    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page")
-  })
+      expect(screen.queryByRole("navigation")).not.toBeInTheDocument()
+    },
+  )
 })

@@ -3,6 +3,7 @@ import { Falla } from "@/lib/dominio/falla"
 /** What every Server Action answers: Next redacts thrown messages, so errors travel as values. */
 export type Resultado<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string }
 
+export const ERROR_SESION_VENCIDA = "Tu sesión venció. Entra de nuevo."
 export const ERROR_GENERICO = "Algo falló de nuestro lado. Inténtalo de nuevo en unos minutos."
 
 /**
