@@ -31,6 +31,15 @@ async function versiones(c: pg.PoolClient, id: string): Promise<Version[]> {
   return rows
 }
 
+async function borrador(c: pg.PoolClient, id: string) {
+  await asumir(c, comoPostgres)
+  const { rows } = await c.query<{ version: number; guion: string | null; texto: string | null }>(
+    "select version, guion, texto from public.piezas where id = $1",
+    [id],
+  )
+  return rows[0]
+}
+
 describe("guion_versiones", () => {
   it("records Claude's draft as version 1 and the next draft as version 2", async () => {
     await como(comoPostgres, async (c) => {
@@ -179,4 +188,23 @@ describe("editar_guion_como_coni", () => {
       expect(err.message).toBe("revision_bloquea")
     })
   })
+  for (const [nombre, guion, texto, mensaje] of [
+    ["a blank script", "  ", "T", "guion_vacio"],
+    ["a null script", null, "T", "guion_vacio"],
+    ["a blank text", "G", " \n", "texto_vacio"],
+    ["a null text", "G", null, "texto_vacio"],
+  ] as const) {
+    it(`refuses ${nombre} and writes nothing`, async () => {
+      await como(comoPostgres, async (c) => {
+        const id = await crearPiezaEn(c, "guion_por_aprobar")
+        const antes = await borrador(c, id)
+        await asumir(c, comoConi)
+        const err = await fallaCon(c, EDITAR, [id, antes.version, guion, texto, "[]"])
+        expect(err.code).toBe("22023")
+        expect(err.message).toBe(mensaje)
+        expect(await borrador(c, id)).toEqual(antes)
+        expect(await versiones(c, id)).toEqual([])
+      })
+    })
+  }
 })
