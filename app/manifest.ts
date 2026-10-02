@@ -4,7 +4,7 @@ import { COLOR_DE_FONDO, NOMBRE_DE_LA_APP } from "@/lib/diseno/marca"
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: NOMBRE_DE_LA_APP,
-    short_name: "Estudio",
+    short_name: NOMBRE_DE_LA_APP,
     description: "Aprueba los guiones y los videos de tu avatar.",
     lang: "es-CL",
     start_url: "/",

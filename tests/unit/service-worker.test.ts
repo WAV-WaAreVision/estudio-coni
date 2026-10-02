@@ -83,14 +83,14 @@ describe("service worker", () => {
   it("shows the title and the body that came in the push, with the screen to open", async () => {
     const { manejadores, mostradas } = cargarWorker()
     const { evento, esperas } = eventoDePush({
-      titulo: "Estudio de Coni",
+      titulo: "Conidolly",
       cuerpo: "Tienes un guion listo para revisar",
       url: "/guion/abc",
     })
     manejadores.get("push")?.(evento)
     await Promise.all(esperas)
     expect(mostradas).toHaveLength(1)
-    expect(mostradas[0]?.titulo).toBe("Estudio de Coni")
+    expect(mostradas[0]?.titulo).toBe("Conidolly")
     expect(mostradas[0]?.opciones).toMatchObject({
       body: "Tienes un guion listo para revisar",
       data: { url: "/guion/abc" },
@@ -120,7 +120,7 @@ describe("service worker", () => {
     await Promise.all(roto.esperas)
     expect(mostradas).toHaveLength(2)
     for (const mostrada of mostradas) {
-      expect(mostrada.titulo).toBe("Estudio de Coni")
+      expect(mostrada.titulo).toBe("Conidolly")
       expect(mostrada.opciones).toMatchObject({ body: "Tienes un aviso nuevo", data: { url: "/" } })
     }
   })

@@ -164,8 +164,8 @@ function Contenido({ estado }: { estado: EstadoDeAvisos }) {
       return (
         <Nota tipo="aviso" titulo="Los avisos están bloqueados">
           <p>
-            Para volver a activarlos, abre Ajustes del iPhone, entra a Notificaciones, busca Estudio de Coni y activa
-            Permitir notificaciones. Después vuelve aquí.
+            Para volver a activarlos, abre Ajustes del iPhone, entra a Notificaciones, busca Conidolly y activa Permitir
+            notificaciones. Después vuelve aquí.
           </p>
         </Nota>
       )
@@ -212,7 +212,7 @@ function HojaDeInstalacion() {
           >
             C
           </span>
-          <span>Abre Estudio desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.</span>
+          <span>Abre Conidolly desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.</span>
         </li>
       </ol>
     </section>

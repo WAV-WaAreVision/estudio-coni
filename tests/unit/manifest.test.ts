@@ -10,7 +10,7 @@ describe("manifest", () => {
     expect(datos.start_url).toBe("/")
     expect(datos.scope).toBe("/")
     expect(datos.name).toBe(NOMBRE_DE_LA_APP)
-    expect(datos.short_name).toBe("Estudio")
+    expect(datos.short_name).toBe("Conidolly")
   })
 
   it("takes its colours from the brand constants, not from literals of its own", () => {

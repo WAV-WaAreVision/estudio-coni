@@ -60,7 +60,7 @@ describe("notificadorPush", () => {
     expect(envios).toEqual([
       {
         endpoint: "https://push.test/a",
-        mensaje: { titulo: "Estudio de Coni", cuerpo: "Tienes un guion listo para revisar", url: "/" },
+        mensaje: { titulo: "Conidolly", cuerpo: "Tienes un guion listo para revisar", url: "/" },
         urgente: false,
       },
     ])
@@ -137,7 +137,7 @@ describe("notificadorPush", () => {
     const { notificador, correo, envios } = armar()
     const resumen = { cuerpoPush: "Tienes 2 cosas nuevas", texto: "Tienes un guion listo.\nTienes un video listo." }
     expect(await notificador.resumenAConi(resumen)).toBe("push")
-    expect(envios[0]?.mensaje).toEqual({ titulo: "Estudio de Coni", cuerpo: "Tienes 2 cosas nuevas", url: "/" })
+    expect(envios[0]?.mensaje).toEqual({ titulo: "Conidolly", cuerpo: "Tienes 2 cosas nuevas", url: "/" })
     expect(envios[0]?.urgente).toBe(false)
     await pool.query("delete from public.suscripciones_push")
     expect(await notificador.resumenAConi(resumen)).toBe("correo")

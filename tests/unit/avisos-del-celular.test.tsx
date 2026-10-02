@@ -78,7 +78,7 @@ describe("AvisosDelCelular", () => {
 
     expect(await screen.findByText("Los avisos están bloqueados")).toBeInTheDocument()
     expect(screen.getByText(/Notificaciones/)).toBeInTheDocument()
-    expect(screen.getByText(/Estudio de Coni/)).toBeInTheDocument()
+    expect(screen.getByText(/Conidolly/)).toBeInTheDocument()
     expect(a.guardar).not.toHaveBeenCalled()
   })
 
