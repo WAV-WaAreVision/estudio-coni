@@ -253,14 +253,14 @@ describe("transcribir", () => {
     return { capturas }
   }
 
-  it("posts multipart to speech-to-text with scribe_v1 and word timestamps, without forcing a language", async () => {
+  it("posts multipart to speech-to-text with scribe_v2 and word timestamps, without forcing a language", async () => {
     const { capturas } = capturandoFormulario(() => respuestaScribe("spa", [palabra("Hola.", 1.5)]))
     await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
 
     expect(capturas).toHaveLength(1)
     const [pedido] = capturas
     expect(pedido?.cabeceras.get("xi-api-key")).toBe(CLAVE)
-    expect(pedido?.form.get("model_id")).toBe("scribe_v1")
+    expect(pedido?.form.get("model_id")).toBe("scribe_v2")
     expect(pedido?.form.get("timestamps_granularity")).toBe("word")
     expect(pedido?.form.has("language_code")).toBe(false)
     const archivo = pedido?.form.get("file")
@@ -301,6 +301,35 @@ describe("transcribir", () => {
       { segundo: 1, texto: "Hola a todos." },
       { segundo: 4, texto: "Segunda frase?" },
       { segundo: 6, texto: "Tercera" },
+    ])
+  })
+
+  it("does not close a segment on a known abbreviation", async () => {
+    capturandoFormulario(() =>
+      respuestaScribe(
+        "spa",
+        [
+          "Habló",
+          "el",
+          "Dr.",
+          "Pérez",
+          "sobre",
+          "el",
+          "deseo.",
+          "Hay",
+          "temas,",
+          "etc.",
+          "y",
+          "más",
+          "e.g.",
+          "esto.",
+        ].map((t, i) => palabra(t, i)),
+      ),
+    )
+    const { segmentos } = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(segmentos).toEqual([
+      { segundo: 0, texto: "Habló el Dr. Pérez sobre el deseo." },
+      { segundo: 7, texto: "Hay temas, etc. y más e.g. esto." },
     ])
   })
 

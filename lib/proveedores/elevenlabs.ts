@@ -9,7 +9,8 @@ const ESPERA_VOZ_MS = 300_000
 const ESPERA_VERIFICACION_MS = 30_000
 // Long recordings (an hour or more) take Scribe several minutes to answer.
 const ESPERA_TRANSCRIPCION_MS = 900_000
-const MODELO_TRANSCRIPCION = "scribe_v1"
+// scribe_v1 was removed by ElevenLabs on 2026-07-09.
+const MODELO_TRANSCRIPCION = "scribe_v2"
 const SEGMENTO_MAXIMO_SEGUNDOS = 30
 // Scribe list price per hour of audio. Must be checked against the account's plan before trusting the estimate.
 const USD_POR_HORA_TRANSCRIPCION = 0.4
@@ -166,7 +167,28 @@ export interface SegmentoTranscrito {
   texto: string
 }
 
+// A period after these does not end a sentence. Spanish + English, compared case-insensitively.
+const ABREVIATURAS = new Set([
+  "dr.",
+  "dra.",
+  "sr.",
+  "sra.",
+  "srta.",
+  "ud.",
+  "uds.",
+  "etc.",
+  "p.ej.",
+  "aprox.",
+  "mr.",
+  "mrs.",
+  "ms.",
+  "vs.",
+  "e.g.",
+  "i.e.",
+])
+
 function finDeOracion(texto: string): boolean {
+  if (ABREVIATURAS.has(texto.toLowerCase())) return false
   return /[.!?…]["')\]]*$/.test(texto)
 }
 
