@@ -213,6 +213,39 @@ describe("almacenR2", () => {
     })
   })
 
+  describe("urlDeSubida", () => {
+    const CLAVE_MATERIAL = "materiales/11111111-2222-4333-8444-555555555555/original.pdf"
+
+    it("signs a PUT URL with the content type signed, the expiry asked for and the key in the path, without calling R2", async () => {
+      const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+
+      const url = new URL(await r2().urlDeSubida(CLAVE_MATERIAL, 900, "application/pdf"))
+
+      expect(url.host).toBe(`${CUENTA}.r2.cloudflarestorage.com`)
+      expect(url.pathname).toBe(`/${BALDE}/${CLAVE_MATERIAL}`)
+      expect(url.searchParams.get("X-Amz-Expires")).toBe("900")
+      expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[0-9a-f]{64}$/)
+      expect(url.searchParams.get("X-Amz-SignedHeaders")?.split(";")).toContain("content-type")
+      expect(url.href).not.toContain(SECRETO)
+      expect(capturas).toHaveLength(0)
+    })
+
+    it("encodes the key characters that need it", async () => {
+      const url = new URL(await r2().urlDeSubida("materiales/a b/original.pdf", 900, "application/pdf"))
+      expect(url.pathname).toBe(`/${BALDE}/materiales/a%20b/original.pdf`)
+    })
+
+    it("refuses a key outside materiales/ without calling R2", async () => {
+      const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+      await expect(r2().urlDeSubida(CLAVE_OBJETO, 900, "video/mp4")).rejects.toThrow("materiales/")
+      expect(capturas).toHaveLength(0)
+    })
+
+    it.each([0, -5, 1.5, Number.NaN, 3601])("refuses an expiry of %s", async (segundos) => {
+      await expect(r2().urlDeSubida(CLAVE_MATERIAL, segundos, "application/pdf")).rejects.toThrow()
+    })
+  })
+
   describe("subir", () => {
     it("puts the bytes with their media type at the bucket and key", async () => {
       const { capturas } = capturando(() => new HttpResponse(null, { status: 200, headers: { ETag: '"abc"' } }))
