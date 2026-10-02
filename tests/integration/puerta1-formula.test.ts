@@ -43,11 +43,4 @@ describe("puerta1_formula", () => {
       expect(rows[0]?.puerta1_formula).toBe(2)
     })
   })
-
-  it("left no signed piece without a formula after the backfill", async () => {
-    const { rows } = await pool.query<{ n: string }>(
-      "select count(*) as n from public.piezas where puerta1_hash is not null and puerta1_formula is null",
-    )
-    expect(rows[0]?.n).toBe("0")
-  })
 })

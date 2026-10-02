@@ -24,6 +24,11 @@ export function hashPuerta1(artefacto: ArtefactoPuerta1): string {
   return sha256(["puerta1/2", artefacto.guion, artefacto.texto, artefacto.avatarId])
 }
 
+/** A null stored formula on a signed piece is a gate-1 approval from before 2026-10-02: formula 1. */
+export function formulaDePuerta1(guardada: 1 | 2 | null): 1 | 2 {
+  return guardada ?? 1
+}
+
 export function hashTexto(texto: string): string {
   return sha256(["texto", texto])
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
 import {
   claveIdempotencia,
+  formulaDePuerta1,
   hashPuerta1,
   hashPuerta2,
   hashTexto,
@@ -246,5 +247,13 @@ describe("puedeEntregarseParaSubir", () => {
       ok: false,
       motivo: "artefacto_cambio",
     })
+  })
+})
+
+describe("formulaDePuerta1", () => {
+  it("reads a null stored formula as the legacy formula 1", () => {
+    expect(formulaDePuerta1(null)).toBe(1)
+    expect(formulaDePuerta1(1)).toBe(1)
+    expect(formulaDePuerta1(2)).toBe(2)
   })
 })
