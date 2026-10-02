@@ -2,7 +2,14 @@
 import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { almacenEnMemoria, claveAudio, claveMaterial, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
+import {
+  almacenEnMemoria,
+  claveAudio,
+  claveMaterial,
+  claveVideo,
+  claveVozAprobada,
+  EXTENSIONES_DE_MATERIAL,
+} from "@/lib/proveedores/almacen"
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
 const OTRA_PIEZA = "99999999-2222-4333-8444-555555555555"
@@ -147,6 +154,21 @@ describe("almacenEnMemoria.urlDeSubida", () => {
     await expect(almacen.urlDeSubida(claveMaterial(MATERIAL, "pdf"), 3601, "application/pdf")).rejects.toThrow()
     await expect(almacen.urlDeSubida(claveMaterial(MATERIAL, "pdf"), 0, "application/pdf")).rejects.toThrow()
   })
+
+  it.each([...EXTENSIONES_DE_MATERIAL])("accepts the key claveMaterial gives for .%s", async (extension) => {
+    await expect(
+      almacenEnMemoria().urlDeSubida(claveMaterial(MATERIAL, extension), 600, "application/octet-stream"),
+    ).resolves.toContain("materiales/")
+  })
+
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))(
+    "accepts the key claveMaterial gives for image %i",
+    async (orden) => {
+      await expect(
+        almacenEnMemoria().urlDeSubida(claveMaterial(MATERIAL, "jpg", orden), 600, "image/jpeg"),
+      ).resolves.toContain("materiales/")
+    },
+  )
 
   it.each([
     "materiales/../x",

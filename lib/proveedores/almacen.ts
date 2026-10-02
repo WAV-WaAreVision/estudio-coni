@@ -39,7 +39,7 @@ function exigirVigencia(segundos: number): void {
 }
 
 const PREFIJO_DE_MATERIALES = "materiales/"
-const EXTENSIONES_DE_MATERIAL = new Set([
+export const EXTENSIONES_DE_MATERIAL = new Set([
   "pdf",
   "docx",
   "mp3",
