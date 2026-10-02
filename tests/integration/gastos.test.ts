@@ -145,6 +145,22 @@ describe("reservar gasto", () => {
     })
   })
 
+  it("cuenta contra el tope del mes cuando el proveedor es voyage, reservado y confirmado", async () => {
+    await como(comoServicio, async (c) => {
+      await c.query("select public.reservar_gasto_general('voyage', 'embeddings', 35, 'voyage-1', now())")
+      const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-2')")
+      expect(err.code).toBe("P0001")
+      await c.query("select public.confirmar_gasto('voyage-1', 30)")
+      const { rows } = await c.query<{ estado: string; real: number }>(
+        "select estado, real_usd::float8 as real from public.gastos where clave = 'voyage-1'",
+      )
+      expect(rows[0]).toEqual({ estado: "confirmado", real: 30 })
+      await c.query("select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-3')")
+      const falla = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 1, 'clave-4')")
+      expect(falla.code).toBe("P0001")
+    })
+  })
+
   it("rechaza un monto que no es positivo", async () => {
     await como(comoServicio, async (c) => {
       const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 0, 'cero')")
