@@ -148,6 +148,18 @@ describe("almacenEnMemoria.urlDeSubida", () => {
     await expect(almacen.urlDeSubida(claveMaterial(MATERIAL, "pdf"), 0, "application/pdf")).rejects.toThrow()
   })
 
+  it.each([
+    "materiales/../x",
+    "materiales/anything",
+    `materiales/${MATERIAL}/otro.pdf`,
+    `materiales/${MATERIAL}/original.exe`,
+    `materiales/${MATERIAL}/original-21.jpg`,
+    `materiales/${MATERIAL}/original-1.jpg`,
+    `materiales/${MATERIAL}/original.pdf/x`,
+  ])("refuses the key %s, which claveMaterial never produces", async (clave) => {
+    await expect(almacenEnMemoria().urlDeSubida(clave, 600, "application/pdf")).rejects.toThrow(FallaDeConfiguracion)
+  })
+
   it("refuses to simulate an upload to a URL it did not give", () => {
     expect(() => almacenEnMemoria().simularSubida("https://otro.test/x", MP3)).toThrow()
   })

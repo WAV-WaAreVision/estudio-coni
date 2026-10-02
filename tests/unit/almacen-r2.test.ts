@@ -231,14 +231,10 @@ describe("almacenR2", () => {
       expect(capturas).toHaveLength(0)
     })
 
-    it("encodes the key characters that need it", async () => {
-      const url = new URL(await r2().urlDeSubida("materiales/a b/original.pdf", 900, "application/pdf"))
-      expect(url.pathname).toBe(`/${BALDE}/materiales/a%20b/original.pdf`)
-    })
-
     it("refuses a key outside materiales/ without calling R2", async () => {
       const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
       await expect(r2().urlDeSubida(CLAVE_OBJETO, 900, "video/mp4")).rejects.toThrow(FallaDeConfiguracion)
+      await expect(r2().urlDeSubida("materiales/../x", 900, "video/mp4")).rejects.toThrow(FallaDeConfiguracion)
       expect(capturas).toHaveLength(0)
     })
 

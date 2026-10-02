@@ -38,13 +38,41 @@ function exigirVigencia(segundos: number): void {
   }
 }
 
+const PREFIJO_DE_MATERIALES = "materiales/"
+const EXTENSIONES_DE_MATERIAL = new Set([
+  "pdf",
+  "docx",
+  "mp3",
+  "m4a",
+  "wav",
+  "mp4",
+  "mov",
+  "txt",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+])
+const ORDEN_MAXIMO = 20
+
+const CLAVE_DE_MATERIAL = new RegExp(
+  `^${PREFIJO_DE_MATERIALES}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/original(-(0[1-9]|1\\d|20))?\\.(${[...EXTENSIONES_DE_MATERIAL].join("|")})$`,
+)
+
+/** True only for what `claveMaterial` can return: nothing else may be uploaded through a presigned URL. */
+function esClaveDeMaterial(clave: string): boolean {
+  return CLAVE_DE_MATERIAL.test(clave)
+}
+
 /** A browser upload link is short-lived: it only has to outlast one upload. */
 const VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS = 60 * 60
-const PREFIJO_DE_MATERIALES = "materiales/"
 
 function exigirSubida(clave: string, segundos: number): void {
-  if (!clave.startsWith(PREFIJO_DE_MATERIALES)) {
-    throw new FallaDeConfiguracion(`Solo se sube a ${PREFIJO_DE_MATERIALES}: ${clave}`)
+  if (!esClaveDeMaterial(clave)) {
+    throw new FallaDeConfiguracion(
+      `Solo se sube a una clave de material (${PREFIJO_DE_MATERIALES}<uuid>/original.<ext>): ${clave}`,
+    )
   }
   if (!Number.isInteger(segundos) || segundos <= 0 || segundos > VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS) {
     throw new FallaDeConfiguracion(
@@ -168,23 +196,6 @@ export function claveVideo(piezaId: string, mp4: Uint8Array): string {
   exigirUuid(piezaId)
   return `videos/${piezaId}/${sha256(mp4)}.mp4`
 }
-
-const EXTENSIONES_DE_MATERIAL = new Set([
-  "pdf",
-  "docx",
-  "mp3",
-  "m4a",
-  "wav",
-  "mp4",
-  "mov",
-  "txt",
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-  "heic",
-])
-const ORDEN_MAXIMO = 20
 
 /** The original of a material; the images of a multi-image material carry their order (1..20) as two digits. */
 export function claveMaterial(materialId: string, extension: string, orden?: number): string {
