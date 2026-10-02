@@ -98,7 +98,7 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
   const salida = propuestas[contexto.enCola]
   const [audioUrl, costo, avatares] = await Promise.all([
     urlParaVer(fila.audio_id),
-    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona),
+    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
     avataresParaElegir(db),
   ])
 
