@@ -7,11 +7,13 @@ function sha256(partes: readonly string[]): string {
 }
 
 /**
- * Gate 1 binds what costs video credits: the approved script and the exact voice audio. The caption
- * is bound by gate 2 (accepted change A11, finding R2-5), so fixing it never forces a re-render.
+ * Gate 1 binds what costs video credits: the approved script, the exact voice audio and the avatar Coni chose. The
+ * caption is bound by gate 2 (accepted change A11, finding R2-5), so fixing it never forces a re-render.
+ * A piece without a chosen avatar (approved before the choice existed) keeps the hash it was approved with.
  */
-export function hashPuerta1(artefacto: { guion: string; audioId: string }): string {
-  return sha256(["puerta1", artefacto.guion, artefacto.audioId])
+export function hashPuerta1(artefacto: { guion: string; audioId: string; avatarId?: string | null }): string {
+  const base = ["puerta1", artefacto.guion, artefacto.audioId]
+  return sha256(artefacto.avatarId ? [...base, artefacto.avatarId] : base)
 }
 
 export function hashTexto(texto: string): string {
