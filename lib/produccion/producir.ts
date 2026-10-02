@@ -145,8 +145,8 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
 }
 
 /**
- * Writes the script, the caption and the voice of a piece in `guion_en_proceso` and leaves it in
- * `guion_por_aprobar`. It never approves anything. It is safe to run again: a finished piece is left alone, and a
+ * Writes and reviews the script and the caption of a piece in `guion_en_proceso` and leaves it in
+ * `guion_por_aprobar`. The voice is generated after gate 1 by the recording task. It never approves anything. It is safe to run again: a finished piece is left alone, and a
  * run that stopped half way resumes from what was saved instead of paying twice.
  */
 export async function producirPieza(deps: DepsProduccion, piezaId: string): Promise<ResultadoProduccion> {
