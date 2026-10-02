@@ -13,7 +13,7 @@ import {
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { Falla } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
-import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import { bloquea, type Hallazgo, MAXIMO_DEL_GUION, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
 import { costoClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
@@ -73,6 +73,7 @@ function limpiar(edicion: Edicion): { guion: string; texto: string } {
   const guion = normalizarTexto(edicion.guion)
   const texto = normalizarTexto(edicion.texto)
   if (guion === "") throw new Falla("El guion no puede quedar vacío.")
+  if (guion.length > MAXIMO_DEL_GUION) throw new Falla("El guion es demasiado largo para un reel.")
   if (texto === "") throw new Falla("El texto de la publicación no puede quedar vacío.")
   if ([...texto].length > MAXIMO_DEL_TEXTO) throw new Falla("Instagram acepta hasta 2.200 caracteres en el texto.")
   return { guion, texto }
@@ -167,22 +168,24 @@ async function juzgarConClaude(
   })
   if (reserva.tope) return "tope"
 
+  let juicio: Awaited<ReturnType<typeof revisarConClaude>>
   try {
-    const juicio = await revisarConClaude({
+    juicio = await revisarConClaude({
       cliente: deps.crearClaude(llave),
       guia: guia.texto,
       guion: entrada.guion,
       texto: entrada.texto,
       alertas: entrada.alertas,
     })
-    await confirmarGasto(servicio, clave, Number(costoClaude(juicio.uso).toFixed(4)))
-    return { hallazgos: juicio.hallazgos }
   } catch (error) {
     // Nothing was judged, so nothing was spent that she should pay against the cap.
     await liberarGasto(servicio, clave)
     console.error("No pude revisar el guion con Claude", error)
     throw new Falla(ERROR_REVISION)
   }
+  // Claude already answered and was paid: a failure here must not release the reservation, so it propagates.
+  await confirmarGasto(servicio, clave, Number(costoClaude(juicio.uso).toFixed(4)))
+  return { hallazgos: juicio.hallazgos }
 }
 
 async function ultimaVersionDeClaude(db: Db, piezaId: string): Promise<{ guion: string; texto: string | null } | null> {

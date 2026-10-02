@@ -6,6 +6,8 @@ import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import type { DepsIdeas } from "@/lib/acciones/ideas"
+import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
+import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
 import { costoClaude } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
@@ -189,6 +191,50 @@ describe("editarGuion", () => {
     expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("revisar") })
     expect((await gastosDe(id)).map((g) => g.estado)).toEqual(["liberado"])
     expect(await leerFila(id)).toMatchObject({ guion, version })
+  })
+
+  it("keeps a paid review reserved and surfaces the error when confirming the spend fails", async () => {
+    const id = await pieza()
+    const { version, guion } = await leerFila(id)
+    claudeRevisa()
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const real = clienteDeServicio()
+    const servicioQueFallaAlConfirmar = new Proxy(real, {
+      get(destino, propiedad) {
+        if (propiedad === "rpc") {
+          return (funcion: string, ...resto: unknown[]) =>
+            funcion === "confirmar_gasto"
+              ? Promise.resolve({ data: null, error: { message: "sin conexión" } })
+              : Reflect.apply(destino.rpc, destino, [funcion, ...resto])
+        }
+        const valor = Reflect.get(destino, propiedad)
+        return typeof valor === "function" ? valor.bind(destino) : valor
+      },
+    })
+
+    const resultado = await editarGuion(
+      { ...deps(), servicio: () => servicioQueFallaAlConfirmar },
+      { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    )
+
+    expect(resultado.ok).toBe(false)
+    expect((await gastosDe(id)).map((g) => g.estado)).toEqual(["reservado"])
+    expect(await leerFila(id)).toMatchObject({ guion, version })
+  })
+
+  it("refuses a script or a caption over the limit before calling Claude", async () => {
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    expect(
+      await editarGuion(deps(), { piezaId: id, version, guion: "a".repeat(MAXIMO_DEL_GUION + 1), texto: TEXTO_VALIDO }),
+    ).toMatchObject({ ok: false, error: "El guion es demasiado largo para un reel." })
+    expect(
+      await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: "a".repeat(MAXIMO_DEL_TEXTO + 1) }),
+    ).toMatchObject({ ok: false, error: "Instagram acepta hasta 2.200 caracteres en el texto." })
+    expect(pedidos).toHaveLength(0)
+    expect(await gastosDe(id)).toEqual([])
   })
 
   it("tells her when somebody changed the script meanwhile", async () => {

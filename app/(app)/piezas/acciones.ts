@@ -12,6 +12,7 @@ import {
   descartar,
   editarTexto,
   elegirIdeas,
+  MAXIMO_DEL_TEXTO,
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, comoConi, conSesionDeConi } from "@/lib/acciones/servidor"
+import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
 
 // The model answers in a few seconds; a hung call must not hold the screen for the SDK's ten minutes.
@@ -88,7 +90,7 @@ export async function editarTextoAccion(piezaId: string, version: number, texto:
   return refrescar(
     await comoConi(
       "editarTexto",
-      sobrePieza.extend({ texto: z.string().max(20_000) }),
+      sobrePieza.extend({ texto: z.string().max(MAXIMO_DEL_TEXTO) }),
       { piezaId, version, texto },
       (deps, d) => editarTexto(deps, d.piezaId, d.version, d.texto),
     ),
@@ -99,7 +101,7 @@ export async function editarGuionAccion(piezaId: string, version: number, guion:
   return refrescar(
     await conSesionDeConi(
       "editarGuion",
-      sobrePieza.extend({ guion: z.string().max(20_000), texto: z.string().max(20_000) }),
+      sobrePieza.extend({ guion: z.string().max(MAXIMO_DEL_GUION), texto: z.string().max(MAXIMO_DEL_TEXTO) }),
       { piezaId, version, guion, texto },
       (db, d) => editarGuion(depsDeGuion(db), d),
     ),
