@@ -34,6 +34,15 @@ describe("IdeasSemana", () => {
     expect(screen.getByRole("button", { name: "Escribir 1 guion" })).not.toHaveAttribute("aria-disabled", "true")
   })
 
+  it("says how many more she can add, and does not claim anything was sent", () => {
+    render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
+
+    elegir(IDEAS[0].gancho, IDEAS[1].gancho)
+
+    expect(screen.getByText("Puedes sumar hasta 3 más.")).toBeInTheDocument()
+    expect(screen.queryByText("Te aviso cuando estén listos.")).not.toBeInTheDocument()
+  })
+
   it("writes the label in the plural with two ideas", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 

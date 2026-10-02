@@ -100,7 +100,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
         {enElMaximo
           ? `Llegaste al máximo de ${MAXIMO_DE_IDEAS}.`
           : lista
-            ? "Te aviso cuando estén listos."
+            ? `Puedes sumar hasta ${MAXIMO_DE_IDEAS - cuantas} más.`
             : `Elige al menos una idea. Puedes elegir hasta ${MAXIMO_DE_IDEAS}.`}
       </p>
       {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
