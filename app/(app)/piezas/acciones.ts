@@ -1,7 +1,9 @@
 "use server"
 
+import Anthropic from "@anthropic-ai/sdk"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { type DepsGuion, editarGuion, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaDescargar } from "@/lib/acciones/medios"
 import {
   aprobarGuion,
@@ -18,7 +20,26 @@ import {
   reintentarGuion,
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
-import { comoConi } from "@/lib/acciones/servidor"
+import { clienteDeServicio, comoConi, conSesionDeConi } from "@/lib/acciones/servidor"
+import { baseDe } from "@/lib/proveedores/bases"
+
+// The model answers in a few seconds; a hung call must not hold the screen for the SDK's ten minutes.
+const ESPERA_CLAUDE_MS = 60_000
+
+function depsDeGuion(db: DepsGuion["db"]): DepsGuion {
+  return {
+    db,
+    servicio: clienteDeServicio,
+    crearClaude: (llave) =>
+      new Anthropic({
+        apiKey: llave,
+        baseURL: baseDe(process.env, "ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
+        timeout: ESPERA_CLAUDE_MS,
+        maxRetries: 1,
+      }),
+    ahora: () => new Date().toISOString(),
+  }
+}
 
 const sobrePieza = z.object({ piezaId: z.uuid(), version: z.number().int().min(0) })
 
@@ -70,6 +91,25 @@ export async function editarTextoAccion(piezaId: string, version: number, texto:
       sobrePieza.extend({ texto: z.string().max(20_000) }),
       { piezaId, version, texto },
       (deps, d) => editarTexto(deps, d.piezaId, d.version, d.texto),
+    ),
+  )
+}
+
+export async function editarGuionAccion(piezaId: string, version: number, guion: string, texto: string) {
+  return refrescar(
+    await conSesionDeConi(
+      "editarGuion",
+      sobrePieza.extend({ guion: z.string().max(20_000), texto: z.string().max(20_000) }),
+      { piezaId, version, guion, texto },
+      (db, d) => editarGuion(depsDeGuion(db), d),
+    ),
+  )
+}
+
+export async function volverAVersionDeClaudeAccion(piezaId: string, version: number) {
+  return refrescar(
+    await conSesionDeConi("volverAVersionDeClaude", sobrePieza, { piezaId, version }, (db, d) =>
+      volverAVersionDeClaude(depsDeGuion(db), d),
     ),
   )
 }

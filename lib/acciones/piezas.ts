@@ -30,7 +30,7 @@ export interface DepsAcciones {
 }
 
 // Instagram's limit for a caption.
-const MAXIMO_DEL_TEXTO = 2200
+export const MAXIMO_DEL_TEXTO = 2200
 
 /** The screen she is looking at is not the piece any more (somebody, or a task, wrote to it meanwhile). */
 class PantallaVencida extends Falla {
