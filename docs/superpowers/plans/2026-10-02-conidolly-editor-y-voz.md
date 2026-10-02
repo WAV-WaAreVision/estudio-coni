@@ -462,3 +462,54 @@ export function estadoDeLargo(palabras: number): "corto" | "bien" | "largo" {
 5. Meta app: add `https://conidolly.vercel.app/api/meta/callback` as redirect URI and update `META_REDIRECT_URI` in Vercel.
 6. Vercel env `AVISOS_REMITENTE` and Trigger.dev env `AVISOS_REMITENTE`: `Conidolly <avisos@wearevision.cl>`.
 7. Update the guide artifact for Coni (name, URL, step 4 without listening to the voice, voice heard in the video).
+
+## Plan A notes
+
+### What shipped (oldest first)
+
+- 6573c42 feat(marca): rename the product to Conidolly
+- e6c2eca chore(dominio): conidolly.vercel.app, redirect from the old host
+- 6e0c600 feat(puertas): gate-1 hash formula 2 without the voice, formula kept per piece
+- 97eed96 fix(puertas): no backfill, a null formula means the legacy one
+- 0288982 feat(estados): no voice before gate 1, voz_lista while recording
+- ca90401 feat(producir): write and review the script only, no voice before gate 1
+- 597b9b9 docs(producir): the voice is no longer made here
+- 4bbe156 feat(grabar): generate the voice after gate 1, right before HeyGen
+- 9c32f6b fix(grabar): never pay the voice twice when a run is retried
+- 0e48287 feat(ideas): pick one to five ideas instead of exactly three
+- 2e172e1 fix(ideas): help text before sending
+- d5037ab feat(costos): gate-1 cost includes the voice
+- 0d90cc8 feat(guion): version history and Coni's edit RPC
+- ff974c5 fix(guion): refuse a blank script or text, explicit grants
+- 4e913bc feat(guion): edit and restore actions with the full review
+- 6fd0362 fix(guion): never release a paid review, bound script and text
+- 01f8549 feat(duracion): word count and seconds estimate for the editor
+- fc0dfaf refactor(duracion): one seconds formula for the editor and the costs
+- 3fbf075 feat(guion): script editor on the Guion screen, voice heard in the video
+- 88ba3dc fix: editor saving flag and cost test clock
+
+### Decisions taken during implementation
+
+- Gate-1 hash uses formula 2 (no voice); a null formula on a piece means formula 1 (legacy), no backfill.
+- Voice key is deterministic: `voces/<pieza>/<puerta1_hash>.mp3`, with an `existe()` check before generating. A residual window remains between the check and the upload.
+- Voice spend key reuses paso "grabar" so a retried run never pays twice.
+- `estimarCostoVoz` lives in `comun.ts`; the seconds formula is single, from `estimaciones.ts`.
+- `MAXIMO_DE_IDEAS` is shared in `lib/dominio/ideas.ts` (1 to 5 ideas).
+- Script max 2000 chars, publication text 2200. Blank script or text is refused in the DB.
+- A blocking revision can be saved but not approved. Restore is hidden when there is no Claude version.
+- The key remount was removed in PantallaGuion.
+- Saving flag in the editor is now reset in a `finally` inside the transition. The regression test cannot go red on the old code, because the flag was only visible while pending; it guards the label after a failed save.
+- Cost test clock moved into `beforeAll` so month-boundary timing cannot skew it.
+
+### Final counts (clean `supabase db reset`)
+
+- lint clean (378 files), type clean, build ok
+- test:run 97 files, 1264 tests passed
+- test:db 49 files, 581 tests passed, twice, no flaky test
+- E2E 69 passed (guion.spec.ts included, "Hay que corregirlo:" assertions pass; the block comes from the caption check, not the review stub, so `{ hallazgos: [] }` in servicios-falsos.ts does not affect it)
+- db:types produced no diff
+- Known noise: E2E server logs "No pude estimar el costo de grabar FallaDeConfiguracion" because the E2E settings have no production config. Harmless, tests pass.
+
+### Screenshots
+
+- test-results/capturas/guion-editor.png (git-ignored output of the E2E run)
