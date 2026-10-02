@@ -128,12 +128,31 @@ describe("escribirFicha", () => {
     ])
   })
 
-  it("fails with a retryable error when there are fewer than 5 or more than 10 key ideas", async () => {
+  it("fails with a retryable error when there are fewer than 5 key ideas", async () => {
     respondiendo(ficha({ ideasClave: ["a", "b", "c"] }))
-    await expect(pedir()).rejects.toThrow("formato pedido")
 
-    respondiendo(ficha({ ideasClave: Array.from({ length: 11 }, (_, i) => `idea ${i}`) }))
     await expect(pedir()).rejects.toThrow("formato pedido")
+  })
+
+  it("keeps the first 10 key ideas when the model returns more", async () => {
+    const muchas = Array.from({ length: 12 }, (_, i) => `idea ${i}`)
+    respondiendo(ficha({ ideasClave: muchas }))
+
+    const { ideasClave } = await pedir()
+
+    expect(ideasClave).toEqual(muchas.slice(0, 10))
+  })
+
+  it("does not split a surrogate pair when cutting at the maximum", async () => {
+    const cuerpos = respondiendo(ficha())
+    const texto = `${"x".repeat(MAXIMO_CARACTERES_PARA_FICHA - 1)}😀SOBRANTE`
+
+    await pedir([{ texto, ubicacion: { pagina: 1 } }])
+
+    const enviado = cuerpos[0]?.messages[0]?.content ?? ""
+    expect(enviado).not.toContain("😀")
+    expect(enviado).not.toContain("SOBRANTE")
+    expect(enviado.isWellFormed()).toBe(true)
   })
 
   it("truncates the text to the maximum and tells Claude about the cut", async () => {
