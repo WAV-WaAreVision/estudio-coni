@@ -111,6 +111,18 @@ describe("EditorDeGuion", () => {
     expect(screen.queryByText("Guardado")).not.toBeInTheDocument()
   })
 
+  it("stops saying Guardando when the save fails and she edits again", async () => {
+    editar.mockResolvedValue({ ok: false, error: "Este guion ya no se puede editar." })
+    montar()
+    fireEvent.change(cajaGuion(), { target: { value: "Hola." } })
+    fireEvent.click(guardar())
+    await screen.findByRole("alert")
+
+    fireEvent.change(cajaGuion(), { target: { value: "Hola otra vez." } })
+
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeInTheDocument()
+  })
+
   it("shows the blocking findings when the review refuses the edit", async () => {
     editar.mockResolvedValue({
       ok: false,

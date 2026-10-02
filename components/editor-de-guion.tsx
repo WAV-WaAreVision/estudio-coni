@@ -85,18 +85,22 @@ export function EditorDeGuion({
     setError(null)
     setEstado({ tipo: "nada" })
     empezar(async () => {
-      const r = await accion()
-      if (!r.ok) {
-        if (r.error === ERROR_SESION_VENCIDA) router.push("/ingreso")
-        else {
-          setError(r.error)
-          if (r.motivo === "revision_bloquea" && r.hallazgos) setEstado({ tipo: "bloqueado", hallazgos: r.hallazgos })
+      try {
+        const r = await accion()
+        if (!r.ok) {
+          if (r.error === ERROR_SESION_VENCIDA) router.push("/ingreso")
+          else {
+            setError(r.error)
+            if (r.motivo === "revision_bloquea" && r.hallazgos) setEstado({ tipo: "bloqueado", hallazgos: r.hallazgos })
+          }
+          return
         }
-        return
+        if (enviado) setBase(enviado)
+        setEstado({ tipo: "guardado", observaciones: r.revision.filter((h) => h.tipo === "advierte").length })
+        alGuardar({ version: r.version, revision: r.revision })
+      } finally {
+        setGuardando(false)
       }
-      if (enviado) setBase(enviado)
-      setEstado({ tipo: "guardado", observaciones: r.revision.filter((h) => h.tipo === "advierte").length })
-      alGuardar({ version: r.version, revision: r.revision })
     })
   }
 
@@ -108,7 +112,6 @@ export function EditorDeGuion({
 
   function restaurar() {
     setConfirmando(false)
-    setGuardando(false)
     correr(() => volverAVersionDeClaudeAccion(piezaId, version))
   }
 

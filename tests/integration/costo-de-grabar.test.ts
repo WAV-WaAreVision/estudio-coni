@@ -9,12 +9,12 @@ import { clienteDeConi } from "./sesion-coni"
 
 const GUION = "Hay una conversación que casi nadie tiene a tiempo y que cambia cómo se vive el deseo. ".repeat(6)
 const ZONA = "America/Santiago"
-const AHORA = Date.now()
-
+let AHORA = 0
 let coni: Awaited<ReturnType<typeof clienteDeConi>>
 
 beforeAll(async () => {
   coni = await clienteDeConi()
+  AHORA = Date.now()
 })
 beforeEach(async () => {
   await pool.query("update public.ajustes set produccion = $1::jsonb, tope_mensual_usd = 40", [
