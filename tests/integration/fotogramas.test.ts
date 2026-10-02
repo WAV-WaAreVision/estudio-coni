@@ -2,13 +2,12 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { deduplicarFotogramas, extraerFotogramas } from "@/lib/ingesta/fotogramas"
-import { buscarFfmpeg } from "@/lib/video/ffmpeg"
+import { buscarFfmpegBasico, deduplicarFotogramas, extraerFotogramas } from "@/lib/ingesta/fotogramas"
 
-const FFMPEG = await buscarFfmpeg()
+const FFMPEG = await buscarFfmpegBasico()
 const VIDEO = join(__dirname, "../fixtures/ingesta/reel-subtitulado.mp4")
 
-describe.skipIf(!FFMPEG)("frames of a subtitled reel (skipped without ffmpeg)", () => {
+describe.skipIf(!FFMPEG)("frames of a subtitled reel (skipped only without any ffmpeg; no libass needed)", () => {
   const ffmpeg = FFMPEG ?? "ffmpeg"
 
   it("extracts one JPEG per second at 720 px wide", async () => {

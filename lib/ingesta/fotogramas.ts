@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { buscarFfmpeg } from "@/lib/video/ffmpeg"
+import { buscarFfmpeg, buscarFfprobe, sondear } from "@/lib/video/ffmpeg"
 
 const ejecutar = promisify(execFile)
 
@@ -38,8 +38,32 @@ export const UMBRAL_COMPLETO = 8
 // Near-identical lines (one misread letter) are the same line.
 export const SIMILITUD_MINIMA_DE_LINEA = 0.85
 
+// Memory bound: every frame is held as a JPEG, so a long video is sampled more sparsely instead of read whole.
+export const MAXIMO_FOTOGRAMAS = 600
+
+/** Seconds between frames: the requested one, widened so the video yields at most MAXIMO_FOTOGRAMAS. */
+export function intervaloDeMuestreo(duracion: number, cadaSegundos: number): number {
+  return Math.max(cadaSegundos, Math.ceil(duracion / MAXIMO_FOTOGRAMAS))
+}
+
+/** Any ffmpeg that runs: frames only need crop, scale, vstack and rawvideo, not libass. */
+export async function buscarFfmpegBasico(
+  entorno: Record<string, string | undefined> = process.env,
+): Promise<string | null> {
+  for (const candidato of [entorno.CONI_FFMPEG, entorno.FFMPEG_PATH, "ffmpeg"]) {
+    if (!candidato) continue
+    try {
+      await ejecutar(candidato, ["-version"], { timeout: 30_000 })
+      return candidato
+    } catch {
+      // Not installed or not runnable: for a search, that is simply "not a candidate".
+    }
+  }
+  return null
+}
+
 async function elegirFfmpeg(ffmpeg: string | undefined): Promise<string> {
-  const elegido = ffmpeg ?? (await buscarFfmpeg())
+  const elegido = ffmpeg ?? (await buscarFfmpeg()) ?? (await buscarFfmpegBasico())
   if (!elegido) throw new FallaDeConfiguracion("No encuentro ffmpeg para leer el video.")
   return elegido
 }
@@ -59,6 +83,8 @@ export async function extraerFotogramas(
   opciones: { cadaSegundos: number; ffmpeg?: string },
 ): Promise<Fotograma[]> {
   const ffmpeg = await elegirFfmpeg(opciones.ffmpeg)
+  const { duracion } = await sondear({ ffprobe: await buscarFfprobe(ffmpeg), bytes: video })
+  const cada = intervaloDeMuestreo(duracion, opciones.cadaSegundos)
   return enCarpetaTemporal(async (carpeta) => {
     await writeFile(join(carpeta, "video.mp4"), video)
     await ejecutar(
@@ -70,7 +96,7 @@ export async function extraerFotogramas(
         "-i",
         "video.mp4",
         "-vf",
-        `fps=1/${opciones.cadaSegundos},scale=${ANCHO_FOTOGRAMA}:-2`,
+        `fps=1/${cada},scale=${ANCHO_FOTOGRAMA}:-2`,
         "-q:v",
         "4",
         "cuadro-%05d.jpg",
@@ -80,7 +106,7 @@ export async function extraerFotogramas(
     const archivos = (await readdir(carpeta)).filter((nombre) => nombre.startsWith("cuadro-")).sort()
     return Promise.all(
       archivos.map(async (archivo, indice) => ({
-        segundo: indice * opciones.cadaSegundos,
+        segundo: indice * cada,
         jpeg: new Uint8Array(await readFile(join(carpeta, archivo))),
       })),
     )

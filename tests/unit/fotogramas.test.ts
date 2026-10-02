@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
-import { distanciaHamming, hashesDeMuestra, unirLineasDePantalla } from "@/lib/ingesta/fotogramas"
+import {
+  distanciaHamming,
+  hashesDeMuestra,
+  intervaloDeMuestreo,
+  MAXIMO_FOTOGRAMAS,
+  unirLineasDePantalla,
+} from "@/lib/ingesta/fotogramas"
 
 /** A 9x16 gray sample (bottom band on top of the full frame) where every row is `fila(x)`. */
 function muestra(fila: (x: number) => number): Uint8Array {
@@ -81,5 +87,22 @@ describe("unirLineasDePantalla", () => {
         { segundo: 1, texto: "Hola, bienvenida" },
       ]),
     ).toHaveLength(2)
+  })
+})
+
+describe("intervaloDeMuestreo", () => {
+  it("keeps the requested interval for a short video", () => {
+    expect(intervaloDeMuestreo(6, 1)).toBe(1)
+    expect(intervaloDeMuestreo(MAXIMO_FOTOGRAMAS, 1)).toBe(1)
+  })
+
+  it("widens the interval so a long video yields at most the maximum frames", () => {
+    expect(intervaloDeMuestreo(MAXIMO_FOTOGRAMAS + 1, 1)).toBe(2)
+    expect(intervaloDeMuestreo(3600, 1)).toBe(6)
+    expect(3600 / intervaloDeMuestreo(3600, 1)).toBeLessThanOrEqual(MAXIMO_FOTOGRAMAS)
+  })
+
+  it("never goes below the requested interval", () => {
+    expect(intervaloDeMuestreo(10, 5)).toBe(5)
   })
 })
