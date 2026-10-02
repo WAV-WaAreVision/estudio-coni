@@ -19,7 +19,9 @@
     "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
     "test:db": "vitest run --config vitest.integration.config.ts",
     "test:eval": "vitest run --config vitest.eval.config.ts",
-    "importar:banco": "tsx scripts/importar-banco.ts"
+    "importar:banco": "tsx scripts/importar-banco.ts",
+    "avatares:agregar": "tsx scripts/agregar-avatar.ts agregar",
+    "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
