@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { almacenEnMemoria, claveAudio, claveMaterial, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
@@ -142,7 +143,7 @@ describe("almacenEnMemoria.urlDeSubida", () => {
 
   it("refuses a key outside materiales/ and an expiry over one hour", async () => {
     const almacen = almacenEnMemoria()
-    await expect(almacen.urlDeSubida("voces/a.mp3", 600, "audio/mpeg")).rejects.toThrow("materiales/")
+    await expect(almacen.urlDeSubida("voces/a.mp3", 600, "audio/mpeg")).rejects.toThrow(FallaDeConfiguracion)
     await expect(almacen.urlDeSubida(claveMaterial(MATERIAL, "pdf"), 3601, "application/pdf")).rejects.toThrow()
     await expect(almacen.urlDeSubida(claveMaterial(MATERIAL, "pdf"), 0, "application/pdf")).rejects.toThrow()
   })
@@ -163,14 +164,14 @@ describe("claveMaterial", () => {
   })
 
   it.each([0, 21, 1.5, -1])("refuses an order of %s", (orden) => {
-    expect(() => claveMaterial(MATERIAL, "jpg", orden)).toThrow()
+    expect(() => claveMaterial(MATERIAL, "jpg", orden)).toThrow(FallaDeConfiguracion)
   })
 
   it.each(["exe", "", "pdf/../x", "tar.gz"])("refuses the extension %j", (extension) => {
-    expect(() => claveMaterial(MATERIAL, extension)).toThrow()
+    expect(() => claveMaterial(MATERIAL, extension)).toThrow(FallaDeConfiguracion)
   })
 
   it("refuses an id that is not a UUID", () => {
-    expect(() => claveMaterial("../x", "pdf")).toThrow()
+    expect(() => claveMaterial("../x", "pdf")).toThrow(FallaDeConfiguracion)
   })
 })

@@ -8,6 +8,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 
 /** Private object storage: Cloudflare R2 in production (`almacenR2`), memory in tests. Tasks only see this port. */
@@ -43,10 +44,10 @@ const PREFIJO_DE_MATERIALES = "materiales/"
 
 function exigirSubida(clave: string, segundos: number): void {
   if (!clave.startsWith(PREFIJO_DE_MATERIALES)) {
-    throw new Error(`Solo se sube a ${PREFIJO_DE_MATERIALES}: ${clave}`)
+    throw new FallaDeConfiguracion(`Solo se sube a ${PREFIJO_DE_MATERIALES}: ${clave}`)
   }
   if (!Number.isInteger(segundos) || segundos <= 0 || segundos > VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS) {
-    throw new Error(
+    throw new FallaDeConfiguracion(
       `Una URL de subida necesita una vigencia de 1 a ${VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS} segundos enteros: ${segundos}`,
     )
   }
@@ -187,12 +188,13 @@ const ORDEN_MAXIMO = 20
 
 /** The original of a material; the images of a multi-image material carry their order (1..20) as two digits. */
 export function claveMaterial(materialId: string, extension: string, orden?: number): string {
-  if (!UUID.test(materialId)) throw new Error(`El id del material no es un UUID: ${materialId}`)
+  if (!UUID.test(materialId)) throw new FallaDeConfiguracion(`El id del material no es un UUID: ${materialId}`)
   const ext = extension.toLowerCase()
-  if (!EXTENSIONES_DE_MATERIAL.has(ext)) throw new Error(`Extensión de material no permitida: ${extension}`)
+  if (!EXTENSIONES_DE_MATERIAL.has(ext))
+    throw new FallaDeConfiguracion(`Extensión de material no permitida: ${extension}`)
   if (orden === undefined) return `${PREFIJO_DE_MATERIALES}${materialId}/original.${ext}`
   if (!Number.isInteger(orden) || orden < 1 || orden > ORDEN_MAXIMO) {
-    throw new Error(`El orden de la imagen va de 1 a ${ORDEN_MAXIMO}: ${orden}`)
+    throw new FallaDeConfiguracion(`El orden de la imagen va de 1 a ${ORDEN_MAXIMO}: ${orden}`)
   }
   return `${PREFIJO_DE_MATERIALES}${materialId}/original-${String(orden).padStart(2, "0")}.${ext}`
 }

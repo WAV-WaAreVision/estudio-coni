@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { HttpResponse, http } from "msw"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { almacenEnMemoria, almacenR2, almacenReal } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
 
@@ -237,7 +238,7 @@ describe("almacenR2", () => {
 
     it("refuses a key outside materiales/ without calling R2", async () => {
       const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
-      await expect(r2().urlDeSubida(CLAVE_OBJETO, 900, "video/mp4")).rejects.toThrow("materiales/")
+      await expect(r2().urlDeSubida(CLAVE_OBJETO, 900, "video/mp4")).rejects.toThrow(FallaDeConfiguracion)
       expect(capturas).toHaveLength(0)
     })
 
