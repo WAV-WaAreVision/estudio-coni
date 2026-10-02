@@ -260,6 +260,44 @@ export type Database = {
         }
         Relationships: []
       }
+      guion_versiones: {
+        Row: {
+          autor: string
+          creada_en: string
+          creada_por: string | null
+          guion: string
+          numero: number
+          pieza_id: string
+          texto: string | null
+        }
+        Insert: {
+          autor: string
+          creada_en?: string
+          creada_por?: string | null
+          guion: string
+          numero: number
+          pieza_id: string
+          texto?: string | null
+        }
+        Update: {
+          autor?: string
+          creada_en?: string
+          creada_por?: string | null
+          guion?: string
+          numero?: number
+          pieza_id?: string
+          texto?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guion_versiones_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ideas: {
         Row: {
           alertas: Json
@@ -645,6 +683,58 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      editar_guion_como_coni: {
+        Args: {
+          p_guion: string
+          p_pieza: string
+          p_revision: Json
+          p_texto: string
+          p_version: number
+        }
+        Returns: {
+          actualizada_en: string
+          archivos_borrados_en: string | null
+          audio_id: string | null
+          avatar_id: string | null
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_formula: number | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_en: string | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          revision: Json
+          texto: string | null
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       editar_texto_como_coni: {
         Args: {
           p_pieza: string
@@ -842,6 +932,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
       tomar_para_publicar: {
         Args: { p_ahora: string; p_arriendo_segundos?: number }
         Returns: {
