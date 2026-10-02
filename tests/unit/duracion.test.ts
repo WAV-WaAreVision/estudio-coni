@@ -8,8 +8,11 @@ describe("script length", () => {
   test("an empty or blank text has zero words", () => {
     expect(contarPalabras("   \n ")).toBe(0)
   })
-  test("estimates seconds at 2.5 words per second, rounded", () => {
-    expect(estimarSegundos("palabra ".repeat(100))).toBe(40)
+  test("estimates seconds with the same formula as the costs", () => {
+    expect(estimarSegundos("palabra ".repeat(100))).toBeCloseTo(40, 9)
+  })
+  test("adds a pause for each paragraph break", () => {
+    expect(estimarSegundos("palabra ".repeat(100).trim() + "\n\nfin")).toBeCloseTo((101 / 150) * 60 + 0.6, 9)
   })
   test("flags short, ok and long against the 75 to 150 word target", () => {
     expect(estadoDeLargo(60)).toBe("corto")
