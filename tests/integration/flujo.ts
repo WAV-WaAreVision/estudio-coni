@@ -72,7 +72,7 @@ const maniana = (): string => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOSt
 
 const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
   (c, id) => aplicar(c, id, comoConi, { tipo: "elegir" }),
-  (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo" }, { guion: GUION, texto: TEXTO, audio_id: AUDIO }),
+  (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo" }, { guion: GUION, texto: TEXTO }),
   (c, id) =>
     aplicar(
       c,
@@ -81,12 +81,12 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
       {
         tipo: "aprobar_guion",
         actor: "coni",
-        hashVisto: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
-        hashActual: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        hashVisto: hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR }),
+        hashActual: hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR }),
         en: ahora(),
       },
       // Chosen in the same write that approves, like the screen does.
-      { avatar_id: AVATAR },
+      { avatar_id: AVATAR, puerta1_formula: 2 },
     ),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),

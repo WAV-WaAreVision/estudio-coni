@@ -5,7 +5,6 @@ import { reservarGasto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
-import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
@@ -198,7 +197,6 @@ function deps(avisos = notificadorEnMemoria()): DepsProduccion {
     avisos,
     // Retries belong to Trigger.dev; a failing test should not wait for the SDK's backoff.
     claude: new Anthropic({ apiKey: "sk-ant-de-prueba", maxRetries: 0 }),
-    almacen: almacenEnMemoria(),
     ahora: () => new Date().toISOString(),
   }
 }

@@ -23,7 +23,7 @@ import { CIERRE } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { CONI, comoConi, pool } from "./db"
-import { AUDIO, aplicar, TEXTO, VIDEO } from "./flujo"
+import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, leerFila, sembrarIdea, sembrarPieza } from "./siembra"
@@ -219,7 +219,7 @@ describe("aprobarGuion", () => {
     return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   }
 
-  it("approves as Coni, binds the hash of what she saw and starts the recording", async () => {
+  it("approves a piece with no voice, stores formula 2 and binds the hash of script, text and avatar", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
@@ -233,9 +233,11 @@ describe("aprobarGuion", () => {
       puerta1_por: CONI,
       version: versionVista + 1,
       avatar_id: "look-b",
+      audio_id: null,
+      puerta1_formula: 2,
     })
     expect(guardada.puerta1_hash).toBe(
-      hashPuerta1({ formula: 1, guion: GUION_VALIDO, audioId: AUDIO, avatarId: "look-b" }),
+      hashPuerta1({ formula: 2, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b" }),
     )
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })

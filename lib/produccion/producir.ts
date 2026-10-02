@@ -18,7 +18,6 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
-import type { Almacen } from "@/lib/proveedores/almacen"
 import { costoClaude, escribirGuion, RechazoDeClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database, Json } from "@/lib/supabase/database.types"
@@ -28,9 +27,7 @@ export interface DepsProduccion {
   db: SupabaseClient<Database>
   avisos: Notificador
   claude: Anthropic
-  almacen: Almacen
   ahora: () => string
-  base?: { elevenlabs?: string }
 }
 
 export type ResultadoProduccion =

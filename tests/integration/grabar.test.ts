@@ -1,23 +1,27 @@
 import { createHash } from "node:crypto"
 import { HttpResponse, http } from "msw"
+import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { claveIdempotencia, hashPuerta1 } from "@/lib/dominio/puertas"
+import { claveIdempotencia, hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { type DepsGrabacion, estimarCostoVideo, grabarPieza } from "@/lib/produccion/grabar"
-import { almacenEnMemoria, claveVideo } from "@/lib/proveedores/almacen"
+import { estimarCostoVoz } from "@/lib/produccion/producir"
+import { almacenEnMemoria, claveAudio, claveVideo } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { comoConi, pool } from "./db"
-import { AUDIO, AVATAR, aplicar, crearPiezaEn, GUION } from "./flujo"
+import { comoConi, comoServicio, pool } from "./db"
+import { AUDIO, AVATAR, aplicar, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
 
 const HEYGEN = "https://api.heygen.com"
+const URL_VOZ = "https://api.elevenlabs.io/v1/text-to-speech/:voz"
+const CLAVE_ELEVENLABS = "sk_eleven_de_prueba"
 const CLAVE_HEYGEN = "hg_llave_de_coni_de_prueba"
 const VIDEO_ID = "v_abc123"
 const ASSET_ID = "asset_voz_1"
@@ -52,9 +56,12 @@ interface Simulacion {
   creaciones: Peticion[]
   lecturas: number
   descargas: string[]
+  voces: { voz: string; llave: string | null; texto: string }[]
 }
 
 interface OpcionesSimulacion {
+  /** The ElevenLabs answer to the n-th call (0 based); the default is a good audio. */
+  voz?: (n: number) => Response | Promise<Response>
   /** The answers of GET /v3/videos/{id}, in order; the last one repeats. */
   lecturas?: Record<string, unknown>[]
   /** The answer of POST /v3/videos instead of the default one. */
@@ -73,11 +80,18 @@ const VIDEO_LISTO = {
 }
 
 function simular(opciones: OpcionesSimulacion = {}): Simulacion {
-  const sim: Simulacion = { assets: [], creaciones: [], lecturas: 0, descargas: [] }
+  const sim: Simulacion = { assets: [], creaciones: [], lecturas: 0, descargas: [], voces: [] }
   const lecturas = opciones.lecturas ?? [VIDEO_LISTO]
   // HeyGen replays the first answer to a repeated Idempotency-Key, which is what the app relies on.
   const reproducidas = new Map<string, string>()
   servidor.use(
+    http.post<{ voz: string }, { text: string }>(URL_VOZ, async ({ request, params }) => {
+      const cuerpo = await request.json()
+      sim.voces.push({ voz: String(params.voz), llave: request.headers.get("xi-api-key"), texto: cuerpo.text })
+      return opciones.voz
+        ? await opciones.voz(sim.voces.length - 1)
+        : new HttpResponse(VOZ, { headers: { "Content-Type": "audio/mpeg" } })
+    }),
     http.post(`${HEYGEN}/v3/assets`, async ({ request }) => {
       const archivo = (await request.formData()).get("file")
       sim.assets.push({
@@ -150,15 +164,12 @@ function doble(cambios: Partial<DepsGrabacion> = {}): Doble {
 
 const piezasCreadas: string[] = []
 
-/** A piece walked through the real flow up to the render: Coni approved the script and the voice (gate 1). */
-async function crearPiezaEnRender(): Promise<string> {
+async function enTransaccion(fn: (c: pg.PoolClient) => Promise<void>): Promise<void> {
   const c = await pool.connect()
   try {
     await c.query("begin")
-    const id = await crearPiezaEn(c, "en_render")
+    await fn(c)
     await c.query("commit")
-    piezasCreadas.push(id)
-    return id
   } catch (error) {
     await c.query("rollback")
     throw error
@@ -167,25 +178,49 @@ async function crearPiezaEnRender(): Promise<string> {
   }
 }
 
+/** A piece approved at gate 1 (formula 2: no voice yet), walked through the real flow up to the render. */
+async function crearPiezaSinVoz(): Promise<string> {
+  let id = ""
+  await enTransaccion(async (c) => {
+    id = await crearPiezaEn(c, "en_render")
+  })
+  piezasCreadas.push(id)
+  return id
+}
+
+/** The same piece with the voice already stored, as a run that got past the voice step leaves it. */
+async function crearPiezaEnRender(): Promise<string> {
+  const id = await crearPiezaSinVoz()
+  await enTransaccion(async (c) => {
+    await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: AUDIO })
+  })
+  return id
+}
+
+/** A piece approved before the voice moved after gate 1: no formula, a voice, and the hash of formula 1. */
+async function crearPiezaLegacy(opciones: { audio: boolean } = { audio: true }): Promise<string> {
+  const id = await crearPiezaEnRender()
+  await enTransaccion(async (c) => {
+    // The triggers (formula only at approval, only Coni sets the avatar) are the point of the schema; a repair skips them.
+    await c.query("set local session_replication_role = replica")
+    await c.query(
+      "update public.piezas set puerta1_formula = null, audio_id = $3, puerta1_hash = $2, version = version + 1 where id = $1",
+      [id, hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }), opciones.audio ? AUDIO : null],
+    )
+  })
+  return id
+}
+
 /** A piece approved before avatars could be chosen: no avatar_id, and the gate 1 hash of the old formula. */
 async function crearPiezaAprobadaAntesDeElegirAvatar(): Promise<string> {
   const id = await crearPiezaEnRender()
-  const c = await pool.connect()
-  try {
-    await c.query("begin")
-    // The triggers (only Coni sets the avatar, version guard) are the point of the schema; a repair has to skip them.
+  await enTransaccion(async (c) => {
     await c.query("set local session_replication_role = replica")
-    await c.query("update public.piezas set avatar_id = null, puerta1_hash = $2 where id = $1", [
-      id,
-      hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO }),
-    ])
-    await c.query("commit")
-  } catch (error) {
-    await c.query("rollback")
-    throw error
-  } finally {
-    c.release()
-  }
+    await c.query(
+      "update public.piezas set avatar_id = null, puerta1_formula = null, puerta1_hash = $2 where id = $1",
+      [id, hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO })],
+    )
+  })
   return id
 }
 
@@ -203,11 +238,12 @@ interface FilaPieza {
   estado_antes_del_error: string | null
   puerta1_hash: string | null
   guion: string | null
+  audio_id: string | null
 }
 
 async function pieza(id: string): Promise<FilaPieza> {
   const { rows } = await pool.query<FilaPieza>(
-    `select estado, version, intento, video_id, render_id, explicacion, estado_antes_del_error, puerta1_hash, guion
+    `select estado, version, intento, video_id, render_id, explicacion, estado_antes_del_error, puerta1_hash, guion, audio_id
      from public.piezas where id = $1`,
     [id],
   )
@@ -238,9 +274,13 @@ function claveDeGasto(id: string, intento: number): string {
   return claveIdempotencia({
     piezaId: id,
     paso: "grabar",
-    hash: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+    hash: hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR }),
     intento,
   })
+}
+
+function claveDeGastoVoz(id: string, intento: number): string {
+  return claveIdempotencia({ piezaId: id, paso: "grabar", hash: hashTexto(`elevenlabs:${id}`), intento })
 }
 
 beforeEach(async () => {
@@ -249,10 +289,12 @@ beforeEach(async () => {
   ])
   await pool.query("delete from vault.secrets where name = 'heygen'")
   await pool.query("select vault.create_secret($1, 'heygen')", [CLAVE_HEYGEN])
+  await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+  await pool.query("select vault.create_secret($1, 'elevenlabs')", [CLAVE_ELEVENLABS])
 })
 
 afterEach(async () => {
-  await pool.query("delete from vault.secrets where name = 'heygen'")
+  await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
   piezasCreadas.length = 0
@@ -485,10 +527,9 @@ describe("grabarPieza sin aprobación", () => {
     expect(await pieza(id)).toEqual(antes)
   })
 
-  it("makes no request when the piece has no voice or no script", async () => {
-    const id = await crearPiezaEnRender()
+  it("makes no request when the legacy piece has no voice", async () => {
+    const id = await crearPiezaLegacy({ audio: false })
     const sim = simular()
-    await pool.query("update public.piezas set audio_id = null, version = version + 1 where id = $1", [id])
 
     expect(await grabarPieza(doble().deps, id)).toEqual({ resultado: "sin_aprobacion" })
     expect(sim.creaciones).toHaveLength(0)
@@ -972,5 +1013,212 @@ describe("la entrada a en_render con el flujo real", () => {
     const filas = await gastos(id)
     expect(filas.map((f) => f.estado)).toEqual(["confirmado", "confirmado"])
     expect(filas.map((f) => f.clave)).toEqual([claveDeGasto(id, 0), claveDeGasto(id, 1)])
+  })
+})
+
+async function conTopeMensual(usd: number): Promise<void> {
+  await pool.query("update public.ajustes set tope_mensual_usd = $1", [usd])
+}
+
+describe("grabarPieza con la voz después de la puerta 1", () => {
+  it("makes the voice right before HeyGen: reserves its spend, speaks the approved script once, stores the audio and records with it", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    const d = doble()
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    const audioId = claveAudio(id, VOZ)
+    expect(sim.voces).toEqual([{ voz: coniConfig.elevenlabs.voice_id, llave: CLAVE_ELEVENLABS, texto: GUION }])
+    expect(d.almacen.obtener(audioId)).toEqual({ datos: VOZ, tipo: "audio/mpeg" })
+    expect(await pieza(id)).toMatchObject({ estado: "video_por_aprobar", audio_id: audioId })
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+    const filas = await gastos(id)
+    expect(filas.map((f) => [f.proveedor, f.paso, f.estado, f.clave])).toEqual([
+      ["elevenlabs", "voz", "confirmado", claveDeGastoVoz(id, 0)],
+      ["heygen", "grabar", "confirmado", claveDeGasto(id, 0)],
+    ])
+    expect(filas[0]?.real).toBeCloseTo(estimarCostoVoz(GUION), 4)
+  })
+
+  it("does not speak again when the run is retried after the voice was stored", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular({ crear: () => new HttpResponse("upstream", { status: 503 }) })
+    const d = doble()
+
+    await expect(grabarPieza(d.deps, id)).rejects.toThrow("503")
+    expect(sim.voces).toHaveLength(1)
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: claveAudio(id, VOZ) })
+
+    const segunda = simular()
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(segunda.voces).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toHaveLength(1)
+  })
+
+  it("resumes without paying twice when the voice failed on the first run", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular({
+      voz: (n) => (n === 0 ? new HttpResponse("upstream", { status: 503 }) : new HttpResponse(VOZ)),
+    })
+    const d = doble()
+
+    await expect(grabarPieza(d.deps, id)).rejects.toThrow("503")
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: null })
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "reservado"]])
+    expect(sim.creaciones).toHaveLength(0)
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(2)
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
+      ["elevenlabs", "confirmado"],
+      ["heygen", "confirmado"],
+    ])
+  })
+
+  it("records a legacy piece with the voice it already has, without ElevenLabs", async () => {
+    const id = await crearPiezaLegacy()
+    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen)
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(0)
+    expect((await gastos(id)).map((g) => g.proveedor)).toEqual(["heygen"])
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+  })
+
+  it("stops without spending when a legacy piece has no voice", async () => {
+    const id = await crearPiezaLegacy({ audio: false })
+    const sim = simular()
+
+    expect(await grabarPieza(doble().deps, id)).toEqual({ resultado: "sin_aprobacion" })
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("stops without spending when the publication text changed after Coni approved", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    await pool.query(
+      "update public.piezas set texto = 'Otro texto que Coni no vio.', version = version + 1 where id = $1",
+      [id],
+    )
+
+    expect(await grabarPieza(doble().deps, id)).toEqual({ resultado: "sin_aprobacion" })
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("explains the cap and records nothing when the voice alone would pass it", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    await conTopeMensual(estimarCostoVoz(GUION) / 2)
+    const d = doble()
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
+
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.assets).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", explicacion: TOPE, audio_id: null })
+    expect(d.deps.avisos).toMatchObject({ aConiEnviados: [{ mensaje: TOPE, urgente: true }] })
+  })
+
+  it("keeps the voice and finishes the render after the cap is raised", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    await conTopeMensual(estimarCostoVoz(GUION) + 0.01)
+    const d = doble()
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
+    expect(sim.voces).toHaveLength(1)
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "confirmado"]])
+
+    await conTopeMensual(40)
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
+      ["elevenlabs", "confirmado"],
+      ["heygen", "confirmado"],
+    ])
+  })
+
+  it("fails as a configuration error, before any spend, when elevenlabs.voice_id is missing", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    const sinVoz = { ...coniConfig, elevenlabs: { ...coniConfig.elevenlabs, voice_id: "" } }
+    await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(sinVoz)])
+
+    const error = await grabarPieza(doble().deps, id).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toMatchObject({ message: expect.stringContaining("voice_id") })
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.assets).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("fails as a configuration error, before any spend, when Coni has not entered her ElevenLabs key", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+
+    const error = await grabarPieza(doble().deps, id).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toMatchObject({ message: expect.stringContaining("ElevenLabs") })
+    expect(sim.voces).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("fails as a configuration error when the production config is invalid", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    await pool.query('update public.ajustes set produccion = \'{"ruta_voz": "ElevenLabs"}\'::jsonb')
+
+    await expect(grabarPieza(doble().deps, id)).rejects.toBeInstanceOf(FallaDeConfiguracion)
+    expect(sim.voces).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("uses the ElevenLabs key without the spaces and newline it may have been pasted with", async () => {
+    const id = await crearPiezaSinVoz()
+    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+    await pool.query("select vault.create_secret($1, 'elevenlabs')", [`  ${CLAVE_ELEVENLABS}\n`])
+    const sim = simular()
+
+    await grabarPieza(doble().deps, id)
+
+    expect(sim.voces[0]?.llave).toBe(CLAVE_ELEVENLABS)
+  })
+
+  it("fails and leaves the piece alone when it changed while the voice was being generated", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular({
+      voz: async () => {
+        await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
+        return new HttpResponse(VOZ)
+      },
+    })
+
+    await expect(grabarPieza(doble().deps, id)).rejects.toThrow("La pieza cambió mientras se producía.")
+
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: null })
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "reservado"]])
   })
 })
