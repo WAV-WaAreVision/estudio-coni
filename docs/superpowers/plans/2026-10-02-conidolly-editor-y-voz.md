@@ -513,3 +513,5 @@ export function estadoDeLargo(palabras: number): "corto" | "bien" | "largo" {
 ### Screenshots
 
 - test-results/capturas/guion-editor.png (git-ignored output of the E2E run)
+
+- Final branch review (Opus) found a cross-task bug: a piece waiting for gate 1 at deploy with a pre-generated audio would be recorded with that stale voice. Fixed in 85e45e0: approval clears audio_id, and grabar trusts a stored voice under formula 2 only if it is claveVozAprobada(pieza, puerta1_hash). Final counts after the fix: 1264 unit, 584 integration, 69 E2E.
