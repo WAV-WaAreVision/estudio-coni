@@ -72,7 +72,7 @@ const maniana = (): string => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOSt
 
 const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
   (c, id) => aplicar(c, id, comoConi, { tipo: "elegir" }),
-  (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo", audioId: AUDIO }, { guion: GUION, texto: TEXTO }),
+  (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo" }, { guion: GUION, texto: TEXTO, audio_id: AUDIO }),
   (c, id) =>
     aplicar(
       c,

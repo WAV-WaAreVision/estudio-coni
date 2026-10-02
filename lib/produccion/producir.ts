@@ -258,9 +258,10 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
   const audioId = claveAudio(fila.id, audio)
   await deps.almacen.subir(audioId, audio, "audio/mpeg")
 
-  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo", audioId })
+  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo" })
   const lista = await actualizarPieza(db, fila.id, fila.version, {
     ...cambiosDesdePieza(pieza),
+    audio_id: audioId,
     guion: borrador.guion,
     texto: borrador.texto,
     revision: borrador.revision,

@@ -55,10 +55,12 @@ export interface Pieza {
  */
 export type Evento =
   | { tipo: "elegir" }
-  | { tipo: "guion_listo"; audioId: string }
+  | { tipo: "guion_listo" }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
   | { tipo: "aprobar_guion"; actor: Actor; hashVisto: string; hashActual: string; en: string }
+  /** The voice is generated while Coni records, after gate 1. */
+  | { tipo: "voz_lista"; audioId: string }
   | { tipo: "render_entregado" }
   | { tipo: "politica_contenido"; explicacion: string }
   | { tipo: "falla_produccion"; explicacion: string }
@@ -177,7 +179,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "guion_listo":
       if (estado !== "guion_en_proceso") throw invalida()
-      return a("guion_por_aprobar", { audioId: evento.audioId })
+      return a("guion_por_aprobar", { audioId: null })
 
     case "pedir_cambios":
       if (estado !== "guion_por_aprobar") throw invalida()
@@ -198,9 +200,13 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
     case "aprobar_guion":
       // The actor is checked first so an unauthorised attempt is flagged even on a stale piece.
       soloConi(evento.actor)
-      if (estado !== "guion_por_aprobar" || !pieza.audioId) throw invalida()
+      if (estado !== "guion_por_aprobar") throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
       return a("en_render", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+
+    case "voz_lista":
+      if (estado !== "en_render") throw invalida()
+      return a("en_render", { audioId: evento.audioId })
 
     case "render_entregado":
       if (estado !== "en_render") throw invalida()
