@@ -1,5 +1,8 @@
 import type { Pilar } from "@/lib/dominio/pilares"
 
+/** Most ideas she can turn into scripts at once. */
+export const MAXIMO_DE_IDEAS = 5
+
 export interface IdeaDelBanco {
   id: string
   pilar: Pilar

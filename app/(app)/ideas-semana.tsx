@@ -7,9 +7,8 @@ import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import type { Resultado } from "@/lib/acciones/resultado"
+import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import type { Pilar } from "@/lib/dominio/pilares"
-
-export const IDEAS_POR_ELEGIR = 3
 
 export interface IdeaParaElegir {
   id: string
@@ -39,8 +38,9 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
     )
   }
 
-  const faltan = IDEAS_POR_ELEGIR - elegidas.length
-  const lista = faltan === 0
+  const cuantas = elegidas.length
+  const lista = cuantas >= 1
+  const enElMaximo = cuantas >= MAXIMO_DE_IDEAS
 
   function alternar(id: string, marcada: boolean) {
     setError(null)
@@ -65,7 +65,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       <ul className="grid gap-1">
         {ideas.map((idea) => {
           const marcada = elegidas.includes(idea.id)
-          const bloqueada = !marcada && lista
+          const bloqueada = !marcada && enElMaximo
           return (
             <li key={idea.id}>
               <label
@@ -94,10 +94,14 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
         </p>
       ) : null}
       <Boton deshabilitado={!lista} cargando={pendiente} onClick={escribir}>
-        Escribir {IDEAS_POR_ELEGIR} guiones
+        {lista ? `Escribir ${cuantas} ${cuantas === 1 ? "guion" : "guiones"}` : "Escribir guiones"}
       </Boton>
       <p className="text-center text-meta text-apagado">
-        {lista ? "Te aviso cuando estén listos." : `Elige ${faltan} más.`}
+        {enElMaximo
+          ? `Llegaste al máximo de ${MAXIMO_DE_IDEAS}.`
+          : lista
+            ? "Te aviso cuando estén listos."
+            : `Elige al menos una idea. Puedes elegir hasta ${MAXIMO_DE_IDEAS}.`}
       </p>
       {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
     </div>

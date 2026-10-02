@@ -13,6 +13,7 @@ import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
+import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
@@ -28,7 +29,6 @@ export interface DepsAcciones {
   ahora: () => string
 }
 
-const MAXIMO_DE_IDEAS = 5
 // Instagram's limit for a caption.
 const MAXIMO_DEL_TEXTO = 2200
 

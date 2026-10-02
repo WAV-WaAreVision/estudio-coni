@@ -76,14 +76,12 @@ test("she chooses three ideas and the three scripts start", async ({ page }) => 
   for (const idea of IDEAS) await sembrarIdea(idea)
 
   await page.goto("/")
-  const boton = page.getByRole("button", { name: "Escribir 3 guiones" })
-  await expect(boton).toHaveAttribute("aria-disabled", "true")
-  await expect(page.getByText("Elige 3 más.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Escribir guiones" })).toHaveAttribute("aria-disabled", "true")
+  await expect(page.getByText("Elige al menos una idea. Puedes elegir hasta 5.")).toBeVisible()
 
   for (const gancho of [IDEAS[0], IDEAS[1], IDEAS[2]])
     await page.getByRole("checkbox", { name: new RegExp(gancho.gancho.slice(0, 18)) }).check()
-  await expect(page.getByRole("checkbox", { name: new RegExp(IDEAS[3].gancho.slice(0, 18)) })).toBeDisabled()
-  await boton.click()
+  await page.getByRole("button", { name: "Escribir 3 guiones" }).click()
 
   await expect(page.getByText("Escribiendo 3 guiones. Te aviso cuando estén.")).toBeVisible()
   await expect(page.getByText("Escribiendo el guion · te aviso")).toHaveCount(3)
