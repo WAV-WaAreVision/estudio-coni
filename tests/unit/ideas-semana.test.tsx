@@ -10,35 +10,55 @@ const IDEAS = [
   { id: "i5", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?", pilar: "deseo" as const },
 ]
 
+const EXTRA = { id: "i6", gancho: "Descansar también es avanzar, aunque no se note.", pilar: "bienestar" as const }
+
 function elegir(...ganchos: string[]) {
   for (const gancho of ganchos) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(gancho.slice(0, 20)) }))
 }
 
 describe("IdeasSemana", () => {
-  it("offers the ideas with the pillar named, and asks for three", () => {
+  it("offers the ideas with the pillar named, and asks for at least one", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 
     expect(screen.getAllByRole("checkbox")).toHaveLength(5)
     expect(screen.getByText("Pareja y conversación")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Escribir 3 guiones" })).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText("Elige 3 más.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Escribir guiones" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText("Elige al menos una idea. Puedes elegir hasta 5.")).toBeInTheDocument()
   })
 
-  it("counts down how many are left to choose", () => {
+  it("enables the button with one idea and writes the label in the singular", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 
     elegir(IDEAS[0].gancho)
 
-    expect(screen.getByText("Elige 2 más.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Escribir 1 guion" })).not.toHaveAttribute("aria-disabled", "true")
   })
 
-  it("does not let her pick a fourth idea", () => {
+  it("says how many more she can add, and does not claim anything was sent", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 
-    elegir(IDEAS[0].gancho, IDEAS[1].gancho, IDEAS[2].gancho)
+    elegir(IDEAS[0].gancho, IDEAS[1].gancho)
 
-    expect(screen.getByRole("checkbox", { name: new RegExp(IDEAS[3].gancho.slice(0, 20)) })).toBeDisabled()
+    expect(screen.getByText("Puedes sumar hasta 3 más.")).toBeInTheDocument()
+    expect(screen.queryByText("Te aviso cuando estén listos.")).not.toBeInTheDocument()
+  })
+
+  it("writes the label in the plural with two ideas", () => {
+    render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
+
+    elegir(IDEAS[0].gancho, IDEAS[1].gancho)
+
+    expect(screen.getByRole("button", { name: "Escribir 2 guiones" })).not.toHaveAttribute("aria-disabled", "true")
+  })
+
+  it("does not let her pick a sixth idea and says she reached the maximum", () => {
+    render(<IdeasSemana ideas={[...IDEAS, EXTRA]} alElegir={vi.fn()} />)
+
+    elegir(...IDEAS.map((idea) => idea.gancho))
+
+    expect(screen.getByRole("checkbox", { name: new RegExp(EXTRA.gancho.slice(0, 20)) })).toBeDisabled()
     expect(screen.getByRole("checkbox", { name: new RegExp(IDEAS[0].gancho.slice(0, 20)) })).toBeEnabled()
+    expect(screen.getByText("Llegaste al máximo de 5.")).toBeInTheDocument()
   })
 
   it("sends the three chosen ideas and tells her the scripts are being written", async () => {

@@ -151,7 +151,7 @@ test("tells her how to turn notices on again when she says no, and saves nothing
   await page.getByRole("button", { name: "Activar avisos" }).click()
 
   await expect(page.getByText("Los avisos están bloqueados")).toBeVisible()
-  await expect(page.getByText(/busca Estudio de Coni/)).toBeVisible()
+  await expect(page.getByText(/busca Conidolly/)).toBeVisible()
   expect(await suscripciones()).toEqual([])
   await capturar(page, "avisos-denegado")
 })

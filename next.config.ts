@@ -1,6 +1,16 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/:ruta*",
+        has: [{ type: "host", value: "estudio-coni.vercel.app" }],
+        destination: "https://conidolly.vercel.app/:ruta*",
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
       {

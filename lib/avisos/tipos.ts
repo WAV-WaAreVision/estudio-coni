@@ -1,3 +1,5 @@
+import { NOMBRE_DE_LA_APP } from "@/lib/diseno/marca"
+
 /** The kinds of notice Coni gets (design "Avisos a Coni"); `avisos.tipo` in the database accepts exactly these. */
 export const TIPOS_DE_AVISO = [
   "ideas_propuestas",
@@ -39,7 +41,7 @@ export interface MensajePush {
   url: string
 }
 
-export const TITULO_DE_PUSH = "Estudio de Coni"
+export const TITULO_DE_PUSH = NOMBRE_DE_LA_APP
 
 const CUERPO_DE_PUSH: Record<TipoDeAviso, string> = {
   ideas_propuestas: "Tienes ideas nuevas para elegir",

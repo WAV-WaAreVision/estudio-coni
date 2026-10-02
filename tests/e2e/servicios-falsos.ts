@@ -73,12 +73,14 @@ const servidor = createServer((req, res) => {
           error: { type: "authentication_error", message: "invalid x-api-key" },
         })
       }
+      // The script review (Coni edits on the Guion screen) asks for findings; an idea asks for a proposal.
+      const salida = cuerpo.includes("Revisa el guion y el texto de publicación") ? { hallazgos: [] } : PROPUESTA
       return responder(res, 200, {
         id: "msg_falso",
         type: "message",
         role: "assistant",
         model: "claude-opus-5-5",
-        content: [{ type: "text", text: JSON.stringify(PROPUESTA) }],
+        content: [{ type: "text", text: JSON.stringify(salida) }],
         stop_reason: "end_turn",
         stop_sequence: null,
         usage: { input_tokens: 3000, output_tokens: 200 },

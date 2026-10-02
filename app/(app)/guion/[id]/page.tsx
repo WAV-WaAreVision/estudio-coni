@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { Nota } from "@/components/nota"
+import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import {
   leerAvataresElegibles,
@@ -82,8 +83,8 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
       )
   }
 
-  if (fila.guion === null || fila.texto === null || fila.audio_id === null) {
-    throw new Error(`La pieza ${fila.id} está por aprobar sin guion, texto o voz.`)
+  if (fila.guion === null || fila.texto === null) {
+    throw new Error(`La pieza ${fila.id} está por aprobar sin guion o texto.`)
   }
 
   const ahora = Date.now()
@@ -96,16 +97,14 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const [audioUrl, costo, avatares] = await Promise.all([
-    urlParaVer(fila.audio_id),
-    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona),
+  const [costo, avatares, conVersionDeClaude] = await Promise.all([
+    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
     avataresParaElegir(db),
+    tieneVersionDeClaude({ db }, fila.id),
   ])
 
   return (
     <PantallaGuion
-      // A new version is a different screen: the ticks she gave belong to the review she saw.
-      key={fila.version}
       datos={{
         id: fila.id,
         version: fila.version,
@@ -116,8 +115,7 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
         guion: fila.guion,
         texto: fila.texto,
         revision: leerRevision(fila.revision),
-        audioUrl,
-        audioId: fila.audio_id,
+        tieneVersionDeClaude: conVersionDeClaude,
         salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
         costo: costo.linea,
         explicacion: fila.explicacion,

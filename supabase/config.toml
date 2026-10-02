@@ -247,7 +247,7 @@ otp_expiry = 3600
 # Sign-in with a six digit code (Plan 5a): the magic-link email carries {{ .Token }}, the code Coni types in the app.
 # A hosted project needs the same template in Authentication > Email templates.
 [auth.email.template.magic_link]
-subject = "Tu código para entrar al Estudio de Coni"
+subject = "Tu código para entrar a Conidolly"
 content_path = "./supabase/templates/codigo.html"
 
 # Uncomment to customize email template
@@ -428,8 +428,8 @@ enabled = true
 project_id = "mvfytttfxmzzjajecsch"
 
 [remotes.production.auth]
-site_url = "https://estudio-coni.vercel.app"
-additional_redirect_urls = ["https://estudio-coni.vercel.app/**", "https://*-federico-1787s-projects.vercel.app/**"]
+site_url = "https://conidolly.vercel.app"
+additional_redirect_urls = ["https://conidolly.vercel.app/**", "https://estudio-coni.vercel.app/**", "https://*-federico-1787s-projects.vercel.app/**"]
 
 [remotes.production.auth.email]
 max_frequency = "60s"
@@ -441,4 +441,4 @@ port = 465
 user = "resend"
 pass = "env(RESEND_API_KEY)"
 admin_email = "avisos@wearevision.cl"
-sender_name = "Estudio de Coni"
+sender_name = "Conidolly"

@@ -61,8 +61,9 @@ describe("transicionar", () => {
   it("recorre el camino feliz y sube la versión en cada paso", () => {
     const eventos: Evento[] = [
       { tipo: "elegir" },
-      { tipo: "guion_listo", audioId: "audio_1" },
+      { tipo: "guion_listo" },
       aprobarGuion(),
+      { tipo: "voz_lista", audioId: "audio_1" },
       { tipo: "render_entregado" },
       { tipo: "video_listo", videoId: "video_1" },
       aprobarVideo(),
@@ -107,10 +108,6 @@ describe("transicionar", () => {
   it("rechaza la puerta 1 cuando el guion o la voz cambiaron mientras coni revisaba", () => {
     const pieza = en("guion_por_aprobar", { audioId: "audio_1" })
     expect(() => transicionar(pieza, aprobarGuion({ hashActual: "h2" }))).toThrow(ArtefactoCambio)
-  })
-
-  it("rechaza la puerta 1 cuando todavía no hay voz", () => {
-    expect(() => transicionar(en("guion_por_aprobar"), aprobarGuion())).toThrow(TransicionInvalida)
   })
 
   it("rechaza la puerta 2 cuando el video, el texto o la hora no sirven", () => {
@@ -165,6 +162,37 @@ describe("transicionar", () => {
     expect(pieza.audioId).toBeNull()
     // The new script round must not reuse the spend key of the round that Coni asked to redo.
     expect(pieza.intento).toBe(1)
+  })
+
+  it("pasa a guion por aprobar sin voz cuando el guion queda listo", () => {
+    const { pieza } = transicionar(en("guion_en_proceso"), { tipo: "guion_listo" })
+    expect(pieza.estado).toBe("guion_por_aprobar")
+    expect(pieza.audioId).toBeNull()
+  })
+
+  it("aprueba la puerta 1 sin exigir voz", () => {
+    const { pieza } = transicionar(en("guion_por_aprobar", { audioId: null }), aprobarGuion())
+    expect(pieza.estado).toBe("en_render")
+  })
+
+  it("guarda la voz sin salir de en_render cuando la voz queda lista durante la grabación", () => {
+    const { pieza } = transicionar(en("en_render", { puerta1: { hash: "h1", en: ANTES } }), {
+      tipo: "voz_lista",
+      audioId: "audio_9",
+    })
+    expect(pieza.estado).toBe("en_render")
+    expect(pieza.audioId).toBe("audio_9")
+  })
+
+  it("rechaza la voz lista fuera de en_render", () => {
+    for (const estado of ["guion_por_aprobar", "subtitulando", "video_por_aprobar"] as const) {
+      expect(() => transicionar(en(estado), { tipo: "voz_lista", audioId: "a" })).toThrow(TransicionInvalida)
+    }
+  })
+
+  it("conserva la voz cuando coni pide regrabar", () => {
+    const pieza = en("video_por_aprobar", { audioId: "audio_1", videoId: "video_1" })
+    expect(transicionar(pieza, { tipo: "regrabar" }).pieza.audioId).toBe("audio_1")
   })
 
   it("vuelve a la puerta 1 con la explicación cuando heygen rechaza el contenido", () => {
@@ -386,7 +414,7 @@ describe("tabla del diseño", () => {
     idea: ["elegir", "descartar"],
     guion_en_proceso: ["guion_listo", "descartar"],
     guion_por_aprobar: ["pedir_cambios", "editar_texto", "aprobar_guion", "descartar"],
-    en_render: ["render_entregado", "politica_contenido", "falla_produccion", "descartar"],
+    en_render: ["voz_lista", "render_entregado", "politica_contenido", "falla_produccion", "descartar"],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
     programado: [
@@ -409,7 +437,8 @@ describe("tabla del diseño", () => {
 
   const eventos: Record<Evento["tipo"], Evento> = {
     elegir: { tipo: "elegir" },
-    guion_listo: { tipo: "guion_listo", audioId: "audio_2" },
+    guion_listo: { tipo: "guion_listo" },
+    voz_lista: { tipo: "voz_lista", audioId: "audio_2" },
     pedir_cambios: { tipo: "pedir_cambios" },
     editar_texto: { tipo: "editar_texto" },
     aprobar_guion: aprobarGuion(),

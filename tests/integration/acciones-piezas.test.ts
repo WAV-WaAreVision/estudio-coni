@@ -20,10 +20,11 @@ import {
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { CIERRE } from "@/lib/dominio/revision"
+import { claveAudio } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { CONI, comoConi, pool } from "./db"
-import { AUDIO, aplicar, TEXTO, VIDEO } from "./flujo"
+import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, leerFila, sembrarIdea, sembrarPieza } from "./siembra"
@@ -219,7 +220,17 @@ describe("aprobarGuion", () => {
     return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   }
 
-  it("approves as Coni, binds the hash of what she saw and starts the recording", async () => {
+  it("clears a voice pre-generated before gate 1 so it cannot be recorded for the script she approved", async () => {
+    const id = await paraAprobar()
+    await ajustarComoPostgres(id, { audio_id: claveAudio(id, new Uint8Array([1, 2, 3])) })
+
+    const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
+
+    expect(resultado).toMatchObject({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 2 })
+  })
+
+  it("approves a piece with no voice, stores formula 2 and binds the hash of script, text and avatar", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
@@ -233,8 +244,12 @@ describe("aprobarGuion", () => {
       puerta1_por: CONI,
       version: versionVista + 1,
       avatar_id: "look-b",
+      audio_id: null,
+      puerta1_formula: 2,
     })
-    expect(guardada.puerta1_hash).toBe(hashPuerta1({ guion: GUION_VALIDO, audioId: AUDIO, avatarId: "look-b" }))
+    expect(guardada.puerta1_hash).toBe(
+      hashPuerta1({ formula: 2, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b" }),
+    )
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
     expect(disparos[0]?.clave).toContain(guardada.puerta1_hash.slice(0, 16))

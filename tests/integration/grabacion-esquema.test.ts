@@ -28,8 +28,8 @@ async function guardarRender(c: pg.PoolClient, id: string, renderId: string): Pr
 const aprobacion = {
   tipo: "aprobar_guion",
   actor: "coni",
-  hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO }),
-  hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO }),
+  hashVisto: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO }),
+  hashActual: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO }),
   en: new Date().toISOString(),
 } as const
 

@@ -13,6 +13,7 @@ import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
+import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
@@ -28,9 +29,8 @@ export interface DepsAcciones {
   ahora: () => string
 }
 
-const MAXIMO_DE_IDEAS = 5
 // Instagram's limit for a caption.
-const MAXIMO_DEL_TEXTO = 2200
+export const MAXIMO_DEL_TEXTO = 2200
 
 /** The screen she is looking at is not the piece any more (somebody, or a task, wrote to it meanwhile). */
 class PantallaVencida extends Falla {
@@ -202,8 +202,9 @@ async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<st
 }
 
 /**
- * Gate 1 approves the script, the voice and the avatar in one write: the avatar goes in the same update as the
- * approval, so the hash is the hash of exactly what she saw and the audit row carries both.
+ * Gate 1 approves the script, the publication text and the avatar in one write (formula 2: the voice is made after
+ * it): the avatar and the formula go in the same update as the approval, so the hash is the hash of exactly what she
+ * saw and the audit row carries them.
  */
 export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
   return aResultado("aprobarGuion", async () => {
@@ -212,17 +213,18 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     // `versionVista` is the version of the screen she signed, and the write below only matches that version, so the
     // hash recomputed from this row is the hash of exactly what she saw.
     if (fila.estado !== "guion_por_aprobar") throw new TransicionInvalida(fila.estado, "aprobar_guion")
-    if (fila.guion === null || fila.audio_id === null) {
-      throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin voz.`)
+    if (fila.guion === null || fila.texto === null) {
+      throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin texto.`)
     }
     exigirRevisionLimpia(fila)
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
-    const hash = hashPuerta1({ guion: fila.guion, audioId: fila.audio_id, avatarId: avatar })
+    const hash = hashPuerta1({ formula: 2, guion: fila.guion, texto: fila.texto, avatarId: avatar })
     const guardada = await guardarEvento(
       deps.db,
       fila,
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
-      { avatar_id: avatar },
+      // A voice made before this approval (the old flow) was made for a draft, not for what she signed.
+      { avatar_id: avatar, puerta1_formula: 2, audio_id: null },
     )
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
   })

@@ -1,7 +1,7 @@
-// Service worker of Estudio de Coni. It does two things and nothing else: show a push as a notification, and open the
+// Service worker of Conidolly. It does two things and nothing else: show a push as a notification, and open the
 // right screen when she taps it. No fetch handler and no cache (the app is online-only in this plan). It never adds an
 // action button to a notification: approving happens inside the app, looking at the piece (design, Pass 2).
-const TITULO_POR_DEFECTO = "Estudio de Coni"
+const TITULO_POR_DEFECTO = "Conidolly"
 const CUERPO_POR_DEFECTO = "Tienes un aviso nuevo"
 
 // Only a path of this same app: a push that names another address must not be able to send her there.

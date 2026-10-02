@@ -24,7 +24,6 @@ const CLAUDE_ESPERA_MS = 120_000
 export async function depsReales(): Promise<DepsProduccion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
   const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
-  const almacen = almacenReal()
   const db = createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
   const llaveDeAnthropic = await leerSecreto(db, "anthropic")
   if (!llaveDeAnthropic) {
@@ -34,7 +33,6 @@ export async function depsReales(): Promise<DepsProduccion> {
     db,
     avisos: avisosReales(),
     claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
-    almacen,
     ahora: () => new Date().toISOString(),
   }
 }

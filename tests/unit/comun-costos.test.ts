@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { estimarCostoVoz } from "@/lib/produccion/producir"
+import { estimarCostoVoz } from "@/lib/produccion/comun"
 
 describe("estimarCostoVoz", () => {
   it("charges 0.0003 USD per character", () => {

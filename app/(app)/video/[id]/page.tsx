@@ -160,7 +160,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
   }).map((iso) => ({ iso, etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga") }))
   const [videoUrl, costo] = await Promise.all([
     urlParaVer(fila.video_id),
-    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona),
+    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
   ])
 
   return (

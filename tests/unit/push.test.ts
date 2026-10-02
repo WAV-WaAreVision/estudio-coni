@@ -21,7 +21,7 @@ function suscripcion(endpoint = ENDPOINT) {
   }
 }
 
-const MENSAJE = { titulo: "Estudio de Coni", cuerpo: "Tienes un guion listo para revisar", url: "/guion/abc" }
+const MENSAJE = { titulo: "Conidolly", cuerpo: "Tienes un guion listo para revisar", url: "/guion/abc" }
 
 interface Capturada {
   url: string

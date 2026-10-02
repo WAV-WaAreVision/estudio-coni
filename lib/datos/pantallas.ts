@@ -3,6 +3,7 @@ import { type FilaDePieza, type IdeaLeida, leerIdea, leerPieza, leerProduccion }
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, type Horario } from "@/lib/dominio/fechas"
 import { dolares } from "@/lib/formato"
+import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
 import { type AvatarElegible, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
@@ -95,24 +96,35 @@ export interface CostoDeGrabar {
   /** "Grabar cuesta unos US$ 2,40 · te quedan US$ 37,00 este mes", or null when the setup cannot say. */
   linea: string | null
   estimadoUsd: number | null
+  /** True when this recording would take the month past the cap. */
+  superaElTope: boolean
 }
 
-/** The cost line of the approve bar. If the production setup is unreadable it says nothing rather than a wrong number. */
-export async function leerCostoDeGrabar(db: Db, guion: string, ahora: number, zona: string): Promise<CostoDeGrabar> {
+/**
+ * The cost line of the approve bar. The voice is generated after gate 1, so it counts unless the piece already has
+ * its audio (`audioId`, a legacy piece whose voice was paid). If the production setup is unreadable it says nothing rather than a wrong number. */
+export async function leerCostoDeGrabar(
+  db: Db,
+  guion: string,
+  ahora: number,
+  zona: string,
+  audioId: string | null,
+): Promise<CostoDeGrabar> {
   let estimadoUsd: number
   try {
     const config = leerConfigProduccion(await leerProduccion(db))
-    estimadoUsd = estimarCostoVideo(guion, config.heygen.motor)
+    estimadoUsd = estimarCostoVideo(guion, config.heygen.motor) + (audioId === null ? estimarCostoVoz(guion) : 0)
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude estimar el costo de grabar", error)
-    return { linea: null, estimadoUsd: null }
+    return { linea: null, estimadoUsd: null, superaElTope: false }
   }
   const { tope, usado } = await leerPresupuesto(db, ahora, zona)
   const quedan = Math.max(0, tope - usado)
   return {
     linea: `Grabar cuesta unos ${dolares(estimadoUsd)} · te quedan ${dolares(quedan)} este mes`,
     estimadoUsd,
+    superaElTope: estimadoUsd > quedan,
   }
 }
 

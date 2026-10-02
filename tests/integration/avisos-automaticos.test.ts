@@ -61,7 +61,7 @@ describe("avisos que crea la base cuando una pieza queda lista para Coni", () =>
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       await aplicar(c, id, { tipo: "usuario", id: "c0000000-0000-4000-8000-000000000001" }, { tipo: "pedir_cambios" })
-      await aplicar(c, id, comoServicio, { tipo: "guion_listo", audioId: "audio-2" }, { guion: TEXTO, texto: TEXTO })
+      await aplicar(c, id, comoServicio, { tipo: "guion_listo" }, { guion: TEXTO, texto: TEXTO })
       const avisos = await avisosDe(c, id)
       expect(avisos.map((a) => a.tipo)).toEqual(["guion_listo", "guion_listo"])
       expect(new Set(avisos.map((a) => a.clave)).size).toBe(2)

@@ -6,14 +6,27 @@ function sha256(partes: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(partes)).digest("hex")
 }
 
+export type ArtefactoPuerta1 =
+  | { formula: 1; guion: string; audioId: string; avatarId?: string | null }
+  | { formula: 2; guion: string; texto: string; avatarId: string }
+
 /**
- * Gate 1 binds what costs video credits: the approved script, the exact voice audio and the avatar Coni chose. The
- * caption is bound by gate 2 (accepted change A11, finding R2-5), so fixing it never forces a re-render.
- * A piece without a chosen avatar (approved before the choice existed) keeps the hash it was approved with.
+ * Formula 1 hashed the voice, generated before gate 1. Since 2026-10-02 the voice is generated after gate 1, so
+ * formula 2 hashes what Coni approves: the script, the publication text and the avatar.
+ * Plan B adds the chosen sources as formula 3 the same way, instead of changing formula 2.
+ * A formula 1 piece without a chosen avatar (approved before the choice existed) keeps the hash it was approved with.
  */
-export function hashPuerta1(artefacto: { guion: string; audioId: string; avatarId?: string | null }): string {
-  const base = ["puerta1", artefacto.guion, artefacto.audioId]
-  return sha256(artefacto.avatarId ? [...base, artefacto.avatarId] : base)
+export function hashPuerta1(artefacto: ArtefactoPuerta1): string {
+  if (artefacto.formula === 1) {
+    const base = ["puerta1", artefacto.guion, artefacto.audioId]
+    return sha256(artefacto.avatarId ? [...base, artefacto.avatarId] : base)
+  }
+  return sha256(["puerta1/2", artefacto.guion, artefacto.texto, artefacto.avatarId])
+}
+
+/** A null stored formula on a signed piece is a gate-1 approval from before 2026-10-02: formula 1. */
+export function formulaDePuerta1(guardada: 1 | 2 | null): 1 | 2 {
+  return guardada ?? 1
 }
 
 export function hashTexto(texto: string): string {

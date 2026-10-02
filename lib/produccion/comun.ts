@@ -39,3 +39,15 @@ export async function avisarTope(deps: { avisos: Notificador }, fila: FilaDePiez
     piezaId: fila.id,
   })
 }
+
+/**
+ * ASSUMPTION, to be replaced with the rate of Coni's plan: US$ 0.30 per 1,000 characters, the overage price of
+ * ElevenLabs' Creator plan for Multilingual v2 at the time of writing. The API does not return a cost; the
+ * confirmed amount is this same estimate until the plan reads the `character-cost` header.
+ */
+const USD_POR_CARACTER_ELEVENLABS = 0.0003
+
+/** `gastos.estimado_usd` must be positive, so a (hypothetical) empty text still reserves the minimum. */
+export function estimarCostoVoz(texto: string): number {
+  return Math.max(MINIMO_USD, aCuatroDecimales(texto.length * USD_POR_CARACTER_ELEVENLABS))
+}

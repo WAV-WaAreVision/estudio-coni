@@ -33,8 +33,10 @@ export const TIPO_ALERTA_LINEAS_AYUDA = "líneas de ayuda"
 /** The types of alert an idea can carry, spelled as the bank writes them. */
 export const TIPOS_DE_ALERTA = ["verificar dato", TIPO_ALERTA_LINEAS_AYUDA, "no es terapia", "nota"] as const
 
-const MINIMO_PALABRAS = 75
-const MAXIMO_PALABRAS = 150
+export const MINIMO_PALABRAS = 75
+export const MAXIMO_PALABRAS = 150
+/** A script of 150 words fits in well under this; it bounds what can be sent to the model and the voice. */
+export const MAXIMO_DEL_GUION = 2000
 // The voice reads the script aloud: anything that is not speech goes in the caption. `{`, `}` and `\` also
 // reach the ASS subtitles, where they would be read as override codes.
 const SIMBOLO = /[\p{Extended_Pictographic}#@*_~^=<>{}[\]\\|/%$&+]/u

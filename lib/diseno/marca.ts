@@ -3,4 +3,5 @@
 export const COLOR_DE_FONDO = "#fbf6f8"
 export const COLOR_DE_ACENTO = "#b3285f"
 export const COLOR_SOBRE_ACENTO = "#fff7fa"
-export const NOMBRE_DE_LA_APP = "Estudio de Coni"
+export const NOMBRE_DE_LA_APP = "Conidolly"
+export const URL_DE_LA_APP = "https://conidolly.vercel.app"

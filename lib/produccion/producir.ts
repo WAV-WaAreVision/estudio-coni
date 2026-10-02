@@ -3,15 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
-  confirmarGasto,
   type FilaDePieza,
   guardarBorrador,
   type IdeaLeida,
   leerGuiaVigente,
   leerIdea,
   leerPieza,
-  leerProduccion,
-  leerSecreto,
   liberarGasto,
   reservarGasto,
   revisionAJson,
@@ -20,12 +17,9 @@ import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
-import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
-import { type Almacen, claveAudio } from "@/lib/proveedores/almacen"
+import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { costoClaude, escribirGuion, RechazoDeClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
-import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
-import { generarVoz } from "@/lib/proveedores/elevenlabs"
 import type { Database, Json } from "@/lib/supabase/database.types"
 
 export interface DepsProduccion {
@@ -33,31 +27,17 @@ export interface DepsProduccion {
   db: SupabaseClient<Database>
   avisos: Notificador
   claude: Anthropic
-  almacen: Almacen
   ahora: () => string
-  base?: { elevenlabs?: string }
 }
 
 export type ResultadoProduccion =
-  | { resultado: "producida"; audioId: string }
+  | { resultado: "producida" }
   | { resultado: "nada_que_hacer" }
   | { resultado: "tope" }
   | { resultado: "rechazado" }
 
 // A script and its review fit well under this; the real cost is confirmed afterwards.
 const ESTIMADO_CLAUDE_USD = 0.5
-/**
- * ASSUMPTION, to be replaced with the rate of Coni's plan: US$ 0.30 per 1,000 characters, the overage price of
- * ElevenLabs' Creator plan for Multilingual v2 at the time of writing. The API does not return a cost; the
- * confirmed amount is this same estimate until the plan reads the `character-cost` header.
- */
-const USD_POR_CARACTER_ELEVENLABS = 0.0003
-
-/** `gastos.estimado_usd` must be positive, so a (hypothetical) empty text still reserves the minimum. */
-export function estimarCostoVoz(texto: string): number {
-  return Math.max(MINIMO_USD, aCuatroDecimales(texto.length * USD_POR_CARACTER_ELEVENLABS))
-}
-
 /**
  * One key per piece, step and script round (`intento` goes up when Coni asks for changes), so a Trigger.dev retry
  * of the same round finds its own reservation and a new round gets a new one.
@@ -74,8 +54,6 @@ function claveDeGasto(fila: FilaDePieza, que: string): string {
 interface Contexto {
   idea: IdeaLeida
   guia: string
-  config: ConfigCompleta
-  llaveElevenlabs: string
 }
 
 // Everything that can be wrong with the setup is checked before any money is reserved.
@@ -92,15 +70,7 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
   if (!guia) {
     throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
   }
-  const config = leerConfigProduccion(await leerProduccion(db))
-  if (!config.elevenlabs.voice_id) {
-    throw new FallaDeConfiguracion("Falta elevenlabs.voice_id en la configuración de producción.")
-  }
-  const llaveElevenlabs = await leerSecreto(db, "elevenlabs")
-  if (!llaveElevenlabs) {
-    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de ElevenLabs en Ajustes.")
-  }
-  return { idea, guia: guia.texto, config, llaveElevenlabs }
+  return { idea, guia: guia.texto }
 }
 
 interface Borrador {
@@ -160,8 +130,8 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
 }
 
 /**
- * Writes the script, the caption and the voice of a piece in `guion_en_proceso` and leaves it in
- * `guion_por_aprobar`. It never approves anything. It is safe to run again: a finished piece is left alone, and a
+ * Writes and reviews the script and the caption of a piece in `guion_en_proceso` and leaves it in
+ * `guion_por_aprobar`. The voice is generated after gate 1 by the recording task. It never approves anything. It is safe to run again: a finished piece is left alone, and a
  * run that stopped half way resumes from what was saved instead of paying twice.
  */
 export async function producirPieza(deps: DepsProduccion, piezaId: string): Promise<ResultadoProduccion> {
@@ -227,38 +197,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     }
   }
 
-  const claveVoz = claveDeGasto(fila, `elevenlabs:${fila.id}`)
-  const estimadoVoz = estimarCostoVoz(borrador.guion)
-  const reservaVoz = await reservarGasto(db, {
-    piezaId: fila.id,
-    proveedor: "elevenlabs",
-    paso: "voz",
-    estimadoUsd: estimadoVoz,
-    clave: claveVoz,
-    ahora: deps.ahora(),
-  })
-  if (reservaVoz.tope) {
-    await explicar(deps, fila, TEXTO_TOPE)
-    await avisarTope(deps, fila)
-    return { resultado: "tope" }
-  }
-  if (reservaVoz.gasto.estado !== "reservado") {
-    // Confirmed only after the piece is saved, and nothing else releases a voice reservation.
-    throw new FallaDeConfiguracion(
-      `La reserva de la voz de la pieza ${fila.id} está ${reservaVoz.gasto.estado}, pero la pieza sigue sin voz.`,
-    )
-  }
-
-  const audio = await generarVoz({
-    clave: contexto.llaveElevenlabs,
-    config: contexto.config.elevenlabs,
-    texto: borrador.guion,
-    base: deps.base?.elevenlabs,
-  })
-  const audioId = claveAudio(fila.id, audio)
-  await deps.almacen.subir(audioId, audio, "audio/mpeg")
-
-  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo", audioId })
+  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo" })
   const lista = await actualizarPieza(db, fila.id, fila.version, {
     ...cambiosDesdePieza(pieza),
     guion: borrador.guion,
@@ -266,6 +205,5 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     revision: borrador.revision,
   })
   if (!lista) throw piezaCambio()
-  await confirmarGasto(db, claveVoz, estimadoVoz)
-  return { resultado: "producida", audioId }
+  return { resultado: "producida" }
 }

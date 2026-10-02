@@ -57,7 +57,7 @@ describe("DeslizarParaAprobar", () => {
       <DeslizarParaAprobar
         etiqueta={ETIQUETA}
         habilitado={false}
-        motivo="Falta escuchar la voz y confirmar la revisión."
+        motivo="Falta elegir el avatar y confirmar la revisión."
         alAprobar={alAprobar}
       />,
     )
@@ -67,7 +67,7 @@ describe("DeslizarParaAprobar", () => {
     expect(alAprobar).not.toHaveBeenCalled()
     expect(deslizador()).toHaveValue("0")
     expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(deslizador()).toHaveAccessibleDescription("Falta escuchar la voz y confirmar la revisión.")
+    expect(deslizador()).toHaveAccessibleDescription("Falta elegir el avatar y confirmar la revisión.")
   })
 
   it("approves with the End key, the keyboard way", () => {
