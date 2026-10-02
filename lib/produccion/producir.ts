@@ -3,15 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
-  confirmarGasto,
   type FilaDePieza,
   guardarBorrador,
   type IdeaLeida,
   leerGuiaVigente,
   leerIdea,
   leerPieza,
-  leerProduccion,
-  leerSecreto,
   liberarGasto,
   reservarGasto,
   revisionAJson,
@@ -21,11 +18,9 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
-import { type Almacen, claveAudio } from "@/lib/proveedores/almacen"
+import type { Almacen } from "@/lib/proveedores/almacen"
 import { costoClaude, escribirGuion, RechazoDeClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
-import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
-import { generarVoz } from "@/lib/proveedores/elevenlabs"
 import type { Database, Json } from "@/lib/supabase/database.types"
 
 export interface DepsProduccion {
@@ -39,7 +34,7 @@ export interface DepsProduccion {
 }
 
 export type ResultadoProduccion =
-  | { resultado: "producida"; audioId: string }
+  | { resultado: "producida" }
   | { resultado: "nada_que_hacer" }
   | { resultado: "tope" }
   | { resultado: "rechazado" }
@@ -74,8 +69,6 @@ function claveDeGasto(fila: FilaDePieza, que: string): string {
 interface Contexto {
   idea: IdeaLeida
   guia: string
-  config: ConfigCompleta
-  llaveElevenlabs: string
 }
 
 // Everything that can be wrong with the setup is checked before any money is reserved.
@@ -92,15 +85,7 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
   if (!guia) {
     throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
   }
-  const config = leerConfigProduccion(await leerProduccion(db))
-  if (!config.elevenlabs.voice_id) {
-    throw new FallaDeConfiguracion("Falta elevenlabs.voice_id en la configuración de producción.")
-  }
-  const llaveElevenlabs = await leerSecreto(db, "elevenlabs")
-  if (!llaveElevenlabs) {
-    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de ElevenLabs en Ajustes.")
-  }
-  return { idea, guia: guia.texto, config, llaveElevenlabs }
+  return { idea, guia: guia.texto }
 }
 
 interface Borrador {
@@ -227,46 +212,13 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     }
   }
 
-  const claveVoz = claveDeGasto(fila, `elevenlabs:${fila.id}`)
-  const estimadoVoz = estimarCostoVoz(borrador.guion)
-  const reservaVoz = await reservarGasto(db, {
-    piezaId: fila.id,
-    proveedor: "elevenlabs",
-    paso: "voz",
-    estimadoUsd: estimadoVoz,
-    clave: claveVoz,
-    ahora: deps.ahora(),
-  })
-  if (reservaVoz.tope) {
-    await explicar(deps, fila, TEXTO_TOPE)
-    await avisarTope(deps, fila)
-    return { resultado: "tope" }
-  }
-  if (reservaVoz.gasto.estado !== "reservado") {
-    // Confirmed only after the piece is saved, and nothing else releases a voice reservation.
-    throw new FallaDeConfiguracion(
-      `La reserva de la voz de la pieza ${fila.id} está ${reservaVoz.gasto.estado}, pero la pieza sigue sin voz.`,
-    )
-  }
-
-  const audio = await generarVoz({
-    clave: contexto.llaveElevenlabs,
-    config: contexto.config.elevenlabs,
-    texto: borrador.guion,
-    base: deps.base?.elevenlabs,
-  })
-  const audioId = claveAudio(fila.id, audio)
-  await deps.almacen.subir(audioId, audio, "audio/mpeg")
-
   const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo" })
   const lista = await actualizarPieza(db, fila.id, fila.version, {
     ...cambiosDesdePieza(pieza),
-    audio_id: audioId,
     guion: borrador.guion,
     texto: borrador.texto,
     revision: borrador.revision,
   })
   if (!lista) throw piezaCambio()
-  await confirmarGasto(db, claveVoz, estimadoVoz)
-  return { resultado: "producida", audioId }
+  return { resultado: "producida" }
 }

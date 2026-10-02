@@ -4,8 +4,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
-import { type DepsProduccion, estimarCostoVoz, producirPieza } from "@/lib/produccion/producir"
-import { almacenEnMemoria, claveAudio } from "@/lib/proveedores/almacen"
+import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
+import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
@@ -192,16 +192,13 @@ async function comoConiConfirmado(id: string): Promise<void> {
   }
 }
 
-function deps(
-  almacen = almacenEnMemoria(),
-  avisos = notificadorEnMemoria(),
-): DepsProduccion & { almacen: ReturnType<typeof almacenEnMemoria> } {
+function deps(avisos = notificadorEnMemoria()): DepsProduccion {
   return {
     db: clienteDeServicio(),
     avisos,
     // Retries belong to Trigger.dev; a failing test should not wait for the SDK's backoff.
     claude: new Anthropic({ apiKey: "sk-ant-de-prueba", maxRetries: 0 }),
-    almacen,
+    almacen: almacenEnMemoria(),
     ahora: () => new Date().toISOString(),
   }
 }
@@ -225,42 +222,39 @@ afterEach(async () => {
 })
 
 describe("producirPieza", () => {
-  it("writes the script and the voice, stores the audio and leaves the piece waiting for Coni", async () => {
+  it("writes and reviews the script, makes no voice and leaves the piece waiting for Coni", async () => {
     const id = await crearPiezaEnProduccion()
     const sim = simular()
     const d = deps()
 
     const resultado = await producirPieza(d, id)
 
-    const audioId = claveAudio(id, AUDIO)
-    expect(resultado).toEqual({ resultado: "producida", audioId })
+    expect(resultado).toEqual({ resultado: "producida" })
     const fila = await pieza(id)
     expect(fila).toMatchObject({
       estado: "guion_por_aprobar",
-      audio_id: audioId,
+      audio_id: null,
       guion: GUION_BUENO,
       texto: TEXTO_BUENO,
       revision: [],
       explicacion: null,
     })
-    expect(d.almacen.obtener(audioId)).toEqual({ datos: AUDIO, tipo: "audio/mpeg" })
-    expect(sim.voces).toEqual([{ voz: "F2SkAeaaVSlAUrRS3rDg", llave: CLAVE_ELEVENLABS, texto: GUION_BUENO }])
+    expect(sim.voces).toEqual([])
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
     expect(sim.escrituras).toHaveLength(1)
     expect(sim.revisiones).toHaveLength(1)
   })
 
-  it("records both spends as confirmed with their real cost", async () => {
+  it("records only the Claude spend, confirmed with its real cost", async () => {
     const id = await crearPiezaEnProduccion()
     simular()
 
     await producirPieza(deps(), id)
 
     const filas = await gastos(id)
-    expect(filas).toHaveLength(2)
+    expect(filas).toHaveLength(1)
     expect(filas[0]).toMatchObject({ proveedor: "anthropic", paso: "guion", estado: "confirmado", estimado: 0.5 })
     expect(filas[0]?.real).toBeCloseTo(COSTO_ESCRITURA + COSTO_REVISION, 6)
-    expect(filas[1]).toMatchObject({ proveedor: "elevenlabs", paso: "voz", estado: "confirmado" })
-    expect(filas[1]?.real).toBeCloseTo(estimarCostoVoz(GUION_BUENO), 4)
   })
 
   it("never approves anything: gate 1 stays empty and the writes come from the service role", async () => {
@@ -376,7 +370,7 @@ describe("producirPieza", () => {
     const sim = simular()
     const avisos = notificadorEnMemoria()
 
-    const resultado = await producirPieza(deps(undefined, avisos), id)
+    const resultado = await producirPieza(deps(avisos), id)
 
     expect(resultado).toEqual({ resultado: "tope" })
     expect(avisos.aConiEnviados).toEqual([{ mensaje: TOPE, urgente: true }])
@@ -387,30 +381,6 @@ describe("producirPieza", () => {
     expect(sim.escrituras).toHaveLength(0)
     expect(sim.voces).toHaveLength(0)
     expect(await gastos(id)).toEqual([])
-  })
-
-  it("keeps the script and finishes the voice after the cap is raised", async () => {
-    const id = await crearPiezaEnProduccion()
-    // The cap drops while Claude writes: the Claude reservation fit, the voice one will not.
-    const sim = simular({
-      enEscritura: () => pool.query("update public.ajustes set tope_mensual_usd = 0.1").then(() => undefined),
-    })
-
-    const primera = await producirPieza(deps(), id)
-
-    expect(primera).toEqual({ resultado: "tope" })
-    expect(sim.escrituras).toHaveLength(1)
-    expect(sim.voces).toHaveLength(0)
-    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", explicacion: TOPE, guion: GUION_BUENO })
-    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["anthropic", "confirmado"]])
-
-    await pool.query("update public.ajustes set tope_mensual_usd = 40")
-    const segunda = await producirPieza(deps(), id)
-
-    expect(segunda.resultado).toBe("producida")
-    expect(sim.escrituras).toHaveLength(1)
-    expect(sim.voces).toHaveLength(1)
-    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", guion: GUION_BUENO, explicacion: null })
   })
 
   it("explains the refusal, releases the reservation and never reaches the voice", async () => {
@@ -463,42 +433,21 @@ describe("producirPieza", () => {
     expect(sim.revisiones).toHaveLength(0)
     expect(sim.voces).toHaveLength(0)
     expect(await pieza(id)).toEqual(antes)
-    expect(await gastos(id)).toHaveLength(2)
+    expect(await gastos(id)).toHaveLength(1)
   })
 
-  it("fails as a configuration error, before spending anything, when Coni has not entered her ElevenLabs key", async () => {
+  it("writes the script even when ElevenLabs has no key and no voice configured", async () => {
     const id = await crearPiezaEnProduccion()
     await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+    await pool.query("update public.ajustes set produccion = '{}'::jsonb")
     const sim = simular()
-
-    await expect(producirPieza(deps(), id)).rejects.toBeInstanceOf(FallaDeConfiguracion)
-
-    expect(sim.escrituras).toHaveLength(0)
-    expect(sim.voces).toHaveLength(0)
-    expect(await gastos(id)).toEqual([])
-    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", guion: null, version: 1 })
-  })
-
-  it("resumes without paying Claude again when the voice failed on the first run", async () => {
-    const id = await crearPiezaEnProduccion()
-    const sim = simular({
-      voz: (n) => (n === 0 ? new HttpResponse("upstream", { status: 503 }) : new HttpResponse(AUDIO)),
-    })
-
-    await expect(producirPieza(deps(), id)).rejects.toThrow("503")
-    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", guion: GUION_BUENO })
 
     const resultado = await producirPieza(deps(), id)
 
-    expect(resultado.resultado).toBe("producida")
+    expect(resultado).toEqual({ resultado: "producida" })
     expect(sim.escrituras).toHaveLength(1)
-    expect(sim.revisiones).toHaveLength(1)
-    expect(sim.voces).toHaveLength(2)
-    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
-      ["anthropic", "confirmado"],
-      ["elevenlabs", "confirmado"],
-    ])
-    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", guion: GUION_BUENO })
+    expect(sim.voces).toHaveLength(0)
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null })
   })
 
   it("starts a new round, with a new spend, when Coni asks for changes", async () => {
@@ -517,33 +466,12 @@ describe("producirPieza", () => {
 
     expect(resultado.resultado).toBe("producida")
     expect(sim.escrituras).toHaveLength(2)
-    expect(sim.voces).toHaveLength(2)
+    expect(sim.voces).toHaveLength(0)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
       ["anthropic", "confirmado"],
-      ["elevenlabs", "confirmado"],
       ["anthropic", "confirmado"],
-      ["elevenlabs", "confirmado"],
     ])
     expect((await pieza(id)).guion).toContain("otra idea")
-  })
-
-  it("fails and leaves the piece alone when it changed while it was being produced", async () => {
-    const id = await crearPiezaEnProduccion()
-    simular({
-      // Someone else moves the piece while the voice is being generated.
-      voz: async () => {
-        await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
-        return new HttpResponse(AUDIO)
-      },
-    })
-
-    await expect(producirPieza(deps(), id)).rejects.toThrow("La pieza cambió mientras se producía.")
-
-    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", audio_id: null })
-    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
-      ["anthropic", "confirmado"],
-      ["elevenlabs", "reservado"],
-    ])
   })
 
   it("keeps the spend reserved and the piece alone when it changed while Claude was writing", async () => {
@@ -588,17 +516,6 @@ describe("producirPieza", () => {
     expect(sim.escrituras).toHaveLength(0)
   })
 
-  it("uses the ElevenLabs key without the spaces and newline it may have been pasted with", async () => {
-    const id = await crearPiezaEnProduccion()
-    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
-    await pool.query("select vault.create_secret($1, 'elevenlabs')", [`  ${CLAVE_ELEVENLABS}\n`])
-    const sim = simular()
-
-    await producirPieza(deps(), id)
-
-    expect(sim.voces[0]?.llave).toBe(CLAVE_ELEVENLABS)
-  })
-
   it("fails as a configuration error when the settings row that holds the cap is missing", async () => {
     const id = await crearPiezaEnProduccion()
     await pool.query("delete from public.ajustes")
@@ -616,15 +533,6 @@ describe("producirPieza", () => {
     } finally {
       await pool.query("insert into public.ajustes default values")
     }
-  })
-
-  it("fails as a configuration error when the production config is invalid", async () => {
-    const id = await crearPiezaEnProduccion()
-    await pool.query('update public.ajustes set produccion = \'{"ruta_voz": "ElevenLabs"}\'::jsonb')
-    const sim = simular()
-
-    await expect(producirPieza(deps(), id)).rejects.toBeInstanceOf(FallaDeConfiguracion)
-    expect(sim.escrituras).toHaveLength(0)
   })
 
   it("fails as a configuration error when there is no current guide", async () => {
