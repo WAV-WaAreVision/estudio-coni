@@ -6,6 +6,7 @@ import { asumir, comoConi, comoPostgres, comoServicio, type Sesion } from "./db"
 
 export const GUION = "Hola, soy Coni. Hoy hablamos de límites."
 export const AUDIO = "audio-1"
+export const AVATAR = "look-1"
 export const VIDEO = "video-1"
 export const TEXTO = "Un texto para acompañar el video."
 
@@ -67,13 +68,20 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
   (c, id) => aplicar(c, id, comoConi, { tipo: "elegir" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo", audioId: AUDIO }, { guion: GUION, texto: TEXTO }),
   (c, id) =>
-    aplicar(c, id, comoConi, {
-      tipo: "aprobar_guion",
-      actor: "coni",
-      hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO }),
-      hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO }),
-      en: ahora(),
-    }),
+    aplicar(
+      c,
+      id,
+      comoConi,
+      {
+        tipo: "aprobar_guion",
+        actor: "coni",
+        hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        en: ahora(),
+      },
+      // Chosen in the same write that approves, like the screen does.
+      { avatar_id: AVATAR },
+    ),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),
   (c, id) =>

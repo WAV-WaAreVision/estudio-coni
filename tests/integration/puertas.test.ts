@@ -148,7 +148,7 @@ describe("quién aprueba", () => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       await asumir(c, comoConi)
       const { rows } = await c.query(
-        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, puerta1_por = $4, estado = 'en_render',
+        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, puerta1_por = $4, estado = 'en_render', avatar_id = 'look-1',
            version = version + 1 where id = $1 returning puerta1_por`,
         [id, aprobarPuerta1.puerta1_hash, aprobarPuerta1.puerta1_en, OTRA],
       )
@@ -193,10 +193,11 @@ describe("quién aprueba", () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       await asumir(c, comoConi)
-      const err = await fallaCon(c, "update public.piezas set puerta1_hash = $2, version = version + 1 where id = $1", [
-        id,
-        aprobarPuerta1.puerta1_hash,
-      ])
+      const err = await fallaCon(
+        c,
+        "update public.piezas set puerta1_hash = $2, avatar_id = 'look-1', version = version + 1 where id = $1",
+        [id, aprobarPuerta1.puerta1_hash],
+      )
       expect(err.code).toBe("23514")
       expect(err.constraint).toBe("puerta1_completa")
     })
@@ -287,7 +288,8 @@ describe("revisión automática", () => {
       await c.query(escribirRevision, [id, JSON.stringify([{ regla: "largo", tipo: "advierte", mensaje: "x" }])])
       await asumir(c, comoConi)
       const { rows } = await c.query(
-        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, estado = 'en_render', version = version + 1
+        `update public.piezas set puerta1_hash = $2, puerta1_en = $3, estado = 'en_render', avatar_id = 'look-1',
+           version = version + 1
          where id = $1 returning estado, puerta1_por`,
         [id, aprobarPuerta1.puerta1_hash, aprobarPuerta1.puerta1_en],
       )

@@ -191,7 +191,14 @@ async function crearElVideo({ contexto, gasto }: Entrada): Promise<string> {
     tipo: "audio/mpeg",
     idempotencia: `${clave}:asset`,
   })
-  const { cuerpo } = armarPedido({ config, guion, titulo: fila.titulo, audioAssetId })
+  const { cuerpo } = armarPedido({
+    config,
+    guion,
+    titulo: fila.titulo,
+    audioAssetId,
+    // Null on pieces approved before the choice existed: they record with heygen.avatar_id.
+    avatarId: fila.avatar_id ?? undefined,
+  })
   const videoId = await crearVideo({
     clave: llave,
     pedido: cuerpo,
@@ -236,7 +243,7 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise
   const { guion } = fila
   if (fila.estado === "en_render") {
     // The one place that decides whether credits may be spent: what Coni approved is what is about to be rendered.
-    const veredicto = puedeGrabar(pieza, hashPuerta1({ guion, audioId: fila.audio_id }))
+    const veredicto = puedeGrabar(pieza, hashPuerta1({ guion, audioId: fila.audio_id, avatarId: fila.avatar_id }))
     if (!veredicto.ok) return { resultado: "sin_aprobacion" }
   }
 
@@ -273,6 +280,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
       guion: contexto.guion,
       titulo: contexto.fila.titulo,
       audioAssetId: "pendiente",
+      avatarId: contexto.fila.avatar_id ?? undefined,
     })
   }
   const estimado = estimarCostoVideo(contexto.guion, contexto.config.heygen.motor)

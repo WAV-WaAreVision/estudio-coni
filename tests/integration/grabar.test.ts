@@ -12,7 +12,7 @@ import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
-import { AUDIO, aplicar, crearPiezaEn, GUION } from "./flujo"
+import { AUDIO, AVATAR, aplicar, crearPiezaEn, GUION } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
@@ -167,6 +167,28 @@ async function crearPiezaEnRender(): Promise<string> {
   }
 }
 
+/** A piece approved before avatars could be chosen: no avatar_id, and the gate 1 hash of the old formula. */
+async function crearPiezaAprobadaAntesDeElegirAvatar(): Promise<string> {
+  const id = await crearPiezaEnRender()
+  const c = await pool.connect()
+  try {
+    await c.query("begin")
+    // The triggers (only Coni sets the avatar, version guard) are the point of the schema; a repair has to skip them.
+    await c.query("set local session_replication_role = replica")
+    await c.query("update public.piezas set avatar_id = null, puerta1_hash = $2 where id = $1", [
+      id,
+      hashPuerta1({ guion: GUION, audioId: AUDIO }),
+    ])
+    await c.query("commit")
+  } catch (error) {
+    await c.query("rollback")
+    throw error
+  } finally {
+    c.release()
+  }
+  return id
+}
+
 async function conVozEnAlmacen(almacen: ReturnType<typeof almacenEnMemoria>): Promise<void> {
   await almacen.subir(AUDIO, VOZ, "audio/mpeg")
 }
@@ -216,7 +238,7 @@ function claveDeGasto(id: string, intento: number): string {
   return claveIdempotencia({
     piezaId: id,
     paso: "grabar",
-    hash: hashPuerta1({ guion: GUION, audioId: AUDIO }),
+    hash: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
     intento,
   })
 }
@@ -297,7 +319,7 @@ describe("grabarPieza", () => {
     expect(sim.creaciones[0]?.cabeceras.get("idempotency-key")).toBe(`${clave}:video`)
     expect(sim.creaciones[0]?.cuerpo).toMatchObject({
       type: "avatar",
-      avatar_id: coniConfig.heygen.avatar_id,
+      avatar_id: AVATAR,
       title: "Prueba",
       aspect_ratio: "9:16",
       audio_asset_id: ASSET_ID,
@@ -305,6 +327,50 @@ describe("grabarPieza", () => {
       caption: { file_format: "srt" },
     })
     expect(sim.creaciones[0]?.cuerpo).not.toHaveProperty("script")
+  })
+
+  it("records with the avatar Coni chose, not with heygen.avatar_id", async () => {
+    const id = await crearPiezaEnRender()
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen)
+
+    await grabarPieza(d.deps, id)
+
+    expect(sim.creaciones[0]?.cuerpo).toMatchObject({ avatar_id: AVATAR })
+    expect(coniConfig.heygen.avatar_id).not.toBe(AVATAR)
+  })
+
+  it("records a piece approved before the choice existed with heygen.avatar_id", async () => {
+    const id = await crearPiezaAprobadaAntesDeElegirAvatar()
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen)
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.creaciones[0]?.cuerpo).toMatchObject({ avatar_id: coniConfig.heygen.avatar_id })
+  })
+
+  it("does not spend when the avatar no longer matches what gate 1 approved", async () => {
+    const id = await crearPiezaEnRender()
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen)
+    const c = await pool.connect()
+    try {
+      await c.query("begin")
+      await c.query("set local session_replication_role = replica")
+      await c.query("update public.piezas set avatar_id = 'otro-look' where id = $1", [id])
+      await c.query("commit")
+    } finally {
+      c.release()
+    }
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "sin_aprobacion" })
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
   })
 
   it("burns the words of the approved script with the timing of HeyGen's SRT", async () => {
@@ -446,8 +512,8 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     expect(await gastos(id)).toEqual([])
   })
 
-  it("fails as a configuration error, before reserving anything, when the avatar is not set", async () => {
-    const id = await crearPiezaEnRender()
+  it("fails as a configuration error, before reserving anything, when a piece without a chosen avatar has no legacy avatar_id", async () => {
+    const id = await crearPiezaAprobadaAntesDeElegirAvatar()
     const sim = simular()
     const sinAvatar = { ...coniConfig, heygen: { ...coniConfig.heygen, avatar_id: "PENDIENTE" } }
     await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(sinAvatar)])
@@ -897,6 +963,7 @@ describe("la entrada a en_render con el flujo real", () => {
 
     expect(segunda.resultado).toBe("grabada")
     expect(sim.creaciones).toHaveLength(2)
+    expect(sim.creaciones[1]?.cuerpo).toMatchObject({ avatar_id: AVATAR })
     expect(sim.creaciones[1]?.cabeceras.get("idempotency-key")).toBe(`${claveDeGasto(id, 1)}:video`)
     expect(sim.assets[1]?.cabeceras.get("idempotency-key")).toBe(`${claveDeGasto(id, 1)}:asset`)
     expect(sim.creaciones[1]?.cabeceras.get("idempotency-key")).not.toBe(

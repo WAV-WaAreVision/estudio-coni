@@ -25,7 +25,9 @@ describe("hashes de las puertas", () => {
   })
 
   it("keeps the hash of pieces approved before avatars could be chosen", () => {
-    const legado = createHash("sha256").update(JSON.stringify(["puerta1", base.guion, base.audioId])).digest("hex")
+    const legado = createHash("sha256")
+      .update(JSON.stringify(["puerta1", base.guion, base.audioId]))
+      .digest("hex")
     expect(hashPuerta1(base)).toBe(legado)
     expect(hashPuerta1({ ...base, avatarId: null })).toBe(legado)
   })
