@@ -44,6 +44,7 @@ create table public.materiales (
   constraint material_con_contenido check (num_nonnulls(origen_url, archivo_clave, texto_pegado) >= 1)
 );
 create index materiales_categoria on public.materiales (categoria_id);
+create index materiales_subido_por on public.materiales (subido_por);
 
 create table public.materiales_archivos (
   material_id uuid not null references public.materiales (id) on delete cascade,
@@ -133,17 +134,28 @@ begin
   if normalizado = '' then
     raise exception using errcode = '22023', message = 'categoria_vacia';
   end if;
+  base := coalesce(nullif(trim(both '-' from regexp_replace(normalizado, '[^a-z0-9]+', '-', 'g')), ''), 'categoria');
+  -- Atomic: a concurrent call with the same name or slug conflicts here instead of raising.
+  insert into public.categorias (id, slug, nombre, creada_por)
+  values (nueva, base, btrim(p_nombre), auth.uid())
+  on conflict do nothing
+  returning id into existente;
+  if existente is not null then
+    return existente;
+  end if;
   select id into existente from public.categorias where nombre_normalizado = normalizado;
   if existente is not null then
     return existente;
   end if;
-  base := coalesce(nullif(trim(both '-' from regexp_replace(normalizado, '[^a-z0-9]+', '-', 'g')), ''), 'categoria');
-  if exists (select 1 from public.categorias where slug = base) then
-    base := base || '-' || substr(nueva::text, 1, 8);
-  end if;
+  -- Same slug, different name: retry once with a suffix.
   insert into public.categorias (id, slug, nombre, creada_por)
-  values (nueva, base, btrim(p_nombre), auth.uid());
-  return nueva;
+  values (nueva, base || '-' || substr(nueva::text, 1, 8), btrim(p_nombre), auth.uid())
+  on conflict (nombre_normalizado) do nothing
+  returning id into existente;
+  if existente is null then
+    select id into existente from public.categorias where nombre_normalizado = normalizado;
+  end if;
+  return existente;
 end $$;
 
 create function public.renombrar_categoria(p_id uuid, p_nombre text) returns void
