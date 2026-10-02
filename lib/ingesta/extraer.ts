@@ -33,9 +33,13 @@ function conTexto(paginas: PaginaExtraida[]): PaginaExtraida[] {
 export async function extraerPdf(bytes: Uint8Array, maximoPaginas = MAXIMO_PAGINAS_PDF): Promise<PaginaExtraida[]> {
   // unpdf transfers the buffer to its worker, so hand it a copy to leave the caller's bytes intact.
   const pdf = await getDocumentProxy(new Uint8Array(bytes))
-  if (pdf.numPages > maximoPaginas) throw new DemasiadoLargo(maximoPaginas)
-  const { text } = await extractText(pdf, { mergePages: false })
-  return conTexto(text.map((texto, i) => ({ pagina: i + 1, texto: texto.trim() })))
+  try {
+    if (pdf.numPages > maximoPaginas) throw new DemasiadoLargo(maximoPaginas)
+    const { text } = await extractText(pdf, { mergePages: false })
+    return conTexto(text.map((texto, i) => ({ pagina: i + 1, texto: texto.trim() })))
+  } finally {
+    await pdf.loadingTask.destroy()
+  }
 }
 
 export async function extraerDocx(bytes: Uint8Array): Promise<PaginaExtraida[]> {
