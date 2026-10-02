@@ -4,10 +4,9 @@ import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
-import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
-import { TextoDeInstagram } from "@/components/texto-de-instagram"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { MarcaRevision } from "@/components/ui/marca-revision"
@@ -27,8 +26,8 @@ export interface DatosDeGuion {
   guion: string
   texto: string
   revision: Hallazgo[]
-  audioUrl: string | null
-  audioId: string
+  /** Whether there is a version Claude wrote to go back to. */
+  tieneVersionDeClaude: boolean
   /** "jueves 16 de octubre · 19:00": when it would go out if she approves today. */
   salida: string | null
   /** "Grabar cuesta unos US$ 2,40 · te quedan US$ 37,00 este mes". */
@@ -40,9 +39,11 @@ export interface DatosDeGuion {
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 
-/** Gate 1: she reads the script as a letter, hears the voice, confirms what the review flagged, and slides. */
+/** Gate 1: she reads and edits the script, confirms what the review flagged, and slides. The voice comes after, in the video. */
 export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
-  const [escuchada, setEscuchada] = useState(false)
+  const [version, setVersion] = useState(datos.version)
+  const [revision, setRevision] = useState(datos.revision)
+  const [sinGuardar, setSinGuardar] = useState(false)
   const [avatarElegido, setAvatarElegido] = useState<string | null>(null)
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
@@ -50,19 +51,19 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   const aprobacion = useAccion()
   const cambios = useAccion()
 
-  const bloqueos = datos.revision.filter((hallazgo) => hallazgo.tipo === "bloquea")
-  const advertencias = datos.revision.filter((hallazgo) => hallazgo.tipo === "advierte")
+  const bloqueos = revision.filter((hallazgo) => hallazgo.tipo === "bloquea")
+  const advertencias = revision.filter((hallazgo) => hallazgo.tipo === "advierte")
   const sinConfirmar = advertencias.filter((hallazgo) => !confirmadas.has(claveDe(hallazgo)))
 
   const sinAvatares = datos.avatares.length === 0
   const faltan = [
-    ...(escuchada ? [] : ["escuchar la voz"]),
     ...(avatarElegido === null && !sinAvatares ? ["elegir el avatar"] : []),
     ...(sinConfirmar.length > 0 ? ["confirmar la revisión"] : []),
   ]
   const faltaTexto = faltan.length > 1 ? `${faltan.slice(0, -1).join(", ")} y ${faltan.at(-1)}` : faltan.join("")
-  const motivo =
-    bloqueos.length > 0
+  const motivo = sinGuardar
+    ? "Guarda tus cambios antes de aprobar"
+    : bloqueos.length > 0
       ? "Hay algo que corregir antes de aprobar."
       : sinAvatares
         ? "Todavía no hay avatares para elegir."
@@ -70,7 +71,13 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
           ? `Falta ${faltaTexto}.`
           : undefined
   const habilitado = motivo === undefined
-  const parrafos = datos.guion.split(/\n{2,}/).filter((parrafo) => parrafo.trim() !== "")
+
+  function alGuardar(guardado: GuionGuardado) {
+    setVersion(guardado.version)
+    setRevision(guardado.revision)
+    // The ticks belong to the review she saw: a new review asks again.
+    setConfirmadas(new Set())
+  }
 
   function alternarConfirmacion(hallazgo: Hallazgo, confirmada: boolean) {
     setConfirmadas((actuales) => {
@@ -115,36 +122,30 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </p>
       ) : null}
 
-      <article
-        data-pilar={datos.pilar ?? undefined}
-        aria-label="El guion"
-        className="grid gap-3.5 rounded-lg bg-pilar-tinte px-5 py-5.5 font-serif text-script"
-      >
-        {parrafos.map((parrafo) => (
-          <p key={parrafo}>{parrafo}</p>
-        ))}
-      </article>
-
-      <Seccion titulo="Voz" id="voz">
-        <ReproductorVoz src={datos.audioUrl} clave={datos.audioId} alEscuchar={() => setEscuchada(true)} />
+      <Seccion titulo="El guion" id="guion">
+        <EditorDeGuion
+          piezaId={datos.id}
+          version={version}
+          guion={datos.guion}
+          texto={datos.texto}
+          tieneVersionDeClaude={datos.tieneVersionDeClaude}
+          alGuardar={alGuardar}
+          alCambiarSinGuardar={setSinGuardar}
+        />
       </Seccion>
 
       <Seccion titulo="Avatar" id="avatar">
         <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
       </Seccion>
 
-      <Seccion titulo="Así sale en Instagram" id="texto">
-        <TextoDeInstagram piezaId={datos.id} version={datos.version} texto={datos.texto} />
-      </Seccion>
-
       <Seccion titulo="Revisión" id="revision">
         <p className="text-apagado">
-          {datos.revision.length === 0
+          {revision.length === 0
             ? "Claude revisó el guion y no encontró observaciones. Tú decides."
             : "Claude revisó el guion. Tú decides."}
         </p>
         <div className="grid gap-2.5">
-          {datos.revision.map((hallazgo) => (
+          {revision.map((hallazgo) => (
             <MarcaRevision
               key={claveDe(hallazgo)}
               hallazgo={hallazgo}
@@ -169,7 +170,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
               cargando={cambios.pendiente}
               onClick={() =>
                 cambios.ejecutar(
-                  () => pedirCambiosAccion(datos.id, datos.version),
+                  () => pedirCambiosAccion(datos.id, version),
                   (r) => setAviso(r.advertencia ?? null),
                 )
               }
@@ -189,11 +190,14 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
               enviando={aprobacion.pendiente}
               alAprobar={() =>
                 aprobacion.ejecutar(
-                  () => aprobarGuionAccion(datos.id, datos.version, avatarElegido),
+                  () => aprobarGuionAccion(datos.id, version, avatarElegido),
                   (r) => setAviso(r.advertencia ?? null),
                 )
               }
             />
+            <p className="text-center text-meta text-apagado">
+              La voz se genera cuando apruebes; la escuchas en el video.
+            </p>
             <Boton variante="callado" onClick={() => setPidiendoCambios(true)}>
               Pedir cambios
             </Boton>
