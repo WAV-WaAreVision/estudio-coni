@@ -412,29 +412,17 @@ FORMATO
 - Una parte vacía o sin nada que adaptar vuelve igual.
 - idioma_original es el idioma del material de origen, como código ISO 639-1 en minúsculas (es, en, pt, fr, it).`
 
+/** The source may hold the closing tag; `<\\/` is still `</` to a JSON reader but cannot end the data block. */
+function sinCierre(texto: string): string {
+  return texto.replace(/<\/fuente/gi, "<\\/fuente")
+}
+
 function pedidoDeAdaptacion(partes: readonly Parte[]): string {
   return `Adapta estas partes a español de Chile con la voz de Coni.
 
 <fuente>
-${JSON.stringify(partes)}
+${sinCierre(JSON.stringify(partes))}
 </fuente>`
-}
-
-function lotesPorCaracteres(partes: readonly Parte[]): Parte[][] {
-  const lotes: Parte[][] = []
-  let actual: Parte[] = []
-  let largo = 0
-  for (const parte of partes) {
-    if (actual.length > 0 && largo + parte.texto.length > CARACTERES_POR_LOTE) {
-      lotes.push(actual)
-      actual = []
-      largo = 0
-    }
-    actual.push(parte)
-    largo += parte.texto.length
-  }
-  if (actual.length > 0) lotes.push(actual)
-  return lotes
 }
 
 function exigirMismasUbicaciones(enviadas: readonly Parte[], recibidas: readonly Parte[]): void {
@@ -445,29 +433,22 @@ function exigirMismasUbicaciones(enviadas: readonly Parte[], recibidas: readonly
 }
 
 /**
- * Adapts parts to Spanish of Chile in Coni's voice, in batches of ~CARACTERES_POR_LOTE characters. A part is never
- * split (its location is its identity), so a single part longer than a batch goes alone.
+ * One request: adapts a batch of parts (at most ~CARACTERES_POR_LOTE characters; the caller batches, so it can pay
+ * for each request on its own). The answer must keep the number, order and location of the parts.
  */
 export async function adaptarAVozDeConi(entrada: {
   cliente: Anthropic
   partes: readonly Parte[]
 }): Promise<{ partes: Parte[]; idioma_original: string | null; uso: UsoClaude }> {
-  const resultado: Parte[] = []
-  let idioma: string | null = null
-  let uso: UsoClaude = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
-  for (const lote of lotesPorCaracteres(entrada.partes)) {
-    const { salida, uso: usoDelLote } = await pedirJson(entrada.cliente, {
-      guia: GUIA_DE_ADAPTACION,
-      usuario: pedidoDeAdaptacion(lote),
-      effort: "low",
-      esquema: SalidaAdaptacion,
-    })
-    exigirMismasUbicaciones(lote, salida.partes)
-    resultado.push(...salida.partes)
-    idioma ??= /^[a-z]{2}$/.test(salida.idioma_original) ? salida.idioma_original : null
-    uso = sumarUso(uso, usoDelLote)
-  }
-  return { partes: resultado, idioma_original: idioma, uso }
+  const { salida, uso } = await pedirJson(entrada.cliente, {
+    guia: GUIA_DE_ADAPTACION,
+    usuario: pedidoDeAdaptacion(entrada.partes),
+    effort: "low",
+    esquema: SalidaAdaptacion,
+  })
+  exigirMismasUbicaciones(entrada.partes, salida.partes)
+  const idioma = /^[a-z]{2}$/.test(salida.idioma_original) ? salida.idioma_original : null
+  return { partes: salida.partes, idioma_original: idioma, uso }
 }
 
 const SalidaIdioma = z.object({ idioma: z.string().regex(/^[a-z]{2}$/) })
@@ -481,7 +462,7 @@ export async function identificarIdioma(entrada: {
 }): Promise<{ idioma: string; uso: UsoClaude }> {
   const { salida, uso } = await pedirJson(entrada.cliente, {
     guia: GUIA_DE_IDIOMA,
-    usuario: `¿En qué idioma está este texto?\n\n<fuente>\n${entrada.muestra}\n</fuente>`,
+    usuario: `¿En qué idioma está este texto?\n\n<fuente>\n${sinCierre(entrada.muestra)}\n</fuente>`,
     effort: "low",
     esquema: SalidaIdioma,
   })

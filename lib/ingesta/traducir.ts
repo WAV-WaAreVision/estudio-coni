@@ -120,63 +120,153 @@ export function estimarCostoDeTraduccion(caracteres: number, conDeteccion: boole
   return Number((base + (conDeteccion ? ESTIMADO_IDIOMA_USD : 0)).toFixed(4))
 }
 
-function sumar(usos: readonly (UsoClaude | null)[]): number {
-  return usos.reduce((total, uso) => (uso ? total + costoClaude(uso) : total), 0)
+interface Trozo {
+  texto: string
+  /** What goes between the previous chunk and this one when the part is put back together. */
+  antes: string
+}
+
+const NIVELES_DE_CORTE: readonly { separador: RegExp; union: string }[] = [
+  { separador: /\n{2,}/, union: "\n\n" },
+  { separador: /(?<=[.!?…])\s+/, union: " " },
+]
+
+/** Splits at paragraphs, then sentences, then a hard cut; chunks are packed as full as the limit allows. */
+export function trocear(texto: string, limite = CARACTERES_POR_LOTE, nivel = 0): Trozo[] {
+  if (texto.length <= limite) return [{ texto, antes: "" }]
+  const corte = NIVELES_DE_CORTE[nivel]
+  if (!corte) {
+    const trozos: Trozo[] = []
+    for (let desde = 0; desde < texto.length; desde += limite)
+      trozos.push({ texto: texto.slice(desde, desde + limite), antes: "" })
+    return trozos
+  }
+  const resultado: Trozo[] = []
+  for (const unidad of texto.split(corte.separador)) {
+    const piezas = trocear(unidad, limite, nivel + 1)
+    const ultimo = resultado.at(-1)
+    const [primera] = piezas
+    if (
+      ultimo &&
+      piezas.length === 1 &&
+      primera &&
+      ultimo.texto.length + corte.union.length + primera.texto.length <= limite
+    ) {
+      ultimo.texto += corte.union + primera.texto
+      continue
+    }
+    resultado.push(
+      ...piezas.map((pieza, i) => (i === 0 && resultado.length > 0 ? { ...pieza, antes: corte.union } : pieza)),
+    )
+  }
+  return resultado
+}
+
+function unirTrozos(trozos: readonly Trozo[], adaptados: readonly string[]): string {
+  return trozos.map((trozo, i) => trozo.antes + (adaptados[i] ?? "")).join("")
+}
+
+/** Groups parts into requests of at most ~CARACTERES_POR_LOTE characters; each part is already within the limit. */
+function lotesPorCaracteres<T extends { texto: string }>(elementos: readonly T[]): T[][] {
+  const lotes: T[][] = []
+  let actual: T[] = []
+  let largo = 0
+  for (const elemento of elementos) {
+    if (actual.length > 0 && largo + elemento.texto.length > CARACTERES_POR_LOTE) {
+      lotes.push(actual)
+      actual = []
+      largo = 0
+    }
+    actual.push(elemento)
+    largo += elemento.texto.length
+  }
+  if (actual.length > 0) lotes.push(actual)
+  return lotes
+}
+
+/** One paid request: reserve against the cap, run it, confirm its real cost; release only if it failed. */
+async function pagando<T>(
+  gasto: GastoDeTraduccion,
+  clave: string,
+  estimadoUsd: number,
+  pedir: () => Promise<{ valor: T; uso: UsoClaude | null }>,
+): Promise<{ valor: T; costoUsd: number }> {
+  const reserva = await gasto.reservar({ paso: "traduccion", estimadoUsd, clave })
+  if (reserva.tope) throw new Falla("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")
+  let respuesta: { valor: T; uso: UsoClaude | null }
+  try {
+    respuesta = await pedir()
+  } catch (error) {
+    await gasto.liberar(clave)
+    throw error
+  }
+  const costoUsd = respuesta.uso ? Number(costoClaude(respuesta.uso).toFixed(4)) : 0
+  await gasto.confirmar(clave, costoUsd)
+  return { valor: respuesta.valor, costoUsd }
 }
 
 /**
  * Brings every part to Spanish of Chile in Coni's voice. Parts already in clean Chilean Spanish skip Claude, and so
- * does the spend. The call is reserved against the monthly cap first, confirmed with the real cost, released on failure.
+ * does the spend. Each Claude request is reserved against the monthly cap, confirmed with its real cost and released
+ * only if it fails, so batches that finished stay paid for. A part longer than a batch is split, adapted in chunks and
+ * put back together as one part with its original location.
  */
 export async function traducirMaterial(entrada: {
   cliente: Anthropic
   gasto: GastoDeTraduccion
-  /** Prefix of the spend key; a random suffix keeps a retry from reusing a released reservation. */
+  /** Prefix of the spend keys; a random suffix keeps a retry from reusing a released reservation. */
   clave: string
   partes: readonly Parte[]
   idiomaReportado?: string
 }): Promise<{ partes: Parte[]; idioma_original: string; costoUsd: number }> {
   const { cliente, gasto, partes } = entrada
-  const idiomaLocal = entrada.idiomaReportado ?? idiomaPorHeuristica(partes)
-  // Without a known language every part is adapted: the check only means something for Spanish.
-  const pendientes = (idiomaLocal === "es" ? partes.filter((p) => necesitaAdaptacion(p.texto)) : partes).filter(
-    (p) => p.texto.trim() !== "",
-  )
-  if (idiomaLocal === "es" && pendientes.length === 0) {
-    return { partes: [...partes], idioma_original: "es", costoUsd: 0 }
-  }
-
   const clave = `${entrada.clave}:${crypto.randomUUID()}`
-  const caracteres = pendientes.reduce((total, p) => total + p.texto.length, 0)
-  const reserva = await gasto.reservar({
-    paso: "traduccion",
-    estimadoUsd: estimarCostoDeTraduccion(caracteres, idiomaLocal === null),
-    clave,
-  })
-  if (reserva.tope) throw new Falla("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")
+  let costoUsd = 0
 
-  try {
-    const deteccion = await detectarIdioma(partes, entrada.idiomaReportado, cliente)
-    // The language may have been decided by Claude just now, and then Spanish can skip the parts that need nothing.
-    const aAdaptar = deteccion.idioma === "es" ? pendientes.filter((p) => necesitaAdaptacion(p.texto)) : pendientes
-    const adaptado = aAdaptar.length > 0 ? await adaptarAVozDeConi({ cliente, partes: aAdaptar }) : null
-    const costoUsd = Number(sumar([deteccion.uso, adaptado?.uso ?? null]).toFixed(4))
-    await gasto.confirmar(clave, costoUsd)
-    return {
-      partes: reemplazar(partes, aAdaptar, adaptado?.partes ?? []),
-      idioma_original: deteccion.idioma,
-      costoUsd,
-    }
-  } catch (error) {
-    await gasto.liberar(clave)
-    throw error
+  let idioma = entrada.idiomaReportado ?? idiomaPorHeuristica(partes)
+  if (idioma === null) {
+    const detectado = await pagando(gasto, `${clave}:idioma`, ESTIMADO_IDIOMA_USD, async () => {
+      const { idioma: elegido, uso } = await detectarIdioma(partes, undefined, cliente)
+      return { valor: elegido, uso }
+    })
+    idioma = detectado.valor
+    costoUsd += detectado.costoUsd
   }
-}
 
-/** Puts each adapted part back where its source was; parts left alone keep their text. */
-function reemplazar(todas: readonly Parte[], enviadas: readonly Parte[], recibidas: readonly Parte[]): Parte[] {
-  const porOrigen = new Map(enviadas.map((origen, i) => [origen, recibidas[i]]))
-  return todas.map((parte) => porOrigen.get(parte) ?? parte)
+  // The check only means something for Spanish; any other language adapts every part with text.
+  const indices = partes.flatMap((p, i) =>
+    p.texto.trim() !== "" && (idioma !== "es" || necesitaAdaptacion(p.texto)) ? [i] : [],
+  )
+  const trozos = indices.flatMap((indice) =>
+    trocear(partes[indice]?.texto ?? "").map((trozo) => ({ indice, trozo, texto: trozo.texto })),
+  )
+
+  const adaptados = new Map<number, string[]>()
+  const lotes = lotesPorCaracteres(trozos)
+  for (const [n, lote] of lotes.entries()) {
+    const caracteres = lote.reduce((total, t) => total + t.texto.length, 0)
+    const enviadas = lote.map(
+      (t): Parte => ({ texto: t.texto, ubicacion: partes[t.indice]?.ubicacion ?? { pagina: null } }),
+    )
+    const hecho = await pagando(gasto, `${clave}:lote${n}`, estimarCostoDeTraduccion(caracteres, false), async () => {
+      const r = await adaptarAVozDeConi({ cliente, partes: enviadas })
+      return { valor: r.partes, uso: r.uso }
+    })
+    costoUsd += hecho.costoUsd
+    lote.forEach((t, i) => {
+      const lista = adaptados.get(t.indice) ?? []
+      lista.push(hecho.valor[i]?.texto ?? "")
+      adaptados.set(t.indice, lista)
+    })
+  }
+
+  const resultado = partes.map((parte, i): Parte => {
+    const textos = adaptados.get(i)
+    if (!textos) return parte
+    const propios = trozos.filter((t) => t.indice === i).map((t) => t.trozo)
+    return { texto: unirTrozos(propios, textos), ubicacion: parte.ubicacion }
+  })
+  return { partes: resultado, idioma_original: idioma, costoUsd: Number(costoUsd.toFixed(4)) }
 }
 
 /** The spend ledger on the real database: the same three RPCs the other paid steps use. */
