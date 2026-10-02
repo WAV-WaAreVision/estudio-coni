@@ -223,7 +223,8 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
       deps.db,
       fila,
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
-      { avatar_id: avatar, puerta1_formula: 2 },
+      // A voice made before this approval (the old flow) was made for a draft, not for what she signed.
+      { avatar_id: avatar, puerta1_formula: 2, audio_id: null },
     )
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
   })

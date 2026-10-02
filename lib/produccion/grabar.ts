@@ -250,9 +250,20 @@ async function cargarContexto(deps: DepsGrabacion, fila: FilaDePieza, guion: str
   if (!llave) {
     throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de HeyGen en Ajustes.")
   }
-  const llaveElevenlabs = fila.audio_id === null ? await leerLlaveElevenlabs(deps, config) : null
+  const llaveElevenlabs = !tieneLaVozAprobada(fila, hash) ? await leerLlaveElevenlabs(deps, config) : null
   const clave = claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash, intento: fila.intento })
   return { deps, fila, guion, clave, hashAprobado: hash, llave, llaveElevenlabs, config }
+}
+
+/**
+ * Formula 1 (legacy) approved the voice itself, so any stored one stands. Formula 2 approves the script and the voice
+ * is made afterwards under a key derived from the approval: a voice under any other key (a draft made before gate 1)
+ * was not made for what Coni approved and must not be recorded.
+ */
+function tieneLaVozAprobada(fila: FilaDePieza, hashAprobado: string): boolean {
+  if (fila.audio_id === null) return false
+  if (formulaDePuerta1(formulaGuardada(fila)) === 1) return true
+  return fila.audio_id === claveVozAprobada(fila.id, hashAprobado)
 }
 
 /** The column is a smallint with a check for 1 and 2; anything else is a corrupted row, not an approval. */
@@ -378,7 +389,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
   const { db } = deps
   const enRender = contexto.fila.estado === "en_render"
 
-  if (enRender && contexto.fila.audio_id === null && !(await ponerLaVoz(contexto))) {
+  if (enRender && !tieneLaVozAprobada(contexto.fila, contexto.hashAprobado) && !(await ponerLaVoz(contexto))) {
     return { resultado: "tope" }
   }
 

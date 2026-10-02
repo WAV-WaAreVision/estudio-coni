@@ -191,8 +191,9 @@ async function crearPiezaSinVoz(): Promise<string> {
 /** The same piece with the voice already stored, as a run that got past the voice step leaves it. */
 async function crearPiezaEnRender(): Promise<string> {
   const id = await crearPiezaSinVoz()
+  const audioId = await claveDeVoz(id)
   await enTransaccion(async (c) => {
-    await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: AUDIO })
+    await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId })
   })
   return id
 }
@@ -217,15 +218,17 @@ async function crearPiezaAprobadaAntesDeElegirAvatar(): Promise<string> {
   await enTransaccion(async (c) => {
     await c.query("set local session_replication_role = replica")
     await c.query(
-      "update public.piezas set avatar_id = null, puerta1_formula = null, puerta1_hash = $2 where id = $1",
-      [id, hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO })],
+      "update public.piezas set avatar_id = null, puerta1_formula = null, audio_id = $3, puerta1_hash = $2 where id = $1",
+      [id, hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO }), AUDIO],
     )
   })
   return id
 }
 
-async function conVozEnAlmacen(almacen: ReturnType<typeof almacenEnMemoria>): Promise<void> {
-  await almacen.subir(AUDIO, VOZ, "audio/mpeg")
+async function conVozEnAlmacen(almacen: ReturnType<typeof almacenEnMemoria>, id: string): Promise<void> {
+  const { audio_id: audioId } = await pieza(id)
+  if (audioId === null) throw new Error(`La pieza ${id} no tiene voz guardada`)
+  await almacen.subir(audioId, VOZ, "audio/mpeg")
 }
 
 interface FilaPieza {
@@ -318,7 +321,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -335,7 +338,7 @@ describe("grabarPieza", () => {
     expect(claveFinal).toBe(`videos/${id}/${createHash("sha256").update(VIDEO_FINAL).digest("hex")}.mp4`)
     expect(d.almacen.obtener(claveFinal)).toEqual({ datos: VIDEO_FINAL, tipo: "video/mp4" })
     // The raw HeyGen video is not kept: only the voice and the final video are in the store.
-    expect(d.almacen.claves().sort()).toEqual([AUDIO, claveFinal].sort())
+    expect(d.almacen.claves().sort()).toEqual([await claveDeVoz(id), claveFinal].sort())
     expect(sim.descargas).toEqual(["video", "srt"])
     expect(d.esperas).toEqual([`${VIDEO_ID}_0`])
     expect(d.quemados).toHaveLength(1)
@@ -347,7 +350,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -375,7 +378,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -387,7 +390,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaAprobadaAntesDeElegirAvatar()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -399,7 +402,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
     const c = await pool.connect()
     try {
       await c.query("begin")
@@ -419,7 +422,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -434,7 +437,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -455,7 +458,7 @@ describe("grabarPieza", () => {
     const antes = await pieza(id)
     simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -477,7 +480,7 @@ describe("grabarPieza", () => {
     const id = await crearPiezaEnRender()
     simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
     const vistoAlEsperar: { fila: FilaPieza | null } = { fila: null }
     d.deps.esperarRender = async () => {
       vistoAlEsperar.fila = await pieza(id)
@@ -515,7 +518,7 @@ describe("grabarPieza sin aprobación", () => {
       [id],
     )
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
     const antes = await pieza(id)
 
     expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "sin_aprobacion" })
@@ -543,7 +546,7 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     const sim = simular()
     await pool.query("delete from vault.secrets where name = 'heygen'")
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
 
@@ -559,7 +562,7 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     const sinAvatar = { ...coniConfig, heygen: { ...coniConfig.heygen, avatar_id: "PENDIENTE" } }
     await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(sinAvatar)])
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
 
@@ -574,7 +577,7 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     const sim = simular()
     await pool.query("update public.ajustes set tope_mensual_usd = 0.1")
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -604,7 +607,7 @@ describe("grabarPieza reintentos", () => {
       ahora: new Date().toISOString(),
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -620,7 +623,7 @@ describe("grabarPieza reintentos", () => {
     simular({ lecturas: [VIDEO_LISTO] })
     await pool.query("update public.piezas set render_id = $2, version = version + 1 where id = $1", [id, VIDEO_ID])
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -632,7 +635,7 @@ describe("grabarPieza reintentos", () => {
     const sim = simular({ lecturas: [{ status: "processing" }, VIDEO_LISTO] })
     await pool.query("update public.piezas set render_id = $2, version = version + 1 where id = $1", [id, VIDEO_ID])
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -656,7 +659,7 @@ describe("grabarPieza reintentos", () => {
       },
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("cambió")
     expect((await pieza(id)).render_id).toBeNull()
@@ -679,7 +682,7 @@ describe("grabarPieza reintentos", () => {
     const id = await crearPiezaEnRender()
     simular({ lecturas: [{ status: "processing" }] })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("sigue")
 
@@ -703,7 +706,7 @@ describe("grabarPieza reintentos", () => {
       id,
     ])
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
 
@@ -720,7 +723,7 @@ describe("grabarPieza reintentos", () => {
         throw new Error("ffmpeg falló: killed")
       },
     })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("ffmpeg falló")
     expect(await pieza(id)).toMatchObject({ estado: "subtitulando", render_id: `${VIDEO_ID}_0` })
@@ -745,7 +748,7 @@ describe("grabarPieza reintentos", () => {
         throw new Error("ffmpeg falló: killed")
       },
     })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("ffmpeg falló")
     await pool.query("update public.gastos set estado = 'reservado', real_usd = null where pieza_id = $1", [id])
 
@@ -763,7 +766,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
         HttpResponse.json({ error: { code: CODIGO_POLITICA, message: "Violates the policy" } }, { status: 400 }),
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -785,7 +788,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
       lecturas: [{ status: "failed", failure_code: CODIGO_POLITICA, failure_message: "Violates the policy" }],
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -804,7 +807,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     const id = await crearPiezaEnRender()
     simular({ lecturas: [{ status: "failed", failure_code: "internal_error", failure_message: "boom" }] })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -821,7 +824,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     const id = await crearPiezaEnRender()
     simular({ lecturas: [{ status: "failed" }] })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await grabarPieza(d.deps, id)
 
@@ -835,7 +838,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
         HttpResponse.json({ error: { code: "insufficient_credit", message: "No credits" } }, { status: 402 }),
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -854,7 +857,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
       crear: () => HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
     })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
 
@@ -867,7 +870,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     const id = await crearPiezaEnRender()
     simular({ crear: () => new HttpResponse("upstream", { status: 503 }) })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("503")
 
@@ -881,7 +884,7 @@ describe("grabarPieza chequeos del video", () => {
     const id = await crearPiezaEnRender()
     simular()
     const d = doble({ sondear: async () => ({ ...INFO_BUENA, duracion: 3, conAudio: false }) })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -892,14 +895,14 @@ describe("grabarPieza chequeos del video", () => {
       "El video no pasó los chequeos: El video dura 3 s y tiene que durar entre 5 y 90 s. El video no tiene audio.",
     )
     expect((await gastos(id))[0]).toMatchObject({ estado: "confirmado" })
-    expect(d.almacen.claves()).toEqual([AUDIO])
+    expect(d.almacen.claves()).toEqual([await claveDeVoz(id)])
   })
 
   it("moves the piece to error_produccion when HeyGen's subtitles do not match the script", async () => {
     const id = await crearPiezaEnRender()
     simular({ srt: "1\n00:00:00,500 --> 00:00:02,000\nOtra cosa totalmente distinta aquí\n" })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -915,7 +918,7 @@ describe("grabarPieza chequeos del video", () => {
     const id = await crearPiezaEnRender()
     simular({ lecturas: [{ ...VIDEO_LISTO, subtitle_url: null }] })
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 
@@ -932,7 +935,7 @@ describe("grabarPieza chequeos del video", () => {
         throw new Error("ffmpeg falló: killed")
       },
     })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("ffmpeg falló")
 
@@ -947,7 +950,7 @@ describe("grabarPieza chequeos del video", () => {
         throw new FallaDeConfiguracion("libass eligió Montserrat-Black")
       },
     })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
 
@@ -968,7 +971,7 @@ describe("grabarPieza si la pieza cambia mientras tanto", () => {
         )
       },
     })
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow()
 
@@ -984,7 +987,7 @@ describe("la entrada a en_render con el flujo real", () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
     await grabarPieza(d.deps, id)
 
     const c = await pool.connect()
@@ -1087,12 +1090,44 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
     ])
   })
 
+  it("ignores a voice that was not made for the approved script and speaks the approved one", async () => {
+    const id = await crearPiezaSinVoz()
+    const ajena = `voces/${id}/${"a".repeat(64)}.mp3`
+    await enTransaccion(async (c) => {
+      await c.query("set local session_replication_role = replica")
+      await c.query("update public.piezas set audio_id = $2, version = version + 1 where id = $1", [id, ajena])
+    })
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(ajena, new Uint8Array([9, 9, 9]), "audio/mpeg")
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toEqual([{ voz: coniConfig.elevenlabs.voice_id, llave: CLAVE_ELEVENLABS, texto: GUION }])
+    expect(await pieza(id)).toMatchObject({ audio_id: await claveDeVoz(id) })
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+  })
+
+  it("trusts a voice stored under the key of the approved script, without ElevenLabs", async () => {
+    const id = await crearPiezaEnRender()
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(0)
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+  })
+
   it("records a legacy piece with the voice it already has, without ElevenLabs", async () => {
     const id = await crearPiezaLegacy()
     await pool.query("delete from vault.secrets where name = 'elevenlabs'")
     const sim = simular()
     const d = doble()
-    await conVozEnAlmacen(d.almacen)
+    await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
 

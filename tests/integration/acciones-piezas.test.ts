@@ -20,6 +20,7 @@ import {
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { CIERRE } from "@/lib/dominio/revision"
+import { claveAudio } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { CONI, comoConi, pool } from "./db"
@@ -218,6 +219,16 @@ describe("aprobarGuion", () => {
   async function paraAprobar() {
     return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   }
+
+  it("clears a voice pre-generated before gate 1 so it cannot be recorded for the script she approved", async () => {
+    const id = await paraAprobar()
+    await ajustarComoPostgres(id, { audio_id: claveAudio(id, new Uint8Array([1, 2, 3])) })
+
+    const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
+
+    expect(resultado).toMatchObject({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 2 })
+  })
 
   it("approves a piece with no voice, stores formula 2 and binds the hash of script, text and avatar", async () => {
     const id = await paraAprobar()
