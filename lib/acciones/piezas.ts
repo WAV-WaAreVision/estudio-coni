@@ -217,7 +217,7 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     }
     exigirRevisionLimpia(fila)
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
-    const hash = hashPuerta1({ guion: fila.guion, audioId: fila.audio_id, avatarId: avatar })
+    const hash = hashPuerta1({ formula: 1, guion: fila.guion, audioId: fila.audio_id, avatarId: avatar })
     const guardada = await guardarEvento(
       deps.db,
       fila,

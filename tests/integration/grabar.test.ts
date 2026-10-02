@@ -177,7 +177,7 @@ async function crearPiezaAprobadaAntesDeElegirAvatar(): Promise<string> {
     await c.query("set local session_replication_role = replica")
     await c.query("update public.piezas set avatar_id = null, puerta1_hash = $2 where id = $1", [
       id,
-      hashPuerta1({ guion: GUION, audioId: AUDIO }),
+      hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO }),
     ])
     await c.query("commit")
   } catch (error) {
@@ -238,7 +238,7 @@ function claveDeGasto(id: string, intento: number): string {
   return claveIdempotencia({
     piezaId: id,
     paso: "grabar",
-    hash: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+    hash: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
     intento,
   })
 }

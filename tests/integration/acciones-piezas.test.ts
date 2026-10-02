@@ -234,7 +234,9 @@ describe("aprobarGuion", () => {
       version: versionVista + 1,
       avatar_id: "look-b",
     })
-    expect(guardada.puerta1_hash).toBe(hashPuerta1({ guion: GUION_VALIDO, audioId: AUDIO, avatarId: "look-b" }))
+    expect(guardada.puerta1_hash).toBe(
+      hashPuerta1({ formula: 1, guion: GUION_VALIDO, audioId: AUDIO, avatarId: "look-b" }),
+    )
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
     expect(disparos[0]?.clave).toContain(guardada.puerta1_hash.slice(0, 16))

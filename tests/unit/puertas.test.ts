@@ -12,7 +12,7 @@ import {
 } from "@/lib/dominio/puertas"
 
 describe("hashes de las puertas", () => {
-  const base = { guion: "Soy Coni del Rosario.", audioId: "audio_1" }
+  const base = { formula: 1 as const, guion: "Soy Coni del Rosario.", audioId: "audio_1" }
 
   it("da el mismo hash cuando el guion y el audio no cambian", () => {
     expect(hashPuerta1(base)).toBe(hashPuerta1({ ...base }))
@@ -40,12 +40,37 @@ describe("hashes de las puertas", () => {
   })
 
   it("no confunde campos cuando un separador aparece dentro del texto", () => {
-    expect(hashPuerta1({ guion: "a|b", audioId: "c" })).not.toBe(hashPuerta1({ guion: "a", audioId: "b|c" }))
+    expect(hashPuerta1({ formula: 1, guion: "a|b", audioId: "c" })).not.toBe(
+      hashPuerta1({ formula: 1, guion: "a", audioId: "b|c" }),
+    )
   })
 
   it("separa el hash del texto de publicación del hash del guion", () => {
     expect(hashTexto("Soy Coni del Rosario.")).not.toBe(hashPuerta1(base))
     expect(hashTexto("Hola")).not.toBe(hashTexto("Hola."))
+  })
+})
+
+describe("hashPuerta1 formula 2", () => {
+  const base = { formula: 2 as const, guion: "Soy Coni.", texto: "Un texto.", avatarId: "look_a" }
+  const sha = (partes: string[]) => createHash("sha256").update(JSON.stringify(partes)).digest("hex")
+
+  it("changes when the script, the text or the avatar changes", () => {
+    const h = hashPuerta1(base)
+    expect(h).toMatch(/^[0-9a-f]{64}$/)
+    expect(hashPuerta1({ ...base })).toBe(h)
+    expect(hashPuerta1({ ...base, guion: "Soy otra." })).not.toBe(h)
+    expect(hashPuerta1({ ...base, texto: "Otro texto." })).not.toBe(h)
+    expect(hashPuerta1({ ...base, avatarId: "look_b" })).not.toBe(h)
+  })
+
+  it("hashes no audio and is its own namespace", () => {
+    expect(hashPuerta1(base)).toBe(sha(["puerta1/2", base.guion, base.texto, base.avatarId]))
+  })
+
+  it("formula 1 reproduces the legacy hash with and without avatar", () => {
+    expect(hashPuerta1({ formula: 1, guion: "g", audioId: "a", avatarId: "v" })).toBe(sha(["puerta1", "g", "a", "v"]))
+    expect(hashPuerta1({ formula: 1, guion: "g", audioId: "a" })).toBe(sha(["puerta1", "g", "a"]))
   })
 })
 
@@ -68,7 +93,7 @@ describe("hashPuerta2", () => {
   })
 
   it("no se confunde con el hash de la puerta 1 ni con el del texto", () => {
-    expect(hashPuerta2(base)).not.toBe(hashPuerta1({ guion: base.videoId, audioId: base.hashTexto }))
+    expect(hashPuerta2(base)).not.toBe(hashPuerta1({ formula: 1, guion: base.videoId, audioId: base.hashTexto }))
     expect(hashPuerta2(base)).not.toBe(base.hashTexto)
   })
 })

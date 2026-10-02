@@ -443,6 +443,7 @@ export type Database = {
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
+          puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
           puerta2_en: string | null
@@ -479,6 +480,7 @@ export type Database = {
           publicacion_enviada_en?: string | null
           publicacion_reclamada_hasta?: string | null
           puerta1_en?: string | null
+          puerta1_formula?: number | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
           puerta2_en?: string | null
@@ -515,6 +517,7 @@ export type Database = {
           publicacion_enviada_en?: string | null
           publicacion_reclamada_hasta?: string | null
           puerta1_en?: string | null
+          puerta1_formula?: number | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
           puerta2_en?: string | null
@@ -671,6 +674,7 @@ export type Database = {
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
+          puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
           puerta2_en: string | null
@@ -726,6 +730,7 @@ export type Database = {
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
+          puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
           puerta2_en: string | null
@@ -861,6 +866,7 @@ export type Database = {
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
           puerta1_en: string | null
+          puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
           puerta2_en: string | null

@@ -16,6 +16,7 @@ export type FilaLeida = FilaPieza & {
   puerta1_por: string | null
   puerta2_por: string | null
   avatar_id: string | null
+  puerta1_formula: number | null
 }
 
 export async function leer(c: pg.PoolClient, id: string): Promise<FilaLeida> {
@@ -80,8 +81,8 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
       {
         tipo: "aprobar_guion",
         actor: "coni",
-        hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
-        hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        hashVisto: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        hashActual: hashPuerta1({ formula: 1, guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
         en: ahora(),
       },
       // Chosen in the same write that approves, like the screen does.

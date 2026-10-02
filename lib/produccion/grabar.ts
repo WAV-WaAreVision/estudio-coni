@@ -243,7 +243,10 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise
   const { guion } = fila
   if (fila.estado === "en_render") {
     // The one place that decides whether credits may be spent: what Coni approved is what is about to be rendered.
-    const veredicto = puedeGrabar(pieza, hashPuerta1({ guion, audioId: fila.audio_id, avatarId: fila.avatar_id }))
+    const veredicto = puedeGrabar(
+      pieza,
+      hashPuerta1({ formula: 1, guion, audioId: fila.audio_id, avatarId: fila.avatar_id }),
+    )
     if (!veredicto.ok) return { resultado: "sin_aprobacion" }
   }
 
