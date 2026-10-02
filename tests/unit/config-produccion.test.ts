@@ -17,7 +17,7 @@ function editar(...cambios: [ruta: string, valor: Valor][]): Nodo {
     let nodo = copia
     for (const clave of claves) {
       const siguiente = nodo[clave]
-      if (typeof siguiente !== "object" || siguiente === null)
+      if (typeof siguiente !== "object" || siguiente === null || Array.isArray(siguiente))
         throw new Error(`No existe ${ruta} en la ficha de prueba`)
       nodo = siguiente
     }
