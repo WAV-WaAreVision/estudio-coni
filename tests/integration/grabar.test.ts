@@ -5,9 +5,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { type DepsGrabacion, estimarCostoVideo, grabarPieza } from "@/lib/produccion/grabar"
-import { estimarCostoVoz } from "@/lib/produccion/producir"
-import { almacenEnMemoria, claveAudio, claveVideo } from "@/lib/proveedores/almacen"
+import { almacenEnMemoria, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
@@ -1016,6 +1016,12 @@ describe("la entrada a en_render con el flujo real", () => {
   })
 })
 
+async function claveDeVoz(id: string): Promise<string> {
+  const { puerta1_hash: hash } = await pieza(id)
+  if (!hash) throw new Error(`La pieza ${id} no tiene hash de la puerta 1`)
+  return claveVozAprobada(id, hash)
+}
+
 async function conTopeMensual(usd: number): Promise<void> {
   await pool.query("update public.ajustes set tope_mensual_usd = $1", [usd])
 }
@@ -1029,7 +1035,7 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
     const resultado = await grabarPieza(d.deps, id)
 
     expect(resultado.resultado).toBe("grabada")
-    const audioId = claveAudio(id, VOZ)
+    const audioId = await claveDeVoz(id)
     expect(sim.voces).toEqual([{ voz: coniConfig.elevenlabs.voice_id, llave: CLAVE_ELEVENLABS, texto: GUION }])
     expect(d.almacen.obtener(audioId)).toEqual({ datos: VOZ, tipo: "audio/mpeg" })
     expect(await pieza(id)).toMatchObject({ estado: "video_por_aprobar", audio_id: audioId })
@@ -1049,7 +1055,7 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
 
     await expect(grabarPieza(d.deps, id)).rejects.toThrow("503")
     expect(sim.voces).toHaveLength(1)
-    expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: claveAudio(id, VOZ) })
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: await claveDeVoz(id) })
 
     const segunda = simular()
     const resultado = await grabarPieza(d.deps, id)
@@ -1220,5 +1226,34 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
     expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: null })
     expect(sim.creaciones).toHaveLength(0)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "reservado"]])
+  })
+
+  it("never pays the voice twice when the run died after uploading it and before saving it in the piece", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular()
+    const d = doble()
+    const subir = d.almacen.subir.bind(d.almacen)
+    let caidas = 0
+    d.almacen.subir = async (clave, datos, tipo) => {
+      await subir(clave, datos, tipo)
+      if (caidas === 0) {
+        caidas += 1
+        // The piece moves under the run, so its write of the voice is the one that is lost.
+        await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
+      }
+    }
+
+    await expect(grabarPieza(d.deps, id)).rejects.toThrow("La pieza cambió mientras se producía.")
+    expect(await pieza(id)).toMatchObject({ audio_id: null })
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado.resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+    expect(await pieza(id)).toMatchObject({ audio_id: await claveDeVoz(id) })
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
+      ["elevenlabs", "confirmado"],
+      ["heygen", "confirmado"],
+    ])
   })
 })

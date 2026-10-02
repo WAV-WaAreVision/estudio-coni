@@ -23,9 +23,16 @@ import {
   puedeGrabar,
 } from "@/lib/dominio/puertas"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
-import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
-import { estimarCostoVoz } from "@/lib/produccion/producir"
-import { type Almacen, claveAudio, claveVideo } from "@/lib/proveedores/almacen"
+import {
+  aCuatroDecimales,
+  avisarTope,
+  estimarCostoVoz,
+  explicar,
+  MINIMO_USD,
+  piezaCambio,
+  TEXTO_TOPE,
+} from "@/lib/produccion/comun"
+import { type Almacen, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
 import { generarVoz } from "@/lib/proveedores/elevenlabs"
@@ -106,6 +113,8 @@ interface Contexto {
   fila: FilaDePieza
   guion: string
   clave: string
+  /** The gate 1 hash this run records. */
+  hashAprobado: string
   llave: string
   /** Only loaded while the piece has no voice yet: a piece that already has it never needs ElevenLabs. */
   llaveElevenlabs: string | null
@@ -243,7 +252,7 @@ async function cargarContexto(deps: DepsGrabacion, fila: FilaDePieza, guion: str
   }
   const llaveElevenlabs = fila.audio_id === null ? await leerLlaveElevenlabs(deps, config) : null
   const clave = claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash, intento: fila.intento })
-  return { deps, fila, guion, clave, llave, llaveElevenlabs, config }
+  return { deps, fila, guion, clave, hashAprobado: hash, llave, llaveElevenlabs, config }
 }
 
 /** The column is a smallint with a check for 1 and 2; anything else is a corrupted row, not an approval. */
@@ -346,14 +355,19 @@ async function ponerLaVoz(contexto: Contexto): Promise<boolean> {
   if (contexto.llaveElevenlabs === null) {
     throw new FallaDeConfiguracion(`La pieza ${fila.id} necesita la voz y no se cargó la llave de ElevenLabs.`)
   }
-  const audio = await generarVoz({
-    clave: contexto.llaveElevenlabs,
-    config: contexto.config.elevenlabs,
-    texto: guion,
-    base: deps.base?.elevenlabs,
-  })
-  const audioId = claveAudio(fila.id, audio)
-  await deps.almacen.subir(audioId, audio, "audio/mpeg")
+  // One key per approval: if a dead run already uploaded the voice, this run finds it and does not pay again.
+  // The window that stays open is a crash between ElevenLabs answering and the upload finishing: ElevenLabs has no
+  // idempotency key, so that one case can still generate (and charge) once more.
+  const audioId = claveVozAprobada(fila.id, contexto.hashAprobado)
+  if (!(await deps.almacen.existe(audioId))) {
+    const audio = await generarVoz({
+      clave: contexto.llaveElevenlabs,
+      config: contexto.config.elevenlabs,
+      texto: guion,
+      base: deps.base?.elevenlabs,
+    })
+    await deps.almacen.subir(audioId, audio, "audio/mpeg")
+  }
   await escribir(contexto, { tipo: "voz_lista", audioId })
   await confirmarGasto(db, clave, estimado)
   return true

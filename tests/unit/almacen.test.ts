@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { almacenEnMemoria, claveAudio, claveVideo } from "@/lib/proveedores/almacen"
+import { almacenEnMemoria, claveAudio, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
 const OTRA_PIEZA = "99999999-2222-4333-8444-555555555555"
@@ -94,5 +94,33 @@ describe("claveVideo", () => {
   it("rejects an id that is not a UUID, so a key never escapes its folder", () => {
     expect(() => claveVideo("../otra", MP3)).toThrow()
     expect(() => claveVideo("", MP3)).toThrow()
+  })
+})
+
+describe("claveVozAprobada", () => {
+  const HASH = "ab".repeat(32)
+
+  it("is voces/<piece>/<gate 1 hash>.mp3, the same for every attempt at the same approval", () => {
+    expect(claveVozAprobada(PIEZA, HASH)).toBe(`voces/${PIEZA}/${HASH}.mp3`)
+  })
+
+  it("changes with the approval and with the piece", () => {
+    expect(claveVozAprobada(PIEZA, "cd".repeat(32))).not.toBe(claveVozAprobada(PIEZA, HASH))
+    expect(claveVozAprobada(OTRA_PIEZA, HASH)).not.toBe(claveVozAprobada(PIEZA, HASH))
+  })
+
+  it("rejects a piece that is not a UUID and a hash that is not hex, so a key never escapes its folder", () => {
+    expect(() => claveVozAprobada("../otra", HASH)).toThrow()
+    expect(() => claveVozAprobada(PIEZA, "../x")).toThrow()
+  })
+})
+
+describe("almacenEnMemoria.existe", () => {
+  it("is true for a stored object and false for one that is not there", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir("a", MP3, "audio/mpeg")
+
+    expect(await almacen.existe("a")).toBe(true)
+    expect(await almacen.existe("b")).toBe(false)
   })
 })

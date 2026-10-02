@@ -162,6 +162,22 @@ describe("almacenR2", () => {
       expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
     })
 
+    it("existe asks with HEAD and answers true for an object that is there", async () => {
+      const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+
+      expect(await r2().existe(CLAVE_OBJETO)).toBe(true)
+      expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
+    })
+
+    it("existe answers false on a 404 and rejects on any other error", async () => {
+      capturando(() => new HttpResponse(null, { status: 404 }))
+      expect(await r2().existe(CLAVE_OBJETO)).toBe(false)
+
+      capturando(errorS3("AccessDenied", "Access Denied", 403))
+      const error = await rechazo(r2().existe(CLAVE_OBJETO))
+      expect(error.message).not.toContain(SECRETO)
+    })
+
     it("asks R2 to answer as a download with the file name chosen when a name is given", async () => {
       capturando(() => new HttpResponse(null, { status: 200 }))
 

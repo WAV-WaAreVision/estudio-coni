@@ -18,6 +18,8 @@ export interface Almacen {
   borrar(clave: string): Promise<void>
   /** `descargarComo` makes the link answer as a download with that file name instead of playing in the browser. */
   urlFirmada(clave: string, segundos: number, opciones?: { descargarComo?: string }): Promise<string>
+  /** True when the object is there; a missing object is `false`, any other failure rejects. */
+  existe(clave: string): Promise<boolean>
   /** Every object whose key starts with `prefijo`, in key order, with its size in bytes. */
   listar(prefijo: string): Promise<{ clave: string; bytes: number }[]>
 }
@@ -79,6 +81,9 @@ export function almacenEnMemoria(): AlmacenEnMemoria {
       const descarga = opciones.descargarComo ? `&descarga=${opciones.descargarComo}` : ""
       return `https://almacen.test/${clave}?expira=${segundos}${descarga}`
     },
+    async existe(clave) {
+      return objetos.has(clave)
+    },
     async listar(prefijo) {
       return [...objetos.entries()]
         .filter(([clave]) => clave.startsWith(prefijo))
@@ -112,12 +117,30 @@ export function claveAudio(piezaId: string, mp3: Uint8Array): string {
 }
 
 /**
+ * The voice of an approved script (formula 2): one key per approval, not per bytes, so a retried run finds the audio
+ * a dead run already uploaded instead of paying for another one. A new approval has a new hash and a new key.
+ */
+export function claveVozAprobada(piezaId: string, puerta1Hash: string): string {
+  exigirUuid(piezaId)
+  if (!/^[0-9a-f]{64}$/.test(puerta1Hash)) {
+    throw new Error("El hash de la puerta 1 debe ser un SHA-256 en hexadecimal.")
+  }
+  return `voces/${piezaId}/${puerta1Hash}.mp3`
+}
+
+/**
  * The final video, content-addressed like the voice: this key is the `video_id` that gate 2 binds, so a regrabar
  * (other bytes, other key) voids the approval of the old video by construction.
  */
 export function claveVideo(piezaId: string, mp4: Uint8Array): string {
   exigirUuid(piezaId)
   return `videos/${piezaId}/${sha256(mp4)}.mp4`
+}
+
+function esNoEncontrado(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const { name, $metadata } = error as { name?: unknown; $metadata?: { httpStatusCode?: number } }
+  return name === "NotFound" || $metadata?.httpStatusCode === 404
 }
 
 export interface OpcionesR2 {
@@ -186,6 +209,15 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
         if (!cuerpo) throw noExiste(clave)
         return cuerpo.transformToByteArray()
       }),
+    existe: async (clave) => {
+      try {
+        await cliente.send(new HeadObjectCommand({ Bucket: balde, Key: clave }))
+        return true
+      } catch (error) {
+        if (esNoEncontrado(error)) return false
+        throw fallaDeR2("existe", clave, error, secretos)
+      }
+    },
     borrar: (clave) =>
       envolver("borrar", clave, async () => {
         await cliente.send(new DeleteObjectCommand({ Bucket: balde, Key: clave }))
