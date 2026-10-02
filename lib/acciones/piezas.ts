@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerAvataresElegibles } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -188,7 +189,23 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
   })
 }
 
-export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number) {
+/** The avatar she signs with the script: it has to be one of the looks WAV lets her choose right now. */
+async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<string> {
+  const elegibles = await leerAvataresElegibles(db)
+  if (elegibles.length === 0) throw new Falla("Todavía no hay avatares para elegir: avísale a Federico.")
+  const elegido = avatarId?.trim()
+  if (!elegido) throw new Falla("Elige con qué avatar se graba antes de aprobar.")
+  if (!elegibles.some((avatar) => avatar.avatar_id === elegido)) {
+    throw new Falla("Ese avatar ya no está disponible. Elige otro.")
+  }
+  return elegido
+}
+
+/**
+ * Gate 1 approves the script, the voice and the avatar in one write: the avatar goes in the same update as the
+ * approval, so the hash is the hash of exactly what she saw and the audit row carries both.
+ */
+export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
   return aResultado("aprobarGuion", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista, new ArtefactoCambio())
@@ -199,14 +216,14 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
       throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin voz.`)
     }
     exigirRevisionLimpia(fila)
-    const hash = hashPuerta1({ guion: fila.guion, audioId: fila.audio_id })
-    const guardada = await guardarEvento(deps.db, fila, {
-      tipo: "aprobar_guion",
-      actor: "coni",
-      hashVisto: hash,
-      hashActual: hash,
-      en: deps.ahora(),
-    })
+    const avatar = await exigirAvatarElegible(deps.db, avatarId)
+    const hash = hashPuerta1({ guion: fila.guion, audioId: fila.audio_id, avatarId: avatar })
+    const guardada = await guardarEvento(
+      deps.db,
+      fila,
+      { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
+      { avatar_id: avatar },
+    )
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
   })
 }

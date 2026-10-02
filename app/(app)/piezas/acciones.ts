@@ -36,10 +36,13 @@ export async function elegirIdeasAccion(ideaIds: string[]) {
   )
 }
 
-export async function aprobarGuionAccion(piezaId: string, version: number) {
+export async function aprobarGuionAccion(piezaId: string, version: number, avatarId: string | null) {
   return refrescar(
-    await comoConi("aprobarGuion", sobrePieza, { piezaId, version }, (deps, d) =>
-      aprobarGuion(deps, d.piezaId, d.version),
+    await comoConi(
+      "aprobarGuion",
+      sobrePieza.extend({ avatarId: z.string().max(200).nullable() }),
+      { piezaId, version, avatarId },
+      (deps, d) => aprobarGuion(deps, d.piezaId, d.version, d.avatarId),
     ),
   )
 }

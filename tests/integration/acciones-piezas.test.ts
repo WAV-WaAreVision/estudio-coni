@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   aprobarGuion,
   aprobarVideo,
@@ -21,6 +21,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { CIERRE } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
+import coniConfig from "../fixtures/coni.config.json"
 import { CONI, comoConi, pool } from "./db"
 import { AUDIO, aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
@@ -202,7 +203,18 @@ describe("reintentarGuion", () => {
   })
 })
 
+const LOOK_A = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.jpg" }
+const LOOK_B = { avatar_id: "look-b", nombre: "Terraza", imagen: "avatares/look-b.jpg" }
+
+async function sembrarAvatares(avatares: unknown[]): Promise<void> {
+  const produccion = { ...coniConfig, heygen: { ...coniConfig.heygen, avatares } }
+  await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(produccion)])
+}
+
 describe("aprobarGuion", () => {
+  beforeEach(() => sembrarAvatares([LOOK_A, LOOK_B]))
+  afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
+
   async function paraAprobar() {
     return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   }
@@ -212,12 +224,17 @@ describe("aprobarGuion", () => {
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
 
-    const resultado = await aprobarGuion(deps, id, versionVista)
+    const resultado = await aprobarGuion(deps, id, versionVista, "look-b")
 
     expect(resultado).toMatchObject({ ok: true })
     const guardada = await fila(id)
-    expect(guardada).toMatchObject({ estado: "en_render", puerta1_por: CONI, version: versionVista + 1 })
-    expect(guardada.puerta1_hash).toBe(hashPuerta1({ guion: GUION_VALIDO, audioId: AUDIO }))
+    expect(guardada).toMatchObject({
+      estado: "en_render",
+      puerta1_por: CONI,
+      version: versionVista + 1,
+      avatar_id: "look-b",
+    })
+    expect(guardada.puerta1_hash).toBe(hashPuerta1({ guion: GUION_VALIDO, audioId: AUDIO, avatarId: "look-b" }))
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
     expect(disparos[0]?.clave).toContain(guardada.puerta1_hash.slice(0, 16))
@@ -227,7 +244,7 @@ describe("aprobarGuion", () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
 
-    const resultado = await aprobarGuion(deps, id, (await versionDe(id)) - 1)
+    const resultado = await aprobarGuion(deps, id, (await versionDe(id)) - 1, "look-a")
 
     expect(resultado).toEqual({
       ok: false,
@@ -247,7 +264,7 @@ describe("aprobarGuion", () => {
     const { deps, disparos } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarGuion(deps, id, version)
+    const resultado = await aprobarGuion(deps, id, version, "look-a")
 
     expect(resultado).toMatchObject({ ok: false })
     expect(!resultado.ok && resultado.error).toContain("El guion tiene que terminar con")
@@ -259,7 +276,7 @@ describe("aprobarGuion", () => {
     const id = await pieza("video_por_aprobar")
     const { deps } = armar()
 
-    const resultado = await aprobarGuion(deps, id, (await fila(id)).version)
+    const resultado = await aprobarGuion(deps, id, (await fila(id)).version, "look-a")
 
     expect(resultado).toEqual({ ok: false, error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla." })
   })
@@ -269,7 +286,7 @@ describe("aprobarGuion", () => {
     const { deps, disparos } = armar(await clienteDelMantenedor())
     vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id))
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: false })
     expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
@@ -281,7 +298,7 @@ describe("aprobarGuion", () => {
     const { deps, disparos } = armar(servicio)
     vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id))
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: false })
     expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
@@ -293,11 +310,48 @@ describe("aprobarGuion", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     const { deps } = armar(coni, { grabar: new Error("Trigger.dev no responde") })
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id))
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: true })
     expect(resultado.ok && resultado.advertencia).toMatch(/grabación/i)
     expect(await fila(id)).toMatchObject({ estado: "en_render" })
+  })
+
+  it("refuses to approve until she picks an avatar, and writes nothing", async () => {
+    const id = await paraAprobar()
+    const { deps, disparos } = armar()
+
+    for (const sinElegir of [null, "", "   "]) {
+      const resultado = await aprobarGuion(deps, id, await versionDe(id), sinElegir)
+      expect(resultado).toEqual({ ok: false, error: "Elige con qué avatar se graba antes de aprobar." })
+    }
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", avatar_id: null, puerta1_hash: null })
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses an avatar that is not in the current list", async () => {
+    const id = await paraAprobar()
+    const { deps, disparos } = armar()
+
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-de-otra-persona")
+
+    expect(resultado).toEqual({ ok: false, error: "Ese avatar ya no está disponible. Elige otro." })
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", avatar_id: null })
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses when the list is empty, even for the legacy avatar_id", async () => {
+    await sembrarAvatares([])
+    const id = await paraAprobar()
+    const { deps } = armar()
+
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), coniConfig.heygen.avatar_id)
+
+    expect(resultado).toEqual({
+      ok: false,
+      error: "Todavía no hay avatares para elegir: avísale a Federico.",
+    })
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", avatar_id: null })
   })
 })
 
@@ -649,13 +703,15 @@ describe("reintentar", () => {
 describe("errores que no son de Coni", () => {
   it("shows a generic message and logs a configuration failure", async () => {
     const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    await sembrarAvatares([LOOK_A])
     const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
     const { deps } = armar(coni, { grabar: new FallaDeConfiguracion("Falta TRIGGER_SECRET_KEY") })
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id))
+    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: true })
     expect(registro).toHaveBeenCalled()
+    await pool.query("update public.ajustes set produccion = '{}'::jsonb")
   })
 })
 

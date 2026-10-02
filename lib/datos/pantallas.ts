@@ -4,7 +4,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, type Horario } from "@/lib/dominio/fechas"
 import { dolares } from "@/lib/formato"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
-import { leerConfigProduccion } from "@/lib/proveedores/config"
+import { type AvatarElegible, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -114,4 +114,9 @@ export async function leerCostoDeGrabar(db: Db, guion: string, ahora: number, zo
     linea: `Grabar cuesta unos ${dolares(estimadoUsd)} · te quedan ${dolares(quedan)} este mes`,
     estimadoUsd,
   }
+}
+
+/** The looks WAV lets Coni choose (`heygen.avatares` of the production config). A config that does not read is a failure for WAV. */
+export async function leerAvataresElegibles(db: Db): Promise<AvatarElegible[]> {
+  return leerConfigProduccion(await leerProduccion(db)).heygen.avatares
 }

@@ -11,7 +11,12 @@ export const VIDEO = "video-1"
 export const TEXTO = "Un texto para acompañar el video."
 
 /** A row as node-postgres returns it: the domain columns plus the ones only the database writes. */
-export type FilaLeida = FilaPieza & { id: string; puerta1_por: string | null; puerta2_por: string | null }
+export type FilaLeida = FilaPieza & {
+  id: string
+  puerta1_por: string | null
+  puerta2_por: string | null
+  avatar_id: string | null
+}
 
 export async function leer(c: pg.PoolClient, id: string): Promise<FilaLeida> {
   const { rows } = await c.query<FilaLeida>("select * from public.piezas where id = $1", [id])
