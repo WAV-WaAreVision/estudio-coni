@@ -63,6 +63,26 @@ const esquemaElevenlabs = z.strictObject({
   output_format: textoConDefecto(FORMATO_POR_DEFECTO),
 })
 
+// The preview photo lives in the private R2 bucket under avatares/ (written by scripts/agregar-avatar.ts); anything
+// else would let a config typo sign some other stored file for Coni's phone.
+const CLAVE_DE_IMAGEN = /^avatares\/[\w-]+\.(jpe?g|png|webp)$/
+
+const avatarElegible = z.strictObject({
+  avatar_id: z.string().trim().min(1),
+  nombre: z.string().trim().min(1),
+  imagen: z.string().regex(CLAVE_DE_IMAGEN),
+})
+
+const avataresElegibles = z
+  .array(avatarElegible)
+  .nullish()
+  .transform((valor) => valor ?? [])
+  .refine((lista) => new Set(lista.map((a) => a.avatar_id)).size === lista.length, {
+    message: "avatar_id repetido",
+  })
+
+export type AvatarElegible = z.output<typeof avatarElegible>
+
 const esquema = z.strictObject({
   ruta_voz: z.enum(["heygen", "elevenlabs"]),
   heygen: z.strictObject({
@@ -81,6 +101,8 @@ const esquema = z.strictObject({
       .nullish()
       .transform((valor) => valor ?? null),
     referencia_movimiento: id,
+    // The looks Coni may choose on the Guion screen; avatar_id above stays as the value of pieces approved before.
+    avatares: avataresElegibles,
   }),
   metricool: delOtroLector,
   // A missing section behaves like an empty one: every default applies and the voice stays unconfigured.
@@ -92,7 +114,10 @@ const esquema = z.strictObject({
 })
 
 export type ConfigElevenlabs = z.output<typeof esquemaElevenlabs>
-export type ConfigCompleta = ConfigProduccion & { elevenlabs: ConfigElevenlabs }
+export type ConfigCompleta = ConfigProduccion & {
+  heygen: { avatares: AvatarElegible[] }
+  elevenlabs: ConfigElevenlabs
+}
 
 function rutaDelProblema(problema: z.core.$ZodIssue): string[] {
   const ruta = problema.path.map(String)

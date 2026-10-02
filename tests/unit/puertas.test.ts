@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
 import {
@@ -21,6 +22,21 @@ describe("hashes de las puertas", () => {
   it("cambia el hash de la puerta 1 cuando cambia el guion o el audio", () => {
     expect(hashPuerta1({ ...base, guion: "Soy Coni." })).not.toBe(hashPuerta1(base))
     expect(hashPuerta1({ ...base, audioId: "audio_2" })).not.toBe(hashPuerta1(base))
+  })
+
+  it("keeps the hash of pieces approved before avatars could be chosen", () => {
+    const legado = createHash("sha256")
+      .update(JSON.stringify(["puerta1", base.guion, base.audioId]))
+      .digest("hex")
+    expect(hashPuerta1(base)).toBe(legado)
+    expect(hashPuerta1({ ...base, avatarId: null })).toBe(legado)
+  })
+
+  it("binds the chosen avatar: another avatar is another approval", () => {
+    const conAvatar = hashPuerta1({ ...base, avatarId: "look_a" })
+    expect(conAvatar).not.toBe(hashPuerta1(base))
+    expect(hashPuerta1({ ...base, avatarId: "look_b" })).not.toBe(conAvatar)
+    expect(hashPuerta1({ ...base, avatarId: "look_a" })).toBe(conAvatar)
   })
 
   it("no confunde campos cuando un separador aparece dentro del texto", () => {

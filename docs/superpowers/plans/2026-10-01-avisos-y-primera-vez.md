@@ -74,3 +74,25 @@ Branch `feat/subir-a-mano`. Migrations `20261001001600_estados_a_mano` (enum val
 - Downloading on iOS Safari (attachment from R2, then Save to Photos) and the Instagram label wording were not tried on a real phone; the label text is Instagram's name for it as given in the design.
 - No download after `publicado_a_mano`.
 - Clipboard needs a secure context; the fallback message asks her to copy by hand.
+
+## Avatar choice notes (branch `feat/elegir-avatar`)
+
+Coni picks the HeyGen look each reel is recorded with, on the Guion screen, before approving gate 1.
+
+- **Curated list.** `ajustes.produccion.heygen.avatares: [{ avatar_id, nombre, imagen }]` (`lib/proveedores/config.ts`). `imagen` must be `avatares/<id>.(jpg|png|webp)` in the private R2 bucket and is shown through the same signed link as the voice (`urlParaVer`, 1 hour). A repeated `avatar_id` or a key outside `avatares/` makes the whole production config invalid, like any other bad key. `heygen.avatar_id` stays as the legacy value.
+- **Same write as the approval.** `aprobarGuion(deps, piezaId, version, avatarId)` checks the id against the current list (empty list, nothing picked and not-in-list each have their own es-CL message) and writes `avatar_id` together with the gate 1 hash, so the audit row carries both and the hash is that of exactly what she saw. There is no separate "save my choice" step: reloading the screen forgets an unsent pick, and nothing is ever pre-selected.
+- **Hash.** `hashPuerta1({ guion, audioId, avatarId })`. With no avatar the array is the old one, so pieces approved before keep a valid hash (unit test with the old formula).
+- **Database** (`20261001001700_avatar_de_la_pieza.sql`): `piezas.avatar_id`; `proteger_pieza` now refuses a change by anybody but Coni (`solo_coni_elige_avatar`), a change once the piece left `guion_por_aprobar` (`avatar_fuera_del_guion`) and approving gate 1 without one (`falta_avatar`). The helper `tests/integration/flujo.ts` approves with `AVATAR`.
+- **Recording.** `grabarPieza` hashes with the piece's avatar and builds the request with it; null (approved before) falls back to `heygen.avatar_id`; Regrabar and retries keep the piece's avatar. If the column and the approved hash disagree the render returns `sin_aprobacion` and spends nothing.
+- **Not done.** The Video screen and Calendar do not show the avatar name (optional in the brief). The signed photo link is 1 hour, not shorter.
+
+### Add a look in production (WAV)
+
+1. Find the look id: `heygen avatar looks list --group-id <id>` (the look's `id` is the `avatar_id` of `POST /v3/videos`). Use only looks made from a real photo of Coni or her digital twin; AI-generated looks redraw her face (the script warns unless the type is `digital_twin`, and cannot tell a real photo from a generated one in `photo_avatar`).
+2. Locally, with the production R2 credentials and a HeyGen key in the environment (never in Vercel, never committed): `HEYGEN_API_KEY=... R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=... pnpm avatares:agregar <look_id> "Nombre que ve Coni" --sql`. It reads the look from HeyGen v3 only, uploads the preview to `avatares/<look_id>.<ext>` and prints one SQL statement. Without `--sql` it prints the JSON entry instead. It writes nothing to the database.
+3. Run the printed `update public.ajustes ...` in the production Supabase SQL editor (project `mvfytttfxmzzjajecsch`). It is idempotent: the same `avatar_id` is replaced, not repeated.
+4. Check: open a piece waiting for approval in the app; the photo and name must appear under "Avatar". If the card shows only the name, the key in R2 does not match `imagen`.
+5. Remove one: `pnpm avatares:quitar <look_id>` prints the SQL; run it the same way. A piece already approved with that look still records with it (the list is checked only at approval).
+6. Before the first reel with this feature, add at least one look: with an empty list Coni sees "Todavía no hay avatares para elegir: avísale a Federico." and cannot approve. Apply migration `20261001001700` first.
+
+Counts: 1231 unit, 539 integration, 68 E2E; lint, type and build clean. Screenshots (390x844): `test-results/capturas/guion-avatar-sin-elegir.png`, `guion-avatar-elegido.png`, `guion-avatar-lista-vacia.png`.

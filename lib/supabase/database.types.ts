@@ -425,6 +425,7 @@ export type Database = {
           actualizada_en: string
           archivos_borrados_en: string | null
           audio_id: string | null
+          avatar_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
           creada_en: string
@@ -460,6 +461,7 @@ export type Database = {
           actualizada_en?: string
           archivos_borrados_en?: string | null
           audio_id?: string | null
+          avatar_id?: string | null
           contenedor_clave?: string | null
           contenedor_id?: string | null
           creada_en?: string
@@ -495,6 +497,7 @@ export type Database = {
           actualizada_en?: string
           archivos_borrados_en?: string | null
           audio_id?: string | null
+          avatar_id?: string | null
           contenedor_clave?: string | null
           contenedor_id?: string | null
           creada_en?: string
@@ -650,6 +653,7 @@ export type Database = {
           actualizada_en: string
           archivos_borrados_en: string | null
           audio_id: string | null
+          avatar_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
           creada_en: string
@@ -704,6 +708,7 @@ export type Database = {
           actualizada_en: string
           archivos_borrados_en: string | null
           audio_id: string | null
+          avatar_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
           creada_en: string
@@ -838,6 +843,7 @@ export type Database = {
           actualizada_en: string
           archivos_borrados_en: string | null
           audio_id: string | null
+          avatar_id: string | null
           contenedor_clave: string | null
           contenedor_id: string | null
           creada_en: string

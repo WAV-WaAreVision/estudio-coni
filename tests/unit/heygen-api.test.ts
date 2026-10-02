@@ -8,6 +8,7 @@ import {
   CODIGO_POLITICA,
   crearVideo,
   LIMITE_ASSET_BYTES,
+  leerLook,
   leerVideo,
   PoliticaDeContenido,
   subirAsset,
@@ -429,5 +430,63 @@ describe("bajar", () => {
     const error = await rechazo(bajar("https://files.heygen.test/v.mp4"))
     expect(esReintentable(error)).toBe(true)
     expect(error.message).toContain("vacío")
+  })
+})
+
+describe("leerLook", () => {
+  // https://developers.heygen.com/reference/get-avatar-look.md : GET /v3/avatars/looks/{look_id}, answers `{ data: { id, name, avatar_type, preview_image_url, status } }`.
+  const LOOK = {
+    id: "look_9",
+    name: "Estudio",
+    avatar_type: "photo_avatar",
+    preview_image_url: "https://files.heygen.test/look_9.jpg?firma=1",
+    status: "completed",
+    error: null,
+  }
+
+  it("reads the look from GET /v3/avatars/looks/{id} with the API key", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ data: LOOK }))
+
+    const look = await leerLook({ clave: CLAVE, lookId: "look_9" })
+
+    expect(look).toEqual({
+      id: "look_9",
+      nombre: "Estudio",
+      tipo: "photo_avatar",
+      imagenUrl: "https://files.heygen.test/look_9.jpg?firma=1",
+    })
+    expect(capturas).toHaveLength(1)
+    expect(capturas[0]?.metodo).toBe("GET")
+    expect(capturas[0]?.url.origin + capturas[0]?.url.pathname).toBe(`${BASE}/v3/avatars/looks/look_9`)
+    expect(capturas[0]?.cabeceras.get("x-api-key")).toBe(CLAVE)
+  })
+
+  it("refuses a look that has no preview image or is not completed, saying why", async () => {
+    capturando(() => HttpResponse.json({ data: { ...LOOK, preview_image_url: null } }))
+    expect(await rechazo(leerLook({ clave: CLAVE, lookId: "look_9" }))).toMatchObject({
+      message: expect.stringContaining("no tiene imagen de vista previa"),
+    })
+
+    capturando(() => HttpResponse.json({ data: { ...LOOK, status: "processing" } }))
+    expect(await rechazo(leerLook({ clave: CLAVE, lookId: "look_9" }))).toMatchObject({
+      message: expect.stringContaining("processing"),
+    })
+  })
+
+  it("explains a look that does not exist without echoing the key", async () => {
+    capturando(errorDeHeygen("not_found", "Look not found", 404))
+
+    const error = await rechazo(leerLook({ clave: CLAVE, lookId: "look_x" }))
+
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error.message).not.toContain(CLAVE)
+  })
+
+  it("rejects an id that is not a plain token before calling HeyGen", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ data: LOOK }))
+
+    await rechazo(leerLook({ clave: CLAVE, lookId: "../videos" }))
+
+    expect(capturas).toHaveLength(0)
   })
 })

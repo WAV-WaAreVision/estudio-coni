@@ -6,11 +6,17 @@ import { asumir, comoConi, comoPostgres, comoServicio, type Sesion } from "./db"
 
 export const GUION = "Hola, soy Coni. Hoy hablamos de límites."
 export const AUDIO = "audio-1"
+export const AVATAR = "look-1"
 export const VIDEO = "video-1"
 export const TEXTO = "Un texto para acompañar el video."
 
 /** A row as node-postgres returns it: the domain columns plus the ones only the database writes. */
-export type FilaLeida = FilaPieza & { id: string; puerta1_por: string | null; puerta2_por: string | null }
+export type FilaLeida = FilaPieza & {
+  id: string
+  puerta1_por: string | null
+  puerta2_por: string | null
+  avatar_id: string | null
+}
 
 export async function leer(c: pg.PoolClient, id: string): Promise<FilaLeida> {
   const { rows } = await c.query<FilaLeida>("select * from public.piezas where id = $1", [id])
@@ -67,13 +73,20 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
   (c, id) => aplicar(c, id, comoConi, { tipo: "elegir" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "guion_listo", audioId: AUDIO }, { guion: GUION, texto: TEXTO }),
   (c, id) =>
-    aplicar(c, id, comoConi, {
-      tipo: "aprobar_guion",
-      actor: "coni",
-      hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO }),
-      hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO }),
-      en: ahora(),
-    }),
+    aplicar(
+      c,
+      id,
+      comoConi,
+      {
+        tipo: "aprobar_guion",
+        actor: "coni",
+        hashVisto: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        hashActual: hashPuerta1({ guion: GUION, audioId: AUDIO, avatarId: AVATAR }),
+        en: ahora(),
+      },
+      // Chosen in the same write that approves, like the screen does.
+      { avatar_id: AVATAR },
+    ),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),
   (c, id) =>

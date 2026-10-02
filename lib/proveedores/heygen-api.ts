@@ -230,3 +230,55 @@ export async function bajar(url: string): Promise<Uint8Array> {
   }
   return datos
 }
+
+const RespuestaLook = z.object({
+  data: z.object({
+    id: z.string().min(1),
+    name: z.string().nullish(),
+    avatar_type: z.string().nullish(),
+    preview_image_url: z.string().nullish(),
+    status: z.string().nullish(),
+  }),
+})
+
+export interface LookDeHeygen {
+  id: string
+  nombre: string
+  tipo: string | null
+  imagenUrl: string
+}
+
+const ID_DE_LOOK = /^[\w-]{1,100}$/
+
+/**
+ * Reads one look by id, for the maintainer script that curates the list Coni chooses from.
+ * https://developers.heygen.com/reference/get-avatar-look.md : `GET /v3/avatars/looks/{look_id}`, answers
+ * `{ data: { id, name, avatar_type, preview_image_url, preview_video_url, status, error } }`; `id` is the value
+ * `POST /v3/videos` takes as `avatar_id`.
+ */
+export async function leerLook(entrada: { clave: string; lookId: string }): Promise<LookDeHeygen> {
+  const { clave, lookId } = entrada
+  if (!ID_DE_LOOK.test(lookId)) {
+    throw new FallaDeConfiguracion("El id del look solo puede tener letras, números, guiones y guiones bajos.")
+  }
+  const cuerpo = await pedir(
+    `${BASE}/v3/avatars/looks/${lookId}`,
+    { method: "GET", headers: cabeceras(clave, undefined) },
+    ESPERA_LEER_MS,
+    clave,
+  )
+  const look = leerRespuesta(RespuestaLook, cuerpo, "/v3/avatars/looks/{id}").data
+  // `status` is documented as processing | pending_consent | failed | completed, or null for looks without a lifecycle.
+  if (look.status && look.status !== "completed") {
+    throw new FallaDeConfiguracion(`El look ${look.id} no está listo en HeyGen (estado ${look.status}).`)
+  }
+  if (!look.preview_image_url) {
+    throw new FallaDeConfiguracion(`El look ${look.id} no tiene imagen de vista previa en HeyGen.`)
+  }
+  return {
+    id: look.id,
+    nombre: look.name?.trim() || look.id,
+    tipo: look.avatar_type ?? null,
+    imagenUrl: look.preview_image_url,
+  }
+}

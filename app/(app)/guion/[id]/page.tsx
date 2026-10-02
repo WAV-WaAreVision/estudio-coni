@@ -2,9 +2,15 @@ import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { Nota } from "@/components/nota"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { leerContextoDeFechas, leerCostoDeGrabar, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import {
+  leerAvataresElegibles,
+  leerContextoDeFechas,
+  leerCostoDeGrabar,
+  leerPantallaDePieza,
+} from "@/lib/datos/pantallas"
 import { leerRevision } from "@/lib/datos/revision"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
@@ -90,9 +96,10 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const [audioUrl, costo] = await Promise.all([
+  const [audioUrl, costo, avatares] = await Promise.all([
     urlParaVer(fila.audio_id),
     leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona),
+    avataresParaElegir(db),
   ])
 
   return (
@@ -114,8 +121,28 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
         salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
         costo: costo.linea,
         explicacion: fila.explicacion,
+        avatares,
       }}
     />
+  )
+}
+
+/** The curated looks with a signed link to each photo. A setup that does not read leaves the list empty, which blocks. */
+async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0]) {
+  let elegibles: Awaited<ReturnType<typeof leerAvataresElegibles>>
+  try {
+    elegibles = await leerAvataresElegibles(db)
+  } catch (error) {
+    if (!(error instanceof FallaDeConfiguracion)) throw error
+    console.error("No pude leer los avatares para elegir", error)
+    return []
+  }
+  return Promise.all(
+    elegibles.map(async (avatar) => ({
+      id: avatar.avatar_id,
+      nombre: avatar.nombre,
+      imagenUrl: await urlParaVer(avatar.imagen),
+    })),
   )
 }
 

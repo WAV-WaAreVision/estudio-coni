@@ -67,6 +67,8 @@ export async function capturar(page: Page, nombre: string, opciones: { completa?
 
 const VOZ = readFileSync(join(__dirname, "fixtures", "voz.wav"))
 const VIDEO = readFileSync(join(__dirname, "fixtures", "video.webm"))
+const AVATAR_A = readFileSync(join(__dirname, "fixtures", "avatar-a.png"))
+const AVATAR_B = readFileSync(join(__dirname, "fixtures", "avatar-b.png"))
 
 /** The app signs links to a store that tests do not have: these answer them with two small real files. */
 export async function simularMedios(page: Page): Promise<void> {
@@ -74,6 +76,8 @@ export async function simularMedios(page: Page): Promise<void> {
     const url = ruta.request().url()
     if (url.includes("/voces/")) {
       await ruta.fulfill({ status: 200, contentType: "audio/wav", body: VOZ })
+    } else if (url.includes("/avatares/")) {
+      await ruta.fulfill({ status: 200, contentType: "image/png", body: url.includes("look-b") ? AVATAR_B : AVATAR_A })
     } else if (url.includes("/videos/")) {
       await ruta.fulfill({ status: 200, contentType: "video/webm", body: VIDEO })
     } else {

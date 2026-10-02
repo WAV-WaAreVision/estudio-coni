@@ -3,7 +3,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import fixture from "../fixtures/coni.config.json"
 
-type Valor = Nodo | string | number | boolean | null | undefined
+type Valor = Nodo | Nodo[] | string | number | boolean | null | undefined
 interface Nodo {
   [clave: string]: Valor
 }
@@ -17,7 +17,7 @@ function editar(...cambios: [ruta: string, valor: Valor][]): Nodo {
     let nodo = copia
     for (const clave of claves) {
       const siguiente = nodo[clave]
-      if (typeof siguiente !== "object" || siguiente === null)
+      if (typeof siguiente !== "object" || siguiente === null || Array.isArray(siguiente))
         throw new Error(`No existe ${ruta} en la ficha de prueba`)
       nodo = siguiente
     }
@@ -57,6 +57,7 @@ describe("leerConfigProduccion", () => {
       resolution: "1080p",
       motor: "avatar_v",
       referencia_movimiento: "f6d7ea2438514719b6b76e0b743fa7d3",
+      avatares: [],
     })
     expect(config.elevenlabs).toEqual({
       voice_id: "F2SkAeaaVSlAUrRS3rDg",
@@ -213,5 +214,43 @@ describe("leerConfigProduccion", () => {
   it("rejects a value that is not an object", () => {
     expect(falla(null)).toBeInstanceOf(FallaDeConfiguracion)
     expect(falla("config")).toBeInstanceOf(FallaDeConfiguracion)
+  })
+
+  describe("heygen.avatares, the looks WAV lets Coni choose", () => {
+    const entrada = { avatar_id: "look_a", nombre: "Estudio", imagen: "avatares/look_a.jpg" }
+
+    it("reads an empty list when the key is missing", () => {
+      expect(leerConfigProduccion(fixture).heygen.avatares).toEqual([])
+    })
+
+    it("reads the curated looks with their name and preview key", () => {
+      const config = leerConfigProduccion(editar(["heygen.avatares", [entrada, { ...entrada, avatar_id: "look_b" }]]))
+      expect(config.heygen.avatares.map((a) => a.avatar_id)).toEqual(["look_a", "look_b"])
+      expect(config.heygen.avatares[0]).toEqual(entrada)
+    })
+
+    it("keeps heygen.avatar_id as the legacy value", () => {
+      const config = leerConfigProduccion(editar(["heygen.avatares", [entrada]]))
+      expect(config.heygen.avatar_id).toBe("13affb25ba2d4273b0a63d82c8b9fd5a")
+    })
+
+    it("rejects a repeated avatar_id, naming the path", () => {
+      expect(falla(editar(["heygen.avatares", [entrada, entrada]])).message).toContain("heygen.avatares")
+    })
+
+    it("rejects an entry without name, or with a preview key outside avatares/", () => {
+      expect(falla(editar(["heygen.avatares", [{ ...entrada, nombre: " " }]])).message).toContain(
+        "heygen.avatares.0.nombre",
+      )
+      expect(falla(editar(["heygen.avatares", [{ ...entrada, imagen: "videos/x.mp4" }]])).message).toContain(
+        "heygen.avatares.0.imagen",
+      )
+    })
+
+    it("rejects an unknown key inside an entry", () => {
+      expect(falla(editar(["heygen.avatares", [{ ...entrada, foto: "x" }]])).message).toContain(
+        "heygen.avatares.0.foto",
+      )
+    })
   })
 })
