@@ -132,7 +132,8 @@ export function elegirTemasSolos(temas: TemaDelMotor[], contexto: ContextoDelPun
   const puntaje = (t: TemaDelMotor): number =>
     PESO_SOPORTE * soporteDe(t.autores, t.afirmaciones) +
     PESO_EVIDENCIA * evidenciaDe(t.evidencia_fuerte, t.afirmaciones) +
-    PESO_NOVEDAD * (1 - 0.5 * Number(t.cubierto_por_coni))
+    PESO_NOVEDAD * (1 - 0.5 * Number(t.cubierto_por_coni)) -
+    PENALIZACION_DESCARTE * Math.min(1, contexto.descartes.get(t.tema_id) ?? 0)
   return temas
     .filter((t) => !contexto.recientes.temas.has(t.tema_id))
     .map((t) => ({ t, p: puntaje(t) }))

@@ -180,6 +180,13 @@ describe("elegirTemasSolos", () => {
   })
 })
 
+describe("elegirTemasSolos with discards", () => {
+  it("ranks a topic with recent discards below an otherwise equal one", () => {
+    const ctx = { ...vacio(), descartes: new Map([["a", 2]]) }
+    expect(elegirTemasSolos([tema("a"), tema("b")], ctx, 2).map((t) => t.tema_id)).toEqual(["b", "a"])
+  })
+})
+
 describe("reporteQueSubir", () => {
   it("lists single-author topics with at least 3 claims, top 10 by claims", () => {
     const solos = Array.from({ length: 12 }, (_, i) =>
