@@ -76,8 +76,6 @@ describe("estrategia", () => {
     expect((await ficha(id))?.resumen).toBe("Un resumen de la fuente.")
     expect(await afirmaciones(id)).toEqual([])
     expect((await material(id)).estado).toBe("listo")
-    const { rows } = await pool.query("select 1 from public.embeddings_ficha where material_id = $1", [id])
-    expect(rows).toEqual([])
   })
 })
 

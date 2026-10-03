@@ -314,35 +314,6 @@ export type Database = {
         }
         Relationships: []
       }
-      embeddings_ficha: {
-        Row: {
-          creado_en: string
-          material_id: string
-          modelo: string
-          vector: string
-        }
-        Insert: {
-          creado_en?: string
-          material_id: string
-          modelo: string
-          vector: string
-        }
-        Update: {
-          creado_en?: string
-          material_id?: string
-          modelo?: string
-          vector?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "embeddings_ficha_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: true
-            referencedRelation: "materiales"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       eventos: {
         Row: {
           actor_rol: string
@@ -1144,63 +1115,6 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vinculos: {
-        Row: {
-          cita_a: string | null
-          cita_b: string | null
-          creado_en: string
-          decidido_en: string | null
-          decidido_por: string | null
-          estado: string
-          material_a: string
-          material_b: string
-          razon: string | null
-          relevancia: number
-          tipo: string
-        }
-        Insert: {
-          cita_a?: string | null
-          cita_b?: string | null
-          creado_en?: string
-          decidido_en?: string | null
-          decidido_por?: string | null
-          estado?: string
-          material_a: string
-          material_b: string
-          razon?: string | null
-          relevancia: number
-          tipo: string
-        }
-        Update: {
-          cita_a?: string | null
-          cita_b?: string | null
-          creado_en?: string
-          decidido_en?: string | null
-          decidido_por?: string | null
-          estado?: string
-          material_a?: string
-          material_b?: string
-          razon?: string | null
-          relevancia?: number
-          tipo?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vinculos_material_a_fkey"
-            columns: ["material_a"]
-            isOneToOne: false
-            referencedRelation: "materiales"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vinculos_material_b_fkey"
-            columns: ["material_b"]
-            isOneToOne: false
-            referencedRelation: "materiales"
             referencedColumns: ["id"]
           },
         ]
