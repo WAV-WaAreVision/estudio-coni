@@ -1624,6 +1624,27 @@ export type Database = {
         }
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      motor_pares: {
+        Args: { p_minimo_autores: number }
+        Returns: {
+          a: string
+          autores_comunes: number
+          b: string
+          puente: number
+        }[]
+      }
+      motor_temas: {
+        Args: never
+        Returns: {
+          afirmaciones: number
+          autores: number
+          cubierto_por_coni: boolean
+          evidencia_fuerte: number
+          nombre: string
+          pilar: string
+          tema_id: string
+        }[]
+      }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       registrar_clic: {
