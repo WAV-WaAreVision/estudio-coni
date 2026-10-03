@@ -1733,6 +1733,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      respaldo_de_idea: {
+        Args: { p_idea: string; p_limite: number }
+        Returns: Json
+      }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
       tema_mas_cercano: {
         Args: { p_umbral: number; p_vector: string }
