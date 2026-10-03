@@ -23,7 +23,14 @@ import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
 import { renderizarPartes } from "@/lib/ingesta/texto-material"
-import { type GastoDeTraduccion, gastoEnBase, traducirMaterial } from "@/lib/ingesta/traducir"
+import {
+  estimarCostoDeTraduccion,
+  type GastoDeTraduccion,
+  gastoEnBase,
+  idiomaPorHeuristica,
+  necesitaAdaptacion,
+  traducirMaterial,
+} from "@/lib/ingesta/traducir"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -62,10 +69,13 @@ export type ResultadoProcesar =
   | { resultado: "tope" }
   | { resultado: "en_curso" }
   | { resultado: "borrado" }
+  | { resultado: "esperando_confirmacion" }
 
 /** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
 export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
 export const MOTIVO_TOPE = "Llegaste al tope de gasto del mes. Súbelo en Ajustes para seguir."
+/** Above this estimate (translation plus card, in USD) a person confirms the cost before the run spends it. */
+export const UMBRAL_CONFIRMACION_USD = 0.5
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
 const REDES_QUE_NO_SE_ABREN = ["instagram.com", "tiktok.com"]
 const IMAGENES_POR_LOTE = 20
@@ -643,9 +653,43 @@ async function fichaDe(
   return { tope: false }
 }
 
+/**
+ * What the steps after the extraction will cost: the adaptation of the parts that need it (all of them unless the text
+ * is Spanish with nothing to adapt; an unknown language counts as needing it) and the card. Over-estimates, like the reservations.
+ */
+export function estimarCostoRestante(partes: readonly Parte[], idioma: string | null, conTraduccion = true): number {
+  const aAdaptar = partes
+    .filter((p) => p.texto.trim() !== "" && (idioma !== "es" || necesitaAdaptacion(p.texto)))
+    .reduce((total, p) => total + p.texto.length, 0)
+  const traduccion = conTraduccion && aAdaptar > 0 ? estimarCostoDeTraduccion(aAdaptar, false) : 0
+  return redondear(traduccion + estimarFicha(partes))
+}
+
+const formatoUsd = new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/**
+ * A long material waits for a person to confirm its cost. The extraction is already stored, so confirming and running
+ * again does not pay it twice. Returns true when the run stopped here.
+ */
+async function esperaConfirmacion(ctx: Contexto, original: Extraccion): Promise<boolean> {
+  const { deps, material } = ctx
+  if (material.costo_confirmado_en) return false
+  const traducida = await deps.almacen.existe(claves(material.id).texto)
+  const idioma = original.idioma ?? idiomaPorHeuristica(original.partes)
+  const estimado = estimarCostoRestante(original.partes, idioma, !traducida)
+  if (estimado <= UMBRAL_CONFIRMACION_USD) return false
+  await actualizarMaterial(deps.db, material.id, {
+    costo_estimado_usd: estimado,
+    motivo_fallo: `Este material es largo: procesarlo cuesta cerca de US$ ${formatoUsd.format(estimado)}. Confírmalo para seguir.`,
+    ...LIBRE,
+  })
+  return true
+}
+
 async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
   const original = await extraccionDe(ctx)
   if ("tope" in original) return detenidoPorTope(ctx)
+  if (await esperaConfirmacion(ctx, original)) return { resultado: "esperando_confirmacion" }
   const traducido = await traduccionDe(ctx, original)
   if ("tope" in traducido) return detenidoPorTope(ctx)
   const ficha = await fichaDe(ctx, traducido, original.titulo)
