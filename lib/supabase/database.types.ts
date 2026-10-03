@@ -1641,6 +1641,14 @@ export type Database = {
           tema_id: string
         }[]
       }
+      temas_parecidos: {
+        Args: { p_umbral: number }
+        Returns: {
+          a: string
+          b: string
+          similitud: number
+        }[]
+      }
       tomar_para_publicar: {
         Args: { p_ahora: string; p_arriendo_segundos?: number }
         Returns: {
