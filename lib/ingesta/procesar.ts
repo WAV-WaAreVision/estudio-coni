@@ -3,7 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { afirmarMaterial, estimarAfirmaciones } from "@/lib/ingesta/afirmar"
+import { afirmarMaterial, autorDelMaterial, estimarAfirmaciones } from "@/lib/ingesta/afirmar"
 import {
   extraerArticulo,
   extraerDocx,
@@ -459,8 +459,7 @@ async function fichaDe(
   titulo: string | null,
 ): Promise<Tope | { tope: false }> {
   const { deps, material } = ctx
-  const autorDado = material.autor?.trim() || null
-  let autorSugerido: string | null = null
+  const { nombre: autorDado } = await autorDelMaterial(deps.db, material.autor_id)
   if (!(await existeFicha(deps.db, material.id))) {
     const tituloDeFicha = material.titulo?.trim() || titulo || "Sin título"
     const pagado = await pagar(ctx, {
@@ -480,24 +479,20 @@ async function fichaDe(
     })
     if (pagado.tope) return TOPE
     const f = pagado.datos
-    autorSugerido = f.autorSugerido
     const { error } = await deps.db.from("fichas").insert({
       material_id: material.id,
       resumen: f.resumen,
       ideas_clave: f.ideasClave,
       citas: f.citas,
       fuente: {
-        autor: f.fuente.autor ?? autorDado ?? autorSugerido,
+        autor: f.fuente.autor ?? autorDado,
         anio: f.fuente.anio,
         enlace: f.fuente.enlace ?? material.origen_url,
       },
     })
     if (error) throw falloDeBase("No pude guardar la ficha", error)
   }
-  await actualizarMaterial(deps.db, material.id, {
-    ...materialListo(material, titulo),
-    ...(autorDado === null && autorSugerido?.trim() ? { autor: autorSugerido.trim() } : {}),
-  })
+  await actualizarMaterial(deps.db, material.id, materialListo(material, titulo))
   return { tope: false }
 }
 

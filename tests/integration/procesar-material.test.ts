@@ -65,23 +65,15 @@ describe("documento", () => {
     })
   })
 
-  it("fills an empty author from the one Claude found, and keeps one that was given", async () => {
+  it("takes the card's author from the material's author row and never writes the legacy author column", async () => {
     const almacen = almacenEnMemoria()
     simularClaude({ autorSugerido: "Esther Perel" })
-    const sinAutor = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO, rol: "estrategia" })
-    const conAutor = await crearMaterial(almacen, {
-      tipo: "documento",
-      texto_pegado: TEXTO_CHILENO,
-      autor: "Coni",
-      rol: "estrategia",
-    })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO, rol: "estrategia" })
 
-    await procesarMaterial(await deps(almacen), sinAutor)
-    await procesarMaterial(await deps(almacen), conAutor)
+    await procesarMaterial(await deps(almacen), id)
 
-    expect((await material(sinAutor)).autor).toBe("Esther Perel")
-    expect((await material(conAutor)).autor).toBe("Coni")
-    expect((await ficha(sinAutor))?.fuente.autor).toBe("Esther Perel")
+    expect((await material(id)).autor).toBeNull()
+    expect((await ficha(id))?.fuente.autor).toBe("Constanza del Rosario")
   })
 
   it("does nothing for a material that is already ready", async () => {

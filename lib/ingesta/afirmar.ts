@@ -70,7 +70,10 @@ const nombreDeTramo = (n: number) => `tramo-${String(n).padStart(3, "0")}`
 
 type Db = Contexto["deps"]["db"]
 
-async function autorDelMaterial(db: Db, autorId: string): Promise<{ nombre: string; credencial: string | null }> {
+export async function autorDelMaterial(
+  db: Db,
+  autorId: string,
+): Promise<{ nombre: string; credencial: string | null }> {
   const { data, error } = await db.from("autores").select("nombre, credencial").eq("id", autorId).single()
   if (error) throw falloDeBase("No pude leer el autor del material", error)
   return data
