@@ -39,15 +39,16 @@ export async function leerFila(id: string) {
 }
 
 export async function sembrarIdea(
-  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number } = {},
+  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number; estado?: string } = {},
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4) returning id",
+    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
     [
       extra.pilar ?? "deseo",
       extra.gancho ?? "El deseo no se apaga, se esconde",
       JSON.stringify(extra.alertas ?? []),
       extra.numero ?? null,
+      extra.estado ?? "idea",
     ],
   )
   const id = rows[0]?.id

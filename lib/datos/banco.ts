@@ -104,7 +104,9 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
   const recientes: Pilar[] = piezas.data.flatMap((pieza) => (pieza.ideas ? [pieza.ideas.pilar] : []))
   const enOrden = sugerirIdeas({ banco: libres, recientes, cuantas: libres.length })
   const porId = new Map(libres.map((idea) => [idea.id, idea]))
-  const usadas = banco.filter((idea) => idea.estado !== "idea").sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
+  const usadas = banco
+    .filter((idea) => idea.estado !== "idea")
+    .sort((a, b) => (a.numero ?? Number.MAX_SAFE_INTEGER) - (b.numero ?? Number.MAX_SAFE_INTEGER))
   const ordenadas = enOrden.flatMap((idea) => porId.get(idea.id) ?? [])
   return [...ordenadas.filter((idea) => idea.nueva), ...ordenadas.filter((idea) => !idea.nueva), ...usadas]
 }

@@ -48,6 +48,17 @@ describe("leerBanco con el motor", () => {
     expect(banco.find((idea) => idea.gancho === "Una idea de siempre")?.nueva).toBe(false)
   })
 
+  it("lists the used ideas by number and the ones of the engine, which have none, after them", async () => {
+    await sembrarCorrida(SEMANA_ANTERIOR)
+    await sembrarIdeaDelMotor({ gancho: "Usada del motor", semana: SEMANA_ANTERIOR, estado: "usada" })
+    await sembrarIdea({ gancho: "Usada tres", numero: 3, estado: "usada" })
+    await sembrarIdea({ gancho: "Usada dos", numero: 2, estado: "usada" })
+
+    const banco = await leerBanco(coni, AHORA)
+
+    expect(banco.map((idea) => idea.gancho)).toEqual(["Usada dos", "Usada tres", "Usada del motor"])
+  })
+
   it("does not call new an engine idea from an older week", async () => {
     await sembrarCorrida(SEMANA_ANTERIOR)
     await sembrarCorrida(SEMANA)

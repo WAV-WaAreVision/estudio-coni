@@ -246,19 +246,19 @@ describe("correrMotor", () => {
     expect(await contar("select count(*) as n from public.teoria_afirmaciones")).toBe(6)
 
     const ideas = await pool.query<{
-      numero: number
+      numero: number | null
       estado: string
       fuerza: string
       semana: string
       teoria_id: string
       fuentes: { autor: string; cita: string; tema: string }[]
     }>(
-      "select numero, estado, fuerza, semana::text, teoria_id, fuentes from public.ideas where origen = 'motor' and gancho like 'Gancho%' order by numero",
+      "select numero, estado, fuerza, semana::text, teoria_id, fuentes from public.ideas where origen = 'motor' and gancho like 'Gancho%' order by gancho",
     )
     expect(ideas.rows).toHaveLength(6)
     expect(ideas.rows.every((i) => i.estado === "idea" && i.semana === SEMANA && i.teoria_id)).toBe(true)
-    const numeros = ideas.rows.map((i) => i.numero)
-    expect(numeros).toEqual([501, 502, 503, 504, 505, 506])
+    // The number belongs to the imported bank: engine ideas have none (a counter would collide with the importer).
+    expect(ideas.rows.map((i) => i.numero)).toEqual([null, null, null, null, null, null])
     expect(ideas.rows[0]?.fuentes[0]).toMatchObject({
       autor: expect.stringContaining("semanal motor"),
       cita: expect.any(String),

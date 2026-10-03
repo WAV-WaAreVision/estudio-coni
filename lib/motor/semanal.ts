@@ -203,28 +203,18 @@ async function guardarIdeas(
 ): Promise<number> {
   const { data: ajustes, error: errorAjustes } = await db.from("ajustes").select("ideas_por_semana").single()
   if (errorAjustes) throw falloDeBase("No pude leer los ajustes", errorAjustes)
-  const { data: ultima, error: errorNumero } = await db
-    .from("ideas")
-    .select("numero")
-    .not("numero", "is", null)
-    .order("numero", { ascending: false })
-    .limit(1)
-  if (errorNumero) throw falloDeBase("No pude leer el número de la última idea", errorNumero)
-  let numero = ultima[0]?.numero ?? 0
-
   const ordenadas = [...guardadas].sort((x, y) => y.cruce.puntaje - x.cruce.puntaje)
   const filas = ordenadas.flatMap(({ teoriaId, teoria, cruce }) =>
     teoria.ideas.map((idea) => ({ teoriaId, teoria, cruce, idea })),
   )
   let insertadas = 0
   for (const { teoriaId, teoria, cruce, idea } of filas.slice(0, ajustes.ideas_por_semana)) {
-    numero += 1
     const fuentes = teoria.aportes.flatMap((a) => {
       const origen = nombreDeAutor.get(a.afirmacionId)
       return origen ? [{ autor: origen.autor, cita: origen.cita, tema: origen.tema }] : []
     })
+    // No `numero`: it belongs to the imported bank and a counter here would collide with the importer.
     const { error } = await db.from("ideas").insert({
-      numero,
       origen: "motor",
       teoria_id: teoriaId,
       semana,
