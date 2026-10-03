@@ -1,9 +1,10 @@
 import { appendFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { idempotencyKeys, type Task, tasks } from "@trigger.dev/sdk"
+import { idempotencyKeys, tasks } from "@trigger.dev/sdk"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
+import type { motorManualTask } from "@/trigger/motor-semanal"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
 import type { producirPiezaTask } from "@/trigger/producir-pieza"
 import type { Disparos } from "./disparos"
@@ -81,23 +82,20 @@ export async function dispararProcesarMaterial(materialId: string, entorno: Ento
   )
 }
 
-// The task is scheduled, so its own payload type is the schedule's; "Proponer ahora" sends this one by hand.
-type MotorSemanal = Task<"motor-semanal", { manual: true }, unknown>
-
 /**
- * Starts the weekly engine by hand ("Proponer ahora"). The key is the week, so two taps or two devices start one run;
- * the run itself is unique per week in `motor_corridas`.
+ * Starts the weekly engine by hand ("Proponer ahora"). The key holds for ten minutes: it only guards a double tap or
+ * two devices. `correrMotor` already answers `ya_corrio` for a finished week and retakes a failed one.
  */
 export async function dispararMotor(semana: string, entorno: Entorno = process.env): Promise<void> {
   const archivo = archivoDeDisparoDePrueba(entorno)
   if (archivo) {
-    appendFileSync(archivo, `${JSON.stringify({ tarea: "motor-semanal", semana, manual: true })}\n`)
+    appendFileSync(archivo, `${JSON.stringify({ tarea: "motor-manual", semana })}\n`)
     return
   }
   exigirLlaveDeTrigger(entorno)
-  await tasks.trigger<MotorSemanal>(
-    "motor-semanal",
+  await tasks.trigger<typeof motorManualTask>(
+    "motor-manual",
     { manual: true },
-    { idempotencyKey: await claveGlobal(`motor:${semana}`), idempotencyKeyTTL: "1d" },
+    { idempotencyKey: await claveGlobal(`motor:${semana}`), idempotencyKeyTTL: "10m" },
   )
 }

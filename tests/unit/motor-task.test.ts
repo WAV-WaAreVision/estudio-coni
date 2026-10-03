@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import { semanaDe } from "@/lib/motor/semana"
 import { ejecutarMotorSemanal } from "@/lib/motor/tarea"
-import { CONFIGURACION_MOTOR, motorSemanalTask } from "../../trigger/motor-semanal"
+import { COLA_DEL_MOTOR, CONFIGURACION_MOTOR, motorManualTask, motorSemanalTask } from "../../trigger/motor-semanal"
 
 describe("motorSemanalTask", () => {
   it("loads with the id the dashboard shows", () => {
@@ -11,8 +11,13 @@ describe("motorSemanalTask", () => {
 
   it("runs every Sunday at 20:00 in Santiago whatever the daylight saving time, one run at a time, for ten minutes at most", () => {
     expect(CONFIGURACION_MOTOR.cron).toEqual({ pattern: "0 20 * * 0", timezone: "America/Santiago" })
-    expect(CONFIGURACION_MOTOR.queue).toEqual({ concurrencyLimit: 1 })
+    expect(CONFIGURACION_MOTOR.queue).toBe(COLA_DEL_MOTOR)
     expect(CONFIGURACION_MOTOR.maxDuration).toBe(600)
+  })
+
+  it("shares one queue of one run with the manual task, so they never overlap", () => {
+    expect(motorManualTask.id).toBe("motor-manual")
+    expect(COLA_DEL_MOTOR.concurrencyLimit).toBe(1)
   })
 })
 

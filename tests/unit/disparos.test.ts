@@ -82,9 +82,7 @@ describe("dispararMotor", () => {
     await dispararMotor("2026-10-11", { DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo })
 
     const lineas = readFileSync(archivo, "utf-8").trim().split("\n")
-    expect(lineas.map((linea) => JSON.parse(linea))).toEqual([
-      { tarea: "motor-semanal", semana: "2026-10-11", manual: true },
-    ])
+    expect(lineas.map((linea) => JSON.parse(linea))).toEqual([{ tarea: "motor-manual", semana: "2026-10-11" }])
   })
 
   it("never records instead of starting when it runs on Vercel", async () => {
