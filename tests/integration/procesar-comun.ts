@@ -21,8 +21,10 @@ export const USO = {
   cache_creation_input_tokens: 0,
   cache_read_input_tokens: 0,
 }
-/** What one Claude call of `USO` costs. */
+/** What one Opus call of `USO` costs (the card). */
 export const COSTO_CLAUDE = 0.006
+/** What one Sonnet call of `USO` costs (vision, translation). */
+export const COSTO_CLAUDE_SONNET = 0.003
 
 // No accents: the test PDFs are written in a Latin-1 font that mangles them.
 export const TEXTO_CHILENO =

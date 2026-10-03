@@ -8,6 +8,7 @@ import {
   costoClaude,
   escribirGuion,
   type IdeaParaGuion,
+  MODELO_POR_TAREA,
   revisarConClaude,
   type UsoClaude,
 } from "@/lib/proveedores/anthropic"
@@ -30,7 +31,7 @@ const CON_DATO_POR_VERIFICAR = IDEAS.filter((idea) => idea.alertas.some((alerta)
 
 let gastado = 0
 const gasto = (uso: UsoClaude) => {
-  gastado += costoClaude(uso)
+  gastado += costoClaude(uso, MODELO_POR_TAREA.escribirGuion.modelo)
 }
 const guionesGenerados = new Map<number, { guion: string; texto: string }>()
 

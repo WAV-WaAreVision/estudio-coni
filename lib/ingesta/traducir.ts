@@ -7,6 +7,8 @@ import {
   CARACTERES_POR_LOTE,
   costoClaude,
   identificarIdioma,
+  MODELO_POR_TAREA,
+  type ModeloClaude,
   type UsoClaude,
 } from "@/lib/proveedores/anthropic"
 
@@ -113,10 +115,13 @@ const FACTOR_DE_SALIDA = 1.6
 export function estimarCostoDeTraduccion(caracteres: number, conDeteccion: boolean): number {
   const tokens = Math.ceil(caracteres / CARACTERES_POR_TOKEN)
   const lotes = Math.max(1, Math.ceil(caracteres / CARACTERES_POR_LOTE))
-  const base = costoClaude({
-    input_tokens: tokens + TOKENS_FIJOS_POR_LOTE * lotes,
-    output_tokens: Math.ceil(tokens * FACTOR_DE_SALIDA),
-  })
+  const base = costoClaude(
+    {
+      input_tokens: tokens + TOKENS_FIJOS_POR_LOTE * lotes,
+      output_tokens: Math.ceil(tokens * FACTOR_DE_SALIDA),
+    },
+    MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
+  )
   return Number((base + (conDeteccion ? ESTIMADO_IDIOMA_USD : 0)).toFixed(4))
 }
 
@@ -189,6 +194,7 @@ async function pagando<T>(
   gasto: GastoDeTraduccion,
   clave: string,
   estimadoUsd: number,
+  modelo: ModeloClaude,
   pedir: () => Promise<{ valor: T; uso: UsoClaude | null }>,
 ): Promise<{ valor: T; costoUsd: number }> {
   const reserva = await gasto.reservar({ paso: "traduccion", estimadoUsd, clave })
@@ -200,7 +206,7 @@ async function pagando<T>(
     await gasto.liberar(clave)
     throw error
   }
-  const costoUsd = respuesta.uso ? Number(costoClaude(respuesta.uso).toFixed(4)) : 0
+  const costoUsd = respuesta.uso ? Number(costoClaude(respuesta.uso, modelo).toFixed(4)) : 0
   await gasto.confirmar(clave, costoUsd)
   return { valor: respuesta.valor, costoUsd }
 }
@@ -225,10 +231,16 @@ export async function traducirMaterial(entrada: {
 
   let idioma = entrada.idiomaReportado ?? idiomaPorHeuristica(partes)
   if (idioma === null) {
-    const detectado = await pagando(gasto, `${clave}:idioma`, ESTIMADO_IDIOMA_USD, async () => {
-      const { idioma: elegido, uso } = await detectarIdioma(partes, undefined, cliente)
-      return { valor: elegido, uso }
-    })
+    const detectado = await pagando(
+      gasto,
+      `${clave}:idioma`,
+      ESTIMADO_IDIOMA_USD,
+      MODELO_POR_TAREA.identificarIdioma.modelo,
+      async () => {
+        const { idioma: elegido, uso } = await detectarIdioma(partes, undefined, cliente)
+        return { valor: elegido, uso }
+      },
+    )
     idioma = detectado.valor
     costoUsd += detectado.costoUsd
   }
@@ -248,10 +260,16 @@ export async function traducirMaterial(entrada: {
     const enviadas = lote.map(
       (t): Parte => ({ texto: t.texto, ubicacion: partes[t.indice]?.ubicacion ?? { pagina: null } }),
     )
-    const hecho = await pagando(gasto, `${clave}:lote${n}`, estimarCostoDeTraduccion(caracteres, false), async () => {
-      const r = await adaptarAVozDeConi({ cliente, partes: enviadas })
-      return { valor: r.partes, uso: r.uso }
-    })
+    const hecho = await pagando(
+      gasto,
+      `${clave}:lote${n}`,
+      estimarCostoDeTraduccion(caracteres, false),
+      MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
+      async () => {
+        const r = await adaptarAVozDeConi({ cliente, partes: enviadas })
+        return { valor: r.partes, uso: r.uso }
+      },
+    )
     costoUsd += hecho.costoUsd
     lote.forEach((t, i) => {
       const lista = adaptados.get(t.indice) ?? []

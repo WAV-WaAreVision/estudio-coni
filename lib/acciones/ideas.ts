@@ -12,7 +12,7 @@ import { Falla } from "@/lib/dominio/falla"
 import { PILARES } from "@/lib/dominio/pilares"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
-import { clasificarIdea, costoClaude, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
+import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { aResultado, type Resultado } from "./resultado"
 
@@ -109,7 +109,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
         gancho: idea.data.gancho,
         tema: idea.data.tema,
       })
-      await confirmarGasto(servicio, clave, Number(costoClaude(uso).toFixed(4)))
+      await confirmarGasto(servicio, clave, Number(costoClaude(uso, MODELO_POR_TAREA.clasificarIdea.modelo).toFixed(4)))
       return { propuesta }
     } catch (error) {
       // Nothing was proposed, so nothing was spent that she should pay against the cap.

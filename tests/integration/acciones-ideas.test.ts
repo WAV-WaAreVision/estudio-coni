@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { crearIdeaPropia, type DepsIdeas, proponerIdea, quitarIdea, usarIdea } from "@/lib/acciones/ideas"
-import { costoClaude } from "@/lib/proveedores/anthropic"
+import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
 import { CONI, pool } from "./db"
@@ -157,7 +157,12 @@ describe("proponerIdea", () => {
     expect(JSON.stringify(pedidos[0]?.cuerpo.system)).toContain("Línea editorial de Coni")
     expect(JSON.stringify(pedidos[0]?.cuerpo.messages[0]?.content)).toContain("Tu pareja te revisa el celular")
     expect(await gastosDeIdeas()).toMatchObject([
-      { proveedor: "anthropic", estado: "confirmado", pieza_id: null, real: Number(costoClaude(USO).toFixed(4)) },
+      {
+        proveedor: "anthropic",
+        estado: "confirmado",
+        pieza_id: null,
+        real: Number(costoClaude(USO, MODELO_POR_TAREA.clasificarIdea.modelo).toFixed(4)),
+      },
     ])
   })
 

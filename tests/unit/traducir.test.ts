@@ -323,7 +323,7 @@ describe("traducirMaterial", () => {
 })
 
 describe("gasto por lote", () => {
-  const COSTO_DE_UN_LOTE = 0.006
+  const COSTO_DE_UN_LOTE = 0.003
 
   it("confirms the batches that finished and releases only the one that failed", async () => {
     let llamadasAClaude = 0
