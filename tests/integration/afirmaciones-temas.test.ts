@@ -312,3 +312,28 @@ describe("fusionar_autores moves claims", () => {
     })
   })
 })
+
+describe("changing a material's author", () => {
+  it("moves its claims to the new author and leaves other materials alone", async () => {
+    await como(comoServicio, async (c) => {
+      const antes = await crearAutor(c, "Antes")
+      const material = await crearMaterial(c, antes)
+      const otro = await crearMaterial(c, antes)
+      const a1 = await crearAfirmacion(c, material, antes)
+      const a2 = await crearAfirmacion(c, material, antes)
+      const ajena = await crearAfirmacion(c, otro, antes)
+      await asumir(c, comoConi)
+      const despues = await id(c, "select public.crear_autor('Despues', null, 'persona') as id")
+      await c.query("update public.materiales set autor_id = $1 where id = $2", [despues, material])
+      const { rows } = await c.query("select id, autor_id from public.afirmaciones where id in ($1, $2, $3)", [
+        a1,
+        a2,
+        ajena,
+      ])
+      const autorDe = (afirmacion: string) => rows.find((r) => r.id === afirmacion)?.autor_id
+      expect(autorDe(a1)).toBe(despues)
+      expect(autorDe(a2)).toBe(despues)
+      expect(autorDe(ajena)).toBe(antes)
+    })
+  })
+})
