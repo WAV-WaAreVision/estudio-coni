@@ -140,6 +140,7 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
         formato: idea.data.formato,
         // She wrote it to use it: it goes first among equals.
         fuerza: "alta",
+        origen: "propia",
         alertas: idea.data.alertas,
         fuentes: ["Idea de Coni"],
         fijada_en: deps.ahora(),

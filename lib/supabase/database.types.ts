@@ -138,6 +138,7 @@ export type Database = {
           enlaces: Json
           hora_publicacion: string
           id: boolean
+          ideas_por_semana: number
           meta: string
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
@@ -153,6 +154,7 @@ export type Database = {
           enlaces?: Json
           hora_publicacion?: string
           id?: boolean
+          ideas_por_semana?: number
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -168,6 +170,7 @@ export type Database = {
           enlaces?: Json
           hora_publicacion?: string
           id?: boolean
+          ideas_por_semana?: number
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -531,9 +534,13 @@ export type Database = {
           fuerza: string
           gancho: string
           id: string
+          motivo_descarte: string | null
           numero: number | null
+          origen: string
           pilar: Database["public"]["Enums"]["pilar"]
+          semana: string | null
           tema: string
+          teoria_id: string | null
         }
         Insert: {
           alertas?: Json
@@ -545,9 +552,13 @@ export type Database = {
           fuerza: string
           gancho: string
           id?: string
+          motivo_descarte?: string | null
           numero?: number | null
+          origen?: string
           pilar: Database["public"]["Enums"]["pilar"]
+          semana?: string | null
           tema?: string
+          teoria_id?: string | null
         }
         Update: {
           alertas?: Json
@@ -559,11 +570,23 @@ export type Database = {
           fuerza?: string
           gancho?: string
           id?: string
+          motivo_descarte?: string | null
           numero?: number | null
+          origen?: string
           pilar?: Database["public"]["Enums"]["pilar"]
+          semana?: string | null
           tema?: string
+          teoria_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ideas_teoria_id_fkey"
+            columns: ["teoria_id"]
+            isOneToOne: false
+            referencedRelation: "teorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       intervenciones: {
         Row: {
@@ -793,6 +816,39 @@ export type Database = {
           creado_en?: string
           rol?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      motor_corridas: {
+        Row: {
+          costo_usd: number
+          creada_en: string
+          estado: string
+          id: string
+          motivo_fallo: string | null
+          resumen: Json
+          semana: string
+          terminada_en: string | null
+        }
+        Insert: {
+          costo_usd?: number
+          creada_en?: string
+          estado?: string
+          id?: string
+          motivo_fallo?: string | null
+          resumen?: Json
+          semana: string
+          terminada_en?: string | null
+        }
+        Update: {
+          costo_usd?: number
+          creada_en?: string
+          estado?: string
+          id?: string
+          motivo_fallo?: string | null
+          resumen?: Json
+          semana?: string
+          terminada_en?: string | null
         }
         Relationships: []
       }
@@ -1062,6 +1118,39 @@ export type Database = {
           },
         ]
       }
+      teoria_afirmaciones: {
+        Row: {
+          afirmacion_id: string
+          aporte: string
+          teoria_id: string
+        }
+        Insert: {
+          afirmacion_id: string
+          aporte: string
+          teoria_id: string
+        }
+        Update: {
+          afirmacion_id?: string
+          aporte?: string
+          teoria_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teoria_afirmaciones_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teoria_afirmaciones_teoria_id_fkey"
+            columns: ["teoria_id"]
+            isOneToOne: false
+            referencedRelation: "teorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teoria_fuentes: {
         Row: {
           material_id: string
@@ -1094,8 +1183,10 @@ export type Database = {
       }
       teorias: {
         Row: {
+          advertencias: Json
           argumentos: Json | null
           categoria_id: string | null
+          componentes: Json | null
           contradicciones: Json | null
           creada_en: string
           creada_por: string | null
@@ -1104,13 +1195,21 @@ export type Database = {
           id: string
           motivo_codigo: string | null
           motivo_fallo: string | null
+          nivel_evidencia: string | null
+          origen: string
+          por_que: string | null
+          puntaje: number | null
+          semana: string | null
           sintetizando_desde: string
+          temas: string[]
           tesis: string | null
           titulo: string | null
         }
         Insert: {
+          advertencias?: Json
           argumentos?: Json | null
           categoria_id?: string | null
+          componentes?: Json | null
           contradicciones?: Json | null
           creada_en?: string
           creada_por?: string | null
@@ -1119,13 +1218,21 @@ export type Database = {
           id?: string
           motivo_codigo?: string | null
           motivo_fallo?: string | null
+          nivel_evidencia?: string | null
+          origen?: string
+          por_que?: string | null
+          puntaje?: number | null
+          semana?: string | null
           sintetizando_desde?: string
+          temas?: string[]
           tesis?: string | null
           titulo?: string | null
         }
         Update: {
+          advertencias?: Json
           argumentos?: Json | null
           categoria_id?: string | null
+          componentes?: Json | null
           contradicciones?: Json | null
           creada_en?: string
           creada_por?: string | null
@@ -1134,7 +1241,13 @@ export type Database = {
           id?: string
           motivo_codigo?: string | null
           motivo_fallo?: string | null
+          nivel_evidencia?: string | null
+          origen?: string
+          por_que?: string | null
+          puntaje?: number | null
+          semana?: string | null
           sintetizando_desde?: string
+          temas?: string[]
           tesis?: string | null
           titulo?: string | null
         }
@@ -1272,6 +1385,7 @@ export type Database = {
       }
     }
     Functions: {
+      archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
@@ -1304,6 +1418,10 @@ export type Database = {
         Returns: string
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
+      descartar_idea: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
+      }
       editar_guion_como_coni: {
         Args: {
           p_guion: string

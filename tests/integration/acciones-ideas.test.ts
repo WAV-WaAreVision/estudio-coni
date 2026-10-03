@@ -233,6 +233,7 @@ describe("crearIdeaPropia", () => {
       formato: "Mito o realidad",
       fuerza: "alta",
       estado: "idea",
+      origen: "propia",
       alertas: PROPUESTA.alertas,
       fuentes: ["Idea de Coni"],
     })
