@@ -16,7 +16,27 @@ import {
 import { Parte, Ubicacion } from "@/lib/ingesta/partes"
 import { VOZ_DE_CONI } from "@/lib/ingesta/voz-de-coni"
 
-export const MODELO = "claude-opus-5-5"
+export type ModeloClaude = "claude-opus-5-5" | "claude-sonnet-5-5"
+
+interface ConfigDeTarea {
+  modelo: ModeloClaude
+  effort: "low" | "medium"
+  // Sonnet 5.5 answers 400 to `disabled`: `between_tools` is its off switch. Opus 5.5 gets no thinking field at all.
+  thinking?: { type: "between_tools" }
+}
+
+/** Single source of truth: which model, effort and thinking each task uses. Cost and estimates read the model from here. */
+export const MODELO_POR_TAREA = {
+  escribirGuion: { modelo: "claude-opus-5-5", effort: "medium" },
+  revisarConClaude: { modelo: "claude-opus-5-5", effort: "low" },
+  escribirFicha: { modelo: "claude-opus-5-5", effort: "low" },
+  clasificarIdea: { modelo: "claude-sonnet-5-5", effort: "low" },
+  identificarIdioma: { modelo: "claude-sonnet-5-5", effort: "low" },
+  leerTextoEnImagenes: { modelo: "claude-sonnet-5-5", effort: "low" },
+  adaptarAVozDeConi: { modelo: "claude-sonnet-5-5", effort: "low", thinking: { type: "between_tools" } },
+} as const satisfies Record<string, ConfigDeTarea>
+
+type Tarea = keyof typeof MODELO_POR_TAREA
 // Routes a declined request to the fallback Anthropic recommends for that refusal category.
 const BETA_FALLBACK = "server-side-fallback-2026-07-01"
 const MAX_TOKENS = 16_000
@@ -29,11 +49,12 @@ export class RechazoDeClaude extends Falla {
   }
 }
 
-// Opus 5.5 list prices, USD per million tokens. A cache write costs 1.25x the input price.
-const USD_ENTRADA = 4
-const USD_SALIDA = 20
-const USD_LECTURA_CACHE = 0.2
-const USD_ESCRITURA_CACHE = USD_ENTRADA * 1.25
+// List prices, USD per million tokens. A cache write costs 1.25x the input price.
+const PRECIOS: Record<ModeloClaude, { entrada: number; salida: number; lecturaCache: number }> = {
+  "claude-opus-5-5": { entrada: 4, salida: 20, lecturaCache: 0.2 },
+  "claude-sonnet-5-5": { entrada: 2, salida: 10, lecturaCache: 0.2 },
+}
+const FACTOR_ESCRITURA_CACHE = 1.25
 
 export interface UsoClaude {
   input_tokens: number
@@ -46,14 +67,15 @@ export interface UsoClaude {
  * Cost in USD of one response. If a fallback model served it, that model bills at its own rates and the real
  * cost can be higher; the reservation's estimate leaves room for that.
  */
-export function costoClaude(uso: UsoClaude): number {
+export function costoClaude(uso: UsoClaude, modelo: ModeloClaude): number {
+  const precio = PRECIOS[modelo]
   const escritura = uso.cache_creation_input_tokens ?? 0
   const lectura = uso.cache_read_input_tokens ?? 0
   return (
-    (uso.input_tokens * USD_ENTRADA +
-      uso.output_tokens * USD_SALIDA +
-      lectura * USD_LECTURA_CACHE +
-      escritura * USD_ESCRITURA_CACHE) /
+    (uso.input_tokens * precio.entrada +
+      uso.output_tokens * precio.salida +
+      lectura * precio.lecturaCache +
+      escritura * precio.entrada * FACTOR_ESCRITURA_CACHE) /
     1_000_000
   )
 }
@@ -142,13 +164,13 @@ ${entrada.texto}
 }
 
 /** Typed SDK errors only: a key or request the API rejects will not change on retry, anything else will. */
-function traducirError(error: unknown): unknown {
+function traducirError(error: unknown, modelo: ModeloClaude): unknown {
   if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
     return new FallaDeConfiguracion(`Anthropic rechazó la llave o no le da permiso (HTTP ${error.status}).`)
   }
   if (error instanceof Anthropic.NotFoundError) {
     return new FallaDeConfiguracion(
-      `Anthropic no encontró el modelo ${MODELO} para esta cuenta (HTTP ${error.status}).`,
+      `Anthropic no encontró el modelo ${modelo} para esta cuenta (HTTP ${error.status}).`,
     )
   }
   if (error instanceof Anthropic.APIError && esRechazoDelPedido(error.status)) {
@@ -168,27 +190,29 @@ function esRechazoDelPedido(estado: number | undefined): boolean {
  */
 async function pedirJson<S extends z.ZodType>(
   cliente: Anthropic,
+  tarea: Tarea,
   pedido: {
     guia: string
     usuario: string | Anthropic.Beta.Messages.BetaContentBlockParam[]
-    effort: "low" | "medium"
     esquema: S
   },
 ): Promise<{ salida: z.infer<S>; uso: UsoClaude }> {
   const formato = betaZodOutputFormat(pedido.esquema)
+  const config: ConfigDeTarea = MODELO_POR_TAREA[tarea]
   let respuesta: Anthropic.Beta.Messages.BetaMessage
   try {
     respuesta = await cliente.beta.messages.create({
-      model: MODELO,
+      model: config.modelo,
       max_tokens: MAX_TOKENS,
       betas: [BETA_FALLBACK],
       fallbacks: "default",
       system: sistemaCon(pedido.guia),
       messages: [{ role: "user", content: pedido.usuario }],
-      output_config: { effort: pedido.effort, format: formato },
+      output_config: { effort: config.effort, format: formato },
+      ...(config.thinking ? { thinking: config.thinking } : {}),
     })
   } catch (error) {
-    throw traducirError(error)
+    throw traducirError(error, config.modelo)
   }
   if (respuesta.stop_reason === "refusal") {
     throw new RechazoDeClaude()
@@ -219,10 +243,9 @@ export async function escribirGuion(entrada: {
   correcciones?: readonly Hallazgo[]
 }): Promise<{ guion: string; texto: string; uso: UsoClaude }> {
   const { cliente, guia, idea, requiereLineasAyuda, correcciones = [] } = entrada
-  const { salida, uso } = await pedirJson(cliente, {
+  const { salida, uso } = await pedirJson(cliente, "escribirGuion", {
     guia,
     usuario: pedidoDeGuion(idea, requiereLineasAyuda, correcciones),
-    effort: "medium",
     esquema: SalidaGuion,
   })
   return { guion: salida.guion, texto: salida.texto, uso }
@@ -237,10 +260,9 @@ export async function revisarConClaude(entrada: {
   alertas: readonly Alerta[]
 }): Promise<{ hallazgos: Hallazgo[]; uso: UsoClaude }> {
   const { cliente, guia, guion, texto, alertas } = entrada
-  const { salida, uso } = await pedirJson(cliente, {
+  const { salida, uso } = await pedirJson(cliente, "revisarConClaude", {
     guia,
     usuario: pedidoDeRevision({ guion, texto, alertas }),
-    effort: "low",
     esquema: SalidaRevision,
   })
   const hallazgos = salida.hallazgos.map(
@@ -291,10 +313,9 @@ export async function clasificarIdea(entrada: {
   tema: string
 }): Promise<{ propuesta: PropuestaDeIdea; uso: UsoClaude }> {
   const { cliente, guia, gancho, tema } = entrada
-  const { salida, uso } = await pedirJson(cliente, {
+  const { salida, uso } = await pedirJson(cliente, "clasificarIdea", {
     guia,
     usuario: pedidoDeClasificacion({ gancho, tema }),
-    effort: "low",
     esquema: SalidaIdea,
   })
   return { propuesta: salida, uso }
@@ -363,10 +384,9 @@ export async function leerTextoEnImagenes(entrada: {
   let uso: UsoClaude = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
   for (let desde = 0; desde < entrada.imagenes.length; desde += IMAGENES_POR_PEDIDO) {
     const lote = entrada.imagenes.slice(desde, desde + IMAGENES_POR_PEDIDO)
-    const { salida, uso: usoDelLote } = await pedirJson(entrada.cliente, {
+    const { salida, uso: usoDelLote } = await pedirJson(entrada.cliente, "leerTextoEnImagenes", {
       guia: GUIA_DE_LECTURA,
       usuario: pedidoDeLectura(lote),
-      effort: "low",
       esquema: SalidaTextoEnImagenes,
     })
     exigirMismosIds(
@@ -440,10 +460,9 @@ export async function adaptarAVozDeConi(entrada: {
   cliente: Anthropic
   partes: readonly Parte[]
 }): Promise<{ partes: Parte[]; idioma_original: string | null; uso: UsoClaude }> {
-  const { salida, uso } = await pedirJson(entrada.cliente, {
+  const { salida, uso } = await pedirJson(entrada.cliente, "adaptarAVozDeConi", {
     guia: GUIA_DE_ADAPTACION,
     usuario: pedidoDeAdaptacion(entrada.partes),
-    effort: "low",
     esquema: SalidaAdaptacion,
   })
   exigirMismasUbicaciones(entrada.partes, salida.partes)
@@ -460,10 +479,9 @@ export async function identificarIdioma(entrada: {
   cliente: Anthropic
   muestra: string
 }): Promise<{ idioma: string; uso: UsoClaude }> {
-  const { salida, uso } = await pedirJson(entrada.cliente, {
+  const { salida, uso } = await pedirJson(entrada.cliente, "identificarIdioma", {
     guia: GUIA_DE_IDIOMA,
     usuario: `¿En qué idioma está este texto?\n\n<fuente>\n${sinCierre(entrada.muestra)}\n</fuente>`,
-    effort: "low",
     esquema: SalidaIdioma,
   })
   return { idioma: salida.idioma, uso }
@@ -600,10 +618,9 @@ export async function escribirFicha(entrada: {
   partes: readonly Parte[]
 }): Promise<FichaEscrita> {
   const { enviadas, recortado } = recortarPartes(entrada.partes)
-  const { salida, uso } = await pedirJson(entrada.cliente, {
+  const { salida, uso } = await pedirJson(entrada.cliente, "escribirFicha", {
     guia: GUIA_DE_FICHA,
     usuario: pedidoDeFicha(entrada, enviadas, recortado),
-    effort: "low",
     esquema: SalidaFicha,
   })
   const citas = salida.citas.flatMap((cita) => {

@@ -388,13 +388,14 @@ describe("revisarConClaude", () => {
 
 describe("costoClaude", () => {
   it("prices Opus 5.5: $4 input, $20 output, $0.20 cache read, $5 cache write per million tokens", () => {
-    expect(costoClaude({ input_tokens: 1_000_000, output_tokens: 0 })).toBeCloseTo(4, 10)
-    expect(costoClaude({ input_tokens: 0, output_tokens: 1_000_000 })).toBeCloseTo(20, 10)
-    expect(costoClaude({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000 })).toBeCloseTo(0.2, 10)
-    expect(costoClaude({ input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 1_000_000 })).toBeCloseTo(
-      5,
-      10,
-    )
+    expect(costoClaude({ input_tokens: 1_000_000, output_tokens: 0 }, "claude-opus-5-5")).toBeCloseTo(4, 10)
+    expect(costoClaude({ input_tokens: 0, output_tokens: 1_000_000 }, "claude-opus-5-5")).toBeCloseTo(20, 10)
+    expect(
+      costoClaude({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000 }, "claude-opus-5-5"),
+    ).toBeCloseTo(0.2, 10)
+    expect(
+      costoClaude({ input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 1_000_000 }, "claude-opus-5-5"),
+    ).toBeCloseTo(5, 10)
   })
 
   it("adds every kind of token", () => {
@@ -405,22 +406,25 @@ describe("costoClaude", () => {
       cache_read_input_tokens: 800,
     }
     // 1000*4 + 500*20 + 200*5 + 800*0.2 = 15160 micro-dollars
-    expect(costoClaude(uso)).toBeCloseTo(0.01516, 10)
+    expect(costoClaude(uso, "claude-opus-5-5")).toBeCloseTo(0.01516, 10)
   })
 
   it("treats missing or null cache counters as zero", () => {
     expect(
-      costoClaude({
-        input_tokens: 1000,
-        output_tokens: 0,
-        cache_creation_input_tokens: null,
-        cache_read_input_tokens: null,
-      }),
+      costoClaude(
+        {
+          input_tokens: 1000,
+          output_tokens: 0,
+          cache_creation_input_tokens: null,
+          cache_read_input_tokens: null,
+        },
+        "claude-opus-5-5",
+      ),
     ).toBeCloseTo(0.004, 10)
   })
 
   it("costs nothing for no usage", () => {
-    expect(costoClaude({ input_tokens: 0, output_tokens: 0 })).toBe(0)
+    expect(costoClaude({ input_tokens: 0, output_tokens: 0 }, "claude-opus-5-5")).toBe(0)
   })
 })
 

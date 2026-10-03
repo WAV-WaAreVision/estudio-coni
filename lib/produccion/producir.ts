@@ -18,7 +18,13 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
-import { costoClaude, escribirGuion, RechazoDeClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
+import {
+  costoClaude,
+  escribirGuion,
+  MODELO_POR_TAREA,
+  RechazoDeClaude,
+  revisarConClaude,
+} from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database, Json } from "@/lib/supabase/database.types"
 
@@ -95,12 +101,12 @@ async function redactarBorrador(
     revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda })
 
   let escrito = await escribirGuion({ cliente, guia, idea, requiereLineasAyuda })
-  costoUsd += costoClaude(escrito.uso)
+  costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
   let hallazgos = revisar(escrito, requiereLineasAyuda)
   if (bloquea(hallazgos)) {
     // One correction round only: whatever still blocks after it is left for Coni to see.
     escrito = await escribirGuion({ cliente, guia, idea, requiereLineasAyuda, correcciones: hallazgos })
-    costoUsd += costoClaude(escrito.uso)
+    costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
     hallazgos = revisar(escrito, requiereLineasAyuda)
   }
 
@@ -111,7 +117,7 @@ async function redactarBorrador(
     texto: escrito.texto,
     alertas: idea.alertas,
   })
-  costoUsd += costoClaude(juicio.uso)
+  costoUsd += costoClaude(juicio.uso, MODELO_POR_TAREA.revisarConClaude.modelo)
   if (juicio.hallazgos.some((h) => h.regla === "tema_de_riesgo")) {
     hallazgos = revisar(escrito, true)
   }

@@ -8,7 +8,7 @@ import { editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib
 import type { DepsIdeas } from "@/lib/acciones/ideas"
 import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
-import { costoClaude } from "@/lib/proveedores/anthropic"
+import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
 import { pool } from "./db"
@@ -141,7 +141,12 @@ describe("editarGuion", () => {
     await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
 
     expect(await gastosDe(id)).toEqual([
-      { proveedor: "anthropic", paso: "revision", estado: "confirmado", real: Number(costoClaude(USO).toFixed(4)) },
+      {
+        proveedor: "anthropic",
+        paso: "revision",
+        estado: "confirmado",
+        real: Number(costoClaude(USO, MODELO_POR_TAREA.revisarConClaude.modelo).toFixed(4)),
+      },
     ])
   })
 

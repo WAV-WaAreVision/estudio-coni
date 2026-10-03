@@ -25,7 +25,13 @@ import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingest
 import { renderizarPartes } from "@/lib/ingesta/texto-material"
 import { type GastoDeTraduccion, gastoEnBase, traducirMaterial } from "@/lib/ingesta/traducir"
 import type { Almacen } from "@/lib/proveedores/almacen"
-import { costoClaude, escribirFicha, leerTextoEnImagenes, type TextoLeido } from "@/lib/proveedores/anthropic"
+import {
+  costoClaude,
+  escribirFicha,
+  leerTextoEnImagenes,
+  MODELO_POR_TAREA,
+  type TextoLeido,
+} from "@/lib/proveedores/anthropic"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -83,6 +89,7 @@ const claves = (id: string) => ({
   textoOriginal: `materiales/${id}/texto-original.txt`,
   partesOriginal: `materiales/${id}/partes-original.json`,
   partes: `materiales/${id}/partes.json`,
+  carpetaDeLotes: `materiales/${id}/traduccion`,
   transcripcion: `materiales/${id}/transcripcion.json`,
   lectura: (paso: "pantalla" | "imagen", n: number) => `materiales/${id}/${paso}-${n}.json`,
 })
@@ -271,12 +278,15 @@ const aPartesDeVoz = (voz: Voz | null): Parte[] =>
     .filter((s) => s.texto.trim() !== "")
     .map((s) => ({ texto: s.texto, ubicacion: { segundo: s.segundo, pista: "voz" } }))
 
-function estimarLectura(imagenes: number): number {
+export function estimarLectura(imagenes: number): number {
   return redondear(
-    costoClaude({
-      input_tokens: 800 + TOKENS_POR_IMAGEN * imagenes,
-      output_tokens: 150 + TOKENS_DE_SALIDA_POR_IMAGEN * imagenes,
-    }),
+    costoClaude(
+      {
+        input_tokens: 800 + TOKENS_POR_IMAGEN * imagenes,
+        output_tokens: 150 + TOKENS_DE_SALIDA_POR_IMAGEN * imagenes,
+      },
+      MODELO_POR_TAREA.leerTextoEnImagenes.modelo,
+    ),
   )
 }
 
@@ -302,7 +312,7 @@ async function leerImagenes(
       estimadoUsd: estimarLectura(lote.length),
       llamar: async () => {
         const r = await leerTextoEnImagenes({ cliente: ctx.deps.claude, imagenes: lote })
-        return { datos: r.lecturas, realUsd: costoClaude(r.uso) }
+        return { datos: r.lecturas, realUsd: costoClaude(r.uso, MODELO_POR_TAREA.leerTextoEnImagenes.modelo) }
       },
     })
     if (pagado.tope) return TOPE
@@ -541,6 +551,8 @@ async function traduccionDe(ctx: Contexto, original: Extraccion): Promise<Tope |
       cliente: deps.claude,
       gasto,
       clave: `material:${material.id}:traduccion`,
+      almacen: deps.almacen,
+      carpetaDeLotes: k.carpetaDeLotes,
       partes: original.partes,
       ...(original.idioma ? { idiomaReportado: original.idioma } : {}),
     })
@@ -556,16 +568,19 @@ async function traduccionDe(ctx: Contexto, original: Extraccion): Promise<Tope |
   return resultado
 }
 
-function estimarFicha(partes: readonly Parte[]): number {
+export function estimarFicha(partes: readonly Parte[]): number {
   const caracteres = Math.min(
     MAXIMO_CARACTERES_PARA_FICHA,
     partes.reduce((total, p) => total + p.texto.length, 0),
   )
   return redondear(
-    costoClaude({
-      input_tokens: Math.ceil(caracteres / CARACTERES_POR_TOKEN) + TOKENS_FIJOS_FICHA,
-      output_tokens: TOKENS_DE_SALIDA_FICHA,
-    }),
+    costoClaude(
+      {
+        input_tokens: Math.ceil(caracteres / CARACTERES_POR_TOKEN) + TOKENS_FIJOS_FICHA,
+        output_tokens: TOKENS_DE_SALIDA_FICHA,
+      },
+      MODELO_POR_TAREA.escribirFicha.modelo,
+    ),
   )
 }
 
@@ -598,7 +613,7 @@ async function fichaDe(
           autor: autorDado,
           partes: traducido.partes,
         })
-        return { datos: f, realUsd: costoClaude(f.uso) }
+        return { datos: f, realUsd: costoClaude(f.uso, MODELO_POR_TAREA.escribirFicha.modelo) }
       },
     })
     if (pagado.tope) return TOPE

@@ -103,7 +103,7 @@ describe("leerTextoEnImagenes", () => {
 
     expect(uso.input_tokens).toBe(2000)
     expect(uso.output_tokens).toBe(200)
-    expect(costoClaude(uso)).toBeCloseTo((2000 * 4 + 200 * 20) / 1_000_000)
+    expect(costoClaude(uso, "claude-sonnet-5-5")).toBeCloseTo((2000 * 2 + 200 * 10) / 1_000_000)
   })
 
   it("keeps an empty string when the image has no text", async () => {

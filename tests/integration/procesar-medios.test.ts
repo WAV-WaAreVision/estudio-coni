@@ -4,7 +4,7 @@ import { procesarMaterial } from "@/lib/ingesta/procesar"
 import { pool } from "./db"
 import {
   almacenEnMemoria,
-  COSTO_CLAUDE,
+  COSTO_CLAUDE_SONNET,
   conFfmpeg,
   crearMaterial,
   deps,
@@ -118,7 +118,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
     expect(filas.find((g) => g.paso === "pantalla")).toMatchObject({
       proveedor: "anthropic",
       estado: "confirmado",
-      real: COSTO_CLAUDE,
+      real: COSTO_CLAUDE_SONNET,
     })
     expect(filas.find((g) => g.paso === "transcripcion")).toMatchObject({
       proveedor: "elevenlabs",

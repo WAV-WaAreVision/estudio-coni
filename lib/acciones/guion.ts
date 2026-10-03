@@ -15,7 +15,7 @@ import { Falla } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { bloquea, type Hallazgo, MAXIMO_DEL_GUION, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
-import { costoClaude, revisarConClaude } from "@/lib/proveedores/anthropic"
+import { costoClaude, MODELO_POR_TAREA, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { MAXIMO_DEL_TEXTO, normalizarTexto } from "./piezas"
 import { aResultado } from "./resultado"
@@ -184,7 +184,11 @@ async function juzgarConClaude(
     throw new Falla(ERROR_REVISION)
   }
   // Claude already answered and was paid: a failure here must not release the reservation, so it propagates.
-  await confirmarGasto(servicio, clave, Number(costoClaude(juicio.uso).toFixed(4)))
+  await confirmarGasto(
+    servicio,
+    clave,
+    Number(costoClaude(juicio.uso, MODELO_POR_TAREA.revisarConClaude.modelo).toFixed(4)),
+  )
   return { hallazgos: juicio.hallazgos }
 }
 
