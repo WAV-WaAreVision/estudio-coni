@@ -21,6 +21,7 @@ import {
   MAXIMO_AFIRMACIONES_POR_TRAMO,
   MODELO_POR_TAREA,
   TIPOS_DE_AFIRMACION,
+  VERSION_DE_EXTRACCION,
 } from "@/lib/proveedores/anthropic"
 import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 
@@ -75,7 +76,7 @@ async function autorDelMaterial(db: Db, autorId: string): Promise<{ nombre: stri
   return data
 }
 
-/** One paid request per chunk, each kept in the store with a fingerprint of the chunk and the model, so a retry pays only what is missing. */
+/** One paid request per chunk, each kept in the store with a fingerprint of the chunk, the model and the prompt version, so a retry pays only what is missing. */
 async function extraerPorTramo(
   ctx: Contexto,
   tramos: readonly Tramo[],
@@ -85,7 +86,7 @@ async function extraerPorTramo(
   const modelo = MODELO_POR_TAREA.extraerAfirmaciones.modelo
   const extraidas: Extraidas[] = []
   for (const tramo of tramos) {
-    const huella = huellaDe(tramo.texto, modelo)
+    const huella = huellaDe(tramo.texto, modelo, VERSION_DE_EXTRACCION)
     const archivo = `materiales/${material.id}/afirmaciones/${nombreDeTramo(tramo.numero)}.json`
     const previo = await pagadoAntes(ctx, archivo, Extraidas)
     if (previo && previo.huella === huella) {

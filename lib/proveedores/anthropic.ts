@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { isDeepStrictEqual } from "node:util"
 import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
@@ -749,6 +750,9 @@ REGLAS (escritas en inglés; los campos de texto van en español de Chile)
 
 FORMATO
 - Recibes el nombre y la credencial del autor, y el fragmento dentro de <fuente>.`
+
+/** Identifies the extraction prompt: a checkpoint made with another prompt is extracted again. */
+export const VERSION_DE_EXTRACCION = createHash("sha256").update(GUIA_DE_AFIRMACIONES).digest("hex")
 
 const Caracteristica = z.string().nullable()
 

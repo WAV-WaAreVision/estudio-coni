@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto"
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { procesarMaterial } from "@/lib/ingesta/procesar"
+import { aTramos } from "@/lib/ingesta/tramos"
+import { MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import { pool } from "./db"
 import {
   almacenEnMemoria,
@@ -214,6 +217,27 @@ describe("por tramo", () => {
     const clave = `materiales/${id}/afirmaciones/tramo-001.json`
     const guardado = JSON.parse(texto(almacen, id, "afirmaciones/tramo-001.json") ?? "null")
     guardado.datos.huella = "0".repeat(64)
+    await almacen.subir(clave, new TextEncoder().encode(JSON.stringify(guardado)), "application/json")
+    await pool.query("update public.materiales set estado = 'procesando' where id = $1", [id])
+
+    await procesarMaterial(await deps(almacen), id)
+
+    expect(claude.afirmaciones).toHaveLength(2)
+  })
+
+  it("pays a chunk again when its checkpoint was made with another version of the extraction prompt", async () => {
+    const almacen = almacenEnMemoria()
+    const claude = simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+    await procesarMaterial(await deps(almacen), id)
+    const partes = JSON.parse(texto(almacen, id, "partes-original.json") ?? "null").partes
+    const [tramo] = aTramos(partes)
+    const clave = `materiales/${id}/afirmaciones/tramo-001.json`
+    const guardado = JSON.parse(texto(almacen, id, "afirmaciones/tramo-001.json") ?? "null")
+    // The fingerprint a checkpoint had before the prompt version joined it: chunk text and model only.
+    guardado.datos.huella = createHash("sha256")
+      .update([tramo?.texto ?? "", MODELO_POR_TAREA.extraerAfirmaciones.modelo].join("\0"))
+      .digest("hex")
     await almacen.subir(clave, new TextEncoder().encode(JSON.stringify(guardado)), "application/json")
     await pool.query("update public.materiales set estado = 'procesando' where id = $1", [id])
 
