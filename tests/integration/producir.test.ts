@@ -2,7 +2,9 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -11,6 +13,7 @@ import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { leerFila, sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -214,6 +217,7 @@ afterEach(async () => {
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.ideas where id = any($1::uuid[])", [ideasCreadas])
+  await vaciarMotor()
   piezasCreadas.length = 0
   ideasCreadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
@@ -543,5 +547,119 @@ describe("producirPieza", () => {
     } finally {
       await pool.query("update public.guias set vigente = (version = 1)")
     }
+  })
+})
+
+const CITA_AJENA = "el deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días"
+
+async function crearPiezaDelMotor(): Promise<string> {
+  const ideaId = await sembrarIdeaDelMotor({
+    gancho: "El deseo se esconde",
+    semana: "2026-09-27",
+    teoria: {
+      titulo: "El deseo se cuida",
+      tesis: "El deseo baja con la rutina.",
+      nivel: "medio",
+      respaldo: [
+        { autor: "Siembra Esther Prueba", cita: CITA_AJENA },
+        { autor: "Siembra Luis Soto", cita: "la rutina apaga lo que no se nombra" },
+      ],
+    },
+  })
+  const { rows } = await pool.query<{ id: string }>(
+    "insert into public.piezas (idea_id, titulo) values ($1, 'Prueba del motor') returning id",
+    [ideaId],
+  )
+  const id = rows[0]?.id
+  if (!id) throw new Error("No se creó la pieza")
+  piezasCreadas.push(id)
+  await pool.query("update public.piezas set estado = 'guion_en_proceso', version = 1 where id = $1", [id])
+  return id
+}
+
+describe("producirPieza con una idea del motor", () => {
+  it("writes from the backing without author names and freezes it on the piece", async () => {
+    const id = await crearPiezaDelMotor()
+    const sim = simular()
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    const pedido = sim.escrituras[0]?.messages[0]?.content ?? ""
+    expect(pedido).toContain("<respaldo>")
+    expect(pedido).toContain("El deseo baja con la rutina.")
+    expect(pedido).toContain(CITA_AJENA)
+    expect(pedido).not.toContain("Siembra Esther Prueba")
+    const respaldo = leerRespaldo((await leerFila(id)).respaldo)
+    expect(respaldo?.afirmaciones.map((a) => a.autor).sort()).toEqual(["Siembra Esther Prueba", "Siembra Luis Soto"])
+  })
+
+  it("warns, without blocking, when the draft copies 8 words of a quote", async () => {
+    const id = await crearPiezaDelMotor()
+    const copia = "el deseo no se apaga, se esconde debajo de la rutina"
+    simular({ borrador: () => ({ guion: `${copia}. ${GUION_BUENO}`, texto: TEXTO_BUENO }) })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    const fila = await pieza(id)
+    expect(fila.estado).toBe("guion_por_aprobar")
+    expect(fila.revision).toEqual(
+      expect.arrayContaining([expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte", frase: copia })]),
+    )
+  })
+
+  it("keeps the copy warning after the review flags a risky topic", async () => {
+    const id = await crearPiezaDelMotor()
+    const copia = "el deseo no se apaga, se esconde debajo de la rutina"
+    simular({
+      borrador: () => ({ guion: `${copia}. ${GUION_BUENO}`, texto: TEXTO_CON_AYUDA }),
+      hallazgos: [{ regla: "tema_de_riesgo", frase: "rutina", mensaje: "Toca un tema de riesgo." }],
+    })
+    await producirPieza(deps(), id)
+    expect((await pieza(id)).revision).toEqual(
+      expect.arrayContaining([expect.objectContaining({ regla: "copia_de_fuente" })]),
+    )
+  })
+
+  it("resumes from the saved draft with its frozen backing, without asking Claude again", async () => {
+    const id = await crearPiezaDelMotor()
+    const ideaId = (await leerFila(id)).idea_id
+    // The key the producer derives for this round (`claveDeGasto`): a new piece is at intento 0.
+    const clave = claveIdempotencia({
+      piezaId: id,
+      paso: "producir",
+      hash: hashTexto(`claude:${id}:${ideaId}`),
+      intento: 0,
+    })
+    await reservarGasto(clienteDeServicio(), {
+      piezaId: id,
+      proveedor: "anthropic",
+      paso: "guion",
+      estimadoUsd: 0.5,
+      clave,
+      ahora: new Date().toISOString(),
+    })
+    const congelado = { teoria: { id: "t", titulo: "Antes", tesis: "Tesis de antes", porQue: "" }, afirmaciones: [] }
+    // A previous run saved the draft and settled its spend, then died before moving the piece on.
+    await pool.query("select public.guardar_borrador($1, 1, $2, $3, '[]'::jsonb, $4, 0.04, $5::jsonb)", [
+      id,
+      GUION_BUENO,
+      TEXTO_BUENO,
+      clave,
+      JSON.stringify(congelado),
+    ])
+    const sim = simular()
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(sim.escrituras).toHaveLength(0)
+    expect((await leerFila(id)).respaldo).toEqual(congelado)
+  })
+
+  it("leaves the backing empty and sends no section for an idea that is not from the engine", async () => {
+    const id = await crearPiezaEnProduccion()
+    const sim = simular()
+    await producirPieza(deps(), id)
+    expect(sim.escrituras[0]?.messages[0]?.content).not.toContain("<respaldo>")
+    expect((await leerFila(id)).respaldo).toBeNull()
   })
 })

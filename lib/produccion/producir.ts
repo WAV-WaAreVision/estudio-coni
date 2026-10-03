@@ -13,10 +13,11 @@ import {
   reservarGasto,
   revisionAJson,
 } from "@/lib/datos/repositorio"
+import { cargarRespaldoDeIdea, respaldoAJson } from "@/lib/datos/respaldo"
 import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
-import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
+import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import {
@@ -61,6 +62,7 @@ function claveDeGasto(fila: FilaDePieza, que: string): string {
 interface Contexto {
   idea: IdeaLeida
   guia: string
+  respaldo: Respaldo | null
 }
 
 // Everything that can be wrong with the setup is checked before any money is reserved.
@@ -73,17 +75,19 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
   if (!idea) {
     throw new FallaDeConfiguracion(`No existe la idea ${fila.idea_id} de la pieza ${fila.id}.`)
   }
+  const respaldo = await cargarRespaldoDeIdea(db, idea.id)
   const guia = await leerGuiaVigente(db)
   if (!guia) {
     throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
   }
-  return { idea, guia: guia.texto }
+  return { idea, guia: guia.texto, respaldo }
 }
 
 interface Borrador {
   guion: string
   texto: string
   revision: Json
+  respaldo: Json | null
 }
 
 // Every video this pipeline makes is an avatar, so every caption must say so.
@@ -94,19 +98,28 @@ async function redactarBorrador(
   contexto: Contexto,
 ): Promise<{ borrador: Borrador; costoUsd: number }> {
   const { claude: cliente } = deps
-  const { idea, guia } = contexto
+  const { idea, guia, respaldo } = contexto
+  const ajeno = ajenoDelRespaldo(respaldo)
+  const paraEscribir = respaldo === null ? null : paraElGuion(respaldo)
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
   let costoUsd = 0
 
   const revisar = (entrada: { guion: string; texto: string }, lineasAyuda: boolean) =>
-    revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno: ajenoDelRespaldo(null) })
+    revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno })
 
-  let escrito = await escribirGuion({ cliente, guia, idea, respaldo: null, requiereLineasAyuda })
+  let escrito = await escribirGuion({ cliente, guia, idea, respaldo: paraEscribir, requiereLineasAyuda })
   costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
   let hallazgos = revisar(escrito, requiereLineasAyuda)
   if (bloquea(hallazgos)) {
     // One correction round only: whatever still blocks after it is left for Coni to see.
-    escrito = await escribirGuion({ cliente, guia, idea, respaldo: null, requiereLineasAyuda, correcciones: hallazgos })
+    escrito = await escribirGuion({
+      cliente,
+      guia,
+      idea,
+      respaldo: paraEscribir,
+      requiereLineasAyuda,
+      correcciones: hallazgos,
+    })
     costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
     hallazgos = revisar(escrito, requiereLineasAyuda)
   }
@@ -124,7 +137,15 @@ async function redactarBorrador(
   }
 
   const revision: Hallazgo[] = [...hallazgos, ...juicio.hallazgos]
-  return { borrador: { guion: escrito.guion, texto: escrito.texto, revision: revisionAJson(revision) }, costoUsd }
+  return {
+    borrador: {
+      guion: escrito.guion,
+      texto: escrito.texto,
+      revision: revisionAJson(revision),
+      respaldo: respaldoAJson(respaldo),
+    },
+    costoUsd,
+  }
 }
 
 function borradorGuardado(fila: FilaDePieza): Borrador {
@@ -133,7 +154,8 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
       `La reserva de Claude de la pieza ${fila.id} ya estaba confirmada, pero la pieza no tiene guion ni texto guardados.`,
     )
   }
-  return { guion: fila.guion, texto: fila.texto, revision: fila.revision }
+  // The frozen snapshot of that draft, never a fresh read of the knowledge base.
+  return { guion: fila.guion, texto: fila.texto, revision: fila.revision, respaldo: fila.respaldo }
 }
 
 /**
@@ -198,7 +220,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
         revision: borrador.revision,
         clave: claveClaude,
         realUsd: aCuatroDecimales(redactado.costoUsd),
-        respaldo: null,
+        respaldo: borrador.respaldo,
       })
       if (!guardada) throw piezaCambio()
       fila = guardada
