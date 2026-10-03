@@ -1,12 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import {
-  agruparPorSimilitud,
-  centroideIncremental,
-  mediaNormalizada,
-  parsearVector,
-  textoDeVector,
-} from "@/lib/ingesta/agrupar"
+import { agruparPorSimilitud, centroideIncremental, media, parsearVector, textoDeVector } from "@/lib/ingesta/agrupar"
 import { type ContextoDePago, falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
@@ -21,11 +15,14 @@ import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
 
-/** To be calibrated in the calibration script (Task 10). */
-export const UMBRAL_TEMA = 0.78
+/**
+ * Thresholds on the AVERAGE cosine (average linkage) between a claim and a topic's members, or between two topics'
+ * members. Measured and decided in docs/superpowers/notas/calibracion-c1.md.
+ */
+export const UMBRAL_TEMA = 0.8
 export const UMBRAL_GRUPO = 0.8
 export const MINIMO_AFIRMACIONES_TEMA = 3
-export const UMBRAL_FUSION = 0.88
+export const UMBRAL_FUSION = 0.8
 export const MAXIMO_PENDIENTES_POR_CORRIDA = 500
 
 const TEXTOS_POR_GRUPO = 6
@@ -229,7 +226,7 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
         await recalcularTema(db, existente)
         resultado.unidos += 1
       } else {
-        const centroide = mediaNormalizada(ids.flatMap((id) => [pendientes.get(id)?.vector ?? []]))
+        const centroide = media(ids.flatMap((id) => [pendientes.get(id)?.vector ?? []]))
         const { data: creado, error: errorCrear } = await db
           .from("temas")
           .insert({

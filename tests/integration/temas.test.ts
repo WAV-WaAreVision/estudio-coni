@@ -1,13 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { mediaNormalizada, parsearVector } from "@/lib/ingesta/agrupar"
+import { media, parsearVector } from "@/lib/ingesta/agrupar"
 import {
   asignarATemas,
   formarTemas,
   fusionarTemas,
   MAXIMO_PENDIENTES_POR_CORRIDA,
   recalcularTema,
+  UMBRAL_FUSION,
+  UMBRAL_GRUPO,
   UMBRAL_TEMA,
 } from "@/lib/ingesta/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -169,18 +171,32 @@ async function conTopeChico<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 describe("asignarATemas", () => {
-  it("puts a claim in the nearest topic and moves the centroid by (c*n + v)/(n+1), normalized", async () => {
+  it("puts a claim in the nearest topic and moves the centroid by (m*n + v)/(n+1), without normalizing", async () => {
     const t = await tema("Deseo", vec({ 0: 1 }))
     await afirmacion(vec({ 0: 1 }), { tema: t })
-    const nueva = vec({ 0: 0.8, 1: 0.6 })
+    const nueva = vec({ 0: 0.9, 1: 0.4359 })
     const id = await afirmacion(nueva)
     const resultado = await asignarATemas(deps(), [id])
     expect(await temaDe(id)).toBe(t)
     expect(resultado).toEqual({ asignadas: 1, pendientes: 0 })
-    const esperado = vec({ 0: 1 + 0.8, 1: 0.6 })
+    const esperado = media([vec({ 0: 1 }), nueva])
     const c = await centroideDe(t)
     expect(c[0]).toBeCloseTo(esperado[0] ?? 0, 4)
     expect(c[1]).toBeCloseTo(esperado[1] ?? 0, 4)
+    expect(Math.hypot(...c)).toBeLessThan(0.99)
+  })
+
+  it("leaves a claim that is close to the topic's direction but not to its members on average pending", async () => {
+    // The topic stands for e0 and e1 (cosine 0 between them): its mean is (0.5, 0.5). The claim e0 is 0.707 from
+    // that direction but only 0.5 from the members on average.
+    const t = await tema("Mezclado", vec({ 0: 1 }))
+    await pool.query("update public.temas set centroide = $2::extensions.vector where id = $1", [
+      t,
+      texto(vec({ 0: 1 }).map((x, i) => (i === 0 ? 0.5 : i === 1 ? 0.5 : x))),
+    ])
+    const id = await afirmacion(vec({ 0: 1 }))
+    await asignarATemas(deps(), [id])
+    expect(await temaDe(id)).toBeNull()
   })
 
   it("leaves a claim below the threshold pending", async () => {
@@ -190,7 +206,10 @@ describe("asignarATemas", () => {
     expect(await temaDe(id)).toBeNull()
     expect(resultado).toEqual({ asignadas: 0, pendientes: 1 })
     expect((await centroideDe(t))[0]).toBeCloseTo(1)
-    expect(UMBRAL_TEMA).toBe(0.78)
+  })
+
+  it("uses the calibrated thresholds (average linkage, 0.80)", () => {
+    expect([UMBRAL_TEMA, UMBRAL_GRUPO, UMBRAL_FUSION]).toEqual([0.8, 0.8, 0.8])
   })
 
   it("skips claims without a vector, already in a topic, or excluded", async () => {
@@ -251,14 +270,15 @@ describe("formarTemas", () => {
     expect(await Promise.all(chico.map(temaDe))).toEqual([null, null])
   })
 
-  it("gives the topic the centroid of its group", async () => {
+  it("gives the topic the plain mean of its group, not normalized", async () => {
     const { b } = await dosGrupos()
     simularClaude()
     await formarTemas(deps())
     const c = await centroideDe((await temaDe(b[0] ?? "")) ?? "")
-    // The group around axis 10: the centroid points there, with length 1.
-    expect(c[10]).toBeGreaterThan(0.99)
-    expect(Math.hypot(...c)).toBeCloseTo(1, 4)
+    const esperado = media([vec({ 10: 1 }), vec({ 10: 1, 11: 0.1 }), vec({ 10: 1, 12: 0.1 })])
+    expect(c[10]).toBeCloseTo(esperado[10] ?? 0, 4)
+    expect(c[11]).toBeCloseTo(esperado[11] ?? 0, 4)
+    expect(Math.hypot(...c)).toBeLessThan(0.9999)
   })
 
   it("pays through the cap: provider anthropic, paso temas, key temas:formar:<uuid>, confirmed", async () => {
@@ -309,7 +329,9 @@ describe("formarTemas", () => {
     expect(destinos.size).toBeLessThanOrEqual(1)
     expect(grupos.every((g) => g !== null)).toBe(true)
     const c = await centroideDe(existente)
-    expect(Math.hypot(...c)).toBeCloseTo(1, 4)
+    // Recomputed as the plain mean of the group's claims: nearly 1 long, never exactly.
+    expect(Math.hypot(...c)).toBeGreaterThan(0.9)
+    expect(Math.hypot(...c)).toBeLessThan(0.9999)
   })
 
   it("follows a merged-away name to the topic that absorbed it", async () => {
@@ -383,7 +405,7 @@ describe("fusionarTemas", () => {
     expect(ganador?.alias).toContain("Poco deseo")
     expect(ganador?.fusionado_en).toBeNull()
     expect(absorbido?.fusionado_en).toBe(grande)
-    const esperado = mediaNormalizada([vec({ 0: 1 }), vec({ 0: 1 }), vec({ 0: 1, 1: 0.2 })])
+    const esperado = media([vec({ 0: 1 }), vec({ 0: 1 }), vec({ 0: 1, 1: 0.2 })])
     const centro = await centroideDe(grande)
     expect(centro[0]).toBeCloseTo(esperado[0] ?? 0, 3)
     expect(centro[1]).toBeCloseTo(esperado[1] ?? 0, 3)
@@ -504,15 +526,15 @@ describe("fusionarTemas", () => {
 })
 
 describe("recalcularTema", () => {
-  it("recomputes the centroid from the non-excluded claims", async () => {
+  it("recomputes the centroid as the plain mean of the non-excluded claims", async () => {
     const t = await tema("Deseo", vec({ 9: 1 }))
     await afirmacion(vec({ 0: 1 }), { tema: t })
     await afirmacion(vec({ 1: 1 }), { tema: t })
     await afirmacion(vec({ 2: 1 }), { tema: t, excluida: true })
     await recalcularTema(db, t)
     const c = await centroideDe(t)
-    expect(c[0]).toBeCloseTo(Math.SQRT1_2, 4)
-    expect(c[1]).toBeCloseTo(Math.SQRT1_2, 4)
+    expect(c[0]).toBeCloseTo(0.5, 4)
+    expect(c[1]).toBeCloseTo(0.5, 4)
     expect(c[2]).toBeCloseTo(0, 4)
     expect(c[9]).toBeCloseTo(0, 4)
   })
@@ -573,6 +595,42 @@ describe("temas_parecidos", () => {
   })
 })
 
+describe("temas_parecidos, average cross similarity", () => {
+  // Centroids are means of unit vectors: (0.5, 0.5) stands for a topic whose claims split between two directions.
+  const centroide = (componentes: Record<number, number>) => {
+    const v = Array.from({ length: 1024 }, () => 0)
+    for (const [i, x] of Object.entries(componentes)) v[Number(i)] = x
+    return v
+  }
+
+  it("lists a pair by the inner product of its centroids and ignores pairs that only share a direction", async () => {
+    const a = await tema("Mismo eje", centroide({ 0: 1 }))
+    const b = await tema("Casi igual", centroide({ 0: 0.9, 1: 0.1 }))
+    await tema("Solo dirección", centroide({ 0: 0.5, 1: 0.5 }))
+    await como(comoServicio, async (c) => {
+      const { rows } = await c.query<{ a: string; b: string; similitud: number }>(
+        "select a, b, similitud from public.temas_parecidos(0.6)",
+      )
+      expect(rows).toHaveLength(1)
+      expect([rows[0]?.a, rows[0]?.b].sort()).toEqual([a, b].sort())
+      expect(Number(rows[0]?.similitud)).toBeCloseTo(0.9, 4)
+    })
+  })
+
+  it("keeps leaving out rejected pairs and merged topics", async () => {
+    const a = await tema("A", centroide({ 0: 1 }))
+    const b = await tema("B", centroide({ 0: 0.9, 1: 0.1 }))
+    const fusionado = await tema("C", centroide({ 0: 1 }), { fusionado: a })
+    const [x, y] = [a, b].sort()
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [x, y])
+    await como(comoServicio, async (c) => {
+      const { rows } = await c.query("select * from public.temas_parecidos(0.6)")
+      expect(rows).toEqual([])
+    })
+    expect(fusionado).toBeTruthy()
+  })
+})
+
 interface FilaTema {
   id: string
   alias: string[]
@@ -598,7 +656,7 @@ describe("fusionar_par_de_temas", () => {
       return { tema, afirmaciones: a }
     })
 
-  it("moves claims, aliases, marks the loser and recomputes the normalized centroid in one call", async () => {
+  it("moves claims, aliases, marks the loser and recomputes the mean centroid in one call", async () => {
     const g = await tema("Ganador", vec({ 9: 1 }), { alias: ["Ya conocido"] })
     const p = await tema("Perdedor", vec({ 8: 1 }), { alias: ["Ya conocido", "Otro nombre"] })
     await afirmacion(vec({ 0: 1 }), { tema: g })
@@ -610,8 +668,8 @@ describe("fusionar_par_de_temas", () => {
     expect(ganador.alias).toEqual(["Ya conocido", "Perdedor", "Otro nombre"])
     expect(temaPor(p).fusionado_en).toBe(g)
     const c = parsearVector(ganador.c)
-    expect(c[0]).toBeCloseTo(Math.SQRT1_2, 4)
-    expect(c[1]).toBeCloseTo(Math.SQRT1_2, 4)
+    expect(c[0]).toBeCloseTo(0.5, 4)
+    expect(c[1]).toBeCloseTo(0.5, 4)
     expect(c[2]).toBeCloseTo(0, 4)
   })
 
