@@ -54,6 +54,10 @@ export interface MaterialDePrueba {
   archivo?: ArchivoDePrueba
   /** Image files in upload order. */
   archivos?: ArchivoDePrueba[]
+  /** What the material is for; the column defaults to `referente`. */
+  rol?: "voz_propia" | "referente" | "evidencia" | "estrategia"
+  /** Defaults to Coni's own author row. */
+  autorId?: string
 }
 
 export async function crearMaterial(almacen: AlmacenEnMemoria, datos: MaterialDePrueba): Promise<string> {
@@ -71,8 +75,8 @@ export async function crearMaterial(almacen: AlmacenEnMemoria, datos: MaterialDe
   if (!archivoClave && primera) archivoClave = claveMaterial(id, primera.extension, 1)
   await pool.query(
     `insert into public.materiales (autor_id, id, tipo, titulo, autor, categoria_id, origen_url, archivo_clave, texto_pegado,
-       declaracion_sin_pacientes_en, subido_por)
-     values ((select id from public.autores where tipo = 'coni'), $1, $2, $3, $4, $5, $6, $7, $8, now(), $9)`,
+       declaracion_sin_pacientes_en, subido_por, rol)
+     values (coalesce($10::uuid, (select id from public.autores where tipo = 'coni')), $1, $2, $3, $4, $5, $6, $7, $8, now(), $9, $11)`,
     [
       id,
       datos.tipo,
@@ -83,6 +87,8 @@ export async function crearMaterial(almacen: AlmacenEnMemoria, datos: MaterialDe
       archivoClave,
       datos.texto_pegado ?? null,
       CONI,
+      datos.autorId ?? null,
+      datos.rol ?? "referente",
     ],
   )
   materiales.push(id)
@@ -196,6 +202,8 @@ export interface OpcionesClaude {
   /** Idioma que Claude dice reconocer en la detección. */
   idioma?: string
   fichaFalla?: boolean
+  /** Makes the claim extraction answer 500 from its n-th call on (1-based). */
+  afirmacionesFallanDesde?: number
   /** The model "adapts" the parts but loses one, which the adapter step rejects. */
   adaptacionRota?: boolean
   /** What the vision call reads in the image with this id. */
@@ -204,6 +212,8 @@ export interface OpcionesClaude {
 
 export interface LlamadasClaude {
   fichas: string[]
+  /** The text of each chunk sent to the claim extraction, in order of arrival. */
+  afirmaciones: string[]
   visiones: string[][]
   adaptaciones: string[]
   idiomas: number
@@ -211,7 +221,14 @@ export interface LlamadasClaude {
 }
 
 export function simularClaude(opciones: OpcionesClaude = {}): LlamadasClaude {
-  const llamadas: LlamadasClaude = { fichas: [], visiones: [], adaptaciones: [], idiomas: 0, total: 0 }
+  const llamadas: LlamadasClaude = {
+    fichas: [],
+    afirmaciones: [],
+    visiones: [],
+    adaptaciones: [],
+    idiomas: 0,
+    total: 0,
+  }
   servidor.use(
     http.post<never, CuerpoClaude>(URL_CLAUDE, async ({ request }) => {
       llamadas.total += 1
@@ -237,6 +254,32 @@ export function simularClaude(opciones: OpcionesClaude = {}): LlamadasClaude {
           }),
         )
       }
+      if (texto.includes("Extrae las afirmaciones de este fragmento")) {
+        llamadas.afirmaciones.push(texto)
+        if (opciones.afirmacionesFallanDesde && llamadas.afirmaciones.length >= opciones.afirmacionesFallanDesde)
+          return HttpResponse.json({ error: { type: "api_error", message: "boom" } }, { status: 500 })
+        const fuente =
+          (typeof contenido === "string" ? contenido : "").split("<fuente>\n")[1]?.split("\n</fuente>")[0] ?? ""
+        const cita = fuente.slice(0, 60)
+        return HttpResponse.json(
+          mensajeClaude({
+            afirmaciones: [
+              {
+                texto: "Una idea del fragmento.",
+                cita,
+                tipo: "dato",
+                evidencia: "opinion",
+                postura: null,
+                publico: null,
+                dolor: null,
+                emocion: null,
+                gancho: null,
+              },
+            ],
+            idioma: opciones.idioma ?? "es",
+          }),
+        )
+      }
       if (texto.includes("¿En qué idioma está este texto?")) {
         llamadas.idiomas += 1
         return HttpResponse.json(mensajeClaude({ idioma: opciones.idioma ?? "es" }))
@@ -253,6 +296,31 @@ export function simularClaude(opciones: OpcionesClaude = {}): LlamadasClaude {
           autorSugerido: opciones.autorSugerido ?? null,
         }),
       )
+    }),
+  )
+  return llamadas
+}
+
+export interface LlamadasVoyage {
+  n: number
+  entradas: string[][]
+}
+
+export const vectorDePrueba = (valor: number) => Array.from({ length: 1024 }, () => valor)
+
+/** Voyage answers a constant vector for every text; `estado` other than 200 makes it fail. */
+export function simularVoyage(estado = 200): LlamadasVoyage {
+  const llamadas: LlamadasVoyage = { n: 0, entradas: [] }
+  servidor.use(
+    http.post("https://api.voyageai.com/v1/embeddings", async ({ request }) => {
+      llamadas.n += 1
+      const cuerpo = (await request.json()) as { input: string[] }
+      llamadas.entradas.push(cuerpo.input)
+      if (estado !== 200) return HttpResponse.json({ detail: "no" }, { status: estado })
+      return HttpResponse.json({
+        data: cuerpo.input.map((_, index) => ({ embedding: vectorDePrueba(0.5), index })),
+        usage: { total_tokens: 100 },
+      })
     }),
   )
   return llamadas

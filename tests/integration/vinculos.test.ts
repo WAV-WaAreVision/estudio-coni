@@ -1,6 +1,5 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { procesarMaterial } from "@/lib/ingesta/procesar"
 import { vincularMaterial } from "@/lib/ingesta/vincular"
 import { servidor } from "../msw"
 import { como, comoConi, comoMantenedor, comoOtra, comoServicio, fallaCon, pool } from "./db"
@@ -10,7 +9,6 @@ import {
   deps,
   gastos,
   limpiar,
-  simularClaude,
   TEXTO_CHILENO,
   URL_CLAUDE,
   USO,
@@ -19,7 +17,6 @@ import {
 afterEach(limpiar)
 afterAll(() => pool.end())
 
-const URL_VOYAGE = "https://api.voyageai.com/v1/embeddings"
 const COSTO_SONNET = 0.003
 
 /** A vector that points mostly along the first axis; `x` tilts it, so a larger `x` is farther from `vec(0)`. */
@@ -516,58 +513,5 @@ describe("vincularMaterial", () => {
     expect(r).toBe(false)
     expect(llamadas.n).toBe(0)
     expect(await pendientes(base.id)).toBe(true)
-  })
-})
-
-describe("vinculos al procesar un material", () => {
-  const vector = (valor: number) => Array.from({ length: 1024 }, () => valor)
-  function simularVoyage() {
-    servidor.use(
-      http.post(URL_VOYAGE, async ({ request }) => {
-        const cuerpo = (await request.json()) as { input: string[] }
-        return HttpResponse.json({
-          data: cuerpo.input.map((_, index) => ({ embedding: vector(0.5), index })),
-          usage: { total_tokens: 1000 },
-        })
-      }),
-    )
-  }
-  const conLlave = { llaveVoyage: () => "pa-de-prueba" }
-
-  it("suggests links right after the embedding and does not classify again when the material runs again", async () => {
-    const vecino = await conFicha({ x: 0, resumen: "Frase de la candidata." })
-    const almacen = almacenEnMemoria()
-    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
-    simularClaude()
-    simularVoyage()
-    const llamadas = simularVinculos((ids) => ids.map((c) => veredicto(c, { cita_base: "Un resumen de la fuente." })))
-
-    const r = await procesarMaterial(await deps(almacen, conLlave), id)
-
-    expect(r).toEqual({ resultado: "listo" })
-    expect(llamadas.n).toBe(1)
-    expect(llamadas.candidatas[0]).toEqual([vecino.id])
-    expect(await vinculos(id)).toHaveLength(1)
-    expect(await pendientes(id)).toBe(false)
-    expect((await gastos(id)).filter((g) => g.paso === "vinculos")).toHaveLength(1)
-
-    await pool.query("update public.materiales set estado = 'procesando' where id = $1", [id])
-    await procesarMaterial(await deps(almacen, conLlave), id)
-    expect(llamadas.n).toBe(1)
-    expect((await gastos(id)).filter((g) => g.paso === "vinculos")).toHaveLength(1)
-  })
-
-  it("keeps the material ready and pending when Claude fails to classify", async () => {
-    await conFicha({ x: 0 })
-    const almacen = almacenEnMemoria()
-    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
-    simularClaude()
-    simularVoyage()
-    simularVinculos(() => [], 500)
-
-    const r = await procesarMaterial(await deps(almacen, conLlave), id)
-
-    expect(r).toEqual({ resultado: "listo" })
-    expect(await pendientes(id)).toBe(true)
   })
 })
