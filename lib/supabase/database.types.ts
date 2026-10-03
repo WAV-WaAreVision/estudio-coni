@@ -1582,6 +1582,7 @@ export type Database = {
         Args: { p_id: string; p_nombre: string }
         Returns: undefined
       }
+      reprocesar_material: { Args: { p_id: string }; Returns: undefined }
       reservar_gasto: {
         Args: {
           p_ahora?: string
