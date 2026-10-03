@@ -228,6 +228,21 @@ describe("fusionar_autores", () => {
     })
   })
 
+  it("refuses to merge the Coni author away with 22023 autor_coni_protegido but lets others merge into it", async () => {
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+      const coni = rows[0]?.id
+      const otra = await crearAutor(c, "Esther Perel")
+      const error = await fallaCon(c, "select public.fusionar_autores($1, $2)", [coni, otra])
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("autor_coni_protegido")
+      expect((await c.query("select 1 from public.autores where id = $1", [coni])).rowCount).toBe(1)
+      await c.query("select public.fusionar_autores($1, $2)", [otra, coni])
+      expect((await c.query("select 1 from public.autores where id = $1", [otra])).rowCount).toBe(0)
+      expect((await c.query("select 1 from public.autores where id = $1", [coni])).rowCount).toBe(1)
+    })
+  })
+
   it("rejects a missing author with P0002", async () => {
     await como(comoConi, async (c) => {
       const id = await crearAutor(c, "Esther")
