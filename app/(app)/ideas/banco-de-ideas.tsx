@@ -2,22 +2,28 @@
 
 import { ChevronLeft, Plus, Search } from "lucide-react"
 import Link from "next/link"
-import { useCallback, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
+import { DescartarIdea } from "./descartar-idea"
 import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
 
 export interface AccionesDelBanco {
   usar: (ideaId: string) => Promise<Resultado>
   quitar: (ideaId: string) => Promise<Resultado>
+  descartar: (ideaId: string, motivo: MotivoDeDescarte) => Promise<Resultado>
   proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
 }
+
+const URL_DE_INGESTA = "https://conidolly-ingesta.vercel.app"
 
 type Vista = "mazo" | "buscar" | "propia"
 
@@ -38,12 +44,25 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
   const [sumadas, setSumadas] = useState<string[]>([])
   // The idea she opened from the search, or brought back with Deshacer.
   const [frente, setFrente] = useState<string | null>(null)
+  // Discarded from this screen; like the added ones they are not offered again while the page refreshes.
+  const [descartadas, setDescartadas] = useState<string[]>([])
+  const [enfocarCarta, setEnfocarCarta] = useState(false)
+  const carta = useRef<HTMLDivElement>(null)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, empezar] = useTransition()
   const cerrarMensaje = useCallback(() => setMensaje(null), [])
 
-  const libres = ideas.filter((idea) => idea.estado === "idea" && !sumadas.includes(idea.id))
+  // Her next idea takes the place of the one she discarded: the screen reader goes with it.
+  useEffect(() => {
+    if (!enfocarCarta) return
+    carta.current?.focus()
+    setEnfocarCarta(false)
+  }, [enfocarCarta])
+
+  const libres = ideas.filter(
+    (idea) => idea.estado === "idea" && !sumadas.includes(idea.id) && !descartadas.includes(idea.id),
+  )
   const seguidas = libres.filter((idea) => !aplazadas.includes(idea.id))
   const alFinal = aplazadas.flatMap((id) => libres.find((idea) => idea.id === id) ?? [])
   const actual = libres.find((idea) => idea.id === frente) ?? [...seguidas, ...alFinal][0]
@@ -66,6 +85,21 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
       setSumadas((previas) => [...previas, idea.id])
       setFrente(null)
       setMensaje({ texto: "La sumé a las ideas de la semana.", deshacer: () => deshacer(idea.id) })
+    })
+  }
+
+  function descartar(idea: IdeaDeBanco, motivo: MotivoDeDescarte) {
+    setError(null)
+    empezar(async () => {
+      const resultado = await acciones.descartar(idea.id, motivo)
+      if (!resultado.ok) {
+        setError(resultado.error)
+        return
+      }
+      setDescartadas((previas) => [...previas, idea.id])
+      setFrente(null)
+      setEnfocarCarta(true)
+      setMensaje({ texto: "Descarté la idea." })
     })
   }
 
@@ -104,6 +138,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
   }
 
   const buscando = vista === "buscar"
+  const bancoVacio = ideas.every((idea) => descartadas.includes(idea.id))
   return (
     <div className="grid gap-4.5">
       <header className="grid gap-1.5">
@@ -146,10 +181,13 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
         />
       ) : actual ? (
         <div className="grid gap-3.5">
+          {actual.nueva ? <p className="text-label font-semibold text-acento">Nuevas de la semana</p> : null}
           <p className="text-meta text-apagado" aria-live="polite">
             Idea {posicion} de {libres.length}
           </p>
-          <CartaDeIdea key={actual.id} idea={actual} />
+          <div ref={carta} tabIndex={-1} className="outline-none">
+            <CartaDeIdea key={actual.id} idea={actual} />
+          </div>
           {error ? (
             <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
               {error}
@@ -163,6 +201,20 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
               Usar esta
             </Boton>
           </div>
+          <DescartarIdea key={actual.id} ocupada={pendiente} alElegir={(motivo) => descartar(actual, motivo)} />
+          <BotonIdeaPropia alTocar={abrirPropia} />
+        </div>
+      ) : bancoVacio ? (
+        <div className="grid justify-items-start gap-3.5 py-1">
+          <p className="font-semibold">
+            El motor propone ideas cada domingo a las 20:00. Mientras, sube material en Conidolly Ingesta.
+          </p>
+          <a
+            href={process.env.NEXT_PUBLIC_URL_INGESTA || URL_DE_INGESTA}
+            className={clasesDeBoton({ variante: "linea", tamano: "chico" })}
+          >
+            Abrir Conidolly Ingesta
+          </a>
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>
       ) : (

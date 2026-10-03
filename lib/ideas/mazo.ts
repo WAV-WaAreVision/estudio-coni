@@ -14,6 +14,20 @@ export interface IdeaDeBanco {
   estado: "idea" | "usada" | "descartada"
   /** She added it to the week's ideas: Inicio offers it first. */
   fijada: boolean
+  /** The engine wrote it in the latest ready run: it goes first, under "Nuevas de la semana". */
+  nueva: boolean
+  /** Why the engine proposes it; null for an idea that did not come from the engine. */
+  porQue: PorQueDeIdea | null
+}
+
+export type NivelDeEvidencia = "alto" | "medio" | "debil"
+
+/** The theory behind an engine idea and its backing. The backing is for her only: it is never published. */
+export interface PorQueDeIdea {
+  titulo: string
+  tesis: string
+  nivel: NivelDeEvidencia | null
+  respaldo: { autor: string; cita: string }[]
 }
 
 export interface FiltroDeIdeas {

@@ -3,7 +3,16 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { crearIdeaPropia, type DepsIdeas, proponerIdea, quitarIdea, usarIdea } from "@/lib/acciones/ideas"
+import {
+  crearIdeaPropia,
+  type DepsIdeas,
+  descartarIdea,
+  MOTIVOS_DE_DESCARTE,
+  type MotivoDeDescarte,
+  proponerIdea,
+  quitarIdea,
+  usarIdea,
+} from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, conSesionDeConi } from "@/lib/acciones/servidor"
 import { baseDe } from "@/lib/proveedores/bases"
@@ -43,6 +52,14 @@ export async function usarIdeaAccion(ideaId: string) {
 export async function quitarIdeaAccion(ideaId: string) {
   return refrescar(
     await conSesionDeConi("quitarIdea", sobreIdea, { ideaId }, (db, d) => quitarIdea(depsDeIdeas(db), d.ideaId)),
+  )
+}
+
+const descarte = z.object({ ideaId: z.uuid(), motivo: z.enum(MOTIVOS_DE_DESCARTE) })
+
+export async function descartarIdeaAccion(ideaId: string, motivo: MotivoDeDescarte) {
+  return refrescar(
+    await conSesionDeConi("descartarIdea", descarte, { ideaId, motivo }, (db, d) => descartarIdea(depsDeIdeas(db), d)),
   )
 }
 

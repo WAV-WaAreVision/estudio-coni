@@ -63,6 +63,29 @@ export function quitarIdea(deps: DepsIdeas, ideaId: string): Promise<Resultado> 
   })
 }
 
+export const MOTIVOS_DE_DESCARTE = ["no_me_representa", "repetida", "debil", "otro"] as const
+export type MotivoDeDescarte = (typeof MOTIVOS_DE_DESCARTE)[number]
+
+const DescarteDeIdea = z.object({ ideaId: z.uuid(), motivo: z.enum(MOTIVOS_DE_DESCARTE) })
+
+/**
+ * "Descartar": the idea leaves the bank with the reason she chose, and the reasons feed the next week's scores. The
+ * database function checks who may do it (Coni and the maintainer) and that the idea is still in the bank.
+ */
+export function descartarIdea(deps: DepsIdeas, entrada: unknown): Promise<Resultado> {
+  return aResultado("descartarIdea", async () => {
+    const descarte = DescarteDeIdea.safeParse(entrada)
+    if (!descarte.success) throw new Falla("Elige por qué la descartas.")
+    const { error } = await deps.db.rpc("descartar_idea", {
+      p_id: descarte.data.ideaId,
+      p_motivo: descarte.data.motivo,
+    })
+    if (error?.message === "no_descartable") throw NoDisponible
+    if (error) throw new Error(`No pude descartar la idea: ${error.message}`, { cause: error })
+    return {}
+  })
+}
+
 const EntradaDeIdea = z.object({
   gancho: z.string().trim().min(1).max(MAXIMO_GANCHO),
   tema: z.string().trim().max(MAXIMO_TEMA),
