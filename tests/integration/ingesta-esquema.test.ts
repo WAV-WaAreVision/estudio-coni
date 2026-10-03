@@ -173,6 +173,19 @@ describe("materiales", () => {
     })
   })
 
+  it("lets a member supply the material id", async () => {
+    await como(comoConi, async (c) => {
+      const categoria = await idCategoria(c, "general")
+      const id = crypto.randomUUID()
+      const { rows } = await c.query<{ id: string }>(
+        `insert into public.materiales (id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
+         values ($1, 'documento', $2, 'x', now()) returning id`,
+        [id, categoria],
+      )
+      expect(rows[0]?.id).toBe(id)
+    })
+  })
+
   it("refuses to attribute the upload to someone else", async () => {
     await como(comoMantenedor, async (c) => {
       const categoria = await idCategoria(c, "general")

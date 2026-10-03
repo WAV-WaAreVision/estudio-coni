@@ -70,7 +70,7 @@ alter table public.fichas enable row level security;
 
 revoke all on public.categorias, public.materiales, public.materiales_archivos, public.fichas from anon, authenticated;
 grant select on public.categorias, public.materiales, public.materiales_archivos, public.fichas to authenticated;
-grant insert (tipo, titulo, autor, categoria_id, etiquetas, origen_url, archivo_clave, texto_pegado,
+grant insert (id, tipo, titulo, autor, categoria_id, etiquetas, origen_url, archivo_clave, texto_pegado,
   declaracion_sin_pacientes_en, subido_por) on public.materiales to authenticated;
 grant update (titulo, autor, categoria_id, etiquetas) on public.materiales to authenticated;
 grant delete on public.materiales to authenticated;
