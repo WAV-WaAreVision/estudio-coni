@@ -34,7 +34,7 @@ function mensajeDe(error: unknown): string {
 }
 
 /** The error and the chain of causes behind it, which is where a network error says what actually happened. */
-function detalleTecnico(error: unknown): string {
+export function detalleTecnico(error: unknown): string {
   const lineas = [mensajeDe(error)]
   let causa = error instanceof Error ? error.cause : undefined
   for (let nivel = 0; nivel < CAUSAS_MAXIMAS && causa !== undefined; nivel += 1) {

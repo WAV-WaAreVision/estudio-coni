@@ -495,7 +495,11 @@ describe("fichas", () => {
       )
       const id = rows[0]?.id ?? ""
       await crearFicha(c, id)
-      const { rows: eventos } = await c.query("select 1 from public.eventos where tabla = 'fichas'")
+      // The audit log is append-only and other suites commit cards of their own, so look only at this card's events.
+      const { rows: eventos } = await c.query(
+        "select 1 from public.eventos where tabla = 'fichas' and datos ->> 'material_id' = $1",
+        [id],
+      )
       expect(eventos.length).toBe(1)
       await c.query("select set_config('request.jwt.claims', $1, true)", [
         JSON.stringify({ sub: "b0000000-0000-4000-8000-000000000003", role: "authenticated" }),
