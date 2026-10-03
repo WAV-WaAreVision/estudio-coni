@@ -8,7 +8,6 @@ import {
   costoClaude,
   escribirFicha,
   escribirGuion,
-  identificarIdioma,
   leerTextoEnImagenes,
   MODELO_POR_TAREA,
   revisarConClaude,
@@ -92,13 +91,6 @@ describe("a model per task", () => {
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
   })
 
-  it("identifies the language with Sonnet at low effort", async () => {
-    const cuerpos = capturando({ idioma: "fr" })
-    await identificarIdioma({ cliente: cliente(), muestra: "Bonjour" })
-    expect(cuerpos[0]?.model).toBe(SONNET)
-    expect(cuerpos[0]?.output_config?.effort).toBe("low")
-  })
-
   it("reads text in images with Sonnet at low effort", async () => {
     const cuerpos = capturando({ lecturas: [{ id: "f0", texto: "", idioma: "" }] })
     await leerTextoEnImagenes({ cliente: cliente(), imagenes: [{ id: "f0", jpeg: Uint8Array.from([0xff, 0xd8]) }] })
@@ -119,7 +111,6 @@ describe("a model per task", () => {
         HttpResponse.json({ type: "error", error: { type: "not_found_error", message: "x" } }, { status: 404 }),
       ),
     )
-    await expect(identificarIdioma({ cliente: cliente(), muestra: "Bonjour" })).rejects.toThrow(SONNET)
     await expect(
       revisarConClaude({ cliente: cliente(), guia: "g", guion: "g", texto: "t", alertas: [] }),
     ).rejects.toThrow(OPUS)
