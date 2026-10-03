@@ -28,7 +28,16 @@ Llaves: nunca leerlas ni imprimirlas. Las de proveedores (Claude, HeyGen, Eleven
 
 Planes 1 a 6, subir a mano, elegir avatar, y **Plan A** (`docs/superpowers/plans/2026-10-02-conidolly-editor-y-voz.md`, con "Plan A notes"): renombre a Conidolly, editor de guion con versiones, voz generada solo después de la puerta 1 (clave determinista, sin doble cobro), 1 a 5 ideas, costo con voz. Verde: 1264 unit, 584 integración, 69 E2E.
 
-## Siguiente: Plan B, módulo de ingesta (escrito, sin empezar)
+## Plan B, fase B1: hecha en local (2026-10-02), sin push ni producción
+
+- `main` de estudio-coni tiene el merge `4ac8b36` de `feat/ingesta-b1` (sin push). Migraciones nuevas 20261003000100, 110, 130, 140, 150, 160 (la 120 se saltó a propósito).
+- Repo nuevo **`~/Projects/conidolly-ingesta`** (rama `main`, sin remoto): ingreso Soy Coni / Soy WAV, subida directa a R2, lista, ficha editable, reintentar, borrar.
+- Verde: estudio-coni 1486 unit, 691 integración, 69 E2E; conidolly-ingesta 251 unit, 54 integración, 13 E2E.
+- Cambios respecto del plan: Scribe es `scribe_v2` (v1 retirado el 2026-07-09); reclamo de corrida por material (`corrida_id`); claves de archivo validadas en la base.
+- **Próximo paso: producción de B1 con Federico**, siguiendo "Production checklist" B1 del plan: push de main, `supabase db push`, repo GitHub privado y proyecto Vercel de conidolly-ingesta con sus env, CORS del bucket R2, redirect de Auth, deploy de Trigger con `TRIGGER_PROJECT_REF` y jsdom externo, smoke real (PDF + link).
+- Sin probar aún contra servicios reales: bundle de Trigger, R2 real, HEIC.
+
+## Plan B completo (referencia)
 
 - Spec: `docs/superpowers/specs/2026-10-02-conidolly-ingesta-design.md`.
 - Plan: `docs/superpowers/plans/2026-10-02-ingesta.md` (fases B1 materiales y fichas, B2 grafo y teorías, B3 fuentes en Guion; 18 tareas + 5b, 5c).
