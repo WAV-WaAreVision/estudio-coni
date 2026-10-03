@@ -831,6 +831,24 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect((await pieza(id)).explicacion).toBe("HeyGen no pudo terminar el video. Vuelve a intentarlo en unos minutos.")
   })
 
+  it("tells Coni to top up HeyGen, not to wait, when the video fails for lack of credits", async () => {
+    const id = await crearPiezaEnRender()
+    simular({
+      lecturas: [{ status: "failed", failure_code: "MOVIO_PAYMENT_INSUFFICIENT_CREDIT", failure_message: "x" }],
+    })
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    const resultado = await grabarPieza(d.deps, id)
+
+    expect(resultado).toEqual({ resultado: "falla_produccion" })
+    expect(await pieza(id)).toMatchObject({
+      estado: "error_produccion",
+      explicacion:
+        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
+    })
+  })
+
   it("tells Coni her HeyGen account has no credits, releases the spend and charges nothing", async () => {
     const id = await crearPiezaEnRender()
     simular({
@@ -845,7 +863,8 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(resultado).toEqual({ resultado: "falla_produccion" })
     expect(await pieza(id)).toMatchObject({
       estado: "error_produccion",
-      explicacion: "Tu cuenta de HeyGen no tiene créditos para este video. Revisa tu plan y vuelve a intentarlo.",
+      explicacion:
+        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
       render_id: null,
     })
     expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })

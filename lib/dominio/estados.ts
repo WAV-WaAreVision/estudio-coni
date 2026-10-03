@@ -314,7 +314,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       // error_publicacion also cancels: the provider may still hold the post if it answers late.
       return a(
         "descartado",
-        { puerta1: null, puerta2: null },
+        // The `error_con_origen` constraint ties this column to the error states, so it cannot outlive them.
+        { puerta1: null, puerta2: null, estadoAntesDelError: null },
         estado === "programado" || estado === "error_publicacion" ? ["cancelar_publicacion"] : [],
       )
   }

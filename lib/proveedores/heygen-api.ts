@@ -36,6 +36,14 @@ export type EstadoVideo =
   | { estado: "listo"; videoUrl: string; subtitleUrl?: string; duracion?: number }
   | { estado: "fallido"; fallo: { codigo: string; mensaje: string } }
 
+/** Retrying does not help here: Coni has to top up HeyGen first, so the text says so instead of "try again soon". */
+export const TEXTO_SIN_CREDITOS =
+  "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar."
+
+export function esFallaPorCreditos(codigo: string): boolean {
+  return /insufficient[_-]?credit/i.test(codigo)
+}
+
 function sinLlave(texto: string, clave: string): string {
   return clave ? texto.split(clave).join("[llave]") : texto
 }
@@ -51,7 +59,7 @@ async function errorDeRespuesta(respuesta: Response, clave: string): Promise<Err
   const mensaje = `HeyGen respondió HTTP ${status}: ${mensajeErrorHeygen(cuerpo)}`
   if (codigoErrorHeygen(cuerpo) === CODIGO_POLITICA) return new PoliticaDeContenido()
   if (status === 402) {
-    return new Falla("Tu cuenta de HeyGen no tiene créditos para este video. Revisa tu plan y vuelve a intentarlo.")
+    return new Falla(TEXTO_SIN_CREDITOS)
   }
   const definitivo = status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 429
   return definitivo ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)

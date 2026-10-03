@@ -42,9 +42,11 @@ import {
   CODIGO_POLITICA,
   crearVideo,
   type EstadoVideo,
+  esFallaPorCreditos,
   leerVideo,
   PoliticaDeContenido,
   subirAsset,
+  TEXTO_SIN_CREDITOS,
 } from "@/lib/proveedores/heygen-api"
 import type { Database } from "@/lib/supabase/database.types"
 import { type InfoVideo, revisarVideo } from "@/lib/video/chequeos"
@@ -99,6 +101,7 @@ const TEXTO_FALLA_DE_HEYGEN = "HeyGen no pudo terminar el video"
 const TEXTO_SIN_SUBTITULOS = "HeyGen no entregó los subtítulos del video. Vuelve a intentarlo en unos minutos."
 
 function explicacionDeFalla(codigo: string): string {
+  if (esFallaPorCreditos(codigo)) return TEXTO_SIN_CREDITOS
   const detalle = codigo === "desconocido" ? "" : ` (${codigo})`
   return `${TEXTO_FALLA_DE_HEYGEN}${detalle}. Vuelve a intentarlo en unos minutos.`
 }
