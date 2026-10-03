@@ -5,6 +5,7 @@ import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
+import { type DepsTeoriasAtascadas, rescatarTeoriasAtascadas } from "./teorias"
 import { type DepsTokenMeta, mantenerTokenMeta } from "./token-meta"
 
 type Trabajos = Record<string, () => Promise<unknown>>
@@ -35,18 +36,20 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
 export const LIMITE_DE_VINCULOS = 20
 
 export type DepsFrecuente = DepsConciliacion &
-  DepsArranques & {
+  DepsArranques &
+  DepsTeoriasAtascadas & {
     /** What the sweep of embeddings and links needs; null when it cannot run (no keys), which is not a failure. */
     vinculos: () => Promise<DepsProcesar | null>
   }
 export type DepsNocturno = DepsRetencion & DepsTokenMeta & DepsRespaldo
 
-/** Every ten minutes: runs that never started, renders that lost their callback, reservations that outlived their run and the embeddings and links left behind. */
+/** Every ten minutes: runs that never started, renders that lost their callback, reservations that outlived their run, theories whose synthesis never finished and the embeddings and links left behind. */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     gastos: () => barrerGastos(deps),
+    teorias: () => rescatarTeoriasAtascadas(deps),
     vinculos: async () => {
       const propias = await deps.vinculos()
       return propias ? completarVinculos(propias, { limite: LIMITE_DE_VINCULOS }) : { procesados: 0, tope: false }

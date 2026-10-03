@@ -362,6 +362,21 @@ describe("fallo y reintento", () => {
     })
   })
 
+  it("restarts the clock of the synthesis when a theory is retried", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await fallida(c, "error")
+      await asumir(c, comoServicio)
+      await c.query("update public.teorias set sintetizando_desde = now() - interval '2 days' where id = $1", [id])
+      await asumir(c, comoConi)
+      await c.query("select public.reintentar_teoria($1)", [id])
+      const { rows } = await c.query<{ reciente: boolean }>(
+        "select sintetizando_desde > now() - interval '1 minute' as reciente from public.teorias where id = $1",
+        [id],
+      )
+      expect(rows[0]?.reciente).toBe(true)
+    })
+  })
+
   it("marks a failed dispatch with the code error", async () => {
     await como(comoPostgres, async (c) => {
       const [a, b] = await dosMateriales(c)
