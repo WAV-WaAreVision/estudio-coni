@@ -89,6 +89,7 @@ const claves = (id: string) => ({
   textoOriginal: `materiales/${id}/texto-original.txt`,
   partesOriginal: `materiales/${id}/partes-original.json`,
   partes: `materiales/${id}/partes.json`,
+  carpetaDeLotes: `materiales/${id}/traduccion`,
   transcripcion: `materiales/${id}/transcripcion.json`,
   lectura: (paso: "pantalla" | "imagen", n: number) => `materiales/${id}/${paso}-${n}.json`,
 })
@@ -550,6 +551,8 @@ async function traduccionDe(ctx: Contexto, original: Extraccion): Promise<Tope |
       cliente: deps.claude,
       gasto,
       clave: `material:${material.id}:traduccion`,
+      almacen: deps.almacen,
+      carpetaDeLotes: k.carpetaDeLotes,
       partes: original.partes,
       ...(original.idioma ? { idiomaReportado: original.idioma } : {}),
     })

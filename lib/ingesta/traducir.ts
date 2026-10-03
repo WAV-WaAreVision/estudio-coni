@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto"
 import type Anthropic from "@anthropic-ai/sdk"
+import { z } from "zod"
 import { confirmarGasto, liberarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
-import type { Parte } from "@/lib/ingesta/partes"
+import { Parte } from "@/lib/ingesta/partes"
+import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   adaptarAVozDeConi,
   CARACTERES_POR_LOTE,
@@ -189,6 +192,38 @@ function lotesPorCaracteres<T extends { texto: string }>(elementos: readonly T[]
   return lotes
 }
 
+const LoteGuardado = z.object({
+  huella: z.string(),
+  clave: z.string(),
+  costoUsd: z.number(),
+  partes: z.array(Parte),
+})
+
+/** What a kept batch must still match to be reused: the source texts and locations it paid for, and the model. */
+function huellaDelLote(enviadas: readonly Parte[]): string {
+  const contenido = JSON.stringify({
+    modelo: MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
+    partes: enviadas.map((p) => [p.texto, p.ubicacion]),
+  })
+  return createHash("sha256").update(contenido).digest("hex")
+}
+
+async function leerLoteGuardado(
+  almacen: Almacen,
+  archivo: string,
+  huella: string,
+  partesEnviadas: number,
+): Promise<z.infer<typeof LoteGuardado> | null> {
+  if (!(await almacen.existe(archivo))) return null
+  const texto = new TextDecoder().decode(await almacen.bajar(archivo))
+  const guardado = LoteGuardado.safeParse(JSON.parse(texto))
+  // A batch from other text, another model or an unreadable shape is paid again: reusing it would be wrong.
+  if (!guardado.success || guardado.data.huella !== huella || guardado.data.partes.length !== partesEnviadas) {
+    return null
+  }
+  return guardado.data
+}
+
 /** One paid request: reserve against the cap, run it, confirm its real cost; release only if it failed. */
 async function pagando<T>(
   gasto: GastoDeTraduccion,
@@ -196,6 +231,8 @@ async function pagando<T>(
   estimadoUsd: number,
   modelo: ModeloClaude,
   pedir: () => Promise<{ valor: T; uso: UsoClaude | null }>,
+  /** Keeps the paid result before the cost is confirmed, so a crash in between cannot lose what was paid for. */
+  guardar?: (valor: T, pago: { clave: string; costoUsd: number }) => Promise<void>,
 ): Promise<{ valor: T; costoUsd: number }> {
   const reserva = await gasto.reservar({ paso: "traduccion", estimadoUsd, clave })
   if (reserva.tope) throw new Falla("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")
@@ -207,7 +244,11 @@ async function pagando<T>(
     throw error
   }
   const costoUsd = respuesta.uso ? Number(costoClaude(respuesta.uso, modelo).toFixed(4)) : 0
-  await gasto.confirmar(clave, costoUsd)
+  try {
+    await guardar?.(respuesta.valor, { clave, costoUsd })
+  } finally {
+    await gasto.confirmar(clave, costoUsd)
+  }
   return { valor: respuesta.valor, costoUsd }
 }
 
@@ -222,10 +263,13 @@ export async function traducirMaterial(entrada: {
   gasto: GastoDeTraduccion
   /** Prefix of the spend keys; a random suffix keeps a retry from reusing a released reservation. */
   clave: string
+  /** Where each paid batch is kept (`lote-NNN.json`) so a retry does not pay it again. */
+  almacen: Almacen
+  carpetaDeLotes: string
   partes: readonly Parte[]
   idiomaReportado?: string
 }): Promise<{ partes: Parte[]; idioma_original: string; costoUsd: number }> {
-  const { cliente, gasto, partes } = entrada
+  const { cliente, gasto, almacen, carpetaDeLotes, partes } = entrada
   const clave = `${entrada.clave}:${crypto.randomUUID()}`
   let costoUsd = 0
 
@@ -260,20 +304,35 @@ export async function traducirMaterial(entrada: {
     const enviadas = lote.map(
       (t): Parte => ({ texto: t.texto, ubicacion: partes[t.indice]?.ubicacion ?? { pagina: null } }),
     )
-    const hecho = await pagando(
-      gasto,
-      `${clave}:lote${n}`,
-      estimarCostoDeTraduccion(caracteres, false),
-      MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
-      async () => {
-        const r = await adaptarAVozDeConi({ cliente, partes: enviadas })
-        return { valor: r.partes, uso: r.uso }
-      },
-    )
-    costoUsd += hecho.costoUsd
+    const huella = huellaDelLote(enviadas)
+    const archivo = `${carpetaDeLotes}/lote-${String(n).padStart(3, "0")}.json`
+    const guardado = await leerLoteGuardado(almacen, archivo, huella, enviadas.length)
+    let adaptadasDelLote: Parte[]
+    if (guardado) {
+      // Confirming again is a no-op when it already was; it closes a reservation left open by a crash after paying.
+      await gasto.confirmar(guardado.clave, guardado.costoUsd)
+      adaptadasDelLote = guardado.partes
+    } else {
+      const hecho = await pagando(
+        gasto,
+        `${clave}:lote${n}`,
+        estimarCostoDeTraduccion(caracteres, false),
+        MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
+        async () => {
+          const r = await adaptarAVozDeConi({ cliente, partes: enviadas })
+          return { valor: r.partes, uso: r.uso }
+        },
+        async (valor, pago) => {
+          const contenido: z.infer<typeof LoteGuardado> = { huella, ...pago, partes: valor }
+          await almacen.subir(archivo, new TextEncoder().encode(JSON.stringify(contenido)), "application/json")
+        },
+      )
+      costoUsd += hecho.costoUsd
+      adaptadasDelLote = hecho.valor
+    }
     lote.forEach((t, i) => {
       const lista = adaptados.get(t.indice) ?? []
-      lista.push(hecho.valor[i]?.texto ?? "")
+      lista.push(adaptadasDelLote[i]?.texto ?? "")
       adaptados.set(t.indice, lista)
     })
   }
