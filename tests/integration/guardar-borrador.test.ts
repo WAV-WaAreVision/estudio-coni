@@ -66,7 +66,7 @@ describe("guardar_borrador", () => {
 
       const err = await fallaCon(c, GUARDAR, argumentos(id, 0))
 
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
       expect(err.message).toBe("version_desfasada")
       expect(await estadoDelGasto(c)).toEqual({ estado: "reservado", real: null })
       expect(await borradorDeLaPieza(c, id)).toMatchObject({ version: 1, guion: null, texto: null })
