@@ -330,6 +330,20 @@ describe("correrMotor", () => {
     expect(await contar("select count(*) as n from public.teorias where origen = 'motor'")).toBe(0)
   })
 
+  it("names in each source the topic of the claim, not the topic of the idea", async () => {
+    await tresTemas()
+    simularClaude()
+
+    await correrMotor(deps(), { semana: SEMANA, manual: false })
+
+    const { rows } = await pool.query<{ fuentes: { tema: string }[] }>(
+      "select fuentes from public.ideas where origen = 'motor' and gancho like 'Gancho%'",
+    )
+    const nombres = rows.flatMap((r) => r.fuentes.map((f) => f.tema))
+    expect(nombres.length).toBeGreaterThan(0)
+    expect(nombres.every((n) => ["Tema uno", "Tema dos", "Tema tres"].includes(n))).toBe(true)
+  })
+
   it("does nothing the second time the same week", async () => {
     await tresTemas()
     const claude = simularClaude()

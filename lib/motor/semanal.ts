@@ -199,7 +199,7 @@ async function guardarIdeas(
   db: Db,
   semana: string,
   guardadas: readonly { teoriaId: string; teoria: TeoriaDelMotor; cruce: CruceElegido }[],
-  nombreDeAutor: ReadonlyMap<string, { autor: string; cita: string }>,
+  nombreDeAutor: ReadonlyMap<string, { autor: string; cita: string; tema: string }>,
 ): Promise<number> {
   const { data: ajustes, error: errorAjustes } = await db.from("ajustes").select("ideas_por_semana").single()
   if (errorAjustes) throw falloDeBase("No pude leer los ajustes", errorAjustes)
@@ -221,7 +221,7 @@ async function guardarIdeas(
     numero += 1
     const fuentes = teoria.aportes.flatMap((a) => {
       const origen = nombreDeAutor.get(a.afirmacionId)
-      return origen ? [{ autor: origen.autor, cita: origen.cita, tema: idea.tema }] : []
+      return origen ? [{ autor: origen.autor, cita: origen.cita, tema: origen.tema }] : []
     })
     const { error } = await db.from("ideas").insert({
       numero,
@@ -361,8 +361,13 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
   })
 
   const paraClaude: CruceParaTeoria[] = []
+  const origenes = new Map<string, { autor: string; cita: string; tema: string }>()
   for (const cruce of cruces) {
-    const afirmaciones = (await Promise.all(cruce.temas.map((t) => afirmacionesDe(db, t.tema_id)))).flat()
+    const porTema = await Promise.all(cruce.temas.map((t) => afirmacionesDe(db, t.tema_id)))
+    cruce.temas.forEach((t, i) => {
+      for (const a of porTema[i] ?? []) origenes.set(a.id, { autor: a.autor, cita: a.cita, tema: t.nombre })
+    })
+    const afirmaciones = porTema.flat()
     if (afirmaciones.length === 0) continue
     paraClaude.push({
       id: cruce.id,
@@ -383,9 +388,6 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
 
   const elegidos = new Map(cruces.map((c) => [c.id, c]))
   const guardadas = await guardarTeorias(db, semana, elegidos, teorias, descartadas)
-  const origenes = new Map(
-    paraClaude.flatMap((c) => c.afirmaciones.map((a) => [a.id, { autor: a.autor, cita: a.cita }] as const)),
-  )
   const ideas = await guardarIdeas(db, semana, guardadas, origenes)
   const archivadas = await archivar(db)
   return {
