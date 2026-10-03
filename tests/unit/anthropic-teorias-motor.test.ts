@@ -75,9 +75,11 @@ const CONTEXTO = {
   vozPropia: ["Hola, soy Coni"],
 }
 
-function teoria(sobre: Partial<Extract<SalidaDeTeoria, { titulo: string }>> = {}): SalidaDeTeoria {
+function teoria(sobre: Partial<SalidaDeTeoria> = {}): SalidaDeTeoria {
   return {
     cruceId: "c1",
+    nada: false,
+    razon: null,
     titulo: "Deseo y conversación",
     tesis: "Hablar baja la presión.",
     porQue: "Une dos temas.",
@@ -91,6 +93,20 @@ function teoria(sobre: Partial<Extract<SalidaDeTeoria, { titulo: string }>> = {}
     ideas: [{ gancho: "Tu deseo no se fue", tema: "deseo", pilar: "deseo", formato: "reel" }],
     ...sobre,
   }
+}
+
+function nada(cruceId: string, razon: string): SalidaDeTeoria {
+  return teoria({
+    cruceId,
+    nada: true,
+    razon,
+    titulo: null,
+    tesis: null,
+    porQue: null,
+    aportes: [],
+    nivelEvidencia: null,
+    ideas: [],
+  })
 }
 
 describe("escribirTeorias en el mapa de modelos", () => {
@@ -139,7 +155,7 @@ describe("escribirTeorias", () => {
 
   it("returns validated theories, the dropped crossings and the usage", async () => {
     respondiendo({
-      teorias: [teoria(), { cruceId: "c2", nada: true, razon: "ya dicho" }, teoria({ cruceId: "c-ajeno" })],
+      teorias: [teoria(), nada("c2", "ya dicho"), teoria({ cruceId: "c-ajeno" })],
     })
     const resultado = await escribirTeorias({
       cliente: cliente(),
@@ -247,8 +263,45 @@ describe("validarTeoria", () => {
   })
 
   it("passes a nada answer through with its reason", () => {
-    expect(validarTeoria({ cruceId: "c1", nada: true, razon: "nada nuevo" }, CRUCE)).toEqual({
+    expect(validarTeoria(nada("c1", "nada nuevo"), CRUCE)).toEqual({
       descartada: { cruceId: "c1", razon: "nada nuevo" },
     })
+  })
+
+  it("turns an answer marked as theory without title or thesis into nada", () => {
+    expect(validarTeoria(teoria({ titulo: "" }), CRUCE)).toEqual({
+      descartada: { cruceId: "c1", razon: "respuesta incompleta" },
+    })
+    expect(validarTeoria(teoria({ tesis: null }), CRUCE)).toEqual({
+      descartada: { cruceId: "c1", razon: "respuesta incompleta" },
+    })
+  })
+
+  it("accepts one author when the crossing asks for a minimum of one, and warns about it", () => {
+    const cruce: CruceParaTeoria = { ...CRUCE, minimoAutores: 1 }
+    const resultado = validarTeoria(
+      teoria({
+        aportes: [
+          { afirmacionId: "a1", aporte: "uno" },
+          { afirmacionId: "a3", aporte: "tres" },
+        ],
+        advertencias: ["Verifica la cifra"],
+      }),
+      cruce,
+    )
+    expect("teoria" in resultado && resultado.teoria.advertencias).toEqual(["Verifica la cifra", "un solo autor"])
+  })
+
+  it("does not warn about one author when two back the theory", () => {
+    const resultado = validarTeoria(teoria(), { ...CRUCE, minimoAutores: 1 })
+    expect("teoria" in resultado && resultado.teoria.advertencias).toEqual([])
+  })
+
+  it("still drops a theory without any real backing when the minimum is one", () => {
+    const resultado = validarTeoria(teoria({ aportes: [{ afirmacionId: "inventada", aporte: "x" }] }), {
+      ...CRUCE,
+      minimoAutores: 1,
+    })
+    expect(resultado).toEqual({ descartada: { cruceId: "c1", razon: "respaldo de un solo autor" } })
   })
 })
