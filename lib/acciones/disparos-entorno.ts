@@ -4,7 +4,6 @@ import { join } from "node:path"
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
-import type { motorManualTask } from "@/trigger/motor-semanal"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
 import type { producirPiezaTask } from "@/trigger/producir-pieza"
 import type { Disparos } from "./disparos"
@@ -79,23 +78,5 @@ export async function dispararProcesarMaterial(materialId: string, entorno: Ento
     "procesar-material",
     { materialId },
     { idempotencyKey: await claveGlobal(`procesar-material:${materialId}`), idempotencyKeyTTL: "10m" },
-  )
-}
-
-/**
- * Starts the weekly engine by hand ("Proponer ahora"). The key holds for ten minutes: it only guards a double tap or
- * two devices. `correrMotor` already answers `ya_corrio` for a finished week and retakes a failed one.
- */
-export async function dispararMotor(semana: string, entorno: Entorno = process.env): Promise<void> {
-  const archivo = archivoDeDisparoDePrueba(entorno)
-  if (archivo) {
-    appendFileSync(archivo, `${JSON.stringify({ tarea: "motor-manual", semana })}\n`)
-    return
-  }
-  exigirLlaveDeTrigger(entorno)
-  await tasks.trigger<typeof motorManualTask>(
-    "motor-manual",
-    { manual: true },
-    { idempotencyKey: await claveGlobal(`motor:${semana}`), idempotencyKeyTTL: "10m" },
   )
 }

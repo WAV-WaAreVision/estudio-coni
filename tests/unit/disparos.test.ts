@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { claveGrabar, claveProducir } from "@/lib/acciones/disparos"
-import { dispararMotor, dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
+import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 
 const HASH = "a".repeat(64)
@@ -72,26 +72,5 @@ describe("dispararProcesarMaterial", () => {
 
   it("asks for the Trigger.dev key before starting anything for real", async () => {
     await expect(dispararProcesarMaterial(ID, {})).rejects.toThrow(FallaDeConfiguracion)
-  })
-})
-
-describe("dispararMotor", () => {
-  it("records the run with its week and the manual flag when DISPARO_DE_PRUEBA is on", async () => {
-    const archivo = join(mkdtempSync(join(tmpdir(), "disparos-")), "registro.jsonl")
-
-    await dispararMotor("2026-10-11", { DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo })
-
-    const lineas = readFileSync(archivo, "utf-8").trim().split("\n")
-    expect(lineas.map((linea) => JSON.parse(linea))).toEqual([{ tarea: "motor-manual", semana: "2026-10-11" }])
-  })
-
-  it("never records instead of starting when it runs on Vercel", async () => {
-    await expect(dispararMotor("2026-10-11", { DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).rejects.toThrow(
-      FallaDeConfiguracion,
-    )
-  })
-
-  it("asks for the Trigger.dev key before starting anything for real", async () => {
-    await expect(dispararMotor("2026-10-11", {})).rejects.toThrow(FallaDeConfiguracion)
   })
 })
