@@ -27,7 +27,12 @@ async function crearMaterial(c: Cliente, autorId: string, extra: { rol?: string 
 }
 
 /** Aliases have no RPC, so tests set them as the database owner and go back to the member. */
-async function ponerAlias(c: Cliente, id: string, alias: string[], sesion: Parameters<typeof asumir>[1]): Promise<void> {
+async function ponerAlias(
+  c: Cliente,
+  id: string,
+  alias: string[],
+  sesion: Parameters<typeof asumir>[1],
+): Promise<void> {
   await asumir(c, comoPostgres)
   await c.query("update public.autores set alias = $2 where id = $1", [id, alias])
   await asumir(c, sesion)

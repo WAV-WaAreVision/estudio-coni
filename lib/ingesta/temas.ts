@@ -33,7 +33,6 @@ const TEXTOS_POR_TEMA_EN_FUSION = 3
 const GRUPOS_POR_LLAMADA = 40
 // PostgREST carries filters in the URL: big id lists go in slices.
 const IDS_POR_CONSULTA = 100
-const FILAS_POR_PAGINA = 1000
 const CAMINO_MAXIMO = 10
 
 export interface DepsTemas {
@@ -87,38 +86,9 @@ async function asignarAfirmaciones(db: Db, temaId: string, ids: readonly string[
   }
 }
 
-/**
- * Recomputes a centroid from the topic's non-excluded claims (after a merge or an exclusion). A topic left with no
- * claims is deleted, together with the names that were merged into it.
- */
+/** Recomputes a topic's centroid, or deletes the topic (and its merged-away names) when no claims remain. */
 export async function recalcularTema(db: Db, temaId: string): Promise<void> {
-  const vectores: number[][] = []
-  for (let desde = 0; ; desde += FILAS_POR_PAGINA) {
-    const { data, error } = await db
-      .from("afirmaciones")
-      .select("id, vector")
-      .eq("tema_id", temaId)
-      .eq("excluida", false)
-      .not("vector", "is", null)
-      .order("id")
-      .range(desde, desde + FILAS_POR_PAGINA - 1)
-    if (error) throw falloDeBase("No pude leer las afirmaciones del tema", error)
-    for (const fila of data) if (fila.vector) vectores.push(parsearVector(fila.vector))
-    if (data.length < FILAS_POR_PAGINA) break
-  }
-  if (vectores.length === 0) {
-    const sinTema = await contarAfirmaciones(db, temaId)
-    if (sinTema > 0) return
-    const absorbidos = await db.from("temas").delete().eq("fusionado_en", temaId)
-    if (absorbidos.error) throw falloDeBase("No pude borrar los temas absorbidos", absorbidos.error)
-    const { error } = await db.from("temas").delete().eq("id", temaId)
-    if (error) throw falloDeBase("No pude borrar el tema vacío", error)
-    return
-  }
-  const { error } = await db
-    .from("temas")
-    .update({ centroide: textoDeVector(mediaNormalizada(vectores)), actualizado_en: new Date().toISOString() })
-    .eq("id", temaId)
+  const { error } = await db.rpc("recalcular_tema", { p_tema: temaId })
   if (error) throw falloDeBase("No pude recalcular el tema", error)
 }
 

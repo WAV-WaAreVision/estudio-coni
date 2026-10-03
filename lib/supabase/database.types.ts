@@ -1225,6 +1225,7 @@ export type Database = {
       }
     }
     Functions: {
+      borrar_autor: { Args: { p_id: string }; Returns: undefined }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
@@ -1256,15 +1257,6 @@ export type Database = {
         Returns: string
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
-      editar_autor: {
-        Args: {
-          p_alias: string[]
-          p_credencial: string
-          p_id: string
-          p_nombre: string
-        }
-        Returns: undefined
-      }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -1468,6 +1460,7 @@ export type Database = {
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean

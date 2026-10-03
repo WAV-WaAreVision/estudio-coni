@@ -122,9 +122,10 @@ describe("temas", () => {
         vector(1, 5),
       ])
       await asumir(c, comoPostgres)
-      const { rows } = await c.query("select operacion from public.eventos where tabla = 'temas' and datos ->> 'id' = $1", [
-        t,
-      ])
+      const { rows } = await c.query(
+        "select operacion from public.eventos where tabla = 'temas' and datos ->> 'id' = $1",
+        [t],
+      )
       expect(rows).toEqual([{ operacion: "insert" }])
     })
   })
@@ -251,12 +252,79 @@ describe("excluir_afirmacion", () => {
     })
   })
 
+  it("deletes the topic of the last claim that is hidden, with the names merged into it", async () => {
+    await como(comoPostgres, async (c) => {
+      const autor = await crearAutor(c, "A")
+      const material = await crearMaterial(c, autor)
+      const tema = await crearTema(c, "Se vacía")
+      const absorbido = await crearTema(c, "Absorbido", 2)
+      await c.query("update public.temas set fusionado_en = $1 where id = $2", [tema, absorbido])
+      const a = await crearAfirmacion(c, material, autor, { tema, vec: vector(1) })
+      await asumir(c, comoConi)
+      await c.query("select public.excluir_afirmacion($1, true)", [a])
+      await asumir(c, comoPostgres)
+      expect((await c.query("select 1 from public.temas where id = any($1)", [[tema, absorbido]])).rowCount).toBe(0)
+    })
+  })
+
+  it("recomputes the centroid of the topic it leaves when other claims remain", async () => {
+    await como(comoPostgres, async (c) => {
+      const autor = await crearAutor(c, "A")
+      const material = await crearMaterial(c, autor)
+      const tema = await crearTema(c, "Se achica")
+      const sale = await crearAfirmacion(c, material, autor, { tema, vec: vector(1, 0) })
+      await crearAfirmacion(c, material, autor, { tema, vec: vector(1, 1) })
+      await asumir(c, comoConi)
+      await c.query("select public.excluir_afirmacion($1, true)", [sale])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ v: string }>("select centroide::text as v from public.temas where id = $1", [
+        tema,
+      ])
+      const componentes = (rows[0]?.v ?? "").slice(1, -1).split(",").map(Number)
+      expect(componentes[0]).toBeCloseTo(0, 5)
+      expect(componentes[1]).toBeCloseTo(1, 5)
+    })
+  })
+
   it("refuses outsiders with 42501 and a missing claim with P0002", async () => {
     await como(comoOtra, async (c) => {
       expect((await fallaCon(c, "select public.excluir_afirmacion(gen_random_uuid(), true)")).code).toBe("42501")
     })
     await como(comoConi, async (c) => {
       expect((await fallaCon(c, "select public.excluir_afirmacion(gen_random_uuid(), true)")).code).toBe("P0002")
+    })
+  })
+})
+
+describe("recalcular_tema", () => {
+  it("is for the service role only", async () => {
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select public.recalcular_tema(gen_random_uuid())")).code).toBe("42501")
+    })
+    await como(comoServicio, async (c) => {
+      await c.query("select public.recalcular_tema(gen_random_uuid())")
+    })
+  })
+
+  it("removes the topics a deleted material leaves empty and refreshes the ones that keep other claims", async () => {
+    await como(comoPostgres, async (c) => {
+      const autor = await crearAutor(c, "A")
+      const mio = await crearMaterial(c, autor)
+      const otro = await crearMaterial(c, autor)
+      const vacio = await crearTema(c, "Quedará vacío")
+      const compartido = await crearTema(c, "Quedará con una", 1)
+      await crearAfirmacion(c, mio, autor, { tema: vacio, vec: vector(1) })
+      await crearAfirmacion(c, mio, autor, { tema: compartido, vec: vector(1, 0) })
+      await crearAfirmacion(c, otro, autor, { tema: compartido, vec: vector(1, 1) })
+      await c.query("delete from public.materiales where id = $1", [mio])
+      const { rows } = await c.query<{ id: string; v: string }>(
+        "select id, centroide::text as v from public.temas where id = any($1)",
+        [[vacio, compartido]],
+      )
+      expect(rows.map((r) => r.id)).toEqual([compartido])
+      const componentes = (rows[0]?.v ?? "").slice(1, -1).split(",").map(Number)
+      expect(componentes[0]).toBeCloseTo(0, 5)
+      expect(componentes[1]).toBeCloseTo(1, 5)
     })
   })
 })
