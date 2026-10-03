@@ -1029,6 +1029,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
