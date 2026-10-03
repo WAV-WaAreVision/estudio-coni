@@ -109,16 +109,18 @@ async function marcarPendiente(db: Db, id: string, pendiente: boolean): Promise<
   if (error) throw falloDeBase("No pude actualizar el material", error)
 }
 
-async function vincular(ctx: Contexto): Promise<boolean> {
+export type EstadoVinculos = "hecho" | "pendiente" | "tope"
+
+async function vincular(ctx: Contexto): Promise<EstadoVinculos> {
   const { deps, material } = ctx
   const { db } = deps
-  if (!(await tieneEmbedding(db, material.id))) return false
+  if (!(await tieneEmbedding(db, material.id))) return "pendiente"
   const candidatos = await candidatosDe(db, material.id)
-  if (candidatos.length === 0) return true
+  if (candidatos.length === 0) return "hecho"
   const fichas = await leerFichas(db, [material.id, ...candidatos])
   const base = fichas.get(material.id)
   const deLasCandidatas = candidatos.flatMap((id) => fichas.get(id) ?? [])
-  if (!base || deLasCandidatas.length === 0) return true
+  if (!base || deLasCandidatas.length === 0) return "hecho"
 
   const archivo = `materiales/${material.id}/vinculos.json`
   let propuestos = await pagadoAntes(ctx, archivo, Propuestos)
@@ -134,7 +136,7 @@ async function vincular(ctx: Contexto): Promise<boolean> {
       },
     })
     // The cap is not a reason to fail the material: the links wait for the later pass.
-    if (pagado.tope) return false
+    if (pagado.tope) return "tope"
     propuestos = pagado.datos
   }
   if (propuestos.length > 0) {
@@ -145,7 +147,7 @@ async function vincular(ctx: Contexto): Promise<boolean> {
     )
     if (error) throw falloDeBase("No pude guardar los vínculos", error)
   }
-  return true
+  return "hecho"
 }
 
 /**
@@ -154,18 +156,23 @@ async function vincular(ctx: Contexto): Promise<boolean> {
  * whether the links are done (also when there was nobody to link with).
  */
 export async function vincularMaterial(deps: DepsProcesar, materialId: string): Promise<boolean> {
+  return (await intentarVincular(deps, materialId)) === "hecho"
+}
+
+/** Like `vincularMaterial`, but says when the cap was what stopped it, so a sweep can stop too. */
+export async function intentarVincular(deps: DepsProcesar, materialId: string): Promise<EstadoVinculos> {
   const { data: material, error } = await deps.db.from("materiales").select("*").eq("id", materialId).maybeSingle()
   if (error) throw falloDeBase("No pude leer el material", error)
   if (!material) throw new MaterialBorrado()
-  let hecho: boolean
+  let estado: EstadoVinculos
   try {
-    hecho = await vincular({ deps, material })
+    estado = await vincular({ deps, material })
   } catch (falla) {
     if (falla instanceof MaterialBorrado) throw falla
     // Visible in the logs; the provider clients already redact their keys.
     console.warn(`Vínculos pendientes del material ${materialId}: ${falla instanceof Error ? falla.message : "error"}`)
-    hecho = false
+    estado = "pendiente"
   }
-  await marcarPendiente(deps.db, materialId, !hecho)
-  return hecho
+  await marcarPendiente(deps.db, materialId, estado !== "hecho")
+  return estado
 }

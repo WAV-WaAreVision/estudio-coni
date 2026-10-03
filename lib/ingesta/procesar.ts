@@ -575,21 +575,23 @@ class TopeDeEmbedding extends Error {
 
 /**
  * Embeds the stored card. Never fails the material: with no key, a provider error or the cap reached, the card stays
- * without a vector and the material is flagged so the links are computed later. Returns whether the vector is there.
+ * without a vector and the material is flagged so the links are computed later. Says whether the vector is there, or
+ * why not (`tope` is the cap, which the later sweep must not insist on).
  */
-async function incrustarFicha(ctx: Contexto): Promise<boolean> {
+export async function incrustarFicha(ctx: Contexto): Promise<"listo" | "pendiente" | "tope"> {
   const { deps, material } = ctx
-  if (await existeEmbedding(deps.db, material.id)) return true
+  if (await existeEmbedding(deps.db, material.id)) return "listo"
   const llave = deps.llaveVoyage?.()
-  if (!llave) return false
+  if (!llave) return "pendiente"
   try {
     await embeberFicha(ctx, llave)
-    return true
+    return "listo"
   } catch (error) {
     if (error instanceof MaterialBorrado) throw error
+    if (error instanceof TopeDeEmbedding) return "tope"
     // Left for the later pass (`vinculos_pendientes`), but visible in the logs. The key is already redacted by the client.
     console.warn(`Embedding pendiente del material ${material.id}: ${error instanceof Error ? error.message : "error"}`)
-    return false
+    return "pendiente"
   }
 }
 
@@ -635,7 +637,7 @@ async function fichaDe(
     })
     if (error) throw falloDeBase("No pude guardar la ficha", error)
   }
-  const vinculado = (await incrustarFicha(ctx)) && (await vincularMaterial(deps, material.id))
+  const vinculado = (await incrustarFicha(ctx)) === "listo" && (await vincularMaterial(deps, material.id))
   await actualizarMaterial(deps.db, material.id, {
     estado: "listo",
     vinculos_pendientes: !vinculado,

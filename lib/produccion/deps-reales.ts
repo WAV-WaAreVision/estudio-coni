@@ -115,6 +115,7 @@ function clienteDeServicio() {
 export function depsFrecuente(
   dispararGrabacion: DepsFrecuente["dispararGrabacion"],
   dispararProduccion: DepsFrecuente["dispararProduccion"],
+  corrida: string,
 ): DepsFrecuente {
   return {
     db: clienteDeServicio(),
@@ -122,7 +123,19 @@ export function depsFrecuente(
     ahora: () => new Date().toISOString(),
     dispararGrabacion,
     dispararProduccion,
+    vinculos: () => depsVinculos(corrida),
   }
+}
+
+/**
+ * What the embeddings and links sweep needs, or null when it has nothing to work with: without the Voyage key there is
+ * no embedding to make, and without Claude's key (Coni has not entered it) no card can exist yet.
+ */
+async function depsVinculos(corrida: string): Promise<DepsProcesar | null> {
+  if (!process.env.VOYAGE_API_KEY) return null
+  const llave = await leerSecreto(clienteDeServicio(), "anthropic")
+  if (!llave) return null
+  return depsProcesar(corrida)
 }
 
 /** The dependencies of the 08:30 summary: the channel, not the notifier that stores notices (the summary stores none). */

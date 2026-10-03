@@ -159,7 +159,11 @@ describe("mantenimientoFrecuente", () => {
     const id = await pieza("en_render")
     const { deps, disparos } = doble(dentroDe(11))
 
-    const resultado = await mantenimientoFrecuente({ ...deps, avisos: notificadorEnMemoria() })
+    const resultado = await mantenimientoFrecuente({
+      ...deps,
+      avisos: notificadorEnMemoria(),
+      vinculos: async () => null,
+    })
 
     expect(resultado.arranques).toEqual([{ piezaId: id, tarea: "grabar" }])
     expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id }])
