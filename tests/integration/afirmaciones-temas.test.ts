@@ -114,6 +114,36 @@ describe("temas", () => {
     })
   })
 
+  it("does not audit centroid refreshes, which would copy 1024 floats into the log each time", async () => {
+    await como(comoServicio, async (c) => {
+      const t = await crearTema(c, "Sin ruido")
+      await c.query("update public.temas set centroide = $2::extensions.vector, actualizado_en = now() where id = $1", [
+        t,
+        vector(1, 5),
+      ])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query("select operacion from public.eventos where tabla = 'temas' and datos ->> 'id' = $1", [
+        t,
+      ])
+      expect(rows).toEqual([{ operacion: "insert" }])
+    })
+  })
+
+  it("audits a rename and a merge", async () => {
+    await como(comoServicio, async (c) => {
+      const t = await crearTema(c, "Antes")
+      const otro = await crearTema(c, "Otro", 3)
+      await c.query("update public.temas set nombre = 'Despues' where id = $1", [t])
+      await c.query("update public.temas set fusionado_en = $2 where id = $1", [t, otro])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query(
+        "select operacion from public.eventos where tabla = 'temas' and datos ->> 'id' = $1 order by id",
+        [t],
+      )
+      expect(rows.map((r) => r.operacion)).toEqual(["insert", "update", "update"])
+    })
+  })
+
   it("has an HNSW cosine index on the centroid", async () => {
     const { rows } = await pool.query<{ indexdef: string }>(
       "select indexdef from pg_indexes where tablename = 'temas' and indexdef ilike '%hnsw%'",

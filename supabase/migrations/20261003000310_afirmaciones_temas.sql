@@ -54,7 +54,9 @@ create policy "coni y wav leen afirmaciones" on public.afirmaciones for select t
 
 -- Audited: temas. Not audited: afirmaciones, because one material yields hundreds of rows and the
 -- audit log would drown in them; the only member write (excluir_afirmacion) is a flag on the row.
-create trigger auditar after insert or update or delete on public.temas
+-- Centroid refreshes are not audited either: they happen on every assignment and each row carries 1024 floats.
+create trigger auditar after insert or delete or update of nombre, descripcion, categoria_id, alias, fusionado_en
+  on public.temas
   for each row execute function public.registrar_evento();
 
 create function public.excluir_afirmacion(p_id uuid, p_excluida boolean) returns void
