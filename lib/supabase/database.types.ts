@@ -497,6 +497,7 @@ export type Database = {
           texto_pegado: string | null
           tipo: string
           titulo: string | null
+          vinculos_intentos: number
           vinculos_pendientes: boolean
         }
         Insert: {
@@ -520,6 +521,7 @@ export type Database = {
           texto_pegado?: string | null
           tipo: string
           titulo?: string | null
+          vinculos_intentos?: number
           vinculos_pendientes?: boolean
         }
         Update: {
@@ -543,6 +545,7 @@ export type Database = {
           texto_pegado?: string | null
           tipo?: string
           titulo?: string | null
+          vinculos_intentos?: number
           vinculos_pendientes?: boolean
         }
         Relationships: [
@@ -856,7 +859,9 @@ export type Database = {
           editada_en: string | null
           estado: string
           id: string
+          motivo_codigo: string | null
           motivo_fallo: string | null
+          sintetizando_desde: string
           tesis: string | null
           titulo: string | null
         }
@@ -869,7 +874,9 @@ export type Database = {
           editada_en?: string | null
           estado?: string
           id?: string
+          motivo_codigo?: string | null
           motivo_fallo?: string | null
+          sintetizando_desde?: string
           tesis?: string | null
           titulo?: string | null
         }
@@ -882,7 +889,9 @@ export type Database = {
           editada_en?: string | null
           estado?: string
           id?: string
+          motivo_codigo?: string | null
           motivo_fallo?: string | null
+          sintetizando_desde?: string
           tesis?: string | null
           titulo?: string | null
         }
@@ -1264,9 +1273,7 @@ export type Database = {
       }
       guardar_teoria: {
         Args: {
-          p_argumentos: Json
           p_categoria?: string
-          p_contradicciones: Json
           p_id: string
           p_tesis: string
           p_titulo: string

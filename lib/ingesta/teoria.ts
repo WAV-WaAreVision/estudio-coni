@@ -105,11 +105,17 @@ async function fichasDeLasFuentes(db: Db, teoriaId: string): Promise<FichaParaVi
   return [...fichas.values()].sort((a, b) => a.id.localeCompare(b.id))
 }
 
+/**
+ * Why a theory failed, as the retry reads it: `sin_sustento` is final (the verdict is kept in the store, so trying
+ * again would only repeat it), `tope` and `error` may pass by retrying. The cap is never stored as a verdict.
+ */
+export type MotivoCodigoTeoria = "sin_sustento" | "tope" | "error"
+
 /** Only a theory still waiting is touched: a late failure of an old run must not undo a result. Says whether it was. */
-async function marcarFallida(db: Db, id: string, motivo: string): Promise<boolean> {
+async function marcarFallida(db: Db, id: string, motivo: string, codigo: MotivoCodigoTeoria): Promise<boolean> {
   const { data, error } = await db
     .from("teorias")
-    .update({ estado: "fallida", motivo_fallo: motivo })
+    .update({ estado: "fallida", motivo_fallo: motivo, motivo_codigo: codigo })
     .eq("id", id)
     .eq("estado", "sintetizando")
     .select("id")
@@ -152,13 +158,13 @@ async function sintetizar(deps: DepsTeoria, teoriaId: string): Promise<Resultado
       },
     })
     if (pagado.tope) {
-      await marcarFallida(db, teoriaId, MOTIVO_TOPE)
+      await marcarFallida(db, teoriaId, MOTIVO_TOPE, "tope")
       return { resultado: "tope" }
     }
     sintesis = pagado.datos
   }
   if ("sinSustento" in sintesis) {
-    await marcarFallida(db, teoriaId, MOTIVO_TEORIA_SIN_SUSTENTO)
+    await marcarFallida(db, teoriaId, MOTIVO_TEORIA_SIN_SUSTENTO, "sin_sustento")
     return { resultado: "fallida", motivo: MOTIVO_TEORIA_SIN_SUSTENTO }
   }
   const { data, error } = await db
@@ -170,6 +176,7 @@ async function sintetizar(deps: DepsTeoria, teoriaId: string): Promise<Resultado
       contradicciones: sintesis.contradicciones,
       estado: "borrador",
       motivo_fallo: null,
+      motivo_codigo: null,
     })
     .eq("id", teoriaId)
     .eq("estado", "sintetizando")
@@ -201,7 +208,7 @@ export async function armarTeoria(deps: DepsTeoria, teoriaId: string): Promise<R
     if (falla instanceof TeoriaBorrada) return { resultado: "borrada" }
     const motivo = motivoDefinitivo(falla)
     if (motivo === null) throw falla
-    await marcarFallida(deps.db, teoriaId, motivo)
+    await marcarFallida(deps.db, teoriaId, motivo, "error")
     return { resultado: "fallida", motivo }
   }
 }
@@ -220,7 +227,7 @@ export async function alFallarTeoria(
   entrada: { teoriaId: string; corrida: string; error: unknown },
 ): Promise<void> {
   const motivo = entrada.error instanceof Falla ? entrada.error.message : MOTIVO_GENERICO_TEORIA
-  if (!(await marcarFallida(deps.db, entrada.teoriaId, motivo))) return
+  if (!(await marcarFallida(deps.db, entrada.teoriaId, motivo, "error"))) return
   await deps.avisos.aWav(
     "Falló sintetizar-teoria",
     [`Corrida: ${entrada.corrida}`, `Teoría: ${entrada.teoriaId}`, detalleTecnico(entrada.error)].join("\n"),

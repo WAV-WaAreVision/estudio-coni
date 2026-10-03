@@ -57,6 +57,7 @@ async function teoriaDe(materiales: string[]): Promise<string> {
 interface FilaTeoria {
   estado: string
   motivo_fallo: string | null
+  motivo_codigo: string | null
   titulo: string | null
   tesis: string | null
   argumentos: { materialId: string; cita: string; ubicacion: string }[] | null
@@ -65,7 +66,7 @@ interface FilaTeoria {
 
 async function teoria(id: string): Promise<FilaTeoria> {
   const { rows } = await pool.query<FilaTeoria>(
-    "select estado, motivo_fallo, titulo, tesis, argumentos, contradicciones from public.teorias where id = $1",
+    "select estado, motivo_fallo, motivo_codigo, titulo, tesis, argumentos, contradicciones from public.teorias where id = $1",
     [id],
   )
   const fila = rows[0]
@@ -206,6 +207,7 @@ describe("armarTeoria", () => {
     const fila = await teoria(id)
     expect(fila.estado).toBe("fallida")
     expect(fila.motivo_fallo).toContain("No encontré suficiente apoyo")
+    expect(fila.motivo_codigo).toBe("sin_sustento")
     expect((await gastosDe(id))[0]).toMatchObject({ estado: "confirmado" })
   })
 
@@ -217,6 +219,7 @@ describe("armarTeoria", () => {
     const resultado = await armarTeoria(await deps(almacenEnMemoria()), id)
 
     expect(resultado.resultado).toBe("fallida")
+    expect(await teoria(id)).toMatchObject({ motivo_codigo: "error" })
     expect((await teoria(id)).motivo_fallo).toContain("menos de dos fuentes")
     expect(claude.n).toBe(0)
   })
@@ -238,11 +241,33 @@ describe("armarTeoria", () => {
     await pool.query("update public.ajustes set tope_mensual_usd = 0.0001")
     try {
       expect(await armarTeoria(await deps(almacenEnMemoria()), id)).toEqual({ resultado: "tope" })
-      expect(await teoria(id)).toMatchObject({ estado: "fallida", motivo_fallo: MOTIVO_TOPE })
+      expect(await teoria(id)).toMatchObject({ estado: "fallida", motivo_fallo: MOTIVO_TOPE, motivo_codigo: "tope" })
       expect(claude.n).toBe(0)
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [anterior.rows[0]?.tope])
     }
+  })
+})
+
+describe("reintentar tras fallar", () => {
+  it("synthesizes on the retry after the cap stopped it: the cap failure is not kept in the store", async () => {
+    const { id, ids } = await conDosFuentes()
+    const claude = simularTeoria({}, ids)
+    const almacen = almacenEnMemoria()
+    const anterior = await pool.query<{ tope: string }>("select tope_mensual_usd::text as tope from public.ajustes")
+    await pool.query("update public.ajustes set tope_mensual_usd = 0.0001")
+    try {
+      expect(await armarTeoria(await deps(almacen), id)).toEqual({ resultado: "tope" })
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [anterior.rows[0]?.tope])
+    }
+    await pool.query(
+      "update public.teorias set estado = 'sintetizando', motivo_fallo = null, motivo_codigo = null where id = $1",
+      [id],
+    )
+
+    expect(await armarTeoria(await deps(almacen), id)).toEqual({ resultado: "borrador" })
+    expect(claude.n).toBe(1)
   })
 })
 
@@ -259,6 +284,7 @@ describe("alFallarTeoria", () => {
     expect(await teoria(id)).toMatchObject({
       estado: "fallida",
       motivo_fallo: "No pude armar la teoría. WAV ya está revisando.",
+      motivo_codigo: "error",
     })
     expect(avisos.aWavEnviados).toHaveLength(1)
   })
