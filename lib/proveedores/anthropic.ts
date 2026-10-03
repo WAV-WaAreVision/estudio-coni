@@ -813,7 +813,7 @@ REGLAS (escritas en inglés; el resultado va en español de Chile, tuteando)
 - Use only what the cards say. No diagnoses, no advice for particular cases, no patient anecdotes, and no figures, studies or facts that no card states. If the cards do not support a claim, leave it out.
 - titulo: a short title for the theory, no more than twelve words.
 - tesis: one paragraph (two to five sentences) that states the idea the cards hold together.
-- argumentos: between 2 and 8. Each one names the card it comes from (material_id, exactly as given), says in one sentence what that card contributes to the thesis (aporte) and carries a cita copied verbatim, character by character, from one text of that card (its resumen, one of its ideas or one of its citas). Do not fix, shorten or translate the cita. Use at least two different cards when you can.
+- argumentos: between 2 and 8. Each one names the card it comes from (material_id, exactly as given), says in one sentence what that card contributes to the thesis (aporte) and carries a cita copied verbatim, character by character, from one text of that card (its resumen, one of its ideas or one of its citas). Do not fix, shorten or translate the cita. Use at least two different cards: a theory over a single card is not a theory.
 - contradicciones: only real tensions between cards. Each one lists the material_ids that clash (two or more) and a one-sentence descripcion. Return an empty list when there are none.
 - Do not invent facts that the cards do not state.`
 
@@ -841,8 +841,8 @@ function citaConUbicacion(cita: string, ficha: FichaParaVincular): { cita: strin
 
 /**
  * One request over two to eight cards. An argument is kept only when its card was sent and its quote is literally
- * in that card; a contradiction only when it names two different cards that were sent. With fewer than two valid
- * arguments, or no title or thesis, there is no theory: a theory never cites what a card does not say.
+ * in that card; a contradiction only when it names two different cards that were sent. With valid arguments from fewer than two
+ * different cards, or no title or thesis, there is no theory: a theory never cites what a card does not say.
  */
 export async function sintetizarTeoria(entrada: {
   cliente: Anthropic
@@ -862,7 +862,8 @@ export async function sintetizarTeoria(entrada: {
   })
   const titulo = salida.titulo.trim()
   const tesis = salida.tesis.trim()
-  if (argumentos.length < 2 || titulo === "" || tesis === "") throw new TeoriaSinSustento(uso)
+  if (new Set(argumentos.map((a) => a.materialId)).size < 2 || titulo === "" || tesis === "")
+    throw new TeoriaSinSustento(uso)
   const contradicciones = salida.contradicciones.flatMap((c) => {
     const materialIds = [...new Set(c.material_ids.filter((id) => porId.has(id)))]
     const descripcion = c.descripcion.trim()

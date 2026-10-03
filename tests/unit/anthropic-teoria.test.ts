@@ -155,6 +155,19 @@ describe("sintetizarTeoria", () => {
     await expect(pedir()).rejects.toBeInstanceOf(TeoriaSinSustento)
   })
 
+  it("fails with a typed error when all the valid arguments cite the same material", async () => {
+    respondiendo({
+      ...SALIDA,
+      argumentos: [
+        argumento("m-1", "El deseo no es lineal."),
+        argumento("m-1", "Hablar de lo que necesitas ayuda a la pareja."),
+        argumento("m-1", "Desear no es una obligación."),
+      ],
+    })
+
+    await expect(pedir()).rejects.toBeInstanceOf(TeoriaSinSustento)
+  })
+
   it("fails with a typed error when the thesis or the title comes back empty", async () => {
     respondiendo({ ...SALIDA, tesis: "   " })
     await expect(pedir()).rejects.toBeInstanceOf(TeoriaSinSustento)
