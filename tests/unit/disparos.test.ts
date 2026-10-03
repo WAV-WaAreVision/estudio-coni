@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { claveGrabar, claveProducir } from "@/lib/acciones/disparos"
-import { dispararProcesarMaterial, dispararSintetizarTeoria, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
+import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 
 const HASH = "a".repeat(64)
@@ -72,31 +72,5 @@ describe("dispararProcesarMaterial", () => {
 
   it("asks for the Trigger.dev key before starting anything for real", async () => {
     await expect(dispararProcesarMaterial(ID, {})).rejects.toThrow(FallaDeConfiguracion)
-  })
-})
-
-describe("dispararSintetizarTeoria", () => {
-  const ID = "6f1d6c2e-8f43-4a8e-9a3f-2b1c7a0d9e56"
-
-  it("records the run, with its attempt, in a file instead of starting it when DISPARO_DE_PRUEBA is on", async () => {
-    const archivo = join(mkdtempSync(join(tmpdir(), "disparos-")), "registro.jsonl")
-
-    await dispararSintetizarTeoria(ID, { DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo }, "intento-2")
-
-    expect(JSON.parse(readFileSync(archivo, "utf-8").trim())).toEqual({
-      tarea: "sintetizar-teoria",
-      teoriaId: ID,
-      intento: "intento-2",
-    })
-  })
-
-  it("never records instead of starting when it runs on Vercel", async () => {
-    await expect(dispararSintetizarTeoria(ID, { DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).rejects.toThrow(
-      FallaDeConfiguracion,
-    )
-  })
-
-  it("asks for the Trigger.dev key before starting anything for real", async () => {
-    await expect(dispararSintetizarTeoria(ID, {})).rejects.toThrow(FallaDeConfiguracion)
   })
 })

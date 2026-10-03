@@ -32,12 +32,11 @@ import {
   TOPE,
   type Tope,
 } from "@/lib/ingesta/gasto-material"
+import { idiomaPorHeuristica } from "@/lib/ingesta/idioma"
 import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
 import { renderizarPartes } from "@/lib/ingesta/texto-material"
-import { idiomaPorHeuristica } from "@/lib/ingesta/traducir"
-import { registrarFallaDeVinculos } from "@/lib/ingesta/vincular"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -48,7 +47,6 @@ import {
 } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
-import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -454,87 +452,6 @@ async function existeFicha(db: Db, id: string): Promise<boolean> {
   return data !== null
 }
 
-const Incrustacion = z.object({ vector: z.array(z.number()), modelo: z.string() })
-
-async function existeEmbedding(db: Db, id: string): Promise<boolean> {
-  const { data, error } = await db
-    .from("embeddings_ficha")
-    .select("material_id")
-    .eq("material_id", id)
-    .eq("modelo", MODELO_VOYAGE)
-    .maybeSingle()
-  if (error) throw falloDeBase("No pude leer el embedding", error)
-  return data !== null
-}
-
-/** The text that stands for a card in the vector space: its summary and key ideas. */
-async function textoDeLaFicha(db: Db, id: string): Promise<string> {
-  const { data, error } = await db.from("fichas").select("resumen, ideas_clave").eq("material_id", id).single()
-  if (error) throw falloDeBase("No pude leer la ficha", error)
-  const ideas = z.array(z.string()).parse(data.ideas_clave)
-  return [data.resumen, ...ideas].join("\n")
-}
-
-/** Over-estimate of the embedding cost, like every reservation: the real tokens replace it on confirming. */
-const estimarEmbedding = (texto: string) => redondear(costoVoyage(Math.ceil(texto.length / 2)) + 0.0001)
-
-async function embeberFicha(ctx: Contexto, llave: string): Promise<void> {
-  const { deps, material } = ctx
-  const texto = await textoDeLaFicha(deps.db, material.id)
-  const archivo = `materiales/${material.id}/embedding.json`
-  let guardado = await pagadoAntes(ctx, archivo, Incrustacion)
-  if (!guardado) {
-    const pagado = await pagar(ctx, {
-      archivo,
-      proveedor: "voyage",
-      paso: "embedding",
-      estimadoUsd: estimarEmbedding(texto),
-      llamar: async () => {
-        const r = await embeber({ clave: llave, textos: [texto], tipo: "document" })
-        const vector = r.vectores[0]
-        if (!vector) throw new Error("Voyage no devolvió el vector de la ficha.")
-        return { datos: { vector, modelo: MODELO_VOYAGE }, realUsd: costoVoyage(r.tokens) }
-      },
-    })
-    if (pagado.tope) throw new TopeDeEmbedding()
-    guardado = pagado.datos
-  }
-  const { error } = await deps.db
-    .from("embeddings_ficha")
-    .upsert({ material_id: material.id, vector: JSON.stringify(guardado.vector), modelo: guardado.modelo })
-  if (error) throw falloDeBase("No pude guardar el embedding", error)
-}
-
-class TopeDeEmbedding extends Error {
-  constructor() {
-    super("El tope de gasto no alcanza para el embedding.")
-    this.name = "TopeDeEmbedding"
-  }
-}
-
-/**
- * Embeds the stored card. Never fails the material: with no key, a provider error or the cap reached, the card stays
- * without a vector and the material is flagged so the links are computed later. Says whether the vector is there, or
- * why not (`tope` is the cap, which the later sweep must not insist on).
- */
-export async function incrustarFicha(ctx: Contexto): Promise<"listo" | "pendiente" | "tope"> {
-  const { deps, material } = ctx
-  if (await existeEmbedding(deps.db, material.id)) return "listo"
-  const llave = deps.llaveVoyage?.()
-  if (!llave) return "pendiente"
-  try {
-    await embeberFicha(ctx, llave)
-    return "listo"
-  } catch (error) {
-    if (error instanceof MaterialBorrado) throw error
-    if (error instanceof TopeDeEmbedding) return "tope"
-    // Left for the later pass (`vinculos_pendientes`), but visible in the logs. The key is already redacted by the client.
-    console.warn(`Embedding pendiente del material ${material.id}: ${error instanceof Error ? error.message : "error"}`)
-    await registrarFallaDeVinculos(deps, material, error)
-    return "pendiente"
-  }
-}
-
 /** Step 2 for `estrategia`: the card, written once from the extracted text, and the material is ready. */
 async function fichaDe(
   ctx: Contexto,
@@ -591,7 +508,6 @@ function materialListo(
 ): Database["public"]["Tables"]["materiales"]["Update"] {
   return {
     estado: "listo",
-    vinculos_pendientes: false,
     texto_clave: claves(material.id).textoOriginal,
     motivo_fallo: null,
     ...LIBRE,

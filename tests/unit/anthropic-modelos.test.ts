@@ -3,9 +3,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { estimarFicha, estimarLectura } from "@/lib/ingesta/procesar"
-import { estimarCostoDeTraduccion } from "@/lib/ingesta/traducir"
 import {
-  adaptarAVozDeConi,
   clasificarIdea,
   costoClaude,
   escribirFicha,
@@ -108,14 +106,6 @@ describe("a model per task", () => {
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
   })
 
-  it("adapts with Sonnet, thinking switched off with between_tools and never disabled", async () => {
-    const cuerpos = capturando({ idioma_original: "es", partes: [{ texto: "x", ubicacion: { pagina: 1 } }] })
-    await adaptarAVozDeConi({ cliente: cliente(), partes: [{ texto: "x", ubicacion: { pagina: 1 } }] })
-    expect(cuerpos[0]?.model).toBe(SONNET)
-    expect(cuerpos[0]?.thinking).toEqual({ type: "between_tools" })
-    expect(cuerpos[0]?.output_config?.effort).toBe("low")
-  })
-
   it("never sends thinking disabled to an Opus call", async () => {
     for (const tarea of ["escribirGuion", "revisarConClaude", "escribirFicha"] as const) {
       expect(MODELO_POR_TAREA[tarea].modelo).toBe(OPUS)
@@ -159,16 +149,6 @@ describe("costoClaude por modelo", () => {
 })
 
 describe("estimates use the price of the task", () => {
-  it("reserves a translation batch at the Sonnet price", () => {
-    const caracteres = 3_000
-    const tokens = Math.ceil(caracteres / 3)
-    const esperado = costoClaude(
-      { input_tokens: tokens + 3_000, output_tokens: Math.ceil(tokens * 1.6) },
-      MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
-    )
-    expect(estimarCostoDeTraduccion(caracteres, false)).toBeCloseTo(esperado, 4)
-  })
-
   it("reserves a vision batch at the Sonnet price", () => {
     const esperado = costoClaude(
       { input_tokens: 800 + 1_600 * 3, output_tokens: 150 + 300 * 3 },

@@ -115,11 +115,6 @@ describe.each(["referente", "evidencia", "voz_propia"] as const)("%s", (rol) => 
     )
     const fila = await material(id)
     expect(fila).toMatchObject({ estado: "listo", motivo_fallo: null })
-    const pendiente = await pool.query<{ v: boolean }>(
-      "select vinculos_pendientes as v from public.materiales where id = $1",
-      [id],
-    )
-    expect(pendiente.rows[0]?.v).toBe(false)
   })
 })
 

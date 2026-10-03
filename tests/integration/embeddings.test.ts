@@ -39,15 +39,6 @@ describe("esquema de embeddings", () => {
     })
   })
 
-  it("does not let Coni set vinculos_pendientes", async () => {
-    const { almacen, id } = await nuevo()
-    await como(comoConi, async (c) => {
-      const e = await fallaCon(c, "update public.materiales set vinculos_pendientes = true where id = $1", [id])
-      expect(e.code).toBe("42501")
-    })
-    expect(almacen).toBeDefined()
-  })
-
   it("has an HNSW cosine index on the vector", async () => {
     const { rows } = await pool.query<{ indexdef: string }>(
       "select indexdef from pg_indexes where tablename = 'embeddings_ficha'",

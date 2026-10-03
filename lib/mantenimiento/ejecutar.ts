@@ -5,7 +5,6 @@ import { barrerGastos } from "./gastos"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsMantenimientoTemas, mantenerTemas } from "./temas"
-import { type DepsTeoriasAtascadas, rescatarTeoriasAtascadas } from "./teorias"
 import { type DepsTokenMeta, mantenerTokenMeta } from "./token-meta"
 
 type Trabajos = Record<string, () => Promise<unknown>>
@@ -35,18 +34,17 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
 /** What the topic jobs need, or null when they cannot run (no Claude key yet), which is not a failure. */
 export type ConstructorDeTemas = () => Promise<DepsMantenimientoTemas | null>
 
-export type DepsFrecuente = DepsConciliacion & DepsArranques & DepsTeoriasAtascadas & { temas: ConstructorDeTemas }
+export type DepsFrecuente = DepsConciliacion & DepsArranques & { temas: ConstructorDeTemas }
 export type DepsNocturno = DepsRetencion & DepsTokenMeta & DepsRespaldo & { temas: ConstructorDeTemas }
 
 const OMITIDO = { omitido: true } as const
 
-/** Every ten minutes: runs that never started, renders that lost their callback, reservations that outlived their run, theories whose synthesis never finished and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: runs that never started, renders that lost their callback, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     gastos: () => barrerGastos(deps),
-    teorias: () => rescatarTeoriasAtascadas(deps),
     temas: async () => {
       const propias = await deps.temas()
       return propias ? mantenerTemas(propias) : OMITIDO
