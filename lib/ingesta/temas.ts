@@ -297,7 +297,8 @@ async function paraFusionar(db: Db, id: string): Promise<ParParaFusionar["a"]> {
 
 /**
  * Merges topics that turned out to be the same: pairs of similar centroids, each confirmed by Claude. The topic
- * with more claims survives and keeps the other's name as an alias.
+ * with more claims survives and keeps the other's name as an alias. A pair Claude rejects is remembered and not asked
+ * again (`temas_fusion_rechazada`); merging such a pair would need a manual path.
  */
 export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
   const { db } = deps
@@ -336,14 +337,25 @@ export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
     }
     return actual
   }
+  const rechazadas: { tema_a: string; tema_b: string }[] = []
   for (const veredicto of pagado.datos) {
-    if (!veredicto.mismo) continue
+    if (!veredicto.mismo) {
+      const [tema_a, tema_b] = [veredicto.a, veredicto.b].sort()
+      if (tema_a && tema_b) rechazadas.push({ tema_a, tema_b })
+      continue
+    }
     const a = resolver(veredicto.a)
     const b = resolver(veredicto.b)
     if (a === b) continue
     const { ganador, perdedor } = await elegirGanador(db, a, b)
     await fusionar(db, ganador, perdedor)
     absorbidos.set(perdedor, ganador)
+  }
+  if (rechazadas.length > 0) {
+    const { error: errorRechazo } = await db
+      .from("temas_fusion_rechazada")
+      .upsert(rechazadas, { onConflict: "tema_a,tema_b", ignoreDuplicates: true })
+    if (errorRechazo) throw falloDeBase("No pude recordar las fusiones rechazadas", errorRechazo)
   }
   return { tope: false, fusionados: absorbidos.size }
 }

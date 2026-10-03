@@ -1015,6 +1015,53 @@ export type Database = {
           },
         ]
       }
+      temas_fusion_rechazada: {
+        Row: {
+          rechazada_en: string
+          tema_a: string
+          tema_b: string
+        }
+        Insert: {
+          rechazada_en?: string
+          tema_a: string
+          tema_b: string
+        }
+        Update: {
+          rechazada_en?: string
+          tema_a?: string
+          tema_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temas_fusion_rechazada_tema_a_fkey"
+            columns: ["tema_a"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_fusion_rechazada_tema_a_fkey"
+            columns: ["tema_a"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_fusion_rechazada_tema_b_fkey"
+            columns: ["tema_b"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_fusion_rechazada_tema_b_fkey"
+            columns: ["tema_b"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teoria_fuentes: {
         Row: {
           material_id: string

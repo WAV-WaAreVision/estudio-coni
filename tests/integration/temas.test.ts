@@ -411,6 +411,35 @@ describe("fusionarTemas", () => {
     expect(rows.map((r) => r.id).sort()).toEqual([grande, chico].sort())
   })
 
+  it("remembers a rejected pair and does not ask about it again, while a new pair is still asked", async () => {
+    const { grande, chico } = await dosParecidos()
+    const llamadas = simularClaude({ mismo: false })
+    await fusionarTemas(deps())
+    expect(llamadas.fusiones).toBe(1)
+    const { rows } = await pool.query<{ tema_a: string; tema_b: string }>(
+      "select tema_a, tema_b from public.temas_fusion_rechazada",
+    )
+    expect(rows).toEqual([{ tema_a: [grande, chico].sort()[0], tema_b: [grande, chico].sort()[1] }])
+
+    await fusionarTemas(deps())
+    expect(llamadas.fusiones).toBe(1)
+
+    const tercero = await tema("Otro deseo", vec({ 0: 1, 2: 0.2 }))
+    await fusionarTemas(deps())
+    expect(llamadas.fusiones).toBe(2)
+    const { rows: guardados } = await pool.query("select 1 from public.temas_fusion_rechazada")
+    expect(guardados).toHaveLength(3)
+    expect(tercero).toBeTruthy()
+  })
+
+  it("does not store the pairs Claude confirmed", async () => {
+    await dosParecidos()
+    simularClaude({ mismo: true })
+    await fusionarTemas(deps())
+    const { rows } = await pool.query("select 1 from public.temas_fusion_rechazada")
+    expect(rows).toHaveLength(0)
+  })
+
   it("makes no call when no pair reaches the threshold", async () => {
     await tema("Uno", vec({ 0: 1 }))
     await tema("Dos", vec({ 9: 1 }))
@@ -480,6 +509,39 @@ describe("recalcularTema", () => {
     const t = await tema("Vacío", vec({ 0: 1 }))
     await recalcularTema(db, t)
     const { rows } = await pool.query("select id from public.temas where id = $1", [t])
+    expect(rows).toHaveLength(0)
+  })
+})
+
+describe("temas_fusion_rechazada", () => {
+  it("is for the service role only", async () => {
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select * from public.temas_fusion_rechazada")).code).toBe("42501")
+    })
+  })
+
+  it("keeps each pair once in order, and drops with either topic", async () => {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 1: 1 }))
+    const [menor, mayor] = [a, b].sort()
+    await como(comoServicio, async (c) => {
+      const desordenado = await fallaCon(
+        c,
+        "insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)",
+        [mayor, menor],
+      )
+      expect(desordenado.code).toBe("23514")
+    })
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [menor, mayor])
+    await como(comoServicio, async (c) => {
+      const repetido = await fallaCon(c, "insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [
+        menor,
+        mayor,
+      ])
+      expect(repetido.code).toBe("23505")
+    })
+    await pool.query("delete from public.temas where id = $1", [mayor])
+    const { rows } = await pool.query("select 1 from public.temas_fusion_rechazada")
     expect(rows).toHaveLength(0)
   })
 })
