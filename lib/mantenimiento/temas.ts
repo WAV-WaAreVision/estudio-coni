@@ -1,7 +1,13 @@
 import { estimarEmbebido, TEXTOS_POR_EMBEBIDO } from "@/lib/ingesta/afirmar"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
 import { falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
-import { asignarATemas, type DepsTemas, formarTemas, type ResultadoFormacion } from "@/lib/ingesta/temas"
+import {
+  asignarATemas,
+  type DepsTemas,
+  formarTemas,
+  MAXIMO_PENDIENTES_POR_CORRIDA,
+  type ResultadoFormacion,
+} from "@/lib/ingesta/temas"
 import { costoVoyage, embeber } from "@/lib/proveedores/voyage"
 
 /** Claims embedded on each frequent run: a backlog drains over several runs instead of one long one. */
@@ -32,6 +38,21 @@ async function afirmacionesSinVector(deps: DepsMantenimientoTemas): Promise<{ id
     .limit(AFIRMACIONES_POR_CORRIDA)
   if (error) throw falloDeBase("No pude leer las afirmaciones sin vector", error)
   return data
+}
+
+/** Pending claims that already have a vector (a topic may have formed since), newest first. */
+async function pendientesConVector(deps: DepsMantenimientoTemas): Promise<string[]> {
+  const { data, error } = await deps.db
+    .from("afirmaciones")
+    .select("id")
+    .is("tema_id", null)
+    .eq("excluida", false)
+    .not("vector", "is", null)
+    .order("creada_en", { ascending: false })
+    .order("id")
+    .limit(MAXIMO_PENDIENTES_POR_CORRIDA)
+  if (error) throw falloDeBase("No pude leer las afirmaciones pendientes con vector", error)
+  return data.map((a) => a.id)
 }
 
 /** Embeds claims in requests of 128, paying each one. Stops at the cap and says how many it reached. */
@@ -82,7 +103,7 @@ async function embeberPendientes(
 
 /**
  * The frequent topics job: embeds up to 200 claims left without a vector (nothing to do without a Voyage key, which is
- * not a failure), assigns them to the nearest topic and forms new topics from what stays pending. Reaching the cap
+ * not a failure), assigns them, and the pending ones that already had a vector, to the nearest topic and forms new topics from what stays pending. Reaching the cap
  * returns `tope: true` and alerts nobody: the next month's reset is the retry.
  */
 export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<ResultadoMantenerTemas> {
@@ -100,9 +121,11 @@ export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<Resul
       )
     }
   }
+  // The ones just embedded and the backlog that waited for a topic to form, each once.
+  const porAsignar = [...new Set([...embebidas.ids, ...(await pendientesConVector(deps))])]
   let asignadas = 0
-  for (let desde = 0; desde < embebidas.ids.length; desde += IDS_POR_CONSULTA) {
-    const r = await asignarATemas(deps, embebidas.ids.slice(desde, desde + IDS_POR_CONSULTA))
+  for (let desde = 0; desde < porAsignar.length; desde += IDS_POR_CONSULTA) {
+    const r = await asignarATemas(deps, porAsignar.slice(desde, desde + IDS_POR_CONSULTA))
     asignadas += r.asignadas
   }
   if (embebidas.tope) return { tope: true, embebidas: embebidas.ids.length, asignadas, formacion: null }

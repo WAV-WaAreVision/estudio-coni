@@ -180,6 +180,26 @@ describe("mantenerTemas", () => {
     aviso.mockRestore()
   })
 
+  it("assigns a pending claim that already has a vector to a topic that formed after it", async () => {
+    const [id] = await sinVector(1)
+    const eje = (i: number) => `[${Array.from({ length: 1024 }, (_, k) => (k === i ? 1 : 0)).join(",")}]`
+    await pool.query("update public.afirmaciones set vector = $1::extensions.vector where id = $2", [eje(0), id])
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into public.temas (nombre, descripcion, centroide) values ('Formado después', 'd', $1::extensions.vector) returning id",
+      [eje(0)],
+    )
+    simularVoyage()
+    simularClaude()
+
+    await mantenerTemas(deps())
+
+    const asignada = await pool.query<{ tema_id: string | null }>(
+      "select tema_id from public.afirmaciones where id = $1",
+      [id],
+    )
+    expect(asignada.rows[0]?.tema_id).toBe(rows[0]?.id)
+  })
+
   it("returns tope without failing when the monthly cap is reached", async () => {
     await sinVector(3)
     simularVoyage()

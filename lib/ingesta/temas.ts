@@ -184,7 +184,8 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
     .is("tema_id", null)
     .eq("excluida", false)
     .not("vector", "is", null)
-    .order("creada_en")
+    // Newest first: old singletons that never found a group must not starve the claims that just arrived.
+    .order("creada_en", { ascending: false })
     .order("id")
     .limit(MAXIMO_PENDIENTES_POR_CORRIDA)
   if (error) throw falloDeBase("No pude leer las afirmaciones pendientes", error)

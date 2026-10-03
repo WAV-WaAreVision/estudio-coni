@@ -68,13 +68,21 @@ async function preparar() {
 
 async function afirmacion(
   v: number[] | null,
-  extra: { tema?: string | null; excluida?: boolean; texto?: string } = {},
+  extra: { tema?: string | null; excluida?: boolean; texto?: string; creada?: string } = {},
 ): Promise<string> {
   if (!autorId) await preparar()
   const { rows } = await pool.query<{ id: string }>(
-    `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, vector, excluida)
-     values ($1, $2, 0, '{"pagina": 1}', $3, 'cita', 'consejo', 'opinion', $4, $5::extensions.vector, $6) returning id`,
-    [materialId, autorId, extra.texto ?? "Una idea.", extra.tema ?? null, v ? texto(v) : null, extra.excluida ?? false],
+    `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, vector, excluida, creada_en)
+     values ($1, $2, 0, '{"pagina": 1}', $3, 'cita', 'consejo', 'opinion', $4, $5::extensions.vector, $6, coalesce($7::timestamptz, now())) returning id`,
+    [
+      materialId,
+      autorId,
+      extra.texto ?? "Una idea.",
+      extra.tema ?? null,
+      v ? texto(v) : null,
+      extra.excluida ?? false,
+      extra.creada ?? null,
+    ],
   )
   return rows[0]?.id ?? ""
 }
@@ -315,6 +323,24 @@ describe("formarTemas", () => {
       [vivo],
     )
     expect(rows[0]?.n).toBeGreaterThanOrEqual(3)
+  })
+
+  it("reads the newest pending claims first, so old singletons do not starve a new group", async () => {
+    await afirmacion(vec({ 0: 1 }))
+    await pool.query(
+      `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, vector, creada_en)
+       select $1, $2, 0, '{"pagina": 1}', 'Vieja ' || n, 'cita', 'consejo', 'opinion',
+         (select ('[' || string_agg(case when g = n then '1' else '0' end, ',') || ']')::extensions.vector
+            from generate_series(1, 1024) g),
+         now() - interval '30 days' - n * interval '1 minute'
+       from generate_series(100, $3::int + 99) n`,
+      [materialId, autorId, MAXIMO_PENDIENTES_POR_CORRIDA],
+    )
+    await afirmacion(vec({ 0: 1, 1: 0.1 }))
+    await afirmacion(vec({ 0: 1, 2: 0.1 }))
+    simularClaude({ nombre: () => "Grupo nuevo" })
+    const resultado = await formarTemas(deps())
+    expect(resultado.creados).toBe(1)
   })
 
   it("takes at most the maximum of pending claims per run", async () => {
