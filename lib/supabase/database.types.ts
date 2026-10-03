@@ -34,6 +34,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      afirmaciones: {
+        Row: {
+          autor_id: string
+          cita: string
+          creada_en: string
+          dolor: string | null
+          emocion: string | null
+          evidencia: string
+          excluida: boolean
+          gancho: string | null
+          id: string
+          idioma: string | null
+          material_id: string
+          postura: string | null
+          publico: string | null
+          tema_id: string | null
+          texto: string
+          tipo: string
+          tramo: number
+          ubicacion: Json
+          vector: string | null
+        }
+        Insert: {
+          autor_id: string
+          cita: string
+          creada_en?: string
+          dolor?: string | null
+          emocion?: string | null
+          evidencia: string
+          excluida?: boolean
+          gancho?: string | null
+          id?: string
+          idioma?: string | null
+          material_id: string
+          postura?: string | null
+          publico?: string | null
+          tema_id?: string | null
+          texto: string
+          tipo: string
+          tramo: number
+          ubicacion: Json
+          vector?: string | null
+        }
+        Update: {
+          autor_id?: string
+          cita?: string
+          creada_en?: string
+          dolor?: string | null
+          emocion?: string | null
+          evidencia?: string
+          excluida?: boolean
+          gancho?: string | null
+          id?: string
+          idioma?: string | null
+          material_id?: string
+          postura?: string | null
+          publico?: string | null
+          tema_id?: string | null
+          texto?: string
+          tipo?: string
+          tramo?: number
+          ubicacion?: Json
+          vector?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afirmaciones_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ajustes: {
         Row: {
           avatar_visto_en: string | null
@@ -865,6 +960,67 @@ export type Database = {
         }
         Relationships: []
       }
+      temas: {
+        Row: {
+          actualizado_en: string
+          alias: string[]
+          categoria_id: string | null
+          centroide: string
+          creado_en: string
+          descripcion: string | null
+          fusionado_en: string | null
+          id: string
+          nombre: string
+          nombre_normalizado: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          alias?: string[]
+          categoria_id?: string | null
+          centroide: string
+          creado_en?: string
+          descripcion?: string | null
+          fusionado_en?: string | null
+          id?: string
+          nombre: string
+          nombre_normalizado?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          alias?: string[]
+          categoria_id?: string | null
+          centroide?: string
+          creado_en?: string
+          descripcion?: string | null
+          fusionado_en?: string | null
+          id?: string
+          nombre?: string
+          nombre_normalizado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_fusionado_en_fkey"
+            columns: ["fusionado_en"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_fusionado_en_fkey"
+            columns: ["fusionado_en"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teoria_fuentes: {
         Row: {
           material_id: string
@@ -1044,6 +1200,31 @@ export type Database = {
             columns: ["pieza_id"]
             isOneToOne: false
             referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temas_resumen: {
+        Row: {
+          actualizado_en: string | null
+          afirmaciones: number | null
+          alias: string[] | null
+          autores: number | null
+          categoria_id: string | null
+          creado_en: string | null
+          cubierto_por_coni: boolean | null
+          descripcion: string | null
+          evidencia: Json | null
+          id: string | null
+          nombre: string | null
+          ultima_afirmacion: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
             referencedColumns: ["id"]
           },
         ]
@@ -1272,6 +1453,10 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      excluir_afirmacion: {
+        Args: { p_excluida: boolean; p_id: string }
+        Returns: undefined
+      }
       fusionar_autores: {
         Args: { p_destino: string; p_origen: string }
         Returns: undefined
@@ -1449,6 +1634,13 @@ export type Database = {
         }
       }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
+      tema_mas_cercano: {
+        Args: { p_umbral: number; p_vector: string }
+        Returns: {
+          similitud: number
+          tema_id: string
+        }[]
+      }
       tomar_para_publicar: {
         Args: { p_ahora: string; p_arriendo_segundos?: number }
         Returns: {
