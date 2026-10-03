@@ -186,6 +186,35 @@ export type Database = {
         }
         Relationships: []
       }
+      embeddings_ficha: {
+        Row: {
+          creado_en: string
+          material_id: string
+          modelo: string
+          vector: string
+        }
+        Insert: {
+          creado_en?: string
+          material_id: string
+          modelo: string
+          vector: string
+        }
+        Update: {
+          creado_en?: string
+          material_id?: string
+          modelo?: string
+          vector?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embeddings_ficha_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos: {
         Row: {
           actor_rol: string
@@ -468,6 +497,7 @@ export type Database = {
           texto_pegado: string | null
           tipo: string
           titulo: string | null
+          vinculos_pendientes: boolean
         }
         Insert: {
           archivo_clave?: string | null
@@ -490,6 +520,7 @@ export type Database = {
           texto_pegado?: string | null
           tipo: string
           titulo?: string | null
+          vinculos_pendientes?: boolean
         }
         Update: {
           archivo_clave?: string | null
@@ -512,6 +543,7 @@ export type Database = {
           texto_pegado?: string | null
           tipo?: string
           titulo?: string | null
+          vinculos_pendientes?: boolean
         }
         Relationships: [
           {

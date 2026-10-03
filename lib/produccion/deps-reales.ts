@@ -168,6 +168,7 @@ export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
       if (!llave) throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de ElevenLabs en Ajustes.")
       return llave
     },
+    llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
     ffmpeg,
     ahora: () => new Date().toISOString(),
     corrida,
