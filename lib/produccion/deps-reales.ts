@@ -11,6 +11,7 @@ import { resolverDns } from "@/lib/ingesta/red-segura"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
+import type { DepsDelMotor } from "@/lib/motor/semanal"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
@@ -141,6 +142,19 @@ export async function depsTemas(): Promise<DepsMantenimientoTemas | null> {
     claude: new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
     ahora: () => new Date().toISOString(),
     llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
+  }
+}
+
+/** The dependencies of the weekly engine, or null when Coni has not entered Claude's key yet. */
+export async function depsMotor(): Promise<DepsDelMotor | null> {
+  const db = clienteDeServicio()
+  const llave = await leerSecreto(db, "anthropic")
+  if (!llave) return null
+  return {
+    db,
+    almacen: almacenReal(),
+    claude: new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    ahora: () => new Date().toISOString(),
   }
 }
 

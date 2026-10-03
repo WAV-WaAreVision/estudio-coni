@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { idempotencyKeys, tasks } from "@trigger.dev/sdk"
+import { idempotencyKeys, type Task, tasks } from "@trigger.dev/sdk"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
@@ -78,5 +78,26 @@ export async function dispararProcesarMaterial(materialId: string, entorno: Ento
     "procesar-material",
     { materialId },
     { idempotencyKey: await claveGlobal(`procesar-material:${materialId}`), idempotencyKeyTTL: "10m" },
+  )
+}
+
+// The task is scheduled, so its own payload type is the schedule's; "Proponer ahora" sends this one by hand.
+type MotorSemanal = Task<"motor-semanal", { manual: true }, unknown>
+
+/**
+ * Starts the weekly engine by hand ("Proponer ahora"). The key is the week, so two taps or two devices start one run;
+ * the run itself is unique per week in `motor_corridas`.
+ */
+export async function dispararMotor(semana: string, entorno: Entorno = process.env): Promise<void> {
+  const archivo = archivoDeDisparoDePrueba(entorno)
+  if (archivo) {
+    appendFileSync(archivo, `${JSON.stringify({ tarea: "motor-semanal", semana, manual: true })}\n`)
+    return
+  }
+  exigirLlaveDeTrigger(entorno)
+  await tasks.trigger<MotorSemanal>(
+    "motor-semanal",
+    { manual: true },
+    { idempotencyKey: await claveGlobal(`motor:${semana}`), idempotencyKeyTTL: "1d" },
   )
 }
