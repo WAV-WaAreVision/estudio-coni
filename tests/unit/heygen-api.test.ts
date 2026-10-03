@@ -231,7 +231,7 @@ describe("crearVideo", () => {
     expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
     expect(error).not.toBeInstanceOf(PoliticaDeContenido)
     expect(error.message).toBe(
-      "Tu cuenta de HeyGen no tiene créditos para este video. Revisa tu plan y vuelve a intentarlo.",
+      "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
     )
   })
 
