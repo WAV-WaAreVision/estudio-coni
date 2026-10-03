@@ -292,7 +292,7 @@
   - the functions `materiales_cercanos`, `aceptar_vinculo`, `descartar_vinculo`, `crear_vinculo`, `pedir_teoria`, `guardar_teoria`, `reintentar_teoria`, `marcar_teoria_disparo_fallido`;
   - the columns `materiales.vinculos_pendientes` and `materiales.vinculos_intentos`.
 
-  The tables `vinculos` and `embeddings_ficha` are dropped in Task 12, after production is verified.
+  The tables `vinculos` and `embeddings_ficha` are dropped in migration 350, after production is verified.
 - Delete their tests and update any test that referenced them.
 
 - [ ] **Step 1: Remove the code and run `pnpm type` to find every leftover reference. Fix each one.**
@@ -395,14 +395,21 @@
 
 ## Production checklist (with Federico)
 
-1. Push both repos, then `supabase db push` of migrations 300 to 340. Leave 350 for step 6.
-2. Deploy Trigger, then the Conidolly and ingesta apps.
-3. In ingesta, give each of the 6 materials its author and role:
-   - plan de marca and focus group → `estrategia`;
-   - "El deseo no se apaga" → `voz_propia`;
-   - Impostora and Pinealon → `referente`.
+`supabase db push` applies every pending migration, so before step 1 move `20261003000349_*` and `20261003000350_*` out of `supabase/migrations/`, put 349 back before step 2 and 350 back before step 7.
 
-   Delete "Test de Traducción". Then reprocess the 5 non-strategy materials.
-4. Upload the Carmen batch again with its author and role `referente`.
-5. Run the calibration (Task 10, step 3), set the thresholds, redeploy Trigger.
-6. Check Temas and Autores. Then apply migration 350 (`supabase db push`).
+0. Pre-checks:
+   - no material is in `procesando`;
+   - `VOYAGE_API_KEY` is set in Trigger production;
+   - `partes-original.json` exists in R2 for the 3 non-strategy materials.
+1. `supabase db push` of migrations 300 to 348. Deploy Trigger immediately, then the Conidolly and ingesta apps. Check the first `mantenimiento-frecuente` run.
+2. `supabase db push` of migration 349 (retire B2: the old code is gone, so dropping its functions and columns is safe).
+3. In ingesta, set authors and roles:
+   - `estrategia`: plan de marca and focus group;
+   - `voz_propia`: "El deseo no se apaga", linked to the Coni author;
+   - `referente`: Impostora and Pinealon, each with its real author.
+
+   Merge or delete the wrong backfilled authors, such as "Sindrome de la Impostora" and "Invitado Focus Group". Delete "Test de Traducción".
+4. Calibrate on the 3 materials before topics form in production: run the script without and then with `--confirmar`, set the thresholds, redeploy Trigger and fill `docs/superpowers/notas/calibracion-c1.md`. If topics already formed, reset them.
+5. Reprocess the 3 non-strategy materials.
+6. Upload the Carmen batch again with role `referente`.
+7. Check Temas and Autores, the 10-minute runs and the 03:00 merge. Then `supabase db push` of migration 350 (`20261003000350_borrar_vinculos.sql`: drops the tables `vinculos` and `embeddings_ficha`).

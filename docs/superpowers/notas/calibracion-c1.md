@@ -2,6 +2,8 @@
 
 Se llena después de correr `scripts/evaluar-afirmaciones.ts` con Federico (Task 10, paso 3). Sin números todavía.
 
+Ojo con el gasto: el script de calibración llama a Claude y a Voyage directo, sin pasar por `gastos`. El tope mensual no lo ve, así que su costo se suma al gasto del mes sin que el tope lo cuente.
+
 ## Corrida
 
 - Fecha:
