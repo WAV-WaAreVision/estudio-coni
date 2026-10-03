@@ -54,6 +54,7 @@ const PUNTAJE_IDEA_MEDIA = 0.4
 const CARACTERES_POR_TOKEN = 3
 const TOKENS_FIJOS = 2_500
 const TOKENS_DE_SALIDA_POR_CRUCE = 1_500
+const MINUTOS_PARA_RETOMAR = 30
 const UNIQUE_VIOLATION = "23505"
 const MOTIVO_DE_FALLA = "No pude armar las ideas de esta semana. Avisamos al equipo; puedes volver a intentarlo."
 
@@ -333,6 +334,46 @@ async function archivar(db: Db): Promise<number> {
 }
 
 /**
+ * Takes over the week's row when its run failed, or when it has been `corriendo` longer than a run can last (the task
+ * crashed). The conditional update is the claim: only one caller gets the row. What the dead attempt left (it can
+ * fail after inserting theories or ideas) is removed so the retry does not duplicate it.
+ */
+async function retomar(deps: DepsDelMotor, semana: string): Promise<boolean> {
+  const { db } = deps
+  const limite = new Date(Date.parse(deps.ahora()) - MINUTOS_PARA_RETOMAR * 60_000).toISOString()
+  const { data, error } = await db
+    .from("motor_corridas")
+    .update({ estado: "corriendo", motivo_fallo: null, creada_en: deps.ahora(), terminada_en: null })
+    .eq("semana", semana)
+    .or(`estado.eq.fallida,and(estado.eq.corriendo,creada_en.lt.${limite})`)
+    .select("id")
+  if (error) throw falloDeBase("No pude retomar la corrida del motor", error)
+  if (data.length === 0) return false
+  const ideas = await db.from("ideas").delete().eq("origen", "motor").eq("semana", semana).eq("estado", "idea")
+  if (ideas.error) throw falloDeBase("No pude limpiar las ideas del intento anterior", ideas.error)
+  const { data: conIdeas, error: errorConIdeas } = await db
+    .from("ideas")
+    .select("teoria_id")
+    .eq("origen", "motor")
+    .eq("semana", semana)
+    .not("teoria_id", "is", null)
+  if (errorConIdeas) throw falloDeBase("No pude leer las ideas del intento anterior", errorConIdeas)
+  const conservar = new Set(conIdeas.map((i) => i.teoria_id))
+  const { data: teorias, error: errorTeorias } = await db
+    .from("teorias")
+    .select("id")
+    .eq("origen", "motor")
+    .eq("semana", semana)
+  if (errorTeorias) throw falloDeBase("No pude leer las teorías del intento anterior", errorTeorias)
+  const borrar = teorias.map((t) => t.id).filter((id) => !conservar.has(id))
+  if (borrar.length > 0) {
+    const r = await db.from("teorias").delete().in("id", borrar)
+    if (r.error) throw falloDeBase("No pude limpiar las teorías del intento anterior", r.error)
+  }
+  return true
+}
+
+/**
  * The Sunday run: scores crossings, asks Claude for theories and ideas, validates the backing and fills the bank.
  * One run per week (`motor_corridas.semana` is unique). Reaching the cap closes the run as failed without throwing;
  * any other error closes it as failed and propagates so the scheduled task alerts WAV.
@@ -344,8 +385,9 @@ export async function correrMotor(
   const { db } = deps
   const { semana, manual } = entrada
   const { error } = await db.from("motor_corridas").insert({ semana, estado: "corriendo" })
-  if (error?.code === UNIQUE_VIOLATION) return { resultado: "ya_corrio" }
-  if (error) throw falloDeBase("No pude registrar la corrida del motor", error)
+  if (error?.code === UNIQUE_VIOLATION) {
+    if (!(await retomar(deps, semana))) return { resultado: "ya_corrio" }
+  } else if (error) throw falloDeBase("No pude registrar la corrida del motor", error)
 
   try {
     const r = await trabajar(deps, semana)

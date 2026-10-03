@@ -272,6 +272,45 @@ describe("correrMotor", () => {
     expect(await contar("select count(*) as n from public.gastos where paso = 'motor'")).toBe(1)
   })
 
+  it("runs again a week whose run failed, clearing what the failed attempt left", async () => {
+    await tresTemas()
+    await pool.query("insert into public.motor_corridas (semana, estado, motivo_fallo) values ($1, 'fallida', 'x')", [
+      SEMANA,
+    ])
+    const sobra = await uno(
+      "insert into public.teorias (titulo, tesis, origen, semana, creada_por) values ('sobra', 't', 'motor', $1, $2) returning id",
+      [SEMANA, CONI],
+    )
+    await pool.query(
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values (700, 'pareja', 'sobra', 'idea', 'baja', 'motor', $1, $2)",
+      [SEMANA, sobra],
+    )
+    simularClaude()
+
+    const r = await correrMotor(deps(), { semana: SEMANA, manual: true })
+
+    expect(r.resultado).toBe("lista")
+    expect(await corrida()).toMatchObject({ estado: "lista", motivo_fallo: null })
+    expect(await contar("select count(*) as n from public.ideas where gancho = 'sobra'")).toBe(0)
+    expect(await contar("select count(*) as n from public.teorias where titulo = 'sobra'")).toBe(0)
+    expect(await contar("select count(*) as n from public.ideas where origen = 'motor'")).toBe(6)
+  })
+
+  it("takes over a run stuck in corriendo for more than 30 minutes but not a recent one", async () => {
+    await tresTemas()
+    await pool.query("insert into public.motor_corridas (semana, estado) values ($1, 'corriendo')", [SEMANA])
+    const claude = simularClaude()
+
+    const reciente = await correrMotor(deps(), { semana: SEMANA, manual: false })
+    expect(reciente.resultado).toBe("ya_corrio")
+    expect(claude.llamadas).toBe(0)
+
+    await pool.query("update public.motor_corridas set creada_en = now() - interval '31 minutes'")
+    const colgada = await correrMotor(deps(), { semana: SEMANA, manual: false })
+    expect(colgada.resultado).toBe("lista")
+    expect(claude.llamadas).toBe(1)
+  })
+
   it("stores a crossing that gives nothing as a theory discarded by the engine, with no ideas", async () => {
     await tresTemas()
     simularClaude({ nada: (i) => i === 0 })
