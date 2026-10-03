@@ -386,6 +386,47 @@ describe("tema_mas_cercano", () => {
     })
   })
 
+  it("scores by inner product with the mean centroid, not by cosine", async () => {
+    await como(comoServicio, async (c) => {
+      const dosEjes = `[${Array.from({ length: 1024 }, (_, i) => (i < 2 ? 0.5 : 0)).join(",")}]`
+      const mezclado = await id(
+        c,
+        "insert into public.temas (nombre, descripcion, centroide) values ('Mezclado', 'd', $1::extensions.vector) returning id",
+        [dosEjes],
+      )
+      // The claim is 0.707 from the direction of the mean, but only 0.5 from the members on average.
+      const bajo = await c.query("select * from public.tema_mas_cercano($1::extensions.vector, 0.6)", [vector(1, 0)])
+      expect(bajo.rows).toHaveLength(0)
+      const alto = await c.query("select * from public.tema_mas_cercano($1::extensions.vector, 0.4)", [vector(1, 0)])
+      expect(alto.rows[0].tema_id).toBe(mezclado)
+      expect(Number(alto.rows[0].similitud)).toBeCloseTo(0.5, 5)
+    })
+  })
+
+  it("picks the candidate with the best inner product among the closest by cosine", async () => {
+    await como(comoServicio, async (c) => {
+      const centroide = (e0: number, e1: number) =>
+        `[${Array.from({ length: 1024 }, (_, i) => (i === 0 ? e0 : i === 1 ? e1 : 0)).join(",")}]`
+      const corto = await id(
+        c,
+        "insert into public.temas (nombre, descripcion, centroide) values ('Corto', 'd', $1::extensions.vector) returning id",
+        [centroide(0.5, 0)],
+      )
+      const largo = await id(
+        c,
+        "insert into public.temas (nombre, descripcion, centroide) values ('Largo', 'd', $1::extensions.vector) returning id",
+        [centroide(0.9, 0.1)],
+      )
+      const { rows } = await c.query("select * from public.tema_mas_cercano($1::extensions.vector, 0.4)", [
+        vector(1, 0),
+      ])
+      // Cosine prefers the short one (exactly 1.0); the mean cosine to the members prefers the long one (0.9).
+      expect(rows[0].tema_id).toBe(largo)
+      expect(Number(rows[0].similitud)).toBeCloseTo(0.9, 5)
+      expect(corto).not.toBe(largo)
+    })
+  })
+
   it("is callable only by the service role", async () => {
     await como(comoConi, async (c) => {
       expect(
