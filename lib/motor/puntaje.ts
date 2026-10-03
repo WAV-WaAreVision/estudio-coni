@@ -127,16 +127,25 @@ export function elegirCruces(
   return elegidos
 }
 
-/** Cold start: single topics ranked with the same formulas as a crossing, one side only. */
+/** Cold start: a single topic scored with the same formulas as a crossing, one side only. */
+export function puntuarTemaSolo(
+  t: TemaDelMotor,
+  contexto: ContextoDelPuntaje,
+): { puntaje: number; componentes: Omit<ComponentesDelPuntaje, "puente"> } {
+  const soporte = soporteDe(t.autores, t.afirmaciones)
+  const evidencia = evidenciaDe(t.evidencia_fuerte, t.afirmaciones)
+  const novedad = 1 - 0.5 * Number(t.cubierto_por_coni)
+  const descarte = Math.min(1, contexto.descartes.get(t.tema_id) ?? 0)
+  const puntaje =
+    PESO_SOPORTE * soporte + PESO_EVIDENCIA * evidencia + PESO_NOVEDAD * novedad - PENALIZACION_DESCARTE * descarte
+  return { puntaje, componentes: { soporte, evidencia, novedad, descarte } }
+}
+
+/** Cold start: single topics ranked by `puntuarTemaSolo`. */
 export function elegirTemasSolos(temas: TemaDelMotor[], contexto: ContextoDelPuntaje, n: number): TemaDelMotor[] {
-  const puntaje = (t: TemaDelMotor): number =>
-    PESO_SOPORTE * soporteDe(t.autores, t.afirmaciones) +
-    PESO_EVIDENCIA * evidenciaDe(t.evidencia_fuerte, t.afirmaciones) +
-    PESO_NOVEDAD * (1 - 0.5 * Number(t.cubierto_por_coni)) -
-    PENALIZACION_DESCARTE * Math.min(1, contexto.descartes.get(t.tema_id) ?? 0)
   return temas
     .filter((t) => !contexto.recientes.temas.has(t.tema_id))
-    .map((t) => ({ t, p: puntaje(t) }))
+    .map((t) => ({ t, p: puntuarTemaSolo(t, contexto).puntaje }))
     .sort((x, y) => y.p - x.p || porId(x.t.tema_id, y.t.tema_id))
     .slice(0, n)
     .map(({ t }) => t)

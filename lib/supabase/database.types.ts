@@ -1624,6 +1624,20 @@ export type Database = {
         }
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      motor_afirmaciones_de_tema: {
+        Args: { p_limite: number; p_tema: string }
+        Returns: {
+          autor: string
+          cita: string
+          dolor: string
+          emocion: string
+          evidencia: string
+          id: string
+          publico: string
+          texto: string
+          tipo: string
+        }[]
+      }
       motor_pares: {
         Args: { p_minimo_autores: number }
         Returns: {
