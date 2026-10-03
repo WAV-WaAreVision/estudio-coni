@@ -349,7 +349,13 @@ async function retomar(deps: DepsDelMotor, semana: string): Promise<boolean> {
     .select("id")
   if (error) throw falloDeBase("No pude retomar la corrida del motor", error)
   if (data.length === 0) return false
-  const ideas = await db.from("ideas").delete().eq("origen", "motor").eq("semana", semana).eq("estado", "idea")
+  const ideas = await db
+    .from("ideas")
+    .delete()
+    .eq("origen", "motor")
+    .eq("semana", semana)
+    .eq("estado", "idea")
+    .is("fijada_en", null)
   if (ideas.error) throw falloDeBase("No pude limpiar las ideas del intento anterior", ideas.error)
   const { data: conIdeas, error: errorConIdeas } = await db
     .from("ideas")

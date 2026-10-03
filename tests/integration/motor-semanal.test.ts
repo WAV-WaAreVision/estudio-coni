@@ -296,6 +296,27 @@ describe("correrMotor", () => {
     expect(await contar("select count(*) as n from public.ideas where origen = 'motor'")).toBe(6)
   })
 
+  it("keeps a pinned idea from the failed attempt, and its theory, when the week runs again", async () => {
+    await tresTemas()
+    await pool.query("insert into public.motor_corridas (semana, estado, motivo_fallo) values ($1, 'fallida', 'x')", [
+      SEMANA,
+    ])
+    const fijada = await uno(
+      "insert into public.teorias (titulo, tesis, origen, semana, creada_por) values ('fijada', 't', 'motor', $1, $2) returning id",
+      [SEMANA, CONI],
+    )
+    await pool.query(
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id, fijada_en) values (710, 'pareja', 'fijada', 'idea', 'baja', 'motor', $1, $2, now())",
+      [SEMANA, fijada],
+    )
+    simularClaude()
+
+    await correrMotor(deps(), { semana: SEMANA, manual: true })
+
+    expect(await contar("select count(*) as n from public.ideas where gancho = 'fijada'")).toBe(1)
+    expect(await contar("select count(*) as n from public.teorias where titulo = 'fijada'")).toBe(1)
+  })
+
   it("takes over a run stuck in corriendo for more than 30 minutes but not a recent one", async () => {
     await tresTemas()
     await pool.query("insert into public.motor_corridas (semana, estado) values ($1, 'corriendo')", [SEMANA])
