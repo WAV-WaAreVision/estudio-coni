@@ -15,6 +15,7 @@ import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, tra
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, type Disparos } from "./disparos"
@@ -265,7 +266,7 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
     const requiereLineasAyuda =
       pideLineasDeAyuda(idea?.alertas ?? []) || juicios.some((hallazgo) => hallazgo.regla === "tema_de_riesgo")
     const revision: Hallazgo[] = [
-      ...revisarGuion({ guion: fila.guion, texto, esAvatar: true, requiereLineasAyuda }),
+      ...revisarGuion({ guion: fila.guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(null) }),
       ...juicios,
     ]
 

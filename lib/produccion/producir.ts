@@ -16,6 +16,7 @@ import {
 import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
+import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import {
@@ -98,7 +99,7 @@ async function redactarBorrador(
   let costoUsd = 0
 
   const revisar = (entrada: { guion: string; texto: string }, lineasAyuda: boolean) =>
-    revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda })
+    revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno: ajenoDelRespaldo(null) })
 
   let escrito = await escribirGuion({ cliente, guia, idea, requiereLineasAyuda })
   costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
