@@ -1,6 +1,6 @@
 /** The data may hold a closing tag; `<\\/` is still `</` to a JSON reader but cannot end the data block. */
 export function sinCierre(texto: string): string {
-  return texto.replace(/<\/(fuente|ficha_base|candidatas|fichas)/gi, "<\\/$1")
+  return texto.replace(/<\/(fuente|ficha_base|candidatas|fichas|cruces)/gi, "<\\/$1")
 }
 
 /** Typographic quotes become plain ones and whitespace runs one space, so a quote survives cosmetic differences. */
