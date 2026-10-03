@@ -884,6 +884,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          respaldo: Json | null
           revision: Json
           texto: string | null
           titulo: string
@@ -921,6 +922,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          respaldo?: Json | null
           revision?: Json
           texto?: string | null
           titulo: string
@@ -958,6 +960,7 @@ export type Database = {
           puerta2_publicar_en?: string | null
           puerta2_video_id?: string | null
           render_id?: string | null
+          respaldo?: Json | null
           revision?: Json
           texto?: string | null
           titulo?: string
@@ -1461,6 +1464,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          respaldo: Json | null
           revision: Json
           texto: string | null
           titulo: string
@@ -1512,6 +1516,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          respaldo: Json | null
           revision: Json
           texto: string | null
           titulo: string
@@ -1545,6 +1550,7 @@ export type Database = {
           p_guion: string
           p_pieza: string
           p_real: number
+          p_respaldo?: Json
           p_revision: Json
           p_texto: string
           p_version: number
@@ -1580,6 +1586,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          respaldo: Json | null
           revision: Json
           texto: string | null
           titulo: string
@@ -1775,6 +1782,7 @@ export type Database = {
           puerta2_publicar_en: string | null
           puerta2_video_id: string | null
           render_id: string | null
+          respaldo: Json | null
           revision: Json
           texto: string | null
           titulo: string

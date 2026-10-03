@@ -198,6 +198,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
         revision: borrador.revision,
         clave: claveClaude,
         realUsd: aCuatroDecimales(redactado.costoUsd),
+        respaldo: null,
       })
       if (!guardada) throw piezaCambio()
       fila = guardada

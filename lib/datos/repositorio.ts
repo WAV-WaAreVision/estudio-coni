@@ -98,6 +98,7 @@ export async function guardarBorrador(
     revision: Json
     clave: string
     realUsd: number
+    respaldo: Json | null
   },
 ): Promise<FilaDePieza | null> {
   const { data, error } = await db.rpc("guardar_borrador", {
@@ -108,6 +109,7 @@ export async function guardarBorrador(
     p_revision: borrador.revision,
     p_clave: borrador.clave,
     p_real: borrador.realUsd,
+    p_respaldo: borrador.respaldo,
   })
   if (error) {
     if (error.message === ERROR_VERSION_DESFASADA) return null
