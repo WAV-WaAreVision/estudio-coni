@@ -271,6 +271,34 @@ describe("transicionar", () => {
     expect(transicionar(producion, { tipo: "descartar" }).efectos).toEqual([])
   })
 
+  it("limpia el origen del error cuando se descarta una pieza fallida, en producción o en publicación", () => {
+    const enProduccion = transicionar(en("en_render"), { tipo: "falla_produccion", explicacion: "HeyGen falló" }).pieza
+    const enPublicacion = transicionar(programada, { tipo: "falla_publicacion", explicacion: "Metricool falló" }).pieza
+    expect(enProduccion.estadoAntesDelError).toBe("en_render")
+    expect(enPublicacion.estadoAntesDelError).toBe("programado")
+
+    for (const fallida of [enProduccion, enPublicacion]) {
+      expect(transicionar(fallida, { tipo: "descartar" }).pieza).toMatchObject({
+        estado: "descartado",
+        estadoAntesDelError: null,
+      })
+    }
+  })
+
+  it("deja el origen del error vacío en toda transición que sale de un estado de error", () => {
+    const fallidas = [
+      transicionar(en("en_render"), { tipo: "falla_produccion", explicacion: "x" }).pieza,
+      transicionar(en("subtitulando"), { tipo: "falla_produccion", explicacion: "x" }).pieza,
+      transicionar(programada, { tipo: "falla_publicacion", explicacion: "x" }).pieza,
+    ]
+    const salidas: Evento[] = [{ tipo: "reintentar", ahora: HORA }, { tipo: "descartar" }]
+    for (const fallida of fallidas) {
+      for (const salida of salidas) {
+        expect(transicionar(fallida, salida).pieza.estadoAntesDelError).toBeNull()
+      }
+    }
+  })
+
   it("pide una fecha nueva y cancela la publicación cuando la hora aprobada pasó sin publicarse", () => {
     const { pieza, efectos } = transicionar(programada, { tipo: "hora_vencida" })
     expect(pieza).toMatchObject({

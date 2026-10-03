@@ -625,6 +625,21 @@ describe("cambiarFecha", () => {
   })
 })
 
+async function aplicarComo(id: string, sesion: typeof comoConi, evento: Parameters<typeof aplicar>[3]) {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await aplicar(cliente, id, sesion, evento)
+    await cliente.query("commit")
+  } finally {
+    cliente.release()
+  }
+}
+
+const aplicarComoServicio = (id: string, evento: Parameters<typeof aplicar>[3]) =>
+  aplicarComo(id, { tipo: "servicio" }, evento)
+const aplicarComoConi = (id: string, evento: Parameters<typeof aplicar>[3]) => aplicarComo(id, comoConi, evento)
+
 describe("descartar", () => {
   it("discards a piece in progress", async () => {
     const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
@@ -644,6 +659,39 @@ describe("descartar", () => {
 
     expect(resultado.ok).toBe(true)
     expect(await fila(id)).toMatchObject({ estado: "descartado", puerta2_hash_texto: null })
+  })
+
+  it("discards a piece whose recording failed, clearing where the error came from", async () => {
+    const id = await pieza("en_render")
+    await aplicarComoServicio(id, { tipo: "falla_produccion", explicacion: "HeyGen no pudo terminar el video." })
+    expect(await fila(id)).toMatchObject({ estado: "error_produccion", estado_antes_del_error: "en_render" })
+    const { deps } = armar()
+
+    const resultado = await descartar(deps, id, await versionDe(id))
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({ estado: "descartado", estado_antes_del_error: null })
+  })
+
+  it("discards a piece whose publication failed, clearing where the error came from", async () => {
+    const id = await pieza("video_por_aprobar")
+    await aplicarComoConi(id, {
+      tipo: "aprobar_video",
+      actor: "coni",
+      videoVisto: VIDEO,
+      hashTextoVisto: hashTexto(TEXTO),
+      hashTextoActual: hashTexto(TEXTO),
+      publicarEn: new Date(Date.now() + 10 * 60_000).toISOString(),
+      en: new Date().toISOString(),
+    })
+    await aplicarComoServicio(id, { tipo: "falla_publicacion", explicacion: "Instagram rechazó el video." })
+    expect(await fila(id)).toMatchObject({ estado: "error_publicacion", estado_antes_del_error: "programado" })
+    const { deps } = armar()
+
+    const resultado = await descartar(deps, id, await versionDe(id))
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({ estado: "descartado", estado_antes_del_error: null })
   })
 
   it("refuses a published piece", async () => {
