@@ -45,7 +45,6 @@ import {
   MODELO_POR_TAREA,
   type TextoLeido,
 } from "@/lib/proveedores/anthropic"
-import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -62,10 +61,8 @@ export interface DepsProcesar {
   claude: Anthropic
   /** Read only when there is audio to transcribe, so a PDF does not need the key. */
   llaveElevenlabs: () => Promise<string>
-  /** The Voyage key (env `VOYAGE_API_KEY`); without it the card is left without links, never failed. */
+  /** The Voyage key (env `VOYAGE_API_KEY`); without it the claims are left without a vector and maintenance embeds them. */
   llaveVoyage?: () => string | undefined
-  /** Where WAV hears that a material gave up its embedding and links; without it the failure is only counted. */
-  avisos?: Notificador
   /** Any ffmpeg that runs (no libass needed); the first one found when absent. */
   ffmpeg?: string
   ahora: () => string

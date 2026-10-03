@@ -189,7 +189,6 @@ export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
       return llave
     },
     llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
-    avisos: avisosReales(),
     ffmpeg,
     ahora: () => new Date().toISOString(),
     corrida,
