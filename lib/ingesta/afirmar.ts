@@ -111,7 +111,7 @@ async function extraerPorTramo(
   return { tope: false, extraidas }
 }
 
-const estimarEmbebido = (textos: readonly string[]) =>
+export const estimarEmbebido = (textos: readonly string[]) =>
   redondear(costoVoyage(Math.ceil(textos.join("").length / 2)) + 0.0001)
 
 /**

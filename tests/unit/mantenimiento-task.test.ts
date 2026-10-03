@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
 import {
+  COLA_DE_MANTENIMIENTO,
   CONFIGURACION_FRECUENTE,
   CONFIGURACION_NOCTURNA,
   mantenimientoFrecuenteTask,
@@ -15,12 +16,16 @@ describe("mantenimiento tasks", () => {
 
   it("reconcile every 10 minutes (design A10)", () => {
     expect(CONFIGURACION_FRECUENTE.cron).toBe("*/10 * * * *")
-    expect(CONFIGURACION_FRECUENTE.queue).toEqual({ concurrencyLimit: 1 })
+  })
+
+  it("share one queue of one run at a time, so topics never form and merge together", () => {
+    expect(COLA_DE_MANTENIMIENTO.concurrencyLimit).toBe(1)
+    expect(CONFIGURACION_FRECUENTE.queue).toBe(COLA_DE_MANTENIMIENTO)
+    expect(CONFIGURACION_NOCTURNA.queue).toBe(COLA_DE_MANTENIMIENTO)
   })
 
   it("does the rest at 03:00 America/Santiago, whatever the daylight saving time (design Q4)", () => {
     expect(CONFIGURACION_NOCTURNA.cron).toEqual({ pattern: "0 3 * * *", timezone: "America/Santiago" })
-    expect(CONFIGURACION_NOCTURNA.queue).toEqual({ concurrencyLimit: 1 })
   })
 
   it("do not retry a run: the jobs alert on their own and the next tick is the retry", () => {

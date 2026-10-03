@@ -1,0 +1,100 @@
+import { estimarEmbebido, TEXTOS_POR_EMBEBIDO } from "@/lib/ingesta/afirmar"
+import { textoDeVector } from "@/lib/ingesta/agrupar"
+import { falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
+import { asignarATemas, type DepsTemas, formarTemas, type ResultadoFormacion } from "@/lib/ingesta/temas"
+import { costoVoyage, embeber } from "@/lib/proveedores/voyage"
+
+/** Claims embedded on each frequent run: a backlog drains over several runs instead of one long one. */
+export const AFIRMACIONES_POR_CORRIDA = 200
+const IDS_POR_CONSULTA = 100
+
+/** What the topic jobs need: the database, Claude, the store and, when there is a key, Voyage. No ffmpeg. */
+export interface DepsMantenimientoTemas extends DepsTemas {
+  llaveVoyage: () => string | undefined
+}
+
+export interface ResultadoMantenerTemas {
+  tope: boolean
+  embebidas: number
+  asignadas: number
+  formacion: ResultadoFormacion | null
+}
+
+/** The claims that still have no vector (a run whose Voyage call failed, or had no key), oldest first. */
+async function afirmacionesSinVector(deps: DepsMantenimientoTemas): Promise<{ id: string; texto: string }[]> {
+  const { data, error } = await deps.db
+    .from("afirmaciones")
+    .select("id, texto")
+    .is("vector", null)
+    .eq("excluida", false)
+    .order("creada_en")
+    .order("id")
+    .limit(AFIRMACIONES_POR_CORRIDA)
+  if (error) throw falloDeBase("No pude leer las afirmaciones sin vector", error)
+  return data
+}
+
+/** Embeds claims in requests of 128, paying each one. Stops at the cap and says how many it reached. */
+async function embeberPendientes(
+  deps: DepsMantenimientoTemas,
+  llave: string,
+  pendientes: readonly { id: string; texto: string }[],
+): Promise<{ tope: boolean; ids: string[] }> {
+  const ids: string[] = []
+  for (let desde = 0; desde < pendientes.length; desde += TEXTOS_POR_EMBEBIDO) {
+    const lote = pendientes.slice(desde, desde + TEXTOS_POR_EMBEBIDO)
+    const textos = lote.map((a) => a.texto)
+    const pagado = await pagarPaso(
+      {
+        db: deps.db,
+        almacen: deps.almacen,
+        ahora: deps.ahora,
+        clave: () => `temas:embeber:${crypto.randomUUID()}`,
+        verificar: () => Promise.resolve(),
+      },
+      {
+        archivo: `temas/embeber-${crypto.randomUUID()}.json`,
+        proveedor: "voyage",
+        paso: "embedding",
+        estimadoUsd: estimarEmbebido(textos),
+        llamar: async () => {
+          const r = await embeber({ clave: llave, textos, tipo: "document" })
+          if (r.vectores.length !== lote.length) throw new Error("Voyage no devolvió un vector por afirmación.")
+          return { datos: r.vectores, realUsd: costoVoyage(r.tokens) }
+        },
+      },
+    )
+    if (pagado.tope) return { tope: true, ids }
+    for (const [i, a] of lote.entries()) {
+      const vector = pagado.datos[i]
+      if (!vector) continue
+      const { error } = await deps.db
+        .from("afirmaciones")
+        .update({ vector: textoDeVector(vector) })
+        .eq("id", a.id)
+        .is("vector", null)
+      if (error) throw falloDeBase("No pude guardar el vector de la afirmación", error)
+      ids.push(a.id)
+    }
+  }
+  return { tope: false, ids }
+}
+
+/**
+ * The frequent topics job: embeds up to 200 claims left without a vector (nothing to do without a Voyage key, which is
+ * not a failure), assigns them to the nearest topic and forms new topics from what stays pending. Reaching the cap
+ * returns `tope: true` and alerts nobody: the next month's reset is the retry.
+ */
+export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<ResultadoMantenerTemas> {
+  const llave = deps.llaveVoyage()
+  const pendientes = llave ? await afirmacionesSinVector(deps) : []
+  const embebidas = llave ? await embeberPendientes(deps, llave, pendientes) : { tope: false, ids: [] }
+  let asignadas = 0
+  for (let desde = 0; desde < embebidas.ids.length; desde += IDS_POR_CONSULTA) {
+    const r = await asignarATemas(deps, embebidas.ids.slice(desde, desde + IDS_POR_CONSULTA))
+    asignadas += r.asignadas
+  }
+  if (embebidas.tope) return { tope: true, embebidas: embebidas.ids.length, asignadas, formacion: null }
+  const formacion = await formarTemas(deps)
+  return { tope: formacion.tope, embebidas: embebidas.ids.length, asignadas, formacion }
+}

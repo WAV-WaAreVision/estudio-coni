@@ -94,7 +94,7 @@ describe("rescatarTeoriasAtascadas", () => {
       ahora: dentroDe(MINUTOS_PARA_RESCATAR_TEORIA + 1),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
-      vinculos: async () => null,
+      temas: async () => null,
     })
 
     expect(resultado.teorias.rescatadas).toBeGreaterThanOrEqual(1)

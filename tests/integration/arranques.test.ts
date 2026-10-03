@@ -162,7 +162,7 @@ describe("mantenimientoFrecuente", () => {
     const resultado = await mantenimientoFrecuente({
       ...deps,
       avisos: notificadorEnMemoria(),
-      vinculos: async () => null,
+      temas: async () => null,
     })
 
     expect(resultado.arranques).toEqual([{ piezaId: id, tarea: "grabar" }])
