@@ -4,7 +4,13 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
-import { clasificarIdea, costoClaude, escribirGuion, revisarConClaude } from "@/lib/proveedores/anthropic"
+import {
+  clasificarIdea,
+  costoClaude,
+  escribirGuion,
+  RespuestaCortada,
+  revisarConClaude,
+} from "@/lib/proveedores/anthropic"
 import { servidor } from "../msw"
 
 const CLAVE = "sk-ant-clave-de-prueba"
@@ -255,10 +261,11 @@ describe("escribirGuion", () => {
     expect(error.message).toBe(RECHAZO)
   })
 
-  it("fails with a plain retryable error when the answer is cut at max_tokens", async () => {
+  it("fails with a RespuestaCortada, which retrying cannot fix, when the answer is cut at max_tokens", async () => {
     respondiendo(() => HttpResponse.json(mensaje([], { stop_reason: "max_tokens" })))
     const error = await rechazo(escribir())
-    expect(esReintentable(error)).toBe(true)
+    expect(error).toBeInstanceOf(RespuestaCortada)
+    expect(error).toBeInstanceOf(Falla)
   })
 
   it("fails with a plain retryable error when there is no answer to read", async () => {

@@ -53,6 +53,14 @@ export class RechazoDeClaude extends Falla {
   }
 }
 
+/** The answer hit `max_tokens`: asking again with the same request cuts it at the same place. */
+export class RespuestaCortada extends Falla {
+  constructor() {
+    super("Claude se quedó sin espacio antes de terminar la respuesta.")
+    this.name = "RespuestaCortada"
+  }
+}
+
 // List prices, USD per million tokens. A cache write costs 1.25x the input price.
 const PRECIOS: Record<ModeloClaude, { entrada: number; salida: number; lecturaCache: number }> = {
   "claude-opus-5-5": { entrada: 4, salida: 20, lecturaCache: 0.2 },
@@ -222,7 +230,7 @@ async function pedirJson<S extends z.ZodType>(
     throw new RechazoDeClaude()
   }
   if (respuesta.stop_reason === "max_tokens") {
-    throw new Error("Claude se quedó sin espacio antes de terminar la respuesta.")
+    throw new RespuestaCortada()
   }
   // After a fallback, `content` holds what the declined model wrote (possibly half a JSON), a `fallback` block, and
   // then the answer of the model that served the request: only the last part is the answer.
