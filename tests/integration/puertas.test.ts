@@ -372,7 +372,7 @@ describe("versión", () => {
       const id = await crearPieza(c)
       await asumir(c, comoServicio)
       const err = await fallaCon(c, "update public.piezas set titulo = 'x' where id = $1", [id])
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
       expect(err.message).toBe("version_desfasada")
     })
   })
@@ -382,7 +382,7 @@ describe("versión", () => {
       const id = await crearPieza(c)
       await asumir(c, comoConi)
       const err = await fallaCon(c, "update public.piezas set titulo = 'x', version = version + 2 where id = $1", [id])
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
     })
   })
 
@@ -391,7 +391,7 @@ describe("versión", () => {
       const id = await crearPiezaEn(c, "guion_en_proceso")
       await asumir(c, comoServicio)
       const err = await fallaCon(c, "update public.piezas set version = 0 where id = $1", [id])
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
     })
   })
 
@@ -399,7 +399,7 @@ describe("versión", () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPieza(c)
       const err = await fallaCon(c, "update public.piezas set titulo = 'x', version = 5 where id = $1", [id])
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
     })
   })
 

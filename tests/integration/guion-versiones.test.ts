@@ -160,7 +160,7 @@ describe("editar_guion_como_coni", () => {
       const { version } = await leer(c, id)
       await asumir(c, comoConi)
       const err = await fallaCon(c, EDITAR, [id, version - 1, "G", "T", "[]"])
-      expect(err.code).toBe("40001")
+      expect(err.code).toBe("PT409")
       expect(err.message).toBe("version_desfasada")
     })
   })
