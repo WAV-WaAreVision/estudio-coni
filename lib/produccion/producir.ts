@@ -101,12 +101,12 @@ async function redactarBorrador(
   const revisar = (entrada: { guion: string; texto: string }, lineasAyuda: boolean) =>
     revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno: ajenoDelRespaldo(null) })
 
-  let escrito = await escribirGuion({ cliente, guia, idea, requiereLineasAyuda })
+  let escrito = await escribirGuion({ cliente, guia, idea, respaldo: null, requiereLineasAyuda })
   costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
   let hallazgos = revisar(escrito, requiereLineasAyuda)
   if (bloquea(hallazgos)) {
     // One correction round only: whatever still blocks after it is left for Coni to see.
-    escrito = await escribirGuion({ cliente, guia, idea, requiereLineasAyuda, correcciones: hallazgos })
+    escrito = await escribirGuion({ cliente, guia, idea, respaldo: null, requiereLineasAyuda, correcciones: hallazgos })
     costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
     hallazgos = revisar(escrito, requiereLineasAyuda)
   }
