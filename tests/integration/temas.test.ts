@@ -12,7 +12,7 @@ import {
 } from "@/lib/ingesta/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
-import { asumir, CONI, como, comoConi, comoServicio, fallaCon, pool } from "./db"
+import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool } from "./db"
 import { URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -469,6 +469,89 @@ describe("temas_parecidos", () => {
       await asumir(c, comoServicio)
       const { rows } = await c.query("select * from public.temas_parecidos(0.5)")
       expect(rows).toEqual([])
+    })
+  })
+})
+
+interface FilaTema {
+  id: string
+  alias: string[]
+  fusionado_en: string | null
+  c: string
+}
+
+describe("fusionar_par_de_temas", () => {
+  // `como` rolls back: merges that depend on each other go in one call.
+  const fusionarComoServicio = (ganador: string, perdedor: string, luego?: [string, string]) =>
+    como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [ganador, perdedor])
+      if (luego) await c.query("select public.fusionar_par_de_temas($1, $2)", luego)
+      const { rows } = await c.query<FilaTema>("select id, alias, fusionado_en, centroide::text as c from public.temas")
+      const { rows: a } = await c.query<{ id: string; tema_id: string | null }>(
+        "select id, tema_id from public.afirmaciones",
+      )
+      const tema = (id: string): FilaTema => {
+        const fila = rows.find((t) => t.id === id)
+        if (!fila) throw new Error(`Falta el tema ${id}`)
+        return fila
+      }
+      return { tema, afirmaciones: a }
+    })
+
+  it("moves claims, aliases, marks the loser and recomputes the normalized centroid in one call", async () => {
+    const g = await tema("Ganador", vec({ 9: 1 }), { alias: ["Ya conocido"] })
+    const p = await tema("Perdedor", vec({ 8: 1 }), { alias: ["Ya conocido", "Otro nombre"] })
+    await afirmacion(vec({ 0: 1 }), { tema: g })
+    await afirmacion(vec({ 1: 1 }), { tema: p })
+    await afirmacion(vec({ 2: 1 }), { tema: p, excluida: true })
+    const { tema: temaPor, afirmaciones } = await fusionarComoServicio(g, p)
+    expect(afirmaciones.filter((x) => x.tema_id === g)).toHaveLength(3)
+    const ganador = temaPor(g)
+    expect(ganador.alias).toEqual(["Ya conocido", "Perdedor", "Otro nombre"])
+    expect(temaPor(p).fusionado_en).toBe(g)
+    const c = parsearVector(ganador.c)
+    expect(c[0]).toBeCloseTo(Math.SQRT1_2, 4)
+    expect(c[1]).toBeCloseTo(Math.SQRT1_2, 4)
+    expect(c[2]).toBeCloseTo(0, 4)
+  })
+
+  it("repoints earlier merges: A into B, then B into C leaves both pointing at C", async () => {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 0: 1 }))
+    const c = await tema("C", vec({ 0: 1 }))
+    await afirmacion(vec({ 0: 1 }), { tema: a })
+    const { tema: temaPor, afirmaciones } = await fusionarComoServicio(b, a, [c, b])
+    expect(temaPor(a).fusionado_en).toBe(c)
+    expect(temaPor(b).fusionado_en).toBe(c)
+    expect(temaPor(c).alias).toEqual(expect.arrayContaining(["B", "A"]))
+    expect(afirmaciones.every((x) => x.tema_id === c)).toBe(true)
+  })
+
+  it("keeps the winner's centroid when it ends with no claim vectors", async () => {
+    const g = await tema("G", vec({ 4: 1 }))
+    const p = await tema("P", vec({ 5: 1 }))
+    const { tema: temaPor } = await fusionarComoServicio(g, p)
+    expect(parsearVector(temaPor(g).c)[4]).toBeCloseTo(1, 4)
+  })
+
+  it("refuses the same topic, a merged one and a missing one, and does nothing", async () => {
+    const g = await tema("G", vec({ 4: 1 }))
+    const p = await tema("P", vec({ 5: 1 }), { fusionado: g })
+    await como(comoPostgres, async (c) => {
+      expect((await fallaCon(c, "select public.fusionar_par_de_temas($1, $1)", [g])).message).toBe("temas_iguales")
+      expect((await fallaCon(c, "select public.fusionar_par_de_temas($1, $2)", [g, p])).message).toBe(
+        "tema_ya_fusionado",
+      )
+      expect((await fallaCon(c, "select public.fusionar_par_de_temas($1, gen_random_uuid())", [g])).message).toBe(
+        "tema_inexistente",
+      )
+    })
+  })
+
+  it("is for the service role only", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.fusionar_par_de_temas(gen_random_uuid(), gen_random_uuid())")
+      expect(error.code).toBe("42501")
     })
   })
 })

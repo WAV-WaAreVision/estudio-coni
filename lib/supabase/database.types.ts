@@ -1461,6 +1461,10 @@ export type Database = {
         Args: { p_destino: string; p_origen: string }
         Returns: undefined
       }
+      fusionar_par_de_temas: {
+        Args: { p_ganador: string; p_perdedor: string }
+        Returns: undefined
+      }
       guardar_borrador: {
         Args: {
           p_clave: string

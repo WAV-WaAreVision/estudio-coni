@@ -285,36 +285,9 @@ export interface ResultadoFusion {
   fusionados: number
 }
 
-function sinRepetidos(nombres: readonly string[], propio: string): string[] {
-  const vistos = new Set([normalizarNombre(propio)])
-  return nombres.filter((nombre) => {
-    const clave = normalizarNombre(nombre)
-    if (vistos.has(clave)) return false
-    vistos.add(clave)
-    return true
-  })
-}
-
 async function fusionar(db: Db, ganadorId: string, perdedorId: string): Promise<void> {
-  const { data: filas, error } = await db.from("temas").select("id, nombre, alias").in("id", [ganadorId, perdedorId])
-  if (error) throw falloDeBase("No pude leer los temas por fusionar", error)
-  const ganador = filas.find((f) => f.id === ganadorId)
-  const perdedor = filas.find((f) => f.id === perdedorId)
-  if (!ganador || !perdedor) return
-  // The claims go first: a crash after this leaves an empty active topic that the next pair check merges again.
-  const movidas = await db.from("afirmaciones").update({ tema_id: ganadorId }).eq("tema_id", perdedorId)
-  if (movidas.error) throw falloDeBase("No pude mover las afirmaciones", movidas.error)
-  // Names merged earlier into the loser lead to the winner now: a chain never gets longer than one step.
-  const repuntados = await db.from("temas").update({ fusionado_en: ganadorId }).eq("fusionado_en", perdedorId)
-  if (repuntados.error) throw falloDeBase("No pude repuntar los temas absorbidos", repuntados.error)
-  const alias = sinRepetidos([...ganador.alias, perdedor.nombre, ...perdedor.alias], ganador.nombre)
-  const marcado = await db
-    .from("temas")
-    .update({ fusionado_en: ganadorId, actualizado_en: new Date().toISOString() })
-    .eq("id", perdedorId)
-  if (marcado.error) throw falloDeBase("No pude marcar el tema como fusionado", marcado.error)
-  const conAlias = await db.from("temas").update({ alias }).eq("id", ganadorId)
-  if (conAlias.error) throw falloDeBase("No pude guardar el alias", conAlias.error)
+  const { error } = await db.rpc("fusionar_par_de_temas", { p_ganador: ganadorId, p_perdedor: perdedorId })
+  if (error) throw falloDeBase("No pude fusionar los temas", error)
 }
 
 /** More claims wins; a tie goes to the older topic, then to the smaller id. */
@@ -392,7 +365,6 @@ export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
     }
     return actual
   }
-  const supervivientes = new Set<string>()
   for (const veredicto of pagado.datos) {
     if (!veredicto.mismo) continue
     const a = resolver(veredicto.a)
@@ -401,9 +373,6 @@ export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
     const { ganador, perdedor } = await elegirGanador(db, a, b)
     await fusionar(db, ganador, perdedor)
     absorbidos.set(perdedor, ganador)
-    supervivientes.delete(perdedor)
-    supervivientes.add(ganador)
   }
-  for (const id of supervivientes) await recalcularTema(db, id)
   return { tope: false, fusionados: absorbidos.size }
 }

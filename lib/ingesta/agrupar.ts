@@ -48,39 +48,30 @@ export function textoDeVector(v: readonly number[]): string {
 }
 
 /**
- * Single-link grouping: two items are in the same group when a chain of pairs, each at or above `umbral`, joins them.
- * Deterministic: ids sorted, members sorted, groups ordered by their first id.
+ * Leader grouping: items go in id order and join the group whose centroid is nearest, if that is at or above
+ * `umbral`; otherwise they start a group. Measuring against the centroid (not against any member) keeps a chain of
+ * pairs, each similar to the next, from dragging unrelated claims into one group. Deterministic: groups come out
+ * in the order of their first id.
  */
 export function agruparPorSimilitud(
   items: readonly { id: string; vector: readonly number[] }[],
   umbral: number,
 ): string[][] {
   const ordenados = [...items].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-  const unitarios = ordenados.map((item) => normalizar(item.vector))
-  const raiz = ordenados.map((_, i) => i)
-  const buscar = (i: number): number => {
-    let actual = i
-    while (raiz[actual] !== actual) {
-      const padre = raiz[actual] ?? actual
-      raiz[actual] = raiz[padre] ?? padre
-      actual = raiz[actual] ?? actual
+  const grupos: { ids: string[]; centroide: number[] }[] = []
+  for (const item of ordenados) {
+    const v = normalizar(item.vector)
+    let mejor: { grupo: (typeof grupos)[number]; similitud: number } | null = null
+    for (const grupo of grupos) {
+      const similitud = coseno(grupo.centroide, v)
+      if (similitud >= umbral && (!mejor || similitud > mejor.similitud)) mejor = { grupo, similitud }
     }
-    return actual
-  }
-  for (let i = 0; i < ordenados.length; i++) {
-    for (let j = i + 1; j < ordenados.length; j++) {
-      const a = unitarios[i]
-      const b = unitarios[j]
-      if (a && b && buscar(i) !== buscar(j) && coseno(a, b) >= umbral) {
-        // The smaller index stays the root so groups come out in id order.
-        raiz[buscar(j)] = buscar(i)
-      }
+    if (mejor) {
+      mejor.grupo.centroide = centroideIncremental(mejor.grupo.centroide, mejor.grupo.ids.length, v)
+      mejor.grupo.ids.push(item.id)
+    } else {
+      grupos.push({ ids: [item.id], centroide: v })
     }
   }
-  const grupos = new Map<number, string[]>()
-  for (const [i, item] of ordenados.entries()) {
-    const r = buscar(i)
-    grupos.set(r, [...(grupos.get(r) ?? []), item.id])
-  }
-  return [...grupos.entries()].sort(([a], [b]) => a - b).map(([, ids]) => ids)
+  return grupos.map((g) => g.ids)
 }

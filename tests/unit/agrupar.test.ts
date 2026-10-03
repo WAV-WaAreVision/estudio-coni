@@ -35,13 +35,15 @@ describe("agruparPorSimilitud", () => {
     expect(agruparPorSimilitud([...items].reverse(), 0.9)).toEqual(agruparPorSimilitud(items, 0.9))
   })
 
-  it("chains: a claim joins a group through any one of its members (single link)", () => {
+  it("does not chain: a claim must be near the group's centroid, not near one member", () => {
+    const angulo = (grados: number) => [Math.cos((grados * Math.PI) / 180), Math.sin((grados * Math.PI) / 180), 0]
+    // A~B and B~C at 0.85, A~C near 0.45.
     const cadena = [
-      { id: "x", vector: [1, 0, 0] },
-      { id: "y", vector: [0.8, 0.6, 0] },
-      { id: "z", vector: [0.28, 0.96, 0] },
+      { id: "a", vector: angulo(0) },
+      { id: "b", vector: angulo(31.8) },
+      { id: "c", vector: angulo(63.6) },
     ]
-    expect(agruparPorSimilitud(cadena, 0.79)).toEqual([["x", "y", "z"]])
+    expect(agruparPorSimilitud(cadena, 0.8)).toEqual([["a", "b"], ["c"]])
   })
 
   it("keeps everything apart when nothing reaches the threshold", () => {
