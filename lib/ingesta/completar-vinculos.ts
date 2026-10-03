@@ -1,6 +1,6 @@
 import { falloDeBase, MaterialBorrado } from "@/lib/ingesta/gasto-material"
 import { type DepsProcesar, incrustarFicha, VIGENCIA_DE_CORRIDA_SEGUNDOS } from "@/lib/ingesta/procesar"
-import { intentarVincular } from "@/lib/ingesta/vincular"
+import { intentarVincular, MAXIMO_INTENTOS_VINCULOS } from "@/lib/ingesta/vincular"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Material = Database["public"]["Tables"]["materiales"]["Row"]
@@ -12,13 +12,17 @@ export interface ResultadoCompletarVinculos {
   tope: boolean
 }
 
-/** Ready materials with a card that still lack their vector or whose links are flagged pending, oldest first. */
+/**
+ * Ready materials with a card that still lack their vector or whose links are flagged pending, oldest first. Those that
+ * used up their attempts are left out: only a person can say a material is worth trying again.
+ */
 async function pendientesDeCompletar(deps: DepsProcesar, limite: number): Promise<string[]> {
   const { db } = deps
   const sinVector = await db
     .from("materiales")
     .select("id, creado_en, fichas!inner(material_id), embeddings_ficha(material_id)")
     .eq("estado", "listo")
+    .lt("vinculos_intentos", MAXIMO_INTENTOS_VINCULOS)
     .is("embeddings_ficha", null)
     .order("creado_en")
     .limit(limite)
@@ -27,6 +31,7 @@ async function pendientesDeCompletar(deps: DepsProcesar, limite: number): Promis
     .from("materiales")
     .select("id, creado_en, fichas!inner(material_id)")
     .eq("estado", "listo")
+    .lt("vinculos_intentos", MAXIMO_INTENTOS_VINCULOS)
     .eq("vinculos_pendientes", true)
     .order("creado_en")
     .limit(limite)

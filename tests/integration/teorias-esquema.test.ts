@@ -245,9 +245,7 @@ describe("guardar_teoria", () => {
     await como(comoPostgres, async (c) => {
       const id = await conBorrador(c)
       await asumir(c, comoMantenedor)
-      await c.query("select public.guardar_teoria($1, 'Nuevo título', 'Nueva tesis', null)", [
-        id,
-      ])
+      await c.query("select public.guardar_teoria($1, 'Nuevo título', 'Nueva tesis', null)", [id])
       const { rows } = await c.query<{ titulo: string; tesis: string; estado: string; editada_en: Date | null }>(
         "select titulo, tesis, estado, editada_en from public.teorias where id = $1",
         [id],
@@ -267,7 +265,9 @@ describe("guardar_teoria", () => {
       )
       await asumir(c, comoConi)
       await c.query("select public.guardar_teoria($1, 'Nuevo', 'Tesis', null)", [id])
-      const { rows } = await c.query<{ argumentos: unknown }>("select argumentos from public.teorias where id = $1", [id])
+      const { rows } = await c.query<{ argumentos: unknown }>("select argumentos from public.teorias where id = $1", [
+        id,
+      ])
       expect(rows[0]?.argumentos).toEqual([{ materialId: "x" }])
       const vieja = await fallaCon(
         c,
@@ -293,11 +293,7 @@ describe("guardar_teoria", () => {
       const [a, b] = await dosMateriales(c)
       await asumir(c, comoConi)
       const id = await pedir(c, [a, b])
-      const error = await fallaCon(
-        c,
-        "select public.guardar_teoria($1, 'T', 'Tesis', null)",
-        [id],
-      )
+      const error = await fallaCon(c, "select public.guardar_teoria($1, 'T', 'Tesis', null)", [id])
       expect(error.code).toBe("22023")
       expect(error.message).toBe("teoria_no_editable")
     })
@@ -306,25 +302,14 @@ describe("guardar_teoria", () => {
   it("refuses an empty title or thesis, a stranger and a missing theory", async () => {
     await como(comoPostgres, async (c) => {
       const id = await conBorrador(c)
+      expect((await fallaCon(c, "select public.guardar_teoria($1, '  ', 'Tesis', null)", [id])).code).toBe("22023")
+      expect((await fallaCon(c, "select public.guardar_teoria($1, 'T', '', null)", [id])).code).toBe("22023")
       expect(
-        (await fallaCon(c, "select public.guardar_teoria($1, '  ', 'Tesis', null)", [id]))
+        (await fallaCon(c, "select public.guardar_teoria('d0000000-0000-4000-8000-0000000000ff', 'T', 'x', null)"))
           .code,
-      ).toBe("22023")
-      expect(
-        (await fallaCon(c, "select public.guardar_teoria($1, 'T', '', null)", [id])).code,
-      ).toBe("22023")
-      expect(
-        (
-          await fallaCon(
-            c,
-            "select public.guardar_teoria('d0000000-0000-4000-8000-0000000000ff', 'T', 'x', null)",
-          )
-        ).code,
       ).toBe("P0002")
       await asumir(c, comoOtra)
-      expect(
-        (await fallaCon(c, "select public.guardar_teoria($1, 'T', 'x', null)", [id])).code,
-      ).toBe("42501")
+      expect((await fallaCon(c, "select public.guardar_teoria($1, 'T', 'x', null)", [id])).code).toBe("42501")
     })
   })
 })
@@ -353,14 +338,17 @@ describe("fallo y reintento", () => {
     })
   })
 
-  it.each(["tope", "error", null])("lets a theory that failed for %s be retried and forgets the code", async (codigo) => {
-    await como(comoPostgres, async (c) => {
-      const id = await fallida(c, codigo)
-      await c.query("select public.reintentar_teoria($1)", [id])
-      const { rows } = await c.query("select estado, motivo_codigo from public.teorias where id = $1", [id])
-      expect(rows[0]).toEqual({ estado: "sintetizando", motivo_codigo: null })
-    })
-  })
+  it.each(["tope", "error", null])(
+    "lets a theory that failed for %s be retried and forgets the code",
+    async (codigo) => {
+      await como(comoPostgres, async (c) => {
+        const id = await fallida(c, codigo)
+        await c.query("select public.reintentar_teoria($1)", [id])
+        const { rows } = await c.query("select estado, motivo_codigo from public.teorias where id = $1", [id])
+        expect(rows[0]).toEqual({ estado: "sintetizando", motivo_codigo: null })
+      })
+    },
+  )
 
   it("restarts the clock of the synthesis when a theory is retried", async () => {
     await como(comoPostgres, async (c) => {

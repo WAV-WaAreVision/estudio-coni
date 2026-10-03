@@ -44,7 +44,7 @@ import {
   necesitaAdaptacion,
   traducirMaterial,
 } from "@/lib/ingesta/traducir"
-import { vincularMaterial } from "@/lib/ingesta/vincular"
+import { registrarFallaDeVinculos, vincularMaterial } from "@/lib/ingesta/vincular"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -53,6 +53,7 @@ import {
   MODELO_POR_TAREA,
   type TextoLeido,
 } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
 import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 import type { Database } from "@/lib/supabase/database.types"
@@ -72,6 +73,8 @@ export interface DepsProcesar {
   llaveElevenlabs: () => Promise<string>
   /** The Voyage key (env `VOYAGE_API_KEY`); without it the card is left without links, never failed. */
   llaveVoyage?: () => string | undefined
+  /** Where WAV hears that a material gave up its embedding and links; without it the failure is only counted. */
+  avisos?: Notificador
   /** Any ffmpeg that runs (no libass needed); the first one found when absent. */
   ffmpeg?: string
   ahora: () => string
@@ -591,6 +594,7 @@ export async function incrustarFicha(ctx: Contexto): Promise<"listo" | "pendient
     if (error instanceof TopeDeEmbedding) return "tope"
     // Left for the later pass (`vinculos_pendientes`), but visible in the logs. The key is already redacted by the client.
     console.warn(`Embedding pendiente del material ${material.id}: ${error instanceof Error ? error.message : "error"}`)
+    await registrarFallaDeVinculos(deps, material, error)
     return "pendiente"
   }
 }

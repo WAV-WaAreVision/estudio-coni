@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import {
   type Contexto,
   falloDeBase,
@@ -9,17 +10,22 @@ import {
   redondear,
 } from "@/lib/ingesta/gasto-material"
 import type { DepsProcesar } from "@/lib/ingesta/procesar"
+import { detalleTecnico } from "@/lib/produccion/fallas"
 import {
   clasificarVinculos,
   costoClaude,
   type FichaParaVincular,
   MODELO_POR_TAREA,
+  RechazoDeClaude,
   TIPOS_DE_VINCULO,
   type VinculoPropuesto,
 } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
+
+/** Failed attempts after which the sweep stops insisting on a material's embedding and links, and WAV is told. */
+export const MAXIMO_INTENTOS_VINCULOS = 3
 
 /** How many neighbours Claude weighs for a card. */
 export const CANDIDATOS_POR_MATERIAL = 10
@@ -104,9 +110,42 @@ function filaDeVinculo(materialId: string, v: VinculoPropuesto) {
   }
 }
 
-async function marcarPendiente(db: Db, id: string, pendiente: boolean): Promise<void> {
-  const { error } = await db.from("materiales").update({ vinculos_pendientes: pendiente }).eq("id", id)
+async function actualizarVinculos(
+  db: Db,
+  id: string,
+  cambios: { vinculos_pendientes: boolean; vinculos_intentos?: number },
+): Promise<void> {
+  const { error } = await db.from("materiales").update(cambios).eq("id", id)
   if (error) throw falloDeBase("No pude actualizar el material", error)
+}
+
+/** What retrying cannot fix: Claude declined, or a key or setting is wrong. The rest (outages, odd answers) may pass. */
+function esFallaDefinitiva(falla: unknown): boolean {
+  return falla instanceof RechazoDeClaude || falla instanceof FallaDeConfiguracion
+}
+
+/**
+ * A failed attempt at the embedding or the links of a material: it stays flagged, the attempt is counted (a final
+ * failure counts as all of them) and, on reaching the limit, WAV is told once. From there the sweep leaves it alone.
+ */
+export async function registrarFallaDeVinculos(
+  deps: DepsProcesar,
+  material: { id: string; vinculos_intentos: number },
+  falla: unknown,
+): Promise<void> {
+  const intentos = esFallaDefinitiva(falla)
+    ? MAXIMO_INTENTOS_VINCULOS
+    : Math.min(material.vinculos_intentos + 1, MAXIMO_INTENTOS_VINCULOS)
+  await actualizarVinculos(deps.db, material.id, { vinculos_pendientes: true, vinculos_intentos: intentos })
+  if (intentos < MAXIMO_INTENTOS_VINCULOS || material.vinculos_intentos >= MAXIMO_INTENTOS_VINCULOS) return
+  await deps.avisos?.aWav(
+    "Vínculos del material sin resolver",
+    [
+      `Material: ${material.id}`,
+      `Dejé de reintentar sus embeddings y vínculos tras ${MAXIMO_INTENTOS_VINCULOS} intentos.`,
+      detalleTecnico(falla),
+    ].join("\n"),
+  )
 }
 
 export type EstadoVinculos = "hecho" | "pendiente" | "tope"
@@ -122,6 +161,8 @@ async function vincular(ctx: Contexto): Promise<EstadoVinculos> {
   const deLasCandidatas = candidatos.flatMap((id) => fichas.get(id) ?? [])
   if (!base || deLasCandidatas.length === 0) return "hecho"
 
+  // Cached per material by design: the proposals are not recomputed, so a card that arrives later is not weighed here.
+  // It finds this one, and the link, through its own `materiales_cercanos`.
   const archivo = `materiales/${material.id}/vinculos.json`
   let propuestos = await pagadoAntes(ctx, archivo, Propuestos)
   if (!propuestos) {
@@ -171,8 +212,12 @@ export async function intentarVincular(deps: DepsProcesar, materialId: string): 
     if (falla instanceof MaterialBorrado) throw falla
     // Visible in the logs; the provider clients already redact their keys.
     console.warn(`Vínculos pendientes del material ${materialId}: ${falla instanceof Error ? falla.message : "error"}`)
-    estado = "pendiente"
+    await registrarFallaDeVinculos(deps, material, falla)
+    return "pendiente"
   }
-  await marcarPendiente(deps.db, materialId, estado !== "hecho")
+  // The cap and a missing vector are not failures of this material: they do not use up its attempts.
+  if (estado === "hecho")
+    await actualizarVinculos(deps.db, materialId, { vinculos_pendientes: false, vinculos_intentos: 0 })
+  else await actualizarVinculos(deps.db, materialId, { vinculos_pendientes: true })
   return estado
 }
