@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
-import { semanaDe } from "@/lib/motor/semana"
+import { domingoDeSemana } from "@/lib/motor/semana"
 import { ejecutarMotorSemanal } from "@/lib/motor/tarea"
 import { COLA_DEL_MOTOR, CONFIGURACION_MOTOR, motorManualTask, motorSemanalTask } from "../../trigger/motor-semanal"
 
@@ -21,23 +21,23 @@ describe("motorSemanalTask", () => {
   })
 })
 
-describe("semanaDe", () => {
+describe("domingoDeSemana", () => {
   it("is the same day when the date is a Sunday in Santiago", () => {
-    expect(semanaDe(new Date("2026-10-05T00:00:00Z"))).toBe("2026-10-04")
+    expect(domingoDeSemana(new Date("2026-10-05T00:00:00Z"))).toBe("2026-10-04")
   })
 
   it("is the coming Sunday when the date is a Wednesday", () => {
-    expect(semanaDe(new Date("2026-10-07T15:00:00Z"))).toBe("2026-10-11")
+    expect(domingoDeSemana(new Date("2026-10-07T15:00:00Z"))).toBe("2026-10-11")
   })
 
   it("is the next day on a Saturday night in Santiago, even when UTC is already Sunday", () => {
     // 2026-10-03 23:30 in Santiago (UTC-3) is 2026-10-04 02:30 UTC.
-    expect(semanaDe(new Date("2026-10-04T02:30:00Z"))).toBe("2026-10-04")
+    expect(domingoDeSemana(new Date("2026-10-04T02:30:00Z"))).toBe("2026-10-04")
   })
 
   it("stays on the previous Sunday's week on a Sunday night in Santiago, even when UTC is already Monday", () => {
     // 2026-10-04 22:00 in Santiago is 2026-10-05 01:00 UTC.
-    expect(semanaDe(new Date("2026-10-05T01:00:00Z"))).toBe("2026-10-04")
+    expect(domingoDeSemana(new Date("2026-10-05T01:00:00Z"))).toBe("2026-10-04")
   })
 })
 

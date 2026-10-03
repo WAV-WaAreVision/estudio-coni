@@ -1,4 +1,4 @@
-import { semanaDe } from "@/lib/motor/semana"
+import { domingoDeSemana } from "@/lib/motor/semana"
 import { correrMotor, type DepsDelMotor, type ResultadoDelMotor } from "@/lib/motor/semanal"
 
 export type EntradaDelMotor = { timestamp?: Date; manual?: boolean }
@@ -14,5 +14,5 @@ export async function ejecutarMotorSemanal(
 ): Promise<ResultadoDelMotor | { omitido: true }> {
   const deps = await depsMotor()
   if (!deps) return { omitido: true }
-  return correrMotor(deps, { semana: semanaDe(entrada.timestamp ?? ahora()), manual: entrada.manual === true })
+  return correrMotor(deps, { semana: domingoDeSemana(entrada.timestamp ?? ahora()), manual: entrada.manual === true })
 }
