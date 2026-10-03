@@ -133,6 +133,19 @@ describe("extraerAfirmaciones", () => {
     expect(afirmaciones[0]?.cita).toBe("Hablar de límites   es parte del consentimiento.")
   })
 
+  it("reports how many claims Claude proposed, dropped ones included", async () => {
+    respondiendo(
+      salida([
+        afirmacion({ cita: "El deseo siempre es lineal." }),
+        afirmacion({ cita: "Hablar de límites es parte del consentimiento." }),
+      ]),
+    )
+
+    const { propuestas } = await pedir()
+
+    expect(propuestas).toBe(2)
+  })
+
   it("keeps at most MAXIMO_AFIRMACIONES_POR_TRAMO claims", async () => {
     expect(MAXIMO_AFIRMACIONES_POR_TRAMO).toBe(15)
     respondiendo(salida(Array.from({ length: 20 }, () => afirmacion())))

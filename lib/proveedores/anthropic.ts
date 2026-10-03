@@ -711,7 +711,7 @@ export async function extraerAfirmaciones(entrada: {
   cliente: Anthropic
   tramo: Tramo
   autor: { nombre: string; credencial: string | null }
-}): Promise<{ afirmaciones: AfirmacionExtraida[]; idioma: string; uso: UsoClaude }> {
+}): Promise<{ afirmaciones: AfirmacionExtraida[]; idioma: string; uso: UsoClaude; propuestas: number }> {
   const { tramo, autor } = entrada
   const { salida, uso } = await pedirJson(entrada.cliente, "extraerAfirmaciones", {
     guia: GUIA_DE_AFIRMACIONES,
@@ -730,5 +730,10 @@ ${sinCierre(tramo.texto)}
     const cita = fragmentoTalCual(tramo.texto, afirmacion.cita)
     return cita === null ? [] : [{ ...afirmacion, cita, ubicacion: ubicacionDeCita(tramo, cita) }]
   })
-  return { afirmaciones: afirmaciones.slice(0, MAXIMO_AFIRMACIONES_POR_TRAMO), idioma: salida.idioma, uso }
+  return {
+    afirmaciones: afirmaciones.slice(0, MAXIMO_AFIRMACIONES_POR_TRAMO),
+    idioma: salida.idioma,
+    uso,
+    propuestas: salida.afirmaciones.length,
+  }
 }
