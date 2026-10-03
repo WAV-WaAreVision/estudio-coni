@@ -227,11 +227,11 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
       tipo: "video",
       archivo: { extension: "mp4", datos: await fixture("reel-subtitulado.mp4") },
     })
-    await expect(procesarMaterial(await deps(almacen), id)).rejects.toThrow()
+    await expect(procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)).rejects.toThrow()
     expect(caida.visiones).toHaveLength(1)
 
     const sana = simularClaude({ lectura: PANTALLA })
-    await procesarMaterial(await deps(almacen), id)
+    await procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)
 
     expect(scribe.n).toBe(1)
     expect(sana.visiones).toEqual([])

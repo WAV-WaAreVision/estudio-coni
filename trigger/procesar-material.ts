@@ -16,5 +16,5 @@ export const procesarMaterialTask = schemaTask({
   // Once the retries are over: the material says why, in words Coni can read, and WAV is told.
   onFailure: ({ payload, error, ctx }) =>
     alFallarMaterial(depsFalla(), { materialId: payload.materialId, corrida: ctx.run.id, error }),
-  run: async ({ materialId }) => procesarMaterial(await depsProcesar(), materialId),
+  run: async ({ materialId }, { ctx }) => procesarMaterial(await depsProcesar(ctx.run.id), materialId),
 })

@@ -12,7 +12,7 @@ import {
   type PaginaExtraida,
   SinTexto,
 } from "@/lib/ingesta/extraer"
-import { MaterialNoProcesable, marcarFallido, motivoDefinitivo } from "@/lib/ingesta/falla-material"
+import { MaterialNoProcesable, MOTIVO_GENERICO, marcarFallido, motivoDefinitivo } from "@/lib/ingesta/falla-material"
 import {
   buscarFfmpegBasico,
   deduplicarFotogramas,
@@ -45,6 +45,8 @@ export interface DepsProcesar {
   /** Any ffmpeg that runs (no libass needed); the first one found when absent. */
   ffmpeg?: string
   ahora: () => string
+  /** The Trigger.dev run id: the claim on a material belongs to one run. */
+  corrida: string
 }
 
 export type ResultadoProcesar =
@@ -52,7 +54,10 @@ export type ResultadoProcesar =
   | { resultado: "ya_listo" }
   | { resultado: "fallido"; motivo: string }
   | { resultado: "tope" }
+  | { resultado: "en_curso" }
 
+/** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
+export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
 export const MOTIVO_TOPE = "Llegaste al tope de gasto del mes. Súbelo en Ajustes para seguir."
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
 const REDES_QUE_NO_SE_ABREN = ["instagram.com", "tiktok.com"]
@@ -66,6 +71,9 @@ const CARACTERES_POR_TOKEN = 3
 const MAXIMO_CARACTERES_PARA_FICHA = 120_000
 const TOKENS_POR_IMAGEN = 1_600
 const TOKENS_DE_SALIDA_POR_IMAGEN = 300
+
+/** Releases the claim of the run on a material. */
+const LIBRE = { corrida_id: null, corrida_desde: null }
 
 const redondear = (usd: number) => Number(usd.toFixed(4))
 
@@ -588,6 +596,7 @@ async function fichaDe(
     estado: "listo",
     texto_clave: claves(material.id).texto,
     motivo_fallo: null,
+    ...LIBRE,
     ...(autorDado === null && autorSugerido?.trim() ? { autor: autorSugerido.trim() } : {}),
     ...(material.titulo?.trim() || !titulo ? {} : { titulo }),
   })
@@ -606,7 +615,7 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
 
 /** The cap stops the run without failing it: the material waits as it is, with the reason, and no provider is called. */
 async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
-  await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: MOTIVO_TOPE })
+  await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: MOTIVO_TOPE, ...LIBRE })
   return { resultado: "tope" }
 }
 
@@ -617,8 +626,13 @@ async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
  * retries, and the `onFailure` hook marks it failed only once the retries are over.
  */
 export async function procesarMaterial(deps: DepsProcesar, materialId: string): Promise<ResultadoProcesar> {
-  const material = await leerMaterial(deps.db, materialId)
-  if (material.estado === "listo") return { resultado: "ya_listo" }
+  const leido = await leerMaterial(deps.db, materialId)
+  if (leido.estado === "listo") return { resultado: "ya_listo" }
+  // A late run (a retry that outlived a failure) must not revive a material that already failed: retrying it sets
+  // it back to procesando first.
+  if (leido.estado === "fallido") return { resultado: "fallido", motivo: leido.motivo_fallo ?? MOTIVO_GENERICO }
+  const material = await tomarMaterial(deps, materialId)
+  if (!material) return { resultado: "en_curso" }
   try {
     return await procesar({ deps, material })
   } catch (error) {
@@ -627,4 +641,23 @@ export async function procesarMaterial(deps: DepsProcesar, materialId: string): 
     await marcarFallido(deps.db, materialId, motivo)
     return { resultado: "fallido", motivo }
   }
+}
+
+/**
+ * Takes the material for this run: only when it is still processing and nobody holds it, this run already does (a
+ * retry of the same run), or the holder is gone (its claim is older than the task can last). Null when another run has it.
+ */
+async function tomarMaterial(deps: DepsProcesar, id: string): Promise<Material | null> {
+  const ahora = deps.ahora()
+  const vencida = new Date(new Date(ahora).getTime() - VIGENCIA_DE_CORRIDA_SEGUNDOS * 1000).toISOString()
+  const { data, error } = await deps.db
+    .from("materiales")
+    .update({ corrida_id: deps.corrida, corrida_desde: ahora })
+    .eq("id", id)
+    .eq("estado", "procesando")
+    .or(`corrida_id.is.null,corrida_id.eq."${deps.corrida}",corrida_desde.lt.${vencida}`)
+    .select("*")
+    .maybeSingle()
+  if (error) throw falloDeBase("No pude tomar el material", error)
+  return data
 }

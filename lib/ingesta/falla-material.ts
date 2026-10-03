@@ -47,7 +47,7 @@ type Db = SupabaseClient<Database>
 export async function marcarFallido(db: Db, materialId: string, motivo: string): Promise<void> {
   const { error } = await db
     .from("materiales")
-    .update({ estado: "fallido", motivo_fallo: motivo })
+    .update({ estado: "fallido", motivo_fallo: motivo, corrida_id: null, corrida_desde: null })
     .eq("id", materialId)
     .neq("estado", "listo")
   if (error) throw new Error(`No pude marcar el material ${materialId} como fallido: ${error.message}`)

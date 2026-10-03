@@ -145,7 +145,7 @@ export function depsNocturno(): DepsNocturno {
  * The dependencies of a `procesar-material` run. Claude's key and ffmpeg are checked here, before the run spends
  * anything; ElevenLabs' key is read only when a material has audio to transcribe.
  */
-export async function depsProcesar(): Promise<DepsProcesar> {
+export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
   const db = clienteDeServicio()
   const llaveDeAnthropic = await leerSecreto(db, "anthropic")
   if (!llaveDeAnthropic) {
@@ -170,5 +170,6 @@ export async function depsProcesar(): Promise<DepsProcesar> {
     },
     ffmpeg,
     ahora: () => new Date().toISOString(),
+    corrida,
   }
 }

@@ -160,6 +160,7 @@ export async function deps(almacen: AlmacenEnMemoria, extra: Partial<DepsProcesa
     llaveElevenlabs: async () => "sk_eleven_de_prueba",
     ffmpeg: await ffmpegDePrueba(),
     ahora: () => new Date().toISOString(),
+    corrida: `run_${crypto.randomUUID()}`,
     ...extra,
   }
 }

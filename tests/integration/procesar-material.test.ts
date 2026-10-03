@@ -99,14 +99,14 @@ describe("documento", () => {
       tipo: "documento",
       archivo: { ...UN_PDF, datos: await fixture("dos-paginas.pdf") },
     })
-    await expect(procesarMaterial(await deps(almacen), id)).rejects.toThrow()
+    await expect(procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)).rejects.toThrow()
     expect((await material(id)).estado).toBe("procesando")
     expect(caida.idiomas).toBe(1)
     expect(texto(almacen, id, "texto.txt")).toBeDefined()
 
     servidor.resetHandlers()
     const sana = simularClaude({ idioma: "es" })
-    const resultado = await procesarMaterial(await deps(almacen), id)
+    const resultado = await procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)
 
     expect(resultado).toEqual({ resultado: "listo" })
     expect(sana.idiomas).toBe(0)
@@ -378,6 +378,104 @@ describe("errores", () => {
     await expect(procesarMaterial(await deps(almacenEnMemoria()), crypto.randomUUID())).rejects.toThrow(
       /No existe el material/,
     )
+  })
+})
+
+async function corridaDe(id: string): Promise<string | null> {
+  const { rows } = await pool.query<{ corrida_id: string | null }>(
+    "select corrida_id from public.materiales where id = $1",
+    [id],
+  )
+  return rows[0]?.corrida_id ?? null
+}
+
+describe("una corrida por material", () => {
+  it("returns en_curso and calls no provider when another run holds the material", async () => {
+    const almacen = almacenEnMemoria()
+    const claude = simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set corrida_id = 'run_otra', corrida_desde = now() where id = $1", [id])
+
+    const resultado = await procesarMaterial(await deps(almacen, { corrida: "run_nueva" }), id)
+
+    expect(resultado).toEqual({ resultado: "en_curso" })
+    expect(claude.total).toBe(0)
+    expect(await gastos(id)).toEqual([])
+    expect(await corridaDe(id)).toBe("run_otra")
+  })
+
+  it("lets the run that holds the material continue after a retry, and releases it when ready", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set corrida_id = 'run_a', corrida_desde = now() where id = $1", [id])
+
+    const resultado = await procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)
+
+    expect(resultado).toEqual({ resultado: "listo" })
+    expect(await corridaDe(id)).toBeNull()
+  })
+
+  it("takes over a claim older than the task's maximum duration", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query(
+      "update public.materiales set corrida_id = 'run_muerta', corrida_desde = now() - interval '40 minutes' where id = $1",
+      [id],
+    )
+
+    const resultado = await procesarMaterial(await deps(almacen, { corrida: "run_nueva" }), id)
+
+    expect(resultado).toEqual({ resultado: "listo" })
+  })
+
+  it("does not process a failed material, so a late run cannot revive it", async () => {
+    const almacen = almacenEnMemoria()
+    const claude = simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set estado = 'fallido', motivo_fallo = 'sin texto' where id = $1", [id])
+
+    const resultado = await procesarMaterial(await deps(almacen), id)
+
+    expect(resultado).toEqual({ resultado: "fallido", motivo: "sin texto" })
+    expect(claude.total).toBe(0)
+    expect(await material(id)).toMatchObject({ estado: "fallido", motivo_fallo: "sin texto" })
+  })
+
+  it("releases the material when the monthly cap stops the run", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    const anterior = await pool.query<{ tope: string }>("select tope_mensual_usd::text as tope from public.ajustes")
+    await pool.query("update public.ajustes set tope_mensual_usd = 0.0001")
+    try {
+      expect(await procesarMaterial(await deps(almacen), id)).toEqual({ resultado: "tope" })
+      expect(await corridaDe(id)).toBeNull()
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [anterior.rows[0]?.tope])
+    }
+  })
+
+  it("releases the material when it fails for good", async () => {
+    const almacen = almacenEnMemoria()
+    const id = await crearMaterial(almacen, {
+      tipo: "documento",
+      archivo: { ...UN_PDF, datos: await fixture("en-blanco.pdf") },
+    })
+
+    expect((await procesarMaterial(await deps(almacen), id)).resultado).toBe("fallido")
+    expect(await corridaDe(id)).toBeNull()
+  })
+
+  it("keeps the claim when the run fails for a reason that will be retried", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ fichaFalla: true })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+
+    await expect(procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)).rejects.toThrow()
+
+    expect(await corridaDe(id)).toBe("run_a")
   })
 })
 
