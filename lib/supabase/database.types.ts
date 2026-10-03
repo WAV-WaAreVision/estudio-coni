@@ -1034,6 +1034,7 @@ export type Database = {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean
       }
+      reintentar_material: { Args: { p_id: string }; Returns: undefined }
       renombrar_categoria: {
         Args: { p_id: string; p_nombre: string }
         Returns: undefined
