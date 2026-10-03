@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
-import { CONI, como, comoConi, comoMantenedor, comoOtra, comoPostgres, fallaCon, MANTENEDOR, pool } from "./db"
+import { asumir, CONI, como, comoConi, comoMantenedor, comoOtra, comoPostgres, fallaCon, MANTENEDOR, pool } from "./db"
 
 afterAll(() => pool.end())
 
@@ -24,6 +24,13 @@ async function crearMaterial(c: Cliente, autorId: string, extra: { rol?: string 
   const id = rows[0]?.id
   if (!id) throw new Error("No se creó el material")
   return id
+}
+
+/** Aliases have no RPC, so tests set them as the database owner and go back to the member. */
+async function ponerAlias(c: Cliente, id: string, alias: string[], sesion: Parameters<typeof asumir>[1]): Promise<void> {
+  await asumir(c, comoPostgres)
+  await c.query("update public.autores set alias = $2 where id = $1", [id, alias])
+  await asumir(c, sesion)
 }
 
 describe("autores", () => {
@@ -104,7 +111,7 @@ describe("crear_autor", () => {
   it("returns the existing id when the name matches an alias", async () => {
     await como(comoConi, async (c) => {
       const id = await crearAutor(c, "Esther Perel")
-      await c.query("select public.editar_autor($1, 'Esther Perel', null, array['@estherperel', 'E. Perél'])", [id])
+      await ponerAlias(c, id, ["@estherperel", "E. Perél"], comoConi)
       for (const nombre of ["@EstherPerel", "e. perel"]) {
         const { rows } = await c.query<{ id: string }>("select public.crear_autor($1, null, 'cuenta') as id", [nombre])
         expect(rows[0]?.id).toBe(id)
@@ -117,6 +124,21 @@ describe("crear_autor", () => {
       const error = await fallaCon(c, "select public.crear_autor('   ', null, 'persona')")
       expect(error.code).toBe("22023")
       expect(error.message).toBe("autor_vacio")
+    })
+  })
+
+  it("refuses to create a second Coni author with 22023 tipo_coni_reservado", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.crear_autor('Otra Coni', null, 'coni')")
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("tipo_coni_reservado")
+    })
+  })
+
+  it("keeps a unique index so the table itself holds at most one Coni author", async () => {
+    await como(comoPostgres, async (c) => {
+      const error = await fallaCon(c, "insert into public.autores (nombre, tipo) values ('Otra Coni', 'coni')")
+      expect(error.code).toBe("23505")
     })
   })
 
@@ -147,57 +169,11 @@ describe("crear_autor", () => {
   })
 })
 
-describe("editar_autor", () => {
-  it("updates name, credential and aliases for a member", async () => {
-    await como(comoMantenedor, async (c) => {
-      const id = await crearAutor(c, "Esther")
-      await c.query("select public.editar_autor($1, 'Esther Perel', 'Psicoterapeuta', array['@esther'])", [id])
-      const fila = (await c.query("select nombre, credencial, alias from public.autores where id = $1", [id])).rows[0]
-      expect(fila).toEqual({ nombre: "Esther Perel", credencial: "Psicoterapeuta", alias: ["@esther"] })
-    })
-  })
-
-  it("lets an author be renamed to a differently cased version of its own name", async () => {
-    await como(comoConi, async (c) => {
-      const id = await crearAutor(c, "esther perel")
-      await c.query("select public.editar_autor($1, 'Esther Perel', null, '{}')", [id])
-      const { rows } = await c.query("select nombre from public.autores where id = $1", [id])
-      expect(rows[0]).toEqual({ nombre: "Esther Perel" })
-    })
-  })
-
-  it("refuses a name equal to another author's with 23505 autor_repetido", async () => {
-    await como(comoConi, async (c) => {
-      await crearAutor(c, "Esther Perel")
-      const otra = await crearAutor(c, "Brené Brown")
-      const error = await fallaCon(c, "select public.editar_autor($1, 'ESTHER PEREL', null, '{}')", [otra])
-      expect(error.code).toBe("23505")
-      expect(error.message).toBe("autor_repetido")
-    })
-  })
-
-  it("rejects a blank name with 22023 autor_vacio and a missing author with P0002", async () => {
-    await como(comoConi, async (c) => {
-      const id = await crearAutor(c, "Esther")
-      expect((await fallaCon(c, "select public.editar_autor($1, ' ', null, '{}')", [id])).message).toBe("autor_vacio")
-      const inexistente = await fallaCon(c, "select public.editar_autor(gen_random_uuid(), 'X', null, '{}')")
-      expect(inexistente.code).toBe("P0002")
-    })
-  })
-
-  it("refuses anyone else with 42501", async () => {
-    await como(comoOtra, async (c) => {
-      const error = await fallaCon(c, "select public.editar_autor(gen_random_uuid(), 'X', null, '{}')")
-      expect(error.code).toBe("42501")
-    })
-  })
-})
-
 describe("fusionar_autores", () => {
   it("moves the materials, keeps the origin's name and aliases as aliases and deletes the origin", async () => {
     await como(comoConi, async (c) => {
       const origen = await crearAutor(c, "E. Perel", "cuenta")
-      await c.query("select public.editar_autor($1, 'E. Perel', null, array['@perel'])", [origen])
+      await ponerAlias(c, origen, ["@perel"], comoConi)
       const destino = await crearAutor(c, "Esther Perel")
       const material = await crearMaterial(c, origen)
       await c.query("select public.fusionar_autores($1, $2)", [origen, destino])
@@ -213,7 +189,7 @@ describe("fusionar_autores", () => {
     await como(comoConi, async (c) => {
       const origen = await crearAutor(c, "E. Perel")
       const destino = await crearAutor(c, "Esther Perel")
-      await c.query("select public.editar_autor($1, 'Esther Perel', null, array['e. perel'])", [destino])
+      await ponerAlias(c, destino, ["e. perel"], comoConi)
       await c.query("select public.fusionar_autores($1, $2)", [origen, destino])
       const { rows } = await c.query<{ alias: string[] }>("select alias from public.autores where id = $1", [destino])
       expect(rows[0]?.alias).toEqual(["e. perel"])
@@ -255,6 +231,44 @@ describe("fusionar_autores", () => {
     await como(comoOtra, async (c) => {
       const error = await fallaCon(c, "select public.fusionar_autores(gen_random_uuid(), gen_random_uuid())")
       expect(error.code).toBe("42501")
+    })
+  })
+})
+
+describe("borrar_autor", () => {
+  it("deletes an author without materials", async () => {
+    await como(comoMantenedor, async (c) => {
+      const id = await crearAutor(c, "Sobrante")
+      await c.query("select public.borrar_autor($1)", [id])
+      expect((await c.query("select 1 from public.autores where id = $1", [id])).rowCount).toBe(0)
+    })
+  })
+
+  it("refuses an author with materials with 22023 autor_con_materiales", async () => {
+    await como(comoConi, async (c) => {
+      const id = await crearAutor(c, "Con material")
+      await crearMaterial(c, id)
+      const error = await fallaCon(c, "select public.borrar_autor($1)", [id])
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("autor_con_materiales")
+    })
+  })
+
+  it("refuses the Coni author with 22023 autor_coni_protegido", async () => {
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+      const error = await fallaCon(c, "select public.borrar_autor($1)", [rows[0]?.id])
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("autor_coni_protegido")
+    })
+  })
+
+  it("reports a missing author with P0002 and refuses anyone else with 42501", async () => {
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select public.borrar_autor(gen_random_uuid())")).code).toBe("P0002")
+    })
+    await como(comoOtra, async (c) => {
+      expect((await fallaCon(c, "select public.borrar_autor(gen_random_uuid())")).code).toBe("42501")
     })
   })
 })

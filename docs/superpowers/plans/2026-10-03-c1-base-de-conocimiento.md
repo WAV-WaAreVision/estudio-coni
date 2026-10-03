@@ -75,7 +75,7 @@
     - returns the id;
     - a name equal to an existing `nombre_normalizado`, or to any alias normalized the same way, returns the existing id;
     - a blank name raises 22023 `autor_vacio`.
-  - `editar_autor(p_id, p_nombre, p_credencial, p_alias text[])` (member only). A duplicate normalized name raises 23505 `autor_repetido`.
+  - `borrar_autor(p_id)` (member only): refuses the Coni author (22023 `autor_coni_protegido`) and authors with materials (22023 `autor_con_materiales`). `crear_autor` refuses `tipo = 'coni'` (22023 `tipo_coni_reservado`).
   - `fusionar_autores(p_origen, p_destino)` (member only):
     - moves `materiales.autor_id` (and later `afirmaciones.autor_id`, Task 2) to the destination;
     - adds the origin's name and aliases to the destination's aliases;

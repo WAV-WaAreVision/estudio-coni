@@ -10,6 +10,8 @@ create table public.autores (
 );
 
 insert into public.autores (nombre, tipo) values ('Constanza del Rosario', 'coni');
+-- There is exactly one Coni author, the owner of the voz_propia claims.
+create unique index autores_una_coni on public.autores ((true)) where tipo = 'coni';
 
 alter table public.autores enable row level security;
 revoke all on public.autores from anon, authenticated;
@@ -64,6 +66,9 @@ begin
   if normalizado = '' then
     raise exception using errcode = '22023', message = 'autor_vacio';
   end if;
+  if p_tipo = 'coni' then
+    raise exception using errcode = '22023', message = 'tipo_coni_reservado';
+  end if;
   select id into existente from public.autores
   where nombre_normalizado = normalizado
      or exists (
@@ -83,33 +88,6 @@ begin
     select id into existente from public.autores where nombre_normalizado = normalizado;
   end if;
   return existente;
-end $$;
-
-create function public.editar_autor(p_id uuid, p_nombre text, p_credencial text, p_alias text[]) returns void
-language plpgsql security definer set search_path = '' as $$
-declare
-  normalizado text := public.unaccent_inmutable(lower(btrim(coalesce(p_nombre, ''))));
-begin
-  if not (public.es_coni() or public.es_mantenedor()) then
-    raise exception using errcode = '42501', message = 'sin_permiso';
-  end if;
-  if normalizado = '' then
-    raise exception using errcode = '22023', message = 'autor_vacio';
-  end if;
-  if exists (select 1 from public.autores where nombre_normalizado = normalizado and id <> p_id) then
-    raise exception using errcode = '23505', message = 'autor_repetido';
-  end if;
-  update public.autores
-  set nombre = btrim(p_nombre),
-      credencial = nullif(btrim(coalesce(p_credencial, '')), ''),
-      alias = coalesce(
-        (select array_agg(btrim(a) order by ord) from unnest(p_alias) with ordinality as t(a, ord)
-         where btrim(coalesce(a, '')) <> ''),
-        '{}')
-  where id = p_id;
-  if not found then
-    raise exception using errcode = 'P0002', message = 'autor_inexistente';
-  end if;
 end $$;
 
 create function public.fusionar_autores(p_origen uuid, p_destino uuid) returns void
@@ -151,9 +129,29 @@ begin
   delete from public.autores where id = p_origen;
 end $$;
 
-revoke execute on function public.crear_autor(text, text, text), public.editar_autor(uuid, text, text, text[]),
+-- Deletes an author that was created by mistake. The foreign keys protect the ones that still own materials.
+create function public.borrar_autor(p_id uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not (public.es_coni() or public.es_mantenedor()) then
+    raise exception using errcode = '42501', message = 'sin_permiso';
+  end if;
+  if exists (select 1 from public.autores where id = p_id and tipo = 'coni') then
+    raise exception using errcode = '22023', message = 'autor_coni_protegido';
+  end if;
+  begin
+    delete from public.autores where id = p_id;
+  exception when foreign_key_violation then
+    raise exception using errcode = '22023', message = 'autor_con_materiales';
+  end;
+  if not found then
+    raise exception using errcode = 'P0002', message = 'autor_inexistente';
+  end if;
+end $$;
+
+revoke execute on function public.crear_autor(text, text, text), public.borrar_autor(uuid),
   public.fusionar_autores(uuid, uuid) from public, anon;
-grant execute on function public.crear_autor(text, text, text), public.editar_autor(uuid, text, text, text[]),
+grant execute on function public.crear_autor(text, text, text), public.borrar_autor(uuid),
   public.fusionar_autores(uuid, uuid) to authenticated;
 
 create trigger auditar after insert or update or delete on public.autores
