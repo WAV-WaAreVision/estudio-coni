@@ -12,6 +12,7 @@ import {
   puntuarTemaSolo,
   reporteQueSubir,
 } from "@/lib/motor/puntaje"
+import { detalleTecnico } from "@/lib/produccion/fallas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   type CruceParaTeoria,
@@ -40,6 +41,8 @@ type ResumenDeCorrida = {
   cruces: { ids: string[]; nombres: string[]; puntaje: number }[]
   teorias: number
   descartadas: { cruceId: string; razon: string }[]
+  /** Batches Claude did not answer, with the error for WAV; their crossings are in `descartadas`. */
+  lotesFallidos: { cruces: string[]; error: string }[]
   ideas: number
   archivadas: number
   queSubir: ReturnType<typeof reporteQueSubir>
@@ -54,6 +57,9 @@ const PUNTAJE_IDEA_MEDIA = 0.4
 const CARACTERES_POR_TOKEN = 3
 const TOKENS_FIJOS = 2_500
 const TOKENS_DE_SALIDA_POR_CRUCE = 1_500
+/** One non-streaming Opus call writes about 1.5k tokens per crossing: three keep a call well under its timeout. */
+export const CRUCES_POR_LLAMADA = 3
+const RAZON_DE_LOTE_FALLIDO = "no alcancé a escribirla"
 const MINUTOS_PARA_RETOMAR = 30
 const UNIQUE_VIOLATION = "23505"
 const MOTIVO_DE_FALLA = "No pude armar las ideas de esta semana. Avisamos al equipo; puedes volver a intentarlo."
@@ -250,6 +256,84 @@ async function terminar(
   if (error) throw falloDeBase("No pude cerrar la corrida del motor", error)
 }
 
+type ContextoEditorial = Awaited<ReturnType<typeof contextoEditorial>>
+
+type Escritura =
+  | { resultado: "tope" }
+  | {
+      resultado: "escrita"
+      teorias: TeoriaDelMotor[]
+      descartadas: { cruceId: string; razon: string }[]
+      lotesFallidos: { cruces: string[]; error: string }[]
+      costo: number
+    }
+
+/**
+ * Asks Claude for the theories in batches of `CRUCES_POR_LLAMADA`, each its own paid step so one call never carries
+ * the whole week. A batch that fails (or hits the cap) after others worked costs only its own crossings: they come
+ * back as discarded and the rest is kept. The run only fails when no batch worked: the cap if that was the reason,
+ * else the first error, which propagates so Trigger.dev and WAV see it.
+ */
+async function escribirPorLotes(
+  deps: DepsDelMotor,
+  semana: string,
+  cruces: readonly CruceParaTeoria[],
+  contexto: ContextoEditorial,
+): Promise<Escritura> {
+  const { db } = deps
+  const teorias: TeoriaDelMotor[] = []
+  const descartadas: { cruceId: string; razon: string }[] = []
+  const lotesFallidos: { cruces: string[]; error: string }[] = []
+  let costo = 0
+  let escritos = 0
+  let primerError: unknown
+
+  for (let desde = 0; desde < cruces.length; desde += CRUCES_POR_LLAMADA) {
+    const lote = cruces.slice(desde, desde + CRUCES_POR_LLAMADA)
+    const ids = lote.map((c) => c.id)
+    try {
+      const pagado = await pagarPaso(
+        {
+          db,
+          almacen: deps.almacen,
+          ahora: deps.ahora,
+          clave: () => `motor:${semana}:${desde / CRUCES_POR_LLAMADA + 1}:${crypto.randomUUID()}`,
+          verificar: () => Promise.resolve(),
+        },
+        {
+          proveedor: "anthropic",
+          paso: "motor",
+          estimadoUsd: estimarEscritura(lote, contexto),
+          llamar: async () => {
+            const r = await escribirTeorias({ cliente: deps.claude, cruces: lote, contexto })
+            return { datos: r, realUsd: costoClaude(r.uso, MODELO_POR_TAREA.escribirTeorias.modelo) }
+          },
+        },
+      )
+      if (pagado.tope) {
+        lotesFallidos.push({ cruces: ids, error: MOTIVO_TOPE })
+        descartadas.push(...ids.map((cruceId) => ({ cruceId, razon: RAZON_DE_LOTE_FALLIDO })))
+        continue
+      }
+      teorias.push(...pagado.datos.teorias)
+      descartadas.push(...pagado.datos.descartadas)
+      costo += costoClaude(pagado.datos.uso, MODELO_POR_TAREA.escribirTeorias.modelo)
+      escritos += 1
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      primerError ??= error
+      lotesFallidos.push({ cruces: ids, error: detalleTecnico(error) })
+      descartadas.push(...ids.map((cruceId) => ({ cruceId, razon: RAZON_DE_LOTE_FALLIDO })))
+    }
+  }
+
+  if (escritos === 0) {
+    if (primerError) throw primerError
+    return { resultado: "tope" }
+  }
+  return { resultado: "escrita", teorias, descartadas, lotesFallidos, costo: redondear(costo) }
+}
+
 type Trabajo =
   | { resultado: "fallida"; motivo: string }
   | { resultado: "lista"; resumen: ResumenDeCorrida; costo: number }
@@ -271,6 +355,7 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
     ...resumenBase,
     teorias: 0,
     descartadas: [],
+    lotesFallidos: [],
     ideas: 0,
     archivadas,
   })
@@ -292,26 +377,9 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
   }
 
   const contexto = await contextoEditorial(db)
-  const pagado = await pagarPaso(
-    {
-      db,
-      almacen: deps.almacen,
-      ahora: deps.ahora,
-      clave: () => `motor:${semana}:${crypto.randomUUID()}`,
-      verificar: () => Promise.resolve(),
-    },
-    {
-      proveedor: "anthropic",
-      paso: "motor",
-      estimadoUsd: estimarEscritura(paraClaude, contexto),
-      llamar: async () => {
-        const r = await escribirTeorias({ cliente: deps.claude, cruces: paraClaude, contexto })
-        return { datos: r, realUsd: costoClaude(r.uso, MODELO_POR_TAREA.escribirTeorias.modelo) }
-      },
-    },
-  )
-  if (pagado.tope) return { resultado: "fallida", motivo: MOTIVO_TOPE }
-  const { teorias, descartadas, uso } = pagado.datos
+  const escritura = await escribirPorLotes(deps, semana, paraClaude, contexto)
+  if (escritura.resultado === "tope") return { resultado: "fallida", motivo: MOTIVO_TOPE }
+  const { teorias, descartadas, lotesFallidos, costo } = escritura
 
   const elegidos = new Map(cruces.map((c) => [c.id, c]))
   const guardadas = await guardarTeorias(db, semana, elegidos, teorias, descartadas)
@@ -322,8 +390,8 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
   const archivadas = await archivar(db)
   return {
     resultado: "lista",
-    costo: redondear(costoClaude(uso, MODELO_POR_TAREA.escribirTeorias.modelo)),
-    resumen: { ...resumenBase, teorias: guardadas.length, descartadas, ideas, archivadas },
+    costo,
+    resumen: { ...resumenBase, teorias: guardadas.length, descartadas, lotesFallidos, ideas, archivadas },
   }
 }
 

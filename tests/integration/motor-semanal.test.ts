@@ -93,6 +93,20 @@ async function tresTemas(evidencia = "estudio"): Promise<{ t1: string; t2: strin
   return { t1, t2, t3 }
 }
 
+/** Ten topics over the five pillars, all backed by the same two authors: eight crossings qualify. */
+async function ochoTemas(): Promise<void> {
+  const ana = await autor("Ana")
+  const beto = await autor("Beto")
+  const mAna = await material(ana, "referente")
+  const mBeto = await material(beto, "referente")
+  const pilares = ["pareja", "deseo", "autoestima", "limites", "bienestar"]
+  for (let i = 0; i < 10; i += 1) {
+    const t = await tema(`Tema ${i}`, pilares[i % pilares.length] ?? "pareja", i)
+    await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`)
+    await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`)
+  }
+}
+
 interface CruceEnviado {
   id: string
   minimoAutores?: number
@@ -104,8 +118,10 @@ interface Pedido {
   messages: { content: string }[]
 }
 
-function simularClaude(opciones: { nada?: (indice: number) => boolean; estado?: number } = {}) {
-  const registro = { llamadas: 0, cruces: [] as CruceEnviado[], usuario: "" }
+function simularClaude(
+  opciones: { nada?: (indice: number) => boolean; estado?: number; fallaLlamada?: (llamada: number) => boolean } = {},
+) {
+  const registro = { llamadas: 0, cruces: [] as CruceEnviado[], lotes: [] as CruceEnviado[][], usuario: "" }
   servidor.use(
     http.post<never, Pedido>(URL_CLAUDE, async ({ request }) => {
       if (opciones.estado)
@@ -113,9 +129,12 @@ function simularClaude(opciones: { nada?: (indice: number) => boolean; estado?: 
       const cuerpo = await request.json()
       const usuario = cuerpo.messages[0]?.content ?? ""
       registro.llamadas += 1
+      if (opciones.fallaLlamada?.(registro.llamadas))
+        return HttpResponse.json({ error: { type: "api_error", message: "x" } }, { status: 500 })
       registro.usuario = usuario
       const cruces: CruceEnviado[] = JSON.parse(usuario.split("<cruces>\n")[1]?.split("\n</cruces>")[0] ?? "[]")
       registro.cruces = cruces
+      registro.lotes.push(cruces)
       const teorias = cruces.map((cruce, i) => {
         if (opciones.nada?.(i)) {
           return {
@@ -258,6 +277,57 @@ describe("correrMotor", () => {
     expect(gasto.rows).toHaveLength(1)
     expect(gasto.rows[0]?.estado).toBe("confirmado")
     expect(gasto.rows[0]?.clave).toMatch(new RegExp(`^motor:${SEMANA}:`))
+  })
+
+  it("sends eight crossings to Claude in batches of three, one paid step each", async () => {
+    await ochoTemas()
+    const claude = simularClaude()
+
+    const r = await correrMotor(deps(), { semana: SEMANA, manual: false })
+
+    expect(r.resultado).toBe("lista")
+    expect(claude.lotes.map((l) => l.length)).toEqual([3, 3, 2])
+    expect(new Set(claude.lotes.flat().map((c) => c.id)).size).toBe(8)
+    const gastos = await pool.query<{ clave: string; estado: string }>(
+      "select clave, estado from public.gastos where paso = 'motor'",
+    )
+    expect(gastos.rows).toHaveLength(3)
+    expect(gastos.rows.every((g) => g.estado === "confirmado")).toBe(true)
+    expect(new Set(gastos.rows.map((g) => g.clave)).size).toBe(3)
+    const c = await corrida()
+    expect(c?.resumen).toMatchObject({ teorias: 8 })
+    expect(Number(c?.costo_usd)).toBeCloseTo(0.018, 3)
+  })
+
+  it("keeps the batches that worked and discards the crossings of a failed one", async () => {
+    await ochoTemas()
+    simularClaude({ fallaLlamada: (n) => n === 2 })
+
+    const r = await correrMotor(deps(), { semana: SEMANA, manual: false })
+
+    expect(r.resultado).toBe("lista")
+    const c = await corrida()
+    expect(c).toMatchObject({ estado: "lista" })
+    expect(c?.resumen).toMatchObject({ teorias: 5, descartadas: expect.any(Array) })
+    const descartadas = await pool.query<{ motivo_fallo: string }>(
+      "select motivo_fallo from public.teorias where estado = 'descartada_por_motor'",
+    )
+    expect(descartadas.rows).toHaveLength(3)
+    expect(descartadas.rows.every((d) => d.motivo_fallo === "no alcancé a escribirla")).toBe(true)
+    expect(await contar("select count(*) as n from public.teorias where estado = 'guardada'")).toBe(5)
+    expect(await contar("select count(*) as n from public.gastos where paso = 'motor' and estado = 'reservado'")).toBe(
+      0,
+    )
+  })
+
+  it("fails the run and rethrows when every batch failed", async () => {
+    await ochoTemas()
+    simularClaude({ estado: 500 })
+
+    await expect(correrMotor(deps(), { semana: SEMANA, manual: false })).rejects.toThrow()
+
+    expect((await corrida())?.estado).toBe("fallida")
+    expect(await contar("select count(*) as n from public.teorias where origen = 'motor'")).toBe(0)
   })
 
   it("does nothing the second time the same week", async () => {
