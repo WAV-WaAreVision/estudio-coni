@@ -816,6 +816,86 @@ export type Database = {
         }
         Relationships: []
       }
+      teoria_fuentes: {
+        Row: {
+          material_id: string
+          teoria_id: string
+        }
+        Insert: {
+          material_id: string
+          teoria_id: string
+        }
+        Update: {
+          material_id?: string
+          teoria_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teoria_fuentes_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teoria_fuentes_teoria_id_fkey"
+            columns: ["teoria_id"]
+            isOneToOne: false
+            referencedRelation: "teorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teorias: {
+        Row: {
+          argumentos: Json | null
+          categoria_id: string | null
+          contradicciones: Json | null
+          creada_en: string
+          creada_por: string | null
+          editada_en: string | null
+          estado: string
+          id: string
+          motivo_fallo: string | null
+          tesis: string | null
+          titulo: string | null
+        }
+        Insert: {
+          argumentos?: Json | null
+          categoria_id?: string | null
+          contradicciones?: Json | null
+          creada_en?: string
+          creada_por?: string | null
+          editada_en?: string | null
+          estado?: string
+          id?: string
+          motivo_fallo?: string | null
+          tesis?: string | null
+          titulo?: string | null
+        }
+        Update: {
+          argumentos?: Json | null
+          categoria_id?: string | null
+          contradicciones?: Json | null
+          creada_en?: string
+          creada_por?: string | null
+          editada_en?: string | null
+          estado?: string
+          id?: string
+          motivo_fallo?: string | null
+          tesis?: string | null
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teorias_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vinculos: {
         Row: {
           cita_a: string | null
@@ -1182,6 +1262,17 @@ export type Database = {
         Args: { p_nombre: string; p_valor: string }
         Returns: undefined
       }
+      guardar_teoria: {
+        Args: {
+          p_argumentos: Json
+          p_categoria?: string
+          p_contradicciones: Json
+          p_id: string
+          p_tesis: string
+          p_titulo: string
+        }
+        Returns: undefined
+      }
       guardar_token_meta: {
         Args: { p_expira_en: string; p_token: string }
         Returns: undefined
@@ -1209,6 +1300,10 @@ export type Database = {
         }
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      marcar_teoria_disparo_fallido: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       materiales_cercanos: {
         Args: { p_limite?: number; p_material: string }
         Returns: {
@@ -1217,11 +1312,13 @@ export type Database = {
         }[]
       }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      pedir_teoria: { Args: { p_materiales: string[] }; Returns: string }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean
       }
       reintentar_material: { Args: { p_id: string }; Returns: undefined }
+      reintentar_teoria: { Args: { p_id: string }; Returns: undefined }
       renombrar_categoria: {
         Args: { p_id: string; p_nombre: string }
         Returns: undefined

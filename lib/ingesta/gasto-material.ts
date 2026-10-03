@@ -56,15 +56,53 @@ export async function guardarJson(almacen: Almacen, clave: string, valor: unknow
   await almacen.subir(clave, new TextEncoder().encode(JSON.stringify(valor)), "application/json")
 }
 
+/** What a paid step needs from whoever it works for: the stores, the clock and how its reservation keys are made. */
+export interface ContextoDePago {
+  db: Db
+  almacen: Almacen
+  ahora: () => string
+  /** A new key on every attempt: see `pagarPaso`. */
+  clave: (paso: string) => string
+  /** Called before every paid step: it throws when what the step works for is gone. */
+  verificar: () => Promise<void>
+}
+
+function contextoDePagoDeMaterial(ctx: Contexto): ContextoDePago {
+  const { db, almacen, ahora } = ctx.deps
+  return {
+    db,
+    almacen,
+    ahora,
+    clave: (paso) => `material:${ctx.material.id}:${paso}:${crypto.randomUUID()}`,
+    verificar: () => exigirMaterial(db, ctx.material.id),
+  }
+}
+
 /**
  * The stored result of a paid step, or null when there is none. The reservation of the run that paid is confirmed
  * here (a no-op when it already was), so a crash between paying and confirming leaves no reservation hanging.
  */
-export async function pagadoAntes<T>(ctx: Contexto, archivo: string, esquema: z.ZodType<T>): Promise<T | null> {
-  const guardado = await leerJson(ctx.deps.almacen, archivo, conGasto(esquema))
+export async function pagadoAntesEn<T>(
+  ctx: Pick<ContextoDePago, "db" | "almacen">,
+  archivo: string,
+  esquema: z.ZodType<T>,
+): Promise<T | null> {
+  const guardado = await leerJson(ctx.almacen, archivo, conGasto(esquema))
   if (!guardado) return null
-  await confirmarGasto(ctx.deps.db, guardado.gasto.clave, guardado.gasto.realUsd)
+  await confirmarGasto(ctx.db, guardado.gasto.clave, guardado.gasto.realUsd)
   return guardado.datos
+}
+
+export async function pagadoAntes<T>(ctx: Contexto, archivo: string, esquema: z.ZodType<T>): Promise<T | null> {
+  return pagadoAntesEn({ db: ctx.deps.db, almacen: ctx.deps.almacen }, archivo, esquema)
+}
+
+interface PasoPagado<T> {
+  archivo: string
+  proveedor: "anthropic" | "elevenlabs" | "voyage"
+  paso: string
+  estimadoUsd: number
+  llamar: () => Promise<{ datos: T; realUsd: number }>
 }
 
 /**
@@ -73,19 +111,13 @@ export async function pagadoAntes<T>(ctx: Contexto, archivo: string, esquema: z.
  * released one, and the retry would run unmetered. A failed call releases its reservation; a call that was paid for
  * is confirmed even when keeping its result fails.
  */
-export async function pagar<T>(
-  ctx: Contexto,
-  paso: {
-    archivo: string
-    proveedor: "anthropic" | "elevenlabs" | "voyage"
-    paso: string
-    estimadoUsd: number
-    llamar: () => Promise<{ datos: T; realUsd: number }>
-  },
+export async function pagarPaso<T>(
+  ctx: ContextoDePago,
+  paso: PasoPagado<T>,
 ): Promise<Tope | { tope: false; datos: T }> {
-  const { db, almacen, ahora } = ctx.deps
-  await exigirMaterial(db, ctx.material.id)
-  const clave = `material:${ctx.material.id}:${paso.paso}:${crypto.randomUUID()}`
+  const { db, almacen, ahora } = ctx
+  await ctx.verificar()
+  const clave = ctx.clave(paso.paso)
   const reserva = await reservarGastoGeneral(db, {
     proveedor: paso.proveedor,
     paso: paso.paso,
@@ -108,4 +140,8 @@ export async function pagar<T>(
     await confirmarGasto(db, clave, realUsd)
   }
   return { tope: false, datos: resultado.datos }
+}
+
+export async function pagar<T>(ctx: Contexto, paso: PasoPagado<T>): Promise<Tope | { tope: false; datos: T }> {
+  return pagarPaso(contextoDePagoDeMaterial(ctx), paso)
 }

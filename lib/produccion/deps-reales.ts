@@ -8,6 +8,7 @@ import { exigirEnv } from "@/lib/env"
 import { buscarFfmpegBasico } from "@/lib/ingesta/fotogramas"
 import type { DepsProcesar } from "@/lib/ingesta/procesar"
 import { resolverDns } from "@/lib/ingesta/red-segura"
+import type { DepsTeoria } from "@/lib/ingesta/teoria"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import { almacenReal } from "@/lib/proveedores/almacen"
@@ -185,5 +186,20 @@ export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
     ffmpeg,
     ahora: () => new Date().toISOString(),
     corrida,
+  }
+}
+
+/** The dependencies of a `sintetizar-teoria` run: Claude's key is checked before the run spends anything. */
+export async function depsTeoria(): Promise<DepsTeoria> {
+  const db = clienteDeServicio()
+  const llaveDeAnthropic = await leerSecreto(db, "anthropic")
+  if (!llaveDeAnthropic) {
+    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de Anthropic en Ajustes.")
+  }
+  return {
+    db,
+    almacen: almacenReal(),
+    claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    ahora: () => new Date().toISOString(),
   }
 }

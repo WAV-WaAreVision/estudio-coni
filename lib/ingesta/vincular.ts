@@ -56,7 +56,7 @@ function estimarVinculos(base: FichaParaVincular, candidatos: readonly FichaPara
   )
 }
 
-async function leerFichas(db: Db, ids: readonly string[]): Promise<Map<string, FichaParaVincular>> {
+export async function leerFichas(db: Db, ids: readonly string[]): Promise<Map<string, FichaParaVincular>> {
   const { data, error } = await db
     .from("fichas")
     .select("material_id, resumen, ideas_clave, citas, materiales(titulo)")
