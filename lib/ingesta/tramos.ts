@@ -1,4 +1,5 @@
 import type { Parte, Ubicacion } from "@/lib/ingesta/partes"
+import { posicionTalCual } from "@/lib/ingesta/texto-seguro"
 
 /** Characters of source text per request: keeps the echoed answer well under MAX_TOKENS. */
 export const CARACTERES_POR_TRAMO = 12_000
@@ -47,16 +48,25 @@ export function trocear(texto: string, limite = CARACTERES_POR_TRAMO, nivel = 0)
   return resultado
 }
 
+export interface PiezaDeTramo {
+  /** Offsets inside the chunk's joined text. */
+  desde: number
+  hasta: number
+  ubicacion: Ubicacion
+}
+
 export interface Tramo {
+  /** From 1. */
   numero: number
   texto: string
   /** Where the chunk starts in its source. */
   ubicacion: Ubicacion
+  piezas: PiezaDeTramo[]
 }
 
 /**
  * Packs the parts into chunks of at most CARACTERES_POR_TRAMO characters, in order. A part longer than the limit is
- * split first; chunks join the pieces they hold with a blank line. Each chunk keeps the location of its first piece.
+ * split first; chunks join the pieces they hold with a blank line. `piezas` says which location each stretch came from.
  */
 export function aTramos(partes: readonly Parte[]): Tramo[] {
   const piezas = partes.flatMap((parte) =>
@@ -68,10 +78,25 @@ export function aTramos(partes: readonly Parte[]): Tramo[] {
   for (const pieza of piezas) {
     const ultimo = tramos.at(-1)
     if (ultimo && ultimo.texto.length + SEPARADOR_DE_PARTES.length + pieza.texto.length <= CARACTERES_POR_TRAMO) {
+      const desde = ultimo.texto.length + SEPARADOR_DE_PARTES.length
       ultimo.texto += SEPARADOR_DE_PARTES + pieza.texto
+      ultimo.piezas.push({ desde, hasta: ultimo.texto.length, ubicacion: pieza.ubicacion })
       continue
     }
-    tramos.push({ numero: tramos.length, texto: pieza.texto, ubicacion: pieza.ubicacion })
+    tramos.push({
+      numero: tramos.length + 1,
+      texto: pieza.texto,
+      ubicacion: pieza.ubicacion,
+      piezas: [{ desde: 0, hasta: pieza.texto.length, ubicacion: pieza.ubicacion }],
+    })
   }
   return tramos
+}
+
+/** The location of the piece where the quote starts; the chunk's first location when the quote is not in it. */
+export function ubicacionDeCita(tramo: Tramo, cita: string): Ubicacion {
+  const posicion = posicionTalCual(tramo.texto, cita)
+  if (!posicion) return tramo.ubicacion
+  const pieza = tramo.piezas.find((p) => posicion.desde >= p.desde && posicion.desde < p.hasta)
+  return pieza?.ubicacion ?? tramo.ubicacion
 }

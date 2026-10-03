@@ -28,8 +28,8 @@ function normalizarConMapa(texto: string): { normalizado: string; inicio: number
   return { normalizado, inicio, fin }
 }
 
-/** The fragment of `texto` that `buscada` matches once both are normalized, as written in `texto`; null when absent. */
-export function fragmentoTalCual(texto: string, buscada: string): string | null {
+/** Where `buscada` sits in `texto` once both are normalized, as offsets into `texto`; null when absent. */
+export function posicionTalCual(texto: string, buscada: string): { desde: number; hasta: number } | null {
   const objetivo = normalizarConMapa(buscada).normalizado.trim()
   if (objetivo === "") return null
   const { normalizado, inicio, fin } = normalizarConMapa(texto)
@@ -37,5 +37,11 @@ export function fragmentoTalCual(texto: string, buscada: string): string | null 
   if (posicion === -1) return null
   const desde = inicio[posicion]
   const hasta = fin[posicion + objetivo.length - 1]
-  return desde !== undefined && hasta !== undefined ? texto.slice(desde, hasta) : null
+  return desde !== undefined && hasta !== undefined ? { desde, hasta } : null
+}
+
+/** The fragment of `texto` that `buscada` matches once both are normalized, as written in `texto`; null when absent. */
+export function fragmentoTalCual(texto: string, buscada: string): string | null {
+  const posicion = posicionTalCual(texto, buscada)
+  return posicion ? texto.slice(posicion.desde, posicion.hasta) : null
 }

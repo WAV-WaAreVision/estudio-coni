@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Parte } from "@/lib/ingesta/partes"
-import { aTramos, CARACTERES_POR_TRAMO, trocear } from "@/lib/ingesta/tramos"
+import { aTramos, CARACTERES_POR_TRAMO, trocear, ubicacionDeCita } from "@/lib/ingesta/tramos"
 
 const SEPARADOR = "\n\n"
 
@@ -39,7 +39,18 @@ describe("aTramos", () => {
   it("keeps every character exactly once when the parts fit one chunk", () => {
     const partes = [parte("uno", 1), parte("dos", 2), parte("tres", 3)]
     const tramos = aTramos(partes)
-    expect(tramos).toEqual([{ numero: 0, texto: ["uno", "dos", "tres"].join(SEPARADOR), ubicacion: { pagina: 1 } }])
+    expect(tramos).toEqual([
+      {
+        numero: 1,
+        texto: ["uno", "dos", "tres"].join(SEPARADOR),
+        ubicacion: { pagina: 1 },
+        piezas: [
+          { desde: 0, hasta: 3, ubicacion: { pagina: 1 } },
+          { desde: 5, hasta: 8, ubicacion: { pagina: 2 } },
+          { desde: 10, hasta: 14, ubicacion: { pagina: 3 } },
+        ],
+      },
+    ])
   })
 
   it("never exceeds the limit and keeps every character exactly once across chunks", () => {
@@ -62,10 +73,10 @@ describe("aTramos", () => {
     expect(tramos.every((t) => JSON.stringify(t.ubicacion) === JSON.stringify({ pagina: 4 }))).toBe(true)
   })
 
-  it("numbers chunks from zero and keeps the first location of each one", () => {
+  it("numbers chunks from one and keeps the first location of each one", () => {
     const partes = [parte("a".repeat(7_000), 1), parte("b".repeat(7_000), 2), parte("c".repeat(7_000), 3)]
     const tramos = aTramos(partes)
-    expect(tramos.map((t) => t.numero)).toEqual([0, 1, 2])
+    expect(tramos.map((t) => t.numero)).toEqual([1, 2, 3])
     expect(tramos.map((t) => t.ubicacion)).toEqual([{ pagina: 1 }, { pagina: 2 }, { pagina: 3 }])
   })
 
@@ -76,5 +87,37 @@ describe("aTramos", () => {
 
   it("skips parts with no text", () => {
     expect(aTramos([parte("   ", 1), parte("", 2)])).toEqual([])
+  })
+  it("records the offsets and location of every piece of a chunk", () => {
+    const [tramo] = aTramos([parte("aaaa", 1), parte("bb", 2)])
+    expect(tramo?.piezas).toEqual([
+      { desde: 0, hasta: 4, ubicacion: { pagina: 1 } },
+      { desde: 6, hasta: 8, ubicacion: { pagina: 2 } },
+    ])
+  })
+})
+
+describe("ubicacionDeCita", () => {
+  const [tramo] = aTramos([
+    { texto: "Primera pagina de texto.", ubicacion: { pagina: 1 } },
+    { texto: "Segunda pagina de texto.", ubicacion: { pagina: 2 } },
+    { texto: "Tercera pagina con “comillas” raras.", ubicacion: { pagina: 3 } },
+  ])
+  if (!tramo) throw new Error("expected one chunk")
+
+  it("returns the location of the piece that holds a quote from page 3", () => {
+    expect(ubicacionDeCita(tramo, "con comillas".replace("comillas", "“comillas”"))).toEqual({ pagina: 3 })
+  })
+
+  it("matches tolerantly across typographic quotes", () => {
+    expect(ubicacionDeCita(tramo, 'con "comillas" raras')).toEqual({ pagina: 3 })
+  })
+
+  it("returns the location of a quote from the middle piece", () => {
+    expect(ubicacionDeCita(tramo, "Segunda pagina")).toEqual({ pagina: 2 })
+  })
+
+  it("falls back to the first location when the quote is not in the chunk", () => {
+    expect(ubicacionDeCita(tramo, "nada que ver")).toEqual({ pagina: 1 })
   })
 })

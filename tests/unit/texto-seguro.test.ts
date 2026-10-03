@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fragmentoTalCual, sinCierre } from "@/lib/ingesta/texto-seguro"
+import { fragmentoTalCual, posicionTalCual, sinCierre } from "@/lib/ingesta/texto-seguro"
 
 describe("sinCierre", () => {
   it("escapes the closing tags that could end a data block", () => {
@@ -36,5 +36,15 @@ describe("fragmentoTalCual", () => {
 
   it("returns null for an empty quote", () => {
     expect(fragmentoTalCual("Hola", "   ")).toBeNull()
+  })
+})
+
+describe("posicionTalCual", () => {
+  it("returns the offsets of the match in the original text", () => {
+    expect(posicionTalCual("uno   dos\n\ntres", "dos tres")).toEqual({ desde: 6, hasta: 15 })
+  })
+
+  it("returns null when there is no match", () => {
+    expect(posicionTalCual("Hola", "adiós")).toBeNull()
   })
 })
