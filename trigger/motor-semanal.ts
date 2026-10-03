@@ -16,7 +16,8 @@ export const CONFIGURACION_MOTOR = {
   id: "motor-semanal",
   cron: { pattern: "0 20 * * 0", timezone: "America/Santiago" },
   queue: COLA_DEL_MOTOR,
-  maxDuration: 600,
+  // 3 batches of at most 180 s each (CLAUDE_ESPERA_MOTOR_MS) plus the reads and writes: 600 s left no margin.
+  maxDuration: 900,
 } as const
 
 export const motorSemanalTask = schedules.task({

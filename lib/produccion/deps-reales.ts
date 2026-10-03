@@ -25,6 +25,17 @@ import type { DepsProduccion } from "./producir"
 // default of 10 minutes and two retries, where one hung call would end the run.
 const CLAUDE_ESPERA_MS = 120_000
 
+/**
+ * The engine writes up to 8 crossings in 3 sequential batches of one non-streaming Opus call each (about 4.5k output
+ * tokens, 1 to 2 minutes). 180 s is generous per call, and with no SDK retry (a retry would silently double the
+ * call and its cost) the worst case is 3 x 180 s = 540 s, inside the task's 900 s.
+ */
+export const CLAUDE_ESPERA_MOTOR_MS = 180_000
+
+export function clienteDelMotor(apiKey: string): Anthropic {
+  return new Anthropic({ apiKey, timeout: CLAUDE_ESPERA_MOTOR_MS, maxRetries: 0 })
+}
+
 /** The dependencies of a Trigger.dev run. Cheap checks come first, so a missing setting fails before any spend. */
 export async function depsReales(): Promise<DepsProduccion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
@@ -153,7 +164,7 @@ export async function depsMotor(): Promise<DepsDelMotor | null> {
   return {
     db,
     almacen: almacenReal(),
-    claude: new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    claude: clienteDelMotor(llave),
     ahora: () => new Date().toISOString(),
   }
 }
