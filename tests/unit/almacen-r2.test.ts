@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { HttpResponse, http } from "msw"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { almacenEnMemoria, almacenR2, almacenReal } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
 
@@ -210,6 +211,35 @@ describe("almacenR2", () => {
       const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
       await expect(r2().urlFirmada(CLAVE_OBJETO, segundos)).rejects.toThrow()
       expect(capturas).toHaveLength(0)
+    })
+  })
+
+  describe("urlDeSubida", () => {
+    const CLAVE_MATERIAL = "materiales/11111111-2222-4333-8444-555555555555/original.pdf"
+
+    it("signs a PUT URL with the content type signed, the expiry asked for and the key in the path, without calling R2", async () => {
+      const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+
+      const url = new URL(await r2().urlDeSubida(CLAVE_MATERIAL, 900, "application/pdf"))
+
+      expect(url.host).toBe(`${CUENTA}.r2.cloudflarestorage.com`)
+      expect(url.pathname).toBe(`/${BALDE}/${CLAVE_MATERIAL}`)
+      expect(url.searchParams.get("X-Amz-Expires")).toBe("900")
+      expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[0-9a-f]{64}$/)
+      expect(url.searchParams.get("X-Amz-SignedHeaders")?.split(";")).toContain("content-type")
+      expect(url.href).not.toContain(SECRETO)
+      expect(capturas).toHaveLength(0)
+    })
+
+    it("refuses a key outside materiales/ without calling R2", async () => {
+      const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+      await expect(r2().urlDeSubida(CLAVE_OBJETO, 900, "video/mp4")).rejects.toThrow(FallaDeConfiguracion)
+      await expect(r2().urlDeSubida("materiales/../x", 900, "video/mp4")).rejects.toThrow(FallaDeConfiguracion)
+      expect(capturas).toHaveLength(0)
+    })
+
+    it.each([0, -5, 1.5, Number.NaN, 3601])("refuses an expiry of %s", async (segundos) => {
+      await expect(r2().urlDeSubida(CLAVE_MATERIAL, segundos, "application/pdf")).rejects.toThrow()
     })
   })
 

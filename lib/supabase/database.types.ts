@@ -126,6 +126,33 @@ export type Database = {
           },
         ]
       }
+      categorias: {
+        Row: {
+          creada_en: string
+          creada_por: string | null
+          id: string
+          nombre: string
+          nombre_normalizado: string | null
+          slug: string
+        }
+        Insert: {
+          creada_en?: string
+          creada_por?: string | null
+          id?: string
+          nombre: string
+          nombre_normalizado?: string | null
+          slug: string
+        }
+        Update: {
+          creada_en?: string
+          creada_por?: string | null
+          id?: string
+          nombre?: string
+          nombre_normalizado?: string | null
+          slug?: string
+        }
+        Relationships: []
+      }
       clics_enlace_dia: {
         Row: {
           clics: number
@@ -191,6 +218,44 @@ export type Database = {
           tabla?: string
         }
         Relationships: []
+      }
+      fichas: {
+        Row: {
+          citas: Json
+          editada_en: string | null
+          editada_por: string | null
+          fuente: Json
+          ideas_clave: Json
+          material_id: string
+          resumen: string
+        }
+        Insert: {
+          citas: Json
+          editada_en?: string | null
+          editada_por?: string | null
+          fuente: Json
+          ideas_clave: Json
+          material_id: string
+          resumen: string
+        }
+        Update: {
+          citas?: Json
+          editada_en?: string | null
+          editada_por?: string | null
+          fuente?: Json
+          ideas_clave?: Json
+          material_id?: string
+          resumen?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fichas_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gastos: {
         Row: {
@@ -377,6 +442,103 @@ export type Database = {
             columns: ["pieza_id"]
             isOneToOne: false
             referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materiales: {
+        Row: {
+          archivo_clave: string | null
+          autor: string | null
+          categoria_id: string
+          corrida_desde: string | null
+          corrida_id: string | null
+          creado_en: string
+          declaracion_sin_pacientes_en: string
+          estado: string
+          etiquetas: string[]
+          id: string
+          idioma_original: string | null
+          motivo_fallo: string | null
+          origen_url: string | null
+          subido_por: string
+          texto_clave: string | null
+          texto_pegado: string | null
+          tipo: string
+          titulo: string | null
+        }
+        Insert: {
+          archivo_clave?: string | null
+          autor?: string | null
+          categoria_id: string
+          corrida_desde?: string | null
+          corrida_id?: string | null
+          creado_en?: string
+          declaracion_sin_pacientes_en: string
+          estado?: string
+          etiquetas?: string[]
+          id?: string
+          idioma_original?: string | null
+          motivo_fallo?: string | null
+          origen_url?: string | null
+          subido_por?: string
+          texto_clave?: string | null
+          texto_pegado?: string | null
+          tipo: string
+          titulo?: string | null
+        }
+        Update: {
+          archivo_clave?: string | null
+          autor?: string | null
+          categoria_id?: string
+          corrida_desde?: string | null
+          corrida_id?: string | null
+          creado_en?: string
+          declaracion_sin_pacientes_en?: string
+          estado?: string
+          etiquetas?: string[]
+          id?: string
+          idioma_original?: string | null
+          motivo_fallo?: string | null
+          origen_url?: string | null
+          subido_por?: string
+          texto_clave?: string | null
+          texto_pegado?: string | null
+          tipo?: string
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materiales_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materiales_archivos: {
+        Row: {
+          archivo_clave: string
+          material_id: string
+          orden: number
+        }
+        Insert: {
+          archivo_clave: string
+          material_id: string
+          orden: number
+        }
+        Update: {
+          archivo_clave?: string
+          material_id?: string
+          orden?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materiales_archivos_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales"
             referencedColumns: ["id"]
           },
         ]
@@ -683,6 +845,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      crear_categoria: { Args: { p_nombre: string }; Returns: string }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -872,10 +1035,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean
+      }
+      reintentar_material: { Args: { p_id: string }; Returns: undefined }
+      renombrar_categoria: {
+        Args: { p_id: string; p_nombre: string }
+        Returns: undefined
       }
       reservar_gasto: {
         Args: {
@@ -979,6 +1148,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      unaccent_inmutable: { Args: { texto: string }; Returns: string }
     }
     Enums: {
       estado_pieza:

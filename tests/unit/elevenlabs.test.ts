@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
-import { generarVoz, verificarVoz } from "@/lib/proveedores/elevenlabs"
+import { estimarCostoTranscripcion, generarVoz, transcribir, verificarVoz } from "@/lib/proveedores/elevenlabs"
 import { servidor } from "../msw"
 
 const CLAVE = "sk_secreta_de_prueba"
@@ -228,5 +228,164 @@ describe("verificarVoz", () => {
       ok: true,
       nombre: "Coni",
     })
+  })
+})
+
+describe("transcribir", () => {
+  const AUDIO_ENTRADA = new Uint8Array([1, 2, 3, 4])
+  const palabra = (text: string, start: number) => ({ text, start, end: start + 0.4, type: "word" })
+  const espacio = (start: number) => ({ text: " ", start, end: start + 0.1, type: "spacing" })
+
+  function respuestaScribe(languageCode: string, words: unknown[]): Response {
+    return HttpResponse.json({ language_code: languageCode, language_probability: 0.99, text: "x", words })
+  }
+
+  function capturandoFormulario(respuesta: () => Response): {
+    capturas: { url: URL; cabeceras: Headers; form: FormData }[]
+  } {
+    const capturas: { url: URL; cabeceras: Headers; form: FormData }[] = []
+    servidor.use(
+      http.post(`${BASE}/v1/speech-to-text`, async ({ request }) => {
+        capturas.push({ url: new URL(request.url), cabeceras: request.headers, form: await request.clone().formData() })
+        return respuesta()
+      }),
+    )
+    return { capturas }
+  }
+
+  it("posts multipart to speech-to-text with scribe_v2 and word timestamps, without forcing a language", async () => {
+    const { capturas } = capturandoFormulario(() => respuestaScribe("spa", [palabra("Hola.", 1.5)]))
+    await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+
+    expect(capturas).toHaveLength(1)
+    const [pedido] = capturas
+    expect(pedido?.cabeceras.get("xi-api-key")).toBe(CLAVE)
+    expect(pedido?.form.get("model_id")).toBe("scribe_v2")
+    expect(pedido?.form.get("timestamps_granularity")).toBe("word")
+    expect(pedido?.form.has("language_code")).toBe(false)
+    const archivo = pedido?.form.get("file")
+    expect(archivo).toBeInstanceOf(File)
+    expect(archivo instanceof File ? archivo.type : "").toBe("audio/mpeg")
+  })
+
+  it.each([
+    ["spa", "es"],
+    ["eng", "en"],
+    ["por", "pt"],
+    ["es", "es"],
+    ["en", "en"],
+  ])("returns the detected language as ISO 639-1 (%s -> %s)", async (detectado, esperado) => {
+    capturandoFormulario(() => respuestaScribe(detectado, [palabra("Hola.", 0)]))
+    const resultado = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(resultado.idioma).toBe(esperado)
+  })
+
+  it("groups words into one segment per sentence, starting at its first word, ignoring audio events", async () => {
+    capturandoFormulario(() =>
+      respuestaScribe("spa", [
+        palabra("Hola", 1),
+        espacio(1.4),
+        palabra("a", 1.5),
+        espacio(1.9),
+        palabra("todos.", 2),
+        { text: "(risas)", start: 2.5, end: 3, type: "audio_event" },
+        espacio(3),
+        palabra("Segunda", 4),
+        espacio(4.4),
+        palabra("frase?", 4.5),
+        palabra("Tercera", 6),
+      ]),
+    )
+    const resultado = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(resultado.segmentos).toEqual([
+      { segundo: 1, texto: "Hola a todos." },
+      { segundo: 4, texto: "Segunda frase?" },
+      { segundo: 6, texto: "Tercera" },
+    ])
+  })
+
+  it("does not close a segment on a known abbreviation", async () => {
+    capturandoFormulario(() =>
+      respuestaScribe(
+        "spa",
+        [
+          "Habló",
+          "el",
+          "Dr.",
+          "Pérez",
+          "sobre",
+          "el",
+          "deseo.",
+          "Hay",
+          "temas,",
+          "etc.",
+          "y",
+          "más",
+          "e.g.",
+          "esto.",
+        ].map((t, i) => palabra(t, i)),
+      ),
+    )
+    const { segmentos } = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(segmentos).toEqual([
+      { segundo: 0, texto: "Habló el Dr. Pérez sobre el deseo." },
+      { segundo: 7, texto: "Hay temas, etc. y más e.g. esto." },
+    ])
+  })
+
+  it("cuts a segment every 30 seconds at most when there is no sentence end", async () => {
+    const palabras = Array.from({ length: 70 }, (_, i) => palabra(`p${i}`, i))
+    capturandoFormulario(() => respuestaScribe("spa", palabras))
+    const { segmentos } = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(segmentos.map((s) => s.segundo)).toEqual([0, 30, 60])
+    expect(segmentos[0]?.texto.split(" ")).toHaveLength(30)
+  })
+
+  it("returns no segments for audio without speech", async () => {
+    capturandoFormulario(() => respuestaScribe("eng", []))
+    const resultado = await transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" })
+    expect(resultado.segmentos).toEqual([])
+  })
+
+  it("uses the base URL given by the caller", async () => {
+    servidor.use(
+      http.post("http://elevenlabs.test/v1/speech-to-text", () => respuestaScribe("spa", [palabra("Hola.", 0)])),
+    )
+    const resultado = await transcribir({
+      clave: CLAVE,
+      audio: AUDIO_ENTRADA,
+      tipo: "audio/mpeg",
+      base: "http://elevenlabs.test",
+    })
+    expect(resultado.segmentos).toHaveLength(1)
+  })
+
+  it("fails as a configuration error, without the key, on a 401", async () => {
+    capturandoFormulario(() => new HttpResponse(`bad key ${CLAVE}`, { status: 401 }))
+    const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error.message).toContain("HTTP 401")
+    expect(error.message).not.toContain(CLAVE)
+  })
+
+  it("fails with a plain retryable error on a 503", async () => {
+    capturandoFormulario(() => new HttpResponse("upstream", { status: 503 }))
+    const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
+    expect(esReintentable(error)).toBe(true)
+  })
+
+  it("fails with a plain retryable error when the answer does not have the expected shape", async () => {
+    capturandoFormulario(() => HttpResponse.json({ nada: true }))
+    const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
+    expect(esReintentable(error)).toBe(true)
+    expect(error.message).toContain("ElevenLabs")
+  })
+})
+
+describe("estimarCostoTranscripcion", () => {
+  it("charges US$ 0.40 per hour of audio", () => {
+    expect(estimarCostoTranscripcion(3600)).toBeCloseTo(0.4)
+    expect(estimarCostoTranscripcion(1800)).toBeCloseTo(0.2)
+    expect(estimarCostoTranscripcion(0)).toBe(0)
   })
 })

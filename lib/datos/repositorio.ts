@@ -170,7 +170,7 @@ export async function reservarGasto(
 export async function reservarGastoGeneral(
   db: Db,
   reserva: {
-    proveedor: "heygen" | "elevenlabs" | "anthropic"
+    proveedor: "heygen" | "elevenlabs" | "anthropic" | "voyage"
     paso: string
     estimadoUsd: number
     clave: string

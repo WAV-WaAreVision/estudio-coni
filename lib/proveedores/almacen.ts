@@ -8,6 +8,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 
 /** Private object storage: Cloudflare R2 in production (`almacenR2`), memory in tests. Tasks only see this port. */
@@ -18,6 +19,8 @@ export interface Almacen {
   borrar(clave: string): Promise<void>
   /** `descargarComo` makes the link answer as a download with that file name instead of playing in the browser. */
   urlFirmada(clave: string, segundos: number, opciones?: { descargarComo?: string }): Promise<string>
+  /** A presigned PUT for a material: the browser uploads straight to the store, and `tipo` is signed into the URL. */
+  urlDeSubida(clave: string, segundos: number, tipo: string): Promise<string>
   /** True when the object is there; a missing object is `false`, any other failure rejects. */
   existe(clave: string): Promise<boolean>
   /** Every object whose key starts with `prefijo`, in key order, with its size in bytes. */
@@ -31,6 +34,49 @@ function exigirVigencia(segundos: number): void {
   if (!Number.isInteger(segundos) || segundos <= 0 || segundos > VIGENCIA_MAXIMA_SEGUNDOS) {
     throw new Error(
       `Una URL firmada necesita una vigencia de 1 a ${VIGENCIA_MAXIMA_SEGUNDOS} segundos enteros: ${segundos}`,
+    )
+  }
+}
+
+const PREFIJO_DE_MATERIALES = "materiales/"
+export const EXTENSIONES_DE_MATERIAL = new Set([
+  "pdf",
+  "docx",
+  "mp3",
+  "m4a",
+  "wav",
+  "mp4",
+  "mov",
+  "txt",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+])
+const ORDEN_MAXIMO = 20
+
+const CLAVE_DE_MATERIAL = new RegExp(
+  `^${PREFIJO_DE_MATERIALES}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/original(-(0[1-9]|1\\d|20))?\\.(${[...EXTENSIONES_DE_MATERIAL].join("|")})$`,
+)
+
+/** True only for what `claveMaterial` can return: nothing else may be uploaded through a presigned URL. */
+function esClaveDeMaterial(clave: string): boolean {
+  return CLAVE_DE_MATERIAL.test(clave)
+}
+
+/** A browser upload link is short-lived: it only has to outlast one upload. */
+const VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS = 60 * 60
+
+function exigirSubida(clave: string, segundos: number): void {
+  if (!esClaveDeMaterial(clave)) {
+    throw new FallaDeConfiguracion(
+      `Solo se sube a una clave de material (${PREFIJO_DE_MATERIALES}<uuid>/original.<ext>): ${clave}`,
+    )
+  }
+  if (!Number.isInteger(segundos) || segundos <= 0 || segundos > VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS) {
+    throw new FallaDeConfiguracion(
+      `Una URL de subida necesita una vigencia de 1 a ${VIGENCIA_MAXIMA_SUBIDA_SEGUNDOS} segundos enteros: ${segundos}`,
     )
   }
 }
@@ -56,11 +102,14 @@ export interface ObjetoAlmacenado {
 export interface AlmacenEnMemoria extends Almacen {
   obtener(clave: string): ObjetoAlmacenado | undefined
   claves(): string[]
+  /** What the browser's PUT does against a URL from `urlDeSubida`: the bytes land at that key with that type. */
+  simularSubida(url: string, datos: Uint8Array): void
 }
 
 /** A test double with the same contract as the real store, plus a way to look inside. */
 export function almacenEnMemoria(): AlmacenEnMemoria {
   const objetos = new Map<string, ObjetoAlmacenado>()
+  const subidasPendientes = new Map<string, { clave: string; tipo: string }>()
   return {
     async subir(clave, datos, tipo) {
       // Copied, as a real upload would: the caller may reuse its buffer afterwards.
@@ -80,6 +129,17 @@ export function almacenEnMemoria(): AlmacenEnMemoria {
       if (!objetos.has(clave)) throw noExiste(clave)
       const descarga = opciones.descargarComo ? `&descarga=${opciones.descargarComo}` : ""
       return `https://almacen.test/${clave}?expira=${segundos}${descarga}`
+    },
+    async urlDeSubida(clave, segundos, tipo) {
+      exigirSubida(clave, segundos)
+      const url = `https://almacen.test/${clave}?subida=${segundos}&tipo=${encodeURIComponent(tipo)}`
+      subidasPendientes.set(url, { clave, tipo })
+      return url
+    },
+    simularSubida(url, datos) {
+      const subida = subidasPendientes.get(url)
+      if (!subida) throw new Error(`Esta URL no salió de urlDeSubida: ${url}`)
+      objetos.set(subida.clave, { datos: new Uint8Array(datos), tipo: subida.tipo })
     },
     async existe(clave) {
       return objetos.has(clave)
@@ -135,6 +195,19 @@ export function claveVozAprobada(piezaId: string, puerta1Hash: string): string {
 export function claveVideo(piezaId: string, mp4: Uint8Array): string {
   exigirUuid(piezaId)
   return `videos/${piezaId}/${sha256(mp4)}.mp4`
+}
+
+/** The original of a material; the images of a multi-image material carry their order (1..20) as two digits. */
+export function claveMaterial(materialId: string, extension: string, orden?: number): string {
+  if (!UUID.test(materialId)) throw new FallaDeConfiguracion(`El id del material no es un UUID: ${materialId}`)
+  const ext = extension.toLowerCase()
+  if (!EXTENSIONES_DE_MATERIAL.has(ext))
+    throw new FallaDeConfiguracion(`Extensión de material no permitida: ${extension}`)
+  if (orden === undefined) return `${PREFIJO_DE_MATERIALES}${materialId}/original.${ext}`
+  if (!Number.isInteger(orden) || orden < 1 || orden > ORDEN_MAXIMO) {
+    throw new FallaDeConfiguracion(`El orden de la imagen va de 1 a ${ORDEN_MAXIMO}: ${orden}`)
+  }
+  return `${PREFIJO_DE_MATERIALES}${materialId}/original-${String(orden).padStart(2, "0")}.${ext}`
 }
 
 function esNoEncontrado(error: unknown): boolean {
@@ -238,6 +311,15 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
         } while (siguiente !== undefined)
         return objetos
       }),
+    urlDeSubida: async (clave, segundos, tipo) => {
+      exigirSubida(clave, segundos)
+      return envolver("firmar", clave, () =>
+        getSignedUrl(cliente, new PutObjectCommand({ Bucket: balde, Key: clave, ContentType: tipo }), {
+          expiresIn: segundos,
+          signableHeaders: new Set(["content-type"]),
+        }),
+      )
+    },
     urlFirmada: async (clave, segundos, opciones = {}) => {
       exigirVigencia(segundos)
       exigirNombreDeDescarga(opciones.descargarComo)

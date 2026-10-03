@@ -5,6 +5,9 @@ import type { DepsResumen } from "@/lib/avisos/resumen"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
+import { buscarFfmpegBasico } from "@/lib/ingesta/fotogramas"
+import type { DepsProcesar } from "@/lib/ingesta/procesar"
+import { resolverDns } from "@/lib/ingesta/red-segura"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import { almacenReal } from "@/lib/proveedores/almacen"
@@ -135,5 +138,38 @@ export function depsNocturno(): DepsNocturno {
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
     volcarBase: () => volcarConPgDump(exigirEnv("RESPALDO_DB_URL", process.env.RESPALDO_DB_URL)),
+  }
+}
+
+/**
+ * The dependencies of a `procesar-material` run. Claude's key and ffmpeg are checked here, before the run spends
+ * anything; ElevenLabs' key is read only when a material has audio to transcribe.
+ */
+export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
+  const db = clienteDeServicio()
+  const llaveDeAnthropic = await leerSecreto(db, "anthropic")
+  if (!llaveDeAnthropic) {
+    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de Anthropic en Ajustes.")
+  }
+  const ffmpeg = await buscarFfmpegBasico()
+  if (!ffmpeg) {
+    throw new FallaDeConfiguracion(
+      "No encuentro ffmpeg para leer los materiales. En el contenedor lo instala la extensión ffmpeg() de trigger.config.ts.",
+    )
+  }
+  return {
+    db,
+    almacen: almacenReal(),
+    fetch: (entrada, init) => fetch(entrada, init),
+    resolver: resolverDns,
+    claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    llaveElevenlabs: async () => {
+      const llave = await leerSecreto(db, "elevenlabs")
+      if (!llave) throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de ElevenLabs en Ajustes.")
+      return llave
+    },
+    ffmpeg,
+    ahora: () => new Date().toISOString(),
+    corrida,
   }
 }
