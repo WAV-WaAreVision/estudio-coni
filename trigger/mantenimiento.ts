@@ -8,7 +8,7 @@ import { producirPiezaTask } from "./producir-pieza"
 // No retries on either: each job tells Coni or WAV by itself (a retry would repeat the notice), and the next tick of
 // the schedule is the retry.
 
-/** Every 10 minutes: runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run. */
+/** Every 10 minutes: runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run and the embeddings and links of materials left behind. */
 export const CONFIGURACION_FRECUENTE = {
   id: "mantenimiento-frecuente",
   cron: "*/10 * * * *",
@@ -28,7 +28,7 @@ export const CONFIGURACION_NOCTURNA = {
 export const mantenimientoFrecuenteTask = schedules.task({
   ...CONFIGURACION_FRECUENTE,
   onFailure: alFallarDeTarea("mantenimiento-frecuente", depsFalla),
-  run: async () =>
+  run: async (_carga, { ctx }) =>
     mantenimientoFrecuente(
       depsFrecuente(
         async (piezaId, clave) => {
@@ -40,6 +40,7 @@ export const mantenimientoFrecuenteTask = schedules.task({
           const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
           await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
         },
+        ctx.run.id,
       ),
     ),
 })

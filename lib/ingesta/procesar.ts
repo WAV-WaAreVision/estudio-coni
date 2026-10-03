@@ -2,7 +2,6 @@ import { extname } from "node:path"
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
-import { confirmarGasto, liberarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import {
   extraerArticulo,
@@ -19,6 +18,20 @@ import {
   extraerFotogramas,
   unirLineasDePantalla,
 } from "@/lib/ingesta/fotogramas"
+import {
+  type Contexto,
+  exigirMaterial,
+  existeMaterial,
+  falloDeBase,
+  guardarJson,
+  leerJson,
+  MaterialBorrado,
+  pagadoAntes,
+  pagar,
+  redondear,
+  TOPE,
+  type Tope,
+} from "@/lib/ingesta/gasto-material"
 import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
@@ -31,6 +44,7 @@ import {
   necesitaAdaptacion,
   traducirMaterial,
 } from "@/lib/ingesta/traducir"
+import { registrarFallaDeVinculos, vincularMaterial } from "@/lib/ingesta/vincular"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -39,7 +53,9 @@ import {
   MODELO_POR_TAREA,
   type TextoLeido,
 } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
+import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -55,6 +71,10 @@ export interface DepsProcesar {
   claude: Anthropic
   /** Read only when there is audio to transcribe, so a PDF does not need the key. */
   llaveElevenlabs: () => Promise<string>
+  /** The Voyage key (env `VOYAGE_API_KEY`); without it the card is left without links, never failed. */
+  llaveVoyage?: () => string | undefined
+  /** Where WAV hears that a material gave up its embedding and links; without it the failure is only counted. */
+  avisos?: Notificador
   /** Any ffmpeg that runs (no libass needed); the first one found when absent. */
   ffmpeg?: string
   ahora: () => string
@@ -92,8 +112,6 @@ const TOKENS_DE_SALIDA_POR_IMAGEN = 300
 /** Releases the claim of the run on a material. */
 const LIBRE = { corrida_id: null, corrida_desde: null }
 
-const redondear = (usd: number) => Number(usd.toFixed(4))
-
 const claves = (id: string) => ({
   texto: `materiales/${id}/texto.txt`,
   textoOriginal: `materiales/${id}/texto-original.txt`,
@@ -117,47 +135,11 @@ type Voz = z.infer<typeof Voz>
 
 const Lecturas = z.array(z.object({ id: z.string(), texto: z.string(), idioma: z.string() }))
 
-/** What a paid step leaves behind, so a run that crashed after paying does not pay again. */
-function conGasto<T extends z.ZodType>(datos: T) {
-  return z.object({ gasto: z.object({ clave: z.string(), realUsd: z.number() }), datos })
-}
-
-/** The material was deleted while the run was working: not an error, nothing to retry and nobody to alert. */
-class MaterialBorrado extends Error {
-  constructor() {
-    super("El material fue borrado mientras se procesaba.")
-    this.name = "MaterialBorrado"
-  }
-}
-
-type Tope = { tope: true }
-const TOPE: Tope = { tope: true }
-
-interface Contexto {
-  deps: DepsProcesar
-  material: Material
-}
-
-function falloDeBase(mensaje: string, error: { message: string }): Error {
-  return new Error(`${mensaje}: ${error.message}`)
-}
-
 async function leerMaterial(db: Db, id: string): Promise<Material> {
   const { data, error } = await db.from("materiales").select("*").eq("id", id).maybeSingle()
   if (error) throw falloDeBase("No pude leer el material", error)
   if (!data) throw new FallaDeConfiguracion(`No existe el material ${id}.`)
   return data
-}
-
-async function existeMaterial(db: Db, id: string): Promise<boolean> {
-  const { data, error } = await db.from("materiales").select("id").eq("id", id).maybeSingle()
-  if (error) throw falloDeBase("No pude leer el material", error)
-  return data !== null
-}
-
-/** Called before every paid step: a deleted material must not cost anything more. */
-async function exigirMaterial(db: Db, id: string): Promise<void> {
-  if (!(await existeMaterial(db, id))) throw new MaterialBorrado()
 }
 
 async function actualizarMaterial(
@@ -169,72 +151,8 @@ async function actualizarMaterial(
   if (error) throw falloDeBase("No pude actualizar el material", error)
 }
 
-async function leerJson<T>(almacen: Almacen, clave: string, esquema: z.ZodType<T>): Promise<T | null> {
-  if (!(await almacen.existe(clave))) return null
-  const bytes = await almacen.bajar(clave)
-  return esquema.parse(JSON.parse(new TextDecoder().decode(bytes)))
-}
-
-async function guardarJson(almacen: Almacen, clave: string, valor: unknown): Promise<void> {
-  await almacen.subir(clave, new TextEncoder().encode(JSON.stringify(valor)), "application/json")
-}
-
 async function guardarTexto(almacen: Almacen, clave: string, texto: string): Promise<void> {
   await almacen.subir(clave, new TextEncoder().encode(texto), "text/plain; charset=utf-8")
-}
-
-/**
- * The stored result of a paid step, or null when there is none. The reservation of the run that paid is confirmed
- * here (a no-op when it already was), so a crash between paying and confirming leaves no reservation hanging.
- */
-async function pagadoAntes<T>(ctx: Contexto, archivo: string, esquema: z.ZodType<T>): Promise<T | null> {
-  const guardado = await leerJson(ctx.deps.almacen, archivo, conGasto(esquema))
-  if (!guardado) return null
-  await confirmarGasto(ctx.deps.db, guardado.gasto.clave, guardado.gasto.realUsd)
-  return guardado.datos
-}
-
-/**
- * One paid provider call: reserve against the monthly cap, call, keep the result in the store and only then confirm
- * the real cost. The reservation key is new on every attempt: reserving an old key returns the old row, even a
- * released one, and the retry would run unmetered. A failed call releases its reservation; a call that was paid for
- * is confirmed even when keeping its result fails.
- */
-async function pagar<T>(
-  ctx: Contexto,
-  paso: {
-    archivo: string
-    proveedor: "anthropic" | "elevenlabs"
-    paso: string
-    estimadoUsd: number
-    llamar: () => Promise<{ datos: T; realUsd: number }>
-  },
-): Promise<Tope | { tope: false; datos: T }> {
-  const { db, almacen, ahora } = ctx.deps
-  await exigirMaterial(db, ctx.material.id)
-  const clave = `material:${ctx.material.id}:${paso.paso}:${crypto.randomUUID()}`
-  const reserva = await reservarGastoGeneral(db, {
-    proveedor: paso.proveedor,
-    paso: paso.paso,
-    estimadoUsd: paso.estimadoUsd,
-    clave,
-    ahora: ahora(),
-  })
-  if (reserva.tope) return TOPE
-  let resultado: { datos: T; realUsd: number }
-  try {
-    resultado = await paso.llamar()
-  } catch (error) {
-    await liberarGasto(db, clave)
-    throw error
-  }
-  const realUsd = redondear(resultado.realUsd)
-  try {
-    await guardarJson(almacen, paso.archivo, { gasto: { clave, realUsd }, datos: resultado.datos })
-  } finally {
-    await confirmarGasto(db, clave, realUsd)
-  }
-  return { tope: false, datos: resultado.datos }
 }
 
 async function ffmpegDe(deps: DepsProcesar): Promise<string> {
@@ -600,6 +518,87 @@ async function existeFicha(db: Db, id: string): Promise<boolean> {
   return data !== null
 }
 
+const Incrustacion = z.object({ vector: z.array(z.number()), modelo: z.string() })
+
+async function existeEmbedding(db: Db, id: string): Promise<boolean> {
+  const { data, error } = await db
+    .from("embeddings_ficha")
+    .select("material_id")
+    .eq("material_id", id)
+    .eq("modelo", MODELO_VOYAGE)
+    .maybeSingle()
+  if (error) throw falloDeBase("No pude leer el embedding", error)
+  return data !== null
+}
+
+/** The text that stands for a card in the vector space: its summary and key ideas. */
+async function textoDeLaFicha(db: Db, id: string): Promise<string> {
+  const { data, error } = await db.from("fichas").select("resumen, ideas_clave").eq("material_id", id).single()
+  if (error) throw falloDeBase("No pude leer la ficha", error)
+  const ideas = z.array(z.string()).parse(data.ideas_clave)
+  return [data.resumen, ...ideas].join("\n")
+}
+
+/** Over-estimate of the embedding cost, like every reservation: the real tokens replace it on confirming. */
+const estimarEmbedding = (texto: string) => redondear(costoVoyage(Math.ceil(texto.length / 2)) + 0.0001)
+
+async function embeberFicha(ctx: Contexto, llave: string): Promise<void> {
+  const { deps, material } = ctx
+  const texto = await textoDeLaFicha(deps.db, material.id)
+  const archivo = `materiales/${material.id}/embedding.json`
+  let guardado = await pagadoAntes(ctx, archivo, Incrustacion)
+  if (!guardado) {
+    const pagado = await pagar(ctx, {
+      archivo,
+      proveedor: "voyage",
+      paso: "embedding",
+      estimadoUsd: estimarEmbedding(texto),
+      llamar: async () => {
+        const r = await embeber({ clave: llave, textos: [texto], tipo: "document" })
+        const vector = r.vectores[0]
+        if (!vector) throw new Error("Voyage no devolvió el vector de la ficha.")
+        return { datos: { vector, modelo: MODELO_VOYAGE }, realUsd: costoVoyage(r.tokens) }
+      },
+    })
+    if (pagado.tope) throw new TopeDeEmbedding()
+    guardado = pagado.datos
+  }
+  const { error } = await deps.db
+    .from("embeddings_ficha")
+    .upsert({ material_id: material.id, vector: JSON.stringify(guardado.vector), modelo: guardado.modelo })
+  if (error) throw falloDeBase("No pude guardar el embedding", error)
+}
+
+class TopeDeEmbedding extends Error {
+  constructor() {
+    super("El tope de gasto no alcanza para el embedding.")
+    this.name = "TopeDeEmbedding"
+  }
+}
+
+/**
+ * Embeds the stored card. Never fails the material: with no key, a provider error or the cap reached, the card stays
+ * without a vector and the material is flagged so the links are computed later. Says whether the vector is there, or
+ * why not (`tope` is the cap, which the later sweep must not insist on).
+ */
+export async function incrustarFicha(ctx: Contexto): Promise<"listo" | "pendiente" | "tope"> {
+  const { deps, material } = ctx
+  if (await existeEmbedding(deps.db, material.id)) return "listo"
+  const llave = deps.llaveVoyage?.()
+  if (!llave) return "pendiente"
+  try {
+    await embeberFicha(ctx, llave)
+    return "listo"
+  } catch (error) {
+    if (error instanceof MaterialBorrado) throw error
+    if (error instanceof TopeDeEmbedding) return "tope"
+    // Left for the later pass (`vinculos_pendientes`), but visible in the logs. The key is already redacted by the client.
+    console.warn(`Embedding pendiente del material ${material.id}: ${error instanceof Error ? error.message : "error"}`)
+    await registrarFallaDeVinculos(deps, material, error)
+    return "pendiente"
+  }
+}
+
 /** Step 3: the card, written once from the Chilean text, and the material is ready. */
 async function fichaDe(
   ctx: Contexto,
@@ -642,8 +641,10 @@ async function fichaDe(
     })
     if (error) throw falloDeBase("No pude guardar la ficha", error)
   }
+  const vinculado = (await incrustarFicha(ctx)) === "listo" && (await vincularMaterial(deps, material.id))
   await actualizarMaterial(deps.db, material.id, {
     estado: "listo",
+    vinculos_pendientes: !vinculado,
     texto_clave: claves(material.id).texto,
     motivo_fallo: null,
     ...LIBRE,
