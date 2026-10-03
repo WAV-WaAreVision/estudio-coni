@@ -138,7 +138,8 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
   }
 
   const buscando = vista === "buscar"
-  const bancoVacio = ideas.every((idea) => descartadas.includes(idea.id))
+  // The server gave her nothing free: the engine will. If she used the free ones up here, "Usaste todas" is the truth.
+  const bancoVacio = ideas.every((idea) => idea.estado !== "idea")
   return (
     <div className="grid gap-4.5">
       <header className="grid gap-1.5">

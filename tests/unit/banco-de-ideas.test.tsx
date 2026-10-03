@@ -122,12 +122,22 @@ describe("BancoDeIdeas: una idea a la vez", () => {
     expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
   })
 
-  it("says the bank is used up and offers to write an idea when none is free", () => {
-    mostrar({}, [idea({ id: "d", estado: "usada" })])
+  it("says the bank is used up and offers to write an idea when she went through the free ones", async () => {
+    mostrar({}, [idea({ id: "a" }), idea({ id: "d", estado: "usada" })])
 
-    expect(screen.getByText("Usaste todas las ideas del banco. Escribe una idea nueva.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta" }))
+
+    expect(await screen.findByText("Usaste todas las ideas del banco. Escribe una idea nueva.")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Usar esta" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Escribir una idea mía" })).toBeInTheDocument()
+  })
+
+  it("shows the engine empty state when the bank only holds used ideas", () => {
+    mostrar({}, [idea({ id: "d", estado: "usada" })])
+
+    expect(screen.getByText(/El motor propone ideas cada domingo/)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toBeInTheDocument()
+    expect(screen.queryByText(/Usaste todas/)).not.toBeInTheDocument()
   })
 })
 
