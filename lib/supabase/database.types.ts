@@ -816,6 +816,63 @@ export type Database = {
         }
         Relationships: []
       }
+      vinculos: {
+        Row: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        Insert: {
+          cita_a?: string | null
+          cita_b?: string | null
+          creado_en?: string
+          decidido_en?: string | null
+          decidido_por?: string | null
+          estado?: string
+          material_a: string
+          material_b: string
+          razon?: string | null
+          relevancia: number
+          tipo: string
+        }
+        Update: {
+          cita_a?: string | null
+          cita_b?: string | null
+          creado_en?: string
+          decidido_en?: string | null
+          decidido_por?: string | null
+          estado?: string
+          material_a?: string
+          material_b?: string
+          razon?: string | null
+          relevancia?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vinculos_material_a_fkey"
+            columns: ["material_a"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vinculos_material_b_fkey"
+            columns: ["material_b"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas_clic: {
         Row: {
           dia: string
@@ -858,6 +915,33 @@ export type Database = {
       }
     }
     Functions: {
+      aceptar_vinculo: {
+        Args: {
+          p_a: string
+          p_b: string
+          p_relevancia?: number
+          p_tipo?: string
+        }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
@@ -885,6 +969,56 @@ export type Database = {
         }
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
+      crear_vinculo: {
+        Args: {
+          p_a: string
+          p_b: string
+          p_razon: string
+          p_relevancia: number
+          p_tipo: string
+        }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      descartar_vinculo: {
+        Args: { p_a: string; p_b: string }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -1075,6 +1209,13 @@ export type Database = {
         }
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      materiales_cercanos: {
+        Args: { p_limite?: number; p_material: string }
+        Returns: {
+          distancia: number
+          material_id: string
+        }[]
+      }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
