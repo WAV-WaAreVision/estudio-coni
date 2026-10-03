@@ -314,6 +314,35 @@ export type Database = {
         }
         Relationships: []
       }
+      embeddings_ficha: {
+        Row: {
+          creado_en: string
+          material_id: string
+          modelo: string
+          vector: string
+        }
+        Insert: {
+          creado_en?: string
+          material_id: string
+          modelo: string
+          vector: string
+        }
+        Update: {
+          creado_en?: string
+          material_id?: string
+          modelo?: string
+          vector?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embeddings_ficha_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos: {
         Row: {
           actor_rol: string
@@ -598,6 +627,8 @@ export type Database = {
           texto_pegado: string | null
           tipo: string
           titulo: string | null
+          vinculos_intentos: number
+          vinculos_pendientes: boolean
         }
         Insert: {
           archivo_clave?: string | null
@@ -622,6 +653,8 @@ export type Database = {
           texto_pegado?: string | null
           tipo: string
           titulo?: string | null
+          vinculos_intentos?: number
+          vinculos_pendientes?: boolean
         }
         Update: {
           archivo_clave?: string | null
@@ -646,6 +679,8 @@ export type Database = {
           texto_pegado?: string | null
           tipo?: string
           titulo?: string | null
+          vinculos_intentos?: number
+          vinculos_pendientes?: boolean
         }
         Relationships: [
           {
@@ -1119,6 +1154,63 @@ export type Database = {
           },
         ]
       }
+      vinculos: {
+        Row: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        Insert: {
+          cita_a?: string | null
+          cita_b?: string | null
+          creado_en?: string
+          decidido_en?: string | null
+          decidido_por?: string | null
+          estado?: string
+          material_a: string
+          material_b: string
+          razon?: string | null
+          relevancia: number
+          tipo: string
+        }
+        Update: {
+          cita_a?: string | null
+          cita_b?: string | null
+          creado_en?: string
+          decidido_en?: string | null
+          decidido_por?: string | null
+          estado?: string
+          material_a?: string
+          material_b?: string
+          razon?: string | null
+          relevancia?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vinculos_material_a_fkey"
+            columns: ["material_a"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vinculos_material_b_fkey"
+            columns: ["material_b"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas_clic: {
         Row: {
           dia: string
@@ -1186,6 +1278,33 @@ export type Database = {
       }
     }
     Functions: {
+      aceptar_vinculo: {
+        Args: {
+          p_a: string
+          p_b: string
+          p_relevancia?: number
+          p_tipo?: string
+        }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
@@ -1218,6 +1337,56 @@ export type Database = {
         Returns: string
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
+      crear_vinculo: {
+        Args: {
+          p_a: string
+          p_b: string
+          p_razon: string
+          p_relevancia: number
+          p_tipo: string
+        }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      descartar_vinculo: {
+        Args: { p_a: string; p_b: string }
+        Returns: {
+          cita_a: string | null
+          cita_b: string | null
+          creado_en: string
+          decidido_en: string | null
+          decidido_por: string | null
+          estado: string
+          material_a: string
+          material_b: string
+          razon: string | null
+          relevancia: number
+          tipo: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vinculos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -1393,6 +1562,15 @@ export type Database = {
         Args: { p_nombre: string; p_valor: string }
         Returns: undefined
       }
+      guardar_teoria: {
+        Args: {
+          p_categoria?: string
+          p_id: string
+          p_tesis: string
+          p_titulo: string
+        }
+        Returns: undefined
+      }
       guardar_token_meta: {
         Args: { p_expira_en: string; p_token: string }
         Returns: undefined
@@ -1420,13 +1598,26 @@ export type Database = {
         }
       }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      marcar_teoria_disparo_fallido: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      materiales_cercanos: {
+        Args: { p_limite?: number; p_material: string }
+        Returns: {
+          distancia: number
+          material_id: string
+        }[]
+      }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      pedir_teoria: { Args: { p_materiales: string[] }; Returns: string }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean
       }
       reintentar_material: { Args: { p_id: string }; Returns: undefined }
+      reintentar_teoria: { Args: { p_id: string }; Returns: undefined }
       renombrar_categoria: {
         Args: { p_id: string; p_nombre: string }
         Returns: undefined

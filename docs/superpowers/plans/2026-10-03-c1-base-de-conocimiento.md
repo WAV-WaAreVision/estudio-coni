@@ -395,7 +395,7 @@
 
 ## Production checklist (with Federico)
 
-`supabase db push` applies every pending migration, so before step 1 move `20261003000349_*` and `20261003000350_*` out of `supabase/migrations/`, put 349 back before step 2 and 350 back before step 7.
+`supabase db push` applies every pending migration, so `20261003000349_retirar_b2.sql` and `20261003000350_borrar_vinculos.sql` live in `supabase/pendientes/` and are moved into `supabase/migrations/` (with a commit) only at steps 2 and 7.
 
 0. Pre-checks:
    - no material is in `procesando`;
@@ -413,3 +413,18 @@
 5. Reprocess the 3 non-strategy materials.
 6. Upload the Carmen batch again with role `referente`.
 7. Check Temas and Autores, the 10-minute runs and the 03:00 merge. Then `supabase db push` of migration 350 (`20261003000350_borrar_vinculos.sql`: drops the tables `vinculos` and `embeddings_ficha`).
+
+## C1 notes (2026-10-03)
+
+- Done locally on `feat/c1` (estudio-coni) and `feat/c1` (conidolly-ingesta). Migrations 300-348 ship with the code; 349 (retire B2) and 350 (drop `vinculos`, `embeddings_ficha`) wait in `supabase/pendientes/`.
+- Deviations approved during review:
+  - Topics group by centroid ("leader"), not single-link, so unrelated claims never chain into one topic.
+  - Merges run through the atomic SQL `fusionar_par_de_temas`; rejected pairs are remembered (`temas_fusion_rechazada`) and never re-asked.
+  - `recalcular_tema` (SQL) keeps centroids right and deletes empty topics after hiding a claim, deleting a material or reprocessing.
+  - Both maintenance tasks share one Trigger queue with concurrency 1.
+  - A Voyage outage is logged, not alerted, and the claims wait for the next run.
+  - The claim checkpoint fingerprint includes the extraction prompt version.
+  - Claims follow their material's author (trigger). The Coni author cannot be created twice, merged away or deleted.
+  - Topic audit events only record name, description, pillar, aliases and merges, never centroid updates.
+  - The ingestion app lost the graph, theories and the translated-text download; it gained Autores, Temas, the material map, reprocess and "Borrar autor".
+- Open items: thresholds are still the plan defaults until calibration (Task 10, step 3); rejected merge pairs have no manual path yet; the calibration script's spend does not go through `gastos`.
