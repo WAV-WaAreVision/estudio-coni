@@ -14,6 +14,8 @@ import {
   TIPOS_DE_ALERTA,
 } from "@/lib/dominio/revision"
 import { Parte, Ubicacion } from "@/lib/ingesta/partes"
+import { fragmentoTalCual, sinCierre } from "@/lib/ingesta/texto-seguro"
+import { CARACTERES_POR_TRAMO } from "@/lib/ingesta/tramos"
 import { VOZ_DE_CONI } from "@/lib/ingesta/voz-de-coni"
 
 export type ModeloClaude = "claude-opus-5-5" | "claude-sonnet-5-5"
@@ -405,8 +407,7 @@ export async function leerTextoEnImagenes(entrada: {
   return { lecturas, uso }
 }
 
-/** Characters of source text per translation request: keeps the echoed answer well under MAX_TOKENS. */
-export const CARACTERES_POR_LOTE = 12_000
+export { CARACTERES_POR_TRAMO as CARACTERES_POR_LOTE }
 
 /** The answer does not line up with the parts sent: Coni sees this as-is, and retrying can fix it. */
 export class TraduccionFallida extends Falla {
@@ -433,11 +434,6 @@ FORMATO
 - Devuelves exactamente las mismas partes, en el mismo orden y con la misma ubicación copiada sin cambios; solo cambia el texto.
 - Una parte vacía o sin nada que adaptar vuelve igual.
 - idioma_original es el idioma del material de origen, como código ISO 639-1 en minúsculas (es, en, pt, fr, it).`
-
-/** The data may hold a closing tag; `<\\/` is still `</` to a JSON reader but cannot end the data block. */
-function sinCierre(texto: string): string {
-  return texto.replace(/<\/(fuente|ficha_base|candidatas|fichas)/gi, "<\\/$1")
-}
 
 function pedidoDeAdaptacion(partes: readonly Parte[]): string {
   return `Adapta estas partes a español de Chile con la voz de Coni.
@@ -566,43 +562,6 @@ Autor: ${entrada.autor ?? "no se sabe"}${aviso}
 <fuente>
 ${sinCierre(JSON.stringify(partes))}
 </fuente>`
-}
-
-/** Typographic quotes become plain ones and whitespace runs one space, so a quote survives cosmetic differences. */
-function normalizarConMapa(texto: string): { normalizado: string; inicio: number[]; fin: number[] } {
-  const inicio: number[] = []
-  const fin: number[] = []
-  let normalizado = ""
-  let i = 0
-  while (i < texto.length) {
-    const letra = texto.charAt(i)
-    if (/\s/.test(letra)) {
-      let j = i
-      while (j < texto.length && /\s/.test(texto.charAt(j))) j++
-      normalizado += " "
-      inicio.push(i)
-      fin.push(j)
-      i = j
-      continue
-    }
-    normalizado += letra.replace(/[«»“”„]/g, '"').replace(/[‘’]/g, "'")
-    inicio.push(i)
-    fin.push(i + 1)
-    i++
-  }
-  return { normalizado, inicio, fin }
-}
-
-/** The fragment of `texto` that `buscada` matches once both are normalized, as written in `texto`; null when absent. */
-function fragmentoTalCual(texto: string, buscada: string): string | null {
-  const objetivo = normalizarConMapa(buscada).normalizado.trim()
-  if (objetivo === "") return null
-  const { normalizado, inicio, fin } = normalizarConMapa(texto)
-  const posicion = normalizado.indexOf(objetivo)
-  if (posicion === -1) return null
-  const desde = inicio[posicion]
-  const hasta = fin[posicion + objetivo.length - 1]
-  return desde !== undefined && hasta !== undefined ? texto.slice(desde, hasta) : null
 }
 
 /** The quote as it appears in one of the parts at that location, or null when it is not literally there. */

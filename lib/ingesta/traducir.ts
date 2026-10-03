@@ -4,10 +4,10 @@ import { z } from "zod"
 import { confirmarGasto, liberarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
 import { Parte } from "@/lib/ingesta/partes"
+import { CARACTERES_POR_TRAMO, type Trozo, trocear } from "@/lib/ingesta/tramos"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   adaptarAVozDeConi,
-  CARACTERES_POR_LOTE,
   costoClaude,
   identificarIdioma,
   MODELO_POR_TAREA,
@@ -117,7 +117,7 @@ const FACTOR_DE_SALIDA = 1.6
 /** Reservation for the call, from the characters to adapt. Over-estimates: the real cost is confirmed afterwards. */
 export function estimarCostoDeTraduccion(caracteres: number, conDeteccion: boolean): number {
   const tokens = Math.ceil(caracteres / CARACTERES_POR_TOKEN)
-  const lotes = Math.max(1, Math.ceil(caracteres / CARACTERES_POR_LOTE))
+  const lotes = Math.max(1, Math.ceil(caracteres / CARACTERES_POR_TRAMO))
   const base = costoClaude(
     {
       input_tokens: tokens + TOKENS_FIJOS_POR_LOTE * lotes,
@@ -128,59 +128,17 @@ export function estimarCostoDeTraduccion(caracteres: number, conDeteccion: boole
   return Number((base + (conDeteccion ? ESTIMADO_IDIOMA_USD : 0)).toFixed(4))
 }
 
-interface Trozo {
-  texto: string
-  /** What goes between the previous chunk and this one when the part is put back together. */
-  antes: string
-}
-
-const NIVELES_DE_CORTE: readonly { separador: RegExp; union: string }[] = [
-  { separador: /\n{2,}/, union: "\n\n" },
-  { separador: /(?<=[.!?…])\s+/, union: " " },
-]
-
-/** Splits at paragraphs, then sentences, then a hard cut; chunks are packed as full as the limit allows. */
-export function trocear(texto: string, limite = CARACTERES_POR_LOTE, nivel = 0): Trozo[] {
-  if (texto.length <= limite) return [{ texto, antes: "" }]
-  const corte = NIVELES_DE_CORTE[nivel]
-  if (!corte) {
-    const trozos: Trozo[] = []
-    for (let desde = 0; desde < texto.length; desde += limite)
-      trozos.push({ texto: texto.slice(desde, desde + limite), antes: "" })
-    return trozos
-  }
-  const resultado: Trozo[] = []
-  for (const unidad of texto.split(corte.separador)) {
-    const piezas = trocear(unidad, limite, nivel + 1)
-    const ultimo = resultado.at(-1)
-    const [primera] = piezas
-    if (
-      ultimo &&
-      piezas.length === 1 &&
-      primera &&
-      ultimo.texto.length + corte.union.length + primera.texto.length <= limite
-    ) {
-      ultimo.texto += corte.union + primera.texto
-      continue
-    }
-    resultado.push(
-      ...piezas.map((pieza, i) => (i === 0 && resultado.length > 0 ? { ...pieza, antes: corte.union } : pieza)),
-    )
-  }
-  return resultado
-}
-
 function unirTrozos(trozos: readonly Trozo[], adaptados: readonly string[]): string {
   return trozos.map((trozo, i) => trozo.antes + (adaptados[i] ?? "")).join("")
 }
 
-/** Groups parts into requests of at most ~CARACTERES_POR_LOTE characters; each part is already within the limit. */
+/** Groups parts into requests of at most ~CARACTERES_POR_TRAMO characters; each part is already within the limit. */
 function lotesPorCaracteres<T extends { texto: string }>(elementos: readonly T[]): T[][] {
   const lotes: T[][] = []
   let actual: T[] = []
   let largo = 0
   for (const elemento of elementos) {
-    if (actual.length > 0 && largo + elemento.texto.length > CARACTERES_POR_LOTE) {
+    if (actual.length > 0 && largo + elemento.texto.length > CARACTERES_POR_TRAMO) {
       lotes.push(actual)
       actual = []
       largo = 0
