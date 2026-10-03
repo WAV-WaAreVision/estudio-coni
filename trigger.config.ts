@@ -41,6 +41,10 @@ export default defineConfig({
     default: { maxAttempts: 3, factor: 2, minTimeoutInMs: 2000, maxTimeoutInMs: 60000, randomize: true },
   },
   build: {
+    // jsdom reads its default stylesheet from a file next to its own source, so bundled it dies on first use
+    // (checked with esbuild: ENOENT default-stylesheet.css). Left external, Trigger.dev installs it in the image.
+    // unpdf bundles fine (checked the same way). The Trigger.dev bundler itself was NOT run: it needs a login.
+    external: ["jsdom"],
     extensions: [
       // ffmpeg and ffprobe with libass (apt), and the FFMPEG_PATH and FFPROBE_PATH that lib/video/ffmpeg.ts looks for.
       ffmpeg(),

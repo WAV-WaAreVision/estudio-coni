@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
 import { Falla } from "@/lib/dominio/falla"
 
@@ -30,6 +31,10 @@ export class EnlaceDemasiadoGrande extends Falla {
 }
 
 export type Resolver = (anfitrion: string) => Promise<string[]>
+/** The system resolver: every address of the host, IPv4 and IPv6. */
+export const resolverDns: Resolver = async (anfitrion) =>
+  (await lookup(anfitrion, { all: true, verbatim: true })).map((a) => a.address)
+
 export type FetchDeEnlace = (entrada: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 function ipv4(ip: string): number[] | null {
