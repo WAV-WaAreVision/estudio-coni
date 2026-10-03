@@ -1,5 +1,6 @@
-import { pool } from "./db"
+import { CONI, pool } from "./db"
 import { crearPiezaEn } from "./flujo"
+import { clienteDeServicio } from "./servicio"
 
 /** Walks a new piece to `destino` with the real flow and commits it, so a separate client (the app) can see it. */
 export async function sembrarPieza(
@@ -38,20 +39,106 @@ export async function leerFila(id: string) {
 }
 
 export async function sembrarIdea(
-  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number } = {},
+  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number; estado?: string } = {},
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4) returning id",
+    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
     [
       extra.pilar ?? "deseo",
       extra.gancho ?? "El deseo no se apaga, se esconde",
       JSON.stringify(extra.alertas ?? []),
       extra.numero ?? null,
+      extra.estado ?? "idea",
     ],
   )
   const id = rows[0]?.id
   if (!id) throw new Error("No se creó la idea")
   return id
+}
+
+export interface TeoriaSembrada {
+  titulo: string
+  tesis: string
+  nivel: "alto" | "medio" | "debil"
+  respaldo: { autor: string; cita: string }[]
+}
+
+/** An idea the weekly engine wrote: with its theory and the claims behind it, as the engine leaves them. */
+export async function sembrarIdeaDelMotor(extra: {
+  gancho: string
+  semana: string
+  pilar?: string
+  estado?: string
+  alertas?: unknown
+  numero?: number
+  teoria?: TeoriaSembrada
+}): Promise<string> {
+  let teoriaId: string | null = null
+  if (extra.teoria) {
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into public.teorias (titulo, tesis, nivel_evidencia, origen, semana) values ($1, $2, $3, 'motor', $4) returning id",
+      [extra.teoria.titulo, extra.teoria.tesis, extra.teoria.nivel, extra.semana],
+    )
+    teoriaId = rows[0]?.id ?? null
+    const { rows: categoria } = await pool.query<{ id: string }>(
+      "select id from public.categorias where slug = 'general'",
+    )
+    for (const [i, apoyo] of extra.teoria.respaldo.entries()) {
+      const { rows: autor } = await pool.query<{ id: string }>(
+        `insert into public.autores (nombre, tipo) values ($1, 'persona')
+         on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
+        [apoyo.autor],
+      )
+      const { rows: material } = await pool.query<{ id: string }>(
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ($1, 'documento', $2, 'siembra-motor', now(), $3) returning id`,
+        [autor[0]?.id, categoria[0]?.id, CONI],
+      )
+      const { rows: afirmacion } = await pool.query<{ id: string }>(
+        `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia)
+         values ($1, $2, $3, '{}', 'texto', $4, 'consejo', 'opinion') returning id`,
+        [material[0]?.id, autor[0]?.id, i, apoyo.cita],
+      )
+      await pool.query(
+        "insert into public.teoria_afirmaciones (teoria_id, afirmacion_id, aporte) values ($1, $2, 'aporta')",
+        [teoriaId, afirmacion[0]?.id],
+      )
+    }
+  }
+  const { rows } = await pool.query<{ id: string }>(
+    `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado, origen, semana, teoria_id, numero)
+     values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, 'motor', $5, $6, $7) returning id`,
+    [
+      extra.pilar ?? "pareja",
+      extra.gancho,
+      JSON.stringify(extra.alertas ?? []),
+      extra.estado ?? "idea",
+      extra.semana,
+      teoriaId,
+      extra.numero ?? null,
+    ],
+  )
+  const id = rows[0]?.id
+  if (!id) throw new Error("No se creó la idea del motor")
+  return id
+}
+
+export async function sembrarCorrida(
+  semana: string,
+  estado: "corriendo" | "lista" | "fallida" = "lista",
+): Promise<void> {
+  // As the service role, the way the engine writes: the audit log is append-only and other suites read it.
+  const { error } = await clienteDeServicio().from("motor_corridas").insert({ semana, estado })
+  if (error) throw new Error(`No pude sembrar la corrida: ${error.message}`, { cause: error })
+}
+
+/** Removes the engine's rows the tests seeded: runs, theories (and their claims) and the authors made for them. */
+export async function vaciarMotor(): Promise<void> {
+  await pool.query("delete from public.ideas where origen = 'motor'")
+  await pool.query("delete from public.teorias where origen = 'motor'")
+  await pool.query("delete from public.motor_corridas")
+  await pool.query("delete from public.materiales where texto_pegado = 'siembra-motor'")
+  await pool.query("delete from public.autores where tipo = 'persona' and nombre like 'Siembra %'")
 }
 
 /** Removes what the tests created. Only the database owner can delete pieces; the audit rows stay (append-only). */
@@ -69,4 +156,5 @@ export async function vaciarPiezasEIdeas(): Promise<void> {
   await pool.query("delete from public.intervenciones where pieza_id is not null")
   await pool.query("delete from public.piezas")
   await pool.query("delete from public.ideas")
+  await vaciarMotor()
 }

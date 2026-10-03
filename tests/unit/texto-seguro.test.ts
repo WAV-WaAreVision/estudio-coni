@@ -3,8 +3,8 @@ import { fragmentoTalCual, posicionTalCual, sinCierre } from "@/lib/ingesta/text
 
 describe("sinCierre", () => {
   it("escapes the closing tags that could end a data block", () => {
-    expect(sinCierre("a </fuente> b </ficha_base> </candidatas> </fichas>")).toBe(
-      "a <\\/fuente> b <\\/ficha_base> <\\/candidatas> <\\/fichas>",
+    expect(sinCierre("a </fuente> b </ficha_base> </candidatas> </fichas> </cruces> </estrategia> </voz_propia>")).toBe(
+      "a <\\/fuente> b <\\/ficha_base> <\\/candidatas> <\\/fichas> <\\/cruces> <\\/estrategia> <\\/voz_propia>",
     )
   })
 

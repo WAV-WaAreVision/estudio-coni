@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { sembrarIdea, vaciarPiezasEIdeas } from "../integration/siembra"
+import { sembrarCorrida, sembrarIdea, sembrarIdeaDelMotor, vaciarPiezasEIdeas } from "../integration/siembra"
 import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
 
 const ALERTA = [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }]
@@ -136,4 +136,63 @@ test("without her Anthropic key the proposal explains it and she can still choos
 
   await expect(page.getByText("Guardé tu idea y la sumé a las ideas de la semana.")).toBeVisible()
   expect((await registroDeServicios()).filter((l) => l.ruta === "/v1/messages")).toEqual([])
+})
+
+test.describe("ideas del motor", () => {
+  const SEMANA = "2026-09-27"
+
+  async function sembrarSemana() {
+    await sembrarCorrida(SEMANA)
+    await sembrarIdea({ gancho: "Una idea de siempre", numero: 1 })
+    await sembrarIdeaDelMotor({
+      gancho: "Estar cansada no siempre es cansancio.",
+      semana: SEMANA,
+      numero: 10,
+      alertas: [{ tipo: "respaldo", texto: "respaldo débil" }],
+      teoria: {
+        titulo: "El deseo se esconde detrás del cansancio",
+        tesis: "Quien dice estar cansada muchas veces protege su deseo.",
+        nivel: "debil",
+        respaldo: [{ autor: "Siembra Autora Uno", cita: "El cansancio es una forma de decir que no." }],
+      },
+    })
+    await sembrarIdeaDelMotor({ gancho: "Otra del motor.", semana: SEMANA, pilar: "limites", numero: 11 })
+  }
+
+  test("this week's engine ideas come first with their why and backing, and discarding leaves a reason", async ({
+    page,
+  }) => {
+    await sembrarSemana()
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.goto("/ideas")
+
+    await expect(page.getByText("Nuevas de la semana")).toBeVisible()
+    await expect(page.getByText("Idea 1 de 3")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Estar cansada no siempre es cansancio." })).toBeVisible()
+    await expect(page.getByText("Respaldo débil")).toBeVisible()
+    await page.getByText("Por qué", { exact: true }).click()
+    await expect(page.getByText("Evidencia: Débil")).toBeVisible()
+    await expect(page.getByText("Solo para ti, no se publica")).toBeVisible()
+    await expect(page.getByText("Siembra Autora Uno: El cansancio es una forma de decir que no.")).toBeVisible()
+    await capturar(page, "banco-semana")
+
+    await page.getByRole("button", { name: "Descartar" }).click()
+    await expect(page.getByRole("group", { name: "¿Por qué la descartas?" })).toBeVisible()
+    await page.getByRole("button", { name: "Repetida" }).click()
+
+    await expect(page.getByText("Descarté la idea.")).toBeVisible()
+    await expect(page.getByText("Idea 1 de 2")).toBeVisible()
+    const { rows } = await pool.query(
+      "select estado, motivo_descarte from public.ideas where gancho = 'Estar cansada no siempre es cansancio.'",
+    )
+    expect(rows[0]).toEqual({ estado: "descartada", motivo_descarte: "repetida" })
+  })
+
+  test("an empty bank says when the engine proposes and links to the ingestion app", async ({ page }) => {
+    await page.goto("/ideas")
+
+    await expect(page.getByText("El motor propone ideas cada domingo a las 20:00.")).toBeVisible()
+    await expect(page.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute("href", /^https?:\/\//)
+  })
 })

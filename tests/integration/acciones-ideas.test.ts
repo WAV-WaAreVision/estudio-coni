@@ -2,7 +2,14 @@ import Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-import { crearIdeaPropia, type DepsIdeas, proponerIdea, quitarIdea, usarIdea } from "@/lib/acciones/ideas"
+import {
+  crearIdeaPropia,
+  type DepsIdeas,
+  descartarIdea,
+  proponerIdea,
+  quitarIdea,
+  usarIdea,
+} from "@/lib/acciones/ideas"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
@@ -101,6 +108,49 @@ afterEach(async () => {
 })
 
 afterAll(() => pool.end())
+
+describe("descartarIdea", () => {
+  it("discards the idea with the reason she chose and unpins it", async () => {
+    const id = await idea()
+    await usarIdea(deps(), id)
+
+    expect(await descartarIdea(deps(), { ideaId: id, motivo: "repetida" })).toEqual({ ok: true })
+
+    const guardada = await fila(id)
+    expect(guardada.estado).toBe("descartada")
+    expect(guardada.motivo_descarte).toBe("repetida")
+    expect(guardada.fijada_en).toBeNull()
+  })
+
+  it("also lets the maintainer discard", async () => {
+    const id = await idea()
+
+    expect(await descartarIdea(deps(mantenedor), { ideaId: id, motivo: "debil" })).toEqual({ ok: true })
+    expect((await fila(id)).estado).toBe("descartada")
+  })
+
+  it("asks for a reason when it is missing or unknown", async () => {
+    const id = await idea()
+
+    expect(await descartarIdea(deps(), { ideaId: id, motivo: "porque sí" })).toEqual({
+      ok: false,
+      error: "Elige por qué la descartas.",
+    })
+    expect(await descartarIdea(deps(), { ideaId: id })).toEqual({ ok: false, error: "Elige por qué la descartas." })
+    expect((await fila(id)).estado).toBe("idea")
+  })
+
+  it("says the idea is gone when it was already used or discarded", async () => {
+    const id = await idea()
+    await pool.query("update public.ideas set estado = 'usada' where id = $1", [id])
+
+    expect(await descartarIdea(deps(), { ideaId: id, motivo: "otro" })).toEqual({
+      ok: false,
+      error: "Esa idea ya no está disponible.",
+    })
+    expect((await fila(id)).estado).toBe("usada")
+  })
+})
 
 describe("usarIdea y quitarIdea", () => {
   it("adds an idea to the week's ideas and takes it out again", async () => {
@@ -233,6 +283,7 @@ describe("crearIdeaPropia", () => {
       formato: "Mito o realidad",
       fuerza: "alta",
       estado: "idea",
+      origen: "propia",
       alertas: PROPUESTA.alertas,
       fuentes: ["Idea de Coni"],
     })

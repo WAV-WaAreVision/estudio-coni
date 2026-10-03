@@ -1,6 +1,12 @@
 import { leerBanco } from "@/lib/datos/banco"
 import { exigirConi } from "@/lib/sesion/coni"
-import { crearIdeaPropiaAccion, proponerIdeaAccion, quitarIdeaAccion, usarIdeaAccion } from "./acciones"
+import {
+  crearIdeaPropiaAccion,
+  descartarIdeaAccion,
+  proponerIdeaAccion,
+  quitarIdeaAccion,
+  usarIdeaAccion,
+} from "./acciones"
 import { BancoDeIdeas } from "./banco-de-ideas"
 
 export default async function Ideas() {
@@ -13,6 +19,7 @@ export default async function Ideas() {
       acciones={{
         usar: usarIdeaAccion,
         quitar: quitarIdeaAccion,
+        descartar: descartarIdeaAccion,
         proponer: proponerIdeaAccion,
         crear: crearIdeaPropiaAccion,
       }}

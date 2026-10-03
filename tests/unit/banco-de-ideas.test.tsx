@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 
@@ -16,6 +16,8 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     alertas: [],
     estado: "idea",
     fijada: false,
+    nueva: false,
+    porQue: null,
     ...parcial,
   }
 }
@@ -37,6 +39,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
   return {
     usar: vi.fn(async () => ({ ok: true as const })),
     quitar: vi.fn(async () => ({ ok: true as const })),
+    descartar: vi.fn(async () => ({ ok: true as const })),
     proponer: vi.fn(async () => ({
       ok: true as const,
       propuesta: {
@@ -119,12 +122,22 @@ describe("BancoDeIdeas: una idea a la vez", () => {
     expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
   })
 
-  it("says the bank is used up and offers to write an idea when none is free", () => {
-    mostrar({}, [idea({ id: "d", estado: "usada" })])
+  it("says the bank is used up and offers to write an idea when she went through the free ones", async () => {
+    mostrar({}, [idea({ id: "a" }), idea({ id: "d", estado: "usada" })])
 
-    expect(screen.getByText("Usaste todas las ideas del banco. Escribe una idea nueva.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta" }))
+
+    expect(await screen.findByText("Usaste todas las ideas del banco. Escribe una idea nueva.")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Usar esta" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Escribir una idea mía" })).toBeInTheDocument()
+  })
+
+  it("shows the engine empty state when the bank only holds used ideas", () => {
+    mostrar({}, [idea({ id: "d", estado: "usada" })])
+
+    expect(screen.getByText(/El motor propone ideas cada domingo/)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toBeInTheDocument()
+    expect(screen.queryByText(/Usaste todas/)).not.toBeInTheDocument()
   })
 })
 
@@ -270,5 +283,152 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
 
     expect(screen.getByRole("button", { name: "Usar esta" })).toBeInTheDocument()
     expect(a.crear).not.toHaveBeenCalled()
+  })
+})
+
+const TEORIA = {
+  titulo: "El deseo se esconde detrás del cansancio",
+  tesis: "Quien dice estar cansada muchas veces protege su deseo.",
+  nivel: "medio" as const,
+  respaldo: [
+    { autor: "Autora Uno", cita: "El cansancio es una forma de decir que no." },
+    { autor: "Autora Dos", cita: "El deseo necesita seguridad para aparecer." },
+  ],
+}
+
+const NUEVA = idea({
+  id: "n",
+  numero: null,
+  gancho: "Estar cansada no siempre es cansancio.",
+  nueva: true,
+  porQue: TEORIA,
+})
+
+describe("BancoDeIdeas: nuevas de la semana", () => {
+  it("labels the engine ideas of the week as a section and drops the label for the rest", () => {
+    mostrar({}, [NUEVA, ...IDEAS])
+
+    expect(screen.getByText("Nuevas de la semana")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Estar cansada no siempre es cansancio." })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Después" }))
+    expect(screen.queryByText("Nuevas de la semana")).not.toBeInTheDocument()
+  })
+
+  it("explains why under Por qué: theory, thesis, level and the backing as author and quote", () => {
+    mostrar({}, [NUEVA])
+
+    fireEvent.click(screen.getByText("Por qué"))
+
+    expect(screen.getByText(TEORIA.titulo)).toBeVisible()
+    expect(screen.getByText(TEORIA.tesis)).toBeVisible()
+    expect(screen.getByText("Evidencia: Media")).toBeVisible()
+    expect(screen.getByText(/Autora Uno: El cansancio es una forma de decir que no\./)).toBeVisible()
+    expect(screen.getByText(/Autora Dos: El deseo necesita seguridad para aparecer\./)).toBeVisible()
+    expect(screen.getByText("Solo para ti, no se publica")).toBeVisible()
+  })
+
+  it.each([
+    ["alto", "Evidencia: Alta"],
+    ["debil", "Evidencia: Débil"],
+  ] as const)("writes the %s level as it reads to her", (nivel, texto) => {
+    mostrar({}, [{ ...NUEVA, porQue: { ...TEORIA, nivel } }])
+
+    expect(screen.getByText(texto)).toBeInTheDocument()
+  })
+
+  it("has no Por qué on an idea that did not come from the engine", () => {
+    mostrar()
+
+    expect(screen.queryByText("Por qué")).not.toBeInTheDocument()
+  })
+
+  it("shows the weak backing as a quiet badge, not as something to check before recording", () => {
+    mostrar({}, [{ ...NUEVA, alertas: [{ tipo: "respaldo", texto: "respaldo débil" }] }])
+
+    expect(screen.getByText("Respaldo débil")).toBeInTheDocument()
+    expect(screen.queryByText("Qué revisar antes de grabar")).not.toBeInTheDocument()
+  })
+
+  it("keeps Usar esta working on an engine idea", async () => {
+    const a = mostrar({}, [NUEVA])
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta" }))
+
+    await waitFor(() => expect(a.usar).toHaveBeenCalledWith("n"))
+  })
+})
+
+describe("BancoDeIdeas: descartar", () => {
+  it("opens an in-page choice of reasons with focus on it, and cancelling closes it", () => {
+    mostrar({}, [NUEVA, ...IDEAS])
+
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+
+    const grupo = screen.getByRole("group", { name: "¿Por qué la descartas?" })
+    for (const motivo of ["No me representa", "Repetida", "Débil", "Otro"]) {
+      expect(screen.getByRole("button", { name: motivo })).toBeInTheDocument()
+    }
+    expect(grupo.contains(document.activeElement)).toBe(true)
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(screen.queryByRole("group", { name: "¿Por qué la descartas?" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Descartar" })).toHaveFocus()
+  })
+
+  it.each([
+    ["No me representa", "no_me_representa"],
+    ["Repetida", "repetida"],
+    ["Débil", "debil"],
+    ["Otro", "otro"],
+  ])("discards with the reason %s and moves on to the next idea", async (nombre, motivo) => {
+    const a = mostrar({}, [NUEVA, ...IDEAS])
+
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+    fireEvent.click(screen.getByRole("button", { name: nombre }))
+
+    await waitFor(() => expect(a.descartar).toHaveBeenCalledWith("n", motivo))
+    expect(await screen.findByText("Descarté la idea.")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
+    expect(screen.getByText("Idea 1 de 3")).toBeInTheDocument()
+  })
+
+  it("keeps the idea and says why when it could not be discarded", async () => {
+    mostrar({ descartar: vi.fn(async () => ({ ok: false as const, error: "Esa idea ya no está disponible." })) })
+
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Repetida" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Esa idea ya no está disponible.")
+    expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
+  })
+})
+
+describe("BancoDeIdeas: banco vacío", () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it("tells her when the engine proposes and links to the ingestion app from the environment", () => {
+    vi.stubEnv("NEXT_PUBLIC_URL_INGESTA", "https://ingesta.ejemplo.test")
+    mostrar({}, [])
+
+    expect(
+      screen.getByText(
+        "El motor propone ideas cada domingo a las 20:00. Mientras, sube material en Conidolly Ingesta.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute(
+      "href",
+      "https://ingesta.ejemplo.test",
+    )
+  })
+
+  it("falls back to the production URL when the environment has none", () => {
+    vi.stubEnv("NEXT_PUBLIC_URL_INGESTA", "")
+    mostrar({}, [])
+
+    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute(
+      "href",
+      "https://conidolly-ingesta.vercel.app",
+    )
   })
 })

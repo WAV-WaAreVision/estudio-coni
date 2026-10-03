@@ -24,6 +24,7 @@ export async function importarIdeas(
     fuerza: idea.fuerza,
     alertas: idea.alertas.map(({ tipo, texto }) => ({ tipo, texto })),
     fuentes: idea.fuentes,
+    origen: "importada",
   })
   const usadas = ideas.filter((idea) => idea.estado === "usada").map((idea) => ({ ...comoFila(idea), estado: "usada" }))
   const sinEstado = ideas.filter((idea) => idea.estado !== "usada").map(comoFila)

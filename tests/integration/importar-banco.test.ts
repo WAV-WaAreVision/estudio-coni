@@ -17,7 +17,7 @@ afterEach(async () => {
 
 async function filas() {
   const { rows } = await pool.query(
-    "select numero, pilar, gancho, fuerza, alertas, fuentes, estado from public.ideas where numero = any($1::int[]) order by numero",
+    "select numero, pilar, gancho, fuerza, alertas, fuentes, estado, origen from public.ideas where numero = any($1::int[]) order by numero",
     [NUMEROS],
   )
   return rows
@@ -34,6 +34,7 @@ describe("importarIdeas", () => {
       [902, "pareja", "media", "idea"],
       [903, "deseo", "baja", "usada"],
     ])
+    expect(guardadas.map((f) => f.origen)).toEqual(["importada", "importada", "importada"])
     expect(guardadas[1]?.alertas).toEqual(MUESTRA[1]?.alertas)
     expect(guardadas[1]?.fuentes).toEqual(["cuenta_uno 2023-01-02", "cuenta_dos 2024-02-03"])
   })

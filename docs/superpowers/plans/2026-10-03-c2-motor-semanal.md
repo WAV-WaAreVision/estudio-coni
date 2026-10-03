@@ -334,15 +334,23 @@ The `PUENTE_MIN` and `PUENTE_MAX` band is related but not the same topic, given 
 
 ## Production checklist (with Federico)
 
-1. Push both repos. `supabase db push` of 400 and 410 (not 350).
-2. Deploy Trigger (`motor-semanal` appears on the worker), then Conidolly and ingesta.
-3. In ingesta, go to Semana and tap "Proponer ahora" once. Check:
-   - the run is `lista`;
-   - about 10 ideas are in the bank under "Nuevas de la semana";
-   - spend in `gastos` with paso `motor`;
-   - no medical or Pinealon ideas.
-4. Coni reviews the ideas. Each discard with a reason tunes the next Sunday.
-5. Apply `supabase/pendientes/20261003000350_borrar_vinculos.sql` when convenient (move it into `supabase/migrations/`, commit, then `db push`).
+1. Push both repos.
+2. `supabase db push` applies 400, 410 and 420 (350 stays in `supabase/pendientes`). Then verify with queries:
+   - `select origen, count(*) from ideas group by origen` (the 4 imported ideas stay `importada`; any idea written by Coni is `propia`);
+   - the tables `teoria_afirmaciones` and `motor_corridas` exist;
+   - `select ideas_por_semana from ajustes` is 10;
+   - the function `motor_afirmaciones_de_tema` exists.
+3. Deploy Trigger and confirm that the `motor-semanal` cron and `motor-manual` appear on the worker.
+4. Deploy Conidolly and ingesta. In ingesta, confirm that `TRIGGER_SECRET_KEY` is the production key of the same Trigger project and that `NEXT_PUBLIC_URL_INGESTA` (or the hardcoded fallback) points to the right app.
+5. In ingesta, go to Semana and tap "Proponer ahora" once. Check:
+   - the run is `lista`, with its cost;
+   - `gastos` rows with paso `motor` (one per batch of three crossings) none left `liberado`, and no retries in the Trigger run, so it finished on the first attempt;
+   - `resumen.cruces` (a cold start is possible: the first run may use single topics);
+   - no Pinealon or medical ideas, or they come as `descartada_por_motor`;
+   - at most 10 engine ideas in the bank under "Nuevas de la semana", each with its "Por qué".
+6. Take one engine idea all the way to a script.
+7. Discard one with a reason.
+8. Later, apply `supabase/pendientes/20261003000350_borrar_vinculos.sql` (move it into `supabase/migrations/`, commit, then `db push`).
 
 ## Deviation from the spec
 

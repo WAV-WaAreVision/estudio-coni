@@ -12,6 +12,8 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     alertas: [],
     estado: "idea",
     fijada: false,
+    nueva: false,
+    porQue: null,
     ...parcial,
   }
 }

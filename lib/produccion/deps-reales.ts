@@ -11,6 +11,7 @@ import { resolverDns } from "@/lib/ingesta/red-segura"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
+import type { DepsDelMotor } from "@/lib/motor/semanal"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
@@ -23,6 +24,17 @@ import type { DepsProduccion } from "./producir"
 // Three calls of at most two attempts each must fit in the task's 900 s (trigger.config.ts), unlike the SDK's
 // default of 10 minutes and two retries, where one hung call would end the run.
 const CLAUDE_ESPERA_MS = 120_000
+
+/**
+ * The engine writes up to 8 crossings in 3 sequential batches of one non-streaming Opus call each (about 4.5k output
+ * tokens, 1 to 2 minutes). 180 s is generous per call, and with no SDK retry (a retry would silently double the
+ * call and its cost) the worst case is 3 x 180 s = 540 s, inside the task's 900 s.
+ */
+export const CLAUDE_ESPERA_MOTOR_MS = 180_000
+
+export function clienteDelMotor(apiKey: string): Anthropic {
+  return new Anthropic({ apiKey, timeout: CLAUDE_ESPERA_MOTOR_MS, maxRetries: 0 })
+}
 
 /** The dependencies of a Trigger.dev run. Cheap checks come first, so a missing setting fails before any spend. */
 export async function depsReales(): Promise<DepsProduccion> {
@@ -141,6 +153,19 @@ export async function depsTemas(): Promise<DepsMantenimientoTemas | null> {
     claude: new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
     ahora: () => new Date().toISOString(),
     llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
+  }
+}
+
+/** The dependencies of the weekly engine, or null when Coni has not entered Claude's key yet. */
+export async function depsMotor(): Promise<DepsDelMotor | null> {
+  const db = clienteDeServicio()
+  const llave = await leerSecreto(db, "anthropic")
+  if (!llave) return null
+  return {
+    db,
+    almacen: almacenReal(),
+    claude: clienteDelMotor(llave),
+    ahora: () => new Date().toISOString(),
   }
 }
 
