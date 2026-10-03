@@ -1,58 +1,53 @@
-# Traspaso de sesión (2026-10-02)
+# Traspaso de sesión (2026-10-03)
 
 Nota para retomar Conidolly en una sesión nueva. Leer entera antes de tocar nada.
 
 ## Qué es esto
 
 - **`~/Projects/estudio-coni`** (repo privado `WAV-WaAreVision/estudio-coni`, rama `main`): la app **Conidolly** (Next.js 16, Supabase, Trigger.dev v4). Coni del Rosario aprueba y publica los reels de su avatar IA con dos puertas humanas.
-- **`~/Projects/coni-heygen`** (rama `contenido/banco-ideas`, sin push): diseño original, banco de ideas, `coni.config.json`, modelo de costos. Tiene un `supabase/.temp` sin trackear que es basura de la CLI; se puede ignorar.
-- Modo de trabajo acordado con Federico: rápido; **subagent-driven development** (un implementador Sonnet por tarea + revisión con `caveman:cavecrew-reviewer`: primero spec, después calidad); respuestas en **caveman**; merge local a `main` con `--no-ff`; push y producción solo cuando Federico lo pide; mirroring (Orden/Alcance/Supuestos) antes de órdenes no triviales.
+- **`~/Projects/conidolly-ingesta`** (repo privado `WAV-WaAreVision/conidolly-ingesta`, rama `main`): app aparte para subir material (Soy Coni / Soy WAV), con las pantallas Materiales, Autores, Temas y Semana. Misma base, R2 y Trigger.
+- **`~/Projects/coni-heygen`** (rama `contenido/banco-ideas`, sin push): diseño original, curso, `coni.config.json`, modelo de costos.
+- Modo de trabajo con Federico: rápido; **subagent-driven development** (un implementador Sonnet por tarea + revisión con `caveman:cavecrew-reviewer`, spec primero y calidad después, y una revisión final Opus por fase); respuestas en **caveman**; mirroring (Orden/Alcance/Supuestos) antes de órdenes no triviales; merge local a `main` con `--no-ff`; push y producción solo cuando Federico lo pide.
 
 ## Producción (todo vivo)
 
 | Pieza | Dónde |
 |---|---|
-| App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). `estudio-coni.vercel.app` redirige con 308. |
-| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1, org WAV (Pro). Linkeado en el repo. Migraciones hasta `20261002000112` aplicadas. |
-| Tareas | Trigger.dev org WAV, proyecto `proj_spcwrflbtedwehbvsmhv`, versión `20261002.2`, runtime Node 24. |
-| Videos y respaldo | Cloudflare R2, bucket privado `estudio-coni` (cuenta `98e22aecf3c9bb49b0fa7947e66716f8`). Respaldo nocturno con pg_dump probado. |
-| Correo | Resend, dominio `wearevision.cl` verificado (DKIM, SPF en `send`, DMARC p=none). Remitente `Conidolly <avisos@wearevision.cl>`. |
-| Usuarios | `federico@wearevision.cl` = cuenta de **Coni** (para probar; recibe los códigos). `hola@wearevision.cl` = mantenedor. Al lanzar con Coni: su cuenta vuelve a `constanzadelrosario@gmail.com` y `CORREO_CONI` a ese correo. |
-| Meta | App "Estudio de Coni" de Federico; Instagram app id `1090659133511064`; redirect URIs `conidolly.vercel.app` y `estudio-coni.vercel.app` `/api/meta/callback`; permisos basic, content_publish, manage_insights. **Instagram sin conectar a propósito**: mientras tanto rige el modo "subir a mano". |
-| Avatares | Lista curada en `ajustes.produccion.heygen.avatares`: Podcast (`998bb0630f764cebb937c28c0a0fc606`) y Natural (`d8b284f68e144c92aee17abeca000a00`). Voz ElevenLabs `F2SkAeaaVSlAUrRS3rDg`. Banco de 130 ideas importado. |
-| Guía para Coni | Artifact privado https://claude.ai/artifact/SLsDP9jQeGJ1vSjQwBQeL9 (fuente en el scratchpad de la sesión anterior; si hay que editarla, leerla con Artifact `read` y republicar en esa URL). |
+| App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). El push **no** despliega solo: `vercel deploy --prod --yes` desde el repo. |
+| Ingesta | **https://conidolly-ingesta.vercel.app** (proyecto Vercel `conidolly-ingesta`, mismo equipo; deploy igual, a mano). |
+| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261003000420`**. `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
+| Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261003.8`**. Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |
+| Videos y archivos | Cloudflare R2, bucket privado `estudio-coni`, con CORS para la ingesta. |
+| Correo | Resend, remitente `Conidolly <avisos@wearevision.cl>`. |
+| Usuarios | `federico@wearevision.cl` = cuenta de **Coni** (para probar). `hola@wearevision.cl` = mantenedor. Al lanzar: la cuenta de Coni vuelve a `constanzadelrosario@gmail.com` y `CORREO_CONI` a ese correo. |
+| Meta | Instagram **sin conectar a propósito**; rige el modo "subir a mano". |
+| Guía para Coni | Artifact privado https://claude.ai/artifact/SLsDP9jQeGJ1vSjQwBQeL9. |
 
-Llaves: nunca leerlas ni imprimirlas. Las de proveedores (Claude, HeyGen, ElevenLabs) se cargan en Ajustes de la app (Vault). Vercel y Trigger tienen sus env cargadas por Federico. El modo automático bloquea `vercel env rm` y escrituras en `auth.users`: darle a Federico el comando.
+Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las carga Federico **desde la Terminal de macOS** (pegadas en la terminal de la app de Claude quedaron inválidas dos veces). Después de cambiar una llave: redeploy y verificar con una llamada real, no confiar en "updated".
 
-## Lo que está hecho (en `main`, pusheado hasta `83bb7e1`)
+## Lo que está hecho
 
-Planes 1 a 6, subir a mano, elegir avatar, y **Plan A** (`docs/superpowers/plans/2026-10-02-conidolly-editor-y-voz.md`, con "Plan A notes"): renombre a Conidolly, editor de guion con versiones, voz generada solo después de la puerta 1 (clave determinista, sin doble cobro), 1 a 5 ideas, costo con voz. Verde: 1264 unit, 584 integración, 69 E2E.
+- Planes 1 a 6, Plan A (editor y voz), Plan B1 (ingesta) y B2 en producción.
+- **C1, base de conocimiento** (spec `docs/superpowers/specs/2026-10-03-conidolly-base-de-conocimiento-design.md`, plan `docs/superpowers/plans/2026-10-03-c1-base-de-conocimiento.md`): autores con alias, roles de material, afirmaciones con cita textual y vector Voyage `voyage-3.5`, temas que se organizan solos (promedio de enlaces, umbral 0.80; calibración en `docs/superpowers/notas/calibracion-c1.md`). En prod: 5 materiales, 385 afirmaciones, 41 temas.
+- **C2, motor semanal** (plan `docs/superpowers/plans/2026-10-03-c2-motor-semanal.md`): domingo 20:00 (America/Santiago) más "Proponer ahora" en la pantalla Semana de la ingesta. Elige cruces entre pilares sin IA, Opus escribe teorías en tandas de 3 cruces (cliente propio, 180 s, sin reintentos; `maxDuration` 900), hasta 10 ideas por semana al banco con "Por qué" y descarte con motivo; archiva a las 6 semanas. Primera corrida real (2026-10-03): 8 teorías, 10 ideas, **US$ 0.40**, 3 min.
+- Banco viejo de 126 ideas borrado; respaldo en `respaldos/ideas-banco-2026-10-03.json` (excluido de git).
+- Arreglos del 2026-10-03: descartar una pieza en error ya funciona; el mensaje de HeyGen sin créditos dice que hay que recargar.
+- **Llave de Trigger de Conidolly corregida** (2026-10-03): desde el 1 de octubre apuntaba al proyecto "WAV Ingest v2", así que todo partía 15 a 25 min tarde por la red del mantenimiento. Los 10 runs huérfanos de allá se cancelaron.
+- Verde: estudio-coni 1625 unit, 902 integración; conidolly-ingesta 353 unit, 131 integración, 28 E2E.
 
-## Plan B, fase B1: hecha en local (2026-10-02), sin push ni producción
+## Siguiente
 
-- `main` de estudio-coni tiene el merge `4ac8b36` de `feat/ingesta-b1` (sin push). Migraciones nuevas 20261003000100, 110, 130, 140, 150, 160 (la 120 se saltó a propósito).
-- Repo nuevo **`~/Projects/conidolly-ingesta`** (rama `main`, sin remoto): ingreso Soy Coni / Soy WAV, subida directa a R2, lista, ficha editable, reintentar, borrar.
-- Verde: estudio-coni 1486 unit, 691 integración, 69 E2E; conidolly-ingesta 251 unit, 54 integración, 13 E2E.
-- Cambios respecto del plan: Scribe es `scribe_v2` (v1 retirado el 2026-07-09); reclamo de corrida por material (`corrida_id`); claves de archivo validadas en la base.
-- **Próximo paso: producción de B1 con Federico**, siguiendo "Production checklist" B1 del plan: push de main, `supabase db push`, repo GitHub privado y proyecto Vercel de conidolly-ingesta con sus env, CORS del bucket R2, redirect de Auth, deploy de Trigger con `TRIGGER_PROJECT_REF` y jsdom externo, smoke real (PDF + link).
-- Sin probar aún contra servicios reales: bundle de Trigger, R2 real, HEIC.
+- **C3, fuentes en el guion**: plan en `docs/superpowers/plans/2026-10-03-c3-fuentes-en-el-guion.md` (en preparación). Cuando Coni usa una idea del motor, el guion recibe su teoría y sus afirmaciones solo como inspiración; revisión que marca 8 o más palabras copiadas; el respaldo entra al hash de la puerta 1.
+- Pendientes de Federico: abrir el "Por qué" de una idea del motor y descartar otra con motivo; recargar créditos en HeyGen antes de grabar; subir material de **sexualidad** (el motor hoy solo cruza pareja y bienestar) y de los 10 temas con un solo autor que lista la pantalla Semana; volver a subir el material de Carmen.
+- Aplicar la migración 350 (`borrar_vinculos`) más adelante, moviéndola de `supabase/pendientes/` a `supabase/migrations/`.
 
-## Plan B completo (referencia)
-
-- Spec: `docs/superpowers/specs/2026-10-02-conidolly-ingesta-design.md`.
-- Plan: `docs/superpowers/plans/2026-10-02-ingesta.md` (fases B1 materiales y fichas, B2 grafo y teorías, B3 fuentes en Guion; 18 tareas + 5b, 5c).
-- Reglas de voz para transcribir/traducir: `docs/voz/voz-de-coni.md` (destilado de la guía de voz de Coni para chatbot, uso reservado: no publicar).
-- Decisiones ya tomadas: app aparte `conidolly-ingesta.vercel.app`, misma base/R2/Trigger; ingreso con botones "Soy Coni" / "Soy WAV"; materiales documento, link, audio, video, imagen (hasta 20), post; video en dos pistas (Scribe para la voz + fotogramas leídos por Claude visión para subtítulos quemados); toda transcripción traducida y adaptada a la voz de Coni en español de Chile (también otras variantes del español), sin agregar ideas; nunca descargar de Instagram/TikTok (el usuario sube el archivo); embeddings Voyage `voyage-3.5` + pgvector; fuentes solo como inspiración, regla de copia de 8 palabras.
-- **4 commits de docs sin push** (`e8bedb2`, `0d83862`, `080dc6d`, `c4914d9`). Pushear al retomar si Federico está de acuerdo.
-- Antes de B2, Federico crea la cuenta de Voyage y carga `VOYAGE_API_KEY` en Trigger.dev.
-
-## Pendientes fuera del Plan B
+## Pendientes fuera de los planes
 
 - Vercel Pro antes de que Coni lo use en serio (hoy Hobby, no permite uso comercial).
-- Rotar llaves de R2 y Resend (se vieron parcialmente en una captura).
-- Llave de HeyGen en Ajustes para grabar el primer reel; probar en iPhone real (push, instalación, descarga para subir a mano, VoiceOver).
-- Propuesta pendiente: llevar la parte de argumento de la guía de voz (Espejo → Nombre → Origen → Poder, etc.) a la línea editorial de guiones.
-- Decisiones de costo abiertas: segundo asiento de Vercel para WAV; duración real del reel (49 s vs 40 s del modelo).
+- Rotar llaves de Resend (se vieron parcialmente en una captura).
+- Probar en iPhone real (push, instalación, descarga para subir a mano, VoiceOver).
+- Llevar la parte de argumento de la guía de voz a la línea editorial de guiones.
+- Decisiones de costo abiertas: segundo asiento de Vercel para WAV; duración real del reel.
 
 ## Reglas que no se negocian
 
