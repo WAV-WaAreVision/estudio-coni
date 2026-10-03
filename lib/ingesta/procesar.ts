@@ -55,6 +55,7 @@ export type ResultadoProcesar =
   | { resultado: "fallido"; motivo: string }
   | { resultado: "tope" }
   | { resultado: "en_curso" }
+  | { resultado: "borrado" }
 
 /** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
 export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
@@ -104,6 +105,14 @@ function conGasto<T extends z.ZodType>(datos: T) {
   return z.object({ gasto: z.object({ clave: z.string(), realUsd: z.number() }), datos })
 }
 
+/** The material was deleted while the run was working: not an error, nothing to retry and nobody to alert. */
+class MaterialBorrado extends Error {
+  constructor() {
+    super("El material fue borrado mientras se procesaba.")
+    this.name = "MaterialBorrado"
+  }
+}
+
 type Tope = { tope: true }
 const TOPE: Tope = { tope: true }
 
@@ -121,6 +130,17 @@ async function leerMaterial(db: Db, id: string): Promise<Material> {
   if (error) throw falloDeBase("No pude leer el material", error)
   if (!data) throw new FallaDeConfiguracion(`No existe el material ${id}.`)
   return data
+}
+
+async function existeMaterial(db: Db, id: string): Promise<boolean> {
+  const { data, error } = await db.from("materiales").select("id").eq("id", id).maybeSingle()
+  if (error) throw falloDeBase("No pude leer el material", error)
+  return data !== null
+}
+
+/** Called before every paid step: a deleted material must not cost anything more. */
+async function exigirMaterial(db: Db, id: string): Promise<void> {
+  if (!(await existeMaterial(db, id))) throw new MaterialBorrado()
 }
 
 async function actualizarMaterial(
@@ -174,6 +194,7 @@ async function pagar<T>(
   },
 ): Promise<Tope | { tope: false; datos: T }> {
   const { db, almacen, ahora } = ctx.deps
+  await exigirMaterial(db, ctx.material.id)
   const clave = `material:${ctx.material.id}:${paso.paso}:${crypto.randomUUID()}`
   const reserva = await reservarGastoGeneral(db, {
     proveedor: paso.proveedor,
@@ -486,7 +507,10 @@ async function extraccionDe(ctx: Contexto): Promise<Tope | Extraccion> {
 }
 
 /** The cap ledger of the translation step, plus whether it was the cap that stopped it (its error is a plain Falla). */
-function gastoDeTraduccion(deps: DepsProcesar): { gasto: GastoDeTraduccion; topeAlcanzado: () => boolean } {
+function gastoDeTraduccion(
+  deps: DepsProcesar,
+  materialId: string,
+): { gasto: GastoDeTraduccion; topeAlcanzado: () => boolean } {
   const base = gastoEnBase(deps.db, deps.ahora)
   let tope = false
   return {
@@ -494,6 +518,7 @@ function gastoDeTraduccion(deps: DepsProcesar): { gasto: GastoDeTraduccion; tope
     gasto: {
       ...base,
       async reservar(reserva) {
+        await exigirMaterial(deps.db, materialId)
         const r = await base.reservar(reserva)
         if (r.tope) tope = true
         return r
@@ -509,7 +534,7 @@ async function traduccionDe(ctx: Contexto, original: Extraccion): Promise<Tope |
   const hecha = (await deps.almacen.existe(k.texto)) ? await leerJson(deps.almacen, k.partes, Traducido) : null
   if (hecha) return hecha
   await guardarTexto(deps.almacen, k.textoOriginal, renderizarPartes(original.partes))
-  const { gasto, topeAlcanzado } = gastoDeTraduccion(deps)
+  const { gasto, topeAlcanzado } = gastoDeTraduccion(deps, material.id)
   let traducido: Awaited<ReturnType<typeof traducirMaterial>>
   try {
     traducido = await traducirMaterial({
@@ -636,6 +661,9 @@ export async function procesarMaterial(deps: DepsProcesar, materialId: string): 
   try {
     return await procesar({ deps, material })
   } catch (error) {
+    if (error instanceof MaterialBorrado || !(await existeMaterial(deps.db, materialId))) {
+      return { resultado: "borrado" }
+    }
     const motivo = motivoDefinitivo(error)
     if (motivo === null) throw error
     await marcarFallido(deps.db, materialId, motivo)

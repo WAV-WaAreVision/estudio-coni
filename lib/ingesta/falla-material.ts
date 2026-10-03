@@ -67,6 +67,10 @@ export async function alFallarMaterial(
   entrada: { materialId: string; corrida: string; error: unknown },
 ): Promise<void> {
   await marcarFallido(deps.db, entrada.materialId, motivoParaConi(entrada.error))
+  // Deleted meanwhile: there is nothing left to fix, so WAV is not bothered.
+  const { data, error } = await deps.db.from("materiales").select("id").eq("id", entrada.materialId).maybeSingle()
+  if (error) throw new Error(`No pude leer el material ${entrada.materialId}: ${error.message}`)
+  if (!data) return
   await deps.avisos.aWav(
     "Falló procesar-material",
     [`Corrida: ${entrada.corrida}`, `Material: ${entrada.materialId}`, detalleTecnico(entrada.error)].join("\n"),

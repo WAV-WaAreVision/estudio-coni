@@ -479,6 +479,39 @@ describe("una corrida por material", () => {
   })
 })
 
+describe("material borrado", () => {
+  it("stops without paying when the material is deleted after the extraction", async () => {
+    const base = almacenEnMemoria()
+    const claude = simularClaude()
+    const id = await crearMaterial(base, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    const almacen = {
+      ...base,
+      async subir(clave: string, datos: Uint8Array, tipo: string) {
+        await base.subir(clave, datos, tipo)
+        if (clave.endsWith("partes-original.json"))
+          await pool.query("delete from public.materiales where id = $1", [id])
+      },
+    }
+
+    const resultado = await procesarMaterial(await deps(almacen), id)
+
+    expect(resultado).toEqual({ resultado: "borrado" })
+    expect(claude.total).toBe(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("lets the failure hook run on a deleted material without touching anything or alerting WAV", async () => {
+    const avisos = notificadorEnMemoria()
+
+    await alFallarMaterial(
+      { db: clienteDeServicio(), avisos },
+      { materialId: crypto.randomUUID(), corrida: "run_9", error: new Error("tarde") },
+    )
+
+    expect(avisos.aWavEnviados).toEqual([])
+  })
+})
+
 describe("post y material de terceros", () => {
   it("uses the pasted text of a post and never opens its Instagram link", async () => {
     const almacen = almacenEnMemoria()
