@@ -1,6 +1,7 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
 import {
+  asumir,
   CONI,
   como,
   comoConi,
@@ -414,24 +415,24 @@ describe("materiales_archivos", () => {
     await como(comoConi, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, archivo_clave, declaracion_sin_pacientes_en)
-         values ('imagen', $1, 'a/1.png', now()) returning id`,
-        [categoria],
+        `insert into public.materiales (id, tipo, categoria_id, archivo_clave, declaracion_sin_pacientes_en)
+         values ($2::uuid, 'imagen', $1, 'materiales/' || $2::text || '/original-01.png', now()) returning id`,
+        [categoria, crypto.randomUUID()],
       )
       const id = rows[0]?.id
       await c.query(
-        "insert into public.materiales_archivos (material_id, orden, archivo_clave) select $1, g, 'a/' || g || '.png' from generate_series(1, 20) g",
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) select $1::uuid, g, 'materiales/' || $1::text || '/original-' || lpad(g::text, 2, '0') || '.png' from generate_series(1, 20) g",
         [id],
       )
       const error = await fallaCon(
         c,
-        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, 21, 'a/21.png')",
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1::uuid, 21, 'materiales/' || $1::text || '/original-20.png')",
         [id],
       )
       expect(error.code).toBe("23514")
       const repetido = await fallaCon(
         c,
-        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, 1, 'otra.png')",
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1::uuid, 1, 'materiales/' || $1::text || '/original-02.png')",
         [id],
       )
       expect(repetido.code).toBe("23505")
@@ -441,11 +442,81 @@ describe("materiales_archivos", () => {
   it("follows the material's access rules and cascades on delete", async () => {
     await como(comoMantenedor, async (c) => {
       const id = await crearMaterial(c)
-      await c.query("insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, 1, 'k')", [
-        id,
-      ])
+      await c.query(
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1::uuid, 1, 'materiales/' || $1::text || '/original-01.png')",
+        [id],
+      )
       await c.query("delete from public.materiales where id = $1", [id])
       expect((await c.query("select 1 from public.materiales_archivos where material_id = $1", [id])).rowCount).toBe(0)
+    })
+  })
+})
+
+describe("claves de archivo del material", () => {
+  const ID = "11111111-1111-4111-8111-111111111111"
+  const insertar = (clave: string | null, id = ID) =>
+    `insert into public.materiales (id, tipo, categoria_id, archivo_clave, texto_pegado, declaracion_sin_pacientes_en)
+     select '${id}', 'documento', id, ${clave === null ? "null" : `'${clave}'`}, 'x', now() from public.categorias limit 1`
+
+  it.each([
+    ["no file", null],
+    ["its own original", `materiales/${ID}/original.pdf`],
+    ["a numbered image", `materiales/${ID}/original-07.png`],
+    ["the last numbered image", `materiales/${ID}/original-20.heic`],
+  ])("accepts %s", async (_n, clave) => {
+    await como(comoConi, async (c) => {
+      await c.query(insertar(clave))
+    })
+  })
+
+  it.each([
+    ["another material's folder", "materiales/22222222-2222-4222-8222-222222222222/original.pdf"],
+    ["the voice folder", "voces/x.mp3"],
+    ["a path out of the folder", `materiales/${ID}/../x/original.pdf`],
+    ["an unknown extension", `materiales/${ID}/original.exe`],
+    ["an image number past 20", `materiales/${ID}/original-21.png`],
+    ["a derived file name", `materiales/${ID}/texto.txt`],
+  ])("rejects %s with 23514", async (_n, clave) => {
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, insertar(clave))).code).toBe("23514")
+    })
+  })
+
+  it("rejects a materiales_archivos key outside its material's folder", async () => {
+    await como(comoConi, async (c) => {
+      await c.query(insertar(`materiales/${ID}/original-01.png`))
+      const error = await fallaCon(
+        c,
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, 1, 'voces/x.mp3')",
+        [ID],
+      )
+      expect(error.code).toBe("23514")
+      await c.query("insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, 1, $2)", [
+        ID,
+        `materiales/${ID}/original-01.png`,
+      ])
+    })
+  })
+
+  it("lets only the uploader add files, and only while the material is processing", async () => {
+    await como(comoPostgres, async (c) => {
+      await c.query(
+        insertar(null)
+          .replace("now() from", "now(), $1 from")
+          .replace("declaracion_sin_pacientes_en)", "declaracion_sin_pacientes_en, subido_por)"),
+        [CONI],
+      )
+      const archivo = `materiales/${ID}/original-01.png`
+      const insertarArchivo =
+        "insert into public.materiales_archivos (material_id, orden, archivo_clave) values ($1, $3::smallint, $2)"
+      await asumir(c, comoMantenedor)
+      expect((await fallaCon(c, insertarArchivo, [ID, archivo, 1])).code).toBe("42501")
+      await asumir(c, comoConi)
+      await c.query(insertarArchivo, [ID, archivo, 1])
+      await asumir(c, comoPostgres)
+      await c.query("update public.materiales set estado = 'listo' where id = $1", [ID])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, insertarArchivo, [ID, `materiales/${ID}/original-02.png`, 2])).code).toBe("42501")
     })
   })
 })
