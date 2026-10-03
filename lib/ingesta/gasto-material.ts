@@ -98,7 +98,8 @@ export async function pagadoAntes<T>(ctx: Contexto, archivo: string, esquema: z.
 }
 
 interface PasoPagado<T> {
-  archivo: string
+  /** Where the result is checkpointed so a retry pays only what is missing. Omit it for throwaway results (maintenance). */
+  archivo?: string
   proveedor: "anthropic" | "elevenlabs" | "voyage"
   paso: string
   estimadoUsd: number
@@ -106,8 +107,8 @@ interface PasoPagado<T> {
 }
 
 /**
- * One paid provider call: reserve against the monthly cap, call, keep the result in the store and only then confirm
- * the real cost. The reservation key is new on every attempt: reserving an old key returns the old row, even a
+ * One paid provider call: reserve against the monthly cap, call, keep the result in the store (when the step names a
+ * file) and only then confirm the real cost. The reservation key is new on every attempt: reserving an old key returns the old row, even a
  * released one, and the retry would run unmetered. A failed call releases its reservation; a call that was paid for
  * is confirmed even when keeping its result fails.
  */
@@ -135,7 +136,7 @@ export async function pagarPaso<T>(
   }
   const realUsd = redondear(resultado.realUsd)
   try {
-    await guardarJson(almacen, paso.archivo, { gasto: { clave, realUsd }, datos: resultado.datos })
+    if (paso.archivo) await guardarJson(almacen, paso.archivo, { gasto: { clave, realUsd }, datos: resultado.datos })
   } finally {
     await confirmarGasto(db, clave, realUsd)
   }

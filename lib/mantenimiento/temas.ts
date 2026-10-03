@@ -74,7 +74,6 @@ async function embeberPendientes(
         verificar: () => Promise.resolve(),
       },
       {
-        archivo: `temas/embeber-${crypto.randomUUID()}.json`,
         proveedor: "voyage",
         paso: "embedding",
         estimadoUsd: estimarEmbebido(textos),

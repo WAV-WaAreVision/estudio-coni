@@ -211,7 +211,6 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
       textos: ids.slice(0, TEXTOS_POR_GRUPO).map((id) => pendientes.get(id)?.texto ?? ""),
     }))
     const pagado = await pagarPaso(contextoDePago(deps, "formar"), {
-      archivo: `temas/formar-${crypto.randomUUID()}.json`,
       proveedor: "anthropic",
       paso: "temas",
       estimadoUsd: estimarNombres(paraNombrar),
@@ -316,7 +315,6 @@ export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
     MODELO_POR_TAREA.confirmarFusiones.modelo,
   )
   const pagado = await pagarPaso(contextoDePago(deps, "fusionar"), {
-    archivo: `temas/fusionar-${crypto.randomUUID()}.json`,
     proveedor: "anthropic",
     paso: "temas",
     estimadoUsd: estimado,

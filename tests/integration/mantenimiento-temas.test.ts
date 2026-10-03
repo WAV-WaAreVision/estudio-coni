@@ -14,10 +14,10 @@ afterAll(() => pool.end())
 
 const db = clienteDeServicio()
 
-function deps(llave: string | null = "pa-de-prueba"): DepsMantenimientoTemas {
+function deps(llave: string | null = "pa-de-prueba", almacen = almacenEnMemoria()): DepsMantenimientoTemas {
   return {
     db,
-    almacen: almacenEnMemoria(),
+    almacen,
     ahora: () => new Date().toISOString(),
     claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
     llaveVoyage: () => llave ?? undefined,
@@ -198,6 +198,22 @@ describe("mantenerTemas", () => {
       [id],
     )
     expect(asignada.rows[0]?.tema_id).toBe(rows[0]?.id)
+  })
+
+  it("pays for embeddings and names without leaving result files in the store", async () => {
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+    const almacen = almacenEnMemoria()
+
+    const resultado = await mantenerTemas(deps("pa-de-prueba", almacen))
+
+    expect(resultado.formacion?.creados).toBe(1)
+    expect(almacen.claves()).toEqual([])
+    const { rows } = await pool.query(
+      "select 1 from public.gastos where clave like 'temas:%' and estado = 'confirmado'",
+    )
+    expect(rows).toHaveLength(2)
   })
 
   it("returns tope without failing when the monthly cap is reached", async () => {

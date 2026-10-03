@@ -20,10 +20,10 @@ afterAll(() => pool.end())
 
 const db = clienteDeServicio()
 
-function deps() {
+function deps(almacen = almacenEnMemoria()) {
   return {
     db,
-    almacen: almacenEnMemoria(),
+    almacen,
     ahora: () => new Date().toISOString(),
     claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
   }
@@ -438,6 +438,18 @@ describe("fusionarTemas", () => {
     await fusionarTemas(deps())
     const { rows } = await pool.query("select 1 from public.temas_fusion_rechazada")
     expect(rows).toHaveLength(0)
+  })
+
+  it("pays for the verdicts without leaving a result file in the store", async () => {
+    await dosParecidos()
+    simularClaude({ mismo: false })
+    const almacen = almacenEnMemoria()
+    await fusionarTemas(deps(almacen))
+    expect(almacen.claves()).toEqual([])
+    const { rows } = await pool.query(
+      "select 1 from public.gastos where clave like 'temas:fusionar:%' and estado = 'confirmado'",
+    )
+    expect(rows).toHaveLength(1)
   })
 
   it("makes no call when no pair reaches the threshold", async () => {
