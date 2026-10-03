@@ -10,6 +10,7 @@ import {
   reservarGasto,
   revisionAJson,
 } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { Falla } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
@@ -109,8 +110,9 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
   const idea = fila.idea_id ? await leerIdea(db, fila.idea_id) : null
   const alertas = idea?.alertas ?? []
   const previos = leerRevision(fila.revision).filter(esJuicioDeClaude)
+  const respaldo = leerRespaldo(fila.respaldo)
   const revisar = (requiereLineasAyuda: boolean) =>
-    revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(null) })
+    revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(respaldo) })
 
   const deterministas = revisar(pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"))
   if (bloquea(deterministas)) return { motivo: "revision_bloquea", error: ERROR_BLOQUEA, hallazgos: deterministas }

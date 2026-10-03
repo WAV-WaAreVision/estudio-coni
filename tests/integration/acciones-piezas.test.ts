@@ -36,6 +36,20 @@ const GUION_VALIDO = readFileSync(
   "utf-8",
 ).trim()
 const TEXTO_VALIDO = "El deseo no se apaga, se esconde. Video hecho con mi avatar digital."
+const RESPALDO_GUARDADO = {
+  teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" },
+  afirmaciones: [
+    {
+      id: "a",
+      texto: "x",
+      cita: "el deseo no se apaga, se esconde debajo de la rutina de todos los días",
+      aporte: "y",
+      autor: "Esther Perel",
+      deConi: false,
+    },
+  ],
+}
+
 const FUTURO = "2099-10-09T19:00:00-03:00"
 
 let coni: Db
@@ -410,6 +424,18 @@ describe("editarTexto", () => {
     )
     expect(guardada.version).toBe(versionVista + 1)
     expect(guardada.revision).toEqual([])
+  })
+
+  it("warns when the new caption copies a quote of the backing", async () => {
+    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    await ajustarComoPostgres(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })
+    const texto = `el deseo no se apaga, se esconde debajo de la rutina. ${TEXTO_VALIDO}`
+
+    await editarTexto(armar().deps, id, await versionDe(id), texto)
+
+    expect((await fila(id)).revision).toEqual(
+      expect.arrayContaining([expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte" })]),
+    )
   })
 
   it("leaves Coni, not the service role, as the actor of the edit in the audit log", async () => {

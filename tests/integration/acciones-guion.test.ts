@@ -29,6 +29,20 @@ const GUION_VALIDO = readFileSync(
 const TEXTO_VALIDO = "El deseo no se apaga, se esconde. Video hecho con mi avatar digital."
 const GUION_DE_CLAUDE = `${GUION_VALIDO}\n`
 
+const RESPALDO_GUARDADO = {
+  teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" },
+  afirmaciones: [
+    {
+      id: "a",
+      texto: "x",
+      cita: "el deseo no se apaga, se esconde debajo de la rutina de todos los días",
+      aporte: "y",
+      autor: "Esther Perel",
+      deConi: false,
+    },
+  ],
+}
+
 const JUICIO = { regla: "cifra_sin_verificar", mensaje: "Confirma esa cifra.", frase: "ocho de cada diez" }
 
 let coni: Db
@@ -131,6 +145,20 @@ describe("editarGuion", () => {
     expect(guardada).toMatchObject({ guion: GUION_VALIDO, texto: TEXTO_VALIDO, version: version + 1 })
     expect(guardada.revision).toEqual(resultado.revision)
     expect((await versionesDe(id)).map((v) => v.autor)).toEqual(["coni"])
+  })
+
+  it("warns when her edit copies a quote of the piece's backing or names its author", async () => {
+    const id = await pieza()
+    await ajustarPieza(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })
+    claudeRevisa()
+    const guion = `Como dice Esther Perel, el deseo no se apaga, se esconde debajo de la rutina. ${GUION_VALIDO}`
+    const { version } = await leerFila(id)
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion, texto: TEXTO_VALIDO })
+
+    expect(resultado.ok).toBe(true)
+    if (!resultado.ok) return
+    expect(resultado.revision.map((h) => h.regla)).toEqual(expect.arrayContaining(["copia_de_fuente", "nombra_autor"]))
   })
 
   it("reserves and confirms the spend of the review at its real cost", async () => {

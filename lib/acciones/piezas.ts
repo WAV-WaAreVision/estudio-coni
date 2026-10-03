@@ -9,6 +9,7 @@ import {
   leerPieza,
   revisionAJson,
 } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
@@ -265,8 +266,15 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
     const idea = fila.idea_id ? await leerIdea(deps.db, fila.idea_id) : null
     const requiereLineasAyuda =
       pideLineasDeAyuda(idea?.alertas ?? []) || juicios.some((hallazgo) => hallazgo.regla === "tema_de_riesgo")
+    const respaldo = leerRespaldo(fila.respaldo)
     const revision: Hallazgo[] = [
-      ...revisarGuion({ guion: fila.guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(null) }),
+      ...revisarGuion({
+        guion: fila.guion,
+        texto,
+        esAvatar: true,
+        requiereLineasAyuda,
+        ajeno: ajenoDelRespaldo(respaldo),
+      }),
       ...juicios,
     ]
 
