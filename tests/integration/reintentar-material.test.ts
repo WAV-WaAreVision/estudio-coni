@@ -7,8 +7,8 @@ afterAll(() => pool.end())
 async function materialEn(c: pg.PoolClient, estado: string, motivo: string | null): Promise<string> {
   await asumir(c, comoPostgres)
   const { rows } = await c.query<{ id: string }>(
-    `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado, motivo_fallo)
-     select 'documento', id, 'x', now(), $3, $1, $2 from public.categorias limit 1 returning id`,
+    `insert into public.materiales (tipo, autor_id, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado, motivo_fallo)
+     select 'documento', (select id from public.autores where tipo = 'coni'), id, 'x', now(), $3, $1, $2 from public.categorias limit 1 returning id`,
     [estado, motivo, CONI],
   )
   return rows[0]?.id ?? ""

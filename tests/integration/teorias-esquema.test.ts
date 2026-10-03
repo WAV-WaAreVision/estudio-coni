@@ -24,8 +24,8 @@ async function material(
   extra: { estado?: string; conFicha?: boolean; subidoPor?: string } = {},
 ): Promise<string> {
   const { rows } = await c.query<{ id: string }>(
-    `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, estado, subido_por)
-     values ('documento', (select id from public.categorias where slug = 'general'), 'hola', now(), $1, $2) returning id`,
+    `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, estado, subido_por)
+     values ((select id from public.autores where tipo = 'coni'), 'documento', (select id from public.categorias where slug = 'general'), 'hola', now(), $1, $2) returning id`,
     [extra.estado ?? "listo", extra.subidoPor ?? CONI],
   )
   const id = rows[0]?.id

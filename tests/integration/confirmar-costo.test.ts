@@ -10,9 +10,9 @@ async function materialEsperando(
 ): Promise<string> {
   await asumir(c, comoPostgres)
   const { rows } = await c.query<{ id: string }>(
-    `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado,
+    `insert into public.materiales (tipo, autor_id, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado,
        motivo_fallo, costo_estimado_usd, costo_confirmado_en)
-     select 'documento', id, 'x', now(), $1, $2, 'Este material es largo', $3, $4 from public.categorias limit 1
+     select 'documento', (select id from public.autores where tipo = 'coni'), id, 'x', now(), $1, $2, 'Este material es largo', $3, $4 from public.categorias limit 1
      returning id`,
     [
       CONI,

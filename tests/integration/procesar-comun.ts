@@ -70,9 +70,9 @@ export async function crearMaterial(almacen: AlmacenEnMemoria, datos: MaterialDe
   const primera = datos.archivos?.[0]
   if (!archivoClave && primera) archivoClave = claveMaterial(id, primera.extension, 1)
   await pool.query(
-    `insert into public.materiales (id, tipo, titulo, autor, categoria_id, origen_url, archivo_clave, texto_pegado,
+    `insert into public.materiales (autor_id, id, tipo, titulo, autor, categoria_id, origen_url, archivo_clave, texto_pegado,
        declaracion_sin_pacientes_en, subido_por)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)`,
+     values ((select id from public.autores where tipo = 'coni'), $1, $2, $3, $4, $5, $6, $7, $8, now(), $9)`,
     [
       id,
       datos.tipo,

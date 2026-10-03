@@ -82,6 +82,39 @@ export type Database = {
         }
         Relationships: []
       }
+      autores: {
+        Row: {
+          alias: string[]
+          creado_en: string
+          creado_por: string | null
+          credencial: string | null
+          id: string
+          nombre: string
+          nombre_normalizado: string | null
+          tipo: string
+        }
+        Insert: {
+          alias?: string[]
+          creado_en?: string
+          creado_por?: string | null
+          credencial?: string | null
+          id?: string
+          nombre: string
+          nombre_normalizado?: string | null
+          tipo: string
+        }
+        Update: {
+          alias?: string[]
+          creado_en?: string
+          creado_por?: string | null
+          credencial?: string | null
+          id?: string
+          nombre?: string
+          nombre_normalizado?: string | null
+          tipo?: string
+        }
+        Relationships: []
+      }
       avisos: {
         Row: {
           canal: string | null
@@ -479,7 +512,8 @@ export type Database = {
         Row: {
           archivo_clave: string | null
           autor: string | null
-          categoria_id: string
+          autor_id: string
+          categoria_id: string | null
           corrida_desde: string | null
           corrida_id: string | null
           costo_confirmado_en: string | null
@@ -492,6 +526,7 @@ export type Database = {
           idioma_original: string | null
           motivo_fallo: string | null
           origen_url: string | null
+          rol: string
           subido_por: string
           texto_clave: string | null
           texto_pegado: string | null
@@ -503,7 +538,8 @@ export type Database = {
         Insert: {
           archivo_clave?: string | null
           autor?: string | null
-          categoria_id: string
+          autor_id: string
+          categoria_id?: string | null
           corrida_desde?: string | null
           corrida_id?: string | null
           costo_confirmado_en?: string | null
@@ -516,6 +552,7 @@ export type Database = {
           idioma_original?: string | null
           motivo_fallo?: string | null
           origen_url?: string | null
+          rol?: string
           subido_por?: string
           texto_clave?: string | null
           texto_pegado?: string | null
@@ -527,7 +564,8 @@ export type Database = {
         Update: {
           archivo_clave?: string | null
           autor?: string | null
-          categoria_id?: string
+          autor_id?: string
+          categoria_id?: string | null
           corrida_desde?: string | null
           corrida_id?: string | null
           costo_confirmado_en?: string | null
@@ -540,6 +578,7 @@ export type Database = {
           idioma_original?: string | null
           motivo_fallo?: string | null
           origen_url?: string | null
+          rol?: string
           subido_por?: string
           texto_clave?: string | null
           texto_pegado?: string | null
@@ -549,6 +588,13 @@ export type Database = {
           vinculos_pendientes?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "materiales_categoria_id_fkey"
             columns: ["categoria_id"]
@@ -1057,6 +1103,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      crear_autor: {
+        Args: { p_credencial: string; p_nombre: string; p_tipo: string }
+        Returns: string
+      }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
       crear_vinculo: {
         Args: {
@@ -1107,6 +1157,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      editar_autor: {
+        Args: {
+          p_alias: string[]
+          p_credencial: string
+          p_id: string
+          p_nombre: string
+        }
+        Returns: undefined
       }
       editar_guion_como_coni: {
         Args: {
@@ -1213,6 +1272,10 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      fusionar_autores: {
+        Args: { p_destino: string; p_origen: string }
+        Returns: undefined
+      }
       guardar_borrador: {
         Args: {
           p_clave: string
