@@ -288,7 +288,7 @@
 - Delete `lib/ingesta/vincular.ts`, `lib/ingesta/completar-vinculos.ts`, `lib/ingesta/teoria.ts`, `trigger/sintetizar-teoria.ts`, `lib/mantenimiento/teorias.ts` and the `traducirMaterial` parts of `lib/ingesta/traducir.ts`. Keep `idiomaPorHeuristica` and `detectarIdioma` if still used; otherwise move `idiomaPorHeuristica` to `lib/ingesta/idioma.ts`.
 - Remove `clasificarVinculos`, `sintetizarTeoria` and `adaptarAVozDeConi`, their `MODELO_POR_TAREA` entries and `lib/ingesta/voz-de-coni.ts`, together with its sync test. `docs/voz/voz-de-coni.md` stays.
 - Remove `dispararSintetizarTeoria`.
-- Create the migration `20261003000340_retirar_b2.sql`. It drops:
+- Create the migration `20261003000349_retirar_b2.sql`. It drops:
   - the functions `materiales_cercanos`, `aceptar_vinculo`, `descartar_vinculo`, `crear_vinculo`, `pedir_teoria`, `guardar_teoria`, `reintentar_teoria`, `marcar_teoria_disparo_fallido`;
   - the columns `materiales.vinculos_pendientes` and `materiales.vinculos_intentos`.
 
