@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { afirmarMaterial, autorDelMaterial, estimarAfirmaciones } from "@/lib/ingesta/afirmar"
 import {
   extraerArticulo,
   extraerDocx,
@@ -20,7 +21,6 @@ import {
 } from "@/lib/ingesta/fotogramas"
 import {
   type Contexto,
-  exigirMaterial,
   existeMaterial,
   falloDeBase,
   guardarJson,
@@ -32,19 +32,11 @@ import {
   TOPE,
   type Tope,
 } from "@/lib/ingesta/gasto-material"
+import { idiomaPorHeuristica } from "@/lib/ingesta/idioma"
 import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
 import { renderizarPartes } from "@/lib/ingesta/texto-material"
-import {
-  estimarCostoDeTraduccion,
-  type GastoDeTraduccion,
-  gastoEnBase,
-  idiomaPorHeuristica,
-  necesitaAdaptacion,
-  traducirMaterial,
-} from "@/lib/ingesta/traducir"
-import { registrarFallaDeVinculos, vincularMaterial } from "@/lib/ingesta/vincular"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -53,9 +45,7 @@ import {
   MODELO_POR_TAREA,
   type TextoLeido,
 } from "@/lib/proveedores/anthropic"
-import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
-import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -71,10 +61,8 @@ export interface DepsProcesar {
   claude: Anthropic
   /** Read only when there is audio to transcribe, so a PDF does not need the key. */
   llaveElevenlabs: () => Promise<string>
-  /** The Voyage key (env `VOYAGE_API_KEY`); without it the card is left without links, never failed. */
+  /** The Voyage key (env `VOYAGE_API_KEY`); without it the claims are left without a vector and maintenance embeds them. */
   llaveVoyage?: () => string | undefined
-  /** Where WAV hears that a material gave up its embedding and links; without it the failure is only counted. */
-  avisos?: Notificador
   /** Any ffmpeg that runs (no libass needed); the first one found when absent. */
   ffmpeg?: string
   ahora: () => string
@@ -94,8 +82,8 @@ export type ResultadoProcesar =
 /** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
 export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
 export const MOTIVO_TOPE = "Llegaste al tope de gasto del mes. Súbelo en Ajustes para seguir."
-/** Above this estimate (translation plus card, in USD) a person confirms the cost before the run spends it. */
-export const UMBRAL_CONFIRMACION_USD = 0.5
+/** Above this estimate (the claims of every chunk, or the card, in USD) a person confirms the cost before the run spends it. */
+export const UMBRAL_CONFIRMACION_USD = 1
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
 const REDES_QUE_NO_SE_ABREN = ["instagram.com", "tiktok.com"]
 const IMAGENES_POR_LOTE = 20
@@ -113,19 +101,14 @@ const TOKENS_DE_SALIDA_POR_IMAGEN = 300
 const LIBRE = { corrida_id: null, corrida_desde: null }
 
 const claves = (id: string) => ({
-  texto: `materiales/${id}/texto.txt`,
   textoOriginal: `materiales/${id}/texto-original.txt`,
   partesOriginal: `materiales/${id}/partes-original.json`,
-  partes: `materiales/${id}/partes.json`,
-  carpetaDeLotes: `materiales/${id}/traduccion`,
   transcripcion: `materiales/${id}/transcripcion.json`,
   lectura: (paso: "pantalla" | "imagen", n: number) => `materiales/${id}/${paso}-${n}.json`,
 })
 
 const Extraccion = z.object({ idioma: z.string().optional(), titulo: z.string().nullable(), partes: z.array(Parte) })
 type Extraccion = z.infer<typeof Extraccion>
-
-const Traducido = z.object({ idioma_original: z.string().nullable(), partes: z.array(Parte) })
 
 const Voz = z.object({
   idioma: z.string(),
@@ -444,58 +427,6 @@ async function extraccionDe(ctx: Contexto): Promise<Tope | Extraccion> {
   return extraida
 }
 
-/** The cap ledger of the translation step, plus whether it was the cap that stopped it (its error is a plain Falla). */
-function gastoDeTraduccion(
-  deps: DepsProcesar,
-  materialId: string,
-): { gasto: GastoDeTraduccion; topeAlcanzado: () => boolean } {
-  const base = gastoEnBase(deps.db, deps.ahora)
-  let tope = false
-  return {
-    topeAlcanzado: () => tope,
-    gasto: {
-      ...base,
-      async reservar(reserva) {
-        await exigirMaterial(deps.db, materialId)
-        const r = await base.reservar(reserva)
-        if (r.tope) tope = true
-        return r
-      },
-    },
-  }
-}
-
-/** Step 2: the parts in Spanish of Chile. `texto.txt` is written last: it is what says this step is done. */
-async function traduccionDe(ctx: Contexto, original: Extraccion): Promise<Tope | z.infer<typeof Traducido>> {
-  const { deps, material } = ctx
-  const k = claves(material.id)
-  const hecha = (await deps.almacen.existe(k.texto)) ? await leerJson(deps.almacen, k.partes, Traducido) : null
-  if (hecha) return hecha
-  await guardarTexto(deps.almacen, k.textoOriginal, renderizarPartes(original.partes))
-  const { gasto, topeAlcanzado } = gastoDeTraduccion(deps, material.id)
-  let traducido: Awaited<ReturnType<typeof traducirMaterial>>
-  try {
-    traducido = await traducirMaterial({
-      cliente: deps.claude,
-      gasto,
-      clave: `material:${material.id}:traduccion`,
-      almacen: deps.almacen,
-      carpetaDeLotes: k.carpetaDeLotes,
-      partes: original.partes,
-      ...(original.idioma ? { idiomaReportado: original.idioma } : {}),
-    })
-  } catch (error) {
-    if (topeAlcanzado()) return TOPE
-    throw error
-  }
-  const idioma = /^[a-z]{2}$/.test(traducido.idioma_original) ? traducido.idioma_original : null
-  await actualizarMaterial(deps.db, material.id, { idioma_original: idioma })
-  const resultado = { idioma_original: idioma, partes: traducido.partes }
-  await guardarJson(deps.almacen, k.partes, resultado)
-  await guardarTexto(deps.almacen, k.texto, renderizarPartes(traducido.partes))
-  return resultado
-}
-
 export function estimarFicha(partes: readonly Parte[]): number {
   const caracteres = Math.min(
     MAXIMO_CARACTERES_PARA_FICHA,
@@ -518,153 +449,89 @@ async function existeFicha(db: Db, id: string): Promise<boolean> {
   return data !== null
 }
 
-const Incrustacion = z.object({ vector: z.array(z.number()), modelo: z.string() })
-
-async function existeEmbedding(db: Db, id: string): Promise<boolean> {
-  const { data, error } = await db
-    .from("embeddings_ficha")
-    .select("material_id")
-    .eq("material_id", id)
-    .eq("modelo", MODELO_VOYAGE)
-    .maybeSingle()
-  if (error) throw falloDeBase("No pude leer el embedding", error)
-  return data !== null
-}
-
-/** The text that stands for a card in the vector space: its summary and key ideas. */
-async function textoDeLaFicha(db: Db, id: string): Promise<string> {
-  const { data, error } = await db.from("fichas").select("resumen, ideas_clave").eq("material_id", id).single()
-  if (error) throw falloDeBase("No pude leer la ficha", error)
-  const ideas = z.array(z.string()).parse(data.ideas_clave)
-  return [data.resumen, ...ideas].join("\n")
-}
-
-/** Over-estimate of the embedding cost, like every reservation: the real tokens replace it on confirming. */
-const estimarEmbedding = (texto: string) => redondear(costoVoyage(Math.ceil(texto.length / 2)) + 0.0001)
-
-async function embeberFicha(ctx: Contexto, llave: string): Promise<void> {
-  const { deps, material } = ctx
-  const texto = await textoDeLaFicha(deps.db, material.id)
-  const archivo = `materiales/${material.id}/embedding.json`
-  let guardado = await pagadoAntes(ctx, archivo, Incrustacion)
-  if (!guardado) {
-    const pagado = await pagar(ctx, {
-      archivo,
-      proveedor: "voyage",
-      paso: "embedding",
-      estimadoUsd: estimarEmbedding(texto),
-      llamar: async () => {
-        const r = await embeber({ clave: llave, textos: [texto], tipo: "document" })
-        const vector = r.vectores[0]
-        if (!vector) throw new Error("Voyage no devolvió el vector de la ficha.")
-        return { datos: { vector, modelo: MODELO_VOYAGE }, realUsd: costoVoyage(r.tokens) }
-      },
-    })
-    if (pagado.tope) throw new TopeDeEmbedding()
-    guardado = pagado.datos
-  }
-  const { error } = await deps.db
-    .from("embeddings_ficha")
-    .upsert({ material_id: material.id, vector: JSON.stringify(guardado.vector), modelo: guardado.modelo })
-  if (error) throw falloDeBase("No pude guardar el embedding", error)
-}
-
-class TopeDeEmbedding extends Error {
-  constructor() {
-    super("El tope de gasto no alcanza para el embedding.")
-    this.name = "TopeDeEmbedding"
-  }
-}
-
-/**
- * Embeds the stored card. Never fails the material: with no key, a provider error or the cap reached, the card stays
- * without a vector and the material is flagged so the links are computed later. Says whether the vector is there, or
- * why not (`tope` is the cap, which the later sweep must not insist on).
- */
-export async function incrustarFicha(ctx: Contexto): Promise<"listo" | "pendiente" | "tope"> {
-  const { deps, material } = ctx
-  if (await existeEmbedding(deps.db, material.id)) return "listo"
-  const llave = deps.llaveVoyage?.()
-  if (!llave) return "pendiente"
-  try {
-    await embeberFicha(ctx, llave)
-    return "listo"
-  } catch (error) {
-    if (error instanceof MaterialBorrado) throw error
-    if (error instanceof TopeDeEmbedding) return "tope"
-    // Left for the later pass (`vinculos_pendientes`), but visible in the logs. The key is already redacted by the client.
-    console.warn(`Embedding pendiente del material ${material.id}: ${error instanceof Error ? error.message : "error"}`)
-    await registrarFallaDeVinculos(deps, material, error)
-    return "pendiente"
-  }
-}
-
-/** Step 3: the card, written once from the Chilean text, and the material is ready. */
+/** Step 2 for `estrategia`: the card, written once from the extracted text, and the material is ready. */
 async function fichaDe(
   ctx: Contexto,
-  traducido: z.infer<typeof Traducido>,
+  partes: readonly Parte[],
   titulo: string | null,
 ): Promise<Tope | { tope: false }> {
   const { deps, material } = ctx
-  const autorDado = material.autor?.trim() || null
-  let autorSugerido: string | null = null
+  const { nombre: autorDado } = await autorDelMaterial(deps.db, material.autor_id)
   if (!(await existeFicha(deps.db, material.id))) {
     const tituloDeFicha = material.titulo?.trim() || titulo || "Sin título"
     const pagado = await pagar(ctx, {
       archivo: `materiales/${material.id}/ficha.json`,
       proveedor: "anthropic",
       paso: "ficha",
-      estimadoUsd: estimarFicha(traducido.partes),
+      estimadoUsd: estimarFicha(partes),
       llamar: async () => {
         const f = await escribirFicha({
           cliente: deps.claude,
           titulo: tituloDeFicha,
           autor: autorDado,
-          partes: traducido.partes,
+          partes,
         })
         return { datos: f, realUsd: costoClaude(f.uso, MODELO_POR_TAREA.escribirFicha.modelo) }
       },
     })
     if (pagado.tope) return TOPE
     const f = pagado.datos
-    autorSugerido = f.autorSugerido
     const { error } = await deps.db.from("fichas").insert({
       material_id: material.id,
       resumen: f.resumen,
       ideas_clave: f.ideasClave,
       citas: f.citas,
       fuente: {
-        autor: f.fuente.autor ?? autorDado ?? autorSugerido,
+        autor: f.fuente.autor ?? autorDado,
         anio: f.fuente.anio,
         enlace: f.fuente.enlace ?? material.origen_url,
       },
     })
     if (error) throw falloDeBase("No pude guardar la ficha", error)
   }
-  const vinculado = (await incrustarFicha(ctx)) === "listo" && (await vincularMaterial(deps, material.id))
-  await actualizarMaterial(deps.db, material.id, {
+  await actualizarMaterial(deps.db, material.id, materialListo(material, titulo))
+  return { tope: false }
+}
+
+/** What every ready material gets, whatever its role: no links to resolve, the original text as its text, the claim released. */
+function materialListo(
+  material: Material,
+  titulo: string | null,
+): Database["public"]["Tables"]["materiales"]["Update"] {
+  return {
     estado: "listo",
-    vinculos_pendientes: !vinculado,
-    texto_clave: claves(material.id).texto,
+    texto_clave: claves(material.id).textoOriginal,
     motivo_fallo: null,
     ...LIBRE,
-    ...(autorDado === null && autorSugerido?.trim() ? { autor: autorSugerido.trim() } : {}),
     ...(material.titulo?.trim() || !titulo ? {} : { titulo }),
+  }
+}
+
+/** Step 2 for the other roles: claims with characteristics, embedded and grouped into topics. */
+async function afirmacionesDe(
+  ctx: Contexto,
+  original: Extraccion,
+  idiomaConocido: string | null,
+): Promise<Tope | { tope: false }> {
+  const hechas = await afirmarMaterial(ctx, original.partes)
+  if ("tope" in hechas && hechas.tope) return TOPE
+  const idioma = idiomaConocido ?? ("idioma" in hechas ? hechas.idioma : null)
+  await actualizarMaterial(ctx.deps.db, ctx.material.id, {
+    ...materialListo(ctx.material, original.titulo),
+    ...(idioma ? { idioma_original: idioma } : {}),
   })
   return { tope: false }
 }
 
 /**
- * What the steps after the extraction will cost: the adaptation of the parts that need it (all of them unless the text
- * is Spanish with nothing to adapt; an unknown language counts as needing it) and the card. Over-estimates, like the reservations.
+ * What the steps after the extraction will cost: the card for `estrategia`, and for every other role one claim
+ * request per chunk plus the embeddings. Over-estimates, like the reservations.
  */
-export function estimarCostoRestante(partes: readonly Parte[], idioma: string | null, conTraduccion = true): number {
-  const aAdaptar = partes
-    .filter((p) => p.texto.trim() !== "" && (idioma !== "es" || necesitaAdaptacion(p.texto)))
-    .reduce((total, p) => total + p.texto.length, 0)
-  const traduccion = conTraduccion && aAdaptar > 0 ? estimarCostoDeTraduccion(aAdaptar, false) : 0
-  return redondear(traduccion + estimarFicha(partes))
+export function estimarCostoRestante(partes: readonly Parte[], rol: string): number {
+  return rol === "estrategia" ? estimarFicha(partes) : estimarAfirmaciones(partes)
 }
+
+export { ESTIMADO_POR_TRAMO_USD } from "@/lib/ingesta/afirmar"
 
 const formatoUsd = new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -675,9 +542,7 @@ const formatoUsd = new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, ma
 async function esperaConfirmacion(ctx: Contexto, original: Extraccion): Promise<boolean> {
   const { deps, material } = ctx
   if (material.costo_confirmado_en) return false
-  const traducida = await deps.almacen.existe(claves(material.id).texto)
-  const idioma = original.idioma ?? idiomaPorHeuristica(original.partes)
-  const estimado = estimarCostoRestante(original.partes, idioma, !traducida)
+  const estimado = estimarCostoRestante(original.partes, material.rol)
   if (estimado <= UMBRAL_CONFIRMACION_USD) return false
   await actualizarMaterial(deps.db, material.id, {
     costo_estimado_usd: estimado,
@@ -687,14 +552,25 @@ async function esperaConfirmacion(ctx: Contexto, original: Extraccion): Promise<
   return true
 }
 
+/** The two-letter code the extraction reported, or the one the stopwords make clear; null when neither does. */
+function idiomaDeLaFuente(original: Extraccion): string | null {
+  const dicho = original.idioma ?? idiomaPorHeuristica(original.partes)
+  return dicho && /^[a-z]{2}$/.test(dicho) ? dicho : null
+}
+
 async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
+  const { deps, material } = ctx
   const original = await extraccionDe(ctx)
   if ("tope" in original) return detenidoPorTope(ctx)
   if (await esperaConfirmacion(ctx, original)) return { resultado: "esperando_confirmacion" }
-  const traducido = await traduccionDe(ctx, original)
-  if ("tope" in traducido) return detenidoPorTope(ctx)
-  const ficha = await fichaDe(ctx, traducido, original.titulo)
-  if (ficha.tope) return detenidoPorTope(ctx)
+  await guardarTexto(deps.almacen, claves(material.id).textoOriginal, renderizarPartes(original.partes))
+  const idioma = idiomaDeLaFuente(original)
+  if (idioma) await actualizarMaterial(deps.db, material.id, { idioma_original: idioma })
+  const terminado =
+    material.rol === "estrategia"
+      ? await fichaDe(ctx, original.partes, original.titulo)
+      : await afirmacionesDe(ctx, original, idioma)
+  if (terminado.tope) return detenidoPorTope(ctx)
   return { resultado: "listo" }
 }
 
@@ -705,8 +581,8 @@ async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
 }
 
 /**
- * Turns an uploaded material into Chilean-Spanish text and a card. Idempotent: a ready material is left alone, and
- * what a crashed run already paid for (transcription, vision, translation, card) is read back from the store.
+ * Turns an uploaded material into a card (`estrategia`) or into claims grouped in topics (every other role). Idempotent: a ready material is left alone, and
+ * what a crashed run already paid for (transcription, vision, claims, embeddings, card) is read back from the store.
  * A final error (nothing to read, a refused link) marks the material failed; any other error goes up so Trigger.dev
  * retries, and the `onFailure` hook marks it failed only once the retries are over.
  */

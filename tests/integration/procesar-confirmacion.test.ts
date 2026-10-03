@@ -19,8 +19,9 @@ afterEach(limpiar)
 afterAll(() => pool.end())
 
 const FFMPEG = await buscarFfmpegBasico()
-// Spanish of Spain, so every part needs the adaptation: 100k characters cost more than the threshold.
-const TEXTO_LARGO = "Vosotros tenéis que coger el ordenador y el móvil para hablar de lo que necesitáis. ".repeat(1_250)
+// About 41 chunks: one claim request each costs more than the one-dollar threshold.
+const PARRAFO = "Hablar de lo que cada persona necesita ayuda a la pareja. ".repeat(88)
+const TEXTO_LARGO = `${PARRAFO}\n\n`.repeat(98)
 
 async function estado(id: string) {
   const { rows } = await pool.query<{
@@ -47,7 +48,7 @@ describe("confirmación de costo", () => {
     expect(resultado).toEqual({ resultado: "esperando_confirmacion" })
     const fila = await estado(id)
     const costo = Number(fila.costo_estimado_usd)
-    expect(costo).toBeGreaterThan(0.5)
+    expect(costo).toBeGreaterThan(1)
     expect(fila.motivo_fallo).toBe(
       `Este material es largo: procesarlo cuesta cerca de US$ ${costo.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Confírmalo para seguir.`,
     )
@@ -69,8 +70,8 @@ describe("confirmación de costo", () => {
     const resultado = await procesarMaterial(await deps(almacen), id)
 
     expect(resultado).toEqual({ resultado: "listo" })
-    expect(claude.adaptaciones.length).toBeGreaterThan(0)
-    expect(claude.fichas).toHaveLength(1)
+    expect(claude.afirmaciones.length).toBeGreaterThan(0)
+    expect(claude.fichas).toEqual([])
     expect((await material(id)).estado).toBe("listo")
   })
 
@@ -88,10 +89,7 @@ describe("confirmación de costo", () => {
   it.skipIf(!FFMPEG)("does not pay the transcription again after the confirmation", async () => {
     const almacen = almacenEnMemoria()
     simularClaude()
-    const palabras: [string, number][] = Array.from({ length: 12_000 }, (_, i) => [
-      i % 7 === 0 ? "vosotros" : "ordenador",
-      i * 0.1,
-    ])
+    const palabras: [string, number][] = Array.from({ length: 50_000 }, (_, i) => ["ordenador", i * 0.1])
     const scribe = simularScribe("spa", palabras)
     const audio = await conFfmpeg(
       FFMPEG ?? "ffmpeg",

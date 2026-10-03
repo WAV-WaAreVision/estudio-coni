@@ -1,4 +1,4 @@
-import { idempotencyKeys, schedules } from "@trigger.dev/sdk"
+import { idempotencyKeys, queue, schedules } from "@trigger.dev/sdk"
 import { mantenimientoFrecuente, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { depsFalla, depsFrecuente, depsNocturno } from "@/lib/produccion/deps-reales"
 import { alFallarDeTarea } from "@/lib/produccion/fallas"
@@ -8,19 +8,22 @@ import { producirPiezaTask } from "./producir-pieza"
 // No retries on either: each job tells Coni or WAV by itself (a retry would repeat the notice), and the next tick of
 // the schedule is the retry.
 
-/** Every 10 minutes: runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run and the embeddings and links of materials left behind. */
+/** One queue for both runs: topics never form while the nightly run merges them. */
+export const COLA_DE_MANTENIMIENTO = queue({ name: "mantenimiento", concurrencyLimit: 1 })
+
+/** Every 10 minutes: runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run and the topics of the claims left behind. */
 export const CONFIGURACION_FRECUENTE = {
   id: "mantenimiento-frecuente",
   cron: "*/10 * * * *",
-  queue: { concurrencyLimit: 1 },
+  queue: COLA_DE_MANTENIMIENTO,
   retry: { maxAttempts: 1 },
 } as const
 
-/** 03:00 in Chile whatever the daylight saving time (design Q4): file retention, Instagram's token and the backup. */
+/** 03:00 in Chile whatever the daylight saving time (design Q4): file retention, Instagram's token, the backup and the merges of topics. */
 export const CONFIGURACION_NOCTURNA = {
   id: "mantenimiento-nocturno",
   cron: { pattern: "0 3 * * *", timezone: "America/Santiago" },
-  queue: { concurrencyLimit: 1 },
+  queue: COLA_DE_MANTENIMIENTO,
   retry: { maxAttempts: 1 },
   maxDuration: 1800,
 } as const
@@ -28,7 +31,7 @@ export const CONFIGURACION_NOCTURNA = {
 export const mantenimientoFrecuenteTask = schedules.task({
   ...CONFIGURACION_FRECUENTE,
   onFailure: alFallarDeTarea("mantenimiento-frecuente", depsFalla),
-  run: async (_carga, { ctx }) =>
+  run: async () =>
     mantenimientoFrecuente(
       depsFrecuente(
         async (piezaId, clave) => {
@@ -40,7 +43,6 @@ export const mantenimientoFrecuenteTask = schedules.task({
           const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
           await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
         },
-        ctx.run.id,
       ),
     ),
 })

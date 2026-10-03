@@ -8,9 +8,9 @@ import { exigirEnv } from "@/lib/env"
 import { buscarFfmpegBasico } from "@/lib/ingesta/fotogramas"
 import type { DepsProcesar } from "@/lib/ingesta/procesar"
 import { resolverDns } from "@/lib/ingesta/red-segura"
-import type { DepsTeoria } from "@/lib/ingesta/teoria"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
+import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
@@ -116,7 +116,6 @@ function clienteDeServicio() {
 export function depsFrecuente(
   dispararGrabacion: DepsFrecuente["dispararGrabacion"],
   dispararProduccion: DepsFrecuente["dispararProduccion"],
-  corrida: string,
 ): DepsFrecuente {
   return {
     db: clienteDeServicio(),
@@ -124,19 +123,25 @@ export function depsFrecuente(
     ahora: () => new Date().toISOString(),
     dispararGrabacion,
     dispararProduccion,
-    vinculos: () => depsVinculos(corrida),
+    temas: depsTemas,
   }
 }
 
 /**
- * What the embeddings and links sweep needs, or null when it has nothing to work with: without the Voyage key there is
- * no embedding to make, and without Claude's key (Coni has not entered it) no card can exist yet.
+ * What the topic jobs need, or null when Coni has not entered Claude's key yet. Without the Voyage key the jobs still
+ * run: they only skip the embeddings. No ffmpeg: this is not `depsProcesar`.
  */
-async function depsVinculos(corrida: string): Promise<DepsProcesar | null> {
-  if (!process.env.VOYAGE_API_KEY) return null
-  const llave = await leerSecreto(clienteDeServicio(), "anthropic")
+export async function depsTemas(): Promise<DepsMantenimientoTemas | null> {
+  const db = clienteDeServicio()
+  const llave = await leerSecreto(db, "anthropic")
   if (!llave) return null
-  return depsProcesar(corrida)
+  return {
+    db,
+    almacen: almacenReal(),
+    claude: new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
+    ahora: () => new Date().toISOString(),
+    llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
+  }
 }
 
 /** The dependencies of the 08:30 summary: the channel, not the notifier that stores notices (the summary stores none). */
@@ -152,6 +157,7 @@ export function depsNocturno(): DepsNocturno {
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
     volcarBase: () => volcarConPgDump(exigirEnv("RESPALDO_DB_URL", process.env.RESPALDO_DB_URL)),
+    temas: depsTemas,
   }
 }
 
@@ -183,24 +189,8 @@ export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
       return llave
     },
     llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
-    avisos: avisosReales(),
     ffmpeg,
     ahora: () => new Date().toISOString(),
     corrida,
-  }
-}
-
-/** The dependencies of a `sintetizar-teoria` run: Claude's key is checked before the run spends anything. */
-export async function depsTeoria(): Promise<DepsTeoria> {
-  const db = clienteDeServicio()
-  const llaveDeAnthropic = await leerSecreto(db, "anthropic")
-  if (!llaveDeAnthropic) {
-    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de Anthropic en Ajustes.")
-  }
-  return {
-    db,
-    almacen: almacenReal(),
-    claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
-    ahora: () => new Date().toISOString(),
   }
 }

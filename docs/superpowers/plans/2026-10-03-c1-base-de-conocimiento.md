@@ -75,7 +75,7 @@
     - returns the id;
     - a name equal to an existing `nombre_normalizado`, or to any alias normalized the same way, returns the existing id;
     - a blank name raises 22023 `autor_vacio`.
-  - `editar_autor(p_id, p_nombre, p_credencial, p_alias text[])` (member only). A duplicate normalized name raises 23505 `autor_repetido`.
+  - `borrar_autor(p_id)` (member only): refuses the Coni author (22023 `autor_coni_protegido`) and authors with materials (22023 `autor_con_materiales`). `crear_autor` refuses `tipo = 'coni'` (22023 `tipo_coni_reservado`).
   - `fusionar_autores(p_origen, p_destino)` (member only):
     - moves `materiales.autor_id` (and later `afirmaciones.autor_id`, Task 2) to the destination;
     - adds the origin's name and aliases to the destination's aliases;
@@ -288,11 +288,11 @@
 - Delete `lib/ingesta/vincular.ts`, `lib/ingesta/completar-vinculos.ts`, `lib/ingesta/teoria.ts`, `trigger/sintetizar-teoria.ts`, `lib/mantenimiento/teorias.ts` and the `traducirMaterial` parts of `lib/ingesta/traducir.ts`. Keep `idiomaPorHeuristica` and `detectarIdioma` if still used; otherwise move `idiomaPorHeuristica` to `lib/ingesta/idioma.ts`.
 - Remove `clasificarVinculos`, `sintetizarTeoria` and `adaptarAVozDeConi`, their `MODELO_POR_TAREA` entries and `lib/ingesta/voz-de-coni.ts`, together with its sync test. `docs/voz/voz-de-coni.md` stays.
 - Remove `dispararSintetizarTeoria`.
-- Create the migration `20261003000340_retirar_b2.sql`. It drops:
+- Create the migration `20261003000349_retirar_b2.sql`. It drops:
   - the functions `materiales_cercanos`, `aceptar_vinculo`, `descartar_vinculo`, `crear_vinculo`, `pedir_teoria`, `guardar_teoria`, `reintentar_teoria`, `marcar_teoria_disparo_fallido`;
   - the columns `materiales.vinculos_pendientes` and `materiales.vinculos_intentos`.
 
-  The tables `vinculos` and `embeddings_ficha` are dropped in Task 12, after production is verified.
+  The tables `vinculos` and `embeddings_ficha` are dropped in migration 350, after production is verified.
 - Delete their tests and update any test that referenced them.
 
 - [ ] **Step 1: Remove the code and run `pnpm type` to find every leftover reference. Fix each one.**
@@ -395,14 +395,36 @@
 
 ## Production checklist (with Federico)
 
-1. Push both repos, then `supabase db push` of migrations 300 to 340. Leave 350 for step 6.
-2. Deploy Trigger, then the Conidolly and ingesta apps.
-3. In ingesta, give each of the 6 materials its author and role:
-   - plan de marca and focus group → `estrategia`;
-   - "El deseo no se apaga" → `voz_propia`;
-   - Impostora and Pinealon → `referente`.
+`supabase db push` applies every pending migration, so `20261003000349_retirar_b2.sql` and `20261003000350_borrar_vinculos.sql` live in `supabase/pendientes/` and are moved into `supabase/migrations/` (with a commit) only at steps 2 and 7.
 
-   Delete "Test de Traducción". Then reprocess the 5 non-strategy materials.
-4. Upload the Carmen batch again with its author and role `referente`.
-5. Run the calibration (Task 10, step 3), set the thresholds, redeploy Trigger.
-6. Check Temas and Autores. Then apply migration 350 (`supabase db push`).
+0. Pre-checks:
+   - no material is in `procesando`;
+   - `VOYAGE_API_KEY` is set in Trigger production;
+   - `partes-original.json` exists in R2 for the 3 non-strategy materials.
+1. `supabase db push` of migrations 300 to 348. Deploy Trigger immediately, then the Conidolly and ingesta apps. Check the first `mantenimiento-frecuente` run.
+2. `supabase db push` of migration 349 (retire B2: the old code is gone, so dropping its functions and columns is safe).
+3. In ingesta, set authors and roles:
+   - `estrategia`: plan de marca and focus group;
+   - `voz_propia`: "El deseo no se apaga", linked to the Coni author;
+   - `referente`: Impostora and Pinealon, each with its real author.
+
+   Merge or delete the wrong backfilled authors, such as "Sindrome de la Impostora" and "Invitado Focus Group". Delete "Test de Traducción".
+4. Calibrate on the 3 materials before topics form in production: run the script without and then with `--confirmar`, set the thresholds, redeploy Trigger and fill `docs/superpowers/notas/calibracion-c1.md`. If topics already formed, reset them.
+5. Reprocess the 3 non-strategy materials.
+6. Upload the Carmen batch again with role `referente`.
+7. Check Temas and Autores, the 10-minute runs and the 03:00 merge. Then `supabase db push` of migration 350 (`20261003000350_borrar_vinculos.sql`: drops the tables `vinculos` and `embeddings_ficha`).
+
+## C1 notes (2026-10-03)
+
+- Done locally on `feat/c1` (estudio-coni) and `feat/c1` (conidolly-ingesta). Migrations 300-348 ship with the code; 349 (retire B2) and 350 (drop `vinculos`, `embeddings_ficha`) wait in `supabase/pendientes/`.
+- Deviations approved during review:
+  - Topics group by centroid ("leader"), not single-link, so unrelated claims never chain into one topic.
+  - Merges run through the atomic SQL `fusionar_par_de_temas`; rejected pairs are remembered (`temas_fusion_rechazada`) and never re-asked.
+  - `recalcular_tema` (SQL) keeps centroids right and deletes empty topics after hiding a claim, deleting a material or reprocessing.
+  - Both maintenance tasks share one Trigger queue with concurrency 1.
+  - A Voyage outage is logged, not alerted, and the claims wait for the next run.
+  - The claim checkpoint fingerprint includes the extraction prompt version.
+  - Claims follow their material's author (trigger). The Coni author cannot be created twice, merged away or deleted.
+  - Topic audit events only record name, description, pillar, aliases and merges, never centroid updates.
+  - The ingestion app lost the graph, theories and the translated-text download; it gained Autores, Temas, the material map, reprocess and "Borrar autor".
+- Open items: thresholds are still the plan defaults until calibration (Task 10, step 3); rejected merge pairs have no manual path yet; the calibration script's spend does not go through `gastos`.

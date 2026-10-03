@@ -15,7 +15,6 @@ import {
   gastos,
   limpiar,
   material,
-  pdfDe,
   simularClaude,
   TEXTO_CHILENO,
   texto,
@@ -28,11 +27,12 @@ afterAll(() => pool.end())
 const UN_PDF = { extension: "pdf", tipo: "application/pdf" }
 
 describe("documento", () => {
-  it("extracts the text, stores it, pays Claude for the card and leaves the material ready", async () => {
+  it("extracts the text, stores it, pays Claude for the card of a strategy material and leaves it ready", async () => {
     const almacen = almacenEnMemoria()
     const claude = simularClaude({ idioma: "es" })
     const id = await crearMaterial(almacen, {
       tipo: "documento",
+      rol: "estrategia",
       titulo: "Dos páginas",
       archivo: { ...UN_PDF, datos: await fixture("dos-paginas.pdf") },
     })
@@ -40,15 +40,16 @@ describe("documento", () => {
     const resultado = await procesarMaterial(await deps(almacen), id)
 
     expect(resultado).toEqual({ resultado: "listo" })
-    expect(texto(almacen, id, "texto.txt")).toBe(
+    expect(texto(almacen, id, "texto-original.txt")).toBe(
       "[página 1] Primera pagina del documento\n\n[página 2] Segunda pagina del documento",
     )
     const fila = await material(id)
     expect(fila).toMatchObject({
       estado: "listo",
-      texto_clave: `materiales/${id}/texto.txt`,
+      texto_clave: `materiales/${id}/texto-original.txt`,
       motivo_fallo: null,
-      idioma_original: "es",
+      // Two short lines: the stopwords do not settle the language and no Claude call is made for it.
+      idioma_original: null,
     })
     const f = await ficha(id)
     expect(f?.resumen).toBe("Un resumen de la fuente.")
@@ -64,18 +65,15 @@ describe("documento", () => {
     })
   })
 
-  it("fills an empty author from the one Claude found, and keeps one that was given", async () => {
+  it("takes the card's author from the material's author row and never writes the legacy author column", async () => {
     const almacen = almacenEnMemoria()
     simularClaude({ autorSugerido: "Esther Perel" })
-    const sinAutor = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
-    const conAutor = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO, autor: "Coni" })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO, rol: "estrategia" })
 
-    await procesarMaterial(await deps(almacen), sinAutor)
-    await procesarMaterial(await deps(almacen), conAutor)
+    await procesarMaterial(await deps(almacen), id)
 
-    expect((await material(sinAutor)).autor).toBe("Esther Perel")
-    expect((await material(conAutor)).autor).toBe("Coni")
-    expect((await ficha(sinAutor))?.fuente.autor).toBe("Esther Perel")
+    expect((await material(id)).autor).toBeNull()
+    expect((await ficha(id))?.fuente.autor).toBe("Constanza del Rosario")
   })
 
   it("does nothing for a material that is already ready", async () => {
@@ -92,17 +90,17 @@ describe("documento", () => {
     expect(await gastos(id)).toHaveLength(1)
   })
 
-  it("reuses the stored text after a crash and does not pay the language check again", async () => {
+  it("reuses the stored text after a crash and pays the card once", async () => {
     const almacen = almacenEnMemoria()
-    const caida = simularClaude({ idioma: "es", fichaFalla: true })
+    simularClaude({ idioma: "es", fichaFalla: true })
     const id = await crearMaterial(almacen, {
       tipo: "documento",
+      rol: "estrategia",
       archivo: { ...UN_PDF, datos: await fixture("dos-paginas.pdf") },
     })
     await expect(procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)).rejects.toThrow()
     expect((await material(id)).estado).toBe("procesando")
-    expect(caida.idiomas).toBe(1)
-    expect(texto(almacen, id, "texto.txt")).toBeDefined()
+    expect(texto(almacen, id, "texto-original.txt")).toBeDefined()
 
     servidor.resetHandlers()
     const sana = simularClaude({ idioma: "es" })
@@ -112,7 +110,6 @@ describe("documento", () => {
     expect(sana.idiomas).toBe(0)
     expect(sana.fichas).toHaveLength(1)
     const filas = await gastos(id)
-    expect(filas.filter((g) => g.paso === "traduccion")).toHaveLength(1)
     expect(filas.filter((g) => g.paso === "ficha" && g.estado === "confirmado")).toHaveLength(1)
     expect(filas.filter((g) => g.paso === "ficha" && g.estado === "liberado")).toHaveLength(1)
   })
@@ -120,7 +117,7 @@ describe("documento", () => {
   it("does not write a second card when one already exists", async () => {
     const almacen = almacenEnMemoria()
     const claude = simularClaude()
-    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO, rol: "estrategia" })
     await pool.query(
       "insert into public.fichas (material_id, resumen, ideas_clave, citas, fuente) values ($1, 'ya estaba', '[]', '[]', '{}')",
       [id],
@@ -134,87 +131,6 @@ describe("documento", () => {
   })
 })
 
-describe("traducción y adaptación", () => {
-  it("adapts a PDF written in Spanish of Spain and stores both versions", async () => {
-    const almacen = almacenEnMemoria()
-    const claude = simularClaude({ idioma: "es" })
-    const original =
-      "Vosotros teneis que hablar con vuestra pareja, coger el movil y apagarlo para que la conversacion sea facil."
-    const id = await crearMaterial(almacen, {
-      tipo: "documento",
-      archivo: { ...UN_PDF, datos: pdfDe([original]) },
-    })
-
-    await procesarMaterial(await deps(almacen), id)
-
-    expect(claude.adaptaciones).toHaveLength(1)
-    expect(texto(almacen, id, "texto-original.txt")).toContain("Vosotros teneis")
-    expect(texto(almacen, id, "texto.txt")).toContain("[adaptado] Vosotros teneis")
-    expect((await material(id)).idioma_original).toBe("es")
-  })
-
-  it("does not call the adapter for Spanish of Chile without jargon", async () => {
-    const almacen = almacenEnMemoria()
-    const claude = simularClaude()
-    const id = await crearMaterial(almacen, {
-      tipo: "documento",
-      archivo: { ...UN_PDF, datos: pdfDe([TEXTO_CHILENO]) },
-    })
-
-    await procesarMaterial(await deps(almacen), id)
-
-    expect(claude.adaptaciones).toEqual([])
-    expect(claude.idiomas).toBe(0)
-    expect(texto(almacen, id, "texto.txt")).toContain("El deseo sexual cambia")
-    expect(texto(almacen, id, "texto-original.txt")).toBe(texto(almacen, id, "texto.txt"))
-  })
-
-  it("brings an English document to Spanish, keeping the original and its language", async () => {
-    const almacen = almacenEnMemoria()
-    const claude = simularClaude({ idioma: "en" })
-    const ingles =
-      "Desire changes over the course of a relationship and that is part of what you and your partner have to talk about."
-    const id = await crearMaterial(almacen, {
-      tipo: "documento",
-      archivo: { extension: "txt", tipo: "text/plain", datos: new TextEncoder().encode(ingles) },
-    })
-
-    await procesarMaterial(await deps(almacen), id)
-
-    expect(claude.adaptaciones).toEqual([ingles])
-    expect(texto(almacen, id, "texto-original.txt")).toBe(ingles)
-    expect(texto(almacen, id, "texto.txt")).toBe(`[adaptado] ${ingles}`)
-    const fila = await material(id)
-    expect(fila.idioma_original).toBe("en")
-    expect(claude.fichas[0]).toContain("[adaptado] Desire changes")
-  })
-
-  it("leaves the material in process when the adapter loses a part, and says so for Coni once retries are over", async () => {
-    const almacen = almacenEnMemoria()
-    simularClaude({ idioma: "en", adaptacionRota: true })
-    const id = await crearMaterial(almacen, {
-      tipo: "documento",
-      archivo: {
-        extension: "txt",
-        datos: new TextEncoder().encode(
-          "Desire changes over the course of a relationship and that is what you and your partner have to talk about.",
-        ),
-      },
-    })
-    const error = await procesarMaterial(await deps(almacen), id).catch((e: unknown) => e)
-    expect(error).toBeInstanceOf(Error)
-    expect((await material(id)).estado).toBe("procesando")
-
-    const avisos = notificadorEnMemoria()
-    await alFallarMaterial({ db: clienteDeServicio(), avisos }, { materialId: id, corrida: "run_1", error })
-
-    expect(await material(id)).toMatchObject({
-      estado: "fallido",
-      motivo_fallo: "No pude traducir el material, reintenta",
-    })
-  })
-})
-
 describe("link", () => {
   const URL_NOTA = "https://ejemplo.cl/nota"
 
@@ -223,11 +139,11 @@ describe("link", () => {
     simularClaude({ idioma: "es" })
     const html = new TextDecoder().decode(await fixture("articulo.html"))
     servidor.use(http.get(URL_NOTA, () => HttpResponse.html(html)))
-    const id = await crearMaterial(almacen, { tipo: "link", origen_url: URL_NOTA })
+    const id = await crearMaterial(almacen, { tipo: "link", origen_url: URL_NOTA, rol: "estrategia" })
 
     await procesarMaterial(await deps(almacen), id)
 
-    const guardado = texto(almacen, id, "texto.txt") ?? ""
+    const guardado = texto(almacen, id, "texto-original.txt") ?? ""
     expect(guardado).toContain("El deseo sexual fluctúa")
     expect(guardado).not.toContain("PUBLICIDAD")
     const fila = await material(id)
@@ -470,7 +386,7 @@ describe("una corrida por material", () => {
 
   it("keeps the claim when the run fails for a reason that will be retried", async () => {
     const almacen = almacenEnMemoria()
-    simularClaude({ fichaFalla: true })
+    simularClaude({ afirmacionesFallanDesde: 1 })
     const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
 
     await expect(procesarMaterial(await deps(almacen, { corrida: "run_a" }), id)).rejects.toThrow()
@@ -534,7 +450,7 @@ describe("post y material de terceros", () => {
     )
 
     expect(pedidos).toEqual([])
-    expect(texto(almacen, id, "texto.txt")).toContain("El deseo sexual cambia")
+    expect(texto(almacen, id, "texto-original.txt")).toContain("El deseo sexual cambia")
     const fila = await material(id)
     expect(fila.estado).toBe("listo")
     const guardado = await pool.query<{ origen_url: string }>(

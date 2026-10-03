@@ -6,7 +6,6 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
 import type { producirPiezaTask } from "@/trigger/producir-pieza"
-import type { sintetizarTeoriaTask } from "@/trigger/sintetizar-teoria"
 import type { Disparos } from "./disparos"
 
 type Entorno = Record<string, string | undefined>
@@ -79,33 +78,5 @@ export async function dispararProcesarMaterial(materialId: string, entorno: Ento
     "procesar-material",
     { materialId },
     { idempotencyKey: await claveGlobal(`procesar-material:${materialId}`), idempotencyKeyTTL: "10m" },
-  )
-}
-
-/**
- * Starts the synthesis of a theory. The key holds for ten minutes: a double tap starts one run. A retry passes its
- * own `intento`, so the failed run is never reused.
- */
-export async function dispararSintetizarTeoria(
-  teoriaId: string,
-  entorno: Entorno = process.env,
-  intento?: string,
-): Promise<void> {
-  const archivo = archivoDeDisparoDePrueba(entorno)
-  if (archivo) {
-    appendFileSync(
-      archivo,
-      `${JSON.stringify({ tarea: "sintetizar-teoria", teoriaId, ...(intento ? { intento } : {}) })}\n`,
-    )
-    return
-  }
-  exigirLlaveDeTrigger(entorno)
-  await tasks.trigger<typeof sintetizarTeoriaTask>(
-    "sintetizar-teoria",
-    { teoriaId },
-    {
-      idempotencyKey: await claveGlobal(`sintetizar-teoria:${teoriaId}${intento ? `:${intento}` : ""}`),
-      idempotencyKeyTTL: "10m",
-    },
   )
 }

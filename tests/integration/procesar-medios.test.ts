@@ -63,7 +63,9 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
 
     expect(scribe.n).toBe(1)
     expect(scribe.llaves).toEqual(["sk_eleven_de_prueba"])
-    expect(texto(almacen, id, "texto.txt")).toBe("[0:00 habla] Hola, soy Coni.\n[0:12 habla] Hablemos de límites.")
+    expect(texto(almacen, id, "texto-original.txt")).toBe(
+      "[0:00 habla] Hola, soy Coni.\n[0:12 habla] Hablemos de límites.",
+    )
     const filas = await gastos(id)
     const transcripcion = filas.find((g) => g.paso === "transcripcion")
     expect(transcripcion).toMatchObject({ proveedor: "elevenlabs", estado: "confirmado" })
@@ -105,7 +107,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
       id,
     )
 
-    const guardado = texto(almacen, id, "texto.txt") ?? ""
+    const guardado = texto(almacen, id, "texto-original.txt") ?? ""
     expect(guardado).toContain("[0:00 habla] Hola, soy Coni.")
     expect(guardado).toContain("[0:12 habla] Hablemos de límites.")
     expect(guardado).toContain("[0:00 pantalla] Hola soy Coni")
@@ -143,7 +145,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
     await procesarMaterial(await deps(almacen), id)
 
     expect(scribe.n).toBe(0)
-    const guardado = texto(almacen, id, "texto.txt") ?? ""
+    const guardado = texto(almacen, id, "texto-original.txt") ?? ""
     expect(guardado).not.toContain("habla]")
     expect(guardado).toContain("[0:00 pantalla] Hola soy Coni")
     expect((await material(id)).estado).toBe("listo")
@@ -161,7 +163,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
     await procesarMaterial(await deps(almacen), id)
 
     expect(scribe.n).toBe(1)
-    expect(texto(almacen, id, "texto.txt")).not.toContain("habla]")
+    expect(texto(almacen, id, "texto-original.txt")).not.toContain("habla]")
     expect((await material(id)).estado).toBe("listo")
   })
 
@@ -176,7 +178,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
 
     await procesarMaterial(await deps(almacen), id)
 
-    const guardado = texto(almacen, id, "texto.txt") ?? ""
+    const guardado = texto(almacen, id, "texto-original.txt") ?? ""
     expect(guardado).toContain("habla]")
     expect(guardado).not.toContain("pantalla]")
     expect((await material(id)).estado).toBe("listo")
@@ -197,7 +199,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
     expect(await material(id)).toMatchObject({ estado: "fallido", motivo_fallo: SIN_VOZ_NI_TEXTO })
   })
 
-  it("translates an English reel into Spanish and keeps both versions", async () => {
+  it("keeps an English reel as it was said, with its language and no translation", async () => {
     const almacen = almacenEnMemoria()
     const claude = simularClaude({ lectura: () => "", idioma: "en" })
     simularScribe("eng", [
@@ -213,15 +215,15 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
 
     await procesarMaterial(await deps(almacen), id)
 
-    expect(claude.adaptaciones).toEqual(["Desire changes over time."])
+    expect(claude.adaptaciones).toEqual([])
     expect(texto(almacen, id, "texto-original.txt")).toBe("[0:00 habla] Desire changes over time.")
-    expect(texto(almacen, id, "texto.txt")).toBe("[0:00 habla] [adaptado] Desire changes over time.")
+    expect(texto(almacen, id, "texto.txt")).toBeUndefined()
     expect((await material(id)).idioma_original).toBe("en")
   })
 
   it("does not pay transcription or vision again after a crash", async () => {
     const almacen = almacenEnMemoria()
-    const caida = simularClaude({ lectura: PANTALLA, fichaFalla: true })
+    const caida = simularClaude({ lectura: PANTALLA, afirmacionesFallanDesde: 1 })
     const scribe = simularScribe("spa", HABLA)
     const id = await crearMaterial(almacen, {
       tipo: "video",
@@ -253,7 +255,7 @@ describe.skipIf(!FFMPEG)("audio y video (necesitan ffmpeg)", () => {
 
     await procesarMaterial(await deps(almacen), id)
 
-    const guardado = texto(almacen, id, "texto.txt") ?? ""
+    const guardado = texto(almacen, id, "texto-original.txt") ?? ""
     expect(guardado.startsWith("Pie del post sobre límites en la pareja.")).toBe(true)
     expect(guardado).toContain("[0:12 habla] Hablemos de límites.")
     expect(guardado).not.toContain("pantalla]")
@@ -286,7 +288,7 @@ describe.skipIf(!FFMPEG)("imágenes (necesitan ffmpeg)", () => {
     await procesarMaterial(await deps(almacen), id)
 
     expect(claude.visiones).toEqual([["1", "2", "3"]])
-    expect(texto(almacen, id, "texto.txt")).toBe(
+    expect(texto(almacen, id, "texto-original.txt")).toBe(
       "[imagen 1] texto de la imagen 1\n[imagen 2] texto de la imagen 2\n[imagen 3] texto de la imagen 3",
     )
     const filas = await gastos(id)

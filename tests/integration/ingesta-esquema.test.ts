@@ -28,8 +28,8 @@ async function idCategoria(c: Cliente, slug: string): Promise<string> {
 async function crearMaterial(c: Cliente, extra: { tipo?: string; texto?: string } = {}): Promise<string> {
   const categoria = await idCategoria(c, "general")
   const { rows } = await c.query<{ id: string }>(
-    `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
-     values ($1, $2, $3, now()) returning id`,
+    `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
+     values ((select id from public.autores where tipo = 'coni'), $1, $2, $3, now()) returning id`,
     [extra.tipo ?? "documento", categoria, extra.texto ?? "hola"],
   )
   const fila = rows[0]
@@ -152,8 +152,8 @@ describe("categorias", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       await c.query(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2)`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2)`,
         [categoria, CONI],
       )
       const error = await fallaCon(c, "delete from public.categorias where id = $1", [categoria])
@@ -179,8 +179,8 @@ describe("materiales", () => {
       const categoria = await idCategoria(c, "general")
       const id = crypto.randomUUID()
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
-         values ($1, 'documento', $2, 'x', now()) returning id`,
+        `insert into public.materiales (autor_id, id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
+         values ((select id from public.autores where tipo = 'coni'), $1, 'documento', $2, 'x', now()) returning id`,
         [id, categoria],
       )
       expect(rows[0]?.id).toBe(id)
@@ -192,8 +192,8 @@ describe("materiales", () => {
       const categoria = await idCategoria(c, "general")
       const error = await fallaCon(
         c,
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2)`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2)`,
         [categoria, CONI],
       )
       expect(error.code).toBe("42501")
@@ -209,30 +209,29 @@ describe("materiales", () => {
       ])
       const error = await fallaCon(
         c,
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
-         values ('documento', $1, 'x', now())`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now())`,
         [categoria],
       )
       expect(error.code).toBe("42501")
     })
   })
 
-  it("requires the no-patients declaration and a category", async () => {
+  it("requires the no-patients declaration but not a category", async () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const sinDeclaracion = await fallaCon(
         c,
-        "insert into public.materiales (tipo, categoria_id, texto_pegado, subido_por) values ('documento', $1, 'x', $2)",
+        "insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, subido_por) values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', $2)",
         [categoria, CONI],
       )
       expect(sinDeclaracion.code).toBe("23502")
-      const sinCategoria = await fallaCon(
-        c,
-        `insert into public.materiales (tipo, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', 'x', now(), $1)`,
+      const sinCategoria = await c.query(
+        `insert into public.materiales (autor_id, tipo, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', 'x', now(), $1)`,
         [CONI],
       )
-      expect(sinCategoria.code).toBe("23502")
+      expect(sinCategoria.rowCount).toBe(1)
     })
   })
 
@@ -241,15 +240,15 @@ describe("materiales", () => {
       const categoria = await idCategoria(c, "general")
       const tipo = await fallaCon(
         c,
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('podcast', $1, 'x', now(), $2)`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'podcast', $1, 'x', now(), $2)`,
         [categoria, CONI],
       )
       expect(tipo.code).toBe("23514")
       const estado = await fallaCon(
         c,
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado)
-         values ('post', $1, 'x', now(), $2, 'nuevo')`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, estado)
+         values ((select id from public.autores where tipo = 'coni'), 'post', $1, 'x', now(), $2, 'nuevo')`,
         [categoria, CONI],
       )
       expect(estado.code).toBe("23514")
@@ -260,8 +259,8 @@ describe("materiales", () => {
     await como(comoConi, async (c) => {
       const error = await fallaCon(
         c,
-        `insert into public.materiales (tipo, categoria_id, declaracion_sin_pacientes_en)
-        select 'video', id, now() from public.categorias limit 1`,
+        `insert into public.materiales (tipo, autor_id, categoria_id, declaracion_sin_pacientes_en)
+        select 'video', (select id from public.autores where tipo = 'coni'), id, now() from public.categorias limit 1`,
       )
       expect(error.code).toBe("23514")
     })
@@ -271,8 +270,8 @@ describe("materiales", () => {
     await como(comoConi, async (c) => {
       const categoria = await idCategoria(c, "general")
       await c.query(
-        `insert into public.materiales (tipo, categoria_id, origen_url, declaracion_sin_pacientes_en)
-         values ('video', $1, 'https://example.com/v', now())`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, origen_url, declaracion_sin_pacientes_en)
+         values ((select id from public.autores where tipo = 'coni'), 'video', $1, 'https://example.com/v', now())`,
         [categoria],
       )
     })
@@ -282,8 +281,8 @@ describe("materiales", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       await c.query(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2)`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2)`,
         [categoria, MANTENEDOR],
       )
       for (const [sesion, esperadas] of [
@@ -334,8 +333,8 @@ describe("materiales", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2) returning id`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2) returning id`,
         [categoria, CONI],
       )
       id = rows[0]?.id ?? ""
@@ -357,8 +356,8 @@ describe("materiales", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2) returning id`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2) returning id`,
         [categoria, MANTENEDOR],
       )
       const id = rows[0]?.id
@@ -376,8 +375,8 @@ describe("materiales", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2) returning id`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2) returning id`,
         [categoria, CONI],
       )
       await c.query("select set_config('request.jwt.claims', $1, true)", [
@@ -415,8 +414,8 @@ describe("materiales_archivos", () => {
     await como(comoConi, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (id, tipo, categoria_id, archivo_clave, declaracion_sin_pacientes_en)
-         values ($2::uuid, 'imagen', $1, 'materiales/' || $2::text || '/original-01.png', now()) returning id`,
+        `insert into public.materiales (autor_id, id, tipo, categoria_id, archivo_clave, declaracion_sin_pacientes_en)
+         values ((select id from public.autores where tipo = 'coni'), $2::uuid, 'imagen', $1, 'materiales/' || $2::text || '/original-01.png', now()) returning id`,
         [categoria, crypto.randomUUID()],
       )
       const id = rows[0]?.id
@@ -455,8 +454,8 @@ describe("materiales_archivos", () => {
 describe("claves de archivo del material", () => {
   const ID = "11111111-1111-4111-8111-111111111111"
   const insertar = (clave: string | null, id = ID) =>
-    `insert into public.materiales (id, tipo, categoria_id, archivo_clave, texto_pegado, declaracion_sin_pacientes_en)
-     select '${id}', 'documento', id, ${clave === null ? "null" : `'${clave}'`}, 'x', now() from public.categorias limit 1`
+    `insert into public.materiales (id, tipo, autor_id, categoria_id, archivo_clave, texto_pegado, declaracion_sin_pacientes_en)
+     select '${id}', 'documento', (select id from public.autores where tipo = 'coni'), id, ${clave === null ? "null" : `'${clave}'`}, 'x', now() from public.categorias limit 1`
 
   it.each([
     ["no file", null],
@@ -534,8 +533,8 @@ describe("fichas", () => {
     })
     await como(comoServicio, async (c) => {
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         select 'documento', id, 'x', now(), $1 from public.categorias limit 1 returning id`,
+        `insert into public.materiales (tipo, autor_id, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         select 'documento', (select id from public.autores where tipo = 'coni'), id, 'x', now(), $1 from public.categorias limit 1 returning id`,
         [CONI],
       )
       await crearFicha(c, rows[0]?.id ?? "")
@@ -546,8 +545,8 @@ describe("fichas", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2) returning id`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2) returning id`,
         [categoria, CONI],
       )
       const id = rows[0]?.id ?? ""
@@ -573,8 +572,8 @@ describe("fichas", () => {
     await como(comoPostgres, async (c) => {
       const categoria = await idCategoria(c, "general")
       const { rows } = await c.query<{ id: string }>(
-        `insert into public.materiales (tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ('documento', $1, 'x', now(), $2) returning id`,
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+         values ((select id from public.autores where tipo = 'coni'), 'documento', $1, 'x', now(), $2) returning id`,
         [categoria, CONI],
       )
       const id = rows[0]?.id ?? ""

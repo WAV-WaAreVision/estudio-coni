@@ -3,14 +3,11 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { estimarFicha, estimarLectura } from "@/lib/ingesta/procesar"
-import { estimarCostoDeTraduccion } from "@/lib/ingesta/traducir"
 import {
-  adaptarAVozDeConi,
   clasificarIdea,
   costoClaude,
   escribirFicha,
   escribirGuion,
-  identificarIdioma,
   leerTextoEnImagenes,
   MODELO_POR_TAREA,
   revisarConClaude,
@@ -94,25 +91,10 @@ describe("a model per task", () => {
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
   })
 
-  it("identifies the language with Sonnet at low effort", async () => {
-    const cuerpos = capturando({ idioma: "fr" })
-    await identificarIdioma({ cliente: cliente(), muestra: "Bonjour" })
-    expect(cuerpos[0]?.model).toBe(SONNET)
-    expect(cuerpos[0]?.output_config?.effort).toBe("low")
-  })
-
   it("reads text in images with Sonnet at low effort", async () => {
     const cuerpos = capturando({ lecturas: [{ id: "f0", texto: "", idioma: "" }] })
     await leerTextoEnImagenes({ cliente: cliente(), imagenes: [{ id: "f0", jpeg: Uint8Array.from([0xff, 0xd8]) }] })
     expect(cuerpos[0]?.model).toBe(SONNET)
-    expect(cuerpos[0]?.output_config?.effort).toBe("low")
-  })
-
-  it("adapts with Sonnet, thinking switched off with between_tools and never disabled", async () => {
-    const cuerpos = capturando({ idioma_original: "es", partes: [{ texto: "x", ubicacion: { pagina: 1 } }] })
-    await adaptarAVozDeConi({ cliente: cliente(), partes: [{ texto: "x", ubicacion: { pagina: 1 } }] })
-    expect(cuerpos[0]?.model).toBe(SONNET)
-    expect(cuerpos[0]?.thinking).toEqual({ type: "between_tools" })
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
   })
 
@@ -129,7 +111,6 @@ describe("a model per task", () => {
         HttpResponse.json({ type: "error", error: { type: "not_found_error", message: "x" } }, { status: 404 }),
       ),
     )
-    await expect(identificarIdioma({ cliente: cliente(), muestra: "Bonjour" })).rejects.toThrow(SONNET)
     await expect(
       revisarConClaude({ cliente: cliente(), guia: "g", guion: "g", texto: "t", alertas: [] }),
     ).rejects.toThrow(OPUS)
@@ -159,16 +140,6 @@ describe("costoClaude por modelo", () => {
 })
 
 describe("estimates use the price of the task", () => {
-  it("reserves a translation batch at the Sonnet price", () => {
-    const caracteres = 3_000
-    const tokens = Math.ceil(caracteres / 3)
-    const esperado = costoClaude(
-      { input_tokens: tokens + 3_000, output_tokens: Math.ceil(tokens * 1.6) },
-      MODELO_POR_TAREA.adaptarAVozDeConi.modelo,
-    )
-    expect(estimarCostoDeTraduccion(caracteres, false)).toBeCloseTo(esperado, 4)
-  })
-
   it("reserves a vision batch at the Sonnet price", () => {
     const esperado = costoClaude(
       { input_tokens: 800 + 1_600 * 3, output_tokens: 150 + 300 * 3 },
