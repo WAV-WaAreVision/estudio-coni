@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { mantenimientoFrecuente, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { AFIRMACIONES_POR_CORRIDA, type DepsMantenimientoTemas, mantenerTemas } from "@/lib/mantenimiento/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -158,6 +158,26 @@ describe("mantenerTemas", () => {
     expect(voyage.n).toBe(0)
     expect(resultado).toMatchObject({ tope: false, embebidas: 0 })
     expect(await conVector()).toBe(0)
+  })
+
+  it("survives a Voyage outage: the claims stay without a vector and topics still form from those that have one", async () => {
+    const ids = await sinVector(5)
+    const vector = `[${Array.from({ length: 1024 }, () => 0.5).join(",")}]`
+    await pool.query("update public.afirmaciones set vector = $1::extensions.vector where id = any($2::uuid[])", [
+      vector,
+      ids.slice(0, 3),
+    ])
+    simularVoyage(500)
+    const claude = simularClaude()
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    const resultado = await mantenerTemas(deps())
+
+    expect(resultado).toMatchObject({ tope: false, embebidas: 0 })
+    expect(claude.nombres).toBe(1)
+    expect(await conVector()).toBe(3)
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining("2"))
+    aviso.mockRestore()
   })
 
   it("returns tope without failing when the monthly cap is reached", async () => {

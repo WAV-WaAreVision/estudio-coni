@@ -39,8 +39,8 @@ async function embeberPendientes(
   deps: DepsMantenimientoTemas,
   llave: string,
   pendientes: readonly { id: string; texto: string }[],
-): Promise<{ tope: boolean; ids: string[] }> {
-  const ids: string[] = []
+  ids: string[],
+): Promise<{ tope: boolean }> {
   for (let desde = 0; desde < pendientes.length; desde += TEXTOS_POR_EMBEBIDO) {
     const lote = pendientes.slice(desde, desde + TEXTOS_POR_EMBEBIDO)
     const textos = lote.map((a) => a.texto)
@@ -64,7 +64,7 @@ async function embeberPendientes(
         },
       },
     )
-    if (pagado.tope) return { tope: true, ids }
+    if (pagado.tope) return { tope: true }
     for (const [i, a] of lote.entries()) {
       const vector = pagado.datos[i]
       if (!vector) continue
@@ -77,7 +77,7 @@ async function embeberPendientes(
       ids.push(a.id)
     }
   }
-  return { tope: false, ids }
+  return { tope: false }
 }
 
 /**
@@ -88,7 +88,18 @@ async function embeberPendientes(
 export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<ResultadoMantenerTemas> {
   const llave = deps.llaveVoyage()
   const pendientes = llave ? await afirmacionesSinVector(deps) : []
-  const embebidas = llave ? await embeberPendientes(deps, llave, pendientes) : { tope: false, ids: [] }
+  const embebidas: { tope: boolean; ids: string[] } = { tope: false, ids: [] }
+  if (llave) {
+    try {
+      embebidas.tope = (await embeberPendientes(deps, llave, pendientes, embebidas.ids)).tope
+    } catch (error) {
+      // A provider outage must not alert every ten minutes: the claims stay without a vector and the next run retries.
+      // The key is already redacted by the Voyage client.
+      console.warn(
+        `Embeddings de afirmaciones pendientes (${pendientes.length - embebidas.ids.length} sin vector): ${error instanceof Error ? error.message : "error"}`,
+      )
+    }
+  }
   let asignadas = 0
   for (let desde = 0; desde < embebidas.ids.length; desde += IDS_POR_CONSULTA) {
     const r = await asignarATemas(deps, embebidas.ids.slice(desde, desde + IDS_POR_CONSULTA))
