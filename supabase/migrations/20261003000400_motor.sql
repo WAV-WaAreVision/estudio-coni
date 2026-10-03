@@ -10,6 +10,8 @@ alter table public.ideas
   add column motivo_descarte text
     check (motivo_descarte in ('no_me_representa', 'repetida', 'debil', 'otro'));
 alter table public.ideas alter column origen set default 'propuesta';
+-- The ideas Coni wrote herself were stored with this source and only the `importada` default marks them today.
+update public.ideas set origen = 'propia' where fuentes = '["Idea de Coni"]'::jsonb;
 create index ideas_teoria on public.ideas (teoria_id);
 
 alter table public.ideas drop constraint ideas_estado_check;

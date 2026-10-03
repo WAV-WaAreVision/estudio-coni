@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
 import {
@@ -256,6 +258,35 @@ describe("descartar_idea", () => {
       const id = await crearIdea(c)
       await asumir(c, comoMantenedor)
       await c.query("select public.descartar_idea($1, 'otro')", [id])
+    })
+  })
+})
+
+describe("backfill of origen in the migration", () => {
+  const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261003000400_motor.sql"), "utf-8")
+  const backfill = sql
+    .split(";")
+    .find((sentencia) => /update\s+public\.ideas\s+set\s+origen\s*=\s*'propia'/.test(sentencia))
+
+  it("marks the ideas Coni wrote herself as propia and leaves the imported ones alone", async () => {
+    if (!backfill) throw new Error("La migración 400 no marca las ideas propias que ya existían")
+    await como(comoPostgres, async (c) => {
+      const propia = await c.query<{ id: string }>(
+        `insert into public.ideas (pilar, gancho, tema, formato, fuerza, origen, fuentes)
+         values ('pareja', 'g', 't', 'f', 'media', 'importada', '["Idea de Coni"]'::jsonb) returning id`,
+      )
+      const importada = await c.query<{ id: string }>(
+        `insert into public.ideas (pilar, gancho, tema, formato, fuerza, origen, fuentes)
+         values ('pareja', 'h', 't', 'f', 'media', 'importada', '["Un libro"]'::jsonb) returning id`,
+      )
+      await c.query(backfill)
+      const { rows } = await c.query<{ id: string; origen: string }>(
+        "select id, origen from public.ideas where id = any($1)",
+        [[propia.rows[0]?.id, importada.rows[0]?.id]],
+      )
+      const por = new Map(rows.map((r) => [r.id, r.origen]))
+      expect(por.get(propia.rows[0]?.id ?? "")).toBe("propia")
+      expect(por.get(importada.rows[0]?.id ?? "")).toBe("importada")
     })
   })
 })
