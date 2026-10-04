@@ -65,8 +65,9 @@ export function lineaDeSaldoVideo(saldo: SaldoHeygen): string {
   return `Saldo de API de HeyGen: ${monto}. Es aparte de tu plan de HeyGen.`
 }
 
-export function lineaDeCostoVoz(caracteres: number, usd: number): string {
-  return `Grabar voz: ~${miles(caracteres)} caracteres (${dolares(usd)})`
+/** `repite`: the voice already exists, so the line belongs to the "record again" button. */
+export function lineaDeCostoVoz(caracteres: number, usd: number, repite = false): string {
+  return `${repite ? "Volver a grabar voz" : "Grabar voz"}: ~${miles(caracteres)} caracteres (${dolares(usd)})`
 }
 
 export function lineaDeCostoVideo(segundos: number, usd: number, incluyeVoz: boolean): string {

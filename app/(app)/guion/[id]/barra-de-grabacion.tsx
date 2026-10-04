@@ -28,7 +28,7 @@ export function BarraDeGrabacion({
   const error = voz.error ?? video.error ?? reabrir.error
 
   return (
-    <div className="sticky bottom-0 -mx-4.5 -mb-6 grid gap-3 border-t border-linea bg-superficie px-4.5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-flotante">
+    <div className="grid gap-3 border-t border-linea pt-4">
       {error ? (
         <p role="alert" className="rounded-md bg-error-fondo p-3 text-[1rem] text-error-tinta">
           {error}
@@ -73,7 +73,6 @@ export function BarraDeGrabacion({
           <>
             <p className="text-center text-meta text-apagado">{botones.costoVideo}</p>
             <p className="text-center text-meta text-apagado">{bloqueoVideo ?? botones.saldoVideo}</p>
-            <p className="text-center text-meta text-apagado">{botones.tope}</p>
           </>
         ) : null}
       </div>

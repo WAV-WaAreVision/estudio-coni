@@ -115,7 +115,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
             {datos.segundos} s
           </span>
         </div>
-        {datos.salida ? (
+        {datos.salida && !datos.grabacion ? (
           <p className="w-fit rounded-md bg-superficie px-3 py-2 text-label font-semibold text-acento">
             Si lo apruebas hoy, sale el {datos.salida}
           </p>

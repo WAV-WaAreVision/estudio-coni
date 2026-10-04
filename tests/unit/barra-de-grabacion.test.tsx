@@ -17,7 +17,6 @@ const BOTONES = {
   confirmacionVideo: "¿Grabar el video? Cuesta unos US$ 3,73.",
   saldoVoz: "ElevenLabs: te quedan 23.400 de 100.000 caracteres.",
   saldoVideo: "Saldo de API de HeyGen: US$ 12,00. Es aparte de tu plan de HeyGen.",
-  tope: "Te quedan US$ 37,00 de tu tope de este mes.",
   bloqueoVoz: null,
   bloqueoVideo: null,
 }
@@ -37,6 +36,11 @@ describe("BarraDeGrabacion", () => {
     expect(pedirVozAccion).toHaveBeenCalledWith("p", 3, false)
     expect(screen.getByText(BOTONES.costoVoz)).toBeInTheDocument()
     expect(screen.getByText(BOTONES.saldoVoz)).toBeInTheDocument()
+  })
+
+  it("is part of the page, not a bar stuck over the script", () => {
+    const { container } = render(<BarraDeGrabacion piezaId="p" version={3} datos={datos()} />)
+    expect(container.firstElementChild?.className).not.toContain("sticky")
   })
 
   it("plays the voice and offers to record it again as a new take", () => {

@@ -80,7 +80,6 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.botones?.costoVideo).toMatch(/ · incluye la voz$/)
     expect(datos.botones?.bloqueoVoz).toBeNull()
     expect(datos.botones?.bloqueoVideo).toBeNull()
-    expect(datos.botones?.tope).toMatch(/^Te quedan US\$ /)
   })
 
   it("offers the voice that speaks the approved script, and stops adding it to the video price", async () => {

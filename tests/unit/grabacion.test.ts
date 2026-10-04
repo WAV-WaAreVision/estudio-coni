@@ -19,7 +19,6 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: BIEN,
       zona: "America/Santiago",
-      quedanUsd: 37,
     })
     const voz = estimarCostoVoz(GUION)
     const video = estimarCostoVideo(GUION, "avatar_v")
@@ -28,16 +27,18 @@ describe("presentarGrabacion", () => {
     expect(sin.confirmacionVideo).toBe(
       `¿Grabar el video? Cuesta unos US$ ${(video + voz).toFixed(2).replace(".", ",")}.`,
     )
-    expect(sin.tope).toBe("Te quedan US$ 37,00 de tu tope de este mes.")
     const con = presentarGrabacion({
       guion: GUION,
       motor: "avatar_v",
       conVoz: true,
       saldos: BIEN,
       zona: "America/Santiago",
-      quedanUsd: 37,
     })
     expect(con.costoVideo).not.toMatch(/incluye la voz/)
+    // With a voice, its cost is said once, as the helper of the "record again" button.
+    expect(con.costoVoz).toBe(
+      `Volver a grabar voz: ~${GUION.length} caracteres (US$ ${voz.toFixed(2).replace(".", ",")})`,
+    )
     expect(con.bloqueoVoz).toBeNull()
     expect(con.bloqueoVideo).toBeNull()
   })
@@ -51,7 +52,6 @@ describe("presentarGrabacion", () => {
         conVoz: true,
         saldos: sinBilletera,
         zona: "America/Santiago",
-        quedanUsd: 37,
       }).bloqueoVideo,
     ).toMatch(/^Tu saldo de API de HeyGen no alcanza/)
     const sinCaracteres = {
@@ -64,7 +64,6 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: sinCaracteres,
       zona: "America/Santiago",
-      quedanUsd: 37,
     })
     expect(sin.bloqueoVoz).toMatch(/^No te alcanzan los caracteres/)
     expect(sin.bloqueoVideo).toBe(sin.bloqueoVoz)
@@ -74,7 +73,6 @@ describe("presentarGrabacion", () => {
       conVoz: true,
       saldos: sinCaracteres,
       zona: "America/Santiago",
-      quedanUsd: 37,
     })
     expect(con.bloqueoVideo).toBeNull()
   })
@@ -87,7 +85,6 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: fallidos,
       zona: "America/Santiago",
-      quedanUsd: 0,
     })
     expect(r.bloqueoVoz).toBeNull()
     expect(r.bloqueoVideo).toBeNull()

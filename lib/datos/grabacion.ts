@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { type FilaDePieza, leerProduccion } from "@/lib/datos/repositorio"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -31,7 +30,6 @@ export interface BotonesDeGrabacion {
   confirmacionVideo: string
   saldoVoz: string
   saldoVideo: string
-  tope: string
   /** What to top up when ElevenLabs does not reach; null lets the button work. */
   bloqueoVoz: string | null
   bloqueoVideo: string | null
@@ -53,7 +51,6 @@ export function presentarGrabacion(entrada: {
   conVoz: boolean
   saldos: Saldos
   zona: string
-  quedanUsd: number
 }): BotonesDeGrabacion {
   const { guion, motor, conVoz, saldos } = entrada
   const usdVoz = estimarCostoVoz(guion)
@@ -64,12 +61,11 @@ export function presentarGrabacion(entrada: {
     alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
   )
   return {
-    costoVoz: lineaDeCostoVoz(guion.length, usdVoz),
+    costoVoz: lineaDeCostoVoz(guion.length, usdVoz, conVoz),
     costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
     confirmacionVideo: `¿Grabar el video? Cuesta unos ${dolares(totalVideo)}.`,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
     saldoVideo: lineaDeSaldoVideo(saldos.heygen),
-    tope: `Te quedan ${dolares(Math.max(0, entrada.quedanUsd))} de tu tope de este mes.`,
     bloqueoVoz,
     // Without a voice, the video also needs ElevenLabs.
     bloqueoVideo: bloqueoHeygen ?? (conVoz ? null : bloqueoVoz),
@@ -110,11 +106,7 @@ export async function leerDatosDeGrabacion(
     return { estado, voz: null, botones: null }
   }
   const clave = vozVigente(fila, guion, config)
-  const [saldos, presupuesto, url] = await Promise.all([
-    leerSaldos(),
-    leerPresupuesto(db, Date.now(), zona),
-    urlParaVer(clave),
-  ])
+  const [saldos, url] = await Promise.all([leerSaldos(), urlParaVer(clave)])
   return {
     estado,
     voz: clave === null ? null : { url, clave },
@@ -124,7 +116,6 @@ export async function leerDatosDeGrabacion(
       conVoz: clave !== null,
       saldos,
       zona,
-      quedanUsd: presupuesto.tope - presupuesto.usado,
     }),
   }
 }
