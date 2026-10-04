@@ -120,15 +120,16 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
   })
   const salida = propuestas[contexto.enCola]
   const estado = fila.estado
+  const aprobada = estado === "guion_aprobado" || estado === "grabando_voz"
+  // Once approved the screen only names the look and the script is read-only: no photos to sign, no Claude version to look up.
   const [avatares, conVersionDeClaude] = await Promise.all([
-    avataresParaElegir(db),
-    tieneVersionDeClaude({ db }, fila.id),
+    avataresParaElegir(db, { conFotos: !aprobada }),
+    aprobada ? false : tieneVersionDeClaude({ db }, fila.id),
   ])
 
-  const grabacion =
-    estado === "guion_aprobado" || estado === "grabando_voz"
-      ? await leerDatosDeGrabacion(db, { fila, estado, guion: fila.guion, zona: contexto.horario.zona })
-      : null
+  const grabacion = aprobada
+    ? await leerDatosDeGrabacion(db, { fila, estado, guion: fila.guion, zona: contexto.horario.zona })
+    : null
   const avatarElegido = avatares.find((avatar) => avatar.id === fila.avatar_id)?.nombre ?? null
 
   return (
@@ -174,7 +175,10 @@ async function vozParaEscuchar(db: Parameters<typeof leerProduccion>[0], fila: P
 }
 
 /** The curated looks with a signed link to each photo. A setup that does not read leaves the list empty, which blocks. */
-async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0]) {
+async function avataresParaElegir(
+  db: Parameters<typeof leerAvataresElegibles>[0],
+  { conFotos }: { conFotos: boolean },
+) {
   let elegibles: Awaited<ReturnType<typeof leerAvataresElegibles>>
   try {
     elegibles = await leerAvataresElegibles(db)
@@ -187,7 +191,7 @@ async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0
     elegibles.map(async (avatar) => ({
       id: avatar.avatar_id,
       nombre: avatar.nombre,
-      imagenUrl: await urlParaVer(avatar.imagen),
+      imagenUrl: conFotos ? await urlParaVer(avatar.imagen) : null,
     })),
   )
 }
