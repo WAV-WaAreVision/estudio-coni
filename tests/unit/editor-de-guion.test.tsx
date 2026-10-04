@@ -196,4 +196,10 @@ describe("EditorDeGuion", () => {
     expect(cajaTexto()).toHaveValue("Texto de Claude.")
     expect(guardar()).toHaveAttribute("aria-disabled", "true")
   })
+
+  it("does not count the tone marks in the words or the seconds", () => {
+    montar({ guion: "[warm] Hola, hoy [softly] hablamos del deseo." })
+
+    expect(screen.getByText(/^5 palabras · ≈ 2 s$/)).toBeInTheDocument()
+  })
 })

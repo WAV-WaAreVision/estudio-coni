@@ -20,4 +20,8 @@ describe("script length", () => {
     expect(estadoDeLargo(150)).toBe("bien")
     expect(estadoDeLargo(160)).toBe("largo")
   })
+
+  test("does not count tone marks as words", () => {
+    expect(contarPalabras("[warm] Hola  tú.\n\n[pause] Así es.")).toBe(4)
+  })
 })
