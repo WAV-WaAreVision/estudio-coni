@@ -267,3 +267,23 @@ test("signing out takes her to the code screen and the app asks for it again", a
   await expect(page).toHaveURL(/\/ingreso$/)
   await contexto.close()
 })
+
+test("the Saldos section shows the ElevenLabs characters and the HeyGen API wallet, and says they are not the plan", async ({
+  page,
+}) => {
+  await conectarTodo()
+  await configurarServicios({ heygenSaldo: 12, elevenlabsUsados: 76_600 })
+
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "Saldos" })).toBeVisible()
+  await expect(
+    page.getByText("ElevenLabs: te quedan 23.400 de 100.000 caracteres. Se renuevan el 12 de octubre."),
+  ).toBeVisible()
+  await expect(page.getByText("Saldo de API de HeyGen: US$ 12,00. Es aparte de tu plan de HeyGen.")).toBeVisible()
+  await expect(
+    page.getByText(
+      "El saldo de API de HeyGen es distinto de los créditos de tu plan: Conidolly graba con el saldo de API.",
+    ),
+  ).toBeVisible()
+})

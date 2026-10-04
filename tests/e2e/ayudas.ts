@@ -124,6 +124,8 @@ interface EstadoDeServicios {
   elevenlabs?: "ok" | "401"
   instagram?: "ok" | "rechazo"
   push?: "ok" | "410" | "503"
+  heygenSaldo?: number
+  elevenlabsUsados?: number
 }
 
 /** Steers the fake outside world and clears what it remembers. */

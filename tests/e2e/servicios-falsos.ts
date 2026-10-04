@@ -9,9 +9,19 @@ interface Estado {
   elevenlabs: "ok" | "401"
   instagram: "ok" | "rechazo"
   push: "ok" | "410" | "503"
+  heygenSaldo: number
+  elevenlabsUsados: number
 }
 
-const INICIAL: Estado = { anthropic: "ok", heygen: "ok", elevenlabs: "ok", instagram: "ok", push: "ok" }
+const INICIAL: Estado = {
+  anthropic: "ok",
+  heygen: "ok",
+  elevenlabs: "ok",
+  instagram: "ok",
+  push: "ok",
+  heygenSaldo: 50,
+  elevenlabsUsados: 1000,
+}
 
 let estado: Estado = { ...INICIAL }
 let registro: { metodo: string; ruta: string; cuerpo: string }[] = []
@@ -102,7 +112,28 @@ const servidor = createServer((req, res) => {
     if (ruta === "/v3/users/me") {
       return estado.heygen === "401"
         ? responder(res, 401, { error: { code: "unauthorized", message: "unauthorized" } })
-        : responder(res, 200, { data: { username: "coni", billing_type: "wallet" } })
+        : responder(res, 200, {
+            data: {
+              username: "coni",
+              billing_type: "wallet",
+              wallet: { currency: "usd", remaining_balance: estado.heygenSaldo },
+            },
+          })
+    }
+
+    // ElevenLabs: GET /v1/user/subscription (the characters left)
+    if (ruta === "/v1/user/subscription") {
+      return estado.elevenlabs === "401"
+        ? responder(res, 401, { detail: { status: "invalid_api_key", message: "Invalid API key" } })
+        : responder(res, 200, {
+            tier: "creator",
+            status: "active",
+            character_count: estado.elevenlabsUsados,
+            character_limit: 100_000,
+            next_character_count_reset_unix: 1_760_281_200,
+            can_extend_character_limit: false,
+            allowed_to_extend_character_limit: false,
+          })
     }
 
     // ElevenLabs: GET /v1/voices/:id
