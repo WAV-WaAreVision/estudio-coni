@@ -491,6 +491,14 @@ describe("clasificarIdea", () => {
     expect((await rechazo(clasificar())).message).toMatch(/formato/i)
   })
 
+  it("accepts the pillar written with accents or capitals", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "Límites" })))
+
+    const resultado = await clasificar()
+
+    expect(resultado.propuesta.pilar).toBe("limites")
+  })
+
   it("treats a refusal as a refusal", async () => {
     respondiendo(() => HttpResponse.json(mensaje([], { stop_reason: "refusal" })))
     expect((await rechazo(clasificar())).name).toBe("RechazoDeClaude")

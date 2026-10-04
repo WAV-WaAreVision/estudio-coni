@@ -103,6 +103,11 @@ async function extraerPorTramo(
       estimadoUsd: ESTIMADO_POR_TRAMO_USD,
       llamar: async () => {
         const r = await extraerAfirmaciones({ cliente: deps.claude, tramo, autor })
+        if (r.evidenciasCorregidas.length > 0) {
+          console.warn(
+            `Evidencia desconocida tratada como opinión en el tramo ${tramo.numero}: ${JSON.stringify(r.evidenciasCorregidas)}`,
+          )
+        }
         return {
           datos: { huella, idioma: r.idioma, afirmaciones: r.afirmaciones },
           realUsd: costoClaude(r.uso, modelo),
