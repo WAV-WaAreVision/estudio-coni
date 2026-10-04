@@ -63,6 +63,11 @@ describe("sinEtiquetas", () => {
     expect(sinEtiquetas("Hola [warm], tú [pause].")).toBe("Hola, tú.")
   })
 
+  it("replaces a mark glued to words with a space, so the words do not fuse", () => {
+    expect(sinEtiquetas("hola[pause]chao")).toBe("hola chao")
+    expect(sinEtiquetas("hola [pause]chao")).toBe("hola chao")
+  })
+
   it("leaves nothing when the text is only marks", () => {
     expect(sinEtiquetas("[warm] [pause]")).toBe("")
   })
@@ -88,6 +93,12 @@ describe("textoParaVoz", () => {
 
   it("drops every mark for a model that would read them aloud", () => {
     expect(textoParaVoz("[warm] Hola [cálido] tú.", "eleven_multilingual_v2")).toBe("Hola tú.")
+  })
+
+  it("writes every known mark in its canonical form and does not fuse glued words", () => {
+    expect(textoParaVoz("[Warm] Hola [softly ] tú[pause]chao [cálido].", "eleven_v4")).toBe(
+      "[warm] Hola [softly] tú[pause]chao.",
+    )
   })
 
   it("sends a script without marks untouched to any model", () => {

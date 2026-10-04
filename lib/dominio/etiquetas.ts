@@ -47,13 +47,16 @@ export function etiquetasDe(texto: string): Etiqueta[] {
 function quitar(texto: string, sobra: (nombre: string) => boolean): string {
   let quito = false
   const sin = texto.replace(ETIQUETA, (marca: string) => {
-    if (!sobra(nombreDe(marca))) return marca
+    const nombre = nombreDe(marca)
+    // A kept mark is written in its canonical form, so "[Warm]" and "[warm ]" reach the voice as "[warm]".
+    if (!sobra(nombre)) return `[${nombre}]`
     quito = true
-    return ""
+    // A space, not nothing: "hola[pause]chao" must not become one word. The tidy-up below collapses doubles.
+    return " "
   })
   // Only a text that lost a mark is tidied: a script without marks must stay byte for byte the same, or every older
   // voice fingerprint and subtitle golden would change.
-  if (!quito) return texto
+  if (!quito) return sin
   return sin
     .split("\n")
     .map((linea) =>
