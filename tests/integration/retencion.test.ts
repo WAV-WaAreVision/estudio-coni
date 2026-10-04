@@ -98,6 +98,19 @@ describe("aplicarRetencion", () => {
     expect(almacen.claves()).toEqual([])
   })
 
+  it("deletes every take of a discarded piece, not only the one it ends with, and nothing of another piece", async () => {
+    const p = await pieza("video_por_aprobar", "descartado")
+    const otra = await pieza("publicado")
+    const tomas = [`voces/${p.id}/t-${"a".repeat(64)}-0.mp3`, `voces/${p.id}/t-${"b".repeat(64)}-3.mp3`]
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video, ...tomas, otra.audio)
+
+    await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })
+
+    expect(almacen.claves().filter((clave) => clave.includes(p.id))).toEqual([])
+    expect(almacen.claves()).toContain(otra.audio)
+  })
+
   it("deletes the final video 30 days after Coni uploaded it by hand", async () => {
     const p = await pieza("publicado_a_mano")
     const almacen = almacenEnMemoria()
