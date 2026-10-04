@@ -16,7 +16,7 @@ import {
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
-const SIN_AJENO = { citas: [], autores: [] }
+const SIN_AJENO = { citas: [], autores: [], personas: [] }
 const CITA = "El deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días."
 
 // 91 words: inside the 75 to 150 range, ends with the fixed closing, no digits or symbols.
@@ -281,13 +281,45 @@ describe("autoresNombrados", () => {
   })
 })
 
+describe("autoresNombrados por apellido", () => {
+  it("flags the last word of a persona with 5 or more letters, ignoring case and accents", () => {
+    expect(autoresNombrados("Según GOTTMAN, el desprecio mata la pareja.", ["John Gottman"], ["John Gottman"])).toEqual(
+      ["GOTTMAN"],
+    )
+    expect(autoresNombrados("Dice Pérez que sí.", ["Ana Perez"], ["Ana Perez"])).toEqual(["Pérez"])
+  })
+
+  it("does not flag a surname under 5 letters", () => {
+    expect(autoresNombrados("Según Soto, hay que hablar.", ["Luis Soto"], ["Luis Soto"])).toEqual([])
+  })
+
+  it("does not flag the last word of an account or an institution (they are not in personas)", () => {
+    expect(autoresNombrados("Las parejas felices comparten.", ["Instituto Parejas"], [])).toEqual([])
+  })
+
+  it("reports both the full name and the bare surname when each appears", () => {
+    expect(autoresNombrados("John Gottman dice que Gottman tiene razón.", ["John Gottman"], ["John Gottman"])).toEqual([
+      "John Gottman",
+      "Gottman",
+    ])
+  })
+
+  it("reports a full name once, without also flagging the surname inside it", () => {
+    expect(autoresNombrados("Según John Gottman, sí.", ["John Gottman"], ["John Gottman"])).toEqual(["John Gottman"])
+  })
+
+  it("matches whole words only", () => {
+    expect(autoresNombrados("Los gottmanistas opinan.", ["John Gottman"], ["John Gottman"])).toEqual([])
+  })
+})
+
 describe("revisarGuion con respaldo", () => {
   it("warns once, without blocking, when the script and the caption copy the same quote", () => {
     const copia = "el deseo no se apaga, se esconde debajo de la rutina"
     const hallazgos = revisar({
       guion: `${copia}. ${GUION}`,
       texto: `${copia}. ${TEXTO}`,
-      ajeno: { citas: [CITA], autores: [] },
+      ajeno: { citas: [CITA], autores: [], personas: [] },
     })
     const copias = hallazgos.filter((h) => h.regla === "copia_de_fuente")
     expect(copias).toEqual([
@@ -304,7 +336,7 @@ describe("revisarGuion con respaldo", () => {
   it("warns when an author of the backing is named", () => {
     const hallazgos = revisar({
       guion: `Según Esther Perel, ${GUION}`,
-      ajeno: { citas: [], autores: ["Esther Perel"] },
+      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"] },
     })
     expect(hallazgos.filter((h) => h.regla === "nombra_autor")).toEqual([
       {

@@ -9,6 +9,8 @@ export interface AfirmacionDeRespaldo {
   autor: string
   /** Coni's own words (`autores.tipo = 'coni'`): hers to repeat, never a copy. */
   deConi: boolean
+  /** The author is a person (`autores.tipo = 'persona'`), as opposed to an account or an institution. */
+  esPersona: boolean
 }
 
 /** What the script was written from: frozen on the piece when the draft is written. */
@@ -28,14 +30,22 @@ export function huellaDeRespaldo(respaldo: Respaldo | null): string {
   const { teoria } = respaldo
   const afirmaciones = [...respaldo.afirmaciones]
     .sort(porId)
-    .map((a) => [a.id, a.texto, a.cita, a.aporte, a.autor, a.deConi])
+    .map((a) => [a.id, a.texto, a.cita, a.aporte, a.autor, a.deConi, a.esPersona])
   return JSON.stringify([teoria.id, teoria.titulo, teoria.tesis, teoria.porQue, afirmaciones])
 }
 
 /** What the copy check looks for: quotes and names of third parties only. */
-export function ajenoDelRespaldo(respaldo: Respaldo | null): { citas: string[]; autores: string[] } {
+export function ajenoDelRespaldo(respaldo: Respaldo | null): {
+  citas: string[]
+  autores: string[]
+  personas: string[]
+} {
   const ajenas = respaldo?.afirmaciones.filter((a) => !a.deConi) ?? []
-  return { citas: ajenas.map((a) => a.cita), autores: [...new Set(ajenas.map((a) => a.autor))] }
+  return {
+    citas: ajenas.map((a) => a.cita),
+    autores: [...new Set(ajenas.map((a) => a.autor))],
+    personas: [...new Set(ajenas.filter((a) => a.esPersona).map((a) => a.autor))],
+  }
 }
 
 /** What the writer sees: no ids and no author names, so it has nothing to cite. */

@@ -1318,7 +1318,9 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
 
 const RESPALDO_APROBADO = {
   teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" },
-  afirmaciones: [{ id: "a", texto: "x", cita: "una cita", aporte: "y", autor: "Siembra Ana", deConi: false }],
+  afirmaciones: [
+    { id: "a", texto: "x", cita: "una cita", aporte: "y", autor: "Siembra Ana", deConi: false, esPersona: true },
+  ],
 }
 
 /** Approves the piece with formula 3 over the given frozen backing, as a repair (the triggers are not the subject). */

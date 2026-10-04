@@ -11,11 +11,11 @@ language sql stable set search_path = '' as $$
     'afirmaciones', coalesce((
       select jsonb_agg(
         jsonb_build_object(
-          'id', e.id, 'texto', e.texto, 'cita', e.cita, 'aporte', e.aporte, 'autor', e.autor, 'deConi', e.de_coni
+          'id', e.id, 'texto', e.texto, 'cita', e.cita, 'aporte', e.aporte, 'autor', e.autor, 'deConi', e.de_coni, 'esPersona', e.es_persona
         ) order by e.id
       )
       from (
-        select f.id, f.texto, left(f.cita, 500) as cita, ta.aporte, a.nombre as autor, a.tipo = 'coni' as de_coni
+        select f.id, f.texto, left(f.cita, 500) as cita, ta.aporte, a.nombre as autor, a.tipo = 'coni' as de_coni, a.tipo = 'persona' as es_persona
         from public.teoria_afirmaciones ta
         join public.afirmaciones f on f.id = ta.afirmacion_id and not f.excluida
         join public.autores a on a.id = f.autor_id

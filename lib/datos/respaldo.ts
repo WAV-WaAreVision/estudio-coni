@@ -13,6 +13,7 @@ const esquema = z.object({
       aporte: z.string(),
       autor: z.string(),
       deConi: z.boolean(),
+      esPersona: z.boolean(),
     }),
   ),
 })
@@ -39,6 +40,7 @@ export function respaldoAJson(respaldo: Respaldo | null): Json | null {
       aporte: a.aporte,
       autor: a.autor,
       deConi: a.deConi,
+      esPersona: a.esPersona,
     })),
   }
 }

@@ -23,10 +23,10 @@ describe("respaldo_de_idea", () => {
     const idea = await sembrarIdeaDelMotor({ gancho: "g", semana: "2026-09-27", teoria: TEORIA })
     const respaldo = await cargarRespaldoDeIdea(clienteDeServicio(), idea)
     expect(respaldo?.teoria).toMatchObject({ titulo: TEORIA.titulo, tesis: TEORIA.tesis, porQue: "" })
-    expect(respaldo?.afirmaciones.map((a) => [a.autor, a.cita, a.deConi, a.aporte])).toEqual(
+    expect(respaldo?.afirmaciones.map((a) => [a.autor, a.cita, a.deConi, a.aporte, a.esPersona])).toEqual(
       expect.arrayContaining([
-        ["Siembra Ana Pérez", TEORIA.respaldo[0]?.cita, false, "aporta"],
-        ["Siembra Luis Soto", TEORIA.respaldo[1]?.cita, false, "aporta"],
+        ["Siembra Ana Pérez", TEORIA.respaldo[0]?.cita, false, "aporta", true],
+        ["Siembra Luis Soto", TEORIA.respaldo[1]?.cita, false, "aporta", true],
       ]),
     )
     const ids = respaldo?.afirmaciones.map((a) => a.id) ?? []

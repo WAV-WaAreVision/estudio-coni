@@ -39,6 +39,7 @@ const RESPALDO_GUARDADO = {
       aporte: "y",
       autor: "Esther Perel",
       deConi: false,
+      esPersona: true,
     },
   ],
 }

@@ -17,6 +17,7 @@ const RESPALDO: Respaldo = {
       aporte: "Explica el mecanismo",
       autor: "Siembra Ana Pérez",
       deConi: false,
+      esPersona: true,
     },
     {
       id: "a",
@@ -25,6 +26,7 @@ const RESPALDO: Respaldo = {
       aporte: "Su voz",
       autor: "Constanza del Rosario",
       deConi: true,
+      esPersona: true,
     },
   ],
 }
@@ -54,11 +56,30 @@ describe("ajenoDelRespaldo", () => {
     expect(ajenoDelRespaldo(RESPALDO)).toEqual({
       citas: ["Novelty is the fuel of desire"],
       autores: ["Siembra Ana Pérez"],
+      personas: ["Siembra Ana Pérez"],
     })
   })
 
   it("has nothing to check when there is no backing", () => {
-    expect(ajenoDelRespaldo(null)).toEqual({ citas: [], autores: [] })
+    expect(ajenoDelRespaldo(null)).toEqual({ citas: [], autores: [], personas: [] })
+  })
+})
+
+describe("ajenoDelRespaldo personas", () => {
+  it("lists as persona only third-party authors of type persona, never accounts, institutions or Coni", () => {
+    const [persona, delRosario] = RESPALDO.afirmaciones
+    if (!persona || !delRosario) throw new Error("fixture")
+    const respaldo: Respaldo = {
+      ...RESPALDO,
+      afirmaciones: [
+        persona,
+        delRosario,
+        { ...persona, id: "c", autor: "Cuenta Terapia", esPersona: false },
+        { ...persona, id: "d", autor: "Instituto Gottman", esPersona: false },
+      ],
+    }
+    expect(ajenoDelRespaldo(respaldo).personas).toEqual(["Siembra Ana Pérez"])
+    expect(ajenoDelRespaldo(respaldo).autores).toEqual(["Siembra Ana Pérez", "Cuenta Terapia", "Instituto Gottman"])
   })
 })
 
