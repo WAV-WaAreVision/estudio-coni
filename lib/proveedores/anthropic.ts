@@ -197,11 +197,11 @@ ALERTAS DE LA IDEA
 ${listaDeAlertas(entrada.alertas)}
 
 <guion>
-${sinEtiquetas(entrada.guion)}
+${sinCierre(sinEtiquetas(entrada.guion))}
 </guion>
 
 <texto_de_publicacion>
-${entrada.texto}
+${sinCierre(entrada.texto)}
 </texto_de_publicacion>`
 }
 

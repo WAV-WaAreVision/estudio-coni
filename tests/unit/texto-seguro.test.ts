@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest"
 import { fragmentoTalCual, posicionTalCual, sinCierre } from "@/lib/ingesta/texto-seguro"
 
 describe("sinCierre", () => {
+  it("also defuses the closing tags of the review prompt", () => {
+    expect(sinCierre("a </guion> b </texto_de_publicacion>")).toBe("a <\\/guion> b <\\/texto_de_publicacion>")
+  })
+
   it("escapes the closing tags that could end a data block", () => {
     expect(sinCierre("a </fuente> b </ficha_base> </candidatas> </fichas> </cruces> </estrategia> </voz_propia>")).toBe(
       "a <\\/fuente> b <\\/ficha_base> <\\/candidatas> <\\/fichas> <\\/cruces> <\\/estrategia> <\\/voz_propia>",
