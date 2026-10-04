@@ -68,6 +68,7 @@ describe("render_id al entrar a en_render", () => {
       expect(await renderDe(c, id)).toBe("v_1")
 
       await aplicar(c, id, comoConi, aprobacion)
+      await aplicar(c, id, comoConi, { tipo: "grabar_video" })
       expect(await renderDe(c, id)).toBeNull()
     })
   })

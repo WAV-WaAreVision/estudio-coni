@@ -184,6 +184,16 @@ describe("Agenda", () => {
     expect(agenda.semanas[0]?.huecos[0]?.ocupante).toMatchObject({ estado: "Grabando", href: null })
   })
 
+  it("lists a piece with its script approved among the undated ones, after the ones being recorded", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "guion_aprobado", titulo: "Guion aprobado", creadaEn: "2026-10-01T12:00:00.000Z" }),
+      pieza({ estado: "en_render", titulo: "En grabación", creadaEn: "2026-10-02T12:00:00.000Z" }),
+    ])
+
+    const titulos = agenda.semanas.flatMap((s) => s.huecos.map((h) => h.ocupante?.titulo ?? null))
+    expect(titulos.filter((titulo) => titulo !== null)).toEqual(["En grabación", "Guion aprobado"])
+  })
+
   it("does not show discarded pieces, ideas or pieces already published", () => {
     const { agenda } = calendario([
       pieza({ estado: "descartado" }),

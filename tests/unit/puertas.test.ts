@@ -9,6 +9,7 @@ import {
   hashTexto,
   puedeEntregarseParaSubir,
   puedeGrabar,
+  puedeGrabarVoz,
   puedePublicar,
 } from "@/lib/dominio/puertas"
 
@@ -280,5 +281,21 @@ describe("hashPuerta1 formula 3", () => {
 
   it("reads a stored 3 as formula 3", () => {
     expect(formulaDePuerta1(3)).toBe(3)
+  })
+})
+
+describe("puedeGrabarVoz", () => {
+  const hash = "c".repeat(64)
+  const base = { ...piezaNueva(), estado: "grabando_voz" as const, puerta1: { hash, en: "2026-10-04T12:00:00.000Z" } }
+
+  it("allows the voice only while grabando_voz, with gate 1 and the same hash", () => {
+    expect(puedeGrabarVoz(base, hash)).toEqual({ ok: true })
+    expect(puedeGrabarVoz({ ...base, estado: "guion_aprobado" }, hash)).toEqual({ ok: false, motivo: "estado" })
+    expect(puedeGrabarVoz({ ...base, puerta1: null }, hash)).toEqual({ ok: false, motivo: "sin_aprobacion" })
+    expect(puedeGrabarVoz(base, "d".repeat(64))).toEqual({ ok: false, motivo: "artefacto_cambio" })
+  })
+
+  it("builds idempotency keys for the voice step", () => {
+    expect(claveIdempotencia({ piezaId: "p", paso: "voz", hash, intento: 2 })).toBe(`p:voz:${hash.slice(0, 16)}:2`)
   })
 })

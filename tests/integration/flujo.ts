@@ -88,6 +88,7 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
       // Chosen in the same write that approves, like the screen does.
       { avatar_id: AVATAR, puerta1_formula: 2 },
     ),
+  (c, id) => aplicar(c, id, comoConi, { tipo: "grabar_video" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
   (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),
   (c, id) =>
@@ -112,13 +113,15 @@ const PASOS_HASTA: Partial<Record<Estado, number>> = {
   idea: 0,
   guion_en_proceso: 1,
   guion_por_aprobar: 2,
-  en_render: 3,
-  subtitulando: 4,
-  video_por_aprobar: 5,
-  programado: 6,
-  publicado: 7,
-  para_subir_a_mano: 7,
-  publicado_a_mano: 7,
+  guion_aprobado: 3,
+  grabando_voz: 3,
+  en_render: 4,
+  subtitulando: 5,
+  video_por_aprobar: 6,
+  programado: 7,
+  publicado: 8,
+  para_subir_a_mano: 8,
+  publicado_a_mano: 8,
 }
 
 /** Creates a piece and walks it through the real flow, each step written by the actor the design assigns to it. */
@@ -126,10 +129,11 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado): Promise<s
   const pasos = PASOS_HASTA[destino]
   if (pasos === undefined) throw new Error(`Sin ruta de prueba hacia ${destino}`)
   const id = await crearPieza(c)
-  const hastaProgramado = destino === "publicado_a_mano" || destino in PASO_A_MANO ? 6 : pasos
+  const hastaProgramado = destino === "publicado_a_mano" || destino in PASO_A_MANO ? 7 : pasos
   for (const paso of PASOS.slice(0, hastaProgramado)) {
     await paso(c, id)
   }
+  if (destino === "grabando_voz") await aplicar(c, id, comoConi, { tipo: "pedir_voz" })
   const aMano = PASO_A_MANO[destino]
   if (aMano) await aMano(c, id)
   if (destino === "publicado_a_mano") await aplicar(c, id, comoConi, { tipo: "subido_a_mano", actor: "coni" })

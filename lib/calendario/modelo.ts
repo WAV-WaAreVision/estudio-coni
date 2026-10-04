@@ -225,7 +225,9 @@ const ORDEN_EN_CAMINO: Partial<Record<Estado, number>> = {
   video_por_aprobar: 0,
   subtitulando: 1,
   en_render: 1,
+  grabando_voz: 1,
   error_produccion: 2,
+  guion_aprobado: 2,
   guion_por_aprobar: 3,
   guion_en_proceso: 4,
 }

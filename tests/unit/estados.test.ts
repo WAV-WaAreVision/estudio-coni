@@ -8,6 +8,7 @@ import {
   instanteEstricto,
   type Pieza,
   piezaNueva,
+  piezaTrabajando,
   type Transicion,
   TransicionInvalida,
   transicionar,
@@ -63,6 +64,7 @@ describe("transicionar", () => {
       { tipo: "elegir" },
       { tipo: "guion_listo" },
       aprobarGuion(),
+      { tipo: "grabar_video" },
       { tipo: "voz_lista", audioId: "audio_1" },
       { tipo: "render_entregado" },
       { tipo: "video_listo", videoId: "video_1" },
@@ -172,7 +174,7 @@ describe("transicionar", () => {
 
   it("aprueba la puerta 1 sin exigir voz", () => {
     const { pieza } = transicionar(en("guion_por_aprobar", { audioId: null }), aprobarGuion())
-    expect(pieza.estado).toBe("en_render")
+    expect(pieza.estado).toBe("guion_aprobado")
   })
 
   it("guarda la voz sin salir de en_render cuando la voz queda lista durante la grabación", () => {
@@ -442,6 +444,8 @@ describe("tabla del diseño", () => {
     idea: ["elegir", "descartar"],
     guion_en_proceso: ["guion_listo", "descartar"],
     guion_por_aprobar: ["pedir_cambios", "editar_texto", "aprobar_guion", "descartar"],
+    guion_aprobado: ["editar_texto", "pedir_voz", "grabar_video", "reabrir_guion", "descartar"],
+    grabando_voz: ["voz_lista", "falla_voz", "descartar"],
     en_render: ["voz_lista", "render_entregado", "politica_contenido", "falla_produccion", "descartar"],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
@@ -470,6 +474,10 @@ describe("tabla del diseño", () => {
     pedir_cambios: { tipo: "pedir_cambios" },
     editar_texto: { tipo: "editar_texto" },
     aprobar_guion: aprobarGuion(),
+    pedir_voz: { tipo: "pedir_voz" },
+    falla_voz: { tipo: "falla_voz", explicacion: "ElevenLabs falló" },
+    grabar_video: { tipo: "grabar_video" },
+    reabrir_guion: { tipo: "reabrir_guion" },
     render_entregado: { tipo: "render_entregado" },
     politica_contenido: { tipo: "politica_contenido", explicacion: "HeyGen marcó una frase." },
     falla_produccion: { tipo: "falla_produccion", explicacion: "HeyGen falló" },
@@ -494,6 +502,8 @@ describe("tabla del diseño", () => {
     idea: en("idea", avance),
     guion_en_proceso: en("guion_en_proceso", avance),
     guion_por_aprobar: en("guion_por_aprobar", { ...avance, audioId: "audio_1" }),
+    guion_aprobado: en("guion_aprobado", { ...avance, puerta1 }),
+    grabando_voz: en("grabando_voz", { ...avance, puerta1 }),
     en_render: en("en_render", { ...avance, audioId: "audio_1", puerta1 }),
     subtitulando: en("subtitulando", { ...avance, audioId: "audio_1", puerta1 }),
     video_por_aprobar: en("video_por_aprobar", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1 }),
@@ -541,6 +551,102 @@ describe("tabla del diseño", () => {
         }
       }
       expect(aceptados.sort(), estado).toEqual([...permitidos[estado]].sort())
+    }
+  })
+})
+
+const APROBADA = { hash: "a".repeat(64), en: "2026-10-04T12:00:00.000Z" }
+const enCurso = (estado: Pieza["estado"], cambios: Partial<Pieza> = {}): Pieza =>
+  en(estado, { version: 4, intento: 2, ...cambios })
+
+describe("aprobar, grabar la voz y grabar el video", () => {
+  it("approves into guion_aprobado, keeping the voice the piece had", () => {
+    const { pieza } = transicionar(enCurso("guion_por_aprobar", { audioId: "voces/x.mp3" }), {
+      tipo: "aprobar_guion",
+      actor: "coni",
+      hashVisto: APROBADA.hash,
+      hashActual: APROBADA.hash,
+      en: APROBADA.en,
+    })
+    expect(pieza).toMatchObject({ estado: "guion_aprobado", puerta1: APROBADA, audioId: "voces/x.mp3", version: 5 })
+  })
+
+  it("asks for the voice as a new attempt and clears an old explanation", () => {
+    const { pieza } = transicionar(enCurso("guion_aprobado", { puerta1: APROBADA, explicacion: "falló" }), {
+      tipo: "pedir_voz",
+    })
+    expect(pieza).toMatchObject({ estado: "grabando_voz", intento: 3, explicacion: null })
+  })
+
+  it("comes back to guion_aprobado with the voice, or with the reason and a new attempt when it failed", () => {
+    const grabando = enCurso("grabando_voz", { puerta1: APROBADA })
+    expect(transicionar(grabando, { tipo: "voz_lista", audioId: "voces/v.mp3" }).pieza).toMatchObject({
+      estado: "guion_aprobado",
+      audioId: "voces/v.mp3",
+      intento: 2,
+    })
+    expect(transicionar(grabando, { tipo: "falla_voz", explicacion: "Sin caracteres." }).pieza).toMatchObject({
+      estado: "guion_aprobado",
+      explicacion: "Sin caracteres.",
+      intento: 3,
+    })
+  })
+
+  it("still stores the voice while in render", () => {
+    const { pieza } = transicionar(enCurso("en_render", { puerta1: APROBADA }), {
+      tipo: "voz_lista",
+      audioId: "voces/v.mp3",
+    })
+    expect(pieza).toMatchObject({ estado: "en_render", audioId: "voces/v.mp3" })
+  })
+
+  it("sends an approved piece to render without bumping the attempt", () => {
+    const { pieza } = transicionar(enCurso("guion_aprobado", { puerta1: APROBADA }), { tipo: "grabar_video" })
+    expect(pieza).toMatchObject({ estado: "en_render", intento: 2, puerta1: APROBADA })
+  })
+
+  it("reopens an approved script, and an edited caption drops the approval too", () => {
+    const aprobado = enCurso("guion_aprobado", { puerta1: APROBADA })
+    expect(transicionar(aprobado, { tipo: "reabrir_guion" }).pieza).toMatchObject({
+      estado: "guion_por_aprobar",
+      puerta1: null,
+    })
+    const editado = transicionar(aprobado, { tipo: "editar_texto" })
+    expect(editado.pieza).toMatchObject({ estado: "guion_por_aprobar", puerta1: null })
+    expect(editado.efectos).toEqual(["revisar_texto"])
+  })
+
+  it("refuses the new events from any other state", () => {
+    expect(() => transicionar(enCurso("guion_por_aprobar"), { tipo: "pedir_voz" })).toThrow(TransicionInvalida)
+    expect(() => transicionar(enCurso("grabando_voz", { puerta1: APROBADA }), { tipo: "grabar_video" })).toThrow(
+      TransicionInvalida,
+    )
+    expect(() =>
+      transicionar(enCurso("guion_aprobado", { puerta1: APROBADA }), { tipo: "falla_voz", explicacion: "x" }),
+    ).toThrow(TransicionInvalida)
+    expect(() => transicionar(enCurso("en_render", { puerta1: APROBADA }), { tipo: "reabrir_guion" })).toThrow(
+      TransicionInvalida,
+    )
+  })
+
+  it("lets Coni discard a piece in the new states", () => {
+    for (const estado of ["guion_aprobado", "grabando_voz"] as const) {
+      expect(transicionar(enCurso(estado, { puerta1: APROBADA }), { tipo: "descartar" }).pieza.estado).toBe(
+        "descartado",
+      )
+    }
+  })
+})
+
+describe("piezaTrabajando", () => {
+  it("is true while a task works on the piece and false otherwise", () => {
+    expect(piezaTrabajando({ estado: "guion_en_proceso", explicacion: null })).toBe(true)
+    expect(piezaTrabajando({ estado: "guion_en_proceso", explicacion: "No pude." })).toBe(false)
+    for (const estado of ["grabando_voz", "en_render", "subtitulando"] as const) {
+      expect(piezaTrabajando({ estado, explicacion: null })).toBe(true)
+    }
+    for (const estado of ["guion_por_aprobar", "guion_aprobado", "video_por_aprobar", "error_produccion"] as const) {
+      expect(piezaTrabajando({ estado, explicacion: null })).toBe(false)
     }
   })
 })

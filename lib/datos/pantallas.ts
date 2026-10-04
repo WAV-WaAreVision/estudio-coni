@@ -51,7 +51,7 @@ export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<Con
     db
       .from("piezas")
       .select("id", { count: "exact", head: true })
-      .in("estado", ["en_render", "subtitulando", "video_por_aprobar"])
+      .in("estado", ["guion_aprobado", "grabando_voz", "en_render", "subtitulando", "video_por_aprobar"])
       .neq("id", piezaId),
   ])
   if (ajustes.error) throw fallo("No pude leer los horarios", ajustes.error)

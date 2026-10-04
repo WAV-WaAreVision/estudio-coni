@@ -237,14 +237,15 @@ describe("aprobarGuion", () => {
     return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   }
 
-  it("clears a voice pre-generated before gate 1 so it cannot be recorded for the script she approved", async () => {
+  it("keeps a stored voice: it only counts later if it speaks the approved text", async () => {
     const id = await paraAprobar()
-    await ajustarComoPostgres(id, { audio_id: claveAudio(id, new Uint8Array([1, 2, 3])) })
+    const previa = claveAudio(id, new Uint8Array([1, 2, 3]))
+    await ajustarComoPostgres(id, { audio_id: previa })
 
     const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
 
-    expect(resultado).toMatchObject({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 3 })
+    expect(resultado).toEqual({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", audio_id: previa, puerta1_formula: 3 })
   })
 
   it("binds the frozen backing in the hash", async () => {
@@ -275,7 +276,7 @@ describe("aprobarGuion", () => {
     expect(resultado).toMatchObject({ ok: true })
     const guardada = await fila(id)
     expect(guardada).toMatchObject({
-      estado: "en_render",
+      estado: "guion_aprobado",
       puerta1_por: CONI,
       version: versionVista + 1,
       avatar_id: "look-b",
@@ -285,9 +286,7 @@ describe("aprobarGuion", () => {
     expect(guardada.puerta1_hash).toBe(
       hashPuerta1({ formula: 3, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b", respaldo: "" }),
     )
-    expect(disparos).toHaveLength(1)
-    expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
-    expect(disparos[0]?.clave).toContain(guardada.puerta1_hash.slice(0, 16))
+    expect(disparos).toEqual([])
   })
 
   it("refuses with a message for Coni when the piece changed after she opened it", async () => {
@@ -355,16 +354,12 @@ describe("aprobarGuion", () => {
     expect(disparos).toEqual([])
   })
 
-  it("stays approved and tells Coni when the recording could not be started", async () => {
+  it("starts no run, so a broken Trigger.dev does not matter to the approval", async () => {
     const id = await paraAprobar()
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
     const { deps } = armar(coni, { grabar: new Error("Trigger.dev no responde") })
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
-
-    expect(resultado).toMatchObject({ ok: true })
-    expect(resultado.ok && resultado.advertencia).toMatch(/grabación/i)
-    expect(await fila(id)).toMatchObject({ estado: "en_render" })
+    expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado" })
   })
 
   it("refuses to approve until she picks an avatar, and writes nothing", async () => {
@@ -813,15 +808,13 @@ describe("reintentar", () => {
 describe("errores que no son de Coni", () => {
   it("shows a generic message and logs a configuration failure", async () => {
     const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
-    await sembrarAvatares([LOOK_A])
-    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    const id = await pieza("video_por_aprobar")
     const { deps } = armar(coni, { grabar: new FallaDeConfiguracion("Falta TRIGGER_SECRET_KEY") })
 
-    const resultado = await aprobarGuion(deps, id, await versionDe(id), "look-a")
+    const resultado = await regrabar(deps, id, await versionDe(id))
 
     expect(resultado).toMatchObject({ ok: true })
     expect(registro).toHaveBeenCalled()
-    await pool.query("update public.ajustes set produccion = '{}'::jsonb")
   })
 })
 

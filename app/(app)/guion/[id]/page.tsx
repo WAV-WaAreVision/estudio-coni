@@ -49,6 +49,8 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           )}
         </EstadoSencillo>
       )
+    case "guion_aprobado":
+    case "grabando_voz":
     case "en_render":
     case "subtitulando":
       return (

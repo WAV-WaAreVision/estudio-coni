@@ -188,12 +188,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
               habilitado={habilitado}
               motivo={motivo}
               enviando={aprobacion.pendiente}
-              alAprobar={() =>
-                aprobacion.ejecutar(
-                  () => aprobarGuionAccion(datos.id, version, avatarElegido),
-                  (r) => setAviso(r.advertencia ?? null),
-                )
-              }
+              alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
             />
             <p className="text-center text-meta text-apagado">
               La voz se genera cuando apruebes; la escuchas en el video.

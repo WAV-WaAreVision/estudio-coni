@@ -41,7 +41,7 @@ export function hashPuerta2(aprobacion: { videoId: string; hashTexto: string; pu
   return sha256(["puerta2", aprobacion.videoId, aprobacion.hashTexto, aprobacion.publicarEn])
 }
 
-export type Paso = "producir" | "grabar" | "publicar"
+export type Paso = "producir" | "grabar" | "publicar" | "voz"
 
 /**
  * Same piece, step, approved artifact and attempt: same key, so a blind retry is deduplicated.
@@ -67,6 +67,14 @@ const no = (motivo: Exclude<Veredicto, { ok: true }>["motivo"]): Veredicto => ({
 /** The render task calls this right before spending HeyGen credits. */
 export function puedeGrabar(pieza: Pieza, hashActual: string): Veredicto {
   if (pieza.estado !== "en_render") return no("estado")
+  if (!pieza.puerta1) return no("sin_aprobacion")
+  if (pieza.puerta1.hash !== hashActual) return no("artefacto_cambio")
+  return { ok: true }
+}
+
+/** The voice task calls this right before spending ElevenLabs: the script it speaks is the one Coni approved. */
+export function puedeGrabarVoz(pieza: Pieza, hashActual: string): Veredicto {
+  if (pieza.estado !== "grabando_voz") return no("estado")
   if (!pieza.puerta1) return no("sin_aprobacion")
   if (pieza.puerta1.hash !== hashActual) return no("artefacto_cambio")
   return { ok: true }
