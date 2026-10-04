@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { actualizarPieza, type FilaDePieza, leerPieza } from "@/lib/datos/repositorio"
-import { transicionar } from "@/lib/dominio/estados"
+import { type Evento, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
@@ -25,6 +25,7 @@ export interface EntradaDeFalla {
 
 const GENERICO_GUION = "Algo falló al preparar tu guion. WAV ya está revisando."
 const GENERICO_VIDEO = "Algo falló al preparar tu video. WAV ya está revisando."
+const GENERICO_VOZ = "Algo falló al grabar la voz. WAV ya está revisando. Puedes volver a intentarlo."
 const LARGO_MAXIMO = 1000
 const CAUSAS_MAXIMAS = 3
 
@@ -52,18 +53,18 @@ function paraConi(error: unknown, generico: string): string {
 /**
  * Writes what Coni will read on the piece a failed run left behind and reports whether it did. The script step has no
  * error state in the design (the piece stays in `guion_en_proceso` with a reason), the render steps go to
- * `error_produccion` so Coni can retry them. A piece that already moved on is not touched.
+ * `error_produccion` so Coni can retry them, and the voice step goes back to `guion_aprobado`. A piece that already moved on is not touched.
  */
 async function dejarConstancia(deps: DepsFalla, fila: FilaDePieza, entrada: EntradaDeFalla): Promise<string | null> {
   const guion = entrada.tarea === "producir-pieza" && fila.estado === "guion_en_proceso"
   const video = entrada.tarea === "grabar-pieza" && (fila.estado === "en_render" || fila.estado === "subtitulando")
-  if (!guion && !video) return null
-  const explicacion = paraConi(entrada.error, guion ? GENERICO_GUION : GENERICO_VIDEO)
+  const voz = entrada.tarea === "grabar-voz" && fila.estado === "grabando_voz"
+  if (!guion && !video && !voz) return null
+  const explicacion = paraConi(entrada.error, guion ? GENERICO_GUION : voz ? GENERICO_VOZ : GENERICO_VIDEO)
+  const evento: Evento = voz ? { tipo: "falla_voz", explicacion } : { tipo: "falla_produccion", explicacion }
   const cambios = guion
     ? { version: fila.version + 1, explicacion }
-    : cambiosDesdePieza(
-        transicionar(piezaDesdeFila(fila), { tipo: "falla_produccion", explicacion: explicacion }).pieza,
-      )
+    : cambiosDesdePieza(transicionar(piezaDesdeFila(fila), evento).pieza)
   const guardada = await actualizarPieza(deps.db, fila.id, fila.version, cambios)
   // Null means the piece changed in the meantime: there is nothing left to explain.
   return guardada ? explicacion : null

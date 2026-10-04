@@ -15,7 +15,9 @@ afterEach(async () => {
   piezasCreadas.length = 0
 })
 
-async function piezaEn(destino: "guion_en_proceso" | "en_render" | "subtitulando" | "video_por_aprobar") {
+async function piezaEn(
+  destino: "guion_en_proceso" | "grabando_voz" | "en_render" | "subtitulando" | "video_por_aprobar",
+) {
   const c = await pool.connect()
   try {
     await c.query("begin")
@@ -58,6 +60,32 @@ const GENERICO_VIDEO = "Algo falló al preparar tu video. WAV ya está revisando
 const GENERICO_GUION = "Algo falló al preparar tu guion. WAV ya está revisando."
 
 describe("avisarFalla", () => {
+  it("returns a piece left in grabando_voz to guion_aprobado with a generic text when grabar-voz gives up", async () => {
+    const id = await piezaEn("grabando_voz")
+    const { deps } = doble()
+
+    await avisarFalla(deps, { tarea: "grabar-voz", corrida: "run_9", piezaId: id, error: new Error("boom") })
+
+    expect(await pieza(id)).toMatchObject({
+      estado: "guion_aprobado",
+      explicacion: "Algo falló al grabar la voz. WAV ya está revisando. Puedes volver a intentarlo.",
+      estado_antes_del_error: null,
+    })
+  })
+
+  it("shows Coni the message of a Falla from grabar-voz", async () => {
+    const id = await piezaEn("grabando_voz")
+    const { deps } = doble()
+
+    await avisarFalla(deps, {
+      tarea: "grabar-voz",
+      corrida: "run_10",
+      piezaId: id,
+      error: new Falla("Sin caracteres."),
+    })
+
+    expect((await pieza(id)).explicacion).toBe("Sin caracteres.")
+  })
   it("moves a piece left in en_render to error_produccion, tells Coni plainly and gives WAV the technical detail", async () => {
     const id = await piezaEn("en_render")
     const { deps, avisos } = doble()
