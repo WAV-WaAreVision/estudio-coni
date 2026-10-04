@@ -202,4 +202,13 @@ describe("EditorDeGuion", () => {
 
     expect(screen.getByText(/^5 palabras · ≈ 2 s$/)).toBeInTheDocument()
   })
+
+  it("explains the tone marks under the script and lists the known ones", () => {
+    montar()
+
+    expect(
+      screen.getByText("Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/^Marcas que conozco: \[warm\] \[softly\]/)).toBeInTheDocument()
+  })
 })

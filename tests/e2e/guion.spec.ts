@@ -18,6 +18,8 @@ import {
 } from "./ayudas"
 
 const ETIQUETA = "Desliza para aprobar el guion"
+// A literal, so the spec does not import a TSX component.
+const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
 const LOOK_A = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.png" }
 const LOOK_B = { avatar_id: "look-b", nombre: "Terraza", imagen: "avatares/look-b.png" }
@@ -80,6 +82,7 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   )
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
+  await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
 
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
@@ -204,6 +207,19 @@ test("an approved script is read-only: changing it goes through taking the appro
   await expect(page.getByRole("textbox")).toHaveCount(0)
   await expect(page.getByText((await leerFila(id)).guion)).toBeVisible()
   await expect(page.getByText("Para cambiar el guion o el texto, vuelve a revisar el guion.")).toBeVisible()
+  // That script has no marks: the help is only for scripts that have them.
+  await expect(page.getByText(AYUDA_DE_MARCAS)).toHaveCount(0)
+})
+
+test("an approved script that has tone marks shows them with the help", async ({ page }) => {
+  const id = await sembrarPieza("guion_aprobado")
+  const guion: string = (await leerFila(id)).guion
+  await ajustarPieza(id, { guion: `[warm] ${guion}` })
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+
+  await expect(page.getByText(`[warm] ${guion}`)).toBeVisible()
+  await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
 })
 
 test("a render stopped by the monthly cap shows why and stops polling", async ({ page }) => {
