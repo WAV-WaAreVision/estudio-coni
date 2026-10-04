@@ -107,15 +107,13 @@ describe("barrerGastos", () => {
     }
   })
 
-  it("confirms the Claude and voice reservations of a piece whose script is already waiting for Coni", async () => {
+  it("confirms the Claude reservation of a piece whose script is already waiting for Coni", async () => {
     const id = await pieza("guion_por_aprobar")
     const claude = await reservar(id, "anthropic", "guion")
-    const voz = await reservar(id, "elevenlabs", "voz")
 
-    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 2, liberados: 0 })
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
 
     expect((await gasto(claude)).estado).toBe("confirmado")
-    expect((await gasto(voz)).estado).toBe("confirmado")
   })
 
   it("does not decide about a reservation whose step is not over until it is a day old, then releases it", async () => {
@@ -154,5 +152,27 @@ describe("barrerGastos", () => {
     expect(await barrerGastos(deps(dentroDe(48)))).toEqual({ confirmados: 0, liberados: 0 })
 
     expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.15 })
+  })
+})
+
+describe("barrerGastos con la voz aparte", () => {
+  it("keeps a voice reservation open while the piece has no voice, and releases it after a day", async () => {
+    const id = await pieza("guion_aprobado")
+    const clave = await reservar(id, "elevenlabs", "voz")
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 0 })
+    expect((await gasto(clave)).estado).toBe("reservado")
+
+    expect(await barrerGastos(deps(dentroDe(25)))).toEqual({ confirmados: 0, liberados: 1 })
+    expect((await gasto(clave)).estado).toBe("liberado")
+  })
+
+  it("confirms a voice reservation once the piece has a voice", async () => {
+    const id = await pieza("guion_aprobado")
+    await pool.query("update public.piezas set audio_id = 'voces/x.mp3', version = version + 1 where id = $1", [id])
+    const clave = await reservar(id, "elevenlabs", "voz")
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
+    expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.25 })
   })
 })

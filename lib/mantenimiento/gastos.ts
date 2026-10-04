@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { confirmarGasto, type FilaDePieza, leerGastosAbiertos, liberarGasto } from "@/lib/datos/repositorio"
+import {
+  confirmarGasto,
+  type FilaDeGasto,
+  type FilaDePieza,
+  leerGastosAbiertos,
+  liberarGasto,
+} from "@/lib/datos/repositorio"
 import type { Database } from "@/lib/supabase/database.types"
 
 export interface DepsBarrido {
@@ -26,8 +32,10 @@ const DESPUES_DEL_RENDER = [
 const ANTES_DEL_GUION = ["idea", "guion_en_proceso"]
 
 /** Did the step this reservation paid for already happen? Then the money is spent, whatever the run that died said. */
-function pasoRealizado(proveedor: string, pieza: FilaDePieza): boolean {
-  if (proveedor === "heygen") return pieza.render_id !== null || DESPUES_DEL_RENDER.includes(pieza.estado)
+function pasoRealizado(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
+  if (gasto.proveedor === "heygen") return pieza.render_id !== null || DESPUES_DEL_RENDER.includes(pieza.estado)
+  // The voice now happens after gate 1, on its own: only a stored voice says ElevenLabs was paid.
+  if (gasto.proveedor === "elevenlabs" && gasto.paso === "voz") return pieza.audio_id !== null
   return !ANTES_DEL_GUION.includes(pieza.estado)
 }
 
@@ -42,7 +50,7 @@ export async function barrerGastos(deps: DepsBarrido): Promise<{ confirmados: nu
   let confirmados = 0
   let liberados = 0
   for (const { gasto, pieza } of abiertos) {
-    if (pieza && pasoRealizado(gasto.proveedor, pieza)) {
+    if (pieza && pasoRealizado(gasto, pieza)) {
       await confirmarGasto(deps.db, gasto.clave, gasto.estimado_usd)
       confirmados += 1
     } else if (ahora - Date.parse(gasto.creado_en) >= HORAS_PARA_LIBERAR * HORA_MS) {

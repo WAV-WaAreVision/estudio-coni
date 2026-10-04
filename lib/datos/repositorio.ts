@@ -236,6 +236,18 @@ export async function leerPiezasAtascadas(db: Db, antesDe: string): Promise<Fila
   return data
 }
 
+/** Pieces recording their voice whose last write is older than `antesDe`: their run died or never started. */
+export async function leerVocesTrabadas(db: Db, antesDe: string): Promise<FilaDePieza[]> {
+  const { data, error } = await db
+    .from("piezas")
+    .select("*")
+    .eq("estado", "grabando_voz")
+    .lt("actualizada_en", antesDe)
+    .order("actualizada_en")
+  if (error) throw fallo("No pude leer las voces trabadas", error)
+  return data
+}
+
 /** Reservations still open that were made before `antesDe`, with the piece each one belongs to (if any). */
 export async function leerGastosAbiertos(
   db: Db,
