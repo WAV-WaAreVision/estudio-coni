@@ -31,12 +31,34 @@ const DESPUES_DEL_RENDER = [
 /** Before the script step is over: nothing was saved from it. */
 const ANTES_DEL_GUION = ["idea", "guion_en_proceso"]
 
+/** `<pieza>:voz:<huella de 16>:<intento>`: the key of a voice reservation by text; older keys do not match. */
+const CLAVE_DE_VOZ = /:voz:([0-9a-f]{16}):(\d+)$/
+
+/** The take this very reservation pays for is the voice of the piece. Null when the key is an older one. */
+function tomaDeLaReserva(gasto: FilaDeGasto, pieza: FilaDePieza): boolean | null {
+  if (gasto.proveedor !== "elevenlabs" || gasto.paso !== "voz") return null
+  const partes = CLAVE_DE_VOZ.exec(gasto.clave)
+  if (!partes) return null
+  const [, huella, intento] = partes
+  const audio = pieza.audio_id
+  if (audio === null) return false
+  return audio.startsWith(`voces/${pieza.id}/t-${huella}`) && audio.endsWith(`-${intento}.mp3`)
+}
+
 /** Did the step this reservation paid for already happen? Then the money is spent, whatever the run that died said. */
 function pasoRealizado(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
   if (gasto.proveedor === "heygen") return pieza.render_id !== null || DESPUES_DEL_RENDER.includes(pieza.estado)
-  // The voice now happens after gate 1, on its own: only a stored voice says ElevenLabs was paid.
-  if (gasto.proveedor === "elevenlabs" && gasto.paso === "voz") return pieza.audio_id !== null
+  if (gasto.proveedor === "elevenlabs" && gasto.paso === "voz") {
+    // The voice happens after gate 1, on its own, and approving keeps an earlier voice: only the take of this
+    // reservation says it was paid. Older keys fall back to any stored voice.
+    return tomaDeLaReserva(gasto, pieza) ?? pieza.audio_id !== null
+  }
   return !ANTES_DEL_GUION.includes(pieza.estado)
+}
+
+/** A voice by text whose run is over (the piece is not recording) and left no take: nothing was paid. */
+function vozSinToma(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
+  return tomaDeLaReserva(gasto, pieza) === false && pieza.estado !== "grabando_voz"
 }
 
 /**
@@ -53,7 +75,10 @@ export async function barrerGastos(deps: DepsBarrido): Promise<{ confirmados: nu
     if (pieza && pasoRealizado(gasto, pieza)) {
       await confirmarGasto(deps.db, gasto.clave, gasto.estimado_usd)
       confirmados += 1
-    } else if (ahora - Date.parse(gasto.creado_en) >= HORAS_PARA_LIBERAR * HORA_MS) {
+    } else if (
+      (pieza && vozSinToma(gasto, pieza)) ||
+      ahora - Date.parse(gasto.creado_en) >= HORAS_PARA_LIBERAR * HORA_MS
+    ) {
       await liberarGasto(deps.db, gasto.clave)
       liberados += 1
     }
