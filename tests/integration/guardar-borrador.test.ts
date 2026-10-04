@@ -154,3 +154,19 @@ describe("guardar_borrador con respaldo", () => {
     })
   })
 })
+
+describe("piezas.respaldo", () => {
+  it("cannot be changed by Coni's session, only by the tasks", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query(GUARDAR_CON_RESPALDO, [...argumentos(id), JSON.stringify(RESPALDO)])
+      await asumir(c, comoConi)
+      const error = await fallaCon(
+        c,
+        "update public.piezas set respaldo = '{}'::jsonb, version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error.message).toBe("respaldo_solo_de_tareas")
+    })
+  })
+})
