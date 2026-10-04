@@ -262,11 +262,68 @@ async function pedirJson<S extends z.ZodType>(
   if (!bloque) {
     throw new Error("Claude no devolvió una respuesta que se pueda leer.")
   }
+  let crudo: unknown
   try {
-    return { salida: formato.parse(bloque.text), uso: respuesta.usage }
+    crudo = JSON.parse(bloque.text)
   } catch (error) {
     throw new Error("Claude devolvió una respuesta que no tiene el formato pedido.", { cause: error })
   }
+  const lectura = pedido.esquema.safeParse(crudo)
+  if (!lectura.success) {
+    throw new Error("Claude devolvió una respuesta que no tiene el formato pedido.", {
+      cause: new Error(describirIncumplimientos(lectura.error.issues, crudo)),
+    })
+  }
+  return { salida: lectura.data, uso: respuesta.usage }
+}
+
+const MAXIMO_INCUMPLIMIENTOS_EN_LOG = 10
+const MAXIMO_CARACTERES_DE_VALOR_EN_LOG = 60
+
+/** Zod's message drops the value that failed; Trigger's logs need it. Truncated, and only the failing values. */
+function describirIncumplimientos(issues: readonly z.core.$ZodIssue[], crudo: unknown): string {
+  const lineas = issues.slice(0, MAXIMO_INCUMPLIMIENTOS_EN_LOG).map((issue) => {
+    const valor = issue.path.reduce<unknown>(
+      (actual, clave) => (typeof actual === "object" && actual !== null ? Reflect.get(actual, clave) : undefined),
+      crudo,
+    )
+    const visto = (JSON.stringify(valor) ?? "undefined").slice(0, MAXIMO_CARACTERES_DE_VALOR_EN_LOG)
+    return `${issue.path.join(".")}: ${issue.code}, valor recibido ${visto}`
+  })
+  const restantes = issues.length - lineas.length
+  return [...lineas, ...(restantes > 0 ? [`y ${restantes} más`] : [])].join("; ")
+}
+
+function sinAcentos(texto: string): string {
+  return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+}
+
+/**
+ * The SDK moves `enum` out of the JSON schema into the field's description (structured outputs do not enforce it), so
+ * the model can answer "clínica" for "clinica". The enum stays strict in the schema we send and in what we accept;
+ * this only cleans the value first: trim, lowercase, no accents, then the synonyms. A value that is still unknown
+ * becomes `porDefecto` and is reported to `alCorregir`; without `porDefecto` it stays as is and fails validation.
+ */
+function enumTolerante<const V extends readonly [string, ...string[]]>(
+  valores: V,
+  opciones: {
+    sinonimos?: Record<string, V[number]>
+    porDefecto?: V[number]
+    alCorregir?: (crudo: string) => void
+  } = {},
+) {
+  const { sinonimos = {}, porDefecto, alCorregir } = opciones
+  return z.preprocess((valor) => {
+    if (typeof valor !== "string") return valor
+    const limpio = sinAcentos(valor.trim().toLowerCase())
+    const exacto = valores.find((candidato) => candidato === limpio)
+    if (exacto !== undefined) return exacto
+    const sinonimo = sinonimos[limpio]
+    if (sinonimo !== undefined) return sinonimo
+    if (porDefecto === undefined) return valor
+    alCorregir?.(valor.slice(0, MAXIMO_CARACTERES_DE_VALOR_EN_LOG))
+    return porDefecto
+  }, z.enum(valores))
 }
 
 /** Writes the script and the caption of a reel. Only configuration errors are final; the rest is retried by the caller. */
@@ -308,7 +365,7 @@ export async function revisarConClaude(entrada: {
 }
 
 const SalidaIdea = z.object({
-  pilar: z.enum(PILARES),
+  pilar: enumTolerante(PILARES),
   formato: z.string(),
   alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string() })),
 })
@@ -706,22 +763,42 @@ export const VERSION_DE_EXTRACCION = createHash("sha256").update(GUIA_DE_AFIRMAC
 
 const Caracteristica = z.string().nullable()
 
-const SalidaAfirmaciones = z.object({
-  afirmaciones: z.array(
-    z.object({
-      texto: z.string(),
-      cita: z.string(),
-      tipo: z.enum(TIPOS_DE_AFIRMACION),
-      evidencia: z.enum(EVIDENCIAS_DE_AFIRMACION),
-      postura: Caracteristica,
-      publico: Caracteristica,
-      dolor: Caracteristica,
-      emocion: Caracteristica,
-      gancho: Caracteristica,
-    }),
-  ),
-  idioma: z.string().regex(/^[a-z]{2}$/),
-})
+const SINONIMOS_DE_EVIDENCIA = {
+  clinico: "clinica",
+  "practica clinica": "clinica",
+  "experiencia clinica": "clinica",
+  estudios: "estudio",
+  investigacion: "estudio",
+  investigaciones: "estudio",
+  research: "estudio",
+  study: "estudio",
+  testimonial: "testimonio",
+  testimonios: "testimonio",
+  opiniones: "opinion",
+} as const
+
+/** `alCorregir` hears every evidencia we could not map; those become "opinion", the label that never inflates evidence. */
+const esquemaDeAfirmaciones = (alCorregir: (crudo: string) => void) =>
+  z.object({
+    afirmaciones: z.array(
+      z.object({
+        texto: z.string(),
+        cita: z.string(),
+        tipo: enumTolerante(TIPOS_DE_AFIRMACION),
+        evidencia: enumTolerante(EVIDENCIAS_DE_AFIRMACION, {
+          sinonimos: SINONIMOS_DE_EVIDENCIA,
+          porDefecto: "opinion",
+          alCorregir,
+        }),
+        postura: Caracteristica,
+        publico: Caracteristica,
+        dolor: Caracteristica,
+        emocion: Caracteristica,
+        gancho: Caracteristica,
+      }),
+    ),
+    idioma: z.string().regex(/^[a-z]{2}$/),
+  })
 
 export interface AfirmacionExtraida {
   texto: string
@@ -744,8 +821,15 @@ export async function extraerAfirmaciones(entrada: {
   cliente: Anthropic
   tramo: Tramo
   autor: { nombre: string; credencial: string | null }
-}): Promise<{ afirmaciones: AfirmacionExtraida[]; idioma: string; uso: UsoClaude; propuestas: number }> {
+}): Promise<{
+  afirmaciones: AfirmacionExtraida[]
+  idioma: string
+  uso: UsoClaude
+  propuestas: number
+  evidenciasCorregidas: string[]
+}> {
   const { tramo, autor } = entrada
+  const evidenciasCorregidas: string[] = []
   const { salida, uso } = await pedirJson(entrada.cliente, "extraerAfirmaciones", {
     guia: GUIA_DE_AFIRMACIONES,
     usuario: `Extrae las afirmaciones de este fragmento.
@@ -756,7 +840,7 @@ Credencial: ${autor.credencial ?? "no se sabe"}
 <fuente>
 ${sinCierre(tramo.texto)}
 </fuente>`,
-    esquema: SalidaAfirmaciones,
+    esquema: esquemaDeAfirmaciones((crudo) => evidenciasCorregidas.push(crudo)),
   })
   const afirmaciones = salida.afirmaciones.flatMap((afirmacion) => {
     if (afirmacion.texto.length > MAXIMO_CARACTERES_DE_AFIRMACION) return []
@@ -768,6 +852,7 @@ ${sinCierre(tramo.texto)}
     idioma: salida.idioma,
     uso,
     propuestas: salida.afirmaciones.length,
+    evidenciasCorregidas,
   }
 }
 
@@ -800,10 +885,12 @@ const SalidaTeorias = z.object({
       porQue: z.string().nullable(),
       aportes: z.array(z.object({ afirmacionId: z.string(), aporte: z.string() })),
       tensiones: z.array(z.string()),
-      nivelEvidencia: z.enum(["alto", "medio", "debil"]).nullable(),
+      nivelEvidencia: enumTolerante(["alto", "medio", "debil"] as const, { porDefecto: "debil" }).nullable(),
       advertencias: z.array(z.string()),
       // Structured outputs cannot enforce lengths: 1 to 2 is enforced in `validarTeoria`.
-      ideas: z.array(z.object({ gancho: z.string(), tema: z.string(), pilar: z.enum(PILARES), formato: z.string() })),
+      ideas: z.array(
+        z.object({ gancho: z.string(), tema: z.string(), pilar: enumTolerante(PILARES), formato: z.string() }),
+      ),
     }),
   ),
 })
