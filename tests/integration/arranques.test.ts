@@ -168,4 +168,16 @@ describe("mantenimientoFrecuente", () => {
     expect(resultado.arranques).toEqual([{ piezaId: id, tarea: "grabar" }])
     expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id }])
   })
+
+  it("lists the stuck voices job right after the renders", async () => {
+    const { deps } = doble(dentroDe(11))
+
+    const resultado = await mantenimientoFrecuente({
+      ...deps,
+      avisos: notificadorEnMemoria(),
+      temas: async () => null,
+    })
+
+    expect(Object.keys(resultado)).toEqual(["arranques", "renders", "voces", "gastos", "temas"])
+  })
 })

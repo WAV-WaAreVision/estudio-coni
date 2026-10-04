@@ -37,7 +37,12 @@ export async function leerCodigo(correo: string): Promise<string> {
   throw new Error(`No llegó ningún código a ${correo} al buzón local.`)
 }
 
-const Disparo = z.object({ tarea: z.enum(["producir", "grabar"]), piezaId: z.string(), clave: z.string() })
+const Disparo = z.object({
+  tarea: z.enum(["producir", "grabar", "voz"]),
+  piezaId: z.string(),
+  clave: z.string(),
+  nueva: z.boolean().optional(),
+})
 
 export function limpiarDisparos(): void {
   mkdirSync(dirname(ARCHIVO_DE_DISPAROS), { recursive: true })
@@ -119,6 +124,8 @@ interface EstadoDeServicios {
   elevenlabs?: "ok" | "401"
   instagram?: "ok" | "rechazo"
   push?: "ok" | "410" | "503"
+  heygenSaldo?: number
+  elevenlabsUsados?: number
 }
 
 /** Steers the fake outside world and clears what it remembers. */

@@ -11,33 +11,18 @@ import {
   liberarGasto,
   reservarGasto,
 } from "@/lib/datos/repositorio"
-import { leerRespaldo } from "@/lib/datos/respaldo"
 import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import {
-  type ArtefactoPuerta1,
-  claveIdempotencia,
-  formulaDePuerta1,
-  hashPuerta1,
-  hashTexto,
-  puedeGrabar,
-} from "@/lib/dominio/puertas"
-import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
+import { claveIdempotencia, formulaDePuerta1, hashPuerta1, puedeGrabar } from "@/lib/dominio/puertas"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
-import {
-  aCuatroDecimales,
-  avisarTope,
-  estimarCostoVoz,
-  explicar,
-  MINIMO_USD,
-  piezaCambio,
-  TEXTO_TOPE,
-} from "@/lib/produccion/comun"
+import { vozDelGuion } from "@/lib/dominio/voz"
+import { artefactoAprobado, formulaGuardada } from "@/lib/produccion/aprobacion"
+import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { asegurarVoz, huellaDelGuion, leerLlaveDeVoz } from "@/lib/produccion/voz"
 import { type Almacen, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
-import { generarVoz } from "@/lib/proveedores/elevenlabs"
 import { armarPedido } from "@/lib/proveedores/heygen"
 import {
   bajar,
@@ -99,6 +84,12 @@ export function estimarCostoVideo(guion: string, motor: string | null): number {
   return Math.max(MINIMO_USD, aCuatroDecimales(usd))
 }
 
+/** The same render in credits, for an API wallet that counts credits instead of dollars. */
+export function estimarCreditosVideo(guion: string, motor: string | null): number {
+  const creditosPorMinuto = motor === "avatar_v" ? CREDITOS_POR_MINUTO_AVATAR_V : CREDITOS_POR_MINUTO_AVATAR_IV
+  return Math.ceil((estimarSegundos(guion) / 60) * creditosPorMinuto)
+}
+
 const TEXTO_FALLA_DE_HEYGEN = "HeyGen no pudo terminar el video"
 const TEXTO_SIN_SUBTITULOS = "HeyGen no entregó los subtítulos del video. Vuelve a intentarlo en unos minutos."
 
@@ -121,8 +112,6 @@ interface Contexto {
   /** The gate 1 hash this run records. */
   hashAprobado: string
   llave: string
-  /** Only loaded while the piece has no voice yet: a piece that already has it never needs ElevenLabs. */
-  llaveElevenlabs: string | null
   config: ConfigCompleta
 }
 
@@ -208,10 +197,12 @@ async function crearElVideo({ contexto, gasto }: Entrada): Promise<string> {
       `La reserva de HeyGen de la pieza ${fila.id} está ${gasto.estado}, pero la pieza no tiene video guardado.`,
     )
   }
-  if (!fila.audio_id) {
-    throw new FallaDeConfiguracion(`La pieza ${fila.id} no tiene voz guardada.`)
+  // The binding of the voice to gate 1, right before the call that charges.
+  const audioId = vozAprobada(contexto)
+  if (audioId === null) {
+    throw new FallaDeConfiguracion(`La voz de la pieza ${fila.id} no corresponde al guion aprobado.`)
   }
-  const voz = await deps.almacen.bajar(fila.audio_id)
+  const voz = await deps.almacen.bajar(audioId)
   const audioAssetId = await subirAsset({
     clave: llave,
     datos: voz,
@@ -238,64 +229,14 @@ async function crearElVideo({ contexto, gasto }: Entrada): Promise<string> {
   return videoId
 }
 
-async function leerLlaveElevenlabs(deps: DepsGrabacion, config: ConfigCompleta): Promise<string> {
-  if (!config.elevenlabs.voice_id) {
-    throw new FallaDeConfiguracion("Falta elevenlabs.voice_id en la configuración de producción.")
-  }
-  const llave = await leerSecreto(deps.db, "elevenlabs")
-  if (!llave) {
-    throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de ElevenLabs en Ajustes.")
-  }
-  return llave
-}
-
 async function cargarContexto(deps: DepsGrabacion, fila: FilaDePieza, guion: string, hash: string): Promise<Contexto> {
   const config = leerConfigProduccion(await leerProduccion(deps.db))
   const llave = await leerSecreto(deps.db, "heygen")
   if (!llave) {
     throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de HeyGen en Ajustes.")
   }
-  const llaveElevenlabs = !tieneLaVozAprobada(fila, hash) ? await leerLlaveElevenlabs(deps, config) : null
   const clave = claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash, intento: fila.intento })
-  return { deps, fila, guion, clave, hashAprobado: hash, llave, llaveElevenlabs, config }
-}
-
-/**
- * Formula 1 (legacy) approved the voice itself, so any stored one stands. Formula 2 approves the script and the voice
- * is made afterwards under a key derived from the approval: a voice under any other key (a draft made before gate 1)
- * was not made for what Coni approved and must not be recorded.
- */
-function tieneLaVozAprobada(fila: FilaDePieza, hashAprobado: string): boolean {
-  if (fila.audio_id === null) return false
-  if (formulaDePuerta1(formulaGuardada(fila)) === 1) return true
-  return fila.audio_id === claveVozAprobada(fila.id, hashAprobado)
-}
-
-/** The column is a smallint with a check for 1, 2 and 3; anything else is a corrupted row, not an approval. */
-function formulaGuardada(fila: FilaDePieza): 1 | 2 | 3 | null {
-  const { puerta1_formula: formula } = fila
-  if (formula === null || formula === 1 || formula === 2 || formula === 3) return formula
-  throw new FallaDeConfiguracion(`La pieza ${fila.id} guardó una fórmula de la puerta 1 desconocida: ${formula}.`)
-}
-
-/**
- * What gate 1 hashed, rebuilt from the row by the formula stored at approval (null is the legacy one, with the voice
- * in the hash). Null when a column the formula needs is empty, which is not an approval.
- */
-function artefactoAprobado(fila: FilaDePieza, guion: string): ArtefactoPuerta1 | null {
-  const formula = formulaDePuerta1(formulaGuardada(fila))
-  if (formula === 1) {
-    return fila.audio_id === null ? null : { formula: 1, guion, audioId: fila.audio_id, avatarId: fila.avatar_id }
-  }
-  if (fila.texto === null || fila.avatar_id === null) return null
-  if (formula === 2) return { formula: 2, guion, texto: fila.texto, avatarId: fila.avatar_id }
-  return {
-    formula: 3,
-    guion,
-    texto: fila.texto,
-    avatarId: fila.avatar_id,
-    respaldo: huellaDeRespaldo(leerRespaldo(fila.respaldo)),
-  }
+  return { deps, fila, guion, clave, hashAprobado: hash, llave, config }
 }
 
 /**
@@ -343,57 +284,37 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise
 }
 
 /**
- * Speaks the approved script with Coni's voice and stores it, after gate 1 and right before HeyGen. The spend key is
- * per piece and attempt and the audio id goes into the piece, so a retry neither reserves nor speaks twice.
- * Returns false when the cap stops it.
+ * The stored voice the render may use, or null. Formula 1 hashed the voice itself. Formulas 2 and 3 hashed the script:
+ * the voice must be a take of that exact script with the configured voice, or the legacy voice made under the key of
+ * this very approval (it was generated for the approved script). Anything else is not what Coni approved.
  */
+function vozAprobada(contexto: Contexto): string | null {
+  const { fila, guion, config, hashAprobado } = contexto
+  if (formulaDePuerta1(formulaGuardada(fila)) === 1) return fila.audio_id
+  return vozDelGuion({
+    audioId: fila.audio_id,
+    piezaId: fila.id,
+    huella: huellaDelGuion(guion, config.elevenlabs),
+    legadas: [claveVozAprobada(fila.id, hashAprobado)],
+  })
+}
+
+/** The voice of the approved script, reused when it exists, written into the piece. False when the cap stops it. */
 async function ponerLaVoz(contexto: Contexto): Promise<boolean> {
-  const { deps, guion, fila } = contexto
-  const { db } = deps
-  const clave = claveIdempotencia({
-    piezaId: fila.id,
-    paso: "grabar",
-    hash: hashTexto(`elevenlabs:${fila.id}`),
-    intento: fila.intento,
+  const { deps, config } = contexto
+  const voz = await asegurarVoz(deps, {
+    fila: contexto.fila,
+    guion: contexto.guion,
+    config: config.elevenlabs,
+    llave: () => leerLlaveDeVoz(deps.db, config),
+    nueva: false,
   })
-  const estimado = estimarCostoVoz(guion)
-  const reserva = await reservarGasto(db, {
-    piezaId: fila.id,
-    proveedor: "elevenlabs",
-    paso: "voz",
-    estimadoUsd: estimado,
-    clave,
-    ahora: deps.ahora(),
-  })
-  if (reserva.tope) {
-    await explicar(deps, fila, TEXTO_TOPE)
-    await avisarTope(deps, fila)
+  if (voz.tipo === "tope") {
+    await explicar(deps, contexto.fila, TEXTO_TOPE)
+    await avisarTope(deps, contexto.fila)
     return false
   }
-  if (reserva.gasto.estado !== "reservado") {
-    // Confirmed only after the audio is saved in the piece, and nothing else releases a voice reservation.
-    throw new FallaDeConfiguracion(
-      `La reserva de la voz de la pieza ${fila.id} está ${reserva.gasto.estado}, pero la pieza sigue sin voz.`,
-    )
-  }
-  if (contexto.llaveElevenlabs === null) {
-    throw new FallaDeConfiguracion(`La pieza ${fila.id} necesita la voz y no se cargó la llave de ElevenLabs.`)
-  }
-  // One key per approval: if a dead run already uploaded the voice, this run finds it and does not pay again.
-  // The window that stays open is a crash between ElevenLabs answering and the upload finishing: ElevenLabs has no
-  // idempotency key, so that one case can still generate (and charge) once more.
-  const audioId = claveVozAprobada(fila.id, contexto.hashAprobado)
-  if (!(await deps.almacen.existe(audioId))) {
-    const audio = await generarVoz({
-      clave: contexto.llaveElevenlabs,
-      config: contexto.config.elevenlabs,
-      texto: guion,
-      base: deps.base?.elevenlabs,
-    })
-    await deps.almacen.subir(audioId, audio, "audio/mpeg")
-  }
-  await escribir(contexto, { tipo: "voz_lista", audioId })
-  await confirmarGasto(db, clave, estimado)
+  await escribir(contexto, { tipo: "voz_lista", audioId: voz.audioId })
   return true
 }
 
@@ -402,7 +323,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
   const { db } = deps
   const enRender = contexto.fila.estado === "en_render"
 
-  if (enRender && !tieneLaVozAprobada(contexto.fila, contexto.hashAprobado) && !(await ponerLaVoz(contexto))) {
+  if (enRender && vozAprobada(contexto) === null && !(await ponerLaVoz(contexto))) {
     return { resultado: "tope" }
   }
 

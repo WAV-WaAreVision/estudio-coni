@@ -30,6 +30,8 @@ export interface FilaEnCamino {
   estado: string
   /** Being worked on right now: the row is not a link and shows a quiet progress bar. */
   ocupada: boolean
+  /** Set when Coni has something to do on its screen. */
+  href?: string
 }
 
 export interface FilaPorSubir {
@@ -90,6 +92,13 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
     case "guion_en_proceso":
       // With a reason on it, the piece is a notice (it is not being written), not "on its way".
       return pieza.explicacion === null ? { ...base, estado: "Escribiendo el guion · te aviso", ocupada: true } : null
+    case "guion_aprobado":
+      // With a reason on it (a failed voice) it is a notice instead.
+      return pieza.explicacion === null
+        ? { ...base, estado: "Guion aprobado · falta grabar", ocupada: false, href: `/guion/${pieza.id}` }
+        : null
+    case "grabando_voz":
+      return { ...base, estado: "Grabando la voz · unos segundos", ocupada: true }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true }
@@ -109,7 +118,8 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   switch (pieza.estado) {
     case "error_produccion":
     case "guion_en_proceso":
-      return pieza.estado === "guion_en_proceso" && pieza.explicacion === null
+    case "guion_aprobado":
+      return pieza.estado !== "error_produccion" && pieza.explicacion === null
         ? null
         : { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/guion/${pieza.id}` } }
     case "error_publicacion":

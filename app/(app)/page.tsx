@@ -2,12 +2,14 @@ import { ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { FilaPieza } from "@/components/fila-pieza"
 import { Nota } from "@/components/nota"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { piezaTrabajando } from "@/lib/dominio/estados"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
@@ -41,6 +43,8 @@ export default async function Inicio() {
         <h1 className="font-serif text-display">Hola, Coni</h1>
         <p className="text-[1.0625rem] text-apagado">{inicio.resumen}</p>
       </header>
+
+      <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
       {inicio.avisos.map((aviso) => (
         <AvisoEnInicio key={`${aviso.titulo}-${aviso.texto}`} aviso={aviso} />
@@ -97,6 +101,7 @@ export default async function Inicio() {
                 meta={fila.estado}
                 pilar={fila.pilar}
                 ocupada={fila.ocupada}
+                href={fila.href}
               />
             ))}
           </ul>

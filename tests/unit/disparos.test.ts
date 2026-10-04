@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { claveGrabar, claveProducir } from "@/lib/acciones/disparos"
+import { claveGrabar, claveProducir, claveVoz } from "@/lib/acciones/disparos"
 import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 
@@ -72,5 +72,18 @@ describe("dispararProcesarMaterial", () => {
 
   it("asks for the Trigger.dev key before starting anything for real", async () => {
     await expect(dispararProcesarMaterial(ID, {})).rejects.toThrow(FallaDeConfiguracion)
+  })
+})
+
+describe("claveVoz", () => {
+  const fila = { id: "p", version: 3, intento: 2, puerta1_hash: "e".repeat(64) }
+
+  it("is one key per approval and attempt", () => {
+    expect(claveVoz(fila)).toBe(`p:voz:${"e".repeat(16)}:2`)
+    expect(claveVoz({ ...fila, intento: 3 })).not.toBe(claveVoz(fila))
+  })
+
+  it("refuses a piece without gate 1", () => {
+    expect(() => claveVoz({ ...fila, puerta1_hash: null })).toThrow()
   })
 })

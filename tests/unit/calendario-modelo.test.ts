@@ -184,6 +184,29 @@ describe("Agenda", () => {
     expect(agenda.semanas[0]?.huecos[0]?.ocupante).toMatchObject({ estado: "Grabando", href: null })
   })
 
+  it("lists a piece with its script approved among the undated ones, after the ones being recorded", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "guion_aprobado", titulo: "Guion aprobado", creadaEn: "2026-10-01T12:00:00.000Z" }),
+      pieza({ estado: "en_render", titulo: "En grabación", creadaEn: "2026-10-02T12:00:00.000Z" }),
+    ])
+
+    const titulos = agenda.semanas.flatMap((s) => s.huecos.map((h) => h.ocupante?.titulo ?? null))
+    expect(titulos.filter((titulo) => titulo !== null)).toEqual(["En grabación", "Guion aprobado"])
+  })
+
+  it("names an approved script and a voice being recorded for what they are, linking only the one she can act on", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "grabando_voz", titulo: "Voz", creadaEn: "2026-10-01T12:00:00.000Z" }),
+      pieza({ estado: "guion_aprobado", titulo: "Aprobado", creadaEn: "2026-10-02T12:00:00.000Z" }),
+    ])
+
+    const ocupantes = agenda.semanas.flatMap((s) => s.huecos.flatMap((h) => (h.ocupante ? [h.ocupante] : [])))
+    expect(ocupantes).toMatchObject([
+      { titulo: "Voz", estado: "Grabando la voz", href: null },
+      { titulo: "Aprobado", estado: "Guion aprobado · falta grabar", href: expect.stringMatching(/^\/guion\//) },
+    ])
+  })
+
   it("does not show discarded pieces, ideas or pieces already published", () => {
     const { agenda } = calendario([
       pieza({ estado: "descartado" }),

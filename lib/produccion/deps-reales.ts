@@ -19,6 +19,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
 import type { DepsFalla } from "./fallas"
 import type { DepsGrabacion } from "./grabar"
+import type { DepsGrabarVoz } from "./grabar-voz"
 import type { DepsProduccion } from "./producir"
 
 // Three calls of at most two attempts each must fit in the task's 900 s (trigger.config.ts), unlike the SDK's
@@ -34,6 +35,18 @@ export const CLAUDE_ESPERA_MOTOR_MS = 180_000
 
 export function clienteDelMotor(apiKey: string): Anthropic {
   return new Anthropic({ apiKey, timeout: CLAUDE_ESPERA_MOTOR_MS, maxRetries: 0 })
+}
+
+/** The dependencies of a `grabar-voz` run: the database, the store and the notices. Nothing of the video container. */
+export function depsVoz(): DepsGrabarVoz {
+  const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
+  const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return {
+    db: createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } }),
+    avisos: avisosReales(),
+    almacen: almacenReal(),
+    ahora: () => new Date().toISOString(),
+  }
 }
 
 /** The dependencies of a Trigger.dev run. Cheap checks come first, so a missing setting fails before any spend. */

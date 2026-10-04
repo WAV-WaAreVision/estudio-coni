@@ -19,15 +19,18 @@ const DIAS_DE_RETENCION = 30
  * discarded one loses both. A key outside the folders of that very piece is never deleted: it would mean a bad value
  * in the database, and nothing here is worth deleting someone else's file for.
  */
-function archivosABorrar(fila: FilaDePieza): string[] {
-  const candidatos = [fila.video_id, ...(fila.estado === "descartado" ? [fila.audio_id] : [])]
+async function archivosABorrar(fila: FilaDePieza, almacen: Almacen): Promise<string[]> {
+  const descartada = fila.estado === "descartado"
+  const candidatos = [fila.video_id, ...(descartada ? [fila.audio_id] : [])]
   const claves = candidatos.filter((clave): clave is string => clave !== null)
   for (const clave of claves) {
     if (!clave.startsWith(`videos/${fila.id}/`) && !clave.startsWith(`voces/${fila.id}/`)) {
       throw new Error(`El archivo ${clave} no pertenece a la pieza ${fila.id}: no lo borro.`)
     }
   }
-  return claves
+  // A discarded piece loses every take of its voices, not only the one it ended with: each "record again" keeps its own.
+  const tomas = descartada ? (await almacen.listar(`voces/${fila.id}/`)).map((objeto) => objeto.clave) : []
+  return [...new Set([...claves, ...tomas])]
 }
 
 /** Deletes the files of published and discarded pieces 30 days after they reached that state. */
@@ -40,7 +43,7 @@ export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: n
   const errores: Error[] = []
   for (const fila of filas) {
     try {
-      const claves = archivosABorrar(fila)
+      const claves = await archivosABorrar(fila, deps.almacen)
       for (const clave of claves) await deps.almacen.borrar(clave)
       const marcada = await actualizarPieza(deps.db, fila.id, fila.version, {
         archivos_borrados_en: new Date(ahora).toISOString(),

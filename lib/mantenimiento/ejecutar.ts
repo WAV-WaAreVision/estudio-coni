@@ -6,6 +6,7 @@ import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsMantenimientoTemas, mantenerTemas } from "./temas"
 import { type DepsTokenMeta, mantenerTokenMeta } from "./token-meta"
+import { devolverVocesTrabadas } from "./voces"
 
 type Trabajos = Record<string, () => Promise<unknown>>
 
@@ -39,11 +40,12 @@ export type DepsNocturno = DepsRetencion & DepsTokenMeta & DepsRespaldo & { tema
 
 const OMITIDO = { omitido: true } as const
 
-/** Every ten minutes: runs that never started, renders that lost their callback, reservations that outlived their run and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
+    voces: () => devolverVocesTrabadas(deps),
     gastos: () => barrerGastos(deps),
     temas: async () => {
       const propias = await deps.temas()

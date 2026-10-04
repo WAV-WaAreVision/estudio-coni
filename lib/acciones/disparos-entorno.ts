@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
+import type { grabarVozTask } from "@/trigger/grabar-voz"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
 import type { producirPiezaTask } from "@/trigger/producir-pieza"
 import type { Disparos } from "./disparos"
@@ -29,15 +30,25 @@ function disparosReales(): Disparos {
         { idempotencyKey: await claveGlobal(clave) },
       )
     },
+    async voz(piezaId, clave, nueva) {
+      await tasks.trigger<typeof grabarVozTask>(
+        "grabar-voz",
+        { piezaId, nueva },
+        // One voice at a time per piece: two taps or two devices cannot call ElevenLabs at once.
+        { idempotencyKey: await claveGlobal(clave), concurrencyKey: piezaId },
+      )
+    },
   }
 }
 
 /** For local E2E runs: writes one JSON line per run it would have started, and calls nothing. */
 function disparosDePrueba(archivo: string): Disparos {
-  const anotar = (tarea: "producir" | "grabar") => async (piezaId: string, clave: string) => {
-    appendFileSync(archivo, `${JSON.stringify({ tarea, piezaId, clave })}\n`)
+  const anotar = (linea: Record<string, unknown>) => appendFileSync(archivo, `${JSON.stringify(linea)}\n`)
+  return {
+    producir: async (piezaId, clave) => anotar({ tarea: "producir", piezaId, clave }),
+    grabar: async (piezaId, clave) => anotar({ tarea: "grabar", piezaId, clave }),
+    voz: async (piezaId, clave, nueva) => anotar({ tarea: "voz", piezaId, clave, nueva }),
   }
-  return { producir: anotar("producir"), grabar: anotar("grabar") }
 }
 
 /** The file the runs are written to in test mode, null when the runs are real. A deployed app refuses test mode. */

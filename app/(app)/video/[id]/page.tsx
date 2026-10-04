@@ -133,6 +133,8 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       )
     case "guion_por_aprobar":
     case "guion_en_proceso":
+    case "guion_aprobado":
+    case "grabando_voz":
     case "en_render":
     case "subtitulando":
     case "error_produccion":

@@ -5,12 +5,15 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { cargarRespaldoDeIdea, leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { claveIdempotencia, hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { claveIdempotencia, hashPuerta1 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
+import { claveDeToma } from "@/lib/dominio/voz"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { type DepsGrabacion, estimarCostoVideo, grabarPieza } from "@/lib/produccion/grabar"
+import { huellaDelGuion } from "@/lib/produccion/voz"
 import { almacenEnMemoria, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
@@ -22,6 +25,8 @@ import { sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
 
+const ELEVENLABS = leerConfigProduccion(coniConfig).elevenlabs
+const HUELLA = huellaDelGuion(GUION, ELEVENLABS)
 const HEYGEN = "https://api.heygen.com"
 const URL_VOZ = "https://api.elevenlabs.io/v1/text-to-speech/:voz"
 const CLAVE_ELEVENLABS = "sk_eleven_de_prueba"
@@ -286,7 +291,7 @@ function claveDeGasto(id: string, intento: number): string {
 }
 
 function claveDeGastoVoz(id: string, intento: number): string {
-  return claveIdempotencia({ piezaId: id, paso: "grabar", hash: hashTexto(`elevenlabs:${id}`), intento })
+  return claveIdempotencia({ piezaId: id, paso: "voz", hash: HUELLA, intento })
 }
 
 beforeEach(async () => {
@@ -1042,10 +1047,9 @@ describe("la entrada a en_render con el flujo real", () => {
   })
 })
 
+/** The take the run makes for this piece: the approved script, Coni's voice and the attempt it is on. */
 async function claveDeVoz(id: string): Promise<string> {
-  const { puerta1_hash: hash } = await pieza(id)
-  if (!hash) throw new Error(`La pieza ${id} no tiene hash de la puerta 1`)
-  return claveVozAprobada(id, hash)
+  return claveDeToma(id, HUELLA, (await pieza(id)).intento)
 }
 
 async function conTopeMensual(usd: number): Promise<void> {
@@ -1272,6 +1276,7 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
 
   it("fails and leaves the piece alone when it changed while the voice was being generated", async () => {
     const id = await crearPiezaSinVoz()
+    const d = doble()
     const sim = simular({
       voz: async () => {
         await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
@@ -1279,11 +1284,13 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
       },
     })
 
-    await expect(grabarPieza(doble().deps, id)).rejects.toThrow("La pieza cambió mientras se producía.")
+    await expect(grabarPieza(d.deps, id)).rejects.toThrow("La pieza cambió mientras se producía.")
 
     expect(await pieza(id)).toMatchObject({ estado: "en_render", audio_id: null })
     expect(sim.creaciones).toHaveLength(0)
-    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "reservado"]])
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "confirmado"]])
+    // The take is stored and paid even though the piece did not take it: a retry finds it instead of paying again.
+    expect(d.almacen.claves()).toEqual([await claveDeVoz(id)])
   })
 
   it("never pays the voice twice when the run died after uploading it and before saving it in the piece", async () => {
@@ -1313,6 +1320,132 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
       ["elevenlabs", "confirmado"],
       ["heygen", "confirmado"],
     ])
+  })
+})
+
+describe("grabarPieza con la voz por texto", () => {
+  it("records with the legacy voice of the current approval, without ElevenLabs", async () => {
+    const id = await crearPiezaSinVoz()
+    const { puerta1_hash: hash } = await pieza(id)
+    if (hash === null) throw new Error("sin puerta 1")
+    const legada = claveVozAprobada(id, hash)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: legada })
+    })
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(legada, VOZ, "audio/mpeg")
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(0)
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
+  })
+
+  it("reuses an earlier take of the same text instead of paying again", async () => {
+    const id = await crearPiezaSinVoz()
+    const anterior = claveDeToma(id, HUELLA, 7)
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(anterior, VOZ, "audio/mpeg")
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(0)
+    expect(await pieza(id)).toMatchObject({ audio_id: anterior })
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
+  })
+
+  it("never sends HeyGen a voice of another text: it speaks the approved script instead", async () => {
+    const id = await crearPiezaSinVoz()
+    const ajena = claveDeToma(id, huellaDelGuion("Otro texto que Coni no aprobó.", ELEVENLABS), 0)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: ajena })
+    })
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(ajena, new Uint8Array([7, 7, 7]), "audio/mpeg")
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toEqual([{ voz: ELEVENLABS.voice_id, llave: CLAVE_ELEVENLABS, texto: GUION }])
+    expect(sim.assets).toHaveLength(1)
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+  })
+
+  it("never sends HeyGen a take of the same text that belongs to another piece", async () => {
+    const id = await crearPiezaSinVoz()
+    const otra = await crearPiezaSinVoz()
+    const deOtra = claveDeToma(otra, HUELLA, 0)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: deOtra })
+    })
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(deOtra, new Uint8Array([5, 5, 5]), "audio/mpeg")
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+    expect(await pieza(id)).toMatchObject({ audio_id: await claveDeVoz(id) })
+  })
+
+  it("never sends HeyGen the legacy voice of another approval of the same piece", async () => {
+    const id = await crearPiezaSinVoz()
+    const deOtraAprobacion = claveVozAprobada(id, "e".repeat(64))
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: deOtraAprobacion })
+    })
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(deOtraAprobacion, new Uint8Array([4, 4, 4]), "audio/mpeg")
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+    expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
+  })
+
+  it("spends nothing on HeyGen when the voice is rejected and the new one is stopped by the cap", async () => {
+    const id = await crearPiezaSinVoz()
+    const ajena = claveDeToma(id, huellaDelGuion("Otro texto que Coni no aprobó.", ELEVENLABS), 0)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoServicio, { tipo: "voz_lista", audioId: ajena })
+    })
+    await conTopeMensual(0)
+    const sim = simular()
+    const d = doble()
+    await d.almacen.subir(ajena, new Uint8Array([7, 7, 7]), "audio/mpeg")
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.assets).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("makes a new voice when the voice settings changed since the stored one", async () => {
+    const id = await crearPiezaEnRender()
+    const otra = { ...coniConfig, elevenlabs: { ...coniConfig.elevenlabs, model_id: "eleven_v3" } }
+    await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(otra)])
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+  })
+
+  it("releases the voice reservation when ElevenLabs has no characters, and tells Coni", async () => {
+    const id = await crearPiezaSinVoz()
+    const sim = simular({
+      voz: () => HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
+    })
+    const d = doble()
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("falla_produccion")
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "liberado"]])
+    expect((await pieza(id)).explicacion).toBe(
+      "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
+    )
   })
 })
 

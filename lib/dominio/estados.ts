@@ -4,6 +4,8 @@ export const ESTADOS = [
   "idea",
   "guion_en_proceso",
   "guion_por_aprobar",
+  "guion_aprobado",
+  "grabando_voz",
   "en_render",
   "subtitulando",
   "video_por_aprobar",
@@ -59,7 +61,14 @@ export type Evento =
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
   | { tipo: "aprobar_guion"; actor: Actor; hashVisto: string; hashActual: string; en: string }
-  /** The voice is generated while Coni records, after gate 1. */
+  /** Coni asks for her voice on the approved script (spends ElevenLabs). */
+  | { tipo: "pedir_voz" }
+  | { tipo: "falla_voz"; explicacion: string }
+  /** Coni asks for the video of the approved script (spends HeyGen). */
+  | { tipo: "grabar_video" }
+  /** Coni takes the approval back to change the script, the caption or the avatar. */
+  | { tipo: "reabrir_guion" }
+  /** The voice is stored by the voice task, or by the render when it had to make it. */
   | { tipo: "voz_lista"; audioId: string }
   | { tipo: "render_entregado" }
   | { tipo: "politica_contenido"; explicacion: string }
@@ -158,6 +167,23 @@ export function piezaNueva(): Pieza {
   }
 }
 
+/** A task is working on the piece right now: the screens that show it refresh themselves until it settles. */
+export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | null }): boolean {
+  switch (pieza.estado) {
+    case "guion_en_proceso":
+      // With a reason on it, the script is not being written: it waits for Coni.
+      return pieza.explicacion === null
+    case "grabando_voz":
+      return true
+    case "en_render":
+    case "subtitulando":
+      // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
+      return pieza.explicacion === null
+    default:
+      return false
+  }
+}
+
 function soloConi(actor: Actor): void {
   if (actor !== "coni") {
     throw new AprobacionNoAutorizada(actor)
@@ -188,6 +214,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "editar_texto":
       if (estado === "guion_por_aprobar") return a("guion_por_aprobar", {}, ["revisar_texto"])
+      // The caption is part of gate 1: changing it after approving takes the approval back.
+      if (estado === "guion_aprobado") return a("guion_por_aprobar", { puerta1: null }, ["revisar_texto"])
       if (estado === "video_por_aprobar") return a("video_por_aprobar", { puerta2: null }, ["revisar_texto"])
       if (estado === "programado") {
         return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1 }, [
@@ -202,11 +230,32 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       soloConi(evento.actor)
       if (estado !== "guion_por_aprobar") throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
-      return a("en_render", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+      // Approving spends nothing: the voice and the video are asked for afterwards. A stored voice is kept, because
+      // the steps that use it check it against the approved text.
+      return a("guion_aprobado", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+
+    case "pedir_voz":
+      if (estado !== "guion_aprobado") throw invalida()
+      // A new attempt: a new run, a new spend key and, for "Volver a grabar voz", a new take.
+      return a("grabando_voz", { intento: pieza.intento + 1 })
 
     case "voz_lista":
+      if (estado === "grabando_voz") return a("guion_aprobado", { audioId: evento.audioId })
       if (estado !== "en_render") throw invalida()
       return a("en_render", { audioId: evento.audioId })
+
+    case "falla_voz":
+      if (estado !== "grabando_voz") throw invalida()
+      // A new attempt, so the next voice or render never meets the released reservation of this one.
+      return a("guion_aprobado", { intento: pieza.intento + 1, explicacion: evento.explicacion })
+
+    case "grabar_video":
+      if (estado !== "guion_aprobado") throw invalida()
+      return a("en_render")
+
+    case "reabrir_guion":
+      if (estado !== "guion_aprobado") throw invalida()
+      return a("guion_por_aprobar", { puerta1: null })
 
     case "render_entregado":
       if (estado !== "en_render") throw invalida()

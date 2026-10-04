@@ -1,5 +1,7 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { claveDeToma } from "@/lib/dominio/voz"
 import { barrerGastos } from "@/lib/mantenimiento/gastos"
+import { claveDeGastoDeVoz } from "@/lib/produccion/voz"
 import { pool } from "./db"
 import { crearPiezaEn } from "./flujo"
 import { clienteDeServicio } from "./servicio"
@@ -62,6 +64,7 @@ async function gasto(clave: string): Promise<Gasto> {
 
 afterEach(async () => {
   await pool.query("delete from public.gastos where clave like 'barrido-%'")
+  await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
   piezasCreadas.length = 0
 })
@@ -107,15 +110,13 @@ describe("barrerGastos", () => {
     }
   })
 
-  it("confirms the Claude and voice reservations of a piece whose script is already waiting for Coni", async () => {
+  it("confirms the Claude reservation of a piece whose script is already waiting for Coni", async () => {
     const id = await pieza("guion_por_aprobar")
     const claude = await reservar(id, "anthropic", "guion")
-    const voz = await reservar(id, "elevenlabs", "voz")
 
-    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 2, liberados: 0 })
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
 
     expect((await gasto(claude)).estado).toBe("confirmado")
-    expect((await gasto(voz)).estado).toBe("confirmado")
   })
 
   it("does not decide about a reservation whose step is not over until it is a day old, then releases it", async () => {
@@ -154,5 +155,81 @@ describe("barrerGastos", () => {
     expect(await barrerGastos(deps(dentroDe(48)))).toEqual({ confirmados: 0, liberados: 0 })
 
     expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.15 })
+  })
+})
+
+describe("barrerGastos con la voz aparte", () => {
+  it("keeps a voice reservation open while the piece has no voice, and releases it after a day", async () => {
+    const id = await pieza("guion_aprobado")
+    const clave = await reservar(id, "elevenlabs", "voz")
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 0 })
+    expect((await gasto(clave)).estado).toBe("reservado")
+
+    expect(await barrerGastos(deps(dentroDe(25)))).toEqual({ confirmados: 0, liberados: 1 })
+    expect((await gasto(clave)).estado).toBe("liberado")
+  })
+
+  it("confirms a voice reservation once the piece has a voice", async () => {
+    const id = await pieza("guion_aprobado")
+    await pool.query("update public.piezas set audio_id = 'voces/x.mp3', version = version + 1 where id = $1", [id])
+    const clave = await reservar(id, "elevenlabs", "voz")
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
+    expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.25 })
+  })
+})
+
+describe("barrerGastos con la clave de la voz por texto", () => {
+  const HUELLA = "ab".repeat(32)
+
+  async function reservarVoz(piezaId: string, intento: number): Promise<string> {
+    const clave = claveDeGastoDeVoz(piezaId, HUELLA, intento)
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.25, $2, now())", [piezaId, clave])
+    return clave
+  }
+
+  async function usadoDelMes(): Promise<number> {
+    const { rows } = await pool.query<{ total: number }>(
+      "select coalesce(sum(case when estado = 'confirmado' then coalesce(real_usd, estimado_usd) else estimado_usd end), 0)::float8 as total from public.gastos where estado in ('reservado', 'confirmado')",
+    )
+    return rows[0]?.total ?? 0
+  }
+
+  async function conVoz(piezaId: string, audioId: string) {
+    await pool.query("update public.piezas set audio_id = $2, version = version + 1 where id = $1", [piezaId, audioId])
+  }
+
+  it("releases the reservation of a failed 'record again' even though the piece keeps its earlier voice", async () => {
+    const id = await pieza("guion_aprobado")
+    await conVoz(id, claveDeToma(id, HUELLA, 0))
+    const antes = await usadoDelMes()
+    const clave = await reservarVoz(id, 1)
+    expect(await usadoDelMes()).toBeCloseTo(antes + 0.25, 4)
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 1 })
+
+    expect((await gasto(clave)).estado).toBe("liberado")
+    expect(await usadoDelMes()).toBeCloseTo(antes, 4)
+  })
+
+  it("confirms the reservation whose own take is the piece's voice", async () => {
+    const id = await pieza("guion_aprobado")
+    await conVoz(id, claveDeToma(id, HUELLA, 1))
+    const clave = await reservarVoz(id, 1)
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
+
+    expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.25 })
+  })
+
+  it("leaves the reservation of a piece still recording its voice until it is a day old", async () => {
+    const id = await pieza("grabando_voz")
+    const clave = await reservarVoz(id, 1)
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 0 })
+    expect((await gasto(clave)).estado).toBe("reservado")
+
+    expect(await barrerGastos(deps(dentroDe(25)))).toEqual({ confirmados: 0, liberados: 1 })
   })
 })

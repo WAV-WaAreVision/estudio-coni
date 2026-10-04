@@ -3761,7 +3761,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
      `user_read`: note it as open question 2);
    - "Grabar video" **only if the HeyGen API wallet has balance** (otherwise the button must be disabled with the top-up
      text).
-7. Rollback: previous Vercel deployment (`vercel rollback`) and previous Trigger version; before that, move pieces in
+7. Reviewer notes on order and rollback:
+   - The order is database, then Trigger, then Vercel. If it is reversed (Vercel before Trigger), "Grabar voz" starts a
+     `grabar-voz` run that no worker knows: the piece sits in `grabando_voz` until the maintenance hands it back after
+     15 minutes, and "Grabar video" in the meantime makes the voice again inside `grabar-pieza`, paying ElevenLabs a
+     second time when Coni then records the voice by itself.
+   - A Trigger-only rollback (old worker, new app) makes the old `grabar-pieza` ignore the `t-` takes: pieces already
+     in `en_render` with a take of the new kind pay their voice again. Roll back the app and the worker together.
+   - The rollback SQL that moves pieces back to `guion_por_aprobar` must bump `version` by 1 on every row it touches
+     (the trigger refuses an update that does not), and clear `puerta1_hash`, `puerta1_en` and `explicacion`.
+8. Rollback: previous Vercel deployment (`vercel rollback`) and previous Trigger version; before that, move pieces in
    `guion_aprobado`/`grabando_voz` back to `guion_por_aprobar` with gate 1 cleared (SQL by Federico).
 
 ## Self-review against the spec

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
 import { mensajeErrorElevenlabs } from "@/lib/proveedores/errores"
 
@@ -34,6 +34,14 @@ function sinLlave(texto: string, clave: string): string {
 /** 4xx other than "too early" and "too many requests" will not change by retrying: they are for WAV. */
 function esErrorDeConfiguracion(estado: number): boolean {
   return estado >= 400 && estado < 500 && estado !== 408 && estado !== 429
+}
+
+/** Retrying does not help: Coni has to top up first, so the text says so. */
+export const TEXTO_SIN_CARACTERES =
+  "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo."
+
+function esFaltaDeCaracteres(cuerpo: string): boolean {
+  return /quota_exceeded/i.test(cuerpo)
 }
 
 async function motivoDelError(respuesta: Response, clave: string): Promise<string> {
@@ -84,7 +92,9 @@ export async function generarVoz(entrada: {
     ESPERA_VOZ_MS,
     async (respuesta) => {
       if (!respuesta.ok) {
-        const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${await motivoDelError(respuesta, clave)}`
+        const cuerpo = sinLlave(await respuesta.text(), clave)
+        if (esFaltaDeCaracteres(cuerpo)) throw new Falla(TEXTO_SIN_CARACTERES)
+        const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${mensajeErrorElevenlabs(cuerpo)}`
         throw esErrorDeConfiguracion(respuesta.status) ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)
       }
       const audio = new Uint8Array(await respuesta.arrayBuffer())

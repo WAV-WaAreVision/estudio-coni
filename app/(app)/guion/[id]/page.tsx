@@ -1,22 +1,25 @@
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { Nota } from "@/components/nota"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
-import {
-  leerAvataresElegibles,
-  leerContextoDeFechas,
-  leerCostoDeGrabar,
-  leerPantallaDePieza,
-} from "@/lib/datos/pantallas"
+import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
+import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
+import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
+import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
+import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado, VolverAInicio } from "../../estado-de-pieza"
 import { PantallaGuion } from "./pantalla-guion"
+import { VozSuelta } from "./voz-suelta"
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
 
@@ -30,6 +33,8 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
 
   switch (fila.estado) {
     case "guion_por_aprobar":
+    case "guion_aprobado":
+    case "grabando_voz":
       break
     case "guion_en_proceso":
       return (
@@ -47,27 +52,44 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
               <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
             </Nota>
           )}
+          <RefrescoAutomatico activo={fila.explicacion === null} cadaMs={4000} />
         </EstadoSencillo>
       )
     case "en_render":
     case "subtitulando":
       return (
         <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="ocupada" titulo="Aprobado. Estoy grabando el video.">
-            <p>Tarda unos 5 minutos; te aviso cuando esté para que lo veas.</p>
-            <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
-          </Nota>
+          {fila.explicacion ? (
+            <Nota tipo="error" titulo="El video está detenido">
+              <p>{fila.explicacion}</p>
+            </Nota>
+          ) : (
+            <Nota tipo="ocupada" titulo="Aprobado. Estoy grabando el video.">
+              <p>Tarda unos 5 minutos; te aviso cuando esté para que lo veas.</p>
+              <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
+            </Nota>
+          )}
+          <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )
-    case "error_produccion":
+    case "error_produccion": {
+      const voz = await vozParaEscuchar(db, fila)
       return (
         <EstadoSencillo titulo={fila.titulo}>
           <Nota tipo="error" titulo="No se pudo terminar el video">
             <p>{fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}</p>
           </Nota>
+          {voz ? (
+            <div className="grid gap-2">
+              <p className="text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+              <VozSuelta src={voz.url} clave={voz.clave} />
+            </div>
+          ) : null}
+          <p className="text-meta text-apagado">{lineaDeSaldoVideo((await leerSaldos()).heygen)}</p>
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
+    }
     case "video_por_aprobar":
     case "programado":
     case "para_subir_a_mano":
@@ -97,36 +119,66 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const [costo, avatares, conVersionDeClaude] = await Promise.all([
-    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
-    avataresParaElegir(db),
-    tieneVersionDeClaude({ db }, fila.id),
+  const estado = fila.estado
+  const aprobada = estado === "guion_aprobado" || estado === "grabando_voz"
+  // Once approved the screen only names the look and the script is read-only: no photos to sign, no Claude version to look up.
+  const [avatares, conVersionDeClaude] = await Promise.all([
+    avataresParaElegir(db, { conFotos: !aprobada }),
+    aprobada ? false : tieneVersionDeClaude({ db }, fila.id),
   ])
 
+  const grabacion = aprobada
+    ? await leerDatosDeGrabacion(db, { fila, estado, guion: fila.guion, zona: contexto.horario.zona })
+    : null
+  const avatarElegido = avatares.find((avatar) => avatar.id === fila.avatar_id)?.nombre ?? null
+
   return (
-    <PantallaGuion
-      datos={{
-        id: fila.id,
-        version: fila.version,
-        titulo: fila.titulo,
-        pilar: esPilar(idea?.pilar) ? idea.pilar : null,
-        formato: idea?.formato || null,
-        segundos: Math.round(estimarSegundos(fila.guion)),
-        guion: fila.guion,
-        texto: fila.texto,
-        revision: leerRevision(fila.revision),
-        tieneVersionDeClaude: conVersionDeClaude,
-        salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
-        costo: costo.linea,
-        explicacion: fila.explicacion,
-        avatares,
-      }}
-    />
+    <>
+      <RefrescoAutomatico activo={fila.estado === "grabando_voz"} cadaMs={4000} />
+      {/* Remounted when the piece changes state: the screen keeps its own copy of the version and the choices. */}
+      <PantallaGuion
+        key={`${fila.id}:${fila.estado}`}
+        datos={{
+          id: fila.id,
+          version: fila.version,
+          titulo: fila.titulo,
+          pilar: esPilar(idea?.pilar) ? idea.pilar : null,
+          formato: idea?.formato || null,
+          segundos: Math.round(estimarSegundos(fila.guion)),
+          guion: fila.guion,
+          texto: fila.texto,
+          revision: leerRevision(fila.revision),
+          tieneVersionDeClaude: conVersionDeClaude,
+          salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
+          grabacion,
+          avatarElegido,
+          explicacion: fila.explicacion,
+          avatares,
+        }}
+      />
+    </>
   )
 }
 
+/** The stored voice of the approved script, signed for listening, or null when there is none or the setup does not read. */
+async function vozParaEscuchar(db: Parameters<typeof leerProduccion>[0], fila: Parameters<typeof vozVigente>[0]) {
+  if (fila.guion === null) return null
+  let clave: string | null
+  try {
+    clave = vozVigente(fila, fila.guion, leerConfigProduccion(await leerProduccion(db)))
+  } catch (error) {
+    if (!(error instanceof FallaDeConfiguracion)) throw error
+    console.error("No pude leer la voz de la pieza con error", error)
+    return null
+  }
+  return clave === null ? null : { clave, url: await urlParaVer(clave) }
+}
+
 /** The curated looks with a signed link to each photo. A setup that does not read leaves the list empty, which blocks. */
-async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0]) {
+async function avataresParaElegir(
+  db: Parameters<typeof leerAvataresElegibles>[0],
+  { conFotos }: { conFotos: boolean },
+) {
   let elegibles: Awaited<ReturnType<typeof leerAvataresElegibles>>
   try {
     elegibles = await leerAvataresElegibles(db)
@@ -139,7 +191,7 @@ async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0
     elegibles.map(async (avatar) => ({
       id: avatar.avatar_id,
       nombre: avatar.nombre,
-      imagenUrl: await urlParaVer(avatar.imagen),
+      imagenUrl: conFotos ? await urlParaVer(avatar.imagen) : null,
     })),
   )
 }

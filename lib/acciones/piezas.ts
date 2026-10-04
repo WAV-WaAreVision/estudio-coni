@@ -19,7 +19,7 @@ import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
-import { claveGrabar, claveProducir, type Disparos } from "./disparos"
+import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
@@ -206,7 +206,7 @@ async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<st
 /**
  * Gate 1 approves the script, the publication text, the avatar and the frozen backing in one write (formula 3: the
  * voice is made after it): the avatar and the formula go in the same update as the approval, so the hash is the hash of exactly what she
- * saw and the audit row carries them.
+ * saw and the audit row carries them. Nothing is spent and nothing starts here.
  */
 export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
   return aResultado("aprobarGuion", async () => {
@@ -222,14 +222,53 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
     const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
     const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
-    const guardada = await guardarEvento(
+    await guardarEvento(
       deps.db,
       fila,
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
-      // A voice made before this approval (the old flow) was made for a draft, not for what she signed.
-      { avatar_id: avatar, puerta1_formula: 3, audio_id: null },
+      { avatar_id: avatar, puerta1_formula: 3 },
     )
+    // Approving spends nothing: Coni records the voice and the video from the same screen afterwards.
+    return {}
+  })
+}
+
+const TEXTO_SIN_ARRANQUE_DE_VOZ = "No pude empezar a grabar la voz. Inténtalo de nuevo en unos minutos."
+
+/** Her voice on the approved script. Nothing else would start this run, so a failure to start hands the piece back. */
+export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
+  return aResultado("pedirVoz", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_voz" })
+    try {
+      await deps.disparar.voz(guardada.id, claveVoz(guardada), nueva)
+    } catch (error) {
+      console.error("No pude iniciar grabar-voz", error)
+      await guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_ARRANQUE_DE_VOZ })
+      throw new Falla(TEXTO_SIN_ARRANQUE_DE_VOZ)
+    }
+    return {}
+  })
+}
+
+/** The video of the approved script. A run that does not start is picked up by `reanudarArranques`. */
+export function pedirVideo(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("pedirVideo", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    const guardada = await guardarEvento(deps.db, fila, { tipo: "grabar_video" })
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+  })
+}
+
+/** Takes gate 1 back so she can change the script, the caption or the avatar. */
+export function reabrirGuion(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("reabrirGuion", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    await guardarEvento(deps.db, fila, { tipo: "reabrir_guion" })
+    return {}
   })
 }
 
