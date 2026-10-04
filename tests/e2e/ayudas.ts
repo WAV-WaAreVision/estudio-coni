@@ -37,7 +37,12 @@ export async function leerCodigo(correo: string): Promise<string> {
   throw new Error(`No llegó ningún código a ${correo} al buzón local.`)
 }
 
-const Disparo = z.object({ tarea: z.enum(["producir", "grabar"]), piezaId: z.string(), clave: z.string() })
+const Disparo = z.object({
+  tarea: z.enum(["producir", "grabar", "voz"]),
+  piezaId: z.string(),
+  clave: z.string(),
+  nueva: z.boolean().optional(),
+})
 
 export function limpiarDisparos(): void {
   mkdirSync(dirname(ARCHIVO_DE_DISPAROS), { recursive: true })

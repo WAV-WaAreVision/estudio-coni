@@ -7,6 +7,8 @@ import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 export interface Disparos {
   producir(piezaId: string, clave: string): Promise<void>
   grabar(piezaId: string, clave: string): Promise<void>
+  /** `nueva`: Coni asked to record again, so an earlier take of the same text is not reused. */
+  voz(piezaId: string, clave: string, nueva: boolean): Promise<void>
 }
 
 interface FilaParaClave {
@@ -32,4 +34,12 @@ export function claveGrabar(fila: FilaParaClave): string {
     throw new Error(`La pieza ${fila.id} se manda a grabar sin guion aprobado.`)
   }
   return claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash: fila.puerta1_hash, intento: fila.intento })
+}
+
+/** One voice request: the approval and the attempt, which every "Grabar voz" bumps. */
+export function claveVoz(fila: FilaParaClave): string {
+  if (fila.puerta1_hash === null) {
+    throw new Error(`La pieza ${fila.id} pide su voz sin guion aprobado.`)
+  }
+  return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: fila.puerta1_hash, intento: fila.intento })
 }

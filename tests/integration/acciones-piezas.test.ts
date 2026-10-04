@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { claveGrabar, claveVoz } from "@/lib/acciones/disparos"
 import {
   aprobarGuion,
   aprobarVideo,
@@ -13,6 +14,9 @@ import {
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
+  pedirVideo,
+  pedirVoz,
+  reabrirGuion,
   regrabar,
   reintentar,
   reintentarGuion,
@@ -61,12 +65,13 @@ const piezasCreadas: string[] = []
 const ideasCreadas: string[] = []
 
 interface Disparo {
-  tarea: "producir" | "grabar"
+  tarea: "producir" | "grabar" | "voz"
   piezaId: string
   clave: string
+  nueva?: boolean
 }
 
-function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error } = {}) {
+function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: Error } = {}) {
   const disparos: Disparo[] = []
   const deps: DepsAcciones = {
     db,
@@ -78,6 +83,10 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error } = {})
       async grabar(piezaId, clave) {
         if (fallos.grabar) throw fallos.grabar
         disparos.push({ tarea: "grabar", piezaId, clave })
+      },
+      async voz(piezaId, clave, nueva) {
+        if (fallos.voz) throw fallos.voz
+        disparos.push({ tarea: "voz", piezaId, clave, nueva })
       },
     },
     ahora: () => new Date().toISOString(),
@@ -940,5 +949,58 @@ describe("subir a mano", () => {
       expect(resultado.ok).toBe(false)
       expect(firmar.mock.calls.length).toBe(llamadas)
     })
+  })
+})
+
+describe("pedirVoz, pedirVideo y reabrirGuion", () => {
+  it("moves the approved piece to grabando_voz and starts grabar-voz once with the attempt's key", async () => {
+    const id = await pieza("guion_aprobado")
+    const { deps, disparos } = armar()
+
+    expect(await pedirVoz(deps, id, await versionDe(id), false)).toEqual({ ok: true })
+
+    const guardada = await fila(id)
+    expect(guardada.estado).toBe("grabando_voz")
+    expect(disparos).toEqual([{ tarea: "voz", piezaId: id, clave: claveVoz(guardada), nueva: false }])
+  })
+
+  it("hands the piece back with a reason when grabar-voz cannot start", async () => {
+    const id = await pieza("guion_aprobado")
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const { deps } = armar(coni, { voz: new Error("Trigger.dev no responde") })
+    const texto = "No pude empezar a grabar la voz. Inténtalo de nuevo en unos minutos."
+
+    expect(await pedirVoz(deps, id, await versionDe(id), true)).toEqual({ ok: false, error: texto })
+    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", explicacion: texto })
+  })
+
+  it("sends the approved piece to render and starts grabar-pieza with the approval's key", async () => {
+    const id = await pieza("guion_aprobado")
+    const { deps, disparos } = armar()
+
+    expect(await pedirVideo(deps, id, await versionDe(id))).toEqual({ ok: true })
+
+    const guardada = await fila(id)
+    expect(guardada.estado).toBe("en_render")
+    expect(disparos).toEqual([{ tarea: "grabar", piezaId: id, clave: claveGrabar(guardada) }])
+  })
+
+  it("reopens the script, dropping gate 1 and starting nothing", async () => {
+    const id = await pieza("guion_aprobado")
+    const { deps, disparos } = armar()
+
+    expect(await reabrirGuion(deps, id, await versionDe(id))).toEqual({ ok: true })
+
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses a stale screen and starts nothing", async () => {
+    const id = await pieza("guion_aprobado")
+    const { deps, disparos } = armar()
+
+    expect((await pedirVideo(deps, id, (await versionDe(id)) - 1)).ok).toBe(false)
+    expect((await pedirVoz(deps, id, (await versionDe(id)) - 1, false)).ok).toBe(false)
+    expect(disparos).toEqual([])
   })
 })

@@ -19,7 +19,7 @@ import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
-import { claveGrabar, claveProducir, type Disparos } from "./disparos"
+import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
@@ -229,6 +229,45 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
       { avatar_id: avatar, puerta1_formula: 3 },
     )
     // Approving spends nothing: Coni records the voice and the video from the same screen afterwards.
+    return {}
+  })
+}
+
+const TEXTO_SIN_ARRANQUE_DE_VOZ = "No pude empezar a grabar la voz. Inténtalo de nuevo en unos minutos."
+
+/** Her voice on the approved script. Nothing else would start this run, so a failure to start hands the piece back. */
+export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
+  return aResultado("pedirVoz", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_voz" })
+    try {
+      await deps.disparar.voz(guardada.id, claveVoz(guardada), nueva)
+    } catch (error) {
+      console.error("No pude iniciar grabar-voz", error)
+      await guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_ARRANQUE_DE_VOZ })
+      throw new Falla(TEXTO_SIN_ARRANQUE_DE_VOZ)
+    }
+    return {}
+  })
+}
+
+/** The video of the approved script. A run that does not start is picked up by `reanudarArranques`. */
+export function pedirVideo(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("pedirVideo", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    const guardada = await guardarEvento(deps.db, fila, { tipo: "grabar_video" })
+    return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+  })
+}
+
+/** Takes gate 1 back so she can change the script, the caption or the avatar. */
+export function reabrirGuion(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("reabrirGuion", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    await guardarEvento(deps.db, fila, { tipo: "reabrir_guion" })
     return {}
   })
 }

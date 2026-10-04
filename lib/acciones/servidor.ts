@@ -64,6 +64,7 @@ export function comoConi<E extends z.ZodType, T extends object>(
         disparar: {
           producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
           grabar: (piezaId, clave) => disparosDeEntorno().grabar(piezaId, clave),
+          voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
         },
         ahora: () => new Date().toISOString(),
       },
