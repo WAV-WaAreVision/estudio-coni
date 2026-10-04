@@ -360,3 +360,71 @@ describe("revisarGuion con respaldo", () => {
     expect(leerRevision(guardada)).toHaveLength(2)
   })
 })
+
+describe("revisarGuion with tone marks", () => {
+  const marcas = (n: number) => Array.from({ length: n }, () => "[warm]").join(" ")
+
+  it("accepts known marks: they are not symbols, words or a broken closing", () => {
+    expect(revisar({ guion: `[warm] ${CUERPO}.\n\n[pause]\n[softly] ${CIERRE}` })).toEqual([])
+  })
+
+  it("still blocks a stray bracket that is not a mark", () => {
+    expect(revisar({ guion: `Una [idea simple. ${GUION}` }).map((h) => h.regla)).toEqual(["simbolos"])
+  })
+
+  it("warns once per unknown mark, naming it", () => {
+    expect(revisar({ guion: `[cálido] ${CUERPO}.\n\n[cálido] [warm] ${CIERRE}` })).toEqual([
+      {
+        regla: "etiqueta_desconocida",
+        tipo: "advierte",
+        mensaje: "Esta marca de tono no la conozco: [cálido]. Usa una de la lista o bórrala.",
+        frase: "[cálido]",
+      },
+    ])
+  })
+
+  it("warns about more than six marks and accepts six", () => {
+    expect(revisar({ guion: `${marcas(6)} ${GUION}` })).toEqual([])
+    expect(revisar({ guion: `${marcas(7)} ${GUION}` })).toEqual([
+      {
+        regla: "muchas_etiquetas",
+        tipo: "advierte",
+        mensaje: "El guion tiene 7 marcas de tono. Con 3 a 6 la voz suena natural; con más suena actuada.",
+      },
+    ])
+  })
+
+  it("blocks a known mark in the caption, which is published as written", () => {
+    const hallazgos = revisar({ texto: `[warm] ${TEXTO}` })
+    expect(hallazgos).toEqual([
+      {
+        regla: "etiqueta_en_texto",
+        tipo: "bloquea",
+        mensaje: "Las marcas de tono van solo en el guion. Bórrala del texto de la publicación.",
+        frase: "[warm]",
+      },
+    ])
+    expect(bloquea(hallazgos)).toBe(true)
+  })
+
+  it("blocks a known mark in the caption whatever its capitalisation", () => {
+    expect(revisar({ texto: `[Warm] ${TEXTO}` }).map((h) => h.frase)).toEqual(["[Warm]"])
+  })
+
+  it("leaves other bracketed text in the caption as it is today: no finding", () => {
+    expect(revisar({ texto: `[cálido] ${TEXTO} [más info]` })).toEqual([])
+  })
+
+  it("finds a copied phrase even with a mark in the middle of it", () => {
+    const copiado = "El deseo no se apaga, se [softly] esconde debajo de la rutina"
+    const hallazgos = revisar({ guion: `${copiado}. ${GUION}`, ajeno: { ...SIN_AJENO, citas: [CITA] } })
+    expect(hallazgos.filter((h) => h.regla === "copia_de_fuente").map((h) => h.frase)).toEqual([
+      "El deseo no se apaga, se esconde debajo de la rutina",
+    ])
+  })
+
+  it("stores and reads back the new findings", () => {
+    const hallazgos = revisar({ guion: `[cálido] ${GUION}`, texto: `[warm] ${TEXTO}` })
+    expect(leerRevision(JSON.parse(JSON.stringify(hallazgos)))).toEqual(hallazgos)
+  })
+})
