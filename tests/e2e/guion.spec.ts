@@ -195,6 +195,17 @@ test("approve, take it back, edit, save and approve again, all on the same scree
   expect(fila.avatar_id).toBe("look-b")
 })
 
+test("an approved script is read-only: changing it goes through taking the approval back", async ({ page }) => {
+  const id = await sembrarPieza("guion_aprobado")
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  await expect(page.getByRole("textbox")).toHaveCount(0)
+  await expect(page.getByText((await leerFila(id)).guion)).toBeVisible()
+  await expect(page.getByText("Para cambiar el guion o el texto, vuelve a revisar el guion.")).toBeVisible()
+})
+
 test("an empty HeyGen API wallet disables the video and says where to top up", async ({ page }) => {
   await configurarServicios({ heygenSaldo: 0 })
   const id = await sembrarPieza("guion_aprobado")

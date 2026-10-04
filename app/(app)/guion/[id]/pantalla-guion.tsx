@@ -129,12 +129,17 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
       ) : null}
 
       <Seccion titulo="El guion" id="guion">
-        {grabandoVoz ? (
+        {datos.grabacion ? (
           <>
             <p className="whitespace-pre-wrap text-[1.0625rem]">{datos.guion}</p>
-            <Nota tipo="ocupada" titulo="Estoy grabando tu voz">
-              <p>Tarda unos segundos.</p>
-            </Nota>
+            <p className="whitespace-pre-wrap text-apagado">{datos.texto}</p>
+            {grabandoVoz ? (
+              <Nota tipo="ocupada" titulo="Estoy grabando tu voz">
+                <p>Tarda unos segundos.</p>
+              </Nota>
+            ) : null}
+            {/* What the bar records is what she approved: changing it means taking the approval back first. */}
+            <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
           </>
         ) : (
           <EditorDeGuion
@@ -147,9 +152,6 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
             alCambiarSinGuardar={setSinGuardar}
           />
         )}
-        {datos.grabacion ? (
-          <p className="text-meta text-apagado">Si cambias el guion o el texto, vuelves a aprobarlo.</p>
-        ) : null}
       </Seccion>
 
       <Seccion titulo="Avatar" id="avatar">
