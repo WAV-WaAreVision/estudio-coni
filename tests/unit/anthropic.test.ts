@@ -2,6 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
+import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
@@ -313,6 +314,20 @@ describe("escribirGuion", () => {
     expect(esReintentable(error)).toBe(true)
     expect(error).toBeInstanceOf(Anthropic.APIConnectionError)
   })
+  it("asks for three to six tone marks from the closed list, none in the caption, no laughs and no capitals", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir()
+
+    const usuario = JSON.stringify((pedidos[0] as PedidoCapturado).cuerpo.messages[0]?.content)
+    for (const etiqueta of ETIQUETAS_DE_TONO) expect(usuario).toContain(`[${etiqueta}]`)
+    expect(usuario).toContain("entre 3 y 6 marcas")
+    expect(usuario).toContain("Las marcas de tono no cuentan como palabras")
+    expect(usuario).toContain("Sin marcas de tono: van solo en el guion.")
+    expect(usuario).toContain("puntos suspensivos")
+    expect(usuario).not.toMatch(/may[úu]scula/i)
+    expect(usuario).not.toMatch(/laugh/i)
+    expect(usuario).not.toContain("{ } [ ]")
+  })
 })
 
 describe("revisarConClaude", () => {
@@ -397,6 +412,14 @@ describe("revisarConClaude", () => {
       HttpResponse.json({ type: "error", error: { type: "api_error", message: "falló" } }, { status: 500 }),
     )
     expect(esReintentable(await rechazo(revisar()))).toBe(true)
+  })
+  it("reviews the spoken words only: tone marks do not reach Claude's review", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto({ hallazgos: [] })))
+    await revisar({ guion: `[warm] Una idea simple.\n\n${CIERRE}` })
+
+    const usuario = JSON.stringify((pedidos[0] as PedidoCapturado).cuerpo.messages[0]?.content)
+    expect(usuario).toContain("Una idea simple.")
+    expect(usuario).not.toContain("[warm]")
   })
 })
 
