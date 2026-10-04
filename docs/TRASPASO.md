@@ -15,8 +15,8 @@ Nota para retomar Conidolly en una sesión nueva. Leer entera antes de tocar nad
 |---|---|
 | App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). El push **no** despliega solo: `vercel deploy --prod --yes` desde el repo. |
 | Ingesta | **https://conidolly-ingesta.vercel.app** (proyecto Vercel `conidolly-ingesta`, mismo equipo; deploy igual, a mano). |
-| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261003000420`**. `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
-| Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261003.8`**. Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |
+| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261003000420`** (las dos de la aprobación en tres pasos, `20261004000100` y `20261004000110`, se aplican cuando Federico las suba). `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
+| Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261003.8`** (la tarea `grabar-voz` aparece con el próximo deploy). Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |
 | Videos y archivos | Cloudflare R2, bucket privado `estudio-coni`, con CORS para la ingesta. |
 | Correo | Resend, remitente `Conidolly <avisos@wearevision.cl>`. |
 | Usuarios | `federico@wearevision.cl` = cuenta de **Coni** (para probar). `hola@wearevision.cl` = mantenedor. Al lanzar: la cuenta de Coni vuelve a `constanzadelrosario@gmail.com` y `CORREO_CONI` a ese correo. |
@@ -33,6 +33,7 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - Banco viejo de 126 ideas borrado; respaldo en `respaldos/ideas-banco-2026-10-03.json` (excluido de git).
 - Arreglos del 2026-10-03: descartar una pieza en error ya funciona; el mensaje de HeyGen sin créditos dice que hay que recargar.
 - **Llave de Trigger de Conidolly corregida** (2026-10-03): desde el 1 de octubre apuntaba al proyecto "WAV Ingest v2", así que todo partía 15 a 25 min tarde por la red del mantenimiento. Los 10 runs huérfanos de allá se cancelaron.
+- **Aprobar, grabar la voz y grabar el video en tres pasos** (spec `docs/superpowers/specs/2026-10-04-conidolly-aprobar-voz-video-design.md`, plan `docs/superpowers/plans/2026-10-04-aprobar-voz-video.md`, rama `feat/aprobar-voz-video`, sin desplegar): aprobar la puerta 1 ya no gasta nada y deja la pieza en `guion_aprobado`; "Grabar voz" la pasa a `grabando_voz` y corre la tarea `grabar-voz` (ElevenLabs, máquina `small-1x`, cola propia); "Grabar video" arma el render con esa voz. La voz se guarda por texto (`voces/<pieza>/t-<huella>-<toma>.mp3`), así que el mismo guion con la misma voz no se paga dos veces, y el render solo acepta una voz que sea toma del guion aprobado (o la clave antigua de esa misma aprobación). Las pantallas se refrescan solas mientras la pieza trabaja (Guion 4 s, Inicio 8 s). Los saldos de ElevenLabs (caracteres) y de la billetera de API de HeyGen se ven junto a los botones y en Ajustes; si no se pueden leer, no bloquean nada. Mantenimiento: devuelve las voces trabadas (15 min) y solo confirma una reserva de voz cuando existe la voz. Detalle de despliegue en la sección "Production checklist" del plan.
 - Verde: estudio-coni 1625 unit, 902 integración; conidolly-ingesta 353 unit, 131 integración, 28 E2E.
 
 ## Siguiente
