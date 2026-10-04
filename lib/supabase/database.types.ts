@@ -1807,6 +1807,8 @@ export type Database = {
         | "idea"
         | "guion_en_proceso"
         | "guion_por_aprobar"
+        | "guion_aprobado"
+        | "grabando_voz"
         | "en_render"
         | "subtitulando"
         | "video_por_aprobar"
@@ -1952,6 +1954,8 @@ export const Constants = {
         "idea",
         "guion_en_proceso",
         "guion_por_aprobar",
+        "guion_aprobado",
+        "grabando_voz",
         "en_render",
         "subtitulando",
         "video_por_aprobar",
