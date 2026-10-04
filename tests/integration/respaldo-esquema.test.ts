@@ -51,6 +51,17 @@ describe("respaldo_de_idea", () => {
     expect(respaldo?.afirmaciones).toHaveLength(MAXIMO_AFIRMACIONES_DE_RESPALDO)
   })
 
+  it("cuts a very long quote to 500 characters", async () => {
+    const larga = "palabra ".repeat(200)
+    const idea = await sembrarIdeaDelMotor({
+      gancho: "g",
+      semana: "2026-09-27",
+      teoria: { ...TEORIA, respaldo: [{ autor: "Siembra Ana Pérez", cita: larga }] },
+    })
+    const respaldo = await cargarRespaldoDeIdea(clienteDeServicio(), idea)
+    expect(respaldo?.afirmaciones[0]?.cita).toHaveLength(500)
+  })
+
   it("is null for an idea that is not from the engine, and for an engine idea without theory", async () => {
     const propia = await sembrarIdea()
     expect(await cargarRespaldoDeIdea(clienteDeServicio(), propia)).toBeNull()
@@ -73,6 +84,10 @@ describe("leerRespaldo", () => {
     expect(leerRespaldo(null)).toBeNull()
     const respaldo = { teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" }, afirmaciones: [] }
     expect(leerRespaldo(respaldoAJson(respaldo))).toEqual(respaldo)
+  })
+
+  it("reads undefined as no backing", () => {
+    expect(leerRespaldo(undefined)).toBeNull()
   })
 
   it("throws a plain error on a malformed column: a bug to fix, not something to show Coni", () => {

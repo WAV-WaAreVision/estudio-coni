@@ -1,6 +1,6 @@
 -- C3: the backing of an engine idea, in the shape the piece stores (`piezas.respaldo`). Only the producer, which runs
 -- as the service role, reads it. Excluded claims never inspire a script; studies and clinical practice go first when
--- there are more than p_limite.
+-- there are more than p_limite. A quote is cut at 500 characters to bound the prompt.
 create function public.respaldo_de_idea(p_idea uuid, p_limite int)
 returns jsonb
 language sql stable set search_path = '' as $$
@@ -15,7 +15,7 @@ language sql stable set search_path = '' as $$
         ) order by e.id
       )
       from (
-        select f.id, f.texto, f.cita, ta.aporte, a.nombre as autor, a.tipo = 'coni' as de_coni
+        select f.id, f.texto, left(f.cita, 500) as cita, ta.aporte, a.nombre as autor, a.tipo = 'coni' as de_coni
         from public.teoria_afirmaciones ta
         join public.afirmaciones f on f.id = ta.afirmacion_id and not f.excluida
         join public.autores a on a.id = f.autor_id

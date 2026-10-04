@@ -17,9 +17,9 @@ const esquema = z.object({
   ),
 })
 
-/** `piezas.respaldo` (or the answer of `respaldo_de_idea`). Only tasks write it, so a shape that does not parse is a bug. */
-export function leerRespaldo(valor: Json | null): Respaldo | null {
-  if (valor === null) return null
+/** `piezas.respaldo` (or the answer of `respaldo_de_idea`). Only the tasks write it (`proteger_pieza` refuses Coni's session), so a shape that does not parse is a bug. */
+export function leerRespaldo(valor: Json | null | undefined): Respaldo | null {
+  if (valor == null) return null
   const resultado = esquema.safeParse(valor)
   if (!resultado.success) {
     throw new Error(`El respaldo guardado de la pieza no tiene el formato esperado: ${resultado.error.message}`)
