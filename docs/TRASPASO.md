@@ -37,11 +37,13 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **C3, fuentes en el guion** (plan `docs/superpowers/plans/2026-10-03-c3-fuentes-en-el-guion.md`, en producción): el guion de una idea del motor recibe su teoría y afirmaciones como inspiración, sin nombres de autores; avisos `copia_de_fuente` (8+ palabras de una cita ajena) y `nombra_autor` (nombre completo o apellido de persona); el respaldo se congela en `piezas.respaldo` y entra al hash de la puerta 1 (fórmula 3).
 - **Extracción tolerante** (2026-10-04): el SDK de Anthropic saca los `enum` del JSON schema (quedan solo en la descripción), así que la API no los fuerza. Los enums de afirmaciones, ideas y teorías se normalizan; evidencia desconocida cuenta como "opinion". "Mentora de éxito" (Carmen) quedó lista con 581 afirmaciones.
 - **Voz con Eleven v4** (2026-10-04, en `ajustes.produccion.elevenlabs`): `model_id` `eleven_v4` y solo `stability` 0.5 (Natural). Antes: `eleven_multilingual_v2` con estabilidad 0.5, similitud 0.75, estilo 0, refuerzo y velocidad 1. A Federico le gustó: suena con inflexiones. La estimación de costo de voz aún usa la tarifa por carácter de v2.
+- **Marcas de tono** (plan `2026-10-04-etiquetas-de-emocion`, en rama `feat/etiquetas-de-emocion`, sin desplegar): el guion trae 3 a 6 marcas `[warm]`... de una lista cerrada (`lib/dominio/etiquetas.ts`). Llegan a ElevenLabs solo con `eleven_v3*`/`eleven_v4*`; nunca a subtítulos, texto de la publicación, conteos ni revisión de Claude. Sin mayúsculas de énfasis: solo puntos suspensivos y `[pause]`. En el texto de la publicación solo bloquea una marca de la lista; otro texto entre corchetes sigue como antes. Puerta 1 incluye las marcas; la huella de voz hashea el texto enviado.
 - Verde: estudio-coni 1739 unit, 976 integración, 78 E2E; conidolly-ingesta 353 unit, 131 integración, 28 E2E.
 
 ## Siguiente
 
-- **Etiquetas de emoción para v4** (propuesta aprobada en principio, sin plan): Claude marca 2 o 3 etiquetas (`[warm]`, `[softly]`, `[pause]`…) por guion; se sacan de subtítulos y del texto de la publicación; diccionario de pronunciación para palabras que ElevenLabs diga mal.
+- Correr el eval del guion (`RUN_EVALS=1`) para ver que el escritor pone las marcas.
+- Diccionario de pronunciación para palabras que ElevenLabs diga mal (lo que quedó de la propuesta de etiquetas).
 - Calibrar el costo real de HeyGen por segundo (hoy se supone US$ 4/min) antes de grabar el primer video; la billetera de API tiene US$ 5,00. Federico no va a cargar más saldo por ahora.
 - Pendientes de Federico: abrir el "Por qué" de una idea del motor y descartar otra con motivo; subir material de **sexualidad** (el motor hoy solo cruza pareja y bienestar) y de los 10 temas con un solo autor que lista la pantalla Semana.
 - Aplicar la migración 350 (`borrar_vinculos`) más adelante, moviéndola de `supabase/pendientes/` a `supabase/migrations/`.
