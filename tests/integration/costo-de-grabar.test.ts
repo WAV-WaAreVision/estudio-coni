@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { leerCostoDeGrabar, leerPresupuesto } from "@/lib/datos/pantallas"
+import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { dolares } from "@/lib/formato"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
@@ -52,5 +53,16 @@ describe("leerCostoDeGrabar", () => {
     const costo = await leerCostoDeGrabar(coni, GUION, AHORA, ZONA, "audio-ya-pagado")
     expect(costo.estimadoUsd).toBeCloseTo(video, 6)
     expect(costo.superaElTope).toBe(false)
+  })
+
+  it("prices the voice on the text ElevenLabs receives, without the tone marks of a model that would read them", async () => {
+    const guion = `[warm] ${GUION} [pause] ${GUION}`
+    const enviado = textoParaVoz(guion, coniConfig.elevenlabs.model_id)
+    expect(enviado.length).toBeLessThan(guion.length)
+    const costo = await leerCostoDeGrabar(coni, guion, AHORA, ZONA, null)
+    expect(costo.estimadoUsd).toBeCloseTo(
+      estimarCostoVideo(guion, coniConfig.heygen.motor) + estimarCostoVoz(enviado),
+      6,
+    )
   })
 })

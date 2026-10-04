@@ -3,6 +3,7 @@ import { urlParaVer } from "@/lib/acciones/medios"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { type FilaDePieza, leerProduccion } from "@/lib/datos/repositorio"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
+import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import {
   type Alcance,
@@ -54,20 +55,24 @@ export function presentarGrabacion(entrada: {
   conVoz: boolean
   saldos: Saldos
   zona: string
+  /** The ElevenLabs model: it decides which tone marks reach the voice, and so the characters it bills. */
+  modeloDeVoz: string
   /** What is left of the month's cap. */
   quedanUsd: number
 }): BotonesDeGrabacion {
   const { guion, motor, conVoz, saldos } = entrada
-  const usdVoz = estimarCostoVoz(guion)
+  // Cost and balance are about the text ElevenLabs receives, not the stored script.
+  const textoDeVoz = textoParaVoz(guion, entrada.modeloDeVoz)
+  const usdVoz = estimarCostoVoz(textoDeVoz)
   const usdVideo = estimarCostoVideo(guion, motor)
   const totalVideo = usdVideo + (conVoz ? 0 : usdVoz)
   const sinTope = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_SIN_TOPE : null)
-  const bloqueoVoz = sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, guion.length))
+  const bloqueoVoz = sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length))
   const bloqueoHeygen = bloqueo(
     alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
   )
   return {
-    costoVoz: lineaDeCostoVoz(guion.length, usdVoz, conVoz),
+    costoVoz: lineaDeCostoVoz(textoDeVoz.length, usdVoz, conVoz),
     costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
     confirmacionVideo: `¿Grabar el video? Cuesta unos ${dolares(totalVideo)}.`,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
@@ -126,6 +131,7 @@ export async function leerDatosDeGrabacion(
       conVoz: clave !== null,
       saldos,
       zona,
+      modeloDeVoz: config.elevenlabs.model_id,
       quedanUsd: presupuesto.tope - presupuesto.usado,
     }),
   }

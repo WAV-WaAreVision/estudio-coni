@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { type FilaDePieza, type IdeaLeida, leerIdea, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
+import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, type Horario } from "@/lib/dominio/fechas"
 import { dolares } from "@/lib/formato"
@@ -113,7 +114,9 @@ export async function leerCostoDeGrabar(
   let estimadoUsd: number
   try {
     const config = leerConfigProduccion(await leerProduccion(db))
-    estimadoUsd = estimarCostoVideo(guion, config.heygen.motor) + (audioId === null ? estimarCostoVoz(guion) : 0)
+    estimadoUsd =
+      estimarCostoVideo(guion, config.heygen.motor) +
+      (audioId === null ? estimarCostoVoz(textoParaVoz(guion, config.elevenlabs.model_id)) : 0)
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude estimar el costo de grabar", error)
