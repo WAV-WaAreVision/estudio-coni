@@ -181,7 +181,9 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
       )}
 
       {datos.grabacion ? (
-        <BarraDeGrabacion piezaId={datos.id} version={version} datos={datos.grabacion} />
+        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
+        // its saved version only follows her own edits, so it would be stale after the voice is ready.
+        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion} />
       ) : (
         <div className="sticky bottom-0 -mx-4.5 -mb-6 grid gap-2 border-t border-linea bg-superficie px-4.5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-flotante">
           {aprobacion.error || cambios.error ? (
