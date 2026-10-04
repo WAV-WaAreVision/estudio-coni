@@ -1229,12 +1229,15 @@ No migration and no database change. Both the worker (writer prompt, voice) and 
 change.
 
 1. `git push origin main`.
-2. **Trigger** (from the repo, after `pnpm install`):
+2. **Vercel first** (the push does not deploy): `vercel deploy --prod --yes`. The new app is backward compatible: it
+   reads reviews from the old worker. Confirm it is served: the Guion editor shows "Lo que va entre corchetes marca el
+   tono de la voz..." (hard-refresh before judging).
+3. **Then Trigger** (from the repo, after `pnpm install`):
    `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check`.
-3. **Immediately after**, Vercel (the push does not deploy): `vercel deploy --prod --yes`. Confirm it is served: the
-   Guion editor shows "Lo que va entre corchetes marca el tono de la voz..." (hard-refresh before judging).
-4. Window between steps 2 and 3: a script written by the new worker has marks, and the old app's review blocks `[` as
-   a symbol when Coni saves an edit. Keep the window to seconds, and do not edit scripts in between.
+   The order matters: the old app's `leerRevision` (a `z.enum` of rule names) cannot parse the new rules
+   `etiqueta_desconocida`, `muchas_etiquetas` and `etiqueta_en_texto` that the new worker writes into
+   `piezas.revision`.
+4. Window between steps 2 and 3: the new app runs with the old worker, which writes no marks. That is harmless.
 5. **Smoke test** on conidolly.vercel.app with Coni's test account:
    - write one script (an idea, "Escribir guion"): the editor shows 3 to 6 marks, all from the list; the caption
      has none; the counter matches the words without marks; Revisión shows no `simbolos` finding;
@@ -1245,9 +1248,12 @@ change.
      Federico decides), the burned subtitles;
    - read-only SQL: `select guion, texto from piezas where id = '<id>'`: marks only in `guion`.
 6. Optional, with Federico (spends money): `RUN_EVALS=1 pnpm test:eval` with his key in the shell.
-7. Rollback: previous Vercel deployment (`vercel rollback`) and previous Trigger version, together. Scripts with marks
-   stay in the database: the old app blocks saving them until the marks are removed, and the old worker sends them
-   raw to v4 (spoken as directions; an unknown mark would be sent too).
+7. Rollback: roll back Trigger only (the previous Trigger version); the new app keeps working. To roll back Vercel too,
+   first clean the new findings from `piezas.revision` with SQL (remove the entries whose `regla` is
+   `etiqueta_desconocida`, `muchas_etiquetas` or `etiqueta_en_texto`, and bump `version = version + 1` on each row),
+   or the old app cannot read those reviews. Scripts with marks stay in the database: the old app blocks saving them
+   until the marks are removed, and the old worker sends them raw to v4 (spoken as directions; an unknown mark would be
+   sent too).
 
 ## Self-review against the spec
 

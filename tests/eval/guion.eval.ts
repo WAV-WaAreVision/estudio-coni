@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs"
 import Anthropic from "@anthropic-ai/sdk"
 import { afterAll, describe, expect, it } from "vitest"
+import { etiquetasDe, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS } from "@/lib/dominio/etiquetas"
 import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import { type Alerta, bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import {
@@ -69,12 +70,17 @@ describe.skipIf(!CORRE)("evals del guion con la API real", () => {
   const cliente = new Anthropic()
 
   it.each(IDEAS.map((idea) => [idea.numero, idea] as const))(
-    "idea %i: el guion no tiene hallazgos que bloqueen despues de una ronda de correccion como maximo",
+    "idea %i: el guion no tiene hallazgos que bloqueen despues de una ronda de correccion como maximo, y trae de 3 a 6 marcas de tono de la lista",
     async (_numero, idea) => {
       const { escrito, hallazgos, correcciones } = await escribirConUnaCorreccion(cliente, idea)
       guionesGenerados.set(idea.numero, { guion: escrito.guion, texto: escrito.texto })
       expect(correcciones).toBeLessThanOrEqual(1)
       expect(hallazgos.filter((h) => h.tipo === "bloquea")).toEqual([])
+      const marcas = etiquetasDe(escrito.guion)
+      expect(marcas.length).toBeGreaterThanOrEqual(MINIMO_DE_ETIQUETAS)
+      expect(marcas.length).toBeLessThanOrEqual(MAXIMO_DE_ETIQUETAS)
+      expect(marcas.filter((marca) => !marca.conocida)).toEqual([])
+      expect(etiquetasDe(escrito.texto)).toEqual([])
     },
   )
 

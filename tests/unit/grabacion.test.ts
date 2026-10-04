@@ -1,6 +1,7 @@
 // tests/unit/grabacion.test.ts
 import { describe, expect, it } from "vitest"
 import { presentarGrabacion } from "@/lib/datos/grabacion"
+import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import type { Saldos } from "@/lib/dominio/saldos"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
@@ -19,6 +20,7 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: BIEN,
       zona: "America/Santiago",
+      modeloDeVoz: "eleven_multilingual_v2",
       quedanUsd: 37,
     })
     const voz = estimarCostoVoz(GUION)
@@ -34,6 +36,7 @@ describe("presentarGrabacion", () => {
       conVoz: true,
       saldos: BIEN,
       zona: "America/Santiago",
+      modeloDeVoz: "eleven_multilingual_v2",
       quedanUsd: 37,
     })
     expect(con.costoVideo).not.toMatch(/incluye la voz/)
@@ -54,6 +57,7 @@ describe("presentarGrabacion", () => {
         conVoz: true,
         saldos: sinBilletera,
         zona: "America/Santiago",
+        modeloDeVoz: "eleven_multilingual_v2",
         quedanUsd: 37,
       }).bloqueoVideo,
     ).toMatch(/^Tu saldo de API de HeyGen no alcanza/)
@@ -67,6 +71,7 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: sinCaracteres,
       zona: "America/Santiago",
+      modeloDeVoz: "eleven_multilingual_v2",
       quedanUsd: 37,
     })
     expect(sin.bloqueoVoz).toMatch(/^No te alcanzan los caracteres/)
@@ -77,6 +82,7 @@ describe("presentarGrabacion", () => {
       conVoz: true,
       saldos: sinCaracteres,
       zona: "America/Santiago",
+      modeloDeVoz: "eleven_multilingual_v2",
       quedanUsd: 37,
     })
     expect(con.bloqueoVideo).toBeNull()
@@ -90,6 +96,7 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: fallidos,
       zona: "America/Santiago",
+      modeloDeVoz: "eleven_multilingual_v2",
       quedanUsd: 37,
     })
     expect(r.bloqueoVoz).toBeNull()
@@ -107,6 +114,7 @@ describe("presentarGrabacion y el tope del mes", () => {
     conVoz,
     saldos: BIEN,
     zona: "America/Santiago",
+    modeloDeVoz: "eleven_multilingual_v2",
     quedanUsd,
   })
 
@@ -133,5 +141,38 @@ describe("presentarGrabacion y el tope del mes", () => {
     const r = presentarGrabacion(entrada(false, 37))
     expect(r.bloqueoVoz).toBeNull()
     expect(r.bloqueoVideo).toBeNull()
+  })
+})
+
+describe("presentarGrabacion con marcas de tono", () => {
+  const CON_MARCAS = "[warm] Hola, soy Coni. [softly] Hoy hablamos de límites."
+  const entrada = (modeloDeVoz: string, saldos: Saldos = BIEN) => ({
+    guion: CON_MARCAS,
+    motor: "avatar_v",
+    conVoz: false,
+    saldos,
+    zona: "America/Santiago",
+    modeloDeVoz,
+    quedanUsd: 37,
+  })
+  const conQuedan = (quedan: number): Saldos => ({
+    ...BIEN,
+    elevenlabs: { ok: true, usados: 100_000 - quedan, limite: 100_000, renuevaEn: null, puedeExceder: false },
+  })
+
+  it("prices the characters ElevenLabs actually receives: the marks only on a model that speaks them", () => {
+    const v4 = textoParaVoz(CON_MARCAS, "eleven_v4")
+    const v2 = textoParaVoz(CON_MARCAS, "eleven_multilingual_v2")
+    expect(v4.length).toBeGreaterThan(v2.length)
+    expect(presentarGrabacion(entrada("eleven_v4")).costoVoz).toBe(
+      `Grabar voz: ~${v4.length} caracteres (US$ ${estimarCostoVoz(v4).toFixed(2).replace(".", ",")})`,
+    )
+    expect(presentarGrabacion(entrada("eleven_multilingual_v2")).costoVoz).toContain(`~${v2.length} caracteres`)
+  })
+
+  it("blocks on the characters actually sent, not on the stored script", () => {
+    const v2 = textoParaVoz(CON_MARCAS, "eleven_multilingual_v2")
+    expect(presentarGrabacion(entrada("eleven_multilingual_v2", conQuedan(v2.length))).bloqueoVoz).toBeNull()
+    expect(presentarGrabacion(entrada("eleven_multilingual_v2", conQuedan(v2.length - 1))).bloqueoVoz).not.toBeNull()
   })
 })

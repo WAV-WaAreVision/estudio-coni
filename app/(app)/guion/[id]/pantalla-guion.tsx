@@ -3,6 +3,7 @@
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
@@ -14,6 +15,7 @@ import { MarcaRevision } from "@/components/ui/marca-revision"
 import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import type { Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
@@ -132,6 +134,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         {datos.grabacion ? (
           <>
             <p className="whitespace-pre-wrap text-[1.0625rem]">{datos.guion}</p>
+            {etiquetasDe(datos.guion).length > 0 ? <AyudaDeMarcas /> : null}
             <p className="whitespace-pre-wrap text-apagado">{datos.texto}</p>
             {grabandoVoz ? (
               <Nota tipo="ocupada" titulo="Estoy grabando tu voz">

@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util"
 import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import { z } from "zod"
+import { ETIQUETAS_DE_TONO, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS, sinEtiquetas } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { PILARES } from "@/lib/dominio/pilares"
 import type { paraElGuion } from "@/lib/dominio/respaldo"
@@ -138,6 +139,8 @@ ${sinCierre(JSON.stringify(respaldo))}
 </respaldo>`
 }
 
+const MARCAS_DE_TONO = ETIQUETAS_DE_TONO.map((etiqueta) => `[${etiqueta}]`).join(", ")
+
 function pedidoDeGuion(
   idea: IdeaParaGuion,
   respaldo: RespaldoParaGuion | null,
@@ -155,13 +158,16 @@ Formato: ${idea.formato}`,
 ${listaDeAlertas(idea.alertas)}`,
     ...(respaldo === null ? [] : [seccionDeRespaldo(respaldo)]),
     `REGLAS DEL GUION
-- Entre 75 y 150 palabras.
+- Entre 75 y 150 palabras. Las marcas de tono no cuentan como palabras.
 - La última línea es exactamente: ${CIERRE}
 - Escribe todos los números con palabras.
-- Sin emojis, hashtags ni símbolos. Usa solo letras, la puntuación del español y saltos de línea; nada de # @ * _ ~ ^ = < > { } [ ] \\ | / % $ & +.
+- Marca el tono de la voz con entre ${MINIMO_DE_ETIQUETAS} y ${MAXIMO_DE_ETIQUETAS} marcas entre corchetes, cada una justo antes de la frase donde el tono cambia. Usa solo estas, escritas tal cual: ${MARCAS_DE_TONO}. No marques risas. La voz no lee las marcas y no salen en los subtítulos. La línea del cierre va sin marca.
+- Para una pausa corta usa puntos suspensivos; para una pausa larga, la marca [pause]. El énfasis va solo con la puntuación.
+- Sin emojis, hashtags ni símbolos. Usa solo letras, la puntuación del español, saltos de línea y los corchetes de las marcas; nada de # @ * _ ~ ^ = < > { } \\ | / % $ & +.
 - Sin diagnósticos, sin consejos para casos particulares, sin anécdotas de pacientes y sin cifras ni estudios que la idea no traiga ya verificados.`,
     `REGLAS DEL TEXTO DE PUBLICACIÓN
 - Es el texto que acompaña el video en Instagram. Aquí sí pueden ir emojis y hashtags.
+- Sin marcas de tono: van solo en el guion.
 - Termina exactamente con: ${AVISO_AVATAR}${
       requiereLineasAyuda ? `\n- Antes de ese aviso incluye, tal cual, esta línea: ${LINEAS_AYUDA}` : ""
     }`,
@@ -174,6 +180,7 @@ ${correcciones.map(describirHallazgo).join("\n")}`)
   return partes.join("\n\n")
 }
 
+// Claude judges what is said; the tone marks are not speech and would only be quoted back as findings.
 function pedidoDeRevision(entrada: { guion: string; texto: string; alertas: readonly Alerta[] }): string {
   return `Revisa el guion y el texto de publicación de un reel de Coni del Rosario. Marca solo lo que de verdad esté ahí; si no hay nada, devuelve la lista vacía.
 
@@ -190,11 +197,11 @@ ALERTAS DE LA IDEA
 ${listaDeAlertas(entrada.alertas)}
 
 <guion>
-${entrada.guion}
+${sinCierre(sinEtiquetas(entrada.guion))}
 </guion>
 
 <texto_de_publicacion>
-${entrada.texto}
+${sinCierre(entrada.texto)}
 </texto_de_publicacion>`
 }
 

@@ -100,6 +100,19 @@ describe("subtítulos", () => {
   it("avisa que el guion está vacío cuando el guion y el srt están vacíos", () => {
     expect(() => alinearConGuion([], "")).toThrow("El guion está vacío.")
   })
+
+  it("deja las marcas de tono fuera de los subtítulos", () => {
+    const conMarcas =
+      "[warm] ¿Te cuesta sentirte la\n\n[softly] Es súper común dudar de\n\n[pause]\nSoy Coni del Rosario."
+    const cues = alinearConGuion(leerSrt(SRT_HEYGEN), conMarcas)
+    expect(cues).toEqual(alinearConGuion(leerSrt(SRT_HEYGEN), GUION))
+    // The ASS header has its own [Script Info] sections: only the spoken lines must be free of brackets.
+    const dialogos = assDe(cues)
+      .split("\n")
+      .filter((linea) => linea.startsWith("Dialogue:"))
+    expect(dialogos.length).toBeGreaterThan(0)
+    expect(dialogos.join("\n")).not.toContain("[")
+  })
 })
 
 // Expected values below come from running coni.alinear_con_guion / leer_srt / _marca_ass.

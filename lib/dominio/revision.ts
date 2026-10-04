@@ -1,4 +1,5 @@
 import { palabras } from "@/lib/dominio/estimaciones"
+import { etiquetasDe, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS, sinEtiquetas } from "@/lib/dominio/etiquetas"
 
 export const REGLAS_DETERMINISTAS = [
   "cierre",
@@ -9,6 +10,9 @@ export const REGLAS_DETERMINISTAS = [
   "numeros",
   "copia_de_fuente",
   "nombra_autor",
+  "etiqueta_desconocida",
+  "muchas_etiquetas",
+  "etiqueta_en_texto",
 ] as const
 export type Regla = (typeof REGLAS_DETERMINISTAS)[number]
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
@@ -149,8 +153,9 @@ export const MINIMO_PALABRAS = 75
 export const MAXIMO_PALABRAS = 150
 /** A script of 150 words fits in well under this; it bounds what can be sent to the model and the voice. */
 export const MAXIMO_DEL_GUION = 2000
-// The voice reads the script aloud: anything that is not speech goes in the caption. `{`, `}` and `\` also
-// reach the ASS subtitles, where they would be read as override codes.
+// The voice reads the script aloud: anything that is not speech goes in the caption. Tone marks are removed before
+// this check (`sinEtiquetas`); any other bracket is still a symbol. `{`, `}` and `\` also reach the ASS subtitles,
+// where they would be read as override codes.
 const SIMBOLO = /[\p{Extended_Pictographic}#@*_~^=<>{}[\]\\|/%$&+]/u
 const NUMERO = /\d+/
 
@@ -166,9 +171,11 @@ export function revisarGuion(entrada: {
   ajeno: Ajeno
 }): Hallazgo[] {
   const { guion, texto, esAvatar, requiereLineasAyuda, ajeno } = entrada
+  // Every rule about what is said reads the spoken text: a tone mark is not a symbol, a word or part of a quote.
+  const hablado = sinEtiquetas(guion)
   const hallazgos: Hallazgo[] = []
 
-  if (!guion.trim().endsWith(CIERRE)) {
+  if (!hablado.trim().endsWith(CIERRE)) {
     hallazgos.push({
       regla: "cierre",
       tipo: "bloquea",
@@ -176,7 +183,7 @@ export function revisarGuion(entrada: {
     })
   }
 
-  const simbolo = SIMBOLO.exec(guion)
+  const simbolo = SIMBOLO.exec(hablado)
   if (simbolo) {
     hallazgos.push({
       regla: "simbolos",
@@ -202,7 +209,7 @@ export function revisarGuion(entrada: {
     })
   }
 
-  const cantidad = palabras(guion).length
+  const cantidad = palabras(hablado).length
   if (cantidad < MINIMO_PALABRAS || cantidad > MAXIMO_PALABRAS) {
     hallazgos.push({
       regla: "largo",
@@ -211,7 +218,7 @@ export function revisarGuion(entrada: {
     })
   }
 
-  const numero = NUMERO.exec(guion)
+  const numero = NUMERO.exec(hablado)
   if (numero) {
     hallazgos.push({
       regla: "numeros",
@@ -221,9 +228,40 @@ export function revisarGuion(entrada: {
     })
   }
 
+  const marcas = etiquetasDe(guion)
+  for (const frase of new Set(marcas.filter((marca) => !marca.conocida).map((marca) => marca.escrita))) {
+    hallazgos.push({
+      regla: "etiqueta_desconocida",
+      tipo: "advierte",
+      mensaje: `Esta marca de tono no la conozco: ${frase}. Usa una de la lista o bórrala.`,
+      frase,
+    })
+  }
+  if (marcas.length > MAXIMO_DE_ETIQUETAS) {
+    hallazgos.push({
+      regla: "muchas_etiquetas",
+      tipo: "advierte",
+      mensaje: `El guion tiene ${marcas.length} marcas de tono. Con ${MINIMO_DE_ETIQUETAS} a ${MAXIMO_DE_ETIQUETAS} la voz suena natural; con más suena actuada.`,
+    })
+  }
+  // The caption is published as written: a known mark there would reach Instagram. Any other bracket keeps meaning
+  // what it always did in a caption (nothing), so only the closed list blocks.
+  for (const frase of new Set(
+    etiquetasDe(texto)
+      .filter((marca) => marca.conocida)
+      .map((marca) => marca.escrita),
+  )) {
+    hallazgos.push({
+      regla: "etiqueta_en_texto",
+      tipo: "bloquea",
+      mensaje: "Las marcas de tono van solo en el guion. Bórrala del texto de la publicación.",
+      frase,
+    })
+  }
+
   // One finding per phrase even when the script and the caption share it: the screen keys and ticks findings by
   // rule, phrase and message, so two equal findings would be one checkbox for two warnings.
-  const campos = [guion, texto]
+  const campos = [hablado, texto]
   for (const frase of new Set(campos.flatMap((campo) => tramosCopiados(campo, ajeno.citas)))) {
     hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
   }

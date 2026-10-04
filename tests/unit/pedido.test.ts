@@ -201,4 +201,14 @@ describe("armarPedido", () => {
     expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
     expect(() => pedido(config(), { guion: "  \n" })).toThrow("vacío")
   })
+
+  it("no manda las marcas de tono a heygen en la ruta a", () => {
+    const { cuerpo, palabras } = pedido(config(), { guion: `[warm] ${GUION}` })
+    expect(cuerpo.script).toBe(GUION)
+    expect(palabras).toBe(pedido().palabras)
+  })
+
+  it("trata como vacío un guion que solo tiene marcas", () => {
+    expect(errorDe(() => pedido(config(), { guion: "[warm] [pause]" }))).toBeInstanceOf(Falla)
+  })
 })

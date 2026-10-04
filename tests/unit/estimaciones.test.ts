@@ -47,4 +47,13 @@ describe("estimaciones", () => {
     expect(valorDefinido("PENDIENTE")).toBeNull()
     expect(valorDefinido("look_123")).toBe("look_123")
   })
+
+  it("una marca sola en su línea deja una línea en blanco: cuenta como pausa de 0.6 s", () => {
+    expect(estimarSegundos("uno\n[pause]\ndos")).toBeCloseTo((2 / 150) * 60 + 0.6, 9)
+  })
+
+  it("no cuenta las marcas de tono como palabras ni como tiempo", () => {
+    expect(palabras("[warm] Hola [softly] tú.")).toEqual(["Hola", "tú."])
+    expect(estimarSegundos("[warm] uno dos\n\n[pause] tres")).toBeCloseTo((3 / 150) * 60 + 0.6, 9)
+  })
 })

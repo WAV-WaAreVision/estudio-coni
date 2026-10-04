@@ -1,10 +1,11 @@
 // tests/integration/grabar-voz.test.ts
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { leerPieza } from "@/lib/datos/repositorio"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
-import { huellaDelGuion } from "@/lib/produccion/voz"
+import { asegurarVoz, huellaDelGuion } from "@/lib/produccion/voz"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -148,5 +149,50 @@ describe("grabarVoz", () => {
     const id = await grabando()
     await expect(grabarVoz(deps(), { piezaId: id, nueva: false })).rejects.toThrow("503")
     expect((await leerFila(id)).estado).toBe("grabando_voz")
+  })
+})
+
+describe("asegurarVoz with tone marks", () => {
+  const CON_MARCAS = "[warm] Hola, soy Coni. [cálido] Hoy hablamos de límites."
+
+  async function pedirVoz(modelo: string) {
+    const textos: string[] = []
+    servidor.use(
+      http.post("https://api.elevenlabs.io/v1/text-to-speech/:voz", async ({ request }) => {
+        const cuerpo: unknown = await request.json()
+        if (typeof cuerpo === "object" && cuerpo !== null && "text" in cuerpo && typeof cuerpo.text === "string") {
+          textos.push(cuerpo.text)
+        }
+        return new HttpResponse(VOZ, { headers: { "Content-Type": "audio/mpeg" } })
+      }),
+    )
+    const id = await grabando()
+    const fila = await leerPieza(clienteDeServicio(), id)
+    if (fila === null) throw new Error(`No se sembró la pieza ${id}`)
+    const config = { ...leerConfigProduccion(coniConfig).elevenlabs, model_id: modelo }
+    const voz = await asegurarVoz(deps(), {
+      fila,
+      guion: CON_MARCAS,
+      config,
+      llave: async () => "sk_eleven_de_prueba",
+      nueva: true,
+    })
+    return { textos, voz, fila, config }
+  }
+
+  it("sends the known marks to a model that speaks them and drops the unknown ones", async () => {
+    const { textos, voz, fila, config } = await pedirVoz("eleven_v4")
+
+    expect(textos).toEqual(["[warm] Hola, soy Coni. Hoy hablamos de límites."])
+    expect(voz).toEqual({
+      tipo: "lista",
+      audioId: claveDeToma(fila.id, huellaDelGuion(CON_MARCAS, config), fila.intento),
+    })
+  })
+
+  it("sends no mark at all to a model that would read them aloud", async () => {
+    const { textos } = await pedirVoz("eleven_multilingual_v2")
+
+    expect(textos).toEqual(["Hola, soy Coni. Hoy hablamos de límites."])
   })
 })

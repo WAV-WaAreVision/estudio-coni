@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, useTransition } from "react"
 import { editarGuionAccion, volverAVersionDeClaudeAccion } from "@/app/(app)/piezas/acciones"
+import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
 import { Boton } from "@/components/ui/boton"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import type { ResultadoDeGuion } from "@/lib/acciones/guion"
@@ -135,6 +136,7 @@ export function EditorDeGuion({
           </span>
           <span className="font-semibold text-tinta">{ESTADOS[estadoDeLargo(palabras)]}</span>
         </p>
+        <AyudaDeMarcas />
       </div>
 
       <div className="grid gap-1.5">

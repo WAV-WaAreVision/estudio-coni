@@ -1,4 +1,5 @@
 import { estimarSegundos, palabras, valorDefinido } from "@/lib/dominio/estimaciones"
+import { sinEtiquetas } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 
 /** Above this the script is too long for a Reel; 30 to 60 s works best. */
@@ -58,7 +59,8 @@ function textoDelGuion(guion: string | null): string {
   if (guion === null) {
     throw new Falla("Falta el guion aprobado.")
   }
-  const texto = guion.trim()
+  // HeyGen's engine is not trusted with tone marks: Route A always speaks the plain text.
+  const texto = sinEtiquetas(guion).trim()
   if (!texto) {
     throw new Falla("El guion está vacío.")
   }

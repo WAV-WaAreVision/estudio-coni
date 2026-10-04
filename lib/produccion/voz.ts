@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { confirmarGasto, type FilaDePieza, leerSecreto, liberarGasto, reservarGasto } from "@/lib/datos/repositorio"
+import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia } from "@/lib/dominio/puertas"
 import { claveDeToma, huellaDeVoz, prefijoDeTomas, ultimaToma, type VozConfigurada } from "@/lib/dominio/voz"
@@ -18,9 +19,13 @@ export function vozDe(config: ConfigElevenlabs): VozConfigurada {
   }
 }
 
-/** The fingerprint of this script spoken with the configured voice. */
+/**
+ * The fingerprint of this script spoken with the configured voice. It hashes the text ElevenLabs actually receives
+ * (marks kept or stripped by model), so a take is reused only when the audio would be the same. A script without marks
+ * hashes exactly as before.
+ */
 export function huellaDelGuion(guion: string, config: ConfigElevenlabs): string {
-  return huellaDeVoz({ guion, voz: vozDe(config) })
+  return huellaDeVoz({ guion: textoParaVoz(guion, config.model_id), voz: vozDe(config) })
 }
 
 export function claveDeGastoDeVoz(piezaId: string, huella: string, intento: number): string {
@@ -72,7 +77,8 @@ export async function asegurarVoz(
   // Before reserving: a missing key or voice id is a setup error and must not leave a reservation behind.
   const llave = await entrada.llave()
   const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento)
-  const estimado = estimarCostoVoz(guion)
+  const texto = textoParaVoz(guion, config.model_id)
+  const estimado = estimarCostoVoz(texto)
   const reserva = await reservarGasto(deps.db, {
     piezaId: fila.id,
     proveedor: "elevenlabs",
@@ -90,7 +96,7 @@ export async function asegurarVoz(
   }
   let audio: Uint8Array
   try {
-    audio = await generarVoz({ clave: llave, config, texto: guion, base: deps.base?.elevenlabs })
+    audio = await generarVoz({ clave: llave, config, texto, base: deps.base?.elevenlabs })
   } catch (error) {
     // A Falla (no characters) charged nothing and will not change on a retry: the money goes back to the cap now.
     if (error instanceof Falla) await liberarGasto(deps.db, clave)
