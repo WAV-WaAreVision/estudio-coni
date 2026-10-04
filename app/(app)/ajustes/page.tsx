@@ -19,6 +19,7 @@ import { BloqueDeEstado } from "./bloque-de-estado"
 import { CuentasConectadas } from "./cuentas-conectadas"
 import { EditorDeAjustes } from "./editor-de-ajustes"
 import { revisionDeCuentas } from "./revision"
+import { SaldosDeLaPagina } from "./saldos"
 
 export default async function Ajustes({ searchParams }: { searchParams: Promise<{ instagram?: string }> }) {
   const { db } = await exigirConi()
@@ -76,6 +77,12 @@ export default async function Ajustes({ searchParams }: { searchParams: Promise<
       <Seccion titulo="Cuentas conectadas" id="cuentas">
         <Suspense fallback={<EsqueletoDeCuentas />}>
           <CuentasDeLaPagina />
+        </Suspense>
+      </Seccion>
+
+      <Seccion titulo="Saldos" id="saldos">
+        <Suspense fallback={<EsqueletoDeCuentas />}>
+          <SaldosDeLaPagina zona={ajustes.zona} />
         </Suspense>
       </Seccion>
 
