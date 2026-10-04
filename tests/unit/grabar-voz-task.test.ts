@@ -8,7 +8,7 @@ describe("grabar-voz", () => {
       id: "grabar-voz",
       machine: "small-1x",
       maxDuration: 600,
-      queue: { concurrencyLimit: 2 },
+      queue: { concurrencyLimit: 1 },
     })
   })
 })

@@ -10,7 +10,8 @@ export const CONFIGURACION_VOZ = {
   id: "grabar-voz",
   machine: "small-1x",
   maxDuration: 600,
-  queue: { concurrencyLimit: 2 },
+  // One run at a time per concurrency key: the app starts each run under the id of its piece (`disparos-entorno.ts`).
+  queue: { concurrencyLimit: 1 },
 } as const
 
 export const grabarVozTask = schemaTask({

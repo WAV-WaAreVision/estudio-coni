@@ -34,7 +34,8 @@ function disparosReales(): Disparos {
       await tasks.trigger<typeof grabarVozTask>(
         "grabar-voz",
         { piezaId, nueva },
-        { idempotencyKey: await claveGlobal(clave) },
+        // One voice at a time per piece: two taps or two devices cannot call ElevenLabs at once.
+        { idempotencyKey: await claveGlobal(clave), concurrencyKey: piezaId },
       )
     },
   }
