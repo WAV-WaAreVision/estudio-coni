@@ -208,3 +208,54 @@ describe("construirInicio: subir a mano", () => {
     expect(avisos[0]).not.toHaveProperty("accion")
   })
 })
+
+describe("Inicio con la voz aparte", () => {
+  const base = {
+    titulo: "El deseo",
+    explicacion: null,
+    guion: "Hola.",
+    pilar: null,
+    publicarEn: null,
+    permalink: null,
+    actualizadaEn: "2026-10-04T12:00:00.000Z",
+  }
+  const entrada = (piezas: PiezaDeInicio[]) => ({ piezas, ahora: Date.parse(base.actualizadaEn), zona: ZONA })
+
+  it("lists an approved script as on its way, linked to its screen", () => {
+    const inicio = construirInicio(entrada([{ ...base, id: "a", estado: "guion_aprobado" }]))
+
+    expect(inicio.camino).toEqual([
+      {
+        id: "a",
+        titulo: "El deseo",
+        pilar: null,
+        estado: "Guion aprobado · falta grabar",
+        ocupada: false,
+        href: "/guion/a",
+      },
+    ])
+    expect(inicio.firma).toEqual([])
+  })
+
+  it("shows a voice being recorded as busy", () => {
+    const inicio = construirInicio(entrada([{ ...base, id: "b", estado: "grabando_voz" }]))
+
+    expect(inicio.camino[0]).toMatchObject({ estado: "Grabando la voz · unos segundos", ocupada: true })
+  })
+
+  it("turns a failed voice into a notice to review", () => {
+    const inicio = construirInicio(
+      entrada([{ ...base, id: "c", estado: "guion_aprobado", explicacion: "No pude grabar la voz." }]),
+    )
+
+    expect(inicio.camino).toEqual([])
+    expect(inicio.avisos).toEqual([
+      {
+        tipo: "error",
+        titulo: "El deseo",
+        texto: "No pude grabar la voz.",
+        accion: { etiqueta: "Revisar", href: "/guion/c" },
+      },
+    ])
+  })
+})

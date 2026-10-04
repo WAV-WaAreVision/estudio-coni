@@ -210,6 +210,10 @@ function ocupanteDe(pieza: PiezaDeCalendario, provisional: boolean): Ocupante {
       return { ...base, estado: "Falta tu firma: video y fecha", tono: "aviso", href: `/video/${pieza.id}` }
     case "guion_por_aprobar":
       return { ...base, estado: "Falta tu firma: guion", tono: "aviso", href: `/guion/${pieza.id}` }
+    case "guion_aprobado":
+      return { ...base, estado: "Guion aprobado · falta grabar", tono: "aviso", href: `/guion/${pieza.id}` }
+    case "grabando_voz":
+      return { ...base, estado: "Grabando la voz", tono: "neutro", href: null }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando", tono: "neutro", href: null }
