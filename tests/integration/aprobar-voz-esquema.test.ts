@@ -107,6 +107,45 @@ describe("estados guion_aprobado y grabando_voz", () => {
     })
   })
 
+  it("clears the reason a failed voice left when the caption is edited", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await aprobada(c)
+      await c.query(
+        "update public.piezas set explicacion = 'No pude grabar la voz.', version = version + 1 where id = $1",
+        [id],
+      )
+      const { version } = await leer(c, id)
+      await asumir(c, comoConi)
+      const { rows } = await c.query("select * from public.editar_texto_como_coni($1, $2, $3, $4::jsonb)", [
+        id,
+        version,
+        "Otro texto.",
+        REVISION,
+      ])
+      expect(rows[0]).toMatchObject({ estado: "guion_por_aprobar", explicacion: null })
+    })
+  })
+
+  it("clears the reason a failed voice left when the script is edited", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await aprobada(c)
+      await c.query(
+        "update public.piezas set explicacion = 'No pude grabar la voz.', version = version + 1 where id = $1",
+        [id],
+      )
+      const { version } = await leer(c, id)
+      await asumir(c, comoConi)
+      const { rows } = await c.query("select * from public.editar_guion_como_coni($1, $2, $3, $4, $5::jsonb)", [
+        id,
+        version,
+        "Guion nuevo.",
+        "Texto nuevo.",
+        REVISION,
+      ])
+      expect(rows[0]).toMatchObject({ estado: "guion_por_aprobar", explicacion: null })
+    })
+  })
+
   it("still refuses to edit the script of a piece in render", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "en_render")

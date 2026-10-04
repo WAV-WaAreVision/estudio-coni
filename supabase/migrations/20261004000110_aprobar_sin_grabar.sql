@@ -166,6 +166,7 @@ begin
          intento = case when estado = 'programado' then intento + 1 else intento end,
          puerta1_hash = case when estado = 'guion_aprobado' then null else puerta1_hash end,
          puerta1_en = case when estado = 'guion_aprobado' then null else puerta1_en end,
+         explicacion = case when estado = 'guion_aprobado' then null else explicacion end,
          puerta2_video_id = case when estado in ('guion_por_aprobar', 'guion_aprobado') then puerta2_video_id else null end,
          puerta2_hash_texto = case when estado in ('guion_por_aprobar', 'guion_aprobado') then puerta2_hash_texto else null end,
          puerta2_publicar_en = case when estado in ('guion_por_aprobar', 'guion_aprobado') then puerta2_publicar_en else null end,
