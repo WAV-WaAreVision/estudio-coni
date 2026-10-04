@@ -161,6 +161,40 @@ test("she records the voice alone, listens to it, and then records the video reu
   expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
 })
 
+test("approve, take it back, edit, save and approve again, all on the same screen", async ({ page }) => {
+  const id = await guionPorAprobar(
+    [],
+    `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`,
+  )
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const deslizador = page.getByRole("slider", { name: ETIQUETA })
+
+  await elegirAvatar(page, "Estudio")
+  await deslizador.focus()
+  await page.keyboard.press("End")
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+
+  await page.getByRole("button", { name: "Volver a revisar el guion" }).click()
+  await expect(deslizador).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+
+  const guion = page.getByRole("textbox", { name: "Guion", exact: true })
+  await guion.fill(GUION_EDITADO)
+  await page.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByRole("status")).toContainText("Guardado")
+  await elegirAvatar(page, "Terraza")
+  await deslizador.focus()
+  await page.keyboard.press("End")
+
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  const fila = await leerFila(id)
+  expect(fila.estado).toBe("guion_aprobado")
+  expect(fila.guion).toBe(GUION_EDITADO)
+  expect(fila.avatar_id).toBe("look-b")
+})
+
 test("an empty HeyGen API wallet disables the video and says where to top up", async ({ page }) => {
   await configurarServicios({ heygenSaldo: 0 })
   const id = await sembrarPieza("guion_aprobado")

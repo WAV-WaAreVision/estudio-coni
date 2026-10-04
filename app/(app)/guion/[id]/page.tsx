@@ -127,7 +127,9 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
   return (
     <>
       <RefrescoAutomatico activo={fila.estado === "grabando_voz"} cadaMs={4000} />
+      {/* Remounted when the piece changes state: the screen keeps its own copy of the version and the choices. */}
       <PantallaGuion
+        key={`${fila.id}:${fila.estado}`}
         datos={{
           id: fila.id,
           version: fila.version,
