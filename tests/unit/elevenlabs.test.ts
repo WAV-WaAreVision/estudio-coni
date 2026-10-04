@@ -167,6 +167,25 @@ describe("generarVoz", () => {
   })
 })
 
+describe("generarVoz sin caracteres", () => {
+  it("tells Coni to top up when ElevenLabs answers quota_exceeded", async () => {
+    servidor.use(
+      http.post(`${BASE}/v1/text-to-speech/:voz`, () =>
+        HttpResponse.json(
+          { detail: { status: "quota_exceeded", message: "This request exceeds your quota." } },
+          { status: 401 },
+        ),
+      ),
+    )
+    const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+
+    expect(rechazado).toBeInstanceOf(Falla)
+    expect(rechazado.message).toBe(
+      "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
+    )
+  })
+})
+
 describe("verificarVoz", () => {
   // Ports TestVerificarElevenLabs of coni-heygen/tests/test_coni.py.
   it("explains why ElevenLabs rejects the voice, without the key", async () => {
