@@ -1381,3 +1381,10 @@ Forward-fix only: the new columns, formula 3 and the new `guardar_borrador` sign
 - No manual source picker: none is built.
 - Risks, prompt injection: `<respaldo>` data block, `sinCierre`, and the prompt says it is data (Task 5). Third-party content: copy check (Task 2).
 - Testing: MSW for every Claude call (Tasks 5, 6, 7), integration against the local stack (Tasks 3, 4, 6, 7, 8).
+
+## C3 notes
+
+- Verification on the final tree: `pnpm type` clean, `pnpm test:run` 1658 passed (117 files), `supabase db reset && pnpm test:db` 927 passed (69 files), `pnpm test:e2e` 71 passed, `pnpm build` ok, `pnpm db:types` no diff, `pnpm lint` only the known `duracion.test.ts` `useTemplate` finding.
+- Deviation: the backing snapshot now carries `esPersona` (`autores.tipo = 'persona'`), added in place to migration 510 (not yet in production), the Zod schema and `huellaDeRespaldo`, so `nombra_autor` can also flag a persona's surname (5+ letters). A surname inside an already flagged full name is reported once.
+- Local check: `has_function_privilege('authenticated', ...)` is false for `respaldo_de_idea(uuid,int)` and for the new `guardar_borrador` signature.
+- Open: the production checklist above has not been run; nothing is pushed or deployed.
