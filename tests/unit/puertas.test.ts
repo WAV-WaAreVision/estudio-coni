@@ -257,3 +257,28 @@ describe("formulaDePuerta1", () => {
     expect(formulaDePuerta1(2)).toBe(2)
   })
 })
+
+describe("hashPuerta1 formula 3", () => {
+  const base = { formula: 3 as const, guion: "g", texto: "t", avatarId: "look-1", respaldo: "" }
+
+  it("is its own namespace: never the formula 2 hash of the same script, text and avatar", () => {
+    expect(hashPuerta1(base)).not.toBe(hashPuerta1({ formula: 2, guion: "g", texto: "t", avatarId: "look-1" }))
+  })
+
+  it("changes when the backing changes, and with the script, text or avatar", () => {
+    expect(hashPuerta1({ ...base, respaldo: '["t1"]' })).not.toBe(hashPuerta1(base))
+    expect(hashPuerta1({ ...base, guion: "otro" })).not.toBe(hashPuerta1(base))
+    expect(hashPuerta1({ ...base, avatarId: "look-2" })).not.toBe(hashPuerta1(base))
+  })
+
+  it("keeps formula 2 byte for byte", () => {
+    const esperado = createHash("sha256")
+      .update(JSON.stringify(["puerta1/2", "g", "t", "look-1"]))
+      .digest("hex")
+    expect(hashPuerta1({ formula: 2, guion: "g", texto: "t", avatarId: "look-1" })).toBe(esperado)
+  })
+
+  it("reads a stored 3 as formula 3", () => {
+    expect(formulaDePuerta1(3)).toBe(3)
+  })
+})

@@ -17,8 +17,10 @@ import {
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { CIERRE } from "@/lib/dominio/revision"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
@@ -241,10 +243,28 @@ describe("aprobarGuion", () => {
     const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 2 })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 3 })
   })
 
-  it("approves a piece with no voice, stores formula 2 and binds the hash of script, text and avatar", async () => {
+  it("binds the frozen backing in the hash", async () => {
+    const id = await paraAprobar()
+    await ajustarComoPostgres(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })
+
+    await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
+
+    const respaldo = leerRespaldo(RESPALDO_GUARDADO)
+    expect((await fila(id)).puerta1_hash).toBe(
+      hashPuerta1({
+        formula: 3,
+        guion: GUION_VALIDO,
+        texto: TEXTO_VALIDO,
+        avatarId: "look-a",
+        respaldo: huellaDeRespaldo(respaldo),
+      }),
+    )
+  })
+
+  it("approves a piece with no voice, stores formula 3 and binds the hash of script, text, avatar and backing", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
@@ -259,10 +279,10 @@ describe("aprobarGuion", () => {
       version: versionVista + 1,
       avatar_id: "look-b",
       audio_id: null,
-      puerta1_formula: 2,
+      puerta1_formula: 3,
     })
     expect(guardada.puerta1_hash).toBe(
-      hashPuerta1({ formula: 2, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b" }),
+      hashPuerta1({ formula: 3, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b", respaldo: "" }),
     )
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
