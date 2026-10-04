@@ -17,8 +17,10 @@ import {
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { CIERRE } from "@/lib/dominio/revision"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
@@ -36,6 +38,21 @@ const GUION_VALIDO = readFileSync(
   "utf-8",
 ).trim()
 const TEXTO_VALIDO = "El deseo no se apaga, se esconde. Video hecho con mi avatar digital."
+const RESPALDO_GUARDADO = {
+  teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" },
+  afirmaciones: [
+    {
+      id: "a",
+      texto: "x",
+      cita: "el deseo no se apaga, se esconde debajo de la rutina de todos los días",
+      aporte: "y",
+      autor: "Esther Perel",
+      deConi: false,
+      esPersona: true,
+    },
+  ],
+}
+
 const FUTURO = "2099-10-09T19:00:00-03:00"
 
 let coni: Db
@@ -227,10 +244,28 @@ describe("aprobarGuion", () => {
     const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toMatchObject({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 2 })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", audio_id: null, puerta1_formula: 3 })
   })
 
-  it("approves a piece with no voice, stores formula 2 and binds the hash of script, text and avatar", async () => {
+  it("binds the frozen backing in the hash", async () => {
+    const id = await paraAprobar()
+    await ajustarComoPostgres(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })
+
+    await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
+
+    const respaldo = leerRespaldo(RESPALDO_GUARDADO)
+    expect((await fila(id)).puerta1_hash).toBe(
+      hashPuerta1({
+        formula: 3,
+        guion: GUION_VALIDO,
+        texto: TEXTO_VALIDO,
+        avatarId: "look-a",
+        respaldo: huellaDeRespaldo(respaldo),
+      }),
+    )
+  })
+
+  it("approves a piece with no voice, stores formula 3 and binds the hash of script, text, avatar and backing", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
@@ -245,10 +280,10 @@ describe("aprobarGuion", () => {
       version: versionVista + 1,
       avatar_id: "look-b",
       audio_id: null,
-      puerta1_formula: 2,
+      puerta1_formula: 3,
     })
     expect(guardada.puerta1_hash).toBe(
-      hashPuerta1({ formula: 2, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b" }),
+      hashPuerta1({ formula: 3, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b", respaldo: "" }),
     )
     expect(disparos).toHaveLength(1)
     expect(disparos[0]).toMatchObject({ tarea: "grabar", piezaId: id })
@@ -410,6 +445,18 @@ describe("editarTexto", () => {
     )
     expect(guardada.version).toBe(versionVista + 1)
     expect(guardada.revision).toEqual([])
+  })
+
+  it("warns when the new caption copies a quote of the backing", async () => {
+    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    await ajustarComoPostgres(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })
+    const texto = `el deseo no se apaga, se esconde debajo de la rutina. ${TEXTO_VALIDO}`
+
+    await editarTexto(armar().deps, id, await versionDe(id), texto)
+
+    expect((await fila(id)).revision).toEqual(
+      expect.arrayContaining([expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte" })]),
+    )
   })
 
   it("leaves Coni, not the service role, as the actor of the edit in the audit log", async () => {

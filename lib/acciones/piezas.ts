@@ -9,12 +9,14 @@ import {
   leerPieza,
   revisionAJson,
 } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, type Disparos } from "./disparos"
@@ -202,8 +204,8 @@ async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<st
 }
 
 /**
- * Gate 1 approves the script, the publication text and the avatar in one write (formula 2: the voice is made after
- * it): the avatar and the formula go in the same update as the approval, so the hash is the hash of exactly what she
+ * Gate 1 approves the script, the publication text, the avatar and the frozen backing in one write (formula 3: the
+ * voice is made after it): the avatar and the formula go in the same update as the approval, so the hash is the hash of exactly what she
  * saw and the audit row carries them.
  */
 export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
@@ -218,13 +220,14 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     }
     exigirRevisionLimpia(fila)
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
-    const hash = hashPuerta1({ formula: 2, guion: fila.guion, texto: fila.texto, avatarId: avatar })
+    const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
+    const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
     const guardada = await guardarEvento(
       deps.db,
       fila,
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
       // A voice made before this approval (the old flow) was made for a draft, not for what she signed.
-      { avatar_id: avatar, puerta1_formula: 2, audio_id: null },
+      { avatar_id: avatar, puerta1_formula: 3, audio_id: null },
     )
     return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
   })
@@ -264,8 +267,15 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
     const idea = fila.idea_id ? await leerIdea(deps.db, fila.idea_id) : null
     const requiereLineasAyuda =
       pideLineasDeAyuda(idea?.alertas ?? []) || juicios.some((hallazgo) => hallazgo.regla === "tema_de_riesgo")
+    const respaldo = leerRespaldo(fila.respaldo)
     const revision: Hallazgo[] = [
-      ...revisarGuion({ guion: fila.guion, texto, esAvatar: true, requiereLineasAyuda }),
+      ...revisarGuion({
+        guion: fila.guion,
+        texto,
+        esAvatar: true,
+        requiereLineasAyuda,
+        ajeno: ajenoDelRespaldo(respaldo),
+      }),
       ...juicios,
     ]
 

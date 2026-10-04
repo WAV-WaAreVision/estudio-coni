@@ -3,8 +3,10 @@ import { HttpResponse, http } from "msw"
 import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
+import { cargarRespaldoDeIdea, leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { type DepsGrabacion, estimarCostoVideo, grabarPieza } from "@/lib/produccion/grabar"
 import { almacenEnMemoria, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
@@ -16,6 +18,7 @@ import { servidor } from "../msw"
 import { comoConi, comoServicio, pool } from "./db"
 import { AUDIO, AVATAR, aplicar, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -300,6 +303,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await vaciarMotor()
   piezasCreadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
@@ -1309,5 +1313,86 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
       ["elevenlabs", "confirmado"],
       ["heygen", "confirmado"],
     ])
+  })
+})
+
+const RESPALDO_APROBADO = {
+  teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" },
+  afirmaciones: [
+    { id: "a", texto: "x", cita: "una cita", aporte: "y", autor: "Siembra Ana", deConi: false, esPersona: true },
+  ],
+}
+
+/** Approves the piece with formula 3 over the given frozen backing, as a repair (the triggers are not the subject). */
+async function aprobarConRespaldo(id: string, respaldo: unknown): Promise<void> {
+  const huella = huellaDeRespaldo(leerRespaldo(JSON.parse(JSON.stringify(respaldo))))
+  await enTransaccion(async (c) => {
+    await c.query("set local session_replication_role = replica")
+    await c.query(
+      "update public.piezas set respaldo = $2::jsonb, puerta1_formula = 3, puerta1_hash = $3, version = version + 1 where id = $1",
+      [
+        id,
+        JSON.stringify(respaldo),
+        hashPuerta1({ formula: 3, guion: GUION, texto: TEXTO, avatarId: AVATAR, respaldo: huella }),
+      ],
+    )
+  })
+}
+
+/** A piece Coni approved with formula 3 and a frozen backing, still without voice. */
+async function crearPiezaConRespaldo(): Promise<string> {
+  const id = await crearPiezaSinVoz()
+  await aprobarConRespaldo(id, RESPALDO_APROBADO)
+  return id
+}
+
+describe("grabarPieza con la fórmula 3", () => {
+  it("renders a piece whose backing is the one Coni approved", async () => {
+    const id = await crearPiezaConRespaldo()
+    const sim = simular()
+    expect((await grabarPieza(doble().deps, id)).resultado).toBe("grabada")
+    expect(sim.creaciones).toHaveLength(1)
+  })
+
+  it("stops without spending when the backing on the piece changed after approval", async () => {
+    const id = await crearPiezaConRespaldo()
+    const sim = simular()
+    const cambiado = { ...RESPALDO_APROBADO, teoria: { ...RESPALDO_APROBADO.teoria, tesis: "Otra tesis." } }
+    await pool.query("update public.piezas set respaldo = $2::jsonb, version = version + 1 where id = $1", [
+      id,
+      JSON.stringify(cambiado),
+    ])
+
+    expect(await grabarPieza(doble().deps, id)).toEqual({ resultado: "sin_aprobacion" })
+    expect(sim.voces).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("keeps the approval when the knowledge base moves on after it", async () => {
+    const idea = await sembrarIdeaDelMotor({
+      gancho: "g",
+      semana: "2026-09-27",
+      teoria: {
+        titulo: "Teoría que se borra",
+        tesis: "Tesis",
+        nivel: "medio",
+        respaldo: [
+          { autor: "Siembra Ana Pérez", cita: "una cita larga de la fuente que luego se excluye" },
+          { autor: "Siembra Luis Soto", cita: "otra cita de la fuente" },
+        ],
+      },
+    })
+    const congelado = await cargarRespaldoDeIdea(clienteDeServicio(), idea)
+    if (!congelado) throw new Error("La idea del motor no trajo respaldo")
+    const id = await crearPiezaSinVoz()
+    await aprobarConRespaldo(id, congelado)
+    const primera = congelado.afirmaciones[0]
+    if (!primera) throw new Error("El respaldo no trajo afirmaciones")
+    await pool.query("update public.afirmaciones set excluida = true where id = $1", [primera.id])
+    await pool.query("delete from public.teorias where id = $1", [congelado.teoria.id])
+    simular()
+
+    expect((await grabarPieza(doble().deps, id)).resultado).toBe("grabada")
   })
 })

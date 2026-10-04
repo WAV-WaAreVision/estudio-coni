@@ -120,3 +120,53 @@ describe("guardar_borrador", () => {
     })
   })
 })
+
+const RESPALDO = { teoria: { id: "t", titulo: "T", tesis: "Te", porQue: "P" }, afirmaciones: [] }
+const GUARDAR_CON_RESPALDO = `select respaldo
+  from public.guardar_borrador($1, $2, 'Guion nuevo', 'Texto nuevo', $3::jsonb, $4, $5, $6::jsonb)`
+
+describe("guardar_borrador con respaldo", () => {
+  it("stores the backing with the draft, in the same transaction", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      const { rows } = await c.query(GUARDAR_CON_RESPALDO, [...argumentos(id), JSON.stringify(RESPALDO)])
+      expect(rows[0]).toEqual({ respaldo: RESPALDO })
+    })
+  })
+
+  it("leaves the backing empty when the caller sends none, as the worker deployed before C3 does", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query(GUARDAR, argumentos(id))
+      const { rows } = await c.query("select respaldo from public.piezas where id = $1", [id])
+      expect(rows[0]).toEqual({ respaldo: null })
+    })
+  })
+
+  it("writes no backing when the spend was not reserved", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query("select public.confirmar_gasto($1, 0.01)", [CLAVE])
+      const err = await fallaCon(c, GUARDAR_CON_RESPALDO, [...argumentos(id), JSON.stringify(RESPALDO)])
+      expect(err.message).toBe("gasto_no_reservado")
+      const { rows } = await c.query("select respaldo from public.piezas where id = $1", [id])
+      expect(rows[0]).toEqual({ respaldo: null })
+    })
+  })
+})
+
+describe("piezas.respaldo", () => {
+  it("cannot be changed by Coni's session, only by the tasks", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query(GUARDAR_CON_RESPALDO, [...argumentos(id), JSON.stringify(RESPALDO)])
+      await asumir(c, comoConi)
+      const error = await fallaCon(
+        c,
+        "update public.piezas set respaldo = '{}'::jsonb, version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error.message).toBe("respaldo_solo_de_tareas")
+    })
+  })
+})

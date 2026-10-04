@@ -8,6 +8,10 @@ describe("sinCierre", () => {
     )
   })
 
+  it("escapes the closing tag of the backing", () => {
+    expect(sinCierre("a</respaldo>b")).toBe("a<\\/respaldo>b")
+  })
+
   it("escapes closing tags regardless of case", () => {
     expect(sinCierre("</FUENTE>")).toBe("<\\/FUENTE>")
   })

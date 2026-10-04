@@ -62,7 +62,7 @@ const FICHA = {
 describe("a model per task", () => {
   it("writes the script with Opus at medium effort", async () => {
     const cuerpos = capturando({ guion: "g", texto: "t" })
-    await escribirGuion({ cliente: cliente(), guia: "guia", idea: IDEA, requiereLineasAyuda: false })
+    await escribirGuion({ cliente: cliente(), guia: "guia", idea: IDEA, respaldo: null, requiereLineasAyuda: false })
     expect(cuerpos[0]?.model).toBe(OPUS)
     expect(cuerpos[0]?.output_config?.effort).toBe("medium")
     expect(cuerpos[0]?.thinking).toBeUndefined()

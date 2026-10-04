@@ -11,6 +11,7 @@ import {
   liberarGasto,
   reservarGasto,
 } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -22,6 +23,7 @@ import {
   hashTexto,
   puedeGrabar,
 } from "@/lib/dominio/puertas"
+import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
 import {
   aCuatroDecimales,
@@ -269,10 +271,10 @@ function tieneLaVozAprobada(fila: FilaDePieza, hashAprobado: string): boolean {
   return fila.audio_id === claveVozAprobada(fila.id, hashAprobado)
 }
 
-/** The column is a smallint with a check for 1 and 2; anything else is a corrupted row, not an approval. */
-function formulaGuardada(fila: FilaDePieza): 1 | 2 | null {
+/** The column is a smallint with a check for 1, 2 and 3; anything else is a corrupted row, not an approval. */
+function formulaGuardada(fila: FilaDePieza): 1 | 2 | 3 | null {
   const { puerta1_formula: formula } = fila
-  if (formula === null || formula === 1 || formula === 2) return formula
+  if (formula === null || formula === 1 || formula === 2 || formula === 3) return formula
   throw new FallaDeConfiguracion(`La pieza ${fila.id} guardó una fórmula de la puerta 1 desconocida: ${formula}.`)
 }
 
@@ -281,11 +283,19 @@ function formulaGuardada(fila: FilaDePieza): 1 | 2 | null {
  * in the hash). Null when a column the formula needs is empty, which is not an approval.
  */
 function artefactoAprobado(fila: FilaDePieza, guion: string): ArtefactoPuerta1 | null {
-  if (formulaDePuerta1(formulaGuardada(fila)) === 1) {
+  const formula = formulaDePuerta1(formulaGuardada(fila))
+  if (formula === 1) {
     return fila.audio_id === null ? null : { formula: 1, guion, audioId: fila.audio_id, avatarId: fila.avatar_id }
   }
   if (fila.texto === null || fila.avatar_id === null) return null
-  return { formula: 2, guion, texto: fila.texto, avatarId: fila.avatar_id }
+  if (formula === 2) return { formula: 2, guion, texto: fila.texto, avatarId: fila.avatar_id }
+  return {
+    formula: 3,
+    guion,
+    texto: fila.texto,
+    avatarId: fila.avatar_id,
+    respaldo: huellaDeRespaldo(leerRespaldo(fila.respaldo)),
+  }
 }
 
 /**

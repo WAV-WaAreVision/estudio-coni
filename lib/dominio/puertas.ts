@@ -9,11 +9,13 @@ function sha256(partes: readonly string[]): string {
 export type ArtefactoPuerta1 =
   | { formula: 1; guion: string; audioId: string; avatarId?: string | null }
   | { formula: 2; guion: string; texto: string; avatarId: string }
+  | { formula: 3; guion: string; texto: string; avatarId: string; respaldo: string }
 
 /**
- * Formula 1 hashed the voice, generated before gate 1. Since 2026-10-02 the voice is generated after gate 1, so
- * formula 2 hashes what Coni approves: the script, the publication text and the avatar.
- * Plan B adds the chosen sources as formula 3 the same way, instead of changing formula 2.
+ * Formula 1 hashed the voice, generated before gate 1. Formula 2 (2026-10-02) hashes what Coni approves: the script,
+ * the publication text and the avatar. Formula 3 (C3) adds the backing the script was written from, as
+ * `huellaDeRespaldo` of the snapshot on the piece ("" when there is none). Each formula keeps its own namespace, so
+ * pieces approved with an older one keep their hash.
  * A formula 1 piece without a chosen avatar (approved before the choice existed) keeps the hash it was approved with.
  */
 export function hashPuerta1(artefacto: ArtefactoPuerta1): string {
@@ -21,11 +23,12 @@ export function hashPuerta1(artefacto: ArtefactoPuerta1): string {
     const base = ["puerta1", artefacto.guion, artefacto.audioId]
     return sha256(artefacto.avatarId ? [...base, artefacto.avatarId] : base)
   }
-  return sha256(["puerta1/2", artefacto.guion, artefacto.texto, artefacto.avatarId])
+  if (artefacto.formula === 2) return sha256(["puerta1/2", artefacto.guion, artefacto.texto, artefacto.avatarId])
+  return sha256(["puerta1/3", artefacto.guion, artefacto.texto, artefacto.avatarId, artefacto.respaldo])
 }
 
 /** A null stored formula on a signed piece is a gate-1 approval from before 2026-10-02: formula 1. */
-export function formulaDePuerta1(guardada: 1 | 2 | null): 1 | 2 {
+export function formulaDePuerta1(guardada: 1 | 2 | 3 | null): 1 | 2 | 3 {
   return guardada ?? 1
 }
 

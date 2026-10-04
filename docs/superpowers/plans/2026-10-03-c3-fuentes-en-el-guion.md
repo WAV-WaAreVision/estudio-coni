@@ -1354,18 +1354,24 @@ git commit -m "feat(puertas): gate 1 formula 3 binds the script's backing" -m "C
    - `select column_name from information_schema.columns where table_name = 'piezas' and column_name = 'respaldo'`;
    - `select pg_get_constraintdef(oid) from pg_constraint where conname = 'piezas_puerta1_formula_check'` shows `1, 2, 3`;
    - `select puerta1_formula, count(*) from piezas group by 1` (existing approvals keep their 1, 2 or null);
-   - `select proname, pg_get_function_identity_arguments(oid) from pg_proc where proname in ('guardar_borrador', 'respaldo_de_idea')` shows one `guardar_borrador` with 8 arguments.
+   - `select proname, pg_get_function_identity_arguments(oid) from pg_proc where proname in ('guardar_borrador', 'respaldo_de_idea')` shows one `guardar_borrador` with 8 arguments;
+   - `select has_function_privilege('authenticated', 'public.respaldo_de_idea(uuid,int)', 'execute')` must be `false`, and the same check for `public.guardar_borrador(uuid,integer,text,text,jsonb,text,numeric,jsonb)`;
+   - `proteger_pieza` refuses a change of `respaldo` from Coni's session (`respaldo_solo_de_tareas`).
 3. Deploy Trigger (`producir-pieza` and `grabar-pieza` both change): `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (after `pnpm install`). Confirm the new version on the worker.
-4. Deploy Conidolly to Vercel (`aprobarGuion`, `editarGuion` and `editarTexto` change). Confirm the deployment is served before the smoke.
+4. Deploy Conidolly to Vercel (`aprobarGuion`, `editarGuion` and `editarTexto` change) **immediately after Trigger, with no script requested in between**. Until Vercel is live, a piece written by the new worker can carry the new review rules (`copia_de_fuente`, `nombra_autor`) that the old app cannot parse, so an error on the Guion screen inside that window is expected and goes away with the deploy. Confirm the deployment is served before the smoke.
 5. Before the smoke, check no piece is in `guion_por_aprobar` with a draft written by the old worker that Coni is about to approve: such a piece has `respaldo` null and approves with formula 3 and an empty backing, which is correct for it (it was written without backing).
 6. Smoke (spends one script, a few cents; ask Coni or Federico before):
    - Use one engine idea from "Nuevas de la semana" to go to the script.
    - In the Trigger run of `producir-pieza`, or in `gastos`, confirm the run finished on the first attempt.
    - `select respaldo is not null, jsonb_array_length(respaldo -> 'afirmaciones') from piezas where id = '<id>'` shows the frozen backing.
    - Read the script and the caption: no author names, no phrase of a quote. If the review shows "Esta frase repite palabra por palabra una de las fuentes", check the marked phrase is in a quote of the backing.
-   - Copy-check behavior: in the Guion editor, paste 8 words in a row of one of the quotes (from the idea's backing panel) into the script and save. The warning appears with the phrase marked, approval waits for the tick. Undo the paste and save again.
+   - Copy-check behavior: take the quote from the frozen snapshot, not from the screen: `select a->>'cita' from piezas, jsonb_array_elements(respaldo->'afirmaciones') a where id = '<id>' and (a->>'deConi')::boolean = false`, and use one with 8 or more words. In the Guion editor, paste 8 words in a row of that quote into the script and save. The warning appears with the phrase marked, approval waits for the tick. Undo the paste and save again.
    - Approve. Then `select puerta1_formula from piezas where id = '<id>'` is `3`, and recompute the hash locally with `hashPuerta1({formula: 3, ..., respaldo: huellaDeRespaldo(leerRespaldo(<respaldo>))})` from the row's values: it equals `puerta1_hash`.
    - The render starts and reaches `video_por_aprobar` (that spends HeyGen credits: only if Coni wants this reel; otherwise stop after the hash check and discard the piece).
+
+## Rollback
+
+Forward-fix only: the new columns, formula 3 and the new `guardar_borrador` signature stay. If a revert is unavoidable, revert Trigger and Vercel together (an old worker or an old app next to formula-3 pieces breaks: the old `formulaGuardada` throws on a 3), and re-trigger `grabar-pieza` for every formula-3 piece stuck in `en_render`.
 
 ## Self-review against the spec
 
@@ -1375,3 +1381,10 @@ git commit -m "feat(puertas): gate 1 formula 3 binds the script's backing" -m "C
 - No manual source picker: none is built.
 - Risks, prompt injection: `<respaldo>` data block, `sinCierre`, and the prompt says it is data (Task 5). Third-party content: copy check (Task 2).
 - Testing: MSW for every Claude call (Tasks 5, 6, 7), integration against the local stack (Tasks 3, 4, 6, 7, 8).
+
+## C3 notes
+
+- Verification on the final tree: `pnpm type` clean, `pnpm test:run` 1658 passed (117 files), `supabase db reset && pnpm test:db` 927 passed (69 files), `pnpm test:e2e` 71 passed, `pnpm build` ok, `pnpm db:types` no diff, `pnpm lint` only the known `duracion.test.ts` `useTemplate` finding.
+- Deviation: the backing snapshot now carries `esPersona` (`autores.tipo = 'persona'`), added in place to migration 510 (not yet in production), the Zod schema and `huellaDeRespaldo`, so `nombra_autor` can also flag a persona's surname (5+ letters). A surname inside an already flagged full name is reported once.
+- Local check: `has_function_privilege('authenticated', ...)` is false for `respaldo_de_idea(uuid,int)` and for the new `guardar_borrador` signature.
+- Open: the production checklist above has not been run; nothing is pushed or deployed.

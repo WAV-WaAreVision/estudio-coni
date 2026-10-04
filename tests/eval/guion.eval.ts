@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs"
 import Anthropic from "@anthropic-ai/sdk"
 import { afterAll, describe, expect, it } from "vitest"
+import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import { type Alerta, bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
 import {
   costoClaude,
@@ -41,15 +42,23 @@ afterAll(() => {
 
 async function escribirConUnaCorreccion(cliente: Anthropic, idea: IdeaDeEval) {
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
-  const revisar = (guion: string, texto: string) => revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda })
+  const revisar = (guion: string, texto: string) =>
+    revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(null) })
 
-  let escrito = await escribirGuion({ cliente, guia: GUIA, idea, requiereLineasAyuda })
+  let escrito = await escribirGuion({ cliente, guia: GUIA, idea, respaldo: null, requiereLineasAyuda })
   gasto(escrito.uso)
   let hallazgos = revisar(escrito.guion, escrito.texto)
   let correcciones = 0
   if (bloquea(hallazgos)) {
     correcciones = 1
-    escrito = await escribirGuion({ cliente, guia: GUIA, idea, requiereLineasAyuda, correcciones: hallazgos })
+    escrito = await escribirGuion({
+      cliente,
+      guia: GUIA,
+      idea,
+      respaldo: null,
+      requiereLineasAyuda,
+      correcciones: hallazgos,
+    })
     gasto(escrito.uso)
     hallazgos = revisar(escrito.guion, escrito.texto)
   }
