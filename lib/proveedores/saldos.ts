@@ -11,9 +11,16 @@ async function pedirJson(url: string, cabeceras: Record<string, string>): Promis
   let respuesta: Response
   try {
     respuesta = await fetch(url, { headers: cabeceras, signal: AbortSignal.timeout(ESPERA_MS) })
-  } catch {
-    // Unreachable or too slow: the screen says it could not see the balance and does not block.
-    return { ok: false, motivo: "sin_conexion" }
+  } catch (error) {
+    // Unreachable or too slow: the screen says it could not see the balance and does not block. Anything else is a
+    // bug of ours and must not pass for a missing balance.
+    if (
+      error instanceof TypeError ||
+      (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name))
+    ) {
+      return { ok: false, motivo: "sin_conexion" }
+    }
+    throw error
   }
   if (!respuesta.ok) return { ok: false, motivo: `HTTP ${respuesta.status}` }
   try {

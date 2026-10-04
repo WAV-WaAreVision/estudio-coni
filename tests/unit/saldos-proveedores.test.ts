@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { leerSaldoElevenlabs, leerSaldoHeygen } from "@/lib/proveedores/saldos"
 import { servidor } from "../msw"
 
@@ -94,5 +94,23 @@ describe("leerSaldoHeygen", () => {
     })
     servidor.use(http.get(`${HEYGEN}/v3/users/me`, () => new HttpResponse("no", { status: 500 })))
     expect(await leerSaldoHeygen({ clave: "hg_x", base: HEYGEN })).toEqual({ ok: false, motivo: "HTTP 500" })
+  })
+})
+
+describe("errores de red de los saldos", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("treats a timeout and a refused connection as no connection", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new DOMException("timeout", "TimeoutError"))
+    expect(await leerSaldoElevenlabs({ clave: "sk_x", base: ELEVEN })).toEqual({ ok: false, motivo: "sin_conexion" })
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new DOMException("aborted", "AbortError"))
+    expect(await leerSaldoHeygen({ clave: "hg_x", base: HEYGEN })).toEqual({ ok: false, motivo: "sin_conexion" })
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("fetch failed"))
+    expect(await leerSaldoHeygen({ clave: "hg_x", base: HEYGEN })).toEqual({ ok: false, motivo: "sin_conexion" })
+  })
+
+  it("does not hide a bug of ours as a missing balance", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new RangeError("bug"))
+    await expect(leerSaldoElevenlabs({ clave: "sk_x", base: ELEVEN })).rejects.toThrow("bug")
   })
 })
