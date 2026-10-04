@@ -645,6 +645,10 @@ describe("piezaTrabajando", () => {
     for (const estado of ["grabando_voz", "en_render", "subtitulando"] as const) {
       expect(piezaTrabajando({ estado, explicacion: null })).toBe(true)
     }
+    // A render stopped by the monthly cap keeps its state but waits for Coni: nothing to poll for.
+    for (const estado of ["en_render", "subtitulando"] as const) {
+      expect(piezaTrabajando({ estado, explicacion: "Llegaste al tope." })).toBe(false)
+    }
     for (const estado of ["guion_por_aprobar", "guion_aprobado", "video_por_aprobar", "error_produccion"] as const) {
       expect(piezaTrabajando({ estado, explicacion: null })).toBe(false)
     }

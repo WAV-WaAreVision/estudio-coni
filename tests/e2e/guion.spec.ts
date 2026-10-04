@@ -206,6 +206,23 @@ test("an approved script is read-only: changing it goes through taking the appro
   await expect(page.getByText("Para cambiar el guion o el texto, vuelve a revisar el guion.")).toBeVisible()
 })
 
+test("a render stopped by the monthly cap shows why and stops polling", async ({ page }) => {
+  const id = await sembrarPieza("en_render", {
+    explicacion: "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.",
+  })
+  await page.goto(`/guion/${id}`)
+
+  await expect(page.getByText("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")).toBeVisible()
+  await expect(page.getByText("Aprobado. Estoy grabando el video.")).toHaveCount(0)
+  // Nothing refreshes it: no further navigation requests in the next seconds.
+  let pedidos = 0
+  page.on("request", (peticion) => {
+    if (peticion.url().includes(`/guion/${id}`)) pedidos += 1
+  })
+  await page.waitForTimeout(6000)
+  expect(pedidos).toBe(0)
+})
+
 test("an empty HeyGen API wallet disables the video and says where to top up", async ({ page }) => {
   await configurarServicios({ heygenSaldo: 0 })
   const id = await sembrarPieza("guion_aprobado")

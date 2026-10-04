@@ -174,9 +174,11 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
       // With a reason on it, the script is not being written: it waits for Coni.
       return pieza.explicacion === null
     case "grabando_voz":
+      return true
     case "en_render":
     case "subtitulando":
-      return true
+      // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
+      return pieza.explicacion === null
     default:
       return false
   }

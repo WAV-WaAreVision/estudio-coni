@@ -8,6 +8,7 @@ import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
+import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
@@ -58,11 +59,17 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     case "subtitulando":
       return (
         <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="ocupada" titulo="Aprobado. Estoy grabando el video.">
-            <p>Tarda unos 5 minutos; te aviso cuando esté para que lo veas.</p>
-            <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
-          </Nota>
-          <RefrescoAutomatico activo cadaMs={4000} />
+          {fila.explicacion ? (
+            <Nota tipo="error" titulo="El video está detenido">
+              <p>{fila.explicacion}</p>
+            </Nota>
+          ) : (
+            <Nota tipo="ocupada" titulo="Aprobado. Estoy grabando el video.">
+              <p>Tarda unos 5 minutos; te aviso cuando esté para que lo veas.</p>
+              <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
+            </Nota>
+          )}
+          <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )
     case "error_produccion": {

@@ -98,6 +98,22 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.botones?.costoVideo).not.toMatch(/incluye la voz/)
   })
 
+  it("blocks both buttons with the cap line when the month has no room left", async () => {
+    await pool.query("update public.ajustes set tope_mensual_usd = 0")
+    const id = await piezaAprobada()
+
+    const datos = await leerDatosDeGrabacion(coni, {
+      fila: await leerFila(id),
+      estado: "guion_aprobado",
+      guion: GUION,
+      zona: ZONA,
+    })
+
+    const linea = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+    expect(datos.botones?.bloqueoVoz).toBe(linea)
+    expect(datos.botones?.bloqueoVideo).toBe(linea)
+  })
+
   it("does not offer a voice of another text or of another piece", async () => {
     const id = await piezaAprobada()
     const ajena = claveDeToma(id, huellaDelGuion("Otro texto.", ELEVENLABS), 0)

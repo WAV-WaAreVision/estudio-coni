@@ -19,6 +19,7 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: BIEN,
       zona: "America/Santiago",
+      quedanUsd: 37,
     })
     const voz = estimarCostoVoz(GUION)
     const video = estimarCostoVideo(GUION, "avatar_v")
@@ -33,6 +34,7 @@ describe("presentarGrabacion", () => {
       conVoz: true,
       saldos: BIEN,
       zona: "America/Santiago",
+      quedanUsd: 37,
     })
     expect(con.costoVideo).not.toMatch(/incluye la voz/)
     // With a voice, its cost is said once, as the helper of the "record again" button.
@@ -52,6 +54,7 @@ describe("presentarGrabacion", () => {
         conVoz: true,
         saldos: sinBilletera,
         zona: "America/Santiago",
+        quedanUsd: 37,
       }).bloqueoVideo,
     ).toMatch(/^Tu saldo de API de HeyGen no alcanza/)
     const sinCaracteres = {
@@ -64,6 +67,7 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: sinCaracteres,
       zona: "America/Santiago",
+      quedanUsd: 37,
     })
     expect(sin.bloqueoVoz).toMatch(/^No te alcanzan los caracteres/)
     expect(sin.bloqueoVideo).toBe(sin.bloqueoVoz)
@@ -73,6 +77,7 @@ describe("presentarGrabacion", () => {
       conVoz: true,
       saldos: sinCaracteres,
       zona: "America/Santiago",
+      quedanUsd: 37,
     })
     expect(con.bloqueoVideo).toBeNull()
   })
@@ -85,10 +90,48 @@ describe("presentarGrabacion", () => {
       conVoz: false,
       saldos: fallidos,
       zona: "America/Santiago",
+      quedanUsd: 37,
     })
     expect(r.bloqueoVoz).toBeNull()
     expect(r.bloqueoVideo).toBeNull()
     expect(r.saldoVoz).toBe("No pude ver tu saldo de ElevenLabs.")
     expect(r.saldoVideo).toBe("No pude ver tu saldo de API de HeyGen.")
+  })
+})
+
+describe("presentarGrabacion y el tope del mes", () => {
+  const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+  const entrada = (conVoz: boolean, quedanUsd: number) => ({
+    guion: GUION,
+    motor: "avatar_v",
+    conVoz,
+    saldos: BIEN,
+    zona: "America/Santiago",
+    quedanUsd,
+  })
+
+  it("blocks the voice and the video, with one short line, when the month cannot cover them", () => {
+    const sin = presentarGrabacion(entrada(false, 0))
+    expect(sin.bloqueoVoz).toBe(TOPE)
+    expect(sin.bloqueoVideo).toBe(TOPE)
+  })
+
+  it("lets the voice through but stops the video when only the voice fits", () => {
+    const voz = estimarCostoVoz(GUION)
+    const r = presentarGrabacion(entrada(false, voz + 0.0001))
+    expect(r.bloqueoVoz).toBeNull()
+    expect(r.bloqueoVideo).toBe(TOPE)
+  })
+
+  it("counts only the video when the voice exists", () => {
+    const video = estimarCostoVideo(GUION, "avatar_v")
+    expect(presentarGrabacion(entrada(true, video + 0.0001)).bloqueoVideo).toBeNull()
+    expect(presentarGrabacion(entrada(true, video / 2)).bloqueoVideo).toBe(TOPE)
+  })
+
+  it("does not block anything when the month has room", () => {
+    const r = presentarGrabacion(entrada(false, 37))
+    expect(r.bloqueoVoz).toBeNull()
+    expect(r.bloqueoVideo).toBeNull()
   })
 })

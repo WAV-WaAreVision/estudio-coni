@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { urlParaVer } from "@/lib/acciones/medios"
+import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { type FilaDePieza, leerProduccion } from "@/lib/datos/repositorio"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -43,6 +44,8 @@ export interface DatosDeGrabacion {
   botones: BotonesDeGrabacion | null
 }
 
+const TEXTO_SIN_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+
 const bloqueo = (alcance: Alcance) => (alcance.tipo === "no_alcanza" ? alcance.mensaje : null)
 
 export function presentarGrabacion(entrada: {
@@ -51,12 +54,15 @@ export function presentarGrabacion(entrada: {
   conVoz: boolean
   saldos: Saldos
   zona: string
+  /** What is left of the month's cap. */
+  quedanUsd: number
 }): BotonesDeGrabacion {
   const { guion, motor, conVoz, saldos } = entrada
   const usdVoz = estimarCostoVoz(guion)
   const usdVideo = estimarCostoVideo(guion, motor)
   const totalVideo = usdVideo + (conVoz ? 0 : usdVoz)
-  const bloqueoVoz = bloqueo(alcanceDeVoz(saldos.elevenlabs, guion.length))
+  const sinTope = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_SIN_TOPE : null)
+  const bloqueoVoz = sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, guion.length))
   const bloqueoHeygen = bloqueo(
     alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
   )
@@ -68,7 +74,7 @@ export function presentarGrabacion(entrada: {
     saldoVideo: lineaDeSaldoVideo(saldos.heygen),
     bloqueoVoz,
     // Without a voice, the video also needs ElevenLabs.
-    bloqueoVideo: bloqueoHeygen ?? (conVoz ? null : bloqueoVoz),
+    bloqueoVideo: sinTope(totalVideo) ?? bloqueoHeygen ?? (conVoz ? null : bloqueoVoz),
   }
 }
 
@@ -106,7 +112,11 @@ export async function leerDatosDeGrabacion(
     return { estado, voz: null, botones: null }
   }
   const clave = vozVigente(fila, guion, config)
-  const [saldos, url] = await Promise.all([leerSaldos(), urlParaVer(clave)])
+  const [saldos, presupuesto, url] = await Promise.all([
+    leerSaldos(),
+    leerPresupuesto(db, Date.now(), zona),
+    urlParaVer(clave),
+  ])
   return {
     estado,
     voz: clave === null ? null : { url, clave },
@@ -116,6 +126,7 @@ export async function leerDatosDeGrabacion(
       conVoz: clave !== null,
       saldos,
       zona,
+      quedanUsd: presupuesto.tope - presupuesto.usado,
     }),
   }
 }
