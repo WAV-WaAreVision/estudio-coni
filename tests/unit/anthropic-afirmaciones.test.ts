@@ -15,6 +15,11 @@ interface Cuerpo {
   model: string
   system: { text: string; cache_control?: { type: string } }[]
   messages: { content: string }[]
+  output_config?: {
+    format?: {
+      schema?: { properties?: Record<string, { items?: { properties?: Record<string, { description?: string }> } }> }
+    }
+  }
 }
 
 function cliente(): Anthropic {
@@ -164,13 +169,59 @@ describe("extraerAfirmaciones", () => {
     expect(afirmaciones[0]?.texto).toHaveLength(280)
   })
 
-  it.each([
-    ["tipo", { tipo: "chisme" }],
-    ["evidencia", { evidencia: "rumor" }],
-  ])("fails with a retryable error on an unknown %s", async (_campo, cambio) => {
-    respondiendo(salida([afirmacion(cambio)]))
+  it("fails with a retryable error on an unknown tipo and shows the offending value in the cause", async () => {
+    respondiendo(salida([afirmacion({ tipo: "chisme" })]))
 
-    await expect(pedir()).rejects.toThrow("formato pedido")
+    const error = await pedir().catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(Error)
+    if (!(error instanceof Error)) throw error
+    expect(error.message).toContain("formato pedido")
+    const causa = error.cause instanceof Error ? error.cause.message : ""
+    expect(causa).toContain("afirmaciones.0.tipo")
+    expect(causa).toContain("chisme")
+  })
+
+  it.each([
+    ["clínica", "clinica"],
+    ["Clinico", "clinica"],
+    ["  ESTUDIOS ", "estudio"],
+    ["investigación", "estudio"],
+    ["testimonial", "testimonio"],
+    ["opinión", "opinion"],
+  ])("maps the evidencia %j to %s instead of failing the chunk", async (crudo, esperada) => {
+    respondiendo(salida([afirmacion({ evidencia: crudo })]))
+
+    const { afirmaciones, evidenciasCorregidas } = await pedir()
+
+    expect(afirmaciones[0]?.evidencia).toBe(esperada)
+    expect(evidenciasCorregidas).toEqual([])
+  })
+
+  it("falls back to opinion on an unknown evidencia and records the raw value", async () => {
+    respondiendo(salida([afirmacion({ evidencia: "rumor" }), afirmacion({ evidencia: "estudio" })]))
+
+    const { afirmaciones, evidenciasCorregidas } = await pedir()
+
+    expect(afirmaciones.map((a) => a.evidencia)).toEqual(["opinion", "estudio"])
+    expect(evidenciasCorregidas).toEqual(["rumor"])
+  })
+
+  it("normalizes accents and case in tipo", async () => {
+    respondiendo(salida([afirmacion({ tipo: "Definición" })]))
+
+    const { afirmaciones } = await pedir()
+
+    expect(afirmaciones[0]?.tipo).toBe("definicion")
+  })
+
+  it("keeps the strict evidencia enum in the schema sent to the API", async () => {
+    const cuerpos = respondiendo(salida([]))
+
+    await pedir()
+
+    const evidencia = cuerpos[0]?.output_config?.format?.schema?.properties?.afirmaciones?.items?.properties?.evidencia
+    expect(evidencia?.description).toContain('"estudio","clinica","opinion","testimonio"')
   })
 
   it("accepts an empty list for a chunk with nothing substantive", async () => {
