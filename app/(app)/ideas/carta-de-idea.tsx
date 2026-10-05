@@ -1,8 +1,8 @@
 import { CaretDown } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
-import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
+import { etiquetaDeAlerta } from "@/lib/dominio/revision"
 import type { IdeaDeBanco, NivelDeEvidencia } from "@/lib/ideas/mazo"
 
 const TIPO_RESPALDO = "respaldo"

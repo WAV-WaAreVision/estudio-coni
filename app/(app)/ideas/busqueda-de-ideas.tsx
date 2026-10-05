@@ -3,9 +3,9 @@
 import { Check, Warning } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Chip } from "@/components/chip"
-import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { Boton } from "@/components/ui/boton"
 import { NOMBRE_CORTO_DE_PILAR, NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
+import { etiquetaDeAlerta } from "@/lib/dominio/revision"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
 
 const RESULTADOS_A_MOSTRAR = 40

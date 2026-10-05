@@ -275,3 +275,8 @@ export function revisarGuion(entrada: {
 export function bloquea(hallazgos: readonly Hallazgo[]): boolean {
   return hallazgos.some((hallazgo) => hallazgo.tipo === "bloquea")
 }
+
+/** An alert type as the bank writes it («verificar dato») shown as a sentence-case label. */
+export function etiquetaDeAlerta(tipo: string): string {
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1)
+}

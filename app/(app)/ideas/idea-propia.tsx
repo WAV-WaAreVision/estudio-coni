@@ -2,14 +2,13 @@
 
 import { ArrowRight, CaretLeft } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
-import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { FilaConCheck, FilaConValor } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
-import { type Alerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
+import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 
 export const FORMATOS = [

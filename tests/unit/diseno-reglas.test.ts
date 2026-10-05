@@ -68,6 +68,25 @@ describe("design rules", () => {
     expect(servidorConIconoCliente).toEqual([])
   })
 
+  it("uses only Calma suiza token names", () => {
+    const viejos =
+      /\b(acento|hundido|ok-tinta|ok-fondo|aviso-fondo|error-fondo|aviso-tinta|error-tinta|pilar-tinte|pilar-tinta|pilar-punto|font-serif|text-display|text-title|text-script|text-body|text-label|rounded-(sm|md|lg|xl)|ease-fuerte)\b/
+    expect(CODIGO.filter((ruta) => viejos.test(leer(ruta)))).toEqual([])
+  })
+
+  it("keeps the signature colour to the slider, the committed date, the wordmark dot and the public page", () => {
+    const permitidos = new Set([
+      "components/deslizar-para-aprobar.tsx",
+      "app/(app)/guion/[id]/pantalla-guion.tsx",
+      "components/ui/wordmark.tsx",
+      "app/l/page.tsx",
+    ])
+    const culpables = CODIGO.filter(
+      (ruta) => /\b(text|bg|fill|border|ring)-firma\b/.test(leer(ruta)) && !permitidos.has(ruta),
+    )
+    expect(culpables).toEqual([])
+  })
+
   it("lists the files it scans (sanity: the walk found code)", () => {
     expect(CODIGO.map((ruta) => relative(".", ruta)).length).toBeGreaterThan(50)
   })

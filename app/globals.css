@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Closes the default palette, radii, shadows and type sizes (before the tokens below define the real ones). */
+@import "./tema-cerrado.css";
 
 /*
  * Calma suiza tokens (docs/rediseno/tokens.css). This is the only place with literal colours: components use the
@@ -170,29 +172,9 @@
   --barra-max: 176px;
 }
 
-/* Transition aliases (mapeo-tokens.md section 10.1). Removed in Task 34 of the redesign plan. */
-:root {
-  --hundido: var(--pista);
-  --acento: var(--tinta);
-  --acento-profundo: var(--tinta);
-  --acento-suave: var(--pista);
-  --acento-claro: var(--sobre-tinta);
-  --sobre-acento: var(--sobre-principal);
-  --ok-tinta: var(--exito);
-  --ok-fondo: var(--fondo);
-  --aviso-tinta: var(--aviso);
-  --aviso-fondo: var(--fondo);
-  --error-tinta: var(--error);
-  --error-fondo: var(--fondo);
-}
-[data-pilar] {
-  --p-tinte: var(--fondo);
-  --p-tinte-fuerte: var(--pista);
-  --p-tinta: var(--apagado);
-  --p-punto: var(--apagado);
-}
-
 @theme inline {
+  --color-transparent: transparent;
+  --color-current: currentColor;
   --color-fondo: var(--fondo);
   --color-superficie: var(--superficie);
   --color-tinta: var(--tinta);
@@ -239,40 +221,6 @@
 
   --ease-salida: var(--curva-salida);
   --ease-vuelta: var(--curva-vuelta);
-
-  /* Old names, so every existing class still compiles (removed in Task 34). */
-  --color-hundido: var(--hundido);
-  --color-acento: var(--acento);
-  --color-acento-profundo: var(--acento-profundo);
-  --color-acento-suave: var(--acento-suave);
-  --color-acento-claro: var(--acento-claro);
-  --color-sobre-acento: var(--sobre-acento);
-  --color-ok-tinta: var(--ok-tinta);
-  --color-ok-fondo: var(--ok-fondo);
-  --color-aviso-tinta: var(--aviso-tinta);
-  --color-aviso-fondo: var(--aviso-fondo);
-  --color-error-tinta: var(--error-tinta);
-  --color-error-fondo: var(--error-fondo);
-  --color-pilar-tinte: var(--p-tinte);
-  --color-pilar-tinte-fuerte: var(--p-tinte-fuerte);
-  --color-pilar-tinta: var(--p-tinta);
-  --color-pilar-punto: var(--p-punto);
-  --font-serif: var(--font-sans);
-  --radius-sm: var(--r-12);
-  --radius-md: var(--r-12);
-  --radius-lg: var(--r-12);
-  --radius-xl: var(--r-12);
-  --text-display: var(--t-pantalla);
-  --text-display--line-height: var(--i-pantalla);
-  --text-title: var(--t-pieza);
-  --text-title--line-height: var(--i-pieza);
-  --text-script: var(--t-guion);
-  --text-script--line-height: var(--i-guion);
-  --text-body: var(--t-cuerpo);
-  --text-body--line-height: var(--i-cuerpo);
-  --text-label: var(--t-meta);
-  --text-label--line-height: var(--i-meta);
-  --ease-fuerte: var(--curva-salida);
 }
 
 html {
