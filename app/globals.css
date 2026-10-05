@@ -302,6 +302,19 @@ body {
   }
 }
 
+/* An in-line confirmation rises 8 px and fades in, like the toast. */
+.confirmacion {
+  transition:
+    transform var(--dur-media) var(--curva-salida),
+    opacity var(--dur-media) var(--curva-salida);
+}
+@starting-style {
+  .confirmacion {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
 /* Loading: a slow pulse of opacity, never a spinner in the middle of the content. */
 @keyframes latido {
   50% {
@@ -348,6 +361,7 @@ body {
   }
   @starting-style {
     .aviso,
+    .confirmacion,
     .carta-idea {
       transform: none;
     }
