@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react"
 import type { Metadata, Viewport } from "next"
-import { COLOR_DE_ACENTO } from "@/lib/diseno/marca"
+import { COLOR_DE_FIRMA } from "@/lib/diseno/marca"
 import { type Enlace, leerEnlaces } from "@/lib/enlaces/config"
 import { clienteDeEnlaces } from "@/lib/enlaces/deps-reales"
 import { AVISO_PUBLICO, NOMBRE_PUBLICO, TITULO_PUBLICO } from "@/lib/enlaces/perfil"
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export const viewport: Viewport = { themeColor: COLOR_DE_ACENTO, colorScheme: "light" }
+export const viewport: Viewport = { themeColor: COLOR_DE_FIRMA, colorScheme: "light" }
 
 async function enlacesDeLaPagina(): Promise<Enlace[]> {
   try {
