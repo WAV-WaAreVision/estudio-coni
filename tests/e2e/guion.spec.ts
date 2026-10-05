@@ -135,13 +135,16 @@ test("she records the voice alone, listens to it, and then records the video reu
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText(/^Grabar voz: ~\d+ caracteres \(US\$ \d+,\d\d\)$/)).toBeVisible()
+  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
+  await expect(page.getByText(/^US\$ \d+,\d\d$/).first()).toBeVisible()
   await expect(
     page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
   ).toBeVisible()
   await expect(page.getByText("Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.")).toBeVisible()
+  await capturar(page, "guion-aprobado-sin-voz", { completa: true })
   await page.getByRole("button", { name: "Grabar voz" }).click()
-  await expect(page.getByText("Estoy grabando tu voz")).toBeVisible()
+  await expect(page.getByText("Grabando la voz · unos segundos")).toBeVisible()
+  await capturar(page, "guion-grabando")
   expect((await leerFila(id)).estado).toBe("grabando_voz")
   expect(disparosRegistrados()).toMatchObject([{ tarea: "voz", piezaId: id, nueva: false }])
 
@@ -154,8 +157,9 @@ test("she records the voice alone, listens to it, and then records the video reu
   })
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByRole("button", { name: "Volver a grabar voz" })).toBeVisible()
-  await expect(page.getByText(/^Volver a grabar voz: ~\d+ caracteres/)).toBeVisible()
-  await expect(page.getByText(/^Grabar voz: ~/)).toHaveCount(0)
+  await capturar(page, "guion-con-voz", { completa: true })
+  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Grabar voz", exact: true })).toHaveCount(0)
   await expect(page.getByText(/incluye la voz/)).toHaveCount(0)
 
   await page.getByRole("button", { name: "Grabar video" }).click()
@@ -163,6 +167,28 @@ test("she records the voice alone, listens to it, and then records the video reu
   await expect(page.getByText("Aprobado. Estoy grabando el video.")).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
   expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
+})
+
+test("a piece that failed is discarded only after she confirms, and it leaves Inicio", async ({ page }) => {
+  const id = await sembrarPieza("guion_aprobado", {
+    estado: "error_produccion",
+    estado_antes_del_error: "en_render",
+    explicacion: "HeyGen no pudo terminar el video",
+  })
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("No se pudo terminar el video")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Volver a Inicio" })).toHaveCount(0)
+  await capturar(page, "guion-error")
+
+  await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+  await expect(page.getByText("Se descarta esta pieza y no sale. ¿Seguro?")).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("error_produccion")
+  await page.getByRole("button", { name: "Sí, descartar" }).click()
+  await expect.poll(async () => (await leerFila(id)).estado).toBe("descartado")
+
+  await page.goto("/")
+  await expect(page.getByText("No se pudo terminar el video")).toHaveCount(0)
 })
 
 test("gate 1 shows the committed date in the signature colour and the whole script without inner scroll", async ({
@@ -283,7 +309,8 @@ test("an approved script that has tone marks shows them with the help", async ({
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText(`[warm] ${guion}`)).toBeVisible()
+  await expect(page.getByText("[warm]", { exact: true })).toBeVisible()
+  await expect(page.getByText(guion)).toBeVisible()
   await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
 })
 

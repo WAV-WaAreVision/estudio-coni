@@ -5,6 +5,7 @@ import {
   etiquetasDe,
   MAXIMO_DE_ETIQUETAS,
   MINIMO_DE_ETIQUETAS,
+  partirEnMarcas,
   sinEtiquetas,
   textoParaVoz,
 } from "@/lib/dominio/etiquetas"
@@ -105,5 +106,24 @@ describe("textoParaVoz", () => {
     const guion = "Hola,  tú.\n\nSoy Coni del Rosario. "
     expect(textoParaVoz(guion, "eleven_v4")).toBe(guion)
     expect(textoParaVoz(guion, "eleven_multilingual_v2")).toBe(guion)
+  })
+})
+
+describe("partirEnMarcas", () => {
+  it("splits a script into plain text and tone marks, in order, without losing a character", () => {
+    const guion = "[warm] Hola, hoy [softly] hablamos.\n\n[pause] Soy Coni."
+    const partes = partirEnMarcas(guion)
+    expect(partes.map((parte) => parte.tipo)).toEqual(["marca", "texto", "marca", "texto", "marca", "texto"])
+    expect(partes.map((parte) => parte.valor).join("")).toBe(guion)
+    expect(partes[0]).toEqual({ tipo: "marca", valor: "[warm]" })
+  })
+
+  it("keeps brackets that are not a mark as text, so the symbol warning is not hidden", () => {
+    expect(partirEnMarcas("Mira [3] cosas")).toEqual([{ tipo: "texto", valor: "Mira [3] cosas" }])
+  })
+
+  it("returns one text part for a script without marks and none for an empty one", () => {
+    expect(partirEnMarcas("Hola.")).toEqual([{ tipo: "texto", valor: "Hola." }])
+    expect(partirEnMarcas("")).toEqual([])
   })
 })

@@ -65,11 +65,27 @@ export function lineaDeSaldoVideo(saldo: SaldoHeygen): string {
   return `Saldo de API de HeyGen: ${monto}. Es aparte de tu plan de HeyGen.`
 }
 
+export interface CostoPartido {
+  monto: string
+  unidad: string
+}
+
+/** The cost as the screens lay it out beside the action: the amount big, the unit under it. */
+export function costoDeVoz(caracteres: number, usd: number): CostoPartido {
+  return { monto: dolares(usd), unidad: `~${miles(caracteres)} caracteres` }
+}
+
+export function costoDeVideo(segundos: number, usd: number, incluyeVoz: boolean): CostoPartido {
+  return { monto: dolares(usd), unidad: `~${Math.round(segundos)} s${incluyeVoz ? " · incluye la voz" : ""}` }
+}
+
 /** `repite`: the voice already exists, so the line belongs to the "record again" button. */
 export function lineaDeCostoVoz(caracteres: number, usd: number, repite = false): string {
-  return `${repite ? "Volver a grabar voz" : "Grabar voz"}: ~${miles(caracteres)} caracteres (${dolares(usd)})`
+  const { monto, unidad } = costoDeVoz(caracteres, usd)
+  return `${repite ? "Volver a grabar voz" : "Grabar voz"}: ${unidad} (${monto})`
 }
 
 export function lineaDeCostoVideo(segundos: number, usd: number, incluyeVoz: boolean): string {
-  return `Grabar video: ~${Math.round(segundos)} s (${dolares(usd)})${incluyeVoz ? " · incluye la voz" : ""}`
+  const { monto, unidad } = costoDeVideo(segundos, usd, false)
+  return `Grabar video: ${unidad} (${monto})${incluyeVoz ? " · incluye la voz" : ""}`
 }

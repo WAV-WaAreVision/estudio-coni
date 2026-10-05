@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   alcanceDeVideo,
   alcanceDeVoz,
+  costoDeVideo,
+  costoDeVoz,
   lineaDeCostoVideo,
   lineaDeCostoVoz,
   lineaDeSaldoVideo,
@@ -85,6 +87,12 @@ describe("líneas", () => {
     expect(lineaDeCostoVoz(1100, 0.33)).toBe("Grabar voz: ~1.100 caracteres (US$ 0,33)")
     expect(lineaDeCostoVideo(55.6, 3.73, false)).toBe("Grabar video: ~56 s (US$ 3,73)")
     expect(lineaDeCostoVideo(55.6, 4.06, true)).toBe("Grabar video: ~56 s (US$ 4,06) · incluye la voz")
+  })
+
+  it("splits the cost in the amount and its unit, the figure the screens set beside the action", () => {
+    expect(costoDeVoz(1100, 0.33)).toEqual({ monto: "US$ 0,33", unidad: "~1.100 caracteres" })
+    expect(costoDeVideo(55.6, 3.73, false)).toEqual({ monto: "US$ 3,73", unidad: "~56 s" })
+    expect(costoDeVideo(55.6, 4.06, true)).toEqual({ monto: "US$ 4,06", unidad: "~56 s · incluye la voz" })
   })
 
   it("never uses an em dash", () => {

@@ -3,10 +3,11 @@
 import { CaretLeft } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
-import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
+import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
+import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { BarraDeFirma } from "@/components/ui/barra-de-firma"
@@ -16,6 +17,7 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { contarPalabras } from "@/lib/dominio/duracion"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
@@ -141,37 +143,44 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
       ) : null}
 
       {datos.grabacion ? (
-        <Seccion titulo="El guion" id="guion">
-          <p className="whitespace-pre-wrap text-guion">{datos.guion}</p>
-          {etiquetasDe(datos.guion).length > 0 ? <AyudaDeMarcas /> : null}
-          <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
-          {grabandoVoz ? (
-            <LineaDeEstado tipo="neutro" titulo="Estoy grabando tu voz" detalle="Tarda unos segundos." />
-          ) : null}
-          {/* What the bar records is what she approved: changing it means taking the approval back first. */}
-          <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
-        </Seccion>
+        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
+        // its saved version only follows her own edits, so it would be stale after the voice is ready.
+        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion}>
+          <Seccion titulo="Guion" id="guion" cifra={`${contarPalabras(datos.guion)} palabras · ≈ ${datos.segundos} s`}>
+            <GuionEnLectura guion={datos.guion} />
+            {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
+          </Seccion>
+          <Seccion
+            titulo="Texto de la publicación"
+            id="texto"
+            cifra={`${[...datos.texto].length.toLocaleString("es-CL")} de 2.200`}
+          >
+            <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
+            {/* What the bar records is what she approved: changing it means taking the approval back first. */}
+            <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
+          </Seccion>
+          <Seccion titulo="Avatar" id="avatar">
+            <p className="text-cuerpo font-semibold">{datos.avatarElegido ?? "El avatar que elegiste"}</p>
+          </Seccion>
+        </BarraDeGrabacion>
       ) : (
-        <div className="mt-10">
-          <EditorDeGuion
-            piezaId={datos.id}
-            version={version}
-            guion={datos.guion}
-            texto={datos.texto}
-            tieneVersionDeClaude={datos.tieneVersionDeClaude}
-            alGuardar={alGuardar}
-            alCambiarSinGuardar={setSinGuardar}
-          />
-        </div>
+        <>
+          <div className="mt-10">
+            <EditorDeGuion
+              piezaId={datos.id}
+              version={version}
+              guion={datos.guion}
+              texto={datos.texto}
+              tieneVersionDeClaude={datos.tieneVersionDeClaude}
+              alGuardar={alGuardar}
+              alCambiarSinGuardar={setSinGuardar}
+            />
+          </div>
+          <Seccion titulo="Avatar" id="avatar">
+            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+          </Seccion>
+        </>
       )}
-
-      <Seccion titulo="Avatar" id="avatar">
-        {datos.grabacion ? (
-          <p className="text-cuerpo">{datos.avatarElegido ?? "El avatar que elegiste"}</p>
-        ) : (
-          <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
-        )}
-      </Seccion>
 
       {datos.grabacion ? null : (
         <Seccion titulo="Revisión" id="revision" cifra={revision.length > 0 ? revision.length : undefined}>
@@ -193,11 +202,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </Seccion>
       )}
 
-      {datos.grabacion ? (
-        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
-        // its saved version only follows her own edits, so it would be stale after the voice is ready.
-        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion} />
-      ) : (
+      {datos.grabacion ? null : (
         <>
           <div className="mt-10 grid gap-2">
             {pidiendoCambios ? (
@@ -236,7 +241,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
           </BarraDeFirma>
         </>
       )}
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra={!datos.grabacion} /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
     </div>
   )
 }

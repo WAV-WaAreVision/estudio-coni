@@ -2,6 +2,7 @@ import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
+import { EstadoSencillo } from "@/components/estado-sencillo"
 import { Nota } from "@/components/nota"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { urlParaVer } from "@/lib/acciones/medios"
@@ -17,7 +18,7 @@ import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
 import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
-import { AccionesDeEstado, VolverAInicio } from "../../estado-de-pieza"
+import { AccionesDeEstado } from "../../estado-de-pieza"
 import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { PantallaVideo } from "./pantalla-video"
 import { SubirAMano } from "./subir-a-mano"
@@ -191,14 +192,4 @@ async function esPrimeraVez(db: Awaited<ReturnType<typeof exigirConi>>["db"]): P
   const { data, error } = await db.from("ajustes").select("avatar_visto_en").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   return data?.avatar_visto_en === null
-}
-
-function EstadoSencillo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-5.5">
-      <h1 className="font-serif text-display text-balance">{titulo}</h1>
-      {children}
-      <VolverAInicio />
-    </div>
-  )
 }

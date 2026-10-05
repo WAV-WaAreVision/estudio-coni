@@ -27,6 +27,9 @@ describe("presentarGrabacion", () => {
     const video = estimarCostoVideo(GUION, "avatar_v")
     expect(sin.costoVoz).toBe(`Grabar voz: ~${GUION.length} caracteres (US$ ${voz.toFixed(2).replace(".", ",")})`)
     expect(sin.costoVideo).toMatch(/ · incluye la voz$/)
+    expect(sin.montoVideo).toMatch(/^US\$ /)
+    expect(sin.unidadVideo).toMatch(/ · incluye la voz$/)
+    expect(sin.unidadVoz).toBe(`~${GUION.length} caracteres`)
     expect(sin.confirmacionVideo).toBe(
       `¿Grabar el video? Cuesta unos US$ ${(video + voz).toFixed(2).replace(".", ",")}.`,
     )
