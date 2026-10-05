@@ -372,41 +372,6 @@ body {
   }
 }
 
-/* The approve slider: a native range input restyled as a pill (it dies in Task 12). */
-.deslizador {
-  -webkit-appearance: none;
-  appearance: none;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--pista);
-  touch-action: pan-y;
-}
-.deslizador[data-activo="false"] {
-  background: var(--hundido);
-}
-.deslizador::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 52px;
-  height: 52px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--firma);
-  box-shadow: 0 2px 6px rgb(29 27 24 / 0.25);
-}
-.deslizador::-moz-range-thumb {
-  width: 52px;
-  height: 52px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--firma);
-}
-.deslizador[data-activo="false"]::-webkit-slider-thumb {
-  background: var(--apagado);
-}
-.deslizador[data-activo="false"]::-moz-range-thumb {
-  background: var(--apagado);
-}
-
 /* The public page of the bio link is signature-coloured edge to edge, overscroll included. */
 body:has([data-superficie="marca"]) {
   background: var(--firma);

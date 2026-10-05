@@ -59,13 +59,14 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
   await expect(page.getByText(etiquetaElegida, { exact: true })).toBeVisible()
   await capturar(page, "05-video")
 
-  // Drag the thumb across with the pointer: the other way to approve besides the keyboard.
+  // Drag the thumb across the track with the pointer: the other way to approve besides the keyboard.
   await deslizador.scrollIntoViewIfNeeded()
-  const caja = await deslizador.boundingBox()
-  if (!caja) throw new Error("El deslizador no tiene caja")
-  await page.mouse.move(caja.x + 26, caja.y + caja.height / 2)
+  const pulgar = await deslizador.boundingBox()
+  const pista = await deslizador.locator("..").boundingBox()
+  if (!pulgar || !pista) throw new Error("El deslizador no tiene caja")
+  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
   await page.mouse.down()
-  await page.mouse.move(caja.x + caja.width - 6, caja.y + caja.height / 2, { steps: 14 })
+  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 14 })
   await page.mouse.up()
 
   await expect(page.getByText(`Programado para el ${etiquetaElegida}`)).toBeVisible()

@@ -164,6 +164,52 @@ test("she records the voice alone, listens to it, and then records the video reu
   expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
 })
 
+const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`
+
+test("a tap on the track never approves, a drag to the end does (brandkit 9.12)", async ({ page }) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const deslizador = page.getByRole("slider", { name: ETIQUETA })
+  await elegirAvatar(page, "Estudio")
+  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
+
+  const pista = await deslizador.locator("..").boundingBox()
+  if (!pista) throw new Error("The slider track has no box")
+  await page.mouse.click(pista.x + pista.width - 8, pista.y + pista.height / 2)
+  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+
+  const pulgar = await deslizador.boundingBox()
+  if (!pulgar) throw new Error("The thumb has no box")
+  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 12 })
+  await page.mouse.up()
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+})
+
+test("the visible Aprobar button is the alternative to dragging and asks for the same things (WCAG 2.5.7)", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const aprobar = page.getByRole("button", { name: "Aprobar", exact: true })
+
+  // Without an avatar it is as disabled as the slider.
+  await expect(aprobar).toBeDisabled()
+  // Playwright treats aria-disabled as not actionable; forcing the tap is what a finger does.
+  await aprobar.click({ force: true })
+  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+
+  await elegirAvatar(page, "Estudio")
+  await expect(aprobar).toBeEnabled()
+  await aprobar.click()
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+})
+
 test("approve, take it back, edit, save and approve again, all on the same screen", async ({ page }) => {
   const id = await guionPorAprobar(
     [],
