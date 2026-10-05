@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video por aprobar</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9d6d0}
+body{font-family:var(--letra);width:390px;margin:0 auto;-webkit-font-smoothing:antialiased}
+.cap{font:600 13px/1.3 var(--letra);color:#3a3732;padding:28px 20px 10px;letter-spacing:.02em;text-transform:uppercase}
+.cap span{font-weight:400;text-transform:none;letter-spacing:0;display:block;margin-top:2px}
+.frame{position:relative;width:390px;background:var(--fondo);color:var(--tinta);overflow:hidden}
+.alto{height:844px}
+.sb{height:47px;display:flex;justify-content:space-between;align-items:center;padding:0 28px 0 34px;font:600 16px var(--letra)}
+.sb i{font-size:16px;margin-left:4px}
+.contenido{padding:0 var(--margen);}
+.volver{display:inline-flex;align-items:center;gap:4px;height:44px;font:500 var(--t-cuerpo)/1 var(--letra);color:var(--tinta)}
+.volver i{font-size:20px}
+.video{position:relative;margin:8px auto 0;width:332px;height:591px;border-radius:var(--r-12);overflow:hidden;background:#1d1b18}
+.video img{width:100%;height:100%;object-fit:cover;display:block}
+.chip-ia{position:absolute;top:12px;left:12px;height:28px;padding:0 10px;display:flex;align-items:center;border-radius:var(--r-12);background:var(--velo-video);color:var(--sobre-video);font:600 var(--t-meta)/1 var(--letra)}
+.play{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:var(--velo-video);display:grid;place-items:center;color:var(--sobre-video);font-size:28px}
+.scrim{position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(to top,var(--velo-video),transparent);padding:0 16px 12px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;color:var(--sobre-video)}
+.riel{position:relative;height:2px;background:rgb(252 251 249/.5);border-radius:2px;margin:21px 0 0}
+.riel b{position:absolute;left:0;top:0;bottom:0;background:var(--sobre-video);border-radius:2px}
+.riel s{position:absolute;top:-6px;width:14px;height:14px;border-radius:50%;background:var(--sobre-video);margin-left:-7px}
+.tiempo{font:400 var(--t-meta)/1 var(--letra);font-variant-numeric:tabular-nums;margin-top:10px}
+.zona-b{position:absolute;left:8px;right:64px;bottom:8px;height:22%;border:1.5px dashed var(--sobre-video);border-radius:var(--r-12);display:flex;align-items:flex-start;padding:12px}
+.zona-b span{background:var(--velo-video);color:var(--sobre-video);font:400 var(--t-meta)/var(--i-meta) var(--letra);padding:4px 8px;border-radius:8px}
+.zona-d{position:absolute;right:8px;top:30%;bottom:8px;width:48px;border:1.5px dashed var(--sobre-video);border-radius:var(--r-12)}
+.par{display:flex;justify-content:space-between;font:400 var(--t-meta)/var(--i-meta) var(--letra);color:var(--apagado);margin-top:20px}
+.par .num{font-variant-numeric:tabular-nums}
+h1{font:var(--peso-titulo) var(--t-pieza)/var(--i-pieza) var(--letra);letter-spacing:var(--tr-pieza);margin-top:4px}
+.estado{display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start;margin-top:12px;font:500 var(--t-cuerpo)/var(--i-cuerpo) var(--letra)}
+.estado i{font-size:20px;line-height:24px;text-align:center}
+.estado .det{display:block;font:400 var(--t-meta)/var(--i-meta) var(--letra);color:var(--apagado);margin-top:4px}
+.ok{color:var(--exito)}
+.btn-txt{display:inline-flex;align-items:center;gap:8px;min-height:44px;font:600 var(--t-cuerpo)/1 var(--letra);color:var(--tinta);margin-left:36px}
+.btn-txt i{font-size:20px}
+.seccion{margin-top:var(--entre-secciones);border-top:1px solid var(--tinta);padding-top:12px}
+.rotulo{display:flex;justify-content:space-between;font:600 var(--t-meta)/var(--i-meta) var(--letra);margin-bottom:8px}
+.rotulo em{font-style:normal;font-weight:400;color:var(--apagado);font-variant-numeric:tabular-nums}
+.check{display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:center;min-height:56px;font:400 var(--t-cuerpo)/var(--i-cuerpo) var(--letra)}
+.casilla{width:24px;height:24px;border-radius:6px;background:var(--tinta);color:var(--sobre-tinta);display:grid;place-items:center;font-size:16px}
+.casilla.vacia{background:none;border:1.5px solid var(--campo)}
+.prosa{font:400 var(--t-cuerpo)/var(--i-prosa) var(--letra)}
+.prosa p+p{margin-top:12px}
+.fecha-fila{display:flex;justify-content:space-between;align-items:center;min-height:56px;font:600 var(--t-cuerpo)/var(--i-cuerpo) var(--letra);font-variant-numeric:tabular-nums}
+.fecha-fila a{font-weight:600;color:var(--tinta);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px;min-height:44px;display:flex;align-items:center}
+.ayuda{font:400 var(--t-meta)/var(--i-meta) var(--letra);color:var(--apagado)}
+.destructiva{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:var(--entre-secciones);font:600 var(--t-cuerpo)/1 var(--letra);color:var(--error)}
+.destructiva i{font-size:20px}
+.confirma{margin-top:var(--entre-secciones);border-top:1px solid var(--linea);padding-top:20px}
+.confirma p{font:400 var(--t-cuerpo)/var(--i-prosa) var(--letra)}
+.confirma .monto{font-weight:600;font-variant-numeric:tabular-nums}
+.fila-btn{display:flex;gap:8px;align-items:center;margin-top:16px}
+.sec-error{height:52px;padding:0 16px;border:1px solid var(--error);border-radius:var(--r-12);color:var(--error);font:600 var(--t-cuerpo)/1 var(--letra);display:flex;align-items:center;gap:8px}
+.txt{height:44px;padding:0 12px;display:flex;align-items:center;font:600 var(--t-cuerpo)/1 var(--letra)}
+.fin{height:var(--final-pagina)}
+.barra{position:absolute;left:0;right:0;bottom:0;background:var(--superficie);box-shadow:var(--sombra-barra);padding:12px 20px calc(8px + 34px);z-index:var(--capa-barra)}
+.flujo .barra{position:relative}
+.pista{position:relative;height:56px;border-radius:999px;background:var(--pista);display:flex;align-items:center;justify-content:center;padding:0 6px 0 56px;white-space:nowrap;letter-spacing:-0.02em;font:600 var(--t-cuerpo)/1 var(--letra)}
+.pulgar{position:absolute;left:4px;top:4px;width:48px;height:48px;border-radius:50%;background:var(--firma);color:var(--sobre-firma);display:grid;place-items:center;font-size:24px}
+.pista.off{color:var(--apagado)}
+.pista.off .pulgar{background:var(--superficie);border:1.5px solid var(--apagado);color:var(--apagado)}
+.motivo{display:flex;align-items:center;gap:8px;margin-top:8px;font:500 var(--t-meta)/20px var(--letra)}
+.motivo i{font-size:16px}
+.linea-b{margin-top:8px;font:400 var(--t-meta)/20px var(--letra);color:var(--apagado)}
+.home{position:absolute;bottom:8px;left:50%;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--tinta);z-index:11}
+.fecha-firma{color:var(--firma);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.oscuro{
+  color-scheme: dark;
+  --fondo: #161513;
+  --superficie: #1f1d1a;
+  --tinta: #ece9e3;
+  --apagado: #a39d94;
+  --campo: #7c766d;
+  --linea: #2f2c28;
+  --pista: #2a2724;
+  --principal: #d6d2cb;
+  --sobre-principal: #161513;
+  --sobre-tinta: #161513;
+  --firma: #d78099;
+  --sobre-firma: #161513;
+  --firma-rastro: rgb(215 128 153 / 0.22);
+  --error: #e98a7f;
+  --exito: #86c39c;
+  --aviso: #d9ad66;
+  --foto-brillo: 0.94;
+  --peso-titulo: 500;
+  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
+  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(8 7 6 / 0.45);}
+.oscuro .home{background:var(--tinta)}
+.radios{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.radio{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border:1px solid var(--linea);border-radius:var(--r-12);font:400 var(--t-cuerpo)/1 var(--letra);font-variant-numeric:tabular-nums}
+.radio.on{border-color:var(--tinta);font-weight:600}
+.punto{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--campo);flex:none}
+.radio.on .punto{border:6px solid var(--tinta)}
+.estado .det{font-weight:400}
+</style>
+</head>
+<body>
+
+<!-- ============ CLARO ============ -->
+<div class="cap">1 · Al abrir <span>Sin ver. El video entero y su play sobre la barra; la firma espera.</span></div>
+<section class="frame flujo">
+  <div class="sb"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+  <div class="contenido">
+    <a class="volver"><i class="ph ph-caret-left"></i>Inicio</a>
+    <div class="video">
+      <img src="../img/look-estudio.jpg" alt="Primer cuadro del video «Ser tu propia diosa»">
+      <span class="chip-ia">Avatar IA</span>
+      <span class="play"><i class="ph-fill ph-play"></i></span>
+      <div class="scrim"><div class="riel"><b style="width:0"></b><s style="left:0"></s></div><span class="tiempo">0:00 / 0:48</span></div>
+    </div>
+    <div class="par"><span>Autoestima</span><span class="num">Video por aprobar · 48 s</span></div>
+    <h1>Ser tu propia diosa</h1>
+    <div class="estado"><i class="ph ph-play-circle"></i><span>Míralo completo para aprobar<span class="det">Cuando termine el video aparece lo que falta para aprobarlo.</span></span></div>
+    <a class="btn-txt">Ver zonas de Instagram</a>
+  </div>
+  <div class="barra">
+    <div class="pista off" role="slider" aria-valuetext="No aprobado"><span class="pulgar"><i class="ph ph-arrow-right"></i></span>Desliza para aprobar video y fecha</div>
+    <div class="motivo"><i class="ph ph-info"></i>Se activa al terminar de verlo.</div>
+  </div>
+  </section>
+
+<div class="cap">2 · Lo viste completo <span>Flujo completo: revisión, texto, fecha que compromete, Regrabar. Barra lista.</span></div>
+<section class="frame flujo">
+  <div class="sb"><span>9:43</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+  <div class="contenido">
+    <a class="volver"><i class="ph ph-caret-left"></i>Inicio</a>
+    <div class="video">
+      <img src="../img/look-estudio.jpg" alt="">
+      <span class="chip-ia">Avatar IA</span>
+      <span class="play"><i class="ph-fill ph-play"></i></span>
+      <div class="scrim"><div class="riel"><b style="width:100%"></b><s style="left:100%"></s></div><span class="tiempo">0:48 / 0:48</span></div>
+    </div>
+    <div class="par"><span>Autoestima</span><span class="num">Video por aprobar · 48 s</span></div>
+    <h1>Ser tu propia diosa</h1>
+    <div class="estado ok"><i class="ph ph-check-circle"></i><span>Lo viste completo</span></div>
+    <a class="btn-txt">Ver zonas de Instagram</a>
+
+    <div class="seccion">
+      <div class="rotulo">Antes de aprobar</div>
+      <div class="check"><span class="casilla"><i class="ph-bold ph-check"></i></span>Revisé labios, nombre, subtítulos y cortes</div>
+    </div>
+
+    <div class="seccion">
+      <div class="rotulo">Así sale en Instagram <em>98 de 2.200</em></div>
+      <div class="prosa"><p>Ser tu propia diosa no es creerte perfecta: es tratarte con el cuidado que le das a otras.</p><p>Video hecho con mi avatar digital.</p></div>
+      <a class="btn-txt" style="margin-left:0;margin-top:4px">Editar el texto</a>
+    </div>
+
+    <div class="seccion">
+      <div class="rotulo">Fecha de publicación</div>
+      <div class="fecha-fila"><span>jueves 8 de octubre · 19:00</span><a>Cambiar</a></div>
+      <p class="ayuda">Hora de Chile · próximo horario libre</p>
+      <div class="estado" style="margin-top:20px;font-weight:400"><i class="ph ph-calendar-blank"></i><span>Si lo apruebas hoy, sale el <span class="fecha-firma">jueves 8 de octubre · 19:00</span></span></div>
+    </div>
+
+    <a class="destructiva"><i class="ph ph-arrow-counter-clockwise"></i>Regrabar</a>
+    <div class="fin"></div>
+  </div>
+  <div class="barra">
+    <div class="pista"><span class="pulgar"><i class="ph ph-arrow-right"></i></span>Desliza para aprobar video y fecha</div>
+    <div class="linea-b">Sale con la etiqueta «Información de IA».</div>
+  </div>
+</section>
+
+<div class="cap">3 · Regrabar, confirmación en línea <span>Reemplaza al botón; sin diálogo ni caja teñida.</span></div>
+<section class="frame flujo">
+  <div class="contenido" style="padding-top:8px">
+    <div class="seccion" style="margin-top:12px">
+      <div class="rotulo">Fecha de publicación</div>
+      <div class="fecha-fila"><span>jueves 8 de octubre · 19:00</span><a>Cambiar</a></div>
+      <p class="ayuda">Hora de Chile · próximo horario libre</p>
+    </div>
+    <div class="confirma">
+      <p>Se vuelve a grabar con tu avatar y este video se descarta. Regrabar cuesta unos <span class="monto">US$ 1,16</span>. ¿Seguro?</p>
+      <div class="fila-btn"><span class="sec-error"><i class="ph ph-arrow-counter-clockwise"></i>Sí, regrabar</span><span class="txt">Volver</span></div>
+    </div>
+    <div class="fin" style="height:40px"></div>
+  </div>
+</section>
+
+
+<div class="cap">4 · Zonas visibles <span>Lo que Instagram tapa, sobre el video. El botón cambia a «Ocultar».</span></div>
+<section class="frame flujo">
+  <div class="contenido" style="padding-top:8px">
+    <div class="video">
+      <img src="../img/look-estudio.jpg" alt="">
+      <span class="chip-ia">Avatar IA</span>
+      <div class="zona-b"><span>Aquí Instagram pone el texto y los botones</span></div>
+      <div class="zona-d"></div>
+    </div>
+    <div class="estado ok"><i class="ph ph-check-circle"></i><span>Lo viste completo</span></div>
+    <a class="btn-txt">Ocultar zonas de Instagram</a>
+    <div class="fin" style="height:24px"></div>
+  </div>
+</section>
+
+<div class="cap">5 · Cambiando la fecha <span>Cuatro horarios libres en línea; «Listo» cierra.</span></div>
+<section class="frame flujo">
+  <div class="contenido" style="padding-top:8px">
+    <div class="seccion" style="margin-top:12px">
+      <div class="rotulo">Fecha de publicación</div>
+      <div class="fecha-fila"><span>jueves 8 de octubre · 19:00</span><a>Listo</a></div>
+      <p class="ayuda">Hora de Chile · próximo horario libre</p>
+      <div class="radios">
+        <label class="radio on"><span class="punto"></span>jueves 8 de octubre · 19:00</label>
+        <label class="radio"><span class="punto"></span>sábado 10 de octubre · 19:00</label>
+        <label class="radio"><span class="punto"></span>martes 13 de octubre · 19:00</label>
+        <label class="radio"><span class="punto"></span>jueves 15 de octubre · 19:00</label>
+      </div>
+    </div>
+    <div class="fin" style="height:24px"></div>
+  </div>
+</section>
+
+<!-- ============ OSCURO ============ -->
+<div class="cap">Oscuro · revisión de noche <span>El video nunca se atenúa. Títulos un peso más livianos.</span></div>
+<section class="oscuro frame flujo">
+  <div class="sb"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+  <div class="contenido">
+    <a class="volver"><i class="ph ph-caret-left"></i>Inicio</a>
+    <div class="video">
+      <img src="../img/look-estudio.jpg" alt="Primer cuadro del video «Ser tu propia diosa»">
+      <span class="chip-ia">Avatar IA</span>
+      <span class="play"><i class="ph-fill ph-play"></i></span>
+      <div class="scrim"><div class="riel"><b style="width:0"></b><s style="left:0"></s></div><span class="tiempo">0:00 / 0:48</span></div>
+    </div>
+    <div class="par"><span>Autoestima</span><span class="num">Video por aprobar · 48 s</span></div>
+    <h1>Ser tu propia diosa</h1>
+    <div class="estado"><i class="ph ph-play-circle"></i><span>Míralo completo para aprobar<span class="det">Cuando termine el video aparece lo que falta para aprobarlo.</span></span></div>
+    <a class="btn-txt">Ver zonas de Instagram</a>
+  </div>
+  <div class="barra">
+    <div class="pista off" role="slider" aria-valuetext="No aprobado"><span class="pulgar"><i class="ph ph-arrow-right"></i></span>Desliza para aprobar video y fecha</div>
+    <div class="motivo"><i class="ph ph-info"></i>Se activa al terminar de verlo.</div>
+  </div>
+  </section>
+<section class="oscuro frame flujo">
+  <div class="sb"><span>9:43</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+  <div class="contenido">
+    <a class="volver"><i class="ph ph-caret-left"></i>Inicio</a>
+    <div class="video">
+      <img src="../img/look-estudio.jpg" alt="">
+      <span class="chip-ia">Avatar IA</span>
+      <span class="play"><i class="ph-fill ph-play"></i></span>
+      <div class="scrim"><div class="riel"><b style="width:100%"></b><s style="left:100%"></s></div><span class="tiempo">0:48 / 0:48</span></div>
+    </div>
+    <div class="par"><span>Autoestima</span><span class="num">Video por aprobar · 48 s</span></div>
+    <h1>Ser tu propia diosa</h1>
+    <div class="estado ok"><i class="ph ph-check-circle"></i><span>Lo viste completo</span></div>
+    <a class="btn-txt">Ver zonas de Instagram</a>
+
+    <div class="seccion">
+      <div class="rotulo">Antes de aprobar</div>
+      <div class="check"><span class="casilla"><i class="ph-bold ph-check"></i></span>Revisé labios, nombre, subtítulos y cortes</div>
+    </div>
+
+    <div class="seccion">
+      <div class="rotulo">Así sale en Instagram <em>98 de 2.200</em></div>
+      <div class="prosa"><p>Ser tu propia diosa no es creerte perfecta: es tratarte con el cuidado que le das a otras.</p><p>Video hecho con mi avatar digital.</p></div>
+      <a class="btn-txt" style="margin-left:0;margin-top:4px">Editar el texto</a>
+    </div>
+
+    <div class="seccion">
+      <div class="rotulo">Fecha de publicación</div>
+      <div class="fecha-fila"><span>jueves 8 de octubre · 19:00</span><a>Cambiar</a></div>
+      <p class="ayuda">Hora de Chile · próximo horario libre</p>
+      <div class="estado" style="margin-top:20px;font-weight:400"><i class="ph ph-calendar-blank"></i><span>Si lo apruebas hoy, sale el <span class="fecha-firma">jueves 8 de octubre · 19:00</span></span></div>
+    </div>
+
+    <a class="destructiva"><i class="ph ph-arrow-counter-clockwise"></i>Regrabar</a>
+    <div class="fin"></div>
+  </div>
+  <div class="barra">
+    <div class="pista"><span class="pulgar"><i class="ph ph-arrow-right"></i></span>Desliza para aprobar video y fecha</div>
+    <div class="linea-b">Sale con la etiqueta «Información de IA».</div>
+  </div>
+</section>
+<div style="height:24px"></div>
+</body>
+</html>
