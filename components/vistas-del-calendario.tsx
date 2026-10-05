@@ -1,5 +1,4 @@
-import Link from "next/link"
-import { cn } from "@/lib/utils"
+import { Pestanas } from "@/components/ui/pestanas"
 
 export const VISTAS = [
   { clave: "mes", etiqueta: "Mes" },
@@ -12,28 +11,17 @@ export function esVista(valor: string | undefined): valor is Vista {
   return VISTAS.some((vista) => vista.clave === valor)
 }
 
-/** The segmented control (DESIGN.md): three links, so each view has an address and works without a script. */
+/** The three views of the calendar as underlined tabs: links, so each has an address. */
 export function VistasDelCalendario({ activa }: { activa: Vista }) {
   return (
-    <nav aria-label="Vista del calendario">
-      <ul className="grid min-h-13 grid-cols-3 gap-1 rounded-sm bg-hundido p-1">
-        {VISTAS.map((vista) => (
-          <li key={vista.clave} className="grid">
-            <Link
-              href={`/calendario?vista=${vista.clave}`}
-              replace
-              aria-current={activa === vista.clave ? "page" : undefined}
-              className={cn(
-                "grid min-h-11 place-items-center rounded-sm text-label font-semibold",
-                "transition-[background-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
-                activa === vista.clave ? "bg-superficie text-tinta shadow-sm" : "text-apagado",
-              )}
-            >
-              {vista.etiqueta}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <Pestanas
+      etiqueta="Vista del calendario"
+      actual={activa}
+      opciones={VISTAS.map((vista) => ({
+        valor: vista.clave,
+        etiqueta: vista.etiqueta,
+        href: `/calendario?vista=${vista.clave}`,
+      }))}
+    />
   )
 }
