@@ -1,8 +1,10 @@
 "use client"
 
+import { ArrowRight } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
 import { CasillasCodigo } from "@/components/casillas-codigo"
 import { Boton } from "@/components/ui/boton"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { pedirCodigoAccion, verificarCodigoAccion } from "./acciones"
 
 type Paso = "inicio" | "codigo"
@@ -47,16 +49,20 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
 
   if (paso === "inicio") {
     return (
-      <div className="grid gap-5.5">
-        <div className="grid gap-2.5">
-          <h1 className="font-serif text-display text-balance">Hola, Coni</h1>
-          <p className="text-apagado">
+      <div className="grid gap-6">
+        <div className="grid gap-3">
+          <h1 className="text-pantalla text-balance">Hola, Coni</h1>
+          <p className="text-cuerpo text-apagado">
             Te mando un código a <strong className="font-semibold text-tinta">{correoEnmascarado}</strong> para que
             entres.
           </p>
         </div>
         {error ? <MensajeDeError mensaje={error} /> : null}
-        <Boton cargando={pendiente} onClick={() => mandarCodigo(false)}>
+        <Boton
+          cargando={pendiente}
+          icono={<ArrowRight aria-hidden="true" size={20} />}
+          onClick={() => mandarCodigo(false)}
+        >
           Mandarme el código
         </Boton>
       </div>
@@ -65,15 +71,15 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
 
   return (
     <form
-      className="grid gap-5.5"
+      className="grid gap-6"
       onSubmit={(evento) => {
         evento.preventDefault()
         if (codigo.length === 6) entrar(codigo)
       }}
     >
-      <div className="grid gap-2.5">
-        <h1 className="font-serif text-display text-balance">Entra con el código que te mandé</h1>
-        <p className="text-apagado">
+      <div className="grid gap-3">
+        <h1 className="text-pantalla text-balance">Entra con el código que te mandé</h1>
+        <p className="text-cuerpo text-apagado">
           Lo envié a {correoEnmascarado}. Vence en 1 hora. Si no llega, mira la carpeta de spam.
         </p>
       </div>
@@ -88,14 +94,12 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
         deshabilitado={pendiente}
       />
       {error ? <MensajeDeError mensaje={error} /> : null}
-      {aviso && !error ? (
-        <output className="rounded-md bg-ok-fondo p-3.5 text-[1rem] text-ok-tinta">{aviso}</output>
-      ) : null}
-      <div className="grid gap-1">
+      {aviso && !error ? <LineaDeEstado tipo="exito" titulo={aviso} /> : null}
+      <div className="grid gap-2">
         <Boton type="submit" cargando={pendiente} deshabilitado={codigo.length < 6}>
           Entrar
         </Boton>
-        <Boton variante="callado" onClick={() => mandarCodigo(true)} cargando={pendiente}>
+        <Boton variante={error ? "linea" : "callado"} onClick={() => mandarCodigo(true)} cargando={pendiente}>
           Mandar otro código
         </Boton>
       </div>
@@ -104,9 +108,5 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
 }
 
 function MensajeDeError({ mensaje }: { mensaje: string }) {
-  return (
-    <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-      {mensaje}
-    </p>
-  )
+  return <LineaDeEstado tipo="error" titulo={mensaje} />
 }
