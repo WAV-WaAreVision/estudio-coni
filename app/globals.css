@@ -354,6 +354,24 @@ body {
   }
 }
 
+/* Brandkit 9.8: fields grow with their text, never scroll inside. In the components layer so a utility can still adjust one. */
+@layer components {
+  .campo {
+    background: var(--superficie);
+    border: var(--trazo) solid var(--campo);
+    border-radius: var(--r-12);
+    padding: var(--e-4);
+    min-height: var(--alto-boton);
+    field-sizing: content;
+  }
+  .campo[aria-invalid="true"] {
+    border: var(--trazo-seleccion) solid var(--error);
+  }
+  .campo::placeholder {
+    color: var(--apagado);
+  }
+}
+
 /* The approve slider: a native range input restyled as a pill (it dies in Task 12). */
 .deslizador {
   -webkit-appearance: none;

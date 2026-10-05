@@ -110,4 +110,10 @@ describe("CasillasCodigo", () => {
 
     for (const casilla of casillas()) expect(casilla).toHaveAttribute("aria-invalid", "true")
   })
+
+  it("draws every box as a 3:1 field, 64 px tall", () => {
+    render(<CasillasCodigo alCompletar={() => undefined} />)
+
+    for (const casilla of casillas()) expect(casilla).toHaveClass("campo", "h-16")
+  })
 })

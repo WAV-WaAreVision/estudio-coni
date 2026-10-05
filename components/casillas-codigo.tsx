@@ -92,7 +92,7 @@ export function CasillasCodigo({
           onPaste={(evento) => alPegar(indice, evento)}
           onKeyDown={(evento) => alTeclear(indice, evento)}
           onFocus={(evento) => evento.target.select()}
-          className={`aspect-[0.82] w-full rounded-sm border-[1.5px] bg-superficie text-center text-[1.5rem] font-semibold text-tinta tabular-nums transition-colors duration-150 focus:border-acento ${invalido ? "border-error-tinta" : "border-linea"}`}
+          className="campo h-16 w-full px-0 text-center text-pieza text-tinta tabular-nums"
         />
       ))}
     </fieldset>
