@@ -19,7 +19,15 @@ interface Seccion {
 }
 
 const SECCIONES: Seccion[] = [
-  { titulo: "Ingreso", capturas: [{ nombre: "ingreso", rotulo: "Paso inicial" }], maqueta: "ingreso.png" },
+  {
+    titulo: "Ingreso",
+    capturas: [
+      { nombre: "ingreso", rotulo: "Paso inicial" },
+      { nombre: "ingreso-codigo-error", rotulo: "Código equivocado (error en magenta)" },
+    ],
+    maqueta: "ingreso.png",
+    nota: "Los errores usan el magenta de la marca (decisión de Federico): la lámina aún los dibuja en rojo.",
+  },
   { titulo: "Inicio", capturas: [{ nombre: "inicio", rotulo: "Con piezas" }], maqueta: "inicio.png" },
   { titulo: "Inicio vacío", capturas: [{ nombre: "inicio-vacio", rotulo: "Sin firmas" }], maqueta: "inicio-vacio.png" },
   { titulo: "Ideas", capturas: [{ nombre: "ideas", rotulo: "Mazo" }], maqueta: "ideas.png" },
@@ -27,7 +35,7 @@ const SECCIONES: Seccion[] = [
     titulo: "Guion por aprobar",
     capturas: [{ nombre: "guion-por-aprobar", rotulo: "Puerta 1" }],
     maqueta: "guion-por-aprobar.png",
-    nota: "La barra fija aparece a mitad de la captura de página completa: es la captura, no el diseño.",
+    nota: "En la captura de página completa la barra fija se coloca al final, como en la lámina.",
   },
   {
     titulo: "Guion aprobado, sin voz",
