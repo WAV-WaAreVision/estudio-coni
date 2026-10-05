@@ -57,4 +57,28 @@ describe("Boton", () => {
     expect(alEnviar).not.toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "Entrar" })).toHaveAttribute("aria-busy", "true")
   })
+
+  it("puts the label on the left and the icon that says what happens on the right", () => {
+    render(<Boton icono={<span data-testid="icono" />}>Grabar video</Boton>)
+    const boton = screen.getByRole("button", { name: "Grabar video" })
+    expect(boton).toHaveClass("justify-between")
+    expect(boton.lastElementChild).toBe(screen.getByTestId("icono"))
+  })
+
+  it("draws a destructive action as text in the error ink, never filled", () => {
+    render(<Boton variante="destructiva">Pedir cambios</Boton>)
+    const boton = screen.getByRole("button", { name: "Pedir cambios" })
+    expect(boton).toHaveClass("text-error")
+    expect(boton.className).not.toMatch(/\bbg-(principal|firma|error)\b/)
+  })
+
+  it("swaps the icon for the working dot while loading", () => {
+    render(
+      <Boton cargando icono={<span data-testid="icono" />}>
+        Guardando…
+      </Boton>,
+    )
+    expect(screen.queryByTestId("icono")).toBeNull()
+    expect(screen.getByRole("button", { name: "Guardando…" }).querySelector(".punto-trabajando")).not.toBeNull()
+  })
 })

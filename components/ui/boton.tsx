@@ -1,9 +1,10 @@
 "use client"
 
 import type { VariantProps } from "class-variance-authority"
-import type { ButtonHTMLAttributes, MouseEvent } from "react"
+import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import { clasesDeBoton } from "./clases-de-boton"
+import { PuntoTrabajando } from "./punto-trabajando"
 
 interface PropiedadesDeBoton
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "disabled">,
@@ -11,6 +12,8 @@ interface PropiedadesDeBoton
   /** Looks and reads as disabled but stays focusable, so a screen reader can find it and read why. */
   deshabilitado?: boolean
   cargando?: boolean
+  /** The icon that says what happens next, on the right of the label. Replaced by the working dot while loading. */
+  icono?: ReactNode
 }
 
 export function Boton({
@@ -18,6 +21,8 @@ export function Boton({
   tamano,
   deshabilitado = false,
   cargando = false,
+  icono,
+  children,
   className,
   onClick,
   type = "button",
@@ -41,6 +46,9 @@ export function Boton({
       aria-busy={cargando || undefined}
       onClick={alTocar}
       className={cn(clasesDeBoton({ variante, tamano }), className)}
-    />
+    >
+      <span>{children}</span>
+      {cargando ? <PuntoTrabajando /> : icono}
+    </button>
   )
 }
