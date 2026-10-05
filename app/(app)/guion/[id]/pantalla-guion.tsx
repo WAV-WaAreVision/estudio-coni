@@ -58,7 +58,6 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
-  const grabandoVoz = datos.grabacion?.estado === "grabando_voz"
   const aprobacion = useAccion()
   const cambios = useAccion()
 

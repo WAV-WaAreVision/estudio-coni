@@ -113,9 +113,9 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
             detalle={
               <>
                 {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-                {fila.media_id ? (
-                  <> Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo.</>
-                ) : null}
+                {fila.media_id
+                  ? " Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo."
+                  : null}
               </>
             }
           />

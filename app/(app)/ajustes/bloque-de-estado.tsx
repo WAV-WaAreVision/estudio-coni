@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle, Info, Warning } from "@phosphor-icons/react/dist/ssr"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
-import { type BloqueDeEstado as Bloque, estadoDeAjustes } from "@/lib/ajustes/estado"
+import { estadoDeAjustes } from "@/lib/ajustes/estado"
 import { cn } from "@/lib/utils"
 import { revisionDeCuentas } from "./revision"
 

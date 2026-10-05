@@ -188,8 +188,8 @@ export function BarraDeGrabacion({
           <div aria-hidden="true" className="h-[calc(var(--barra-max)+env(safe-area-inset-bottom))]" />
           <BarraDeFirma etiqueta="Grabación">{!sinVoz && confirmando ? confirmacion : principal}</BarraDeFirma>
         </>
-      ) : (
-        <>{!grabandoVoz ? <div className="mt-10">{principal}</div> : null}</>
+      ) : grabandoVoz ? null : (
+        <div className="mt-10">{principal}</div>
       )}
     </div>
   )
