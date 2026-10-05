@@ -1,4 +1,5 @@
 import { ProgresoDeReels } from "@/components/progreso-de-reels"
+import { Seccion } from "@/components/seccion"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
 import type { PanelDeComparacion as Panel } from "@/lib/metricas/modelo"
 
@@ -16,21 +17,19 @@ function Temas({ temas }: { temas: { pilar: keyof typeof NOMBRE_DE_PILAR; n: num
 
 /**
  * Sits right under "Lo que sirvió" so the order of the bars is never read as a conclusion: before the threshold it
- * shows how far each theme is; after it, the comparison with its interval and sample sizes (DESIGN.md, Do's).
+ * shows how far each theme is (eight segments); after it, the comparison with its interval and sample sizes. A flat
+ * section, not a panel (brandkit 9.20).
  */
 export function PanelDeComparacion({ panel }: { panel: Panel }) {
   if (panel.tipo === "comparable") {
     return (
-      <section aria-labelledby="comparacion" className="grid gap-3 rounded-lg bg-hundido p-4">
-        <h2 id="comparacion" className="font-semibold">
-          {panel.titulo}
-        </h2>
-        <ul className="grid gap-1.5">
+      <Seccion titulo={panel.titulo} id="comparacion">
+        <ul className="grid gap-2 text-cuerpo">
           {panel.temas.map((tema) => (
             <li key={tema.pilar}>{tema.texto}</li>
           ))}
         </ul>
-        <p>{panel.frase}</p>
+        <p className="text-cuerpo">{panel.frase}</p>
         <p className="text-meta text-apagado">{panel.cautela}</p>
         {panel.pendientes.length > 0 ? (
           <div className="grid gap-1">
@@ -38,21 +37,22 @@ export function PanelDeComparacion({ panel }: { panel: Panel }) {
             <Temas temas={panel.pendientes} />
           </div>
         ) : null}
-      </section>
+      </Seccion>
     )
   }
   return (
-    <section aria-labelledby="comparacion" className="grid gap-3 rounded-lg bg-hundido p-4">
-      <h2 id="comparacion" className="font-semibold">
-        {panel.titulo}
-      </h2>
-      <p>{panel.texto}</p>
+    <Seccion
+      titulo={panel.titulo}
+      id="comparacion"
+      cifra={panel.tipo === "temprano" ? `${panel.avance} de ${panel.meta}` : undefined}
+    >
+      <p className="text-cuerpo">{panel.texto}</p>
       {panel.tipo === "temprano" ? (
         <>
           <ProgresoDeReels avance={panel.avance} meta={panel.meta} />
           <Temas temas={panel.temas} />
         </>
       ) : null}
-    </section>
+    </Seccion>
   )
 }
