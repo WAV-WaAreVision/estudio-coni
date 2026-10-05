@@ -60,6 +60,14 @@ describe("design rules", () => {
     expect(css).not.toContain("prefers-color-scheme")
   })
 
+  it("draws icons with Phosphor only, through the SSR entry in server modules", () => {
+    expect(CODIGO.filter((ruta) => leer(ruta).includes("lucide-react"))).toEqual([])
+    const servidorConIconoCliente = CODIGO.filter(
+      (ruta) => !leer(ruta).startsWith('"use client"') && /from "@phosphor-icons\/react"/.test(leer(ruta)),
+    )
+    expect(servidorConIconoCliente).toEqual([])
+  })
+
   it("lists the files it scans (sanity: the walk found code)", () => {
     expect(CODIGO.map((ruta) => relative(".", ruta)).length).toBeGreaterThan(50)
   })

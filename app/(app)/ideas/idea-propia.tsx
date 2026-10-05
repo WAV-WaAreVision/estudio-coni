@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronLeft } from "lucide-react"
+import { CaretLeft } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
 import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { Boton } from "@/components/ui/boton"
@@ -115,7 +115,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
         onClick={alVolver}
         className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
       >
-        <ChevronLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={20} />
         Volver a las ideas
       </button>
       <h1 className="font-serif text-title text-balance">Tu idea</h1>

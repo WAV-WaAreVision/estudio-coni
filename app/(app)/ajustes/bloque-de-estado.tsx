@@ -1,4 +1,4 @@
-import { Check } from "lucide-react"
+import { Check } from "@phosphor-icons/react/dist/ssr"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { type BloqueDeEstado as Bloque, estadoDeAjustes } from "@/lib/ajustes/estado"
 import { cn } from "@/lib/utils"

@@ -1,6 +1,6 @@
 "use client"
 
-import { Pause, Play } from "lucide-react"
+import { Pause, Play } from "@phosphor-icons/react"
 import { mmss } from "@/lib/formato"
 import { useReproduccion } from "./use-reproduccion"
 
@@ -30,9 +30,9 @@ export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
         className="grid size-13 place-items-center rounded-full bg-acento text-sobre-acento transition-transform duration-150 ease-fuerte active:scale-95 disabled:bg-hundido disabled:text-apagado motion-reduce:active:scale-100"
       >
         {reproduciendo ? (
-          <Pause aria-hidden="true" size={22} fill="currentColor" />
+          <Pause aria-hidden="true" size={22} weight="fill" />
         ) : (
-          <Play aria-hidden="true" size={22} fill="currentColor" />
+          <Play aria-hidden="true" size={22} weight="fill" />
         )}
       </button>
       <div className="h-1.5 overflow-hidden rounded-full bg-hundido">

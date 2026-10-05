@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react"
+import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
@@ -94,7 +94,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
                 className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}
               >
                 Ver en Instagram
-                <ExternalLink aria-hidden="true" size={18} />
+                <ArrowUpRight aria-hidden="true" size={20} />
               </Link>
             ) : null}
           </Nota>
@@ -113,7 +113,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
                 className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}
               >
                 Ver en Instagram
-                <ExternalLink aria-hidden="true" size={18} />
+                <ArrowUpRight aria-hidden="true" size={20} />
               </Link>
             ) : null}
           </Nota>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Pause, Play } from "lucide-react"
+import { Pause, Play } from "@phosphor-icons/react"
 import { mmss } from "@/lib/formato"
 import { useReproduccion } from "./use-reproduccion"
 
@@ -65,9 +65,9 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
           className="grid size-12 place-items-center rounded-full bg-sobre-acento/90 text-tinta transition-transform duration-150 ease-fuerte active:scale-95 disabled:opacity-50 motion-reduce:active:scale-100"
         >
           {reproduciendo ? (
-            <Pause aria-hidden="true" size={20} fill="currentColor" />
+            <Pause aria-hidden="true" size={20} weight="fill" />
           ) : (
-            <Play aria-hidden="true" size={20} fill="currentColor" />
+            <Play aria-hidden="true" size={20} weight="fill" />
           )}
         </button>
         <div className="h-1.5 overflow-hidden rounded-full bg-sobre-acento/35">

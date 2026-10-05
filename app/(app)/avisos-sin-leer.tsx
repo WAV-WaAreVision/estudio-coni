@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight } from "lucide-react"
+import { CaretRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { MouseEvent } from "react"
@@ -47,7 +47,7 @@ export function AvisosSinLeer({
                 <span className="text-body font-semibold leading-[1.3]">{aviso.mensaje}</span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
-              <ChevronRight aria-hidden="true" size={22} className="self-center text-apagado" />
+              <CaretRight aria-hidden="true" size={20} className="self-center text-apagado" />
             </Link>
           </li>
         ))}

@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react"
+import { CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
@@ -25,7 +25,7 @@ export function FilaPieza({ titulo, meta, pilar, href, ocupada = false }: Propie
         </span>
         {ocupada ? <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" /> : null}
       </span>
-      {href ? <ChevronRight aria-hidden="true" size={22} className="self-center text-apagado" /> : <span />}
+      {href ? <CaretRight aria-hidden="true" size={20} className="self-center text-apagado" /> : <span />}
     </>
   )
   const clases = cn(

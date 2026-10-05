@@ -1,6 +1,6 @@
 "use client"
 
-import { Minus, Plus } from "lucide-react"
+import { Minus, Plus } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Chip } from "@/components/chip"
 import { Aviso } from "@/components/ui/aviso"

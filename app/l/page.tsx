@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr"
 import type { Metadata, Viewport } from "next"
 import { COLOR_DE_FIRMA } from "@/lib/diseno/marca"
 import { type Enlace, leerEnlaces } from "@/lib/enlaces/config"

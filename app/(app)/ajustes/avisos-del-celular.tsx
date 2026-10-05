@@ -1,6 +1,6 @@
 "use client"
 
-import { Share, SquarePlus } from "lucide-react"
+import { Export, PlusSquare } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 import { Nota } from "@/components/nota"
 import { Boton } from "@/components/ui/boton"
@@ -194,13 +194,13 @@ function HojaDeInstalacion() {
       <p>Para recibir avisos en el iPhone, primero instala la app. Toma un minuto y necesitas iOS 16.4 o más nuevo.</p>
       <ol className="grid gap-3">
         <li className="flex items-start gap-3">
-          <Share aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
+          <Export aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
           <span>
             Toca <strong>Compartir</strong>, el cuadrado con la flecha hacia arriba, abajo en Safari.
           </span>
         </li>
         <li className="flex items-start gap-3">
-          <SquarePlus aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
+          <PlusSquare aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
           <span>
             Elige <strong>Agregar a inicio</strong> y toca Agregar.
           </span>

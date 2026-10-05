@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react"
+import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { FilaPieza } from "@/components/fila-pieza"
 import { Nota } from "@/components/nota"
@@ -154,7 +154,7 @@ function AvisoEnInicio({ aviso }: { aviso: AvisoDeInicio }) {
           })}
         >
           {aviso.accion.etiqueta}
-          {aviso.accion.externo ? <ExternalLink aria-hidden="true" size={18} /> : null}
+          {aviso.accion.externo ? <ArrowUpRight aria-hidden="true" size={20} /> : null}
         </Link>
       ) : null}
     </Nota>

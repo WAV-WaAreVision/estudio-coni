@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react"
+import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { AgendaDelCalendario } from "@/components/agenda-del-calendario"
 import { FilaPieza } from "@/components/fila-pieza"
@@ -25,7 +25,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
         >
-          <ChevronLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
         <h1 className="font-serif text-display capitalize">{calendario.mes.nombre}</h1>

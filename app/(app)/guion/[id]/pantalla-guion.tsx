@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronLeft } from "lucide-react"
+import { CaretLeft } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
 import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
@@ -106,7 +106,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
         >
-          <ChevronLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
         <h1 className="font-serif text-display text-balance">{datos.titulo}</h1>

@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronLeft, Plus, Search } from "lucide-react"
+import { CaretLeft, MagnifyingGlass, Plus } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
@@ -147,7 +147,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
         >
-          <ChevronLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
         <div className="flex items-center justify-between gap-2.5">
@@ -162,7 +162,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
               "Una a la vez"
             ) : (
               <>
-                <Search aria-hidden="true" size={18} />
+                <MagnifyingGlass aria-hidden="true" size={20} />
                 Buscar
               </>
             )}
@@ -233,7 +233,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
 function BotonIdeaPropia({ alTocar }: { alTocar: () => void }) {
   return (
     <Boton variante="callado" onClick={alTocar}>
-      <Plus aria-hidden="true" size={18} />
+      <Plus aria-hidden="true" size={20} />
       Escribir una idea mía
     </Boton>
   )

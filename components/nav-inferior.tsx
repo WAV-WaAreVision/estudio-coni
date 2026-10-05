@@ -1,14 +1,14 @@
 "use client"
 
-import { ChartColumn, House, Settings } from "lucide-react"
+import { ChartBar, GearSix, House } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 const PESTANAS = [
   { href: "/", etiqueta: "Inicio", icono: House },
-  { href: "/metricas", etiqueta: "Métricas", icono: ChartColumn },
-  { href: "/ajustes", etiqueta: "Ajustes", icono: Settings },
+  { href: "/metricas", etiqueta: "Métricas", icono: ChartBar },
+  { href: "/ajustes", etiqueta: "Ajustes", icono: GearSix },
 ] as const
 
 function estaActiva(ruta: string, pestana: (typeof PESTANAS)[number]): boolean {
@@ -41,7 +41,7 @@ export function NavInferior() {
               activa ? "font-semibold text-acento" : "text-apagado",
             )}
           >
-            <Icono aria-hidden="true" size={22} strokeWidth={1.8} />
+            <Icono aria-hidden="true" size={24} />
             {pestana.etiqueta}
           </Link>
         )
