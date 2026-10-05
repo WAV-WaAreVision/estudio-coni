@@ -52,7 +52,7 @@ export default async function Metricas() {
                 {semana.reels.length > 0 ? (
                   <ul>
                     {semana.reels.map((reel) => (
-                      <FilaPieza key={reel.piezaId} titulo={reel.titulo} meta={reel.meta} pilar={reel.pilar} />
+                      <FilaPieza key={reel.piezaId} titulo={reel.titulo} estado={reel.meta} pilar={reel.pilar} />
                     ))}
                   </ul>
                 ) : null}

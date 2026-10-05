@@ -64,7 +64,7 @@ export default async function Inicio() {
         <Seccion titulo="Para subir a Instagram" id="por-subir">
           <ul>
             {inicio.porSubir.map((fila) => (
-              <FilaPieza key={fila.id} titulo={fila.titulo} meta={fila.meta} pilar={fila.pilar} href={fila.href} />
+              <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
             ))}
           </ul>
         </Seccion>
@@ -74,7 +74,7 @@ export default async function Inicio() {
         {inicio.firma.length > 0 ? (
           <ul>
             {inicio.firma.map((fila) => (
-              <FilaPieza key={fila.id} titulo={fila.titulo} meta={fila.meta} pilar={fila.pilar} href={fila.href} />
+              <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
             ))}
           </ul>
         ) : (
@@ -98,9 +98,9 @@ export default async function Inicio() {
               <FilaPieza
                 key={fila.id}
                 titulo={fila.titulo}
-                meta={fila.estado}
+                estado={fila.estado}
                 pilar={fila.pilar}
-                ocupada={fila.ocupada}
+                trabajando={fila.ocupada}
                 href={fila.href}
               />
             ))}

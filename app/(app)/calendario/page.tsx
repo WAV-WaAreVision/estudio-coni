@@ -51,7 +51,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
                   <FilaPieza
                     key={fila.piezaId}
                     titulo={fila.titulo}
-                    meta={`Para subir · ${fila.fecha}`}
+                    estado={`Para subir · ${fila.fecha}`}
                     pilar={fila.pilar}
                     href={`/video/${fila.piezaId}`}
                   />
@@ -63,7 +63,12 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
             <Seccion titulo="Próximos" id="proximos">
               <ul>
                 {calendario.mes.proximos.map((proxima) => (
-                  <FilaPieza key={proxima.piezaId} titulo={proxima.titulo} meta={proxima.fecha} pilar={proxima.pilar} />
+                  <FilaPieza
+                    key={proxima.piezaId}
+                    titulo={proxima.titulo}
+                    estado={proxima.fecha}
+                    pilar={proxima.pilar}
+                  />
                 ))}
               </ul>
             </Seccion>
