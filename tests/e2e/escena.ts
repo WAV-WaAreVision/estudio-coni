@@ -11,7 +11,8 @@ const IDEAS = [
 ]
 
 async function conIdea(destino: Parameters<typeof sembrarPieza>[0], pilar: string, titulo: string) {
-  const idea = await sembrarIdea({ pilar, gancho: titulo })
+  // The idea of a piece in flight is used: Inicio does not offer it again, as in the design.
+  const idea = await sembrarIdea({ pilar, gancho: titulo, estado: "usada" })
   return sembrarPieza(destino, {
     titulo,
     idea_id: idea,
@@ -29,7 +30,8 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   await vaciarPiezasEIdeas()
   limpiarDisparos()
   await pool.query("delete from public.consultas")
-  for (const idea of IDEAS) await sembrarIdea(idea)
+  // Numbered, so the five that Inicio offers do not depend on the random ids that break ties.
+  for (const [i, idea] of IDEAS.entries()) await sembrarIdea({ ...idea, numero: i + 1 })
   const guion = await conIdea("guion_por_aprobar", "deseo", "El deseo no se apaga, se esconde")
   const video = await conIdea("video_por_aprobar", "autoestima", "Ser tu propia diosa")
   await conIdea("en_render", "limites", "Puedes decir que no")

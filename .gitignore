@@ -46,5 +46,3 @@ next-env.d.ts
 /playwright-report/
 /tests/e2e/.auth/
 
-# Visual baselines wait for Federico to approve the comparison sheet (Task 33); remove this line then.
-/tests/e2e/visual.spec.ts-snapshots/
