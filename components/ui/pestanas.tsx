@@ -27,7 +27,7 @@ export function Pestanas<T extends string>({ etiqueta, actual, opciones }: Propi
                 replace
                 aria-current={esActual ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-11 items-center text-cuerpo",
+                  "relative flex min-h-11 min-w-11 items-center text-cuerpo",
                   esActual
                     ? "font-semibold text-tinta after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-tinta"
                     : "font-medium text-apagado",
