@@ -1,9 +1,9 @@
 "use client"
 
-import { Export, PlusSquare } from "@phosphor-icons/react"
+import { ArrowRight, Export, PlusSquare } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
-import { Nota } from "@/components/nota"
 import { Boton } from "@/components/ui/boton"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { SuscripcionDelNavegador } from "@/lib/acciones/avisos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { type EstadoDeAvisos, estadoDeAvisos } from "@/lib/avisos/dispositivo"
@@ -127,12 +127,12 @@ export function AvisosDelCelular({ claveVapid, acciones, puerto }: Propiedades) 
     <div className="grid gap-3">
       <Contenido estado={estado} />
       {estado === "listo" ? (
-        <Boton cargando={ocupada} onClick={activar}>
+        <Boton cargando={ocupada} icono={<ArrowRight aria-hidden="true" size={20} />} onClick={activar}>
           Activar avisos
         </Boton>
       ) : null}
       {estado === "activo" ? (
-        <div className="grid gap-1.5">
+        <div className="grid gap-2">
           <Boton variante="linea" cargando={ocupada} onClick={probar}>
             Enviar uno de prueba
           </Boton>
@@ -141,8 +141,8 @@ export function AvisosDelCelular({ claveVapid, acciones, puerto }: Propiedades) 
           </Boton>
         </div>
       ) : null}
-      {prueba ? <Nota tipo="ok" titulo={prueba} /> : null}
-      {error ? <Nota tipo="error" titulo={error} /> : null}
+      {prueba ? <LineaDeEstado tipo="exito" titulo={prueba} tituloEnTinta /> : null}
+      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
     </div>
   )
 }
@@ -153,30 +153,28 @@ function Contenido({ estado }: { estado: EstadoDeAvisos }) {
       return <HojaDeInstalacion />
     case "listo":
       return (
-        <p>
+        <p className="text-cuerpo">
           Te aviso aquí cuando tengas un guion o un video para revisar. El aviso solo te lleva a la pantalla: aprobar lo
           haces tú, mirándolo.
         </p>
       )
     case "activo":
-      return <Nota tipo="ok" titulo="Avisos activados en este celular" />
+      return <LineaDeEstado tipo="exito" titulo="Avisos activados en este celular" />
     case "denegado":
       return (
-        <Nota tipo="aviso" titulo="Los avisos están bloqueados">
-          <p>
-            Para volver a activarlos, abre Ajustes del iPhone, entra a Notificaciones, busca Conidolly y activa Permitir
-            notificaciones. Después vuelve aquí.
-          </p>
-        </Nota>
+        <LineaDeEstado
+          tipo="aviso"
+          titulo="Los avisos están bloqueados"
+          detalle="Para volver a activarlos, abre Ajustes del iPhone, entra a Notificaciones, busca Conidolly y activa Permitir notificaciones. Después vuelve aquí."
+        />
       )
     case "no_disponible":
       return (
-        <Nota tipo="ocupada" titulo="Este celular no puede recibir avisos">
-          <p>
-            En iPhone hace falta iOS 16.4 o más nuevo. Mientras tanto te los mando por correo, y también cuando algo
-            falla.
-          </p>
-        </Nota>
+        <LineaDeEstado
+          tipo="neutro"
+          titulo="Este celular no puede recibir avisos"
+          detalle="En iPhone hace falta iOS 16.4 o más nuevo. Mientras tanto te los mando por correo, y también cuando algo falla."
+        />
       )
   }
 }
@@ -184,35 +182,36 @@ function Contenido({ estado }: { estado: EstadoDeAvisos }) {
 /** The illustrated sheet of design Pass 3, step 2: Safari's own words, in Safari's own order. */
 function HojaDeInstalacion() {
   return (
-    <section
-      aria-labelledby="instalar-titulo"
-      className="grid gap-3 rounded-lg border border-linea bg-superficie p-4.5"
-    >
-      <h3 id="instalar-titulo" className="text-[1.25rem] font-semibold">
+    <section aria-labelledby="instalar-titulo" className="grid gap-3">
+      <h3 id="instalar-titulo" className="text-cuerpo font-semibold">
         Agrégala a tu pantalla de inicio
       </h3>
-      <p>Para recibir avisos en el iPhone, primero instala la app. Toma un minuto y necesitas iOS 16.4 o más nuevo.</p>
+      <p className="text-cuerpo">
+        Para recibir avisos en el iPhone, primero instala la app. Toma un minuto y necesitas iOS 16.4 o más nuevo.
+      </p>
       <ol className="grid gap-3">
         <li className="flex items-start gap-3">
-          <Export aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
-          <span>
+          <Export aria-hidden="true" className="mt-0.5 shrink-0" size={24} />
+          <span className="text-cuerpo">
             Toca <strong>Compartir</strong>, el cuadrado con la flecha hacia arriba, abajo en Safari.
           </span>
         </li>
         <li className="flex items-start gap-3">
-          <PlusSquare aria-hidden="true" className="mt-0.5 shrink-0 text-acento" size={24} />
-          <span>
+          <PlusSquare aria-hidden="true" className="mt-0.5 shrink-0" size={24} />
+          <span className="text-cuerpo">
             Elige <strong>Agregar a inicio</strong> y toca Agregar.
           </span>
         </li>
         <li className="flex items-start gap-3">
           <span
             aria-hidden="true"
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-acento text-label font-semibold text-sobre-acento"
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-12 bg-tinta text-meta font-semibold text-sobre-tinta"
           >
-            C
+            c
           </span>
-          <span>Abre Conidolly desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.</span>
+          <span className="text-cuerpo">
+            Abre Conidolly desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.
+          </span>
         </li>
       </ol>
     </section>

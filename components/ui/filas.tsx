@@ -31,6 +31,10 @@ interface PropiedadesDeFilaConValor<T extends string> {
   /** «select» (default) lists `opciones`; «time» hands over the native time picker. */
   tipo?: "select" | "time"
   opciones?: readonly OpcionDeFila<T>[]
+  /** What the row says on the left when it is not the accessible name («A las» for «Hora de publicación»). */
+  titulo?: string
+  /** A word after the value («hora de Chile»). */
+  sufijo?: string
 }
 
 /**
@@ -43,14 +47,17 @@ export function FilaConValor<T extends string>({
   alCambiar,
   tipo = "select",
   opciones = [],
+  titulo,
+  sufijo,
 }: PropiedadesDeFilaConValor<T>) {
   const visible = tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor
   const clasesDelControl = "absolute inset-0 size-full cursor-pointer opacity-0"
   return (
     <div className="relative flex min-h-14 items-center justify-between gap-4 border-b border-linea">
-      <span className="text-cuerpo">{etiqueta}</span>
+      <span className="text-cuerpo">{titulo ?? etiqueta}</span>
       <span className="flex items-center gap-2 text-cuerpo text-apagado tabular-nums">
         <span className="tabular-nums">{visible}</span>
+        {sufijo ? <span>{sufijo}</span> : null}
         <CaretUpDown aria-hidden="true" size={20} />
       </span>
       {tipo === "time" ? (

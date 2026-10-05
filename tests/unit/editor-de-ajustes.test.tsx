@@ -39,13 +39,13 @@ describe("EditorDeAjustes", () => {
   it("shows the current settings", () => {
     mostrar()
 
-    expect(screen.getByRole("radio", { name: "Consultas" })).toBeChecked()
+    expect(screen.getByRole("combobox", { name: "Meta de este mes" })).toHaveValue("consultas")
     expect(screen.getByRole("button", { name: "Mar" })).toHaveAttribute("aria-pressed", "true")
     expect(screen.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "false")
     expect(screen.getByLabelText("Hora de publicación")).toHaveValue("19:00")
     expect(screen.getByText("US$ 40")).toBeInTheDocument()
     expect(screen.getByText("Llevas US$ 12,80 este mes")).toBeInTheDocument()
-    expect(screen.getByRole("checkbox", { name: "Resumen diario a las 08:30" })).toBeChecked()
+    expect(screen.getByRole("switch", { name: "Resumen diario a las 08:30" })).toHaveAttribute("aria-checked", "true")
     expect(screen.getByText(/Lo que ya aprobaste mantiene su fecha/)).toBeInTheDocument()
   })
 
@@ -57,16 +57,16 @@ describe("EditorDeAjustes", () => {
       })),
     })
 
-    fireEvent.click(screen.getByRole("radio", { name: "Talleres" }))
+    fireEvent.change(screen.getByRole("combobox", { name: "Meta de este mes" }), { target: { value: "talleres" } })
 
     await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "meta", valor: "talleres" }))
     expect(await screen.findByText("Guardado")).toBeInTheDocument()
-    expect(screen.getByRole("radio", { name: "Talleres" })).toBeChecked()
+    expect(screen.getByRole("combobox", { name: "Meta de este mes" })).toHaveValue("talleres")
 
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
 
     await waitFor(() => expect(a.guardar).toHaveBeenLastCalledWith({ campo: "meta", valor: "consultas" }))
-    expect(screen.getByRole("radio", { name: "Consultas" })).toBeChecked()
+    expect(screen.getByRole("combobox", { name: "Meta de este mes" })).toHaveValue("consultas")
   })
 
   it("adds and removes publishing days, always sending them sorted", async () => {
@@ -90,13 +90,11 @@ describe("EditorDeAjustes", () => {
     expect(a.guardar).toHaveBeenCalledTimes(2)
   })
 
-  it("saves the hour when she leaves the field", async () => {
+  it("saves the hour as soon as she picks it with the native picker", async () => {
     const a = mostrar()
     const campo = screen.getByLabelText("Hora de publicación")
 
     fireEvent.change(campo, { target: { value: "20:30" } })
-    expect(a.guardar).not.toHaveBeenCalled()
-    fireEvent.blur(campo)
 
     await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "hora", valor: "20:30" }))
   })
@@ -137,10 +135,10 @@ describe("EditorDeAjustes", () => {
   it("saves the notification switches", async () => {
     const a = mostrar()
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Resumen diario a las 08:30" }))
+    fireEvent.click(screen.getByRole("switch", { name: "Resumen diario a las 08:30" }))
     await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "avisos_resumen", valor: false }))
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Avisarme apenas falle algo" }))
+    fireEvent.click(screen.getByRole("switch", { name: "Avisarme apenas falle algo" }))
     await waitFor(() => expect(a.guardar).toHaveBeenLastCalledWith({ campo: "avisos_urgentes", valor: false }))
   })
 
@@ -152,9 +150,30 @@ describe("EditorDeAjustes", () => {
       })),
     })
 
-    fireEvent.click(screen.getByRole("radio", { name: "Marca" }))
+    fireEvent.change(screen.getByRole("combobox", { name: "Meta de este mes" }), { target: { value: "marca" } })
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Algo falló de nuestro lado")
-    expect(screen.getByRole("radio", { name: "Consultas" })).toBeChecked()
+    expect(screen.getByRole("combobox", { name: "Meta de este mes" })).toHaveValue("consultas")
+  })
+
+  it("shows the publishing days as seven chips and the hour as a value row", () => {
+    mostrar()
+
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(3)
+    expect(screen.getByLabelText("Hora de publicación")).toHaveAttribute("type", "time")
+    expect(screen.getByText("hora de Chile")).toBeInTheDocument()
+  })
+
+  it("draws the month's spend as a meter that turns to aviso from 80 percent of the cap", () => {
+    render(<EditorDeAjustes inicial={{ ...INICIAL, usado: 32 }} acciones={acciones()} />)
+
+    expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveAttribute("aria-valuenow", "32")
+    expect(screen.getByText("Llevas US$ 32,00 este mes")).toHaveClass("text-aviso")
+  })
+
+  it("keeps the spend in ink below 80 percent", () => {
+    mostrar()
+
+    expect(screen.getByText("Llevas US$ 12,80 este mes")).toHaveClass("text-tinta")
   })
 })

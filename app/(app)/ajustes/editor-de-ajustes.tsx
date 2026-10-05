@@ -1,11 +1,14 @@
 "use client"
 
 import { Minus, Plus } from "@phosphor-icons/react"
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Chip } from "@/components/chip"
+import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
-import { Segmentado } from "@/components/ui/segmentado"
+import { FilaConInterruptor, FilaConValor } from "@/components/ui/filas"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { dolares } from "@/lib/formato"
@@ -85,7 +88,16 @@ interface Mensaje {
 }
 
 /** Settings edited in place: every change saves by itself and can be undone from the toast (docs/PRODUCT.md). */
-export function EditorDeAjustes({ inicial, acciones }: { inicial: AjustesEditables; acciones: AccionesDelEditor }) {
+export function EditorDeAjustes({
+  inicial,
+  acciones,
+  avisosDelCelular,
+}: {
+  inicial: AjustesEditables
+  acciones: AccionesDelEditor
+  /** The phone block (install, turn on, test): it belongs to the same «Avisos» section as the switches. */
+  avisosDelCelular?: ReactNode
+}) {
   const [valores, setValores] = useState(inicial)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -155,27 +167,20 @@ export function EditorDeAjustes({ inicial, acciones }: { inicial: AjustesEditabl
   }
 
   return (
-    <div className="grid gap-5.5">
-      <section aria-labelledby="ajuste-meta" className="grid gap-2">
-        <h2 id="ajuste-meta" className="text-label font-semibold text-apagado">
-          Meta de este mes
-        </h2>
-        <Segmentado
-          nombre="Meta de este mes"
-          opciones={METAS}
+    <div>
+      <Seccion titulo="Publicación" id="ajuste-publicacion">
+        <FilaConValor
+          etiqueta="Meta de este mes"
           valor={valores.meta}
+          opciones={METAS}
           alCambiar={(valor) => cambiar({ campo: "meta", valor })}
         />
-      </section>
-
-      <section aria-labelledby="ajuste-dias" className="grid gap-2">
-        <h2 id="ajuste-dias" className="text-label font-semibold text-apagado">
-          Días de publicación
-        </h2>
-        <div className="flex flex-wrap gap-1.5">
+        <h3 className="mt-4 text-meta font-semibold">Días de publicación</h3>
+        <div className="grid grid-cols-7 gap-1">
           {DIAS.map((dia) => (
             <Chip
               key={dia.numero}
+              className="px-0"
               presionado={valores.dias.includes(dia.numero)}
               onClick={() => alternarDia(dia.numero)}
             >
@@ -183,86 +188,69 @@ export function EditorDeAjustes({ inicial, acciones }: { inicial: AjustesEditabl
             </Chip>
           ))}
         </div>
-        <label className="flex flex-wrap items-center gap-2.5 text-meta text-apagado" htmlFor="hora-de-publicacion">
-          A las
-          <input
-            id="hora-de-publicacion"
-            type="time"
-            aria-label="Hora de publicación"
-            value={valores.hora}
-            onChange={(evento) => setValores((actuales) => ({ ...actuales, hora: evento.target.value }))}
-            onBlur={(evento) => {
-              const hora = evento.target.value
-              if (hora && hora !== inicial.hora) cambiar({ campo: "hora", valor: hora })
-            }}
-            className="min-h-11 rounded-md border border-linea bg-superficie px-3 text-body text-tinta"
-          />
-          hora de Chile
-        </label>
-      </section>
+        <FilaConValor
+          tipo="time"
+          etiqueta="Hora de publicación"
+          titulo="A las"
+          sufijo="hora de Chile"
+          valor={valores.hora}
+          alCambiar={(hora) => {
+            setValores((actuales) => ({ ...actuales, hora }))
+            if (hora && hora !== ultimos.current.hora) cambiar({ campo: "hora", valor: hora })
+          }}
+        />
+      </Seccion>
 
-      <section aria-labelledby="ajuste-tope" className="grid gap-2">
-        <h2 id="ajuste-tope" className="text-label font-semibold text-apagado">
-          Tope de gasto al mes
-        </h2>
-        <div className="grid grid-cols-[44px_auto_44px] items-center gap-2.5">
-          <Boton
-            variante="linea"
-            tamano="chico"
-            aria-label="Bajar el tope"
-            deshabilitado={valores.tope <= 0}
-            className="px-0"
-            onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
-          >
-            <Minus aria-hidden="true" size={20} />
-          </Boton>
-          <output className="min-w-[4.5rem] text-center text-[1.25rem] font-semibold tabular-nums">
-            {`US$ ${valores.tope}`}
-          </output>
-          <Boton
-            variante="linea"
-            tamano="chico"
-            aria-label="Subir el tope"
-            deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
-            className="px-0"
-            onClick={() => moverTope(PASO_DEL_TOPE_USD)}
-          >
-            <Plus aria-hidden="true" size={20} />
-          </Boton>
+      <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">
+        <div className="flex min-h-14 items-center justify-between gap-3">
+          <span className="text-cuerpo">Tope</span>
+          <div className="flex items-center gap-3">
+            <Boton
+              variante="linea"
+              tamano="chico"
+              aria-label="Bajar el tope"
+              deshabilitado={valores.tope <= 0}
+              className="w-11 justify-center px-0"
+              onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
+            >
+              <Minus aria-hidden="true" size={20} />
+            </Boton>
+            <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
+            <Boton
+              variante="linea"
+              tamano="chico"
+              aria-label="Subir el tope"
+              deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
+              className="w-11 justify-center px-0"
+              onClick={() => moverTope(PASO_DEL_TOPE_USD)}
+            >
+              <Plus aria-hidden="true" size={20} />
+            </Boton>
+          </div>
         </div>
-        <p className="text-meta text-apagado">Llevas {dolares(valores.usado)} este mes</p>
-      </section>
+        <Medidor gastado={valores.usado} tope={valores.tope} texto={`Llevas ${dolares(valores.usado)} este mes`} />
+      </Seccion>
 
-      <section aria-labelledby="ajuste-avisos" className="grid gap-1">
-        <h2 id="ajuste-avisos" className="text-label font-semibold text-apagado">
-          Avisos
-        </h2>
-        <label className="grid min-h-13 grid-cols-[1fr_auto] items-center gap-3">
-          <span>Resumen diario a las 08:30</span>
-          <input
-            type="checkbox"
-            className="size-6 accent-acento"
-            checked={valores.avisosResumen}
-            onChange={(evento) => cambiar({ campo: "avisos_resumen", valor: evento.target.checked })}
-          />
-        </label>
-        <label className="grid min-h-13 grid-cols-[1fr_auto] items-center gap-3">
-          <span>Avisarme apenas falle algo</span>
-          <input
-            type="checkbox"
-            className="size-6 accent-acento"
-            checked={valores.avisosUrgentes}
-            onChange={(evento) => cambiar({ campo: "avisos_urgentes", valor: evento.target.checked })}
-          />
-        </label>
-      </section>
+      <Seccion titulo="Avisos" id="ajuste-avisos">
+        <FilaConInterruptor
+          etiqueta="Resumen diario a las 08:30"
+          encendido={valores.avisosResumen}
+          alCambiar={(valor) => cambiar({ campo: "avisos_resumen", valor })}
+        />
+        <FilaConInterruptor
+          etiqueta="Avisarme apenas falle algo"
+          encendido={valores.avisosUrgentes}
+          alCambiar={(valor) => cambiar({ campo: "avisos_urgentes", valor })}
+        />
+        <p className="text-meta text-apagado">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
+        {avisosDelCelular ? <div className="mt-4">{avisosDelCelular}</div> : null}
+      </Seccion>
 
       {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-          {error}
-        </p>
+        <div className="mt-6">
+          <LineaDeEstado tipo="error" titulo={error} />
+        </div>
       ) : null}
-      <p className="text-meta text-apagado">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
 
       {mensaje ? <Aviso mensaje={mensaje.texto} alCerrar={cerrarMensaje} alDeshacer={mensaje.deshacer} /> : null}
     </div>

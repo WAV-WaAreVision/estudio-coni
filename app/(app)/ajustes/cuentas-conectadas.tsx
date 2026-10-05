@@ -1,20 +1,23 @@
 "use client"
 
+import { CheckCircle, Info, Warning, WarningCircle } from "@phosphor-icons/react"
 import { type FormEvent, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { FilaDeCuenta } from "@/lib/ajustes/presentar"
 import { cn } from "@/lib/utils"
 
-const TONO: Record<FilaDeCuenta["tono"], string> = {
-  ok: "bg-ok-fondo text-ok-tinta",
-  aviso: "bg-aviso-fondo text-aviso-tinta",
-  error: "bg-error-fondo text-error-tinta",
-  neutro: "bg-hundido text-tinta",
+const TINTA: Record<FilaDeCuenta["tono"], string> = {
+  ok: "text-exito",
+  aviso: "text-aviso",
+  error: "text-error",
+  neutro: "text-tinta",
 }
+const ICONO = { ok: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info } as const
 
 const MENSAJE_DE_LLAVE: Record<EstadoDeLlave, string> = {
   comprobada: "Guardada y comprobada.",
@@ -41,10 +44,8 @@ export function CuentasConectadas({ filas, guardarLlave }: PropiedadesDeCuentas)
             className="scroll-mt-4 border-b border-linea py-3 last:border-b-0"
           >
             <div className="flex min-h-11 items-center justify-between gap-3">
-              <span className="font-semibold">{fila.nombre}</span>
-              <span className={cn("rounded-full px-2.5 py-1.5 text-label font-semibold", TONO[fila.tono])}>
-                {fila.estado}
-              </span>
+              <span className="text-cuerpo font-semibold">{fila.nombre}</span>
+              <Estado fila={fila} />
             </div>
             {fila.cuenta === "instagram" ? (
               // A plain link: the route answers with a redirect to Instagram, which a client navigation cannot follow.
@@ -109,8 +110,8 @@ function FormularioDeLlave({
   }
 
   return (
-    <form onSubmit={enviar} className="mt-2 grid gap-2.5">
-      <label className="grid gap-1.5 text-label font-semibold" htmlFor={id}>
+    <form onSubmit={enviar} className="mt-2 grid gap-3">
+      <label className="grid gap-2 text-meta font-semibold" htmlFor={id}>
         {`Llave de ${fila.nombre}`}
       </label>
       <input
@@ -122,17 +123,13 @@ function FormularioDeLlave({
         value={llave}
         onChange={(evento) => setLlave(evento.target.value)}
         aria-describedby={`${id}-ayuda`}
-        className="min-h-13 rounded-md border border-linea bg-superficie px-3.5 text-body text-tinta"
+        className="campo text-cuerpo text-tinta"
       />
       <p id={`${id}-ayuda`} className="text-meta text-apagado">
         Pégala completa. La reviso con {fila.nombre.split(" ")[0]} y queda guardada cifrada.
       </p>
-      {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-          {error}
-        </p>
-      ) : null}
-      <div className="grid grid-cols-2 gap-2.5">
+      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      <div className="grid grid-cols-2 gap-2">
         <Boton variante="linea" onClick={alCancelar}>
           Cancelar
         </Boton>
@@ -141,5 +138,16 @@ function FormularioDeLlave({
         </Boton>
       </div>
     </form>
+  )
+}
+
+/** The state of an account at the right of its name: text and icon in its ink, never a chip. */
+function Estado({ fila }: { fila: FilaDeCuenta }) {
+  const Icono = ICONO[fila.tono]
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-meta font-medium", TINTA[fila.tono])}>
+      <Icono aria-hidden="true" size={16} />
+      {fila.estado}
+    </span>
   )
 }
