@@ -27,30 +27,30 @@ async function enlacesDeLaPagina(): Promise<Enlace[]> {
   }
 }
 
-// Text on the raspberry surface is always the full on-accent colour: any opacity would take the small print below
-// 4.5:1 (DESIGN.md). Focus is drawn in the same colour because the global accent ring would vanish on this surface.
+// Text on the raspberry surface is always the full on-signature colour: any opacity would take the small print below
+// 4.5:1 (brandkit 2). Focus is drawn in the same colour because the global ink ring would be dark on dark here.
 export default async function PaginaPublica() {
   const enlaces = await enlacesDeLaPagina()
 
   return (
-    <div data-superficie="marca" className="min-h-dvh bg-acento text-sobre-acento">
-      <main className="mx-auto grid w-full max-w-[560px] content-start gap-7 px-5.5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-        <header className="grid gap-2.5">
-          <h1 className="font-serif text-marca tracking-[-0.01em] text-balance">{NOMBRE_PUBLICO}</h1>
-          <p className="text-body">{TITULO_PUBLICO}</p>
+    <div data-superficie="marca" className="min-h-dvh bg-firma text-sobre-firma">
+      <main className="mx-auto grid w-full max-w-[560px] content-start gap-8 px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+        <header className="grid gap-3">
+          <h1 className="text-marca font-semibold tracking-[-0.022em] text-balance">{NOMBRE_PUBLICO}</h1>
+          <p className="text-cuerpo">{TITULO_PUBLICO}</p>
         </header>
 
         {enlaces.length > 0 ? (
           <nav aria-label="Enlaces">
             <ul>
               {enlaces.map((enlace) => (
-                <li key={enlace.id} className="border-b border-sobre-acento/30 first:border-t">
+                <li key={enlace.id} className="border-b border-sobre-firma/40 first:border-t">
                   <a
                     href={`/l/ir/${enlace.id}`}
-                    className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 py-4 outline-offset-2 transition-colors duration-150 ease-out focus-visible:outline-sobre-acento active:bg-acento-profundo motion-reduce:transition-none"
+                    className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 py-4 outline-offset-2 transition-opacity duration-[var(--dur-corta)] focus-visible:outline-sobre-firma active:opacity-80 motion-reduce:transition-none"
                   >
-                    <span className="text-body font-semibold leading-tight">{enlace.titulo}</span>
-                    <ArrowRight aria-hidden="true" size={22} className="row-span-2" />
+                    <span className="text-cuerpo font-semibold leading-tight">{enlace.titulo}</span>
+                    <ArrowRight aria-hidden="true" size={24} className="row-span-2" />
                     {enlace.detalle ? <span className="text-meta">{enlace.detalle}</span> : null}
                   </a>
                 </li>
