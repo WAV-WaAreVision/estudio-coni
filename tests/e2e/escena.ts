@@ -28,11 +28,15 @@ async function conIdea(destino: Parameters<typeof sembrarPieza>[0], pilar: strin
 export async function sembrarEscena(): Promise<{ guion: string; video: string }> {
   await vaciarPiezasEIdeas()
   limpiarDisparos()
+  await pool.query("delete from public.consultas")
   for (const idea of IDEAS) await sembrarIdea(idea)
   const guion = await conIdea("guion_por_aprobar", "deseo", "El deseo no se apaga, se esconde")
   const video = await conIdea("video_por_aprobar", "autoestima", "Ser tu propia diosa")
   await conIdea("en_render", "limites", "Puedes decir que no")
   await conIdea("programado", "pareja", "Si van a discutir, siéntense del mismo lado")
-  await pool.query("insert into public.consultas default values")
+  for (let i = 0; i < 3; i++) await pool.query("insert into public.consultas default values")
+  // Seeding a piece through the real flow raises its notices, in an order that can change from run to run: the scene
+  // shows none, so every run draws the same Inicio.
+  await pool.query("delete from public.avisos")
   return { guion, video }
 }

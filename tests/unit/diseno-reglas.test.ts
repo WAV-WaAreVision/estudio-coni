@@ -97,19 +97,25 @@ describe("design rules", () => {
     expect(CODIGO.filter((ruta) => viejos.test(leer(ruta)))).toEqual([])
   })
 
-  it("draws errors in the brand magenta, as a token of their own that passes AA on every surface", () => {
+  it("draws every highlight (error, warning, focus ring) in the signature raspberry family, with AA on every surface", () => {
     const css = leer("app/globals.css")
-    const raiz = css.slice(0, css.indexOf('/* ---------- Dark'))
+    const raiz = css.slice(0, css.indexOf("/* ---------- Dark"))
     const valor = (nombre: string) => new RegExp(`--${nombre}: (#[0-9a-f]{6})`).exec(raiz)?.[1] ?? ""
-    const error = valor("error")
-    expect(error).not.toBe("")
-    // Its own value, not an alias of the signature: the slider and the error can drift apart.
-    expect(raiz).not.toMatch(/--error: var\(--firma\)/)
-    expect(tono(error)).toBeGreaterThanOrEqual(320)
-    expect(tono(error)).toBeLessThanOrEqual(350)
-    for (const superficie of ["fondo", "superficie", "pista"]) {
-      expect(contraste(error, valor(superficie)), `error on ${superficie}`).toBeGreaterThanOrEqual(4.5)
+    const firma = valor("firma")
+    expect(firma).toBe("#a8285a")
+    // Their own tokens (the classes stay text-error and text-aviso), but the same ink: an alias or the same value.
+    for (const token of ["error", "aviso"]) {
+      const declarado = new RegExp(`--${token}: (var\\(--firma\\)|#[0-9a-f]{6})`).exec(raiz)?.[1]
+      expect(declarado, `--${token}`).toBeDefined()
+      const tinta = declarado === "var(--firma)" ? firma : declarado
+      expect(tinta, `--${token}`).toBe(firma)
+      for (const superficie of ["fondo", "superficie", "pista"]) {
+        expect(contraste(firma, valor(superficie)), `${token} on ${superficie}`).toBeGreaterThanOrEqual(4.5)
+      }
     }
+    expect(tono(firma)).toBeGreaterThanOrEqual(320)
+    expect(tono(firma)).toBeLessThanOrEqual(350)
+    expect(raiz).toMatch(/--anillo-foco: [^;]*var\(--firma\)/)
   })
 
   it("keeps the signature colour to the slider, the committed date, the wordmark dot and the public page", () => {

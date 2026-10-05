@@ -29,9 +29,9 @@
   --firma-rastro: rgb(168 40 90 / 0.14); /* trail behind the thumb while dragging. Ink label on it: 11.35:1 */
 
   /* ---------- States: inks, never fills. Always text plus icon ---------- */
-  --error: #b02a63; /* brand magenta, a token of its own (the signature is #a8285a). Error and destructive text, field border in error. 5.79:1 (5.12:1 on pista) */
+  --error: var(--firma); /* every highlight is the signature raspberry (Federico): error and destructive text, field border in error. 6.24:1 */
   --exito: #2e6a44; /* 5.96:1 */
-  --aviso: #7d5410; /* warnings, blocks (balance, cap), spend from 80 % of the cap. 6.17:1 */
+  --aviso: var(--firma); /* warnings, blocks (balance, cap), spend from 80 % of the cap: the same raspberry, told from error by its icon and its text. 6.24:1 */
 
   /* ---------- Media: constant across themes, the video is always dark under its controls ---------- */
   --velo-video: rgb(29 27 24 / 0.64); /* play disc, "Avatar IA" label, bottom scrim. Text on it >= 5.00:1 even over a white frame */
@@ -39,7 +39,7 @@
   --foto-brillo: 1; /* avatar look photos. The video being approved is never dimmed */
 
   /* ---------- Focus: a gap in the page colour, then an ink ring. Works on any surface ---------- */
-  --anillo-foco: 0 0 0 2px var(--fondo), 0 0 0 4px var(--tinta);
+  --anillo-foco: 0 0 0 2px var(--fondo), 0 0 0 4px var(--firma);
 
   /* ---------- Elevation: at most one raised surface per screen (sign bar, idea card or toast) ---------- */
   --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(29 27 24 / 0.06); /* faces up */
@@ -148,9 +148,9 @@
   --firma: #d78099;
   --sobre-firma: #161513;
   --firma-rastro: rgb(215 128 153 / 0.22);
-  --error: #ee8fb2;
+  --error: var(--firma);
   --exito: #86c39c;
-  --aviso: #d9ad66;
+  --aviso: var(--firma);
   --foto-brillo: 0.94;
   --peso-titulo: 500;
   --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);

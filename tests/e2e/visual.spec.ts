@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
 import { claveDeToma } from "@/lib/dominio/voz"
@@ -10,12 +10,15 @@ import { bloquearRedExterna, configurarServicios, GUION_VALIDO, simularMedios, T
 import { sembrarEscena } from "./escena"
 
 /**
- * 390 px captures of every screen, light only, for two jobs: the one-time review sheet against the mockups
- * (`pnpm comparar`) and, once Federico approves that sheet, the baselines every later run diffs against.
- * Pending that approval the spec is off unless VISUAL_BASELINES is set, so a plain `pnpm test:e2e` stays green.
- * When he approves: delete the skip below, run once with --update-snapshots, commit the snapshots.
+ * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
+ * which wants VISUAL_SHEET=1: device scale and no masks, to read) and the committed baselines every later run diffs
+ * against (css scale, date text masked). The app server reads the real clock, which a test cannot freeze: the masks
+ * hide the leaf nodes that carry dates and the month grid, but a month change moves the calendar rows, so the baselines
+ * may need regenerating then (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
  */
-test.skip(!process.env.VISUAL_BASELINES, "Visual baselines wait for Federico to approve the comparison sheet.")
+const PARA_LA_HOJA = Boolean(process.env.VISUAL_SHEET)
+// VISUAL_FINALES=<folder> writes plain 390 px css PNGs of every screen there (no masks, no comparison) for review by eye.
+const CARPETA_FINALES = process.env.VISUAL_FINALES
 
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
 const LOOKS = [
@@ -40,13 +43,42 @@ test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name in ('anthropic', 'heygen', 'elevenlabs')")
 })
 
+const DIAS = "lunes|martes|miércoles|jueves|viernes|sábado|domingo"
+const MESES = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre"
+const MESES_CORTOS = "ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic"
+const FECHAS = new RegExp(
+  `\\b(${DIAS}|${MESES}|${MESES_CORTOS}|Lun|Mar|Mié|Jue|Vie|Sáb|Dom)\\b|\\d{1,2}:\\d{2}|Semana del|hoy a las`,
+  "i",
+)
+
+/** The text-only nodes that say a date or an hour, and the month grid: what moves with the real clock. */
+function mascaras(page: Page) {
+  const hojas = page
+    .locator("span, p, h1, h2, h3, summary, div")
+    .filter({ hasText: FECHAS })
+    .filter({ hasNot: page.locator("*") })
+  return [hojas, page.locator("ol.grid-cols-7")]
+}
+
 async function capturaDe(page: Page, nombre: string) {
   // Ajustes streams its status block and its accounts behind Suspense: wait until the skeletons are gone.
   await page.waitForLoadState("networkidle")
   await expect(page.locator("output[aria-label^='Revisando']")).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready)
-  // Device scale (1170 px wide, like the mockup boards) while the sheet is reviewed; css scale can replace it for the baselines.
-  await expect(page).toHaveScreenshot(`${nombre}.png`, { fullPage: true, scale: "device" })
+  // A full-page capture would stop the sticky nav and the fixed bars halfway down: let them take their place at the end.
+  await page.addStyleTag({
+    content:
+      "nav[aria-label='Secciones'], section[aria-label='Firma'], section[aria-label='Grabación'] { position: static !important }",
+  })
+  if (CARPETA_FINALES) {
+    mkdirSync(CARPETA_FINALES, { recursive: true })
+    await page.screenshot({ path: join(CARPETA_FINALES, `${nombre}.png`), fullPage: true, scale: "css" })
+    return
+  }
+  await expect(page).toHaveScreenshot(`${nombre}.png`, {
+    fullPage: true,
+    ...(PARA_LA_HOJA ? { scale: "device" as const } : { mask: mascaras(page) }),
+  })
 }
 
 const PANTALLAS = [
@@ -168,9 +200,29 @@ test("metricas", async ({ page }) => {
 })
 
 test("ingreso", async ({ browser }) => {
-  const contexto = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 })
+  const contexto = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    storageState: { cookies: [], origins: [] },
+  })
   const page = await contexto.newPage()
   await page.goto("/ingreso")
   await capturaDe(page, "ingreso")
+  await contexto.close()
+})
+
+test("ingreso con codigo equivocado", async ({ browser }) => {
+  const contexto = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    storageState: { cookies: [], origins: [] },
+  })
+  const page = await contexto.newPage()
+  await page.goto("/ingreso")
+  await page.getByRole("button", { name: "Mandarme el código" }).click()
+  await page.getByRole("textbox", { name: "Número 1 de 6" }).click()
+  await page.keyboard.type("000000")
+  await expect(page.getByRole("alert").filter({ hasText: "Ese código no sirve" })).toBeVisible()
+  await capturaDe(page, "ingreso-codigo-error")
   await contexto.close()
 })

@@ -142,9 +142,9 @@ un solo acento con un solo papel. Ningún `#000` ni `#fff`. Contrastes WCAG 2.x 
 | `firma` | `#a8285a` | **solo** el pulgar y el relleno del deslizador, y la fecha de «sale el …» | 6,24:1 · 5,51:1 sobre `pista` |
 | `sobre-firma` | = `superficie` | flecha del pulgar, etiqueta sobre la pista llena | 6,52:1 |
 | `firma-rastro` | frambuesa al 14 % | estela detrás del pulgar mientras se arrastra | tinta sobre ella 11,35:1 |
-| `error` | `#b02a63` | texto e ícono de error, texto destructivo, borde de campo en error. Magenta de la marca, token propio (decisión de Federico, 2026-10-05) | 5,79:1 |
+| `error` | `#a8285a` (= `firma`) | texto e ícono de error, texto destructivo, borde de campo en error. Toda marca de énfasis es la frambuesa de la firma (decisión de Federico, 2026-10-05); el error se distingue por su ícono y su texto | 6,24:1 |
 | `exito` | `#2e6a44` | texto e ícono de éxito | 5,96:1 |
-| `aviso` | `#7d5410` | aviso, bloqueo, gasto desde el 80 % | 6,17:1 |
+| `aviso` | `#a8285a` (= `firma`) | aviso, bloqueo, gasto desde el 80 %. Misma frambuesa que el error (decisión de Federico) | 6,24:1 |
 | `velo-video` | tinta al 64 % | disco del play, rótulo «Avatar IA», degradado bajo los controles | `sobre-video` encima: 5,00:1 aun sobre un cuadro blanco |
 | `sobre-video` | `#fcfbf9` | íconos y texto sobre el video | |
 
@@ -166,12 +166,12 @@ La frambuesa tiene 62 % de saturación HSL y ocupa menos del 2 % de cualquier pa
 | `sobre-principal`, `sobre-tinta`, `sobre-firma` | `#161513` | |
 | `firma` | `#d78099` | mismo matiz que de día (oklch 2), croma bajado a 0,11 para que de noche no se lea como rosa luminoso; 6,46:1 · 5,26:1 sobre `pista` |
 | `firma-rastro` | frambuesa nocturna al 22 % | tinta sobre ella 8,51:1 |
-| `error` · `exito` · `aviso` | `#ee8fb2` · `#86c39c` · `#d9ad66` | 8,00 · 8,95 · 8,79:1 |
+| `error` · `exito` · `aviso` | `#d78099` (= `firma`) · `#86c39c` · `#d78099` | 6,46 · 8,95 · 6,46:1 |
 
 **Reglas de noche:** los títulos bajan de 600 a 500 (`--peso-titulo`), la principal queda un paso
 bajo la tinta para no encandilar, las fotos de los looks van al 94 % de brillo (`--foto-brillo`) y
-el video que se firma nunca se atenúa. Error y aviso se distinguen por matiz (27 frente a 78) y
-por su ícono, nunca solo por color.
+el video que se firma nunca se atenúa. Error y aviso comparten tinta (decisión de Federico) y se distinguen
+por su ícono y su texto, nunca solo por color.
 
 **Cableado:** `@media (prefers-color-scheme: dark)` con la guarda `:root:not([data-theme="light"])`,
 y `:root[data-theme="dark"]` para forzarlo. Un solo nombre de atributo en todo el sistema:
