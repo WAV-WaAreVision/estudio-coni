@@ -1,8 +1,10 @@
 "use client"
 
+import { Plus } from "@phosphor-icons/react"
 import { useCallback, useState } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import type { Resultado } from "@/lib/acciones/resultado"
 
@@ -24,7 +26,7 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
   const [total, setTotal] = useState(inicial)
   const [anotada, setAnotada] = useState<{ id: string; totalDelMes: number } | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
-  // Stable, so the toast keeps its 4.5 s clock when the screen re-renders.
+  // Stable, so the toast keeps its clock when the screen re-renders.
   const cerrarAviso = useCallback(() => setAnotada(null), [])
 
   function anotar() {
@@ -43,15 +45,11 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
 
   return (
     <div className="grid gap-3">
-      <p className="font-semibold">{cuantas(total, mes)}</p>
-      <Boton variante="linea" cargando={pendiente} onClick={anotar}>
+      <p className="text-cuerpo font-semibold">{cuantas(total, mes)}</p>
+      <Boton variante="linea" cargando={pendiente} icono={<Plus aria-hidden="true" size={20} />} onClick={anotar}>
         Llegó una consulta
       </Boton>
-      {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-meta text-error-tinta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {anotada ? (
         <Aviso
           mensaje={`Anotada. Van ${anotada.totalDelMes} en ${mes}.`}

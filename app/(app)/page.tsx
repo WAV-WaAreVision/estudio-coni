@@ -1,10 +1,11 @@
-import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
+import { ArrowUpRight, CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { FilaPieza } from "@/components/fila-pieza"
-import { Nota } from "@/components/nota"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { FilaNavegacion } from "@/components/ui/filas"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
@@ -37,83 +38,91 @@ export default async function Inicio() {
   const sinLeer = await leerAvisosSinLeer(db, AVISOS_A_MOSTRAR)
 
   return (
-    <div className="grid gap-5.5">
-      <header className="grid gap-1.5">
-        <p className="text-meta text-apagado">{inicio.semana}</p>
-        <h1 className="font-serif text-display">Hola, Coni</h1>
-        <p className="text-[1.0625rem] text-apagado">{inicio.resumen}</p>
+    <div>
+      <header className="grid gap-1">
+        <p className="flex items-baseline justify-between gap-4 text-meta">
+          <span className="font-semibold">Hola, Coni</span>
+          <span className="text-apagado">{inicio.semana}</span>
+        </p>
+        <h1 className="mt-6 text-pantalla text-balance">{inicio.titulo}</h1>
+        {inicio.tiempo ? <p className="mt-1 text-cuerpo text-apagado">{inicio.tiempo}</p> : null}
       </header>
 
       <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
-      {inicio.avisos.map((aviso) => (
-        <AvisoEnInicio key={`${aviso.titulo}-${aviso.texto}`} aviso={aviso} />
-      ))}
-
-      <AvisosSinLeer
-        avisos={sinLeer.map((aviso) => ({
-          id: aviso.id,
-          mensaje: aviso.mensaje,
-          href: rutaDeAviso({ tipo: aviso.tipo, piezaId: aviso.pieza_id }),
-          cuando: etiquetaDeFecha(aviso.creado_en, datos.zona, "corta"),
-        }))}
-        marcar={marcarAvisoLeidoAccion}
-      />
-
-      {inicio.porSubir.length > 0 ? (
-        <Seccion titulo="Para subir a Instagram" id="por-subir">
-          <ul>
-            {inicio.porSubir.map((fila) => (
-              <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
-            ))}
-          </ul>
-        </Seccion>
+      {inicio.avisos.length > 0 ? (
+        <div className="mt-6 grid gap-4">
+          {inicio.avisos.map((aviso) => (
+            <AvisoEnInicio key={`${aviso.titulo}-${aviso.texto}`} aviso={aviso} />
+          ))}
+        </div>
       ) : null}
 
-      <Seccion titulo="Necesita tu firma" id="firma">
-        {inicio.firma.length > 0 ? (
-          <ul>
-            {inicio.firma.map((fila) => (
-              <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
-            ))}
-          </ul>
+      <div className="mt-10">
+        {inicio.porSubir.length > 0 ? (
+          <Seccion titulo="Para subir a Instagram" id="por-subir" cifra={inicio.porSubir.length}>
+            <ul>
+              {inicio.porSubir.map((fila) => (
+                <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
+              ))}
+            </ul>
+          </Seccion>
+        ) : null}
+
+        <Seccion titulo="Necesita tu firma" id="firma" cifra={inicio.firma.length}>
+          {inicio.firma.length > 0 ? (
+            <ul>
+              {inicio.firma.map((fila) => (
+                <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />
+              ))}
+            </ul>
+          ) : (
+            <div className="grid gap-1 py-1">
+              <p className="text-cuerpo font-semibold">Nada espera tu firma esta semana.</p>
+              <p className="text-cuerpo text-apagado">El lunes a las 8:00 te propongo 5 ideas nuevas.</p>
+              <Link
+                href="#ideas"
+                className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "mt-2 w-fit" })}
+              >
+                Elegir ideas ahora
+              </Link>
+            </div>
+          )}
+        </Seccion>
+
+        <AvisosSinLeer
+          avisos={sinLeer.map((aviso) => ({
+            id: aviso.id,
+            mensaje: aviso.mensaje,
+            href: rutaDeAviso({ tipo: aviso.tipo, piezaId: aviso.pieza_id }),
+            cuando: etiquetaDeFecha(aviso.creado_en, datos.zona, "corta"),
+          }))}
+          marcar={marcarAvisoLeidoAccion}
+        />
+
+        {inicio.camino.length > 0 ? (
+          <Seccion titulo="En camino" id="camino" cifra={inicio.camino.length}>
+            <ul>
+              {inicio.camino.map((fila) => (
+                <FilaPieza
+                  key={fila.id}
+                  titulo={fila.titulo}
+                  estado={fila.estado}
+                  pilar={fila.pilar}
+                  trabajando={fila.ocupada}
+                  href={fila.href}
+                />
+              ))}
+            </ul>
+            <FilaNavegacion href="/calendario">Ver calendario</FilaNavegacion>
+          </Seccion>
         ) : (
-          <div className="grid gap-1.5 py-1">
-            <p className="font-semibold">Nada espera tu firma esta semana.</p>
-            <p className="text-apagado">El lunes a las 8:00 te propongo 5 ideas nuevas.</p>
-            <Link
-              href="#ideas"
-              className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "mt-1.5 w-fit" })}
-            >
-              Elegir ideas ahora
-            </Link>
+          <div className="mt-10">
+            <FilaNavegacion href="/calendario">Ver calendario</FilaNavegacion>
           </div>
         )}
-      </Seccion>
 
-      {inicio.camino.length > 0 ? (
-        <Seccion titulo="En camino" id="camino">
-          <ul>
-            {inicio.camino.map((fila) => (
-              <FilaPieza
-                key={fila.id}
-                titulo={fila.titulo}
-                estado={fila.estado}
-                pilar={fila.pilar}
-                trabajando={fila.ocupada}
-                href={fila.href}
-              />
-            ))}
-          </ul>
-        </Seccion>
-      ) : null}
-
-      <Link href="/calendario" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
-        Ver calendario
-      </Link>
-
-      <div id="ideas" className="scroll-mt-4">
-        <Seccion titulo="Ideas de la semana" id="ideas-titulo">
+        <div id="ideas" className="mt-10 scroll-mt-4">
           <IdeasSemana
             ideas={ideas.flatMap((idea) => {
               const gancho = ganchos.get(idea.id)
@@ -121,42 +130,46 @@ export default async function Inicio() {
             })}
             alElegir={elegirIdeasAccion}
           />
-          <Link href="/ideas" className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}>
-            Ver todas las ideas
-          </Link>
+        </div>
+
+        <Seccion titulo="Consultas" id="consultas">
+          <ConsultaNueva
+            total={contarEnMes(consultas, mes.clave, datos.zona)}
+            mes={mes.nombre}
+            alAnotar={anotarConsultaAccion}
+            alDeshacer={deshacerConsultaAccion}
+          />
         </Seccion>
       </div>
-
-      <Seccion titulo="Consultas" id="consultas">
-        <ConsultaNueva
-          total={contarEnMes(consultas, mes.clave, datos.zona)}
-          mes={mes.nombre}
-          alAnotar={anotarConsultaAccion}
-          alDeshacer={deshacerConsultaAccion}
-        />
-      </Seccion>
     </div>
   )
 }
 
+const TIPO_DE_LINEA = { ok: "exito", error: "error" } as const
+
 function AvisoEnInicio({ aviso }: { aviso: AvisoDeInicio }) {
   return (
-    <Nota tipo={aviso.tipo} titulo={aviso.titulo}>
-      <p>{aviso.texto}</p>
-      {aviso.accion ? (
-        <Link
-          href={aviso.accion.href}
-          {...(aviso.accion.externo ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-          className={clasesDeBoton({
-            variante: aviso.tipo === "ok" ? "callado" : "linea",
-            tamano: "chico",
-            className: "mt-1.5 w-fit",
-          })}
-        >
-          {aviso.accion.etiqueta}
-          {aviso.accion.externo ? <ArrowUpRight aria-hidden="true" size={20} /> : null}
-        </Link>
-      ) : null}
-    </Nota>
+    <LineaDeEstado
+      tipo={TIPO_DE_LINEA[aviso.tipo]}
+      titulo={<strong className="font-semibold">{aviso.titulo}</strong>}
+      tituloEnTinta
+      detalle={aviso.texto}
+      accion={
+        aviso.accion ? (
+          <Link
+            href={aviso.accion.href}
+            {...(aviso.accion.externo ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            className="inline-flex min-h-11 items-center gap-2 text-cuerpo font-medium text-tinta"
+          >
+            {aviso.accion.etiqueta}
+            {aviso.accion.externo ? (
+              <ArrowUpRight aria-hidden="true" size={20} />
+            ) : (
+              <CaretRight aria-hidden="true" size={20} />
+            )}
+          </Link>
+        ) : undefined
+      }
+    />
   )
 }

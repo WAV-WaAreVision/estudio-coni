@@ -32,7 +32,7 @@ setup("Coni entra con el código que le llega al correo", async ({ page }) => {
   await page.getByRole("textbox", { name: "Número 1 de 6" }).click()
   await page.keyboard.type(codigo)
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole("heading", { name: "Hola, Coni" })).toBeVisible()
+  await expect(page.getByText("Hola, Coni", { exact: true })).toBeVisible()
 
   mkdirSync(dirname(ESTADO_DE_SESION), { recursive: true })
   await page.context().storageState({ path: ESTADO_DE_SESION })

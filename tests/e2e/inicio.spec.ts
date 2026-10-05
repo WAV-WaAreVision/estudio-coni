@@ -34,8 +34,9 @@ test("Inicio shows what needs her signature, what is on its way and five ideas f
 
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Hola, Coni" })).toBeVisible()
-  await expect(page.getByText("2 cosas esperan tu firma · unos 6 min")).toBeVisible()
+  await expect(page.getByText("Hola, Coni", { exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 cosas esperan tu firma")
+  await expect(page.getByText("unos 6 min", { exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: /El deseo no se apaga, se esconde/ })).toHaveAttribute(
     "href",
     `/guion/${guion}`,
@@ -48,6 +49,15 @@ test("Inicio shows what needs her signature, what is on its way and five ideas f
   await expect(page.getByRole("slider")).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page")
   await capturar(page, "03-inicio")
+})
+
+test("the title is the summary and the signature section starts in the first screenful", async ({ page }) => {
+  await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde")
+  await pareja("video_por_aprobar", "Ser tu propia diosa")
+  await page.goto("/")
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/cosas? esperan? tu firma/)
+  const caja = await page.getByRole("region", { name: "Necesita tu firma" }).boundingBox()
+  expect(caja?.y ?? 9999).toBeLessThan(420)
 })
 
 test("Inicio with nothing to sign says so and offers the ideas", async ({ page }) => {

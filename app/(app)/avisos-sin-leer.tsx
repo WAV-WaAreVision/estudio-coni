@@ -34,20 +34,20 @@ export function AvisosSinLeer({
   }
 
   return (
-    <Seccion titulo="Avisos" id="avisos-titulo">
+    <Seccion titulo="Avisos" id="avisos-titulo" cifra={avisos.length}>
       <ul>
         {avisos.map((aviso) => (
           <li key={aviso.id} className="list-none">
             <Link
               href={aviso.href}
               onClick={(evento) => abrir(evento, aviso)}
-              className="grid min-h-16 grid-cols-[1fr_auto] gap-x-3 border-b border-linea py-3.5 text-left last:border-b-0"
+              className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 border-b border-linea py-3 text-left last:border-b-0"
             >
               <span className="grid gap-0.5">
-                <span className="text-body font-semibold leading-[1.3]">{aviso.mensaje}</span>
+                <span className="text-cuerpo font-semibold tracking-[-0.004em]">{aviso.mensaje}</span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
-              <CaretRight aria-hidden="true" size={20} className="self-center text-apagado" />
+              <CaretRight aria-hidden="true" size={20} className="text-apagado" />
             </Link>
           </li>
         ))}

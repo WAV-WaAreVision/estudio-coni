@@ -197,7 +197,7 @@ test.describe("Avisos en Inicio", () => {
 
   test("shows no Avisos block when there is nothing unread", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByRole("heading", { name: "Hola, Coni" })).toBeVisible()
+    await expect(page.getByText("Hola, Coni", { exact: true })).toBeVisible()
     await expect(page.getByRole("region", { name: "Avisos" })).toHaveCount(0)
   })
 })

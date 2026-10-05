@@ -21,4 +21,11 @@ describe("Casilla", () => {
     fireEvent.click(casilla)
     expect(alCambiar).not.toHaveBeenCalled()
   })
+
+  it("names the checkbox by its label and describes it with the detail under it", () => {
+    render(<Casilla etiqueta="¿Te achicas?" detalle="Autoestima" marcada={false} alCambiar={vi.fn()} />)
+    const casilla = screen.getByRole("checkbox", { name: "¿Te achicas?" })
+    expect(casilla).toHaveAccessibleDescription("Autoestima")
+    expect(screen.getByText("Autoestima")).toHaveClass("text-apagado")
+  })
 })
