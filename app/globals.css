@@ -29,7 +29,7 @@
   --firma-rastro: rgb(168 40 90 / 0.14); /* trail behind the thumb while dragging. Ink label on it: 11.35:1 */
 
   /* ---------- States: inks, never fills. Always text plus icon ---------- */
-  --error: #b3261e; /* oklch hue 29, far from the signature (2). Error and destructive text. 6.05:1 */
+  --error: #b02a63; /* brand magenta, a token of its own (the signature is #a8285a). Error and destructive text, field border in error. 5.79:1 (5.12:1 on pista) */
   --exito: #2e6a44; /* 5.96:1 */
   --aviso: #7d5410; /* warnings, blocks (balance, cap), spend from 80 % of the cap. 6.17:1 */
 
@@ -148,7 +148,7 @@
   --firma: #d78099;
   --sobre-firma: #161513;
   --firma-rastro: rgb(215 128 153 / 0.22);
-  --error: #e98a7f;
+  --error: #ee8fb2;
   --exito: #86c39c;
   --aviso: #d9ad66;
   --foto-brillo: 0.94;

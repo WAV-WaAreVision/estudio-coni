@@ -43,7 +43,7 @@
   --firma-rastro: rgb(168 40 90 / 0.14); /* trail behind the thumb while dragging. Ink label on it: 11.35:1 */
 
   /* ---------- States: inks, never fills. Always text plus icon ---------- */
-  --error: #b3261e; /* oklch hue 29, far from the signature (2). Error and destructive text. 6.05:1 */
+  --error: #b02a63; /* brand magenta, a token of its own (the signature is #a8285a). Error and destructive text, field border in error. 5.79:1 (5.12:1 on pista) */
   --exito: #2e6a44; /* 5.96:1 */
   --aviso: #7d5410; /* warnings, blocks (balance, cap), spend from 80 % of the cap. 6.17:1 */
 
@@ -162,9 +162,9 @@
     --firma: #d78099; /* oklch(0.70 0.11 2.2): same hue, chroma lowered so it never reads as glowing pink. 6.46:1 (5.26:1 on pista) */
     --sobre-firma: #161513; /* 6.46:1 */
     --firma-rastro: rgb(215 128 153 / 0.22); /* ink label on it: 8.51:1 */
-    --error: #e98a7f; /* 7.31:1 */
+    --error: #ee8fb2; /* 8.00:1 */
     --exito: #86c39c; /* 8.95:1 */
-    --aviso: #d9ad66; /* 8.79:1. Told apart from error by hue (78 vs 27) and by its icon */
+    --aviso: #d9ad66; /* 8.79:1. Told apart from error by hue (amber vs magenta) and by its icon */
     --foto-brillo: 0.94;
     --peso-titulo: 500;
     --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
@@ -187,7 +187,7 @@
   --firma: #d78099;
   --sobre-firma: #161513;
   --firma-rastro: rgb(215 128 153 / 0.22);
-  --error: #e98a7f;
+  --error: #ee8fb2;
   --exito: #86c39c;
   --aviso: #d9ad66;
   --foto-brillo: 0.94;

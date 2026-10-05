@@ -142,7 +142,7 @@ un solo acento con un solo papel. Ningún `#000` ni `#fff`. Contrastes WCAG 2.x 
 | `firma` | `#a8285a` | **solo** el pulgar y el relleno del deslizador, y la fecha de «sale el …» | 6,24:1 · 5,51:1 sobre `pista` |
 | `sobre-firma` | = `superficie` | flecha del pulgar, etiqueta sobre la pista llena | 6,52:1 |
 | `firma-rastro` | frambuesa al 14 % | estela detrás del pulgar mientras se arrastra | tinta sobre ella 11,35:1 |
-| `error` | `#b3261e` | texto e ícono de error, texto destructivo | 6,05:1 |
+| `error` | `#b02a63` | texto e ícono de error, texto destructivo, borde de campo en error. Magenta de la marca, token propio (decisión de Federico, 2026-10-05) | 5,79:1 |
 | `exito` | `#2e6a44` | texto e ícono de éxito | 5,96:1 |
 | `aviso` | `#7d5410` | aviso, bloqueo, gasto desde el 80 % | 6,17:1 |
 | `velo-video` | tinta al 64 % | disco del play, rótulo «Avatar IA», degradado bajo los controles | `sobre-video` encima: 5,00:1 aun sobre un cuadro blanco |
@@ -166,7 +166,7 @@ La frambuesa tiene 62 % de saturación HSL y ocupa menos del 2 % de cualquier pa
 | `sobre-principal`, `sobre-tinta`, `sobre-firma` | `#161513` | |
 | `firma` | `#d78099` | mismo matiz que de día (oklch 2), croma bajado a 0,11 para que de noche no se lea como rosa luminoso; 6,46:1 · 5,26:1 sobre `pista` |
 | `firma-rastro` | frambuesa nocturna al 22 % | tinta sobre ella 8,51:1 |
-| `error` · `exito` · `aviso` | `#e98a7f` · `#86c39c` · `#d9ad66` | 7,31 · 8,95 · 8,79:1 |
+| `error` · `exito` · `aviso` | `#ee8fb2` · `#86c39c` · `#d9ad66` | 8,00 · 8,95 · 8,79:1 |
 
 **Reglas de noche:** los títulos bajan de 600 a 500 (`--peso-titulo`), la principal queda un paso
 bajo la tinta para no encandilar, las fotos de los looks van al 94 % de brillo (`--foto-brillo`) y
@@ -736,7 +736,7 @@ reducir movimiento. Bloque de estado, cuentas y saldos cargan con su propio esqu
 | Agrupar con aire y con una regla de 1 px | Cajas, tarjetas o fondos teñidos para agrupar |
 | Cifras a la derecha, tabulares; el monto a 24 | Plata o saldos en letra chica centrada |
 | Una principal por vista, en tinta | Dos botones llenos, o un botón en el color de la firma |
-| La frambuesa solo en el pulgar, la pista que firma y «sale el …» | Frambuesa en foco, pestaña activa, enlaces, hoy, selección o errores |
+| La frambuesa (`firma`) solo en el pulgar, la pista que firma y «sale el …». Los errores usan `error`, un magenta propio que no se confunde con ella porque siempre lleva ícono y texto | `firma` en foco, pestaña activa, enlaces, hoy o selección |
 | El wordmark solo en Ingreso, el ícono y el manifest | El wordmark dentro de una pantalla de trabajo o en `/l` |
 | El pilar como palabra apagada | Pilar como color, punto de color o píldora teñida |
 | Estados escritos con ícono en su tinta | Estados solo por color, o en cajas de error |
