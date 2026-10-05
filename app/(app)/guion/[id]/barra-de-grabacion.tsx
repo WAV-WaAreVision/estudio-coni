@@ -185,17 +185,11 @@ export function BarraDeGrabacion({
 
       {conBarra ? (
         <>
-          <div
-            aria-hidden="true"
-            className="h-[calc(var(--barra-max)+var(--final-pagina)+env(safe-area-inset-bottom))]"
-          />
+          <div aria-hidden="true" className="h-[calc(var(--barra-max)+env(safe-area-inset-bottom))]" />
           <BarraDeFirma etiqueta="Grabación">{!sinVoz && confirmando ? confirmacion : principal}</BarraDeFirma>
         </>
       ) : (
-        <>
-          {!grabandoVoz ? <div className="mt-10">{principal}</div> : null}
-          <div aria-hidden="true" className="h-[var(--final-pagina)]" />
-        </>
+        <>{!grabandoVoz ? <div className="mt-10">{principal}</div> : null}</>
       )}
     </div>
   )

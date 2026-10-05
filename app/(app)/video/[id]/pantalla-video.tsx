@@ -90,7 +90,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   }
 
   return (
-    <div className="pb-[calc(var(--barra-max)+var(--final-pagina)+env(safe-area-inset-bottom))]">
+    <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
       <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
         <CaretLeft aria-hidden="true" size={20} />
         Inicio

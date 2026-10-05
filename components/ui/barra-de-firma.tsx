@@ -9,7 +9,7 @@ interface PropiedadesDeBarra {
 
 /**
  * Brandkit 9.13: the one elevated bar, fixed at the bottom of Guion and Video, with one action and one line. The screen
- * adds its own bottom padding (`--barra-max` plus `--final-pagina`) so the bar never covers its last control.
+ * adds bottom padding of `--barra-max` (the layout already leaves `--final-pagina`) so the bar never covers its last control.
  */
 export function BarraDeFirma({ etiqueta, linea, children }: PropiedadesDeBarra) {
   return (

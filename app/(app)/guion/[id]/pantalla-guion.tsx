@@ -100,11 +100,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   }
 
   return (
-    <div
-      className={
-        datos.grabacion ? undefined : "pb-[calc(var(--barra-max)+var(--final-pagina)+env(safe-area-inset-bottom))]"
-      }
-    >
+    <div className={datos.grabacion ? undefined : "pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]"}>
       <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
         <Link
           href="/"
