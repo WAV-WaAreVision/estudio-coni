@@ -165,6 +165,11 @@
   }
 }
 
+/* The sign bar is taller than the brief's 112 px: the slider block carries the Aprobar button (WCAG 2.5.7). */
+:root {
+  --barra-max: 176px;
+}
+
 /* Transition aliases (mapeo-tokens.md section 10.1). Removed in Task 34 of the redesign plan. */
 :root {
   --hundido: var(--pista);

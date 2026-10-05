@@ -166,4 +166,10 @@ describe("DeslizarParaAprobar, the visible alternative to dragging (WCAG 2.5.7)"
     render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={vi.fn()} />)
     expect(screen.getByRole("button", { name: "Aprobar" }).className).not.toMatch(/firma/)
   })
+
+  it("shows its note on the same row as the Aprobar button", () => {
+    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado nota="Aprobar no gasta nada." alAprobar={vi.fn()} />)
+    const boton = screen.getByRole("button", { name: "Aprobar" })
+    expect(boton.parentElement).toContainElement(screen.getByText("Aprobar no gasta nada."))
+  })
 })

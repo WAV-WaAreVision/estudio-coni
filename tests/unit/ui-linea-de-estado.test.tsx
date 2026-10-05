@@ -30,4 +30,10 @@ describe("LineaDeEstado", () => {
     render(<LineaDeEstado tipo="neutro" titulo="Puedes decir que no" accion={<a href="/x">Revisar la frase</a>} />)
     expect(screen.getByRole("link", { name: "Revisar la frase" }).parentElement).toHaveClass("col-start-2")
   })
+
+  it("is not a live region when it is a date the screen simply states", () => {
+    render(<LineaDeEstado tipo="fecha" titulo="Si lo apruebas hoy, sale el jueves" />)
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
 })

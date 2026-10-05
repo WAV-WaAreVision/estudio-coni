@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowRight, Check, Info } from "@phosphor-icons/react"
-import { type KeyboardEvent, type PointerEvent, useEffect, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { apruebaAlSoltar, progresoDeArrastre, UMBRAL_DE_APROBACION } from "@/lib/diseno/deslizador"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,8 @@ interface PropiedadesDeDeslizar {
   motivo?: string
   /** True while the approval travels to the server: the thumb stays at the end. */
   enviando?: boolean
+  /** One short line beside the Aprobar button («Aprobar no gasta nada.»). */
+  nota?: ReactNode
   alAprobar: () => void
 }
 
@@ -33,6 +35,7 @@ export function DeslizarParaAprobar({
   habilitado,
   motivo,
   enviando = false,
+  nota,
   alAprobar,
 }: PropiedadesDeDeslizar) {
   const [valor, setValor] = useState(0)
@@ -164,16 +167,19 @@ export function DeslizarParaAprobar({
           )}
         </div>
       </div>
-      <Boton
-        variante="linea"
-        tamano="chico"
-        className="w-fit"
-        deshabilitado={!activo || aprobado}
-        aria-describedby={conMotivo ? idMotivo : undefined}
-        onClick={aprobar}
-      >
-        Aprobar
-      </Boton>
+      <div className="flex items-center gap-3">
+        <Boton
+          variante="linea"
+          tamano="chico"
+          className="w-fit shrink-0"
+          deshabilitado={!activo || aprobado}
+          aria-describedby={conMotivo ? idMotivo : undefined}
+          onClick={aprobar}
+        >
+          Aprobar
+        </Boton>
+        {nota ? <p className="text-meta text-apagado">{nota}</p> : null}
+      </div>
       {conMotivo ? (
         <p id={idMotivo} className="flex items-start gap-2 text-meta font-medium text-tinta">
           <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />

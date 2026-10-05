@@ -88,7 +88,8 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
   await expect(page.getByText(/^Si lo apruebas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toHaveCount(0)
-  await expect(page.getByText("Aprobar no gasta nada. Después grabas la voz y el video.")).toBeVisible()
+  await expect(page.getByText("Aprobar no gasta nada.")).toBeVisible()
+  await expect(page.getByText("Después grabas la voz y el video.")).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await expect(deslizador).toHaveAttribute("aria-valuetext", "No aprobado")
   await expect(page.getByText("Falta elegir el avatar y confirmar la revisión.")).toBeVisible()
@@ -162,6 +163,24 @@ test("she records the voice alone, listens to it, and then records the video reu
   await expect(page.getByText("Aprobado. Estoy grabando el video.")).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
   expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
+})
+
+test("gate 1 shows the committed date in the signature colour and the whole script without inner scroll", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+
+  const fecha = page.getByText(/^(lunes|martes|miércoles|jueves|viernes|sábado|domingo) \d/).first()
+  await expect(fecha).toHaveCSS("color", "rgb(168, 40, 90)")
+  const guion = page.getByRole("textbox", { name: "Guion", exact: true })
+  const [alto, altoDelContenido] = await guion.evaluate((el) => [el.clientHeight, el.scrollHeight])
+  expect(altoDelContenido).toBeLessThanOrEqual(alto + 1)
+  const barra = page.getByRole("region", { name: "Firma" })
+  // 176 px of bar plus the safe area of the iPhone 14 descriptor.
+  expect((await barra.boundingBox())?.height ?? 999).toBeLessThanOrEqual(176 + 34)
+  await capturar(page, "guion-por-aprobar-completa", { completa: true })
 })
 
 const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`

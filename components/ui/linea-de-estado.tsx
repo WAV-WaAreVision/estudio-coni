@@ -22,6 +22,8 @@ interface PropiedadesDeLinea {
   tituloEnTinta?: boolean
   detalle?: ReactNode
   accion?: ReactNode
+  /** The error was already announced by another alert of the screen: this one is read, not announced again. */
+  anunciada?: boolean
   className?: string
 }
 
@@ -33,6 +35,7 @@ export function LineaDeEstado({
   tituloEnTinta = false,
   detalle,
   accion,
+  anunciada = false,
   className,
 }: PropiedadesDeLinea) {
   const Icono = ICONO[tipo]
@@ -48,12 +51,15 @@ export function LineaDeEstado({
     </>
   )
   const clases = cn("grid grid-cols-[24px_1fr] gap-x-3 gap-y-1", className)
-  // <output> has the implicit role status: it waits politely; only errors interrupt.
-  return tipo === "error" ? (
-    <div role="alert" className={clases}>
-      {contenido}
-    </div>
-  ) : (
-    <output className={clases}>{contenido}</output>
-  )
+  // <output> has the implicit role status: it waits politely; only errors interrupt. A date the screen states is
+  // not news, so it is no live region at all.
+  if (tipo === "error" && anunciada) return <div className={clases}>{contenido}</div>
+  if (tipo === "error")
+    return (
+      <div role="alert" className={clases}>
+        {contenido}
+      </div>
+    )
+  if (tipo === "fecha") return <div className={clases}>{contenido}</div>
+  return <output className={clases}>{contenido}</output>
 }
