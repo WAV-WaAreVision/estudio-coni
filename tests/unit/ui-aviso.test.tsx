@@ -16,12 +16,12 @@ describe("Aviso", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Guardado")
   })
 
-  it("closes by itself after 4.5 seconds", () => {
+  it("stays 8 seconds by default (brandkit 9.23)", () => {
     const alCerrar = vi.fn()
     render(<Aviso mensaje="Guardado" alCerrar={alCerrar} />)
 
     act(() => {
-      vi.advanceTimersByTime(4499)
+      vi.advanceTimersByTime(7999)
     })
     expect(alCerrar).not.toHaveBeenCalled()
     act(() => {
@@ -40,5 +40,19 @@ describe("Aviso", () => {
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
 
     expect(alDeshacer).toHaveBeenCalledTimes(1)
+  })
+
+  it("rides above the sign bar instead of the bottom nav when asked", () => {
+    const { rerender } = render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
+    expect(screen.getByRole("status").className).toContain("bottom-[calc(56px+")
+
+    rerender(<Aviso mensaje="Guardado" alCerrar={() => undefined} sobreBarra />)
+    expect(screen.getByRole("status").className).toContain("bottom-[calc(var(--barra-max)+")
+  })
+
+  it("reads in the ink-on-surface pair with a 44 px undo", () => {
+    render(<Aviso mensaje="Idea descartada" alCerrar={() => undefined} alDeshacer={() => undefined} />)
+    expect(screen.getByRole("status")).toHaveClass("bg-tinta", "text-sobre-tinta")
+    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveClass("min-h-11", "text-sobre-tinta")
   })
 })
