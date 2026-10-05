@@ -41,6 +41,9 @@ test.afterAll(async () => {
 })
 
 async function capturaDe(page: Page, nombre: string) {
+  // Ajustes streams its status block and its accounts behind Suspense: wait until the skeletons are gone.
+  await page.waitForLoadState("networkidle")
+  await expect(page.locator("output[aria-label^='Revisando']")).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready)
   // Device scale (1170 px wide, like the mockup boards) while the sheet is reviewed; css scale can replace it for the baselines.
   await expect(page).toHaveScreenshot(`${nombre}.png`, { fullPage: true, scale: "device" })
