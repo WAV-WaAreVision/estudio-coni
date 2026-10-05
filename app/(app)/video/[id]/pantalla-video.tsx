@@ -9,11 +9,15 @@ import { ReproductorVideo } from "@/components/reproductor-video"
 import { Seccion } from "@/components/seccion"
 import { TextoDeInstagram } from "@/components/texto-de-instagram"
 import { Aviso } from "@/components/ui/aviso"
+import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 import { Boton } from "@/components/ui/boton"
+import { Casilla } from "@/components/ui/casilla"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { FilaConCheck } from "@/components/ui/filas"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
-import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import { useAccion } from "@/components/use-accion"
-import type { Pilar } from "@/lib/dominio/pilares"
+import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { aprobarVideoAccion, regrabarAccion } from "../../piezas/acciones"
@@ -86,34 +90,12 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   }
 
   return (
-    <div className="grid gap-4.5">
-      <header className="grid gap-1.5">
-        <Link
-          href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
-        >
-          <CaretLeft aria-hidden="true" size={20} />
-          Inicio
-        </Link>
-        <p className="text-meta text-apagado">Video por aprobar</p>
-        <h1 className="font-serif text-title text-balance">{datos.titulo}</h1>
-        <div className="flex flex-wrap gap-1.5">
-          {datos.pilar ? <PildoraPilar pilar={datos.pilar} /> : null}
-          <span className="inline-flex items-center rounded-full bg-hundido px-2.5 py-1.5 text-label font-semibold">
-            {datos.segundos} s
-          </span>
-        </div>
-      </header>
-
-      {datos.primeraVez ? <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} /> : null}
-
-      {datos.explicacion ? (
-        <p role="alert" className="rounded-lg bg-aviso-fondo p-4 text-[1.0625rem] text-aviso-tinta">
-          {datos.explicacion}
-        </p>
-      ) : null}
-
-      <div className="-mx-4.5">
+    <div className="pb-[calc(var(--barra-max)+var(--final-pagina)+env(safe-area-inset-bottom))]">
+      <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
+        <CaretLeft aria-hidden="true" size={20} />
+        Inicio
+      </Link>
+      <div className="mt-2">
         <ReproductorVideo
           src={datos.videoUrl}
           clave={datos.videoId}
@@ -122,32 +104,38 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         />
       </div>
 
-      <p className="flex flex-wrap items-center justify-between gap-2 text-meta text-apagado">
-        <span>
-          {visto ? <b className="font-semibold text-tinta">Lo viste completo</b> : "Míralo completo para aprobar"}
-        </span>
-        <button
-          type="button"
-          aria-pressed={zonas}
-          className="min-h-11 text-label font-semibold text-acento"
-          onClick={() => setZonas((actual) => !actual)}
-        >
+      <header className="mt-4 grid gap-3">
+        <p className="flex items-baseline justify-between gap-4 text-meta text-apagado">
+          <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
+          <span>{datos.segundos} s</span>
+        </p>
+        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
+        {visto ? (
+          <LineaDeEstado tipo="exito" titulo="Lo viste completo" />
+        ) : (
+          <LineaDeEstado tipo="neutro" titulo="Míralo completo para aprobar" tituloEnTinta />
+        )}
+        <Boton variante="callado" tamano="chico" aria-pressed={zonas} onClick={() => setZonas((actual) => !actual)}>
           {zonas ? "Ocultar" : "Ver"} zonas de Instagram
-        </button>
-      </p>
+        </Boton>
+      </header>
+
+      {datos.primeraVez ? (
+        <div className="mt-6">
+          <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} />
+        </div>
+      ) : null}
+
+      {datos.explicacion ? (
+        <div className="mt-6">
+          <LineaDeEstado tipo="aviso" titulo={datos.explicacion} tituloEnTinta />
+        </div>
+      ) : null}
 
       {visto ? (
-        <div className="-mx-4.5 grid gap-5.5 rounded-t-xl bg-superficie px-4.5 py-5 shadow-flotante">
+        <>
           <Seccion titulo="Antes de aprobar" id="antes">
-            <label className="grid min-h-11 cursor-pointer grid-cols-[26px_1fr] items-center gap-2.5">
-              <input
-                type="checkbox"
-                className="size-6 accent-acento"
-                checked={revisado}
-                onChange={(evento) => setRevisado(evento.target.checked)}
-              />
-              <span>Revisé labios, nombre, subtítulos y cortes</span>
-            </label>
+            <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
           </Seccion>
 
           <Seccion titulo="Así sale en Instagram" id="texto">
@@ -156,7 +144,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
 
           {datos.revision.length > 0 ? (
             <Seccion titulo="Revisión" id="revision">
-              <div className="grid gap-2.5">
+              <div className="grid gap-4">
                 {datos.revision.map((hallazgo) => (
                   <MarcaRevision
                     key={claveDe(hallazgo)}
@@ -171,91 +159,83 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
 
           <Seccion titulo="Fecha de publicación" id="fecha">
             {fechaElegida ? (
-              <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
-                <span className="text-body font-semibold">{fechaElegida.etiqueta}</span>
-                <button
-                  type="button"
-                  aria-expanded={cambiandoFecha}
-                  className="min-h-11 text-label font-semibold text-acento"
-                  onClick={() => setCambiandoFecha((actual) => !actual)}
-                >
-                  {cambiandoFecha ? "Listo" : "Cambiar"}
-                </button>
-                <span className="text-meta text-apagado">Hora de Chile · próximo horario libre</span>
+              <div className="grid gap-1">
+                <div className="flex min-h-14 items-center justify-between gap-3 border-b border-linea">
+                  <span className="text-cuerpo font-semibold">{fechaElegida.etiqueta}</span>
+                  <Boton
+                    variante="callado"
+                    tamano="chico"
+                    aria-expanded={cambiandoFecha}
+                    className="w-auto"
+                    onClick={() => setCambiandoFecha((actual) => !actual)}
+                  >
+                    {cambiandoFecha ? "Listo" : "Cambiar"}
+                  </Boton>
+                </div>
+                <p className="text-meta text-apagado">Hora de Chile · próximo horario libre</p>
                 {cambiandoFecha ? (
-                  <fieldset className="col-span-2 mt-2 grid gap-2 border-0 p-0">
+                  <fieldset className="mt-2 grid border-0 p-0">
                     <legend className="sr-only">Elige cuándo sale</legend>
                     {datos.fechas.map((propuesta) => (
-                      <label
+                      <FilaConCheck
                         key={propuesta.iso}
-                        className="grid min-h-12 cursor-pointer grid-cols-[24px_1fr] items-center gap-2.5 rounded-sm border border-linea bg-superficie px-3 py-2 text-[1.0625rem]"
-                      >
-                        <input
-                          type="radio"
-                          name="fecha"
-                          className="size-5 accent-acento"
-                          checked={propuesta.iso === fecha}
-                          onChange={() => setFecha(propuesta.iso)}
-                        />
-                        <span>{propuesta.etiqueta}</span>
-                      </label>
+                        nombre="fecha"
+                        valor={propuesta.iso}
+                        elegido={propuesta.iso === fecha}
+                        etiqueta={propuesta.etiqueta}
+                        alElegir={setFecha}
+                      />
                     ))}
                   </fieldset>
                 ) : null}
               </div>
             ) : (
-              <p className="text-apagado">No hay un horario libre en los próximos días.</p>
+              <p className="text-cuerpo text-apagado">No hay un horario libre en los próximos días.</p>
             )}
           </Seccion>
-        </div>
+        </>
       ) : (
-        <p className="text-[1.0625rem] text-apagado">Cuando termine el video aparece lo que falta para aprobarlo.</p>
+        <p className="mt-10 text-cuerpo text-apagado">Cuando termine el video aparece lo que falta para aprobarlo.</p>
       )}
 
-      <div className="sticky bottom-0 -mx-4.5 -mb-6 grid gap-2 border-t border-linea bg-superficie px-4.5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-flotante">
-        {aprobacion.error || regrabacion.error ? (
-          <p role="alert" className="rounded-md bg-error-fondo p-3 text-[1rem] text-error-tinta">
-            {aprobacion.error ?? regrabacion.error}
-          </p>
-        ) : null}
+      <div className="mt-10 grid gap-2">
         {regrabando ? (
-          <div className="grid gap-2 rounded-md bg-acento-suave p-3.5">
-            <p className="text-[1rem]">
-              Se vuelve a grabar con tu avatar y este video se descarta. {datos.costoDeRegrabar ?? ""} ¿Seguro?
-            </p>
-            <Boton
-              cargando={regrabacion.pendiente}
-              onClick={() =>
-                regrabacion.ejecutar(
-                  () => regrabarAccion(datos.id, datos.version),
-                  (r) => setAviso(r.advertencia ?? null),
-                )
-              }
-            >
-              Sí, regrabar
-            </Boton>
-            <Boton variante="callado" onClick={() => setRegrabando(false)}>
-              Volver
-            </Boton>
-          </div>
+          <ConfirmacionEnLinea
+            trato="destructivo"
+            pregunta={`Se vuelve a grabar con tu avatar y este video se descarta. ${datos.costoDeRegrabar ?? ""} ¿Seguro?`}
+            confirmar="Sí, regrabar"
+            volver="Volver"
+            cargando={regrabacion.pendiente}
+            alConfirmar={() =>
+              regrabacion.ejecutar(
+                () => regrabarAccion(datos.id, datos.version),
+                (r) => setAviso(r.advertencia ?? null),
+              )
+            }
+            alVolver={() => setRegrabando(false)}
+          />
         ) : (
-          <>
-            <DeslizarParaAprobar
-              etiqueta="Desliza para aprobar video y fecha"
-              habilitado={habilitado}
-              motivo={motivo}
-              enviando={aprobacion.pendiente}
-              alAprobar={() => {
-                if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha))
-              }}
-            />
-            <Boton variante="callado" onClick={() => setRegrabando(true)}>
-              Regrabar
-            </Boton>
-          </>
+          <Boton variante="destructiva" onClick={() => setRegrabando(true)}>
+            Regrabar
+          </Boton>
         )}
       </div>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
+
+      <BarraDeFirma etiqueta="Firma">
+        {aprobacion.error || regrabacion.error ? (
+          <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
+        ) : null}
+        <DeslizarParaAprobar
+          etiqueta="Desliza para aprobar video y fecha"
+          habilitado={habilitado}
+          motivo={motivo}
+          enviando={aprobacion.pendiente}
+          alAprobar={() => {
+            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha))
+          }}
+        />
+      </BarraDeFirma>
+      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
     </div>
   )
 }

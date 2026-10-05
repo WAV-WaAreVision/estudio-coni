@@ -143,3 +143,23 @@ test("the first ready video she opens says how to read it, once, and the databas
   await expect(page.getByText("Avatar IA")).toBeVisible()
   await expect(mensaje).toHaveCount(0)
 })
+
+test("the whole video and its play are visible above the sign bar on load at 390 x 844", async ({ page }) => {
+  const id = await videoPorAprobar()
+  await simularMedios(page)
+  await page.goto(`/video/${id}`)
+  const play = page.getByRole("button", { name: "Reproducir el video" })
+  const barra = page.getByRole("region", { name: "Firma" })
+  await expect(page.getByTestId("reproductor-video")).toBeVisible()
+  const [cajaPlay, cajaBarra, cajaVideo] = await Promise.all([
+    play.boundingBox(),
+    barra.boundingBox(),
+    page.getByTestId("reproductor-video").boundingBox(),
+  ])
+  if (!cajaPlay || !cajaBarra || !cajaVideo) throw new Error("missing boxes")
+  expect(cajaPlay.y + cajaPlay.height).toBeLessThan(cajaBarra.y)
+  expect(cajaVideo.y + cajaVideo.height).toBeLessThanOrEqual(cajaBarra.y)
+  // The video is never dimmed (brandkit 9.17).
+  expect(await page.locator("video").evaluate((el) => getComputedStyle(el).filter)).toBe("none")
+  await capturar(page, "video-por-aprobar-abrir")
+})

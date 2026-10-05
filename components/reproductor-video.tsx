@@ -6,10 +6,10 @@ import { mmss } from "@/lib/formato"
 import { cn } from "@/lib/utils"
 import { useReproduccion } from "./use-reproduccion"
 
-// Brandkit 9.17: the whole 9:16 and its play fit above the sign bar on load. 44 back + 8 + 112 bar + 16 = 180, less the
-// 8 the bar's own padding gives back: 172, plus the safe areas. The width part is the column (560 on a tablet, 40 of margin).
+// Brandkit 9.17: the whole 9:16 and its play fit above the sign bar on load: 44 back + 8 + the bar + 16, less the 8 the
+// bar's own padding gives back, plus the safe areas. The width part is the column (560 on a tablet, 40 of margin).
 const ALTO_DEL_VIDEO =
-  "min(calc((min(100vw, 560px) - 40px) * 16 / 9), calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 172px))"
+  "min(calc((min(100vw, 560px) - 40px) * 16 / 9), calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--barra-max) - 60px))"
 
 interface PropiedadesDeVideo {
   src: string | null
