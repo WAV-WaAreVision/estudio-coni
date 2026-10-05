@@ -12,3 +12,12 @@ test("the app text is set in Geist, one family", async ({ page }) => {
   })
   expect(cargada).toBe(true)
 })
+
+test("the app stays light even when the phone is in dark mode (light only for now)", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" })
+  await page.goto("/")
+  const fondo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+  expect(fondo).toBe("rgb(247, 246, 243)") // #f7f6f3
+  const esquema = await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)
+  expect(esquema).toBe("light")
+})
