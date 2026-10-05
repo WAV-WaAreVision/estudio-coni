@@ -87,6 +87,7 @@ test("she downloads the video, copies the text, confirms the AI label and marks 
 
   await expect(page.getByText("Subido a mano")).toBeVisible()
   await expect(page.getByRole("link", { name: "Ver en Instagram" })).toHaveAttribute("href", ENLACE)
+  await capturar(page, "video-subido-a-mano")
   const fila = await leerFila(id)
   expect(fila).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
   const { rows } = await pool.query(

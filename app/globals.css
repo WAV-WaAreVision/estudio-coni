@@ -381,6 +381,9 @@ body {
     border-radius: var(--r-12);
     padding: var(--e-4);
     min-height: var(--alto-boton);
+  }
+  /* Only a text area grows with its text: a one-line input that did would push its column wider than the screen. */
+  textarea.campo {
     field-sizing: content;
   }
   .campo[aria-invalid="true"] {

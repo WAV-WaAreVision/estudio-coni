@@ -32,6 +32,18 @@ afterEach(() => {
 })
 
 describe("SubirAMano", () => {
+  it("numbers the four steps as content and never fills a destructive button", () => {
+    armar()
+    expect(screen.getAllByRole("listitem")).toHaveLength(4)
+    for (const boton of screen.getAllByRole("button")) expect(boton.className).not.toMatch(/\bbg-(error|firma)\b/)
+  })
+
+  it("has one principal: the last step, the others are outlined or quiet", () => {
+    armar()
+    expect(screen.getByRole("button", { name: "Ya lo subí" })).toHaveClass("bg-principal")
+    expect(screen.getByRole("button", { name: "Descargar video" })).not.toHaveClass("bg-principal")
+  })
+
   it("shows the approved text so she can read what she is about to paste", () => {
     armar()
     expect(screen.getByText(/El deseo no se apaga/)).toBeInTheDocument()
