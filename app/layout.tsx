@@ -1,10 +1,7 @@
+import { GeistSans } from "geist/font/sans"
 import type { Metadata, Viewport } from "next"
-import { Hanken_Grotesk, Young_Serif } from "next/font/google"
 import { COLOR_DE_FONDO, NOMBRE_DE_LA_APP } from "@/lib/diseno/marca"
 import "./globals.css"
-
-const serif = Young_Serif({ weight: "400", subsets: ["latin"], variable: "--font-young-serif", display: "swap" })
-const sans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap" })
 
 export const metadata: Metadata = {
   title: NOMBRE_DE_LA_APP,
@@ -24,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es-CL" className={`${serif.variable} ${sans.variable}`}>
+    <html lang="es-CL" className={GeistSans.variable}>
       <body className="min-h-dvh">{children}</body>
     </html>
   )

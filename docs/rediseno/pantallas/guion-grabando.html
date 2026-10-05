@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es-CL" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guion grabando</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+@font-face{font-family:"Geist";src:url("../fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--fondo);color:var(--tinta);font-family:var(--letra);-webkit-font-smoothing:antialiased}
+body{width:390px}
+.lamina{padding:24px var(--margen) 8px;font-size:var(--t-meta);color:var(--apagado);line-height:var(--i-meta)}
+.lamina b{color:var(--tinta);font-weight:600}
+.frame{width:390px;min-height:844px;background:var(--fondo);color:var(--tinta);position:relative;border-bottom:1px solid var(--linea)}
+.sb{height:47px}
+.wrap{padding:0 var(--margen) var(--final-pagina)}
+.volver{display:inline-flex;align-items:center;gap:4px;height:44px;font-size:var(--t-cuerpo);font-weight:500;color:var(--tinta)}
+.par{display:flex;justify-content:space-between;margin-top:8px;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);font-variant-numeric:var(--cifras)}
+h1{font-size:var(--t-pieza);line-height:var(--i-pieza);letter-spacing:var(--tr-pieza);font-weight:var(--peso-titulo);margin-top:8px}
+.estado{display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-top:16px;align-items:start}
+.estado .ico{height:24px;display:flex;align-items:center;justify-content:center}
+.latido{width:8px;height:8px;border-radius:var(--r-circulo);background:var(--tinta);animation:lat var(--latido) ease-in-out infinite}
+@keyframes lat{50%{opacity:.25}}
+.estado p{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);font-weight:600}
+.estado small{display:block;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);font-weight:400;margin-top:4px}
+.seccion{margin-top:var(--entre-secciones);border-top:1px solid var(--tinta);padding-top:12px}
+.rotulo{display:flex;justify-content:space-between;font-size:var(--t-meta);line-height:var(--i-meta);font-weight:600;margin-bottom:8px}
+.rotulo span{font-weight:400;color:var(--apagado);font-variant-numeric:var(--cifras)}
+.guion{font-size:var(--t-guion);line-height:var(--i-guion)}
+.ficha{display:inline-block;font-size:var(--t-meta);font-weight:500;color:var(--apagado);background:var(--pista);border-radius:var(--r-circulo);padding:0 8px;line-height:24px;vertical-align:2px}
+.ayuda{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:12px}
+.pub{font-size:var(--t-cuerpo);line-height:var(--i-prosa)}
+.pasos{list-style:none}
+.pasos li{display:grid;grid-template-columns:24px 1fr auto;column-gap:12px;align-items:center;min-height:56px;border-bottom:1px solid var(--linea);font-size:var(--t-cuerpo)}
+.pasos li:last-child{border-bottom:0}
+.pasos .v{font-size:var(--t-meta);color:var(--apagado);font-variant-numeric:var(--cifras)}
+.pasos .hecho{color:var(--exito)} .pasos .hecho .v{color:var(--exito)}
+.pasos .ahora{font-weight:600}
+.pasos .falta{color:var(--apagado)}
+.circ{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--campo);justify-self:center}
+.cent{display:flex;justify-content:center}
+.voz{display:grid;grid-template-columns:48px 1fr auto;column-gap:12px;align-items:center}
+.play{width:48px;height:48px;border-radius:50%;border:1.5px solid var(--tinta);display:flex;align-items:center;justify-content:center}
+.riel{height:44px;display:flex;align-items:center;position:relative}
+.riel i{display:block;height:2px;width:100%;background:var(--campo)}
+.riel b{position:absolute;left:0;width:14px;height:14px;border-radius:50%;background:var(--tinta)}
+.tiempo{font-size:var(--t-meta);font-variant-numeric:var(--cifras)}
+.voz-estado{margin-left:60px;font-size:var(--t-meta);color:var(--apagado);margin-top:2px}
+.nota{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:24px}
+.btntexto{display:inline-flex;align-items:center;height:44px;font-size:var(--t-cuerpo);font-weight:600;margin-top:16px}
+.avatar{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center}
+.avatar img{width:48px;height:64px;object-fit:cover;border-radius:var(--r-12);filter:brightness(var(--foto-brillo))}
+.avatar small{display:block;font-size:var(--t-meta);color:var(--apagado)}
+svg{display:block}
+div[data-theme="dark"]{
+  color-scheme: dark;
+  --fondo: #161513;
+  --superficie: #1f1d1a;
+  --tinta: #ece9e3;
+  --apagado: #a39d94;
+  --campo: #7c766d;
+  --linea: #2f2c28;
+  --pista: #2a2724;
+  --principal: #d6d2cb;
+  --sobre-principal: #161513;
+  --sobre-tinta: #161513;
+  --firma: #d78099;
+  --sobre-firma: #161513;
+  --firma-rastro: rgb(215 128 153 / 0.22);
+  --error: #e98a7f;
+  --exito: #86c39c;
+  --aviso: #d9ad66;
+  --foto-brillo: 0.94;
+  --peso-titulo: 500;
+  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
+  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(8 7 6 / 0.45);
+ background:var(--fondo);color:var(--tinta)}
+.estado small{color:var(--tinta)}
+.pub{color:var(--apagado)}
+.fin{height:24px}
+.barra{margin-top:var(--entre-secciones);border-top:1px solid var(--linea);padding-top:20px}
+.bloque+.bloque{margin-top:28px}
+.fila{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}
+.boton{width:100%;border:0;font-family:inherit;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:var(--t-cuerpo);font-weight:600}
+.boton.off{background:var(--pista);color:var(--apagado);cursor:not-allowed}
+.costo{text-align:right;white-space:nowrap;font-variant-numeric:var(--cifras)}
+.costo strong{display:block;font-size:var(--t-pieza);line-height:28px;font-weight:600;color:var(--apagado)}
+.costo span{font-size:var(--t-meta);color:var(--apagado)}
+.saldo{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:8px}
+.btntexto{margin-top:24px}
+.btntexto.off{color:var(--apagado);cursor:not-allowed}
+</style>
+</head>
+<body>
+<template id="tpl-voz">
+<section class="frame">
+<div class="sb"></div>
+<div class="wrap">
+  <a class="volver"><svg width="20" height="20" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><polyline points="160 208 80 128 160 48"/></svg>Inicio</a>
+  <div class="par"><span>Deseo y sexualidad</span><span>Mito o realidad · 52 s</span></div>
+  <h1>¿Tu deseo se apagó o tu cuerpo está en modo alerta?</h1>
+  <div class="estado" role="status"><span class="ico"><span class="latido"></span></span><p>Estoy grabando tu voz<small>Tarda unos segundos.</small></p></div>
+
+  <div class="seccion">
+    <div class="rotulo">Guion<span>123 palabras · ≈ 52 s</span></div>
+    <p class="guion"><span class="ficha">[warm]</span> Si últimamente sientes que el deseo desapareció, no siempre es falta de ganas. <span class="ficha">[pause]</span> A veces tu cuerpo está en modo alerta: cansado, tenso, cuidándose. Y en ese estado, el deseo se guarda.</p>
+    <p class="ayuda">Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos.</p>
+  </div>
+
+  <div class="seccion">
+    <div class="rotulo">Texto de la publicación</div>
+    <p class="pub">El deseo no se apaga por capricho. A veces tu cuerpo solo necesita sentirse a salvo.</p>
+    <p class="pub" style="margin-top:16px">Video hecho con mi avatar digital.</p>
+  </div>
+
+  <div class="seccion">
+    <div class="rotulo">Avatar</div>
+    <div class="avatar"><img src="../img/look-estudio.jpg" alt=""><p style="font-size:var(--t-cuerpo)">Estudio</p></div>
+  </div>
+
+  <div class="barra">
+    <div class="bloque">
+      <div class="fila">
+        <button class="boton off" disabled aria-disabled="true">Grabando la voz…<span class="latido" style="background:var(--apagado)"></span></button>
+        <div class="costo"><strong>US$ 0,20</strong><span>~682 caracteres</span></div>
+      </div>
+      <p class="saldo">ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre.</p>
+    </div>
+    <div class="bloque">
+      <div class="fila">
+        <button class="boton off" disabled aria-disabled="true">Grabar video</button>
+        <div class="costo"><strong>US$ 1,36</strong><span>~52 s · incluye la voz</span></div>
+      </div>
+      <p class="saldo">Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.</p>
+    </div>
+    <a class="btntexto off" aria-disabled="true">Volver a revisar el guion</a>
+    <p class="nota" style="margin-top:0">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
+  </div>
+  <div class="fin"></div>
+</div>
+</section>
+</template>
+
+<p class="lamina"><b>Guion · grabando la voz</b> · claro</p><div data-t="voz"></div>
+<div data-theme="dark">
+<p class="lamina" style="padding-top:48px"><b>Variante oscura</b> · grabando la voz</p><div data-t="voz"></div>
+</div>
+<script>
+document.querySelectorAll('[data-t]').forEach(h=>h.replaceWith(document.getElementById('tpl-'+h.dataset.t).content.cloneNode(true)));
+</script>
+</body></html>

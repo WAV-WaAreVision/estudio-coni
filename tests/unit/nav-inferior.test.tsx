@@ -26,6 +26,13 @@ describe("NavInferior", () => {
     expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current")
   })
 
+  it.each(["/ideas", "/ideas/nueva", "/calendario"])("keeps Inicio current on %s, which hang from it", (ruta) => {
+    usePathname.mockReturnValue(ruta)
+    render(<NavInferior />)
+
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page")
+  })
+
   it.each(["/guion/abc", "/video/abc"])(
     "steps aside on %s so the approve bar owns the bottom of the screen",
     (ruta) => {

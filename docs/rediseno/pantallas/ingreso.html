@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conidolly · Ingreso</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Dark preview scope: mirrors :root[data-theme="dark"] in tokens.css so both themes fit one page. */
+.oscuro{color-scheme:dark;--fondo:#161513;--superficie:#1f1d1a;--tinta:#ece9e3;--apagado:#a39d94;--campo:#7c766d;--linea:#2f2c28;--pista:#2a2724;--principal:#d6d2cb;--sobre-principal:#161513;--sobre-tinta:#161513;--firma:#d78099;--sobre-firma:#161513;--error:#e98a7f;--exito:#86c39c;--aviso:#d9ad66;--peso-titulo:500;--anillo-foco:0 0 0 2px var(--fondo),0 0 0 4px var(--tinta)}
+*{box-sizing:border-box;margin:0}
+body{background:#d9d6cf;font-family:var(--letra);-webkit-font-smoothing:antialiased}
+.rotulo-lamina{width:390px;padding:24px 20px 12px;font:600 var(--t-meta)/var(--i-meta) var(--letra);color:#3d3a35;letter-spacing:.02em}
+.pantalla{width:390px;height:844px;background:var(--fondo);color:var(--tinta);position:relative;overflow:hidden;padding:0 var(--margen)}
+.safe{height:47px}
+.marca{margin-top:64px;font-weight:600;font-size:20px;letter-spacing:-.03em;line-height:1;display:inline-block}
+.i{position:relative;display:inline-block}
+.i::after{content:"";position:absolute;left:50%;top:-.02em;width:.19em;height:.19em;border-radius:50%;background:var(--firma);transform:translateX(-50%)}
+h1{margin-top:48px;font-size:var(--t-pantalla);line-height:var(--i-pantalla);letter-spacing:var(--tr-pantalla);font-weight:var(--peso-titulo);text-wrap:balance}
+.texto{margin-top:12px;font-size:var(--t-cuerpo);line-height:var(--i-prosa);color:var(--apagado);max-width:34ch}
+.texto b{color:var(--tinta);font-weight:600}
+.principal{margin-top:32px;height:var(--alto-boton);width:100%;border:0;border-radius:var(--r-12);background:var(--principal);color:var(--sobre-principal);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:600 var(--t-cuerpo)/1 var(--letra)}
+.principal.off{background:var(--pista);color:var(--apagado)}
+.principal svg,.textob svg{width:20px;height:20px}
+.secundaria{margin-top:16px;height:var(--alto-boton);border:var(--trazo) solid var(--campo);background:none;border-radius:var(--r-12);padding:0 16px;font:600 var(--t-cuerpo)/1 var(--letra);color:var(--tinta);display:inline-flex;align-items:center}
+.textob{margin-top:8px;min-height:var(--objetivo-min);display:inline-flex;align-items:center;gap:8px;font:600 var(--t-cuerpo)/1 var(--letra);color:var(--tinta);background:none;border:0;padding:0}
+.casillas{margin-top:32px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.casilla{height:64px;background:var(--superficie);border:var(--trazo) solid var(--campo);border-radius:var(--r-12);display:grid;place-items:center;font-size:var(--t-pieza);font-weight:600;font-variant-numeric:var(--cifras)}
+.casilla.foco{box-shadow:var(--anillo-foco)}
+.casilla.foco::after{content:"";width:2px;height:28px;background:var(--tinta)}
+.casillas.error .casilla{border:var(--trazo-seleccion) solid var(--error)}
+.estado{margin-top:12px;display:grid;grid-template-columns:24px 1fr;column-gap:12px;align-items:start;font-size:var(--t-cuerpo);line-height:var(--i-cuerpo)}
+.estado svg{width:20px;height:20px;margin-top:2px}
+.estado.error{color:var(--error)} .estado.exito{color:var(--exito)}
+.ayuda{margin-top:12px;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado)}
+.teclado{position:absolute;left:0;right:0;bottom:0;height:291px;background:var(--pista);border-top:1px solid var(--linea);display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 6px 40px}
+.tecla{background:var(--superficie);border-radius:6px;display:grid;place-items:center;font-size:24px;color:var(--tinta)}
+.tecla.vacia{background:none}
+.principal.cargando{opacity:1}
+.giro{width:20px;height:20px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent}
+.home{position:absolute;bottom:8px;left:50%;width:134px;height:5px;border-radius:3px;background:var(--tinta);transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+ <symbol id="flecha" viewBox="0 0 256 256"><path fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" d="M40 128h176M144 56l72 72-72 72"/></symbol>
+ <symbol id="err" viewBox="0 0 256 256"><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-width="16"/><path stroke="currentColor" stroke-width="16" stroke-linecap="round" d="M128 80v56"/><circle cx="128" cy="172" r="12" fill="currentColor"/></symbol>
+ <symbol id="ok" viewBox="0 0 256 256"><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-width="16"/><path fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" d="M88 136l24 24 56-56"/></symbol>
+ <symbol id="reenviar" viewBox="0 0 256 256"><path fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" d="M80 104H32V56M66 190a88 88 0 1 0-1-125L32 104"/></symbol>
+</svg>
+
+<template id="t-correo">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Hola, Coni</h1>
+ <p class="texto">Te mando un código a <b>c•••@correo.cl</b> para que entres.</p>
+ <button class="principal">Mandarme el código<svg aria-hidden="true"><use href="#flecha"/></svg></button>
+ <div class="home"></div>
+</template>
+
+<template id="t-codigo">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Entra con el código que te mandé</h1>
+ <p class="texto">Lo envié a <b>c•••@correo.cl</b>. Vence en 1 hora. Si no llega, mira la carpeta de spam.</p>
+ <div aria-label="Número 1 de 6" class="casillas" role="group" aria-label="Código de 6 números">
+  <div aria-label="Número 2 de 6" class="casilla">4</div><div aria-label="Número 3 de 6" class="casilla">8</div><div aria-label="Número 4 de 6" class="casilla">2</div><div aria-label="Número 5 de 6" class="casilla foco"></div><div aria-label="Número 6 de 6" class="casilla"></div><div aria-label="Número 7 de 6" class="casilla"></div>
+ </div>
+ <button class="principal off" aria-disabled="true">Entrar<svg aria-hidden="true"><use href="#flecha"/></svg></button>
+ <button class="textob">Mandar otro código</button>
+ <div class="teclado"><div class="tecla">1</div><div class="tecla">2</div><div class="tecla">3</div><div class="tecla">4</div><div class="tecla">5</div><div class="tecla">6</div><div class="tecla">7</div><div class="tecla">8</div><div class="tecla">9</div><div class="tecla vacia"></div><div class="tecla">0</div><div class="tecla vacia"></div><div class="home"></div></div>
+</template>
+
+<template id="t-error">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Entra con el código que te mandé</h1>
+ <p class="texto">Lo envié a <b>c•••@correo.cl</b>. Vence en 1 hora. Si no llega, mira la carpeta de spam.</p>
+ <div aria-label="Número 1 de 6" class="casillas error">
+  <div aria-label="Número 2 de 6" class="casilla"></div><div aria-label="Número 3 de 6" class="casilla"></div><div aria-label="Número 4 de 6" class="casilla"></div><div aria-label="Número 5 de 6" class="casilla"></div><div aria-label="Número 6 de 6" class="casilla"></div><div aria-label="Número 7 de 6" class="casilla"></div>
+ </div>
+ <p class="estado error" role="alert"><svg aria-hidden="true"><use href="#err"/></svg><span>Ese código no sirve o ya venció. Pide otro.</span></p>
+ <button class="principal off" aria-disabled="true">Entrar<svg aria-hidden="true"><use href="#flecha"/></svg></button>
+ <button class="secundaria">Mandar otro código</button>
+ <div class="home"></div>
+</template>
+
+<template id="t-reenviado">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Entra con el código que te mandé</h1>
+ <p class="texto">Lo envié a <b>c•••@correo.cl</b>. Vence en 1 hora. Si no llega, mira la carpeta de spam.</p>
+ <div aria-label="Número 1 de 6" class="casillas">
+  <div aria-label="Número 2 de 6" class="casilla">4</div><div aria-label="Número 3 de 6" class="casilla">8</div><div aria-label="Número 4 de 6" class="casilla">2</div><div aria-label="Número 5 de 6" class="casilla">9</div><div aria-label="Número 6 de 6" class="casilla">1</div><div aria-label="Número 7 de 6" class="casilla">7</div>
+ </div>
+ <p class="estado exito" role="status"><svg aria-hidden="true"><use href="#ok"/></svg><span>Te mandé otro código.</span></p>
+ <button class="principal">Entrar<svg aria-hidden="true"><use href="#flecha"/></svg></button>
+ <div class="home"></div>
+</template>
+
+<template id="t-enviando">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Hola, Coni</h1>
+ <p class="texto">Te mando un código a <b>c•••@correo.cl</b> para que entres.</p>
+ <button class="principal cargando" aria-busy="true" aria-disabled="true">Mandarme el código<span class="giro" aria-hidden="true"></span></button>
+ <div class="home"></div>
+</template>
+
+<template id="t-correo-error">
+ <div class="safe"></div>
+ <div class="marca" aria-label="conidolly">con<span class="i">ı</span>dolly</div>
+ <h1>Hola, Coni</h1>
+ <p class="texto">Te mando un código a <b>c•••@correo.cl</b> para que entres.</p>
+ <p class="estado error" role="alert"><svg aria-hidden="true"><use href="#err"/></svg><span>No pude mandar el código. Inténtalo de nuevo en un rato.</span></p>
+ <button class="principal">Mandarme el código<svg aria-hidden="true"><use href="#flecha"/></svg></button>
+ <div class="home"></div>
+</template>
+
+<main id="laminas"></main>
+<script>
+const laminas=[
+ ["t-correo","",'1 · Paso inicio · claro'],
+ ["t-enviando","",'1b · Mandando el código · claro'],
+ ["t-correo-error","",'1c · No se pudo mandar · claro'],
+ ["t-codigo","",'2 · Paso código, escribiendo · claro'],
+ ["t-error","",'3 · Código que falló · claro'],
+ ["t-reenviado","",'4 · Código reenviado, seis números · claro'],
+ ["t-correo","oscuro",'5 · Paso inicio · oscuro'],
+ ["t-codigo","oscuro",'6 · Paso código, escribiendo · oscuro'],
+ ["t-error","oscuro",'7 · Código que falló · oscuro'],
+];
+const m=document.getElementById('laminas');
+for(const [t,c,r] of laminas){
+ const p=document.createElement('p');p.className='rotulo-lamina';p.textContent=r;m.append(p);
+ const s=document.createElement('section');s.className='pantalla '+c;s.append(document.getElementById(t).content.cloneNode(true));m.append(s);
+}
+</script>
+</body>
+</html>

@@ -89,9 +89,9 @@ async function suscripciones() {
 
 /** The section starts below the status block: scroll it to the top so the capture shows the states, not the checklist. */
 async function capturar(page: Page, nombre: string) {
-  await page.getByRole("heading", { name: "Avisos en tu celular", level: 2 }).scrollIntoViewIfNeeded()
+  await page.getByRole("heading", { name: "Avisos", level: 2, exact: true }).scrollIntoViewIfNeeded()
   await page.evaluate(() => {
-    const titulo = document.getElementById("avisos")
+    const titulo = document.getElementById("ajuste-avisos")
     if (titulo) window.scrollTo(0, titulo.getBoundingClientRect().top + window.scrollY - 16)
   })
   return capturarPantalla(page, nombre)
@@ -197,7 +197,7 @@ test.describe("Avisos en Inicio", () => {
 
   test("shows no Avisos block when there is nothing unread", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByRole("heading", { name: "Hola, Coni" })).toBeVisible()
+    await expect(page.getByText("Hola, Coni", { exact: true })).toBeVisible()
     await expect(page.getByRole("region", { name: "Avisos" })).toHaveCount(0)
   })
 })

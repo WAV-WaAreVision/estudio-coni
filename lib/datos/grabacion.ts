@@ -9,6 +9,8 @@ import {
   type Alcance,
   alcanceDeVideo,
   alcanceDeVoz,
+  costoDeVideo,
+  costoDeVoz,
   lineaDeCostoVideo,
   lineaDeCostoVoz,
   lineaDeSaldoVideo,
@@ -29,6 +31,11 @@ import type { Database } from "@/lib/supabase/database.types"
 export interface BotonesDeGrabacion {
   costoVoz: string
   costoVideo: string
+  /** The same costs split for the layout: «US$ 0,33» and «~1.100 caracteres». */
+  montoVoz: string
+  unidadVoz: string
+  montoVideo: string
+  unidadVideo: string
   confirmacionVideo: string
   saldoVoz: string
   saldoVideo: string
@@ -71,7 +78,13 @@ export function presentarGrabacion(entrada: {
   const bloqueoHeygen = bloqueo(
     alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
   )
+  const costoVozPartido = costoDeVoz(textoDeVoz.length, usdVoz)
+  const costoVideoPartido = costoDeVideo(estimarSegundos(guion), totalVideo, !conVoz)
   return {
+    montoVoz: costoVozPartido.monto,
+    unidadVoz: costoVozPartido.unidad,
+    montoVideo: costoVideoPartido.monto,
+    unidadVideo: costoVideoPartido.unidad,
     costoVoz: lineaDeCostoVoz(textoDeVoz.length, usdVoz, conVoz),
     costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
     confirmacionVideo: `¿Grabar el video? Cuesta unos ${dolares(totalVideo)}.`,

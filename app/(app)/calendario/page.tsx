@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react"
+import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { AgendaDelCalendario } from "@/components/agenda-del-calendario"
 import { FilaPieza } from "@/components/fila-pieza"
@@ -19,39 +19,43 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
   const calendario = construirCalendario({ ...datos, ahora })
 
   return (
-    <div className="grid gap-5">
-      <header className="grid gap-3">
+    <div>
+      <header className="grid gap-1">
         <Link
           href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
+          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
         >
-          <ChevronLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
-        <h1 className="font-serif text-display capitalize">{calendario.mes.nombre}</h1>
+        <h1 className="text-pantalla capitalize">{calendario.mes.nombre}</h1>
       </header>
 
-      <VistasDelCalendario activa={vista} />
+      <div className="mt-4">
+        <VistasDelCalendario activa={vista} />
+      </div>
 
       {vista === "mes" ? (
         <>
-          <MesDelCalendario celdas={calendario.mes.celdas} />
+          <div className="mt-6">
+            <MesDelCalendario celdas={calendario.mes.celdas} />
+          </div>
           {calendario.mes.sinPublicaciones ? (
-            <div className="grid gap-2 py-1">
-              <p className="font-semibold">Nada programado este mes.</p>
+            <div className="mt-10 grid gap-2 py-1">
+              <p className="text-cuerpo font-semibold">Nada programado este mes.</p>
               <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
                 Elegir ideas
               </Link>
             </div>
           ) : null}
           {calendario.mes.porSubir.length > 0 ? (
-            <Seccion titulo="Para subir" id="por-subir">
+            <Seccion titulo="Para subir" id="por-subir" cifra={calendario.mes.porSubir.length}>
               <ul>
                 {calendario.mes.porSubir.map((fila) => (
                   <FilaPieza
                     key={fila.piezaId}
                     titulo={fila.titulo}
-                    meta={`Para subir · ${fila.fecha}`}
+                    estado={`Para subir · ${fila.fecha}`}
                     pilar={fila.pilar}
                     href={`/video/${fila.piezaId}`}
                   />
@@ -60,18 +64,31 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
             </Seccion>
           ) : null}
           {calendario.mes.proximos.length > 0 ? (
-            <Seccion titulo="Próximos" id="proximos">
+            <Seccion titulo="Próximos" id="proximos" cifra={calendario.mes.proximos.length}>
               <ul>
                 {calendario.mes.proximos.map((proxima) => (
-                  <FilaPieza key={proxima.piezaId} titulo={proxima.titulo} meta={proxima.fecha} pilar={proxima.pilar} />
+                  <FilaPieza
+                    key={proxima.piezaId}
+                    titulo={proxima.titulo}
+                    estado={proxima.fecha}
+                    pilar={proxima.pilar}
+                  />
                 ))}
               </ul>
             </Seccion>
           ) : null}
         </>
       ) : null}
-      {vista === "agenda" ? <AgendaDelCalendario semanas={calendario.agenda.semanas} /> : null}
-      {vista === "ritmo" ? <RitmoDelCalendario ritmo={calendario.ritmo} /> : null}
+      {vista === "agenda" ? (
+        <div className="mt-6">
+          <AgendaDelCalendario semanas={calendario.agenda.semanas} />
+        </div>
+      ) : null}
+      {vista === "ritmo" ? (
+        <div className="mt-6">
+          <RitmoDelCalendario ritmo={calendario.ritmo} />
+        </div>
+      ) : null}
     </div>
   )
 }

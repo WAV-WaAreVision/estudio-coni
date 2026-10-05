@@ -1,12 +1,14 @@
 "use client"
 
-import { ChevronLeft } from "lucide-react"
+import { ArrowRight, CaretLeft } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
-import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { Boton } from "@/components/ui/boton"
+import { Casilla } from "@/components/ui/casilla"
+import { FilaConCheck, FilaConValor } from "@/components/ui/filas"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
-import { type Alerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
+import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 
 export const FORMATOS = [
@@ -109,21 +111,21 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
   const formatos = FORMATOS.includes(formato) ? FORMATOS : [...FORMATOS, formato]
 
   return (
-    <div className="grid gap-4.5">
+    <div className="grid gap-4">
       <button
         type="button"
         onClick={alVolver}
-        className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
+        className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
       >
-        <ChevronLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={20} />
         Volver a las ideas
       </button>
-      <h1 className="font-serif text-title text-balance">Tu idea</h1>
+      <h1 className="text-pantalla text-balance">Tu idea</h1>
 
       {paso === "escribir" ? (
-        <div className="grid gap-3.5">
-          <div className="grid gap-1.5">
-            <label className="text-label font-semibold" htmlFor="idea-gancho">
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <label className="text-meta font-semibold" htmlFor="idea-gancho">
               Tu idea
             </label>
             <textarea
@@ -131,27 +133,30 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
               value={gancho}
               onChange={(evento) => setGancho(evento.target.value)}
               aria-describedby="idea-gancho-ayuda"
-              rows={3}
               maxLength={220}
-              className="rounded-md border border-linea bg-superficie p-3.5 text-body text-tinta"
+              className="campo min-h-24 text-cuerpo text-tinta"
             />
             <p id="idea-gancho-ayuda" className="text-meta text-apagado">
               La frase con que abrirías el reel, como la dirías tú.
             </p>
           </div>
-          <label className="grid gap-1.5 text-label font-semibold" htmlFor="idea-tema">
+          <label className="grid gap-2 text-meta font-semibold" htmlFor="idea-tema">
             De qué trata (si quieres)
             <textarea
               id="idea-tema"
               value={tema}
               onChange={(evento) => setTema(evento.target.value)}
-              rows={3}
               maxLength={600}
-              className="rounded-md border border-linea bg-superficie p-3.5 text-body font-normal text-tinta"
+              className="campo min-h-24 text-cuerpo font-normal text-tinta"
             />
           </label>
-          {error ? <MensajeDeError mensaje={error} /> : null}
-          <Boton deshabilitado={!listaParaProponer} cargando={pendiente} onClick={pedirPropuesta}>
+          {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+          <Boton
+            deshabilitado={!listaParaProponer}
+            cargando={pendiente}
+            icono={<ArrowRight aria-hidden="true" size={20} />}
+            onClick={pedirPropuesta}
+          >
             Proponer pilar y alertas
           </Boton>
           {error ? (
@@ -159,80 +164,59 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
               Elegir yo el pilar
             </Boton>
           ) : null}
-          {!listaParaProponer ? <p className="text-center text-meta text-apagado">Escribe tu idea primero.</p> : null}
+          {!listaParaProponer ? <p className="text-meta text-apagado">Escribe tu idea primero.</p> : null}
         </div>
       ) : (
-        <div className="grid gap-4.5">
-          <p className="rounded-lg bg-hundido p-3.5 text-[1.0625rem]">{gancho.trim()}</p>
-          <p className="text-apagado">Esto propongo. Corrígelo si no calza.</p>
+        <div className="grid gap-6">
+          <p className="text-cuerpo font-semibold">{gancho.trim()}</p>
+          <p className="text-cuerpo text-apagado">Esto propongo. Corrígelo si no calza.</p>
 
-          <fieldset className="grid gap-2">
-            <legend className="mb-1 text-label font-semibold text-apagado">Pilar</legend>
+          <fieldset className="grid">
+            <legend className="mb-1 text-meta font-semibold">Pilar</legend>
             {PILARES.map((candidato) => (
-              <label
+              <FilaConCheck
                 key={candidato}
-                data-pilar={candidato}
-                className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-linea bg-superficie px-3.5 has-[:checked]:border-acento has-[:checked]:bg-pilar-tinte"
-              >
-                <input
-                  type="radio"
-                  name="pilar"
-                  className="size-5 accent-acento"
-                  checked={pilar === candidato}
-                  onChange={() => setPilar(candidato)}
-                />
-                <span>{NOMBRE_DE_PILAR[candidato]}</span>
-              </label>
+                nombre="pilar"
+                valor={candidato}
+                elegido={pilar === candidato}
+                etiqueta={NOMBRE_DE_PILAR[candidato]}
+                alElegir={() => setPilar(candidato)}
+              />
             ))}
           </fieldset>
 
-          <label className="grid gap-1.5 text-label font-semibold text-apagado" htmlFor="idea-formato">
-            Formato
-            <select
-              id="idea-formato"
-              value={formato}
-              onChange={(evento) => setFormato(evento.target.value)}
-              className="min-h-13 rounded-md border border-linea bg-superficie px-3 text-body font-normal text-tinta"
-            >
-              {formatos.map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </label>
+          <FilaConValor
+            etiqueta="Formato"
+            valor={formato}
+            opciones={formatos.map((opcion) => ({ valor: opcion, etiqueta: opcion }))}
+            alCambiar={setFormato}
+          />
 
-          <fieldset className="grid gap-1">
-            <legend className="mb-1 text-label font-semibold text-apagado">Alertas para el guion</legend>
+          <fieldset className="grid">
+            <legend className="mb-1 text-meta font-semibold">Alertas para el guion</legend>
             {TIPOS_DE_ALERTA.map((tipo) => (
-              <label key={tipo} className="grid min-h-12 cursor-pointer grid-cols-[26px_1fr] items-start gap-3 py-2">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-6 accent-acento"
-                  checked={alertas[tipo] !== undefined}
-                  onChange={(evento) => alternarAlerta(tipo, evento.target.checked)}
-                />
-                <span className="grid">
-                  <span className="font-semibold">{etiquetaDeAlerta(tipo)}</span>
-                  <span className="text-meta text-apagado">{alertas[tipo] ?? DESCRIPCION_DE_ALERTA[tipo]}</span>
-                </span>
-              </label>
+              <Casilla
+                key={tipo}
+                etiqueta={etiquetaDeAlerta(tipo)}
+                detalle={alertas[tipo] ?? DESCRIPCION_DE_ALERTA[tipo]}
+                marcada={alertas[tipo] !== undefined}
+                alCambiar={(puesta) => alternarAlerta(tipo, puesta)}
+              />
             ))}
           </fieldset>
 
-          {error ? <MensajeDeError mensaje={error} /> : null}
-          <Boton deshabilitado={pilar === null} cargando={pendiente} onClick={guardar}>
+          {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+          <Boton
+            deshabilitado={pilar === null}
+            cargando={pendiente}
+            icono={<ArrowRight aria-hidden="true" size={20} />}
+            onClick={guardar}
+          >
             Guardar idea
           </Boton>
-          {pilar === null ? <p className="text-center text-meta text-apagado">Elige el pilar para guardarla.</p> : null}
+          {pilar === null ? <p className="text-meta text-apagado">Elige el pilar para guardarla.</p> : null}
         </div>
       )}
     </div>
-  )
-}
-
-function MensajeDeError({ mensaje }: { mensaje: string }) {
-  return (
-    <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-      {mensaje}
-    </p>
   )
 }

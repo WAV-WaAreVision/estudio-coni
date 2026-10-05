@@ -1,8 +1,10 @@
 "use client"
 
-import Link from "next/link"
+import { ArrowCounterClockwise } from "@phosphor-icons/react"
+import { useState } from "react"
 import { Boton } from "@/components/ui/boton"
-import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { cambiarFechaAccion, descartarAccion, reintentarAccion, reintentarGuionAccion } from "./piezas/acciones"
 
@@ -22,6 +24,9 @@ const ACCIONES: Record<Que, (piezaId: string, version: number) => ReturnType<typ
   descartar: descartarAccion,
 }
 
+// Copy nuevo (brandkit 13.2, open question 2): Federico confirms the words before this ships.
+export const PREGUNTA_DESCARTAR_PIEZA = "Se descarta esta pieza y no sale. ¿Seguro?"
+
 interface PropiedadesDeEstado {
   piezaId: string
   version: number
@@ -29,34 +34,48 @@ interface PropiedadesDeEstado {
   acciones: readonly Que[]
 }
 
-/** The buttons of a piece that is not waiting for a signature: retry, change the date or let it go. */
+/** The buttons of a piece that is not waiting for a signature: retry, change the date or let it go (asking first). */
 export function AccionesDeEstado({ piezaId, version, acciones }: PropiedadesDeEstado) {
   const { pendiente, error, ejecutar } = useAccion()
+  const [descartando, setDescartando] = useState(false)
   return (
-    <div className="grid gap-1">
-      {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-          {error}
-        </p>
-      ) : null}
-      {acciones.map((que, indice) => (
-        <Boton
-          key={que}
-          variante={indice === 0 ? "primario" : "callado"}
-          cargando={pendiente}
-          onClick={() => ejecutar(() => ACCIONES[que](piezaId, version))}
-        >
-          {ETIQUETAS[que]}
-        </Boton>
-      ))}
+    <div className="grid gap-2">
+      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      {acciones.map((que, indice) => {
+        if (que === "descartar") {
+          return descartando ? (
+            <ConfirmacionEnLinea
+              key={que}
+              trato="destructivo"
+              pregunta={PREGUNTA_DESCARTAR_PIEZA}
+              confirmar="Sí, descartar"
+              volver="Volver"
+              cargando={pendiente}
+              alConfirmar={() => ejecutar(() => ACCIONES[que](piezaId, version))}
+              alVolver={() => setDescartando(false)}
+            />
+          ) : (
+            <Boton key={que} variante="destructiva" onClick={() => setDescartando(true)}>
+              {ETIQUETAS[que]}
+            </Boton>
+          )
+        }
+        return (
+          <Boton
+            key={que}
+            variante={indice === 0 ? "primario" : "callado"}
+            cargando={pendiente}
+            icono={
+              que === "reintentar" || que === "reintentarGuion" ? (
+                <ArrowCounterClockwise aria-hidden="true" size={20} />
+              ) : undefined
+            }
+            onClick={() => ejecutar(() => ACCIONES[que](piezaId, version))}
+          >
+            {ETIQUETAS[que]}
+          </Boton>
+        )
+      })}
     </div>
-  )
-}
-
-export function VolverAInicio() {
-  return (
-    <Link href="/" className={clasesDeBoton({ variante: "linea" })}>
-      Volver a Inicio
-    </Link>
   )
 }

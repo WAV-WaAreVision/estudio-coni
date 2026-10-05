@@ -209,6 +209,22 @@ describe("EditorDeGuion", () => {
     expect(
       screen.getByText("Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."),
     ).toBeInTheDocument()
-    expect(screen.getByText(/^Marcas que conozco: \[warm\] \[softly\]/)).toBeInTheDocument()
+    expect(screen.getByText("Marcas que conozco")).toBeInTheDocument()
+    expect(screen.getByText("[warm]")).toBeInTheDocument()
+    expect(screen.getByText("[softly]")).toBeInTheDocument()
+  })
+
+  it("grows with the script and never scrolls inside", () => {
+    montar()
+
+    expect(cajaGuion()).toHaveClass("campo", "text-guion")
+    expect(cajaGuion()).not.toHaveAttribute("rows")
+  })
+
+  it("says the length on the right of the section and the count of the caption", () => {
+    montar()
+
+    expect(screen.getByRole("region", { name: "Guion" })).toHaveTextContent(/palabras · ≈ \d+ s/)
+    expect(screen.getByText(`${[...TEXTO].length} de 2.200`)).toBeInTheDocument()
   })
 })

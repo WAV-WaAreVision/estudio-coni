@@ -1,0 +1,11 @@
+/*
+ * Closes Tailwind's defaults so a forgotten bg-white, rounded-lg or text-sm compiles to nothing and shows up in review.
+ * It lives in its own file, imported first by globals.css, because Biome's CSS parser rejects the wildcard names; the
+ * file is excluded from Biome in biome.json for that reason only.
+ */
+@theme inline {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --text-*: initial;
+}

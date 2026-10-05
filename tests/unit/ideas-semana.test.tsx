@@ -56,8 +56,13 @@ describe("IdeasSemana", () => {
 
     elegir(...IDEAS.map((idea) => idea.gancho))
 
-    expect(screen.getByRole("checkbox", { name: new RegExp(EXTRA.gancho.slice(0, 20)) })).toBeDisabled()
-    expect(screen.getByRole("checkbox", { name: new RegExp(IDEAS[0].gancho.slice(0, 20)) })).toBeEnabled()
+    expect(screen.getByRole("checkbox", { name: new RegExp(EXTRA.gancho.slice(0, 20)) })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    )
+    expect(screen.getByRole("checkbox", { name: new RegExp(IDEAS[0].gancho.slice(0, 20)) })).not.toHaveAttribute(
+      "aria-disabled",
+    )
     expect(screen.getByText("Llegaste al máximo de 5.")).toBeInTheDocument()
   })
 

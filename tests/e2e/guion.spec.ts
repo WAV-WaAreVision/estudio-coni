@@ -88,7 +88,8 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
   await expect(page.getByText(/^Si lo apruebas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toHaveCount(0)
-  await expect(page.getByText("Aprobar no gasta nada. Después grabas la voz y el video.")).toBeVisible()
+  await expect(page.getByText("Aprobar no gasta nada.")).toBeVisible()
+  await expect(page.getByText("Después grabas la voz y el video.")).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await expect(deslizador).toHaveAttribute("aria-valuetext", "No aprobado")
   await expect(page.getByText("Falta elegir el avatar y confirmar la revisión.")).toBeVisible()
@@ -134,13 +135,16 @@ test("she records the voice alone, listens to it, and then records the video reu
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText(/^Grabar voz: ~\d+ caracteres \(US\$ \d+,\d\d\)$/)).toBeVisible()
+  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
+  await expect(page.getByText(/^US\$ \d+,\d\d$/).first()).toBeVisible()
   await expect(
     page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
   ).toBeVisible()
   await expect(page.getByText("Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.")).toBeVisible()
+  await capturar(page, "guion-aprobado-sin-voz", { completa: true })
   await page.getByRole("button", { name: "Grabar voz" }).click()
-  await expect(page.getByText("Estoy grabando tu voz")).toBeVisible()
+  await expect(page.getByText("Grabando la voz · unos segundos")).toBeVisible()
+  await capturar(page, "guion-grabando")
   expect((await leerFila(id)).estado).toBe("grabando_voz")
   expect(disparosRegistrados()).toMatchObject([{ tarea: "voz", piezaId: id, nueva: false }])
 
@@ -153,8 +157,9 @@ test("she records the voice alone, listens to it, and then records the video reu
   })
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByRole("button", { name: "Volver a grabar voz" })).toBeVisible()
-  await expect(page.getByText(/^Volver a grabar voz: ~\d+ caracteres/)).toBeVisible()
-  await expect(page.getByText(/^Grabar voz: ~/)).toHaveCount(0)
+  await capturar(page, "guion-con-voz", { completa: true })
+  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Grabar voz", exact: true })).toHaveCount(0)
   await expect(page.getByText(/incluye la voz/)).toHaveCount(0)
 
   await page.getByRole("button", { name: "Grabar video" }).click()
@@ -162,6 +167,92 @@ test("she records the voice alone, listens to it, and then records the video reu
   await expect(page.getByText("Aprobado. Estoy grabando el video.")).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
   expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
+})
+
+test("a piece that failed is discarded only after she confirms, and it leaves Inicio", async ({ page }) => {
+  const id = await sembrarPieza("guion_aprobado", {
+    estado: "error_produccion",
+    estado_antes_del_error: "en_render",
+    explicacion: "HeyGen no pudo terminar el video",
+  })
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("No se pudo terminar el video")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Volver a Inicio" })).toHaveCount(0)
+  await capturar(page, "guion-error")
+
+  await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+  await expect(page.getByText("Se descarta esta pieza y no sale. ¿Seguro?")).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("error_produccion")
+  await page.getByRole("button", { name: "Sí, descartar" }).click()
+  await expect.poll(async () => (await leerFila(id)).estado).toBe("descartado")
+
+  await page.goto("/")
+  await expect(page.getByText("No se pudo terminar el video")).toHaveCount(0)
+})
+
+test("gate 1 shows the committed date in the signature colour and the whole script without inner scroll", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+
+  const fecha = page.getByText(/^(lunes|martes|miércoles|jueves|viernes|sábado|domingo) \d/).first()
+  await expect(fecha).toHaveCSS("color", "rgb(168, 40, 90)")
+  const guion = page.getByRole("textbox", { name: "Guion", exact: true })
+  const [alto, altoDelContenido] = await guion.evaluate((el) => [el.clientHeight, el.scrollHeight])
+  expect(altoDelContenido).toBeLessThanOrEqual(alto + 1)
+  const barra = page.getByRole("region", { name: "Firma" })
+  // 176 px of bar plus the safe area of the iPhone 14 descriptor.
+  expect((await barra.boundingBox())?.height ?? 999).toBeLessThanOrEqual(176 + 34)
+  await capturar(page, "guion-por-aprobar-completa", { completa: true })
+})
+
+const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`
+
+test("a tap on the track never approves, a drag to the end does (brandkit 9.12)", async ({ page }) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const deslizador = page.getByRole("slider", { name: ETIQUETA })
+  await elegirAvatar(page, "Estudio")
+  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
+
+  const pista = await deslizador.locator("..").boundingBox()
+  if (!pista) throw new Error("The slider track has no box")
+  await page.mouse.click(pista.x + pista.width - 8, pista.y + pista.height / 2)
+  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+
+  const pulgar = await deslizador.boundingBox()
+  if (!pulgar) throw new Error("The thumb has no box")
+  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 12 })
+  await page.mouse.up()
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+})
+
+test("the visible Aprobar button is the alternative to dragging and asks for the same things (WCAG 2.5.7)", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const aprobar = page.getByRole("button", { name: "Aprobar", exact: true })
+
+  // Without an avatar it is as disabled as the slider.
+  await expect(aprobar).toBeDisabled()
+  // Playwright treats aria-disabled as not actionable; forcing the tap is what a finger does.
+  await aprobar.click({ force: true })
+  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+
+  await elegirAvatar(page, "Estudio")
+  await expect(aprobar).toBeEnabled()
+  await aprobar.click()
+  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("guion_aprobado")
 })
 
 test("approve, take it back, edit, save and approve again, all on the same screen", async ({ page }) => {
@@ -218,7 +309,8 @@ test("an approved script that has tone marks shows them with the help", async ({
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText(`[warm] ${guion}`)).toBeVisible()
+  await expect(page.getByText("[warm]", { exact: true })).toBeVisible()
+  await expect(page.getByText(guion)).toBeVisible()
   await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
 })
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { Nota } from "@/components/nota"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 
 /**
@@ -13,5 +13,5 @@ export function MensajeDePrimeraVez({ marcar }: { marcar: () => Promise<Resultad
     void marcar()
   }, [marcar])
 
-  return <Nota tipo="ok" titulo="Así se ve tu avatar. Si algo no te calza, regrábalo." />
+  return <LineaDeEstado tipo="neutro" titulo="Así se ve tu avatar. Si algo no te calza, regrábalo." tituloEnTinta />
 }

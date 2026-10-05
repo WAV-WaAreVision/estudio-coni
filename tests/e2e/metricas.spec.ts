@@ -89,7 +89,9 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(page.getByText(/^\d reels? publicados? · 1 consulta · 8 toques en tu link$/)).toBeVisible()
   const barras = page.getByRole("region", { name: "Lo que sirvió" }).getByRole("listitem")
   await expect(barras.nth(0)).toContainText("Si van a discutir, siéntense del mismo lado")
-  await expect(barras.nth(0)).toContainText("50,4 cada 1.000 · 121 guardados de 2.400 personas")
+  await expect(barras.nth(0)).toContainText("50,4")
+  await expect(barras.nth(0)).toContainText("cada 1.000")
+  await expect(barras.nth(0)).toContainText("121 guardados de 2.400 personas")
   await expect(barras.nth(0)).toContainText("Pareja y conversación · 1 reel de este tema")
   await expect(barras.nth(1)).toContainText("El deseo no se apaga, se esconde")
   await expect(barras.nth(2)).toContainText("Ser tu propia diosa")
@@ -155,5 +157,5 @@ test("warns when the morning reading did not arrive and shows the last one it ha
   await page.goto("/metricas")
 
   await expect(page.getByText(/^No pude traer las métricas de hoy; muestro las del /)).toBeVisible()
-  await expect(page.getByText("10 cada 1.000 · 10 guardados de 1.000 personas")).toBeVisible()
+  await expect(page.getByText("10 guardados de 1.000 personas")).toBeVisible()
 })

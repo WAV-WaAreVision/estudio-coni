@@ -92,7 +92,7 @@ describe("estadoDeAjustes", () => {
       zona: "America/Santiago",
     })
 
-    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "#cuenta-heygen" })
+    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "/ajustes/cuentas#cuenta-heygen" })
   })
 
   it("warns when Instagram expires within a week, with days, and offers to renew it", () => {
@@ -144,7 +144,7 @@ describe("estadoDeAjustes", () => {
     expect(estado).toMatchObject({
       tipo: "atencion",
       titulo: "Claude no aceptó la llave",
-      accion: { etiqueta: "Cambiar la llave de Claude", href: "#cuenta-anthropic" },
+      accion: { etiqueta: "Cambiar la llave de Claude", href: "/ajustes/cuentas#cuenta-anthropic" },
     })
   })
 
@@ -197,7 +197,7 @@ describe("estadoDeAjustes", () => {
 
     expect(estado.titulo).toBe("Configuración: 3 de 5 listos")
     expect(estado.pasos.at(-1)).toEqual({ etiqueta: "Avisos en tu celular", listo: false })
-    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "#cuenta-heygen" })
+    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "/ajustes/cuentas#cuenta-heygen" })
   })
 
   it("does not call it setting up when only the notices are missing: the email reaches her anyway", () => {

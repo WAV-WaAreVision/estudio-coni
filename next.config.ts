@@ -1,6 +1,10 @@
 import type { NextConfig } from "next"
 
+// The app icons read the Geist file at request time; the tracer cannot see that on Vercel, so it is listed here.
+const FUENTES_DE_LOS_ICONOS = ["node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.ttf"]
+
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: { "/icon": FUENTES_DE_LOS_ICONOS, "/apple-icon": FUENTES_DE_LOS_ICONOS },
   async redirects() {
     return [
       {

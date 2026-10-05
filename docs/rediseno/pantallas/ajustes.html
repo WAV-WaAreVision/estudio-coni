@@ -1,0 +1,242 @@
+<!doctype html><html lang="es-CL" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Conidolly Ajustes</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9d6cf}
+body{font-family:var(--letra);-webkit-font-smoothing:antialiased;width:390px}
+.etiqueta{font:600 13px/1 ui-sans-serif,system-ui;letter-spacing:.08em;text-transform:uppercase;color:#4a463f;padding:20px 20px 12px}
+.pantalla{background:var(--fondo);color:var(--tinta);width:390px;min-height:844px;display:flex;flex-direction:column}
+.oscuro{color-scheme:dark;--fondo:#161513;--superficie:#1f1d1a;--tinta:#ece9e3;--apagado:#a39d94;--campo:#7c766d;--linea:#2f2c28;--pista:#2a2724;--principal:#d6d2cb;--sobre-principal:#161513;--sobre-tinta:#161513;--firma:#d78099;--error:#e98a7f;--exito:#86c39c;--aviso:#d9ad66;--foto-brillo:.94;--peso-titulo:500}
+.estado-ios{height:47px;display:flex;justify-content:space-between;align-items:center;padding:0 28px 0 34px;font:600 16px/1 var(--letra);font-variant-numeric:tabular-nums}
+.ios-i{display:flex;gap:5px;font-size:16px}
+main{padding:12px var(--margen) var(--final-pagina);flex:1}
+a{color:inherit;text-decoration:none}
+.par{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--t-meta);line-height:var(--i-meta)}
+.par b{font-weight:600}.par span{color:var(--apagado)}
+h1{margin-top:12px;font-size:var(--t-pantalla);line-height:var(--i-pantalla);letter-spacing:var(--tr-pantalla);font-weight:var(--peso-titulo)}
+.sub{margin-top:4px;font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);color:var(--apagado)}
+.nota{display:flex;gap:12px;margin-top:28px}
+.ic{font-size:24px;width:24px;flex:none}.error{color:var(--error)}
+.nt-t{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);font-weight:600}
+.nt-d{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--tinta);margin-top:2px}
+.btn-texto{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:var(--t-cuerpo);font-weight:600}
+.btn-texto i{font-size:20px}
+.sec{margin-top:var(--entre-secciones)}
+.rotulo{border-top:1px solid var(--tinta);padding-top:12px;margin-bottom:8px;display:flex;justify-content:space-between;font-size:var(--t-meta);line-height:var(--i-meta);font-weight:600}
+.cifra{color:var(--apagado);font-weight:400;font-variant-numeric:tabular-nums}
+.fila{display:flex;align-items:center;gap:12px;min-height:var(--alto-fila);padding:12px 0;border-bottom:1px solid var(--linea)}
+.sec>.fila:last-of-type{border-bottom:0}
+.tx{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.meta{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado)}
+.tt{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);font-weight:600;letter-spacing:-.004em}
+.st{font-size:var(--t-meta);line-height:var(--i-meta);font-weight:500;display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.car{font-size:20px;color:var(--apagado);flex:none}
+.mini{width:var(--miniatura-ancho);height:var(--miniatura-alto);border-radius:var(--r-12);object-fit:cover;flex:none;filter:brightness(var(--foto-brillo))}
+.latido{width:8px;height:8px;border-radius:50%;background:var(--tinta);opacity:.7;flex:none}
+.fila-nav{display:flex;justify-content:space-between;align-items:center;height:var(--alto-fila-nav);border-top:1px solid var(--linea);font-size:var(--t-cuerpo);font-weight:500}
+.idea{display:flex;gap:12px;min-height:56px;padding:12px 0;border-bottom:1px solid var(--linea)}
+.idea:last-of-type{border-bottom:0}
+.casilla{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--campo);background:var(--superficie);flex:none;display:grid;place-items:center;margin-top:0}
+.on .casilla{background:var(--tinta);border-color:var(--tinta);color:var(--sobre-tinta);font-size:14px}
+.tt2{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);font-weight:500}
+.principal{margin-top:16px;width:100%;height:var(--alto-boton);border:0;border-radius:var(--r-12);background:var(--principal);color:var(--sobre-principal);font:600 var(--t-cuerpo)/1 var(--letra);display:flex;justify-content:space-between;align-items:center;padding:0 16px}
+.principal i{font-size:20px}
+.ayuda{margin:8px 0 16px;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado)}
+.cons{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);font-weight:600;margin:4px 0 16px}
+.num{font-variant-numeric:tabular-nums}
+.secundaria{height:var(--alto-boton);padding:0 16px;border:1px solid var(--campo);border-radius:var(--r-12);background:none;color:var(--tinta);font:600 var(--t-cuerpo)/1 var(--letra);display:inline-flex;gap:12px;align-items:center}
+.secundaria i{font-size:20px}
+.nav{display:flex;border-top:1px solid var(--linea);background:var(--fondo);padding-bottom:34px}
+.nav a{flex:1;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:var(--t-meta);line-height:20px;color:var(--apagado);font-weight:500;position:relative}
+.nav a i{font-size:24px}
+.nav a.act{color:var(--tinta);font-weight:600}
+.nav a.act::before{content:"";position:absolute;top:-1px;width:24px;height:2px;background:var(--tinta)}
+
+.paso{display:flex;align-items:center;gap:12px;min-height:56px;border-bottom:1px solid var(--linea);font-size:var(--t-cuerpo)}
+.paso:last-of-type{border-bottom:0}
+.paso .tx{font-weight:500}
+.ok{color:var(--exito)}.av{color:var(--aviso)}
+.estado{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-meta);font-weight:500}
+.estado i{font-size:16px}
+.prosa{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);margin-bottom:8px}
+.pasos-i{display:flex;gap:12px;padding:10px 0;font-size:var(--t-cuerpo);line-height:var(--i-cuerpo)}
+.pasos-i i{font-size:24px;flex:none;color:var(--firma)}
+.pasos-i .n{width:24px;height:24px;flex:none;border-radius:6px;background:var(--firma);color:var(--fondo);font:600 14px/24px var(--letra);text-align:center}
+.seg{display:flex;gap:24px;border-bottom:1px solid var(--linea);margin-top:4px}
+.seg a{height:44px;display:flex;align-items:center;font-size:var(--t-cuerpo);color:var(--apagado);font-weight:500;position:relative}
+.seg a.act{color:var(--tinta);font-weight:600}
+.seg a.act::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--tinta)}
+.dias{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.chip{height:44px;border-radius:var(--r-12);border:1px solid var(--campo);display:grid;place-items:center;font-size:var(--t-meta);font-weight:500}
+.chip.on{background:var(--tinta);color:var(--sobre-tinta);border-color:var(--tinta)}
+.fval{display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid var(--linea);font-size:var(--t-cuerpo);gap:12px}
+.fval .v{color:var(--apagado);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.fval .v i{font-size:20px}
+.step{display:flex;align-items:center;gap:8px}
+.cuad{width:44px;height:44px;border:1px solid var(--campo);border-radius:var(--r-12);display:grid;place-items:center;font-size:20px}
+.step b{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;min-width:84px;text-align:center}
+.gasto{margin-top:12px;font-size:var(--t-meta);font-weight:500;font-variant-numeric:tabular-nums}
+.med{height:4px;border-radius:999px;background:var(--pista);margin-top:8px;overflow:hidden}
+.med span{display:block;height:100%;width:55%;background:var(--tinta)}
+.sw{width:52px;height:32px;border-radius:999px;background:var(--pista);border:1.5px solid var(--campo);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:2.5px;left:2.5px;width:24px;height:24px;border-radius:50%;background:var(--campo)}
+.sw.on{background:var(--tinta);border-color:var(--tinta)}
+.sw.on::after{left:21.5px;background:var(--sobre-tinta)}
+.cuenta{padding:12px 0;border-bottom:1px solid var(--linea)}
+.cuenta:last-of-type{border-bottom:0}
+.cuenta .top{display:flex;justify-content:space-between;align-items:center;min-height:32px}
+.cuenta .top b{font-size:var(--t-cuerpo);font-weight:600}
+.callado{display:inline-flex;align-items:center;height:44px;padding:0 14px;margin-top:4px;border:1px solid var(--campo);border-radius:var(--r-12);font-size:var(--t-meta);font-weight:600}
+.toast{margin:0 var(--margen) 12px;display:flex;justify-content:space-between;align-items:center;height:52px;padding:0 6px 0 16px;border-radius:var(--r-12);background:var(--tinta);color:var(--sobre-tinta);font-size:var(--t-cuerpo);font-weight:500;box-shadow:var(--sombra-flotante)}
+.toast a{height:44px;display:flex;align-items:center;padding:0 12px;font-weight:600}
+.secundaria.full{width:100%;justify-content:space-between;margin-top:8px}
+.salir{margin-top:var(--entre-secciones);min-height:44px;display:flex;align-items:center;font-size:var(--t-cuerpo);font-weight:500;color:var(--apagado)}
+</style></head><body>
+<p class="etiqueta">Ajustes · claro</p>
+<div class="pantalla">
+ <div class="estado-ios"><span>10:30</span><span class="ios-i"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+ <main>
+  <div class="par"><b>Hola, Coni</b><span>Semana del 5 al 11 de octubre</span></div>
+  <h1>Ajustes</h1>
+  
+  <section class="sec" style="margin-top:32px">
+   <div class="rotulo"><span>Configuración: 3 de 5 listos</span></div>
+   <p class="prosa" style="margin-bottom:4px">Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano. También falta lo que sigue.</p>
+   <div class="paso"><span class="tx">Instagram conectado</span><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div>
+   <div class="paso"><span class="tx">HeyGen con tu avatar</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">ElevenLabs con tu voz</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">Claude (Anthropic)</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">Avisos en tu celular</span><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div>
+   <button class="principal">Conectar Instagram<i class="ph ph-arrow-right"></i></button>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Avisos en tu celular</span></div>
+   <p class="prosa" style="font-weight:600;margin-top:4px">Agrégala a tu pantalla de inicio</p>
+   <p class="prosa">Para recibir avisos en el iPhone, primero instala la app. Toma un minuto y necesitas iOS 16.4 o más nuevo.</p>
+   <div class="pasos-i"><i class="ph ph-export"></i><span>Toca <b>Compartir</b>, el cuadrado con la flecha hacia arriba, abajo en Safari.</span></div>
+   <div class="pasos-i"><i class="ph ph-plus-square"></i><span>Elige <b>Agregar a inicio</b> y toca Agregar.</span></div>
+   <div class="pasos-i"><span class="n">C</span><span>Abre Conidolly desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.</span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Meta de este mes</span></div>
+   <nav class="seg"><a class="act" href="#">Consultas</a><a href="#">Talleres</a><a href="#">Marca</a></nav>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Días de publicación</span></div>
+   <div class="dias"><span class="chip">Lun</span><span class="chip on">Mar</span><span class="chip">Mié</span><span class="chip on">Jue</span><span class="chip">Vie</span><span class="chip on">Sáb</span><span class="chip">Dom</span></div>
+   <div class="fval" style="margin-top:8px;border-bottom:0"><span>A las</span><span class="v">19:00 hora de Chile<i class="ph ph-caret-up-down"></i></span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Tope de gasto al mes</span></div>
+   <div class="fval" style="border-bottom:0"><span>Tope</span><span class="step"><span class="cuad"><i class="ph ph-minus"></i></span><b>US$ 40</b><span class="cuad"><i class="ph ph-plus"></i></span></span></div>
+   <p class="gasto">Llevas US$ 22,00 este mes</p>
+   <div class="med" role="meter" aria-valuenow="22" aria-valuemax="40"><span></span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Avisos</span></div>
+   <div class="fval"><span>Resumen diario a las 08:30</span><span class="sw on" role="switch" aria-checked="true"></span></div>
+   <div class="fval" style="border-bottom:0"><span>Avisarme apenas falle algo</span><span class="sw on" role="switch" aria-checked="true"></span></div>
+   <p class="ayuda">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Cuentas conectadas</span></div>
+   <div class="cuenta"><div class="top"><b>Instagram</b><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div><a class="callado" href="#">Conectar Instagram</a></div>
+   <div class="cuenta"><div class="top"><b>HeyGen</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de HeyGen</a></div>
+   <div class="cuenta"><div class="top"><b>ElevenLabs</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de ElevenLabs</a></div>
+   <div class="cuenta"><div class="top"><b>Claude (Anthropic)</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de Claude (Anthropic)</a></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Saldos</span></div>
+   <p class="prosa">ElevenLabs: te quedan <span class="num">23.400</span> de <span class="num">100.000</span> caracteres. Se renuevan el 12 de octubre.</p>
+   <p class="prosa">Saldo de API de HeyGen: <span class="num">US$ 12,00</span>. Es aparte de tu plan de HeyGen.</p>
+   <p class="ayuda" style="margin-top:0">El saldo de API de HeyGen es distinto de los créditos de tu plan: Conidolly graba con el saldo de API.</p>
+  </section>
+
+  <a class="salir" href="#">Cerrar sesión</a>
+ </main>
+ <div class="toast" role="status"><span>Guardado</span><a href="#">Deshacer</a></div>
+ <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a class="act" href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</div>
+<p class="etiqueta">Ajustes · oscuro</p><div class="oscuro">
+<div class="pantalla">
+ <div class="estado-ios"><span>10:30</span><span class="ios-i"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+ <main>
+  <div class="par"><b>Hola, Coni</b><span>Semana del 5 al 11 de octubre</span></div>
+  <h1>Ajustes</h1>
+  
+  <section class="sec" style="margin-top:32px">
+   <div class="rotulo"><span>Configuración: 3 de 5 listos</span></div>
+   <p class="prosa" style="margin-bottom:4px">Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano. También falta lo que sigue.</p>
+   <div class="paso"><span class="tx">Instagram conectado</span><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div>
+   <div class="paso"><span class="tx">HeyGen con tu avatar</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">ElevenLabs con tu voz</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">Claude (Anthropic)</span><span class="estado ok"><i class="ph ph-check"></i>Listo</span></div>
+   <div class="paso"><span class="tx">Avisos en tu celular</span><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div>
+   <button class="principal">Conectar Instagram<i class="ph ph-arrow-right"></i></button>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Avisos en tu celular</span></div>
+   <p class="prosa" style="font-weight:600;margin-top:4px">Agrégala a tu pantalla de inicio</p>
+   <p class="prosa">Para recibir avisos en el iPhone, primero instala la app. Toma un minuto y necesitas iOS 16.4 o más nuevo.</p>
+   <div class="pasos-i"><i class="ph ph-export"></i><span>Toca <b>Compartir</b>, el cuadrado con la flecha hacia arriba, abajo en Safari.</span></div>
+   <div class="pasos-i"><i class="ph ph-plus-square"></i><span>Elige <b>Agregar a inicio</b> y toca Agregar.</span></div>
+   <div class="pasos-i"><span class="n">C</span><span>Abre Conidolly desde tu pantalla de inicio y vuelve a Ajustes para activar los avisos.</span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Meta de este mes</span></div>
+   <nav class="seg"><a class="act" href="#">Consultas</a><a href="#">Talleres</a><a href="#">Marca</a></nav>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Días de publicación</span></div>
+   <div class="dias"><span class="chip">Lun</span><span class="chip on">Mar</span><span class="chip">Mié</span><span class="chip on">Jue</span><span class="chip">Vie</span><span class="chip on">Sáb</span><span class="chip">Dom</span></div>
+   <div class="fval" style="margin-top:8px;border-bottom:0"><span>A las</span><span class="v">19:00 hora de Chile<i class="ph ph-caret-up-down"></i></span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Tope de gasto al mes</span></div>
+   <div class="fval" style="border-bottom:0"><span>Tope</span><span class="step"><span class="cuad"><i class="ph ph-minus"></i></span><b>US$ 40</b><span class="cuad"><i class="ph ph-plus"></i></span></span></div>
+   <p class="gasto">Llevas US$ 22,00 este mes</p>
+   <div class="med" role="meter" aria-valuenow="22" aria-valuemax="40"><span></span></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Avisos</span></div>
+   <div class="fval"><span>Resumen diario a las 08:30</span><span class="sw on" role="switch" aria-checked="true"></span></div>
+   <div class="fval" style="border-bottom:0"><span>Avisarme apenas falle algo</span><span class="sw on" role="switch" aria-checked="true"></span></div>
+   <p class="ayuda">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Cuentas conectadas</span></div>
+   <div class="cuenta"><div class="top"><b>Instagram</b><span class="estado av"><i class="ph ph-warning"></i>Falta</span></div><a class="callado" href="#">Conectar Instagram</a></div>
+   <div class="cuenta"><div class="top"><b>HeyGen</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de HeyGen</a></div>
+   <div class="cuenta"><div class="top"><b>ElevenLabs</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de ElevenLabs</a></div>
+   <div class="cuenta"><div class="top"><b>Claude (Anthropic)</b><span class="estado ok"><i class="ph ph-check"></i>Conectada</span></div><a class="callado" href="#">Cambiar la llave de Claude (Anthropic)</a></div>
+  </section>
+
+  <section class="sec">
+   <div class="rotulo"><span>Saldos</span></div>
+   <p class="prosa">ElevenLabs: te quedan <span class="num">23.400</span> de <span class="num">100.000</span> caracteres. Se renuevan el 12 de octubre.</p>
+   <p class="prosa">Saldo de API de HeyGen: <span class="num">US$ 12,00</span>. Es aparte de tu plan de HeyGen.</p>
+   <p class="ayuda" style="margin-top:0">El saldo de API de HeyGen es distinto de los créditos de tu plan: Conidolly graba con el saldo de API.</p>
+  </section>
+
+  <a class="salir" href="#">Cerrar sesión</a>
+ </main>
+ <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a class="act" href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</div></div>
+</body></html>

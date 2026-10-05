@@ -1,14 +1,18 @@
 "use client"
 
+import { ArrowRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState, useTransition } from "react"
+import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
+import { Casilla } from "@/components/ui/casilla"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
-import { PildoraPilar } from "@/components/ui/pildora-pilar"
+import { FilaNavegacion } from "@/components/ui/filas"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
-import type { Pilar } from "@/lib/dominio/pilares"
+import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 
 export interface IdeaParaElegir {
   id: string
@@ -29,12 +33,12 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
 
   if (ideas.length === 0) {
     return (
-      <div className="grid gap-1.5">
-        <p className="text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
+      <Seccion titulo="Ideas de la semana" id="ideas-titulo">
+        <p className="text-cuerpo text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
         <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
           Escribir una idea
         </Link>
-      </div>
+      </Seccion>
     )
   }
 
@@ -61,49 +65,41 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   }
 
   return (
-    <div className="grid gap-3.5 rounded-lg border border-linea bg-superficie p-4">
-      <ul className="grid gap-1">
+    <Seccion titulo="Ideas de la semana" id="ideas-titulo" cifra={`${cuantas} de ${MAXIMO_DE_IDEAS}`}>
+      <ul>
         {ideas.map((idea) => {
           const marcada = elegidas.includes(idea.id)
-          const bloqueada = !marcada && enElMaximo
           return (
-            <li key={idea.id}>
-              <label
-                data-pilar={idea.pilar}
-                className="grid min-h-11 cursor-pointer grid-cols-[26px_1fr] items-start gap-3 py-2 has-[:disabled]:cursor-default has-[:disabled]:opacity-60"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-6 accent-acento"
-                  checked={marcada}
-                  disabled={bloqueada || pendiente}
-                  onChange={(evento) => alternar(idea.id, evento.target.checked)}
-                />
-                <span className="grid justify-items-start gap-1.5">
-                  <span>{idea.gancho}</span>
-                  <PildoraPilar pilar={idea.pilar} />
-                </span>
-              </label>
+            <li key={idea.id} data-pilar={idea.pilar} className="list-none">
+              <Casilla
+                etiqueta={idea.gancho}
+                detalle={NOMBRE_DE_PILAR[idea.pilar]}
+                marcada={marcada}
+                deshabilitada={(!marcada && enElMaximo) || pendiente}
+                alCambiar={(valor) => alternar(idea.id, valor)}
+              />
             </li>
           )
         })}
       </ul>
-      {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-          {error}
-        </p>
-      ) : null}
-      <Boton deshabilitado={!lista} cargando={pendiente} onClick={escribir}>
+      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      <Boton
+        deshabilitado={!lista}
+        cargando={pendiente}
+        icono={<ArrowRight aria-hidden="true" size={20} />}
+        onClick={escribir}
+      >
         {lista ? `Escribir ${cuantas} ${cuantas === 1 ? "guion" : "guiones"}` : "Escribir guiones"}
       </Boton>
-      <p className="text-center text-meta text-apagado">
+      <p className="text-meta text-apagado">
         {enElMaximo
           ? `Llegaste al máximo de ${MAXIMO_DE_IDEAS}.`
           : lista
             ? `Puedes sumar hasta ${MAXIMO_DE_IDEAS - cuantas} más.`
             : `Elige al menos una idea. Puedes elegir hasta ${MAXIMO_DE_IDEAS}.`}
       </p>
+      <FilaNavegacion href="/ideas">Ver todas las ideas</FilaNavegacion>
       {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
-    </div>
+    </Seccion>
   )
 }

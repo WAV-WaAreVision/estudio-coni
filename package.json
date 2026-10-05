@@ -21,20 +21,22 @@
     "test:eval": "vitest run --config vitest.eval.config.ts",
     "importar:banco": "tsx scripts/importar-banco.ts",
     "avatares:agregar": "tsx scripts/agregar-avatar.ts agregar",
-    "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar"
+    "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar",
+    "comparar": "tsx scripts/hoja-de-comparacion.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
     "@aws-sdk/client-s3": "^3.1143.0",
     "@aws-sdk/s3-request-presigner": "^3.1143.0",
     "@mozilla/readability": "^0.6.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@trigger.dev/sdk": "^4.6.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "geist": "^1.7.2",
     "jsdom": "^29.1.1",
-    "lucide-react": "^1.14.0",
     "mammoth": "^1.13.0",
     "next": "16.2.6",
     "react": "19.2.4",
@@ -45,6 +47,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@biomejs/biome": "2.2.0",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",

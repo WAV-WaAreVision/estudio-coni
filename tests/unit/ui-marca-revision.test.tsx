@@ -47,4 +47,30 @@ describe("MarcaRevision", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     expect(screen.getByText(/no puedes aprobar/i)).toBeInTheDocument()
   })
+
+  it("writes a warning as a status line with its label in the aviso ink and no box", () => {
+    const { container } = render(
+      <MarcaRevision
+        hallazgo={{ regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" }}
+        confirmada={false}
+        alCambiar={() => undefined}
+      />,
+    )
+
+    expect(screen.getByText("Para confirmar:")).toHaveClass("text-aviso")
+    expect(container.innerHTML).not.toMatch(/\bbg-aviso|\bbg-error/)
+  })
+
+  it("says a blocking finding as an error alert", () => {
+    render(
+      <MarcaRevision
+        hallazgo={{ regla: "cierre", tipo: "bloquea", mensaje: "Falta el cierre." }}
+        confirmada={false}
+        alCambiar={() => undefined}
+      />,
+    )
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Hay que corregirlo:")
+    expect(screen.getByText("Hay que corregirlo:")).toHaveClass("text-error")
+  })
 })

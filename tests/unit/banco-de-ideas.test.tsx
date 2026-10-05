@@ -35,6 +35,18 @@ const IDEAS: IdeaDeBanco[] = [
   idea({ id: "d", numero: 4, gancho: "Ya la usé hace poco.", estado: "usada" }),
 ]
 
+const NUEVA_PARA_ORDEN = idea({
+  id: "o",
+  gancho: "Una idea del motor.",
+  nueva: true,
+  porQue: {
+    titulo: "Teoría",
+    tesis: "Tesis.",
+    nivel: "medio",
+    respaldo: [],
+  },
+})
+
 function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
   return {
     usar: vi.fn(async () => ({ ok: true as const })),
@@ -58,6 +70,22 @@ function mostrar(cambios: Partial<AccionesDelBanco> = {}, ideas: IdeaDeBanco[] =
   render(<BancoDeIdeas ideas={ideas} acciones={a} />)
   return a
 }
+
+describe("BancoDeIdeas: composition", () => {
+  it("keeps Después and Usar esta right under the hook, above Por qué", () => {
+    mostrar({}, [{ ...NUEVA_PARA_ORDEN }])
+    const usar = screen.getByRole("button", { name: "Usar esta" })
+    const porQue = screen.getByText("Por qué")
+    expect(usar.compareDocumentPosition(porQue) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("draws discard as destructive text, never filled", () => {
+    mostrar()
+    const descartar = screen.getByRole("button", { name: "Descartar" })
+    expect(descartar).toHaveClass("text-error")
+    expect(descartar.className).not.toMatch(/\bbg-/)
+  })
+})
 
 describe("BancoDeIdeas: una idea a la vez", () => {
   it("shows the first free idea with its pillar, strength and alerts, and counts only the free ones", () => {

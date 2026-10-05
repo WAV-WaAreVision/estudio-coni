@@ -54,7 +54,11 @@ test("while nothing is set up the block counts the steps and offers the first on
 test("when every account answers, the block says everything is connected", async ({ page }) => {
   await conectarTodo()
 
+  // Once nothing is missing the status block leaves Ajustes and the good news lives with the accounts.
   await page.goto("/ajustes")
+  await expect(page.getByRole("heading", { name: /Configuración|Todo conectado/ })).toHaveCount(0)
+  await page.getByRole("link", { name: "Cuentas conectadas" }).click()
+  await expect(page).toHaveURL(/\/ajustes\/cuentas$/)
 
   await expect(page.getByRole("heading", { name: "Todo conectado" })).toBeVisible()
   await expect(page.getByText(/respondieron hoy a las \d\d:\d\d\./)).toBeVisible()
@@ -82,6 +86,7 @@ test("a key a provider refuses is flagged, and one that cannot be checked is not
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "HeyGen no aceptó la llave" })).toBeVisible()
+  await page.getByRole("link", { name: "Cuentas conectadas" }).click()
   await expect(page.getByText("No aceptó la llave", { exact: true })).toBeVisible()
   await expect(page.getByText("Sin revisar")).toBeVisible()
 })
@@ -91,19 +96,19 @@ test("settings save by themselves, can be undone, and are logged with her as the
   const { rows: previos } = await pool.query("select coalesce(max(id), 0) as id from public.eventos")
   await page.goto("/ajustes")
 
-  await page.getByText("Talleres", { exact: true }).click()
+  const meta = page.getByRole("combobox", { name: "Meta de este mes" })
+  await meta.selectOption("talleres")
   await expect(page.getByText("Guardado")).toBeVisible()
   await expect.poll(async () => (await ajustes()).meta).toBe("talleres")
   await page.getByRole("button", { name: "Deshacer" }).click()
   await expect.poll(async () => (await ajustes()).meta).toBe("consultas")
-  await expect(page.getByRole("radio", { name: "Consultas" })).toBeChecked()
+  await expect(meta).toHaveValue("consultas")
 
   await page.getByRole("button", { name: "Lun" }).click()
   await expect.poll(async () => (await ajustes()).dias_publicacion).toEqual([1, 2, 4, 6])
 
   const hora = page.getByLabel("Hora de publicación")
   await hora.fill("20:30")
-  await hora.blur()
   await expect.poll(async () => (await ajustes()).hora_publicacion).toBe("20:30:00")
 
   await page.getByRole("button", { name: "Subir el tope" }).click()
@@ -116,7 +121,7 @@ test("settings save by themselves, can be undone, and are logged with her as the
   )
   expect(rows.map((r) => r.actor_usuario)).toEqual(["c0000000-0000-4000-8000-000000000001"])
 
-  await page.getByRole("checkbox", { name: "Avisarme apenas falle algo" }).uncheck()
+  await page.getByRole("switch", { name: "Avisarme apenas falle algo" }).click()
   await expect.poll(async () => (await ajustes()).avisos_urgentes).toBe(false)
 
   await page.reload()
@@ -142,7 +147,7 @@ test("she enters a key: it is checked with the provider, saved only if it works,
   page,
 }) => {
   await configurarServicios({ heygen: "401" })
-  await page.goto("/ajustes")
+  await page.goto("/ajustes/cuentas")
 
   await page.getByRole("button", { name: "Agregar la llave de HeyGen" }).click()
   await page.getByLabel("Llave de HeyGen").fill("hg-la-llave-mala-de-prueba")
@@ -158,6 +163,7 @@ test("she enters a key: it is checked with the provider, saved only if it works,
   await expect(page.getByText("Guardada y comprobada.")).toBeVisible()
   const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'heygen'")
   expect(rows[0].decrypted_secret).toBe("hg-la-llave-buena-de-prueba")
+  await page.goto("/ajustes")
   await expect(page.getByRole("heading", { name: "Configuración: 1 de 5 listos" })).toBeVisible()
   // The key is never written back into the page.
   expect(await page.content()).not.toContain("hg-la-llave-buena-de-prueba")
@@ -193,7 +199,7 @@ test.describe("Conectar Instagram", () => {
 
     await page.getByRole("link", { name: "Conectar Instagram" }).first().click()
 
-    await expect(page).toHaveURL(/\/ajustes\?instagram=conectada$/)
+    await expect(page).toHaveURL(/\/ajustes\/cuentas\?instagram=conectada$/)
     await expect(page.getByText("Instagram quedó conectado.")).toBeVisible()
     const fila = await ajustes()
     expect(fila.meta_cuenta_id).toBe("17841400000000000")
@@ -210,7 +216,7 @@ test.describe("Conectar Instagram", () => {
   test("a callback that did not start here is refused and saves nothing", async ({ page }) => {
     await page.goto("/api/meta/callback?code=cualquiera&state=inventado")
 
-    await expect(page).toHaveURL(/\/ajustes\?instagram=estado$/)
+    await expect(page).toHaveURL(/\/ajustes\/cuentas\?instagram=estado$/)
     await expect(page.getByText("La conexión con Instagram venció antes de terminar.")).toBeVisible()
     expect((await ajustes()).meta_cuenta_id).toBeNull()
     expect(await registroDeServicios()).toEqual([])
@@ -235,7 +241,7 @@ test.describe("Conectar Instagram", () => {
 
     await page.goto("/api/meta/conectar")
 
-    await expect(page).toHaveURL(/\/ajustes\?instagram=cancelada$/)
+    await expect(page).toHaveURL(/\/ajustes\/cuentas\?instagram=cancelada$/)
     await expect(page.getByText("Cancelaste la conexión con Instagram.")).toBeVisible()
     expect((await ajustes()).meta_cuenta_id).toBeNull()
   })
@@ -274,7 +280,7 @@ test("the Saldos section shows the ElevenLabs characters and the HeyGen API wall
   await conectarTodo()
   await configurarServicios({ heygenSaldo: 12, elevenlabsUsados: 76_600 })
 
-  await page.goto("/ajustes")
+  await page.goto("/ajustes/cuentas")
 
   await expect(page.getByRole("heading", { name: "Saldos" })).toBeVisible()
   await expect(

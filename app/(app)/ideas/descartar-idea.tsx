@@ -36,18 +36,23 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
   return (
     <div ref={contenedor}>
       {abierto ? (
-        <fieldset className="grid gap-2 rounded-md border border-linea bg-superficie p-3.5">
-          <legend className="px-1 text-label font-semibold">¿Por qué la descartas?</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {MOTIVOS.map(({ motivo, texto }) => (
-              <Boton key={motivo} variante="linea" tamano="chico" cargando={ocupada} onClick={() => alElegir(motivo)}>
-                {texto}
-              </Boton>
-            ))}
-          </div>
+        <fieldset className="grid">
+          <legend className="pb-1 text-meta font-semibold">¿Por qué la descartas?</legend>
+          {MOTIVOS.map(({ motivo, texto }) => (
+            <button
+              key={motivo}
+              type="button"
+              aria-disabled={ocupada || undefined}
+              onClick={() => {
+                if (!ocupada) alElegir(motivo)
+              }}
+              className="min-h-14 border-b border-linea text-left text-cuerpo text-tinta active:opacity-70"
+            >
+              {texto}
+            </button>
+          ))}
           <Boton
             variante="callado"
-            tamano="chico"
             onClick={() => {
               setAbierto(false)
               setDevolverFoco(true)
@@ -57,7 +62,7 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
           </Boton>
         </fieldset>
       ) : (
-        <Boton variante="callado" onClick={() => setAbierto(true)}>
+        <Boton variante="destructiva" onClick={() => setAbierto(true)}>
           Descartar
         </Boton>
       )}

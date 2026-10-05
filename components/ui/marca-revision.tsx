@@ -1,47 +1,39 @@
 "use client"
 
-import { useId } from "react"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { Casilla } from "./casilla"
+import { LineaDeEstado } from "./linea-de-estado"
 
 interface PropiedadesDeMarca {
   hallazgo: Hallazgo
   confirmada: boolean
   alCambiar: (confirmada: boolean) => void
+  /** A blocking finding listed under an error that already interrupted: it does not interrupt again. */
+  anunciada?: boolean
 }
 
-/** One finding of the automatic review. A warning needs Coni's tick; a blocking one has to be fixed first. */
-export function MarcaRevision({ hallazgo, confirmada, alCambiar }: PropiedadesDeMarca) {
-  const idFrase = useId()
+/** Brandkit 9.7: one finding of the automatic review as a status line. A warning needs Coni's tick; a blocking one is fixed first. */
+export function MarcaRevision({ hallazgo, confirmada, alCambiar, anunciada = false }: PropiedadesDeMarca) {
   const bloquea = hallazgo.tipo === "bloquea"
-
+  const frase = hallazgo.frase ? (
+    <>
+      Frase marcada: <q>{hallazgo.frase}</q>
+    </>
+  ) : null
   return (
-    <div
-      className={`grid gap-2.5 rounded-md p-3.5 text-[1rem] ${bloquea ? "bg-error-fondo text-error-tinta" : "bg-aviso-fondo text-aviso-tinta"}`}
-    >
-      <p>
-        <strong className="font-semibold text-tinta">{bloquea ? "Hay que corregirlo: " : "Para confirmar: "}</strong>
-        {hallazgo.mensaje}
-      </p>
-      {hallazgo.frase ? (
-        <p className="text-tinta">
-          Frase marcada:{" "}
-          <q id={idFrase} className="font-serif">
-            {hallazgo.frase}
-          </q>
-        </p>
-      ) : null}
-      {bloquea ? (
-        <p>Sin esto no puedes aprobar.</p>
-      ) : (
-        <label className="grid min-h-11 cursor-pointer grid-cols-[26px_1fr] items-center gap-2.5 text-tinta">
-          <input
-            type="checkbox"
-            className="size-6 accent-acento"
-            checked={confirmada}
-            onChange={(evento) => alCambiar(evento.target.checked)}
-          />
-          <span>Lo revisé y está bien</span>
-        </label>
+    <div className="grid gap-1">
+      <LineaDeEstado
+        tipo={bloquea ? "error" : "aviso"}
+        rotulo={bloquea ? "Hay que corregirlo:" : "Para confirmar:"}
+        titulo={hallazgo.mensaje}
+        tituloEnTinta
+        anunciada={anunciada}
+        detalle={bloquea ? <>{frase ? <>{frase} </> : null}Sin esto no puedes aprobar.</> : frase}
+      />
+      {bloquea ? null : (
+        <div className="pl-9">
+          <Casilla etiqueta="Lo revisé y está bien" marcada={confirmada} alCambiar={alCambiar} />
+        </div>
       )}
     </div>
   )

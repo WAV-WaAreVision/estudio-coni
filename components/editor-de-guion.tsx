@@ -1,11 +1,16 @@
 "use client"
 
+import { Check } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useId, useState, useTransition } from "react"
+import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { editarGuionAccion, volverAVersionDeClaudeAccion } from "@/app/(app)/piezas/acciones"
 import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
+import { Seccion } from "@/components/seccion"
 import { Boton } from "@/components/ui/boton"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
+import { useAutoAlto } from "@/components/use-auto-alto"
 import type { ResultadoDeGuion } from "@/lib/acciones/guion"
 import { ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
 import { contarPalabras, estadoDeLargo, estimarSegundos } from "@/lib/dominio/duracion"
@@ -37,9 +42,6 @@ type Estado =
   | { tipo: "guardado"; observaciones: number }
   | { tipo: "bloqueado"; hallazgos: Hallazgo[] }
 
-const CAJA =
-  "w-full rounded-lg border-[1.5px] border-linea bg-superficie p-3.5 text-[1.0625rem] leading-normal focus:border-acento"
-
 /** Gate 1 editor: the script and the caption as two boxes, a length hint, and a way back to what Claude wrote. */
 export function EditorDeGuion({
   piezaId,
@@ -61,6 +63,10 @@ export function EditorDeGuion({
   const [pendiente, empezar] = useTransition()
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const cajaGuion = useRef<HTMLTextAreaElement>(null)
+  const cajaTexto = useRef<HTMLTextAreaElement>(null)
+  useAutoAlto(cajaGuion, borrador.guion)
+  useAutoAlto(cajaTexto, borrador.texto)
 
   // The screen sent other texts (a restore came back): they are the new starting point.
   if (vistos.guion !== guion || vistos.texto !== texto) {
@@ -116,94 +122,100 @@ export function EditorDeGuion({
     correr(() => volverAVersionDeClaudeAccion(piezaId, version))
   }
 
+  const largoDelTexto = [...borrador.texto].length
+  const estadoDelLargo = estadoDeLargo(palabras)
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-1.5">
-        <label htmlFor={idGuion} className="text-label font-semibold text-apagado">
-          Guion
-        </label>
+    <>
+      <Seccion
+        titulo="Guion"
+        id={idGuion}
+        cifra={
+          <span aria-live="polite" className="inline-flex flex-wrap items-center justify-end gap-x-2">
+            <span>
+              {palabras} palabras · ≈ {segundos} s
+            </span>
+            <span className="inline-flex items-center gap-1 font-semibold text-tinta">
+              {estadoDelLargo === "bien" ? <Check aria-hidden="true" size={16} className="text-exito" /> : null}
+              {ESTADOS[estadoDelLargo]}
+            </span>
+          </span>
+        }
+      >
         <textarea
-          id={idGuion}
+          ref={cajaGuion}
+          aria-labelledby={idGuion}
           value={borrador.guion}
           onChange={(evento) => cambiar("guion", evento.target.value)}
-          rows={12}
           maxLength={MAXIMO_DEL_GUION}
-          className={`${CAJA} font-serif text-script`}
+          className="campo w-full text-guion"
         />
-        <p aria-live="polite" className="flex flex-wrap gap-x-3 text-meta text-apagado">
-          <span>
-            {palabras} palabras · ≈ {segundos} s
-          </span>
-          <span className="font-semibold text-tinta">{ESTADOS[estadoDeLargo(palabras)]}</span>
-        </p>
         <AyudaDeMarcas />
-      </div>
+        {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+        {estado.tipo === "bloqueado" ? (
+          <div className="grid gap-4">
+            {estado.hallazgos.map((hallazgo) => (
+              <MarcaRevision
+                key={`${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`}
+                hallazgo={hallazgo}
+                confirmada={false}
+                alCambiar={() => undefined}
+                anunciada
+              />
+            ))}
+          </div>
+        ) : null}
+        {estado.tipo === "guardado" ? (
+          <LineaDeEstado
+            tipo="exito"
+            titulo="Guardado"
+            detalle={
+              estado.observaciones > 0
+                ? `Claude lo revisó: ${estado.observaciones} ${estado.observaciones === 1 ? "observación" : "observaciones"} para confirmar abajo, en Revisión.`
+                : undefined
+            }
+          />
+        ) : null}
+        <Boton
+          variante="linea"
+          cargando={pendiente && guardando}
+          deshabilitado={!sinGuardar || pendiente}
+          onClick={guardar}
+        >
+          {pendiente && guardando ? "Guardando…" : "Guardar cambios"}
+        </Boton>
+        {tieneVersionDeClaude ? (
+          confirmando ? (
+            <ConfirmacionEnLinea
+              trato="neutro"
+              pregunta="¿Volver al guion que escribió Claude? Se guarda como una versión nueva."
+              confirmar="Sí, volver"
+              volver="Cancelar"
+              cargando={pendiente}
+              alConfirmar={restaurar}
+              alVolver={() => setConfirmando(false)}
+            />
+          ) : (
+            <Boton variante="callado" onClick={() => setConfirmando(true)}>
+              Volver a la versión de Claude
+            </Boton>
+          )
+        ) : null}
+      </Seccion>
 
-      <div className="grid gap-1.5">
-        <label htmlFor={idTexto} className="text-label font-semibold text-apagado">
-          Texto de la publicación
-        </label>
+      <Seccion
+        titulo="Texto de la publicación"
+        id={idTexto}
+        cifra={`${largoDelTexto.toLocaleString("es-CL")} de ${MAXIMO_DEL_TEXTO.toLocaleString("es-CL")}`}
+      >
         <textarea
-          id={idTexto}
+          ref={cajaTexto}
+          aria-labelledby={idTexto}
           value={borrador.texto}
           onChange={(evento) => cambiar("texto", evento.target.value)}
-          rows={8}
           maxLength={MAXIMO_DEL_TEXTO}
-          className={CAJA}
+          className="campo w-full text-cuerpo"
         />
-      </div>
-
-      {error ? (
-        <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-          {error}
-        </p>
-      ) : null}
-      {estado.tipo === "bloqueado" ? (
-        <div className="grid gap-2.5">
-          {estado.hallazgos.map((hallazgo) => (
-            <MarcaRevision
-              key={`${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`}
-              hallazgo={hallazgo}
-              confirmada={false}
-              alCambiar={() => undefined}
-            />
-          ))}
-        </div>
-      ) : null}
-      {estado.tipo === "guardado" ? (
-        <output className="block text-label font-semibold text-acento">
-          Guardado
-          {estado.observaciones > 0 ? (
-            <span className="font-normal text-apagado">
-              {" "}
-              · Claude lo revisó: {estado.observaciones} {estado.observaciones === 1 ? "observación" : "observaciones"}{" "}
-              para confirmar abajo, en Revisión.
-            </span>
-          ) : null}
-        </output>
-      ) : null}
-
-      <Boton cargando={pendiente && guardando} deshabilitado={!sinGuardar || pendiente} onClick={guardar}>
-        {pendiente && guardando ? "Guardando…" : "Guardar cambios"}
-      </Boton>
-
-      {tieneVersionDeClaude ? (
-        confirmando ? (
-          <div className="grid gap-2 rounded-md bg-acento-suave p-3.5">
-            <p className="text-[1rem]">¿Volver al guion que escribió Claude? Se guarda como una versión nueva.</p>
-            <Boton cargando={pendiente} onClick={restaurar}>
-              Sí, volver
-            </Boton>
-            <Boton variante="callado" onClick={() => setConfirmando(false)}>
-              Cancelar
-            </Boton>
-          </div>
-        ) : (
-          <Boton variante="callado" onClick={() => setConfirmando(true)}>
-            Volver a la versión de Claude
-          </Boton>
-        )
-      ) : null}
-    </div>
+      </Seccion>
+    </>
   )
 }

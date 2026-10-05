@@ -1,102 +1,226 @@
 @import "tailwindcss";
+/* Closes the default palette, radii, shadows and type sizes (before the tokens below define the real ones). */
+@import "./tema-cerrado.css";
 
 /*
- * Tokens of docs/DESIGN.md. This is the only place with literal colours: components use the names below
- * (bg-fondo, text-tinta, bg-acento, ...). The theme is light on purpose (PRODUCT.md: the scene is daytime).
+ * Calma suiza tokens (docs/rediseno/tokens.css). This is the only place with literal colours: components use the
+ * names below (bg-fondo, text-tinta, bg-firma, ...). Light only for now; the dark block is kept but not active.
  */
 :root {
   color-scheme: light;
-  --fondo: #fbf6f8;
-  --superficie: #fffcfd;
-  --hundido: #f5ecf0;
-  --tinta: #2b1830;
-  --apagado: #6f5d74;
-  --linea: #eadde4;
-  --acento: #b3285f;
-  --acento-profundo: #8e1d4a;
-  --acento-suave: #f6e3ec;
-  --acento-claro: #f0b4cd;
-  --sobre-acento: #fff7fa;
-  --ok-tinta: #1d6743;
-  --ok-fondo: #e5f3ea;
-  --aviso-tinta: #7a4b00;
-  --aviso-fondo: #fdf1dc;
-  --error-tinta: #a12a2a;
-  --error-fondo: #fbe8e6;
+
+  /* ---------- Colour: warm stone neutrals (oklch hue 77 to 91, chroma under 0.016) ---------- */
+  --fondo: #f7f6f3; /* page */
+  --superficie: #fcfbf9; /* the one raised surface per screen, fields. 1.05:1, always with a line or shadow */
+  --tinta: #1d1b18; /* text, primary fill, selection, active tab, focus, section rules. 15.90:1 */
+  --apagado: #69645d; /* meta, help, pillar word, chevrons. 5.43:1 (4.79:1 on pista, 5.67:1 on superficie) */
+  --campo: #8a847b; /* field and control outlines, secondary outline, empty marks. 3.43:1 (3.58:1 on superficie) */
+  --linea: #e5e2dc; /* hairlines between rows. Decorative, 1.20:1 */
+  --pista: #ebe8e2; /* slider track, meter track, skeletons, tone-mark chip. 1.13:1 */
+
+  /* ---------- Roles built on ink ---------- */
+  --principal: var(--tinta); /* filled primary button */
+  --sobre-principal: var(--superficie); /* label on the primary. 16.61:1 */
+  --sobre-tinta: var(--superficie); /* toast text, check inside a checked box, today's number. 16.61:1 */
+
+  /* ---------- The signature: raspberry, ONLY the approve slider and the date it commits to ---------- */
+  --firma: #a8285a; /* oklch(0.495 0.167 2.2), HSL saturation 62 %. 6.24:1 (5.51:1 on pista). Same value as /l */
+  --sobre-firma: var(--superficie); /* arrow on the thumb, label on the filled track. 6.52:1 */
+  --firma-rastro: rgb(168 40 90 / 0.14); /* trail behind the thumb while dragging. Ink label on it: 11.35:1 */
+
+  /* ---------- States: inks, never fills. Always text plus icon ---------- */
+  --error: var(--firma); /* every highlight is the signature raspberry (Federico): error and destructive text, field border in error. 6.24:1 */
+  --exito: #2e6a44; /* 5.96:1 */
+  --aviso: var(--firma); /* warnings, blocks (balance, cap), spend from 80 % of the cap: the same raspberry, told from error by its icon and its text. 6.24:1 */
+
+  /* ---------- Media: constant across themes, the video is always dark under its controls ---------- */
+  --velo-video: rgb(29 27 24 / 0.64); /* play disc, "Avatar IA" label, bottom scrim. Text on it >= 5.00:1 even over a white frame */
+  --sobre-video: #fcfbf9; /* icons and text on the veil */
+  --foto-brillo: 1; /* avatar look photos. The video being approved is never dimmed */
+
+  /* ---------- Focus: a gap in the page colour, then an ink ring. Works on any surface ---------- */
+  --anillo-foco: 0 0 0 2px var(--fondo), 0 0 0 4px var(--firma);
+
+  /* ---------- Elevation: at most one raised surface per screen (sign bar, idea card or toast) ---------- */
+  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(29 27 24 / 0.06); /* faces up */
+  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(29 27 24 / 0.08); /* faces down: idea card, toast */
+
+  /* ---------- Type: one family, three weights, five sizes. rem so the user's text size scales it ---------- */
+  --letra: var(--font-geist-sans), ui-sans-serif, -apple-system, system-ui, "Segoe UI", sans-serif;
+
+  --t-pantalla: 2rem; /* 32, screen title, the answer of the screen */
+  --i-pantalla: calc(36 / 32);
+  --tr-pantalla: -0.022em;
+  --t-pieza: 1.5rem; /* 24, piece title, idea hook, cost amount */
+  --i-pieza: calc(28 / 24);
+  --tr-pieza: -0.014em;
+  --t-guion: 1.25rem; /* 20, the script, reading and editing (a role, not a hierarchy step) */
+  --i-guion: calc(32 / 20);
+  --t-cuerpo: 1.125rem; /* 18, accessibility base: body, rows, buttons */
+  --i-cuerpo: calc(24 / 18); /* UI lines */
+  --i-prosa: calc(28 / 18); /* paragraphs, Instagram text */
+  --t-meta: 0.9375rem; /* 15, meta, section labels, help, units, tone marks */
+  --i-meta: calc(20 / 15);
+  --t-marca: 2.75rem; /* 44, ONLY the name on the public page /l (brand register, outside the app) */
+  --i-marca: calc(48 / 44);
+
+  --peso-normal: 400;
+  --peso-medio: 500;
+  --peso-fuerte: 600;
+  --peso-titulo: 600; /* screen and piece titles; one step lighter at night */
+  --cifras: tabular-nums; /* money, times, durations, balances, counts, metrics */
+
+  /* ---------- Space: 4 / 8 grid ---------- */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-6: 24px;
+  --e-8: 32px;
+  --e-10: 40px;
+  --e-12: 48px;
+  --e-16: 64px;
+  --margen: 20px; /* side margin: the left axis never moves */
+  --sangria: 36px; /* icon indent = 24 icon box + 12 gap: text of status lines, checkboxes, reasons at x = 56 */
+  --columna-max: 560px; /* reading column on tablet or computer */
+  --entre-secciones: 40px;
+  --final-pagina: 96px; /* free space after the last control, so a toast never covers it */
+
+  /* ---------- Shape: two radii only ---------- */
+  --r-12: 12px; /* buttons, fields, photos, video, idea card, toast, chips, thumbnails */
+  --r-circulo: 999px; /* what is round by nature: slider, thumb, checkbox, switch, play, dots, meters */
+
+  /* ---------- Lines ---------- */
+  --trazo: 1px; /* rules, hairlines, field and secondary outlines */
+  --trazo-control: 1.5px; /* checkbox, switch, disabled thumb, voice play ring */
+  --trazo-seleccion: 2px; /* selected avatar ring, active tab underline, field in error */
+  --medidor: 4px; /* filled mark: spend meter, metric bar, reel progress, rhythm cell */
+
+  /* ---------- Sizes of things you touch ---------- */
+  --objetivo-min: 44px;
+  --alto-boton: 52px;
+  --alto-fila: 64px; /* piece rows */
+  --alto-fila-nav: 56px; /* navigation, value and switch rows */
+  --alto-pista: 56px; /* approve slider track */
+  --pulgar: 48px; /* approve slider thumb, voice play */
+  --casilla: 24px;
+  --interruptor-ancho: 52px;
+  --interruptor-alto: 32px;
+  --play-video: 64px;
+  --miniatura-ancho: 48px; /* video thumbnail in a row */
+  --miniatura-alto: 64px;
+  --icono: 20px; /* next to 18 px text */
+  --icono-chico: 16px; /* next to 15 px text */
+  --icono-nav: 24px;
+  --icono-cierre: 32px; /* the closing moment ("Ya se publicó") */
+  --barra-max: 112px; /* sign bar without the safe area */
+
+  /* ---------- Motion: only in response to touch, only transform and opacity ---------- */
+  --dur-corta: 150ms; /* press: scale(0.98), checkbox, switch */
+  --dur-media: 200ms; /* state change, inline confirmation, toast in, disclosure */
+  --dur-larga: 220ms; /* thumb returning or reaching the end, idea card in */
+  --curva-salida: cubic-bezier(0.23, 1, 0.32, 1); /* enter and settle, no bounce */
+  --curva-vuelta: cubic-bezier(0.32, 0.72, 0, 1); /* thumb spring-back, no bounce */
+  --latido: 1.6s; /* the "working" dot. Components drop the animation under reduced motion */
+  --toast-duracion: 8s;
+
+  /* ---------- Layers ---------- */
+  --capa-barra: 10; /* sign bar and bottom navigation */
+  --capa-toast: 20;
 }
 
-/* Pillars: one hue each; tint, strong tint, ink and dot all derive from it (DESIGN.md, Pillar Palette Rule). */
-[data-pilar="pareja"] {
-  --p-h: 245;
+/* ---------- Dark: kept ready, NOT active. Light only for now (decision of Federico): there is no
+   system colour-scheme switching, so the app is light on every phone. Setting data-theme="dark" on <html> opts in.
+   Night rules: titles one weight lighter, the primary one step below the ink, look photos at 94 % brightness,
+   the video to approve never dimmed. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fondo: #161513;
+  --superficie: #1f1d1a;
+  --tinta: #ece9e3;
+  --apagado: #a39d94;
+  --campo: #7c766d;
+  --linea: #2f2c28;
+  --pista: #2a2724;
+  --principal: #d6d2cb;
+  --sobre-principal: #161513;
+  --sobre-tinta: #161513;
+  --firma: #d78099;
+  --sobre-firma: #161513;
+  --firma-rastro: rgb(215 128 153 / 0.22);
+  --error: var(--firma);
+  --exito: #86c39c;
+  --aviso: var(--firma);
+  --foto-brillo: 0.94;
+  --peso-titulo: 500;
+  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
+  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(8 7 6 / 0.45);
 }
-[data-pilar="deseo"] {
-  --p-h: 320;
+
+/* Reduced motion keeps every state change (colour, opacity, the written state) and drops the
+   movement. The approve gesture is identical: only its animations become instant. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-corta: 0ms;
+    --dur-media: 0ms;
+    --dur-larga: 0ms;
+  }
 }
-[data-pilar="autoestima"] {
-  --p-h: 50;
-}
-[data-pilar="limites"] {
-  --p-h: 160;
-}
-[data-pilar="bienestar"] {
-  --p-h: 85;
-}
-[data-pilar] {
-  --p-tinte: oklch(0.955 0.028 var(--p-h));
-  --p-tinte-fuerte: oklch(0.91 0.05 var(--p-h));
-  --p-tinta: oklch(0.43 0.09 var(--p-h));
-  --p-punto: oklch(0.62 0.12 var(--p-h));
+
+/* The sign bar is taller than the brief's 112 px: the slider block carries the Aprobar button (WCAG 2.5.7). */
+:root {
+  --barra-max: 176px;
 }
 
 @theme inline {
+  --color-transparent: transparent;
+  --color-current: currentColor;
   --color-fondo: var(--fondo);
   --color-superficie: var(--superficie);
-  --color-hundido: var(--hundido);
   --color-tinta: var(--tinta);
   --color-apagado: var(--apagado);
+  --color-campo: var(--campo);
   --color-linea: var(--linea);
-  --color-acento: var(--acento);
-  --color-acento-profundo: var(--acento-profundo);
-  --color-acento-suave: var(--acento-suave);
-  --color-acento-claro: var(--acento-claro);
-  --color-sobre-acento: var(--sobre-acento);
-  --color-ok-tinta: var(--ok-tinta);
-  --color-ok-fondo: var(--ok-fondo);
-  --color-aviso-tinta: var(--aviso-tinta);
-  --color-aviso-fondo: var(--aviso-fondo);
-  --color-error-tinta: var(--error-tinta);
-  --color-error-fondo: var(--error-fondo);
-  --color-pilar-tinte: var(--p-tinte);
-  --color-pilar-tinte-fuerte: var(--p-tinte-fuerte);
-  --color-pilar-tinta: var(--p-tinta);
-  --color-pilar-punto: var(--p-punto);
+  --color-pista: var(--pista);
+  --color-principal: var(--principal);
+  --color-sobre-principal: var(--sobre-principal);
+  --color-sobre-tinta: var(--sobre-tinta);
+  --color-firma: var(--firma);
+  --color-sobre-firma: var(--sobre-firma);
+  --color-firma-rastro: var(--firma-rastro);
+  --color-error: var(--error);
+  --color-exito: var(--exito);
+  --color-aviso: var(--aviso);
+  --color-velo-video: var(--velo-video);
+  --color-sobre-video: var(--sobre-video);
 
-  --font-serif: var(--font-young-serif), Georgia, "Times New Roman", serif;
-  --font-sans: var(--font-hanken), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, -apple-system, system-ui, sans-serif;
 
-  --radius-sm: 12px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 24px;
+  --text-pantalla: var(--t-pantalla);
+  --text-pantalla--line-height: var(--i-pantalla);
+  --text-pantalla--letter-spacing: var(--tr-pantalla);
+  --text-pantalla--font-weight: var(--peso-titulo);
+  --text-pieza: var(--t-pieza);
+  --text-pieza--line-height: var(--i-pieza);
+  --text-pieza--letter-spacing: var(--tr-pieza);
+  --text-pieza--font-weight: var(--peso-titulo);
+  --text-guion: var(--t-guion);
+  --text-guion--line-height: var(--i-guion);
+  --text-cuerpo: var(--t-cuerpo);
+  --text-cuerpo--line-height: var(--i-cuerpo);
+  --text-meta: var(--t-meta);
+  --text-meta--line-height: var(--i-meta);
+  --text-marca: var(--t-marca);
+  --text-marca--line-height: var(--i-marca);
+  --leading-prosa: var(--i-prosa);
 
-  /* The name on the public page of the bio link (brand register): larger than the product scale. */
-  --text-marca: 2.75rem;
-  --text-marca--line-height: 1;
-  --text-display: 1.875rem;
-  --text-display--line-height: 1.12;
-  --text-title: 1.5rem;
-  --text-title--line-height: 1.15;
-  --text-script: 1.25rem;
-  --text-script--line-height: 1.55;
-  --text-body: 1.125rem;
-  --text-body--line-height: 1.5;
-  --text-label: 0.9375rem;
-  --text-label--line-height: 1.3;
-  --text-meta: 0.9375rem;
-  --text-meta--line-height: 1.4;
+  --radius-12: var(--r-12);
 
-  --shadow-flotante: 0 10px 28px -14px rgb(43 24 48 / 0.45);
-  --ease-fuerte: cubic-bezier(0.23, 1, 0.32, 1);
+  --shadow-barra: var(--sombra-barra);
+  --shadow-flotante: var(--sombra-flotante);
+
+  --ease-salida: var(--curva-salida);
+  --ease-vuelta: var(--curva-vuelta);
 }
 
 html {
@@ -106,25 +230,39 @@ html {
 body {
   background: var(--fondo);
   color: var(--tinta);
-  font-family: var(--font-sans);
-  font-size: 1.125rem;
-  line-height: 1.5;
+  font-family: var(--letra);
+  font-size: var(--t-cuerpo);
+  line-height: var(--i-cuerpo);
   -webkit-font-smoothing: antialiased;
 }
 
+/* A gap in the page colour, then an ink ring; the transparent outline still shows in forced-colors mode. */
 :focus-visible {
-  outline: 3px solid var(--acento);
-  outline-offset: 2px;
+  outline: 2px solid transparent;
+  box-shadow: var(--anillo-foco);
 }
 
 /* The toast slides in 8 px and fades; a transition (not a keyframe) so a second toast retargets smoothly. */
 .aviso {
   transition:
-    transform 220ms var(--ease-fuerte),
-    opacity 220ms var(--ease-fuerte);
+    transform var(--dur-media) var(--curva-salida),
+    opacity var(--dur-media) var(--curva-salida);
 }
 @starting-style {
   .aviso {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* An in-line confirmation rises 8 px and fades in, like the toast. */
+.confirmacion {
+  transition:
+    transform var(--dur-media) var(--curva-salida),
+    opacity var(--dur-media) var(--curva-salida);
+}
+@starting-style {
+  .confirmacion {
     transform: translateY(8px);
     opacity: 0;
   }
@@ -137,66 +275,26 @@ body {
   }
 }
 .esqueleto {
-  animation: latido 1.6s ease-in-out infinite;
-  background: var(--linea);
-  border-radius: 999px;
+  animation: latido var(--latido) ease-in-out infinite;
+  background: var(--pista);
+  border-radius: var(--r-circulo);
 }
 
-/* Reduced motion keeps the opacity and colour changes that explain a state and drops the movement. */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  .esqueleto {
-    animation: none;
-  }
-  @starting-style {
-    .aviso {
-      transform: none;
-    }
+/* The 8 px dot that says something real is happening. */
+@keyframes trabajando {
+  50% {
+    opacity: 0.25;
   }
 }
-
-/* The approve slider: a native range input restyled as a pill with a 52 px thumb (DESIGN.md, slide-approve). */
-.deslizador {
-  -webkit-appearance: none;
-  appearance: none;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--acento-suave);
-  touch-action: pan-y;
-}
-.deslizador[data-activo="false"] {
-  background: var(--hundido);
-}
-.deslizador::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 52px;
-  height: 52px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--acento);
-  box-shadow: 0 2px 6px rgb(43 24 48 / 0.25);
-}
-.deslizador::-moz-range-thumb {
-  width: 52px;
-  height: 52px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--acento);
-}
-.deslizador[data-activo="false"]::-webkit-slider-thumb {
-  background: var(--apagado);
-}
-.deslizador[data-activo="false"]::-moz-range-thumb {
-  background: var(--apagado);
+.punto-trabajando {
+  animation: trabajando var(--latido) ease-in-out infinite;
 }
 
 /* A new card of the idea bank slides up 8 px and fades in; a transition on mount, so a quick second tap retargets it. */
 .carta-idea {
   transition:
-    transform 220ms var(--ease-fuerte),
-    opacity 220ms var(--ease-fuerte);
+    transform var(--dur-larga) var(--curva-salida),
+    opacity var(--dur-larga) var(--curva-salida);
 }
 @starting-style {
   .carta-idea {
@@ -204,14 +302,88 @@ body {
     opacity: 0;
   }
 }
+
+/* Reduced motion keeps the opacity and colour changes that explain a state and drops the movement. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .esqueleto,
+  .punto-trabajando {
+    animation: none;
+  }
   @starting-style {
+    .aviso,
+    .confirmacion,
     .carta-idea {
       transform: none;
     }
   }
 }
-/* The public page of the bio link is raspberry edge to edge, overscroll included (DESIGN.md, Excepción de `/l`). */
+
+/* Brandkit 9.8: fields grow with their text, never scroll inside. In the components layer so a utility can still adjust one. */
+@layer components {
+  .campo {
+    background: var(--superficie);
+    border: var(--trazo) solid var(--campo);
+    border-radius: var(--r-12);
+    padding: var(--e-4);
+    min-height: var(--alto-boton);
+  }
+  /* Only a text area grows with its text: a one-line input that did would push its column wider than the screen. */
+  textarea.campo {
+    field-sizing: content;
+  }
+  .campo[aria-invalid="true"] {
+    border: var(--trazo-seleccion) solid var(--error);
+  }
+  .campo::placeholder {
+    color: var(--apagado);
+  }
+}
+
+/* Brandkit 9.16 and 9.17: a seekable rail. 44 px target, 2 px rail, 2 px ink progress (--p), 14 px knob. */
+.avance {
+  --avance-color: var(--tinta);
+  --avance-riel: var(--campo);
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  cursor: pointer;
+  background-color: transparent;
+  background-image:
+    linear-gradient(var(--avance-color), var(--avance-color)), linear-gradient(var(--avance-riel), var(--avance-riel));
+  background-position:
+    0 50%,
+    0 50%;
+  background-size:
+    var(--p, 0%) 2px,
+    100% 2px;
+  background-repeat: no-repeat;
+}
+.avance:disabled {
+  cursor: default;
+  --avance-color: var(--apagado);
+}
+.avance::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: var(--r-circulo);
+  background: var(--avance-color);
+}
+.avance::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: var(--r-circulo);
+  background: var(--avance-color);
+}
+
+/* The public page of the bio link is signature-coloured edge to edge, overscroll included. */
 body:has([data-superficie="marca"]) {
-  background: var(--acento);
+  background: var(--firma);
 }

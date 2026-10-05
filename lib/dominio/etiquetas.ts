@@ -70,6 +70,25 @@ function quitar(texto: string, sobra: (nombre: string) => boolean): string {
     .trim()
 }
 
+export interface ParteDeGuion {
+  tipo: "texto" | "marca"
+  valor: string
+}
+
+/** The script cut at its tone marks, so reading mode can draw them as chips. Joined back it is the script, character for character. */
+export function partirEnMarcas(guion: string): ParteDeGuion[] {
+  const partes: ParteDeGuion[] = []
+  let desde = 0
+  for (const coincidencia of guion.matchAll(ETIQUETA)) {
+    const inicio = coincidencia.index ?? 0
+    if (inicio > desde) partes.push({ tipo: "texto", valor: guion.slice(desde, inicio) })
+    partes.push({ tipo: "marca", valor: coincidencia[0] })
+    desde = inicio + coincidencia[0].length
+  }
+  if (desde < guion.length) partes.push({ tipo: "texto", valor: guion.slice(desde) })
+  return partes
+}
+
 /** The spoken text: what subtitles, counts and checks see. */
 export function sinEtiquetas(texto: string): string {
   return quitar(texto, () => true)

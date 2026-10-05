@@ -52,6 +52,9 @@ export interface AvisoDeInicio {
 export interface Inicio {
   semana: string
   resumen: string
+  /** The answer of the screen («2 cosas esperan tu firma») and, apart, how long it takes («unos 6 min»). */
+  titulo: string
+  tiempo: string | null
   firma: FilaDeFirma[]
   /** Reels whose time came while Instagram was not connected: she uploads them herself. */
   porSubir: FilaPorSubir[]
@@ -63,12 +66,18 @@ const MINUTOS_POR_FIRMA = 3
 const DIAS_DE_CELEBRACION_MS = 2 * 24 * 60 * 60 * 1000
 const EXPLICACION_GENERICA = "Algo no salió como esperábamos con esta pieza."
 
-function resumenDeFirmas(cantidad: number): string {
+function tituloDeFirmas(cantidad: number): string {
   if (cantidad === 0) return "Esta semana está al día"
-  const minutos = cantidad * MINUTOS_POR_FIRMA
-  return cantidad === 1
-    ? `Una cosa espera tu firma · unos ${minutos} min`
-    : `${cantidad} cosas esperan tu firma · unos ${minutos} min`
+  return cantidad === 1 ? "Una cosa espera tu firma" : `${cantidad} cosas esperan tu firma`
+}
+
+function tiempoDeFirmas(cantidad: number): string | null {
+  return cantidad === 0 ? null : `unos ${cantidad * MINUTOS_POR_FIRMA} min`
+}
+
+function resumenDeFirmas(cantidad: number): string {
+  const tiempo = tiempoDeFirmas(cantidad)
+  return tiempo === null ? tituloDeFirmas(cantidad) : `${tituloDeFirmas(cantidad)} · ${tiempo}`
 }
 
 function segundosDe(pieza: PiezaDeInicio): number {
@@ -223,6 +232,8 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
   return {
     semana: `Semana del ${semanaDe(ahora, zona)}`,
     resumen: resumenDeFirmas(firma.length),
+    titulo: tituloDeFirmas(firma.length),
+    tiempo: tiempoDeFirmas(firma.length),
     firma,
     porSubir,
     camino,

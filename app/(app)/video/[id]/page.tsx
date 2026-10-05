@@ -1,9 +1,8 @@
-import { ExternalLink } from "lucide-react"
-import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
-import { Nota } from "@/components/nota"
-import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { EstadoSencillo } from "@/components/estado-sencillo"
+import { MomentoDeCierre } from "@/components/momento-de-cierre"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
 import {
   leerContextoDeFechas,
@@ -17,10 +16,13 @@ import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
 import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
-import { AccionesDeEstado, VolverAInicio } from "../../estado-de-pieza"
+import { AccionesDeEstado } from "../../estado-de-pieza"
 import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { PantallaVideo } from "./pantalla-video"
 import { SubirAMano } from "./subir-a-mano"
+
+const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
+const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
 
 const UNA_HORA_MS = 60 * 60 * 1000
 const FECHAS_A_OFRECER = 4
@@ -40,17 +42,16 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       const zona = (await leerContextoDeFechas(db, fila.id)).horario.zona
       const sinInstagram = !(await leerInstagramConectado(db))
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota
-            tipo="ok"
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <LineaDeEstado
+            tipo="exito"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
-          >
-            <p>
-              {sinInstagram
+            detalle={
+              sinInstagram
                 ? "Instagram todavía no está conectado, así que este reel no sale solo. A esa hora te aviso y lo subes tú."
-                : "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."}
-            </p>
-          </Nota>
+                : "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."
+            }
+          />
           {sinInstagram && fila.texto !== null ? (
             <SubirAMano
               piezaId={fila.id}
@@ -67,10 +68,12 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     case "para_subir_a_mano":
       if (fila.texto === null) throw new Error(`La pieza ${fila.id} espera subirse sin texto guardado.`)
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="aviso" titulo="Listo para que lo subas a Instagram">
-            <p>Instagram todavía no está conectado, así que este reel no sale solo. Súbelo tú con estos pasos.</p>
-          </Nota>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <LineaDeEstado
+            tipo="aviso"
+            titulo="Listo para que lo subas a Instagram"
+            detalle="Instagram todavía no está conectado, así que este reel no sale solo. Súbelo tú con estos pasos."
+          />
           <SubirAMano
             piezaId={fila.id}
             version={fila.version}
@@ -83,51 +86,39 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       )
     case "publicado_a_mano":
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="ok" titulo="Subido a mano">
-            <p>Lo subiste tú a Instagram, con la etiqueta de IA.</p>
-            {fila.permalink ? (
-              <Link
-                href={fila.permalink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}
-              >
-                Ver en Instagram
-                <ExternalLink aria-hidden="true" size={18} />
-              </Link>
-            ) : null}
-          </Nota>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <MomentoDeCierre
+            titulo="Subido a mano"
+            detalle="Lo subiste tú a Instagram, con la etiqueta de IA."
+            enlace={fila.permalink}
+          />
         </EstadoSencillo>
       )
     case "publicado":
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="ok" titulo="Ya se publicó">
-            <p>La etiqueta de IA quedó puesta en Instagram.</p>
-            {fila.permalink ? (
-              <Link
-                href={fila.permalink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}
-              >
-                Ver en Instagram
-                <ExternalLink aria-hidden="true" size={18} />
-              </Link>
-            ) : null}
-          </Nota>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <MomentoDeCierre
+            titulo="Ya se publicó"
+            detalle="La etiqueta de IA quedó puesta en Instagram."
+            enlace={fila.permalink}
+          />
         </EstadoSencillo>
       )
     case "error_publicacion":
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="error" titulo="No se pudo publicar">
-            <p>{fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}</p>
-            {fila.media_id ? (
-              <p>Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo.</p>
-            ) : null}
-          </Nota>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <LineaDeEstado
+            tipo="error"
+            titulo="No se pudo publicar"
+            detalle={
+              <>
+                {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+                {fila.media_id
+                  ? " Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo."
+                  : null}
+              </>
+            }
+          />
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
@@ -141,8 +132,8 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       return redirect(`/guion/${fila.id}`)
     default:
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <p className="text-apagado">Esta pieza ya no está en curso.</p>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <p className="text-cuerpo text-apagado">Esta pieza ya no está en curso.</p>
         </EstadoSencillo>
       )
   }
@@ -191,14 +182,4 @@ async function esPrimeraVez(db: Awaited<ReturnType<typeof exigirConi>>["db"]): P
   const { data, error } = await db.from("ajustes").select("avatar_visto_en").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   return data?.avatar_visto_en === null
-}
-
-function EstadoSencillo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-5.5">
-      <h1 className="font-serif text-display text-balance">{titulo}</h1>
-      {children}
-      <VolverAInicio />
-    </div>
-  )
 }

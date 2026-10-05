@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guion por aprobar</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  .oscuro{color-scheme:dark;--fondo:#161513;--superficie:#1f1d1a;--tinta:#ece9e3;--apagado:#a39d94;--campo:#7c766d;--linea:#2f2c28;--pista:#2a2724;--principal:#d6d2cb;--sobre-principal:#161513;--sobre-tinta:#161513;--firma:#d78099;--sobre-firma:#161513;--firma-rastro:rgb(215 128 153 / .22);--error:#e98a7f;--exito:#86c39c;--aviso:#d9ad66;--foto-brillo:.94;--peso-titulo:500;--sombra-barra:0 -1px 0 var(--linea),0 -8px 24px rgb(8 7 6 / .45);--anillo-foco:0 0 0 2px var(--fondo),0 0 0 4px var(--tinta)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#d9d5ce}
+  body{font-family:var(--letra);width:390px;-webkit-font-smoothing:antialiased}
+  .rotulo-mock{font:500 13px/1 var(--letra);color:#4a463f;padding:20px 20px 12px;letter-spacing:.02em}
+  .frame{background:var(--fondo);color:var(--tinta);position:relative;width:390px}
+  .page{padding:0 var(--margen) 32px}
+  .sb{height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font:600 16px/1 var(--letra);font-variant-numeric:tabular-nums}
+  .sb i{display:flex;gap:6px;align-items:center}
+  svg{display:block;flex:none}
+  .ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .chico{width:16px;height:16px}
+  .volver{display:inline-flex;align-items:center;gap:4px;min-height:44px;font:500 var(--t-cuerpo)/1 var(--letra);color:var(--tinta);text-decoration:none;margin-left:-4px}
+  .par{display:flex;justify-content:space-between;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:12px;font-variant-numeric:var(--cifras)}
+  h1{font-size:var(--t-pieza);line-height:var(--i-pieza);font-weight:var(--peso-titulo);letter-spacing:var(--tr-pieza);text-wrap:balance;margin-top:8px}
+  .estado{display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-top:24px}
+  .estado .ic{display:flex;justify-content:center;padding-top:2px}
+  .estado p{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo)}
+  .estado .det{font-size:var(--t-meta);line-height:var(--i-meta);margin-top:4px}
+  .fecha{color:var(--firma);font-weight:600;font-variant-numeric:var(--cifras);white-space:nowrap}
+  .sec{margin-top:var(--entre-secciones);border-top:1px solid var(--tinta);padding-top:12px}
+  .sec-h{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--t-meta);line-height:var(--i-meta);margin-bottom:8px}
+  .sec-h b{font-weight:600}
+  .sec-h span{color:var(--apagado);font-variant-numeric:var(--cifras);display:flex;gap:6px;align-items:center}
+  .ok{color:var(--exito);display:inline-flex;gap:4px;align-items:center;font-weight:500}
+  .campo{background:var(--superficie);border:1px solid var(--campo);border-radius:var(--r-12);padding:16px}
+  .guion{font-size:var(--t-guion);line-height:var(--i-guion);white-space:pre-wrap}
+  .guion p+p{margin-top:32px}
+  .pub{font-size:var(--t-cuerpo);line-height:var(--i-prosa)}
+  .pub p+p{margin-top:28px}
+  .ayuda{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:8px}
+  .pleg{display:flex;align-items:center;gap:6px;min-height:44px;font:600 var(--t-meta)/1 var(--letra);color:var(--tinta);margin-top:4px}
+  .txt-btn{display:inline-flex;align-items:center;min-height:44px;font:600 var(--t-cuerpo)/1 var(--letra);color:var(--tinta);margin-top:4px}
+  .avatares{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .look{position:relative}
+  .look .foto{aspect-ratio:3/4;border-radius:var(--r-12);overflow:hidden;background:var(--pista)}
+  .look img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(var(--foto-brillo))}
+  .look.sel .foto{box-shadow:0 0 0 3px var(--fondo),0 0 0 5px var(--tinta)}
+  .look .nom{font-weight:600;font-size:var(--t-cuerpo);line-height:var(--i-cuerpo);margin-top:10px}
+  .casilla{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--campo);background:var(--superficie);display:flex;align-items:center;justify-content:center;flex:none}
+  .casilla.on{background:var(--tinta);border-color:var(--tinta);color:var(--sobre-tinta)}
+  .look .casilla{position:absolute;top:8px;right:8px}
+  .hall{display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-top:16px}
+  .hall .ic{color:var(--aviso);display:flex;justify-content:center;padding-top:2px}
+  .hall p{font-size:var(--t-cuerpo);line-height:var(--i-cuerpo)}
+  .hall b{color:var(--aviso);font-weight:600}
+  .fila-check{display:flex;align-items:center;gap:12px;min-height:56px;margin-top:8px;font-size:var(--t-cuerpo)}
+  .acc{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:12px}
+  .btn-off{display:inline-flex;align-items:center;min-height:52px;padding:0 20px;border-radius:var(--r-12);border:1px solid var(--linea);font:600 var(--t-cuerpo)/1 var(--letra);color:var(--apagado)}
+  .pie{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+  .pie .linea{margin-top:0}
+  .destr{display:inline-flex;align-items:center;min-height:44px;font:600 var(--t-cuerpo)/1 var(--letra);color:var(--error);margin-top:32px}
+  .barra{position:relative;z-index:var(--capa-barra);background:var(--superficie);box-shadow:var(--sombra-barra);padding:12px var(--margen) calc(8px + 34px)}
+  .pista{height:var(--alto-pista);border-radius:var(--r-circulo);background:var(--pista);position:relative;display:flex;align-items:center}
+  .pulgar{position:absolute;left:4px;top:4px;width:48px;height:48px;border-radius:50%;background:var(--firma);color:var(--sobre-firma);display:flex;align-items:center;justify-content:center}
+  .pista span{margin-left:56px;flex:1;text-align:center;font:600 var(--t-cuerpo)/1 var(--letra)}
+  .barra .linea{font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:8px}
+  .home{width:134px;height:5px;border-radius:3px;background:var(--tinta);position:absolute;left:128px;bottom:8px;opacity:.9}
+  .marca{font:500 var(--t-meta)/1 var(--letra);color:var(--apagado);background:var(--pista);border-radius:var(--r-circulo);padding:2px 8px}
+</style>
+</head>
+<body>
+<template id="pantalla">
+<div class="sb"><span>10:30</span><i><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="26" height="12" viewBox="0 0 26 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/></svg></i></div>
+<div class="page">
+  <a class="volver" href="#"><svg class="ico" viewBox="0 0 20 20"><path d="M12.5 4 6.5 10l6 6"/></svg>Inicio</a>
+  <div class="par"><span>Deseo y sexualidad</span><span>Mito o realidad · 52 s</span></div>
+  <h1>El deseo no se apaga, se esconde</h1>
+  <div class="estado">
+    <div class="ic"><svg class="ico" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg></div>
+    <div><p>Si lo apruebas hoy, sale el<br><span class="fecha">jueves 8 de octubre · 19:00</span></p>
+    <p class="det">Después grabas la voz y el video.</p></div>
+  </div>
+
+  <section class="sec">
+    <div class="sec-h"><b>Guion</b><span>123 palabras · ≈ 52 s · <span class="ok"><svg class="ico chico" viewBox="0 0 20 20"><path d="M4 10.5 8 14.5 16 6"/></svg>Bien</span></span></div>
+    <div class="campo guion"><p>[warm] El deseo en la pareja no se apaga. Se esconde.</p><p>Hay un mito que escucho todo el tiempo: si hay amor, el deseo aparece solo. Y cuando no aparece, muchas personas sienten que algo anda mal.</p><p>Pero en una relación larga, el deseo muchas veces no llega solo. Se esconde detrás del cansancio, la rutina, el celular y la lista de pendientes. No es que se haya ido. Es que no tiene dónde aparecer.</p><p>Te propongo algo para esta semana. Reserva un rato para ustedes dos, sin pantallas y sin hablar de pendientes. No tiene que terminar en nada. Conversen, ríanse, abrácense sin apuro.</p><p>Y si la falta de deseo te hace sufrir, conversarlo con una profesional también ayuda.</p><p>[pause] Soy Coni del Rosario.</p></div>
+    <p class="ayuda">Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos.</p>
+    <div class="pleg"><svg class="ico chico" viewBox="0 0 20 20"><path d="M4 7.5l6 6 6-6"/></svg>Marcas que conozco</div>
+    <div class="acc"><span class="btn-off" aria-disabled="true">Guardar cambios</span><span class="txt-btn">Volver a la versión de Claude</span></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><b>Texto de la publicación</b><span>98 de 2.200</span></div>
+    <div class="campo pub"><p>El deseo no se apaga: se esconde detrás del cansancio y la rutina.</p><p>Video hecho con mi avatar digital.</p></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><b>Avatar</b></div>
+    <p class="ayuda" style="margin:0 0 12px">Elige con qué avatar se graba</p>
+    <div class="avatares">
+      <div class="look sel"><div class="foto"><img src="../img/look-estudio.jpg" alt=""></div><div class="casilla on"><svg class="ico" style="width:14px;height:14px;stroke-width:2.5" viewBox="0 0 20 20"><path d="M4 10.5 8 14.5 16 6"/></svg></div><div class="nom">Estudio</div></div>
+      <div class="look"><div class="foto"><img src="../img/look-terraza.jpg" alt=""></div><div class="casilla"></div><div class="nom">Terraza</div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><b>Revisión</b><span>1</span></div>
+    <p class="ayuda" style="margin:0">Claude revisó el guion. Tú decides.</p>
+    <div class="hall">
+      <div class="ic"><svg class="ico" viewBox="0 0 20 20"><path d="M10 3 2.5 16.5h15z"/><path d="M10 8.5v3.5"/><circle cx="10" cy="14.2" r=".4" fill="currentColor"/></svg></div>
+      <div><p><b>Para confirmar:</b> El tema es sexualidad. HeyGen revisa estos guiones con más cuidado; confirma que el lenguaje es educativo.</p>
+      <label class="fila-check" style="margin-left:-36px"><span class="casilla CHK"></span><span style="margin-left:0">Lo revisé y está bien</span></label></div>
+    </div>
+  </section>
+
+<div style="height:96px"></div>
+</div>
+<div class="barra">
+  <div class="pista"><div class="pulgar"><svg class="ico" style="width:24px;height:24px;stroke-width:1.75" viewBox="0 0 20 20"><path d="M3.5 10h13M11 4.5l5.5 5.5-5.5 5.5"/></svg></div><span>Desliza para aprobar el guion</span></div>
+  <div class="pie"><p class="linea">Aprobar no gasta nada.</p><span class="txt-btn">Pedir cambios</span></div>
+  <div class="home"></div>
+</div>
+</template>
+
+<p class="rotulo-mock">GUION POR APROBAR · CLARO · 390 × 844 · la barra va fija abajo (aquí al pie)</p>
+<div class="frame" id="claro"></div>
+<p class="rotulo-mock" style="padding-top:48px">GUION POR APROBAR · OSCURO</p>
+<div class="frame oscuro" id="oscuro"></div>
+<div style="height:48px"></div>
+<script>
+const t=document.getElementById('pantalla').innerHTML;
+const chk='<span class="casilla on"><svg class="ico" style="width:14px;height:14px;stroke-width:2.5" viewBox="0 0 20 20"><path d="M4 10.5 8 14.5 16 6"/></svg></span>';
+for(const id of ['claro','oscuro']) document.getElementById(id).innerHTML=t.replace('<span class="casilla CHK"></span>',chk);
+</script>
+</body>
+</html>

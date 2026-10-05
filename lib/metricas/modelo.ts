@@ -56,6 +56,10 @@ export interface Barra {
   /** 0 to 100, scaled to the best bar that is visible. */
   ancho: number
   texto: string
+  /** The same figure split for the layout: «50,4», «cada 1.000» and the sample «121 guardados de 2.400 personas». */
+  cifra: string | null
+  unidad: string
+  muestra: string | null
   /** The sample size of the reel's theme. */
   reelsDelTema: number
 }
@@ -132,11 +136,18 @@ function reelMedido(pieza: PiezaPublicada, lectura: Omit<LecturaDeReel, "piezaId
   return { piezaId: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar, publicadoEn: pieza.publicadoEn, ...lectura }
 }
 
+const UNIDAD_DE_BARRA = "cada 1.000"
+
+function muestraDeBarra(lectura: LecturaDeReel | undefined, porMil: number | null): string | null {
+  if (!lectura || porMil === null || lectura.guardados === null || lectura.alcance === null) return null
+  return `${plural(lectura.guardados, "guardado", "guardados")} de ${plural(lectura.alcance, "persona", "personas")}`
+}
+
 function textoDeBarra(lectura: LecturaDeReel | undefined, porMil: number | null): string {
   if (!lectura || porMil === null || lectura.guardados === null || lectura.alcance === null) {
     return "Todavía sin números: llegan cada mañana a las 7:00."
   }
-  return `${numero(porMil)} cada 1.000 · ${plural(lectura.guardados, "guardado", "guardados")} de ${plural(lectura.alcance, "persona", "personas")}`
+  return `${numero(porMil)} ${UNIDAD_DE_BARRA} · ${muestraDeBarra(lectura, porMil)}`
 }
 
 function metaDeReel(lectura: LecturaDeReel | undefined): string {
@@ -258,6 +269,9 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
       porMil,
       ancho: porMil === null || maximo === 0 ? 0 : Math.max(porMil > 0 ? 2 : 0, Math.round((porMil / maximo) * 100)),
       texto: textoDeBarra(lectura, porMil),
+      cifra: muestraDeBarra(lectura, porMil) === null || porMil === null ? null : numero(porMil),
+      unidad: UNIDAD_DE_BARRA,
+      muestra: muestraDeBarra(lectura, porMil),
       reelsDelTema: pieza.pilar ? (reelsPorTema.get(pieza.pilar) ?? 0) : 0,
     }))
 

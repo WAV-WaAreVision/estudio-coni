@@ -1,37 +1,63 @@
-import { ChevronRight } from "lucide-react"
+import { CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
+import { PuntoTrabajando } from "./ui/punto-trabajando"
 
 interface PropiedadesDeFila {
   titulo: string
-  meta: string
+  /** What is happening to the piece, in one line: «Guion · 52 s», «Escribiendo el guion · te aviso». */
+  estado: string
   pilar: Pilar | null
   /** Without it the row is not a link (something is happening to the piece and there is nothing to do yet). */
   href?: string
-  ocupada?: boolean
+  trabajando?: boolean
+  /** An unread notice points at this piece: an ink dot in the left margin. */
+  sinLeer?: boolean
+  /** The real frame of the video, only when there is one. */
+  miniatura?: string
 }
 
-/** One piece in a list: the pillar's dot, the title, a line of meta and, when it opens something, a chevron. */
-export function FilaPieza({ titulo, meta, pilar, href, ocupada = false }: PropiedadesDeFila) {
+/** Brandkit 9.3: pillar word, title and state on a flat row; a caret when it opens something. */
+export function FilaPieza({
+  titulo,
+  estado,
+  pilar,
+  href,
+  trabajando = false,
+  sinLeer = false,
+  miniatura,
+}: PropiedadesDeFila) {
   const contenido = (
     <>
-      <span aria-hidden="true" className="mt-2 size-2.5 self-start rounded-full bg-pilar-punto" />
       <span className="grid gap-0.5">
-        <span className="text-body font-semibold leading-[1.3]">{titulo}</span>
-        <span className="text-meta text-apagado">
-          {meta}
-          {pilar ? ` · ${NOMBRE_DE_PILAR[pilar]}` : ""}
+        {pilar ? <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[pilar]}</span> : null}
+        <span className="text-cuerpo font-semibold tracking-[-0.004em]">{titulo}</span>
+        <span className="flex items-center gap-2 text-meta font-medium text-tinta">
+          {trabajando ? <PuntoTrabajando /> : null}
+          {estado}
         </span>
-        {ocupada ? <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" /> : null}
       </span>
-      {href ? <ChevronRight aria-hidden="true" size={22} className="self-center text-apagado" /> : <span />}
+      {miniatura ? (
+        // biome-ignore lint/performance/noImgElement: a signed storage URL of a 48 px frame; next/image adds nothing here.
+        <img src={miniatura} alt="" className="h-16 w-12 rounded-12 object-cover" />
+      ) : (
+        <span />
+      )}
+      {href ? <CaretRight aria-hidden="true" size={20} className="text-apagado" /> : <span />}
+      {sinLeer ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="absolute top-1/2 -left-3.5 size-2 -translate-y-1/2 rounded-full bg-tinta"
+          />
+          <span className="sr-only">Sin leer</span>
+        </>
+      ) : null}
     </>
   )
-  const clases = cn(
-    "grid min-h-16 grid-cols-[auto_1fr_auto] gap-x-3 border-b border-linea py-3.5 text-left last:border-b-0",
-    !pilar && "[--p-punto:var(--apagado)]",
-  )
+  const clases =
+    "relative grid min-h-16 grid-cols-[1fr_auto_auto] items-center gap-x-3 border-b border-linea py-3 text-left last:border-b-0"
 
   return (
     <li data-pilar={pilar ?? undefined} className="list-none">
@@ -40,7 +66,7 @@ export function FilaPieza({ titulo, meta, pilar, href, ocupada = false }: Propie
           href={href}
           className={cn(
             clases,
-            "transition-colors duration-150 ease-out active:bg-hundido motion-reduce:transition-none",
+            "transition-opacity duration-[var(--dur-corta)] active:opacity-70 motion-reduce:transition-none",
           )}
         >
           {contenido}

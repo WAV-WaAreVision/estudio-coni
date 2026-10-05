@@ -60,6 +60,14 @@ export function useReproduccion<T extends HTMLMediaElement>({ clave, alTerminar 
     })
   }, [])
 
+  // Seeking moves the player but never what she watched: `avanzar` only counts steps that look like playing.
+  const buscar = useCallback((segundos: number) => {
+    const medio = elemento.current
+    if (!medio) return
+    medio.currentTime = segundos
+    setTiempo(segundos)
+  }, [])
+
   const alCargar: ReactEventHandler<T> = (evento) => setDuracion(evento.currentTarget.duration)
 
   const eventos = {
@@ -71,5 +79,5 @@ export function useReproduccion<T extends HTMLMediaElement>({ clave, alTerminar 
     onError: () => setConError(true),
   }
 
-  return { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar }
+  return { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar, buscar }
 }

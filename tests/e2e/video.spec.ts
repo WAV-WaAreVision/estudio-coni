@@ -59,13 +59,14 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
   await expect(page.getByText(etiquetaElegida, { exact: true })).toBeVisible()
   await capturar(page, "05-video")
 
-  // Drag the thumb across with the pointer: the other way to approve besides the keyboard.
+  // Drag the thumb across the track with the pointer: the other way to approve besides the keyboard.
   await deslizador.scrollIntoViewIfNeeded()
-  const caja = await deslizador.boundingBox()
-  if (!caja) throw new Error("El deslizador no tiene caja")
-  await page.mouse.move(caja.x + 26, caja.y + caja.height / 2)
+  const pulgar = await deslizador.boundingBox()
+  const pista = await deslizador.locator("..").boundingBox()
+  if (!pulgar || !pista) throw new Error("El deslizador no tiene caja")
+  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
   await page.mouse.down()
-  await page.mouse.move(caja.x + caja.width - 6, caja.y + caja.height / 2, { steps: 14 })
+  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 14 })
   await page.mouse.up()
 
   await expect(page.getByText(`Programado para el ${etiquetaElegida}`)).toBeVisible()
@@ -141,4 +142,24 @@ test("the first ready video she opens says how to read it, once, and the databas
   await page.reload()
   await expect(page.getByText("Avatar IA")).toBeVisible()
   await expect(mensaje).toHaveCount(0)
+})
+
+test("the whole video and its play are visible above the sign bar on load at 390 x 844", async ({ page }) => {
+  const id = await videoPorAprobar()
+  await simularMedios(page)
+  await page.goto(`/video/${id}`)
+  const play = page.getByRole("button", { name: "Reproducir el video" })
+  const barra = page.getByRole("region", { name: "Firma" })
+  await expect(page.getByTestId("reproductor-video")).toBeVisible()
+  const [cajaPlay, cajaBarra, cajaVideo] = await Promise.all([
+    play.boundingBox(),
+    barra.boundingBox(),
+    page.getByTestId("reproductor-video").boundingBox(),
+  ])
+  if (!cajaPlay || !cajaBarra || !cajaVideo) throw new Error("missing boxes")
+  expect(cajaPlay.y + cajaPlay.height).toBeLessThan(cajaBarra.y)
+  expect(cajaVideo.y + cajaVideo.height).toBeLessThanOrEqual(cajaBarra.y)
+  // The video is never dimmed (brandkit 9.17).
+  expect(await page.locator("video").evaluate((el) => getComputedStyle(el).filter)).toBe("none")
+  await capturar(page, "video-por-aprobar-abrir")
 })

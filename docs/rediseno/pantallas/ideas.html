@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conidolly · Ideas</title>
+<script>
+  if (location.search === "?oscuro") document.documentElement.dataset.theme = "dark";
+</script>
+<link rel="stylesheet" href="../tokens.css">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--fondo); color: var(--tinta); font-family: var(--letra);
+    font-size: var(--t-cuerpo); line-height: var(--i-cuerpo); width: 390px; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+  /* Presentation chrome for the mockup page, not part of the app */
+  .rotulo-lamina { padding: var(--e-8) var(--margen) var(--e-3); font-size: var(--t-meta);
+    line-height: var(--i-meta); color: var(--apagado); border-top: var(--trazo) solid var(--linea); }
+  .rotulo-lamina b { color: var(--tinta); font-weight: var(--peso-fuerte); }
+  body > .rotulo-lamina:first-child { border-top: 0; }
+  .marco-oscuro { display: block; width: 390px; height: 844px; border: 0; }
+  html[data-theme="dark"] .rotulo-lamina, html[data-theme="dark"] .solo-claro { display: none; }
+
+  .pantalla { position: relative; width: 390px; min-height: 844px; background: var(--fondo);
+    padding: 0 var(--margen) calc(56px + 34px + var(--final-pagina)); overflow: hidden; }
+
+  .estado-ios { height: 47px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px; font-size: 15px; font-weight: var(--peso-fuerte); font-variant-numeric: var(--cifras); }
+  .estado-ios span:last-child { display: flex; gap: 6px; font-size: 16px; }
+
+  a { color: inherit; text-decoration: none; }
+  .atras { display: inline-flex; align-items: center; gap: var(--e-1); min-height: var(--objetivo-min);
+    font-weight: var(--peso-medio); margin-left: -4px; }
+  .atras i { font-size: var(--icono); }
+
+  .cabeza { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--e-4);
+    margin-top: var(--e-2); }
+  h1 { font-size: var(--t-pantalla); line-height: var(--i-pantalla); letter-spacing: var(--tr-pantalla);
+    font-weight: var(--peso-titulo); }
+  .texto-btn { display: inline-flex; align-items: center; gap: var(--e-2); min-height: var(--objetivo-min);
+    font-weight: var(--peso-fuerte); }
+  .texto-btn i { font-size: var(--icono); }
+
+  .par { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--t-meta);
+    line-height: var(--i-meta); margin-top: var(--e-8); padding-top: var(--e-3);
+    border-top: var(--trazo) solid var(--tinta); }
+  .par b { font-weight: var(--peso-fuerte); }
+  .par span { color: var(--apagado); font-variant-numeric: var(--cifras); }
+
+  .carta { margin-top: var(--e-3); background: var(--superficie); box-shadow: var(--sombra-flotante);
+    border-radius: var(--r-12); padding: var(--e-6) var(--e-6) var(--e-2); }
+  .meta { font-size: var(--t-meta); line-height: var(--i-meta); color: var(--apagado); }
+  .gancho { font-size: var(--t-pieza); line-height: var(--i-pieza); letter-spacing: var(--tr-pieza);
+    font-weight: var(--peso-fuerte); text-wrap: balance; margin-top: var(--e-2); }
+  .tema { color: var(--apagado); margin-top: var(--e-2); line-height: var(--i-prosa); }
+  .meta.abajo { margin-top: var(--e-3); }
+
+  .estado { display: grid; grid-template-columns: 24px 1fr; column-gap: var(--e-3); margin-top: var(--e-4); }
+  .estado i { font-size: var(--icono); color: var(--aviso); justify-self: center; margin-top: 2px; }
+  .estado b { color: var(--aviso); font-weight: var(--peso-fuerte); }
+  .estado p { font-size: var(--t-meta); line-height: var(--i-meta); }
+
+  .acciones { display: grid; grid-template-columns: auto 1fr; gap: var(--e-3); margin-top: var(--e-6); }
+  .btn { height: var(--alto-boton); border-radius: var(--r-12); padding: 0 var(--e-4);
+    display: flex; align-items: center; justify-content: space-between; gap: var(--e-3);
+    font-weight: var(--peso-fuerte); }
+  .btn i { font-size: var(--icono); }
+  .btn.principal { background: var(--principal); color: var(--sobre-principal); }
+  .btn.secundaria { box-shadow: inset 0 0 0 var(--trazo) var(--campo); }
+
+  .plegable { margin-top: var(--e-4); border-top: var(--trazo) solid var(--linea); }
+  .plegable > button { width: 100%; min-height: 56px; display: flex; align-items: center;
+    justify-content: space-between; font-weight: var(--peso-fuerte); }
+  .plegable > button i { font-size: var(--icono); color: var(--apagado); }
+  .abierto > button i { transform: rotate(180deg); }
+  .porque { padding-bottom: var(--e-4); }
+  .porque h3 { font-size: var(--t-cuerpo); line-height: var(--i-cuerpo); font-weight: var(--peso-fuerte); }
+  .porque p { line-height: var(--i-prosa); margin-top: var(--e-2); }
+  .porque .meta { margin-top: var(--e-3); }
+  .solo-ti { margin-top: var(--e-6); padding-top: var(--e-3); border-top: var(--trazo) solid var(--linea); }
+  .solo-ti .etq { font-size: var(--t-meta); line-height: var(--i-meta); font-weight: var(--peso-fuerte); }
+  .solo-ti blockquote { margin-top: var(--e-2); font-size: var(--t-meta); line-height: var(--i-meta);
+    color: var(--apagado); }
+  .solo-ti blockquote b { color: var(--tinta); font-weight: var(--peso-medio); }
+
+  .fuera { margin-top: var(--e-6); display: flex; flex-direction: column; align-items: flex-start; }
+  .destructiva { color: var(--error); }
+
+  /* Discard reasons, inline (no sheet, no dialog) */
+  .descarte { margin-top: var(--e-8); padding-top: var(--e-3); border-top: var(--trazo) solid var(--tinta); }
+  .descarte legend { font-size: var(--t-meta); line-height: var(--i-meta); font-weight: var(--peso-fuerte);
+    padding-bottom: var(--e-2); }
+  fieldset { border: 0; }
+  .fila-check { display: flex; align-items: center; justify-content: space-between; min-height: 56px;
+    border-bottom: var(--trazo) solid var(--linea); }
+  .fila-check:last-of-type { border-bottom: 0; }
+  .fila-check i { font-size: var(--icono); }
+  .descarte .pie { display: flex; gap: var(--e-6); margin-top: var(--e-2); }
+
+  /* Search */
+  .campo-etq { margin-top: var(--e-8); padding-top: var(--e-3); border-top: var(--trazo) solid var(--tinta);
+    font-size: var(--t-meta); line-height: var(--i-meta); font-weight: var(--peso-fuerte); display: block; }
+  .campo { margin-top: var(--e-2); height: var(--alto-boton); border-radius: var(--r-12);
+    background: var(--superficie); box-shadow: inset 0 0 0 var(--trazo) var(--campo);
+    display: flex; align-items: center; gap: var(--e-3); padding: 0 var(--e-4); }
+  .campo i { color: var(--apagado); font-size: var(--icono); }
+  .campo span { color: var(--tinta); }
+  .chips { display: flex; gap: var(--e-2); margin: var(--e-4) calc(-1 * var(--margen)) 0;
+    padding: 0 var(--margen); overflow-x: auto; scrollbar-width: none; }
+  .chip { flex: none; height: var(--objetivo-min); padding: 0 14px; border-radius: var(--r-12);
+    box-shadow: inset 0 0 0 var(--trazo) var(--campo); font-size: var(--t-meta); font-weight: var(--peso-medio);
+    display: inline-flex; align-items: center; gap: 6px; }
+  .chip.si { background: var(--tinta); color: var(--sobre-tinta); box-shadow: none; }
+  .chip i { font-size: var(--icono-chico); }
+  .conteo { margin-top: var(--e-6); }
+  .fila { padding: var(--e-3) 0; min-height: var(--alto-fila); border-bottom: var(--trazo) solid var(--linea);
+    display: grid; grid-template-columns: 1fr auto; column-gap: var(--e-3); align-items: center; }
+  .fila:last-child { border-bottom: 0; }
+  .fila h3 { font-size: var(--t-cuerpo); line-height: var(--i-cuerpo); font-weight: var(--peso-fuerte);
+    letter-spacing: -0.004em; margin-top: 2px; }
+  .fila > i { color: var(--apagado); font-size: var(--icono); }
+  .fila .ok { color: var(--exito); }
+  .fila.usada h3 { color: var(--apagado); }
+
+  .nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--capa-barra); background: var(--fondo);
+    border-top: var(--trazo) solid var(--linea); display: grid; grid-template-columns: repeat(3, 1fr);
+    padding-bottom: 34px; }
+  .nav a { position: relative; height: 56px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; font-size: var(--t-meta); line-height: var(--i-meta); color: var(--apagado);
+    font-weight: var(--peso-medio); text-decoration: none; }
+  .nav a i { font-size: var(--icono-nav); }
+  .nav a.activa { color: var(--tinta); font-weight: var(--peso-fuerte); }
+  .nav a.activa::before { content: ""; position: absolute; top: -1px; width: 24px; height: 2px; background: var(--tinta); }
+
+  .toast { position: absolute; left: var(--margen); right: var(--margen); bottom: calc(56px + 34px + 12px);
+    z-index: var(--capa-toast); background: var(--tinta); color: var(--sobre-tinta); border-radius: var(--r-12);
+    box-shadow: var(--sombra-flotante); padding: var(--e-1) var(--e-4) var(--e-1) var(--e-4);
+    display: flex; align-items: center; justify-content: space-between; min-height: 56px; }
+  .toast button { color: var(--sobre-tinta); font-weight: var(--peso-fuerte); text-decoration: underline;
+    text-underline-offset: 3px; min-height: var(--objetivo-min); }
+  .lista { list-style: none; font-size: var(--t-meta); line-height: var(--i-meta); }
+  .revisar { margin-top: var(--e-2); }
+  .area { margin-top: var(--e-2); min-height: 112px; border-radius: var(--r-12); background: var(--superficie);
+    box-shadow: inset 0 0 0 var(--trazo) var(--campo); padding: var(--e-3) var(--e-4); }
+  .area.vacia { color: var(--apagado); }
+  .ayuda { margin-top: var(--e-2); font-size: var(--t-meta); line-height: var(--i-meta); color: var(--apagado); }
+  .btn.ancho { width: 100%; margin-top: var(--e-8); }
+  .btn[disabled] { background: var(--pista); color: var(--apagado); cursor: not-allowed; }
+  /* Dark preview scope: verbatim copy of :root[data-theme="dark"] from tokens.css (file:// blocks the iframe) */
+  .tema-oscuro {
+  color-scheme: dark;
+  --fondo: #161513;
+  --superficie: #1f1d1a;
+  --tinta: #ece9e3;
+  --apagado: #a39d94;
+  --campo: #7c766d;
+  --linea: #2f2c28;
+  --pista: #2a2724;
+  --principal: #d6d2cb;
+  --sobre-principal: #161513;
+  --sobre-tinta: #161513;
+  --firma: #d78099;
+  --sobre-firma: #161513;
+  --firma-rastro: rgb(215 128 153 / 0.22);
+  --error: #e98a7f;
+  --exito: #86c39c;
+  --aviso: #d9ad66;
+  --foto-brillo: 0.94;
+  --peso-titulo: 500;
+  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
+  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(8 7 6 / 0.45);
+  }
+  .tema-oscuro .pantalla { color: var(--tinta); }
+</style>
+</head>
+<body>
+
+<p class="rotulo-lamina"><b>Ideas · 1 de 4.</b> Mazo con «Nuevas de la semana» y «Por qué» abierto. Claro.</p>
+<section class="pantalla" aria-label="Ideas, mazo">
+  <div class="estado-ios"><span>10:30</span><span><i class="ph-fill ph-cell-signal-high"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+  <a class="atras" href="#"><i class="ph ph-caret-left"></i>Inicio</a>
+  <div class="cabeza">
+    <h1>Ideas</h1>
+    <button class="texto-btn"><i class="ph ph-magnifying-glass"></i>Buscar</button>
+  </div>
+
+  <div class="par"><b>Nuevas de la semana</b><span>Idea 1 de 3</span></div>
+  <article class="carta">
+    <p class="meta">Pareja y conversación</p>
+    <h2 class="gancho">Estar cansada no siempre es cansancio.</h2>
+    <p class="tema">Cuando el deseo se esconde detrás del agotamiento.</p>
+    <p class="meta abajo">Fuerza alta · Mito o realidad · Respaldo débil</p>
+    <div class="estado"><i class="ph ph-warning"></i><p><b>Verificar dato</b></p></div>
+    <div class="plegable abierto revisar"><button aria-expanded="true">Qué revisar antes de grabar<i class="ph ph-caret-down"></i></button><ul class="porque lista"><li>verificar dato: La fuente cita proxémica sin estudio.</li></ul></div>
+    <div class="acciones">
+      <button class="btn secundaria">Después</button>
+      <button class="btn principal">Usar esta<i class="ph ph-arrow-right"></i></button>
+    </div>
+    <div class="plegable abierto">
+      <button aria-expanded="true">Por qué<i class="ph ph-caret-down"></i></button>
+      <div class="porque">
+        <h3>El deseo se esconde detrás del cansancio</h3>
+        <p>Quien dice estar cansada muchas veces protege su deseo.</p>
+        <p class="meta">Evidencia: Débil</p>
+        <div class="solo-ti">
+          <p class="etq">Solo para ti, no se publica</p>
+          <blockquote><b>Siembra Autora Uno:</b> El cansancio es una forma de decir que no.</blockquote>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <div class="fuera">
+    <button class="texto-btn destructiva">Descartar</button>
+    <button class="texto-btn"><i class="ph ph-plus"></i>Escribir una idea mía</button>
+  </div>
+
+  <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</section>
+
+<div class="solo-claro">
+<p class="rotulo-lamina"><b>Ideas · 2 de 4.</b> «Descartar» abre los motivos en la página. Tocar un motivo descarta; la siguiente idea toma su lugar y el toast trae «Deshacer».</p>
+<section class="pantalla" aria-label="Ideas, descartar con motivo">
+  <div class="estado-ios"><span>10:31</span><span><i class="ph-fill ph-cell-signal-high"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+  <a class="atras" href="#"><i class="ph ph-caret-left"></i>Inicio</a>
+  <div class="cabeza">
+    <h1>Ideas</h1>
+    <button class="texto-btn"><i class="ph ph-magnifying-glass"></i>Buscar</button>
+  </div>
+
+  <div class="par"><b>Nuevas de la semana</b><span>Idea 1 de 3</span></div>
+  <article class="carta">
+    <p class="meta">Pareja y conversación</p>
+    <h2 class="gancho">Estar cansada no siempre es cansancio.</h2>
+    <p class="meta abajo">Fuerza alta · Mito o realidad · Respaldo débil</p>
+    <div class="acciones">
+      <button class="btn secundaria">Después</button>
+      <button class="btn principal">Usar esta<i class="ph ph-arrow-right"></i></button>
+    </div>
+    <div class="plegable">
+      <button aria-expanded="false">Por qué<i class="ph ph-caret-down"></i></button>
+    </div>
+  </article>
+
+  <fieldset class="descarte">
+    <legend>¿Por qué la descartas?</legend>
+    <button class="fila-check" style="width:100%">No me representa</button>
+    <button class="fila-check" style="width:100%">Repetida</button>
+    <button class="fila-check" style="width:100%">Débil</button>
+    <button class="fila-check" style="width:100%">Otro</button>
+    <div class="pie"><button class="texto-btn">Cancelar</button></div>
+  </fieldset>
+
+  <div class="toast" role="status"><span>Descarté la idea.</span><button>Deshacer</button></div>
+  <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</section>
+
+<p class="rotulo-lamina"><b>Ideas · 3 de 4.</b> Buscar, con los chips de pilar (uno activo) y los filtros. Las usadas no se tocan.</p>
+<section class="pantalla" aria-label="Buscar ideas">
+  <div class="estado-ios"><span>10:32</span><span><i class="ph-fill ph-cell-signal-high"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+  <a class="atras" href="#"><i class="ph ph-caret-left"></i>Inicio</a>
+  <div class="cabeza">
+    <h1>Buscar ideas</h1>
+    <button class="texto-btn">Una a la vez</button>
+  </div>
+
+  <label class="campo-etq">Buscar por palabra o tema</label>
+  <div class="campo"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>deseo</span></div>
+
+  <div class="chips" role="radiogroup" aria-label="Pilar">
+    <button class="chip">Todos</button><button class="chip">Pareja</button><button class="chip si"><i class="ph-bold ph-check"></i>Deseo</button><button class="chip">Autoestima</button><button class="chip">Límites</button><button class="chip">Bienestar</button>
+  </div>
+  <div class="chips">
+    <button class="chip">Fuerza alta</button><button class="chip">Sin alertas</button><button class="chip si"><i class="ph-bold ph-check"></i>Sin usar</button>
+  </div>
+
+  <div class="par conteo"><span>3 resultados</span></div>
+  <div>
+    <a class="fila"><div><p class="meta">Deseo y sexualidad</p><h3>El deseo no se apaga, se esconde.</h3><p class="meta">Fuerza alta</p></div><i class="ph ph-caret-right"></i></a>
+    <a class="fila"><div><p class="meta">Deseo y sexualidad</p><h3>Tres señales de que el deseo cambió, no se fue.</h3><p class="meta"><i class="ph ph-warning" style="color:var(--aviso)"></i> Verificar dato</p></div><i class="ph ph-caret-right"></i></a>
+    <div class="fila usada"><div><p class="meta">Deseo y sexualidad</p><h3>Fantasear no es traicionar.</h3><p class="meta"><span class="ok"><i class="ph ph-check-circle"></i> Usada</span></p></div></div>
+  </div>
+
+  <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</section>
+
+<p class="rotulo-lamina"><b>Ideas · 4 de 4.</b> «Escribir una idea mía», paso escribir. Sin texto, la principal queda deshabilitada con su motivo.</p>
+<section class="pantalla" aria-label="Tu idea, escribir">
+  <div class="estado-ios"><span>10:33</span><span><i class="ph-fill ph-cell-signal-high"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-high"></i></span></div>
+  <a class="atras" href="#"><i class="ph ph-caret-left"></i>Volver a las ideas</a>
+  <div class="cabeza"><h1>Tu idea</h1></div>
+  <label class="campo-etq">Tu idea</label>
+  <div class="area vacia" role="textbox" aria-multiline="true"></div>
+  <p class="ayuda">La frase con que abrirías el reel, como la dirías tú.</p>
+  <label class="campo-etq">De qué trata (si quieres)</label>
+  <div class="area vacia" role="textbox" aria-multiline="true"></div>
+  <button class="btn principal ancho" disabled>Proponer pilar y alertas<i class="ph ph-arrow-right"></i></button>
+  <p class="ayuda">Escribe tu idea primero.</p>
+  <nav class="nav"><a href="#"><i class="ph ph-house"></i>Inicio</a><a href="#"><i class="ph ph-chart-bar"></i>Métricas</a><a href="#"><i class="ph ph-gear-six"></i>Ajustes</a></nav>
+</section>
+
+<p class="rotulo-lamina"><b>Variante oscura.</b> Mismo mazo de noche: tokens oscuros, títulos un peso más livianos.</p>
+<div class="tema-oscuro" id="oscuro"></div>
+</div>
+<script>
+  const original = document.querySelector(".pantalla");
+  document.getElementById("oscuro").appendChild(original.cloneNode(true));
+</script>
+</body>
+</html>

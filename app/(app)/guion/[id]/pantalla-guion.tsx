@@ -1,22 +1,25 @@
 "use client"
 
-import { ChevronLeft } from "lucide-react"
+import { CaretLeft } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
-import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
+import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
-import { Nota } from "@/components/nota"
+import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
+import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 import { Boton } from "@/components/ui/boton"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
-import { PildoraPilar } from "@/components/ui/pildora-pilar"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { contarPalabras } from "@/lib/dominio/duracion"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
-import type { Pilar } from "@/lib/dominio/pilares"
+import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { BarraDeGrabacion } from "./barra-de-grabacion"
@@ -55,7 +58,6 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
-  const grabandoVoz = datos.grabacion?.estado === "grabando_voz"
   const aprobacion = useAccion()
   const cambios = useAccion()
 
@@ -97,82 +99,92 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   }
 
   return (
-    <div className="grid gap-5.5">
-      <header
-        data-pilar={datos.pilar ?? undefined}
-        className="-mx-4.5 -mt-4 grid gap-2.5 bg-pilar-tinte px-4.5 pt-2 pb-5.5"
-      >
+    <div className={datos.grabacion ? undefined : "pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]"}>
+      <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
         <Link
           href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-label font-semibold text-acento"
+          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
         >
-          <ChevronLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
-        <h1 className="font-serif text-display text-balance">{datos.titulo}</h1>
-        <div className="flex flex-wrap gap-1.5">
-          {datos.pilar ? <PildoraPilar pilar={datos.pilar} /> : null}
-          <span className="inline-flex items-center rounded-full bg-superficie px-2.5 py-1.5 text-label font-semibold text-tinta">
+        <p className="flex items-baseline justify-between gap-4 text-meta text-apagado">
+          <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
+          <span>
             {datos.formato ? `${datos.formato} · ` : ""}
             {datos.segundos} s
           </span>
-        </div>
+        </p>
+        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
         {datos.salida && !datos.grabacion ? (
-          <p className="w-fit rounded-md bg-superficie px-3 py-2 text-label font-semibold text-acento">
-            Si lo apruebas hoy, sale el {datos.salida}
-          </p>
+          <LineaDeEstado
+            tipo="fecha"
+            titulo={
+              <>
+                Si lo apruebas hoy, sale el{" "}
+                <span className="font-semibold whitespace-nowrap text-firma tabular-nums">{datos.salida}</span>
+              </>
+            }
+            tituloEnTinta
+            detalle="Después grabas la voz y el video."
+          />
         ) : null}
       </header>
 
       {datos.explicacion ? (
-        <p role="alert" className="rounded-lg bg-aviso-fondo p-4 text-[1.0625rem] text-aviso-tinta">
-          {datos.explicacion}
-        </p>
+        <div className="mt-6">
+          <LineaDeEstado tipo="aviso" titulo={datos.explicacion} tituloEnTinta />
+        </div>
       ) : null}
 
-      <Seccion titulo="El guion" id="guion">
-        {datos.grabacion ? (
-          <>
-            <p className="whitespace-pre-wrap text-[1.0625rem]">{datos.guion}</p>
-            {etiquetasDe(datos.guion).length > 0 ? <AyudaDeMarcas /> : null}
-            <p className="whitespace-pre-wrap text-apagado">{datos.texto}</p>
-            {grabandoVoz ? (
-              <Nota tipo="ocupada" titulo="Estoy grabando tu voz">
-                <p>Tarda unos segundos.</p>
-              </Nota>
-            ) : null}
+      {datos.grabacion ? (
+        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
+        // its saved version only follows her own edits, so it would be stale after the voice is ready.
+        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion}>
+          <Seccion titulo="Guion" id="guion" cifra={`${contarPalabras(datos.guion)} palabras · ≈ ${datos.segundos} s`}>
+            <GuionEnLectura guion={datos.guion} />
+            {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
+          </Seccion>
+          <Seccion
+            titulo="Texto de la publicación"
+            id="texto"
+            cifra={`${[...datos.texto].length.toLocaleString("es-CL")} de 2.200`}
+          >
+            <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
             {/* What the bar records is what she approved: changing it means taking the approval back first. */}
             <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
-          </>
-        ) : (
-          <EditorDeGuion
-            piezaId={datos.id}
-            version={version}
-            guion={datos.guion}
-            texto={datos.texto}
-            tieneVersionDeClaude={datos.tieneVersionDeClaude}
-            alGuardar={alGuardar}
-            alCambiarSinGuardar={setSinGuardar}
-          />
-        )}
-      </Seccion>
-
-      <Seccion titulo="Avatar" id="avatar">
-        {datos.grabacion ? (
-          <p>{datos.avatarElegido ?? "El avatar que elegiste"}</p>
-        ) : (
-          <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
-        )}
-      </Seccion>
+          </Seccion>
+          <Seccion titulo="Avatar" id="avatar">
+            <p className="text-cuerpo font-semibold">{datos.avatarElegido ?? "El avatar que elegiste"}</p>
+          </Seccion>
+        </BarraDeGrabacion>
+      ) : (
+        <>
+          <div className="mt-10">
+            <EditorDeGuion
+              piezaId={datos.id}
+              version={version}
+              guion={datos.guion}
+              texto={datos.texto}
+              tieneVersionDeClaude={datos.tieneVersionDeClaude}
+              alGuardar={alGuardar}
+              alCambiarSinGuardar={setSinGuardar}
+            />
+          </div>
+          <Seccion titulo="Avatar" id="avatar">
+            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+          </Seccion>
+        </>
+      )}
 
       {datos.grabacion ? null : (
-        <Seccion titulo="Revisión" id="revision">
-          <p className="text-apagado">
+        <Seccion titulo="Revisión" id="revision" cifra={revision.length > 0 ? revision.length : undefined}>
+          <p className="text-cuerpo text-apagado">
             {revision.length === 0
               ? "Claude revisó el guion y no encontró observaciones. Tú decides."
               : "Claude revisó el guion. Tú decides."}
           </p>
-          <div className="grid gap-2.5">
+          <div className="grid gap-4">
             {revision.map((hallazgo) => (
               <MarcaRevision
                 key={claveDe(hallazgo)}
@@ -185,55 +197,46 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </Seccion>
       )}
 
-      {datos.grabacion ? (
-        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
-        // its saved version only follows her own edits, so it would be stale after the voice is ready.
-        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion} />
-      ) : (
-        <div className="sticky bottom-0 -mx-4.5 -mb-6 grid gap-2 border-t border-linea bg-superficie px-4.5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-flotante">
-          {aprobacion.error || cambios.error ? (
-            <p role="alert" className="rounded-md bg-error-fondo p-3 text-[1rem] text-error-tinta">
-              {aprobacion.error ?? cambios.error}
-            </p>
-          ) : null}
-          {pidiendoCambios ? (
-            <div className="grid gap-2 rounded-md bg-acento-suave p-3.5">
-              <p className="text-[1rem]">Se escribe un guion nuevo y este se descarta. ¿Seguro?</p>
-              <Boton
+      {datos.grabacion ? null : (
+        <>
+          <div className="mt-10 grid gap-2">
+            {pidiendoCambios ? (
+              <ConfirmacionEnLinea
+                trato="destructivo"
+                pregunta="Se escribe un guion nuevo y este se descarta. ¿Seguro?"
+                confirmar="Sí, pedir cambios"
+                volver="Volver"
                 cargando={cambios.pendiente}
-                onClick={() =>
+                alConfirmar={() =>
                   cambios.ejecutar(
                     () => pedirCambiosAccion(datos.id, version),
                     (r) => setAviso(r.advertencia ?? null),
                   )
                 }
-              >
-                Sí, pedir cambios
-              </Boton>
-              <Boton variante="callado" onClick={() => setPidiendoCambios(false)}>
-                Volver
-              </Boton>
-            </div>
-          ) : (
-            <>
-              <DeslizarParaAprobar
-                etiqueta="Desliza para aprobar el guion"
-                habilitado={habilitado}
-                motivo={motivo}
-                enviando={aprobacion.pendiente}
-                alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
+                alVolver={() => setPidiendoCambios(false)}
               />
-              <p className="text-center text-meta text-apagado">
-                Aprobar no gasta nada. Después grabas la voz y el video.
-              </p>
-              <Boton variante="callado" onClick={() => setPidiendoCambios(true)}>
+            ) : (
+              <Boton variante="destructiva" onClick={() => setPidiendoCambios(true)}>
                 Pedir cambios
               </Boton>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+          <BarraDeFirma etiqueta="Firma">
+            {aprobacion.error || cambios.error ? (
+              <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
+            ) : null}
+            <DeslizarParaAprobar
+              etiqueta="Desliza para aprobar el guion"
+              habilitado={habilitado}
+              motivo={motivo}
+              nota="Aprobar no gasta nada."
+              enviando={aprobacion.pendiente}
+              alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
+            />
+          </BarraDeFirma>
+        </>
       )}
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
     </div>
   )
 }

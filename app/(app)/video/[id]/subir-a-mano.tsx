@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Seccion } from "@/components/seccion"
+import { Check, DownloadSimple } from "@phosphor-icons/react"
+import { type ReactNode, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { Casilla } from "@/components/ui/casilla"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import type { Resultado } from "@/lib/acciones/resultado"
 
@@ -49,11 +51,12 @@ export function SubirAMano({
   }
 
   return (
-    <div className="grid gap-5.5">
-      <Seccion titulo="1. Descarga el video" id="subir-video">
+    <ol className="grid gap-8">
+      <Paso numero={1} titulo="Descarga el video">
         <Boton
-          variante="primario"
+          variante="linea"
           cargando={descarga.pendiente}
+          icono={<DownloadSimple aria-hidden="true" size={20} />}
           onClick={() =>
             descarga.ejecutar(
               () => alDescargar(piezaId),
@@ -63,45 +66,40 @@ export function SubirAMano({
         >
           Descargar video
         </Boton>
-        {descarga.error ? (
-          <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-            {descarga.error}
-          </p>
-        ) : null}
-      </Seccion>
+        {descarga.error ? <LineaDeEstado tipo="error" titulo={descarga.error} /> : null}
+      </Paso>
 
-      <Seccion titulo="2. Copia el texto" id="subir-texto">
-        <p className="whitespace-pre-line rounded-lg border border-linea bg-superficie p-4 text-[1.0625rem] leading-normal">
-          {texto}
-        </p>
+      <Paso numero={2} titulo="Copia el texto">
+        <p className="whitespace-pre-line text-cuerpo leading-prosa">{texto}</p>
         <Boton variante="callado" onClick={copiar}>
           Copiar texto
         </Boton>
         <output className="block min-h-6 text-meta text-apagado">
-          {copia === "copiado" ? "Texto copiado" : null}
+          {copia === "copiado" ? (
+            <span className="inline-flex items-center gap-1 text-exito">
+              <Check aria-hidden="true" size={16} />
+              Texto copiado
+            </span>
+          ) : null}
           {copia === "fallo" ? "No pude copiarlo. Mantén apretado el texto de arriba para copiarlo." : null}
         </output>
-      </Seccion>
+      </Paso>
 
-      <Seccion titulo="3. Súbelo en Instagram" id="subir-instagram">
-        <ul className="grid list-disc gap-1.5 pl-5 text-[1.0625rem]">
-          <li>Súbelo como Reel y pega el texto.</li>
-          <li>Antes de publicar, activa la etiqueta «Información de IA». Es tu avatar y tiene que decirlo.</li>
-        </ul>
-        <label className="mt-1 grid min-h-11 cursor-pointer grid-cols-[26px_1fr] items-center gap-2.5">
-          <input
-            type="checkbox"
-            className="size-6 accent-acento"
-            checked={etiquetaPuesta}
-            onChange={(evento) => setEtiquetaPuesta(evento.target.checked)}
-          />
-          <span>Activé la etiqueta «Información de IA»</span>
-        </label>
-      </Seccion>
+      <Paso numero={3} titulo="Súbelo en Instagram">
+        <p className="text-cuerpo">Súbelo como Reel y pega el texto.</p>
+        <p className="text-cuerpo">
+          Antes de publicar, activa la etiqueta «Información de IA». Es tu avatar y tiene que decirlo.
+        </p>
+        <Casilla
+          etiqueta="Activé la etiqueta «Información de IA»"
+          marcada={etiquetaPuesta}
+          alCambiar={setEtiquetaPuesta}
+        />
+      </Paso>
 
-      <Seccion titulo="4. Avísame cuando esté arriba" id="subir-listo">
-        <label className="grid gap-1.5">
-          <span className="text-meta text-apagado">Enlace del reel (opcional)</span>
+      <Paso numero={4} titulo="Avísame cuando esté arriba">
+        <label className="grid gap-2">
+          <span className="text-meta font-semibold">Enlace del reel (opcional)</span>
           <input
             type="url"
             inputMode="url"
@@ -109,14 +107,10 @@ export function SubirAMano({
             value={enlace}
             onChange={(evento) => setEnlace(evento.target.value)}
             placeholder="https://www.instagram.com/reel/..."
-            className="min-h-12 w-full rounded-lg border-[1.5px] border-linea bg-superficie px-3.5 text-[1.0625rem] focus:border-acento"
+            className="campo w-full text-cuerpo"
           />
         </label>
-        {confirmacion.error ? (
-          <p role="alert" className="rounded-md bg-error-fondo p-3.5 text-[1rem] text-error-tinta">
-            {confirmacion.error}
-          </p>
-        ) : null}
+        {confirmacion.error ? <LineaDeEstado tipo="error" titulo={confirmacion.error} /> : null}
         <Boton
           variante="primario"
           cargando={confirmacion.pendiente}
@@ -131,7 +125,22 @@ export function SubirAMano({
             Se activa cuando confirmas la etiqueta de IA.
           </p>
         )}
-      </Seccion>
-    </div>
+      </Paso>
+    </ol>
+  )
+}
+
+/** One numbered step: the number sits in the icon column, so the content keeps the screen's left axis at x = 56. */
+function Paso({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
+  return (
+    <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-x-3 border-t border-tinta pt-3">
+      <span aria-hidden="true" className="text-meta font-semibold tabular-nums">
+        {numero}
+      </span>
+      <div className="grid gap-3">
+        <h2 className="text-meta font-semibold">{titulo}</h2>
+        {children}
+      </div>
+    </li>
   )
 }

@@ -1,31 +1,44 @@
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
-import { cn } from "@/lib/utils"
 
 interface PropiedadesDeBarra {
   titulo: string
   pilar: Pilar | null
   /** 0 to 100. */
   ancho: number
-  /** The number beside the bar, with its base ("cada 1.000"). */
+  /** The figure at 24/600 («50,4»), its base («cada 1.000») and the sample it comes from. Null figure: no numbers yet. */
+  cifra: string | null
+  unidad: string
+  muestra: string | null
+  /** The whole sentence, for the reel that has no numbers yet. */
   texto: string
   /** The sample size of the theme, always shown with its name. */
   reelsDelTema: number
 }
 
-/** One reel in "Lo que sirvió": the bar is scaled to the best visible one and never stands without its number. */
-export function BarraDeMetrica({ titulo, pilar, ancho, texto, reelsDelTema }: PropiedadesDeBarra) {
+/** Brandkit 9.20: one reel in «Lo que sirvió». The 4 px bar is scaled to the best one, has no track and never stands without its figure. */
+export function BarraDeMetrica({
+  titulo,
+  pilar,
+  ancho,
+  cifra,
+  unidad,
+  muestra,
+  texto,
+  reelsDelTema,
+}: PropiedadesDeBarra) {
   return (
-    <li
-      data-pilar={pilar ?? undefined}
-      className={cn("grid gap-2 border-b border-linea py-3.5 last:border-b-0", !pilar && "[--p-punto:var(--apagado)]")}
-    >
-      <span className="text-body font-semibold leading-[1.3]">{titulo}</span>
-      {ancho > 0 ? (
-        <span aria-hidden="true" className="block h-2.5 overflow-hidden rounded-full bg-hundido">
-          <span className="block h-full rounded-full bg-pilar-punto" style={{ width: `${ancho}%` }} />
+    <li className="grid gap-2 border-b border-linea py-4 last:border-b-0">
+      <span className="text-cuerpo font-semibold tracking-[-0.004em]">{titulo}</span>
+      {cifra !== null ? (
+        <span className="flex items-baseline gap-2">
+          <span className="text-pieza tabular-nums">{cifra}</span>
+          <span className="text-meta text-apagado">{unidad}</span>
         </span>
       ) : null}
-      <span className="text-meta">{texto}</span>
+      {ancho > 0 ? (
+        <span aria-hidden="true" data-barra className="block h-1 bg-tinta" style={{ width: `${ancho}%` }} />
+      ) : null}
+      <span className="text-meta">{muestra ?? texto}</span>
       {pilar ? (
         <span className="text-meta text-apagado">
           {NOMBRE_DE_PILAR[pilar]}

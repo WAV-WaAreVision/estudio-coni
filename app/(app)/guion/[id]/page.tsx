@@ -1,7 +1,11 @@
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
-import { Nota } from "@/components/nota"
+import { EstadoSencillo } from "@/components/estado-sencillo"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { Seccion } from "@/components/seccion"
+import { LineaDeSaldo } from "@/components/ui/costo"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
@@ -17,9 +21,12 @@ import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
-import { AccionesDeEstado, VolverAInicio } from "../../estado-de-pieza"
+import { AccionesDeEstado } from "../../estado-de-pieza"
 import { PantallaGuion } from "./pantalla-guion"
 import { VozSuelta } from "./voz-suelta"
+
+const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
+const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
 
@@ -38,19 +45,17 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
       break
     case "guion_en_proceso":
       return (
-        <EstadoSencillo titulo={fila.titulo}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <>
-              <Nota tipo="error" titulo="No pude escribir el guion">
-                <p>{fila.explicacion}</p>
-              </Nota>
+              <LineaDeEstado tipo="error" titulo="No pude escribir el guion" detalle={fila.explicacion} />
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion", "descartar"]} />
             </>
           ) : (
-            <Nota tipo="ocupada" titulo="Estoy escribiendo el guion">
-              <p>Tarda unos minutos; te aviso cuando esté para que lo leas.</p>
-              <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
-            </Nota>
+            <Trabajando
+              titulo="Estoy escribiendo el guion"
+              detalle="Tarda unos minutos; te aviso cuando esté para que lo leas."
+            />
           )}
           <RefrescoAutomatico activo={fila.explicacion === null} cadaMs={4000} />
         </EstadoSencillo>
@@ -58,16 +63,14 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     case "en_render":
     case "subtitulando":
       return (
-        <EstadoSencillo titulo={fila.titulo}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
-            <Nota tipo="error" titulo="El video está detenido">
-              <p>{fila.explicacion}</p>
-            </Nota>
+            <LineaDeEstado tipo="error" titulo="El video está detenido" detalle={fila.explicacion} />
           ) : (
-            <Nota tipo="ocupada" titulo="Aprobado. Estoy grabando el video.">
-              <p>Tarda unos 5 minutos; te aviso cuando esté para que lo veas.</p>
-              <span aria-hidden="true" className="esqueleto mt-1.5 h-1.5 w-2/3" />
-            </Nota>
+            <Trabajando
+              titulo="Aprobado. Estoy grabando el video."
+              detalle="Tarda unos 5 minutos; te aviso cuando esté para que lo veas."
+            />
           )}
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
@@ -75,17 +78,19 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     case "error_produccion": {
       const voz = await vozParaEscuchar(db, fila)
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <Nota tipo="error" titulo="No se pudo terminar el video">
-            <p>{fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}</p>
-          </Nota>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <LineaDeEstado
+            tipo="error"
+            titulo="No se pudo terminar el video"
+            detalle={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+          />
           {voz ? (
-            <div className="grid gap-2">
-              <p className="text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+            <Seccion titulo="Voz" id="voz">
+              <p className="text-cuerpo text-apagado">Mientras tanto, puedes escuchar la voz.</p>
               <VozSuelta src={voz.url} clave={voz.clave} />
-            </div>
+            </Seccion>
           ) : null}
-          <p className="text-meta text-apagado">{lineaDeSaldoVideo((await leerSaldos()).heygen)}</p>
+          <LineaDeSaldo>{lineaDeSaldoVideo((await leerSaldos()).heygen)}</LineaDeSaldo>
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
@@ -99,8 +104,8 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
       return redirect(`/video/${fila.id}`)
     default:
       return (
-        <EstadoSencillo titulo={fila.titulo}>
-          <p className="text-apagado">Esta pieza ya no está en curso.</p>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+          <p className="text-cuerpo text-apagado">Esta pieza ya no está en curso.</p>
         </EstadoSencillo>
       )
   }
@@ -196,12 +201,15 @@ async function avataresParaElegir(
   )
 }
 
-function EstadoSencillo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/** A piece being worked on: the working dot, what is happening and when she will hear about it. */
+function Trabajando({ titulo, detalle }: { titulo: string; detalle: string }) {
   return (
-    <div className="grid gap-5.5">
-      <h1 className="font-serif text-display text-balance">{titulo}</h1>
-      {children}
-      <VolverAInicio />
+    <div className="grid gap-1">
+      <p className="flex items-center gap-3 text-cuerpo font-semibold">
+        <PuntoTrabajando />
+        {titulo}
+      </p>
+      <p className="pl-5 text-meta text-apagado">{detalle}</p>
     </div>
   )
 }

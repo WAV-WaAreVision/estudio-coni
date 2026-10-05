@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guion con voz</title>
+<link rel="stylesheet" href="../tokens.css">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+.oscuro{color-scheme:dark;--fondo:#161513;--superficie:#1f1d1a;--tinta:#ece9e3;--apagado:#a39d94;--campo:#7c766d;--linea:#2f2c28;--pista:#2a2724;--principal:#d6d2cb;--sobre-principal:#161513;--sobre-tinta:#161513;--firma:#d78099;--error:#e98a7f;--exito:#86c39c;--aviso:#d9ad66;--foto-brillo:.94;--peso-titulo:500;--sombra-barra:0 -1px 0 var(--linea),0 -8px 24px rgb(8 7 6 / .45);--anillo-foco:0 0 0 2px var(--fondo),0 0 0 4px var(--tinta)}
+*{box-sizing:border-box;margin:0}
+html,body{background:#d9d6d0}
+body{font-family:var(--letra);-webkit-font-smoothing:antialiased;width:390px}
+.etq{font:600 13px/1 var(--letra);letter-spacing:.04em;text-transform:uppercase;color:#4a4640;padding:24px 20px 10px}
+.marco{position:relative;width:390px;background:var(--fondo);color:var(--tinta);padding:0 var(--margen) 0;overflow:hidden}
+.sb{height:47px;display:flex;align-items:center;justify-content:space-between;font:600 16px/1 var(--letra);padding:0 12px}
+.volver{display:inline-flex;align-items:center;gap:4px;height:44px;font:500 18px/1 var(--letra);margin-left:-4px}
+.par{display:flex;justify-content:space-between;font-size:var(--t-meta);line-height:var(--i-meta);color:var(--apagado);margin-top:8px}
+h1{font-size:var(--t-pieza);line-height:var(--i-pieza);letter-spacing:var(--tr-pieza);font-weight:var(--peso-titulo);margin-top:8px}
+.estado{display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start;margin-top:12px;font:500 18px/24px var(--letra)}
+.estado i{font-size:20px;margin-top:2px}
+.ok{color:var(--exito)}
+.rot{margin-top:var(--entre-secciones);border-top:1px solid var(--tinta);padding-top:12px;display:flex;justify-content:space-between;font:600 15px/20px var(--letra);margin-bottom:8px}
+.rot span{font-weight:400;color:var(--apagado);font-variant-numeric:tabular-nums}
+.rep{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;margin-top:16px}
+.play{width:52px;height:52px;border-radius:999px;border:1.5px solid var(--tinta);display:grid;place-items:center;font-size:20px}
+.riel{height:44px;position:relative}
+.riel:before{content:"";position:absolute;left:0;right:0;top:21px;height:2px;background:var(--campo);border-radius:2px}
+.riel b{position:absolute;left:0;top:21px;height:2px;width:100%;background:var(--tinta)}
+.riel u{position:absolute;right:-7px;top:15px;width:14px;height:14px;border-radius:999px;background:var(--tinta)}
+.tiempo{font:400 15px/20px var(--letra);font-variant-numeric:tabular-nums}
+.ayuda{margin-left:64px;font:400 15px/20px var(--letra);display:flex;gap:6px;align-items:center}
+.accion{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:24px}
+.sec{height:52px;padding:0 14px;border:1px solid var(--campo);border-radius:12px;display:inline-flex;align-items:center;gap:8px;font:600 18px/1 var(--letra);white-space:nowrap;font-family:var(--letra);background:none;color:var(--tinta);justify-self:start}
+.costo{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.costo strong{display:block;font:600 24px/28px var(--letra)}
+.costo span{font:400 15px/20px var(--letra);color:var(--apagado)}
+.saldo{font:400 15px/20px var(--letra);color:var(--apagado);margin-top:8px}
+.guion{font:400 20px/32px var(--letra)}
+.guion p+p{margin-top:16px}
+.ficha{display:inline-block;font:500 15px/22px var(--letra);color:var(--apagado);background:var(--pista);border-radius:999px;padding:0 8px;vertical-align:1px}
+.pub{font:400 18px/28px var(--letra);color:var(--apagado)}
+.avatar{display:flex;gap:12px;align-items:center;font:400 18px/24px var(--letra)}
+.avatar img{width:48px;height:64px;border-radius:12px;object-fit:cover;filter:brightness(var(--foto-brillo))}
+.texto{display:inline-flex;align-items:center;gap:8px;height:44px;font:600 18px/1 var(--letra);margin-top:24px}
+.nota{font:400 15px/20px var(--letra);color:var(--apagado);margin-top:8px}
+.fin{height:calc(var(--final-pagina) + 124px)}
+.barra{position:absolute;left:0;right:0;bottom:0;background:var(--superficie);box-shadow:var(--sombra-barra);padding:12px 20px calc(8px + 34px)}
+.prin{height:52px;border-radius:12px;background:var(--principal);color:var(--sobre-principal);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:600 18px/1 var(--letra)}
+.prin i{font-size:20px}
+.fila{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}
+.pregunta{font:400 18px/24px var(--letra)}
+.pregunta b{font-weight:600;font-variant-numeric:tabular-nums}
+.conf{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px;align-items:center}
+.conf .t{height:52px;padding:0 12px;display:flex;align-items:center;font:600 18px/1 var(--letra)}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:999px;background:var(--tinta);opacity:.9}
+.foco{box-shadow:var(--anillo-foco)}
+</style>
+</head>
+<body>
+<template id="pieza">
+  <div class="sb"><span>10:30</span><span><i class="ph ph-cell-signal-full"></i> <i class="ph ph-battery-high"></i></span></div>
+  <a class="volver"><i class="ph ph-caret-left" style="font-size:20px"></i>Inicio</a>
+  <div class="par"><span>Deseo y sexualidad</span><span>Mito o realidad · 52 s</span></div>
+  <h1>El deseo no se apaga, se esconde</h1>
+  <div class="estado"><i class="ph ph-check-circle ok"></i><span class="ok">Guion aprobado · falta grabar</span></div>
+
+  <div class="rot">Voz <span>0:52</span></div>
+  <div class="rep">
+    <button class="play" aria-label="Reproducir la voz" style="background:none;color:var(--tinta)"><i class="ph-fill ph-play"></i></button>
+    <div class="riel"><b></b><u></u></div>
+    <div class="tiempo">0:52 / 0:52</div>
+  </div>
+  <div class="ayuda ok"><i class="ph ph-check" style="font-size:16px"></i>Ya la escuchaste</div>
+  <div class="accion">
+    <button class="sec">Volver a grabar voz <i class="ph ph-arrow-counter-clockwise" style="font-size:20px"></i></button>
+    <div class="costo"><strong>US$ 0,20</strong><span>~682 caracteres</span></div>
+  </div>
+  <p class="saldo">ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre.</p>
+
+  <div class="rot">El guion <span>123 palabras · ≈ 52 s</span></div>
+  <div class="guion">
+    <p><span class="ficha">[warm]</span> El deseo en la pareja no se apaga. Se esconde.</p>
+    <p>Hay un mito que escucho todo el tiempo: si hay amor, el deseo aparece solo. Y cuando no aparece, muchas personas sienten que algo anda mal.</p>
+    <p>Pero en una relación larga, el deseo muchas veces no llega solo. Se esconde detrás del cansancio, la rutina, el celular y la lista de pendientes. No es que se haya ido. Es que no tiene dónde aparecer.</p>
+    <p>Te propongo algo para esta semana. Reserva un rato para ustedes dos, sin pantallas y sin hablar de pendientes. No tiene que terminar en nada. Conversen, ríanse, abrácense sin apuro.</p>
+    <p>Y si la falta de deseo te hace sufrir, conversarlo con una profesional también ayuda.</p>
+    <p><span class="ficha">[pause]</span> Soy Coni del Rosario.</p>
+  </div>
+  <p class="nota">Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos.</p>
+
+  <div class="rot">Texto de la publicación</div>
+  <div class="pub"><p>El deseo no se apaga: se esconde detrás del cansancio y la rutina.</p><p style="margin-top:28px">Video hecho con mi avatar digital.</p></div>
+  <p class="nota">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
+
+  <div class="rot">Avatar</div>
+  <div class="avatar"><img src="../img/look-estudio.jpg" alt=""><span>Estudio</span></div>
+
+  <a class="texto"><i class="ph ph-arrow-counter-clockwise" style="font-size:20px"></i>Volver a revisar el guion</a>
+  <div class="fin"></div>
+</template>
+
+<template id="barra-lista">
+  <div class="barra">
+    <div class="fila">
+      <div class="prin">Grabar video <i class="ph ph-video-camera"></i></div>
+      <div class="costo"><strong>US$ 1,16</strong><span>~52 s</span></div>
+    </div>
+    <p class="saldo">Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.</p>
+    <div class="home"></div>
+  </div>
+</template>
+<template id="barra-conf">
+  <div class="barra">
+    <p class="pregunta">¿Grabar el video? Cuesta unos <b>US$ 1,16</b>.</p>
+    <div class="conf">
+      <div class="prin foco">Sí, grabar <i class="ph ph-video-camera"></i></div>
+      <a class="t" style="min-width:88px">Volver</a>
+    </div>
+    <div class="home"></div>
+  </div>
+</template>
+
+<div id="raiz"></div>
+<script>
+const frames=[
+ ["Claro · con voz escuchada, listo para grabar video","","barra-lista"],
+ ["Claro · confirmación del gasto «Sí, grabar»","","barra-conf"],
+ ["Oscuro · con voz escuchada","oscuro","barra-lista"],
+ ["Oscuro · confirmación del gasto","oscuro","barra-conf"]];
+const r=document.getElementById('raiz');
+for(const [t,c,b] of frames){
+  const e=document.createElement('div');e.className='etq';e.textContent=t;r.append(e);
+  const m=document.createElement('div');m.className='marco '+c;
+  m.append(document.getElementById('pieza').content.cloneNode(true));
+  m.append(document.getElementById(b).content.cloneNode(true));
+  r.append(m);
+}
+</script>
+</body>
+</html>

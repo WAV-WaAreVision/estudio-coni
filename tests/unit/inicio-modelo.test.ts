@@ -48,6 +48,18 @@ describe("construirInicio", () => {
     expect(una.resumen).toBe("Una cosa espera tu firma · unos 3 min")
     expect(dos.resumen).toBe("2 cosas esperan tu firma · unos 6 min")
     expect(ninguna.resumen).toBe("Esta semana está al día")
+    expect({ titulo: una.titulo, tiempo: una.tiempo }).toEqual({
+      titulo: "Una cosa espera tu firma",
+      tiempo: "unos 3 min",
+    })
+    expect({ titulo: dos.titulo, tiempo: dos.tiempo }).toEqual({
+      titulo: "2 cosas esperan tu firma",
+      tiempo: "unos 6 min",
+    })
+    expect({ titulo: ninguna.titulo, tiempo: ninguna.tiempo }).toEqual({
+      titulo: "Esta semana está al día",
+      tiempo: null,
+    })
   })
 
   it("shows what is on its way: the script being written, the video being recorded and what is scheduled", () => {

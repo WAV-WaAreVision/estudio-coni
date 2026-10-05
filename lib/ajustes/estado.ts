@@ -40,6 +40,8 @@ export interface BloqueDeEstado {
 }
 
 const CONECTAR = "/api/meta/conectar"
+/** Accounts and keys live on their own level of Ajustes. */
+export const RUTA_DE_CUENTAS = "/ajustes/cuentas"
 
 /** How many days are left, as Coni reads it: "mañana" under a day, never "1 días". */
 function plazo(expiraEn: number, ahora: number): string {
@@ -56,7 +58,7 @@ function textoSinInstagram(faltaMas: boolean): string {
 function accionDeFalta(cuenta: NombreDeCuenta): NonNullable<BloqueDeEstado["accion"]> {
   return cuenta === "instagram"
     ? { etiqueta: "Conectar Instagram", href: CONECTAR }
-    : { etiqueta: `Agregar la llave de ${NOMBRE_DE_CUENTA[cuenta]}`, href: `#cuenta-${cuenta}` }
+    : { etiqueta: `Agregar la llave de ${NOMBRE_DE_CUENTA[cuenta]}`, href: `${RUTA_DE_CUENTAS}#cuenta-${cuenta}` }
 }
 
 function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeEstado, "pasos"> {
@@ -81,7 +83,7 @@ function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeE
         tipo: "atencion",
         titulo: `${nombre} no aceptó la llave`,
         texto: "Pega una llave nueva para que sigan los guiones y los videos.",
-        accion: { etiqueta: `Cambiar la llave de ${nombre}`, href: `#cuenta-${cuenta.cuenta}` },
+        accion: { etiqueta: `Cambiar la llave de ${nombre}`, href: `${RUTA_DE_CUENTAS}#cuenta-${cuenta.cuenta}` },
       }
   }
 }

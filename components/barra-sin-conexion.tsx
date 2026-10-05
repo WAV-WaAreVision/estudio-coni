@@ -1,5 +1,6 @@
 "use client"
 
+import { WifiSlash } from "@phosphor-icons/react"
 import { useSyncExternalStore } from "react"
 
 function suscribirse(avisar: () => void) {
@@ -11,7 +12,7 @@ function suscribirse(avisar: () => void) {
   }
 }
 
-/** Approving needs the server, so offline the bar says to wait; nothing is queued behind her back. */
+/** Approving needs the server, so offline the line says to wait; nothing is queued behind her back. */
 export function BarraSinConexion() {
   const enLinea = useSyncExternalStore(
     suscribirse,
@@ -20,7 +21,8 @@ export function BarraSinConexion() {
   )
   if (enLinea) return null
   return (
-    <output className="block bg-aviso-fondo px-4.5 py-2.5 text-center text-meta font-semibold text-aviso-tinta">
+    <output className="flex min-h-11 items-center gap-2 border-b border-linea px-5 text-meta font-semibold">
+      <WifiSlash aria-hidden="true" size={16} className="text-aviso" />
       Sin conexión. Aprueba cuando vuelva.
     </output>
   )

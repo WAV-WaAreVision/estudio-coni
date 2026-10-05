@@ -81,6 +81,9 @@ describe("construirMetricas", () => {
       porMil: 50.4,
       ancho: 100,
       texto: "50,4 cada 1.000 · 121 guardados de 2.400 personas",
+      cifra: "50,4",
+      unidad: "cada 1.000",
+      muestra: "121 guardados de 2.400 personas",
       pilar: "pareja",
       reelsDelTema: 2,
     })
@@ -104,6 +107,8 @@ describe("construirMetricas", () => {
       porMil: null,
       ancho: 0,
       texto: "Todavía sin números: llegan cada mañana a las 7:00.",
+      cifra: null,
+      muestra: null,
     })
   })
 
