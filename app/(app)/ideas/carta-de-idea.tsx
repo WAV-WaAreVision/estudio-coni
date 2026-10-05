@@ -1,87 +1,87 @@
-import { ChipDeAlerta } from "@/components/chip-de-alerta"
-import { PildoraPilar } from "@/components/ui/pildora-pilar"
+import { CaretDown } from "@phosphor-icons/react/dist/ssr"
+import type { ReactNode } from "react"
+import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco, NivelDeEvidencia } from "@/lib/ideas/mazo"
 
 const TIPO_RESPALDO = "respaldo"
 const NIVEL: Record<NivelDeEvidencia, string> = { alto: "Alta", medio: "Media", debil: "Débil" }
 
-/** One idea on the tint of its pillar, in the voice of the script (docs/DESIGN.md, idea-card). */
-export function CartaDeIdea({ idea }: { idea: IdeaDeBanco }) {
-  const respaldoDebil = idea.alertas.filter((alerta) => alerta.tipo === TIPO_RESPALDO)
+const RESUMEN_DE_DISCLOSURE =
+  "flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
+
+/**
+ * Brandkit 9.18: the one raised card of the screen, neutral (the pillar is a word). `children` are the actions: they sit
+ * right under the hook and the alerts, above «Por qué».
+ */
+export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: ReactNode }) {
+  const respaldoDebil = idea.alertas.some((alerta) => alerta.tipo === TIPO_RESPALDO)
   const alertas = idea.alertas.filter((alerta) => alerta.tipo !== TIPO_RESPALDO)
   return (
-    <article
-      data-pilar={idea.pilar}
-      className="carta-idea grid min-h-85 content-between gap-4 rounded-xl bg-pilar-tinte px-5 py-5.5"
-    >
-      <div className="grid justify-items-start gap-3.5">
-        <PildoraPilar pilar={idea.pilar} className="bg-pilar-tinte-fuerte" />
-        <h2 className="font-serif text-display text-balance">{idea.gancho}</h2>
-        {idea.tema ? <p className="text-[1.0625rem] text-pilar-tinta">{idea.tema}</p> : null}
-      </div>
-      <div className="grid gap-2.5">
-        <p className="text-meta text-pilar-tinta">
+    <article data-pilar={idea.pilar} className="carta-idea grid gap-4 rounded-12 bg-superficie p-5 shadow-flotante">
+      <div className="grid gap-3">
+        <p className="text-meta text-apagado">{NOMBRE_DE_PILAR[idea.pilar]}</p>
+        <h2 className="text-pieza text-balance">{idea.gancho}</h2>
+        {idea.tema ? <p className="text-cuerpo text-apagado">{idea.tema}</p> : null}
+        <p className="text-meta font-medium text-tinta">
           Fuerza {idea.fuerza}
           {idea.formato ? ` · ${idea.formato}` : ""}
+          {respaldoDebil ? (
+            <>
+              {" · "}
+              <span>Respaldo débil</span>
+            </>
+          ) : null}
         </p>
-        {respaldoDebil.length > 0 ? (
-          <ul className="flex flex-wrap gap-1.5" aria-label="Respaldo de la idea">
-            {respaldoDebil.map((alerta) => (
-              <li key={alerta.texto}>
-                <ChipDeAlerta tipo={TIPO_RESPALDO} etiqueta={alerta.texto} />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {idea.porQue ? (
-          <details className="text-[1rem] text-pilar-tinta">
-            <summary className="flex min-h-11 cursor-pointer items-center text-label font-semibold">Por qué</summary>
-            <div className="grid gap-2 pb-1.5">
-              <p className="font-semibold">{idea.porQue.titulo}</p>
-              <p>{idea.porQue.tesis}</p>
-              {idea.porQue.nivel ? <p className="text-meta">Evidencia: {NIVEL[idea.porQue.nivel]}</p> : null}
-              {idea.porQue.respaldo.length > 0 ? (
-                <>
-                  <p className="text-meta font-semibold">Solo para ti, no se publica</p>
-                  <ul className="grid gap-1.5">
-                    {idea.porQue.respaldo.map((apoyo) => (
-                      <li key={`${apoyo.autor}:${apoyo.cita}`}>
-                        {apoyo.autor}: {apoyo.cita}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </div>
-          </details>
-        ) : null}
-        {alertas.length > 0 ? (
-          <>
-            <ul className="flex flex-wrap gap-1.5" aria-label="Alertas de la idea">
+      </div>
+      {alertas.length > 0 ? (
+        <div className="grid gap-1">
+          {alertas.map((alerta) => (
+            <LineaDeEstado key={alerta.tipo} tipo="aviso" titulo={etiquetaDeAlerta(alerta.tipo)} />
+          ))}
+          <details className="text-cuerpo">
+            <summary className={RESUMEN_DE_DISCLOSURE}>
+              Qué revisar antes de grabar
+              <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+            </summary>
+            <ul className="grid gap-2 pb-2 text-meta">
               {alertas.map((alerta) => (
                 <li key={alerta.tipo}>
-                  <ChipDeAlerta tipo={alerta.tipo} />
+                  <span className="font-semibold">{alerta.tipo}:</span> {alerta.texto}
                 </li>
               ))}
             </ul>
-            <details className="text-[1rem] text-pilar-tinta">
-              <summary className="flex min-h-11 cursor-pointer items-center text-label font-semibold">
-                Qué revisar antes de grabar
-              </summary>
-              <ul className="grid gap-2 pb-1.5">
-                {alertas.map((alerta) => (
-                  <li key={alerta.tipo}>
-                    <span className="font-semibold">{alerta.tipo}:</span> {alerta.texto}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          </>
-        ) : null}
-        {idea.fijada ? (
-          <p className="text-meta font-semibold text-pilar-tinta">Ya está en las ideas de la semana.</p>
-        ) : null}
-      </div>
+          </details>
+        </div>
+      ) : null}
+      {idea.fijada ? <p className="text-meta font-semibold">Ya está en las ideas de la semana.</p> : null}
+      {children}
+      {idea.porQue ? (
+        <details className="border-t border-linea text-cuerpo">
+          <summary className={RESUMEN_DE_DISCLOSURE}>
+            Por qué
+            <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+          </summary>
+          <div className="grid gap-2 pb-2">
+            <p className="font-semibold">{idea.porQue.titulo}</p>
+            <p>{idea.porQue.tesis}</p>
+            {idea.porQue.nivel ? <p className="text-meta">Evidencia: {NIVEL[idea.porQue.nivel]}</p> : null}
+            {idea.porQue.respaldo.length > 0 ? (
+              <>
+                <p className="text-meta font-semibold">Solo para ti, no se publica</p>
+                <ul className="grid gap-2 text-meta">
+                  {idea.porQue.respaldo.map((apoyo) => (
+                    <li key={`${apoyo.autor}:${apoyo.cita}`}>
+                      {apoyo.autor}: {apoyo.cita}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
     </article>
   )
 }

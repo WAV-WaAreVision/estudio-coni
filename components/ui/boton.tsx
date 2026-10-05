@@ -47,7 +47,7 @@ export function Boton({
       onClick={alTocar}
       className={cn(clasesDeBoton({ variante, tamano }), className)}
     >
-      <span>{children}</span>
+      <span className="inline-flex items-center gap-2">{children}</span>
       {cargando ? <PuntoTrabajando /> : icono}
     </button>
   )

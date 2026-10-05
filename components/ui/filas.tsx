@@ -116,7 +116,7 @@ export function FilaConCheck({ nombre, valor, elegido, etiqueta, alElegir }: Pro
   return (
     <label
       className={cn(
-        "flex min-h-14 cursor-pointer items-center justify-between gap-4 border-b border-linea text-cuerpo",
+        "relative flex min-h-14 cursor-pointer items-center justify-between gap-4 border-b border-linea text-cuerpo",
         "has-[:focus-visible]:shadow-[var(--anillo-foco)]",
       )}
     >
@@ -126,7 +126,7 @@ export function FilaConCheck({ nombre, valor, elegido, etiqueta, alElegir }: Pro
         value={valor}
         checked={elegido}
         onChange={() => alElegir(valor)}
-        className="peer sr-only"
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
       />
       <span className={elegido ? "font-semibold" : undefined}>{etiqueta}</span>
       {elegido ? <Check aria-hidden="true" size={20} /> : <span className="size-5" />}

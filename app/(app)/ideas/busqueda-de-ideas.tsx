@@ -1,11 +1,11 @@
 "use client"
 
+import { Check, Warning } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Chip } from "@/components/chip"
-import { ChipDeAlerta } from "@/components/chip-de-alerta"
+import { etiquetaDeAlerta } from "@/components/chip-de-alerta"
 import { Boton } from "@/components/ui/boton"
-import { PildoraPilar } from "@/components/ui/pildora-pilar"
-import { NOMBRE_CORTO_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
+import { NOMBRE_CORTO_DE_PILAR, NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
 
 const RESULTADOS_A_MOSTRAR = 40
@@ -29,8 +29,8 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
   const visibles = resultados.slice(0, RESULTADOS_A_MOSTRAR)
 
   return (
-    <div className="grid gap-3.5">
-      <label className="grid gap-1.5 text-label font-semibold" htmlFor="buscar-idea">
+    <div className="grid gap-4">
+      <label className="grid gap-2 text-meta font-semibold" htmlFor="buscar-idea">
         Buscar por palabra o tema
         <input
           id="buscar-idea"
@@ -39,11 +39,11 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
           onChange={(evento) => setTexto(evento.target.value)}
           placeholder="culpa, celos, deseo"
           autoComplete="off"
-          className="min-h-13 rounded-md border border-linea bg-superficie px-3.5 text-body font-normal text-tinta placeholder:text-apagado [&::-webkit-search-cancel-button]:appearance-none"
+          className="campo text-cuerpo font-normal text-tinta [&::-webkit-search-cancel-button]:appearance-none"
         />
       </label>
 
-      <fieldset className="flex min-w-0 flex-wrap gap-1.5">
+      <fieldset className="flex min-w-0 gap-2 overflow-x-auto">
         <legend className="sr-only">Pilar</legend>
         <Chip presionado={pilar === null} onClick={() => setPilar(null)}>
           Todos
@@ -58,7 +58,7 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
           </Chip>
         ))}
       </fieldset>
-      <fieldset className="flex min-w-0 flex-wrap gap-1.5">
+      <fieldset className="flex min-w-0 gap-2 overflow-x-auto">
         <legend className="sr-only">Filtros</legend>
         <Chip presionado={soloFuerzaAlta} onClick={() => setSoloFuerzaAlta(!soloFuerzaAlta)}>
           Fuerza alta
@@ -77,7 +77,7 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
 
       {resultados.length === 0 ? (
         <div className="grid gap-2.5 py-1">
-          <p className="font-semibold">No encontré ideas con esa palabra.</p>
+          <p className="text-cuerpo font-semibold">No encontré ideas con esa palabra.</p>
           <Boton variante="linea" onClick={alEscribirPropia}>
             Escribir una idea mía
           </Boton>
@@ -112,18 +112,27 @@ function FilaDeResultado({
   const abierta = idea.estado === "idea" && !sumada
   const contenido = (
     <>
-      <span className="font-semibold">{idea.gancho}</span>
-      <span className="flex flex-wrap items-center gap-1.5 text-meta text-apagado">
-        <PildoraPilar pilar={idea.pilar} />
+      <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[idea.pilar]}</span>
+      <span className="text-cuerpo font-semibold tracking-[-0.004em]">{idea.gancho}</span>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-apagado">
+        <span>Fuerza {idea.fuerza}</span>
         {idea.estado === "usada" ? (
-          <span className="rounded-full bg-ok-fondo px-2.5 py-1 font-semibold text-ok-tinta">Usada</span>
+          <span className="inline-flex items-center gap-1 font-medium text-exito">
+            <Check aria-hidden="true" size={16} />
+            Usada
+          </span>
         ) : null}
         {sumada ? (
-          <span className="rounded-full bg-ok-fondo px-2.5 py-1 font-semibold text-ok-tinta">En la semana</span>
+          <span className="inline-flex items-center gap-1 font-medium text-exito">
+            <Check aria-hidden="true" size={16} />
+            En la semana
+          </span>
         ) : null}
-        <span>Fuerza {idea.fuerza}</span>
         {idea.alertas.map((alerta) => (
-          <ChipDeAlerta key={alerta.tipo} tipo={alerta.tipo} />
+          <span key={alerta.tipo} className="inline-flex items-center gap-1 font-medium text-aviso">
+            <Warning aria-hidden="true" size={16} />
+            {etiquetaDeAlerta(alerta.tipo)}
+          </span>
         ))}
       </span>
     </>
@@ -132,11 +141,11 @@ function FilaDeResultado({
     <button
       type="button"
       onClick={() => alAbrir(idea.id)}
-      className="grid min-h-16 w-full gap-1.5 py-3 text-left transition-opacity duration-150 active:opacity-70"
+      className="grid min-h-16 w-full gap-0.5 py-3 text-left transition-opacity duration-[var(--dur-corta)] active:opacity-70"
     >
       {contenido}
     </button>
   ) : (
-    <div className="grid min-h-16 gap-1.5 py-3 opacity-90">{contenido}</div>
+    <div className="grid min-h-16 gap-0.5 py-3">{contenido}</div>
   )
 }
