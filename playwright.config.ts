@@ -39,6 +39,9 @@ export default defineConfig({
   // A run that stops answering (a browser that will not close after a failure) ends instead of waiting for ever.
   globalTimeout: 600_000,
   reporter: [["list"], ["html", { open: "never" }]],
+  expect: {
+    toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide", scale: "css" },
+  },
   use: {
     baseURL: URL_DE_LA_APP,
     locale: "es-CL",

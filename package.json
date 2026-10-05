@@ -21,7 +21,8 @@
     "test:eval": "vitest run --config vitest.eval.config.ts",
     "importar:banco": "tsx scripts/importar-banco.ts",
     "avatares:agregar": "tsx scripts/agregar-avatar.ts agregar",
-    "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar"
+    "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar",
+    "comparar": "tsx scripts/hoja-de-comparacion.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
