@@ -832,4 +832,41 @@ describe("publicarPendientes con LinkedIn", () => {
       { destino: "instagram", estado: "publicado", enlace: "https://www.instagram.com/reel/media_1/" },
     ])
   })
+
+  it("closes the piece as published when LinkedIn was already uploaded before Instagram went out", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'linkedin'",
+      [id],
+    )
+    simular({ estados: ["IN_PROGRESS", "FINISHED"] })
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+
+    expect((await pieza(id)).estado).toBe("publicado")
+    expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["publicado", "subido_a_mano"])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).not.toContain("Falta subirlo")
+  })
+
+  it("never publishes to Instagram when its row is no longer pending, and hands over what still waits", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'instagram'",
+      [id],
+    )
+    const sim = simular()
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+
+    expect(sim.contenedores).toEqual([])
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "subido_a_mano", enlace: null },
+      { destino: "linkedin", estado: "para_subir", enlace: null },
+    ])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a LinkedIn. Entra")
+  })
 })

@@ -282,7 +282,8 @@ async function confirmar(
     throw new Error(`Instagram no devolvió el permalink de la publicación ${mediaId}.`)
   }
   // A destination that goes by hand (LinkedIn) still waits for her: the piece is not finished, it is for her to upload.
-  const quedaLinkedin = destinosDe(fila).includes("linkedin")
+  // What remains is read from the rows, not from the destinations: LinkedIn may already be uploaded.
+  const quedaLinkedin = (await pendientesDe(contexto)).includes("linkedin")
   await escribirTransicion(
     contexto,
     { tipo: "publicado", quedanAMano: quedaLinkedin },
@@ -425,6 +426,11 @@ function sinRastroEnInstagram(contexto: Contexto): boolean {
   return fila.contenedor_id === null && fila.media_id === null && fila.publicacion_enviada_en === null
 }
 
+/** The destinations that still wait, from the rows of the piece. */
+async function pendientesDe(contexto: Contexto): Promise<Destino[]> {
+  return resumenDePublicaciones(await leerPublicaciones(contexto.deps.db, contexto.fila.id)).pendientes
+}
+
 /** The destinations Coni still has to upload, in the words of the notice. */
 async function pendientesPorSubir(contexto: Contexto): Promise<string> {
   const { pendientes } = resumenDePublicaciones(await leerPublicaciones(contexto.deps.db, contexto.fila.id))
@@ -453,8 +459,9 @@ async function entregarParaSubir(contexto: Contexto): Promise<ResultadoPublicaci
 
 async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
-    // Without Instagram among the destinations there is nothing to publish: LinkedIn is always by hand.
-    if (!destinosDe(contexto.fila).includes("instagram")) return await entregarParaSubir(contexto)
+    // Instagram is published only while its own row still waits: without it (not chosen, or already uploaded by hand)
+    // there is nothing to publish, and what remains is by hand.
+    if (!(await pendientesDe(contexto)).includes("instagram")) return await entregarParaSubir(contexto)
     const conexion = await contexto.conexion()
     if (conexion.tipo === "nunca" && sinRastroEnInstagram(contexto)) return await entregarParaSubir(contexto)
     if (conexion.tipo !== "conectada") {
