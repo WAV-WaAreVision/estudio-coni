@@ -5,6 +5,7 @@ import {
   instanteEstricto,
   type Pieza,
 } from "@/lib/dominio/estados"
+import { formulaDePuerta2 } from "@/lib/dominio/puertas"
 import type { Database } from "@/lib/supabase/database.types"
 
 type FilaBase = Database["public"]["Tables"]["piezas"]["Row"]
@@ -26,6 +27,7 @@ export type CambiosPieza = Pick<
   | "puerta2_hash_texto"
   | "puerta2_publicar_en"
   | "puerta2_en"
+  | "puerta2_formula"
   | "explicacion"
 >
 
@@ -83,7 +85,7 @@ function puerta2(fila: FilaPieza): AprobacionVideo | null {
   if (videoId === null || hashTexto === null || publicarEn === null || en === null) {
     throw new Error("La puerta 2 de la pieza está incompleta en la base.")
   }
-  return { videoId, hashTexto, publicarEn, en }
+  return { videoId, hashTexto, formula: formulaDePuerta2(fila.puerta2_formula), publicarEn, en }
 }
 
 export function piezaDesdeFila(fila: FilaPieza): Pieza {
@@ -114,6 +116,8 @@ export function cambiosDesdePieza(pieza: Pieza): CambiosPieza {
     puerta2_hash_texto: pieza.puerta2?.hashTexto ?? null,
     puerta2_publicar_en: pieza.puerta2?.publicarEn ?? null,
     puerta2_en: pieza.puerta2?.en ?? null,
+    // Null stays null for formula 1: an approval from before LinkedIn is rewritten exactly as it was.
+    puerta2_formula: pieza.puerta2?.formula === 2 ? 2 : null,
     explicacion: pieza.explicacion,
   }
 }

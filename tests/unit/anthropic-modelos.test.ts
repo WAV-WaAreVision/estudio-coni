@@ -61,7 +61,7 @@ const FICHA = {
 
 describe("a model per task", () => {
   it("writes the script with Opus at medium effort", async () => {
-    const cuerpos = capturando({ guion: "g", texto: "t" })
+    const cuerpos = capturando({ guion: "g", texto: "t", textoLinkedin: "l" })
     await escribirGuion({ cliente: cliente(), guia: "guia", idea: IDEA, respaldo: null, requiereLineasAyuda: false })
     expect(cuerpos[0]?.model).toBe(OPUS)
     expect(cuerpos[0]?.output_config?.effort).toBe("medium")
@@ -70,7 +70,14 @@ describe("a model per task", () => {
 
   it("reviews with Opus at low effort", async () => {
     const cuerpos = capturando({ hallazgos: [] })
-    await revisarConClaude({ cliente: cliente(), guia: "guia", guion: "g", texto: "t", alertas: [] })
+    await revisarConClaude({
+      cliente: cliente(),
+      guia: "guia",
+      guion: "g",
+      texto: "t",
+      textoLinkedin: null,
+      alertas: [],
+    })
     expect(cuerpos[0]?.model).toBe(OPUS)
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
     expect(cuerpos[0]?.thinking).toBeUndefined()
@@ -112,7 +119,7 @@ describe("a model per task", () => {
       ),
     )
     await expect(
-      revisarConClaude({ cliente: cliente(), guia: "g", guion: "g", texto: "t", alertas: [] }),
+      revisarConClaude({ cliente: cliente(), guia: "g", guion: "g", texto: "t", textoLinkedin: null, alertas: [] }),
     ).rejects.toThrow(OPUS)
   })
 })

@@ -1,17 +1,18 @@
 import { CONI, pool } from "./db"
-import { crearPiezaEn } from "./flujo"
+import { crearPiezaEn, type OpcionesDePieza } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 
 /** Walks a new piece to `destino` with the real flow and commits it, so a separate client (the app) can see it. */
 export async function sembrarPieza(
   destino: Parameters<typeof crearPiezaEn>[1],
   ajustes: Record<string, unknown> = {},
+  opciones: OpcionesDePieza = {},
 ): Promise<string> {
   const cliente = await pool.connect()
   let id: string
   try {
     await cliente.query("begin")
-    id = await crearPiezaEn(cliente, destino)
+    id = await crearPiezaEn(cliente, destino, opciones)
     await cliente.query("commit")
   } catch (error) {
     await cliente.query("rollback")
@@ -31,6 +32,15 @@ export async function ajustarPieza(id: string, columnas: Record<string, unknown>
   const nombres = Object.keys(columnas)
   const asignaciones = ["version = version + 1", ...nombres.map((nombre, i) => `${nombre} = $${i + 2}`)].join(", ")
   await pool.query(`update public.piezas set ${asignaciones} where id = $1`, [id, ...nombres.map((n) => columnas[n])])
+}
+
+/** The destinations of a piece and where each one is, in the canonical order. */
+export async function publicacionesDe(id: string) {
+  const { rows } = await pool.query<{ destino: string; estado: string; enlace: string | null }>(
+    "select destino, estado, enlace from public.publicaciones where pieza_id = $1 order by destino",
+    [id],
+  )
+  return rows
 }
 
 export async function leerFila(id: string) {

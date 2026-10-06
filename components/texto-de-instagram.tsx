@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { editarTextoAccion } from "@/app/(app)/piezas/acciones"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
@@ -15,14 +15,20 @@ interface PropiedadesDeTexto {
   texto: string
   /** Where the text is shown: the title says what Coni is reading. */
   puedeEditar?: boolean
+  /** Tells the screen while the editor is open, so it can hold the approval until she saves or cancels. */
+  alEditar?: (editando: boolean) => void
 }
 
 /** "Así sale en Instagram": the caption exactly as stored, with the notice of the avatar, and a way to edit it. */
-export function TextoDeInstagram({ piezaId, version, texto, puedeEditar = true }: PropiedadesDeTexto) {
+export function TextoDeInstagram({ piezaId, version, texto, puedeEditar = true, alEditar }: PropiedadesDeTexto) {
   const [editando, setEditando] = useState(false)
   const [borrador, setBorrador] = useState(texto)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
   const caja = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    alEditar?.(editando)
+    return () => alEditar?.(false)
+  }, [editando, alEditar])
   useAutoAlto(caja, borrador)
 
   if (!editando) {

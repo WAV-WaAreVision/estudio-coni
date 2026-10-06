@@ -106,11 +106,17 @@ the paths that take it back.
 One writer call: `SalidaGuion` becomes `{ guion, texto, textoLinkedin }`. New section "REGLAS DEL TEXTO PARA
 LINKEDIN" in `pedidoDeGuion`:
 
-- Same idea and message as the reel, for a professional audience (colegas, colegios, empresas); tú, español de Chile,
-  sin tecnicismos (editorial line); 600 to 1300 characters; no emojis; at most 3 hashtags, at the end.
-- No tone marks. Ends exactly with `AVISO_AVATAR` ("Video hecho con mi avatar digital."), with the help lines before
-  it when required.
-- No authors, sources or copied phrases (same rules as the caption).
+- Same idea and message as the reel, reworked for LinkedIn and not copied from the caption, for a professional
+  audience (colegas, colegios, empresas); tú normativo, español de Chile, sin tecnicismos, sin voseo ni usted.
+- Shape (research on writing for LinkedIn, 2026): a hook of at most 140 characters and two lines; 1.300 to 2.500
+  characters (hard maximum 3.000); short paragraphs; exactly one specific open question at the end of the body; no
+  links; 0 to 3 hashtags in the last line; 0 to 3 structural emojis (none on a sensitive topic).
+- Forbidden: the contrast formula "no es X, es Y" and variants, engagement bait ("comenta SÍ", "dale like si",
+  "etiqueta a", "reacciona con"), Unicode bold or italic letters, long dashes.
+- No tone marks, diagnoses, individual advice, patients, authors, sources or copied phrases.
+- Ends with the fixed `AVISO_AVATAR_LINKEDIN` ("Este video lo narra mi avatar digital, creado con IA a partir de mi
+  imagen y mi voz. El contenido lo revisé y aprobé yo."), before the hashtags, with the help lines before it when
+  required. The Instagram caption keeps `AVISO_AVATAR`.
 
 Cost: one call stays one call (about 250 more output tokens). Claude's review (`revisarConClaude`) also receives the
 LinkedIn text in a `<texto_linkedin>` block.
@@ -120,9 +126,11 @@ LinkedIn text in a `<texto_linkedin>` block.
 New `revisarTextoLinkedin({ texto, esAvatar, requiereLineasAyuda, ajeno })` in `lib/dominio/revision.ts`, reusing the
 same building blocks:
 
-- Blocks: `aviso_avatar`, `lineas_ayuda`, `etiqueta_en_texto`, new `largo_linkedin` (over 3000 characters, the
-  LinkedIn limit), new `hashtags_linkedin` (more than 3).
-- Warns: `copia_de_fuente`, `nombra_autor`.
+- Blocks: `aviso_avatar` (the LinkedIn notice), `lineas_ayuda`, `etiqueta_en_texto`, new `largo_linkedin` (over 3000
+  characters, the LinkedIn limit). The database has no length check: the writer may overshoot and must not fail a run.
+- Warns: `copia_de_fuente`, `nombra_autor`, `hashtags_linkedin` (more than 3), `largo_corto_linkedin` (under 1000),
+  `gancho_linkedin`, `emojis_linkedin` (more than 3), `pregunta_linkedin` (not exactly one), `enlace_linkedin`,
+  `contraste_linkedin`, `bait_linkedin`, `formato_linkedin`, `trato_linkedin`.
 - Every finding carries `campo: "linkedin"` so the screen shows it under the LinkedIn field and the checkbox key stays
   unique. Existing findings have no `campo` (read as the caption or the script, as today).
 
@@ -133,8 +141,10 @@ Findings of the LinkedIn text only block gate 2 when LinkedIn is chosen. They li
 - New section "Texto para LinkedIn" under the caption: the text, "Editar" (same editor pattern as the caption),
   findings with `MarcaRevision`.
 - "Dónde se publica": two `Casilla` (Instagram, LinkedIn), default from `ajustes.destinos_por_defecto`; at least one.
-- Approval (`DeslizarAprobar`) sends `destinos` and the formula-2 hash the screen saw; the action recomputes and
-  refuses with `ArtefactoCambio` on mismatch.
+- Approval (`DeslizarParaAprobar`) sends `destinos`; the action recomputes the formula-2 hash from the row. The
+  guarantee that she approved what she saw is the version lock: the write only matches the version of her screen, so a
+  change in between refuses with `ArtefactoCambio`. The slider is held while the caption or the LinkedIn editor is
+  open with unsaved changes ("Guarda o cancela la edición del texto.").
 - Existing piece without a LinkedIn text and LinkedIn ticked: the field starts with the Instagram caption without its
   hashtags (deterministic, no Claude call) and the review runs on it; she edits it before approving.
 - Editing the LinkedIn text uses a new action `editarTextoLinkedin` and SQL `editar_texto_linkedin_como_coni`,
@@ -201,12 +211,12 @@ Decision deferred until phase 1 has a month of use.
 - A text approved in the LinkedIn field but edited by hand in LinkedIn: out of our control, same as Instagram.
 - Old approvals: formula 1 path must stay forever (test pins it).
 - The prefilled LinkedIn text for old pieces is the Instagram caption: may read too casual. She sees and edits it.
-- Claude might exceed 3 hashtags or forget the notice: deterministic review blocks, and the existing correction round
+- Claude might forget the notice: deterministic review blocks, and the existing correction round
   rewrites.
 
 ## Open questions
 
-1. Hashtag cap 3 (block) or warn only? Spec blocks.
+1. Hashtag cap 3 (block) or warn only? Decided: warn.
 2. Should the LinkedIn text also be shown (read only) on the Guion screen at gate 1? Spec: yes, read only, not part of
    gate 1.
 3. Different time for LinkedIn (weekday mornings perform better)? Spec: same time; per-destination time in phase 2.

@@ -60,7 +60,7 @@ export default async function Inicio() {
 
       <div className="mt-10">
         {inicio.porSubir.length > 0 ? (
-          <Seccion titulo="Para subir a Instagram" id="por-subir" cifra={inicio.porSubir.length}>
+          <Seccion titulo={inicio.porSubirTitulo} id="por-subir" cifra={inicio.porSubir.length}>
             <ul>
               {inicio.porSubir.map((fila) => (
                 <FilaPieza key={fila.id} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} href={fila.href} />

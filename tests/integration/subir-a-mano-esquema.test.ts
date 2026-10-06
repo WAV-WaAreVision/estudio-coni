@@ -57,7 +57,7 @@ describe("subir a mano: esquema", () => {
       expect(rows[0]).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
       await asumir(c, comoPostgres)
       const { rows: eventos } = await c.query(
-        "select actor_usuario, actor_rol, datos ->> 'estado' as estado from public.eventos where pieza_id = $1 order by id desc limit 1",
+        "select actor_usuario, actor_rol, datos ->> 'estado' as estado from public.eventos where pieza_id = $1 and tabla = 'piezas' order by id desc limit 1",
         [id],
       )
       expect(eventos[0]).toEqual({ actor_usuario: CONI, actor_rol: "authenticated", estado: "publicado_a_mano" })

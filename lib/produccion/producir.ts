@@ -18,7 +18,14 @@ import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
-import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import {
+  bloquea,
+  etiquetarJuiciosDeClaude,
+  type Hallazgo,
+  pideLineasDeAyuda,
+  revisarGuion,
+  revisarTextoLinkedin,
+} from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import {
   costoClaude,
@@ -86,6 +93,8 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
 interface Borrador {
   guion: string
   texto: string
+  /** Null for a draft an older worker saved, before there was a LinkedIn text. */
+  textoLinkedin: string | null
   revision: Json
   respaldo: Json | null
 }
@@ -104,8 +113,15 @@ async function redactarBorrador(
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
   let costoUsd = 0
 
-  const revisar = (entrada: { guion: string; texto: string }, lineasAyuda: boolean) =>
-    revisarGuion({ ...entrada, esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno })
+  // The LinkedIn text is reviewed with the script and the caption: a blocking finding of any of them earns the one
+  // correction round, and what is left is stored with its field for the screen that shows it.
+  const revisar = (entrada: { guion: string; texto: string; textoLinkedin: string }, lineasAyuda: boolean) => {
+    const comun = { esAvatar: ES_AVATAR, requiereLineasAyuda: lineasAyuda, ajeno }
+    return [
+      ...revisarGuion({ guion: entrada.guion, texto: entrada.texto, ...comun }),
+      ...revisarTextoLinkedin({ texto: entrada.textoLinkedin, ...comun }),
+    ]
+  }
 
   let escrito = await escribirGuion({ cliente, guia, idea, respaldo: paraEscribir, requiereLineasAyuda })
   costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
@@ -129,6 +145,7 @@ async function redactarBorrador(
     guia,
     guion: escrito.guion,
     texto: escrito.texto,
+    textoLinkedin: escrito.textoLinkedin,
     alertas: idea.alertas,
   })
   costoUsd += costoClaude(juicio.uso, MODELO_POR_TAREA.revisarConClaude.modelo)
@@ -136,11 +153,12 @@ async function redactarBorrador(
     hallazgos = revisar(escrito, true)
   }
 
-  const revision: Hallazgo[] = [...hallazgos, ...juicio.hallazgos]
+  const revision: Hallazgo[] = [...hallazgos, ...etiquetarJuiciosDeClaude(juicio.hallazgos, escrito)]
   return {
     borrador: {
       guion: escrito.guion,
       texto: escrito.texto,
+      textoLinkedin: escrito.textoLinkedin,
       revision: revisionAJson(revision),
       respaldo: respaldoAJson(respaldo),
     },
@@ -155,7 +173,13 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
     )
   }
   // The frozen snapshot of that draft, never a fresh read of the knowledge base.
-  return { guion: fila.guion, texto: fila.texto, revision: fila.revision, respaldo: fila.respaldo }
+  return {
+    guion: fila.guion,
+    texto: fila.texto,
+    textoLinkedin: fila.texto_linkedin,
+    revision: fila.revision,
+    respaldo: fila.respaldo,
+  }
 }
 
 /**
@@ -217,6 +241,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
         versionLeida: fila.version,
         guion: borrador.guion,
         texto: borrador.texto,
+        textoLinkedin: borrador.textoLinkedin,
         revision: borrador.revision,
         clave: claveClaude,
         realUsd: aCuatroDecimales(redactado.costoUsd),

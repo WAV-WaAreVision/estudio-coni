@@ -13,6 +13,17 @@ export const REGLAS_DETERMINISTAS = [
   "etiqueta_desconocida",
   "muchas_etiquetas",
   "etiqueta_en_texto",
+  "largo_linkedin",
+  "largo_corto_linkedin",
+  "hashtags_linkedin",
+  "gancho_linkedin",
+  "emojis_linkedin",
+  "pregunta_linkedin",
+  "enlace_linkedin",
+  "contraste_linkedin",
+  "bait_linkedin",
+  "formato_linkedin",
+  "trato_linkedin",
 ] as const
 export type Regla = (typeof REGLAS_DETERMINISTAS)[number]
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
@@ -133,6 +144,8 @@ export interface Hallazgo {
   tipo: "bloquea" | "advierte"
   mensaje: string
   frase?: string
+  /** Where the finding lives when it is not the script or the caption: the screen shows it under that field. */
+  campo?: "linkedin"
 }
 
 /** An alert of an idea in the bank (`**verificar dato:** ...`), one entry per type. */
@@ -143,6 +156,9 @@ export interface Alerta {
 
 export const CIERRE = "Soy Coni del Rosario."
 export const AVISO_AVATAR = "Video hecho con mi avatar digital."
+/** The notice of the LinkedIn text: fixed, and it says the content was reviewed and approved by her (not "written"). */
+export const AVISO_AVATAR_LINKEDIN =
+  "Este video lo narra mi avatar digital, creado con IA a partir de mi imagen y mi voz. El contenido lo revisé y aprobé yo."
 export const LINEAS_AYUDA =
   "Líneas de ayuda en Chile: Fono 1455 (violencia contra la mujer), *4141 (prevención del suicidio, gratis, 24 horas) y 133 (emergencias)."
 export const TIPO_ALERTA_LINEAS_AYUDA = "líneas de ayuda"
@@ -270,6 +286,249 @@ export function revisarGuion(entrada: {
   }
 
   return hallazgos
+}
+
+/** LinkedIn takes 3000 characters per post: past it the post is refused. */
+export const MAXIMO_TEXTO_LINKEDIN = 3000
+/** Below this the post is short for the feed; the ideal is 1.300 to 2.500 (research on LinkedIn, 2026). */
+export const MINIMO_TEXTO_LINKEDIN = 1000
+export const MAXIMO_HASHTAGS_LINKEDIN = 3
+export const MAXIMO_EMOJIS_LINKEDIN = 3
+/** What shows before «ver más» on a phone. */
+export const MAXIMO_GANCHO_LINKEDIN = 140
+const MAXIMO_LINEAS_DE_GANCHO = 2
+
+// `\b` only knows ASCII letters, so "está" or "podís" would never end at a boundary: these look at letters instead.
+const ANTES = "(?<![\\p{L}\\p{N}_])"
+const DESPUES = "(?![\\p{L}\\p{N}_])"
+const patron = (fuente: string, banderas = "giu") => new RegExp(fuente, banderas)
+
+// A hashtag starts a word: a number sign inside a word or standing alone is not one.
+const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
+// A pictograph, or a keycap such as 1️⃣ (a digit, the emoji selector and the keycap mark).
+const EMOJI = /(?![©®™])\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
+const ENLACE = patron(`(?:https?://|www\\.)\\S+|${ANTES}[\\p{L}\\p{N}-]+\\.(?:com|cl|org|net|io|co)/\\S*`)
+
+// LinkedIn lowers the reach of the "no es X, es Y" construction (it reads as machine writing). These catch its usual
+// shapes and mark the draft to be rewritten; a second reading can tell a false hit.
+const CONTRASTE = [
+  patron(`${ANTES}no es${DESPUES}[^.?!\\n]{0,60}[,.;:]\\s*(?:es|sino)${DESPUES}`),
+  patron(`${ANTES}no se trata de${DESPUES}[^.?!\\n]{0,80}${ANTES}sino${DESPUES}`),
+  patron(`${ANTES}el problema no es${DESPUES}|${ANTES}no es el problema${DESPUES}`),
+  patron(`${ANTES}no\\s+(?:es|son|está|se\\s+\\p{L}+)${DESPUES}[^.?!\\n]{0,40}:\\s*(?:es|son|está|se)${DESPUES}`),
+]
+// Asking for a reaction in exchange for nothing is the bait LinkedIn lowers; a real question is not. The keyword to
+// comment is the only case-sensitive one: it is written in capitals.
+const BAIT = [
+  patron(`${ANTES}[Cc]omenta\\s+["“«']?[A-ZÁÉÍÓÚ]{2,}["”»']?`, "gu"),
+  patron(`${ANTES}(?:dale|deja tu|dame un) like${DESPUES}`),
+  patron(`${ANTES}reacciona con${DESPUES}`),
+  // Only the imperative: "ponerle una etiqueta a tu pareja" is about labels, not about tagging people.
+  patron(`(?<=^|[.!?¡¿\\n]\\s*)etiqueta a${DESPUES}`),
+  patron(`${ANTES}etiqueta a (?:alguien|quien|tu\\s+amig\\p{L}*|un\\p{L}*\\s+amig\\p{L}*)${DESPUES}`),
+  patron(`${ANTES}comparte (?:si|sí|esto si|esto sí)${DESPUES}`),
+  patron(`${ANTES}vota con (?:una |tu )?reacci[oó]n${DESPUES}`),
+]
+const LETRAS_ESTILIZADAS = /[\u{1D400}-\u{1D7FF}]+/u
+const RAYA_LARGA = /[\u2013\u2014]/u
+const VOSEO = patron(`${ANTES}(?:podís|sabís|cachai|querís|tenís)${DESPUES}`)
+const USTED = patron(`${ANTES}usted${DESPUES}`)
+
+function distintos(texto: string, patrones: readonly RegExp[]): string[] {
+  return [...new Set(patrones.flatMap((p) => [...texto.matchAll(p)].map((m) => m[0])))]
+}
+
+/**
+ * The LinkedIn text is published as written, like the caption: the same blocking rules (the avatar notice, here the
+ * fixed LinkedIn one; help lines; tone marks) and warnings (copied phrases, named authors), plus LinkedIn's own limit
+ * (3000 characters blocks) and the rules of the research on writing for LinkedIn, which only warn: length, hook,
+ * hashtags, emojis, one closing question, no links, no contrast formula, no engagement bait, plain letters and tú.
+ * Every finding carries `campo: "linkedin"` so the screen shows it under that field.
+ */
+export function revisarTextoLinkedin(entrada: {
+  texto: string
+  esAvatar: boolean
+  requiereLineasAyuda: boolean
+  ajeno: Ajeno
+}): Hallazgo[] {
+  const { texto, esAvatar, requiereLineasAyuda, ajeno } = entrada
+  const hallazgos: Hallazgo[] = []
+  const advierte = (regla: Regla, mensaje: string, frase?: string) =>
+    hallazgos.push({ regla, tipo: "advierte", mensaje, ...(frase === undefined ? {} : { frase }) })
+
+  if (esAvatar && !texto.includes(AVISO_AVATAR_LINKEDIN)) {
+    hallazgos.push({
+      regla: "aviso_avatar",
+      tipo: "bloquea",
+      mensaje: `El texto para LinkedIn tiene que avisar que es un avatar digital: «${AVISO_AVATAR_LINKEDIN}»`,
+    })
+  }
+
+  if (requiereLineasAyuda && !["1455", "*4141", "133"].every((linea) => texto.includes(linea))) {
+    hallazgos.push({
+      regla: "lineas_ayuda",
+      tipo: "bloquea",
+      mensaje: "Este tema pide las líneas de ayuda de Chile también en el texto para LinkedIn: 1455, *4141 y 133.",
+    })
+  }
+
+  const largo = [...texto].length
+  if (largo > MAXIMO_TEXTO_LINKEDIN) {
+    hallazgos.push({
+      regla: "largo_linkedin",
+      tipo: "bloquea",
+      mensaje: "LinkedIn acepta hasta 3.000 caracteres. Acorta un poco el texto.",
+    })
+  }
+
+  for (const frase of new Set(
+    etiquetasDe(texto)
+      .filter((marca) => marca.conocida)
+      .map((marca) => marca.escrita),
+  )) {
+    hallazgos.push({
+      regla: "etiqueta_en_texto",
+      tipo: "bloquea",
+      mensaje: "Las marcas de tono van solo en el guion. Bórrala del texto para LinkedIn.",
+      frase,
+    })
+  }
+
+  if (largo < MINIMO_TEXTO_LINKEDIN) {
+    advierte(
+      "largo_corto_linkedin",
+      `El texto tiene ${largo.toLocaleString("es-CL")} caracteres. Lo ideal en LinkedIn es de 1.300 a 2.500.`,
+    )
+  }
+
+  const gancho = texto.trim().split(/\n\s*\n/)[0] ?? ""
+  if ([...gancho].length > MAXIMO_GANCHO_LINKEDIN || gancho.split("\n").length > MAXIMO_LINEAS_DE_GANCHO) {
+    advierte(
+      "gancho_linkedin",
+      `El gancho, el primer párrafo, tiene que caber en ${MAXIMO_GANCHO_LINKEDIN} caracteres y dos líneas: es lo único que se ve antes de «ver más».`,
+    )
+  }
+
+  const hashtags = texto.match(HASHTAG)?.length ?? 0
+  if (hashtags > MAXIMO_HASHTAGS_LINKEDIN) {
+    advierte(
+      "hashtags_linkedin",
+      `En LinkedIn van como máximo ${MAXIMO_HASHTAGS_LINKEDIN} hashtags. Tiene ${hashtags}.`,
+    )
+  }
+
+  const emojis = texto.match(EMOJI)?.length ?? 0
+  if (requiereLineasAyuda ? emojis > 0 : emojis > MAXIMO_EMOJIS_LINKEDIN) {
+    advierte(
+      "emojis_linkedin",
+      requiereLineasAyuda
+        ? "En un tema delicado no uses emojis en LinkedIn."
+        : `En LinkedIn van como máximo ${MAXIMO_EMOJIS_LINKEDIN} emojis, y solo para ordenar. Tiene ${emojis}.`,
+    )
+  }
+
+  // A question mark inside a link is part of the address, not a question.
+  const preguntas = texto.replace(ENLACE, " ").match(/\?/g)?.length ?? 0
+  if (preguntas === 0) {
+    advierte("pregunta_linkedin", "Cierra con una pregunta específica que invite a contar la experiencia.")
+  } else if (preguntas > 1) {
+    advierte("pregunta_linkedin", `Deja una sola pregunta al final. Tiene ${preguntas}.`)
+  }
+
+  for (const frase of distintos(texto, [ENLACE])) {
+    advierte("enlace_linkedin", "Sin enlaces en el texto: en LinkedIn bajan el alcance. Ponlos en Destacados.", frase)
+  }
+
+  for (const frase of distintos(texto, CONTRASTE)) {
+    advierte(
+      "contraste_linkedin",
+      "Esta fórmula («no es X, es Y») suena a texto hecho por una IA y LinkedIn la castiga. Dilo directo.",
+      frase,
+    )
+  }
+
+  for (const frase of distintos(texto, BAIT)) {
+    advierte(
+      "bait_linkedin",
+      "LinkedIn castiga pedir comentarios, likes o etiquetas a cambio de nada. Haz una pregunta de verdad.",
+      frase,
+    )
+  }
+
+  const estilizada = LETRAS_ESTILIZADAS.exec(texto)
+  if (estilizada) {
+    advierte(
+      "formato_linkedin",
+      "Las letras en negrita o cursiva de Unicode no las leen los lectores de pantalla ni el buscador. Escríbelo con letras normales.",
+      estilizada[0],
+    )
+  }
+  const raya = RAYA_LARGA.exec(texto)
+  if (raya) {
+    advierte("formato_linkedin", "Sin rayas largas en el texto. Usa coma, punto o dos puntos.", raya[0])
+  }
+
+  for (const frase of distintos(texto, [VOSEO])) {
+    advierte("trato_linkedin", `Escribe de tú, sin voseo: «${frase}» no va en este texto.`, frase)
+  }
+  for (const frase of distintos(texto, [USTED])) {
+    advierte("trato_linkedin", "Escribe de tú, no de usted.", frase)
+  }
+
+  for (const frase of new Set(tramosCopiados(texto, ajeno.citas))) {
+    hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
+  }
+  for (const frase of new Set(autoresNombrados(texto, ajeno.autores, ajeno.personas))) {
+    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
+  }
+
+  return hallazgos.map((hallazgo) => ({ ...hallazgo, campo: "linkedin" as const }))
+}
+
+const comparable = (texto: string) => texto.replace(/\s+/g, " ").trim().toLowerCase()
+
+/**
+ * Claude judges the script, the caption and the LinkedIn text in one go and quotes a phrase. A phrase that only appears
+ * in the LinkedIn text belongs to that field: it shows under it, and goes when that text is edited. A phrase found
+ * elsewhere too, or nowhere, stays as it always was.
+ */
+export function etiquetarJuiciosDeClaude(
+  juicios: readonly Hallazgo[],
+  textos: { guion: string; texto: string; textoLinkedin: string | null },
+): Hallazgo[] {
+  const { textoLinkedin } = textos
+  if (textoLinkedin === null) return [...juicios]
+  const delGuionYElTexto = [sinEtiquetas(textos.guion), textos.texto].map(comparable)
+  const delLinkedin = comparable(textoLinkedin)
+  return juicios.map((juicio) => {
+    const frase = juicio.frase === undefined ? "" : comparable(juicio.frase)
+    if (frase === "" || !delLinkedin.includes(frase)) return juicio
+    return delGuionYElTexto.some((campo) => campo.includes(frase)) ? juicio : { ...juicio, campo: "linkedin" as const }
+  })
+}
+
+/** The LinkedIn text of a piece that may not have one yet (a piece from before LinkedIn has none): no text, no findings. */
+export function revisarLinkedinSiHay(
+  texto: string | null,
+  resto: { esAvatar: boolean; requiereLineasAyuda: boolean; ajeno: Ajeno },
+): Hallazgo[] {
+  return texto === null ? [] : revisarTextoLinkedin({ texto, ...resto })
+}
+
+/** The findings of the script and the caption: what gate 1 shows. The LinkedIn ones are for gate 2. */
+export function sinLinkedin(hallazgos: readonly Hallazgo[]): Hallazgo[] {
+  return hallazgos.filter((hallazgo) => hallazgo.campo !== "linkedin")
+}
+
+/**
+ * The findings that count for an approval. Gate 1 is about the script and the caption; at gate 2 the LinkedIn findings
+ * count only when LinkedIn is among the destinations being approved.
+ */
+export function hallazgosDeLaAprobacion(
+  hallazgos: readonly Hallazgo[],
+  { linkedin }: { linkedin: boolean },
+): Hallazgo[] {
+  return linkedin ? [...hallazgos] : sinLinkedin(hallazgos)
 }
 
 export function bloquea(hallazgos: readonly Hallazgo[]): boolean {

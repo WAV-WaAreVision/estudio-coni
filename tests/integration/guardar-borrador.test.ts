@@ -41,6 +41,53 @@ async function borradorDeLaPieza(c: pg.PoolClient, id: string) {
   return rows[0]
 }
 
+describe("guardar_borrador y el texto para LinkedIn", () => {
+  const CON_LINKEDIN = `select texto_linkedin from public.guardar_borrador($1, $2, 'Guion nuevo', 'Texto nuevo', $3::jsonb, $4, $5, null, $6)`
+
+  it("saves the LinkedIn text together with the draft", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+
+      const { rows } = await c.query(CON_LINKEDIN, [...argumentos(id), "Para colegas."])
+
+      expect(rows[0]).toEqual({ texto_linkedin: "Para colegas." })
+      expect((await c.query("select texto_linkedin from public.piezas where id = $1", [id])).rows[0]).toEqual({
+        texto_linkedin: "Para colegas.",
+      })
+    })
+  })
+
+  it("still accepts the arguments of a worker from before LinkedIn and leaves the LinkedIn text empty", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query(
+        "update public.piezas set texto_linkedin = 'De un borrador anterior', version = version + 1 where id = $1",
+        [id],
+      )
+
+      const { rows } = await c.query(GUARDAR, argumentos(id, 2))
+
+      expect(rows[0]?.version).toBe(3)
+      expect((await c.query("select texto_linkedin from public.piezas where id = $1", [id])).rows[0]).toEqual({
+        texto_linkedin: null,
+      })
+    })
+  })
+
+  it("replaces the LinkedIn text of an earlier draft when a new round writes another one", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await piezaConGastoReservado(c)
+      await c.query("update public.piezas set texto_linkedin = 'Anterior', version = version + 1 where id = $1", [id])
+
+      await c.query(CON_LINKEDIN, [id, 2, JSON.stringify(REVISION), CLAVE, REAL_USD, "Nuevo"])
+
+      expect((await c.query("select texto_linkedin from public.piezas where id = $1", [id])).rows[0]).toEqual({
+        texto_linkedin: "Nuevo",
+      })
+    })
+  })
+})
+
 describe("guardar_borrador", () => {
   it("saves the draft, bumps the version and confirms the spend with its real cost, together", async () => {
     await como(comoPostgres, async (c) => {

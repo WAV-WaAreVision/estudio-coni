@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { leerDatosDeCalendario } from "@/lib/datos/calendario"
+import { leerDatosDeInicio } from "@/lib/datos/inicio"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
@@ -15,6 +16,36 @@ beforeEach(vaciarPiezasEIdeas)
 afterAll(async () => {
   await vaciarPiezasEIdeas()
   await pool.end()
+})
+
+describe("destinos de las piezas en Inicio y Calendario", () => {
+  it("reads where a piece goes and what still waits for her, in both screens", async () => {
+    const id = await sembrarPieza(
+      "para_subir_a_mano",
+      { titulo: "Para los dos" },
+      { destinos: ["instagram", "linkedin"], textoLinkedin: "Para colegas." },
+    )
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'instagram'",
+      [id],
+    )
+
+    const calendario = await leerDatosDeCalendario(coni, Date.now())
+    const inicio = await leerDatosDeInicio(coni, Date.now())
+
+    for (const pieza of [calendario.piezas, inicio.piezas].map((piezas) => piezas.find((p) => p.id === id))) {
+      expect(pieza?.destinos).toEqual(["instagram", "linkedin"])
+      expect(pieza?.pendientes).toEqual(["linkedin"])
+    }
+  })
+
+  it("reads a piece from before LinkedIn as Instagram only", async () => {
+    const id = await sembrarPieza("programado", { titulo: "De antes" })
+
+    const { piezas } = await leerDatosDeInicio(coni, Date.now())
+
+    expect(piezas.find((p) => p.id === id)).toMatchObject({ destinos: ["instagram"], pendientes: ["instagram"] })
+  })
 })
 
 describe("leerDatosDeCalendario", () => {

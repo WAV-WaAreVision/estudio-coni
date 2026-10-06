@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerAvataresElegibles } from "@/lib/datos/pantallas"
+import { leerAvataresElegibles, leerInstagramConectado } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -7,17 +7,28 @@ import {
   type FilaDePieza,
   leerIdea,
   leerPieza,
+  leerPublicaciones,
   revisionAJson,
 } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
+import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
+import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
 import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
-import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { hashPuerta1, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
-import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import {
+  type Hallazgo,
+  hallazgosDeLaAprobacion,
+  MAXIMO_TEXTO_LINKEDIN,
+  pideLineasDeAyuda,
+  revisarGuion,
+  revisarLinkedinSiHay,
+  sinLinkedin,
+} from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
@@ -52,10 +63,19 @@ function exigirVersion(fila: FilaDePieza, versionVista: number, error: Falla = n
   if (fila.version !== versionVista) throw error
 }
 
-function exigirRevisionLimpia(fila: FilaDePieza): void {
-  const bloqueante = leerRevision(fila.revision).find((hallazgo) => hallazgo.tipo === "bloquea")
+/**
+ * What blocks an approval. The findings of the LinkedIn text count only when that text is part of what is approved
+ * (gate 2 with LinkedIn chosen): gate 1 is about the script and the caption.
+ */
+function exigirRevisionLimpia(fila: FilaDePieza, { linkedin }: { linkedin: boolean }): void {
+  const bloqueante = hallazgosDeLaAprobacion(leerRevision(fila.revision), { linkedin }).find(
+    (hallazgo) => hallazgo.tipo === "bloquea",
+  )
   if (bloqueante) throw new Falla(`Todavía no puedes aprobar. ${bloqueante.mensaje}`)
 }
+
+const INSTAGRAM_SALE_SOLO = "Instagram está conectado: este reel sale solo a la hora aprobada."
+const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
 
 function traducir(error: unknown): unknown {
   if (error instanceof Falla || !(error instanceof Error)) return error
@@ -64,6 +84,10 @@ function traducir(error: unknown): unknown {
     return new Falla("Todavía no puedes aprobar: la revisión tiene algo que corregir.")
   }
   if (error.message.includes("version_desfasada")) return new PantallaVencida()
+  // Two screens marked the same destination, or the piece left the upload steps: what she sees is out of date.
+  if (error.message.includes("destino_no_pendiente")) return new Falla(DESTINO_YA_NO_ESPERA)
+  if (error.message.includes("estado_no_marcable")) return new PantallaVencida()
+  if (error.message.includes("instagram_se_publica_solo")) return new Falla(INSTAGRAM_SALE_SOLO)
   return error
 }
 
@@ -218,7 +242,7 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     if (fila.guion === null || fila.texto === null) {
       throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin texto.`)
     }
-    exigirRevisionLimpia(fila)
+    exigirRevisionLimpia(fila, { linkedin: false })
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
     const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
     const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
@@ -290,6 +314,12 @@ export function normalizarTexto(texto: string): string {
   return texto.replace(/\r\n?/g, "\n").normalize("NFC").trim()
 }
 
+/** The idea alerts or Claude's own judgment of the topic say the help lines of Chile go in the texts. */
+async function pideAyuda(db: Db, fila: FilaDePieza, juicios: readonly Hallazgo[]): Promise<boolean> {
+  const idea = fila.idea_id ? await leerIdea(db, fila.idea_id) : null
+  return pideLineasDeAyuda(idea?.alertas ?? []) || juicios.some((hallazgo) => hallazgo.regla === "tema_de_riesgo")
+}
+
 export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: number, textoNuevo: string) {
   return aResultado("editarTexto", async () => {
     const texto = normalizarTexto(textoNuevo)
@@ -303,9 +333,7 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
     transicionar(piezaDesdeFila(fila), { tipo: "editar_texto" })
 
     const juicios = leerRevision(fila.revision).filter(esJuicioDeClaude)
-    const idea = fila.idea_id ? await leerIdea(deps.db, fila.idea_id) : null
-    const requiereLineasAyuda =
-      pideLineasDeAyuda(idea?.alertas ?? []) || juicios.some((hallazgo) => hallazgo.regla === "tema_de_riesgo")
+    const requiereLineasAyuda = await pideAyuda(deps.db, fila, juicios)
     const respaldo = leerRespaldo(fila.respaldo)
     const revision: Hallazgo[] = [
       ...revisarGuion({
@@ -315,11 +343,68 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
         requiereLineasAyuda,
         ajeno: ajenoDelRespaldo(respaldo),
       }),
+      ...revisarLinkedinSiHay(fila.texto_linkedin, {
+        esAvatar: true,
+        requiereLineasAyuda,
+        ajeno: ajenoDelRespaldo(respaldo),
+      }),
       ...juicios,
     ]
 
     // Written as Coni (the database function is hers alone), so the audit row names her and not the service role.
     const { error } = await deps.db.rpc("editar_texto_como_coni", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_texto: texto,
+      p_revision: revisionAJson(revision),
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
+    return {}
+  })
+}
+
+/** The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back). */
+const ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE: readonly Database["public"]["Enums"]["estado_pieza"][] = [
+  "guion_por_aprobar",
+  "guion_aprobado",
+  "video_por_aprobar",
+  "programado",
+]
+
+/**
+ * Coni edits the LinkedIn text, or saves the one the screen started from the caption. It is reviewed again with
+ * LinkedIn's rules; the findings of the script, the caption and Claude's judgments stay. Unlike the caption it is not
+ * part of gate 1, so editing it leaves gate 1 as it is; on a scheduled piece it takes gate 2 back.
+ */
+export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, versionVista: number, textoNuevo: string) {
+  return aResultado("editarTextoLinkedin", async () => {
+    const texto = normalizarTexto(textoNuevo)
+    if (texto === "") throw new Falla("El texto no puede quedar vacío.")
+    if ([...texto].length > MAXIMO_TEXTO_LINKEDIN) {
+      throw new Falla("LinkedIn acepta hasta 3.000 caracteres en el texto.")
+    }
+
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    if (!ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE.includes(fila.estado)) {
+      throw new TransicionInvalida(fila.estado, "editar_texto")
+    }
+
+    const actual = leerRevision(fila.revision)
+    const juicios = actual.filter(esJuicioDeClaude)
+    const requiereLineasAyuda = await pideAyuda(deps.db, fila, juicios)
+    // Claude's findings about the old LinkedIn text are about text that no longer exists: they go with it.
+    const juiciosQueQuedan = juicios.filter((juicio) => juicio.campo !== "linkedin")
+    const ajeno = ajenoDelRespaldo(leerRespaldo(fila.respaldo))
+    const delGuionYElTexto = sinLinkedin(actual).filter((hallazgo) => !esJuicioDeClaude(hallazgo))
+    const revision: Hallazgo[] = [
+      ...delGuionYElTexto,
+      ...revisarLinkedinSiHay(texto, { esAvatar: true, requiereLineasAyuda, ajeno }),
+      ...juiciosQueQuedan,
+    ]
+
+    // Written as Coni (the database function is hers alone), so the audit row names her and not the service role.
+    const { error } = await deps.db.rpc("editar_texto_linkedin_como_coni", {
       p_pieza: fila.id,
       p_version: fila.version,
       p_texto: texto,
@@ -345,26 +430,56 @@ async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): 
   if (data.length > 0) throw new Falla("Ese horario ya lo tiene otro reel. Elige otro.")
 }
 
-export function aprobarVideo(deps: DepsAcciones, piezaId: string, versionVista: number, publicarEn: string) {
+/**
+ * Gate 2 approves the video, the caption, the LinkedIn text (when LinkedIn is chosen), the destinations and the time.
+ * Formula 2 hashes all of it, and the destinations go in the same update as the approval so the database sees both
+ * change together. `versionVista` is the version of the screen she signed, and the write only matches that version,
+ * so the hash recomputed here is the hash of exactly what she saw.
+ */
+export function aprobarVideo(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  publicarEn: string,
+  destinosElegidos: readonly string[],
+) {
   return aResultado("aprobarVideo", async () => {
+    if (!destinosValidos(destinosElegidos)) throw new Falla("Elige al menos un destino.")
+    const destinos = canonicos(destinosElegidos)
+    const conLinkedin = destinos.includes("linkedin")
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista, new ArtefactoCambio())
     if (fila.estado !== "video_por_aprobar") throw new TransicionInvalida(fila.estado, "aprobar_video")
     if (fila.video_id === null || fila.texto === null) {
       throw new Error(`La pieza ${fila.id} está por aprobar sin video o sin texto.`)
     }
-    exigirRevisionLimpia(fila)
+    if (conLinkedin && (fila.texto_linkedin === null || fila.texto_linkedin.trim() === "")) {
+      throw new Falla("Falta el texto para LinkedIn.")
+    }
+    exigirRevisionLimpia(fila, { linkedin: conLinkedin })
+    // What she already uploaded survives a withdrawal of gate 2: a choice made only of that has nothing left to do.
+    const subidos = (await leerPublicaciones(deps.db, fila.id))
+      .filter((p) => p.estado === "subido_a_mano" || p.estado === "publicado")
+      .map((p) => p.destino)
+    if (destinos.every((destino) => subidos.includes(destino)))
+      throw new Falla("Eso ya lo subiste. Elige otro destino.")
     await exigirHorarioLibre(deps.db, fila.id, publicarEn)
-    const hash = hashTexto(fila.texto)
-    await guardarEvento(deps.db, fila, {
-      tipo: "aprobar_video",
-      actor: "coni",
-      videoVisto: fila.video_id,
-      hashTextoVisto: hash,
-      hashTextoActual: hash,
-      publicarEn,
-      en: deps.ahora(),
-    })
+    const hash = hashTextoDePuerta2(2, { texto: fila.texto, textoLinkedin: fila.texto_linkedin, destinos })
+    await guardarEvento(
+      deps.db,
+      fila,
+      {
+        tipo: "aprobar_video",
+        actor: "coni",
+        videoVisto: fila.video_id,
+        hashTextoVisto: hash,
+        hashTextoActual: hash,
+        formula: 2,
+        publicarEn,
+        en: deps.ahora(),
+      },
+      { destinos },
+    )
     // Nothing to start: `publicar-pendientes` takes the piece when its approved time arrives.
     return {}
   })
@@ -411,15 +526,42 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
 }
 
 /**
- * Instagram is not connected: Coni uploaded the reel herself and says so. It is written with her session, so the audit
- * row carries her name and the database refuses anybody else. The link is optional, checked as text and never fetched.
+ * Coni uploaded the reel to one destination herself and says so. It is written with her session by a function that
+ * marks that destination and, when nothing else is pending, the piece, in one transaction: the audit rows carry her
+ * name and the database refuses anybody else. The link is optional, checked as text and never fetched.
  */
-export function marcarSubidoAMano(deps: DepsAcciones, piezaId: string, versionVista: number, enlace: string) {
+export function marcarSubidoAMano(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  destino: string,
+  enlace: string,
+) {
   return aResultado("marcarSubidoAMano", async () => {
-    const permalink = enlaceDeInstagram(enlace)
+    if (!esDestino(destino)) throw new Falla("Ese destino no existe.")
+    const permalink = destino === "instagram" ? enlaceDeInstagram(enlace) : enlaceDeLinkedIn(enlace)
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
-    await guardarEvento(deps.db, fila, { tipo: "subido_a_mano", actor: "coni" }, permalink ? { permalink } : {})
+    const { pendientes } = resumenDePublicaciones(await leerPublicaciones(deps.db, fila.id))
+    // The state and what follows are validated here and applied by the function below, which repeats them in SQL.
+    transicionar(piezaDesdeFila(fila), {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino,
+      quedanPendientes: pendientes.some((pendiente) => pendiente !== destino),
+    })
+    if (!pendientes.includes(destino)) throw new Falla(DESTINO_YA_NO_ESPERA)
+    if (destino === "instagram" && fila.estado === "programado" && (await leerInstagramConectado(deps.db))) {
+      throw new Falla(INSTAGRAM_SALE_SOLO)
+    }
+
+    const { error } = await deps.db.rpc("marcar_subido_como_coni", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_destino: destino,
+      p_enlace: permalink ?? "",
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
     return {}
   })
 }

@@ -15,7 +15,16 @@ import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { Falla } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
-import { bloquea, type Hallazgo, MAXIMO_DEL_GUION, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import {
+  bloquea,
+  etiquetarJuiciosDeClaude,
+  type Hallazgo,
+  MAXIMO_DEL_GUION,
+  pideLineasDeAyuda,
+  revisarGuion,
+  revisarLinkedinSiHay,
+  sinLinkedin,
+} from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
 import { costoClaude, MODELO_POR_TAREA, revisarConClaude } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
@@ -114,15 +123,37 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
   const respaldo = leerRespaldo(fila.respaldo)
   const revisar = (requiereLineasAyuda: boolean) =>
     revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(respaldo) })
+  // The LinkedIn text is not part of gate 1 and is not edited here: its review is kept up to date in what is stored,
+  // for gate 2, and never blocks this edit.
+  const revisarLinkedin = (requiereLineasAyuda: boolean) =>
+    revisarLinkedinSiHay(fila.texto_linkedin, {
+      esAvatar: true,
+      requiereLineasAyuda,
+      ajeno: ajenoDelRespaldo(respaldo),
+    })
 
   const deterministas = revisar(pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"))
   if (bloquea(deterministas)) return { motivo: "revision_bloquea", error: ERROR_BLOQUEA, hallazgos: deterministas }
 
-  const juicio = await juzgarConClaude(deps, { piezaId: fila.id, guion, texto, alertas })
+  const juicio = await juzgarConClaude(deps, {
+    piezaId: fila.id,
+    guion,
+    texto,
+    textoLinkedin: fila.texto_linkedin,
+    alertas,
+  })
   if (juicio === "tope") return { motivo: "tope", error: await textoDelTope(db) }
 
-  const reglas = juicio.hallazgos.some((h) => h.regla === "tema_de_riesgo") ? revisar(true) : deterministas
-  const revision: Hallazgo[] = [...reglas, ...juicio.hallazgos]
+  const deRiesgo = juicio.hallazgos.some((h) => h.regla === "tema_de_riesgo")
+  const reglas = deRiesgo ? revisar(true) : deterministas
+  const deLinkedin = revisarLinkedin(
+    deRiesgo || pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"),
+  )
+  const revision: Hallazgo[] = [
+    ...reglas,
+    ...deLinkedin,
+    ...etiquetarJuiciosDeClaude(juicio.hallazgos, { guion, texto, textoLinkedin: fila.texto_linkedin }),
+  ]
 
   const { data, error } = await db.rpc("editar_guion_como_coni", {
     p_pieza: fila.id,
@@ -132,7 +163,8 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
     p_revision: revisionAJson(revision),
   })
   if (error) throw traducir(new Error(error.message, { cause: error }))
-  return { version: data.version, revision }
+  // Gate 1 shows the script and the caption; the LinkedIn findings wait for gate 2, where she can edit that text.
+  return { version: data.version, revision: sinLinkedin(revision) }
 }
 
 async function textoDelTope(db: Db): Promise<string> {
@@ -147,6 +179,7 @@ async function juzgarConClaude(
     piezaId: string
     guion: string
     texto: string
+    textoLinkedin: string | null
     alertas: Parameters<typeof revisarConClaude>[0]["alertas"]
   },
 ): Promise<{ hallazgos: Hallazgo[] } | "tope"> {
@@ -180,6 +213,7 @@ async function juzgarConClaude(
       guia: guia.texto,
       guion: entrada.guion,
       texto: entrada.texto,
+      textoLinkedin: entrada.textoLinkedin,
       alertas: entrada.alertas,
     })
   } catch (error) {

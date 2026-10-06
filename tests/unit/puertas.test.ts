@@ -4,9 +4,11 @@ import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
 import {
   claveIdempotencia,
   formulaDePuerta1,
+  formulaDePuerta2,
   hashPuerta1,
   hashPuerta2,
   hashTexto,
+  hashTextoDePuerta2,
   puedeEntregarseParaSubir,
   puedeGrabar,
   puedeGrabarVoz,
@@ -156,7 +158,7 @@ describe("puedePublicar", () => {
   const programada = pieza({
     estado: "programado",
     videoId: "video_1",
-    puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: APROBADA },
+    puerta2: { videoId: "video_1", hashTexto: "t1", formula: 1, publicarEn: HORA, en: APROBADA },
   })
   const actual = (ahora: string, hashTexto = "t1") => ({ ahora, hashTexto })
 
@@ -218,7 +220,7 @@ describe("puedeEntregarseParaSubir", () => {
   const programada = pieza({
     estado: "programado",
     videoId: "video_1",
-    puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: APROBADA },
+    puerta2: { videoId: "video_1", hashTexto: "t1", formula: 1, publicarEn: HORA, en: APROBADA },
   })
   const actual = (ahora: string, hashTexto = "t1") => ({ ahora, hashTexto })
 
@@ -297,5 +299,67 @@ describe("puedeGrabarVoz", () => {
 
   it("builds idempotency keys for the voice step", () => {
     expect(claveIdempotencia({ piezaId: "p", paso: "voz", hash, intento: 2 })).toBe(`p:voz:${hash.slice(0, 16)}:2`)
+  })
+})
+
+describe("hashTextoDePuerta2", () => {
+  const base = {
+    texto: "Hola.\nVideo hecho con mi avatar digital.",
+    textoLinkedin: "Colegas...",
+    destinos: ["instagram"] as const,
+  }
+
+  it("keeps formula 1 equal to the hash of the caption alone: old approvals still validate", () => {
+    expect(hashTextoDePuerta2(1, { ...base, destinos: ["instagram", "linkedin"] })).toBe(hashTexto(base.texto))
+    expect(hashTextoDePuerta2(1, base)).toBe(hashTexto(base.texto))
+  })
+
+  it("pins formula 2 to its namespace so nothing else can produce it", () => {
+    const esperado = createHash("sha256")
+      .update(JSON.stringify(["puerta2/2", base.texto, "", "instagram"]))
+      .digest("hex")
+    expect(hashTextoDePuerta2(2, base)).toBe(esperado)
+  })
+
+  it("changes formula 2 when the destinations change", () => {
+    const solo = hashTextoDePuerta2(2, { ...base, destinos: ["instagram"] })
+    const ambos = hashTextoDePuerta2(2, { ...base, destinos: ["instagram", "linkedin"] })
+    expect(solo).not.toBe(ambos)
+  })
+
+  it("does not count the LinkedIn text in formula 2 when LinkedIn is not chosen", () => {
+    const a = hashTextoDePuerta2(2, { ...base, destinos: ["instagram"] })
+    const b = hashTextoDePuerta2(2, { ...base, textoLinkedin: "otro", destinos: ["instagram"] })
+    const c = hashTextoDePuerta2(2, { ...base, textoLinkedin: null, destinos: ["instagram"] })
+    expect(b).toBe(a)
+    expect(c).toBe(a)
+  })
+
+  it("changes formula 2 when LinkedIn is chosen and its text changes", () => {
+    const a = hashTextoDePuerta2(2, { ...base, destinos: ["instagram", "linkedin"] })
+    const b = hashTextoDePuerta2(2, { ...base, textoLinkedin: "otro", destinos: ["linkedin", "instagram"] })
+    expect(b).not.toBe(a)
+  })
+
+  it("changes formula 2 when the caption changes", () => {
+    expect(hashTextoDePuerta2(2, { ...base, texto: "Otro." })).not.toBe(hashTextoDePuerta2(2, base))
+  })
+
+  it("gives the same formula 2 hash when the destinations come reversed", () => {
+    expect(hashTextoDePuerta2(2, { ...base, destinos: ["linkedin", "instagram"] })).toBe(
+      hashTextoDePuerta2(2, { ...base, destinos: ["instagram", "linkedin"] }),
+    )
+  })
+
+  it("does not mistake a LinkedIn text for the end of the caption (field boundaries stay unambiguous)", () => {
+    const a = hashTextoDePuerta2(2, { texto: "a", textoLinkedin: "bc", destinos: ["instagram", "linkedin"] })
+    const b = hashTextoDePuerta2(2, { texto: "ab", textoLinkedin: "c", destinos: ["instagram", "linkedin"] })
+    expect(a).not.toBe(b)
+  })
+
+  it("reads a null stored formula as formula 1 and 2 as formula 2", () => {
+    expect(formulaDePuerta2(null)).toBe(1)
+    expect(formulaDePuerta2(1)).toBe(1)
+    expect(formulaDePuerta2(2)).toBe(2)
   })
 })

@@ -11,6 +11,7 @@ const INICIAL = {
   usado: 12.8,
   avisosResumen: true,
   avisosUrgentes: true,
+  destinos: ["instagram"] as ("instagram" | "linkedin")[],
 }
 
 function acciones(cambios: Partial<AccionesDelEditor> = {}): AccionesDelEditor {
@@ -175,5 +176,51 @@ describe("EditorDeAjustes", () => {
     mostrar()
 
     expect(screen.getByText("Llevas US$ 12,80 este mes")).toHaveClass("text-tinta")
+  })
+
+  describe("dónde se publica", () => {
+    it("shows both networks, with LinkedIn marked as by hand for now, and what the setting does", () => {
+      mostrar()
+
+      expect(screen.getByRole("heading", { name: "Dónde se publica" })).toBeInTheDocument()
+      expect(screen.getByRole("switch", { name: "Instagram" })).toHaveAttribute("aria-checked", "true")
+      expect(screen.getByRole("switch", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "false")
+      expect(screen.getByText("A mano por ahora")).toBeInTheDocument()
+      expect(
+        screen.getByText(/LinkedIn se sube a mano: a la hora aprobada te aviso y te dejo el video y el texto listos/),
+      ).toBeInTheDocument()
+      expect(screen.getByText(/Más adelante podrá publicarse solo/)).toBeInTheDocument()
+    })
+
+    it("saves the new list by itself, in the canonical order", async () => {
+      const a = mostrar()
+
+      fireEvent.click(screen.getByRole("switch", { name: "LinkedIn" }))
+
+      await waitFor(() =>
+        expect(a.guardar).toHaveBeenCalledWith({ campo: "destinos", valor: ["instagram", "linkedin"] }),
+      )
+      expect(screen.getByRole("switch", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "true")
+    })
+
+    it("refuses turning off the last destination and says why", () => {
+      const a = mostrar()
+
+      fireEvent.click(screen.getByRole("switch", { name: "Instagram" }))
+
+      expect(a.guardar).not.toHaveBeenCalled()
+      expect(screen.getByText("Deja al menos un destino.")).toBeInTheDocument()
+      expect(screen.getByRole("switch", { name: "Instagram" })).toHaveAttribute("aria-checked", "true")
+    })
+
+    it("lets her turn Instagram off once LinkedIn is on", async () => {
+      const a = mostrar()
+      fireEvent.click(screen.getByRole("switch", { name: "LinkedIn" }))
+      await waitFor(() => expect(a.guardar).toHaveBeenCalledTimes(1))
+
+      fireEvent.click(screen.getByRole("switch", { name: "Instagram" }))
+
+      await waitFor(() => expect(a.guardar).toHaveBeenLastCalledWith({ campo: "destinos", valor: ["linkedin"] }))
+    })
   })
 })

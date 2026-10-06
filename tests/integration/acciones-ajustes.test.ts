@@ -31,7 +31,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name in ('heygen','elevenlabs','anthropic')")
   await pool.query("delete from public.gastos where paso = 'prueba_ajustes'")
   await pool.query(
-    "update public.ajustes set meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, avisos_resumen = true, avisos_urgentes = true, produccion = '{}'::jsonb",
+    "update public.ajustes set meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, avisos_resumen = true, avisos_urgentes = true, destinos_por_defecto = '{instagram}', produccion = '{}'::jsonb",
   )
 })
 
@@ -89,6 +89,25 @@ describe("guardarAjuste", () => {
     await guardarAjuste(deps(), { campo: "dias", valor: [6, 2, 2, 4] })
 
     expect((await ajustes()).dias_publicacion).toEqual([2, 4, 6])
+  })
+
+  it("saves where reels are published by default, in the canonical order, and answers with what was there", async () => {
+    const guardado = await guardarAjuste(deps(), { campo: "destinos", valor: ["linkedin", "instagram"] })
+
+    expect(guardado).toMatchObject({ ok: true, anterior: { campo: "destinos", valor: ["instagram"] } })
+    expect((await ajustes()).destinos_por_defecto).toEqual(["instagram", "linkedin"])
+    expect(await guardarAjuste(deps(), { campo: "destinos", valor: ["linkedin"] })).toMatchObject({
+      ok: true,
+      anterior: { campo: "destinos", valor: ["instagram", "linkedin"] },
+    })
+    expect((await ajustes()).destinos_por_defecto).toEqual(["linkedin"])
+  })
+
+  it("refuses an empty, unknown or repeated list of destinations and leaves the setting as it was", async () => {
+    for (const valor of [[], ["tiktok"], ["instagram", "instagram"], "instagram"]) {
+      expect(await guardarAjuste(deps(), { campo: "destinos", valor })).toMatchObject({ ok: false })
+    }
+    expect((await ajustes()).destinos_por_defecto).toEqual(["instagram"])
   })
 
   it("refuses values the screen cannot send", async () => {

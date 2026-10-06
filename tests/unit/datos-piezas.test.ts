@@ -15,6 +15,7 @@ const filaNueva: FilaPieza = {
   puerta2_hash_texto: null,
   puerta2_publicar_en: null,
   puerta2_en: null,
+  puerta2_formula: null,
   explicacion: null,
 }
 
@@ -31,6 +32,7 @@ const filaProgramada: FilaPieza = {
   puerta2_hash_texto: "b".repeat(64),
   puerta2_publicar_en: "2026-10-09T22:00:00.000Z",
   puerta2_en: "2026-10-08T21:00:00.000Z",
+  puerta2_formula: null,
   explicacion: null,
 }
 
@@ -47,6 +49,7 @@ const piezaProgramada: Pieza = {
     hashTexto: "b".repeat(64),
     publicarEn: "2026-10-09T22:00:00.000Z",
     en: "2026-10-08T21:00:00.000Z",
+    formula: 1,
   },
   explicacion: null,
 }
@@ -58,6 +61,11 @@ describe("piezaDesdeFila", () => {
 
   it("mapea cada columna a su campo cuando la fila tiene las dos puertas", () => {
     expect(piezaDesdeFila(filaProgramada)).toEqual(piezaProgramada)
+  })
+
+  it("reads a null puerta2_formula as formula 1 and a 2 as formula 2", () => {
+    expect(piezaDesdeFila(filaProgramada).puerta2?.formula).toBe(1)
+    expect(piezaDesdeFila({ ...filaProgramada, puerta2_formula: 2 }).puerta2?.formula).toBe(2)
   })
 
   it("mapea estado_antes_del_error a estadoAntesDelError cuando la pieza falló", () => {
@@ -169,6 +177,7 @@ describe("cambiosDesdePieza", () => {
         "puerta2_hash_texto",
         "puerta2_publicar_en",
         "puerta2_en",
+        "puerta2_formula",
         "explicacion",
       ].sort(),
     )
@@ -186,6 +195,16 @@ describe("cambiosDesdePieza", () => {
 
   it("devuelve los valores de la pieza cuando tiene las dos puertas", () => {
     expect(cambiosDesdePieza(piezaProgramada)).toEqual(filaProgramada)
+  })
+
+  it("writes formula 2 as 2 and formula 1 as null, so an old approval stays byte for byte as it was", () => {
+    const con2 = {
+      ...piezaProgramada,
+      puerta2: piezaProgramada.puerta2 && { ...piezaProgramada.puerta2, formula: 2 as const },
+    }
+    expect(cambiosDesdePieza(con2).puerta2_formula).toBe(2)
+    expect(cambiosDesdePieza(piezaProgramada).puerta2_formula).toBeNull()
+    expect(piezaDesdeFila(cambiosDesdePieza(con2))).toEqual(con2)
   })
 
   it("recupera la misma pieza cuando se vuelve a leer lo que se escribió", () => {

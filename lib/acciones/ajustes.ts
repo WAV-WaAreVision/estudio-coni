@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
+import { canonicos, type Destino, destinosDe, destinosValidos } from "@/lib/dominio/destinos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { dolares } from "@/lib/formato"
 import { baseDe } from "@/lib/proveedores/bases"
@@ -26,6 +27,12 @@ const dias = z
   .max(7)
   .transform((valor) => [...new Set(valor)].sort((a, b) => a - b))
 
+// Where reels go by default: a non-empty list of known networks without repeats, stored in the canonical order.
+const destinos = z
+  .array(z.string())
+  .refine((valor): valor is Destino[] => destinosValidos(valor))
+  .transform((valor) => canonicos(valor as Destino[]))
+
 const CambioDeAjuste = z.discriminatedUnion("campo", [
   z.object({ campo: z.literal("meta"), valor: z.enum(["consultas", "talleres", "marca"]) }),
   z.object({ campo: z.literal("dias"), valor: dias }),
@@ -33,6 +40,7 @@ const CambioDeAjuste = z.discriminatedUnion("campo", [
   z.object({ campo: z.literal("tope"), valor: z.number().min(0).max(MAXIMO_DEL_TOPE_USD) }),
   z.object({ campo: z.literal("avisos_resumen"), valor: z.boolean() }),
   z.object({ campo: z.literal("avisos_urgentes"), valor: z.boolean() }),
+  z.object({ campo: z.literal("destinos"), valor: destinos }),
 ])
 
 export type CambioDeAjuste = z.infer<typeof CambioDeAjuste>
@@ -44,6 +52,7 @@ const COLUMNAS = {
   tope: "tope_mensual_usd",
   avisos_resumen: "avisos_resumen",
   avisos_urgentes: "avisos_urgentes",
+  destinos: "destinos_por_defecto",
 } as const
 
 const ERROR_DE_CAMBIO = "No entendí ese cambio. Vuelve a abrir Ajustes."
@@ -64,6 +73,8 @@ function valorActual(fila: FilaDeAjustes, campo: CambioDeAjuste["campo"]): Cambi
       return { campo, valor: fila.avisos_resumen }
     case "avisos_urgentes":
       return { campo, valor: fila.avisos_urgentes }
+    case "destinos":
+      return { campo, valor: destinosDe(fila.destinos_por_defecto) }
   }
 }
 

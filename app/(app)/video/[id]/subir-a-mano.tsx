@@ -1,33 +1,73 @@
 "use client"
 
 import { Check, DownloadSimple } from "@phosphor-icons/react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import type { Resultado } from "@/lib/acciones/resultado"
+import type { Destino } from "@/lib/dominio/destinos"
 
 interface PropiedadesDeSubirAMano {
   piezaId: string
   version: number
-  /** The caption she approved, exactly as stored. */
+  /** The destination of this block: each one is uploaded and confirmed on its own. */
+  destino: Destino
+  /** The text she approved for this destination, exactly as stored. */
   texto: string
   alDescargar: (piezaId: string) => Promise<Resultado<{ url: string }>>
-  alMarcar: (piezaId: string, version: number, enlace: string) => Promise<Resultado>
+  alMarcar: (piezaId: string, version: number, destino: string, enlace: string) => Promise<Resultado>
   /** Where the browser goes to download; replaced in tests. */
   alIrA?: (url: string) => void
 }
 
 const IR_A_LA_DESCARGA = (url: string) => window.location.assign(url)
 
+interface CopiaDeDestino {
+  paso: string
+  indicacion: string
+  /** What she has to keep in mind before publishing; null when the text already carries it. */
+  recordatorio: string | null
+  casilla: string
+  etiquetaDelEnlace: string
+  ejemplo: string
+  boton: string
+  motivo: string
+}
+
+const COPIA: Record<Destino, CopiaDeDestino> = {
+  instagram: {
+    paso: "Súbelo en Instagram",
+    indicacion: "Súbelo como Reel y pega el texto.",
+    recordatorio: "Antes de publicar, activa la etiqueta «Información de IA». Es tu avatar y tiene que decirlo.",
+    casilla: "Activé la etiqueta «Información de IA»",
+    etiquetaDelEnlace: "Enlace del reel (opcional)",
+    ejemplo: "https://www.instagram.com/reel/...",
+    boton: "Ya lo subí a Instagram",
+    motivo: "Se activa cuando confirmas la etiqueta de IA.",
+  },
+  linkedin: {
+    paso: "Súbelo en LinkedIn",
+    indicacion: "Publica el video en LinkedIn y pega el texto.",
+    recordatorio: null,
+    casilla: "Dejé en el texto que es mi avatar digital",
+    etiquetaDelEnlace: "Enlace de la publicación en LinkedIn (opcional)",
+    ejemplo: "https://www.linkedin.com/posts/...",
+    boton: "Ya lo subí a LinkedIn",
+    motivo: "Se activa cuando confirmas el aviso de avatar.",
+  },
+}
+
 /**
- * Instagram is not connected: she takes the video and the text to the Instagram app herself. The video goes from R2 to
- * her phone through a short signed link; the label is a step she confirms because every post says it is an avatar.
+ * She takes the video and the text to the app of one destination herself (Instagram while it is not connected,
+ * LinkedIn always). The video goes from R2 to her phone through a short signed link; the notice of the avatar is a step
+ * she confirms because every post says it is an avatar.
  */
 export function SubirAMano({
   piezaId,
   version,
+  destino,
   texto,
   alDescargar,
   alMarcar,
@@ -38,6 +78,8 @@ export function SubirAMano({
   const [copia, setCopia] = useState<"nada" | "copiado" | "fallo">("nada")
   const descarga = useAccion()
   const confirmacion = useAccion()
+  const idDelMotivo = useId()
+  const frases = COPIA[destino]
 
   async function copiar() {
     try {
@@ -85,28 +127,22 @@ export function SubirAMano({
         </output>
       </Paso>
 
-      <Paso numero={3} titulo="Súbelo en Instagram">
-        <p className="text-cuerpo">Súbelo como Reel y pega el texto.</p>
-        <p className="text-cuerpo">
-          Antes de publicar, activa la etiqueta «Información de IA». Es tu avatar y tiene que decirlo.
-        </p>
-        <Casilla
-          etiqueta="Activé la etiqueta «Información de IA»"
-          marcada={etiquetaPuesta}
-          alCambiar={setEtiquetaPuesta}
-        />
+      <Paso numero={3} titulo={frases.paso}>
+        <p className="text-cuerpo">{frases.indicacion}</p>
+        {frases.recordatorio ? <p className="text-cuerpo">{frases.recordatorio}</p> : null}
+        <Casilla etiqueta={frases.casilla} marcada={etiquetaPuesta} alCambiar={setEtiquetaPuesta} />
       </Paso>
 
       <Paso numero={4} titulo="Avísame cuando esté arriba">
         <label className="grid gap-2">
-          <span className="text-meta font-semibold">Enlace del reel (opcional)</span>
+          <span className="text-meta font-semibold">{frases.etiquetaDelEnlace}</span>
           <input
             type="url"
             inputMode="url"
             autoComplete="off"
             value={enlace}
             onChange={(evento) => setEnlace(evento.target.value)}
-            placeholder="https://www.instagram.com/reel/..."
+            placeholder={frases.ejemplo}
             className="campo w-full text-cuerpo"
           />
         </label>
@@ -115,14 +151,14 @@ export function SubirAMano({
           variante="primario"
           cargando={confirmacion.pendiente}
           deshabilitado={!etiquetaPuesta}
-          aria-describedby={etiquetaPuesta ? undefined : "subir-motivo"}
-          onClick={() => confirmacion.ejecutar(() => alMarcar(piezaId, version, enlace))}
+          aria-describedby={etiquetaPuesta ? undefined : idDelMotivo}
+          onClick={() => confirmacion.ejecutar(() => alMarcar(piezaId, version, destino, enlace))}
         >
-          Ya lo subí
+          {frases.boton}
         </Boton>
         {etiquetaPuesta ? null : (
-          <p id="subir-motivo" className="text-meta text-apagado">
-            Se activa cuando confirmas la etiqueta de IA.
+          <p id={idDelMotivo} className="text-meta text-apagado">
+            {frases.motivo}
           </p>
         )}
       </Paso>
@@ -138,7 +174,7 @@ function Paso({ numero, titulo, children }: { numero: number; titulo: string; ch
         {numero}
       </span>
       <div className="grid gap-3">
-        <h2 className="text-meta font-semibold">{titulo}</h2>
+        <h3 className="text-meta font-semibold">{titulo}</h3>
         {children}
       </div>
     </li>

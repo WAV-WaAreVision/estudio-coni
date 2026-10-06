@@ -5,7 +5,7 @@ import { reservarGasto } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
-import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
+import { type Alerta, AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import coniConfig from "../fixtures/coni.config.json"
@@ -28,10 +28,24 @@ const CUERPO_BUENO = Array.from({ length: 29 }, () => "una idea simple").join(".
 const GUION_BUENO = `${CUERPO_BUENO}.\n\n${CIERRE}`
 const TEXTO_BUENO = `Hablemos de límites con calma. ${AVISO_AVATAR}`
 const TEXTO_CON_AYUDA = `Hablemos de límites con calma. ${LINEAS_AYUDA} ${AVISO_AVATAR}`
+// A LinkedIn text that follows every rule: a short hook, short paragraphs, one question, the fixed notice, two hashtags.
+const LINKEDIN_BUENO = [
+  "Llevan diez años juntos y ya casi no se tocan.",
+  ...Array.from(
+    { length: 12 },
+    () => "Cuando hablamos de límites conviene partir por lo que sí podemos observar en la rutina de cada día.",
+  ),
+  "¿En qué momento del día te cuesta más desconectarte?",
+  AVISO_AVATAR_LINKEDIN,
+  "#limites #psicologia",
+].join("\n\n")
+const LINKEDIN_CON_AYUDA = LINKEDIN_BUENO.replace(AVISO_AVATAR_LINKEDIN, `${LINEAS_AYUDA}\n\n${AVISO_AVATAR_LINKEDIN}`)
 
 interface Borrador {
   guion: string
   texto: string
+  /** The default is a LinkedIn text that follows every rule. */
+  textoLinkedin?: string
 }
 
 interface CuerpoClaude {
@@ -104,7 +118,7 @@ function simular(opciones: OpcionesSimulacion = {}): Simulacion {
       if (opciones.rechazaEscritura)
         return HttpResponse.json(mensajeClaude({}, USO_ESCRITURA, { content: [], stop_reason: "refusal" }))
       const borrador = opciones.borrador?.(sim.escrituras.length - 1) ?? { guion: GUION_BUENO, texto: TEXTO_BUENO }
-      return HttpResponse.json(mensajeClaude(borrador, USO_ESCRITURA))
+      return HttpResponse.json(mensajeClaude({ textoLinkedin: LINKEDIN_BUENO, ...borrador }, USO_ESCRITURA))
     }),
     http.post<{ voz: string }, { text: string }>(URL_VOZ, async ({ request, params }) => {
       const cuerpo = await request.json()
@@ -342,7 +356,9 @@ describe("producirPieza", () => {
   it("asks for the help lines when the idea carries that alert and passes the alerts to Claude", async () => {
     const alertas = [{ tipo: "líneas de ayuda", texto: "Si hay miedo o control constante, derivar a ayuda." }]
     const id = await crearPiezaEnProduccion(alertas)
-    const sim = simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_CON_AYUDA }) })
+    const sim = simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_CON_AYUDA, textoLinkedin: LINKEDIN_CON_AYUDA }),
+    })
 
     await producirPieza(deps(), id)
 
@@ -362,6 +378,7 @@ describe("producirPieza", () => {
     const regla = (await pieza(id)).revision
     expect(regla).toEqual([
       expect.objectContaining({ regla: "lineas_ayuda", tipo: "bloquea" }),
+      expect.objectContaining({ regla: "lineas_ayuda", tipo: "bloquea", campo: "linkedin" }),
       expect.objectContaining({ regla: "tema_de_riesgo", tipo: "advierte" }),
     ])
   })
@@ -661,5 +678,173 @@ describe("producirPieza con una idea del motor", () => {
     await producirPieza(deps(), id)
     expect(sim.escrituras[0]?.messages[0]?.content).not.toContain("<respaldo>")
     expect((await leerFila(id)).respaldo).toBeNull()
+  })
+})
+
+describe("producirPieza: el texto para LinkedIn", () => {
+  const SIN_AVISO = LINKEDIN_BUENO.replace(AVISO_AVATAR_LINKEDIN, "Hasta pronto.")
+
+  it("stores the LinkedIn text of the draft next to the script and the caption", async () => {
+    const id = await crearPiezaEnProduccion()
+    simular()
+
+    await producirPieza(deps(), id)
+
+    expect(await leerFila(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      texto: TEXTO_BUENO,
+      texto_linkedin: LINKEDIN_BUENO,
+      revision: [],
+    })
+  })
+
+  it("stores a warning about the LinkedIn text with its field and asks for no correction round", async () => {
+    const id = await crearPiezaEnProduccion()
+    const sim = simular({
+      borrador: () => ({
+        guion: GUION_BUENO,
+        texto: TEXTO_BUENO,
+        textoLinkedin: LINKEDIN_BUENO.replace("#limites #psicologia", "#a #b #c #d"),
+      }),
+    })
+
+    await producirPieza(deps(), id)
+
+    expect(sim.escrituras).toHaveLength(1)
+    expect((await leerFila(id)).revision).toEqual([
+      {
+        regla: "hashtags_linkedin",
+        tipo: "advierte",
+        mensaje: "En LinkedIn van como máximo 3 hashtags. Tiene 4.",
+        campo: "linkedin",
+      },
+    ])
+  })
+
+  it("asks Claude to correct a LinkedIn text that blocks, once, and stores the corrected one", async () => {
+    const id = await crearPiezaEnProduccion()
+    const sim = simular({
+      borrador: (n) => ({
+        guion: GUION_BUENO,
+        texto: TEXTO_BUENO,
+        textoLinkedin: n === 0 ? SIN_AVISO : LINKEDIN_BUENO,
+      }),
+    })
+
+    await producirPieza(deps(), id)
+
+    expect(sim.escrituras).toHaveLength(2)
+    expect(sim.escrituras[1]?.messages[0]?.content).toContain("CORRECCIONES")
+    expect(sim.escrituras[1]?.messages[0]?.content).toContain("El texto para LinkedIn tiene que avisar")
+    expect(await leerFila(id)).toMatchObject({ texto_linkedin: LINKEDIN_BUENO, revision: [] })
+  })
+
+  it("leaves a LinkedIn finding that still blocks after the correction round for Coni, with its field", async () => {
+    const id = await crearPiezaEnProduccion()
+    simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: SIN_AVISO }) })
+
+    await producirPieza(deps(), id)
+
+    const { revision } = await leerFila(id)
+    expect(revision).toEqual([expect.objectContaining({ regla: "aviso_avatar", tipo: "bloquea", campo: "linkedin" })])
+  })
+
+  it("stores a LinkedIn text over 3000 characters and leaves the blocking finding for Coni instead of failing the run", async () => {
+    const id = await crearPiezaEnProduccion()
+    const largo = `${"a".repeat(3200)}\n\n${AVISO_AVATAR_LINKEDIN}`
+    simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: largo }) })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    const fila = await leerFila(id)
+    expect(fila.texto_linkedin).toBe(largo)
+    expect(fila.revision).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regla: "largo_linkedin", tipo: "bloquea", campo: "linkedin" }),
+      ]),
+    )
+  })
+
+  it("asks for the help lines in the LinkedIn text too when the idea needs them", async () => {
+    const id = await crearPiezaEnProduccion([{ tipo: "líneas de ayuda", texto: "El tema roza la violencia." }])
+    simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_CON_AYUDA }) })
+
+    await producirPieza(deps(), id)
+
+    expect((await leerFila(id)).revision).toEqual([
+      expect.objectContaining({ regla: "lineas_ayuda", tipo: "bloquea", campo: "linkedin" }),
+    ])
+  })
+
+  it("passes with the help lines in both texts", async () => {
+    const id = await crearPiezaEnProduccion([{ tipo: "líneas de ayuda", texto: "El tema roza la violencia." }])
+    simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_CON_AYUDA, textoLinkedin: LINKEDIN_CON_AYUDA }),
+    })
+
+    await producirPieza(deps(), id)
+
+    expect((await leerFila(id)).revision).toEqual([])
+  })
+
+  it("tags a Claude finding with the LinkedIn field when its phrase is only in that text", async () => {
+    const id = await crearPiezaEnProduccion()
+    const conCifra = LINKEDIN_BUENO.replace(
+      "Llevan diez años",
+      "El setenta por ciento de las parejas lo vive. Llevan diez años",
+    )
+    simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: conCifra }),
+      hallazgos: [
+        { regla: "cifra_sin_verificar", frase: "El setenta por ciento de las parejas", mensaje: "Cifra sin fuente." },
+      ],
+    })
+
+    await producirPieza(deps(), id)
+
+    expect((await leerFila(id)).revision).toEqual([
+      expect.objectContaining({ regla: "cifra_sin_verificar", tipo: "advierte", campo: "linkedin" }),
+    ])
+  })
+
+  it("sends the LinkedIn text to Claude's review", async () => {
+    const id = await crearPiezaEnProduccion()
+    const sim = simular()
+
+    await producirPieza(deps(), id)
+
+    expect(sim.revisiones[0]?.messages[0]?.content).toContain(`<texto_linkedin>\n${LINKEDIN_BUENO}\n</texto_linkedin>`)
+  })
+
+  it("keeps the LinkedIn text of a draft that an earlier run of the same round saved and paid for", async () => {
+    const id = await crearPiezaEnProduccion()
+    const ideaId = (await leerFila(id)).idea_id
+    const clave = claveIdempotencia({
+      piezaId: id,
+      paso: "producir",
+      hash: hashTexto(`claude:${id}:${ideaId}`),
+      intento: 0,
+    })
+    await reservarGasto(clienteDeServicio(), {
+      piezaId: id,
+      proveedor: "anthropic",
+      paso: "guion",
+      estimadoUsd: 0.5,
+      clave,
+      ahora: new Date().toISOString(),
+    })
+    await pool.query("select public.guardar_borrador($1, 1, $2, $3, '[]'::jsonb, $4, 0.04, null, $5)", [
+      id,
+      GUION_BUENO,
+      TEXTO_BUENO,
+      clave,
+      LINKEDIN_BUENO,
+    ])
+    const sim = simular()
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(sim.escrituras).toHaveLength(0)
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", texto_linkedin: LINKEDIN_BUENO })
   })
 })

@@ -11,6 +11,7 @@ import {
   cambiarFecha,
   descartar,
   editarTexto,
+  editarTextoLinkedin,
   elegirIdeas,
   MAXIMO_DEL_TEXTO,
   marcarSubidoAMano,
@@ -25,7 +26,8 @@ import {
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, comoConi, conSesionDeConi } from "@/lib/acciones/servidor"
-import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
+import { DESTINOS } from "@/lib/dominio/destinos"
+import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
 
 // The model answers in a few seconds; a hung call must not hold the screen for the SDK's ten minutes.
@@ -100,6 +102,18 @@ export async function editarTextoAccion(piezaId: string, version: number, texto:
   )
 }
 
+export async function editarTextoLinkedinAccion(piezaId: string, version: number, texto: string) {
+  return refrescar(
+    await comoConi(
+      "editarTextoLinkedin",
+      // A little over the limit: the action answers with the message for Coni instead of a validation error.
+      sobrePieza.extend({ texto: z.string().max(MAXIMO_TEXTO_LINKEDIN + 200) }),
+      { piezaId, version, texto },
+      (deps, d) => editarTextoLinkedin(deps, d.piezaId, d.version, d.texto),
+    ),
+  )
+}
+
 export async function editarGuionAccion(piezaId: string, version: number, guion: string, texto: string) {
   return refrescar(
     await conSesionDeConi(
@@ -119,13 +133,13 @@ export async function volverAVersionDeClaudeAccion(piezaId: string, version: num
   )
 }
 
-export async function aprobarVideoAccion(piezaId: string, version: number, publicarEn: string) {
+export async function aprobarVideoAccion(piezaId: string, version: number, publicarEn: string, destinos: string[]) {
   return refrescar(
     await comoConi(
       "aprobarVideo",
-      sobrePieza.extend({ publicarEn: z.string().max(40) }),
-      { piezaId, version, publicarEn },
-      (deps, d) => aprobarVideo(deps, d.piezaId, d.version, d.publicarEn),
+      sobrePieza.extend({ publicarEn: z.string().max(40), destinos: z.array(z.string().max(20)).max(DESTINOS.length) }),
+      { piezaId, version, publicarEn, destinos },
+      (deps, d) => aprobarVideo(deps, d.piezaId, d.version, d.publicarEn, d.destinos),
     ),
   )
 }
@@ -163,13 +177,13 @@ export async function descargarVideoAccion(piezaId: string) {
   )
 }
 
-export async function marcarSubidoAManoAccion(piezaId: string, version: number, enlace: string) {
+export async function marcarSubidoAManoAccion(piezaId: string, version: number, destino: string, enlace: string) {
   return refrescar(
     await comoConi(
       "marcarSubidoAMano",
-      sobrePieza.extend({ enlace: z.string().max(500) }),
-      { piezaId, version, enlace },
-      (deps, d) => marcarSubidoAMano(deps, d.piezaId, d.version, d.enlace),
+      sobrePieza.extend({ destino: z.string().max(20), enlace: z.string().max(500) }),
+      { piezaId, version, destino, enlace },
+      (deps, d) => marcarSubidoAMano(deps, d.piezaId, d.version, d.destino, d.enlace),
     ),
   )
 }

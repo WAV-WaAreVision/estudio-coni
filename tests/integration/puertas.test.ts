@@ -332,6 +332,73 @@ describe("revisión automática", () => {
       expect(err.message).toBe("revision_bloquea")
     })
   })
+
+  const LINKEDIN_BLOQUEA = JSON.stringify([{ regla: "aviso_avatar", tipo: "bloquea", mensaje: "x", campo: "linkedin" }])
+  const programar = (destinos: string) => `update public.piezas set puerta2_video_id = $2, puerta2_hash_texto = $3,
+    puerta2_publicar_en = $4, puerta2_en = $5, estado = 'programado', destinos = '${destinos}', version = version + 1
+    where id = $1`
+  const datosDeLaAprobacion = (id: string) => [
+    id,
+    aprobarPuerta2.puerta2_video_id,
+    aprobarPuerta2.puerta2_hash_texto,
+    aprobarPuerta2.puerta2_publicar_en,
+    aprobarPuerta2.puerta2_en,
+  ]
+
+  it("refuses to approve gate 1 while the script or the caption blocks, and ignores a LinkedIn finding", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "cierre", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const { version } = await leer(c, id)
+      const aprobar = `update public.piezas set puerta1_hash = $3, puerta1_en = now(), avatar_id = 'look-1', puerta1_formula = 3,
+        estado = 'guion_aprobado', version = $2 where id = $1`
+      const err = await fallaCon(c, aprobar, [id, version + 1, "a".repeat(64)])
+      expect(err.message).toBe("revision_bloquea")
+
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, LINKEDIN_BLOQUEA])
+      await asumir(c, comoConi)
+      const { version: v2 } = await leer(c, id)
+      await c.query(aprobar, [id, v2 + 1, "a".repeat(64)])
+      expect((await leer(c, id)).estado).toBe("guion_aprobado")
+    })
+  })
+
+  it("lets Coni schedule for Instagram only when just the LinkedIn text blocks", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "video_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, LINKEDIN_BLOQUEA])
+      await asumir(c, comoConi)
+      await c.query(programar("{instagram}"), datosDeLaAprobacion(id))
+      expect((await leer(c, id)).estado).toBe("programado")
+    })
+  })
+
+  it("refuses to schedule with LinkedIn chosen while its text blocks", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "video_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, LINKEDIN_BLOQUEA])
+      await asumir(c, comoConi)
+      const err = await fallaCon(c, programar("{instagram,linkedin}"), datosDeLaAprobacion(id))
+      expect(err.code).toBe("42501")
+      expect(err.message).toBe("revision_bloquea")
+    })
+  })
+
+  it("still refuses to schedule when the caption blocks, whatever the destinations", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "video_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "aviso_avatar", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const err = await fallaCon(c, programar("{linkedin}"), datosDeLaAprobacion(id))
+      expect(err.message).toBe("revision_bloquea")
+    })
+  })
 })
 
 describe("invalidar aprobaciones", () => {

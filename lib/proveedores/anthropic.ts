@@ -10,6 +10,7 @@ import type { paraElGuion } from "@/lib/dominio/respaldo"
 import {
   type Alerta,
   AVISO_AVATAR,
+  AVISO_AVATAR_LINKEDIN,
   CIERRE,
   type Hallazgo,
   LINEAS_AYUDA,
@@ -103,7 +104,7 @@ export interface IdeaParaGuion {
   alertas: readonly Alerta[]
 }
 
-const SalidaGuion = z.object({ guion: z.string(), texto: z.string() })
+const SalidaGuion = z.object({ guion: z.string(), texto: z.string(), textoLinkedin: z.string() })
 const SalidaRevision = z.object({
   hallazgos: z.array(z.object({ regla: z.enum(REGLAS_CLAUDE), frase: z.string(), mensaje: z.string() })),
 })
@@ -148,7 +149,7 @@ function pedidoDeGuion(
   correcciones: readonly Hallazgo[],
 ): string {
   const partes = [
-    "Escribe el guion y el texto de publicación de un reel de Coni del Rosario a partir de esta idea. Sigue la línea editorial de tus instrucciones.",
+    "Escribe el guion, el texto de publicación de Instagram y el texto para LinkedIn de un reel de Coni del Rosario a partir de esta idea. Sigue la línea editorial de tus instrucciones.",
     `IDEA
 Pilar: ${idea.pilar}
 Gancho: ${idea.gancho}
@@ -171,18 +172,38 @@ ${listaDeAlertas(idea.alertas)}`,
 - Termina exactamente con: ${AVISO_AVATAR}${
       requiereLineasAyuda ? `\n- Antes de ese aviso incluye, tal cual, esta línea: ${LINEAS_AYUDA}` : ""
     }`,
+    `REGLAS DEL TEXTO PARA LINKEDIN
+- Acompaña el mismo video en LinkedIn. Lo leen colegas, colegios y empresas: el mismo mensaje del reel, pero reescrito para LinkedIn y no copiado del texto de Instagram. Trátalo de tú normativo («tú puedes», «si sientes»), en español de Chile, sin tecnicismos, sin voseo («podís», «sabís») y sin usted.
+- El gancho abre el texto: una o dos líneas, de máximo 140 caracteres, con la idea central. Elige una escena reconocible, un dato que la idea ya traiga verificado, una pregunta concreta o una postura clara. Sin emoji, hashtag ni mención.
+- Largo: entre 1.300 y 2.500 caracteres, y nunca más de 3.000.
+- Muchos párrafos cortos, de una a tres líneas, separados por una línea en blanco. Ninguna frase de más de veinte palabras. A lo más una lista, de tres a cinco ítems.
+- Cierra el cuerpo con exactamente una pregunta abierta y específica, que pida experiencia o criterio.
+- Sin enlaces en el texto.
+- Hashtags: de cero a tres, en la última línea y con letras normales.
+- Emojis: de cero a tres, solo para ordenar (✅ ▸ 📌 1️⃣), nunca como adorno. Ninguno si el tema es delicado.
+- Prohibido: la fórmula de contraste «no es X, es Y» y sus variantes («X no es el problema, el problema es Y», «no se trata de X, sino de Y», «no se apaga: se esconde»); pedir reacciones («comenta SÍ», «dale like si», «etiqueta a», «reacciona con», «vota con una reacción»); letras Unicode en negrita o cursiva; rayas largas.
+- Sin marcas de tono. Sin diagnósticos, sin consejos para casos particulares, sin promesas de resultados y sin referencias a pacientes, tampoco anonimizadas. No nombres autores, cuentas, libros ni estudios, y no copies frases de las fuentes.${
+      requiereLineasAyuda ? `\n- Después de la pregunta incluye, tal cual, esta línea: ${LINEAS_AYUDA}` : ""
+    }
+- El último párrafo antes de los hashtags (o el último del texto, si no llevas hashtags) es exactamente este aviso, sin cambiar una palabra: ${AVISO_AVATAR_LINKEDIN}`,
   ]
   if (correcciones.length > 0) {
     partes.push(`CORRECCIONES
-Tu versión anterior no pasó la revisión. Escribe de nuevo el guion y el texto completos, arreglando esto:
+Tu versión anterior no pasó la revisión. Escribe de nuevo el guion y los dos textos completos, arreglando esto:
 ${correcciones.map(describirHallazgo).join("\n")}`)
   }
   return partes.join("\n\n")
 }
 
 // Claude judges what is said; the tone marks are not speech and would only be quoted back as findings.
-function pedidoDeRevision(entrada: { guion: string; texto: string; alertas: readonly Alerta[] }): string {
-  return `Revisa el guion y el texto de publicación de un reel de Coni del Rosario. Marca solo lo que de verdad esté ahí; si no hay nada, devuelve la lista vacía.
+function pedidoDeRevision(entrada: {
+  guion: string
+  texto: string
+  textoLinkedin: string | null
+  alertas: readonly Alerta[]
+}): string {
+  const conLinkedin = entrada.textoLinkedin !== null
+  return `Revisa el guion y el texto de publicación de un reel de Coni del Rosario${conLinkedin ? ", y también su texto para LinkedIn" : ""}. Marca solo lo que de verdad esté ahí; si no hay nada, devuelve la lista vacía.
 
 REGLAS (usa exactamente estos nombres)
 - diagnostico: diagnostica o etiqueta a alguien, por ejemplo «tienes ansiedad» o «tu pareja es narcisista».
@@ -191,7 +212,7 @@ REGLAS (usa exactamente estos nombres)
 - cifra_sin_verificar: trae cifras, porcentajes, estudios o afirmaciones científicas que la idea no trae verificados. Si la idea tiene una alerta «verificar dato», sé estricta.
 - tema_de_riesgo: el tema toca violencia, abuso, suicidio o autolesiones, aunque la idea no lo marque.
 
-Cada hallazgo lleva la regla, la frase (una cita textual corta del guion o del texto) y un mensaje de una oración para Coni, en español de Chile, sin rayas largas.
+Cada hallazgo lleva la regla, la frase (una cita textual corta del guion, del texto${conLinkedin ? " o del texto para LinkedIn" : ""}) y un mensaje de una oración para Coni, en español de Chile, sin rayas largas.
 
 ALERTAS DE LA IDEA
 ${listaDeAlertas(entrada.alertas)}
@@ -202,7 +223,15 @@ ${sinCierre(sinEtiquetas(entrada.guion))}
 
 <texto_de_publicacion>
 ${sinCierre(entrada.texto)}
-</texto_de_publicacion>`
+</texto_de_publicacion>${
+    entrada.textoLinkedin === null
+      ? ""
+      : `
+
+<texto_linkedin>
+${sinCierre(entrada.textoLinkedin)}
+</texto_linkedin>`
+  }`
 }
 
 /** Typed SDK errors only: a key or request the API rejects will not change on retry, anything else will. */
@@ -341,14 +370,14 @@ export async function escribirGuion(entrada: {
   respaldo: RespaldoParaGuion | null
   requiereLineasAyuda: boolean
   correcciones?: readonly Hallazgo[]
-}): Promise<{ guion: string; texto: string; uso: UsoClaude }> {
+}): Promise<{ guion: string; texto: string; textoLinkedin: string; uso: UsoClaude }> {
   const { cliente, guia, idea, respaldo, requiereLineasAyuda, correcciones = [] } = entrada
   const { salida, uso } = await pedirJson(cliente, "escribirGuion", {
     guia,
     usuario: pedidoDeGuion(idea, respaldo, requiereLineasAyuda, correcciones),
     esquema: SalidaGuion,
   })
-  return { guion: salida.guion, texto: salida.texto, uso }
+  return { guion: salida.guion, texto: salida.texto, textoLinkedin: salida.textoLinkedin, uso }
 }
 
 /** The part of the review only Claude can do. Every finding warns; none blocks. */
@@ -357,12 +386,14 @@ export async function revisarConClaude(entrada: {
   guia: string
   guion: string
   texto: string
+  /** The LinkedIn text of the piece; null when it has none yet. */
+  textoLinkedin: string | null
   alertas: readonly Alerta[]
 }): Promise<{ hallazgos: Hallazgo[]; uso: UsoClaude }> {
-  const { cliente, guia, guion, texto, alertas } = entrada
+  const { cliente, guia, guion, texto, textoLinkedin, alertas } = entrada
   const { salida, uso } = await pedirJson(cliente, "revisarConClaude", {
     guia,
-    usuario: pedidoDeRevision({ guion, texto, alertas }),
+    usuario: pedidoDeRevision({ guion, texto, textoLinkedin, alertas }),
     esquema: SalidaRevision,
   })
   const hallazgos = salida.hallazgos.map(

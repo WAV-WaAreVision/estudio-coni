@@ -79,7 +79,7 @@ test("she downloads the video, copies the text, confirms the AI label and marks 
   await expect(page.getByText("Texto copiado")).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(TEXTO_VALIDO)
 
-  const listo = page.getByRole("button", { name: "Ya lo subí" })
+  const listo = page.getByRole("button", { name: "Ya lo subí a Instagram" })
   await expect(listo).toHaveAttribute("aria-disabled", "true")
   await page.getByRole("checkbox", { name: /Activé la etiqueta/ }).check()
   await page.getByLabel(/Enlace del reel/).fill(`${ENLACE}?igsh=MTIzNDU2`)
@@ -91,7 +91,7 @@ test("she downloads the video, copies the text, confirms the AI label and marks 
   const fila = await leerFila(id)
   expect(fila).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
   const { rows } = await pool.query(
-    "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 order by id desc limit 1",
+    "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 and tabla = 'piezas' order by id desc limit 1",
     [id],
   )
   expect(rows[0]).toEqual({ actor_usuario: CONI, actor_rol: "authenticated" })
@@ -103,7 +103,7 @@ test("a link that is not Instagram's is refused and the reel stays waiting", asy
 
   await page.getByRole("checkbox", { name: /Activé la etiqueta/ }).check()
   await page.getByLabel(/Enlace del reel/).fill("https://malo.example/reel/abc")
-  await page.getByRole("button", { name: "Ya lo subí" }).click()
+  await page.getByRole("button", { name: "Ya lo subí a Instagram" }).click()
 
   await expect(page.getByRole("alert").filter({ hasText: "Ese enlace no parece de Instagram" })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("para_subir_a_mano")
@@ -149,7 +149,7 @@ test("Inicio and the calendar say clearly what waits to be uploaded and what she
   await capturar(page, "calendario-para-subir", { completa: true })
 
   await page.goto("/calendario?vista=agenda")
-  await expect(page.getByText("Para subir", { exact: true })).toBeVisible()
+  await expect(page.getByText("Para subir a Instagram", { exact: true })).toBeVisible()
   await expect(page.getByText("Subido a mano", { exact: true })).toBeVisible()
   await capturar(page, "calendario-agenda-a-mano", { completa: true })
 })
@@ -184,6 +184,6 @@ test("the maintainer cannot open a reel waiting to be uploaded", async ({ browse
   await page.goto(`/video/${id}`)
 
   await expect(page.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Ya lo subí" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Ya lo subí a Instagram" })).toHaveCount(0)
   await contexto.close()
 })

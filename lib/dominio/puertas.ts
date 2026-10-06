@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { canonicos, type Destino } from "@/lib/dominio/destinos"
 import { instanteEstricto, MARGEN_HORA_APROBADA_MS, type Pieza } from "@/lib/dominio/estados"
 
 // A JSON array keeps field boundaries unambiguous ("a|b" + "c" never equals "a" + "b|c").
@@ -34,6 +35,28 @@ export function formulaDePuerta1(guardada: 1 | 2 | 3 | null): 1 | 2 | 3 {
 
 export function hashTexto(texto: string): string {
   return sha256(["texto", texto])
+}
+
+export type FormulaPuerta2 = 1 | 2
+
+/**
+ * The text side of gate 2. Formula 1 hashed the caption alone. Formula 2 (2026-10-06) adds the LinkedIn text and the
+ * destinations, so nothing of what Coni approved can change after gate 2. The LinkedIn text only counts when LinkedIn
+ * is chosen: editing one that goes nowhere does not take the approval back.
+ */
+export function hashTextoDePuerta2(
+  formula: FormulaPuerta2,
+  lado: { texto: string; textoLinkedin: string | null; destinos: readonly Destino[] },
+): string {
+  if (formula === 1) return hashTexto(lado.texto)
+  const destinos = canonicos(lado.destinos)
+  const linkedin = destinos.includes("linkedin") ? (lado.textoLinkedin ?? "") : ""
+  return sha256(["puerta2/2", lado.texto, linkedin, destinos.join(",")])
+}
+
+/** A null stored formula on an approved piece is a gate-2 approval from before 2026-10-06: formula 1. */
+export function formulaDePuerta2(guardada: number | null): FormulaPuerta2 {
+  return guardada === 2 ? 2 : 1
 }
 
 /** Gate 2 binds the exact video, caption and time; the publish key is built from it so each approval has its own. */

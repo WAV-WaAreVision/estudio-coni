@@ -17,6 +17,7 @@ import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
+import { sinLinkedin } from "@/lib/dominio/revision"
 import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
@@ -152,7 +153,9 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           segundos: Math.round(estimarSegundos(fila.guion)),
           guion: fila.guion,
           texto: fila.texto,
-          revision: leerRevision(fila.revision),
+          textoLinkedin: fila.texto_linkedin,
+          // Gate 1 is about the script and the caption: the LinkedIn findings are reviewed at gate 2.
+          revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
           grabacion,

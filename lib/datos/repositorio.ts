@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { esDestino, esEstadoDePublicacion, type PublicacionConEnlace } from "@/lib/dominio/destinos"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { Alerta, Hallazgo } from "@/lib/dominio/revision"
 import type { Database, Json } from "@/lib/supabase/database.types"
@@ -95,6 +96,8 @@ export async function guardarBorrador(
     versionLeida: number
     guion: string
     texto: string
+    /** The LinkedIn text written with the draft; null for a draft that has none. */
+    textoLinkedin: string | null
     revision: Json
     clave: string
     realUsd: number
@@ -106,6 +109,8 @@ export async function guardarBorrador(
     p_version: borrador.versionLeida,
     p_guion: borrador.guion,
     p_texto: borrador.texto,
+    // Left out when there is none: the argument defaults to null.
+    p_texto_linkedin: borrador.textoLinkedin ?? undefined,
     p_revision: borrador.revision,
     p_clave: borrador.clave,
     p_real: borrador.realUsd,
@@ -120,11 +125,13 @@ export async function guardarBorrador(
 
 /** Findings as the plain JSON the `revision` column stores. */
 export function revisionAJson(hallazgos: readonly Hallazgo[]): Json {
-  return hallazgos.map((h) =>
-    h.frase === undefined
-      ? { regla: h.regla, tipo: h.tipo, mensaje: h.mensaje }
-      : { regla: h.regla, tipo: h.tipo, mensaje: h.mensaje, frase: h.frase },
-  )
+  return hallazgos.map((h) => ({
+    regla: h.regla,
+    tipo: h.tipo,
+    mensaje: h.mensaje,
+    ...(h.frase === undefined ? {} : { frase: h.frase }),
+    ...(h.campo === undefined ? {} : { campo: h.campo }),
+  }))
 }
 
 export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }
@@ -215,6 +222,21 @@ export async function tomarParaPublicar(db: Db, ahora: string, arriendoSegundos:
   const { data, error } = await db.rpc("tomar_para_publicar", { p_ahora: ahora, p_arriendo_segundos: arriendoSegundos })
   if (error) throw fallo("No pude tomar piezas para publicar", error)
   return data[0] ?? null
+}
+
+/** Where each destination of a piece stands (what she still has to upload, what is done). */
+export async function leerPublicaciones(db: Db, piezaId: string): Promise<PublicacionConEnlace[]> {
+  const { data, error } = await db
+    .from("publicaciones")
+    .select("destino, estado, enlace")
+    .eq("pieza_id", piezaId)
+    .order("destino")
+  if (error) throw fallo("No pude leer los destinos de la pieza", error)
+  return data.map((fila) => {
+    if (!esDestino(fila.destino)) throw new Error(`Destino desconocido en la base: ${fila.destino}`)
+    if (!esEstadoDePublicacion(fila.estado)) throw new Error(`Estado de publicación desconocido: ${fila.estado}`)
+    return { destino: fila.destino, estado: fila.estado, enlace: fila.enlace }
+  })
 }
 
 /** The Instagram account id (`IG_ID`) Coni connected; null until "Conectar Instagram" has been used. */

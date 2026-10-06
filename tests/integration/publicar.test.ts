@@ -1,14 +1,15 @@
 import { HttpResponse } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { hashTexto } from "@/lib/dominio/puertas"
+import { hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { EXPLICACION_RECONECTAR } from "@/lib/proveedores/instagram"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
 import { type OpcionesInstagram, simularInstagram } from "../instagram-msw"
 import { comoConi, pool } from "./db"
-import { aplicar, crearPiezaEn, TEXTO, VIDEO } from "./flujo"
+import { aplicar, crearPiezaEn, type OpcionesDePieza, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { publicacionesDe } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -25,21 +26,43 @@ function despues(minutos: number): string {
 
 const piezasCreadas: string[] = []
 
-/** A piece walked through the real flow to `programado`: Coni approved the video, the caption and PUBLICAR_EN. */
-async function crearProgramada(publicarEn = PUBLICAR_EN): Promise<string> {
+/** What a scheduled piece carries for LinkedIn; `aprobadoSobre` is the LinkedIn text gate 2 actually hashed. */
+type OpcionesDeProgramada = OpcionesDePieza & { aprobadoSobre?: string }
+
+/**
+ * A piece walked through the real flow to `programado`: Coni approved the video, the caption and PUBLICAR_EN. Without
+ * options it is an approval from before LinkedIn (formula 1, Instagram only); with them, formula 2.
+ */
+async function crearProgramada(publicarEn = PUBLICAR_EN, opciones: OpcionesDeProgramada = {}): Promise<string> {
   const c = await pool.connect()
   try {
     await c.query("begin")
-    const id = await crearPiezaEn(c, "video_por_aprobar")
-    await aplicar(c, id, comoConi, {
-      tipo: "aprobar_video",
-      actor: "coni",
-      videoVisto: VIDEO,
-      hashTextoVisto: hashTexto(TEXTO),
-      hashTextoActual: hashTexto(TEXTO),
-      publicarEn,
-      en: new Date().toISOString(),
-    })
+    const id = await crearPiezaEn(c, "video_por_aprobar", opciones)
+    const conLinkedin = opciones.destinos !== undefined || opciones.textoLinkedin !== undefined
+    const destinos = opciones.destinos ?? ["instagram"]
+    const hash = conLinkedin
+      ? hashTextoDePuerta2(2, {
+          texto: TEXTO,
+          textoLinkedin: opciones.aprobadoSobre ?? opciones.textoLinkedin ?? null,
+          destinos,
+        })
+      : hashTexto(TEXTO)
+    await aplicar(
+      c,
+      id,
+      comoConi,
+      {
+        tipo: "aprobar_video",
+        actor: "coni",
+        videoVisto: VIDEO,
+        hashTextoVisto: hash,
+        hashTextoActual: hash,
+        formula: conLinkedin ? 2 : 1,
+        publicarEn,
+        en: new Date().toISOString(),
+      },
+      conLinkedin ? { destinos: [...destinos] } : {},
+    )
     await c.query("commit")
     piezasCreadas.push(id)
     return id
@@ -655,5 +678,195 @@ describe("publicarPendientes sin Instagram conectado", () => {
 
     expect(resultado).toEqual([{ piezaId: nueva, resultado: "publicada" }])
     expect((await pieza(espera)).estado).toBe("para_subir_a_mano")
+  })
+})
+
+describe("publicarPendientes con LinkedIn", () => {
+  const LINKEDIN = "Para colegas."
+  const AMBOS: OpcionesDeProgramada = { destinos: ["instagram", "linkedin"], textoLinkedin: LINKEDIN }
+  const SOLO_LINKEDIN: OpcionesDeProgramada = { destinos: ["linkedin"], textoLinkedin: LINKEDIN }
+
+  async function sinInstagram(): Promise<void> {
+    await pool.query("delete from vault.secrets where name = 'meta'")
+    await pool.query("update public.ajustes set meta_cuenta_id = null")
+  }
+
+  it("hands every destination over at the approved time and names both in the notice", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await sinInstagram()
+    const d = doble(() => despues(1))
+
+    const resultado = await publicarPendientes(d.deps)
+
+    expect(resultado).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "para_subir", enlace: null },
+      { destino: "linkedin", estado: "para_subir", enlace: null },
+    ])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toBe(
+      `Tu reel «Prueba» está listo para que lo subas a Instagram y LinkedIn. Entra a la app para descargar el video y copiar el texto.`,
+    )
+    expect(d.avisos.aConiEnviados[0]?.mensaje).not.toContain("—")
+  })
+
+  it("names only what is still pending when she already marked one destination before the time", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await sinInstagram()
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'linkedin'",
+      [id],
+    )
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a Instagram. Entra")
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "para_subir", enlace: null },
+      { destino: "linkedin", estado: "subido_a_mano", enlace: null },
+    ])
+  })
+
+  it("hands a LinkedIn-only piece over even when Instagram is connected, and never calls Instagram", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, SOLO_LINKEDIN)
+    const sim = simular()
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    const resultado = await publicarPendientes(d.deps)
+
+    expect(resultado).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.contenedores).toEqual([])
+    expect(sim.publicaciones).toEqual([])
+    expect(await publicacionesDe(id)).toEqual([{ destino: "linkedin", estado: "para_subir", enlace: null }])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a LinkedIn. Entra")
+  })
+
+  it("hands a LinkedIn-only piece over without even reading the Instagram connection", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, SOLO_LINKEDIN)
+    // Only the token is saved: for an Instagram piece this is the reconnect error.
+    await pool.query("update public.ajustes set meta_cuenta_id = null")
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect((await pieza(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("refuses the hand over when the LinkedIn text differs from what gate 2 approved", async () => {
+    // Approved over another text: the stored one no longer matches the hash of the approval.
+    const id = await crearProgramada(PUBLICAR_EN, { ...SOLO_LINKEDIN, aprobadoSobre: "Otro texto aprobado" })
+    await sinInstagram()
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect(await pieza(id)).toMatchObject({ estado: "error_publicacion" })
+    expect(d.avisos.avisosEnviados.map((a) => a.tipo)).not.toContain("listo_para_subir")
+  })
+
+  it("refuses the hand over when the destinations differ from what gate 2 approved", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await sinInstagram()
+    // The database refuses to change them under an approval; a repair with triggers off is the only way.
+    const c = await pool.connect()
+    try {
+      await c.query("begin")
+      await c.query("set local session_replication_role = replica")
+      await c.query("update public.piezas set destinos = '{instagram}', version = version + 1 where id = $1", [id])
+      await c.query("commit")
+    } finally {
+      c.release()
+    }
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect((await pieza(id)).estado).toBe("error_publicacion")
+  })
+
+  it("keeps handing over an approval from before LinkedIn exactly as it did", async () => {
+    const id = await crearProgramada()
+    await sinInstagram()
+    const d = doble(() => despues(1))
+
+    await publicarPendientes(d.deps)
+
+    expect((await pieza(id)).estado).toBe("para_subir_a_mano")
+    expect(await publicacionesDe(id)).toEqual([{ destino: "instagram", estado: "para_subir", enlace: null }])
+  })
+
+  it("publishes Instagram by itself and leaves LinkedIn waiting for her when both were chosen", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    const sim = simular({ estados: ["IN_PROGRESS", "FINISHED"] })
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    const resultado = await publicarPendientes(d.deps)
+
+    expect(resultado).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect(sim.contenedores).toHaveLength(1)
+    expect(await pieza(id)).toMatchObject({
+      estado: "para_subir_a_mano",
+      media_id: "media_1",
+      permalink: "https://www.instagram.com/reel/media_1/",
+    })
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "publicado", enlace: "https://www.instagram.com/reel/media_1/" },
+      { destino: "linkedin", estado: "para_subir", enlace: null },
+    ])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("ya está publicado en Instagram")
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("Falta subirlo a LinkedIn")
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("https://www.instagram.com/reel/media_1/")
+  })
+
+  it("publishes an Instagram-only piece with formula 2 as before", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, { destinos: ["instagram"] })
+    simular({ estados: ["IN_PROGRESS", "FINISHED"] })
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect((await pieza(id)).estado).toBe("publicado")
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "publicado", enlace: "https://www.instagram.com/reel/media_1/" },
+    ])
+  })
+
+  it("closes the piece as published when LinkedIn was already uploaded before Instagram went out", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'linkedin'",
+      [id],
+    )
+    simular({ estados: ["IN_PROGRESS", "FINISHED"] })
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+
+    expect((await pieza(id)).estado).toBe("publicado")
+    expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["publicado", "subido_a_mano"])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).not.toContain("Falta subirlo")
+  })
+
+  it("never publishes to Instagram when its row is no longer pending, and hands over what still waits", async () => {
+    const id = await crearProgramada(PUBLICAR_EN, AMBOS)
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano' where pieza_id = $1 and destino = 'instagram'",
+      [id],
+    )
+    const sim = simular()
+    const d = doble(() => despues(1))
+    await conVideoEnAlmacen(d.almacen)
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+
+    expect(sim.contenedores).toEqual([])
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "subido_a_mano", enlace: null },
+      { destino: "linkedin", estado: "para_subir", enlace: null },
+    ])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a LinkedIn. Entra")
   })
 })

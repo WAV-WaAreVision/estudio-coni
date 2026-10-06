@@ -7,6 +7,7 @@ const esquemaDeHallazgo = z.object({
   tipo: z.enum(["bloquea", "advierte"]),
   mensaje: z.string(),
   frase: z.string().optional(),
+  campo: z.literal("linkedin").optional(),
 })
 
 /**

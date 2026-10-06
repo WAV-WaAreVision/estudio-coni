@@ -118,6 +118,21 @@ export const GUION_VALIDO = readFileSync(
 export const TEXTO_VALIDO =
   "El deseo no se apaga: se esconde detrás del cansancio y la rutina.\n\nVideo hecho con mi avatar digital."
 
+/** A LinkedIn text that follows every rule of the review: the screens show it without a finding. */
+export const TEXTO_LINKEDIN_VALIDO = [
+  "Llevan diez años juntos y ya casi no se tocan.",
+  "Pasa más de lo que se cuenta. Nadie decidió alejarse: el trabajo, los hijos y el cansancio fueron ocupando el espacio que antes era de los dos.",
+  "Desde la psicología clínica y la sexología vemos que el deseo responde a las condiciones en que vivimos. Cuando falta descanso, falta tiempo a solas y falta conversación, el cuerpo baja la guardia del deseo sin avisar.",
+  "Eso no habla de falta de amor. Habla de una rutina que se quedó sin pausas.",
+  "Tres cosas que ayudan a muchas parejas:",
+  "1️⃣ Poner un momento fijo para conversar sin pantallas.\n2️⃣ Hablar de lo que cada uno necesita antes de hablar de lo que falta.\n3️⃣ Cuidar el contacto cotidiano que no busca nada más: un abrazo largo, una mano en la espalda.",
+  "Ninguna de las tres exige tiempo extra. Piden intención y un poco de repetición.",
+  "Si trabajas con personas, en una consulta, en un colegio o en una empresa, esta mirada sirve igual: las conductas cambian cuando cambian las condiciones.",
+  "¿En qué momento del día te cuesta más desconectarte del trabajo?",
+  "Este video lo narra mi avatar digital, creado con IA a partir de mi imagen y mi voz. El contenido lo revisé y aprobé yo.",
+  "#sexualidad #psicologia",
+].join("\n\n")
+
 interface EstadoDeServicios {
   anthropic?: "ok" | "401" | "500"
   heygen?: "ok" | "401"

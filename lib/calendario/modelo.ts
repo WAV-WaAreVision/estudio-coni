@@ -1,3 +1,4 @@
+import { canonicos, type Destino, nombreDeDestino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import type { Estado } from "@/lib/dominio/estados"
 import { diaLocal, etiquetaDeFecha, type Horario, instanteLocal, proponerFechas, semanaDe } from "@/lib/dominio/fechas"
 import { limitesDelMes, lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
@@ -13,6 +14,10 @@ export interface PiezaDeCalendario {
   /** The approved publishing time; null until the video is approved. */
   publicarEn: string | null
   creadaEn: string
+  /** Where the reel was approved to go. */
+  destinos: readonly Destino[]
+  /** What still waits for her to upload; empty when no row says (read as every destination). */
+  pendientes: readonly Destino[]
 }
 
 export type TonoDeEstado = "ok" | "aviso" | "error" | "neutro"
@@ -27,6 +32,8 @@ export interface Ocupante {
   href: string | null
   /** Placed in the slot as a proposal: it has no approved time yet. */
   provisional: boolean
+  /** "Instagram · LinkedIn": where it goes. Null for a proposal, which has not been approved for anywhere. */
+  destinos: string | null
 }
 
 export interface Hueco {
@@ -54,6 +61,8 @@ export interface ProximaPublicacion {
   titulo: string
   pilar: Pilar | null
   fecha: string
+  /** The networks she still has to upload it to: "Instagram y LinkedIn". */
+  pendientes: string
 }
 
 export type CeldaDeRitmo =
@@ -122,6 +131,15 @@ const NOTA_DE_MANO: Partial<Record<Estado, string>> = {
   publicado_a_mano: ", subido a mano",
 }
 
+function esperando(pieza: PiezaDeCalendario): Destino[] {
+  return canonicos(pieza.pendientes.length > 0 ? pieza.pendientes : pieza.destinos)
+}
+
+/** Said only when LinkedIn is among the destinations: an Instagram-only day reads as it always did. */
+function enLinkedin(pieza: PiezaDeCalendario): string {
+  return pieza.destinos.includes("linkedin") ? `, en ${nombreDeDestinos(pieza.destinos)}` : ""
+}
+
 function nombreDeTema(pilar: Pilar | null): string {
   return pilar ? NOMBRE_DE_PILAR[pilar] : "sin tema"
 }
@@ -158,7 +176,7 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
       puntos: delDia.map((pieza) => pieza.pilar),
       descripcion:
         delDia.length > 0
-          ? `${nombre}: ${delDia.map((pieza) => `${nombreDeTema(pieza.pilar)}${NOTA_DE_MANO[pieza.estado] ?? ""}`).join(", ")}`
+          ? `${nombre}: ${delDia.map((pieza) => `${nombreDeTema(pieza.pilar)}${NOTA_DE_MANO[pieza.estado] ?? ""}${enLinkedin(pieza)}`).join(", ")}`
           : nombre,
     })
   }
@@ -172,6 +190,7 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
     titulo: pieza.titulo,
     pilar: pieza.pilar,
     fecha: etiquetaDeFecha(pieza.publicarEn, zona, "corta"),
+    pendientes: nombreDeDestinos(esperando(pieza)),
   })
   return {
     nombre: mes.nombre,
@@ -190,6 +209,7 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
         titulo: pieza.titulo,
         pilar: pieza.pilar,
         fecha: etiquetaDeFecha(pieza.publicarEn, zona, "corta"),
+        pendientes: nombreDeDestinos(esperando(pieza)),
       })),
   }
 }
@@ -198,12 +218,23 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
 
 /** What the piece is doing, in her words, and whether there is something for her to open. */
 function ocupanteDe(pieza: PiezaDeCalendario, provisional: boolean): Ocupante {
-  const base = { piezaId: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar, provisional }
+  const base = {
+    piezaId: pieza.id,
+    titulo: pieza.titulo,
+    pilar: pieza.pilar,
+    provisional,
+    destinos: provisional ? null : canonicos(pieza.destinos).map(nombreDeDestino).join(" · "),
+  }
   switch (pieza.estado) {
     case "programado":
       return { ...base, estado: "Programado", tono: "ok", href: `/video/${pieza.id}` }
     case "para_subir_a_mano":
-      return { ...base, estado: "Para subir", tono: "aviso", href: `/video/${pieza.id}` }
+      return {
+        ...base,
+        estado: `Para subir a ${nombreDeDestinos(esperando(pieza))}`,
+        tono: "aviso",
+        href: `/video/${pieza.id}`,
+      }
     case "publicado_a_mano":
       return { ...base, estado: "Subido a mano", tono: "ok", href: `/video/${pieza.id}` }
     case "video_por_aprobar":

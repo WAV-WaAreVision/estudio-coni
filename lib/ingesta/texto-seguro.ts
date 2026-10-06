@@ -1,7 +1,7 @@
 /** The data may hold a closing tag; `<\\/` is still `</` to a JSON reader but cannot end the data block. */
 export function sinCierre(texto: string): string {
   return texto.replace(
-    /<\/(fuente|ficha_base|candidatas|fichas|cruces|estrategia|voz_propia|respaldo|guion|texto_de_publicacion)/gi,
+    /<\/(fuente|ficha_base|candidatas|fichas|cruces|estrategia|voz_propia|respaldo|guion|texto_de_publicacion|texto_linkedin)/gi,
     "<\\/$1",
   )
 }
