@@ -101,6 +101,7 @@ const PASOS: ((c: pg.PoolClient, id: string) => Promise<FilaLeida>)[] = [
       videoVisto: VIDEO,
       hashTextoVisto: hashTexto(TEXTO),
       hashTextoActual: hashTexto(TEXTO),
+      formula: 1,
       publicarEn: maniana(),
       en: ahora(),
     }),

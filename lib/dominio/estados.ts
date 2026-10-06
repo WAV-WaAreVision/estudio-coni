@@ -33,6 +33,8 @@ export interface AprobacionGuion {
 export interface AprobacionVideo {
   videoId: string
   hashTexto: string
+  /** How `hashTexto` was computed (`hashTextoDePuerta2`): 1 is an approval from before LinkedIn, 2 binds its text too. */
+  formula: 1 | 2
   publicarEn: string
   en: string
 }
@@ -80,6 +82,7 @@ export type Evento =
       videoVisto: string
       hashTextoVisto: string
       hashTextoActual: string
+      formula: 1 | 2
       publicarEn: string
       en: string
     }
@@ -287,7 +290,13 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       if (Date.parse(publicarEn) <= Date.parse(aprobadoEn)) {
         throw new Falla("La fecha de publicación ya pasó. Elige una hora futura.")
       }
-      const puerta2 = { videoId: evento.videoVisto, hashTexto: evento.hashTextoVisto, publicarEn, en: aprobadoEn }
+      const puerta2 = {
+        videoId: evento.videoVisto,
+        hashTexto: evento.hashTextoVisto,
+        formula: evento.formula,
+        publicarEn,
+        en: aprobadoEn,
+      }
       return a("programado", { puerta2 })
     }
 

@@ -732,6 +732,7 @@ describe("descartar", () => {
       videoVisto: VIDEO,
       hashTextoVisto: hashTexto(TEXTO),
       hashTextoActual: hashTexto(TEXTO),
+      formula: 1,
       publicarEn: new Date(Date.now() + 10 * 60_000).toISOString(),
       en: new Date().toISOString(),
     })
@@ -790,6 +791,7 @@ describe("reintentar", () => {
         videoVisto: VIDEO,
         hashTextoVisto: hashTexto(TEXTO),
         hashTextoActual: hashTexto(TEXTO),
+        formula: 1,
         publicarEn: new Date(Date.now() + 10 * 60_000).toISOString(),
         en: new Date().toISOString(),
       })

@@ -362,6 +362,7 @@ export function aprobarVideo(deps: DepsAcciones, piezaId: string, versionVista: 
       videoVisto: fila.video_id,
       hashTextoVisto: hash,
       hashTextoActual: hash,
+      formula: 1,
       publicarEn,
       en: deps.ahora(),
     })

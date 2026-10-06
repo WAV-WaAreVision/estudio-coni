@@ -26,7 +26,7 @@ const programada = en("programado", {
   audioId: "audio_1",
   videoId: "video_1",
   puerta1: { hash: "h1", en: ANTES },
-  puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES },
+  puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES, formula: 1 },
 })
 
 const aprobarGuion = (cambios: Partial<Extract<Evento, { tipo: "aprobar_guion" }>> = {}): Evento => ({
@@ -44,6 +44,7 @@ const aprobarVideo = (cambios: Partial<Extract<Evento, { tipo: "aprobar_video" }
   videoVisto: "video_1",
   hashTextoVisto: "t1",
   hashTextoActual: "t1",
+  formula: 1,
   publicarEn: HORA,
   en: ANTES,
   ...cambios,
@@ -78,7 +79,7 @@ describe("transicionar", () => {
     expect(pieza.estado).toBe("publicado")
     expect(pieza.version).toBe(eventos.length)
     expect(pieza.puerta1).toEqual({ hash: "h1", en: ANTES })
-    expect(pieza.puerta2).toEqual({ videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES })
+    expect(pieza.puerta2).toEqual({ videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES, formula: 1 })
   })
 
   it("rechaza un evento cuando no corresponde al estado", () => {
@@ -126,6 +127,12 @@ describe("transicionar", () => {
       expect(error, publicarEn).toBeInstanceOf(Falla)
       expect(error, publicarEn).toHaveProperty("message", "La fecha de publicación no es válida.")
     }
+  })
+
+  it("stores the formula of the approval so the publish step recomputes the hash the same way", () => {
+    const pieza = en("video_por_aprobar", { videoId: "video_1" })
+    expect(transicionar(pieza, aprobarVideo({ formula: 2 })).pieza.puerta2?.formula).toBe(2)
+    expect(transicionar(pieza, aprobarVideo({ formula: 1 })).pieza.puerta2?.formula).toBe(1)
   })
 
   it("guarda la hora aprobada normalizada a UTC cuando coni la elige con un desfase explícito", () => {
@@ -335,7 +342,7 @@ describe("transicionar", () => {
   it("pide una fecha nueva cuando coni reintenta la publicación y la hora aprobada guardada no se puede leer", () => {
     const corrupta = en("error_publicacion", {
       estadoAntesDelError: "programado",
-      puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: "pronto", en: ANTES },
+      puerta2: { videoId: "video_1", hashTexto: "t1", publicarEn: "pronto", en: ANTES, formula: 1 },
     })
     const { pieza } = transicionar(corrupta, { tipo: "reintentar", ahora: HORA })
     expect(pieza).toMatchObject({ estado: "video_por_aprobar", puerta2: null })
@@ -496,7 +503,7 @@ describe("tabla del diseño", () => {
   }
 
   const puerta1 = { hash: "h1", en: ANTES }
-  const puerta2 = { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES }
+  const puerta2 = { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES, formula: 1 as const }
   const avance = { version: 4, intento: 2 }
   const piezas: Record<Estado, Pieza> = {
     idea: en("idea", avance),

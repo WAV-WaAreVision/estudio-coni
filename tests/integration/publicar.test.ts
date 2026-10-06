@@ -37,6 +37,7 @@ async function crearProgramada(publicarEn = PUBLICAR_EN): Promise<string> {
       videoVisto: VIDEO,
       hashTextoVisto: hashTexto(TEXTO),
       hashTextoActual: hashTexto(TEXTO),
+      formula: 1,
       publicarEn,
       en: new Date().toISOString(),
     })
