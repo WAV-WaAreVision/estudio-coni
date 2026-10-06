@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
-import { esDestino, esEstadoDePublicacion, type Publicacion } from "@/lib/dominio/destinos"
+import { esDestino, esEstadoDePublicacion, type PublicacionConEnlace } from "@/lib/dominio/destinos"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { Alerta, Hallazgo } from "@/lib/dominio/revision"
 import type { Database, Json } from "@/lib/supabase/database.types"
@@ -225,13 +225,17 @@ export async function tomarParaPublicar(db: Db, ahora: string, arriendoSegundos:
 }
 
 /** Where each destination of a piece stands (what she still has to upload, what is done). */
-export async function leerPublicaciones(db: Db, piezaId: string): Promise<Publicacion[]> {
-  const { data, error } = await db.from("publicaciones").select("destino, estado").eq("pieza_id", piezaId)
+export async function leerPublicaciones(db: Db, piezaId: string): Promise<PublicacionConEnlace[]> {
+  const { data, error } = await db
+    .from("publicaciones")
+    .select("destino, estado, enlace")
+    .eq("pieza_id", piezaId)
+    .order("destino")
   if (error) throw fallo("No pude leer los destinos de la pieza", error)
   return data.map((fila) => {
     if (!esDestino(fila.destino)) throw new Error(`Destino desconocido en la base: ${fila.destino}`)
     if (!esEstadoDePublicacion(fila.estado)) throw new Error(`Estado de publicación desconocido: ${fila.estado}`)
-    return { destino: fila.destino, estado: fila.estado }
+    return { destino: fila.destino, estado: fila.estado, enlace: fila.enlace }
   })
 }
 

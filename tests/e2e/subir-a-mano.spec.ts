@@ -79,7 +79,7 @@ test("she downloads the video, copies the text, confirms the AI label and marks 
   await expect(page.getByText("Texto copiado")).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(TEXTO_VALIDO)
 
-  const listo = page.getByRole("button", { name: "Ya lo subí" })
+  const listo = page.getByRole("button", { name: "Ya lo subí a Instagram" })
   await expect(listo).toHaveAttribute("aria-disabled", "true")
   await page.getByRole("checkbox", { name: /Activé la etiqueta/ }).check()
   await page.getByLabel(/Enlace del reel/).fill(`${ENLACE}?igsh=MTIzNDU2`)
@@ -103,7 +103,7 @@ test("a link that is not Instagram's is refused and the reel stays waiting", asy
 
   await page.getByRole("checkbox", { name: /Activé la etiqueta/ }).check()
   await page.getByLabel(/Enlace del reel/).fill("https://malo.example/reel/abc")
-  await page.getByRole("button", { name: "Ya lo subí" }).click()
+  await page.getByRole("button", { name: "Ya lo subí a Instagram" }).click()
 
   await expect(page.getByRole("alert").filter({ hasText: "Ese enlace no parece de Instagram" })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("para_subir_a_mano")
@@ -184,6 +184,6 @@ test("the maintainer cannot open a reel waiting to be uploaded", async ({ browse
   await page.goto(`/video/${id}`)
 
   await expect(page.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Ya lo subí" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Ya lo subí a Instagram" })).toHaveCount(0)
   await contexto.close()
 })

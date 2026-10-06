@@ -10,8 +10,16 @@ import {
   leerInstagramConectado,
   leerPantallaDePieza,
 } from "@/lib/datos/pantallas"
+import { leerPublicaciones } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
-import { canonicos, type Destino, destinosValidos } from "@/lib/dominio/destinos"
+import {
+  canonicos,
+  type Destino,
+  destinosValidos,
+  esDestino,
+  nombreDeDestino,
+  nombreDeDestinos,
+} from "@/lib/dominio/destinos"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
@@ -20,7 +28,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { PantallaVideo } from "./pantalla-video"
-import { SubirAMano } from "./subir-a-mano"
+import { PorSubir } from "./por-subir"
 
 const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -42,22 +50,27 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     case "programado": {
       const zona = (await leerContextoDeFechas(db, fila.id)).horario.zona
       const sinInstagram = !(await leerInstagramConectado(db))
+      const publicaciones = await leerPublicaciones(db, fila.id)
+      const destinos = destinosDe(fila.destinos)
+      // Before its time she can already upload what goes by hand: LinkedIn always, Instagram while it is not connected.
+      const pendientes = publicaciones
+        .filter((p) => p.estado === "esperando" && (p.destino === "linkedin" || sinInstagram))
+        .map((p) => p.destino)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="exito"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
-            detalle={
-              sinInstagram
-                ? "Instagram todavía no está conectado, así que este reel no sale solo. A esa hora te aviso y lo subes tú."
-                : "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."
-            }
+            detalle={detalleDeProgramado(destinos, sinInstagram)}
           />
-          {sinInstagram && fila.texto !== null ? (
-            <SubirAMano
+          {fila.texto !== null ? (
+            <PorSubir
               piezaId={fila.id}
               version={fila.version}
               texto={fila.texto}
+              textoLinkedin={fila.texto_linkedin}
+              publicaciones={publicaciones}
+              pendientes={pendientes}
               alDescargar={descargarVideoAccion}
               alMarcar={marcarSubidoAManoAccion}
             />
@@ -66,35 +79,49 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         </EstadoSencillo>
       )
     }
-    case "para_subir_a_mano":
+    case "para_subir_a_mano": {
       if (fila.texto === null) throw new Error(`La pieza ${fila.id} espera subirse sin texto guardado.`)
+      const publicaciones = await leerPublicaciones(db, fila.id)
+      const pendientes = publicaciones.filter((p) => p.estado === "para_subir").map((p) => p.destino)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="aviso"
-            titulo="Listo para que lo subas a Instagram"
-            detalle="Instagram todavía no está conectado, así que este reel no sale solo. Súbelo tú con estos pasos."
+            titulo={`Listo para que lo subas a ${nombreDeDestinos(pendientes)}`}
+            detalle={
+              pendientes.includes("instagram")
+                ? "Instagram todavía no está conectado, así que este reel no sale solo. Súbelo tú con estos pasos."
+                : "LinkedIn se sube a mano. Súbelo tú con estos pasos."
+            }
           />
-          <SubirAMano
+          <PorSubir
             piezaId={fila.id}
             version={fila.version}
             texto={fila.texto}
+            textoLinkedin={fila.texto_linkedin}
+            publicaciones={publicaciones}
+            pendientes={pendientes}
             alDescargar={descargarVideoAccion}
             alMarcar={marcarSubidoAManoAccion}
           />
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
         </EstadoSencillo>
       )
-    case "publicado_a_mano":
+    }
+    case "publicado_a_mano": {
+      const subidas = (await leerPublicaciones(db, fila.id)).filter((p) => p.estado === "subido_a_mano")
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <MomentoDeCierre
             titulo="Subido a mano"
-            detalle="Lo subiste tú a Instagram, con la etiqueta de IA."
-            enlace={fila.permalink}
+            detalle={detalleDeSubida(subidas.map((p) => p.destino))}
+            enlaces={subidas.flatMap((p) =>
+              p.enlace ? [{ etiqueta: `Ver en ${nombreDeDestino(p.destino)}`, href: p.enlace }] : [],
+            )}
           />
         </EstadoSencillo>
       )
+    }
     case "publicado":
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
@@ -183,6 +210,33 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       }}
     />
   )
+}
+
+/** The column is checked in the database; this narrows its type. */
+function destinosDe(valores: readonly string[]): Destino[] {
+  return canonicos(valores.filter(esDestino))
+}
+
+function detalleDeProgramado(destinos: readonly Destino[], sinInstagram: boolean): string {
+  const conInstagram = destinos.includes("instagram")
+  const conLinkedin = destinos.includes("linkedin")
+  if (conInstagram && sinInstagram) {
+    const base = "Instagram todavía no está conectado, así que este reel no sale solo."
+    return conLinkedin
+      ? `${base} LinkedIn tampoco: a esa hora te aviso y los subes tú.`
+      : `${base} A esa hora te aviso y lo subes tú.`
+  }
+  if (conInstagram) {
+    const base = "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."
+    return conLinkedin ? `${base} LinkedIn lo subes tú a mano.` : base
+  }
+  return "LinkedIn se sube a mano: a esa hora te aviso y lo subes tú."
+}
+
+/** What she did, in her words: Instagram keeps saying the AI label went on, as it always did. */
+function detalleDeSubida(destinos: readonly Destino[]): string {
+  if (destinos.length === 1 && destinos[0] === "instagram") return "Lo subiste tú a Instagram, con la etiqueta de IA."
+  return `Lo subiste tú a ${nombreDeDestinos(destinos)}.`
 }
 
 async function leerAjustesDelVideo(

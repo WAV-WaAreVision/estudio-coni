@@ -8,6 +8,11 @@ export interface Publicacion {
   estado: EstadoDePublicacion
 }
 
+/** A row of `publicaciones` as the screens read it: where the post is, when she pasted its link. */
+export interface PublicacionConEnlace extends Publicacion {
+  enlace: string | null
+}
+
 const NOMBRE: Record<Destino, string> = { instagram: "Instagram", linkedin: "LinkedIn" }
 
 export function esDestino(valor: string): valor is Destino {
