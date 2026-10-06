@@ -45,7 +45,8 @@ revoke execute on function public.guardar_borrador(uuid, integer, text, text, js
   from public, anon, authenticated;
 grant execute on function public.guardar_borrador(uuid, integer, text, text, jsonb, text, numeric, jsonb, text) to service_role;
 
--- exigir_revision_limpia as of 20261001001300, plus: a blocking finding of the LinkedIn text only counts when LinkedIn
+-- exigir_revision_limpia as of 20261001001300, plus: gate 1 now leads to guion_aprobado (en_render stays for the old
+-- path), so that is where its check applies; and a blocking finding of the LinkedIn text only counts when LinkedIn
 -- is among the destinations of the approval (the same update writes them), so a LinkedIn text that is not going out
 -- cannot keep the Instagram reel from being approved.
 create or replace function public.exigir_revision_limpia() returns trigger
@@ -56,7 +57,7 @@ begin
     raise exception using errcode = '42501', message = 'revision_solo_servidor';
   end if;
   if (
-    (old.estado = 'guion_por_aprobar' and new.estado = 'en_render')
+    (old.estado = 'guion_por_aprobar' and new.estado in ('guion_aprobado', 'en_render'))
     or (old.estado = 'video_por_aprobar' and new.estado = 'programado')
   ) and exists (
     select 1 from jsonb_array_elements(new.revision) as hallazgo

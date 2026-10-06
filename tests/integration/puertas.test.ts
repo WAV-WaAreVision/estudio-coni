@@ -345,6 +345,27 @@ describe("revisión automática", () => {
     aprobarPuerta2.puerta2_en,
   ]
 
+  it("refuses to approve gate 1 while the script or the caption blocks, and ignores a LinkedIn finding", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, JSON.stringify([{ regla: "cierre", tipo: "bloquea", mensaje: "x" }])])
+      await asumir(c, comoConi)
+      const { version } = await leer(c, id)
+      const aprobar = `update public.piezas set puerta1_hash = $3, puerta1_en = now(), avatar_id = 'look-1', puerta1_formula = 3,
+        estado = 'guion_aprobado', version = $2 where id = $1`
+      const err = await fallaCon(c, aprobar, [id, version + 1, "a".repeat(64)])
+      expect(err.message).toBe("revision_bloquea")
+
+      await asumir(c, comoServicio)
+      await c.query(escribirRevision, [id, LINKEDIN_BLOQUEA])
+      await asumir(c, comoConi)
+      const { version: v2 } = await leer(c, id)
+      await c.query(aprobar, [id, v2 + 1, "a".repeat(64)])
+      expect((await leer(c, id)).estado).toBe("guion_aprobado")
+    })
+  })
+
   it("lets Coni schedule for Instagram only when just the LinkedIn text blocks", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "video_por_aprobar")
