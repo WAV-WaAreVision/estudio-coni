@@ -140,6 +140,12 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado): Promise<s
   if (destino === "grabando_voz") await aplicar(c, id, comoConi, { tipo: "pedir_voz" })
   const aMano = PASO_A_MANO[destino]
   if (aMano) await aMano(c, id)
-  if (destino === "publicado_a_mano") await aplicar(c, id, comoConi, { tipo: "subido_a_mano", actor: "coni" })
+  if (destino === "publicado_a_mano")
+    await aplicar(c, id, comoConi, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "instagram",
+      quedanPendientes: false,
+    })
   return id
 }

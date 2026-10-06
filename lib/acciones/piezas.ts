@@ -420,7 +420,12 @@ export function marcarSubidoAMano(deps: DepsAcciones, piezaId: string, versionVi
     const permalink = enlaceDeInstagram(enlace)
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
-    await guardarEvento(deps.db, fila, { tipo: "subido_a_mano", actor: "coni" }, permalink ? { permalink } : {})
+    await guardarEvento(
+      deps.db,
+      fila,
+      { tipo: "subido_a_mano", actor: "coni", destino: "instagram", quedanPendientes: false },
+      permalink ? { permalink } : {},
+    )
     return {}
   })
 }

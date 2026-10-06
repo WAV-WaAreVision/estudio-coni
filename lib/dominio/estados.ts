@@ -1,3 +1,4 @@
+import type { Destino } from "@/lib/dominio/destinos"
 import { Falla } from "@/lib/dominio/falla"
 
 export const ESTADOS = [
@@ -89,12 +90,14 @@ export type Evento =
   | { tipo: "regrabar" }
   | { tipo: "cambiar_guion" }
   | { tipo: "cambiar_fecha" }
-  | { tipo: "publicado" }
+  /** `quedanAMano`: the piece also goes to a destination she uploads herself (LinkedIn), still pending. */
+  | { tipo: "publicado"; quedanAMano?: boolean }
   | { tipo: "falla_publicacion"; explicacion: string }
   | { tipo: "hora_vencida" }
   /** Instagram is not connected and the approved time came: the piece waits for Coni to upload it herself. */
   | { tipo: "entregar_para_subir" }
-  | { tipo: "subido_a_mano"; actor: Actor }
+  /** `quedanPendientes`: another destination of the piece still waits, so only this one is done. */
+  | { tipo: "subido_a_mano"; actor: Actor; destino: Destino; quedanPendientes: boolean }
   | { tipo: "reintentar"; ahora: string }
   | { tipo: "descartar" }
 
@@ -314,7 +317,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "publicado":
       if (estado !== "programado") throw invalida()
-      return a("publicado")
+      // Instagram went out by itself and a destination that goes by hand still waits for her.
+      return a(evento.quedanAMano ? "para_subir_a_mano" : "publicado")
 
     case "falla_publicacion":
       if (estado !== "programado") throw invalida()
@@ -337,9 +341,11 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       return a("para_subir_a_mano")
 
     case "subido_a_mano":
-      // Only she can say it: nobody else knows the reel is on Instagram.
+      // Only she can say it: nobody else knows the reel is up.
       soloConi(evento.actor)
       if (estado !== "programado" && estado !== "para_subir_a_mano") throw invalida()
+      // One destination is done and another still waits: the piece keeps its state and its scheduled publication.
+      if (evento.quedanPendientes) return a(estado)
       // Before the approved time the scheduled publication must not happen too, or the reel would go out twice.
       return a("publicado_a_mano", {}, estado === "programado" ? ["cancelar_publicacion"] : [])
 

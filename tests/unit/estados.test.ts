@@ -395,20 +395,108 @@ describe("subir a mano", () => {
 
   it("deja a la pieza en publicado_a_mano cuando Coni dice que ya la subió", () => {
     const entregada = transicionar(programada, { tipo: "entregar_para_subir" }).pieza
-    const { pieza } = transicionar(entregada, { tipo: "subido_a_mano", actor: "coni" })
+    const { pieza } = transicionar(entregada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "instagram",
+      quedanPendientes: false,
+    })
     expect(pieza.estado).toBe("publicado_a_mano")
     expect(pieza.puerta2).toEqual(programada.puerta2)
   })
 
   it("permite marcarla como subida antes de la hora y retira la publicación programada", () => {
-    const { pieza, efectos } = transicionar(programada, { tipo: "subido_a_mano", actor: "coni" })
+    const { pieza, efectos } = transicionar(programada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "instagram",
+      quedanPendientes: false,
+    })
     expect(pieza.estado).toBe("publicado_a_mano")
     expect(efectos).toEqual(["cancelar_publicacion"])
   })
 
+  it("handles one destination marked while another is still pending: the piece keeps its state", () => {
+    const entregada = transicionar(programada, { tipo: "entregar_para_subir" }).pieza
+    const { pieza, efectos } = transicionar(entregada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "instagram",
+      quedanPendientes: true,
+    })
+    expect(pieza.estado).toBe("para_subir_a_mano")
+    expect(pieza.puerta2).toEqual(programada.puerta2)
+    expect(pieza.version).toBe(entregada.version + 1)
+    expect(efectos).toEqual([])
+  })
+
+  it("handles the last destination marked: the piece is publicado_a_mano", () => {
+    const entregada = transicionar(programada, { tipo: "entregar_para_subir" }).pieza
+    const { pieza } = transicionar(entregada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "linkedin",
+      quedanPendientes: false,
+    })
+    expect(pieza.estado).toBe("publicado_a_mano")
+  })
+
+  it("handles an early mark with pendings left when programado: no cancel, still programado", () => {
+    const { pieza, efectos } = transicionar(programada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "linkedin",
+      quedanPendientes: true,
+    })
+    expect(pieza.estado).toBe("programado")
+    expect(efectos).toEqual([])
+  })
+
+  it("handles the last early mark when programado: the scheduled publication is cancelled", () => {
+    const { pieza, efectos } = transicionar(programada, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "linkedin",
+      quedanPendientes: false,
+    })
+    expect(pieza.estado).toBe("publicado_a_mano")
+    expect(efectos).toEqual(["cancelar_publicacion"])
+  })
+
+  it("only lets Coni mark a destination even when others are pending", () => {
+    const entregada = transicionar(programada, { tipo: "entregar_para_subir" }).pieza
+    expect(() =>
+      transicionar(entregada, { tipo: "subido_a_mano", actor: "sistema", destino: "linkedin", quedanPendientes: true }),
+    ).toThrow(AprobacionNoAutorizada)
+  })
+
+  it("handles Instagram published by the API when LinkedIn waits: para_subir_a_mano", () => {
+    const { pieza } = transicionar(programada, { tipo: "publicado", quedanAMano: true })
+    expect(pieza.estado).toBe("para_subir_a_mano")
+    expect(pieza.puerta2).toEqual(programada.puerta2)
+  })
+
+  it("handles Instagram published by the API when nothing waits: publicado", () => {
+    expect(transicionar(programada, { tipo: "publicado" }).pieza.estado).toBe("publicado")
+    expect(transicionar(programada, { tipo: "publicado", quedanAMano: false }).pieza.estado).toBe("publicado")
+  })
+
+  it("handles the whole mixed path: Instagram by the API, then LinkedIn by hand", () => {
+    const esperando = transicionar(programada, { tipo: "publicado", quedanAMano: true }).pieza
+    const { pieza } = transicionar(esperando, {
+      tipo: "subido_a_mano",
+      actor: "coni",
+      destino: "linkedin",
+      quedanPendientes: false,
+    })
+    expect(pieza.estado).toBe("publicado_a_mano")
+  })
+
   it("solo deja que Coni la marque como subida", () => {
     for (const actor of ["sistema", "admin"] as const) {
-      expect(() => transicionar(programada, { tipo: "subido_a_mano", actor })).toThrow(AprobacionNoAutorizada)
+      expect(() =>
+        transicionar(programada, { tipo: "subido_a_mano", actor, destino: "instagram", quedanPendientes: false }),
+      ).toThrow(AprobacionNoAutorizada)
     }
   })
 
@@ -497,7 +585,7 @@ describe("tabla del diseño", () => {
     falla_publicacion: { tipo: "falla_publicacion", explicacion: "Metricool no respondió" },
     hora_vencida: { tipo: "hora_vencida" },
     entregar_para_subir: { tipo: "entregar_para_subir" },
-    subido_a_mano: { tipo: "subido_a_mano", actor: "coni" },
+    subido_a_mano: { tipo: "subido_a_mano", actor: "coni", destino: "instagram", quedanPendientes: false },
     reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
     descartar: { tipo: "descartar" },
   }
