@@ -129,6 +129,7 @@ async function redactarBorrador(
     guia,
     guion: escrito.guion,
     texto: escrito.texto,
+    textoLinkedin: escrito.textoLinkedin,
     alertas: idea.alertas,
   })
   costoUsd += costoClaude(juicio.uso, MODELO_POR_TAREA.revisarConClaude.modelo)

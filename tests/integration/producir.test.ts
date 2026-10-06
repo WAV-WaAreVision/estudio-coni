@@ -5,7 +5,7 @@ import { reservarGasto } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
-import { type Alerta, AVISO_AVATAR, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
+import { type Alerta, AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import coniConfig from "../fixtures/coni.config.json"
@@ -28,10 +28,23 @@ const CUERPO_BUENO = Array.from({ length: 29 }, () => "una idea simple").join(".
 const GUION_BUENO = `${CUERPO_BUENO}.\n\n${CIERRE}`
 const TEXTO_BUENO = `Hablemos de límites con calma. ${AVISO_AVATAR}`
 const TEXTO_CON_AYUDA = `Hablemos de límites con calma. ${LINEAS_AYUDA} ${AVISO_AVATAR}`
+// A LinkedIn text that follows every rule: a short hook, short paragraphs, one question, the fixed notice, two hashtags.
+const LINKEDIN_BUENO = [
+  "Llevan diez años juntos y ya casi no se tocan.",
+  ...Array.from(
+    { length: 12 },
+    () => "Cuando hablamos de límites conviene partir por lo que sí podemos observar en la rutina de cada día.",
+  ),
+  "¿En qué momento del día te cuesta más desconectarte?",
+  AVISO_AVATAR_LINKEDIN,
+  "#limites #psicologia",
+].join("\n\n")
 
 interface Borrador {
   guion: string
   texto: string
+  /** The default is a LinkedIn text that follows every rule. */
+  textoLinkedin?: string
 }
 
 interface CuerpoClaude {
@@ -104,7 +117,7 @@ function simular(opciones: OpcionesSimulacion = {}): Simulacion {
       if (opciones.rechazaEscritura)
         return HttpResponse.json(mensajeClaude({}, USO_ESCRITURA, { content: [], stop_reason: "refusal" }))
       const borrador = opciones.borrador?.(sim.escrituras.length - 1) ?? { guion: GUION_BUENO, texto: TEXTO_BUENO }
-      return HttpResponse.json(mensajeClaude(borrador, USO_ESCRITURA))
+      return HttpResponse.json(mensajeClaude({ textoLinkedin: LINKEDIN_BUENO, ...borrador }, USO_ESCRITURA))
     }),
     http.post<{ voz: string }, { text: string }>(URL_VOZ, async ({ request, params }) => {
       const cuerpo = await request.json()

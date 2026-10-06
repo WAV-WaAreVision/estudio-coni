@@ -118,7 +118,13 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
   const deterministas = revisar(pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"))
   if (bloquea(deterministas)) return { motivo: "revision_bloquea", error: ERROR_BLOQUEA, hallazgos: deterministas }
 
-  const juicio = await juzgarConClaude(deps, { piezaId: fila.id, guion, texto, alertas })
+  const juicio = await juzgarConClaude(deps, {
+    piezaId: fila.id,
+    guion,
+    texto,
+    textoLinkedin: fila.texto_linkedin,
+    alertas,
+  })
   if (juicio === "tope") return { motivo: "tope", error: await textoDelTope(db) }
 
   const reglas = juicio.hallazgos.some((h) => h.regla === "tema_de_riesgo") ? revisar(true) : deterministas
@@ -147,6 +153,7 @@ async function juzgarConClaude(
     piezaId: string
     guion: string
     texto: string
+    textoLinkedin: string | null
     alertas: Parameters<typeof revisarConClaude>[0]["alertas"]
   },
 ): Promise<{ hallazgos: Hallazgo[] } | "tope"> {
@@ -180,6 +187,7 @@ async function juzgarConClaude(
       guia: guia.texto,
       guion: entrada.guion,
       texto: entrada.texto,
+      textoLinkedin: entrada.textoLinkedin,
       alertas: entrada.alertas,
     })
   } catch (error) {

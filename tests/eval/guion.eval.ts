@@ -35,7 +35,7 @@ let gastado = 0
 const gasto = (uso: UsoClaude) => {
   gastado += costoClaude(uso, MODELO_POR_TAREA.escribirGuion.modelo)
 }
-const guionesGenerados = new Map<number, { guion: string; texto: string }>()
+const guionesGenerados = new Map<number, { guion: string; texto: string; textoLinkedin: string }>()
 
 afterAll(() => {
   if (CORRE) console.log(`Costo de este eval: US$ ${gastado.toFixed(4)}`)
@@ -73,7 +73,11 @@ describe.skipIf(!CORRE)("evals del guion con la API real", () => {
     "idea %i: el guion no tiene hallazgos que bloqueen despues de una ronda de correccion como maximo, y trae de 3 a 6 marcas de tono de la lista",
     async (_numero, idea) => {
       const { escrito, hallazgos, correcciones } = await escribirConUnaCorreccion(cliente, idea)
-      guionesGenerados.set(idea.numero, { guion: escrito.guion, texto: escrito.texto })
+      guionesGenerados.set(idea.numero, {
+        guion: escrito.guion,
+        texto: escrito.texto,
+        textoLinkedin: escrito.textoLinkedin,
+      })
       expect(correcciones).toBeLessThanOrEqual(1)
       expect(hallazgos.filter((h) => h.tipo === "bloquea")).toEqual([])
       const marcas = etiquetasDe(escrito.guion)
@@ -106,6 +110,7 @@ describe.skipIf(!CORRE)("evals del guion con la API real", () => {
         guia: GUIA,
         guion,
         texto: base.texto,
+        textoLinkedin: base.textoLinkedin,
         alertas: idea.alertas,
       })
       gasto(uso)
