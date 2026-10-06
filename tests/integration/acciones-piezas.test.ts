@@ -862,7 +862,7 @@ describe("subir a mano", () => {
 
   async function ultimoEvento(id: string) {
     const { rows } = await pool.query(
-      "select actor_usuario, actor_rol, datos ->> 'estado' as estado from public.eventos where pieza_id = $1 order by id desc limit 1",
+      "select actor_usuario, actor_rol, datos ->> 'estado' as estado from public.eventos where pieza_id = $1 and tabla = 'piezas' order by id desc limit 1",
       [id],
     )
     return rows[0]

@@ -91,7 +91,7 @@ test("she downloads the video, copies the text, confirms the AI label and marks 
   const fila = await leerFila(id)
   expect(fila).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
   const { rows } = await pool.query(
-    "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 order by id desc limit 1",
+    "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 and tabla = 'piezas' order by id desc limit 1",
     [id],
   )
   expect(rows[0]).toEqual({ actor_usuario: CONI, actor_rol: "authenticated" })
