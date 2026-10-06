@@ -494,6 +494,17 @@ export function sinLinkedin(hallazgos: readonly Hallazgo[]): Hallazgo[] {
   return hallazgos.filter((hallazgo) => hallazgo.campo !== "linkedin")
 }
 
+/**
+ * The findings that count for an approval. Gate 1 is about the script and the caption; at gate 2 the LinkedIn findings
+ * count only when LinkedIn is among the destinations being approved.
+ */
+export function hallazgosDeLaAprobacion(
+  hallazgos: readonly Hallazgo[],
+  { linkedin }: { linkedin: boolean },
+): Hallazgo[] {
+  return linkedin ? [...hallazgos] : sinLinkedin(hallazgos)
+}
+
 export function bloquea(hallazgos: readonly Hallazgo[]): boolean {
   return hallazgos.some((hallazgo) => hallazgo.tipo === "bloquea")
 }

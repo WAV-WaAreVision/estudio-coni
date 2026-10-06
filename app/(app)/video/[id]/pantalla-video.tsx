@@ -17,10 +17,14 @@ import { FilaConCheck } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
+import type { Destino } from "@/lib/dominio/destinos"
+import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
-import type { Hallazgo } from "@/lib/dominio/revision"
+import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
-import { aprobarVideoAccion, regrabarAccion } from "../../piezas/acciones"
+import { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } from "../../piezas/acciones"
+import { ElegirDestinos } from "./elegir-destinos"
+import { TextoLinkedin } from "./texto-linkedin"
 
 export interface FechaPropuesta {
   /** UTC instant, ISO. This is what the action receives. */
@@ -36,6 +40,11 @@ export interface DatosDeVideo {
   pilar: Pilar | null
   segundos: number
   texto: string
+  /** Null for a piece from before LinkedIn, or one the writer gave none: the screen starts it from the caption. */
+  textoLinkedin: string | null
+  /** The destinations ticked when she opens the screen: what Ajustes says. */
+  destinosPorDefecto: Destino[]
+  instagramConectado: boolean
   revision: Hallazgo[]
   videoUrl: string | null
   videoId: string
@@ -55,6 +64,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const [zonas, setZonas] = useState(false)
   const [revisado, setRevisado] = useState(false)
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
+  const [destinos, setDestinos] = useState<Destino[]>(datos.destinosPorDefecto)
   const [fecha, setFecha] = useState(datos.fechas[0]?.iso ?? null)
   const [cambiandoFecha, setCambiandoFecha] = useState(false)
   const [regrabando, setRegrabando] = useState(false)
@@ -62,22 +72,31 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const aprobacion = useAccion()
   const regrabacion = useAccion()
 
-  const bloqueos = datos.revision.filter((hallazgo) => hallazgo.tipo === "bloquea")
-  const advertencias = datos.revision.filter((hallazgo) => hallazgo.tipo === "advierte")
+  const conLinkedin = destinos.includes("linkedin")
+  // The findings of the LinkedIn text are shown with it, and only count when LinkedIn is among the destinations.
+  const revisionDelTexto = sinLinkedin(datos.revision)
+  const revisionDeLinkedin = datos.revision.filter((hallazgo) => hallazgo.campo === "linkedin")
+  const aplicables = hallazgosDeLaAprobacion(datos.revision, { linkedin: conLinkedin })
+  const bloqueos = aplicables.filter((hallazgo) => hallazgo.tipo === "bloquea")
+  const advertencias = aplicables.filter((hallazgo) => hallazgo.tipo === "advierte")
+  // A piece from before LinkedIn has no text for it yet: the one on screen is only a start until she saves it.
+  const linkedinSinGuardar = conLinkedin && datos.textoLinkedin === null
   const sinConfirmar = advertencias.filter((hallazgo) => !confirmadas.has(claveDe(hallazgo)))
   const fechaElegida = datos.fechas.find((propuesta) => propuesta.iso === fecha)
 
   const motivo = !visto
     ? "Se activa al terminar de verlo."
-    : bloqueos.length > 0
-      ? "Hay algo que corregir antes de aprobar."
-      : !revisado
-        ? "Marca lo que revisaste."
-        : sinConfirmar.length > 0
-          ? "Confirma la revisión."
-          : !fechaElegida
-            ? "No hay un horario libre. Avísale a Federico."
-            : undefined
+    : linkedinSinGuardar
+      ? "Guarda el texto para LinkedIn."
+      : bloqueos.length > 0
+        ? "Hay algo que corregir antes de aprobar."
+        : !revisado
+          ? "Marca lo que revisaste."
+          : sinConfirmar.length > 0
+            ? "Confirma la revisión."
+            : !fechaElegida
+              ? "No hay un horario libre. Avísale a Federico."
+              : undefined
   const habilitado = motivo === undefined
 
   function alternarConfirmacion(hallazgo: Hallazgo, confirmada: boolean) {
@@ -138,14 +157,42 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
             <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
           </Seccion>
 
+          <Seccion titulo="Dónde se publica" id="destinos">
+            <ElegirDestinos elegidos={destinos} instagramConectado={datos.instagramConectado} alCambiar={setDestinos} />
+          </Seccion>
+
           <Seccion titulo="Así sale en Instagram" id="texto">
             <TextoDeInstagram piezaId={datos.id} version={datos.version} texto={datos.texto} />
           </Seccion>
 
-          {datos.revision.length > 0 ? (
+          {conLinkedin ? (
+            <Seccion titulo="Texto para LinkedIn" id="texto-linkedin">
+              <TextoLinkedin
+                piezaId={datos.id}
+                version={datos.version}
+                texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
+                guardado={datos.textoLinkedin !== null}
+                alGuardar={editarTextoLinkedinAccion}
+              />
+              {datos.textoLinkedin !== null && revisionDeLinkedin.length > 0 ? (
+                <div className="mt-2 grid gap-4">
+                  {revisionDeLinkedin.map((hallazgo) => (
+                    <MarcaRevision
+                      key={claveDe(hallazgo)}
+                      hallazgo={hallazgo}
+                      confirmada={confirmadas.has(claveDe(hallazgo))}
+                      alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </Seccion>
+          ) : null}
+
+          {revisionDelTexto.length > 0 ? (
             <Seccion titulo="Revisión" id="revision">
               <div className="grid gap-4">
-                {datos.revision.map((hallazgo) => (
+                {revisionDelTexto.map((hallazgo) => (
                   <MarcaRevision
                     key={claveDe(hallazgo)}
                     hallazgo={hallazgo}
@@ -231,7 +278,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           motivo={motivo}
           enviando={aprobacion.pendiente}
           alAprobar={() => {
-            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, ["instagram"]))
+            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, destinos))
           }}
         />
       </BarraDeFirma>

@@ -11,6 +11,7 @@ import {
   leerPantallaDePieza,
 } from "@/lib/datos/pantallas"
 import { leerRevision } from "@/lib/datos/revision"
+import { canonicos, type Destino, destinosValidos } from "@/lib/dominio/destinos"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
@@ -151,9 +152,11 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     cuantas: FECHAS_A_OFRECER,
     antelacionMs: UNA_HORA_MS,
   }).map((iso) => ({ iso, etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga") }))
-  const [videoUrl, costo] = await Promise.all([
+  const [videoUrl, costo, ajustes, instagramConectado] = await Promise.all([
     urlParaVer(fila.video_id),
     leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
+    leerAjustesDelVideo(db),
+    leerInstagramConectado(db),
   ])
 
   return (
@@ -166,20 +169,31 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         pilar: esPilar(idea?.pilar) ? idea.pilar : null,
         segundos: Math.round(estimarSegundos(fila.guion)),
         texto: fila.texto,
+        textoLinkedin: fila.texto_linkedin,
+        // What she would publish if she did not touch it: where Ajustes says reels go by default.
+        destinosPorDefecto: ajustes.destinosPorDefecto,
+        instagramConectado,
         revision: leerRevision(fila.revision),
         videoUrl,
         videoId: fila.video_id,
         fechas,
         costoDeRegrabar: costo.estimadoUsd === null ? null : `Regrabar cuesta unos ${dolares(costo.estimadoUsd)}.`,
         explicacion: fila.explicacion,
-        primeraVez: await esPrimeraVez(db),
+        primeraVez: ajustes.primeraVez,
       }}
     />
   )
 }
 
-async function esPrimeraVez(db: Awaited<ReturnType<typeof exigirConi>>["db"]): Promise<boolean> {
-  const { data, error } = await db.from("ajustes").select("avatar_visto_en").maybeSingle()
+async function leerAjustesDelVideo(
+  db: Awaited<ReturnType<typeof exigirConi>>["db"],
+): Promise<{ primeraVez: boolean; destinosPorDefecto: Destino[] }> {
+  const { data, error } = await db.from("ajustes").select("avatar_visto_en, destinos_por_defecto").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
-  return data?.avatar_visto_en === null
+  const guardados = data?.destinos_por_defecto ?? []
+  return {
+    primeraVez: data?.avatar_visto_en === null,
+    // The column is checked in the database; an unreadable value falls back to what always was.
+    destinosPorDefecto: destinosValidos(guardados) ? canonicos(guardados) : ["instagram"],
+  }
 }

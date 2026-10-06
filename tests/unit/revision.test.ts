@@ -11,6 +11,7 @@ import {
   bloquea,
   CIERRE,
   type Hallazgo,
+  hallazgosDeLaAprobacion,
   LARGO_DE_COPIA,
   LINEAS_AYUDA,
   pideLineasDeAyuda,
@@ -764,5 +765,20 @@ describe("the LinkedIn text of a piece that may not have one", () => {
     expect(sinLinkedin(todos)).toEqual(revisar({ texto: "Hola." }))
     expect(sinLinkedin(todos).every((h) => h.campo === undefined)).toBe(true)
     expect(todos.length).toBeGreaterThan(sinLinkedin(todos).length)
+  })
+})
+
+describe("hallazgosDeLaAprobacion", () => {
+  const delTexto: Hallazgo = { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso." }
+  const deLinkedin: Hallazgo = { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso.", campo: "linkedin" }
+
+  it("counts the LinkedIn findings only when LinkedIn is part of what is approved", () => {
+    expect(hallazgosDeLaAprobacion([delTexto, deLinkedin], { linkedin: true })).toEqual([delTexto, deLinkedin])
+    expect(hallazgosDeLaAprobacion([delTexto, deLinkedin], { linkedin: false })).toEqual([delTexto])
+  })
+
+  it("keeps Claude's judgments, which belong to no field, in both cases", () => {
+    const juicio: Hallazgo = { regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "m", frase: "x" }
+    expect(hallazgosDeLaAprobacion([juicio, deLinkedin], { linkedin: false })).toEqual([juicio])
   })
 })

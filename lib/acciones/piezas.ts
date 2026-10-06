@@ -22,6 +22,7 @@ import { hashPuerta1, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import {
   type Hallazgo,
+  hallazgosDeLaAprobacion,
   MAXIMO_TEXTO_LINKEDIN,
   pideLineasDeAyuda,
   revisarGuion,
@@ -67,8 +68,9 @@ function exigirVersion(fila: FilaDePieza, versionVista: number, error: Falla = n
  * (gate 2 with LinkedIn chosen): gate 1 is about the script and the caption.
  */
 function exigirRevisionLimpia(fila: FilaDePieza, { linkedin }: { linkedin: boolean }): void {
-  const hallazgos = leerRevision(fila.revision)
-  const bloqueante = (linkedin ? hallazgos : sinLinkedin(hallazgos)).find((hallazgo) => hallazgo.tipo === "bloquea")
+  const bloqueante = hallazgosDeLaAprobacion(leerRevision(fila.revision), { linkedin }).find(
+    (hallazgo) => hallazgo.tipo === "bloquea",
+  )
   if (bloqueante) throw new Falla(`Todavía no puedes aprobar. ${bloqueante.mensaje}`)
 }
 
