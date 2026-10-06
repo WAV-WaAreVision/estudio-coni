@@ -193,7 +193,7 @@ describe("motor_corridas", () => {
     await como(comoServicio, async (c) => {
       await c.query("insert into public.motor_corridas (semana) values ('2026-11-02')")
       const { rows } = await c.query(
-        "select actor_rol from public.eventos where tabla = 'motor_corridas' and operacion = 'insert'",
+        "select actor_rol from public.eventos where tabla = 'motor_corridas' and operacion = 'insert' and datos ->> 'semana' = '2026-11-02'",
       )
       expect(rows[0]).toEqual({ actor_rol: "service_role" })
     })
