@@ -15,8 +15,8 @@ Nota para retomar Conidolly en una sesión nueva. Leer entera antes de tocar nad
 |---|---|
 | App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). El push **no** despliega solo: `vercel deploy --prod --yes` desde el repo. |
 | Ingesta | **https://conidolly-ingesta.vercel.app** (proyecto Vercel `conidolly-ingesta`, mismo equipo; deploy igual, a mano). |
-| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261004000110`**. `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
-| Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261004.3`** (incluye `grabar-voz`). Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |
+| Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261006000110`**. `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
+| Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261006.1`**. Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |
 | Videos y archivos | Cloudflare R2, bucket privado `estudio-coni`, con CORS para la ingesta. |
 | Correo | Resend, remitente `Conidolly <avisos@wearevision.cl>`. |
 | Usuarios | `federico@wearevision.cl` = cuenta de **Coni** (para probar). `hola@wearevision.cl` = mantenedor. Al lanzar: la cuenta de Coni vuelve a `constanzadelrosario@gmail.com` y `CORREO_CONI` a ese correo. |
@@ -38,6 +38,8 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **Extracción tolerante** (2026-10-04): el SDK de Anthropic saca los `enum` del JSON schema (quedan solo en la descripción), así que la API no los fuerza. Los enums de afirmaciones, ideas y teorías se normalizan; evidencia desconocida cuenta como "opinion". "Mentora de éxito" (Carmen) quedó lista con 581 afirmaciones.
 - **Voz con Eleven v4** (2026-10-04, en `ajustes.produccion.elevenlabs`): `model_id` `eleven_v4` y solo `stability` 0.5 (Natural). Antes: `eleven_multilingual_v2` con estabilidad 0.5, similitud 0.75, estilo 0, refuerzo y velocidad 1. A Federico le gustó: suena con inflexiones. La estimación de costo de voz aún usa la tarifa por carácter de v2.
 - **Marcas de tono** (plan `2026-10-04-etiquetas-de-emocion`, en rama `feat/etiquetas-de-emocion`, sin desplegar): el guion trae 3 a 6 marcas `[warm]`... de una lista cerrada (`lib/dominio/etiquetas.ts`). Llegan a ElevenLabs solo con `eleven_v3*`/`eleven_v4*`; nunca a subtítulos, texto de la publicación, conteos ni revisión de Claude. Sin mayúsculas de énfasis: solo puntos suspensivos y `[pause]`. En el texto de la publicación solo bloquea una marca de la lista; otro texto entre corchetes sigue como antes. Puerta 1 incluye las marcas; la huella de voz hashea el texto enviado.
+- **Rediseño «Calma suiza»** (2026-10-05, en producción): Geist, neutros cálidos, frambuesa `#a8285a` como único resaltado (errores y avisos incluidos), solo modo claro, botón «Aprobar» además del deslizador, cuentas en `/ajustes/cuentas`, referencias visuales en `tests/e2e/visual.spec.ts`.
+- **LinkedIn como destino a mano** (2026-10-06, en producción; spec `docs/superpowers/specs/2026-10-06-conidolly-linkedin-design.md`): texto propio de LinkedIn escrito y revisado con las reglas de `~/Projects/coni-heygen/reports/Marca personal en LinkedIn.md`, destinos elegidos en la puerta 2 (fórmula 2), subir a mano y marcar por red, «Dónde se publica» en Ajustes. Fase 2 (API de LinkedIn) pendiente.
 - Verde: estudio-coni 1739 unit, 976 integración, 78 E2E; conidolly-ingesta 353 unit, 131 integración, 28 E2E.
 
 ## Siguiente
