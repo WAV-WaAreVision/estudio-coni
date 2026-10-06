@@ -177,3 +177,27 @@ test("she can approve for Instagram alone even when the LinkedIn text has someth
   await expect(page.getByText(/^Programado para el /)).toBeVisible()
   expect((await publicacionesDe(id)).map((p) => p.destino)).toEqual(["instagram"])
 })
+
+test("Ajustes chooses where reels are published by default and keeps at least one", async ({ page }) => {
+  await pool.query("update public.ajustes set destinos_por_defecto = '{instagram}'")
+  await page.goto("/ajustes")
+
+  await expect(page.getByRole("heading", { name: "Dónde se publica" })).toBeVisible()
+  await expect(page.getByText("A mano por ahora")).toBeVisible()
+  await page.getByRole("switch", { name: "LinkedIn" }).click()
+  await expect
+    .poll(
+      async () => (await pool.query("select destinos_por_defecto from public.ajustes")).rows[0]?.destinos_por_defecto,
+    )
+    .toEqual(["instagram", "linkedin"])
+  await capturar(page, "ajustes-donde-se-publica", { completa: true })
+
+  await page.getByRole("switch", { name: "Instagram" }).click()
+  await page.getByRole("switch", { name: "LinkedIn" }).click()
+  await expect(page.getByText("Deja al menos un destino.")).toBeVisible()
+  await expect
+    .poll(
+      async () => (await pool.query("select destinos_por_defecto from public.ajustes")).rows[0]?.destinos_por_defecto,
+    )
+    .toEqual(["linkedin"])
+})

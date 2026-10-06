@@ -63,3 +63,8 @@ export function pendientesDe(filas: readonly { destino: string; estado: string }
     filas.filter((fila) => fila.estado === "esperando" || fila.estado === "para_subir").map((fila) => fila.destino),
   )
 }
+
+/** The default of Ajustes as the screens use it: an unreadable value falls back to what always was, Instagram. */
+export function destinosPorDefecto(guardados: readonly string[]): Destino[] {
+  return destinosValidos(guardados) ? canonicos(guardados) : ["instagram"]
+}

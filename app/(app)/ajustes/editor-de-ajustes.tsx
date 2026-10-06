@@ -11,6 +11,7 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
+import { canonicos, DESTINOS, type Destino, nombreDeDestino } from "@/lib/dominio/destinos"
 import { dolares } from "@/lib/formato"
 
 export interface AjustesEditables {
@@ -21,6 +22,8 @@ export interface AjustesEditables {
   usado: number
   avisosResumen: boolean
   avisosUrgentes: boolean
+  /** Where reels are published unless she says otherwise at gate 2. */
+  destinos: Destino[]
 }
 
 export interface AccionesDelEditor {
@@ -62,6 +65,8 @@ function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEdit
       return { ...valores, avisosResumen: cambio.valor }
     case "avisos_urgentes":
       return { ...valores, avisosUrgentes: cambio.valor }
+    case "destinos":
+      return { ...valores, destinos: cambio.valor }
   }
 }
 
@@ -79,6 +84,8 @@ function valorDe(valores: AjustesEditables, campo: CambioDeAjuste["campo"]): Cam
       return { campo, valor: valores.avisosResumen }
     case "avisos_urgentes":
       return { campo, valor: valores.avisosUrgentes }
+    case "destinos":
+      return { campo, valor: valores.destinos }
   }
 }
 
@@ -153,6 +160,16 @@ export function EditorDeAjustes({
     cambiar({ campo: "dias", valor: siguientes.sort((a, b) => a - b) })
   }
 
+  function alternarDestino(destino: Destino) {
+    const puesto = valores.destinos.includes(destino)
+    if (puesto && valores.destinos.length === 1) {
+      setError("Deja al menos un destino.")
+      return
+    }
+    const siguientes = puesto ? valores.destinos.filter((d) => d !== destino) : [...valores.destinos, destino]
+    cambiar({ campo: "destinos", valor: canonicos(siguientes) })
+  }
+
   function moverTope(delta: number) {
     const nuevo = Math.min(MAXIMO_DEL_TOPE_USD, Math.max(0, ultimos.current.tope + delta))
     if (topeAntesDeTocar.current === null) topeAntesDeTocar.current = ultimos.current.tope
@@ -199,6 +216,22 @@ export function EditorDeAjustes({
             if (hora && hora !== ultimos.current.hora) cambiar({ campo: "hora", valor: hora })
           }}
         />
+      </Seccion>
+
+      <Seccion titulo="Dónde se publica" id="ajuste-destinos">
+        {DESTINOS.map((destino) => (
+          <FilaConInterruptor
+            key={destino}
+            etiqueta={nombreDeDestino(destino)}
+            detalle={destino === "linkedin" ? "A mano por ahora" : undefined}
+            encendido={valores.destinos.includes(destino)}
+            alCambiar={() => alternarDestino(destino)}
+          />
+        ))}
+        <p className="text-meta text-apagado">
+          LinkedIn se sube a mano: a la hora aprobada te aviso y te dejo el video y el texto listos. Más adelante podrá
+          publicarse solo.
+        </p>
       </Seccion>
 
       <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">

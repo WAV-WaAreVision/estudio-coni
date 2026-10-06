@@ -12,14 +12,7 @@ import {
 } from "@/lib/datos/pantallas"
 import { leerPublicaciones } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
-import {
-  canonicos,
-  type Destino,
-  destinosDe,
-  destinosValidos,
-  nombreDeDestino,
-  nombreDeDestinos,
-} from "@/lib/dominio/destinos"
+import { type Destino, destinosDe, destinosPorDefecto, nombreDeDestino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { esPilar } from "@/lib/dominio/pilares"
@@ -239,10 +232,8 @@ async function leerAjustesDelVideo(
 ): Promise<{ primeraVez: boolean; destinosPorDefecto: Destino[] }> {
   const { data, error } = await db.from("ajustes").select("avatar_visto_en, destinos_por_defecto").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
-  const guardados = data?.destinos_por_defecto ?? []
   return {
     primeraVez: data?.avatar_visto_en === null,
-    // The column is checked in the database; an unreadable value falls back to what always was.
-    destinosPorDefecto: destinosValidos(guardados) ? canonicos(guardados) : ["instagram"],
+    destinosPorDefecto: destinosPorDefecto(data?.destinos_por_defecto ?? []),
   }
 }
