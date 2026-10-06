@@ -6,6 +6,7 @@ import { revisionAJson } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import {
   AVISO_AVATAR,
+  AVISO_AVATAR_LINKEDIN,
   autoresNombrados,
   bloquea,
   CIERRE,
@@ -432,7 +433,34 @@ describe("revisarGuion with tone marks", () => {
 })
 
 describe("revisarTextoLinkedin", () => {
-  const OK = `Una idea para colegas.\n\n#sexualidad #psicologia\n\n${AVISO_AVATAR}`
+  const GANCHO = "Llevan diez años juntos y ya casi no se tocan."
+  const PARRAFO = "Cuando hablamos de límites conviene partir por lo que sí podemos observar en la rutina de cada día."
+  const PREGUNTA = "¿En qué momento del día te cuesta más desconectarte?"
+  const HASHTAGS = "#limites #psicologia"
+
+  /** A text that follows every rule: the hook, short paragraphs, one question, the notice, two hashtags. */
+  function textoLinkedin(
+    partes: { gancho?: string; parrafos?: number; pregunta?: string | null; aviso?: string; hashtags?: string } = {},
+  ): string {
+    const {
+      gancho = GANCHO,
+      parrafos = 12,
+      pregunta = PREGUNTA,
+      aviso = AVISO_AVATAR_LINKEDIN,
+      hashtags = HASHTAGS,
+    } = partes
+    return [
+      gancho,
+      ...Array.from({ length: parrafos }, () => PARRAFO),
+      ...(pregunta === null ? [] : [pregunta]),
+      aviso,
+      hashtags,
+    ]
+      .filter((parte) => parte !== "")
+      .join("\n\n")
+  }
+
+  const OK = textoLinkedin()
 
   function revisarLinkedin(cambios: Partial<Parameters<typeof revisarTextoLinkedin>[0]> = {}): Hallazgo[] {
     return revisarTextoLinkedin({
@@ -444,85 +472,276 @@ describe("revisarTextoLinkedin", () => {
     })
   }
 
-  it("returns nothing for a text that follows every rule", () => {
+  /** The rules of the findings for a text, to say what a case does and does not trigger. */
+  const reglasDe = (texto: string, extra: Partial<Parameters<typeof revisarTextoLinkedin>[0]> = {}) =>
+    reglas(revisarLinkedin({ texto, ...extra }))
+
+  it("keeps the reference text clean: it is long enough, with one question and the fixed notice", () => {
+    expect([...OK].length).toBeGreaterThan(1300)
+    expect([...OK].length).toBeLessThan(2500)
     expect(revisarLinkedin()).toEqual([])
   })
 
-  it("blocks a text without the avatar notice and says it is the LinkedIn text", () => {
-    expect(revisarLinkedin({ texto: "Hola." })).toEqual([
-      {
-        regla: "aviso_avatar",
-        tipo: "bloquea",
-        mensaje: `El texto para LinkedIn tiene que avisar que es un avatar digital: «${AVISO_AVATAR}»`,
-        campo: "linkedin",
+  describe("the avatar notice", () => {
+    it("blocks a text without the fixed LinkedIn notice and names the line she has to use", () => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ aviso: "" }) })
+      expect(hallazgos).toEqual([
+        {
+          regla: "aviso_avatar",
+          tipo: "bloquea",
+          mensaje: `El texto para LinkedIn tiene que avisar que es un avatar digital: «${AVISO_AVATAR_LINKEDIN}»`,
+          campo: "linkedin",
+        },
+      ])
+    })
+
+    it("does not take the Instagram notice for the LinkedIn one", () => {
+      expect(reglasDe(textoLinkedin({ aviso: AVISO_AVATAR }))).toEqual(["aviso_avatar"])
+    })
+
+    it("uses the sentence the research fixed, word for word", () => {
+      expect(AVISO_AVATAR_LINKEDIN).toBe(
+        "Este video lo narra mi avatar digital, creado con IA a partir de mi imagen y mi voz. El contenido lo revisé y aprobé yo.",
+      )
+    })
+
+    it("does not ask for the notice when the video is not an avatar", () => {
+      expect(reglasDe(textoLinkedin({ aviso: "" }), { esAvatar: false })).toEqual([])
+    })
+  })
+
+  describe("what blocks", () => {
+    it("blocks when the help lines are required and missing, and passes when they are there", () => {
+      expect(reglasDe(OK, { requiereLineasAyuda: true })).toEqual(["lineas_ayuda"])
+      expect(
+        reglasDe(textoLinkedin({ aviso: `${LINEAS_AYUDA}\n\n${AVISO_AVATAR_LINKEDIN}` }), {
+          requiereLineasAyuda: true,
+        }),
+      ).toEqual([])
+    })
+
+    it("blocks a known tone mark", () => {
+      const hallazgos = revisarLinkedin({ texto: `[calm] ${OK}` })
+      expect(hallazgos).toEqual([
+        expect.objectContaining({ regla: "etiqueta_en_texto", tipo: "bloquea", frase: "[calm]", campo: "linkedin" }),
+      ])
+    })
+
+    it("blocks a text over 3000 characters and accepts one of exactly 3000", () => {
+      const relleno = (largo: number) => `${OK}\n\n${"a".repeat(largo - [...OK].length - 2)}`
+      expect(reglasDe(relleno(3001))).toContain("largo_linkedin")
+      expect(reglasDe(relleno(3000))).not.toContain("largo_linkedin")
+      expect(bloquea(revisarLinkedin({ texto: relleno(3001) }))).toBe(true)
+    })
+
+    it("warns, and never blocks, for everything else", () => {
+      const sucio = `no es cansancio, es costumbre. comenta SÍ. https://ejemplo.cl ¿a? ¿b? podís ${"😀".repeat(5)} #a #b #c #d`
+      const hallazgos = revisarLinkedin({ texto: `${sucio}\n\n${AVISO_AVATAR_LINKEDIN}` })
+      expect(hallazgos.length).toBeGreaterThan(5)
+      expect(bloquea(hallazgos)).toBe(false)
+    })
+  })
+
+  describe("length", () => {
+    it("warns below 1000 characters and says how long it should be", () => {
+      const corto = revisarLinkedin({ texto: textoLinkedin({ parrafos: 3 }) })
+      expect(corto).toEqual([
+        expect.objectContaining({ regla: "largo_corto_linkedin", tipo: "advierte", campo: "linkedin" }),
+      ])
+      expect(corto[0]?.mensaje).toContain("de 1.300 a 2.500")
+    })
+
+    it("accepts a text between 1000 and 1300 characters without a warning", () => {
+      const texto = textoLinkedin({ parrafos: 8 })
+      expect([...texto].length).toBeGreaterThanOrEqual(1000)
+      expect([...texto].length).toBeLessThan(1300)
+      expect(reglasDe(texto)).toEqual([])
+    })
+  })
+
+  describe("the hook", () => {
+    it("warns when the first paragraph does not fit in 140 characters", () => {
+      const largo = `${"Una escena que se alarga demasiado antes de decir de qué trata de verdad este post".repeat(2)}.`
+      expect(reglasDe(textoLinkedin({ gancho: largo }))).toEqual(["gancho_linkedin"])
+    })
+
+    it("warns when the first paragraph takes more than two lines even if it is short", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "Uno.\nDos.\nTres." }))).toEqual(["gancho_linkedin"])
+    })
+
+    it("accepts a hook of exactly 140 characters on one or two lines", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "a".repeat(140) }))).toEqual([])
+      expect(reglasDe(textoLinkedin({ gancho: `${"a".repeat(60)}\n${"b".repeat(79)}` }))).toEqual([])
+    })
+  })
+
+  describe("hashtags", () => {
+    it("warns, and does not block, when there are more than three hashtags", () => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ hashtags: "#a #b #c #d" }) })
+      expect(hallazgos).toEqual([
+        {
+          regla: "hashtags_linkedin",
+          tipo: "advierte",
+          mensaje: "En LinkedIn van como máximo 3 hashtags. Tiene 4.",
+          campo: "linkedin",
+        },
+      ])
+      expect(bloquea(hallazgos)).toBe(false)
+    })
+
+    it("accepts no hashtags, exactly three, and a number sign that is not a hashtag", () => {
+      expect(reglasDe(textoLinkedin({ hashtags: "" }))).toEqual([])
+      expect(reglasDe(textoLinkedin({ hashtags: "#a #b #c" }))).toEqual([])
+      expect(reglasDe(textoLinkedin({ hashtags: "Somos el número # uno" }))).toEqual([])
+    })
+  })
+
+  describe("emojis", () => {
+    it("accepts up to three and warns from the fourth", () => {
+      expect(reglasDe(textoLinkedin({ gancho: `${GANCHO} ✅📌✅` }))).toEqual([])
+      expect(reglasDe(textoLinkedin({ gancho: `${GANCHO} ✅📌✅📌` }))).toEqual(["emojis_linkedin"])
+    })
+
+    it("counts a keycap such as 1️⃣ as an emoji", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "1️⃣ 2️⃣ 3️⃣ 4️⃣ cuatro pasos" }))).toContain("emojis_linkedin")
+    })
+
+    it("warns for any emoji in a sensitive topic", () => {
+      const conUno = textoLinkedin({ aviso: `${LINEAS_AYUDA}\n\n${AVISO_AVATAR_LINKEDIN} ✅` })
+      expect(reglasDe(conUno, { requiereLineasAyuda: true })).toEqual(["emojis_linkedin"])
+      expect(reglasDe(conUno, { requiereLineasAyuda: false })).toEqual([])
+    })
+  })
+
+  describe("the closing question", () => {
+    it("warns when there is no question and when there is more than one", () => {
+      expect(reglasDe(textoLinkedin({ pregunta: null }))).toEqual(["pregunta_linkedin"])
+      expect(reglasDe(textoLinkedin({ pregunta: "¿Primera? ¿Segunda?" }))).toEqual(["pregunta_linkedin"])
+    })
+
+    it("accepts exactly one", () => {
+      expect(reglasDe(OK)).toEqual([])
+    })
+  })
+
+  describe("links", () => {
+    it.each(["https://ejemplo.cl/guia", "http://ejemplo.cl", "www.ejemplo.cl", "ejemplo.com/guia"])(
+      "warns about %s in the body",
+      (enlace) => {
+        const hallazgos = revisarLinkedin({ texto: textoLinkedin({ gancho: `${GANCHO} ${enlace}` }) })
+        expect(reglas(hallazgos)).toEqual(["enlace_linkedin"])
+        expect(hallazgos[0]?.frase).toBe(enlace)
       },
-    ])
-  })
-
-  it("does not ask for the avatar notice when the video is not an avatar", () => {
-    expect(revisarLinkedin({ texto: "Hola.", esAvatar: false })).toEqual([])
-  })
-
-  it("warns, and does not block, when there are more than three hashtags", () => {
-    const hallazgos = revisarLinkedin({ texto: `Hola. #a #b #c #d\n${AVISO_AVATAR}` })
-    expect(hallazgos).toEqual([
-      {
-        regla: "hashtags_linkedin",
-        tipo: "advierte",
-        mensaje: "En LinkedIn van como máximo 3 hashtags. Tiene 4.",
-        campo: "linkedin",
-      },
-    ])
-    expect(bloquea(hallazgos)).toBe(false)
-  })
-
-  it("accepts exactly three hashtags and ignores a number sign that is not a hashtag", () => {
-    expect(revisarLinkedin({ texto: `Hola #a #b #c\n${AVISO_AVATAR}` })).toEqual([])
-    expect(reglas(revisarLinkedin({ texto: `Somos el número # uno\n${AVISO_AVATAR}` }))).toEqual([])
-  })
-
-  it("blocks when the help lines are required and missing, and passes when they are there", () => {
-    expect(reglas(revisarLinkedin({ requiereLineasAyuda: true }))).toEqual(["lineas_ayuda"])
-    const conLineas = `Hola.\n${LINEAS_AYUDA}\n${AVISO_AVATAR}`
-    expect(revisarLinkedin({ texto: conLineas, requiereLineasAyuda: true })).toEqual([])
-  })
-
-  it("blocks a known tone mark and a text over 3000 characters", () => {
-    const texto = `[calm] ${"a".repeat(3000)}\n${AVISO_AVATAR}`
-    const hallazgos = revisarLinkedin({ texto })
-    expect(reglas(hallazgos).sort()).toEqual(["etiqueta_en_texto", "largo_linkedin"])
-    expect(bloquea(hallazgos)).toBe(true)
-  })
-
-  it("accepts a text of exactly 3000 characters", () => {
-    const texto = `${"a".repeat(3000 - AVISO_AVATAR.length - 1)}\n${AVISO_AVATAR}`
-    expect([...texto]).toHaveLength(3000)
-    expect(revisarLinkedin({ texto })).toEqual([])
-  })
-
-  it("warns when an author of the backing is named or a quote is copied", () => {
-    const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [] }
-    const texto = `Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.\n${AVISO_AVATAR}`
-    const hallazgos = revisarLinkedin({ texto, ajeno })
-    expect(hallazgos).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ regla: "nombra_autor", tipo: "advierte", frase: "Esther Perel", campo: "linkedin" }),
-        expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte", campo: "linkedin" }),
-      ]),
     )
-    expect(bloquea(hallazgos)).toBe(false)
+
+    it("lets a plain sentence through", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "Hay veces que el cansancio pesa más. Y está bien." }))).toEqual([])
+    })
   })
 
-  it("tags every finding with the LinkedIn field and keeps the tag when stored and read back", () => {
-    const hallazgos = revisarLinkedin({ texto: `[warm] Hola #a #b #c #d` })
-    expect(hallazgos.length).toBeGreaterThan(1)
-    expect(hallazgos.every((h) => h.campo === "linkedin")).toBe(true)
-    expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
+  describe("the contrast formula", () => {
+    it.each([
+      "No es cansancio, es costumbre.",
+      "No es falta de ganas: es falta de espacio.",
+      "No se trata de tener tiempo, sino de decidir cómo usarlo.",
+      "La pelea no es el problema. El problema es cómo termina.",
+      "El problema no es la pelea.",
+      "El deseo no se apaga: se esconde.",
+      "Esto no está roto: está cansado.",
+    ])("warns about «%s»", (frase) => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ gancho: frase }) })
+      expect(reglas(hallazgos)).toEqual(["contraste_linkedin"])
+      expect(hallazgos[0]).toMatchObject({ tipo: "advierte", campo: "linkedin" })
+    })
+
+    it("gives the matched phrase so Coni finds it", () => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ gancho: "No es cansancio, es costumbre." }) })
+      expect(hallazgos[0]?.frase).toMatch(/^No es cansancio, es/i)
+    })
+
+    it.each([
+      "No es lo mismo cansancio que tristeza.",
+      "Esto no es un diagnóstico.",
+      "A veces es cansancio y a veces es costumbre.",
+    ])("leaves «%s» alone", (frase) => {
+      expect(reglasDe(textoLinkedin({ gancho: frase }))).toEqual([])
+    })
   })
 
-  it("keeps findings of the caption without a field, as today", () => {
-    const hallazgos = revisar({ texto: "Hola." })
-    expect(hallazgos.every((h) => h.campo === undefined)).toBe(true)
-    expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
+  describe("engagement bait", () => {
+    it.each([
+      "Comenta SÍ si te pasa.",
+      "Comenta «GUÍA» y te la mando.",
+      "Dale like si estás de acuerdo.",
+      "Reacciona con 👏 si te sirvió.",
+      "Etiqueta a tres amigas que lo necesitan.",
+      "Comparte si estás de acuerdo.",
+      "Vota con una reacción.",
+    ])("warns about «%s»", (frase) => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ gancho: frase }) })
+      expect(reglas(hallazgos)).toContain("bait_linkedin")
+      expect(hallazgos.find((h) => h.regla === "bait_linkedin")).toMatchObject({ tipo: "advierte", campo: "linkedin" })
+    })
+
+    it("lets a normal call to reply through", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "Cuéntame en los comentarios qué te ha servido." }))).toEqual([])
+    })
+  })
+
+  describe("format and address", () => {
+    it("warns about letters in Unicode bold or italic and about the long dash", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "𝗟𝗼𝘀 𝗹𝗶́𝗺𝗶𝘁𝗲𝘀 importan" }))).toEqual(["formato_linkedin"])
+      expect(reglasDe(textoLinkedin({ gancho: "Los límites \u2014 y la calma" }))).toEqual(["formato_linkedin"])
+    })
+
+    it.each(["podís", "sabís", "cachai", "querís", "tenís"])("warns about the voseo «%s»", (verbo) => {
+      const hallazgos = revisarLinkedin({ texto: textoLinkedin({ gancho: `Tú ${verbo} cuándo parar.` }) })
+      expect(reglas(hallazgos)).toEqual(["trato_linkedin"])
+      expect(hallazgos[0]?.frase).toBe(verbo)
+    })
+
+    it("warns about the formal «usted» and lets «ustedes» and the normative tú through", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "Si usted siente cansancio, pare." }))).toEqual(["trato_linkedin"])
+      expect(reglasDe(textoLinkedin({ gancho: "Si ustedes sienten cansancio, paren. Tú puedes parar." }))).toEqual([])
+    })
+  })
+
+  describe("what comes from the backing", () => {
+    it("warns when an author of the backing is named or a quote is copied", () => {
+      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [] }
+      const hallazgos = revisarLinkedin({
+        texto: textoLinkedin({
+          gancho: "Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.",
+        }),
+        ajeno,
+      })
+      expect(hallazgos).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            regla: "nombra_autor",
+            tipo: "advierte",
+            frase: "Esther Perel",
+            campo: "linkedin",
+          }),
+          expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte", campo: "linkedin" }),
+        ]),
+      )
+      expect(bloquea(hallazgos)).toBe(false)
+    })
+  })
+
+  describe("storage", () => {
+    it("tags every finding with the LinkedIn field and keeps the tag when stored and read back", () => {
+      const hallazgos = revisarLinkedin({ texto: `[warm] Hola #a #b #c #d` })
+      expect(hallazgos.length).toBeGreaterThan(1)
+      expect(hallazgos.every((h) => h.campo === "linkedin")).toBe(true)
+      expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
+    })
+
+    it("keeps findings of the caption without a field, as today", () => {
+      const hallazgos = revisar({ texto: "Hola." })
+      expect(hallazgos.every((h) => h.campo === undefined)).toBe(true)
+      expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
+    })
   })
 })
