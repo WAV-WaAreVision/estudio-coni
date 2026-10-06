@@ -95,6 +95,8 @@ export async function guardarBorrador(
     versionLeida: number
     guion: string
     texto: string
+    /** The LinkedIn text written with the draft; null for a draft that has none. */
+    textoLinkedin: string | null
     revision: Json
     clave: string
     realUsd: number
@@ -106,6 +108,8 @@ export async function guardarBorrador(
     p_version: borrador.versionLeida,
     p_guion: borrador.guion,
     p_texto: borrador.texto,
+    // Left out when there is none: the argument defaults to null.
+    p_texto_linkedin: borrador.textoLinkedin ?? undefined,
     p_revision: borrador.revision,
     p_clave: borrador.clave,
     p_real: borrador.realUsd,

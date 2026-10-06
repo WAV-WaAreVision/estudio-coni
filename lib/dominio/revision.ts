@@ -481,6 +481,19 @@ export function revisarTextoLinkedin(entrada: {
   return hallazgos.map((hallazgo) => ({ ...hallazgo, campo: "linkedin" as const }))
 }
 
+/** The LinkedIn text of a piece that may not have one yet (a piece from before LinkedIn has none): no text, no findings. */
+export function revisarLinkedinSiHay(
+  texto: string | null,
+  resto: { esAvatar: boolean; requiereLineasAyuda: boolean; ajeno: Ajeno },
+): Hallazgo[] {
+  return texto === null ? [] : revisarTextoLinkedin({ texto, ...resto })
+}
+
+/** The findings of the script and the caption: what gate 1 shows. The LinkedIn ones are for gate 2. */
+export function sinLinkedin(hallazgos: readonly Hallazgo[]): Hallazgo[] {
+  return hallazgos.filter((hallazgo) => hallazgo.campo !== "linkedin")
+}
+
 export function bloquea(hallazgos: readonly Hallazgo[]): boolean {
   return hallazgos.some((hallazgo) => hallazgo.tipo === "bloquea")
 }

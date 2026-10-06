@@ -15,7 +15,9 @@ import {
   LINEAS_AYUDA,
   pideLineasDeAyuda,
   revisarGuion,
+  revisarLinkedinSiHay,
   revisarTextoLinkedin,
+  sinLinkedin,
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
@@ -743,5 +745,24 @@ describe("revisarTextoLinkedin", () => {
       expect(hallazgos.every((h) => h.campo === undefined)).toBe(true)
       expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
     })
+  })
+})
+
+describe("the LinkedIn text of a piece that may not have one", () => {
+  const resto = { esAvatar: true, requiereLineasAyuda: false, ajeno: SIN_AJENO }
+
+  it("gives no findings when the piece has no LinkedIn text yet (pieces from before LinkedIn)", () => {
+    expect(revisarLinkedinSiHay(null, resto)).toEqual([])
+  })
+
+  it("reviews the text when there is one", () => {
+    expect(reglas(revisarLinkedinSiHay("Hola.", resto))).toContain("aviso_avatar")
+  })
+
+  it("keeps the findings of the script and the caption when the LinkedIn ones are left out", () => {
+    const todos = [...revisar({ texto: "Hola." }), ...revisarLinkedinSiHay("Hola.", resto)]
+    expect(sinLinkedin(todos)).toEqual(revisar({ texto: "Hola." }))
+    expect(sinLinkedin(todos).every((h) => h.campo === undefined)).toBe(true)
+    expect(todos.length).toBeGreaterThan(sinLinkedin(todos).length)
   })
 })

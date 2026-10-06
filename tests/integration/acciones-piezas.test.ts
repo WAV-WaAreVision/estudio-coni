@@ -312,6 +312,21 @@ describe("aprobarGuion", () => {
     expect(disparos).toEqual([])
   })
 
+  it("approves the script even when the LinkedIn text has a blocking finding: it is not part of gate 1", async () => {
+    const id = await paraAprobar()
+    await ajustarComoPostgres(id, {
+      texto_linkedin: "Sin el aviso de avatar.",
+      revision: JSON.stringify([
+        { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso.", campo: "linkedin" },
+      ]),
+    })
+
+    const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
+
+    expect(resultado).toEqual({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", texto_linkedin: "Sin el aviso de avatar." })
+  })
+
   it("refuses while the review has a blocking finding, and says which", async () => {
     const id = await paraAprobar()
     await ajustarComoPostgres(id, {
@@ -449,6 +464,19 @@ describe("editarTexto", () => {
     )
     expect(guardada.version).toBe(versionVista + 1)
     expect(guardada.revision).toEqual([])
+  })
+
+  it("keeps the findings of the LinkedIn text, with their field, when the caption is edited", async () => {
+    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    await ajustarComoPostgres(id, { texto_linkedin: "Sin aviso ni pregunta." })
+
+    await editarTexto(armar().deps, id, await versionDe(id), TEXTO_VALIDO)
+
+    const { revision } = await fila(id)
+    expect(revision).toEqual(
+      expect.arrayContaining([expect.objectContaining({ regla: "aviso_avatar", tipo: "bloquea", campo: "linkedin" })]),
+    )
+    expect((revision as { campo?: string }[]).filter((h) => h.campo === undefined)).toEqual([])
   })
 
   it("warns when the new caption copies a quote of the backing", async () => {

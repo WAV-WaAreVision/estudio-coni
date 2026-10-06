@@ -17,7 +17,13 @@ import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
-import { type Hallazgo, pideLineasDeAyuda, revisarGuion } from "@/lib/dominio/revision"
+import {
+  type Hallazgo,
+  pideLineasDeAyuda,
+  revisarGuion,
+  revisarLinkedinSiHay,
+  sinLinkedin,
+} from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
@@ -52,8 +58,13 @@ function exigirVersion(fila: FilaDePieza, versionVista: number, error: Falla = n
   if (fila.version !== versionVista) throw error
 }
 
-function exigirRevisionLimpia(fila: FilaDePieza): void {
-  const bloqueante = leerRevision(fila.revision).find((hallazgo) => hallazgo.tipo === "bloquea")
+/**
+ * What blocks an approval. The findings of the LinkedIn text count only when that text is part of what is approved
+ * (gate 2 with LinkedIn chosen): gate 1 is about the script and the caption.
+ */
+function exigirRevisionLimpia(fila: FilaDePieza, { linkedin }: { linkedin: boolean }): void {
+  const hallazgos = leerRevision(fila.revision)
+  const bloqueante = (linkedin ? hallazgos : sinLinkedin(hallazgos)).find((hallazgo) => hallazgo.tipo === "bloquea")
   if (bloqueante) throw new Falla(`Todavía no puedes aprobar. ${bloqueante.mensaje}`)
 }
 
@@ -218,7 +229,7 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     if (fila.guion === null || fila.texto === null) {
       throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin texto.`)
     }
-    exigirRevisionLimpia(fila)
+    exigirRevisionLimpia(fila, { linkedin: false })
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
     const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
     const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
@@ -315,6 +326,11 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
         requiereLineasAyuda,
         ajeno: ajenoDelRespaldo(respaldo),
       }),
+      ...revisarLinkedinSiHay(fila.texto_linkedin, {
+        esAvatar: true,
+        requiereLineasAyuda,
+        ajeno: ajenoDelRespaldo(respaldo),
+      }),
       ...juicios,
     ]
 
@@ -353,7 +369,7 @@ export function aprobarVideo(deps: DepsAcciones, piezaId: string, versionVista: 
     if (fila.video_id === null || fila.texto === null) {
       throw new Error(`La pieza ${fila.id} está por aprobar sin video o sin texto.`)
     }
-    exigirRevisionLimpia(fila)
+    exigirRevisionLimpia(fila, { linkedin: false })
     await exigirHorarioLibre(deps.db, fila.id, publicarEn)
     const hash = hashTexto(fila.texto)
     await guardarEvento(deps.db, fila, {

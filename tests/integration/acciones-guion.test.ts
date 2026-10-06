@@ -159,6 +159,45 @@ describe("editarGuion", () => {
     expect((await versionesDe(id)).map((v) => v.autor)).toEqual(["coni"])
   })
 
+  it("keeps the review of the LinkedIn text in what it stores and does not let it block the edit of the script", async () => {
+    const id = await pieza()
+    await ajustarPieza(id, { texto_linkedin: "Sin el aviso de avatar." })
+    const { version } = await leerFila(id)
+    claudeRevisa([JUICIO])
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado.ok).toBe(true)
+    if (!resultado.ok) return
+    const guardada = (await leerFila(id)).revision as { regla: string; campo?: string }[]
+    expect(guardada.filter((h) => h.campo === "linkedin").map((h) => h.regla)).toContain("aviso_avatar")
+    expect(guardada.map((h) => h.regla)).toContain("cifra_sin_verificar")
+    // Gate 1 is about the script and the caption: the LinkedIn findings are shown at gate 2.
+    expect(resultado.revision.some((h) => h.campo === "linkedin")).toBe(false)
+    expect(resultado.revision.map((h) => h.regla)).toContain("cifra_sin_verificar")
+  })
+
+  it("sends the LinkedIn text of the piece to Claude's review", async () => {
+    const id = await pieza()
+    await ajustarPieza(id, { texto_linkedin: "Para colegas." })
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(JSON.stringify(pedidos[0])).toContain("<texto_linkedin>\\nPara colegas.\\n</texto_linkedin>")
+  })
+
+  it("sends no LinkedIn block to Claude when the piece has no LinkedIn text yet", async () => {
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(JSON.stringify(pedidos[0])).not.toContain("texto_linkedin")
+  })
+
   it("warns when her edit copies a quote of the piece's backing or names its author", async () => {
     const id = await pieza()
     await ajustarPieza(id, { respaldo: JSON.stringify(RESPALDO_GUARDADO) })

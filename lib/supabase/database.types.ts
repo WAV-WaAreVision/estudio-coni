@@ -1606,6 +1606,7 @@ export type Database = {
           p_respaldo?: Json
           p_revision: Json
           p_texto: string
+          p_texto_linkedin?: string
           p_version: number
         }
         Returns: {
