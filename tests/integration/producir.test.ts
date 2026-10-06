@@ -749,6 +749,22 @@ describe("producirPieza: el texto para LinkedIn", () => {
     expect(revision).toEqual([expect.objectContaining({ regla: "aviso_avatar", tipo: "bloquea", campo: "linkedin" })])
   })
 
+  it("stores a LinkedIn text over 3000 characters and leaves the blocking finding for Coni instead of failing the run", async () => {
+    const id = await crearPiezaEnProduccion()
+    const largo = `${"a".repeat(3200)}\n\n${AVISO_AVATAR_LINKEDIN}`
+    simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: largo }) })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    const fila = await leerFila(id)
+    expect(fila.texto_linkedin).toBe(largo)
+    expect(fila.revision).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regla: "largo_linkedin", tipo: "bloquea", campo: "linkedin" }),
+      ]),
+    )
+  })
+
   it("asks for the help lines in the LinkedIn text too when the idea needs them", async () => {
     const id = await crearPiezaEnProduccion([{ tipo: "líneas de ayuda", texto: "El tema roza la violencia." }])
     simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_CON_AYUDA }) })

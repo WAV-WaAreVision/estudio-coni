@@ -9,8 +9,9 @@ alter table public.piezas
     destinos in ('{instagram}'::text[], '{linkedin}'::text[], '{instagram,linkedin}'::text[])
   ),
   add constraint puerta2_formula_valida check (puerta2_formula is null or puerta2_formula in (1, 2)),
-  add constraint formula_con_aprobacion check (puerta2_formula is null or puerta2_hash_texto is not null),
-  add constraint texto_linkedin_largo check (texto_linkedin is null or char_length(texto_linkedin) <= 3000);
+  add constraint formula_con_aprobacion check (puerta2_formula is null or puerta2_hash_texto is not null);
+-- No length check on texto_linkedin: the writer may overshoot and that must not fail a run. The 3000 limit is a rule of
+-- the review (it blocks approval) and of the editor.
 
 comment on column public.piezas.puerta2_formula is
   'Formula of puerta2_hash_texto. Null is formula 1 (the caption alone, approvals from before 2026-10-06); 2 also binds the LinkedIn text and the destinations.';

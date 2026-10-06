@@ -57,16 +57,15 @@ describe("destinos de la pieza: esquema", () => {
     })
   })
 
-  it("refuses a LinkedIn text over 3000 characters", async () => {
+  it("accepts a LinkedIn text over 3000 characters: the review blocks it, the database does not fail a run", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       const { version } = await leer(c, id)
-      const error = await fallaCon(c, "update public.piezas set texto_linkedin = $3, version = $2 where id = $1", [
-        id,
-        version + 1,
-        "a".repeat(3001),
-      ])
-      expect(error.message).toMatch(/texto_linkedin_largo/)
+      const { rows } = await c.query(
+        "update public.piezas set texto_linkedin = $3, version = $2 where id = $1 returning char_length(texto_linkedin) as n",
+        [id, version + 1, "a".repeat(3500)],
+      )
+      expect(rows[0]).toEqual({ n: 3500 })
     })
   })
 

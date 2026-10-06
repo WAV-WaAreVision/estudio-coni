@@ -124,15 +124,12 @@ describe("editar_texto_linkedin_como_coni", () => {
     },
   )
 
-  it("refuses an empty text, a text over 3000 characters and a review that is not a list", async () => {
+  it("refuses an empty text and a review that is not a list; the length is the action's rule, not the database's", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "video_por_aprobar", AMBOS)
       const { version } = await leer(c, id)
       await asumir(c, comoConi)
       expect((await fallaCon(c, EDITAR_LINKEDIN, [id, version, "  \n ", "[]"])).message).toBe("texto_vacio")
-      expect((await fallaCon(c, EDITAR_LINKEDIN, [id, version, "a".repeat(3001), "[]"])).message).toMatch(
-        /texto_linkedin_largo/,
-      )
       expect((await fallaCon(c, EDITAR_LINKEDIN, [id, version, "x", "{}"])).message).toBe("revision_invalida")
     })
   })
