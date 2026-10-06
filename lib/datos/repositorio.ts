@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { esDestino, esEstadoDePublicacion, type Publicacion } from "@/lib/dominio/destinos"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { Alerta, Hallazgo } from "@/lib/dominio/revision"
 import type { Database, Json } from "@/lib/supabase/database.types"
@@ -221,6 +222,17 @@ export async function tomarParaPublicar(db: Db, ahora: string, arriendoSegundos:
   const { data, error } = await db.rpc("tomar_para_publicar", { p_ahora: ahora, p_arriendo_segundos: arriendoSegundos })
   if (error) throw fallo("No pude tomar piezas para publicar", error)
   return data[0] ?? null
+}
+
+/** Where each destination of a piece stands (what she still has to upload, what is done). */
+export async function leerPublicaciones(db: Db, piezaId: string): Promise<Publicacion[]> {
+  const { data, error } = await db.from("publicaciones").select("destino, estado").eq("pieza_id", piezaId)
+  if (error) throw fallo("No pude leer los destinos de la pieza", error)
+  return data.map((fila) => {
+    if (!esDestino(fila.destino)) throw new Error(`Destino desconocido en la base: ${fila.destino}`)
+    if (!esEstadoDePublicacion(fila.estado)) throw new Error(`Estado de publicación desconocido: ${fila.estado}`)
+    return { destino: fila.destino, estado: fila.estado }
+  })
 }
 
 /** The Instagram account id (`IG_ID`) Coni connected; null until "Conectar Instagram" has been used. */

@@ -14,7 +14,7 @@ interface PropiedadesDeSubirAMano {
   /** The caption she approved, exactly as stored. */
   texto: string
   alDescargar: (piezaId: string) => Promise<Resultado<{ url: string }>>
-  alMarcar: (piezaId: string, version: number, enlace: string) => Promise<Resultado>
+  alMarcar: (piezaId: string, version: number, destino: string, enlace: string) => Promise<Resultado>
   /** Where the browser goes to download; replaced in tests. */
   alIrA?: (url: string) => void
 }
@@ -116,7 +116,7 @@ export function SubirAMano({
           cargando={confirmacion.pendiente}
           deshabilitado={!etiquetaPuesta}
           aria-describedby={etiquetaPuesta ? undefined : "subir-motivo"}
-          onClick={() => confirmacion.ejecutar(() => alMarcar(piezaId, version, enlace))}
+          onClick={() => confirmacion.ejecutar(() => alMarcar(piezaId, version, "instagram", enlace))}
         >
           Ya lo subí
         </Boton>

@@ -1,6 +1,7 @@
 export const DESTINOS = ["instagram", "linkedin"] as const
 export type Destino = (typeof DESTINOS)[number]
-export type EstadoDePublicacion = "esperando" | "para_subir" | "subido_a_mano" | "publicado"
+export const ESTADOS_DE_PUBLICACION = ["esperando", "para_subir", "subido_a_mano", "publicado"] as const
+export type EstadoDePublicacion = (typeof ESTADOS_DE_PUBLICACION)[number]
 
 export interface Publicacion {
   destino: Destino
@@ -11,6 +12,10 @@ const NOMBRE: Record<Destino, string> = { instagram: "Instagram", linkedin: "Lin
 
 export function esDestino(valor: string): valor is Destino {
   return (DESTINOS as readonly string[]).includes(valor)
+}
+
+export function esEstadoDePublicacion(valor: string): valor is EstadoDePublicacion {
+  return (ESTADOS_DE_PUBLICACION as readonly string[]).includes(valor)
 }
 
 export function destinosValidos(valores: readonly string[]): valores is readonly Destino[] {

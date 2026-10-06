@@ -106,7 +106,9 @@ describe("SubirAMano", () => {
     })
     fireEvent.click(screen.getByRole("button", { name: "Ya lo subí" }))
 
-    await waitFor(() => expect(alMarcar).toHaveBeenCalledWith("p1", 7, "https://www.instagram.com/reel/DAbc123/"))
+    await waitFor(() =>
+      expect(alMarcar).toHaveBeenCalledWith("p1", 7, "instagram", "https://www.instagram.com/reel/DAbc123/"),
+    )
   })
 
   it("lets her confirm without a link", async () => {
@@ -115,7 +117,7 @@ describe("SubirAMano", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Activé la etiqueta/ }))
     fireEvent.click(screen.getByRole("button", { name: "Ya lo subí" }))
 
-    await waitFor(() => expect(alMarcar).toHaveBeenCalledWith("p1", 7, ""))
+    await waitFor(() => expect(alMarcar).toHaveBeenCalledWith("p1", 7, "instagram", ""))
   })
 
   it("shows the refusal when the link is not Instagram's", async () => {

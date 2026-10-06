@@ -231,7 +231,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           motivo={motivo}
           enviando={aprobacion.pendiente}
           alAprobar={() => {
-            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha))
+            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, ["instagram"]))
           }}
         />
       </BarraDeFirma>

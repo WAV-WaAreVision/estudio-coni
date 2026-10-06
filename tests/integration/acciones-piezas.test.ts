@@ -10,6 +10,7 @@ import {
   type DepsAcciones,
   descartar,
   editarTexto,
+  editarTextoLinkedin,
   elegirIdeas,
   marcarSubidoAMano,
   pedirCambios,
@@ -23,9 +24,9 @@ import {
 } from "@/lib/acciones/piezas"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { hashPuerta1, hashTexto } from "@/lib/dominio/puertas"
+import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
-import { CIERRE } from "@/lib/dominio/revision"
+import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
@@ -33,7 +34,7 @@ import { CONI, comoConi, pool } from "./db"
 import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { ajustarPieza, borrarSembrado, leerFila, sembrarIdea, sembrarPieza } from "./siembra"
+import { ajustarPieza, borrarSembrado, leerFila, publicacionesDe, sembrarIdea, sembrarPieza } from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -94,8 +95,12 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: 
   return { deps, disparos }
 }
 
-async function pieza(destino: Parameters<typeof sembrarPieza>[0], ajustes: Record<string, unknown> = {}) {
-  const id = await sembrarPieza(destino, ajustes)
+async function pieza(
+  destino: Parameters<typeof sembrarPieza>[0],
+  ajustes: Record<string, unknown> = {},
+  opciones: Parameters<typeof sembrarPieza>[2] = {},
+) {
+  const id = await sembrarPieza(destino, ajustes, opciones)
   piezasCreadas.push(id)
   return id
 }
@@ -588,12 +593,15 @@ describe("aprobarVideo", () => {
     const { deps } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, FUTURO)
+    const resultado = await aprobarVideo(deps, id, version, FUTURO, ["instagram"])
 
     expect(resultado.ok).toBe(true)
     const guardada = await fila(id)
     expect(guardada).toMatchObject({ estado: "programado", puerta2_por: CONI, puerta2_video_id: VIDEO })
-    expect(guardada.puerta2_hash_texto).toBe(hashTexto(TEXTO_VALIDO))
+    expect(guardada).toMatchObject({ puerta2_formula: 2, destinos: ["instagram"] })
+    expect(guardada.puerta2_hash_texto).toBe(
+      hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: null, destinos: ["instagram"] }),
+    )
     expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2099-10-09T22:00:00.000Z")
   })
 
@@ -602,7 +610,7 @@ describe("aprobarVideo", () => {
     const { deps } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, "2020-01-01T19:00:00-03:00")
+    const resultado = await aprobarVideo(deps, id, version, "2020-01-01T19:00:00-03:00", ["instagram"])
 
     expect(resultado).toEqual({ ok: false, error: "La fecha de publicación ya pasó. Elige una hora futura." })
     expect((await fila(id)).estado).toBe("video_por_aprobar")
@@ -613,7 +621,7 @@ describe("aprobarVideo", () => {
     const { deps } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, "2099-10-09T19:00:00")
+    const resultado = await aprobarVideo(deps, id, version, "2099-10-09T19:00:00", ["instagram"])
 
     expect(resultado).toEqual({ ok: false, error: "La fecha de publicación no es válida." })
   })
@@ -626,7 +634,7 @@ describe("aprobarVideo", () => {
       texto: "Otro texto. Video hecho con mi avatar digital.",
     })
 
-    const resultado = await aprobarVideo(deps, id, versionVista, FUTURO)
+    const resultado = await aprobarVideo(deps, id, versionVista, FUTURO, ["instagram"])
 
     expect(resultado).toEqual({
       ok: false,
@@ -642,7 +650,7 @@ describe("aprobarVideo", () => {
     const { deps } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, FUTURO)
+    const resultado = await aprobarVideo(deps, id, version, FUTURO, ["instagram"])
 
     expect(resultado).toMatchObject({ ok: false })
     expect(!resultado.ok && resultado.error).toContain("Falta el aviso de avatar.")
@@ -654,9 +662,9 @@ describe("aprobarVideo", () => {
     const segunda = await paraAprobar()
     const { deps } = armar()
     const hora = "2098-03-03T19:00:00-03:00"
-    expect(await aprobarVideo(deps, primera, await versionDe(primera), hora)).toMatchObject({ ok: true })
+    expect(await aprobarVideo(deps, primera, await versionDe(primera), hora, ["instagram"])).toMatchObject({ ok: true })
 
-    const resultado = await aprobarVideo(deps, segunda, await versionDe(segunda), hora)
+    const resultado = await aprobarVideo(deps, segunda, await versionDe(segunda), hora, ["instagram"])
 
     expect(resultado).toEqual({ ok: false, error: "Ese horario ya lo tiene otro reel. Elige otro." })
     expect((await fila(segunda)).estado).toBe("video_por_aprobar")
@@ -668,7 +676,7 @@ describe("aprobarVideo", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, FUTURO)
+    const resultado = await aprobarVideo(deps, id, version, FUTURO, ["instagram"])
 
     expect(resultado).toMatchObject({ ok: false })
     expect((await fila(id)).estado).toBe("video_por_aprobar")
@@ -872,7 +880,7 @@ describe("subir a mano", () => {
     const id = await pieza("para_subir_a_mano")
     const { deps } = armar()
 
-    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", "")
 
     expect(resultado.ok).toBe(true)
     expect(await fila(id)).toMatchObject({ estado: "publicado_a_mano", permalink: null })
@@ -887,7 +895,7 @@ describe("subir a mano", () => {
     const id = await pieza("para_subir_a_mano")
     const { deps } = armar()
 
-    await marcarSubidoAMano(deps, id, await versionDe(id), `${ENLACE}?igsh=abc`)
+    await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", `${ENLACE}?igsh=abc`)
 
     expect(await fila(id)).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
   })
@@ -896,7 +904,7 @@ describe("subir a mano", () => {
     const id = await pieza("programado")
     const { deps } = armar()
 
-    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", "")
 
     expect(resultado.ok).toBe(true)
     expect((await fila(id)).estado).toBe("publicado_a_mano")
@@ -906,7 +914,13 @@ describe("subir a mano", () => {
     const id = await pieza("para_subir_a_mano")
     const { deps } = armar()
 
-    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "https://malo.example/reel/abc")
+    const resultado = await marcarSubidoAMano(
+      deps,
+      id,
+      await versionDe(id),
+      "instagram",
+      "https://malo.example/reel/abc",
+    )
 
     expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("enlace") })
     expect((await fila(id)).estado).toBe("para_subir_a_mano")
@@ -914,12 +928,14 @@ describe("subir a mano", () => {
 
   it("refuses a piece that is not waiting to be uploaded, and a screen that went stale", async () => {
     const enAprobacion = await pieza("video_por_aprobar")
-    expect(await marcarSubidoAMano(armar().deps, enAprobacion, await versionDe(enAprobacion), "")).toMatchObject({
+    expect(
+      await marcarSubidoAMano(armar().deps, enAprobacion, await versionDe(enAprobacion), "instagram", ""),
+    ).toMatchObject({
       ok: false,
     })
     const espera = await pieza("para_subir_a_mano")
     const vista = await versionDe(espera)
-    expect(await marcarSubidoAMano(armar().deps, espera, vista - 1, "")).toMatchObject({ ok: false })
+    expect(await marcarSubidoAMano(armar().deps, espera, vista - 1, "instagram", "")).toMatchObject({ ok: false })
     expect((await fila(espera)).estado).toBe("para_subir_a_mano")
   })
 
@@ -927,7 +943,7 @@ describe("subir a mano", () => {
     const id = await pieza("para_subir_a_mano")
     const { deps } = armar(await clienteDelMantenedor())
 
-    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "")
+    const resultado = await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", "")
 
     expect(resultado.ok).toBe(false)
     expect((await fila(id)).estado).toBe("para_subir_a_mano")
@@ -1032,5 +1048,376 @@ describe("pedirVoz, pedirVideo y reabrirGuion", () => {
     expect((await pedirVideo(deps, id, (await versionDe(id)) - 1)).ok).toBe(false)
     expect((await pedirVoz(deps, id, (await versionDe(id)) - 1, false)).ok).toBe(false)
     expect(disparos).toEqual([])
+  })
+})
+
+const LINKEDIN_OK = [
+  "Llevan diez años juntos y ya casi no se tocan.",
+  ...Array.from({ length: 12 }, () => "Cuando hablamos de límites conviene partir por lo que sí podemos observar."),
+  "¿En qué momento del día te cuesta más desconectarte?",
+  AVISO_AVATAR_LINKEDIN,
+  "#limites #psicologia",
+].join("\n\n")
+
+const BLOQUEA_LINKEDIN = JSON.stringify([
+  { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso en LinkedIn.", campo: "linkedin" },
+])
+
+// Two reels cannot share a minute and the pieces of earlier tests stay scheduled, so each approval takes its own.
+let minuto = 0
+const horaUnica = () => new Date(Date.UTC(2097, 0, 1, 0, minuto++)).toISOString()
+
+describe("aprobarVideo con destinos", () => {
+  async function paraAprobar(extra: Record<string, unknown> = {}) {
+    return pieza("video_por_aprobar", { texto: TEXTO_VALIDO, texto_linkedin: LINKEDIN_OK, ...extra })
+  }
+
+  it("approves with LinkedIn: formula 2 binds both texts and the destinations, and each destination gets its row", async () => {
+    const id = await paraAprobar()
+    const version = await versionDe(id)
+
+    const resultado = await aprobarVideo(armar().deps, id, version, horaUnica(), ["instagram", "linkedin"])
+
+    expect(resultado.ok).toBe(true)
+    const guardada = await fila(id)
+    expect(guardada).toMatchObject({
+      estado: "programado",
+      puerta2_formula: 2,
+      destinos: ["instagram", "linkedin"],
+      texto_linkedin: LINKEDIN_OK,
+    })
+    expect(guardada.puerta2_hash_texto).toBe(
+      hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: LINKEDIN_OK, destinos: ["instagram", "linkedin"] }),
+    )
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "esperando", enlace: null },
+      { destino: "linkedin", estado: "esperando", enlace: null },
+    ])
+  })
+
+  it("stores the destinations in the canonical order whatever order the screen sent", async () => {
+    const id = await paraAprobar()
+
+    await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["linkedin", "instagram"])
+
+    expect((await fila(id)).destinos).toEqual(["instagram", "linkedin"])
+  })
+
+  it("approves LinkedIn alone", async () => {
+    const id = await paraAprobar()
+
+    const resultado = await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["linkedin"])
+
+    expect(resultado.ok).toBe(true)
+    expect(await publicacionesDe(id)).toEqual([{ destino: "linkedin", estado: "esperando", enlace: null }])
+  })
+
+  it("leaves the LinkedIn text out of the hash when only Instagram is chosen", async () => {
+    const id = await paraAprobar()
+
+    await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["instagram"])
+
+    expect((await fila(id)).puerta2_hash_texto).toBe(
+      hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: null, destinos: ["instagram"] }),
+    )
+  })
+
+  it("refuses an empty, unknown or repeated choice of destinations", async () => {
+    const id = await paraAprobar()
+    for (const destinos of [[], ["tiktok"], ["instagram", "instagram"]]) {
+      const resultado = await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), destinos)
+      expect(resultado).toEqual({ ok: false, error: "Elige al menos un destino." })
+    }
+    expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("refuses LinkedIn when the piece has no LinkedIn text", async () => {
+    const id = await paraAprobar({ texto_linkedin: null })
+
+    const resultado = await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["instagram", "linkedin"])
+
+    expect(resultado).toEqual({ ok: false, error: "Falta el texto para LinkedIn." })
+    expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("refuses LinkedIn while its text has a blocking finding, and says which", async () => {
+    const id = await paraAprobar({ revision: BLOQUEA_LINKEDIN })
+
+    const resultado = await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["linkedin"])
+
+    expect(resultado.ok).toBe(false)
+    expect(!resultado.ok && resultado.error).toContain("Falta el aviso en LinkedIn.")
+    expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("lets Instagram go out alone when only the LinkedIn text blocks", async () => {
+    const id = await paraAprobar({ revision: BLOQUEA_LINKEDIN })
+
+    const resultado = await aprobarVideo(armar().deps, id, await versionDe(id), horaUnica(), ["instagram"])
+
+    expect(resultado.ok).toBe(true)
+    expect(await publicacionesDe(id)).toEqual([{ destino: "instagram", estado: "esperando", enlace: null }])
+  })
+
+  it("does not let a LinkedIn warning block, and a caption finding still blocks whatever the destinations", async () => {
+    const aviso = JSON.stringify([
+      { regla: "hashtags_linkedin", tipo: "advierte", mensaje: "Demasiados hashtags.", campo: "linkedin" },
+    ])
+    const conAviso = await paraAprobar({ revision: aviso })
+    expect((await aprobarVideo(armar().deps, conAviso, await versionDe(conAviso), horaUnica(), ["linkedin"])).ok).toBe(
+      true,
+    )
+
+    const delTexto = await paraAprobar({
+      revision: JSON.stringify([{ regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso." }]),
+    })
+    const resultado = await aprobarVideo(armar().deps, delTexto, await versionDe(delTexto), horaUnica(), ["linkedin"])
+    expect(resultado.ok).toBe(false)
+  })
+
+  it("refuses when the LinkedIn text changed after she opened the screen", async () => {
+    const id = await paraAprobar()
+    const versionVista = await versionDe(id)
+    await ajustarComoPostgres(id, { texto_linkedin: `${LINKEDIN_OK}\n\nUna línea que no vio.` })
+
+    const resultado = await aprobarVideo(armar().deps, id, versionVista, horaUnica(), ["instagram", "linkedin"])
+
+    expect(resultado).toEqual({
+      ok: false,
+      error: "Esto cambió mientras lo revisabas y no quedó aprobado. Vuelve a revisarlo.",
+    })
+  })
+})
+
+describe("editarTextoLinkedin", () => {
+  it("normalises, reviews with LinkedIn's rules and saves, keeping the other findings and Claude's judgments", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO, texto_linkedin: LINKEDIN_OK })
+    const judicio = { regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "Confirma la cifra.", frase: "x" }
+    await ajustarComoPostgres(id, { revision: JSON.stringify([judicio]) })
+    const sucio = "Hola.\r\nPrimera línea con café.\r\n#a #b #c #d\r\nSin aviso."
+
+    const resultado = await editarTextoLinkedin(armar().deps, id, await versionDe(id), sucio)
+
+    expect(resultado.ok).toBe(true)
+    const guardada = await fila(id)
+    expect(guardada.texto_linkedin).toBe("Hola.\nPrimera línea con café.\n#a #b #c #d\nSin aviso.")
+    const reglas = (guardada.revision as { regla: string; campo?: string }[]).map((h) => [h.regla, h.campo])
+    expect(reglas).toEqual(
+      expect.arrayContaining([
+        ["cifra_sin_verificar", undefined],
+        ["aviso_avatar", "linkedin"],
+        ["hashtags_linkedin", "linkedin"],
+      ]),
+    )
+    expect(guardada.estado).toBe("video_por_aprobar")
+  })
+
+  it("replaces the earlier review of the LinkedIn text instead of adding to it", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO, texto_linkedin: "Sin aviso." })
+    await ajustarComoPostgres(id, { revision: BLOQUEA_LINKEDIN })
+
+    await editarTextoLinkedin(armar().deps, id, await versionDe(id), LINKEDIN_OK)
+
+    expect((await fila(id)).revision).toEqual([])
+  })
+
+  it("asks for the help lines in the text when the idea of the piece needs them", async () => {
+    const idea = await sembrarIdea({ alertas: [{ tipo: "líneas de ayuda", texto: "Violencia." }] })
+    ideasCreadas.push(idea)
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO, idea_id: idea })
+
+    await editarTextoLinkedin(armar().deps, id, await versionDe(id), LINKEDIN_OK)
+
+    expect((await fila(id)).revision).toEqual([
+      expect.objectContaining({ regla: "lineas_ayuda", tipo: "bloquea", campo: "linkedin" }),
+    ])
+  })
+
+  it("refuses an empty text and a text over 3000 characters", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO })
+    const { deps } = armar()
+
+    expect(await editarTextoLinkedin(deps, id, await versionDe(id), "  \n ")).toEqual({
+      ok: false,
+      error: "El texto no puede quedar vacío.",
+    })
+    expect(await editarTextoLinkedin(deps, id, await versionDe(id), "a".repeat(3001))).toEqual({
+      ok: false,
+      error: "LinkedIn acepta hasta 3.000 caracteres en el texto.",
+    })
+  })
+
+  it("keeps gate 1 in guion_aprobado: the LinkedIn text is not part of it", async () => {
+    const id = await pieza("guion_aprobado", { texto: TEXTO_VALIDO })
+    const antes = await fila(id)
+
+    const resultado = await editarTextoLinkedin(armar().deps, id, antes.version, LINKEDIN_OK)
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({
+      estado: "guion_aprobado",
+      puerta1_hash: antes.puerta1_hash,
+      texto_linkedin: LINKEDIN_OK,
+    })
+  })
+
+  it("takes gate 2 back and the rows with it when the piece was scheduled", async () => {
+    const id = await pieza("programado", {}, { destinos: ["instagram", "linkedin"], textoLinkedin: LINKEDIN_OK })
+    expect(await publicacionesDe(id)).toHaveLength(2)
+
+    const resultado = await editarTextoLinkedin(armar().deps, id, await versionDe(id), `${LINKEDIN_OK} Más.`)
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({ estado: "video_por_aprobar", puerta2_hash_texto: null })
+    expect(await publicacionesDe(id)).toEqual([])
+  })
+
+  it("refuses a stale screen and a piece that is no longer editable", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO })
+    const { deps } = armar()
+    const vista = await versionDe(id)
+    expect(await editarTextoLinkedin(deps, id, vista - 1, LINKEDIN_OK)).toEqual({
+      ok: false,
+      error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla.",
+    })
+    const enRender = await pieza("en_render", { texto: TEXTO_VALIDO })
+    expect((await editarTextoLinkedin(deps, enRender, await versionDe(enRender), LINKEDIN_OK)).ok).toBe(false)
+  })
+
+  it("does not let the maintainer edit it", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO })
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const resultado = await editarTextoLinkedin(
+      armar(await clienteDelMantenedor()).deps,
+      id,
+      await versionDe(id),
+      LINKEDIN_OK,
+    )
+
+    expect(resultado.ok).toBe(false)
+    expect((await fila(id)).texto_linkedin).toBeNull()
+  })
+
+  it("leaves Coni, not the service role, as the actor of the edit in the audit log", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO })
+
+    await editarTextoLinkedin(armar().deps, id, await versionDe(id), LINKEDIN_OK)
+
+    const { rows } = await pool.query(
+      "select actor_usuario, actor_rol from public.eventos where pieza_id = $1 and tabla = 'piezas' order by id desc limit 1",
+      [id],
+    )
+    expect(rows[0]).toEqual({ actor_usuario: CONI, actor_rol: "authenticated" })
+  })
+})
+
+describe("marcarSubidoAMano por destino", () => {
+  const ENLACE = "https://www.instagram.com/reel/DAbc123xyz/"
+  const ENLACE_LINKEDIN = "https://www.linkedin.com/posts/coni_abc-123"
+  const AMBOS = { destinos: ["instagram", "linkedin"], textoLinkedin: LINKEDIN_OK } as const
+
+  it("marks only LinkedIn and keeps the piece waiting for Instagram, with the link she pasted", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+
+    const resultado = await marcarSubidoAMano(
+      armar().deps,
+      id,
+      await versionDe(id),
+      "linkedin",
+      `${ENLACE_LINKEDIN}?utm=x`,
+    )
+
+    expect(resultado.ok).toBe(true)
+    expect((await fila(id)).estado).toBe("para_subir_a_mano")
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "para_subir", enlace: null },
+      { destino: "linkedin", estado: "subido_a_mano", enlace: ENLACE_LINKEDIN },
+    ])
+  })
+
+  it("finishes the piece with the last destination and keeps the Instagram link in the piece", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+    const { deps } = armar()
+    await marcarSubidoAMano(deps, id, await versionDe(id), "linkedin", "")
+
+    await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", `${ENLACE}?igsh=abc`)
+
+    expect(await fila(id)).toMatchObject({ estado: "publicado_a_mano", permalink: ENLACE })
+  })
+
+  it("refuses a link that is not LinkedIn's and leaves the destination waiting", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+
+    const resultado = await marcarSubidoAMano(
+      armar().deps,
+      id,
+      await versionDe(id),
+      "linkedin",
+      "https://evil.example/x",
+    )
+
+    expect(resultado).toEqual({ ok: false, error: "Ese enlace no parece de LinkedIn. Puedes dejarlo vacío." })
+    expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["para_subir", "para_subir"])
+  })
+
+  it("does not take an Instagram link for a LinkedIn one, or the other way round", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+    const { deps } = armar()
+
+    expect((await marcarSubidoAMano(deps, id, await versionDe(id), "linkedin", ENLACE)).ok).toBe(false)
+    expect((await marcarSubidoAMano(deps, id, await versionDe(id), "instagram", ENLACE_LINKEDIN)).ok).toBe(false)
+  })
+
+  it("refuses a destination that already was marked, one the piece does not have, and an unknown one", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+    const { deps } = armar()
+    await marcarSubidoAMano(deps, id, await versionDe(id), "linkedin", "")
+
+    expect(await marcarSubidoAMano(deps, id, await versionDe(id), "linkedin", "")).toEqual({
+      ok: false,
+      error: "Ese destino ya no está esperando que lo subas.",
+    })
+    const soloInstagram = await pieza("para_subir_a_mano")
+    expect((await marcarSubidoAMano(deps, soloInstagram, await versionDe(soloInstagram), "linkedin", "")).ok).toBe(
+      false,
+    )
+    expect((await marcarSubidoAMano(deps, soloInstagram, await versionDe(soloInstagram), "tiktok", "")).ok).toBe(false)
+    expect((await fila(soloInstagram)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("lets her mark LinkedIn before its time while the piece is still programado", async () => {
+    const id = await pieza("programado", {}, AMBOS)
+
+    const resultado = await marcarSubidoAMano(armar().deps, id, await versionDe(id), "linkedin", "")
+
+    expect(resultado.ok).toBe(true)
+    expect((await fila(id)).estado).toBe("programado")
+    expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["esperando", "subido_a_mano"])
+  })
+
+  it("refuses a stale screen with the message for Coni", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+    const vista = await versionDe(id)
+
+    const resultado = await marcarSubidoAMano(armar().deps, id, vista - 1, "linkedin", "")
+
+    expect(resultado).toEqual({ ok: false, error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla." })
+  })
+
+  it("does not let the maintainer say a destination was uploaded", async () => {
+    const id = await pieza("para_subir_a_mano", {}, AMBOS)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const resultado = await marcarSubidoAMano(
+      armar(await clienteDelMantenedor()).deps,
+      id,
+      await versionDe(id),
+      "linkedin",
+      "",
+    )
+
+    expect(resultado.ok).toBe(false)
+    expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["para_subir", "para_subir"])
   })
 })
