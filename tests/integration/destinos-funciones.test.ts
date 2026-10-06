@@ -1,7 +1,8 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
+import { hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { asumir, CONI, como, comoConi, comoMantenedor, comoPostgres, comoServicio, fallaCon, pool } from "./db"
-import { aplicar, crearPiezaEn, leer, type OpcionesDePieza } from "./flujo"
+import { aplicar, crearPiezaEn, leer, type OpcionesDePieza, TEXTO, VIDEO } from "./flujo"
 
 afterAll(() => pool.end())
 
@@ -309,6 +310,56 @@ describe("publicaciones: las filas siguen a la pieza", () => {
       expect(await publicacionesDe(c, id)).toHaveLength(2)
       await aplicar(c, id, comoConi, evento)
       expect(await publicacionesDe(c, id)).toEqual([])
+    })
+  })
+
+  it("keeps a destination she already uploaded when gate 2 is taken back, and deletes only what still waited", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "programado", AMBOS)
+      await asumir(c, comoConi)
+      const { version } = await leer(c, id)
+      await c.query(MARCAR, [id, version, "linkedin", ENLACE_LINKEDIN])
+      await aplicar(c, id, comoConi, { tipo: "cambiar_fecha" })
+      expect(await publicacionesDe(c, id)).toEqual([
+        { destino: "linkedin", estado: "subido_a_mano", enlace: ENLACE_LINKEDIN },
+      ])
+    })
+  })
+
+  it("does not overwrite a finished destination when gate 2 is approved again, and creates the others", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "programado", AMBOS)
+      await asumir(c, comoConi)
+      const { version } = await leer(c, id)
+      await c.query(MARCAR, [id, version, "linkedin", ENLACE_LINKEDIN])
+      await aplicar(c, id, comoConi, { tipo: "cambiar_fecha" })
+      const hash = hashTextoDePuerta2(2, {
+        texto: TEXTO,
+        textoLinkedin: "Para colegas.",
+        destinos: ["instagram", "linkedin"],
+      })
+      await aplicar(
+        c,
+        id,
+        comoConi,
+        {
+          tipo: "aprobar_video",
+          actor: "coni",
+          videoVisto: VIDEO,
+          hashTextoVisto: hash,
+          hashTextoActual: hash,
+          formula: 2,
+          publicarEn: new Date(Date.now() + 864e5).toISOString(),
+          en: new Date().toISOString(),
+        },
+        { destinos: ["instagram", "linkedin"] },
+      )
+      expect(await publicacionesDe(c, id)).toEqual([
+        { destino: "instagram", estado: "esperando", enlace: null },
+        { destino: "linkedin", estado: "subido_a_mano", enlace: ENLACE_LINKEDIN },
+      ])
+      await aplicar(c, id, comoServicio, { tipo: "entregar_para_subir" })
+      expect((await publicacionesDe(c, id)).map((p) => p.estado)).toEqual(["para_subir", "subido_a_mano"])
     })
   })
 

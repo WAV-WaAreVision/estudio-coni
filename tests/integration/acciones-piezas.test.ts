@@ -1122,6 +1122,24 @@ describe("aprobarVideo con destinos", () => {
     )
   })
 
+  it("keeps LinkedIn uploaded across a withdrawal and a new approval, and refuses a choice with nothing left to upload", async () => {
+    const id = await pieza("programado", {}, { destinos: ["instagram", "linkedin"], textoLinkedin: LINKEDIN_OK })
+    const { deps } = armar()
+    await marcarSubidoAMano(deps, id, await versionDe(id), "linkedin", "")
+    await cambiarFecha(deps, id, await versionDe(id))
+    expect(await publicacionesDe(id)).toEqual([{ destino: "linkedin", estado: "subido_a_mano", enlace: null }])
+
+    expect(await aprobarVideo(deps, id, await versionDe(id), horaUnica(), ["linkedin"])).toEqual({
+      ok: false,
+      error: "Eso ya lo subiste. Elige otro destino.",
+    })
+    expect((await aprobarVideo(deps, id, await versionDe(id), horaUnica(), ["instagram", "linkedin"])).ok).toBe(true)
+    expect(await publicacionesDe(id)).toEqual([
+      { destino: "instagram", estado: "esperando", enlace: null },
+      { destino: "linkedin", estado: "subido_a_mano", enlace: null },
+    ])
+  })
+
   it("refuses an empty, unknown or repeated choice of destinations", async () => {
     const id = await paraAprobar()
     for (const destinos of [[], ["tiktok"], ["instagram", "instagram"]]) {

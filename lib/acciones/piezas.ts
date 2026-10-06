@@ -453,6 +453,12 @@ export function aprobarVideo(
       throw new Falla("Falta el texto para LinkedIn.")
     }
     exigirRevisionLimpia(fila, { linkedin: conLinkedin })
+    // What she already uploaded survives a withdrawal of gate 2: a choice made only of that has nothing left to do.
+    const subidos = (await leerPublicaciones(deps.db, fila.id))
+      .filter((p) => p.estado === "subido_a_mano" || p.estado === "publicado")
+      .map((p) => p.destino)
+    if (destinos.every((destino) => subidos.includes(destino)))
+      throw new Falla("Eso ya lo subiste. Elige otro destino.")
     await exigirHorarioLibre(deps.db, fila.id, publicarEn)
     const hash = hashTextoDePuerta2(2, { texto: fila.texto, textoLinkedin: fila.texto_linkedin, destinos })
     await guardarEvento(

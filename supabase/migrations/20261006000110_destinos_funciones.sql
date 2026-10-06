@@ -107,7 +107,7 @@ grant execute on function public.marcar_subido_como_coni(uuid, integer, text, te
 
 -- The rows follow the piece, whoever writes it (the screens, the publish task, a repair):
 --   gate 2 approved            -> one `esperando` row per chosen destination
---   gate 2 taken back          -> the rows go
+--   gate 2 taken back          -> the rows that still wait go; what she already uploaded stays
 --   handed over to Coni        -> `esperando` becomes `para_subir` (rows that are missing are made, so the screen
 --                                 always has something to show); Instagram already published by itself -> `publicado`
 --   published by Instagram     -> the Instagram row is `publicado`
@@ -121,11 +121,13 @@ begin
     foreach v_destino in array new.destinos loop
       insert into public.publicaciones (pieza_id, destino, estado)
       values (new.id, v_destino, 'esperando')
+      -- What she already uploaded stays as it is: a finished destination is never waiting again.
       on conflict (pieza_id, destino) do update
-        set estado = 'esperando', enlace = null, marcado_en = null, marcado_por = null;
+        set estado = 'esperando', enlace = null, marcado_en = null, marcado_por = null
+        where public.publicaciones.estado in ('esperando', 'para_subir');
     end loop;
   elsif old.puerta2_hash_texto is not null and new.puerta2_hash_texto is null then
-    delete from public.publicaciones where pieza_id = new.id;
+    delete from public.publicaciones where pieza_id = new.id and estado in ('esperando', 'para_subir');
   end if;
 
   if old.estado = 'programado' and new.estado = 'para_subir_a_mano' then
