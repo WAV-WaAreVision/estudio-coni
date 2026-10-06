@@ -201,3 +201,51 @@ test("Ajustes chooses where reels are published by default and keeps at least on
     )
     .toEqual(["linkedin"])
 })
+
+test("the Guion screen shows the LinkedIn text read only, and its findings do not stop gate 1", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Llevan diez años juntos" })
+  const id = await sembrarPieza(
+    "guion_por_aprobar",
+    { titulo: "Llevan diez años juntos", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    { textoLinkedin: TEXTO_LINKEDIN_VALIDO },
+  )
+  await pool.query("update public.piezas set revision = $2::jsonb, version = version + 1 where id = $1", [
+    id,
+    JSON.stringify([
+      { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso de LinkedIn.", campo: "linkedin" },
+    ]),
+  ])
+
+  await page.goto(`/guion/${id}`)
+
+  const seccion = page.getByRole("region", { name: "Texto para LinkedIn" })
+  await expect(seccion.getByText(/Llevan diez años juntos y ya casi no se tocan/)).toBeVisible()
+  await expect(seccion.getByText("Lo revisas y editas al aprobar el video.")).toBeVisible()
+  await expect(seccion.getByRole("button")).toHaveCount(0)
+  await expect(page.getByText("Falta el aviso de LinkedIn.")).toHaveCount(0)
+})
+
+test("Inicio says which network a reel waits for, with a LinkedIn item pending", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Solo en LinkedIn" })
+  await sembrarPieza(
+    "para_subir_a_mano",
+    { titulo: "Solo en LinkedIn", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    { destinos: ["linkedin"], textoLinkedin: TEXTO_LINKEDIN_VALIDO },
+  )
+  const otraIdea = await sembrarIdea({ pilar: "deseo", gancho: "En las dos redes" })
+  await sembrarPieza(
+    "para_subir_a_mano",
+    { titulo: "En las dos redes", idea_id: otraIdea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    { destinos: ["instagram", "linkedin"], textoLinkedin: TEXTO_LINKEDIN_VALIDO },
+  )
+  await pool.query("delete from public.avisos")
+
+  await page.goto("/")
+
+  const seccion = page.getByRole("region", { name: "Para subir a Instagram y LinkedIn" })
+  await expect(seccion.getByRole("link", { name: /Solo en LinkedIn/ })).toContainText("Para subir a LinkedIn")
+  await expect(seccion.getByRole("link", { name: /En las dos redes/ })).toContainText(
+    "Para subir a Instagram y LinkedIn",
+  )
+  await capturar(page, "inicio-para-subir-linkedin")
+})

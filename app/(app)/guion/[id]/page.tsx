@@ -153,6 +153,7 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           segundos: Math.round(estimarSegundos(fila.guion)),
           guion: fila.guion,
           texto: fila.texto,
+          textoLinkedin: fila.texto_linkedin,
           // Gate 1 is about the script and the caption: the LinkedIn findings are reviewed at gate 2.
           revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,

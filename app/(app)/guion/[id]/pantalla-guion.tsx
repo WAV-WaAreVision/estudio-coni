@@ -9,6 +9,7 @@ import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { Seccion } from "@/components/seccion"
+import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
 import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 import { Boton } from "@/components/ui/boton"
@@ -33,6 +34,8 @@ export interface DatosDeGuion {
   segundos: number
   guion: string
   texto: string
+  /** The LinkedIn text, shown read only: it is reviewed and edited at gate 2. Null when the piece has none yet. */
+  textoLinkedin: string | null
   revision: Hallazgo[]
   /** Whether there is a version Claude wrote to go back to. */
   tieneVersionDeClaude: boolean
@@ -154,6 +157,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
             {/* What the bar records is what she approved: changing it means taking the approval back first. */}
             <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
           </Seccion>
+          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
           <Seccion titulo="Avatar" id="avatar">
             <p className="text-cuerpo font-semibold">{datos.avatarElegido ?? "El avatar que elegiste"}</p>
           </Seccion>
@@ -171,6 +175,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
               alCambiarSinGuardar={setSinGuardar}
             />
           </div>
+          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
           <Seccion titulo="Avatar" id="avatar">
             <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
           </Seccion>
