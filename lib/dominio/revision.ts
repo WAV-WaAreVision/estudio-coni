@@ -306,7 +306,7 @@ const patron = (fuente: string, banderas = "giu") => new RegExp(fuente, banderas
 // A hashtag starts a word: a number sign inside a word or standing alone is not one.
 const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
 // A pictograph, or a keycap such as 1️⃣ (a digit, the emoji selector and the keycap mark).
-const EMOJI = /\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
+const EMOJI = /(?![©®™])\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
 const ENLACE = patron(`(?:https?://|www\\.)\\S+|${ANTES}[\\p{L}\\p{N}-]+\\.(?:com|cl|org|net|io|co)/\\S*`)
 
 // LinkedIn lowers the reach of the "no es X, es Y" construction (it reads as machine writing). These catch its usual
@@ -323,12 +323,14 @@ const BAIT = [
   patron(`${ANTES}[Cc]omenta\\s+["“«']?[A-ZÁÉÍÓÚ]{2,}["”»']?`, "gu"),
   patron(`${ANTES}(?:dale|deja tu|dame un) like${DESPUES}`),
   patron(`${ANTES}reacciona con${DESPUES}`),
-  patron(`${ANTES}etiqueta a${DESPUES}`),
+  // Only the imperative: "ponerle una etiqueta a tu pareja" is about labels, not about tagging people.
+  patron(`(?<=^|[.!?¡¿\\n]\\s*)etiqueta a${DESPUES}`),
+  patron(`${ANTES}etiqueta a (?:alguien|quien|tu\\s+amig\\p{L}*|un\\p{L}*\\s+amig\\p{L}*)${DESPUES}`),
   patron(`${ANTES}comparte (?:si|sí|esto si|esto sí)${DESPUES}`),
   patron(`${ANTES}vota con (?:una |tu )?reacci[oó]n${DESPUES}`),
 ]
 const LETRAS_ESTILIZADAS = /[\u{1D400}-\u{1D7FF}]+/u
-const RAYA_LARGA = /\u2014/u
+const RAYA_LARGA = /[\u2013\u2014]/u
 const VOSEO = patron(`${ANTES}(?:podís|sabís|cachai|querís|tenís)${DESPUES}`)
 const USTED = patron(`${ANTES}usted${DESPUES}`)
 
@@ -425,7 +427,8 @@ export function revisarTextoLinkedin(entrada: {
     )
   }
 
-  const preguntas = texto.match(/\?/g)?.length ?? 0
+  // A question mark inside a link is part of the address, not a question.
+  const preguntas = texto.replace(ENLACE, " ").match(/\?/g)?.length ?? 0
   if (preguntas === 0) {
     advierte("pregunta_linkedin", "Cierra con una pregunta específica que invite a contar la experiencia.")
   } else if (preguntas > 1) {
@@ -460,8 +463,9 @@ export function revisarTextoLinkedin(entrada: {
       estilizada[0],
     )
   }
-  if (RAYA_LARGA.test(texto)) {
-    advierte("formato_linkedin", "Sin rayas largas en el texto. Usa coma, punto o dos puntos.", "\u2014")
+  const raya = RAYA_LARGA.exec(texto)
+  if (raya) {
+    advierte("formato_linkedin", "Sin rayas largas en el texto. Usa coma, punto o dos puntos.", raya[0])
   }
 
   for (const frase of distintos(texto, [VOSEO])) {

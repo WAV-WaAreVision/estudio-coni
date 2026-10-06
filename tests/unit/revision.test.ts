@@ -691,6 +691,38 @@ describe("revisarTextoLinkedin", () => {
     })
   })
 
+  describe("false positives and the en dash", () => {
+    it.each([
+      "Hay que ponerle una etiqueta a tu pareja y eso no ayuda.",
+      "Le pusieron una etiqueta a Mariana en el colegio.",
+      "Cuando alguien te dice etiqueta a esa persona, piénsalo dos veces.",
+    ])("leaves «%s» alone", (frase) => {
+      expect(reglasDe(textoLinkedin({ gancho: frase }))).not.toContain("bait_linkedin")
+    })
+
+    it.each([
+      "Etiqueta a alguien que lo necesite.",
+      "Comparte esto. Etiqueta a tu amiga.",
+      "Dale like y etiqueta a un amigo.",
+      "Etiqueta a quien lo necesite.",
+    ])("still catches the imperative «%s»", (frase) => {
+      expect(reglasDe(textoLinkedin({ gancho: frase }))).toContain("bait_linkedin")
+    })
+
+    it("warns about the en dash like the long dash", () => {
+      expect(reglasDe(textoLinkedin({ gancho: "Los límites \u2013 y la calma" }))).toEqual(["formato_linkedin"])
+    })
+
+    it("does not count ©, ® or ™ as emojis", () => {
+      expect(reglasDe(textoLinkedin({ gancho: `${GANCHO} © ® ™ © ®` }))).toEqual([])
+    })
+
+    it("does not count a question mark inside a link as the closing question", () => {
+      const conLink = textoLinkedin({ gancho: `${GANCHO} Mira https://ejemplo.cl/guia?id=1&x=2` })
+      expect(reglas(revisarLinkedin({ texto: conLink }))).toEqual(["enlace_linkedin"])
+    })
+  })
+
   describe("format and address", () => {
     it("warns about letters in Unicode bold or italic and about the long dash", () => {
       expect(reglasDe(textoLinkedin({ gancho: "𝗟𝗼𝘀 𝗹𝗶́𝗺𝗶𝘁𝗲𝘀 importan" }))).toEqual(["formato_linkedin"])
