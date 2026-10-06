@@ -2,6 +2,7 @@
 // Reads the golden scripts through import.meta.url, which jsdom does not support.
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
+import { revisionAJson } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import {
   AVISO_AVATAR,
@@ -13,6 +14,7 @@ import {
   LINEAS_AYUDA,
   pideLineasDeAyuda,
   revisarGuion,
+  revisarTextoLinkedin,
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
@@ -426,5 +428,101 @@ describe("revisarGuion with tone marks", () => {
   it("stores and reads back the new findings", () => {
     const hallazgos = revisar({ guion: `[cálido] ${GUION}`, texto: `[warm] ${TEXTO}` })
     expect(leerRevision(JSON.parse(JSON.stringify(hallazgos)))).toEqual(hallazgos)
+  })
+})
+
+describe("revisarTextoLinkedin", () => {
+  const OK = `Una idea para colegas.\n\n#sexualidad #psicologia\n\n${AVISO_AVATAR}`
+
+  function revisarLinkedin(cambios: Partial<Parameters<typeof revisarTextoLinkedin>[0]> = {}): Hallazgo[] {
+    return revisarTextoLinkedin({
+      texto: OK,
+      esAvatar: true,
+      requiereLineasAyuda: false,
+      ajeno: SIN_AJENO,
+      ...cambios,
+    })
+  }
+
+  it("returns nothing for a text that follows every rule", () => {
+    expect(revisarLinkedin()).toEqual([])
+  })
+
+  it("blocks a text without the avatar notice and says it is the LinkedIn text", () => {
+    expect(revisarLinkedin({ texto: "Hola." })).toEqual([
+      {
+        regla: "aviso_avatar",
+        tipo: "bloquea",
+        mensaje: `El texto para LinkedIn tiene que avisar que es un avatar digital: «${AVISO_AVATAR}»`,
+        campo: "linkedin",
+      },
+    ])
+  })
+
+  it("does not ask for the avatar notice when the video is not an avatar", () => {
+    expect(revisarLinkedin({ texto: "Hola.", esAvatar: false })).toEqual([])
+  })
+
+  it("warns, and does not block, when there are more than three hashtags", () => {
+    const hallazgos = revisarLinkedin({ texto: `Hola. #a #b #c #d\n${AVISO_AVATAR}` })
+    expect(hallazgos).toEqual([
+      {
+        regla: "hashtags_linkedin",
+        tipo: "advierte",
+        mensaje: "En LinkedIn van como máximo 3 hashtags. Tiene 4.",
+        campo: "linkedin",
+      },
+    ])
+    expect(bloquea(hallazgos)).toBe(false)
+  })
+
+  it("accepts exactly three hashtags and ignores a number sign that is not a hashtag", () => {
+    expect(revisarLinkedin({ texto: `Hola #a #b #c\n${AVISO_AVATAR}` })).toEqual([])
+    expect(reglas(revisarLinkedin({ texto: `Somos el número # uno\n${AVISO_AVATAR}` }))).toEqual([])
+  })
+
+  it("blocks when the help lines are required and missing, and passes when they are there", () => {
+    expect(reglas(revisarLinkedin({ requiereLineasAyuda: true }))).toEqual(["lineas_ayuda"])
+    const conLineas = `Hola.\n${LINEAS_AYUDA}\n${AVISO_AVATAR}`
+    expect(revisarLinkedin({ texto: conLineas, requiereLineasAyuda: true })).toEqual([])
+  })
+
+  it("blocks a known tone mark and a text over 3000 characters", () => {
+    const texto = `[calm] ${"a".repeat(3000)}\n${AVISO_AVATAR}`
+    const hallazgos = revisarLinkedin({ texto })
+    expect(reglas(hallazgos).sort()).toEqual(["etiqueta_en_texto", "largo_linkedin"])
+    expect(bloquea(hallazgos)).toBe(true)
+  })
+
+  it("accepts a text of exactly 3000 characters", () => {
+    const texto = `${"a".repeat(3000 - AVISO_AVATAR.length - 1)}\n${AVISO_AVATAR}`
+    expect([...texto]).toHaveLength(3000)
+    expect(revisarLinkedin({ texto })).toEqual([])
+  })
+
+  it("warns when an author of the backing is named or a quote is copied", () => {
+    const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [] }
+    const texto = `Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.\n${AVISO_AVATAR}`
+    const hallazgos = revisarLinkedin({ texto, ajeno })
+    expect(hallazgos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regla: "nombra_autor", tipo: "advierte", frase: "Esther Perel", campo: "linkedin" }),
+        expect.objectContaining({ regla: "copia_de_fuente", tipo: "advierte", campo: "linkedin" }),
+      ]),
+    )
+    expect(bloquea(hallazgos)).toBe(false)
+  })
+
+  it("tags every finding with the LinkedIn field and keeps the tag when stored and read back", () => {
+    const hallazgos = revisarLinkedin({ texto: `[warm] Hola #a #b #c #d` })
+    expect(hallazgos.length).toBeGreaterThan(1)
+    expect(hallazgos.every((h) => h.campo === "linkedin")).toBe(true)
+    expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
+  })
+
+  it("keeps findings of the caption without a field, as today", () => {
+    const hallazgos = revisar({ texto: "Hola." })
+    expect(hallazgos.every((h) => h.campo === undefined)).toBe(true)
+    expect(leerRevision(JSON.parse(JSON.stringify(revisionAJson(hallazgos))))).toEqual(hallazgos)
   })
 })

@@ -120,11 +120,13 @@ export async function guardarBorrador(
 
 /** Findings as the plain JSON the `revision` column stores. */
 export function revisionAJson(hallazgos: readonly Hallazgo[]): Json {
-  return hallazgos.map((h) =>
-    h.frase === undefined
-      ? { regla: h.regla, tipo: h.tipo, mensaje: h.mensaje }
-      : { regla: h.regla, tipo: h.tipo, mensaje: h.mensaje, frase: h.frase },
-  )
+  return hallazgos.map((h) => ({
+    regla: h.regla,
+    tipo: h.tipo,
+    mensaje: h.mensaje,
+    ...(h.frase === undefined ? {} : { frase: h.frase }),
+    ...(h.campo === undefined ? {} : { campo: h.campo }),
+  }))
 }
 
 export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }

@@ -13,6 +13,8 @@ export const REGLAS_DETERMINISTAS = [
   "etiqueta_desconocida",
   "muchas_etiquetas",
   "etiqueta_en_texto",
+  "largo_linkedin",
+  "hashtags_linkedin",
 ] as const
 export type Regla = (typeof REGLAS_DETERMINISTAS)[number]
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
@@ -133,6 +135,8 @@ export interface Hallazgo {
   tipo: "bloquea" | "advierte"
   mensaje: string
   frase?: string
+  /** Where the finding lives when it is not the script or the caption: the screen shows it under that field. */
+  campo?: "linkedin"
 }
 
 /** An alert of an idea in the bank (`**verificar dato:** ...`), one entry per type. */
@@ -270,6 +274,82 @@ export function revisarGuion(entrada: {
   }
 
   return hallazgos
+}
+
+/** LinkedIn takes 3000 characters per post. */
+export const MAXIMO_TEXTO_LINKEDIN = 3000
+export const MAXIMO_HASHTAGS_LINKEDIN = 3
+// A hashtag starts a word: a number sign inside a word or standing alone is not one.
+const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
+
+/**
+ * The LinkedIn text is published as written, like the caption: the same blocking rules (avatar notice, help lines,
+ * tone marks) and warnings (copied phrases, named authors), plus LinkedIn's own limits. More hashtags than LinkedIn
+ * recommends only warns. Every finding carries `campo: "linkedin"` so the screen shows it under that field.
+ */
+export function revisarTextoLinkedin(entrada: {
+  texto: string
+  esAvatar: boolean
+  requiereLineasAyuda: boolean
+  ajeno: Ajeno
+}): Hallazgo[] {
+  const { texto, esAvatar, requiereLineasAyuda, ajeno } = entrada
+  const hallazgos: Hallazgo[] = []
+
+  if (esAvatar && !texto.includes(AVISO_AVATAR)) {
+    hallazgos.push({
+      regla: "aviso_avatar",
+      tipo: "bloquea",
+      mensaje: `El texto para LinkedIn tiene que avisar que es un avatar digital: «${AVISO_AVATAR}»`,
+    })
+  }
+
+  if (requiereLineasAyuda && !["1455", "*4141", "133"].every((linea) => texto.includes(linea))) {
+    hallazgos.push({
+      regla: "lineas_ayuda",
+      tipo: "bloquea",
+      mensaje: "Este tema pide las líneas de ayuda de Chile también en el texto para LinkedIn: 1455, *4141 y 133.",
+    })
+  }
+
+  if ([...texto].length > MAXIMO_TEXTO_LINKEDIN) {
+    hallazgos.push({
+      regla: "largo_linkedin",
+      tipo: "bloquea",
+      mensaje: "LinkedIn acepta hasta 3.000 caracteres. Acorta un poco el texto.",
+    })
+  }
+
+  const hashtags = texto.match(HASHTAG)?.length ?? 0
+  if (hashtags > MAXIMO_HASHTAGS_LINKEDIN) {
+    hallazgos.push({
+      regla: "hashtags_linkedin",
+      tipo: "advierte",
+      mensaje: `En LinkedIn van como máximo ${MAXIMO_HASHTAGS_LINKEDIN} hashtags. Tiene ${hashtags}.`,
+    })
+  }
+
+  for (const frase of new Set(
+    etiquetasDe(texto)
+      .filter((marca) => marca.conocida)
+      .map((marca) => marca.escrita),
+  )) {
+    hallazgos.push({
+      regla: "etiqueta_en_texto",
+      tipo: "bloquea",
+      mensaje: "Las marcas de tono van solo en el guion. Bórrala del texto para LinkedIn.",
+      frase,
+    })
+  }
+
+  for (const frase of new Set(tramosCopiados(texto, ajeno.citas))) {
+    hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
+  }
+  for (const frase of new Set(autoresNombrados(texto, ajeno.autores, ajeno.personas))) {
+    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
+  }
+
+  return hallazgos.map((hallazgo) => ({ ...hallazgo, campo: "linkedin" as const }))
 }
 
 export function bloquea(hallazgos: readonly Hallazgo[]): boolean {
