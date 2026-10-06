@@ -133,8 +133,10 @@ Findings of the LinkedIn text only block gate 2 when LinkedIn is chosen. They li
 - New section "Texto para LinkedIn" under the caption: the text, "Editar" (same editor pattern as the caption),
   findings with `MarcaRevision`.
 - "Dónde se publica": two `Casilla` (Instagram, LinkedIn), default from `ajustes.destinos_por_defecto`; at least one.
-- Approval (`DeslizarAprobar`) sends `destinos` and the formula-2 hash the screen saw; the action recomputes and
-  refuses with `ArtefactoCambio` on mismatch.
+- Approval (`DeslizarParaAprobar`) sends `destinos`; the action recomputes the formula-2 hash from the row. The
+  guarantee that she approved what she saw is the version lock: the write only matches the version of her screen, so a
+  change in between refuses with `ArtefactoCambio`. The slider is held while the caption or the LinkedIn editor is
+  open with unsaved changes ("Guarda o cancela la edición del texto.").
 - Existing piece without a LinkedIn text and LinkedIn ticked: the field starts with the Instagram caption without its
   hashtags (deterministic, no Claude call) and the review runs on it; she edits it before approving.
 - Editing the LinkedIn text uses a new action `editarTextoLinkedin` and SQL `editar_texto_linkedin_como_coni`,
