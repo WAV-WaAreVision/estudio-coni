@@ -230,3 +230,38 @@ describe("PantallaVideo: aprobar", () => {
     )
   })
 })
+
+describe("PantallaVideo: ediciones sin guardar", () => {
+  const MOTIVO = "Guarda o cancela la edición del texto."
+
+  it("blocks the approval while the LinkedIn text is being edited, and frees it when she cancels", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    revisar()
+    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar el texto para LinkedIn" }))
+    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText(MOTIVO)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("blocks the approval while the caption is being edited", () => {
+    abrir()
+    revisar()
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar el texto" }))
+
+    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText(MOTIVO)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("does not wait for an editor of LinkedIn that is not on screen", () => {
+    abrir()
+    revisar()
+    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
+  })
+})

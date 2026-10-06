@@ -64,6 +64,8 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const [zonas, setZonas] = useState(false)
   const [revisado, setRevisado] = useState(false)
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
+  const [editandoElTexto, setEditandoElTexto] = useState(false)
+  const [editandoLinkedin, setEditandoLinkedin] = useState(false)
   const [destinos, setDestinos] = useState<Destino[]>(datos.destinosPorDefecto)
   const [fecha, setFecha] = useState(datos.fechas[0]?.iso ?? null)
   const [cambiandoFecha, setCambiandoFecha] = useState(false)
@@ -88,15 +90,17 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
     ? "Se activa al terminar de verlo."
     : linkedinSinGuardar
       ? "Guarda el texto para LinkedIn."
-      : bloqueos.length > 0
-        ? "Hay algo que corregir antes de aprobar."
-        : !revisado
-          ? "Marca lo que revisaste."
-          : sinConfirmar.length > 0
-            ? "Confirma la revisión."
-            : !fechaElegida
-              ? "No hay un horario libre. Avísale a Federico."
-              : undefined
+      : editandoElTexto || editandoLinkedin
+        ? "Guarda o cancela la edición del texto."
+        : bloqueos.length > 0
+          ? "Hay algo que corregir antes de aprobar."
+          : !revisado
+            ? "Marca lo que revisaste."
+            : sinConfirmar.length > 0
+              ? "Confirma la revisión."
+              : !fechaElegida
+                ? "No hay un horario libre. Avísale a Federico."
+                : undefined
   const habilitado = motivo === undefined
 
   function alternarConfirmacion(hallazgo: Hallazgo, confirmada: boolean) {
@@ -162,7 +166,12 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           </Seccion>
 
           <Seccion titulo="Así sale en Instagram" id="texto">
-            <TextoDeInstagram piezaId={datos.id} version={datos.version} texto={datos.texto} />
+            <TextoDeInstagram
+              piezaId={datos.id}
+              version={datos.version}
+              texto={datos.texto}
+              alEditar={setEditandoElTexto}
+            />
           </Seccion>
 
           {conLinkedin ? (
@@ -173,6 +182,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
                 texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
                 guardado={datos.textoLinkedin !== null}
                 alGuardar={editarTextoLinkedinAccion}
+                alEditar={setEditandoLinkedin}
               />
               {datos.textoLinkedin !== null && revisionDeLinkedin.length > 0 ? (
                 <div className="mt-2 grid gap-4">

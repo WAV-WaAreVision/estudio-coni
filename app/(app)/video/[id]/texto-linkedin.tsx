@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
@@ -17,6 +17,8 @@ interface PropiedadesDeTextoLinkedin {
   guardado: boolean
   editable?: boolean
   alGuardar: (piezaId: string, version: number, texto: string) => Promise<Resultado>
+  /** Tells the screen while the editor is open, so it can hold the approval until she saves or cancels. */
+  alEditar?: (editando: boolean) => void
 }
 
 const miles = (n: number) => n.toLocaleString("es-CL")
@@ -29,11 +31,16 @@ export function TextoLinkedin({
   guardado,
   editable = true,
   alGuardar,
+  alEditar,
 }: PropiedadesDeTextoLinkedin) {
   const [editando, setEditando] = useState(!guardado && editable)
   const [borrador, setBorrador] = useState(texto)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
   const caja = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    alEditar?.(editando)
+    return () => alEditar?.(false)
+  }, [editando, alEditar])
   useAutoAlto(caja, borrador)
 
   if (!editando) {
