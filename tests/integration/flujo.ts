@@ -17,6 +17,9 @@ export type FilaLeida = FilaPieza & {
   puerta2_por: string | null
   avatar_id: string | null
   puerta1_formula: number | null
+  puerta2_formula: number | null
+  destinos: string[]
+  texto_linkedin: string | null
 }
 
 export async function leer(c: pg.PoolClient, id: string): Promise<FilaLeida> {
