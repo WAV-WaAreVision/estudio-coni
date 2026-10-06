@@ -17,6 +17,7 @@ import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import {
   bloquea,
+  etiquetarJuiciosDeClaude,
   type Hallazgo,
   MAXIMO_DEL_GUION,
   pideLineasDeAyuda,
@@ -148,7 +149,11 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
   const deLinkedin = revisarLinkedin(
     deRiesgo || pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"),
   )
-  const revision: Hallazgo[] = [...reglas, ...deLinkedin, ...juicio.hallazgos]
+  const revision: Hallazgo[] = [
+    ...reglas,
+    ...deLinkedin,
+    ...etiquetarJuiciosDeClaude(juicio.hallazgos, { guion, texto, textoLinkedin: fila.texto_linkedin }),
+  ]
 
   const { data, error } = await db.rpc("editar_guion_como_coni", {
     p_pieza: fila.id,

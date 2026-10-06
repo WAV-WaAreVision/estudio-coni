@@ -18,7 +18,14 @@ import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
-import { bloquea, type Hallazgo, pideLineasDeAyuda, revisarGuion, revisarTextoLinkedin } from "@/lib/dominio/revision"
+import {
+  bloquea,
+  etiquetarJuiciosDeClaude,
+  type Hallazgo,
+  pideLineasDeAyuda,
+  revisarGuion,
+  revisarTextoLinkedin,
+} from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import {
   costoClaude,
@@ -146,7 +153,7 @@ async function redactarBorrador(
     hallazgos = revisar(escrito, true)
   }
 
-  const revision: Hallazgo[] = [...hallazgos, ...juicio.hallazgos]
+  const revision: Hallazgo[] = [...hallazgos, ...etiquetarJuiciosDeClaude(juicio.hallazgos, escrito)]
   return {
     borrador: {
       guion: escrito.guion,

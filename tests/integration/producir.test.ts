@@ -787,6 +787,26 @@ describe("producirPieza: el texto para LinkedIn", () => {
     expect((await leerFila(id)).revision).toEqual([])
   })
 
+  it("tags a Claude finding with the LinkedIn field when its phrase is only in that text", async () => {
+    const id = await crearPiezaEnProduccion()
+    const conCifra = LINKEDIN_BUENO.replace(
+      "Llevan diez años",
+      "El setenta por ciento de las parejas lo vive. Llevan diez años",
+    )
+    simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: conCifra }),
+      hallazgos: [
+        { regla: "cifra_sin_verificar", frase: "El setenta por ciento de las parejas", mensaje: "Cifra sin fuente." },
+      ],
+    })
+
+    await producirPieza(deps(), id)
+
+    expect((await leerFila(id)).revision).toEqual([
+      expect.objectContaining({ regla: "cifra_sin_verificar", tipo: "advierte", campo: "linkedin" }),
+    ])
+  })
+
   it("sends the LinkedIn text to Claude's review", async () => {
     const id = await crearPiezaEnProduccion()
     const sim = simular()

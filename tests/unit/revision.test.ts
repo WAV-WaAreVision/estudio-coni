@@ -10,6 +10,7 @@ import {
   autoresNombrados,
   bloquea,
   CIERRE,
+  etiquetarJuiciosDeClaude,
   type Hallazgo,
   hallazgosDeLaAprobacion,
   LARGO_DE_COPIA,
@@ -812,5 +813,39 @@ describe("hallazgosDeLaAprobacion", () => {
   it("keeps Claude's judgments, which belong to no field, in both cases", () => {
     const juicio: Hallazgo = { regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "m", frase: "x" }
     expect(hallazgosDeLaAprobacion([juicio, deLinkedin], { linkedin: false })).toEqual([juicio])
+  })
+})
+
+describe("etiquetarJuiciosDeClaude", () => {
+  const textos = {
+    guion: `[warm] Uno de cada diez lo vive.\n\n${CIERRE}`,
+    texto: `Hablemos de límites. ${AVISO_AVATAR}`,
+    textoLinkedin: "En consulta vemos que el ochenta por ciento mejora.\n\nUna pregunta final.",
+  }
+  const juicio = (frase: string): Hallazgo => ({ regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "m", frase })
+
+  it("tags a finding whose phrase only appears in the LinkedIn text", () => {
+    const [h] = etiquetarJuiciosDeClaude([juicio("el ochenta por ciento mejora")], textos)
+    expect(h).toMatchObject({ campo: "linkedin" })
+  })
+
+  it("leaves a finding of the script or the caption without a field, tone marks and spacing aside", () => {
+    const hallazgos = etiquetarJuiciosDeClaude(
+      [juicio("Uno de cada diez lo vive"), juicio("Hablemos  de límites")],
+      textos,
+    )
+    expect(hallazgos.map((h) => h.campo)).toEqual([undefined, undefined])
+  })
+
+  it("leaves a phrase that appears in both places, or in none, without a field", () => {
+    const ambos = { ...textos, textoLinkedin: `${textos.textoLinkedin} Hablemos de límites.` }
+    expect(etiquetarJuiciosDeClaude([juicio("Hablemos de límites")], ambos)[0]?.campo).toBeUndefined()
+    expect(etiquetarJuiciosDeClaude([juicio("no está en ningún lado")], textos)[0]?.campo).toBeUndefined()
+  })
+
+  it("does nothing when the piece has no LinkedIn text", () => {
+    expect(
+      etiquetarJuiciosDeClaude([juicio("el ochenta por ciento")], { ...textos, textoLinkedin: null })[0]?.campo,
+    ).toBeUndefined()
   })
 })

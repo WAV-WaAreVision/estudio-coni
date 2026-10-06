@@ -485,6 +485,28 @@ export function revisarTextoLinkedin(entrada: {
   return hallazgos.map((hallazgo) => ({ ...hallazgo, campo: "linkedin" as const }))
 }
 
+const comparable = (texto: string) => texto.replace(/\s+/g, " ").trim().toLowerCase()
+
+/**
+ * Claude judges the script, the caption and the LinkedIn text in one go and quotes a phrase. A phrase that only appears
+ * in the LinkedIn text belongs to that field: it shows under it, and goes when that text is edited. A phrase found
+ * elsewhere too, or nowhere, stays as it always was.
+ */
+export function etiquetarJuiciosDeClaude(
+  juicios: readonly Hallazgo[],
+  textos: { guion: string; texto: string; textoLinkedin: string | null },
+): Hallazgo[] {
+  const { textoLinkedin } = textos
+  if (textoLinkedin === null) return [...juicios]
+  const delGuionYElTexto = [sinEtiquetas(textos.guion), textos.texto].map(comparable)
+  const delLinkedin = comparable(textoLinkedin)
+  return juicios.map((juicio) => {
+    const frase = juicio.frase === undefined ? "" : comparable(juicio.frase)
+    if (frase === "" || !delLinkedin.includes(frase)) return juicio
+    return delGuionYElTexto.some((campo) => campo.includes(frase)) ? juicio : { ...juicio, campo: "linkedin" as const }
+  })
+}
+
 /** The LinkedIn text of a piece that may not have one yet (a piece from before LinkedIn has none): no text, no findings. */
 export function revisarLinkedinSiHay(
   texto: string | null,

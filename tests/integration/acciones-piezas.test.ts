@@ -1230,6 +1230,20 @@ describe("editarTextoLinkedin", () => {
     expect(guardada.estado).toBe("video_por_aprobar")
   })
 
+  it("drops Claude's findings that were about the old LinkedIn text and keeps the ones about the script and the caption", async () => {
+    const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO, texto_linkedin: LINKEDIN_OK })
+    await ajustarComoPostgres(id, {
+      revision: JSON.stringify([
+        { regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "De LinkedIn.", frase: "x", campo: "linkedin" },
+        { regla: "diagnostico", tipo: "advierte", mensaje: "Del texto.", frase: "y" },
+      ]),
+    })
+
+    await editarTextoLinkedin(armar().deps, id, await versionDe(id), `${LINKEDIN_OK} Más.`)
+
+    expect(((await fila(id)).revision as { mensaje: string }[]).map((h) => h.mensaje)).toEqual(["Del texto."])
+  })
+
   it("replaces the earlier review of the LinkedIn text instead of adding to it", async () => {
     const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO, texto_linkedin: "Sin aviso." })
     await ajustarComoPostgres(id, { revision: BLOQUEA_LINKEDIN })

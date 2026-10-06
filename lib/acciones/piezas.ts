@@ -393,12 +393,14 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
     const actual = leerRevision(fila.revision)
     const juicios = actual.filter(esJuicioDeClaude)
     const requiereLineasAyuda = await pideAyuda(deps.db, fila, juicios)
+    // Claude's findings about the old LinkedIn text are about text that no longer exists: they go with it.
+    const juiciosQueQuedan = juicios.filter((juicio) => juicio.campo !== "linkedin")
     const ajeno = ajenoDelRespaldo(leerRespaldo(fila.respaldo))
     const delGuionYElTexto = sinLinkedin(actual).filter((hallazgo) => !esJuicioDeClaude(hallazgo))
     const revision: Hallazgo[] = [
       ...delGuionYElTexto,
       ...revisarLinkedinSiHay(texto, { esAvatar: true, requiereLineasAyuda, ajeno }),
-      ...juicios,
+      ...juiciosQueQuedan,
     ]
 
     // Written as Coni (the database function is hers alone), so the audit row names her and not the service role.
