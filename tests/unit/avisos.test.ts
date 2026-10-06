@@ -49,7 +49,7 @@ describe("avisos de subir a mano", () => {
   it("opens the video screen of the piece and says it in the push without naming the reel", () => {
     const aviso = { tipo: "listo_para_subir", piezaId: "p1" } as const
     expect(rutaDeAviso(aviso)).toBe("/video/p1")
-    expect(mensajePush(aviso)).toMatchObject({ cuerpo: "Tu reel está listo para subir a Instagram", url: "/video/p1" })
+    expect(mensajePush(aviso)).toMatchObject({ cuerpo: "Tu reel está listo para subir", url: "/video/p1" })
     expect(esTipoDeAviso("listo_para_subir")).toBe(true)
   })
 })

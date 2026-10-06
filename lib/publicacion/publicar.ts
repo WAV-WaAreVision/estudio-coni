@@ -7,15 +7,18 @@ import {
   type FilaDePieza,
   leerCuentaMeta,
   leerPieza,
+  leerPublicaciones,
   leerSecreto,
   tomarParaPublicar,
 } from "@/lib/datos/repositorio"
+import { canonicos, type Destino, esDestino, nombreDeDestinos, resumenDePublicaciones } from "@/lib/dominio/destinos"
 import { type Evento, type Pieza, transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import {
   claveIdempotencia,
+  formulaDePuerta2,
   hashPuerta2,
-  hashTexto,
+  hashTextoDePuerta2,
   puedeEntregarseParaSubir,
   puedePublicar,
   type Veredicto,
@@ -154,6 +157,25 @@ function descripcion(contexto: Contexto): string {
   return `pieza ${fila.id} («${fila.titulo}»)`
 }
 
+/** The destinations of the piece, validated: the column is checked in the database, this narrows its type. */
+function destinosDe(fila: FilaDePieza): Destino[] {
+  const desconocido = fila.destinos.find((destino) => !esDestino(destino))
+  if (desconocido !== undefined) throw new Error(`Destino desconocido en la pieza ${fila.id}: ${desconocido}`)
+  return canonicos(fila.destinos.filter(esDestino))
+}
+
+/**
+ * The text side of what was approved, recomputed from the row with the formula the approval used. An approval from before
+ * LinkedIn is formula 1 and hashes the caption alone; formula 2 also binds the LinkedIn text and the destinations.
+ */
+function hashTextoActual(fila: FilaDePieza, texto: string): string {
+  return hashTextoDePuerta2(formulaDePuerta2(fila.puerta2_formula), {
+    texto,
+    textoLinkedin: fila.texto_linkedin,
+    destinos: destinosDe(fila),
+  })
+}
+
 /** Writes columns of the piece with the optimistic lock; the row it returns is the one the next write builds on. */
 async function escribir(contexto: Contexto, cambios: CambiosDePieza): Promise<void> {
   const { fila } = contexto
@@ -259,8 +281,17 @@ async function confirmar(
   if (lectura.permalink === null) {
     throw new Error(`Instagram no devolvió el permalink de la publicación ${mediaId}.`)
   }
-  await escribirTransicion(contexto, { tipo: "publicado" }, { permalink: lectura.permalink })
-  const mensaje = `Tu reel «${fila.titulo}» ya está publicado en Instagram. Míralo aquí: ${lectura.permalink}`
+  // A destination that goes by hand (LinkedIn) still waits for her: the piece is not finished, it is for her to upload.
+  const quedaLinkedin = destinosDe(fila).includes("linkedin")
+  await escribirTransicion(
+    contexto,
+    { tipo: "publicado", quedanAMano: quedaLinkedin },
+    { permalink: lectura.permalink },
+  )
+  const pendiente = quedaLinkedin
+    ? " Falta subirlo a LinkedIn: entra a la app para descargar el video y copiar el texto."
+    : ""
+  const mensaje = `Tu reel «${fila.titulo}» ya está publicado en Instagram.${pendiente} Míralo aquí: ${lectura.permalink}`
   await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false, avisoDe(contexto, "publicado")))
   return { piezaId: fila.id, resultado: "publicada" }
 }
@@ -336,7 +367,7 @@ async function publicarPieza(contexto: Contexto, credenciales: Credenciales): Pr
     }
   }
 
-  const textoActual = hashTexto(texto)
+  const textoActual = hashTextoActual(contexto.fila, texto)
   const veredicto = puedePublicar(pieza, { hashTexto: textoActual, ahora: deps.ahora() })
   if (!veredicto.ok) return rechazarPorElGuardia(contexto, veredicto)
 
@@ -394,17 +425,27 @@ function sinRastroEnInstagram(contexto: Contexto): boolean {
   return fila.contenedor_id === null && fila.media_id === null && fila.publicacion_enviada_en === null
 }
 
-/** Instagram is not connected: at the approved time the piece waits for Coni to upload it herself. */
+/** The destinations Coni still has to upload, in the words of the notice. */
+async function pendientesPorSubir(contexto: Contexto): Promise<string> {
+  const { pendientes } = resumenDePublicaciones(await leerPublicaciones(contexto.deps.db, contexto.fila.id))
+  return nombreDeDestinos(pendientes.length > 0 ? pendientes : destinosDe(contexto.fila))
+}
+
+/** At the approved time the piece waits for Coni to upload it herself: Instagram not connected, or a destination that is by hand. */
 async function entregarParaSubir(contexto: Contexto): Promise<ResultadoPublicacion> {
   const pieza = piezaDesdeFila(contexto.fila)
   const texto = contexto.fila.texto
   if (pieza.puerta2 === null || texto === null) {
     return fallar(contexto, EXPLICACION_CAMBIO, "la pieza programada no tiene aprobación o texto guardados")
   }
-  const veredicto = puedeEntregarseParaSubir(pieza, { hashTexto: hashTexto(texto), ahora: contexto.deps.ahora() })
+  const veredicto = puedeEntregarseParaSubir(pieza, {
+    hashTexto: hashTextoActual(contexto.fila, texto),
+    ahora: contexto.deps.ahora(),
+  })
   if (!veredicto.ok) return rechazarPorElGuardia(contexto, veredicto)
   await escribirTransicion(contexto, { tipo: "entregar_para_subir" })
-  const mensaje = `Tu reel «${contexto.fila.titulo}» está listo para que lo subas a Instagram. Entra a la app para descargar el video y copiar el texto.`
+  // The rows moved to `para_subir` with the piece: they say what is left, which is not always every destination.
+  const mensaje = `Tu reel «${contexto.fila.titulo}» está listo para que lo subas a ${await pendientesPorSubir(contexto)}. Entra a la app para descargar el video y copiar el texto.`
   // Sent at once because its time is now; it is good news, so it is not an urgent kind and carries no error.
   await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, true, avisoDe(contexto, "listo_para_subir")))
   return { piezaId: contexto.fila.id, resultado: "para_subir_a_mano" }
@@ -412,6 +453,8 @@ async function entregarParaSubir(contexto: Contexto): Promise<ResultadoPublicaci
 
 async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
+    // Without Instagram among the destinations there is nothing to publish: LinkedIn is always by hand.
+    if (!destinosDe(contexto.fila).includes("instagram")) return await entregarParaSubir(contexto)
     const conexion = await contexto.conexion()
     if (conexion.tipo === "nunca" && sinRastroEnInstagram(contexto)) return await entregarParaSubir(contexto)
     if (conexion.tipo !== "conectada") {
