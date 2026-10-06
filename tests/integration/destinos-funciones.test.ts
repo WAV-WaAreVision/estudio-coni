@@ -234,6 +234,19 @@ describe("marcar_subido_como_coni", () => {
     })
   })
 
+  it("refuses to mark Instagram by hand while the piece is scheduled and Instagram is connected", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "programado", AMBOS)
+      await c.query("update public.ajustes set meta_cuenta_id = '17841400000000001'")
+      const { version } = await leer(c, id)
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, MARCAR, [id, version, "instagram", null])
+      expect(error.message).toBe("instagram_se_publica_solo")
+      // LinkedIn is always by hand, and Instagram once it was handed over.
+      await c.query(MARCAR, [id, version, "linkedin", null])
+    })
+  })
+
   it("refuses a destination that is not pending: one she already marked, one the piece does not have", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "para_subir_a_mano", AMBOS)

@@ -1404,6 +1404,21 @@ describe("marcarSubidoAMano por destino", () => {
     expect((await fila(soloInstagram)).estado).toBe("para_subir_a_mano")
   })
 
+  it("refuses to say Instagram was uploaded by hand while it is connected and the piece is scheduled", async () => {
+    const id = await pieza("programado", {}, AMBOS)
+    await pool.query("update public.ajustes set meta_cuenta_id = '17841400000000001'")
+    try {
+      const resultado = await marcarSubidoAMano(armar().deps, id, await versionDe(id), "instagram", "")
+      expect(resultado).toEqual({
+        ok: false,
+        error: "Instagram está conectado: este reel sale solo a la hora aprobada.",
+      })
+      expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["esperando", "esperando"])
+    } finally {
+      await pool.query("update public.ajustes set meta_cuenta_id = null")
+    }
+  })
+
   it("lets her mark LinkedIn before its time while the piece is still programado", async () => {
     const id = await pieza("programado", {}, AMBOS)
 

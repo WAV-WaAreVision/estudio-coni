@@ -80,6 +80,13 @@ begin
     raise exception using errcode = 'P0001', message = 'estado_no_marcable';
   end if;
 
+  -- A connected Instagram publishes by itself at the approved time: saying it was uploaded by hand now would make the
+  -- scheduled publication skip it, or double it. Once handed over (para_subir_a_mano) it is hers to upload.
+  if p_destino = 'instagram' and v_pieza.estado = 'programado'
+     and exists (select 1 from public.ajustes where nullif(btrim(meta_cuenta_id), '') is not null) then
+    raise exception using errcode = 'P0001', message = 'instagram_se_publica_solo';
+  end if;
+
   update public.publicaciones
      set estado = 'subido_a_mano', enlace = nullif(btrim(p_enlace), ''), marcado_en = now(), marcado_por = auth.uid()
    where pieza_id = p_pieza and destino = p_destino and estado in ('esperando', 'para_subir');

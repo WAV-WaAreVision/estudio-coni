@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerAvataresElegibles } from "@/lib/datos/pantallas"
+import { leerAvataresElegibles, leerInstagramConectado } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -74,6 +74,7 @@ function exigirRevisionLimpia(fila: FilaDePieza, { linkedin }: { linkedin: boole
   if (bloqueante) throw new Falla(`Todavía no puedes aprobar. ${bloqueante.mensaje}`)
 }
 
+const INSTAGRAM_SALE_SOLO = "Instagram está conectado: este reel sale solo a la hora aprobada."
 const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
 
 function traducir(error: unknown): unknown {
@@ -86,6 +87,7 @@ function traducir(error: unknown): unknown {
   // Two screens marked the same destination, or the piece left the upload steps: what she sees is out of date.
   if (error.message.includes("destino_no_pendiente")) return new Falla(DESTINO_YA_NO_ESPERA)
   if (error.message.includes("estado_no_marcable")) return new PantallaVencida()
+  if (error.message.includes("instagram_se_publica_solo")) return new Falla(INSTAGRAM_SALE_SOLO)
   return error
 }
 
@@ -547,6 +549,9 @@ export function marcarSubidoAMano(
       quedanPendientes: pendientes.some((pendiente) => pendiente !== destino),
     })
     if (!pendientes.includes(destino)) throw new Falla(DESTINO_YA_NO_ESPERA)
+    if (destino === "instagram" && fila.estado === "programado" && (await leerInstagramConectado(deps.db))) {
+      throw new Falla(INSTAGRAM_SALE_SOLO)
+    }
 
     const { error } = await deps.db.rpc("marcar_subido_como_coni", {
       p_pieza: fila.id,
