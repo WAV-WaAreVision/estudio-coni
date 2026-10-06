@@ -14,6 +14,8 @@ const publicada: PiezaDeCalendario = {
   pilar: "pareja",
   publicarEn: "2026-10-08T22:00:00.000Z",
   creadaEn: "2026-10-01T12:00:00.000Z",
+  destinos: ["instagram"] as const,
+  pendientes: [],
 }
 
 function montar(piezas: PiezaDeCalendario[]) {

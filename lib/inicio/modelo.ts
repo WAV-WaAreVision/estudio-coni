@@ -1,3 +1,4 @@
+import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import type { Estado } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
@@ -13,6 +14,10 @@ export interface PiezaDeInicio {
   publicarEn: string | null
   permalink: string | null
   actualizadaEn: string
+  /** Where the reel was approved to go. */
+  destinos: readonly Destino[]
+  /** What still waits for her to upload; empty when no row says (read as every destination). */
+  pendientes: readonly Destino[]
 }
 
 export interface FilaDeFirma {
@@ -56,8 +61,10 @@ export interface Inicio {
   titulo: string
   tiempo: string | null
   firma: FilaDeFirma[]
-  /** Reels whose time came while Instagram was not connected: she uploads them herself. */
+  /** Reels whose time came and have a destination she uploads herself. */
   porSubir: FilaPorSubir[]
+  /** "Para subir a Instagram y LinkedIn": every network that waits, or just "Para subir". */
+  porSubirTitulo: string
   camino: FilaEnCamino[]
   avisos: AvisoDeInicio[]
 }
@@ -172,13 +179,33 @@ function avisoDePublicacion(pieza: PiezaDeInicio, ahora: number, zona: string): 
   }
 }
 
+function textoDeSubidaAMano(destinos: readonly Destino[]): string {
+  const conInstagram = destinos.includes("instagram")
+  const conLinkedin = destinos.includes("linkedin")
+  if (conInstagram && conLinkedin) {
+    return "Quedó anotado como subido por ti, con la etiqueta de IA en Instagram y el texto en LinkedIn."
+  }
+  return conLinkedin
+    ? "Quedó anotado como subido por ti a LinkedIn."
+    : "Quedó anotado como subido por ti, con la etiqueta de IA."
+}
+
 function avisoDeSubidaAMano(pieza: PiezaDeInicio, ahora: number, zona: string): AvisoDeInicio {
+  // `permalink` is the Instagram link: LinkedIn keeps its own on the piece's screen.
+  const conLink = pieza.permalink && pieza.destinos.includes("instagram")
   return {
     tipo: "ok",
     titulo: `${pieza.titulo}: subido a mano ${cuandoSePublico(pieza, ahora, zona)}`,
-    texto: "Quedó anotado como subido por ti, con la etiqueta de IA.",
-    ...(pieza.permalink ? { accion: { etiqueta: "Ver en Instagram", href: pieza.permalink, externo: true } } : {}),
+    texto: textoDeSubidaAMano(pieza.destinos),
+    ...(conLink && pieza.permalink
+      ? { accion: { etiqueta: "Ver en Instagram", href: pieza.permalink, externo: true } }
+      : {}),
   }
+}
+
+/** What waits for her to upload; a piece whose rows say nothing waits for every destination. */
+function esperando(pieza: PiezaDeInicio): Destino[] {
+  return canonicos(pieza.pendientes.length > 0 ? pieza.pendientes : pieza.destinos)
 }
 
 function filaPorSubir(pieza: PiezaDeInicio, zona: string): FilaPorSubir {
@@ -186,7 +213,7 @@ function filaPorSubir(pieza: PiezaDeInicio, zona: string): FilaPorSubir {
     id: pieza.id,
     titulo: pieza.titulo,
     pilar: pieza.pilar,
-    meta: `Para subir${pieza.publicarEn ? ` · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : ""}`,
+    meta: `Para subir a ${nombreDeDestinos(esperando(pieza))}${pieza.publicarEn ? ` · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : ""}`,
     href: `/video/${pieza.id}`,
   }
 }
@@ -224,8 +251,9 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
     )
     .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
   if (recienteAMano) avisos.push(avisoDeSubidaAMano(recienteAMano, ahora, zona))
-  const porSubir = piezas
-    .filter((pieza) => pieza.estado === "para_subir_a_mano")
+  const paraSubir = piezas.filter((pieza) => pieza.estado === "para_subir_a_mano")
+  const redes = canonicos(paraSubir.flatMap(esperando))
+  const porSubir = paraSubir
     .sort((a, b) => Date.parse(a.publicarEn ?? a.actualizadaEn) - Date.parse(b.publicarEn ?? b.actualizadaEn))
     .map((pieza) => filaPorSubir(pieza, zona))
 
@@ -236,6 +264,7 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
     tiempo: tiempoDeFirmas(firma.length),
     firma,
     porSubir,
+    porSubirTitulo: redes.length > 0 ? `Para subir a ${nombreDeDestinos(redes)}` : "Para subir",
     camino,
     avisos,
   }

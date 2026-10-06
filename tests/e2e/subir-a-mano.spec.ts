@@ -149,7 +149,7 @@ test("Inicio and the calendar say clearly what waits to be uploaded and what she
   await capturar(page, "calendario-para-subir", { completa: true })
 
   await page.goto("/calendario?vista=agenda")
-  await expect(page.getByText("Para subir", { exact: true })).toBeVisible()
+  await expect(page.getByText("Para subir a Instagram", { exact: true })).toBeVisible()
   await expect(page.getByText("Subido a mano", { exact: true })).toBeVisible()
   await capturar(page, "calendario-agenda-a-mano", { completa: true })
 })

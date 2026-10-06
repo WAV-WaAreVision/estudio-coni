@@ -55,7 +55,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
                   <FilaPieza
                     key={fila.piezaId}
                     titulo={fila.titulo}
-                    estado={`Para subir · ${fila.fecha}`}
+                    estado={`Para subir a ${fila.pendientes} · ${fila.fecha}`}
                     pilar={fila.pilar}
                     href={`/video/${fila.piezaId}`}
                   />

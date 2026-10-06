@@ -51,3 +51,15 @@ export function resumenDePublicaciones(publicaciones: readonly Publicacion[]) {
     algunoAMano: publicaciones.some((p) => p.estado === "subido_a_mano" || p.estado === "para_subir"),
   }
 }
+
+/** The destinations of a column read from the database (checked there): narrowed, in the canonical order. */
+export function destinosDe(valores: readonly string[]): Destino[] {
+  return canonicos(valores.filter(esDestino))
+}
+
+/** What still waits for her to upload among the rows of a piece as the database returns them. */
+export function pendientesDe(filas: readonly { destino: string; estado: string }[]): Destino[] {
+  return destinosDe(
+    filas.filter((fila) => fila.estado === "esperando" || fila.estado === "para_subir").map((fila) => fila.destino),
+  )
+}

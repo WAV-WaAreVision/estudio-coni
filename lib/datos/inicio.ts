@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
 import type { IdeaDelBanco } from "@/lib/dominio/ideas"
 import type { PiezaDeInicio } from "@/lib/inicio/modelo"
 import type { Database } from "@/lib/supabase/database.types"
@@ -36,7 +37,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
     db
       .from("piezas")
       .select(
-        "id, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, ideas(pilar)",
+        "id, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado)",
       )
       .not("estado", "in", "(idea,descartado)")
       .order("actualizada_en", { ascending: false })
@@ -60,6 +61,8 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       publicarEn: fila.puerta2_publicar_en,
       permalink: fila.permalink,
       actualizadaEn: fila.actualizada_en,
+      destinos: destinosDe(fila.destinos),
+      pendientes: pendientesDe(fila.publicaciones),
     })),
     recientes: piezas.data.flatMap((fila) =>
       fila.ideas && Date.parse(fila.creada_en) >= desde ? [fila.ideas.pilar] : [],

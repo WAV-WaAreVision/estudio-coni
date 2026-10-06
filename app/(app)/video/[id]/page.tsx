@@ -15,8 +15,8 @@ import { leerRevision } from "@/lib/datos/revision"
 import {
   canonicos,
   type Destino,
+  destinosDe,
   destinosValidos,
-  esDestino,
   nombreDeDestino,
   nombreDeDestinos,
 } from "@/lib/dominio/destinos"
@@ -210,11 +210,6 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       }}
     />
   )
-}
-
-/** The column is checked in the database; this narrows its type. */
-function destinosDe(valores: readonly string[]): Destino[] {
-  return canonicos(valores.filter(esDestino))
 }
 
 function detalleDeProgramado(destinos: readonly Destino[], sinInstagram: boolean): string {

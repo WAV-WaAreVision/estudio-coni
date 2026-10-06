@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PiezaDeCalendario } from "@/lib/calendario/modelo"
+import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
 import type { Estado } from "@/lib/dominio/estados"
 import type { Horario } from "@/lib/dominio/fechas"
 import type { Database } from "@/lib/supabase/database.types"
@@ -22,7 +23,9 @@ export async function leerDatosDeCalendario(
   const [piezas, ajustes, primera] = await Promise.all([
     db
       .from("piezas")
-      .select("id, titulo, estado, puerta2_publicar_en, creada_en, ideas(pilar)")
+      .select(
+        "id, titulo, estado, puerta2_publicar_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado)",
+      )
       .not("estado", "in", "(idea,descartado)")
       .or(`puerta2_publicar_en.is.null,puerta2_publicar_en.gte.${desde}`)
       .order("creada_en", { ascending: false })
@@ -50,6 +53,8 @@ export async function leerDatosDeCalendario(
       pilar: fila.ideas?.pilar ?? null,
       publicarEn: fila.puerta2_publicar_en,
       creadaEn: fila.creada_en,
+      destinos: destinosDe(fila.destinos),
+      pendientes: pendientesDe(fila.publicaciones),
     })),
     primeraPublicacion: primera.data?.puerta2_publicar_en ?? null,
     horario: {

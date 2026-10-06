@@ -36,6 +36,7 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
         {ocupante.estado}
         {ocupante.provisional ? " · lugar propuesto" : ""}
       </span>
+      {ocupante.destinos ? <span className="text-meta text-apagado">{ocupante.destinos}</span> : null}
     </span>
   )
 }

@@ -19,6 +19,8 @@ function pieza(estado: PiezaDeInicio["estado"], extra: Partial<PiezaDeInicio> = 
     publicarEn: null,
     permalink: null,
     actualizadaEn: "2026-10-07T14:00:00Z",
+    destinos: ["instagram"] as const,
+    pendientes: [],
     ...extra,
   }
 }
@@ -166,14 +168,14 @@ describe("construirInicio: subir a mano", () => {
         id: antes.id,
         titulo: antes.titulo,
         pilar: "deseo",
-        meta: "Para subir · sábado 3 · 19:00",
+        meta: "Para subir a Instagram · sábado 3 · 19:00",
         href: `/video/${antes.id}`,
       },
       {
         id: tarde.id,
         titulo: tarde.titulo,
         pilar: "deseo",
-        meta: "Para subir · martes 6 · 19:00",
+        meta: "Para subir a Instagram · martes 6 · 19:00",
         href: `/video/${tarde.id}`,
       },
     ])
@@ -221,6 +223,68 @@ describe("construirInicio: subir a mano", () => {
   })
 })
 
+describe("construirInicio: destinos", () => {
+  const paraSubir = (pendientes: PiezaDeInicio["pendientes"], extra: Partial<PiezaDeInicio> = {}) =>
+    pieza("para_subir_a_mano", {
+      publicarEn: "2026-10-06T22:00:00Z",
+      destinos: ["instagram", "linkedin"],
+      pendientes,
+      ...extra,
+    })
+
+  it("says where each reel waits: only LinkedIn, or both", () => {
+    const soloLinkedin = paraSubir(["linkedin"], { publicarEn: "2026-10-03T22:00:00Z" })
+    const ambos = paraSubir(["instagram", "linkedin"])
+
+    const inicio = construirInicio({ piezas: [ambos, soloLinkedin], ahora: AHORA, zona: ZONA })
+
+    expect(inicio.porSubir.map((fila) => fila.meta)).toEqual([
+      "Para subir a LinkedIn · sábado 3 · 19:00",
+      "Para subir a Instagram y LinkedIn · martes 6 · 19:00",
+    ])
+  })
+
+  it("titles the section with every network that waits", () => {
+    const titulo = (piezas: PiezaDeInicio[]) => construirInicio({ piezas, ahora: AHORA, zona: ZONA }).porSubirTitulo
+    expect(titulo([paraSubir(["instagram"], { destinos: ["instagram"] })])).toBe("Para subir a Instagram")
+    expect(titulo([paraSubir(["linkedin"])])).toBe("Para subir a LinkedIn")
+    expect(titulo([paraSubir(["instagram"]), paraSubir(["linkedin"])])).toBe("Para subir a Instagram y LinkedIn")
+    expect(titulo([])).toBe("Para subir")
+  })
+
+  it("falls back to the destinations when no row says what is pending", () => {
+    const inicio = construirInicio({ piezas: [paraSubir([])], ahora: AHORA, zona: ZONA })
+    expect(inicio.porSubir[0]?.meta).toMatch(/^Para subir a Instagram y LinkedIn/)
+  })
+
+  it("celebrates a piece that reached publicado_a_mano with LinkedIn without claiming the Instagram label", () => {
+    const solo = pieza("publicado_a_mano", { destinos: ["linkedin"], actualizadaEn: "2026-10-07T14:00:00Z" })
+
+    const { avisos } = construirInicio({ piezas: [solo], ahora: AHORA, zona: ZONA })
+
+    expect(avisos[0]).toMatchObject({
+      tipo: "ok",
+      texto: "Quedó anotado como subido por ti a LinkedIn.",
+    })
+    expect(avisos[0]).not.toHaveProperty("accion")
+  })
+
+  it("keeps the Instagram wording when Instagram was one of the destinations", () => {
+    const ambos = pieza("publicado_a_mano", {
+      destinos: ["instagram", "linkedin"],
+      actualizadaEn: "2026-10-07T14:00:00Z",
+      permalink: "https://www.instagram.com/reel/abc/",
+    })
+
+    const { avisos } = construirInicio({ piezas: [ambos], ahora: AHORA, zona: ZONA })
+
+    expect(avisos[0]?.texto).toBe(
+      "Quedó anotado como subido por ti, con la etiqueta de IA en Instagram y el texto en LinkedIn.",
+    )
+    expect(avisos[0]?.accion?.href).toBe("https://www.instagram.com/reel/abc/")
+  })
+})
+
 describe("Inicio con la voz aparte", () => {
   const base = {
     titulo: "El deseo",
@@ -229,6 +293,8 @@ describe("Inicio con la voz aparte", () => {
     pilar: null,
     publicarEn: null,
     permalink: null,
+    destinos: ["instagram"] as const,
+    pendientes: [],
     actualizadaEn: "2026-10-04T12:00:00.000Z",
   }
   const entrada = (piezas: PiezaDeInicio[]) => ({ piezas, ahora: Date.parse(base.actualizadaEn), zona: ZONA })

@@ -18,6 +18,8 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
     pilar: "pareja",
     publicarEn: null,
     creadaEn: `2026-10-0${(contador % 9) + 1}T12:00:00.000Z`,
+    destinos: ["instagram"],
+    pendientes: [],
     ...extra,
   }
 }
@@ -305,6 +307,50 @@ describe("Ritmo", () => {
   })
 })
 
+describe("destinos", () => {
+  const dia = (n: number, extra: Partial<PiezaDeCalendario>) => pieza({ publicarEn: alas19(n), ...extra })
+  const ocupante = (piezas: PiezaDeCalendario[], etiqueta: string) =>
+    calendario(piezas)
+      .agenda.semanas.flatMap((s) => s.huecos)
+      .find((h) => h.dia === etiqueta)?.ocupante
+
+  it("names the pending destinations in the label of a piece waiting to be uploaded", () => {
+    const solo = dia(13, { estado: "para_subir_a_mano", destinos: ["instagram", "linkedin"], pendientes: ["linkedin"] })
+    const ambos = dia(15, {
+      estado: "para_subir_a_mano",
+      destinos: ["instagram", "linkedin"],
+      pendientes: ["instagram", "linkedin"],
+    })
+
+    expect(ocupante([solo], "Martes 13")?.estado).toBe("Para subir a LinkedIn")
+    expect(ocupante([ambos], "Jueves 15")?.estado).toBe("Para subir a Instagram y LinkedIn")
+  })
+
+  it("puts a destination line on every dated piece and none on a proposal", () => {
+    const programada = dia(15, { estado: "programado", destinos: ["instagram", "linkedin"] })
+    expect(ocupante([programada], "Jueves 15")?.destinos).toBe("Instagram · LinkedIn")
+    expect(ocupante([dia(15, { estado: "programado" })], "Jueves 15")?.destinos).toBe("Instagram")
+
+    const propuesta = pieza({ estado: "video_por_aprobar" })
+    const huecos = calendario([propuesta]).agenda.semanas.flatMap((s) => s.huecos)
+    expect(huecos.find((h) => h.ocupante?.titulo === propuesta.titulo)?.ocupante?.destinos).toBeNull()
+  })
+
+  it("tells Mes which networks each piece waits for", () => {
+    const { mes } = calendario([
+      dia(13, { estado: "para_subir_a_mano", destinos: ["instagram", "linkedin"], pendientes: ["linkedin"] }),
+    ])
+    expect(mes.porSubir[0]?.pendientes).toBe("LinkedIn")
+  })
+
+  it("says in the description of a day which networks, for those who cannot see the dots", () => {
+    const { mes } = calendario([dia(15, { estado: "programado", destinos: ["instagram", "linkedin"] })])
+    expect(mes.celdas.find((c) => c.dia === 15)?.descripcion).toBe(
+      "jueves 15: Pareja y conversación, en Instagram y LinkedIn",
+    )
+  })
+})
+
 describe("subir a mano", () => {
   const paraSubir = (dia: number, titulo: string) =>
     pieza({ estado: "para_subir_a_mano", publicarEn: alas19(dia), titulo })
@@ -337,7 +383,7 @@ describe("subir a mano", () => {
 
     const hueco = agenda.semanas[0]?.huecos.find((h) => h.dia === "Martes 13")
     expect(hueco?.ocupante).toMatchObject({
-      estado: "Para subir",
+      estado: "Para subir a Instagram",
       tono: "aviso",
       provisional: false,
       href: `/video/${espera.id}`,
