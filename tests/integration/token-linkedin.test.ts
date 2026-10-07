@@ -79,4 +79,14 @@ describe("mantenerTokenLinkedin", () => {
     expect(vieja.aWavEnviados).toHaveLength(1)
     expect(vieja.aWavEnviados[0]?.detalle).toContain("VERSION_DE_LINKEDIN")
   })
+
+  it("reads only the expiry in ajustes: it warns even if the token cannot be read", async () => {
+    await pool.query(
+      "update public.ajustes set linkedin_miembro = 'urn:li:person:x', linkedin_conectado_en = now(), linkedin_token_expira_en = $1",
+      [new Date(Date.parse(AHORA) + 2 * DIA).toISOString()],
+    )
+    const avisos = notificadorEnMemoria()
+    expect(await mantenerTokenLinkedin(deps(avisos))).toBe("avisado")
+    expect(avisos.aConiEnviados).toHaveLength(1)
+  })
 })

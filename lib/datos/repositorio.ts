@@ -365,6 +365,13 @@ export async function leerConexionLinkedin(db: Db): Promise<ConexionLinkedin | n
   return { token, miembro: data.linkedin_miembro, expiraEn: data.linkedin_token_expira_en }
 }
 
+/** The stored expiry of the LinkedIn connection, without reading the token: the nightly warning needs no secret. */
+export async function leerVencimientoLinkedin(db: Db): Promise<string | null> {
+  const { data, error } = await db.from("ajustes").select("linkedin_miembro, linkedin_token_expira_en").maybeSingle()
+  if (error) throw fallo("No pude leer el vencimiento de LinkedIn", error)
+  return data?.linkedin_miembro ? (data.linkedin_token_expira_en ?? null) : null
+}
+
 export async function leerFilaLinkedin(db: Db, piezaId: string): Promise<FilaDeLinkedin | null> {
   const { data, error } = await db
     .from("publicaciones")

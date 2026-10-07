@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerConexionLinkedin } from "@/lib/datos/repositorio"
+import { leerVencimientoLinkedin } from "@/lib/datos/repositorio"
 import { avisoDeVencimientoLinkedin, versionDeLinkedinPorVencer } from "@/lib/dominio/linkedin"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { VERSION_DE_LINKEDIN } from "@/lib/proveedores/linkedin"
@@ -24,9 +24,9 @@ export async function mantenerTokenLinkedin(deps: DepsTokenLinkedin): Promise<Re
       `VERSION_DE_LINKEDIN es ${VERSION_DE_LINKEDIN}. Cada versión dura al menos un año: súbela en lib/proveedores/linkedin.ts.`,
     )
   }
-  const conexion = await leerConexionLinkedin(deps.db)
-  if (!conexion) return "sin_conexion"
-  const aviso = avisoDeVencimientoLinkedin(Date.parse(conexion.expiraEn), Date.parse(deps.ahora()))
+  const expiraEn = await leerVencimientoLinkedin(deps.db)
+  if (!expiraEn) return "sin_conexion"
+  const aviso = avisoDeVencimientoLinkedin(Date.parse(expiraEn), Date.parse(deps.ahora()))
   if (!aviso) return "vigente"
   const mensaje =
     aviso.umbral === 0
@@ -34,7 +34,7 @@ export async function mantenerTokenLinkedin(deps: DepsTokenLinkedin): Promise<Re
       : `Tu conexión con LinkedIn vence en ${aviso.dias === 1 ? "1 día" : `${aviso.dias} días`}. Entra a Ajustes y toca Renovar LinkedIn: toma un minuto. Si no, tus videos te quedarán para subir a mano.`
   await deps.avisos.aConi(mensaje, true, {
     tipo: "linkedin_por_vencer",
-    clave: `linkedin_por_vencer:${aviso.umbral}:${conexion.expiraEn.slice(0, 10)}`,
+    clave: `linkedin_por_vencer:${aviso.umbral}:${expiraEn.slice(0, 10)}`,
   })
   return "avisado"
 }
