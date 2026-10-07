@@ -86,6 +86,8 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
       .from("piezas")
       .select("id, titulo, puerta2_publicar_en, ideas(pilar)")
       .eq("estado", "publicado")
+      // A piece that went out only on LinkedIn has no Instagram reel to measure.
+      .not("media_id", "is", null)
       .not("puerta2_publicar_en", "is", null)
       .order("puerta2_publicar_en", { ascending: false }),
     // One row per reel (the newest): the table keeps a row per day and would hit the API's row cap in a few months.

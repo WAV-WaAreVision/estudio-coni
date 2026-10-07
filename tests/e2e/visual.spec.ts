@@ -177,7 +177,7 @@ test("metricas", async ({ page }) => {
   ] as const
   for (const [titulo, pilar, haceDias, alcance, guardados] of reels) {
     const idea = await sembrarIdea({ pilar, gancho: titulo })
-    const id = await sembrarPieza("publicado", { titulo, idea_id: idea })
+    const id = await sembrarPieza("publicado", { titulo, idea_id: idea, media_id: `media_${titulo}` })
     const cliente = await pool.connect()
     try {
       await cliente.query("begin")

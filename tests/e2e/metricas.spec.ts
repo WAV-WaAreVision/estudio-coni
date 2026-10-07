@@ -45,7 +45,11 @@ async function reelPublicado(opciones: {
   dia?: string
 }) {
   const idea = await sembrarIdea({ pilar: opciones.pilar, gancho: opciones.titulo })
-  const id = await sembrarPieza("publicado", { titulo: opciones.titulo, idea_id: idea })
+  const id = await sembrarPieza("publicado", {
+    titulo: opciones.titulo,
+    idea_id: idea,
+    media_id: `media_${opciones.titulo}`,
+  })
   await moverLaHoraAprobada(id, opciones.haceDias)
   await pool.query(
     `insert into public.metricas_reel (pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio)

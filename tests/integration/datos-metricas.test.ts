@@ -31,9 +31,22 @@ afterAll(async () => {
 })
 
 describe("leerDatosDeMetricas", () => {
+  it("leaves out a piece that went out only on LinkedIn: it has no Instagram reel to measure", async () => {
+    await sembrarPieza("publicado", { titulo: "Solo LinkedIn" })
+    const conReel = await sembrarPieza("publicado", { titulo: "Con reel", media_id: "media_9" })
+
+    const datos = await leerDatosDeMetricas(coni, AHORA)
+
+    expect(datos.publicadas.map((p) => p.id)).toEqual([conReel])
+  })
+
   it("reads published reels with their theme, their readings, the consultations and the clicks summed by day", async () => {
     const idea = await sembrarIdea({ pilar: "autoestima" })
-    const publicada = await sembrarPieza("publicado", { titulo: "Ser tu propia diosa", idea_id: idea })
+    const publicada = await sembrarPieza("publicado", {
+      titulo: "Ser tu propia diosa",
+      idea_id: idea,
+      media_id: "media_1",
+    })
     await sembrarPieza("programado", { titulo: "Todavía no sale" })
     await pool.query(
       "insert into public.metricas_reel (pieza_id, dia, alcance, guardados, tiempo_promedio) values ($1, '2026-10-14', 900, 20, 24400.5), ($1, '2026-10-15', 1000, 30, 25000)",
@@ -61,7 +74,7 @@ describe("leerDatosDeMetricas", () => {
   })
 
   it("has a reel with no theme listed with a null theme instead of dropping it", async () => {
-    await sembrarPieza("publicado", { titulo: "Sin idea" })
+    await sembrarPieza("publicado", { titulo: "Sin idea", media_id: "media_2" })
 
     const datos = await leerDatosDeMetricas(coni, AHORA)
 
@@ -69,7 +82,7 @@ describe("leerDatosDeMetricas", () => {
   })
 
   it("lets the maintainer read the same numbers, however old the newest reading of a reel is", async () => {
-    const publicada = await sembrarPieza("publicado", { titulo: "Reel" })
+    const publicada = await sembrarPieza("publicado", { titulo: "Reel", media_id: "media_3" })
     await pool.query("insert into public.metricas_reel (pieza_id, dia, alcance) values ($1, '2026-08-01', 5)", [
       publicada,
     ])
