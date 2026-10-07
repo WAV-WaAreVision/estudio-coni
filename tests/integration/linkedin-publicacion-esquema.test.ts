@@ -124,6 +124,22 @@ describe("marcar_subido_como_coni with LinkedIn connected", () => {
     expect(error?.message).toMatch(/linkedin_se_publica_solo/)
   })
 
+  it("refuses to mark a LinkedIn row whose send is in doubt, even when LinkedIn is not connected", async () => {
+    const id = await programadaConLinkedin()
+    await pool.query(
+      "update public.publicaciones set video_urn = 'urn:li:video:C1', enviado_en = now() where pieza_id = $1",
+      [id],
+    )
+    const coni = await clienteDeConi()
+    const { error } = await coni.rpc("marcar_subido_como_coni", {
+      p_pieza: id,
+      p_version: await version(id),
+      p_destino: "linkedin",
+      p_enlace: "",
+    })
+    expect(error?.message).toMatch(/linkedin_envio_en_duda/)
+  })
+
   it("lets her mark it once the row fell back to para_subir", async () => {
     const id = await programadaConLinkedin()
     await pool.query(

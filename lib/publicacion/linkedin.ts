@@ -86,15 +86,17 @@ export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLin
   const filaLinkedin = await leerFilaLinkedin(db, fila.id)
   if (!filaLinkedin || filaLinkedin.estado !== "esperando") return { tipo: "nada" }
 
-  const conexion = await leerConexionLinkedin(db)
-  if (!conexion) return { tipo: "nada" }
-  if (Date.parse(conexion.expiraEn) <= Date.parse(ahora())) return { tipo: "nada", sinConexion: true }
-
+  // These two settle the row without calling LinkedIn, so they run before the connection is looked at: a doubtful send
+  // must reach Coni with its warning even when she disconnected or the token expired in between.
   const paso = siguientePasoLinkedin(filaLinkedin)
   if (paso.tipo === "nada") return { tipo: "nada" }
   if (paso.tipo === "dudosa")
     return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, "un envío anterior no devolvió el post")
   if (paso.tipo === "a_mano") return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, "se agotaron los intentos")
+
+  const conexion = await leerConexionLinkedin(db)
+  if (!conexion) return { tipo: "nada" }
+  if (Date.parse(conexion.expiraEn) <= Date.parse(ahora())) return { tipo: "nada", sinConexion: true }
 
   const texto = fila.texto
   const textoLinkedin = fila.texto_linkedin

@@ -85,6 +85,14 @@ begin
     raise exception using errcode = 'P0001', message = 'linkedin_se_publica_solo';
   end if;
 
+  -- A send that may have gone out (the answer was lost) is settled by the publish task, which tells her to check her
+  -- profile first. Marking it by hand before that would hide a post that may be live.
+  if p_destino = 'linkedin' and exists (select 1 from public.publicaciones
+                  where pieza_id = p_pieza and destino = 'linkedin' and estado = 'esperando'
+                    and enviado_en is not null and post_urn is null) then
+    raise exception using errcode = 'P0001', message = 'linkedin_envio_en_duda';
+  end if;
+
   update public.publicaciones
      set estado = 'subido_a_mano', enlace = nullif(btrim(p_enlace), ''), marcado_en = now(), marcado_por = auth.uid()
    where pieza_id = p_pieza and destino = p_destino and estado in ('esperando', 'para_subir');

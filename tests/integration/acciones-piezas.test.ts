@@ -1433,6 +1433,35 @@ describe("marcarSubidoAMano por destino", () => {
     }
   })
 
+  it("tells her LinkedIn goes out by itself while it is connected, and waits for the check when a send is in doubt", async () => {
+    const id = await pieza("programado", {}, AMBOS)
+    await pool.query(
+      "update public.ajustes set linkedin_miembro = 'urn:li:person:x', linkedin_token_expira_en = now() + interval '30 days', linkedin_conectado_en = now()",
+    )
+    try {
+      expect(await marcarSubidoAMano(armar().deps, id, await versionDe(id), "linkedin", "")).toEqual({
+        ok: false,
+        error: "LinkedIn está conectado: este reel sale solo a la hora aprobada.",
+      })
+      await pool.query(
+        "update public.publicaciones set video_urn = 'urn:li:video:C1', enviado_en = now() where pieza_id = $1 and destino = 'linkedin'",
+        [id],
+      )
+      await pool.query(
+        "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
+      )
+      expect(await marcarSubidoAMano(armar().deps, id, await versionDe(id), "linkedin", "")).toEqual({
+        ok: false,
+        error:
+          "LinkedIn puede haber publicado este video. Espera mi aviso para revisarlo en tu perfil antes de subirlo.",
+      })
+    } finally {
+      await pool.query(
+        "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
+      )
+    }
+  })
+
   it("lets her mark LinkedIn before its time while the piece is still programado", async () => {
     const id = await pieza("programado", {}, AMBOS)
 

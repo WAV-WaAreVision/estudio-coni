@@ -330,3 +330,28 @@ describe("Instagram and LinkedIn together", () => {
     }
   })
 })
+
+describe("LinkedIn does not cost Instagram its window", () => {
+  const AMBOS = { destinos: ["instagram", "linkedin"] as const, textoLinkedin: TEXTO_LINKEDIN }
+  const CUENTA = "17841400000000001"
+
+  it("settles a doubtful send even when the connection is gone: it needs no token", async () => {
+    const id = await crearProgramada(undefined, { destinos: ["linkedin"], textoLinkedin: TEXTO_LINKEDIN })
+    await pool.query(
+      "update public.publicaciones set video_urn = 'urn:li:video:C1', enviado_en = now() where pieza_id = $1",
+      [id],
+    )
+    await pool.query("delete from vault.secrets where name = 'linkedin'")
+    await pool.query(
+      "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
+    )
+    const d = doble(() => despues(1))
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila).toMatchObject({ estado: "para_subir" })
+    expect(fila.explicacion).toBe(
+      "No pude confirmar si LinkedIn publicó tu video. Revisa tu perfil de LinkedIn: si no está, súbelo a mano desde aquí.",
+    )
+  })
+})
