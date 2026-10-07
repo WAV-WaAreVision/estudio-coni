@@ -13,6 +13,7 @@ export const REGLAS_DETERMINISTAS = [
   "etiqueta_desconocida",
   "muchas_etiquetas",
   "etiqueta_en_texto",
+  "sugiere_consulta",
   "largo_linkedin",
   "largo_corto_linkedin",
   "hashtags_linkedin",
@@ -41,6 +42,8 @@ export const LARGO_DE_COPIA = 8
 const MINIMO_LETRAS_DE_NOMBRE = 4
 const MINIMO_LETRAS_DE_APELLIDO = 5
 const MENSAJE_COPIA = "Esta frase repite palabra por palabra una de las fuentes. Dila con tus palabras."
+const MENSAJE_CONSULTA =
+  "Esto sugiere que hablas de personas que atiendes. Dilo en general, sin que parezca una consulta real."
 const MENSAJE_AUTOR = "Aquí aparece el nombre de una fuente. En el reel no se nombran autores: dilo sin nombrarla."
 
 /** Third-party quotes and author names of the piece's backing; empty when it has none. */
@@ -284,6 +287,9 @@ export function revisarGuion(entrada: {
   for (const frase of new Set(campos.flatMap((campo) => autoresNombrados(campo, ajeno.autores, ajeno.personas)))) {
     hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
   }
+  for (const frase of new Set(campos.flatMap((campo) => distintos(campo, [SUGIERE_CONSULTA])))) {
+    hallazgos.push({ regla: "sugiere_consulta", tipo: "advierte", mensaje: MENSAJE_CONSULTA, frase })
+  }
 
   return hallazgos
 }
@@ -304,6 +310,13 @@ const DESPUES = "(?![\\p{L}\\p{N}_])"
 const patron = (fuente: string, banderas = "giu") => new RegExp(fuente, banderas)
 
 // A hashtag starts a word: a number sign inside a word or standing alone is not one.
+// Phrases that make a consultation or a patient the source of what Coni says. The editorial line forbids patient
+// anecdotes, and implying one counts. Third person only: the second-person invitations ("me cuentas", "me escribes")
+// are not anecdotes, and the trailing boundary keeps "consultar" and "consultas médicas" out.
+const SUGIERE_CONSULTA = patron(
+  `${ANTES}(?:me\\s+(?:cuentan|contaron|dicen|dijo|dijeron|escriben|escribieron)|en\\s+(?:mi\\s+)?consulta|mis\\s+(?:pacientes|consultantes)|una?\\s+(?:paciente|consultante)|me\\s+ha\\s+tocado\\s+(?:ver|acompañar))${DESPUES}`,
+)
+
 const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
 // A pictograph, or a keycap such as 1️⃣ (a digit, the emoji selector and the keycap mark).
 const EMOJI = /(?![©®™])\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
@@ -480,6 +493,9 @@ export function revisarTextoLinkedin(entrada: {
   }
   for (const frase of new Set(autoresNombrados(texto, ajeno.autores, ajeno.personas))) {
     hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
+  }
+  for (const frase of distintos(texto, [SUGIERE_CONSULTA])) {
+    hallazgos.push({ regla: "sugiere_consulta", tipo: "advierte", mensaje: MENSAJE_CONSULTA, frase })
   }
 
   return hallazgos.map((hallazgo) => ({ ...hallazgo, campo: "linkedin" as const }))

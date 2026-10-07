@@ -207,6 +207,44 @@ describe("escribirGuion", () => {
     expect(usuario).toContain(LINEAS_AYUDA)
   })
 
+  describe("never presenting a real patient or consultation as the source", () => {
+    const FRASES_PROHIBIDAS = [
+      "me cuentan",
+      "me dicen",
+      "en consulta",
+      "en mi consulta veo",
+      "mis pacientes",
+      "una paciente me dijo",
+      "muchas personas me escriben",
+      "me ha tocado ver",
+    ]
+
+    function seccion(usuario: string, desde: string, hasta: string | null): string {
+      const inicio = usuario.indexOf(desde)
+      expect(inicio).toBeGreaterThan(-1)
+      const fin = hasta === null ? usuario.length : usuario.indexOf(hasta, inicio)
+      return usuario.slice(inicio, fin)
+    }
+
+    it.each([
+      ["the script", "REGLAS DEL GUION", "REGLAS DEL TEXTO DE PUBLICACIÓN"],
+      ["the Instagram caption", "REGLAS DEL TEXTO DE PUBLICACIÓN", "REGLAS DEL TEXTO PARA LINKEDIN"],
+      ["the LinkedIn text", "REGLAS DEL TEXTO PARA LINKEDIN", null],
+    ])(
+      "forbids phrases that imply clients or consultations in %s and asks for general framing",
+      async (_campo, desde, hasta) => {
+        const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+        await escribir()
+
+        const usuario = String((pedidos[0] as PedidoCapturado).cuerpo.messages[0]?.content)
+        const reglas = seccion(usuario, desde, hasta)
+        for (const frase of FRASES_PROHIBIDAS) expect(reglas).toContain(`«${frase}»`)
+        expect(reglas).toContain("Es súper común")
+        expect(reglas).toContain("sin decir que ella lo escuchó de alguien")
+      },
+    )
+  })
+
   it("asks for a LinkedIn text reworked for colleagues, schools and companies, in tú and not copied from Instagram", async () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
     await escribir()

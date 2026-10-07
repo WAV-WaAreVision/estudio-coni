@@ -191,6 +191,102 @@ describe("revisarGuion", () => {
   })
 })
 
+describe("sugiere_consulta", () => {
+  const PREGUNTA = "¿En qué momento del día te cuesta más desconectarte?"
+  const linkedinCon = (frase: string) =>
+    `${frase}\n\n${Array.from({ length: 12 }, () => "Cuando hablamos de límites conviene partir por lo que sí podemos observar en la rutina de cada día.").join("\n\n")}\n\n${PREGUNTA}\n\n${AVISO_AVATAR_LINKEDIN}\n\n#limites`
+
+  const REAL = "Muchas personas me cuentan que comen juntas a diario."
+
+  it.each([
+    "Muchas personas me cuentan que comen juntas a diario.",
+    "Me contaron que ya no se tocan.",
+    "Me dicen que no tienen ganas.",
+    "Una pareja me dijo que lo intentó todo.",
+    "Me dijeron que era normal.",
+    "Muchas personas me escriben con la misma duda.",
+    "Me escribieron por esto la semana pasada.",
+    "En consulta veo esto seguido.",
+    "En mi consulta veo esto seguido.",
+    "Mis pacientes lo repiten mucho.",
+    "Mis consultantes lo repiten mucho.",
+    "Una paciente me habló de esto.",
+    "Un paciente llegó muy ansioso.",
+    "Una consultante lo vivió así.",
+    "Un consultante lo vivió así.",
+    "Me ha tocado ver parejas que no se hablan.",
+    "Me ha tocado acompañar a quienes duermen mal.",
+    "ME CUENTAN que todo cambia.",
+  ])("warns that «%s» suggests a real consultation, in the script, the caption and the LinkedIn text", (frase) => {
+    const deGuion = revisar({ guion: GUION.replace("una idea simple", frase) })
+    const deTexto = revisar({ texto: `${frase} ${AVISO_AVATAR}` })
+    const deLinkedin = revisarTextoLinkedin({
+      texto: linkedinCon(frase),
+      esAvatar: true,
+      requiereLineasAyuda: false,
+      ajeno: SIN_AJENO,
+    })
+
+    for (const hallazgos of [deGuion, deTexto, deLinkedin]) {
+      const hallazgo = hallazgos.find((h) => h.regla === "sugiere_consulta")
+      expect(hallazgo?.tipo).toBe("advierte")
+      expect(frase.toLowerCase()).toContain((hallazgo?.frase ?? "\u0000").toLowerCase())
+    }
+    expect(deLinkedin.find((h) => h.regla === "sugiere_consulta")?.campo).toBe("linkedin")
+  })
+
+  it("explains it in es-CL, in tú and without long dashes", () => {
+    const hallazgo = revisarTextoLinkedin({
+      texto: linkedinCon(REAL),
+      esAvatar: true,
+      requiereLineasAyuda: false,
+      ajeno: SIN_AJENO,
+    }).find((h) => h.regla === "sugiere_consulta")
+
+    expect(hallazgo?.mensaje).toBe(
+      "Esto sugiere que hablas de personas que atiendes. Dilo en general, sin que parezca una consulta real.",
+    )
+    expect(hallazgo?.frase).toBe("me cuentan")
+  })
+
+  it.each([
+    "Conviene conversar con una profesional.",
+    "Conviene consultar con un especialista.",
+    "¿Me cuentas en los comentarios?",
+    "Cuéntame en los comentarios qué te pasa.",
+    "Si me escribes, te respondo.",
+    "Si tú me dices que sí, empezamos.",
+    "Es súper común que a muchas personas les pase.",
+    "El paciente de un estudio clásico.",
+    "Ir a consultas médicas regulares ayuda.",
+    "Me tocó ver esa serie con mi pareja.",
+  ])("leaves «%s» alone", (frase) => {
+    expect(
+      reglas(revisar({ guion: GUION.replace("una idea simple", frase), texto: `${frase} ${AVISO_AVATAR}` })),
+    ).not.toContain("sugiere_consulta")
+    expect(
+      reglas(
+        revisarTextoLinkedin({
+          texto: linkedinCon(frase),
+          esAvatar: true,
+          requiereLineasAyuda: false,
+          ajeno: SIN_AJENO,
+        }),
+      ),
+    ).not.toContain("sugiere_consulta")
+  })
+
+  it("reports one finding per phrase even when the script and the caption share it", () => {
+    const hallazgos = revisar({ guion: GUION.replace("una idea simple", REAL), texto: `${REAL} ${AVISO_AVATAR}` })
+    expect(reglas(hallazgos).filter((r) => r === "sugiere_consulta")).toEqual(["sugiere_consulta"])
+  })
+
+  it("never blocks", () => {
+    const hallazgos = revisar({ guion: GUION.replace("una idea simple", REAL) })
+    expect(bloquea(hallazgos)).toBe(false)
+  })
+})
+
 describe("bloquea", () => {
   it("is true when any finding blocks", () => {
     expect(bloquea([{ regla: "largo", tipo: "advierte", mensaje: "x" }])).toBe(false)
