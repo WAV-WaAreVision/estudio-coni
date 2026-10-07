@@ -8,6 +8,7 @@ const DIA = 86_400_000
 const AHORA = "2026-10-08T06:00:00.000Z"
 
 afterEach(async () => {
+  await pool.query("update public.ajustes set linkedin_version_avisada = null")
   await pool.query("delete from vault.secrets where name = 'linkedin'")
   await pool.query(
     "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
@@ -69,7 +70,7 @@ describe("mantenerTokenLinkedin", () => {
     },
   )
 
-  it("tells WAV every night, with or without a connection, once the API version is 10 months old", async () => {
+  it("tells WAV once per API version, with or without a connection, when it is 10 months old", async () => {
     const aTiempo = notificadorEnMemoria()
     await mantenerTokenLinkedin(deps(aTiempo, "2027-06-30T06:00:00.000Z"))
     expect(aTiempo.aWavEnviados).toHaveLength(0)
@@ -78,6 +79,10 @@ describe("mantenerTokenLinkedin", () => {
     expect(await mantenerTokenLinkedin(deps(vieja, "2027-07-02T06:00:00.000Z"))).toBe("sin_conexion")
     expect(vieja.aWavEnviados).toHaveLength(1)
     expect(vieja.aWavEnviados[0]?.detalle).toContain("VERSION_DE_LINKEDIN")
+
+    const otraNoche = notificadorEnMemoria()
+    await mantenerTokenLinkedin(deps(otraNoche, "2027-07-03T06:00:00.000Z"))
+    expect(otraNoche.aWavEnviados).toHaveLength(0)
   })
 
   it("reads only the expiry in ajustes: it warns even if the token cannot be read", async () => {

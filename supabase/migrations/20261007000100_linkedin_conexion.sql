@@ -5,6 +5,8 @@ alter table public.ajustes
   add column linkedin_nombre text,
   add column linkedin_token_expira_en timestamptz,
   add column linkedin_conectado_en timestamptz,
+  -- The API version WAV was already told is about to sunset: the nightly run tells it once per version.
+  add column linkedin_version_avisada text,
   add constraint linkedin_completo check (
     (linkedin_miembro is null) = (linkedin_token_expira_en is null)
     and (linkedin_miembro is null) = (linkedin_conectado_en is null)

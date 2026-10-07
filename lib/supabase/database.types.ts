@@ -144,6 +144,7 @@ export type Database = {
           linkedin_miembro: string | null
           linkedin_nombre: string | null
           linkedin_token_expira_en: string | null
+          linkedin_version_avisada: string | null
           meta: string
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
@@ -165,6 +166,7 @@ export type Database = {
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
           linkedin_token_expira_en?: string | null
+          linkedin_version_avisada?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
           linkedin_token_expira_en?: string | null
+          linkedin_version_avisada?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
