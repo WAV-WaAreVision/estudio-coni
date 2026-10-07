@@ -105,6 +105,8 @@ export async function depsGrabacion(
 
 // Instagram asks to read the container status about once a minute, for no more than five minutes.
 const SONDEO_INSTAGRAM = { cadaMs: 60_000, veces: 5 }
+// LinkedIn gives no advice: a short reel usually processes within a minute or two, and the next tick resumes the rest.
+const SONDEO_LINKEDIN = { cadaMs: 15_000, veces: 8 }
 
 /** The dependencies of a `publicar-pendientes` run. A missing R2 setting fails before a piece is taken. */
 export function depsPublicacion(): DepsPublicacion {
@@ -118,6 +120,7 @@ export function depsPublicacion(): DepsPublicacion {
     // A plain sleep, not `wait.for`: a waiting run gives up its place in the queue, and this one must keep it.
     dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
     sondeo: SONDEO_INSTAGRAM,
+    sondeoLinkedin: SONDEO_LINKEDIN,
   }
 }
 

@@ -36,6 +36,7 @@ import {
   TokenVencido,
 } from "@/lib/proveedores/instagram"
 import type { Database } from "@/lib/supabase/database.types"
+import { LINKEDIN_SIN_CONEXION, resolverLinkedin } from "./linkedin"
 
 export interface DepsPublicacion {
   /** A `service_role` client: the database triggers keep enforcing the gates on everything it writes. */
@@ -46,6 +47,8 @@ export interface DepsPublicacion {
   dormir: (ms: number) => Promise<void>
   /** Instagram recommends asking for the container status once a minute, for no more than 5 minutes. */
   sondeo: { cadaMs: number; veces: number }
+  /** LinkedIn usually finishes a short reel within a minute or two; what is not ready is resumed by the next tick. */
+  sondeoLinkedin: { cadaMs: number; veces: number }
 }
 
 export type ResultadoPublicacion = {
@@ -82,12 +85,14 @@ interface Credenciales {
  */
 type Conexion = ({ tipo: "conectada" } & Credenciales) | { tipo: "nunca" } | { tipo: "incompleta" }
 
-interface Contexto {
+export interface Contexto {
   deps: DepsPublicacion
   fila: FilaDePieza
   conexion: () => Promise<Conexion>
   /** Failures to send an alert: the piece is already settled, so they are raised at the end of the run. */
   avisosFallidos: Error[]
+  /** LinkedIn was chosen but its connection had expired: the handover notice says why it goes by hand. */
+  sinLinkedin?: boolean
 }
 
 /** A definitive answer of Instagram, with the explanation for Coni and the technical detail for WAV. */
@@ -158,7 +163,7 @@ function descripcion(contexto: Contexto): string {
 }
 
 /** The destinations of the piece, validated: the column is checked in the database, this narrows its type. */
-function destinosDe(fila: FilaDePieza): Destino[] {
+export function destinosDe(fila: FilaDePieza): Destino[] {
   const desconocido = fila.destinos.find((destino) => !esDestino(destino))
   if (desconocido !== undefined) throw new Error(`Destino desconocido en la pieza ${fila.id}: ${desconocido}`)
   return canonicos(fila.destinos.filter(esDestino))
@@ -168,7 +173,7 @@ function destinosDe(fila: FilaDePieza): Destino[] {
  * The text side of what was approved, recomputed from the row with the formula the approval used. An approval from before
  * LinkedIn is formula 1 and hashes the caption alone; formula 2 also binds the LinkedIn text and the destinations.
  */
-function hashTextoActual(fila: FilaDePieza, texto: string): string {
+export function hashTextoActual(fila: FilaDePieza, texto: string): string {
   return hashTextoDePuerta2(formulaDePuerta2(fila.puerta2_formula), {
     texto,
     textoLinkedin: fila.texto_linkedin,
@@ -289,8 +294,9 @@ async function confirmar(
     { tipo: "publicado", quedanAMano: quedaLinkedin },
     { permalink: lectura.permalink },
   )
+  const razonDeLinkedin = quedaLinkedin ? await razonDeLinkedinAMano(contexto) : null
   const pendiente = quedaLinkedin
-    ? " Falta subirlo a LinkedIn: entra a la app para descargar el video y copiar el texto."
+    ? ` Falta subirlo a LinkedIn: entra a la app para descargar el video y copiar el texto.${razonDeLinkedin ? ` ${razonDeLinkedin}` : ""}`
     : ""
   const mensaje = `Tu reel «${fila.titulo}» ya está publicado en Instagram.${pendiente} Míralo aquí: ${lectura.permalink}`
   await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false, avisoDe(contexto, "publicado")))
@@ -451,17 +457,59 @@ async function entregarParaSubir(contexto: Contexto): Promise<ResultadoPublicaci
   if (!veredicto.ok) return rechazarPorElGuardia(contexto, veredicto)
   await escribirTransicion(contexto, { tipo: "entregar_para_subir" })
   // The rows moved to `para_subir` with the piece: they say what is left, which is not always every destination.
-  const mensaje = `Tu reel «${contexto.fila.titulo}» está listo para que lo subas a ${await pendientesPorSubir(contexto)}. Entra a la app para descargar el video y copiar el texto.`
+  const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+  const razones = filas.flatMap((p) => (p.estado === "para_subir" && p.explicacion ? [p.explicacion] : []))
+  const linkedinPublicado = filas.find((p) => p.destino === "linkedin" && p.estado === "publicado")
+  const extras = [
+    ...razones,
+    ...(contexto.sinLinkedin ? [LINKEDIN_SIN_CONEXION] : []),
+    ...(linkedinPublicado?.enlace ? [`Ya salió en LinkedIn: ${linkedinPublicado.enlace}`] : []),
+  ]
+  const mensaje = [
+    `Tu reel «${contexto.fila.titulo}» está listo para que lo subas a ${await pendientesPorSubir(contexto)}. Entra a la app para descargar el video y copiar el texto.`,
+    ...extras,
+  ].join(" ")
   // Sent at once because its time is now; it is good news, so it is not an urgent kind and carries no error.
   await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, true, avisoDe(contexto, "listo_para_subir")))
   return { piezaId: contexto.fila.id, resultado: "para_subir_a_mano" }
 }
 
+async function razonDeLinkedinAMano(contexto: Contexto): Promise<string | null> {
+  const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+  const explicacion = filas.find((p) => p.destino === "linkedin")?.explicacion
+  return explicacion ?? (contexto.sinLinkedin ? LINKEDIN_SIN_CONEXION : null)
+}
+
+async function avisarLinkedinPublicado(contexto: Contexto): Promise<void> {
+  const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+  const enlace = filas.find((p) => p.destino === "linkedin")?.enlace
+  const mensaje = `Tu reel «${contexto.fila.titulo}» ya está publicado en LinkedIn. Míralo aquí: ${enlace ?? ""}`
+  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false, avisoDe(contexto, "publicado", "linkedin")))
+}
+
+/** L7: nothing is left to upload. A destination she uploaded by hand makes it `publicado_a_mano`. */
+async function cerrarPublicada(contexto: Contexto): Promise<ResultadoPublicacion> {
+  const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+  const algunoAMano = filas.some((p) => p.estado === "subido_a_mano")
+  await escribirTransicion(contexto, { tipo: "publicado", algunoAMano })
+  return { piezaId: contexto.fila.id, resultado: "publicada" }
+}
+
 async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
+    // LinkedIn goes first and settles its own row; what it leaves pending decides the rest (L6, L7).
+    const linkedin = await resolverLinkedin(contexto)
+    if (linkedin.tipo === "en_curso") return { piezaId: contexto.fila.id, resultado: "esperando" }
+    if (linkedin.tipo === "guardia") return await rechazarPorElGuardia(contexto, linkedin.veredicto)
+    if (linkedin.tipo === "listo") await avisarLinkedinPublicado(contexto)
+    contexto.sinLinkedin = linkedin.tipo === "nada" && linkedin.sinConexion === true
+
     // Instagram is published only while its own row still waits: without it (not chosen, or already uploaded by hand)
     // there is nothing to publish, and what remains is by hand.
-    if (!(await pendientesDe(contexto)).includes("instagram")) return await entregarParaSubir(contexto)
+    const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+    const pendientes = resumenDePublicaciones(filas).pendientes
+    if (pendientes.length === 0 && filas.some((p) => p.estado === "publicado")) return await cerrarPublicada(contexto)
+    if (!pendientes.includes("instagram")) return await entregarParaSubir(contexto)
     const conexion = await contexto.conexion()
     if (conexion.tipo === "nunca" && sinRastroEnInstagram(contexto)) return await entregarParaSubir(contexto)
     if (conexion.tipo !== "conectada") {

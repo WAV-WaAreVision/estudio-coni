@@ -64,6 +64,7 @@ function doble(ahora: () => string, cambios: Partial<DepsPublicacion> = {}): Dob
       pausas.push(ms)
     },
     sondeo: { cadaMs: 60_000, veces: 5 },
+    sondeoLinkedin: { cadaMs: 15_000, veces: 8 },
     ...cambios,
   }
   return { deps, almacen, avisos, pausas }

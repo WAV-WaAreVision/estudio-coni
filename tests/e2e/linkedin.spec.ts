@@ -114,6 +114,7 @@ test("she approves for Instagram and LinkedIn, the time comes and she uploads ea
     ahora: () => new Date().toISOString(),
     dormir: async () => undefined,
     sondeo: { cadaMs: 1, veces: 1 },
+    sondeoLinkedin: { cadaMs: 1, veces: 1 },
   })
   expect(avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a Instagram y LinkedIn")
 
