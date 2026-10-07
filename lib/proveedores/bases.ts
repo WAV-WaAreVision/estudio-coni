@@ -9,7 +9,11 @@ type Entorno = Record<string, string | undefined>
 export function baseDe(entorno: Entorno, variable: string, porDefecto: string): string {
   const valor = entorno[variable]
   if (!valor) return porDefecto
-  if (entorno.VERCEL) {
+  // LinkedIn's token and Coni's profile go to this address, so its override is also refused in any production build
+  // and wherever Trigger.dev runs the tasks: a stray variable there must never redirect them.
+  const enProduccion =
+    variable.startsWith("LINKEDIN_") && (entorno.NODE_ENV === "production" || !!entorno.TRIGGER_SECRET_KEY)
+  if (entorno.VERCEL || enProduccion) {
     throw new FallaDeConfiguracion(
       `${variable} no puede estar definida en Vercel: las llaves de Coni irían a otra dirección.`,
     )
