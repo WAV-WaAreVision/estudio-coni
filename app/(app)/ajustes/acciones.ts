@@ -10,7 +10,8 @@ import {
   marcarAvisoLeido,
   quitarSuscripcion,
 } from "@/lib/acciones/avisos"
-import type { Resultado } from "@/lib/acciones/resultado"
+import { desconectarLinkedin } from "@/lib/acciones/linkedin"
+import { aResultado, type Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
 import { servicioPushReal } from "@/lib/proveedores/push"
 
@@ -76,6 +77,14 @@ export async function marcarAvisoLeidoAccion(id: string) {
   return refrescar(
     await conSesionDeConi("marcarAvisoLeido", z.object({ id: z.uuid() }), { id }, (db, d) =>
       marcarAvisoLeido(db, d.id),
+    ),
+  )
+}
+
+export async function desconectarLinkedinAccion() {
+  return refrescar(
+    await conSesionDeConi("desconectarLinkedin", z.object({}), {}, (db) =>
+      aResultado("desconectarLinkedin", () => desconectarLinkedin(db)),
     ),
   )
 }
