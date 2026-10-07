@@ -35,6 +35,12 @@ export const EXPLICACION_LINKEDIN_VIDEO =
   "LinkedIn no acepta este video (tamaño fuera de lo permitido), así que te lo dejé para subir a mano. WAV ya está revisando."
 export const LINKEDIN_SIN_CONEXION = "LinkedIn no está conectado, así que te lo dejé para subir a mano."
 
+/**
+ * LinkedIn's own deadline, counted from the approved time. Instagram keeps the whole 30-minute window: LinkedIn that
+ * is still not ready here goes by hand, so it never holds the piece until the window closes.
+ */
+const PLAZO_DE_LINKEDIN_MS = 12 * 60_000
+
 /** F5: 75 KB to 500 MB. */
 const BYTES_MINIMOS = 75 * 1024
 const BYTES_MAXIMOS = 500 * 1024 * 1024
@@ -78,6 +84,11 @@ function vigente(contexto: Contexto, texto: string): Veredicto {
   })
 }
 
+function plazoVencido(contexto: Contexto): boolean {
+  const publicarEn = piezaDesdeFila(contexto.fila).puerta2?.publicarEn
+  return publicarEn !== undefined && Date.parse(publicarEn) + PLAZO_DE_LINKEDIN_MS <= Date.parse(contexto.deps.ahora())
+}
+
 /** L6: one resumable step of the LinkedIn row per call. Never sends a post twice, never sends what was not approved. */
 export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLinkedin> {
   const { db, ahora } = contexto.deps
@@ -108,6 +119,7 @@ export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLin
     if (veredicto.motivo === "hora_vencida") return aMano(contexto, EXPLICACION_LINKEDIN_TARDE, "pasó la media hora")
     return { tipo: "guardia", veredicto }
   }
+  if (plazoVencido(contexto)) return aMano(contexto, EXPLICACION_LINKEDIN_TARDE, "pasó el plazo propio de LinkedIn")
   if (!textoLinkedin.includes(AVISO_AVATAR_LINKEDIN)) {
     return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, "el texto aprobado no trae el aviso del avatar")
   }
@@ -142,6 +154,7 @@ async function esperarVideo(
 ): Promise<true | ResultadoLinkedin> {
   const { sondeoLinkedin, dormir } = contexto.deps
   for (let lectura = 0; lectura < sondeoLinkedin.veces; lectura += 1) {
+    if (plazoVencido(contexto)) return aMano(contexto, EXPLICACION_LINKEDIN_TARDE, "pasó el plazo propio de LinkedIn")
     let estado: Awaited<ReturnType<typeof estadoDelVideo>>
     try {
       estado = await estadoDelVideo({ token: conexion.token, video: videoUrn })

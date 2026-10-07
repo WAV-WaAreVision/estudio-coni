@@ -99,8 +99,8 @@ describe("publicarPendientes with LinkedIn connected", () => {
     expect(sim.posts).toHaveLength(0)
 
     const sim2 = simularLinkedin({ estados: ["AVAILABLE"] })
-    // The first run holds the piece for 10 minutes: the next tick that finds the lease over resumes it.
-    expect(await publicarPendientes(doble(() => despues(12)).deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    // The first run gave the piece back, so the next tick resumes it at once (within LinkedIn's own 12 minutes).
+    expect(await publicarPendientes(doble(() => despues(6)).deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
     expect(sim2.iniciadas).toHaveLength(0)
     expect(sim2.posts).toHaveLength(1)
   })
@@ -185,15 +185,15 @@ describe("publicarPendientes with LinkedIn connected", () => {
 
   it("counts temporary failures and goes by hand after three", async () => {
     const id = await crearProgramada(undefined, SOLO_LINKEDIN)
-    // Each run holds the piece for 10 minutes: the ticks that find the lease over are 12 minutes apart.
+    // Each tick finds the piece free and counts one try; all of them are within LinkedIn's own 12 minutes.
     for (let tick = 0; tick < 3; tick += 1) {
       simularLinkedin({ iniciar: () => new HttpResponse(null, { status: 503 }) })
-      const d = doble(() => despues(1 + tick * 12))
+      const d = doble(() => despues(1 + tick * 2))
       await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
       expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
     }
     const sim = simularLinkedin()
-    expect(await publicarPendientes(doble(() => despues(37)).deps)).toEqual([
+    expect(await publicarPendientes(doble(() => despues(8)).deps)).toEqual([
       { piezaId: id, resultado: "para_subir_a_mano" },
     ])
     expect(sim.iniciadas).toHaveLength(0)
@@ -334,6 +334,45 @@ describe("Instagram and LinkedIn together", () => {
 describe("LinkedIn does not cost Instagram its window", () => {
   const AMBOS = { destinos: ["instagram", "linkedin"] as const, textoLinkedin: TEXTO_LINKEDIN }
   const CUENTA = "17841400000000001"
+
+  it("releases the piece while the video processes, gives LinkedIn up after its own deadline and still publishes Instagram in time", async () => {
+    await pool.query("update public.ajustes set meta_cuenta_id = $1", [CUENTA])
+    await pool.query("select vault.create_secret('IGAA_token_de_prueba', 'meta')")
+    try {
+      const id = await crearProgramada(undefined, AMBOS)
+      const sim = simularLinkedin({ estados: ["PROCESSING"] })
+      const instagram = simularInstagram({ cuenta: CUENTA, estados: ["FINISHED"] })
+      const d1 = doble(() => despues(1))
+      await d1.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+      expect(await publicarPendientes(d1.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+      const { rows } = await pool.query("select publicacion_reclamada_hasta from public.piezas where id = $1", [id])
+      expect(rows[0].publicacion_reclamada_hasta).toBeNull()
+      expect(instagram.contenedores).toHaveLength(0)
+
+      // The next tick finds the piece free at once: it does not wait for a lease of 10 minutes.
+      const d2 = doble(() => despues(6))
+      await d2.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+      expect(await publicarPendientes(d2.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+      expect(sim.iniciadas).toHaveLength(1)
+
+      const d3 = doble(() => despues(13))
+      await d3.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+      expect(await publicarPendientes(d3.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+      expect(instagram.contenedores).toHaveLength(1)
+      const filas = await publicacionesConDetalle(id)
+      expect(filas.find((f) => f.destino === "instagram")).toMatchObject({ estado: "publicado" })
+      expect(filas.find((f) => f.destino === "linkedin")).toMatchObject({
+        estado: "para_subir",
+        explicacion:
+          "No alcancé a publicarlo en LinkedIn dentro de la media hora que aprobaste, así que te lo dejé para subir a mano.",
+      })
+      expect(sim.posts).toHaveLength(0)
+    } finally {
+      await pool.query("delete from vault.secrets where name = 'meta'")
+      await pool.query("update public.ajustes set meta_cuenta_id = null")
+    }
+  })
 
   it("settles a doubtful send even when the connection is gone: it needs no token", async () => {
     const id = await crearProgramada(undefined, { destinos: ["linkedin"], textoLinkedin: TEXTO_LINKEDIN })

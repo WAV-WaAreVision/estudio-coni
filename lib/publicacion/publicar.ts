@@ -93,6 +93,8 @@ export interface Contexto {
   avisosFallidos: Error[]
   /** LinkedIn was chosen but its connection had expired: the handover notice says why it goes by hand. */
   sinLinkedin?: boolean
+  /** The piece waits for LinkedIn: its lease is given back at the end of the run. */
+  liberarAlFinal?: boolean
 }
 
 /** A definitive answer of Instagram, with the explanation for Coni and the technical detail for WAV. */
@@ -499,7 +501,12 @@ async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
     // LinkedIn goes first and settles its own row; what it leaves pending decides the rest (L6, L7).
     const linkedin = await resolverLinkedin(contexto)
-    if (linkedin.tipo === "en_curso") return { piezaId: contexto.fila.id, resultado: "esperando" }
+    if (linkedin.tipo === "en_curso") {
+      // Released when this run ends (not now: the loop would take it again at once), so the next tick resumes LinkedIn
+      // within minutes instead of after the 10-minute lease, and Instagram's window is never spent waiting for it.
+      contexto.liberarAlFinal = true
+      return { piezaId: contexto.fila.id, resultado: "esperando" }
+    }
     if (linkedin.tipo === "guardia") return await rechazarPorElGuardia(contexto, linkedin.veredicto)
     if (linkedin.tipo === "listo") await avisarLinkedinPublicado(contexto)
     contexto.sinLinkedin = linkedin.tipo === "nada" && linkedin.sinConexion === true
@@ -544,12 +551,22 @@ export async function publicarPendientes(deps: DepsPublicacion): Promise<Resulta
     return conexion
   }
 
+  const paraLiberar: Contexto[] = []
   for (;;) {
     const fila = await tomarParaPublicar(deps.db, deps.ahora(), ARRIENDO_SEGUNDOS)
     if (!fila) break
     const contexto: Contexto = { deps, fila, conexion: leerConexion, avisosFallidos }
     try {
       resultados.push(await procesar(contexto))
+      if (contexto.liberarAlFinal) paraLiberar.push(contexto)
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      errores.push(new Error(`${descripcion(contexto)}: ${error.message}`, { cause: error }))
+    }
+  }
+  for (const contexto of paraLiberar) {
+    try {
+      await escribir(contexto, { publicacion_reclamada_hasta: null })
     } catch (error) {
       if (!(error instanceof Error)) throw error
       errores.push(new Error(`${descripcion(contexto)}: ${error.message}`, { cause: error }))
