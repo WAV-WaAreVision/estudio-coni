@@ -142,6 +142,11 @@ ${sinCierre(JSON.stringify(respaldo))}
 
 const MARCAS_DE_TONO = ETIQUETAS_DE_TONO.map((etiqueta) => `[${etiqueta}]`).join(", ")
 
+// Coni's editorial line forbids patient anecdotes, and a phrase that merely implies a consultation as the source
+// breaks it just the same ("Muchas personas me cuentan que..." reached production).
+const SIN_CONSULTA =
+  "Nunca presentes a pacientes, consultantes ni consultas como fuente de lo que dices. Prohibidas frases como «me cuentan», «me dicen», «en consulta», «en mi consulta veo», «mis pacientes», «una paciente me dijo», «un consultante me contó», «muchas personas me escriben», «me ha tocado ver» y «me ha tocado acompañar». Habla en general, sin decir que ella lo escuchó de alguien: «Es súper común…», «A muchas personas les pasa…»."
+
 function pedidoDeGuion(
   idea: IdeaParaGuion,
   respaldo: RespaldoParaGuion | null,
@@ -165,10 +170,12 @@ ${listaDeAlertas(idea.alertas)}`,
 - Marca el tono de la voz con entre ${MINIMO_DE_ETIQUETAS} y ${MAXIMO_DE_ETIQUETAS} marcas entre corchetes, cada una justo antes de la frase donde el tono cambia. Usa solo estas, escritas tal cual: ${MARCAS_DE_TONO}. No marques risas. La voz no lee las marcas y no salen en los subtítulos. La línea del cierre va sin marca.
 - Para una pausa corta usa puntos suspensivos; para una pausa larga, la marca [pause]. El énfasis va solo con la puntuación.
 - Sin emojis, hashtags ni símbolos. Usa solo letras, la puntuación del español, saltos de línea y los corchetes de las marcas; nada de # @ * _ ~ ^ = < > { } \\ | / % $ & +.
-- Sin diagnósticos, sin consejos para casos particulares, sin anécdotas de pacientes y sin cifras ni estudios que la idea no traiga ya verificados.`,
+- Sin diagnósticos, sin consejos para casos particulares, sin anécdotas de pacientes y sin cifras ni estudios que la idea no traiga ya verificados.
+- ${SIN_CONSULTA}`,
     `REGLAS DEL TEXTO DE PUBLICACIÓN
 - Es el texto que acompaña el video en Instagram. Aquí sí pueden ir emojis y hashtags.
 - Sin marcas de tono: van solo en el guion.
+- ${SIN_CONSULTA}
 - Termina exactamente con: ${AVISO_AVATAR}${
       requiereLineasAyuda ? `\n- Antes de ese aviso incluye, tal cual, esta línea: ${LINEAS_AYUDA}` : ""
     }`,
@@ -179,6 +186,7 @@ ${listaDeAlertas(idea.alertas)}`,
 - Muchos párrafos cortos, de una a tres líneas, separados por una línea en blanco. Ninguna frase de más de veinte palabras. A lo más una lista, de tres a cinco ítems.
 - Cierra el cuerpo con exactamente una pregunta abierta y específica, que pida experiencia o criterio.
 - Sin enlaces en el texto.
+- ${SIN_CONSULTA}
 - Hashtags: de cero a tres, en la última línea y con letras normales.
 - Emojis: de cero a tres, solo para ordenar (✅ ▸ 📌 1️⃣), nunca como adorno. Ninguno si el tema es delicado.
 - Prohibido: la fórmula de contraste «no es X, es Y» y sus variantes («X no es el problema, el problema es Y», «no se trata de X, sino de Y», «no se apaga: se esconde»); pedir reacciones («comenta SÍ», «dale like si», «etiqueta a», «reacciona con», «vota con una reacción»); letras Unicode en negrita o cursiva; rayas largas.
