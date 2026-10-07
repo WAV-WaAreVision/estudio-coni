@@ -27,9 +27,9 @@ function acciones(cambios: Partial<AccionesDelEditor> = {}): AccionesDelEditor {
   }
 }
 
-function mostrar(cambios: Partial<AccionesDelEditor> = {}) {
+function mostrar(cambios: Partial<AccionesDelEditor> = {}, linkedinConectado = false) {
   const a = acciones(cambios)
-  render(<EditorDeAjustes inicial={INICIAL} acciones={a} />)
+  render(<EditorDeAjustes inicial={INICIAL} acciones={a} linkedinConectado={linkedinConectado} />)
   return a
 }
 
@@ -117,7 +117,7 @@ describe("EditorDeAjustes", () => {
   })
 
   it("does not take the cap under zero", () => {
-    render(<EditorDeAjustes inicial={{ ...INICIAL, tope: 0 }} acciones={acciones()} />)
+    render(<EditorDeAjustes inicial={{ ...INICIAL, tope: 0 }} acciones={acciones()} linkedinConectado={false} />)
 
     expect(screen.getByRole("button", { name: "Bajar el tope" })).toHaveAttribute("aria-disabled", "true")
   })
@@ -166,7 +166,7 @@ describe("EditorDeAjustes", () => {
   })
 
   it("draws the month's spend as a meter that turns to aviso from 80 percent of the cap", () => {
-    render(<EditorDeAjustes inicial={{ ...INICIAL, usado: 32 }} acciones={acciones()} />)
+    render(<EditorDeAjustes inicial={{ ...INICIAL, usado: 32 }} acciones={acciones()} linkedinConectado={false} />)
 
     expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveAttribute("aria-valuenow", "32")
     expect(screen.getByText("Llevas US$ 32,00 este mes")).toHaveClass("text-aviso")
@@ -179,17 +179,26 @@ describe("EditorDeAjustes", () => {
   })
 
   describe("dónde se publica", () => {
-    it("shows both networks, with LinkedIn marked as by hand for now, and what the setting does", () => {
+    it("shows both networks, with LinkedIn marked as by hand while it is not connected, and what the setting does", () => {
       mostrar()
 
       expect(screen.getByRole("heading", { name: "Dónde se publica" })).toBeInTheDocument()
       expect(screen.getByRole("switch", { name: "Instagram" })).toHaveAttribute("aria-checked", "true")
       expect(screen.getByRole("switch", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "false")
-      expect(screen.getByText("A mano por ahora")).toBeInTheDocument()
+      expect(screen.getByText("A mano")).toBeInTheDocument()
+      expect(screen.queryByText("A mano por ahora")).toBeNull()
       expect(
-        screen.getByText(/LinkedIn se sube a mano: a la hora aprobada te aviso y te dejo el video y el texto listos/),
+        screen.getByText(
+          /Si LinkedIn está conectado, a la hora aprobada sale solo. Si no, te aviso y te dejo el video y el texto listos para subirlo a mano./,
+        ),
       ).toBeInTheDocument()
-      expect(screen.getByText(/Más adelante podrá publicarse solo/)).toBeInTheDocument()
+    })
+
+    it("says LinkedIn goes out by itself when it is connected", () => {
+      mostrar({}, true)
+
+      expect(screen.getByText("Sale solo")).toBeInTheDocument()
+      expect(screen.queryByText("A mano")).toBeNull()
     })
 
     it("saves the new list by itself, in the canonical order", async () => {

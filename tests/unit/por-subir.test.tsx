@@ -28,7 +28,8 @@ const fila = (
   destino: "instagram" | "linkedin",
   estado: PublicacionConEnlace["estado"],
   enlace: string | null = null,
-) => ({ destino, estado, enlace }) satisfies PublicacionConEnlace
+  explicacion: string | null = null,
+) => ({ destino, estado, enlace, explicacion }) satisfies PublicacionConEnlace
 
 describe("PorSubir", () => {
   it("shows one block per pending destination, each with its own steps and its own text", () => {
@@ -74,5 +75,48 @@ describe("PorSubir", () => {
   it("refuses to show a LinkedIn block for a piece that has no LinkedIn text", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     expect(() => armar({ textoLinkedin: null, pendientes: ["linkedin"] })).toThrow(/texto para LinkedIn/)
+  })
+})
+
+describe("PorSubir with LinkedIn published by itself or fallen back", () => {
+  it("shows Publicado en LinkedIn with its link for an automatic post, apart from what she uploaded herself", () => {
+    armar({
+      pendientes: [],
+      publicaciones: [
+        fila("linkedin", "publicado", "https://www.linkedin.com/feed/update/urn:li:share:7/"),
+        fila("instagram", "subido_a_mano"),
+      ],
+    })
+
+    expect(screen.getByText("Publicado en LinkedIn")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Ver en LinkedIn" })).toHaveAttribute(
+      "href",
+      "https://www.linkedin.com/feed/update/urn:li:share:7/",
+    )
+    expect(screen.getByText("Subido a Instagram")).toBeInTheDocument()
+    expect(screen.queryByText("Subido a LinkedIn")).not.toBeInTheDocument()
+  })
+
+  it("shows the reason above the manual steps when LinkedIn fell back", () => {
+    armar({
+      pendientes: ["linkedin"],
+      publicaciones: [
+        fila(
+          "linkedin",
+          "para_subir",
+          null,
+          "LinkedIn no aceptó la publicación, así que te la dejé para subir a mano. WAV ya está revisando.",
+        ),
+      ],
+    })
+
+    const linkedin = screen.getByRole("heading", { name: "Subir a LinkedIn" }).closest("section") as HTMLElement
+    expect(within(linkedin).getByText(/LinkedIn no aceptó la publicación/)).toBeInTheDocument()
+    expect(within(linkedin).getByRole("button", { name: "Ya lo subí a LinkedIn" })).toBeInTheDocument()
+  })
+
+  it("shows no reason for a destination that simply waits for her", () => {
+    armar({ pendientes: ["linkedin"], publicaciones: [fila("linkedin", "para_subir")] })
+    expect(screen.queryByText(/así que te la dejé/)).not.toBeInTheDocument()
   })
 })

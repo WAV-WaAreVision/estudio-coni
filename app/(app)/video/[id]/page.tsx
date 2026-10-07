@@ -8,6 +8,7 @@ import {
   leerContextoDeFechas,
   leerCostoDeGrabar,
   leerInstagramConectado,
+  leerLinkedinConectado,
   leerPantallaDePieza,
 } from "@/lib/datos/pantallas"
 import { leerPublicaciones } from "@/lib/datos/repositorio"
@@ -20,6 +21,7 @@ import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
+import { detalleDeProgramado, detalleDePublicado } from "./detalle-programado"
 import { PantallaVideo } from "./pantalla-video"
 import { PorSubir } from "./por-subir"
 
@@ -42,19 +44,23 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       break
     case "programado": {
       const zona = (await leerContextoDeFechas(db, fila.id)).horario.zona
-      const sinInstagram = !(await leerInstagramConectado(db))
+      const instagramConectado = await leerInstagramConectado(db)
+      const linkedinConectado = await leerLinkedinConectado(db, Date.now())
       const publicaciones = await leerPublicaciones(db, fila.id)
       const destinos = destinosDe(fila.destinos)
-      // Before its time she can already upload what goes by hand: LinkedIn always, Instagram while it is not connected.
+      // Before its time she can already upload what goes by hand: a destination that is not connected. A connected
+      // one posts by itself, and the database refuses an early mark of it.
       const pendientes = publicaciones
-        .filter((p) => p.estado === "esperando" && (p.destino === "linkedin" || sinInstagram))
+        .filter(
+          (p) => p.estado === "esperando" && (p.destino === "linkedin" ? !linkedinConectado : !instagramConectado),
+        )
         .map((p) => p.destino)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="exito"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
-            detalle={detalleDeProgramado(destinos, sinInstagram)}
+            detalle={detalleDeProgramado(destinos, { instagramConectado, linkedinConectado })}
           />
           {fila.texto !== null ? (
             <PorSubir
@@ -102,29 +108,39 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       )
     }
     case "publicado_a_mano": {
-      const subidas = (await leerPublicaciones(db, fila.id)).filter((p) => p.estado === "subido_a_mano")
+      const publicaciones = await leerPublicaciones(db, fila.id)
+      const subidas = publicaciones.filter((p) => p.estado === "subido_a_mano")
+      // LinkedIn may have gone out by itself while the other destination was uploaded by hand.
+      const linkedinSolo = publicaciones.some((p) => p.destino === "linkedin" && p.estado === "publicado")
+      const cierre = linkedinSolo ? detalleDePublicado(publicaciones) : null
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <MomentoDeCierre
             titulo="Subido a mano"
-            detalle={detalleDeSubida(subidas.map((p) => p.destino))}
-            enlaces={subidas.flatMap((p) =>
-              p.enlace ? [{ etiqueta: `Ver en ${nombreDeDestino(p.destino)}`, href: p.enlace }] : [],
-            )}
+            detalle={cierre ? cierre.detalle : detalleDeSubida(subidas.map((p) => p.destino))}
+            enlaces={[
+              ...subidas.flatMap((p) =>
+                p.enlace ? [{ etiqueta: `Ver en ${nombreDeDestino(p.destino)}`, href: p.enlace }] : [],
+              ),
+              ...(cierre?.enlaces ?? []),
+            ]}
           />
         </EstadoSencillo>
       )
     }
-    case "publicado":
+    case "publicado": {
+      const cierre = detalleDePublicado(await leerPublicaciones(db, fila.id))
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           <MomentoDeCierre
             titulo="Ya se publicó"
-            detalle="La etiqueta de IA quedó puesta en Instagram."
+            detalle={cierre.detalle}
             enlace={fila.permalink}
+            enlaces={cierre.enlaces}
           />
         </EstadoSencillo>
       )
+    }
     case "error_publicacion":
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
@@ -172,11 +188,12 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     cuantas: FECHAS_A_OFRECER,
     antelacionMs: UNA_HORA_MS,
   }).map((iso) => ({ iso, etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga") }))
-  const [videoUrl, costo, ajustes, instagramConectado] = await Promise.all([
+  const [videoUrl, costo, ajustes, instagramConectado, linkedinConectado] = await Promise.all([
     urlParaVer(fila.video_id),
     leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
     leerAjustesDelVideo(db),
     leerInstagramConectado(db),
+    leerLinkedinConectado(db, ahora),
   ])
 
   return (
@@ -193,6 +210,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         // What she would publish if she did not touch it: where Ajustes says reels go by default.
         destinosPorDefecto: ajustes.destinosPorDefecto,
         instagramConectado,
+        linkedinConectado,
         revision: leerRevision(fila.revision),
         videoUrl,
         videoId: fila.video_id,
@@ -203,22 +221,6 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       }}
     />
   )
-}
-
-function detalleDeProgramado(destinos: readonly Destino[], sinInstagram: boolean): string {
-  const conInstagram = destinos.includes("instagram")
-  const conLinkedin = destinos.includes("linkedin")
-  if (conInstagram && sinInstagram) {
-    const base = "Instagram todavía no está conectado, así que este reel no sale solo."
-    return conLinkedin
-      ? `${base} LinkedIn tampoco: a esa hora te aviso y los subes tú.`
-      : `${base} A esa hora te aviso y lo subes tú.`
-  }
-  if (conInstagram) {
-    const base = "Sale con la etiqueta de IA. Puedes cambiar la fecha mientras no se publique."
-    return conLinkedin ? `${base} LinkedIn lo subes tú a mano.` : base
-  }
-  return "LinkedIn se sube a mano: a esa hora te aviso y lo subes tú."
 }
 
 /** What she did, in her words: Instagram keeps saying the AI label went on, as it always did. */

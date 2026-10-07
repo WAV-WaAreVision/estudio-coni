@@ -1,13 +1,13 @@
 import { HttpResponse } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { EXPLICACION_RECONECTAR } from "@/lib/proveedores/instagram"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
 import { type OpcionesInstagram, simularInstagram } from "../instagram-msw"
-import { comoConi, pool } from "./db"
-import { aplicar, crearPiezaEn, type OpcionesDePieza, TEXTO, VIDEO } from "./flujo"
+import { pool } from "./db"
+import { TEXTO, VIDEO } from "./flujo"
+import { crearProgramada, despues, limpiarProgramadas, type OpcionesDeProgramada, PUBLICAR_EN } from "./programadas"
 import { clienteDeServicio } from "./servicio"
 import { publicacionesDe } from "./siembra"
 
@@ -15,64 +15,7 @@ afterAll(() => pool.end())
 
 const TOKEN = "IGAA_token_de_coni_de_prueba"
 const CUENTA = "17841400000000001"
-const MINUTO = 60_000
-// Far from any real piece in the database: the approved time is a fixed instant and "now" moves around it.
-const PUBLICAR_EN = "2031-03-14T22:00:00.000Z"
 const VIDEO_BYTES = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])
-
-function despues(minutos: number): string {
-  return new Date(Date.parse(PUBLICAR_EN) + minutos * MINUTO).toISOString()
-}
-
-const piezasCreadas: string[] = []
-
-/** What a scheduled piece carries for LinkedIn; `aprobadoSobre` is the LinkedIn text gate 2 actually hashed. */
-type OpcionesDeProgramada = OpcionesDePieza & { aprobadoSobre?: string }
-
-/**
- * A piece walked through the real flow to `programado`: Coni approved the video, the caption and PUBLICAR_EN. Without
- * options it is an approval from before LinkedIn (formula 1, Instagram only); with them, formula 2.
- */
-async function crearProgramada(publicarEn = PUBLICAR_EN, opciones: OpcionesDeProgramada = {}): Promise<string> {
-  const c = await pool.connect()
-  try {
-    await c.query("begin")
-    const id = await crearPiezaEn(c, "video_por_aprobar", opciones)
-    const conLinkedin = opciones.destinos !== undefined || opciones.textoLinkedin !== undefined
-    const destinos = opciones.destinos ?? ["instagram"]
-    const hash = conLinkedin
-      ? hashTextoDePuerta2(2, {
-          texto: TEXTO,
-          textoLinkedin: opciones.aprobadoSobre ?? opciones.textoLinkedin ?? null,
-          destinos,
-        })
-      : hashTexto(TEXTO)
-    await aplicar(
-      c,
-      id,
-      comoConi,
-      {
-        tipo: "aprobar_video",
-        actor: "coni",
-        videoVisto: VIDEO,
-        hashTextoVisto: hash,
-        hashTextoActual: hash,
-        formula: conLinkedin ? 2 : 1,
-        publicarEn,
-        en: new Date().toISOString(),
-      },
-      conLinkedin ? { destinos: [...destinos] } : {},
-    )
-    await c.query("commit")
-    piezasCreadas.push(id)
-    return id
-  } catch (error) {
-    await c.query("rollback")
-    throw error
-  } finally {
-    c.release()
-  }
-}
 
 interface FilaPieza {
   estado: string
@@ -121,6 +64,7 @@ function doble(ahora: () => string, cambios: Partial<DepsPublicacion> = {}): Dob
       pausas.push(ms)
     },
     sondeo: { cadaMs: 60_000, veces: 5 },
+    sondeoLinkedin: { cadaMs: 15_000, veces: 8 },
     ...cambios,
   }
   return { deps, almacen, avisos, pausas }
@@ -142,8 +86,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await pool.query("delete from vault.secrets where name = 'meta'")
-  await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
-  piezasCreadas.length = 0
+  await limpiarProgramadas()
   await pool.query("update public.ajustes set meta_cuenta_id = null")
 })
 

@@ -6,7 +6,12 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { verificarVoz } from "@/lib/proveedores/elevenlabs"
 import { verificarAnthropic, verificarHeygen } from "@/lib/proveedores/verificaciones"
 import type { Database } from "@/lib/supabase/database.types"
-import { DIAS_DE_AVISO_DE_INSTAGRAM, type EstadoDeCuenta, type NombreDeCuenta } from "./estado"
+import {
+  DIAS_DE_AVISO_DE_INSTAGRAM,
+  DIAS_DE_AVISO_DE_LINKEDIN,
+  type EstadoDeCuenta,
+  type NombreDeCuenta,
+} from "./estado"
 
 export interface DepsDeRevision {
   /** A `service_role` client: the keys are only readable with it. */
@@ -27,6 +32,20 @@ function instagram(
   if (expiraEn <= ahora) return { cuenta: "instagram", estado: "vencida" }
   if (expiraEn - ahora <= DIAS_DE_AVISO_DE_INSTAGRAM * DIA_MS) return { cuenta: "instagram", estado: "vence", expiraEn }
   return { cuenta: "instagram", estado: "lista" }
+}
+
+/** LinkedIn has no refresh token (F12): its state is read from the stored expiry, without calling it. */
+function linkedin(
+  ajustes: { linkedin_miembro: string | null; linkedin_nombre: string | null; linkedin_token_expira_en: string | null },
+  ahora: number,
+): EstadoDeCuenta {
+  if (!ajustes.linkedin_miembro || !ajustes.linkedin_token_expira_en) return { cuenta: "linkedin", estado: "falta" }
+  const expiraEn = Date.parse(ajustes.linkedin_token_expira_en)
+  if (expiraEn <= ahora) return { cuenta: "linkedin", estado: "vencida" }
+  if (expiraEn - ahora <= DIAS_DE_AVISO_DE_LINKEDIN * DIA_MS) {
+    return { cuenta: "linkedin", estado: "vence", expiraEn, nombre: ajustes.linkedin_nombre }
+  }
+  return { cuenta: "linkedin", estado: "lista", nombre: ajustes.linkedin_nombre }
 }
 
 function deVerificacion(
@@ -83,7 +102,9 @@ export async function revisarCuentas(deps: DepsDeRevision): Promise<EstadoDeCuen
   const { servicio } = deps
   const { data: ajustes, error } = await servicio
     .from("ajustes")
-    .select("meta_cuenta_id, meta_token_expira_en, produccion")
+    .select(
+      "meta_cuenta_id, meta_token_expira_en, produccion, linkedin_miembro, linkedin_nombre, linkedin_token_expira_en",
+    )
     .maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   if (!ajustes) throw new Error("Falta la fila de ajustes.")
@@ -105,5 +126,6 @@ export async function revisarCuentas(deps: DepsDeRevision): Promise<EstadoDeCuen
         ? deVerificacion("anthropic", await verificarAnthropic({ clave: anthropic }))
         : { cuenta: "anthropic", estado: "falta" },
     ),
+    sinCaer("linkedin", async () => linkedin(ajustes, deps.ahora())),
   ])
 }

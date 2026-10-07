@@ -5,6 +5,7 @@ import { type FormEvent, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -28,9 +29,10 @@ const MENSAJE_DE_LLAVE: Record<EstadoDeLlave, string> = {
 interface PropiedadesDeCuentas {
   filas: readonly FilaDeCuenta[]
   guardarLlave: (cuenta: string, llave: string) => Promise<Resultado<{ estado: EstadoDeLlave }>>
+  desconectarLinkedin: () => Promise<Resultado>
 }
 
-export function CuentasConectadas({ filas, guardarLlave }: PropiedadesDeCuentas) {
+export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: PropiedadesDeCuentas) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
 
@@ -47,7 +49,18 @@ export function CuentasConectadas({ filas, guardarLlave }: PropiedadesDeCuentas)
               <span className="text-cuerpo font-semibold">{fila.nombre}</span>
               <Estado fila={fila} />
             </div>
-            {fila.cuenta === "instagram" ? (
+            {fila.detalle ? <p className="text-meta text-apagado">{fila.detalle}</p> : null}
+            {fila.cuenta === "linkedin" ? (
+              <FilaDeLinkedin
+                fila={fila}
+                desconectar={desconectarLinkedin}
+                alDesconectar={() =>
+                  setMensaje(
+                    "LinkedIn quedó desconectado. Si quieres, también puedes quitar el permiso desde la configuración de tu cuenta de LinkedIn.",
+                  )
+                }
+              />
+            ) : fila.cuenta === "instagram" ? (
               // A plain link: the route answers with a redirect to Instagram, which a client navigation cannot follow.
               <a
                 href="/api/meta/conectar"
@@ -74,6 +87,63 @@ export function CuentasConectadas({ filas, guardarLlave }: PropiedadesDeCuentas)
         ))}
       </ul>
       {mensaje ? <Aviso mensaje={mensaje} alCerrar={() => setMensaje(null)} /> : null}
+    </div>
+  )
+}
+
+function FilaDeLinkedin({
+  fila,
+  desconectar,
+  alDesconectar,
+}: {
+  fila: FilaDeCuenta
+  desconectar: () => Promise<Resultado>
+  alDesconectar: () => void
+}) {
+  const [preguntando, setPreguntando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [pendiente, empezar] = useTransition()
+  const enlace = (
+    <a
+      href="/api/linkedin/conectar"
+      className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}
+    >
+      {fila.conectada ? "Renovar LinkedIn" : "Conectar LinkedIn"}
+    </a>
+  )
+  if (!fila.conectada) return <div className="mt-1.5">{enlace}</div>
+  if (preguntando) {
+    return (
+      <div className="mt-2 grid gap-2">
+        <ConfirmacionEnLinea
+          trato="destructivo"
+          pregunta="¿Desconectar LinkedIn? Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."
+          confirmar="Desconectar"
+          volver="Volver"
+          cargando={pendiente}
+          alVolver={() => setPreguntando(false)}
+          alConfirmar={() =>
+            empezar(async () => {
+              const resultado = await desconectar()
+              if (!resultado.ok) {
+                setError(resultado.error)
+                return
+              }
+              setPreguntando(false)
+              alDesconectar()
+            })
+          }
+        />
+        {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      </div>
+    )
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-2">
+      {enlace}
+      <Boton variante="linea" tamano="chico" onClick={() => setPreguntando(true)}>
+        Desconectar
+      </Boton>
     </div>
   )
 }

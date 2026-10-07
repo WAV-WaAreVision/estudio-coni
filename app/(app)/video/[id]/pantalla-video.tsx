@@ -45,6 +45,7 @@ export interface DatosDeVideo {
   /** The destinations ticked when she opens the screen: what Ajustes says. */
   destinosPorDefecto: Destino[]
   instagramConectado: boolean
+  linkedinConectado: boolean
   revision: Hallazgo[]
   videoUrl: string | null
   videoId: string
@@ -162,7 +163,12 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           </Seccion>
 
           <Seccion titulo="Dónde se publica" id="destinos">
-            <ElegirDestinos elegidos={destinos} instagramConectado={datos.instagramConectado} alCambiar={setDestinos} />
+            <ElegirDestinos
+              elegidos={destinos}
+              instagramConectado={datos.instagramConectado}
+              linkedinConectado={datos.linkedinConectado}
+              alCambiar={setDestinos}
+            />
           </Seccion>
 
           <Seccion titulo="Así sale en Instagram" id="texto">

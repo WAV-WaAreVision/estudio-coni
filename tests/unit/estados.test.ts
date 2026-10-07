@@ -749,3 +749,19 @@ describe("piezaTrabajando", () => {
     }
   })
 })
+
+describe("publicado when the last automatic destination closes a mixed piece", () => {
+  it("handles algunoAMano when nothing remains by hand: the piece is publicado_a_mano", () => {
+    expect(transicionar(programada, { tipo: "publicado", algunoAMano: true }).pieza.estado).toBe("publicado_a_mano")
+  })
+
+  it("keeps para_subir_a_mano when something is still by hand, whatever algunoAMano says", () => {
+    expect(transicionar(programada, { tipo: "publicado", quedanAMano: true, algunoAMano: true }).pieza.estado).toBe(
+      "para_subir_a_mano",
+    )
+  })
+
+  it("is publicado when every destination was automatic", () => {
+    expect(transicionar(programada, { tipo: "publicado" }).pieza.estado).toBe("publicado")
+  })
+})

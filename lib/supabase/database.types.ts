@@ -140,6 +140,11 @@ export type Database = {
           hora_publicacion: string
           id: boolean
           ideas_por_semana: number
+          linkedin_conectado_en: string | null
+          linkedin_miembro: string | null
+          linkedin_nombre: string | null
+          linkedin_token_expira_en: string | null
+          linkedin_version_avisada: string | null
           meta: string
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
@@ -157,6 +162,11 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          linkedin_conectado_en?: string | null
+          linkedin_miembro?: string | null
+          linkedin_nombre?: string | null
+          linkedin_token_expira_en?: string | null
+          linkedin_version_avisada?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -174,6 +184,11 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          linkedin_conectado_en?: string | null
+          linkedin_miembro?: string | null
+          linkedin_nombre?: string | null
+          linkedin_token_expira_en?: string | null
+          linkedin_version_avisada?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -993,26 +1008,47 @@ export type Database = {
         Row: {
           destino: string
           enlace: string | null
+          enviado_en: string | null
           estado: string
+          explicacion: string | null
+          hash_enviado: string | null
+          intentos: number
           marcado_en: string | null
           marcado_por: string | null
           pieza_id: string
+          post_urn: string | null
+          ultimo_error: string | null
+          video_urn: string | null
         }
         Insert: {
           destino: string
           enlace?: string | null
+          enviado_en?: string | null
           estado: string
+          explicacion?: string | null
+          hash_enviado?: string | null
+          intentos?: number
           marcado_en?: string | null
           marcado_por?: string | null
           pieza_id: string
+          post_urn?: string | null
+          ultimo_error?: string | null
+          video_urn?: string | null
         }
         Update: {
           destino?: string
           enlace?: string | null
+          enviado_en?: string | null
           estado?: string
+          explicacion?: string | null
+          hash_enviado?: string | null
+          intentos?: number
           marcado_en?: string | null
           marcado_por?: string | null
           pieza_id?: string
+          post_urn?: string | null
+          ultimo_error?: string | null
+          video_urn?: string | null
         }
         Relationships: [
           {
@@ -1441,6 +1477,15 @@ export type Database = {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
       }
+      conectar_linkedin: {
+        Args: {
+          p_expira_en: string
+          p_miembro: string
+          p_nombre: string
+          p_token: string
+        }
+        Returns: undefined
+      }
       confirmar_costo_material: { Args: { p_id: string }; Returns: undefined }
       confirmar_gasto: {
         Args: { p_clave: string; p_real: number }
@@ -1472,6 +1517,7 @@ export type Database = {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
       }
+      desconectar_linkedin: { Args: never; Returns: undefined }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -1742,6 +1788,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      linkedin_conectado: { Args: never; Returns: boolean }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       marcar_subido_como_coni: {
         Args: {
@@ -1845,6 +1892,10 @@ export type Database = {
         Returns: undefined
       }
       reprocesar_material: { Args: { p_id: string }; Returns: undefined }
+      reservar_envio_linkedin: {
+        Args: { p_pieza: string; p_version: number }
+        Returns: number
+      }
       reservar_gasto: {
         Args: {
           p_ahora?: string

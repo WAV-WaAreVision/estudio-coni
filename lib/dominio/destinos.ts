@@ -11,6 +11,8 @@ export interface Publicacion {
 /** A row of `publicaciones` as the screens read it: where the post is, when she pasted its link. */
 export interface PublicacionConEnlace extends Publicacion {
   enlace: string | null
+  /** Why a destination that goes automatically fell back to her (LinkedIn phase 2); null otherwise. */
+  explicacion: string | null
 }
 
 const NOMBRE: Record<Destino, string> = { instagram: "Instagram", linkedin: "LinkedIn" }

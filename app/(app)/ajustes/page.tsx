@@ -3,6 +3,7 @@ import { Boton } from "@/components/ui/boton"
 import { FilaNavegacion } from "@/components/ui/filas"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { destinosPorDefecto } from "@/lib/dominio/destinos"
+import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
 import { exigirConi } from "@/lib/sesion/coni"
 import { cerrarSesionAccion } from "../acciones"
 import { enviarPruebaAccion, guardarAjusteAccion, guardarSuscripcionAccion, quitarSuscripcionAccion } from "./acciones"
@@ -46,6 +47,7 @@ export default async function Ajustes() {
             destinos: destinosPorDefecto(ajustes.destinos_por_defecto),
           }}
           acciones={{ guardar: guardarAjusteAccion }}
+          linkedinConectado={linkedinConectadoEn(ajustes, Date.now())}
           avisosDelCelular={
             <AvisosDelCelular
               claveVapid={claveVapid}

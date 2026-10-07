@@ -114,6 +114,7 @@ test("she approves for Instagram and LinkedIn, the time comes and she uploads ea
     ahora: () => new Date().toISOString(),
     dormir: async () => undefined,
     sondeo: { cadaMs: 1, veces: 1 },
+    sondeoLinkedin: { cadaMs: 1, veces: 1 },
   })
   expect(avisos.aConiEnviados[0]?.mensaje).toContain("lo subas a Instagram y LinkedIn")
 
@@ -183,7 +184,7 @@ test("Ajustes chooses where reels are published by default and keeps at least on
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "Dónde se publica" })).toBeVisible()
-  await expect(page.getByText("A mano por ahora")).toBeVisible()
+  await expect(page.getByText("A mano", { exact: true })).toBeVisible()
   await page.getByRole("switch", { name: "LinkedIn" }).click()
   await expect
     .poll(

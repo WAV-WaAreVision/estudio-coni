@@ -5,6 +5,7 @@ import { barrerGastos } from "./gastos"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsMantenimientoTemas, mantenerTemas } from "./temas"
+import { type DepsTokenLinkedin, mantenerTokenLinkedin } from "./token-linkedin"
 import { type DepsTokenMeta, mantenerTokenMeta } from "./token-meta"
 import { devolverVocesTrabadas } from "./voces"
 
@@ -36,7 +37,10 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
 export type ConstructorDeTemas = () => Promise<DepsMantenimientoTemas | null>
 
 export type DepsFrecuente = DepsConciliacion & DepsArranques & { temas: ConstructorDeTemas }
-export type DepsNocturno = DepsRetencion & DepsTokenMeta & DepsRespaldo & { temas: ConstructorDeTemas }
+export type DepsNocturno = DepsRetencion &
+  DepsTokenMeta &
+  DepsTokenLinkedin &
+  DepsRespaldo & { temas: ConstructorDeTemas }
 
 const OMITIDO = { omitido: true } as const
 
@@ -54,11 +58,12 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
   })
 }
 
-/** At 03:00 America/Santiago: file retention, Instagram's token, the backup of the database and the merges of topics. */
+/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the backup of the database and the merges of topics. */
 export function mantenimientoNocturno(deps: DepsNocturno) {
   return enSerie({
     retencion: () => aplicarRetencion(deps),
     token: () => mantenerTokenMeta(deps),
+    linkedin: () => mantenerTokenLinkedin(deps),
     respaldo: () => respaldarBase(deps),
     fusiones: async () => {
       const propias = await deps.temas()

@@ -75,6 +75,9 @@ function exigirRevisionLimpia(fila: FilaDePieza, { linkedin }: { linkedin: boole
 }
 
 const INSTAGRAM_SALE_SOLO = "Instagram está conectado: este reel sale solo a la hora aprobada."
+const LINKEDIN_SALE_SOLO = "LinkedIn está conectado: este reel sale solo a la hora aprobada."
+const LINKEDIN_EN_DUDA =
+  "LinkedIn puede haber publicado este video. Espera mi aviso para revisarlo en tu perfil antes de subirlo."
 const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
 
 function traducir(error: unknown): unknown {
@@ -88,6 +91,8 @@ function traducir(error: unknown): unknown {
   if (error.message.includes("destino_no_pendiente")) return new Falla(DESTINO_YA_NO_ESPERA)
   if (error.message.includes("estado_no_marcable")) return new PantallaVencida()
   if (error.message.includes("instagram_se_publica_solo")) return new Falla(INSTAGRAM_SALE_SOLO)
+  if (error.message.includes("linkedin_se_publica_solo")) return new Falla(LINKEDIN_SALE_SOLO)
+  if (error.message.includes("linkedin_envio_en_duda")) return new Falla(LINKEDIN_EN_DUDA)
   return error
 }
 

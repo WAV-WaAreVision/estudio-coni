@@ -15,7 +15,7 @@ const FILAS: FilaDeCuenta[] = [
 ]
 
 function mostrar(guardarLlave: (cuenta: string, llave: string) => Promise<Resultado<{ estado: EstadoDeLlave }>>) {
-  render(<CuentasConectadas filas={FILAS} guardarLlave={guardarLlave} />)
+  render(<CuentasConectadas filas={FILAS} guardarLlave={guardarLlave} desconectarLinkedin={vi.fn()} />)
 }
 
 describe("CuentasConectadas", () => {
@@ -39,6 +39,7 @@ describe("CuentasConectadas", () => {
       <CuentasConectadas
         filas={[{ cuenta: "instagram", nombre: "Instagram", estado: "Falta", tono: "aviso" }]}
         guardarLlave={vi.fn()}
+        desconectarLinkedin={vi.fn()}
       />,
     )
 
@@ -101,5 +102,51 @@ describe("CuentasConectadas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar y comprobar" }))
 
     expect(guardar).not.toHaveBeenCalled()
+  })
+})
+
+describe("CuentasConectadas, LinkedIn", () => {
+  const LINKEDIN_CONECTADO: FilaDeCuenta = {
+    cuenta: "linkedin",
+    nombre: "LinkedIn",
+    estado: "Conectada",
+    tono: "ok",
+    detalle: "Publica como Coni del Rosario",
+    conectada: true,
+  }
+
+  it("offers Conectar LinkedIn as a plain link when it goes by hand", () => {
+    render(
+      <CuentasConectadas
+        filas={[{ cuenta: "linkedin", nombre: "LinkedIn", estado: "A mano", tono: "neutro", conectada: false }]}
+        guardarLlave={vi.fn()}
+        desconectarLinkedin={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole("link", { name: "Conectar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
+    expect(screen.queryByRole("button", { name: "Desconectar" })).toBeNull()
+  })
+
+  it("shows who it publishes as, Renovar and Desconectar when connected", () => {
+    render(<CuentasConectadas filas={[LINKEDIN_CONECTADO]} guardarLlave={vi.fn()} desconectarLinkedin={vi.fn()} />)
+    expect(screen.getByText("Publica como Coni del Rosario")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Renovar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
+  })
+
+  it("asks before disconnecting and tells her afterwards", async () => {
+    const desconectar = vi.fn(async () => ({ ok: true as const }))
+    render(<CuentasConectadas filas={[LINKEDIN_CONECTADO]} guardarLlave={vi.fn()} desconectarLinkedin={desconectar} />)
+    fireEvent.click(screen.getByRole("button", { name: "Desconectar" }))
+    expect(
+      screen.getByText("¿Desconectar LinkedIn? Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."),
+    ).toBeInTheDocument()
+    expect(desconectar).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: "Desconectar" }))
+    await waitFor(() => expect(desconectar).toHaveBeenCalledOnce())
+    expect(
+      await screen.findByText(
+        "LinkedIn quedó desconectado. Si quieres, también puedes quitar el permiso desde la configuración de tu cuenta de LinkedIn.",
+      ),
+    ).toBeInTheDocument()
   })
 })
