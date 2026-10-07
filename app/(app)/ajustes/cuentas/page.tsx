@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import { Seccion } from "@/components/seccion"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { avisoDeInstagram } from "@/lib/ajustes/instagram-aviso"
+import { avisoDeLinkedin } from "@/lib/ajustes/linkedin-aviso"
 import { filaDeCuenta } from "@/lib/ajustes/presentar"
 import { exigirConi } from "@/lib/sesion/coni"
 import { guardarLlaveAccion } from "../acciones"
@@ -15,9 +16,13 @@ import { SaldosDeLaPagina } from "../saldos"
 const TIPO_DE_AVISO = { ok: "exito", aviso: "aviso", error: "error" } as const
 
 /** «Cuentas conectadas» as its own level of Ajustes (brandkit 9.21): each account, its keys and the balances. */
-export default async function Cuentas({ searchParams }: { searchParams: Promise<{ instagram?: string }> }) {
+export default async function Cuentas({
+  searchParams,
+}: {
+  searchParams: Promise<{ instagram?: string; linkedin?: string }>
+}) {
   const { db } = await exigirConi()
-  const { instagram } = await searchParams
+  const { instagram, linkedin } = await searchParams
   const { data: ajustes, error } = await db.from("ajustes").select("zona").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   if (!ajustes) throw new Error("Falta la fila de ajustes.")
@@ -25,7 +30,7 @@ export default async function Cuentas({ searchParams }: { searchParams: Promise<
     .from("suscripciones_push")
     .select("id", { count: "exact", head: true })
   if (errorDeDispositivos) throw new Error(`No pude leer tus aparatos: ${errorDeDispositivos.message}`)
-  const aviso = avisoDeInstagram(instagram)
+  const aviso = avisoDeInstagram(instagram) ?? avisoDeLinkedin(linkedin)
 
   return (
     <div>
