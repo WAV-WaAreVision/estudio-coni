@@ -128,7 +128,13 @@ export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLin
 
   let videoUrn = filaLinkedin.videoUrn
   if (paso.tipo === "subir_video") {
-    const datos = await contexto.deps.almacen.bajar(videoId)
+    let datos: Uint8Array
+    try {
+      datos = await contexto.deps.almacen.bajar(videoId)
+    } catch (error) {
+      // A store that does not answer is temporary like LinkedIn not answering: it counts a try, it does not stall.
+      return antesDeEnviar(contexto, error, false)
+    }
     if (datos.byteLength < BYTES_MINIMOS || datos.byteLength > BYTES_MAXIMOS) {
       return aMano(contexto, EXPLICACION_LINKEDIN_VIDEO, `el video pesa ${datos.byteLength} bytes`)
     }

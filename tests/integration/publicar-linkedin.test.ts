@@ -262,6 +262,39 @@ describe("publicarPendientes with LinkedIn connected", () => {
     const todo = JSON.stringify([d.avisos.aConiEnviados, d.avisos.aWavEnviados, await publicacionesConDetalle(id)])
     expect(todo).not.toContain("AQV_token_de_prueba")
   })
+
+  it("counts a failed download of the approved video as a try and keeps the piece for the next tick", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    const sim = simularLinkedin()
+    const d = doble(() => despues(1))
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    expect(sim.iniciadas).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]).toMatchObject({ estado: "esperando", intentos: 1 })
+  })
+
+  it("goes by hand with the reconnect reason when LinkedIn answers 401 while the video is processed", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    simularLinkedin({ video: () => HttpResponse.json({ status: 401 }, { status: 401 }) })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toContain("LinkedIn pidió conectar de nuevo tu cuenta")
+  })
+
+  it("treats a 401 on the post itself as in doubt: it is after the reservation, so never sent again", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    const sim = simularLinkedin({ post: () => HttpResponse.json({ status: 401 }, { status: 401 }) })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.posts).toHaveLength(1)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila.enviado_en).not.toBeNull()
+    expect(fila.explicacion).toContain("No pude confirmar si LinkedIn publicó tu video")
+  })
 })
 
 describe("Instagram and LinkedIn together", () => {
