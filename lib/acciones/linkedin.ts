@@ -65,7 +65,7 @@ export async function terminarConexionLinkedin(
 }
 
 /** "Desconectar" (L4): there is no revoke endpoint (F13), so only our copy goes. */
-export async function desconectarLinkedin(db: SupabaseClient<Database>): Promise<Record<string, never>> {
+export async function desconectarLinkedin(db: SupabaseClient<Database>): Promise<object> {
   const { error } = await db.rpc("desconectar_linkedin")
   if (error) throw new Error(`No pude desconectar LinkedIn: ${error.message}`, { cause: error })
   return {}

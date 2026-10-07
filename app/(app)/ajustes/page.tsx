@@ -46,6 +46,11 @@ export default async function Ajustes() {
             destinos: destinosPorDefecto(ajustes.destinos_por_defecto),
           }}
           acciones={{ guardar: guardarAjusteAccion }}
+          linkedinConectado={
+            ajustes.linkedin_miembro !== null &&
+            ajustes.linkedin_token_expira_en !== null &&
+            Date.parse(ajustes.linkedin_token_expira_en) > Date.now()
+          }
           avisosDelCelular={
             <AvisosDelCelular
               claveVapid={claveVapid}

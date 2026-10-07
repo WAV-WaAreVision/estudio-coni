@@ -98,10 +98,13 @@ interface Mensaje {
 export function EditorDeAjustes({
   inicial,
   acciones,
+  linkedinConectado,
   avisosDelCelular,
 }: {
   inicial: AjustesEditables
   acciones: AccionesDelEditor
+  /** A connected LinkedIn posts by itself at the approved time; otherwise it goes by hand. */
+  linkedinConectado: boolean
   /** The phone block (install, turn on, test): it belongs to the same «Avisos» section as the switches. */
   avisosDelCelular?: ReactNode
 }) {
@@ -223,14 +226,14 @@ export function EditorDeAjustes({
           <FilaConInterruptor
             key={destino}
             etiqueta={nombreDeDestino(destino)}
-            detalle={destino === "linkedin" ? "A mano por ahora" : undefined}
+            detalle={destino === "linkedin" ? (linkedinConectado ? "Sale solo" : "A mano") : undefined}
             encendido={valores.destinos.includes(destino)}
             alCambiar={() => alternarDestino(destino)}
           />
         ))}
         <p className="text-meta text-apagado">
-          LinkedIn se sube a mano: a la hora aprobada te aviso y te dejo el video y el texto listos. Más adelante podrá
-          publicarse solo.
+          Si LinkedIn está conectado, a la hora aprobada sale solo. Si no, te aviso y te dejo el video y el texto listos
+          para subirlo a mano.
         </p>
       </Seccion>
 

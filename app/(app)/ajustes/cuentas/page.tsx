@@ -7,7 +7,7 @@ import { avisoDeInstagram } from "@/lib/ajustes/instagram-aviso"
 import { avisoDeLinkedin } from "@/lib/ajustes/linkedin-aviso"
 import { filaDeCuenta } from "@/lib/ajustes/presentar"
 import { exigirConi } from "@/lib/sesion/coni"
-import { guardarLlaveAccion } from "../acciones"
+import { desconectarLinkedinAccion, guardarLlaveAccion } from "../acciones"
 import { BloqueDeEstado } from "../bloque-de-estado"
 import { CuentasConectadas } from "../cuentas-conectadas"
 import { revisionDeCuentas } from "../revision"
@@ -73,13 +73,19 @@ export default async function Cuentas({
 async function CuentasDeLaPagina() {
   const ahora = Date.now()
   const filas = (await revisionDeCuentas()).map((estado) => filaDeCuenta(estado, ahora))
-  return <CuentasConectadas filas={filas} guardarLlave={guardarLlaveAccion} />
+  return (
+    <CuentasConectadas
+      filas={filas}
+      guardarLlave={guardarLlaveAccion}
+      desconectarLinkedin={desconectarLinkedinAccion}
+    />
+  )
 }
 
 function EsqueletoDeCuentas() {
   return (
     <output className="grid gap-3" aria-label="Revisando las cuentas">
-      {[0, 1, 2, 3].map((fila) => (
+      {[0, 1, 2, 3, 4].map((fila) => (
         <div key={fila} className="esqueleto h-3 w-full" />
       ))}
     </output>

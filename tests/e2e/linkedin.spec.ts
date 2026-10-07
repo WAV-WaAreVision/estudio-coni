@@ -183,7 +183,7 @@ test("Ajustes chooses where reels are published by default and keeps at least on
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "Dónde se publica" })).toBeVisible()
-  await expect(page.getByText("A mano por ahora")).toBeVisible()
+  await expect(page.getByText("A mano", { exact: true })).toBeVisible()
   await page.getByRole("switch", { name: "LinkedIn" }).click()
   await expect
     .poll(
