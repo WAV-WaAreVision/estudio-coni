@@ -140,6 +140,10 @@ export type Database = {
           hora_publicacion: string
           id: boolean
           ideas_por_semana: number
+          linkedin_conectado_en: string | null
+          linkedin_miembro: string | null
+          linkedin_nombre: string | null
+          linkedin_token_expira_en: string | null
           meta: string
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
@@ -157,6 +161,10 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          linkedin_conectado_en?: string | null
+          linkedin_miembro?: string | null
+          linkedin_nombre?: string | null
+          linkedin_token_expira_en?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -174,6 +182,10 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          linkedin_conectado_en?: string | null
+          linkedin_miembro?: string | null
+          linkedin_nombre?: string | null
+          linkedin_token_expira_en?: string | null
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
@@ -1441,6 +1453,15 @@ export type Database = {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
       }
+      conectar_linkedin: {
+        Args: {
+          p_expira_en: string
+          p_miembro: string
+          p_nombre: string
+          p_token: string
+        }
+        Returns: undefined
+      }
       confirmar_costo_material: { Args: { p_id: string }; Returns: undefined }
       confirmar_gasto: {
         Args: { p_clave: string; p_real: number }
@@ -1472,6 +1493,7 @@ export type Database = {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
       }
+      desconectar_linkedin: { Args: never; Returns: undefined }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -1742,6 +1764,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      linkedin_conectado: { Args: never; Returns: boolean }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       marcar_subido_como_coni: {
         Args: {
