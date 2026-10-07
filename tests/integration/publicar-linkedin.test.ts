@@ -4,6 +4,7 @@ import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
+import { simularInstagram } from "../instagram-msw"
 import { simularLinkedin } from "../linkedin-msw"
 import { pool } from "./db"
 import { VIDEO } from "./flujo"
@@ -260,5 +261,72 @@ describe("publicarPendientes with LinkedIn connected", () => {
     await publicarPendientes(d.deps)
     const todo = JSON.stringify([d.avisos.aConiEnviados, d.avisos.aWavEnviados, await publicacionesConDetalle(id)])
     expect(todo).not.toContain("AQV_token_de_prueba")
+  })
+})
+
+describe("Instagram and LinkedIn together", () => {
+  const AMBOS = { destinos: ["instagram", "linkedin"] as const, textoLinkedin: TEXTO_LINKEDIN }
+
+  it("posts LinkedIn and hands Instagram over when Instagram is not connected", async () => {
+    const id = await crearProgramada(undefined, AMBOS)
+    simularLinkedin()
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    const filas = await publicacionesConDetalle(id)
+    expect(filas.find((f) => f.destino === "linkedin")).toMatchObject({ estado: "publicado" })
+    expect(filas.find((f) => f.destino === "instagram")).toMatchObject({ estado: "para_subir" })
+    const mensajes = d.avisos.aConiEnviados.map((a) => a.mensaje)
+    expect(mensajes.some((m) => m.includes("listo para que lo subas a Instagram"))).toBe(true)
+    expect(mensajes.some((m) => m.includes("Ya salió en LinkedIn: https://www.linkedin.com/feed/update/"))).toBe(true)
+  })
+
+  it("closes as publicado_a_mano when Instagram was uploaded by hand early and LinkedIn goes out by itself", async () => {
+    const id = await crearProgramada(undefined, AMBOS)
+    await pool.query(
+      "update public.publicaciones set estado = 'subido_a_mano', marcado_en = now() where pieza_id = $1 and destino = 'instagram'",
+      [id],
+    )
+    simularLinkedin()
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect((await estadoDe(id)).estado).toBe("publicado_a_mano")
+  })
+
+  it("hands both over with LinkedIn's reason when LinkedIn falls back and Instagram is by hand", async () => {
+    const id = await crearProgramada(undefined, AMBOS)
+    simularLinkedin({ iniciar: () => HttpResponse.json({}, { status: 403 }) })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("Instagram y LinkedIn")
+    expect(d.avisos.aConiEnviados[0]?.mensaje).toContain("LinkedIn no aceptó la publicación")
+  })
+
+  it("publishes both by themselves when Instagram is connected too, and closes the piece as publicado", async () => {
+    await pool.query("update public.ajustes set meta_cuenta_id = '17841400000000001'")
+    await pool.query("select vault.create_secret('IGAA_token_de_prueba', 'meta')")
+    try {
+      const id = await crearProgramada(undefined, AMBOS)
+      simularLinkedin()
+      simularInstagram({ cuenta: "17841400000000001", estados: ["FINISHED"] })
+      const d = doble(() => despues(1))
+      await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+      expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+      expect((await estadoDe(id)).estado).toBe("publicado")
+      const filas = await publicacionesConDetalle(id)
+      expect(filas.map((f) => [f.destino, f.estado])).toEqual([
+        ["instagram", "publicado"],
+        ["linkedin", "publicado"],
+      ])
+    } finally {
+      await pool.query("delete from vault.secrets where name = 'meta'")
+      await pool.query("update public.ajustes set meta_cuenta_id = null")
+    }
   })
 })
