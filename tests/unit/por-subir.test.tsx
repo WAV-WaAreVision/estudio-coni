@@ -28,7 +28,8 @@ const fila = (
   destino: "instagram" | "linkedin",
   estado: PublicacionConEnlace["estado"],
   enlace: string | null = null,
-) => ({ destino, estado, enlace }) satisfies PublicacionConEnlace
+  explicacion: string | null = null,
+) => ({ destino, estado, enlace, explicacion }) satisfies PublicacionConEnlace
 
 describe("PorSubir", () => {
   it("shows one block per pending destination, each with its own steps and its own text", () => {

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { esDestino, esEstadoDePublicacion, type PublicacionConEnlace } from "@/lib/dominio/destinos"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { enlaceDePost, type FilaDeLinkedin } from "@/lib/dominio/linkedin"
 import type { Alerta, Hallazgo } from "@/lib/dominio/revision"
 import type { Database, Json } from "@/lib/supabase/database.types"
 
@@ -228,14 +229,14 @@ export async function tomarParaPublicar(db: Db, ahora: string, arriendoSegundos:
 export async function leerPublicaciones(db: Db, piezaId: string): Promise<PublicacionConEnlace[]> {
   const { data, error } = await db
     .from("publicaciones")
-    .select("destino, estado, enlace")
+    .select("destino, estado, enlace, explicacion")
     .eq("pieza_id", piezaId)
     .order("destino")
   if (error) throw fallo("No pude leer los destinos de la pieza", error)
   return data.map((fila) => {
     if (!esDestino(fila.destino)) throw new Error(`Destino desconocido en la base: ${fila.destino}`)
     if (!esEstadoDePublicacion(fila.estado)) throw new Error(`Estado de publicación desconocido: ${fila.estado}`)
-    return { destino: fila.destino, estado: fila.estado, enlace: fila.enlace }
+    return { destino: fila.destino, estado: fila.estado, enlace: fila.enlace, explicacion: fila.explicacion }
   })
 }
 
@@ -347,4 +348,119 @@ export async function leerPiezasSinArrancar(
   if (aGrabar.error) throw fallo("No pude leer las piezas sin grabar", aGrabar.error)
   if (aProducir.error) throw fallo("No pude leer las piezas sin guion", aProducir.error)
   return { aGrabar: aGrabar.data, aProducir: aProducir.data }
+}
+
+export interface ConexionLinkedin {
+  token: string
+  miembro: string
+  expiraEn: string
+}
+
+/** Null when LinkedIn was never connected or was disconnected. Expiry is judged by the caller with its clock. */
+export async function leerConexionLinkedin(db: Db): Promise<ConexionLinkedin | null> {
+  const token = await leerSecreto(db, "linkedin")
+  const { data, error } = await db.from("ajustes").select("linkedin_miembro, linkedin_token_expira_en").maybeSingle()
+  if (error) throw fallo("No pude leer la conexión de LinkedIn", error)
+  if (!token || !data?.linkedin_miembro || !data.linkedin_token_expira_en) return null
+  return { token, miembro: data.linkedin_miembro, expiraEn: data.linkedin_token_expira_en }
+}
+
+export async function leerFilaLinkedin(db: Db, piezaId: string): Promise<FilaDeLinkedin | null> {
+  const { data, error } = await db
+    .from("publicaciones")
+    .select("estado, video_urn, enviado_en, post_urn, intentos")
+    .eq("pieza_id", piezaId)
+    .eq("destino", "linkedin")
+    .maybeSingle()
+  if (error) throw fallo("No pude leer la fila de LinkedIn", error)
+  if (!data) return null
+  if (!esEstadoDePublicacion(data.estado)) throw new Error(`Estado de publicación desconocido: ${data.estado}`)
+  return {
+    estado: data.estado,
+    videoUrn: data.video_urn,
+    enviadoEn: data.enviado_en,
+    postUrn: data.post_urn,
+    intentos: data.intentos,
+  }
+}
+
+/** Every write targets the waiting row only: a row she marked, or that fell back, is never touched again. */
+async function escribirFilaLinkedin(
+  db: Db,
+  piezaId: string,
+  cambios: Database["public"]["Tables"]["publicaciones"]["Update"],
+  que: string,
+): Promise<void> {
+  const { data, error } = await db
+    .from("publicaciones")
+    .update(cambios)
+    .eq("pieza_id", piezaId)
+    .eq("destino", "linkedin")
+    .eq("estado", "esperando")
+    .select("pieza_id")
+  if (error) throw fallo(`No pude ${que} en LinkedIn`, error)
+  if (data.length !== 1) throw new Error(`La fila de LinkedIn de la pieza ${piezaId} dejó de esperar (${que}).`)
+}
+
+export function guardarVideoLinkedin(db: Db, piezaId: string, videoUrn: string): Promise<void> {
+  return escribirFilaLinkedin(db, piezaId, { video_urn: videoUrn }, "guardar el video")
+}
+
+export async function sumarIntentoLinkedin(
+  db: Db,
+  piezaId: string,
+  entrada: { error: string; borrarVideo: boolean },
+): Promise<void> {
+  const fila = await leerFilaLinkedin(db, piezaId)
+  if (!fila) throw new Error(`La pieza ${piezaId} no tiene fila de LinkedIn.`)
+  await escribirFilaLinkedin(
+    db,
+    piezaId,
+    {
+      intentos: fila.intentos + 1,
+      ultimo_error: entrada.error.slice(0, 500),
+      ...(entrada.borrarVideo ? { video_urn: null } : {}),
+    },
+    "contar el intento",
+  )
+}
+
+/** L6.6: returns the piece version the run holds from now on. */
+export async function reservarEnvioLinkedin(db: Db, piezaId: string, version: number): Promise<number> {
+  const { data, error } = await db.rpc("reservar_envio_linkedin", { p_pieza: piezaId, p_version: version })
+  if (error) throw fallo("No pude reservar el envío a LinkedIn", error)
+  return data
+}
+
+export function guardarPostLinkedin(
+  db: Db,
+  piezaId: string,
+  entrada: { postUrn: string; hashEnviado: string },
+): Promise<void> {
+  return escribirFilaLinkedin(
+    db,
+    piezaId,
+    {
+      estado: "publicado",
+      post_urn: entrada.postUrn,
+      enlace: enlaceDePost(entrada.postUrn),
+      hash_enviado: entrada.hashEnviado,
+      marcado_en: new Date().toISOString(),
+      explicacion: null,
+    },
+    "guardar el post",
+  )
+}
+
+export function pasarLinkedinAMano(
+  db: Db,
+  piezaId: string,
+  entrada: { explicacion: string; error: string },
+): Promise<void> {
+  return escribirFilaLinkedin(
+    db,
+    piezaId,
+    { estado: "para_subir", explicacion: entrada.explicacion, ultimo_error: entrada.error.slice(0, 500) },
+    "dejarla para subir a mano",
+  )
 }
