@@ -90,8 +90,11 @@ export type Evento =
   | { tipo: "regrabar" }
   | { tipo: "cambiar_guion" }
   | { tipo: "cambiar_fecha" }
-  /** `quedanAMano`: the piece also goes to a destination she uploads herself (LinkedIn), still pending. */
-  | { tipo: "publicado"; quedanAMano?: boolean }
+  /**
+   * `quedanAMano`: a destination she uploads herself is still pending. `algunoAMano`: nothing is pending, but one
+   * destination was uploaded by hand (the last automatic one closes a mixed piece, design 2026-10-07 L7).
+   */
+  | { tipo: "publicado"; quedanAMano?: boolean; algunoAMano?: boolean }
   | { tipo: "falla_publicacion"; explicacion: string }
   | { tipo: "hora_vencida" }
   /** Instagram is not connected and the approved time came: the piece waits for Coni to upload it herself. */
@@ -318,7 +321,8 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
     case "publicado":
       if (estado !== "programado") throw invalida()
       // Instagram went out by itself and a destination that goes by hand still waits for her.
-      return a(evento.quedanAMano ? "para_subir_a_mano" : "publicado")
+      if (evento.quedanAMano) return a("para_subir_a_mano")
+      return a(evento.algunoAMano ? "publicado_a_mano" : "publicado")
 
     case "falla_publicacion":
       if (estado !== "programado") throw invalida()
