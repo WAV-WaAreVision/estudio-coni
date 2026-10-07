@@ -260,3 +260,15 @@ describe("estadoDeAjustes with LinkedIn", () => {
     expect(estado.titulo).toBe("Instagram dejó de estar conectado")
   })
 })
+
+describe("estadoDeAjustes with LinkedIn expiring today", () => {
+  it("titles the block 'vence hoy' with less than a day left", () => {
+    const estado = estadoDeAjustes({
+      cuentas: [...TODAS_LISTAS, { cuenta: "linkedin", estado: "vence", expiraEn: AHORA + 5 * 3_600_000 }],
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado.titulo).toBe("LinkedIn vence hoy")
+  })
+})

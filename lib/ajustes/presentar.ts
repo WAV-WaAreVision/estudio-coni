@@ -58,7 +58,7 @@ function filaDeLinkedin(estado: EstadoDeCuenta, ahora: number): FilaDeCuenta {
       return {
         ...base,
         ...como,
-        estado: dias <= 1 ? "Vence mañana" : `Vence en ${dias} días`,
+        estado: dias <= 1 ? "Vence hoy" : `Vence en ${dias} días`,
         tono: "aviso",
         conectada: true,
       }

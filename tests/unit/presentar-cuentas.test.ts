@@ -19,4 +19,16 @@ describe("filaDeCuenta for LinkedIn", () => {
       conectada: true,
     })
   })
+
+  it("says it expires today, not tomorrow, with less than a day left", () => {
+    const cinco = AHORA + 5 * 3_600_000
+    expect(filaDeCuenta({ cuenta: "linkedin", estado: "vence", expiraEn: cinco }, AHORA)).toMatchObject({
+      estado: "Vence hoy",
+    })
+    expect(
+      filaDeCuenta({ cuenta: "linkedin", estado: "vence", expiraEn: AHORA + 30 * 3_600_000 }, AHORA),
+    ).toMatchObject({
+      estado: "Vence en 2 días",
+    })
+  })
 })

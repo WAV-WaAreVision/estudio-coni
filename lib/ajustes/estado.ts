@@ -72,7 +72,7 @@ function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeE
       tipo: "atencion",
       titulo:
         cuenta.estado === "vence"
-          ? `LinkedIn vence ${plazo(cuenta.expiraEn, ahora)}`
+          ? `LinkedIn vence ${cuenta.expiraEn - ahora <= DIA_MS ? "hoy" : plazo(cuenta.expiraEn, ahora)}`
           : "LinkedIn dejó de estar conectado",
       texto:
         "Renuévalo para que tus videos sigan saliendo solos en LinkedIn. Mientras tanto, te los dejo listos para subir a mano.",

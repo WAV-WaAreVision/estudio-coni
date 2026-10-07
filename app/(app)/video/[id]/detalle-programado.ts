@@ -36,12 +36,13 @@ export function detalleDePublicado(filas: readonly PublicacionConEnlace[]): {
   const linkedin = filas.find((f) => f.destino === "linkedin" && f.estado === "publicado")
   const aMano = filas.filter((f) => f.estado === "subido_a_mano").map((f) => f.destino)
   const enlaces = linkedin?.enlace ? [{ etiqueta: "Ver en LinkedIn", href: linkedin.enlace }] : []
-  if (instagramSolo) {
+  // A piece published before destinations existed has no rows: it was an Instagram reel.
+  if (instagramSolo || filas.length === 0) {
     const base = "La etiqueta de IA quedó puesta en Instagram."
     return { detalle: linkedin ? `${base} También salió en LinkedIn.` : base, enlaces }
   }
   if (aMano.length > 0) {
     return { detalle: `Lo subiste tú a ${nombreDeDestinos(aMano)}. LinkedIn salió solo.`, enlaces }
   }
-  return { detalle: "Salió en LinkedIn.", enlaces }
+  return { detalle: linkedin ? "Salió en LinkedIn." : "", enlaces }
 }

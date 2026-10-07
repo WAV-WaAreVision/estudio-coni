@@ -77,3 +77,10 @@ describe("detalleDePublicado", () => {
     })
   })
 })
+
+describe("detalleDePublicado without a LinkedIn row", () => {
+  it("never says it went out on LinkedIn when there is no LinkedIn row", () => {
+    expect(detalleDePublicado([]).detalle).not.toContain("LinkedIn")
+    expect(detalleDePublicado([fila("instagram", "subido_a_mano")]).detalle).not.toContain("salió solo")
+  })
+})

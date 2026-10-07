@@ -44,6 +44,11 @@ describe("mantenerTokenLinkedin", () => {
 
   it.each([
     [
+      5 * 3_600_000,
+      3,
+      "Tu conexión con LinkedIn vence hoy. Entra a Ajustes y toca Renovar LinkedIn: toma un minuto. Si no, tus videos te quedarán para subir a mano.",
+    ],
+    [
       10 * DIA,
       14,
       "Tu conexión con LinkedIn vence en 10 días. Entra a Ajustes y toca Renovar LinkedIn: toma un minuto. Si no, tus videos te quedarán para subir a mano.",

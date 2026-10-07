@@ -46,7 +46,7 @@ export async function mantenerTokenLinkedin(deps: DepsTokenLinkedin): Promise<Re
   const mensaje =
     aviso.umbral === 0
       ? "Tu conexión con LinkedIn venció. Mientras no la renueves en Ajustes, tus videos de LinkedIn te quedarán para subir a mano."
-      : `Tu conexión con LinkedIn vence en ${aviso.dias === 1 ? "1 día" : `${aviso.dias} días`}. Entra a Ajustes y toca Renovar LinkedIn: toma un minuto. Si no, tus videos te quedarán para subir a mano.`
+      : `Tu conexión con LinkedIn vence ${aviso.dias === 1 ? "hoy" : `en ${aviso.dias} días`}. Entra a Ajustes y toca Renovar LinkedIn: toma un minuto. Si no, tus videos te quedarán para subir a mano.`
   await deps.avisos.aConi(mensaje, true, {
     tipo: "linkedin_por_vencer",
     clave: `linkedin_por_vencer:${aviso.umbral}:${expiraEn.slice(0, 10)}`,
