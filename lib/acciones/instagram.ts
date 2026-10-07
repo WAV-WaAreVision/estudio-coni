@@ -1,8 +1,10 @@
-import { randomBytes, timingSafeEqual } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { estadoCoincide } from "@/lib/acciones/estado-oauth"
 import { Falla } from "@/lib/dominio/falla"
 import { aLargaDuracion, intercambiarCodigo, leerCuenta } from "@/lib/proveedores/instagram-oauth"
 import type { Database } from "@/lib/supabase/database.types"
+
+export { estadoCoincide, nuevoEstado } from "@/lib/acciones/estado-oauth"
 
 type Entorno = Record<string, string | undefined>
 
@@ -16,18 +18,6 @@ export interface AppDeMeta {
 export function leerAppDeMeta(entorno: Entorno): AppDeMeta | null {
   const { META_APP_ID: appId, META_APP_SECRET: appSecret, META_REDIRECT_URI: redirectUri } = entorno
   return appId && appSecret && redirectUri ? { appId, appSecret, redirectUri } : null
-}
-
-/** A one-use value that goes out with the redirect and must come back: it proves that she started the connection. */
-export function nuevoEstado(): string {
-  return randomBytes(32).toString("hex")
-}
-
-export function estadoCoincide(guardado: string | null | undefined, recibido: string | null | undefined): boolean {
-  if (!guardado || !recibido) return false
-  const a = Buffer.from(guardado)
-  const b = Buffer.from(recibido)
-  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 export type MotivoDeFallo = "estado" | "cancelada" | "rechazada" | "sin_app" | "fallo"
