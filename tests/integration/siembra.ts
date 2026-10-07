@@ -43,6 +43,22 @@ export async function publicacionesDe(id: string) {
   return rows
 }
 
+/** Like `publicacionesDe`, with the publishing state of the row (LinkedIn phase 2). */
+export async function publicacionesConDetalle(id: string) {
+  const { rows } = await pool.query<{
+    destino: string
+    estado: string
+    enlace: string | null
+    video_urn: string | null
+    enviado_en: string | null
+    post_urn: string | null
+    intentos: number
+    explicacion: string | null
+    ultimo_error: string | null
+  }>("select * from public.publicaciones where pieza_id = $1 order by destino", [id])
+  return rows
+}
+
 export async function leerFila(id: string) {
   const { rows } = await pool.query("select * from public.piezas where id = $1", [id])
   return rows[0]

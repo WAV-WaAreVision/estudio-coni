@@ -1005,26 +1005,47 @@ export type Database = {
         Row: {
           destino: string
           enlace: string | null
+          enviado_en: string | null
           estado: string
+          explicacion: string | null
+          hash_enviado: string | null
+          intentos: number
           marcado_en: string | null
           marcado_por: string | null
           pieza_id: string
+          post_urn: string | null
+          ultimo_error: string | null
+          video_urn: string | null
         }
         Insert: {
           destino: string
           enlace?: string | null
+          enviado_en?: string | null
           estado: string
+          explicacion?: string | null
+          hash_enviado?: string | null
+          intentos?: number
           marcado_en?: string | null
           marcado_por?: string | null
           pieza_id: string
+          post_urn?: string | null
+          ultimo_error?: string | null
+          video_urn?: string | null
         }
         Update: {
           destino?: string
           enlace?: string | null
+          enviado_en?: string | null
           estado?: string
+          explicacion?: string | null
+          hash_enviado?: string | null
+          intentos?: number
           marcado_en?: string | null
           marcado_por?: string | null
           pieza_id?: string
+          post_urn?: string | null
+          ultimo_error?: string | null
+          video_urn?: string | null
         }
         Relationships: [
           {
@@ -1868,6 +1889,10 @@ export type Database = {
         Returns: undefined
       }
       reprocesar_material: { Args: { p_id: string }; Returns: undefined }
+      reservar_envio_linkedin: {
+        Args: { p_pieza: string; p_version: number }
+        Returns: number
+      }
       reservar_gasto: {
         Args: {
           p_ahora?: string
