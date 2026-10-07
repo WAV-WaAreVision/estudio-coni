@@ -41,7 +41,7 @@ export function detalleDePublicado(filas: readonly PublicacionConEnlace[]): {
     const base = "La etiqueta de IA quedó puesta en Instagram."
     return { detalle: linkedin ? `${base} También salió en LinkedIn.` : base, enlaces }
   }
-  if (aMano.length > 0) {
+  if (linkedin && aMano.length > 0) {
     return { detalle: `Lo subiste tú a ${nombreDeDestinos(aMano)}. LinkedIn salió solo.`, enlaces }
   }
   return { detalle: linkedin ? "Salió en LinkedIn." : "", enlaces }
