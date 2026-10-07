@@ -9,13 +9,22 @@ interface PropiedadesDeElegirDestinos {
   elegidos: readonly Destino[]
   /** Instagram goes out by itself once it is connected; until then she uploads it too. */
   instagramConectado: boolean
+  /** LinkedIn goes out by itself while its connection is alive; otherwise she uploads it at the approved time. */
+  linkedinConectado: boolean
   alCambiar: (elegidos: Destino[]) => void
 }
 
 const A_MANO = "Lo subes tú a mano"
+const SALE_SOLO = "Sale solo a la hora aprobada"
+const LO_SUBES_TU = "Lo subes tú a la hora aprobada"
 
 /** "Dónde se publica" at gate 2: at least one destination stays ticked. */
-export function ElegirDestinos({ elegidos, instagramConectado, alCambiar }: PropiedadesDeElegirDestinos) {
+export function ElegirDestinos({
+  elegidos,
+  instagramConectado,
+  linkedinConectado,
+  alCambiar,
+}: PropiedadesDeElegirDestinos) {
   const [sinElegir, setSinElegir] = useState(false)
 
   function alternar(destino: Destino, marcada: boolean) {
@@ -28,8 +37,11 @@ export function ElegirDestinos({ elegidos, instagramConectado, alCambiar }: Prop
     alCambiar(canonicos(siguientes))
   }
 
-  const detalle = (destino: Destino) =>
-    destino === "instagram" && instagramConectado ? "Sale solo a la hora aprobada" : A_MANO
+  // Information only, not part of what gate 2 hashes: the connection is checked again when the time comes.
+  const detalle = (destino: Destino) => {
+    if (destino === "instagram") return instagramConectado ? SALE_SOLO : A_MANO
+    return linkedinConectado ? SALE_SOLO : LO_SUBES_TU
+  }
 
   return (
     <fieldset className="grid border-0 p-0">

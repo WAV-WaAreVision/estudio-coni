@@ -52,6 +52,7 @@ function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
     textoLinkedin: LINKEDIN,
     destinosPorDefecto: ["instagram"],
     instagramConectado: false,
+    linkedinConectado: false,
     revision: [],
     videoUrl: null,
     videoId: "videos/e2e.webm",

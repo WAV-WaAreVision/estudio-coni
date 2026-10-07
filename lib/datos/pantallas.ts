@@ -3,6 +3,7 @@ import { type FilaDePieza, type IdeaLeida, leerIdea, leerPieza, leerProduccion }
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, type Horario } from "@/lib/dominio/fechas"
+import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
 import { dolares } from "@/lib/formato"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
@@ -35,6 +36,13 @@ export async function leerInstagramConectado(db: Db): Promise<boolean> {
   const { data, error } = await db.from("ajustes").select("meta_cuenta_id").maybeSingle()
   if (error) throw fallo("No pude leer la cuenta de Instagram", error)
   return data?.meta_cuenta_id != null
+}
+
+/** Whether her LinkedIn connection is alive now: a connected one posts by itself at the approved time. */
+export async function leerLinkedinConectado(db: Db, ahora: number): Promise<boolean> {
+  const { data, error } = await db.from("ajustes").select("linkedin_miembro, linkedin_token_expira_en").maybeSingle()
+  if (error) throw fallo("No pude leer la conexión de LinkedIn", error)
+  return data !== null && linkedinConectadoEn(data, ahora)
 }
 
 export interface ContextoDeFechas {

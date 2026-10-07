@@ -5,6 +5,7 @@ import {
   avisoDeVencimientoLinkedin,
   enlaceDePost,
   esUrnDePost,
+  linkedinConectadoEn,
   MAXIMO_DE_INTENTOS_LINKEDIN,
   siguientePasoLinkedin,
   versionDeLinkedinPorVencer,
@@ -100,5 +101,26 @@ describe("versionDeLinkedinPorVencer", () => {
   })
   it("refuses a version that is not YYYYMM", () => {
     expect(() => versionDeLinkedinPorVencer("2026-09", "2027-01-01T00:00:00Z")).toThrow()
+  })
+})
+
+describe("linkedinConectadoEn", () => {
+  const AHORA = Date.parse("2031-01-01T12:00:00Z")
+  it("is connected with a member and an expiry still in the future", () => {
+    expect(
+      linkedinConectadoEn(
+        { linkedin_miembro: "urn:li:person:x", linkedin_token_expira_en: "2031-01-02T00:00:00Z" },
+        AHORA,
+      ),
+    ).toBe(true)
+  })
+  it("is not connected without a member, without an expiry or once expired", () => {
+    expect(linkedinConectadoEn({ linkedin_miembro: null, linkedin_token_expira_en: null }, AHORA)).toBe(false)
+    expect(
+      linkedinConectadoEn(
+        { linkedin_miembro: "urn:li:person:x", linkedin_token_expira_en: "2030-12-31T00:00:00Z" },
+        AHORA,
+      ),
+    ).toBe(false)
   })
 })

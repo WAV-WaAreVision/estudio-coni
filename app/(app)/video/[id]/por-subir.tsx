@@ -33,14 +33,20 @@ export function PorSubir({
   alMarcar,
 }: PropiedadesDePorSubir) {
   const hechas = publicaciones.filter((publicacion) => publicacion.estado === "subido_a_mano")
+  // LinkedIn that went out by itself (phase 2): said apart from what she uploaded herself.
+  const automaticas = publicaciones.filter(
+    (publicacion) => publicacion.destino === "linkedin" && publicacion.estado === "publicado",
+  )
   return (
     <>
       {pendientes.map((destino) => {
         const textoDelDestino = destino === "linkedin" ? textoLinkedin : texto
         if (textoDelDestino === null)
           throw new Error(`La pieza ${piezaId} espera subirse a LinkedIn sin texto para LinkedIn.`)
+        const explicacion = publicaciones.find((p) => p.destino === destino && p.estado === "para_subir")?.explicacion
         return (
           <Seccion key={destino} titulo={`Subir a ${nombreDeDestino(destino)}`} id={`subir-${destino}`}>
+            {explicacion ? <LineaDeEstado tipo="aviso" titulo={explicacion} tituloEnTinta /> : null}
             <SubirAMano
               piezaId={piezaId}
               version={version}
@@ -52,6 +58,26 @@ export function PorSubir({
           </Seccion>
         )
       })}
+      {automaticas.map((automatica) => (
+        <LineaDeEstado
+          key={automatica.destino}
+          tipo="exito"
+          titulo="Publicado en LinkedIn"
+          tituloEnTinta
+          detalle={
+            automatica.enlace ? (
+              <a
+                href={automatica.enlace}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center font-medium text-tinta underline"
+              >
+                Ver en LinkedIn
+              </a>
+            ) : undefined
+          }
+        />
+      ))}
       {hechas.length > 0 ? (
         <div className="grid gap-4">
           {hechas.map((hecha) => (

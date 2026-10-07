@@ -106,3 +106,15 @@ export function versionDeLinkedinPorVencer(version: string, ahora: string): bool
   const meses = (fecha.getUTCFullYear() - Number(partes[1])) * 12 + (fecha.getUTCMonth() + 1 - Number(partes[2]))
   return meses >= 10
 }
+
+/** Whether Coni's LinkedIn connection is alive at `ahora`: there is a member and the token has not expired. */
+export function linkedinConectadoEn(
+  ajustes: { linkedin_miembro: string | null; linkedin_token_expira_en: string | null },
+  ahora: number,
+): boolean {
+  return (
+    ajustes.linkedin_miembro !== null &&
+    ajustes.linkedin_token_expira_en !== null &&
+    Date.parse(ajustes.linkedin_token_expira_en) > ahora
+  )
+}

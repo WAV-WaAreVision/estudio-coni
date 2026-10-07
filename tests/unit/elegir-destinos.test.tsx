@@ -5,7 +5,13 @@ import { ElegirDestinos } from "@/app/(app)/video/[id]/elegir-destinos"
 function armar(sobre: Partial<Parameters<typeof ElegirDestinos>[0]> = {}) {
   const alCambiar = vi.fn()
   render(
-    <ElegirDestinos elegidos={["instagram", "linkedin"]} instagramConectado={false} alCambiar={alCambiar} {...sobre} />,
+    <ElegirDestinos
+      elegidos={["instagram", "linkedin"]}
+      instagramConectado={false}
+      linkedinConectado={false}
+      alCambiar={alCambiar}
+      {...sobre}
+    />,
   )
   return { alCambiar }
 }
@@ -26,7 +32,9 @@ describe("ElegirDestinos", () => {
 
   it("tells her she uploads LinkedIn herself, and Instagram too while it is not connected", () => {
     armar()
-    expect(screen.getByRole("checkbox", { name: "LinkedIn" })).toHaveAccessibleDescription("Lo subes tú a mano")
+    expect(screen.getByRole("checkbox", { name: "LinkedIn" })).toHaveAccessibleDescription(
+      "Lo subes tú a la hora aprobada",
+    )
     expect(screen.getByRole("checkbox", { name: "Instagram" })).toHaveAccessibleDescription("Lo subes tú a mano")
   })
 
@@ -35,7 +43,17 @@ describe("ElegirDestinos", () => {
     expect(screen.getByRole("checkbox", { name: "Instagram" })).toHaveAccessibleDescription(
       "Sale solo a la hora aprobada",
     )
-    expect(screen.getByRole("checkbox", { name: "LinkedIn" })).toHaveAccessibleDescription("Lo subes tú a mano")
+    expect(screen.getByRole("checkbox", { name: "LinkedIn" })).toHaveAccessibleDescription(
+      "Lo subes tú a la hora aprobada",
+    )
+  })
+
+  it("says LinkedIn goes out by itself once it is connected", () => {
+    armar({ linkedinConectado: true })
+    expect(screen.getByRole("checkbox", { name: "LinkedIn" })).toHaveAccessibleDescription(
+      "Sale solo a la hora aprobada",
+    )
+    expect(screen.getByRole("checkbox", { name: "Instagram" })).toHaveAccessibleDescription("Lo subes tú a mano")
   })
 
   it("reports the new choice, always in the canonical order", () => {
