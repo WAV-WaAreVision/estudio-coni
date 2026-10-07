@@ -1,3 +1,4 @@
+import { HttpResponse } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -156,5 +157,108 @@ describe("publicarPendientes with LinkedIn connected", () => {
     expect(d.avisos.aConiEnviados[0]?.mensaje).toContain(
       "LinkedIn no está conectado, así que te lo dejé para subir a mano.",
     )
+  })
+
+  it.each([
+    [
+      401,
+      "LinkedIn pidió conectar de nuevo tu cuenta, así que te lo dejé para subir a mano. Renueva LinkedIn en Ajustes para los próximos.",
+    ],
+    [403, "LinkedIn no aceptó la publicación, así que te la dejé para subir a mano. WAV ya está revisando."],
+    [426, "LinkedIn no aceptó la publicación, así que te la dejé para subir a mano. WAV ya está revisando."],
+  ])(
+    "handles %s on the upload when LinkedIn refuses: by hand with its reason, WAV told",
+    async (status, explicacion) => {
+      const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+      simularLinkedin({ iniciar: () => HttpResponse.json({ status }, { status }) })
+      const d = doble(() => despues(1))
+      await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+      expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+      const [fila] = await publicacionesConDetalle(id)
+      expect(fila).toMatchObject({ estado: "para_subir", explicacion })
+      expect(d.avisos.aConiEnviados[0]?.mensaje).toContain(explicacion)
+      expect(d.avisos.aWavEnviados).toHaveLength(1)
+    },
+  )
+
+  it("counts temporary failures and goes by hand after three", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    // Each run holds the piece for 10 minutes: the ticks that find the lease over are 12 minutes apart.
+    for (let tick = 0; tick < 3; tick += 1) {
+      simularLinkedin({ iniciar: () => new HttpResponse(null, { status: 503 }) })
+      const d = doble(() => despues(1 + tick * 12))
+      await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+      expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    }
+    const sim = simularLinkedin()
+    expect(await publicarPendientes(doble(() => despues(37)).deps)).toEqual([
+      { piezaId: id, resultado: "para_subir_a_mano" },
+    ])
+    expect(sim.iniciadas).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]).toMatchObject({ estado: "para_subir", intentos: 3 })
+  })
+
+  it("re-uploads after a failed processing, keeping count", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    simularLinkedin({ estados: ["PROCESSING_FAILED"] })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    expect((await publicacionesConDetalle(id))[0]).toMatchObject({ video_urn: null, intentos: 1 })
+  })
+
+  it.each([
+    ["a 500", () => new HttpResponse(null, { status: 500 })],
+    [
+      "a 422 duplicate",
+      () => HttpResponse.json({ message: "Content is a duplicate of urn:li:share:1" }, { status: 422 }),
+    ],
+    ["a 201 without id", () => new HttpResponse(null, { status: 201 })],
+  ])("handles %s on the post as in doubt: by hand, never sent again", async (_nombre, post) => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    const sim = simularLinkedin({ post })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.posts).toHaveLength(1)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila.estado).toBe("para_subir")
+    expect(fila.enviado_en).not.toBeNull()
+    expect(fila.explicacion).toBe(
+      "No pude confirmar si LinkedIn publicó tu video. Revisa tu perfil de LinkedIn: si no está, súbelo a mano desde aquí.",
+    )
+  })
+
+  it("goes by hand when the half hour passed before sending, and never posts late", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    const sim = simularLinkedin()
+    const d = doble(() => despues(31))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.iniciadas).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(
+      "No alcancé a publicarlo en LinkedIn dentro de la media hora que aprobaste, así que te lo dejé para subir a mano.",
+    )
+  })
+
+  it("goes by hand when the video is under LinkedIn's minimum size", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    const sim = simularLinkedin()
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, new Uint8Array(1000), "video/mp4")
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.iniciadas).toHaveLength(0)
+  })
+
+  it("never sends a token to WAV or Coni", async () => {
+    const id = await crearProgramada(undefined, SOLO_LINKEDIN)
+    simularLinkedin({ iniciar: () => HttpResponse.json({ eco: "AQV_token_de_prueba" }, { status: 400 }) })
+    const d = doble(() => despues(1))
+    await d.almacen.subir(VIDEO, VIDEO_BYTES, "video/mp4")
+    await publicarPendientes(d.deps)
+    const todo = JSON.stringify([d.avisos.aConiEnviados, d.avisos.aWavEnviados, await publicacionesConDetalle(id)])
+    expect(todo).not.toContain("AQV_token_de_prueba")
   })
 })
