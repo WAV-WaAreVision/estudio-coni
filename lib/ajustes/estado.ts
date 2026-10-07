@@ -1,12 +1,12 @@
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 
-export type NombreDeCuenta = "instagram" | "heygen" | "elevenlabs" | "anthropic"
+export type NombreDeCuenta = "instagram" | "heygen" | "elevenlabs" | "anthropic" | "linkedin"
 
 /** What the checks found out about one account. */
 export type EstadoDeCuenta =
-  | { cuenta: NombreDeCuenta; estado: "lista" }
+  | { cuenta: NombreDeCuenta; estado: "lista"; nombre?: string | null }
   | { cuenta: NombreDeCuenta; estado: "falta" }
-  | { cuenta: NombreDeCuenta; estado: "vence"; expiraEn: number }
+  | { cuenta: NombreDeCuenta; estado: "vence"; expiraEn: number; nombre?: string | null }
   | { cuenta: NombreDeCuenta; estado: "vencida" }
   | { cuenta: NombreDeCuenta; estado: "rechazada"; motivo: string }
   | { cuenta: NombreDeCuenta; estado: "sin_respuesta" }
@@ -16,19 +16,22 @@ export const NOMBRE_DE_CUENTA: Record<NombreDeCuenta, string> = {
   heygen: "HeyGen",
   elevenlabs: "ElevenLabs",
   anthropic: "Claude",
+  linkedin: "LinkedIn",
 }
 
-const PASO_DE_CUENTA: Record<NombreDeCuenta, string> = {
+/** LinkedIn is optional: a piece just goes by hand without it, so it is not a step of the setup (design L4). */
+const PASO_DE_CUENTA: Record<Exclude<NombreDeCuenta, "linkedin">, string> = {
   instagram: "Instagram conectado",
   heygen: "HeyGen con tu avatar",
   elevenlabs: "ElevenLabs con tu voz",
   anthropic: "Claude (Anthropic)",
 }
 
-const ORDEN: readonly NombreDeCuenta[] = ["instagram", "heygen", "elevenlabs", "anthropic"]
+const ORDEN: readonly Exclude<NombreDeCuenta, "linkedin">[] = ["instagram", "heygen", "elevenlabs", "anthropic"]
 const PASO_DE_AVISOS = "Avisos en tu celular"
 const DIA_MS = 24 * 60 * 60 * 1000
 export const DIAS_DE_AVISO_DE_INSTAGRAM = 7
+export const DIAS_DE_AVISO_DE_LINKEDIN = 14
 
 export interface BloqueDeEstado {
   /** The three states of the block (docs/DESIGN.md, status-block), plus the one that admits the check did not run. */
@@ -40,6 +43,7 @@ export interface BloqueDeEstado {
 }
 
 const CONECTAR = "/api/meta/conectar"
+const CONECTAR_LINKEDIN = "/api/linkedin/conectar"
 /** Accounts and keys live on their own level of Ajustes. */
 export const RUTA_DE_CUENTAS = "/ajustes/cuentas"
 
@@ -63,6 +67,18 @@ function accionDeFalta(cuenta: NombreDeCuenta): NonNullable<BloqueDeEstado["acci
 
 function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeEstado, "pasos"> {
   const nombre = NOMBRE_DE_CUENTA[cuenta.cuenta]
+  if (cuenta.cuenta === "linkedin" && (cuenta.estado === "vence" || cuenta.estado === "vencida")) {
+    return {
+      tipo: "atencion",
+      titulo:
+        cuenta.estado === "vence"
+          ? `LinkedIn vence ${plazo(cuenta.expiraEn, ahora)}`
+          : "LinkedIn dejó de estar conectado",
+      texto:
+        "Renuévalo para que tus videos sigan saliendo solos en LinkedIn. Mientras tanto, te los dejo listos para subir a mano.",
+      accion: { etiqueta: "Renovar LinkedIn", href: CONECTAR_LINKEDIN },
+    }
+  }
   switch (cuenta.estado) {
     case "vence":
       return {
@@ -122,6 +138,11 @@ export function estadoDeAjustes(entrada: {
 
   const conProblema = ordenadas.find((c) => c.estado === "vence" || c.estado === "vencida" || c.estado === "rechazada")
   if (conProblema) return { ...bloqueDeAtencion(conProblema, ahora), pasos }
+
+  const linkedin = cuentas.find((c) => c.cuenta === "linkedin")
+  if (linkedin && (linkedin.estado === "vence" || linkedin.estado === "vencida")) {
+    return { ...bloqueDeAtencion(linkedin, ahora), pasos }
+  }
 
   if (ordenadas.some((c) => c.estado === "sin_respuesta")) {
     return {

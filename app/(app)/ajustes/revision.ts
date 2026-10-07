@@ -3,7 +3,7 @@ import { clienteDeServicio } from "@/lib/acciones/servidor"
 import type { EstadoDeCuenta } from "@/lib/ajustes/estado"
 import { revisarCuentas } from "@/lib/ajustes/revisar"
 
-const CUENTAS = ["instagram", "heygen", "elevenlabs", "anthropic"] as const
+const CUENTAS = ["instagram", "heygen", "elevenlabs", "anthropic", "linkedin"] as const
 
 /**
  * The live checks of the accounts, once per request. A failure of the check itself must not take Ajustes down: she

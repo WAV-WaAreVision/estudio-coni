@@ -211,3 +211,52 @@ describe("estadoDeAjustes", () => {
     expect(estado.tipo).toBe("todo_bien")
   })
 })
+
+describe("estadoDeAjustes with LinkedIn", () => {
+  it("handles a missing LinkedIn when everything else is ready: still todo_bien, not a step", () => {
+    const estado = estadoDeAjustes({
+      cuentas: [...TODAS_LISTAS, { cuenta: "linkedin", estado: "falta" }],
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado.tipo).toBe("todo_bien")
+    expect(estado.pasos.map((p) => p.etiqueta)).not.toContain("LinkedIn conectado")
+  })
+
+  it("asks to renew LinkedIn when it expires within 14 days", () => {
+    const estado = estadoDeAjustes({
+      cuentas: [...TODAS_LISTAS, { cuenta: "linkedin", estado: "vence", expiraEn: AHORA + 10 * DIA }],
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado).toMatchObject({
+      tipo: "atencion",
+      titulo: "LinkedIn vence en 10 días",
+      texto:
+        "Renuévalo para que tus videos sigan saliendo solos en LinkedIn. Mientras tanto, te los dejo listos para subir a mano.",
+      accion: { etiqueta: "Renovar LinkedIn", href: "/api/linkedin/conectar" },
+    })
+  })
+
+  it("says LinkedIn stopped being connected when it expired", () => {
+    const estado = estadoDeAjustes({
+      cuentas: [...TODAS_LISTAS, { cuenta: "linkedin", estado: "vencida" }],
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado).toMatchObject({ tipo: "atencion", titulo: "LinkedIn dejó de estar conectado" })
+  })
+
+  it("puts Instagram first when both need attention", () => {
+    const estado = estadoDeAjustes({
+      cuentas: [...con({ cuenta: "instagram", estado: "vencida" }), { cuenta: "linkedin", estado: "vencida" }],
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado.titulo).toBe("Instagram dejó de estar conectado")
+  })
+})

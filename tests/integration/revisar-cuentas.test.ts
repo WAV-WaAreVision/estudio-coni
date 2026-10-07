@@ -67,7 +67,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await pool.query("delete from vault.secrets where name in ('heygen','elevenlabs','anthropic','meta')")
   await pool.query(
-    "update public.ajustes set produccion = '{}'::jsonb, meta_cuenta_id = null, meta_token_expira_en = null",
+    "update public.ajustes set produccion = '{}'::jsonb, meta_cuenta_id = null, meta_token_expira_en = null, linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
   )
 })
 
@@ -75,7 +75,13 @@ describe("revisarCuentas", () => {
   it("finds every account missing before anything is set up, and asks nobody", async () => {
     const vistas = proveedoresResponden()
 
-    expect(await estados()).toEqual({ instagram: "falta", heygen: "falta", elevenlabs: "falta", anthropic: "falta" })
+    expect(await estados()).toEqual({
+      instagram: "falta",
+      heygen: "falta",
+      elevenlabs: "falta",
+      anthropic: "falta",
+      linkedin: "falta",
+    })
     expect(vistas).toEqual({})
   })
 
@@ -83,7 +89,13 @@ describe("revisarCuentas", () => {
     await configurarTodo()
     const vistas = proveedoresResponden()
 
-    expect(await estados()).toEqual({ instagram: "lista", heygen: "lista", elevenlabs: "lista", anthropic: "lista" })
+    expect(await estados()).toEqual({
+      instagram: "lista",
+      heygen: "lista",
+      elevenlabs: "lista",
+      anthropic: "lista",
+      linkedin: "falta",
+    })
     expect(vistas).toEqual({ heygen: LLAVES.heygen, elevenlabs: LLAVES.elevenlabs, anthropic: LLAVES.anthropic })
   })
 
@@ -123,6 +135,7 @@ describe("revisarCuentas", () => {
       heygen: "rechazada",
       elevenlabs: "rechazada",
       anthropic: "sin_respuesta",
+      linkedin: "falta",
     })
   })
 
@@ -133,5 +146,27 @@ describe("revisarCuentas", () => {
     const texto = JSON.stringify(await revisar())
 
     for (const llave of Object.values(LLAVES)) expect(texto).not.toContain(llave)
+  })
+
+  it("handles LinkedIn by its expiry without calling it: falta, lista, vence at 14 days, vencida", async () => {
+    await configurarTodo()
+    proveedoresResponden()
+    const deLinkedin = async () => (await revisar()).find((c) => c.cuenta === "linkedin")
+    const conectar = (ms: number) =>
+      pool.query(
+        "update public.ajustes set linkedin_miembro = 'urn:li:person:x', linkedin_nombre = 'Coni', linkedin_conectado_en = now(), linkedin_token_expira_en = $1",
+        [new Date(AHORA + ms).toISOString()],
+      )
+
+    expect(await deLinkedin()).toEqual({ cuenta: "linkedin", estado: "falta" })
+
+    await conectar(40 * DIA)
+    expect(await deLinkedin()).toMatchObject({ cuenta: "linkedin", estado: "lista", nombre: "Coni" })
+
+    await conectar(10 * DIA)
+    expect(await deLinkedin()).toMatchObject({ cuenta: "linkedin", estado: "vence", nombre: "Coni" })
+
+    await conectar(-DIA)
+    expect(await deLinkedin()).toEqual({ cuenta: "linkedin", estado: "vencida" })
   })
 })
