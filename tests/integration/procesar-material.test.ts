@@ -208,6 +208,80 @@ describe("link", () => {
   })
 })
 
+describe("link de YouTube", () => {
+  const PASOS =
+    "YouTube no deja leer lo que se dice en el video. Abre el video, toca «…más» y luego «Mostrar transcripción», cópiala y pégala como texto."
+
+  it.each([
+    "https://www.youtube.com/watch?v=abc123",
+    "https://youtu.be/abc123",
+    "https://m.youtube.com/watch?v=abc123",
+    "https://music.youtube.com/watch?v=abc123",
+    "https://www.youtube-nocookie.com/embed/abc123",
+  ])("asks for the transcript without fetching or spending when %s has no pasted text", async (url) => {
+    const almacen = almacenEnMemoria()
+    const claude = simularClaude()
+    const pedidos: string[] = []
+    const id = await crearMaterial(almacen, { tipo: "link", origen_url: url })
+
+    const resultado = await procesarMaterial(
+      await deps(almacen, {
+        fetch: async (entrada) => {
+          pedidos.push(String(entrada))
+          throw new Error("no debería salir")
+        },
+      }),
+      id,
+    )
+
+    expect(resultado).toEqual({ resultado: "fallido", motivo: PASOS })
+    expect(await material(id)).toMatchObject({ estado: "fallido", motivo_fallo: PASOS })
+    expect(pedidos).toEqual([])
+    expect(claude.total).toBe(0)
+    expect(await gastos(id)).toEqual([])
+  })
+
+  it("processes the pasted transcript of a YouTube link and keeps the link as the source", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ idioma: "es" })
+    const url = "https://www.youtube.com/watch?v=abc123"
+    const pedidos: string[] = []
+    const id = await crearMaterial(almacen, {
+      tipo: "link",
+      origen_url: url,
+      texto_pegado: TEXTO_CHILENO,
+      rol: "estrategia",
+    })
+
+    await procesarMaterial(
+      await deps(almacen, {
+        fetch: async (entrada) => {
+          pedidos.push(String(entrada))
+          throw new Error("no debería salir")
+        },
+      }),
+      id,
+    )
+
+    expect(pedidos).toEqual([])
+    expect(texto(almacen, id, "texto-original.txt")).toContain("El deseo sexual cambia")
+    expect((await material(id)).estado).toBe("listo")
+    expect((await ficha(id))?.fuente.enlace).toBe(url)
+  })
+
+  it("still opens a host that only looks like YouTube", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ idioma: "es" })
+    const html = new TextDecoder().decode(await fixture("articulo.html"))
+    servidor.use(http.get("https://notyoutube.com/nota", () => HttpResponse.html(html)))
+    const id = await crearMaterial(almacen, { tipo: "link", origen_url: "https://notyoutube.com/nota" })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    expect((await material(id)).estado).toBe("listo")
+  })
+})
+
 describe("tope de gasto", () => {
   it("leaves the material in process with the reason and calls no provider", async () => {
     const almacen = almacenEnMemoria()
