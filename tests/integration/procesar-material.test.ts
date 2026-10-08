@@ -269,6 +269,38 @@ describe("link de YouTube", () => {
     expect((await ficha(id))?.fuente.enlace).toBe(url)
   })
 
+  it("feeds the cleaned transcript, without timestamps or info cards, to the material", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ idioma: "es" })
+    const id = await crearMaterial(almacen, {
+      tipo: "link",
+      origen_url: "https://youtu.be/abc123",
+      texto_pegado:
+        "0:000 segundosEl deseo cambia\n0:051 minuto y 5 segundoscon el tiempo [música]\n\nUniversidad Stanford\nUna universidad privada.\n...más\n\n1:101 minuto y 10 segundosy con la pareja",
+      rol: "estrategia",
+    })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    const original = texto(almacen, id, "texto-original.txt")
+    expect(original).toContain("El deseo cambia con el tiempo y con la pareja")
+    expect(original).not.toMatch(/segundos|Stanford|más|\[/)
+  })
+
+  it("does not clean pasted text that is not a YouTube transcript", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ idioma: "es" })
+    const id = await crearMaterial(almacen, {
+      tipo: "documento",
+      texto_pegado: "0:000 segundosEl deseo cambia con el tiempo",
+      rol: "estrategia",
+    })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    expect(texto(almacen, id, "texto-original.txt")).toContain("0:000 segundos")
+  })
+
   it("still opens a host that only looks like YouTube", async () => {
     const almacen = almacenEnMemoria()
     simularClaude({ idioma: "es" })
