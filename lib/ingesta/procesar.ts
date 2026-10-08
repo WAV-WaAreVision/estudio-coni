@@ -33,6 +33,7 @@ import {
   type Tope,
 } from "@/lib/ingesta/gasto-material"
 import { idiomaPorHeuristica } from "@/lib/ingesta/idioma"
+import { limpiarTranscripcionDeYoutube } from "@/lib/ingesta/limpiar-transcripcion-youtube"
 import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
@@ -292,7 +293,12 @@ async function extraerLink(ctx: Contexto): Promise<Extraccion> {
   if (esAnfitrionDe(ANFITRIONES_DE_YOUTUBE, anfitrion)) {
     // Third-party video: it is never downloaded, only the transcript a person pastes is read.
     if (material.texto_pegado)
-      return { titulo: null, partes: aPartesDePagina(extraerTexto(new TextEncoder().encode(material.texto_pegado))) }
+      return {
+        titulo: null,
+        partes: aPartesDePagina(
+          extraerTexto(new TextEncoder().encode(limpiarTranscripcionDeYoutube(material.texto_pegado))),
+        ),
+      }
     throw new MaterialNoProcesable(MOTIVO_YOUTUBE)
   }
   if (esAnfitrionDe(REDES_QUE_NO_SE_ABREN, anfitrion)) {
