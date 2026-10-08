@@ -86,6 +86,9 @@ export const MOTIVO_TOPE = "Llegaste al tope de gasto del mes. Súbelo en Ajuste
 export const UMBRAL_CONFIRMACION_USD = 1
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
 const REDES_QUE_NO_SE_ABREN = ["instagram.com", "tiktok.com"]
+const ANFITRIONES_DE_YOUTUBE = ["youtube.com", "youtu.be", "youtube-nocookie.com"]
+const MOTIVO_YOUTUBE =
+  "YouTube no deja leer lo que se dice en el video. Abre el video, toca «…más» y luego «Mostrar transcripción», cópiala y pégala como texto."
 const IMAGENES_POR_LOTE = 20
 const SEGUNDOS_ENTRE_FOTOGRAMAS = 1
 
@@ -268,7 +271,8 @@ async function extraerDocumento(ctx: Contexto): Promise<Extraccion> {
   return { titulo: null, partes: aPartesDePagina(extraerTexto(new TextEncoder().encode(material.texto_pegado ?? ""))) }
 }
 
-const esDeRed = (anfitrion: string) => REDES_QUE_NO_SE_ABREN.some((r) => anfitrion === r || anfitrion.endsWith(`.${r}`))
+const esAnfitrionDe = (dominios: string[], anfitrion: string) =>
+  dominios.some((d) => anfitrion === d || anfitrion.endsWith(`.${d}`))
 
 async function extraerLink(ctx: Contexto): Promise<Extraccion> {
   const { material, deps } = ctx
@@ -285,7 +289,13 @@ async function extraerLink(ctx: Contexto): Promise<Extraccion> {
       return ""
     }
   })()
-  if (esDeRed(anfitrion)) {
+  if (esAnfitrionDe(ANFITRIONES_DE_YOUTUBE, anfitrion)) {
+    // Third-party video: it is never downloaded, only the transcript a person pastes is read.
+    if (material.texto_pegado)
+      return { titulo: null, partes: aPartesDePagina(extraerTexto(new TextEncoder().encode(material.texto_pegado))) }
+    throw new MaterialNoProcesable(MOTIVO_YOUTUBE)
+  }
+  if (esAnfitrionDe(REDES_QUE_NO_SE_ABREN, anfitrion)) {
     throw new MaterialNoProcesable("Instagram y TikTok no dejan leer sus páginas: pega el texto o sube el archivo.")
   }
   const respuesta = await descargarEnlace({ url: material.origen_url, fetch: deps.fetch, resolver: deps.resolver })
