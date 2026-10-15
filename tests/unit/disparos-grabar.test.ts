@@ -24,28 +24,33 @@ beforeEach(() => {
 
 describe("grabar-pieza con retraso", () => {
   it("asks Trigger.dev to start the render after the delay, under the same key", async () => {
-    await disparosDeEntorno({ TRIGGER_SECRET_KEY: "tr_prueba" }).grabar(PIEZA, "clave", "10s")
+    await disparosDeEntorno({ TRIGGER_SECRET_KEY: "tr_prueba" }).grabar(PIEZA, "clave", 4, "10s")
 
     expect(trigger).toHaveBeenCalledWith(
       "grabar-pieza",
-      { piezaId: PIEZA },
+      { piezaId: PIEZA, intento: 4 },
       { idempotencyKey: "global:clave", delay: "10s" },
     )
     expect(crearClave).toHaveBeenCalledWith("clave", { scope: "global" })
   })
 
   it("starts it at once when no delay is given", async () => {
-    await disparosDeEntorno({ TRIGGER_SECRET_KEY: "tr_prueba" }).grabar(PIEZA, "clave")
+    await disparosDeEntorno({ TRIGGER_SECRET_KEY: "tr_prueba" }).grabar(PIEZA, "clave", 4)
 
-    expect(trigger).toHaveBeenCalledWith("grabar-pieza", { piezaId: PIEZA }, { idempotencyKey: "global:clave" })
+    expect(trigger).toHaveBeenCalledWith(
+      "grabar-pieza",
+      { piezaId: PIEZA, intento: 4 },
+      { idempotencyKey: "global:clave" },
+    )
   })
 
-  it("writes the delay down in test mode, so the E2E can see it", async () => {
+  it("writes the attempt and the delay down in test mode, so the E2E can see them", async () => {
     const archivo = join(mkdtempSync(join(tmpdir(), "disparos-")), "registro.jsonl")
 
     await disparosDeEntorno({ DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo }).grabar(
       "p2",
       "clave-2",
+      5,
       "10s",
     )
 
@@ -53,6 +58,7 @@ describe("grabar-pieza con retraso", () => {
       tarea: "grabar",
       piezaId: "p2",
       clave: "clave-2",
+      intento: 5,
       retraso: "10s",
     })
   })

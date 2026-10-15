@@ -57,7 +57,7 @@ export async function conSesionDeConi<E extends z.ZodType, T extends object>(
 export function disparosDeLaApp(): Disparos {
   return {
     producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
-    grabar: (piezaId, clave, retraso) => disparosDeEntorno().grabar(piezaId, clave, retraso),
+    grabar: (piezaId, clave, intento, retraso) => disparosDeEntorno().grabar(piezaId, clave, intento, retraso),
     voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
   }
 }

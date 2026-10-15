@@ -287,7 +287,11 @@ export function pedirVideo(deps: DepsAcciones, piezaId: string, versionVista: nu
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
     const guardada = await guardarEvento(deps.db, fila, { tipo: "grabar_video" })
-    return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+    return iniciar(
+      "grabar-pieza",
+      () => deps.disparar.grabar(guardada.id, claveGrabar(guardada), guardada.intento),
+      AVISO_GRABACION,
+    )
   })
 }
 
@@ -495,7 +499,11 @@ export function regrabar(deps: DepsAcciones, piezaId: string, versionVista: numb
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
     const guardada = await guardarEvento(deps.db, fila, { tipo: "regrabar" })
-    return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+    return iniciar(
+      "grabar-pieza",
+      () => deps.disparar.grabar(guardada.id, claveGrabar(guardada), guardada.intento),
+      AVISO_GRABACION,
+    )
   })
 }
 
@@ -526,7 +534,11 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
     const guardada = await guardarEvento(deps.db, fila, { tipo: "reintentar", ahora: deps.ahora() })
     // Back in the render steps a run has to start again; back on the schedule, the cron takes it at its time.
     if (guardada.estado !== "en_render" && guardada.estado !== "subtitulando") return {}
-    return iniciar("grabar-pieza", () => deps.disparar.grabar(guardada.id, claveGrabar(guardada)), AVISO_GRABACION)
+    return iniciar(
+      "grabar-pieza",
+      () => deps.disparar.grabar(guardada.id, claveGrabar(guardada), guardada.intento),
+      AVISO_GRABACION,
+    )
   })
 }
 

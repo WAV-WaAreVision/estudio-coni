@@ -28,22 +28,24 @@ export const CONFIGURACION_NOCTURNA = {
   maxDuration: 1800,
 } as const
 
+/**
+ * Starts `grabar-pieza` again for the attempt the piece is on. Global, so the key is the same whichever run (or the
+ * app) asks: one recording per piece and attempt.
+ */
+export async function arrancarGrabacion(piezaId: string, clave: string, intento: number): Promise<void> {
+  const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
+  await grabarPiezaTask.trigger({ piezaId, intento }, { idempotencyKey, idempotencyKeyTTL: "1d" })
+}
+
 export const mantenimientoFrecuenteTask = schedules.task({
   ...CONFIGURACION_FRECUENTE,
   onFailure: alFallarDeTarea("mantenimiento-frecuente", depsFalla),
   run: async () =>
     mantenimientoFrecuente(
-      depsFrecuente(
-        async (piezaId, clave) => {
-          // Global, so the key is the same whichever run (or the app) asks: one recording per piece and attempt.
-          const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
-          await grabarPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
-        },
-        async (piezaId, clave) => {
-          const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
-          await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
-        },
-      ),
+      depsFrecuente(arrancarGrabacion, async (piezaId, clave) => {
+        const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
+        await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
+      }),
     ),
 })
 

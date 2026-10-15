@@ -70,6 +70,7 @@ interface Disparo {
   piezaId: string
   clave: string
   nueva?: boolean
+  intento?: number
 }
 
 function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: Error } = {}) {
@@ -81,9 +82,9 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: 
         if (fallos.producir) throw fallos.producir
         disparos.push({ tarea: "producir", piezaId, clave })
       },
-      async grabar(piezaId, clave) {
+      async grabar(piezaId, clave, intento) {
         if (fallos.grabar) throw fallos.grabar
-        disparos.push({ tarea: "grabar", piezaId, clave })
+        disparos.push({ tarea: "grabar", piezaId, clave, intento })
       },
       async voz(piezaId, clave, nueva) {
         if (fallos.voz) throw fallos.voz
@@ -694,7 +695,7 @@ describe("regrabar", () => {
     expect(resultado.ok).toBe(true)
     const guardada = await fila(id)
     expect(guardada).toMatchObject({ estado: "en_render", video_id: null, intento: antes.intento + 1 })
-    expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id }])
+    expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id, intento: antes.intento + 1 }])
     expect(disparos[0]?.clave.endsWith(`:${antes.intento + 1}`)).toBe(true)
   })
 })
@@ -813,7 +814,7 @@ describe("reintentar", () => {
 
     expect(resultado.ok).toBe(true)
     expect(await fila(id)).toMatchObject({ estado: "en_render", intento: antes.intento + 1, explicacion: null })
-    expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id }])
+    expect(disparos).toMatchObject([{ tarea: "grabar", piezaId: id, intento: antes.intento + 1 }])
   })
 
   it("puts a failed publish back on the schedule when the approved time is still within the window", async () => {
@@ -1028,7 +1029,9 @@ describe("pedirVoz, pedirVideo y reabrirGuion", () => {
 
     const guardada = await fila(id)
     expect(guardada.estado).toBe("en_render")
-    expect(disparos).toEqual([{ tarea: "grabar", piezaId: id, clave: claveGrabar(guardada) }])
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: guardada.intento },
+    ])
   })
 
   it("reopens the script, dropping gate 1 and starting nothing", async () => {

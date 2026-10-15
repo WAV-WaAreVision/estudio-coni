@@ -7,8 +7,8 @@ export interface DepsArranques {
   /** A `service_role` client. */
   db: SupabaseClient<Database>
   ahora: () => string
-  /** Starts `grabar-pieza` under this idempotency key (the key of the approval). */
-  dispararGrabacion: (piezaId: string, clave: string) => Promise<void>
+  /** Starts `grabar-pieza` for this attempt under this idempotency key (the key of the approval). */
+  dispararGrabacion: (piezaId: string, clave: string, intento: number) => Promise<void>
   /** Starts `producir-pieza` under this idempotency key (the key of the script round). */
   dispararProduccion: (piezaId: string, clave: string) => Promise<void>
 }
@@ -39,7 +39,7 @@ export async function reanudarArranques(deps: DepsArranques): Promise<ResultadoA
     ...aGrabar.map((fila) => ({
       fila,
       tarea: "grabar" as const,
-      arrancar: () => deps.dispararGrabacion(fila.id, claveGrabar(fila)),
+      arrancar: () => deps.dispararGrabacion(fila.id, claveGrabar(fila), fila.intento),
     })),
     ...aProducir.map((fila) => ({
       fila,

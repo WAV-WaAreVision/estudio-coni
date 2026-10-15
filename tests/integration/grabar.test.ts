@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { HttpResponse, http } from "msw"
 import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { claveGrabar } from "@/lib/acciones/disparos"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { cargarRespaldoDeIdea, leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -1034,6 +1035,44 @@ describe("grabarPieza si la pieza cambia mientras tanto", () => {
     expect(d.quemados).toHaveLength(0)
 
     expect(await grabarPieza(doble().deps, id)).toEqual({ resultado: "nada_que_hacer" })
+  })
+})
+
+describe("deshacer la firma mientras el render espera", () => {
+  async function deshacer(id: string): Promise<void> {
+    const c = await pool.connect()
+    try {
+      await c.query("begin")
+      const firma = await c.query<{ puerta1_en: string }>("select puerta1_en from public.piezas where id = $1", [id])
+      const ahora = new Date(Date.parse(firma.rows[0]?.puerta1_en ?? "") + 1000).toISOString()
+      await aplicar(c, id, comoConi, { tipo: "deshacer_aprobacion", actor: "coni", ahora })
+      await c.query("commit")
+    } catch (error) {
+      await c.query("rollback")
+      throw error
+    } finally {
+      c.release()
+    }
+  }
+
+  it("lets the delayed run of the undone signature finish untouched, and the same text signed again gets another key", async () => {
+    const id = await crearPiezaEnRender()
+    const firmada = await pieza(id)
+    const clave = (intento: number) =>
+      claveGrabar({ id, version: firmada.version, intento, puerta1_hash: firmada.puerta1_hash })
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    await deshacer(id)
+    const deshecha = await pieza(id)
+    const delRetraso = await grabarPieza(d.deps, id, firmada.intento)
+
+    expect(deshecha).toMatchObject({ estado: "guion_por_aprobar", intento: firmada.intento + 1 })
+    expect(delRetraso).toEqual({ resultado: "nada_que_hacer" })
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+    expect(clave(deshecha.intento)).not.toBe(clave(firmada.intento))
   })
 })
 

@@ -35,12 +35,12 @@ describe("disparosDeEntorno", () => {
     const disparos = disparosDeEntorno({ DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo })
 
     await disparos.producir("p1", "clave-1")
-    await disparos.grabar("p2", "clave-2")
+    await disparos.grabar("p2", "clave-2", 3)
 
     const lineas = readFileSync(archivo, "utf-8").trim().split("\n")
     expect(lineas.map((linea) => JSON.parse(linea))).toEqual([
       { tarea: "producir", piezaId: "p1", clave: "clave-1" },
-      { tarea: "grabar", piezaId: "p2", clave: "clave-2" },
+      { tarea: "grabar", piezaId: "p2", clave: "clave-2", intento: 3 },
     ])
   })
 
