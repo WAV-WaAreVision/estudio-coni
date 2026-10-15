@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 import { claveGrabar, claveProducir, claveVoz } from "@/lib/acciones/disparos"
 import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { hashTexto } from "@/lib/dominio/puertas"
 
 const HASH = "a".repeat(64)
 const PIEZA = { id: "p1", version: 3, intento: 1, puerta1_hash: HASH }
@@ -76,14 +77,14 @@ describe("dispararProcesarMaterial", () => {
 })
 
 describe("claveVoz", () => {
-  const fila = { id: "p", version: 3, intento: 2, puerta1_hash: "e".repeat(64) }
+  const fila = { id: "p", version: 3, intento: 2, puerta1_hash: null }
 
-  it("is one key per approval and attempt", () => {
-    expect(claveVoz(fila)).toBe(`p:voz:${"e".repeat(16)}:2`)
+  it("is one key per piece and attempt, before any approval", () => {
+    expect(claveVoz(fila)).toBe(`p:voz:${hashTexto("voz").slice(0, 16)}:2`)
     expect(claveVoz({ ...fila, intento: 3 })).not.toBe(claveVoz(fila))
   })
 
-  it("refuses a piece without gate 1", () => {
-    expect(() => claveVoz({ ...fila, puerta1_hash: null })).toThrow()
+  it("does not change with gate 1: the voice is made before it", () => {
+    expect(claveVoz({ ...fila, puerta1_hash: "e".repeat(64) })).toBe(claveVoz(fila))
   })
 })

@@ -37,10 +37,10 @@ export function claveGrabar(fila: FilaParaClave): string {
   return claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash: fila.puerta1_hash, intento: fila.intento })
 }
 
-/** One voice request: the approval and the attempt, which every "Grabar voz" bumps. */
+/**
+ * One voice request: the piece and the attempt, which every "Preparar mi voz", "Grabar la voz de nuevo" and script
+ * edit bumps. The voice comes before gate 1 (design 2026-10-15), so no approval is part of it.
+ */
 export function claveVoz(fila: FilaParaClave): string {
-  if (fila.puerta1_hash === null) {
-    throw new Error(`La pieza ${fila.id} pide su voz sin guion aprobado.`)
-  }
-  return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: fila.puerta1_hash, intento: fila.intento })
+  return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: hashTexto("voz"), intento: fila.intento })
 }
