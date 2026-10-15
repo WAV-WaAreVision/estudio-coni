@@ -822,7 +822,13 @@ describe("la ventana para deshacer la firma", () => {
 
 describe("deshacer la firma", () => {
   const FIRMA = { hash: "a".repeat(64), en: "2026-10-15T12:00:00.000Z" }
-  const firmada = en("en_render", { version: 6, intento: 3, audioId: "voces/t.mp3", puerta1: FIRMA })
+  const firmada = en("en_render", {
+    version: 6,
+    intento: 3,
+    audioId: "voces/t.mp3",
+    puerta1: FIRMA,
+    explicacion: "Se acabó el tope.",
+  })
   const deshacer = (ms: number, actor: Actor = "coni"): Evento => ({
     tipo: "deshacer_aprobacion",
     actor,
@@ -850,8 +856,10 @@ describe("deshacer la firma", () => {
     expect(TEXTO_DESHACER_TARDE).toBe("Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.")
   })
 
-  it("only lets Coni undo", () => {
+  it("only lets Coni undo, and checks the actor before the state", () => {
     expect(() => transicionar(firmada, deshacer(1000, "sistema"))).toThrow(AprobacionNoAutorizada)
+    expect(() => transicionar(en("guion_por_aprobar"), deshacer(1000, "sistema"))).toThrow(AprobacionNoAutorizada)
+    expect(() => transicionar(en("guion_por_aprobar"), deshacer(1000, "admin"))).toThrow(AprobacionNoAutorizada)
   })
 
   it("refuses from any state other than a signed piece in render", () => {
