@@ -69,7 +69,7 @@ describe("transicionar", () => {
   it("recorre el camino feliz y sube la versión en cada paso", () => {
     const eventos: Evento[] = [
       { tipo: "elegir" },
-      { tipo: "guion_listo", audioId: null },
+      { tipo: "guion_listo", audioId: "audio_1" },
       aprobarGuion(),
       { tipo: "grabar_video" },
       { tipo: "voz_lista", audioId: "audio_1" },
@@ -194,6 +194,12 @@ describe("transicionar", () => {
       explicacion: "No pude preparar tu voz.",
     })
     expect(pieza).toMatchObject({ estado: "guion_por_aprobar", audioId: null, explicacion: "No pude preparar tu voz." })
+  })
+
+  it("only lets the script arrive without a voice together with the reason", () => {
+    expectTypeOf<Extract<Evento, { tipo: "guion_listo" }>>().toEqualTypeOf<
+      { tipo: "guion_listo"; audioId: string } | { tipo: "guion_listo"; audioId: null; explicacion: string }
+    >()
   })
 
   it("aprueba la puerta 1 sin exigir voz", () => {

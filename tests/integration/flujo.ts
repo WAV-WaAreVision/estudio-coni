@@ -3,6 +3,7 @@ import { cambiosDesdePieza, type FilaPieza, piezaDesdeFila } from "@/lib/datos/p
 import type { Destino } from "@/lib/dominio/destinos"
 import { type Estado, type Evento, transicionar } from "@/lib/dominio/estados"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { asumir, comoConi, comoPostgres, comoServicio, type Sesion } from "./db"
 
 export const GUION = "Hola, soy Coni. Hoy hablamos de límites."
@@ -106,10 +107,13 @@ function pasos(opciones: OpcionesDePieza): Paso[] {
         c,
         id,
         comoServicio,
-        { tipo: "guion_listo", audioId: null },
+        { tipo: "guion_listo", audioId: null, explicacion: TEXTO_SIN_VOZ },
         {
           guion: GUION,
           texto: TEXTO,
+          // The walks model a piece with nothing to say yet; the reason of a voice-less arrival is tested where the
+          // writer makes it (producir.test.ts).
+          explicacion: null,
           ...(opciones.textoLinkedin === undefined ? {} : { texto_linkedin: opciones.textoLinkedin }),
         },
       ),

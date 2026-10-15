@@ -194,7 +194,7 @@ async function vozDelBorrador(
   deps: DepsProduccion,
   fila: FilaDePieza,
   guion: string,
-): Promise<{ audioId: string | null; explicacion?: string }> {
+): Promise<{ audioId: string } | { audioId: null; explicacion: string }> {
   try {
     const config = leerConfigProduccion(await leerProduccion(deps.db))
     const voz = await asegurarVoz(deps, {
