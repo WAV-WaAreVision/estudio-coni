@@ -665,7 +665,8 @@ describe("producirPieza", () => {
     const id = await crearPiezaEnProduccion()
     const almacen = almacenEnMemoria()
     const sim = simular({
-      // The piece changes while the voice is being made, after the draft and the take were saved and paid.
+      // The piece changes while ElevenLabs speaks the draft: the draft is saved and paid, and the take is stored and
+      // paid right after.
       voz: async (n) => {
         if (n === 0)
           await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
