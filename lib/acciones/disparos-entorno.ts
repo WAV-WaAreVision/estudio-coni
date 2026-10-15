@@ -23,11 +23,12 @@ function disparosReales(): Disparos {
         { idempotencyKey: await claveGlobal(clave) },
       )
     },
-    async grabar(piezaId, clave) {
+    async grabar(piezaId, clave, retraso) {
       await tasks.trigger<typeof grabarPiezaTask>(
         "grabar-pieza",
         { piezaId },
-        { idempotencyKey: await claveGlobal(clave) },
+        // A delayed run waits in DELAYED; the key still dedupes a second signature of the same text.
+        { idempotencyKey: await claveGlobal(clave), ...(retraso ? { delay: retraso } : {}) },
       )
     },
     async voz(piezaId, clave, nueva) {
@@ -46,7 +47,8 @@ function disparosDePrueba(archivo: string): Disparos {
   const anotar = (linea: Record<string, unknown>) => appendFileSync(archivo, `${JSON.stringify(linea)}\n`)
   return {
     producir: async (piezaId, clave) => anotar({ tarea: "producir", piezaId, clave }),
-    grabar: async (piezaId, clave) => anotar({ tarea: "grabar", piezaId, clave }),
+    grabar: async (piezaId, clave, retraso) =>
+      anotar({ tarea: "grabar", piezaId, clave, ...(retraso ? { retraso } : {}) }),
     voz: async (piezaId, clave, nueva) => anotar({ tarea: "voz", piezaId, clave, nueva }),
   }
 }

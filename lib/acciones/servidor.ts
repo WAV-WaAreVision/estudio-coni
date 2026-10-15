@@ -3,6 +3,7 @@ import type { z } from "zod"
 import { exigirEnv } from "@/lib/env"
 import { createActionClient } from "@/lib/supabase/action"
 import type { Database } from "@/lib/supabase/database.types"
+import type { Disparos } from "./disparos"
 import { disparosDeEntorno } from "./disparos-entorno"
 import type { DepsAcciones } from "./piezas"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "./resultado"
@@ -49,6 +50,15 @@ export async function conSesionDeConi<E extends z.ZodType, T extends object>(
   return trabajo(db, datos.data)
 }
 
+/** The starters of the background runs, resolved on use: a missing Trigger.dev key must not stop an action that starts none. */
+export function disparosDeLaApp(): Disparos {
+  return {
+    producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
+    grabar: (piezaId, clave, retraso) => disparosDeEntorno().grabar(piezaId, clave, retraso),
+    voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
+  }
+}
+
 /** The actions on pieces: Coni's client plus the starters of the background runs. */
 export function comoConi<E extends z.ZodType, T extends object>(
   nombre: string,
@@ -60,12 +70,7 @@ export function comoConi<E extends z.ZodType, T extends object>(
     trabajo(
       {
         db,
-        // Resolved on use: a missing Trigger.dev key must not stop an approval that does not start a run.
-        disparar: {
-          producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
-          grabar: (piezaId, clave) => disparosDeEntorno().grabar(piezaId, clave),
-          voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
-        },
+        disparar: disparosDeLaApp(),
         ahora: () => new Date().toISOString(),
       },
       datos,

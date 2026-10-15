@@ -6,7 +6,8 @@ import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
  */
 export interface Disparos {
   producir(piezaId: string, clave: string): Promise<void>
-  grabar(piezaId: string, clave: string): Promise<void>
+  /** `retraso`: when to start, as Trigger.dev reads it ("10s"); the signature waits out the undo window this way. */
+  grabar(piezaId: string, clave: string, retraso?: string): Promise<void>
   /** `nueva`: Coni asked to record again, so an earlier take of the same text is not reused. */
   voz(piezaId: string, clave: string, nueva: boolean): Promise<void>
 }
