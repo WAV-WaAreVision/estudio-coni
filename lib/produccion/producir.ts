@@ -206,7 +206,8 @@ async function vozDelBorrador(
     })
     if (voz.tipo === "lista") return { audioId: voz.audioId }
   } catch (error) {
-    // A Falla (no characters) is already a reason for Coni; anything else is for WAV to look at.
+    // A Falla is expected and needs no log: Coni reads TEXTO_SIN_VOZ, and the voice task gives its own text if it
+    // happens again. Anything else is for WAV to look at.
     if (!(error instanceof Falla)) console.error(`No pude preparar la voz de la pieza ${fila.id}`, error)
   }
   return { audioId: null, explicacion: TEXTO_SIN_VOZ }

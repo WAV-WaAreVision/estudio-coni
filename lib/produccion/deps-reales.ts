@@ -24,7 +24,7 @@ import type { DepsProduccion } from "./producir"
 
 // Three calls of at most two attempts each (720 s) must fit in producir-pieza's 1200 s together with the voice of the
 // draft (ElevenLabs waits up to 300 s), unlike the SDK's default of 10 minutes and two retries, where one hung call
-// would end the run. The other tasks that use it run on the 900 s default.
+// would end the run.
 const CLAUDE_ESPERA_MS = 120_000
 
 /**
