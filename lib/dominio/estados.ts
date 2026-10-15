@@ -72,14 +72,11 @@ export type Evento =
   | { tipo: "guion_listo"; audioId: null; explicacion: string }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
+  /** Coni signs the script, her voice and the video spend in one gesture; the video starts after the undo window. */
   | { tipo: "aprobar_guion"; actor: Actor; hashVisto: string; hashActual: string; en: string }
-  /** Coni asks for her voice on the approved script (spends ElevenLabs). */
+  /** Her voice of the current script, before the signature (spends ElevenLabs; a script edit asks for it too). */
   | { tipo: "pedir_voz" }
   | { tipo: "falla_voz"; explicacion: string }
-  /** Coni asks for the video of the approved script (spends HeyGen). */
-  | { tipo: "grabar_video" }
-  /** Coni takes the approval back to change the script, the caption or the avatar. */
-  | { tipo: "reabrir_guion" }
   /** Coni takes her gate 1 signature back while the undo window lasts. `ahora` is the server clock. */
   | { tipo: "deshacer_aprobacion"; actor: Actor; ahora: string }
   /** The voice is stored by the voice task, or by the render when it had to make it. */
@@ -252,8 +249,6 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       // `editar_texto_como_coni`.
       const nota = pieza.explicacion
       if (estado === "guion_por_aprobar") return a("guion_por_aprobar", { explicacion: nota }, ["revisar_texto"])
-      // The caption is part of gate 1: changing it after approving takes the approval back.
-      if (estado === "guion_aprobado") return a("guion_por_aprobar", { puerta1: null }, ["revisar_texto"])
       if (estado === "video_por_aprobar") {
         return a("video_por_aprobar", { puerta2: null, explicacion: nota }, ["revisar_texto"])
       }
@@ -271,32 +266,24 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       soloConi(evento.actor)
       if (estado !== "guion_por_aprobar") throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
-      // Approving spends nothing: the voice and the video are asked for afterwards. A stored voice is kept, because
-      // the steps that use it check it against the approved text.
-      return a("guion_aprobado", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+      // The signature commits the video (design 2026-10-15): the action starts it after the undo window. The voice
+      // she heard stays; the action checked that it speaks this script.
+      return a("en_render", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
 
     case "pedir_voz":
-      if (estado !== "guion_aprobado") throw invalida()
-      // A new attempt: a new run, a new spend key and, for "Volver a grabar voz", a new take.
+      if (estado !== "guion_por_aprobar") throw invalida()
+      // A new attempt: a new run, a new spend key and, for "Grabar la voz de nuevo", a new take.
       return a("grabando_voz", { intento: pieza.intento + 1 })
 
     case "voz_lista":
-      if (estado === "grabando_voz") return a("guion_aprobado", { audioId: evento.audioId })
+      if (estado === "grabando_voz") return a("guion_por_aprobar", { audioId: evento.audioId })
       if (estado !== "en_render") throw invalida()
       return a("en_render", { audioId: evento.audioId })
 
     case "falla_voz":
       if (estado !== "grabando_voz") throw invalida()
       // A new attempt, so the next voice or render never meets the released reservation of this one.
-      return a("guion_aprobado", { intento: pieza.intento + 1, explicacion: evento.explicacion })
-
-    case "grabar_video":
-      if (estado !== "guion_aprobado") throw invalida()
-      return a("en_render")
-
-    case "reabrir_guion":
-      if (estado !== "guion_aprobado") throw invalida()
-      return a("guion_por_aprobar", { puerta1: null })
+      return a("guion_por_aprobar", { intento: pieza.intento + 1, explicacion: evento.explicacion })
 
     case "deshacer_aprobacion":
       soloConi(evento.actor)

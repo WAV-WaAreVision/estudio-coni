@@ -17,9 +17,7 @@ import {
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
-  pedirVideo,
   pedirVoz,
-  reabrirGuion,
   regrabar,
   reintentar,
   reintentarGuion,
@@ -192,20 +190,6 @@ export async function pedirVozAccion(piezaId: string, version: number, nueva: bo
   return refrescar(
     await comoConi("pedirVoz", sobrePieza.extend({ nueva: z.boolean() }), { piezaId, version, nueva }, (deps, d) =>
       pedirVoz(deps, d.piezaId, d.version, d.nueva),
-    ),
-  )
-}
-
-export async function pedirVideoAccion(piezaId: string, version: number) {
-  return refrescar(
-    await comoConi("pedirVideo", sobrePieza, { piezaId, version }, (deps, d) => pedirVideo(deps, d.piezaId, d.version)),
-  )
-}
-
-export async function reabrirGuionAccion(piezaId: string, version: number) {
-  return refrescar(
-    await comoConi("reabrirGuion", sobrePieza, { piezaId, version }, (deps, d) =>
-      reabrirGuion(deps, d.piezaId, d.version),
     ),
   )
 }

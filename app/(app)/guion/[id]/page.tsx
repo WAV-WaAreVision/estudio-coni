@@ -8,7 +8,7 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
+import { vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
@@ -41,7 +41,6 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
 
   switch (fila.estado) {
     case "guion_por_aprobar":
-    case "guion_aprobado":
     case "grabando_voz":
       break
     case "guion_en_proceso":
@@ -125,18 +124,10 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const estado = fila.estado
-  const aprobada = estado === "guion_aprobado" || estado === "grabando_voz"
-  // Once approved the screen only names the look and the script is read-only: no photos to sign, no Claude version to look up.
   const [avatares, conVersionDeClaude] = await Promise.all([
-    avataresParaElegir(db, { conFotos: !aprobada }),
-    aprobada ? false : tieneVersionDeClaude({ db }, fila.id),
+    avataresParaElegir(db),
+    tieneVersionDeClaude({ db }, fila.id),
   ])
-
-  const grabacion = aprobada
-    ? await leerDatosDeGrabacion(db, { fila, estado, guion: fila.guion, zona: contexto.horario.zona })
-    : null
-  const avatarElegido = avatares.find((avatar) => avatar.id === fila.avatar_id)?.nombre ?? null
 
   return (
     <>
@@ -158,8 +149,6 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
-          grabacion,
-          avatarElegido,
           explicacion: fila.explicacion,
           avatares,
         }}
@@ -183,10 +172,7 @@ async function vozParaEscuchar(db: Parameters<typeof leerProduccion>[0], fila: P
 }
 
 /** The curated looks with a signed link to each photo. A setup that does not read leaves the list empty, which blocks. */
-async function avataresParaElegir(
-  db: Parameters<typeof leerAvataresElegibles>[0],
-  { conFotos }: { conFotos: boolean },
-) {
+async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0]) {
   let elegibles: Awaited<ReturnType<typeof leerAvataresElegibles>>
   try {
     elegibles = await leerAvataresElegibles(db)
@@ -199,7 +185,7 @@ async function avataresParaElegir(
     elegibles.map(async (avatar) => ({
       id: avatar.avatar_id,
       nombre: avatar.nombre,
-      imagenUrl: conFotos ? await urlParaVer(avatar.imagen) : null,
+      imagenUrl: await urlParaVer(avatar.imagen),
     })),
   )
 }

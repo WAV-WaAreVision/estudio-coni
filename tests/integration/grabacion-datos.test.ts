@@ -61,7 +61,7 @@ afterAll(async () => {
 })
 
 async function piezaAprobada(ajustes: Record<string, unknown> = {}) {
-  const id = await sembrarPieza("guion_aprobado", ajustes)
+  const id = await sembrarPieza("en_render", ajustes)
   creadas.push(id)
   return id
 }

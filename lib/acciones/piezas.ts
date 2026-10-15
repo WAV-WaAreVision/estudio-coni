@@ -7,6 +7,7 @@ import {
   type FilaDePieza,
   leerIdea,
   leerPieza,
+  leerProduccion,
   leerPublicaciones,
   revisionAJson,
 } from "@/lib/datos/repositorio"
@@ -15,7 +16,15 @@ import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
-import { ArtefactoCambio, type Evento, instanteEstricto, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
+import {
+  ArtefactoCambio,
+  type Evento,
+  instanteEstricto,
+  MARGEN_DE_RELOJ_MS,
+  TransicionInvalida,
+  transicionar,
+  VENTANA_DESHACER_MS,
+} from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { hashPuerta1, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
@@ -29,6 +38,9 @@ import {
   revisarLinkedinSiHay,
   sinLinkedin,
 } from "@/lib/dominio/revision"
+import { vozDelGuion } from "@/lib/dominio/voz"
+import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
@@ -132,6 +144,22 @@ async function iniciar(
 
 const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
 
+/** The undo window plus the clock margin: the render starts once Coni can no longer take the signature back. */
+export const RETRASO_DE_GRABACION = `${(VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS) / 1000}s` as const
+
+const TEXTO_VOZ_AJENA = "Tu voz no corresponde al guion actual. Prepárala antes de firmar."
+
+/** The voice she heard has to be a take of this exact script with the configured voice (design 2026-10-15, decision 4). */
+async function exigirVozDelGuion(db: Db, fila: FilaDePieza, guion: string): Promise<void> {
+  const config = leerConfigProduccion(await leerProduccion(db))
+  const voz = vozDelGuion({
+    audioId: fila.audio_id,
+    piezaId: fila.id,
+    huella: huellaDelGuion(guion, config.elevenlabs),
+  })
+  if (voz === null) throw new Falla(TEXTO_VOZ_AJENA)
+}
+
 export function elegirIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<{ piezas: string[] }>> {
   return aResultado("elegirIdeas", async () => {
     if (ideaIds.length === 0 || ideaIds.length > MAXIMO_DE_IDEAS || new Set(ideaIds).size !== ideaIds.length) {
@@ -233,9 +261,10 @@ async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<st
 }
 
 /**
- * Gate 1 approves the script, the publication text, the avatar and the frozen backing in one write (formula 3: the
- * voice is made after it): the avatar and the formula go in the same update as the approval, so the hash is the hash of exactly what she
- * saw and the audit row carries them. Nothing is spent and nothing starts here.
+ * Gate 1 signs the script, the publication text, the avatar, the frozen backing (formula 3) and her voice of that
+ * script, and commits the video spend (design 2026-10-15). The avatar and the formula go in the same update as the
+ * approval, so the hash is the hash of exactly what she saw. The video starts after the undo window; a run that fails
+ * to start is resumed by `reanudarArranques`, so the signature stands with a warning.
  */
 export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
   return aResultado("aprobarGuion", async () => {
@@ -249,22 +278,24 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     }
     exigirRevisionLimpia(fila, { linkedin: false })
     const avatar = await exigirAvatarElegible(deps.db, avatarId)
+    await exigirVozDelGuion(deps.db, fila, fila.guion)
     const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
     const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
-    await guardarEvento(
+    const firmada = await guardarEvento(
       deps.db,
       fila,
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
       { avatar_id: avatar, puerta1_formula: 3 },
     )
-    // Approving spends nothing: Coni records the voice and the video from the same screen afterwards.
-    return {}
+    return iniciar(
+      "grabar-pieza",
+      () => deps.disparar.grabar(firmada.id, claveGrabar(firmada), firmada.intento, RETRASO_DE_GRABACION),
+      AVISO_GRABACION,
+    )
   })
 }
 
-const TEXTO_SIN_ARRANQUE_DE_VOZ = "No pude empezar a grabar la voz. Inténtalo de nuevo en unos minutos."
-
-/** Her voice on the approved script. Nothing else would start this run, so a failure to start hands the piece back. */
+/** Her voice of the current script, before the signature. Nothing else would start this run, so a failure to start hands the piece back. */
 export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
   return aResultado("pedirVoz", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
@@ -274,33 +305,9 @@ export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: numb
       await deps.disparar.voz(guardada.id, claveVoz(guardada), nueva)
     } catch (error) {
       console.error("No pude iniciar grabar-voz", error)
-      await guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_ARRANQUE_DE_VOZ })
-      throw new Falla(TEXTO_SIN_ARRANQUE_DE_VOZ)
+      await guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_VOZ })
+      throw new Falla(TEXTO_SIN_VOZ)
     }
-    return {}
-  })
-}
-
-/** The video of the approved script. A run that does not start is picked up by `reanudarArranques`. */
-export function pedirVideo(deps: DepsAcciones, piezaId: string, versionVista: number) {
-  return aResultado("pedirVideo", async () => {
-    const fila = await leerObligatoria(deps.db, piezaId)
-    exigirVersion(fila, versionVista)
-    const guardada = await guardarEvento(deps.db, fila, { tipo: "grabar_video" })
-    return iniciar(
-      "grabar-pieza",
-      () => deps.disparar.grabar(guardada.id, claveGrabar(guardada), guardada.intento),
-      AVISO_GRABACION,
-    )
-  })
-}
-
-/** Takes gate 1 back so she can change the script, the caption or the avatar. */
-export function reabrirGuion(deps: DepsAcciones, piezaId: string, versionVista: number) {
-  return aResultado("reabrirGuion", async () => {
-    const fila = await leerObligatoria(deps.db, piezaId)
-    exigirVersion(fila, versionVista)
-    await guardarEvento(deps.db, fila, { tipo: "reabrir_guion" })
     return {}
   })
 }

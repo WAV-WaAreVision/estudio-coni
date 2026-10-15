@@ -160,7 +160,7 @@ describe("barrerGastos", () => {
 
 describe("barrerGastos con la voz aparte", () => {
   it("keeps a voice reservation open while the piece has no voice, and releases it after a day", async () => {
-    const id = await pieza("guion_aprobado")
+    const id = await pieza("guion_por_aprobar")
     const clave = await reservar(id, "elevenlabs", "voz")
 
     expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 0 })
@@ -171,7 +171,7 @@ describe("barrerGastos con la voz aparte", () => {
   })
 
   it("confirms a voice reservation once the piece has a voice", async () => {
-    const id = await pieza("guion_aprobado")
+    const id = await pieza("guion_por_aprobar")
     await pool.query("update public.piezas set audio_id = 'voces/x.mp3', version = version + 1 where id = $1", [id])
     const clave = await reservar(id, "elevenlabs", "voz")
 
@@ -201,7 +201,7 @@ describe("barrerGastos con la clave de la voz por texto", () => {
   }
 
   it("releases the reservation of a failed 'record again' even though the piece keeps its earlier voice", async () => {
-    const id = await pieza("guion_aprobado")
+    const id = await pieza("guion_por_aprobar")
     await conVoz(id, claveDeToma(id, HUELLA, 0))
     const antes = await usadoDelMes()
     const clave = await reservarVoz(id, 1)
@@ -214,7 +214,7 @@ describe("barrerGastos con la clave de la voz por texto", () => {
   })
 
   it("confirms the reservation whose own take is the piece's voice", async () => {
-    const id = await pieza("guion_aprobado")
+    const id = await pieza("guion_por_aprobar")
     await conVoz(id, claveDeToma(id, HUELLA, 1))
     const clave = await reservarVoz(id, 1)
 

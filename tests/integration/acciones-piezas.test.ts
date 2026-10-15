@@ -15,9 +15,7 @@ import {
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
-  pedirVideo,
   pedirVoz,
-  reabrirGuion,
   regrabar,
   reintentar,
   reintentarGuion,
@@ -27,7 +25,10 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
+import { claveDeToma } from "@/lib/dominio/voz"
+import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { claveAudio } from "@/lib/proveedores/almacen"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { CONI, comoConi, pool } from "./db"
@@ -59,6 +60,10 @@ const RESPALDO_GUARDADO = {
 }
 
 const FUTURO = "2099-10-09T19:00:00-03:00"
+const ELEVENLABS = leerConfigProduccion(coniConfig).elevenlabs
+/** A take of `guion` for this piece, as the writer or grabar-voz stores it. */
+const tomaDe = (id: string, guion: string, toma = 0) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
+const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
 
 let coni: Db
 let servicio: Db
@@ -71,6 +76,7 @@ interface Disparo {
   clave: string
   nueva?: boolean
   intento?: number
+  retraso?: string
 }
 
 function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: Error } = {}) {
@@ -82,9 +88,9 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: 
         if (fallos.producir) throw fallos.producir
         disparos.push({ tarea: "producir", piezaId, clave })
       },
-      async grabar(piezaId, clave, intento) {
+      async grabar(piezaId, clave, intento, retraso) {
         if (fallos.grabar) throw fallos.grabar
-        disparos.push({ tarea: "grabar", piezaId, clave, intento })
+        disparos.push({ tarea: "grabar", piezaId, clave, intento, ...(retraso ? { retraso } : {}) })
       },
       async voz(piezaId, clave, nueva) {
         if (fallos.voz) throw fallos.voz
@@ -244,24 +250,16 @@ async function sembrarAvatares(avatares: unknown[]): Promise<void> {
   await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(produccion)])
 }
 
+/** A script waiting for gate 1 with her voice of it, as the writer leaves it. */
+async function paraAprobar() {
+  const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+  await ajustarComoPostgres(id, { audio_id: tomaDe(id, GUION_VALIDO) })
+  return id
+}
+
 describe("aprobarGuion", () => {
   beforeEach(() => sembrarAvatares([LOOK_A, LOOK_B]))
   afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
-
-  async function paraAprobar() {
-    return pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
-  }
-
-  it("keeps a stored voice: it only counts later if it speaks the approved text", async () => {
-    const id = await paraAprobar()
-    const previa = claveAudio(id, new Uint8Array([1, 2, 3]))
-    await ajustarComoPostgres(id, { audio_id: previa })
-
-    const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
-
-    expect(resultado).toEqual({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", audio_id: previa, puerta1_formula: 3 })
-  })
 
   it("binds the frozen backing in the hash", async () => {
     const id = await paraAprobar()
@@ -281,27 +279,56 @@ describe("aprobarGuion", () => {
     )
   })
 
-  it("approves a piece with no voice, stores formula 3 and binds the hash of script, text, avatar and backing", async () => {
+  it("signs the script with her voice, stores formula 3, binds the hash and starts the video after the undo window", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
 
     const resultado = await aprobarGuion(deps, id, versionVista, "look-b")
 
-    expect(resultado).toMatchObject({ ok: true })
+    expect(resultado).toEqual({ ok: true })
     const guardada = await fila(id)
     expect(guardada).toMatchObject({
-      estado: "guion_aprobado",
+      estado: "en_render",
       puerta1_por: CONI,
       version: versionVista + 1,
       avatar_id: "look-b",
-      audio_id: null,
+      audio_id: tomaDe(id, GUION_VALIDO),
       puerta1_formula: 3,
     })
     expect(guardada.puerta1_hash).toBe(
       hashPuerta1({ formula: 3, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b", respaldo: "" }),
     )
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: guardada.intento, retraso: "10s" },
+    ])
+  })
+
+  it("refuses to sign without her voice of the current script, and starts nothing", async () => {
+    const id = await paraAprobar()
+    const { deps, disparos } = armar()
+
+    for (const audio of [null, claveAudio(id, new Uint8Array([1, 2, 3])), tomaDe(id, "Un guion que ya no está.")]) {
+      await ajustarComoPostgres(id, { audio_id: audio })
+      expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({
+        ok: false,
+        error: "Tu voz no corresponde al guion actual. Prepárala antes de firmar.",
+      })
+    }
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
     expect(disparos).toEqual([])
+  })
+
+  it("stays signed and warns when the video could not be started", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await paraAprobar()
+    const { deps } = armar(coni, { grabar: new Error("Trigger.dev no responde") })
+
+    expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({
+      ok: true,
+      advertencia: AVISO_GRABACION,
+    })
+    expect(await fila(id)).toMatchObject({ estado: "en_render" })
   })
 
   it("refuses with a message for Coni when the piece changed after she opened it", async () => {
@@ -330,7 +357,7 @@ describe("aprobarGuion", () => {
     const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
 
     expect(resultado).toEqual({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", texto_linkedin: "Sin el aviso de avatar." })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", texto_linkedin: "Sin el aviso de avatar." })
   })
 
   it("refuses while the review has a blocking finding, and says which", async () => {
@@ -382,14 +409,6 @@ describe("aprobarGuion", () => {
     expect(resultado).toMatchObject({ ok: false })
     expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
     expect(disparos).toEqual([])
-  })
-
-  it("starts no run, so a broken Trigger.dev does not matter to the approval", async () => {
-    const id = await paraAprobar()
-    const { deps } = armar(coni, { grabar: new Error("Trigger.dev no responde") })
-
-    expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({ ok: true })
-    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado" })
   })
 
   it("refuses to approve until she picks an avatar, and writes nothing", async () => {
@@ -999,56 +1018,40 @@ describe("subir a mano", () => {
   })
 })
 
-describe("pedirVoz, pedirVideo y reabrirGuion", () => {
-  it("moves the approved piece to grabando_voz and starts grabar-voz once with the attempt's key", async () => {
-    const id = await pieza("guion_aprobado")
+describe("pedirVoz", () => {
+  it("moves a script waiting for her signature to grabando_voz and starts grabar-voz once with the attempt's key", async () => {
+    const id = await pieza("guion_por_aprobar")
+    const antes = await fila(id)
     const { deps, disparos } = armar()
 
-    expect(await pedirVoz(deps, id, await versionDe(id), false)).toEqual({ ok: true })
+    expect(await pedirVoz(deps, id, antes.version, false)).toEqual({ ok: true })
 
     const guardada = await fila(id)
-    expect(guardada.estado).toBe("grabando_voz")
+    expect(guardada).toMatchObject({ estado: "grabando_voz", puerta1_hash: null, intento: antes.intento + 1 })
     expect(disparos).toEqual([{ tarea: "voz", piezaId: id, clave: claveVoz(guardada), nueva: false }])
   })
 
-  it("hands the piece back with a reason when grabar-voz cannot start", async () => {
-    const id = await pieza("guion_aprobado")
+  it("hands the piece back with the reason when grabar-voz cannot start", async () => {
+    const id = await pieza("guion_por_aprobar")
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     const { deps } = armar(coni, { voz: new Error("Trigger.dev no responde") })
-    const texto = "No pude empezar a grabar la voz. Inténtalo de nuevo en unos minutos."
 
-    expect(await pedirVoz(deps, id, await versionDe(id), true)).toEqual({ ok: false, error: texto })
-    expect(await fila(id)).toMatchObject({ estado: "guion_aprobado", explicacion: texto })
+    expect(await pedirVoz(deps, id, await versionDe(id), true)).toEqual({ ok: false, error: TEXTO_SIN_VOZ })
+    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_SIN_VOZ })
   })
 
-  it("sends the approved piece to render and starts grabar-pieza with the approval's key", async () => {
-    const id = await pieza("guion_aprobado")
+  it("refuses a signed piece: the voice is made before the signature", async () => {
+    const id = await pieza("en_render")
     const { deps, disparos } = armar()
 
-    expect(await pedirVideo(deps, id, await versionDe(id))).toEqual({ ok: true })
-
-    const guardada = await fila(id)
-    expect(guardada.estado).toBe("en_render")
-    expect(disparos).toEqual([
-      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: guardada.intento },
-    ])
-  })
-
-  it("reopens the script, dropping gate 1 and starting nothing", async () => {
-    const id = await pieza("guion_aprobado")
-    const { deps, disparos } = armar()
-
-    expect(await reabrirGuion(deps, id, await versionDe(id))).toEqual({ ok: true })
-
-    expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
+    expect((await pedirVoz(deps, id, await versionDe(id), false)).ok).toBe(false)
     expect(disparos).toEqual([])
   })
 
   it("refuses a stale screen and starts nothing", async () => {
-    const id = await pieza("guion_aprobado")
+    const id = await pieza("guion_por_aprobar")
     const { deps, disparos } = armar()
 
-    expect((await pedirVideo(deps, id, (await versionDe(id)) - 1)).ok).toBe(false)
     expect((await pedirVoz(deps, id, (await versionDe(id)) - 1, false)).ok).toBe(false)
     expect(disparos).toEqual([])
   })
@@ -1282,18 +1285,20 @@ describe("editarTextoLinkedin", () => {
     })
   })
 
-  it("keeps gate 1 in guion_aprobado: the LinkedIn text is not part of it", async () => {
-    const id = await pieza("guion_aprobado", { texto: TEXTO_VALIDO })
+  it("leaves her voice alone: the LinkedIn text is not part of gate 1", async () => {
+    const id = await pieza("guion_por_aprobar", { texto: TEXTO_VALIDO, audio_id: "voces/x.mp3" })
     const antes = await fila(id)
+    const { deps, disparos } = armar()
 
-    const resultado = await editarTextoLinkedin(armar().deps, id, antes.version, LINKEDIN_OK)
+    const resultado = await editarTextoLinkedin(deps, id, antes.version, LINKEDIN_OK)
 
     expect(resultado.ok).toBe(true)
     expect(await fila(id)).toMatchObject({
-      estado: "guion_aprobado",
-      puerta1_hash: antes.puerta1_hash,
+      estado: "guion_por_aprobar",
+      audio_id: "voces/x.mp3",
       texto_linkedin: LINKEDIN_OK,
     })
+    expect(disparos).toEqual([])
   })
 
   it("takes gate 2 back and the rows with it when the piece was scheduled", async () => {

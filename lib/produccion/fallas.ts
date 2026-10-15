@@ -53,7 +53,8 @@ function paraConi(error: unknown, generico: string): string {
 /**
  * Writes what Coni will read on the piece a failed run left behind and reports whether it did. The script step has no
  * error state in the design (the piece stays in `guion_en_proceso` with a reason), the render steps go to
- * `error_produccion` so Coni can retry them, and the voice step goes back to `guion_aprobado`. A piece that already moved on is not touched.
+ * `error_produccion` so Coni can retry them, and the voice step goes back to gate 1 (`guion_por_aprobar`). A piece that
+ * already moved on is not touched.
  */
 async function dejarConstancia(deps: DepsFalla, fila: FilaDePieza, entrada: EntradaDeFalla): Promise<string | null> {
   const guion = entrada.tarea === "producir-pieza" && fila.estado === "guion_en_proceso"

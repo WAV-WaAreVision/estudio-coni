@@ -131,17 +131,6 @@ afterAll(async () => {
 })
 
 describe("editarGuion", () => {
-  it("takes the approval back when she edits the script of an approved piece", async () => {
-    const id = await pieza("guion_aprobado")
-    const { version } = await leerFila(id)
-    claudeRevisa()
-
-    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
-
-    expect(resultado).toMatchObject({ ok: true })
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null, guion: GUION_VALIDO })
-  })
-
   it("reviews the edit, stores the merged findings and writes her version", async () => {
     const id = await pieza()
     const { version } = await leerFila(id)

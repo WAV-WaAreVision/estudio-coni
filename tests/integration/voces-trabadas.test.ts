@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { devolverVocesTrabadas, EXPLICACION_VOZ_TRABADA } from "@/lib/mantenimiento/voces"
+import { devolverVocesTrabadas } from "@/lib/mantenimiento/voces"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { leerFila, sembrarPieza } from "./siembra"
@@ -21,8 +22,8 @@ describe("devolverVocesTrabadas", () => {
 
     expect(await devolverVocesTrabadas({ db: clienteDeServicio(), ahora: enMinutos(16) })).toEqual([id])
     expect(await leerFila(id)).toMatchObject({
-      estado: "guion_aprobado",
-      explicacion: EXPLICACION_VOZ_TRABADA,
+      estado: "guion_por_aprobar",
+      explicacion: TEXTO_SIN_VOZ,
       intento: antes.intento + 1,
     })
   })
