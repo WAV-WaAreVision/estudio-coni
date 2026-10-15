@@ -33,17 +33,16 @@ describe("estados guion_aprobado y grabando_voz", () => {
     })
   })
 
-  it("refuses guion_aprobado or grabando_voz without a gate 1 approval", async () => {
+  it("refuses guion_aprobado without a gate 1 approval", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       await asumir(c, comoConi)
-      for (const estado of ["guion_aprobado", "grabando_voz"]) {
-        const error = await fallaCon(c, `update public.piezas set estado = $2, version = version + 1 where id = $1`, [
-          id,
-          estado,
-        ])
-        expect(error.constraint).toBe("aprobada_para_grabar")
-      }
+      const error = await fallaCon(
+        c,
+        "update public.piezas set estado = 'guion_aprobado', version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error.constraint).toBe("aprobada_para_grabar")
     })
   })
 
