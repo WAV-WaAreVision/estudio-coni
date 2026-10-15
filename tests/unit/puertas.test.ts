@@ -290,11 +290,16 @@ describe("puedeGrabarVoz", () => {
   const hash = "c".repeat(64)
   const base = { ...piezaNueva(), estado: "grabando_voz" as const, puerta1: { hash, en: "2026-10-04T12:00:00.000Z" } }
 
-  it("allows the voice only while grabando_voz, with gate 1 and the same hash", () => {
-    expect(puedeGrabarVoz(base, hash)).toEqual({ ok: true })
-    expect(puedeGrabarVoz({ ...base, estado: "guion_aprobado" }, hash)).toEqual({ ok: false, motivo: "estado" })
-    expect(puedeGrabarVoz({ ...base, puerta1: null }, hash)).toEqual({ ok: false, motivo: "sin_aprobacion" })
-    expect(puedeGrabarVoz(base, "d".repeat(64))).toEqual({ ok: false, motivo: "artefacto_cambio" })
+  it("allows the voice while grabando_voz with a script, with or without gate 1", () => {
+    const sinFirma = { ...base, puerta1: null }
+    expect(puedeGrabarVoz(sinFirma, "Hola, soy Coni.")).toEqual({ ok: true })
+    expect(puedeGrabarVoz(base, "Hola, soy Coni.")).toEqual({ ok: true })
+    expect(puedeGrabarVoz({ ...sinFirma, estado: "guion_por_aprobar" }, "Hola.")).toEqual({
+      ok: false,
+      motivo: "estado",
+    })
+    expect(puedeGrabarVoz(sinFirma, null)).toEqual({ ok: false, motivo: "sin_guion" })
+    expect(puedeGrabarVoz(sinFirma, "  \n")).toEqual({ ok: false, motivo: "sin_guion" })
   })
 
   it("builds idempotency keys for the voice step", () => {

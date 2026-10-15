@@ -2,6 +2,7 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { leerPieza } from "@/lib/datos/repositorio"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
@@ -107,14 +108,28 @@ describe("grabarVoz", () => {
     expect(llamadas).toBe(0)
   })
 
-  it("spends nothing and explains when the script changed after the approval", async () => {
+  it("speaks the script on the row now, even when it changed after she asked", async () => {
     const id = await grabando()
-    await ajustarPieza(id, { guion: "Un guion que nadie aprobó." })
+    const editado = "Un guion que Coni cambió mientras se preparaba la voz."
+    await ajustarPieza(id, { guion: editado })
+    const d = deps()
+    const { intento } = await leerFila(id)
 
-    expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "sin_aprobacion" })
+    const resultado = await grabarVoz(d, { piezaId: id, nueva: false })
+
+    const clave = claveDeToma(id, huellaDelGuion(editado, leerConfigProduccion(coniConfig).elevenlabs), intento)
+    expect(resultado).toEqual({ resultado: "lista", audioId: clave })
+    expect(llamadas).toBe(1)
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_aprobado", audio_id: clave })
+  })
+
+  it("spends nothing and fails loudly for a piece asking for its voice without a script", async () => {
+    const id = await grabando()
+    await ajustarPieza(id, { guion: null })
+
+    await expect(grabarVoz(deps(), { piezaId: id, nueva: false })).rejects.toThrow(FallaDeConfiguracion)
     expect(llamadas).toBe(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_aprobado" })
-    expect((await leerFila(id)).explicacion).toMatch(/cambió después de aprobarlo/)
+    expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz" })
   })
 
   it("explains the cap and spends nothing when the voice would pass it", async () => {

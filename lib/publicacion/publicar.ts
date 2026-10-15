@@ -248,6 +248,9 @@ async function rechazarPorElGuardia(contexto: Contexto, veredicto: Veredicto): P
     case "sin_aprobacion":
     case "artefacto_cambio":
       return fallar(contexto, EXPLICACION_CAMBIO, `lo aprobado y lo guardado no coinciden (${veredicto.motivo})`)
+    case "sin_guion":
+      // Only the voice guard (puedeGrabarVoz) answers this; the publish guard never does.
+      throw new Error(`El guardia de publicación de la pieza ${contexto.fila.id} devolvió un motivo de la voz.`)
   }
 }
 

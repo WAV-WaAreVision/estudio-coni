@@ -83,7 +83,10 @@ export function claveIdempotencia(clave: { piezaId: string; paso: Paso; hash: st
 
 export type Veredicto =
   | { ok: true }
-  | { ok: false; motivo: "estado" | "sin_aprobacion" | "artefacto_cambio" | "antes_de_hora" | "hora_vencida" }
+  | {
+      ok: false
+      motivo: "estado" | "sin_aprobacion" | "artefacto_cambio" | "antes_de_hora" | "hora_vencida" | "sin_guion"
+    }
 
 const no = (motivo: Exclude<Veredicto, { ok: true }>["motivo"]): Veredicto => ({ ok: false, motivo })
 
@@ -95,11 +98,13 @@ export function puedeGrabar(pieza: Pieza, hashActual: string): Veredicto {
   return { ok: true }
 }
 
-/** The voice task calls this right before spending ElevenLabs: the script it speaks is the one Coni approved. */
-export function puedeGrabarVoz(pieza: Pieza, hashActual: string): Veredicto {
+/**
+ * The voice task calls this right before spending ElevenLabs. The voice is a draft made before gate 1 (design
+ * 2026-10-15, decision 3): it needs no approval and speaks whatever script the row holds now.
+ */
+export function puedeGrabarVoz(pieza: Pieza, guion: string | null): Veredicto {
   if (pieza.estado !== "grabando_voz") return no("estado")
-  if (!pieza.puerta1) return no("sin_aprobacion")
-  if (pieza.puerta1.hash !== hashActual) return no("artefacto_cambio")
+  if (guion === null || guion.trim() === "") return no("sin_guion")
   return { ok: true }
 }
 
