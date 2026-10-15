@@ -106,7 +106,7 @@ function pasos(opciones: OpcionesDePieza): Paso[] {
         c,
         id,
         comoServicio,
-        { tipo: "guion_listo" },
+        { tipo: "guion_listo", audioId: null },
         {
           guion: GUION,
           texto: TEXTO,

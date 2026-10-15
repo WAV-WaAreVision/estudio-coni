@@ -69,7 +69,7 @@ describe("transicionar", () => {
   it("recorre el camino feliz y sube la versión en cada paso", () => {
     const eventos: Evento[] = [
       { tipo: "elegir" },
-      { tipo: "guion_listo" },
+      { tipo: "guion_listo", audioId: null },
       aprobarGuion(),
       { tipo: "grabar_video" },
       { tipo: "voz_lista", audioId: "audio_1" },
@@ -179,10 +179,21 @@ describe("transicionar", () => {
     expect(pieza.intento).toBe(1)
   })
 
-  it("pasa a guion por aprobar sin voz cuando el guion queda listo", () => {
-    const { pieza } = transicionar(en("guion_en_proceso"), { tipo: "guion_listo" })
-    expect(pieza.estado).toBe("guion_por_aprobar")
-    expect(pieza.audioId).toBeNull()
+  it("hands the script over with the voice the writer made", () => {
+    const { pieza } = transicionar(en("guion_en_proceso", { explicacion: "Antes falló." }), {
+      tipo: "guion_listo",
+      audioId: "voces/p/t-h-0.mp3",
+    })
+    expect(pieza).toMatchObject({ estado: "guion_por_aprobar", audioId: "voces/p/t-h-0.mp3", explicacion: null })
+  })
+
+  it("hands the script over without a voice, saying why", () => {
+    const { pieza } = transicionar(en("guion_en_proceso"), {
+      tipo: "guion_listo",
+      audioId: null,
+      explicacion: "No pude preparar tu voz.",
+    })
+    expect(pieza).toMatchObject({ estado: "guion_por_aprobar", audioId: null, explicacion: "No pude preparar tu voz." })
   })
 
   it("aprueba la puerta 1 sin exigir voz", () => {
@@ -577,7 +588,7 @@ describe("tabla del diseño", () => {
 
   const eventos: Record<Evento["tipo"], Evento> = {
     elegir: { tipo: "elegir" },
-    guion_listo: { tipo: "guion_listo" },
+    guion_listo: { tipo: "guion_listo", audioId: "audio_2" },
     voz_lista: { tipo: "voz_lista", audioId: "audio_2" },
     pedir_cambios: { tipo: "pedir_cambios" },
     editar_texto: { tipo: "editar_texto" },

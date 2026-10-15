@@ -67,7 +67,8 @@ export interface Pieza {
  */
 export type Evento =
   | { tipo: "elegir" }
-  | { tipo: "guion_listo" }
+  /** The writer hands the script over with her voice of it; null with the reason when the voice could not be made. */
+  | { tipo: "guion_listo"; audioId: string | null; explicacion?: string }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
   | { tipo: "aprobar_guion"; actor: Actor; hashVisto: string; hashActual: string; en: string }
@@ -235,7 +236,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "guion_listo":
       if (estado !== "guion_en_proceso") throw invalida()
-      return a("guion_por_aprobar", { audioId: null })
+      return a("guion_por_aprobar", { audioId: evento.audioId, explicacion: evento.explicacion ?? null })
 
     case "pedir_cambios":
       if (estado !== "guion_por_aprobar") throw invalida()

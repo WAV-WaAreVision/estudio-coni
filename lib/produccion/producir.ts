@@ -252,7 +252,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     }
   }
 
-  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo" })
+  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo", audioId: null })
   const lista = await actualizarPieza(db, fila.id, fila.version, {
     ...cambiosDesdePieza(pieza),
     guion: borrador.guion,
