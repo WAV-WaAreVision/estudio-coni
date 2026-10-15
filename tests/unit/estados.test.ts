@@ -5,13 +5,17 @@ import {
   ESTADOS,
   type Estado,
   type Evento,
+  esperaDeVentana,
   instanteEstricto,
+  MARGEN_DE_RELOJ_MS,
   type Pieza,
   piezaNueva,
   piezaTrabajando,
+  restoDeVentana,
   type Transicion,
   TransicionInvalida,
   transicionar,
+  VENTANA_DESHACER_MS,
 } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 
@@ -763,5 +767,34 @@ describe("publicado when the last automatic destination closes a mixed piece", (
 
   it("is publicado when every destination was automatic", () => {
     expect(transicionar(programada, { tipo: "publicado" }).pieza.estado).toBe("publicado")
+  })
+})
+
+describe("la ventana para deshacer la firma", () => {
+  const FIRMA = "2026-10-15T12:00:00.000Z"
+  const mas = (ms: number) => new Date(Date.parse(FIRMA) + ms).toISOString()
+
+  it("is 8 s, and the render adds 2 s of clock margin", () => {
+    expect(VENTANA_DESHACER_MS).toBe(8000)
+    expect(MARGEN_DE_RELOJ_MS).toBe(2000)
+  })
+
+  it("leaves what is left of the 8 s and closes at exactly 8 s", () => {
+    expect(restoDeVentana(FIRMA, FIRMA)).toBe(8000)
+    expect(restoDeVentana(FIRMA, mas(7999))).toBe(1)
+    expect(restoDeVentana(FIRMA, mas(8000))).toBe(0)
+    expect(restoDeVentana(FIRMA, mas(60_000))).toBe(0)
+  })
+
+  it("makes the render wait the window plus the margin, measured on its own clock", () => {
+    expect(esperaDeVentana(FIRMA, FIRMA)).toBe(10_000)
+    expect(esperaDeVentana(FIRMA, mas(3000))).toBe(7000)
+    expect(esperaDeVentana(FIRMA, mas(10_000))).toBe(0)
+    expect(esperaDeVentana(FIRMA, mas(-5000))).toBe(15_000)
+  })
+
+  it("refuses an unreadable instant instead of skipping the wait", () => {
+    expect(() => esperaDeVentana("ayer", FIRMA)).toThrow(/Instante inválido/)
+    expect(() => restoDeVentana(FIRMA, "")).toThrow(/Instante inválido/)
   })
 })

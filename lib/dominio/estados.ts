@@ -26,6 +26,11 @@ export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado"
 /** An approved time this late goes back to Coni instead of being published (accepted change A3). */
 export const MARGEN_HORA_APROBADA_MS = 30 * 60 * 1000
 
+/** How long Coni can take her gate 1 signature back before the video is recorded (design 2026-10-15, decision 5). */
+export const VENTANA_DESHACER_MS = 8000
+/** What the render adds to the window, so a task clock a little behind the app's never records before it closes. */
+export const MARGEN_DE_RELOJ_MS = 2000
+
 export interface AprobacionGuion {
   hash: string
   en: string
@@ -174,6 +179,18 @@ export function piezaNueva(): Pieza {
     puerta2: null,
     explicacion: null,
   }
+}
+
+/** What is left of the undo window of a signature made at `puerta1En`, on the server clock; 0 once it closed. */
+export function restoDeVentana(puerta1En: string, ahora: string): number {
+  const cierre = Date.parse(instanteDelServidor(puerta1En)) + VENTANA_DESHACER_MS
+  return Math.max(0, cierre - Date.parse(instanteDelServidor(ahora)))
+}
+
+/** How long the render waits before it may spend: the undo window plus the clock margin, on the task's clock. */
+export function esperaDeVentana(puerta1En: string, ahora: string): number {
+  const cierre = Date.parse(instanteDelServidor(puerta1En)) + VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS
+  return Math.max(0, cierre - Date.parse(instanteDelServidor(ahora)))
 }
 
 /** A task is working on the piece right now: the screens that show it refresh themselves until it settles. */
