@@ -88,7 +88,7 @@ describe("avisos de la puerta 1 con la voz antes de la firma", () => {
     })
   })
 
-  it("notes nothing when Coni herself takes a signature back", async () => {
+  it("adds no notice when Coni herself takes a signature back", async () => {
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "en_render")
       await asumir(c, comoConi)
