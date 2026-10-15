@@ -50,7 +50,10 @@ export async function conSesionDeConi<E extends z.ZodType, T extends object>(
   return trabajo(db, datos.data)
 }
 
-/** The starters of the background runs, resolved on use: a missing Trigger.dev key must not stop an action that starts none. */
+/**
+ * The starters of the background runs, resolved on use: a missing Trigger.dev key must not stop an action that starts
+ * none.
+ */
 export function disparosDeLaApp(): Disparos {
   return {
     producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),

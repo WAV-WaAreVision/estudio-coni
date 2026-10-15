@@ -5,16 +5,22 @@ import { join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 
-const { trigger } = vi.hoisted(() => ({ trigger: vi.fn(async (..._: unknown[]) => ({ id: "run_1" })) }))
+const { trigger, crearClave } = vi.hoisted(() => ({
+  trigger: vi.fn(async (..._: unknown[]) => ({ id: "run_1" })),
+  crearClave: vi.fn(async (clave: string, _opciones: unknown) => `global:${clave}`),
+}))
 vi.mock("@trigger.dev/sdk", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@trigger.dev/sdk")>()),
   tasks: { trigger },
-  idempotencyKeys: { create: vi.fn(async (clave: string) => `global:${clave}`) },
+  idempotencyKeys: { create: crearClave },
 }))
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
 
-beforeEach(() => trigger.mockClear())
+beforeEach(() => {
+  trigger.mockClear()
+  crearClave.mockClear()
+})
 
 describe("grabar-pieza con retraso", () => {
   it("asks Trigger.dev to start the render after the delay, under the same key", async () => {
@@ -25,6 +31,7 @@ describe("grabar-pieza con retraso", () => {
       { piezaId: PIEZA },
       { idempotencyKey: "global:clave", delay: "10s" },
     )
+    expect(crearClave).toHaveBeenCalledWith("clave", { scope: "global" })
   })
 
   it("starts it at once when no delay is given", async () => {

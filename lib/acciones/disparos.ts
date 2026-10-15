@@ -2,12 +2,12 @@ import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 
 /**
  * The background runs the app starts. The key makes a double tap, a retry or a second device start the work once
- * (Trigger.dev deduplicates by it with `scope: "global"`); the real implementation lives in `disparos-reales.ts`.
+ * (Trigger.dev deduplicates by it with `scope: "global"`); the real implementation lives in `disparos-entorno.ts`.
  */
 export interface Disparos {
   producir(piezaId: string, clave: string): Promise<void>
   /** `retraso`: when to start, as Trigger.dev reads it ("10s"); the signature waits out the undo window this way. */
-  grabar(piezaId: string, clave: string, retraso?: string): Promise<void>
+  grabar(piezaId: string, clave: string, retraso?: `${number}s`): Promise<void>
   /** `nueva`: Coni asked to record again, so an earlier take of the same text is not reused. */
   voz(piezaId: string, clave: string, nueva: boolean): Promise<void>
 }
