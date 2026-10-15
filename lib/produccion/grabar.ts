@@ -243,9 +243,10 @@ async function cargarContexto(deps: DepsGrabacion, fila: FilaDePieza, guion: str
  * Renders the approved script in HeyGen, burns it as subtitles, checks the result and leaves the video in
  * `video_por_aprobar` for Coni. It never approves anything and never spends without the approval of gate 1. It is safe
  * to run again at any point: the render id is stored right after the video is created, a stored id is read instead
- * of creating again, and a piece left in `subtitulando` resumes from the delivered render.
+ * of creating again, and a piece left in `subtitulando` resumes from the delivered render. `intento`: the attempt the
+ * run was started for; when the piece is on another one, the run ends without touching it.
  */
-export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise<ResultadoGrabacion> {
+export async function grabarPieza(deps: DepsGrabacion, piezaId: string, intento?: number): Promise<ResultadoGrabacion> {
   const { db } = deps
   const fila = await leerPieza(db, piezaId)
   if (!fila) {
@@ -254,6 +255,9 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise
   if (fila.estado !== "en_render" && fila.estado !== "subtitulando") {
     return { resultado: "nada_que_hacer" }
   }
+  // A run belongs to the attempt it was started for (the payload carries it; a run queued by an older app sends none).
+  // One whose attempt is over, such as a signature Coni undid, must not render for the newer one: that one has its own.
+  if (intento !== undefined && fila.intento !== intento) return { resultado: "nada_que_hacer" }
   const pieza = piezaDesdeFila(fila)
   if (fila.guion === null || pieza.puerta1 === null) {
     return { resultado: "sin_aprobacion" }

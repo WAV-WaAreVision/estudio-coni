@@ -512,6 +512,33 @@ describe("grabarPieza", () => {
     expect(await gastos(id)).toEqual([])
   })
 
+  it("does nothing and spends nothing for a run started for an older attempt", async () => {
+    const id = await crearPiezaEnRender()
+    const { intento } = await pieza(id)
+    const sim = simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect(await grabarPieza(d.deps, id, intento - 1)).toEqual({ resultado: "nada_que_hacer" })
+
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+    expect(await pieza(id)).toMatchObject({ estado: "en_render", render_id: null, intento })
+  })
+
+  it("renders when the attempt in the payload is the row's, and when an older app sent none", async () => {
+    const conPayload = await crearPiezaEnRender()
+    const sinPayload = await crearPiezaEnRender()
+    simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, conPayload)
+    await conVozEnAlmacen(d.almacen, sinPayload)
+
+    const intento = (await pieza(conPayload)).intento
+    expect(await grabarPieza(d.deps, conPayload, intento)).toMatchObject({ resultado: "grabada" })
+    expect(await grabarPieza(d.deps, sinPayload)).toMatchObject({ resultado: "grabada" })
+  })
+
   it("fails as a configuration error for a piece that does not exist", async () => {
     const error = await grabarPieza(doble().deps, "11111111-2222-4333-8444-555555555555").catch((e: unknown) => e)
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
