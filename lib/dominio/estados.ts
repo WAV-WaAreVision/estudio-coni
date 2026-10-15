@@ -30,6 +30,8 @@ export const MARGEN_HORA_APROBADA_MS = 30 * 60 * 1000
 export const VENTANA_DESHACER_MS = 8000
 /** What the render adds to the window, so a task clock a little behind the app's never records before it closes. */
 export const MARGEN_DE_RELOJ_MS = 2000
+/** Said when the undo arrives after the window: the run may have started, so the video goes on. */
+export const TEXTO_DESHACER_TARDE = "Ya empecé a grabar el video. Puedes revisarlo cuando esté listo."
 
 export interface AprobacionGuion {
   hash: string
@@ -76,6 +78,8 @@ export type Evento =
   | { tipo: "grabar_video" }
   /** Coni takes the approval back to change the script, the caption or the avatar. */
   | { tipo: "reabrir_guion" }
+  /** Coni takes her gate 1 signature back while the undo window lasts. `ahora` is the server clock. */
+  | { tipo: "deshacer_aprobacion"; actor: Actor; ahora: string }
   /** The voice is stored by the voice task, or by the render when it had to make it. */
   | { tipo: "voz_lista"; audioId: string }
   | { tipo: "render_entregado" }
@@ -281,6 +285,14 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "reabrir_guion":
       if (estado !== "guion_aprobado") throw invalida()
+      return a("guion_por_aprobar", { puerta1: null })
+
+    case "deshacer_aprobacion":
+      soloConi(evento.actor)
+      if (estado !== "en_render" || pieza.puerta1 === null) throw invalida()
+      if (restoDeVentana(pieza.puerta1.en, evento.ahora) === 0) throw new Falla(TEXTO_DESHACER_TARDE)
+      // Her voice and the attempt stay: the render key of this text does not change, so a delayed run that fires
+      // anyway finds the piece here and spends nothing, and signing the same text again reuses its key.
       return a("guion_por_aprobar", { puerta1: null })
 
     case "render_entregado":

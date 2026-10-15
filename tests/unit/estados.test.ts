@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest"
 import {
+  type Actor,
   AprobacionNoAutorizada,
   ArtefactoCambio,
   ESTADOS,
@@ -12,6 +13,7 @@ import {
   piezaNueva,
   piezaTrabajando,
   restoDeVentana,
+  TEXTO_DESHACER_TARDE,
   type Transicion,
   TransicionInvalida,
   transicionar,
@@ -545,7 +547,14 @@ describe("tabla del diseño", () => {
     guion_por_aprobar: ["pedir_cambios", "editar_texto", "aprobar_guion", "descartar"],
     guion_aprobado: ["editar_texto", "pedir_voz", "grabar_video", "reabrir_guion", "descartar"],
     grabando_voz: ["voz_lista", "falla_voz", "descartar"],
-    en_render: ["voz_lista", "render_entregado", "politica_contenido", "falla_produccion", "descartar"],
+    en_render: [
+      "voz_lista",
+      "render_entregado",
+      "politica_contenido",
+      "falla_produccion",
+      "deshacer_aprobacion",
+      "descartar",
+    ],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
     programado: [
@@ -591,6 +600,7 @@ describe("tabla del diseño", () => {
     entregar_para_subir: { tipo: "entregar_para_subir" },
     subido_a_mano: { tipo: "subido_a_mano", actor: "coni", destino: "instagram", quedanPendientes: false },
     reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
+    deshacer_aprobacion: { tipo: "deshacer_aprobacion", actor: "coni", ahora: "2026-10-06T15:00:03.000Z" },
     descartar: { tipo: "descartar" },
   }
 
@@ -796,5 +806,46 @@ describe("la ventana para deshacer la firma", () => {
   it("refuses an unreadable instant instead of skipping the wait", () => {
     expect(() => esperaDeVentana("ayer", FIRMA)).toThrow(/Instante inválido/)
     expect(() => restoDeVentana(FIRMA, "")).toThrow(/Instante inválido/)
+  })
+})
+
+describe("deshacer la firma", () => {
+  const FIRMA = { hash: "a".repeat(64), en: "2026-10-15T12:00:00.000Z" }
+  const firmada = en("en_render", { version: 6, intento: 3, audioId: "voces/t.mp3", puerta1: FIRMA })
+  const deshacer = (ms: number, actor: Actor = "coni"): Evento => ({
+    tipo: "deshacer_aprobacion",
+    actor,
+    ahora: new Date(Date.parse(FIRMA.en) + ms).toISOString(),
+  })
+
+  it("takes the signature back inside the window, keeping her voice and the attempt", () => {
+    const { pieza, efectos } = transicionar(firmada, deshacer(7999))
+    expect(pieza).toMatchObject({
+      estado: "guion_por_aprobar",
+      puerta1: null,
+      audioId: "voces/t.mp3",
+      intento: 3,
+      version: 7,
+      explicacion: null,
+    })
+    expect(efectos).toEqual([])
+  })
+
+  it("refuses at 8 s with a text for Coni, not as a stale screen", () => {
+    const error = capturar(() => transicionar(firmada, deshacer(8000)))
+    expect(error).toBeInstanceOf(Falla)
+    expect(error).not.toBeInstanceOf(TransicionInvalida)
+    expect(error).toMatchObject({ message: TEXTO_DESHACER_TARDE })
+    expect(TEXTO_DESHACER_TARDE).toBe("Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.")
+  })
+
+  it("only lets Coni undo", () => {
+    expect(() => transicionar(firmada, deshacer(1000, "sistema"))).toThrow(AprobacionNoAutorizada)
+  })
+
+  it("refuses from any state other than a signed piece in render", () => {
+    expect(() => transicionar(en("guion_por_aprobar"), deshacer(1000))).toThrow(TransicionInvalida)
+    expect(() => transicionar(en("subtitulando", { puerta1: FIRMA }), deshacer(1000))).toThrow(TransicionInvalida)
+    expect(() => transicionar(en("en_render"), deshacer(1000))).toThrow(TransicionInvalida)
   })
 })
