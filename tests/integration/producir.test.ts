@@ -485,6 +485,21 @@ describe("producirPieza", () => {
     expect(error).toHaveBeenCalledWith(`No pude preparar la voz de la pieza ${id}`, expect.any(Error))
   })
 
+  it("delivers the script without a voice, reserving nothing, when only Coni's ElevenLabs key is missing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await crearPiezaEnProduccion()
+    // The production settings are valid (beforeEach); the key is read before the voice reserves anything.
+    await pool.query("delete from vault.secrets where name = 'elevenlabs'")
+    const sim = simular()
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null, explicacion: TEXTO_SIN_VOZ })
+    expect(sim.voces).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
+    expect(error).toHaveBeenCalledWith(`No pude preparar la voz de la pieza ${id}`, expect.any(FallaDeConfiguracion))
+  })
+
   it("starts a new round, with a new spend, when Coni asks for changes", async () => {
     const id = await crearPiezaEnProduccion()
     const sim = simular({
@@ -642,7 +657,38 @@ describe("producirPieza", () => {
     expect(await producirPieza(deps(notificadorEnMemoria(), almacen), id)).toEqual({ resultado: "producida" })
 
     expect(sim.voces).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
     expect(await pieza(id)).toMatchObject({ audio_id: toma, explicacion: null })
+  })
+
+  it("pays the voice once when the piece changes under the run and Trigger.dev retries it", async () => {
+    const id = await crearPiezaEnProduccion()
+    const almacen = almacenEnMemoria()
+    const sim = simular({
+      // The piece changes while the voice is being made, after the draft and the take were saved and paid.
+      voz: async (n) => {
+        if (n === 0)
+          await pool.query("update public.piezas set titulo = 'Cambiado', version = version + 1 where id = $1", [id])
+        return new HttpResponse(AUDIO, { headers: { "Content-Type": "audio/mpeg" } })
+      },
+    })
+
+    await expect(producirPieza(deps(notificadorEnMemoria(), almacen), id)).rejects.toThrow("La pieza cambió")
+    expect(await pieza(id)).toMatchObject({ estado: "guion_en_proceso", audio_id: null })
+
+    expect(await producirPieza(deps(notificadorEnMemoria(), almacen), id)).toEqual({ resultado: "producida" })
+
+    expect(sim.escrituras).toHaveLength(1)
+    expect(sim.voces).toHaveLength(1)
+    expect(await pieza(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      audio_id: tomaDe(id, GUION_BUENO),
+      explicacion: null,
+    })
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
+      ["anthropic", "confirmado"],
+      ["elevenlabs", "confirmado"],
+    ])
   })
 })
 
