@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T00:00:00Z",
+  "title": "Design System: Conidolly",
+  "extensions": {
+    "colorMeta": {
+      "piedra": { "role": "neutral", "displayName": "Piedra", "canonical": "#ecebe6" },
+      "menta": { "role": "primary", "displayName": "Menta de consulta", "canonical": "#bfe8d0" },
+      "firma": { "role": "secondary", "displayName": "Frambuesa de firma", "canonical": "#a8285a" },
+      "aviso": { "role": "tertiary", "displayName": "Trigo de aviso", "canonical": "#f3e08e" },
+      "error": { "role": "tertiary", "displayName": "Coral de error", "canonical": "#f2aaa6" }
+    },
+    "shadows": [
+      { "name": "relieve", "value": "-6px -6px 14px rgb(251 250 247 / 0.9), 6px 6px 14px rgb(70 64 52 / 0.18)", "purpose": "Buttons, chips, panels at rest." },
+      { "name": "relieve-alto", "value": "-10px -10px 24px rgb(251 250 247 / 0.9), 10px 10px 24px rgb(70 64 52 / 0.22)", "purpose": "Sign bar, toast, idea card. One per screen." },
+      { "name": "hundido", "value": "inset 4px 4px 10px rgb(70 64 52 / 0.18), inset -4px -4px 10px rgb(251 250 247 / 0.9)", "purpose": "Fields, tracks, segmented, pressed state." }
+    ],
+    "motion": [
+      { "name": "press", "value": "150ms cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Relief to sunken on touch." },
+      { "name": "state", "value": "200ms cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "State changes, toast in." }
+    ],
+    "breakpoints": [{ "name": "md", "value": "768px" }]
+  },
+  "components": [
+    { "name": "Botón principal", "kind": "button", "refersTo": "boton-principal", "description": "One per screen.", "html": "<button class=\"ds-btn\">Aprobar guion</button>", "css": ".ds-btn{background:#bfe8d0;color:#2a2925;font:600 1.125rem Geist,system-ui;height:52px;padding:0 24px;border:0;border-radius:999px;box-shadow:-6px -6px 14px rgb(251 250 247/.9),6px 6px 14px rgb(70 64 52/.18);transition:box-shadow 150ms cubic-bezier(.23,1,.32,1)}.ds-btn:active{box-shadow:inset 4px 4px 10px rgb(70 64 52/.18),inset -4px -4px 10px rgb(251 250 247/.9)}.ds-btn:focus-visible{outline:2px solid #1f8a5a;outline-offset:2px}" },
+    { "name": "Chip", "kind": "chip", "refersTo": "chip", "description": "Filter; selected in mint.", "html": "<button class=\"ds-chip\" aria-pressed=\"true\">✓ Ética</button>", "css": ".ds-chip{background:#ecebe6;color:#2a2925;font:500 .9375rem Geist,system-ui;height:44px;padding:0 16px;border:0;border-radius:999px;box-shadow:-6px -6px 14px rgb(251 250 247/.9),6px 6px 14px rgb(70 64 52/.18)}.ds-chip[aria-pressed=true]{background:#bfe8d0}" },
+    { "name": "Campo", "kind": "input", "refersTo": "campo", "description": "Sunken pill.", "html": "<input class=\"ds-campo\" placeholder=\"Buscar idea\">", "css": ".ds-campo{background:#dcdad4;color:#2a2925;font:400 1.125rem Geist,system-ui;height:52px;padding:0 20px;border:0;border-radius:999px;box-shadow:inset 4px 4px 10px rgb(70 64 52/.18),inset -4px -4px 10px rgb(251 250 247/.9)}.ds-campo:focus-visible{outline:2px solid #1f8a5a;outline-offset:2px}" }
+  ],
+  "narrative": {
+    "northStar": "La firma sobre piedra",
+    "rules": [
+      { "name": "The One Signature Rule", "body": "La frambuesa aparece solo donde Coni firma.", "section": "colors" },
+      { "name": "The Ink Over Pastel Rule", "body": "Sobre menta, trigo y coral, el texto es siempre su tinta oscura.", "section": "colors" },
+      { "name": "The Press Sinks Rule", "body": "Tocar cambia el relieve por el hundido. Nada se agranda ni rebota.", "section": "elevation" }
+    ]
+  }
+}
