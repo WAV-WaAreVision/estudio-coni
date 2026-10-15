@@ -20,6 +20,7 @@ import {
   VENTANA_DESHACER_MS,
 } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 
 const HORA = "2026-10-08T22:00:00.000Z" // jueves 8 de octubre, 19:00 en Santiago
 const ANTES = "2026-10-06T15:00:00.000Z"
@@ -281,6 +282,21 @@ describe("transicionar", () => {
       intento: 1,
     })
     expect(programado.efectos).toEqual(["cancelar_publicacion", "revisar_texto"])
+  })
+
+  it("keeps the reason when Coni edits only the caption", () => {
+    const sinVoz = transicionar(en("guion_por_aprobar", { audioId: null, explicacion: TEXTO_SIN_VOZ }), {
+      tipo: "editar_texto",
+    })
+    expect(sinVoz.pieza).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_SIN_VOZ })
+
+    const horaVencida = transicionar(programada, { tipo: "hora_vencida" }).pieza
+    const enVideo = transicionar(horaVencida, { tipo: "editar_texto" })
+    expect(enVideo.pieza).toMatchObject({ estado: "video_por_aprobar", explicacion: horaVencida.explicacion })
+    expect(enVideo.pieza.explicacion).toContain("La hora aprobada pasó")
+
+    const programadoConNota = transicionar({ ...programada, explicacion: "Una nota." }, { tipo: "editar_texto" })
+    expect(programadoConNota.pieza).toMatchObject({ estado: "video_por_aprobar", explicacion: "Una nota." })
   })
 
   it("cancela la publicación programada cuando coni cambia la fecha", () => {

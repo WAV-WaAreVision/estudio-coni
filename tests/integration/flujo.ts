@@ -111,9 +111,6 @@ function pasos(opciones: OpcionesDePieza): Paso[] {
         {
           guion: GUION,
           texto: TEXTO,
-          // The walks model a piece with nothing to say yet; the reason of a voice-less arrival is tested where the
-          // writer makes it (producir.test.ts).
-          explicacion: null,
           ...(opciones.textoLinkedin === undefined ? {} : { texto_linkedin: opciones.textoLinkedin }),
         },
       ),

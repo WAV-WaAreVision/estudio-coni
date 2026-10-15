@@ -247,18 +247,24 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       // A new script round is a new attempt: its Claude and voice spend must not reuse the keys of the old round.
       return a("guion_en_proceso", { audioId: null, intento: pieza.intento + 1 })
 
-    case "editar_texto":
-      if (estado === "guion_por_aprobar") return a("guion_por_aprobar", {}, ["revisar_texto"])
+    case "editar_texto": {
+      // Editing the caption does not answer the reason on the piece (no voice, a missed hour): it stays, as in
+      // `editar_texto_como_coni`.
+      const nota = pieza.explicacion
+      if (estado === "guion_por_aprobar") return a("guion_por_aprobar", { explicacion: nota }, ["revisar_texto"])
       // The caption is part of gate 1: changing it after approving takes the approval back.
       if (estado === "guion_aprobado") return a("guion_por_aprobar", { puerta1: null }, ["revisar_texto"])
-      if (estado === "video_por_aprobar") return a("video_por_aprobar", { puerta2: null }, ["revisar_texto"])
+      if (estado === "video_por_aprobar") {
+        return a("video_por_aprobar", { puerta2: null, explicacion: nota }, ["revisar_texto"])
+      }
       if (estado === "programado") {
-        return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1 }, [
+        return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1, explicacion: nota }, [
           "cancelar_publicacion",
           "revisar_texto",
         ])
       }
       throw invalida()
+    }
 
     case "aprobar_guion":
       // The actor is checked first so an unauthorised attempt is flagged even on a stale piece.
