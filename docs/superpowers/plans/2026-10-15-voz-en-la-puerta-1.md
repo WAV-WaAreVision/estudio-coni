@@ -1,5 +1,34 @@
 # Voice in Gate 1 Implementation Plan
 
+> **Amendment for Tasks 11-13 (X1, found in the review of Tasks 8-10, already built in the branch for Tasks 4, 8 and
+> 10; where a snippet below disagrees with this note, this note wins).**
+> Trigger.dev keeps the idempotency key of a *completed* run (30 days) and a new trigger with that key returns the old
+> run. Sequence that broke: sign -> delayed `grabar-pieza` R1 under key K (`claveGrabar` = `puerta1_hash` + `intento`) ->
+> undo inside 8 s -> R1 fires at ~10 s, finds `guion_por_aprobar`, returns `nada_que_hacer` and completes -> sign the
+> same text again -> same hash and same `intento` -> key K -> Trigger returns R1 -> no video ever starts (and
+> `reanudarArranques`, which retries under the same key, is deduped too). So:
+>
+> 1. `deshacer_aprobacion` bumps `intento` (`intento + 1`). Done (commit "Open a new attempt when Coni undoes her
+>    signature"). The Task 4 test and case below are updated accordingly.
+> 2. The `grabar-pieza` payload carries `intento` (`ENTRADA_DE_GRABAR` in `trigger/grabar-pieza.ts`, optional so a run
+>    queued by the previously deployed app still works) and `grabarPieza(deps, piezaId, intento?)` returns
+>    `nada_que_hacer` when `intento !== undefined && fila.intento !== intento`. Done. **Task 12 must keep that check
+>    after every re-read of the row** (see its updated snippet).
+> 3. `Disparos.grabar(piezaId, clave, intento, retraso?)`: `intento` is required and sits before the delay. Done for
+>    the interface, the real and test-mode starters, `disparosDeLaApp`, `regrabar`, `reintentar`, `pedirVideo`,
+>    `reanudarArranques`, `conciliarRenders` and `arrancarGrabacion` (`trigger/mantenimiento.ts`). **Task 11's
+>    `aprobarGuion` must pass `firmada.intento`**: `deps.disparar.grabar(firmada.id, claveGrabar(firmada),
+>    firmada.intento, RETRASO_DE_GRABACION)`; the test-mode record is `{ tarea, piezaId, clave, intento, retraso }`.
+> 4. The `Disparo` fake of `armar` in `acciones-piezas.test.ts` already has `intento?: number` and records it; the
+>    expectations below add `intento`.
+> 5. **Task 13** must add the action-level test "sign, undo, sign again": the second signature's `grabar` trigger has
+>    another `clave` than the first, `intento` one higher and the 10 s delay. Task 13's undo test expects
+>    `intento: firmada.intento + 1`. (The old-run half, `grabarPieza(d.deps, id, intentoViejo)` returning
+>    `nada_que_hacer` after an undo, is already in `tests/integration/grabar.test.ts`, "deshacer la firma mientras el
+>    render espera"; the part with the piece back in `en_render` needs Task 11's `aprobarGuion` and is Task 12's third
+>    test, updated below.)
+> 6. Task 12's `despuesDeLaVentana` and `grabarPieza` pass and re-check `intento`, see the updated snippet.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Cut every piece to two visits: the writer delivers the script with Coni's voice, gate 1 signs the script, the voice and the video spend in one slide, and the video starts by itself after an 8-second undo window.
@@ -424,13 +453,13 @@ describe("deshacer la firma", () => {
     ahora: new Date(Date.parse(FIRMA.en) + ms).toISOString(),
   })
 
-  it("takes the signature back inside the window, keeping her voice and the attempt", () => {
+  it("takes the signature back inside the window, keeping her voice and opening a new attempt", () => {
     const { pieza, efectos } = transicionar(firmada, deshacer(7999))
     expect(pieza).toMatchObject({
       estado: "guion_por_aprobar",
       puerta1: null,
       audioId: "voces/t.mp3",
-      intento: 3,
+      intento: 4,
       version: 7,
       explicacion: null,
     })
@@ -492,9 +521,10 @@ In `transicionar`, after the `reabrir_guion` case:
       soloConi(evento.actor)
       if (estado !== "en_render" || pieza.puerta1 === null) throw invalida()
       if (restoDeVentana(pieza.puerta1.en, evento.ahora) === 0) throw new Falla(TEXTO_DESHACER_TARDE)
-      // Her voice and the attempt stay: the render key of this text does not change, so a delayed run that fires
-      // anyway finds the piece here and spends nothing, and signing the same text again reuses its key.
-      return a("guion_por_aprobar", { puerta1: null })
+      // Her voice stays. The attempt moves on: the delayed run of this signature still fires, finds the piece here and
+      // finishes, and Trigger.dev keeps the key of a finished run, so signing the same text again under the same key
+      // would get that finished run back and the video would never start.
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1 })
 ```
 
 - [ ] **Step 4: Run and see green**
@@ -1585,9 +1615,10 @@ export type Evento =
       soloConi(evento.actor)
       if (estado !== "en_render" || pieza.puerta1 === null) throw invalida()
       if (restoDeVentana(pieza.puerta1.en, evento.ahora) === 0) throw new Falla(TEXTO_DESHACER_TARDE)
-      // Her voice and the attempt stay: the render key of this text does not change, so a delayed run that fires
-      // anyway finds the piece here and spends nothing, and signing the same text again reuses its key.
-      return a("guion_por_aprobar", { puerta1: null })
+      // Her voice stays. The attempt moves on: the delayed run of this signature still fires, finds the piece here and
+      // finishes, and Trigger.dev keeps the key of a finished run, so signing the same text again under the same key
+      // would get that finished run back and the video would never start.
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1 })
 ```
 
 Run `pnpm test:run tests/unit/estados.test.ts`: PASS. `pnpm type` now fails in `lib/acciones/piezas.ts`
@@ -1614,12 +1645,13 @@ const tomaDe = (id: string, guion: string, toma = 0) => claveDeToma(id, huellaDe
 const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
 ```
 
-3. `interface Disparo` gains `retraso?: string`, and the `grabar` fake of `armar` becomes:
+3. `interface Disparo` gains `retraso?: string` (it already has `intento?: number`), and the `grabar` fake of `armar`
+   becomes:
 
 ```ts
-      async grabar(piezaId, clave, retraso) {
+      async grabar(piezaId, clave, intento, retraso) {
         if (fallos.grabar) throw fallos.grabar
-        disparos.push({ tarea: "grabar", piezaId, clave, ...(retraso ? { retraso } : {}) })
+        disparos.push({ tarea: "grabar", piezaId, clave, intento, ...(retraso ? { retraso } : {}) })
       },
 ```
 
@@ -1660,7 +1692,9 @@ async function paraAprobar() {
     expect(guardada.puerta1_hash).toBe(
       hashPuerta1({ formula: 3, guion: GUION_VALIDO, texto: TEXTO_VALIDO, avatarId: "look-b", respaldo: "" }),
     )
-    expect(disparos).toEqual([{ tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), retraso: "10s" }])
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: guardada.intento, retraso: "10s" },
+    ])
   })
 
   it("refuses to sign without her voice of the current script, and starts nothing", async () => {
@@ -1861,7 +1895,7 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     )
     return iniciar(
       "grabar-pieza",
-      () => deps.disparar.grabar(firmada.id, claveGrabar(firmada), RETRASO_DE_GRABACION),
+      () => deps.disparar.grabar(firmada.id, claveGrabar(firmada), firmada.intento, RETRASO_DE_GRABACION),
       AVISO_GRABACION,
     )
   })
@@ -2311,6 +2345,7 @@ describe("grabarPieza y la ventana para deshacer", () => {
 
   it("waits for the second window when she undoes and signs again, and pays HeyGen once", async () => {
     const id = await crearPiezaEnRender()
+    const primera = await pieza(id)
     const reloj = await relojTrasLaFirma(id, 3000)
     const sim = simular()
     const ventanas: number[] = []
@@ -2333,12 +2368,43 @@ describe("grabarPieza y la ventana para deshacer", () => {
     })
     await conVozEnAlmacen(d.almacen, id)
 
-    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    // The run of the second signature (it carries the attempt the undo opened) waits for the second window only.
+    expect((await grabarPieza(d.deps, id, primera.intento + 1)).resultado).toBe("grabada")
     expect(ventanas).toEqual([7000, 5000])
-    // The delayed run of the second signature comes later and finds the video already made.
-    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "nada_que_hacer" })
+    // Another delayed run of the same attempt comes later and finds the video already made.
+    expect(await grabarPieza(d.deps, id, primera.intento + 1)).toEqual({ resultado: "nada_que_hacer" })
     expect(sim.creaciones).toHaveLength(1)
     expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toHaveLength(1)
+  })
+
+  it("ends the run of an undone signature when she signed again while it waited, without a second wait", async () => {
+    const id = await crearPiezaEnRender()
+    const primera = await pieza(id)
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        await enTransaccion(async (c) => {
+          await aplicar(c, id, comoConi, {
+            tipo: "deshacer_aprobacion",
+            actor: "coni",
+            ahora: new Date(reloj.firma + 4000).toISOString(),
+          })
+          await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
+        })
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    // The run of the first signature: the piece is back in render for the same text, but it is another attempt.
+    expect(await grabarPieza(d.deps, id, primera.intento)).toEqual({ resultado: "nada_que_hacer" })
+    expect(ventanas).toEqual([7000])
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toEqual([])
   })
 
   it("does not wait for a signature whose window closed long ago", async () => {
@@ -2400,10 +2466,16 @@ Expected: FAIL. The run creates the video without waiting (`ventanas` is `[]`), 
  * signature back waits until the window and the clock margin are over, then decides on the row as it is now. A new
  * signature made during the wait (undo and sign again) has its own window, so the run waits once per signature.
  */
-async function despuesDeLaVentana(deps: DepsGrabacion, leida: FilaDePieza): Promise<FilaDePieza | null> {
+async function despuesDeLaVentana(
+  deps: DepsGrabacion,
+  leida: FilaDePieza,
+  intento: number | undefined,
+): Promise<FilaDePieza | null> {
   let fila: FilaDePieza | null = leida
   let esperada: string | null = null
   while (fila?.estado === "en_render") {
+    // A run of another attempt (an undone signature) ends in `grabarPieza`: waiting for its window would be pointless.
+    if (intento !== undefined && fila.intento !== intento) break
     const firma = piezaDesdeFila(fila).puerta1
     if (firma === null || firma.en === esperada) break
     const espera = esperaDeVentana(firma.en, deps.ahora())
@@ -2416,23 +2488,26 @@ async function despuesDeLaVentana(deps: DepsGrabacion, leida: FilaDePieza): Prom
 }
 ```
 
-4. The start of `grabarPieza` becomes:
+4. The start of `grabarPieza` becomes (the `intento` check that is there today stays, now after the re-read):
 
 ```ts
-export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise<ResultadoGrabacion> {
+export async function grabarPieza(deps: DepsGrabacion, piezaId: string, intento?: number): Promise<ResultadoGrabacion> {
   const { db } = deps
   const leida = await leerPieza(db, piezaId)
   if (!leida) {
     throw new FallaDeConfiguracion(`No existe la pieza ${piezaId}.`)
   }
   // Before anything that spends: Coni may still be taking this signature back.
-  const fila = await despuesDeLaVentana(deps, leida)
+  const fila = await despuesDeLaVentana(deps, leida, intento)
   if (!fila) {
     throw new FallaDeConfiguracion(`No existe la pieza ${piezaId}.`)
   }
   if (fila.estado !== "en_render" && fila.estado !== "subtitulando") {
     return { resultado: "nada_que_hacer" }
   }
+  // A run belongs to the attempt it was started for (the payload carries it; a run queued by an older app sends none).
+  // The row was read again after the wait: an undone signature that Coni signed again is another attempt.
+  if (intento !== undefined && fila.intento !== intento) return { resultado: "nada_que_hacer" }
 ```
 
 (the rest of the function is unchanged).
@@ -2449,7 +2524,7 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise
 
 and the returned object gains `esperar: espera.esperar,` after `esperarRender`.
 
-`trigger/grabar-pieza.ts`, the `depsGrabacion` call becomes:
+`trigger/grabar-pieza.ts`, the `depsGrabacion` call becomes (the `run` already passes `intento` to `grabarPieza`):
 
 ```ts
     const deps = await depsGrabacion({
@@ -2485,7 +2560,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `app/(app)/piezas/acciones.ts` (new `deshacerAprobacionAccion` after `aprobarGuionAccion`)
 - Test: `tests/integration/acciones-piezas.test.ts`
 
-- [ ] **Step 1: Write the failing tests** (append; add `deshacerAprobacion` to the `@/lib/acciones/piezas` import)
+- [ ] **Step 1: Write the failing tests** (append; add `deshacerAprobacion` to the `@/lib/acciones/piezas` import;
+  see the amendment at the top: the undo opens a new attempt, so a second signature of the same text has a new key)
 
 ```ts
 describe("deshacerAprobacion", () => {
@@ -2503,7 +2579,7 @@ describe("deshacerAprobacion", () => {
     return { id, reloj, deps: conReloj, disparos }
   }
 
-  it("takes the signature back inside the window: back to her, with her voice and the same attempt", async () => {
+  it("takes the signature back inside the window: back to her, with her voice and a new attempt", async () => {
     const firma = Date.now()
     const { id, reloj, deps, disparos } = await firmadaEn(firma)
     const firmada = await fila(id)
@@ -2517,10 +2593,28 @@ describe("deshacerAprobacion", () => {
       puerta1_en: null,
       puerta1_por: null,
       audio_id: firmada.audio_id,
-      intento: firmada.intento,
+      intento: firmada.intento + 1,
     })
     // The delayed run is not cancelled: it finds the piece back here and spends nothing (grabar.test.ts).
     expect(disparos).toEqual([])
+  })
+
+  it("signs the same text again after an undo: another run key, the next attempt and the 10 s delay", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps, disparos } = await firmadaEn(firma)
+    const primera = await fila(id)
+    reloj.ms = firma + 1000
+    expect(await deshacerAprobacion(deps, id, primera.version)).toEqual({ ok: true })
+
+    const segunda = { ...deps, ahora: () => new Date(firma + 2000).toISOString() }
+    expect((await aprobarGuion(segunda, id, await versionDe(id), "look-a")).ok).toBe(true)
+
+    const guardada = await fila(id)
+    expect(guardada).toMatchObject({ estado: "en_render", intento: primera.intento + 1 })
+    expect(guardada.puerta1_hash).toBe(primera.puerta1_hash)
+    expect(disparos).toHaveLength(2)
+    expect(disparos[1]?.clave).not.toBe(disparos[0]?.clave)
+    expect(disparos[1]).toMatchObject({ tarea: "grabar", intento: primera.intento + 1, retraso: "10s" })
   })
 
   it("refuses once the window closed, with Coni's text, and the video goes on", async () => {
@@ -4116,7 +4210,8 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
   await expect(page.getByText(GRABANDO)).toBeVisible()
   await capturar(page, "guion-firmado")
   expect((await leerFila(id)).estado).toBe("en_render")
-  expect(disparosRegistrados()).toMatchObject([{ tarea: "grabar", piezaId: id, retraso: "10s" }])
+  const [primera] = disparosRegistrados()
+  expect(primera).toMatchObject({ tarea: "grabar", piezaId: id, retraso: "10s" })
 
   await page.getByRole("button", { name: "Deshacer" }).click()
   await expect(page.getByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeVisible()
@@ -4130,6 +4225,11 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
   await page.keyboard.press("End")
   await expect(page.getByText(GRABANDO)).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
+  // The second signature starts its own run: another attempt, so another key than the undone one.
+  const [, segunda] = disparosRegistrados()
+  expect(segunda).toMatchObject({ tarea: "grabar", piezaId: id, retraso: "10s" })
+  expect(segunda?.clave).not.toBe(primera?.clave)
+  expect(segunda?.intento).toBe((primera?.intento ?? 0) + 1)
 })
 ```
 
@@ -4534,7 +4634,7 @@ and, if Task 2 shipped, re-create `public.avisar_pieza_lista()` with the body of
 | Decision 2, the voice is made with the script (`asegurarVoz` in the writer, `guion_listo { audioId, explicacion? }`, `TEXTO_SIN_VOZ` on Falla, cap or any error, non-Falla logged, take by `intento`) | 5, 6, 7 |
 | Decision 3, voice after an edit and on request (`pedir_voz`/`voz_lista`/`falla_voz` before the signature, `editarGuion` by fingerprint with `nueva: false`, "Preparar mi voz", "Grabar la voz de nuevo", `puedeGrabarVoz` without approval, row's current script, editor and signature disabled while `grabando_voz`, polling) | 9, 10, 11, 14, 16 |
 | Decision 4, gate 1 signs script, voice and video spend (voice-of-script check and its text, listened-to-the-end gating, HeyGen `no_alcanza`, `aprobar_guion -> en_render`, `grabar-pieza` with `delay: "10s"` through `iniciar`) | 8, 11, 15, 16 |
-| Decision 5, undo window (`VENTANA_DESHACER_MS`, `MARGEN_DE_RELOJ_MS`, `deshacer_aprobacion`, `deshacerAprobacion`, no cancellation, `esperaDeVentana` + `deps.esperar` + re-read, no `intento` bump) | 3, 4, 12, 13, 17 |
+| Decision 5, undo window (`VENTANA_DESHACER_MS`, `MARGEN_DE_RELOJ_MS`, `deshacer_aprobacion` with `intento + 1`, `deshacerAprobacion`, no cancellation, `grabar-pieza` carries its `intento`, `esperaDeVentana` + `deps.esperar` + re-read) | 3, 4, 12, 13, 17 |
 | Decision 6, screens and copy (every row of the table, Inicio "Preparando la voz", `en_render` text) | 15, 16, 17, 18 |
 | Section 7, transitions and removals (`grabar_video`, `reabrir_guion`, `editar_texto` from `guion_aprobado`) | 4, 5, 11 |
 | Section 8, migration `20261015000100` | 1 |
