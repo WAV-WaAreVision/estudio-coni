@@ -302,9 +302,10 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       soloConi(evento.actor)
       if (estado !== "en_render" || pieza.puerta1 === null) throw invalida()
       if (restoDeVentana(pieza.puerta1.en, evento.ahora) === 0) throw new Falla(TEXTO_DESHACER_TARDE)
-      // Her voice and the attempt stay: the render key of this text does not change, so a delayed run that fires
-      // anyway finds the piece here and spends nothing, and signing the same text again reuses its key.
-      return a("guion_por_aprobar", { puerta1: null })
+      // Her voice stays. The attempt moves on: the delayed run of this signature still fires, finds the piece here and
+      // finishes, and Trigger.dev keeps the key of a finished run, so signing the same text again under the same key
+      // would get that finished run back and the video would never start.
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1 })
 
     case "render_entregado":
       if (estado !== "en_render") throw invalida()

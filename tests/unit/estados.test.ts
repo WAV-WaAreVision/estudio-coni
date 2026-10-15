@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest"
+import { claveGrabar } from "@/lib/acciones/disparos"
 import {
   type Actor,
   AprobacionNoAutorizada,
@@ -857,17 +858,24 @@ describe("deshacer la firma", () => {
     ahora: new Date(Date.parse(FIRMA.en) + ms).toISOString(),
   })
 
-  it("takes the signature back inside the window, keeping her voice and the attempt", () => {
+  it("takes the signature back inside the window, keeping her voice and opening a new attempt", () => {
     const { pieza, efectos } = transicionar(firmada, deshacer(7999))
     expect(pieza).toMatchObject({
       estado: "guion_por_aprobar",
       puerta1: null,
       audioId: "voces/t.mp3",
-      intento: 3,
+      intento: 4,
       version: 7,
       explicacion: null,
     })
     expect(efectos).toEqual([])
+  })
+
+  it("signs the same text again under another render key, because the undone run is already finished", () => {
+    const { pieza: deshecha } = transicionar(firmada, deshacer(1000))
+    const claveDe = (intento: number) => claveGrabar({ id: "p", version: 1, intento, puerta1_hash: FIRMA.hash })
+
+    expect(claveDe(deshecha.intento)).not.toBe(claveDe(firmada.intento))
   })
 
   it("refuses at 8 s with a text for Coni, not as a stale screen", () => {
