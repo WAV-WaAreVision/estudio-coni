@@ -1,13 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { type Alerta, AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
+import { claveDeToma } from "@/lib/dominio/voz"
+import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
+import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
+import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
@@ -23,6 +28,9 @@ const RECHAZO = "Claude no quiso escribir este guion. Prueba con otra idea."
 const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
 const CLAVE_ELEVENLABS = "sk_eleven_de_prueba"
 const AUDIO = new Uint8Array([73, 68, 51, 4, 0, 255, 251, 144, 1, 2, 3])
+const ELEVENLABS = leerConfigProduccion(coniConfig).elevenlabs
+/** The take the writer makes for a new piece: its draft, Coni's voice, attempt 0. */
+const tomaDe = (id: string, guion: string) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), 0)
 
 const CUERPO_BUENO = Array.from({ length: 29 }, () => "una idea simple").join(". ")
 const GUION_BUENO = `${CUERPO_BUENO}.\n\n${CIERRE}`
@@ -208,10 +216,11 @@ async function comoConiConfirmado(id: string): Promise<void> {
   }
 }
 
-function deps(avisos = notificadorEnMemoria()): DepsProduccion {
+function deps(avisos = notificadorEnMemoria(), almacen = almacenEnMemoria()): DepsProduccion {
   return {
     db: clienteDeServicio(),
     avisos,
+    almacen,
     // Retries belong to Trigger.dev; a failing test should not wait for the SDK's backoff.
     claude: new Anthropic({ apiKey: "sk-ant-de-prueba", maxRetries: 0 }),
     ahora: () => new Date().toISOString(),
@@ -227,6 +236,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await pool.query("delete from vault.secrets where name = 'elevenlabs'")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
@@ -238,39 +248,43 @@ afterEach(async () => {
 })
 
 describe("producirPieza", () => {
-  it("writes and reviews the script, makes no voice and leaves the piece waiting for Coni", async () => {
+  it("writes and reviews the script, makes her voice of it and leaves the piece waiting for Coni", async () => {
     const id = await crearPiezaEnProduccion()
     const sim = simular()
-    const d = deps()
+    const almacen = almacenEnMemoria()
 
-    const resultado = await producirPieza(d, id)
+    const resultado = await producirPieza(deps(notificadorEnMemoria(), almacen), id)
 
     expect(resultado).toEqual({ resultado: "producida" })
-    const fila = await pieza(id)
-    expect(fila).toMatchObject({
+    const toma = tomaDe(id, GUION_BUENO)
+    expect(await pieza(id)).toMatchObject({
       estado: "guion_por_aprobar",
-      audio_id: null,
+      audio_id: toma,
       guion: GUION_BUENO,
       texto: TEXTO_BUENO,
       revision: [],
       explicacion: null,
     })
-    expect(sim.voces).toEqual([])
-    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
+    expect(sim.voces).toEqual([{ voz: ELEVENLABS.voice_id, llave: CLAVE_ELEVENLABS, texto: GUION_BUENO }])
+    expect(almacen.obtener(toma)?.datos).toEqual(AUDIO)
     expect(sim.escrituras).toHaveLength(1)
     expect(sim.revisiones).toHaveLength(1)
   })
 
-  it("records only the Claude spend, confirmed with its real cost", async () => {
+  it("records the Claude spend at its real cost and the voice at its estimate", async () => {
     const id = await crearPiezaEnProduccion()
     simular()
 
     await producirPieza(deps(), id)
 
     const filas = await gastos(id)
-    expect(filas).toHaveLength(1)
-    expect(filas[0]).toMatchObject({ proveedor: "anthropic", paso: "guion", estado: "confirmado", estimado: 0.5 })
+    expect(filas.map((g) => [g.proveedor, g.paso, g.estado])).toEqual([
+      ["anthropic", "guion", "confirmado"],
+      ["elevenlabs", "voz", "confirmado"],
+    ])
+    expect(filas[0]).toMatchObject({ estimado: 0.5 })
     expect(filas[0]?.real).toBeCloseTo(COSTO_ESCRITURA + COSTO_REVISION, 6)
+    expect(filas[1]?.real).toBeCloseTo(estimarCostoVoz(GUION_BUENO), 6)
   })
 
   it("never approves anything: gate 1 stays empty and the writes come from the service role", async () => {
@@ -452,10 +466,11 @@ describe("producirPieza", () => {
     expect(sim.revisiones).toHaveLength(0)
     expect(sim.voces).toHaveLength(0)
     expect(await pieza(id)).toEqual(antes)
-    expect(await gastos(id)).toHaveLength(1)
+    expect(await gastos(id)).toHaveLength(2)
   })
 
-  it("writes the script even when ElevenLabs has no key and no voice configured", async () => {
+  it("delivers the script without a voice, and says why, when the voice setup does not read", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const id = await crearPiezaEnProduccion()
     await pool.query("delete from vault.secrets where name = 'elevenlabs'")
     await pool.query("update public.ajustes set produccion = '{}'::jsonb")
@@ -466,7 +481,8 @@ describe("producirPieza", () => {
     expect(resultado).toEqual({ resultado: "producida" })
     expect(sim.escrituras).toHaveLength(1)
     expect(sim.voces).toHaveLength(0)
-    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null })
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null, explicacion: TEXTO_SIN_VOZ })
+    expect(error).toHaveBeenCalledWith(`No pude preparar la voz de la pieza ${id}`, expect.any(Error))
   })
 
   it("starts a new round, with a new spend, when Coni asks for changes", async () => {
@@ -485,10 +501,13 @@ describe("producirPieza", () => {
 
     expect(resultado.resultado).toBe("producida")
     expect(sim.escrituras).toHaveLength(2)
-    expect(sim.voces).toHaveLength(0)
+    // Each round speaks its own draft, under its own attempt.
+    expect(sim.voces).toHaveLength(2)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
       ["anthropic", "confirmado"],
+      ["elevenlabs", "confirmado"],
       ["anthropic", "confirmado"],
+      ["elevenlabs", "confirmado"],
     ])
     expect((await pieza(id)).guion).toContain("otra idea")
   })
@@ -564,6 +583,66 @@ describe("producirPieza", () => {
     } finally {
       await pool.query("update public.guias set vigente = (version = 1)")
     }
+  })
+
+  it("delivers the script without a voice when ElevenLabs has no characters, and frees the voice from the cap", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await crearPiezaEnProduccion()
+    const sim = simular({
+      voz: () => HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
+    })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(await pieza(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      guion: GUION_BUENO,
+      audio_id: null,
+      explicacion: TEXTO_SIN_VOZ,
+    })
+    expect(sim.voces).toHaveLength(1)
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs").map((g) => g.estado)).toEqual(["liberado"])
+    // A Falla is a reason for Coni, not a bug for WAV.
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  it("delivers the script without a voice when the month has no room left for it", async () => {
+    const id = await crearPiezaEnProduccion()
+    // The cap drops after Claude's reservation: the script is paid, the voice no longer fits.
+    const sim = simular({
+      enEscritura: () => pool.query("update public.ajustes set tope_mensual_usd = 0").then(() => undefined),
+    })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null, explicacion: TEXTO_SIN_VOZ })
+    expect(sim.voces).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
+  })
+
+  it("logs a server error of ElevenLabs and still delivers the script, keeping the reservation for the sweeper", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await crearPiezaEnProduccion()
+    simular({ voz: () => new HttpResponse("caído", { status: 503 }) })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: null, explicacion: TEXTO_SIN_VOZ })
+    expect(error).toHaveBeenCalledWith(`No pude preparar la voz de la pieza ${id}`, expect.any(Error))
+    expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs").map((g) => g.estado)).toEqual(["reservado"])
+  })
+
+  it("reuses the take a run of this round already paid for, instead of paying again", async () => {
+    const id = await crearPiezaEnProduccion()
+    const almacen = almacenEnMemoria()
+    const toma = tomaDe(id, GUION_BUENO)
+    await almacen.subir(toma, AUDIO, "audio/mpeg")
+    const sim = simular()
+
+    expect(await producirPieza(deps(notificadorEnMemoria(), almacen), id)).toEqual({ resultado: "producida" })
+
+    expect(sim.voces).toHaveLength(0)
+    expect(await pieza(id)).toMatchObject({ audio_id: toma, explicacion: null })
   })
 })
 

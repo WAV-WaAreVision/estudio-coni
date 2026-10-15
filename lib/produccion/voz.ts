@@ -32,6 +32,9 @@ export function claveDeGastoDeVoz(piezaId: string, huella: string, intento: numb
   return claveIdempotencia({ piezaId, paso: "voz", hash: huella, intento })
 }
 
+/** What Coni reads when her voice could not be made; the screen offers "Preparar mi voz" next to it. */
+export const TEXTO_SIN_VOZ = "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz."
+
 export async function leerLlaveDeVoz(db: SupabaseClient<Database>, config: ConfigCompleta): Promise<string> {
   if (!config.elevenlabs.voice_id) {
     throw new FallaDeConfiguracion("Falta elevenlabs.voice_id en la configuración de producción.")

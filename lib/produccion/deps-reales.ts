@@ -53,6 +53,8 @@ export function depsVoz(): DepsGrabarVoz {
 export async function depsReales(): Promise<DepsProduccion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
   const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  // The writer stores her voice of the draft: a missing R2 setting fails here, before any key is read.
+  const almacen = almacenReal()
   const db = createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
   const llaveDeAnthropic = await leerSecreto(db, "anthropic")
   if (!llaveDeAnthropic) {
@@ -61,6 +63,7 @@ export async function depsReales(): Promise<DepsProduccion> {
   return {
     db,
     avisos: avisosReales(),
+    almacen,
     claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
     ahora: () => new Date().toISOString(),
   }

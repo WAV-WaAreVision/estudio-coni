@@ -2,7 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { depsReales } from "@/lib/produccion/deps-reales"
 
-const VARIABLES = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const
+const VARIABLES = [
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET",
+] as const
 const ANTES = Object.fromEntries(VARIABLES.map((nombre) => [nombre, process.env[nombre]]))
 
 beforeEach(() => {
@@ -25,5 +32,11 @@ describe("depsReales", () => {
   it("names the missing variable when the service key is not set", async () => {
     process.env.SUPABASE_URL = "http://127.0.0.1:1"
     await expect(depsReales()).rejects.toThrow("SUPABASE_SERVICE_ROLE_KEY")
+  })
+
+  it("names a missing R2 variable before it reads any key: the writer stores her voice", async () => {
+    process.env.SUPABASE_URL = "http://127.0.0.1:1"
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "clave-de-prueba"
+    await expect(depsReales()).rejects.toThrow("R2_ACCOUNT_ID")
   })
 })
