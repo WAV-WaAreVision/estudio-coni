@@ -22,8 +22,9 @@ import type { DepsGrabacion } from "./grabar"
 import type { DepsGrabarVoz } from "./grabar-voz"
 import type { DepsProduccion } from "./producir"
 
-// Three calls of at most two attempts each must fit in the task's 900 s (trigger.config.ts), unlike the SDK's
-// default of 10 minutes and two retries, where one hung call would end the run.
+// Three calls of at most two attempts each (720 s) must fit in producir-pieza's 1200 s together with the voice of the
+// draft (ElevenLabs waits up to 300 s), unlike the SDK's default of 10 minutes and two retries, where one hung call
+// would end the run. The other tasks that use it run on the 900 s default.
 const CLAUDE_ESPERA_MS = 120_000
 
 /**
