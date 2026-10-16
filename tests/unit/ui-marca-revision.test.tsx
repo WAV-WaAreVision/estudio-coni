@@ -1,76 +1,71 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { MarcaRevision } from "@/components/ui/marca-revision"
+import type { Hallazgo } from "@/lib/dominio/revision"
+
+const CON_FRASE: Hallazgo = {
+  regla: "cifra_sin_verificar",
+  tipo: "advierte",
+  mensaje: "El informe dice «muchas», no «la mayoría».",
+  frase: "la mayoría de estas apps",
+}
+const SIN_FRASE: Hallazgo = { regla: "tema_de_riesgo", tipo: "advierte", mensaje: "El tema es sexualidad." }
+const BLOQUEA: Hallazgo = { regla: "cierre", tipo: "bloquea", mensaje: "Falta el cierre." }
 
 describe("MarcaRevision", () => {
-  it("asks Coni to tick 'Lo revisé y está bien' on a warning", () => {
+  it("asks her to look at the marked phrase and tick 'Lo revisé y está bien'", () => {
     const alCambiar = vi.fn()
-    render(
-      <MarcaRevision
-        hallazgo={{ regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" }}
-        confirmada={false}
-        alCambiar={alCambiar}
-      />,
-    )
-
+    render(<MarcaRevision hallazgo={CON_FRASE} confirmada={false} alCambiar={alCambiar} fraseResaltada />)
+    expect(screen.getByText("Revisa la frase marcada")).toBeInTheDocument()
+    expect(screen.getByText("El informe dice «muchas», no «la mayoría».")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
-
     expect(alCambiar).toHaveBeenCalledWith(true)
-    expect(screen.getByText("Escribe los números con palabras.")).toBeInTheDocument()
   })
 
-  it("shows the marked phrase", () => {
-    render(
-      <MarcaRevision
-        hallazgo={{ regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" }}
-        confirmada={false}
-        alCambiar={() => undefined}
-      />,
+  it("quotes the phrase only when the script above could not mark it", () => {
+    const { rerender } = render(
+      <MarcaRevision hallazgo={CON_FRASE} confirmada={false} alCambiar={vi.fn()} fraseResaltada />,
     )
-
-    expect(screen.getByText("3")).toBeInTheDocument()
+    expect(screen.queryByText("la mayoría de estas apps")).toBeNull()
+    rerender(<MarcaRevision hallazgo={CON_FRASE} confirmada={false} alCambiar={vi.fn()} />)
+    expect(screen.getByText("la mayoría de estas apps").tagName.toLowerCase()).toBe("q")
   })
 
-  it("has no tick on a blocking finding: it has to be fixed, not confirmed", () => {
-    render(
-      <MarcaRevision
-        hallazgo={{
-          regla: "cierre",
-          tipo: "bloquea",
-          mensaje: "El guion tiene que terminar con «Soy Coni del Rosario.»",
-        }}
-        confirmada={false}
-        alCambiar={() => undefined}
-      />,
-    )
-
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
-    expect(screen.getByText(/no puedes aprobar/i)).toBeInTheDocument()
+  it("says the point is reviewed once she ticks it", () => {
+    const { rerender } = render(<MarcaRevision hallazgo={CON_FRASE} confirmada alCambiar={vi.fn()} />)
+    expect(screen.getByText("Frase revisada")).toBeInTheDocument()
+    rerender(<MarcaRevision hallazgo={SIN_FRASE} confirmada alCambiar={vi.fn()} />)
+    expect(screen.getByText("Revisado")).toBeInTheDocument()
+    rerender(<MarcaRevision hallazgo={SIN_FRASE} confirmada={false} alCambiar={vi.fn()} />)
+    expect(screen.getByText("Revisa este punto")).toBeInTheDocument()
   })
 
-  it("writes a warning as a honda block with its label in ink, never a coloured box", () => {
-    const { container } = render(
-      <MarcaRevision
-        hallazgo={{ regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" }}
-        confirmada={false}
-        alCambiar={() => undefined}
-      />,
-    )
-
-    expect(screen.getByText("Para confirmar:").closest("output")).toHaveClass("bg-piedra-honda")
-    expect(container.innerHTML).not.toMatch(/\bbg-aviso|\bbg-error/)
+  it("is a flat panel with a 1 px campo border and no side rule, with the id the marked phrase links to", () => {
+    render(<MarcaRevision id="revision-0" hallazgo={CON_FRASE} confirmada={false} alCambiar={vi.fn()} />)
+    const panel = screen.getByRole("region", { name: "Revisa la frase marcada" })
+    expect(panel).toHaveAttribute("id", "revision-0")
+    expect(panel).toHaveClass("bg-piedra-alta", "border", "border-campo", "rounded-panel")
+    expect(panel.className).not.toMatch(/shadow-|border-l-/)
   })
 
-  it("says a blocking finding as an error alert", () => {
-    render(
-      <MarcaRevision
-        hallazgo={{ regla: "cierre", tipo: "bloquea", mensaje: "Falta el cierre." }}
-        confirmada={false}
-        alCambiar={() => undefined}
-      />,
-    )
+  it("has no tick on a blocking finding: an error block that says it has to be fixed", () => {
+    render(<MarcaRevision hallazgo={BLOQUEA} confirmada={false} alCambiar={vi.fn()} />)
+    expect(screen.queryByRole("checkbox")).toBeNull()
+    expect(screen.getByRole("alert")).toHaveTextContent("Hay que corregirlo")
+    expect(screen.getByText("Hay que corregirlo")).toHaveClass("text-error")
+    expect(screen.getByText("Sin esto no puedes firmar.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Editar el guion" })).toBeNull()
+  })
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Hay que corregirlo:")
-    expect(screen.getByText("Hay que corregirlo:").closest("[role=alert]")).toHaveClass("bg-piedra-honda")
+  it("offers to open the editor on a blocking finding at gate 1", () => {
+    const alEditar = vi.fn()
+    render(<MarcaRevision hallazgo={BLOQUEA} confirmada={false} alCambiar={vi.fn()} alEditar={alEditar} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar el guion" }))
+    expect(alEditar).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not interrupt again for a blocking finding the screen already announced", () => {
+    render(<MarcaRevision hallazgo={BLOQUEA} confirmada={false} alCambiar={vi.fn()} anunciada />)
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

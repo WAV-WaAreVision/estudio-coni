@@ -421,7 +421,7 @@ test("a caption that forgets the avatar notice blocks the approval until she put
   await texto.fill("Un texto sin el aviso.")
   await page.getByRole("button", { name: "Guardar cambios" }).click()
 
-  await expect(page.getByText("Hay que corregirlo:")).toBeVisible()
+  await expect(page.getByText("Hay que corregirlo", { exact: true })).toBeVisible()
   await expect(page.getByText(/tiene que avisar que es un avatar digital/).first()).toBeVisible()
   await expect(page.getByText("Guarda tus cambios antes de aprobar")).toBeVisible()
   await page.getByRole("slider", { name: ETIQUETA }).focus()
@@ -429,7 +429,7 @@ test("a caption that forgets the avatar notice blocks the approval until she put
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
   await texto.fill(`${TEXTO_VALIDO} Y una línea más.`)
-  await expect(page.getByText("Hay que corregirlo:")).toHaveCount(0)
+  await expect(page.getByText("Hay que corregirlo", { exact: true })).toHaveCount(0)
   await page.getByRole("button", { name: "Guardar cambios" }).click()
 
   await expect(page.getByText("Guardado", { exact: true })).toBeVisible()
