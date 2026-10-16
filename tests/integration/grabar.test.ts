@@ -1062,7 +1062,7 @@ describe("deshacer la firma mientras el render espera", () => {
     }
   }
 
-  it("lets the delayed run of the undone signature finish untouched, and the same text signed again gets another key", async () => {
+  it("leaves the undone signature's delayed run untouched, and the text signed again gets another key", async () => {
     const id = await crearPiezaEnRender()
     const firmada = await pieza(id)
     const clave = (intento: number) =>

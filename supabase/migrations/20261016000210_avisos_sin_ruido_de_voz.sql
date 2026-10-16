@@ -1,6 +1,6 @@
 -- The voice is made before gate 1 now (design 2026-10-15): an edit that changes what the voice says (the voice
--- fingerprint) sends the piece through grabando_voz and back, while caption or LinkedIn text edits never do, and an undo
--- brings a signed piece back to guion_por_aprobar. Neither is news for Coni, who is on that screen:
+-- fingerprint) sends the piece through grabando_voz and back, while caption or LinkedIn text edits never do, and an
+-- undo brings a signed piece back to guion_por_aprobar. Neither is news for Coni, who is on that screen:
 -- the "script ready" notice is written only when someone else hands the script to her (the writer, HeyGen's refusal).
 -- Body as of 20261001001520 plus the early return; the privileges revoked there stay.
 create or replace function public.avisar_pieza_lista() returns trigger

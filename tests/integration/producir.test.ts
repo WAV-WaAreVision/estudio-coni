@@ -600,7 +600,7 @@ describe("producirPieza", () => {
     }
   })
 
-  it("delivers the script without a voice when ElevenLabs has no characters, and frees the voice from the cap", async () => {
+  it("delivers the script voiceless when ElevenLabs has no characters, and frees the voice from the cap", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const id = await crearPiezaEnProduccion()
     const sim = simular({
@@ -635,7 +635,7 @@ describe("producirPieza", () => {
     expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toEqual([])
   })
 
-  it("logs a server error of ElevenLabs and still delivers the script, keeping the reservation for the sweeper", async () => {
+  it("logs an ElevenLabs server error, delivers the script and keeps the reservation for the sweeper", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const id = await crearPiezaEnProduccion()
     simular({ voz: () => new HttpResponse("caído", { status: 503 }) })
