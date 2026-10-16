@@ -1334,6 +1334,14 @@ describe("editarTextoLinkedin", () => {
     expect((await editarTextoLinkedin(deps, enRender, await versionDe(enRender), LINKEDIN_OK)).ok).toBe(false)
   })
 
+  it("refuses a piece left in guion_aprobado by the old app: no transition leads there any more", async () => {
+    // A signed piece put back where the old app left it: the flow itself no longer reaches guion_aprobado.
+    const id = await pieza("en_render", { texto: TEXTO_VALIDO })
+    await ajustarPieza(id, { estado: "guion_aprobado" })
+
+    expect((await editarTextoLinkedin(armar().deps, id, await versionDe(id), LINKEDIN_OK)).ok).toBe(false)
+  })
+
   it("does not let the maintainer edit it", async () => {
     const id = await pieza("video_por_aprobar", { texto: TEXTO_VALIDO })
     vi.spyOn(console, "error").mockImplementation(() => undefined)

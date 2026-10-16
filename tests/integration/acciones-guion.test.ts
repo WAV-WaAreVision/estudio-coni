@@ -361,6 +361,19 @@ describe("editarGuion", () => {
     expect(pedidos).toHaveLength(0)
   })
 
+  it("refuses a piece left in guion_aprobado by the old app, without calling Claude", async () => {
+    // A signed piece put back where the old app left it: the flow itself no longer reaches guion_aprobado.
+    const id = await pieza("en_render")
+    await ajustarPieza(id, { estado: "guion_aprobado" })
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: false, error: "Este guion ya no se puede editar." })
+    expect(pedidos).toHaveLength(0)
+  })
+
   it("refuses an edit while her voice is being made, without calling Claude", async () => {
     const id = await pieza("grabando_voz")
     const { version } = await leerFila(id)

@@ -138,8 +138,7 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
 
   const fila = await leerPieza(db, edicion.piezaId)
   if (!fila) throw new Falla("No encuentro esa pieza.")
-  if (fila.estado !== "guion_por_aprobar" && fila.estado !== "guion_aprobado")
-    throw new Falla("Este guion ya no se puede editar.")
+  if (fila.estado !== "guion_por_aprobar") throw new Falla("Este guion ya no se puede editar.")
   if (fila.version !== edicion.version) throw traducir(new Error("version_desfasada"))
 
   const idea = fila.idea_id ? await leerIdea(db, fila.idea_id) : null

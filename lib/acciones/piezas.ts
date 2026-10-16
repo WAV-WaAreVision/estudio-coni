@@ -414,7 +414,6 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
 /** The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back). */
 const ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE: readonly Database["public"]["Enums"]["estado_pieza"][] = [
   "guion_por_aprobar",
-  "guion_aprobado",
   "video_por_aprobar",
   "programado",
 ]
