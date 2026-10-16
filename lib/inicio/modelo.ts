@@ -91,15 +91,16 @@ function segundosDe(pieza: PiezaDeInicio): number {
   return Math.round(estimarSegundos(pieza.guion ?? ""))
 }
 
+/** Gate 1 includes a voice being made: the piece is still hers to sign (design 2026-10-15, section 6). */
+const ESPERAN_FIRMA: readonly Estado[] = ["guion_por_aprobar", "grabando_voz", "video_por_aprobar"]
+
 function filaDeFirma(pieza: PiezaDeInicio): FilaDeFirma {
-  const esGuion = pieza.estado === "guion_por_aprobar"
-  return {
-    id: pieza.id,
-    titulo: pieza.titulo,
-    pilar: pieza.pilar,
-    meta: `${esGuion ? "Guion" : "Video"} · ${segundosDe(pieza)} s`,
-    href: esGuion ? `/guion/${pieza.id}` : `/video/${pieza.id}`,
+  const base = { id: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar }
+  if (pieza.estado === "video_por_aprobar") {
+    return { ...base, meta: `Video · ${segundosDe(pieza)} s`, href: `/video/${pieza.id}` }
   }
+  const meta = pieza.estado === "grabando_voz" ? "Preparando la voz" : `Guion · ${segundosDe(pieza)} s`
+  return { ...base, meta, href: `/guion/${pieza.id}` }
 }
 
 function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
@@ -108,13 +109,6 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
     case "guion_en_proceso":
       // With a reason on it, the piece is a notice (it is not being written), not "on its way".
       return pieza.explicacion === null ? { ...base, estado: "Escribiendo el guion · te aviso", ocupada: true } : null
-    case "guion_aprobado":
-      // With a reason on it (a failed voice) it is a notice instead.
-      return pieza.explicacion === null
-        ? { ...base, estado: "Guion aprobado · falta grabar", ocupada: false, href: `/guion/${pieza.id}` }
-        : null
-    case "grabando_voz":
-      return { ...base, estado: "Grabando la voz · unos segundos", ocupada: true }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true }
@@ -134,21 +128,16 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   switch (pieza.estado) {
     case "error_produccion":
     case "guion_en_proceso":
-    case "guion_aprobado":
       return pieza.estado !== "error_produccion" && pieza.explicacion === null
         ? null
         : { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/guion/${pieza.id}` } }
     case "error_publicacion":
       return { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/video/${pieza.id}` } }
     case "guion_por_aprobar":
+      // A phrase HeyGen refused or a voice that could not be made: the text says which, the screen has the way out.
       return pieza.explicacion === null
         ? null
-        : {
-            tipo: "error",
-            titulo: pieza.titulo,
-            texto,
-            accion: { etiqueta: "Revisar la frase", href: `/guion/${pieza.id}` },
-          }
+        : { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/guion/${pieza.id}` } }
     case "video_por_aprobar":
       return pieza.explicacion === null
         ? null
@@ -228,9 +217,7 @@ function porHoraDePublicacion(a: PiezaDeInicio, b: PiezaDeInicio): number {
 /** What Inicio shows, from the pieces and the clock: no database, no rendering. */
 export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; ahora: number; zona: string }): Inicio {
   const { piezas, ahora, zona } = entrada
-  const firma = piezas
-    .filter((pieza) => pieza.estado === "guion_por_aprobar" || pieza.estado === "video_por_aprobar")
-    .map(filaDeFirma)
+  const firma = piezas.filter((pieza) => ESPERAN_FIRMA.includes(pieza.estado)).map(filaDeFirma)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))
     .filter((par): par is { pieza: PiezaDeInicio; fila: FilaEnCamino } => par.fila !== null)

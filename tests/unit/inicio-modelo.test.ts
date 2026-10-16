@@ -119,7 +119,7 @@ describe("construirInicio", () => {
     expect(inicio.avisos[0]).toMatchObject({
       tipo: "error",
       texto: "HeyGen marcó una frase como sensible.",
-      accion: { etiqueta: "Revisar la frase", href: `/guion/${devuelta.id}` },
+      accion: { etiqueta: "Revisar", href: `/guion/${devuelta.id}` },
     })
     expect(inicio.firma).toHaveLength(1)
   })
@@ -285,7 +285,7 @@ describe("construirInicio: destinos", () => {
   })
 })
 
-describe("Inicio con la voz aparte", () => {
+describe("Inicio con la voz en la puerta 1", () => {
   const base = {
     titulo: "El deseo",
     explicacion: null,
@@ -299,41 +299,30 @@ describe("Inicio con la voz aparte", () => {
   }
   const entrada = (piezas: PiezaDeInicio[]) => ({ piezas, ahora: Date.parse(base.actualizadaEn), zona: ZONA })
 
-  it("lists an approved script as on its way, linked to its screen", () => {
-    const inicio = construirInicio(entrada([{ ...base, id: "a", estado: "guion_aprobado" }]))
-
-    expect(inicio.camino).toEqual([
-      {
-        id: "a",
-        titulo: "El deseo",
-        pilar: null,
-        estado: "Guion aprobado · falta grabar",
-        ocupada: false,
-        href: "/guion/a",
-      },
-    ])
-    expect(inicio.firma).toEqual([])
-  })
-
-  it("shows a voice being recorded as busy", () => {
+  it("keeps a voice being made among what needs her signature, saying so", () => {
     const inicio = construirInicio(entrada([{ ...base, id: "b", estado: "grabando_voz" }]))
 
-    expect(inicio.camino[0]).toMatchObject({ estado: "Grabando la voz · unos segundos", ocupada: true })
+    expect(inicio.firma).toEqual([
+      { id: "b", titulo: "El deseo", pilar: null, meta: "Preparando la voz", href: "/guion/b" },
+    ])
+    expect(inicio.camino).toEqual([])
+    expect(inicio.titulo).toBe("Una cosa espera tu firma")
   })
 
-  it("turns a failed voice into a notice to review", () => {
-    const inicio = construirInicio(
-      entrada([{ ...base, id: "c", estado: "guion_aprobado", explicacion: "No pude grabar la voz." }]),
-    )
+  it("turns a voice that could not be made into a notice to review, and keeps the script to sign", () => {
+    const texto = "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz."
+    const inicio = construirInicio(entrada([{ ...base, id: "c", estado: "guion_por_aprobar", explicacion: texto }]))
 
-    expect(inicio.camino).toEqual([])
     expect(inicio.avisos).toEqual([
-      {
-        tipo: "error",
-        titulo: "El deseo",
-        texto: "No pude grabar la voz.",
-        accion: { etiqueta: "Revisar", href: "/guion/c" },
-      },
+      { tipo: "error", titulo: "El deseo", texto, accion: { etiqueta: "Revisar", href: "/guion/c" } },
     ])
+    expect(inicio.firma).toHaveLength(1)
+  })
+
+  it("shows a signed piece on its way, as before", () => {
+    const inicio = construirInicio(entrada([{ ...base, id: "d", estado: "en_render" }]))
+
+    expect(inicio.camino[0]).toMatchObject({ id: "d", estado: "Grabando · unos 5 min · te aviso", ocupada: true })
+    expect(inicio.firma).toEqual([])
   })
 })
