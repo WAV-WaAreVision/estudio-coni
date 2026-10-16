@@ -57,10 +57,9 @@ async function capturaDe(page: Page, nombre: string) {
   await page.waitForLoadState("networkidle")
   await expect(page.locator("output[aria-label^='Revisando']")).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready)
-  // A full-page capture would stop the sticky nav and the fixed bars halfway down: let them take their place at the end.
+  // A full-page capture would stop the sticky nav and bar halfway down: let them take their place at the end.
   await page.addStyleTag({
-    content:
-      "nav[aria-label='Secciones'], section[aria-label='Firma'], section[aria-label='Grabación'] { position: static !important }",
+    content: "nav[aria-label='Secciones'], [data-barra-de-firma] { position: static !important }",
   })
   if (CARPETA_FINALES) {
     mkdirSync(CARPETA_FINALES, { recursive: true })

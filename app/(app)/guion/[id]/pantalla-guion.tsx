@@ -134,6 +134,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   const aprobacion = useAccion()
   const cambios = useAccion()
   const idSinCambios = useId()
+  const idConsecuencia = useId()
 
   const { grabacion } = datos
   const preparando = grabacion.estado === "grabando_voz"
@@ -181,7 +182,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   }, [avisoInicial, id, router])
 
   return (
-    <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
+    <div>
       <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
         <Link
           href="/"
@@ -310,15 +311,20 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           </>
         )}
       </div>
-      <BarraDeFirma etiqueta="Firma">
-        {aprobacion.error || cambios.error ? (
-          <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
-        ) : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
+      <BarraDeFirma
+        idConsecuencia={idConsecuencia}
+        consecuencia={grabacion.lineaDeFirma}
+        arriba={
+          aprobacion.error || cambios.error ? (
+            <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
+          ) : null
+        }
+      >
         <DeslizarParaAprobar
           etiqueta={ETIQUETA_DE_FIRMA}
           habilitado={motivo === undefined}
           motivo={motivo}
-          nota={grabacion.lineaDeFirma}
           enviando={aprobacion.pendiente}
           alAprobar={() =>
             aprobacion.ejecutar(
@@ -329,7 +335,6 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           }
         />
       </BarraDeFirma>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }

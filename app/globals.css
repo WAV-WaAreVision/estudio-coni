@@ -505,3 +505,9 @@ body:has([data-superficie="marca"]) {
 .elecciones:has(input:checked) > label:not(:has(input:checked)) .eleccion-titulo {
   font-weight: 500;
 }
+
+/* Decision 6: a signing screen ends with its bar, which sticks to the bottom while the page scrolls. The column keeps
+   no end padding for it. */
+main:has([data-barra-de-firma]) {
+  padding-bottom: 0;
+}

@@ -215,9 +215,8 @@ test("gate 1 shows the committed date in the signature colour and the whole scri
   const guion = page.getByRole("textbox", { name: "Guion", exact: true })
   const [alto, altoDelContenido] = await guion.evaluate((el) => [el.clientHeight, el.scrollHeight])
   expect(altoDelContenido).toBeLessThanOrEqual(alto + 1)
-  const barra = page.getByRole("region", { name: "Firma" })
-  // 176 px of bar plus the safe area of the iPhone 14 descriptor.
-  expect((await barra.boundingBox())?.height ?? 999).toBeLessThanOrEqual(176 + 34)
+  // The bar sticks to the bottom as the screen's last element (decision 6): no fixed height to reserve any more.
+  await expect(page.getByRole("region", { name: "Firma" })).toHaveCSS("position", "sticky")
   await capturar(page, "guion-por-aprobar-completa", { completa: true })
 })
 

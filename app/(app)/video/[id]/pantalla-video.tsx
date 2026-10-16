@@ -117,7 +117,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   }
 
   return (
-    <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
+    <div>
       <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
         <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Inicio
@@ -287,10 +287,14 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         )}
       </div>
 
-      <BarraDeFirma etiqueta="Firma">
-        {aprobacion.error || regrabacion.error ? (
-          <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
-        ) : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
+      <BarraDeFirma
+        arriba={
+          aprobacion.error || regrabacion.error ? (
+            <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
+          ) : null
+        }
+      >
         <DeslizarParaAprobar
           etiqueta="Desliza para aprobar video y fecha"
           habilitado={habilitado}
@@ -301,7 +305,6 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           }}
         />
       </BarraDeFirma>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }
