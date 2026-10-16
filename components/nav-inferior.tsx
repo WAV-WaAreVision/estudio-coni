@@ -22,9 +22,10 @@ function estaActiva(ruta: string, pestana: (typeof PESTANAS)[number]): boolean {
   return ruta === pestana.href || ruta.startsWith(`${pestana.href}/`)
 }
 
-// On the screens that approve something, the approve bar takes the bottom of the screen (DESIGN.md).
+// On the screens that sign something, the sign bar takes the bottom of the screen.
 const RUTAS_DE_DETALLE = ["/guion/", "/video/"]
 
+/** Decision 4: a raised bar on piedra; the current tab is a sunken honda pill, "where you are", not an action. */
 export function NavInferior() {
   const ruta = usePathname()
   if (RUTAS_DE_DETALLE.some((prefijo) => ruta.startsWith(prefijo))) return null
@@ -32,7 +33,7 @@ export function NavInferior() {
   return (
     <nav
       aria-label="Secciones"
-      className="sticky bottom-0 z-10 grid grid-cols-3 border-t border-linea bg-fondo pb-[env(safe-area-inset-bottom)] md:top-0 md:bottom-auto md:border-t-0 md:border-b"
+      className="nav-inferior sticky bottom-0 z-10 grid grid-cols-3 gap-2 rounded-t-panel bg-piedra px-[14px] pt-2 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-relieve-fijo md:top-0 md:bottom-auto md:rounded-t-none md:rounded-b-panel md:pb-2"
     >
       {PESTANAS.map((pestana) => {
         const activa = estaActiva(ruta, pestana)
@@ -43,14 +44,12 @@ export function NavInferior() {
             href={pestana.href}
             aria-current={activa ? "page" : undefined}
             className={cn(
-              "relative grid min-h-14 content-center justify-items-center gap-0.5 text-meta",
-              activa
-                ? "font-semibold text-tinta before:absolute before:top-0 before:h-0.5 before:w-6 before:bg-tinta"
-                : "font-medium text-apagado",
+              "grid min-h-nav content-center justify-items-center gap-0.5 rounded-control py-2 text-meta transition-shadow duration-[var(--dur-corta)] ease-salida",
+              activa ? "bg-piedra-honda font-semibold text-tinta shadow-hundido" : "font-medium text-apagado",
             )}
           >
             <Icono aria-hidden="true" size={ICONO.grande} />
-            {pestana.etiqueta}
+            <span className="nav-etiqueta">{pestana.etiqueta}</span>
           </Link>
         )
       })}
