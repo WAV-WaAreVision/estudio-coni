@@ -11,7 +11,9 @@ const { aprobarGuionAccion, editarGuionAccion, pedirVozAccion, replace } = vi.ho
   replace: vi.fn(),
 }))
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
+// Next hands back the same router on every render, as here.
+const ROUTER = { push: vi.fn(), refresh: vi.fn(), replace }
+vi.mock("next/navigation", () => ({ useRouter: () => ROUTER }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({
   aprobarGuionAccion,
   pedirVozAccion,
@@ -262,5 +264,20 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
 
     expect(screen.queryByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeNull()
     expect(replace).toHaveBeenCalledWith("/guion/p1")
+  })
+
+  it("keeps the toast's 8 s while she types: a re-render does not restart its timer", () => {
+    vi.useFakeTimers()
+    render(<PantallaGuion datos={datos({ avisoInicial: "Listo, no grabé nada. Puedes seguir revisando." })} />)
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    fireEvent.change(screen.getByRole("textbox", { name: "Guion", exact: true }), { target: { value: "Otro texto." } })
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(screen.queryByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeNull()
   })
 })

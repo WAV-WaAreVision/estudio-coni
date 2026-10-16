@@ -3,7 +3,7 @@
 import { CaretLeft, Info } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { type Dispatch, type SetStateAction, useId, useState } from "react"
+import { type Dispatch, type SetStateAction, useCallback, useId, useState } from "react"
 import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -171,11 +171,13 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
     })
   }
 
-  function cerrarAviso() {
+  // Stable, so typing, saving or a refresh does not restart the toast's timer.
+  const { avisoInicial, id } = datos
+  const cerrarAviso = useCallback(() => {
     setAviso(null)
     // The toast after an undo came in the address: it is said once.
-    if (datos.avisoInicial !== null) router.replace(`/guion/${datos.id}`)
-  }
+    if (avisoInicial !== null) router.replace(`/guion/${id}`)
+  }, [avisoInicial, id, router])
 
   return (
     <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
