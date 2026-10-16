@@ -1,9 +1,9 @@
 "use client"
 
-import { CaretLeft } from "@phosphor-icons/react"
+import { CaretLeft, Info } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -23,7 +23,13 @@ import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
-import { ETIQUETA_DE_FIRMA, TEXTO_ESCUCHA_COMPLETA, TEXTO_FALTA_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
+import {
+  ETIQUETA_DE_FIRMA,
+  TEXTO_CAMBIOS_TRAS_LA_VOZ,
+  TEXTO_ESCUCHA_COMPLETA,
+  TEXTO_FALTA_VOZ,
+  TEXTO_PREPARANDO_VOZ,
+} from "./textos"
 import { VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
@@ -96,6 +102,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
   const [escuchada, setEscuchada] = useState<string | null>(null)
   const aprobacion = useAccion()
   const cambios = useAccion()
+  const idSinCambios = useId()
 
   const { grabacion } = datos
   const preparando = grabacion.estado === "grabando_voz"
@@ -250,9 +257,22 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
             alVolver={() => setPidiendoCambios(false)}
           />
         ) : (
-          <Boton variante="destructiva" deshabilitado={preparando} onClick={() => setPidiendoCambios(true)}>
-            Pedir cambios
-          </Boton>
+          <>
+            <Boton
+              variante="destructiva"
+              deshabilitado={preparando}
+              aria-describedby={preparando ? idSinCambios : undefined}
+              onClick={() => setPidiendoCambios(true)}
+            >
+              Pedir cambios
+            </Boton>
+            {preparando ? (
+              <p id={idSinCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+                {TEXTO_CAMBIOS_TRAS_LA_VOZ}
+              </p>
+            ) : null}
+          </>
         )}
       </div>
       <BarraDeFirma etiqueta="Firma">

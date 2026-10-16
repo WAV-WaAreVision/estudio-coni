@@ -171,6 +171,14 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     expect(aprobar()).toHaveAttribute("aria-disabled", "true")
   })
 
+  it("while her voice is being made, keeps Pedir cambios closed and says why", () => {
+    render(<PantallaGuion datos={datos({}, { estado: "grabando_voz" })} />)
+    const pedir = screen.getByRole("button", { name: "Pedir cambios" })
+
+    expect(pedir).toHaveAttribute("aria-disabled", "true")
+    expect(pedir).toHaveAccessibleDescription("Puedes pedir cambios cuando tu voz esté lista.")
+  })
+
   it("keeps the signature closed with the HeyGen text when the wallet does not reach, even after listening", () => {
     const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
     render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
