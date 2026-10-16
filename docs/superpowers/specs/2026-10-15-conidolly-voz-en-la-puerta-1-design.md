@@ -99,7 +99,8 @@ through `iniciar(...)`, so a run that fails to start is still resumed by `reanud
 
 - `VENTANA_DESHACER_MS = 8000`, `MARGEN_DE_RELOJ_MS = 2000` (domain constants).
 - New event `deshacer_aprobacion { actor; ahora }`: Coni only, `en_render -> guion_por_aprobar`, `puerta1 = null`,
-  `audioId` kept, `intento + 1` (see the last bullet). Valid only while `ahora < puerta1.en + VENTANA_DESHACER_MS` (server clock); after that
+  `audioId` kept, `intento + 1` (see "Why the undo bumps `intento`" below). Valid only while
+  `ahora < puerta1.en + VENTANA_DESHACER_MS` (server clock); after that
   `Falla("Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.")`.
 - New action `deshacerAprobacion(piezaId, versionVista)`. No run cancellation: the delayed run starts, finds the piece
   in `guion_por_aprobar` and returns `nada_que_hacer`.

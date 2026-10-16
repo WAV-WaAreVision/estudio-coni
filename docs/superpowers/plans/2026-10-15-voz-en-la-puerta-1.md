@@ -2250,9 +2250,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 12: The render waits out the undo window before any spend
 
-Spec section 5, "second lock in the render". The run waits once per signature: if Coni undoes and signs again during
-the wait, the new signature has its own window, and the run waits for it too (the idempotency key of the same text
-returns the first delayed run, which may fire earlier than 10 s after the second signature).
+Spec section 5, "second lock in the render". The wait covers a run that starts before its own window has closed (an
+early fire of the delayed run, a resumption by maintenance, clock skew between Vercel and Trigger.dev). A newer
+signature always means a newer attempt (the undo bumps `intento`), which ends this run; the `esperada` guard of the loop
+matters only for a run queued without an `intento` by the previously deployed app. A wait longer than the window, the
+margin and a minute of skew is a clock far off: the run fails as a `FallaDeConfiguracion` instead of sleeping, so WAV
+hears of it through `onFailure` (added in review, C5).
 
 **Files:**
 - Modify: `lib/produccion/grabar.ts` (`DepsGrabacion` lines 41-60; `grabarPieza` lines 248-256; a new helper before it)
@@ -2346,32 +2349,31 @@ describe("grabarPieza y la ventana para deshacer", () => {
   it("waits for the second window when she undoes and signs again, and pays HeyGen once", async () => {
     const id = await crearPiezaEnRender()
     const primera = await pieza(id)
-    const reloj = await relojTrasLaFirma(id, 3000)
+    // The run of the second signature starts 1 s after it, an early fire of its 10 s delay.
+    const reloj = await relojTrasLaFirma(id, 6000)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoConi, {
+        tipo: "deshacer_aprobacion",
+        actor: "coni",
+        ahora: new Date(reloj.firma + 4000).toISOString(),
+      })
+      await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
+    })
     const sim = simular()
     const ventanas: number[] = []
     const d = doble({
       ahora: reloj.ahora,
       esperar: async (ms) => {
-        if (ventanas.length === 0) {
-          await enTransaccion(async (c) => {
-            await aplicar(c, id, comoConi, {
-              tipo: "deshacer_aprobacion",
-              actor: "coni",
-              ahora: new Date(reloj.firma + 4000).toISOString(),
-            })
-            await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
-          })
-        }
         ventanas.push(ms)
         reloj.avanzar(ms)
       },
     })
     await conVozEnAlmacen(d.almacen, id)
 
-    // The run of the second signature (it carries the attempt the undo opened) waits for the second window only.
+    // It carries the attempt the undo opened and waits until the second window and the margin are over.
     expect((await grabarPieza(d.deps, id, primera.intento + 1)).resultado).toBe("grabada")
-    expect(ventanas).toEqual([7000, 5000])
-    // Another delayed run of the same attempt comes later and finds the video already made.
+    expect(ventanas).toEqual([9000])
+    // Another run of the same attempt (a resumption) finds the video already made.
     expect(await grabarPieza(d.deps, id, primera.intento + 1)).toEqual({ resultado: "nada_que_hacer" })
     expect(sim.creaciones).toHaveLength(1)
     expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toHaveLength(1)
@@ -2462,9 +2464,11 @@ Expected: FAIL. The run creates the video without waiting (`ventanas` is `[]`), 
 
 ```ts
 /**
- * The second lock of the undo window (design 2026-10-15, decision 5). A run that starts while Coni can still take her
- * signature back waits until the window and the clock margin are over, then decides on the row as it is now. A new
- * signature made during the wait (undo and sign again) has its own window, so the run waits once per signature.
+ * The second lock of the undo window (design 2026-10-15, decision 5). A run that starts before the window of its
+ * signature has closed (a delayed run that fires early, a resumption by maintenance, a task clock behind the app's)
+ * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature always
+ * comes with a newer attempt, which ends this run in `grabarPieza`; `esperada` keeps a run queued without an attempt
+ * by the previously deployed app from waiting twice for the same signature.
  */
 async function despuesDeLaVentana(
   deps: DepsGrabacion,
@@ -2612,9 +2616,10 @@ describe("deshacerAprobacion", () => {
     const guardada = await fila(id)
     expect(guardada).toMatchObject({ estado: "en_render", intento: primera.intento + 1 })
     expect(guardada.puerta1_hash).toBe(primera.puerta1_hash)
-    expect(disparos).toHaveLength(2)
-    expect(disparos[1]?.clave).not.toBe(disparos[0]?.clave)
-    expect(disparos[1]).toMatchObject({ tarea: "grabar", intento: primera.intento + 1, retraso: "10s" })
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: primera.intento + 1, retraso: "10s" },
+    ])
+    expect(claveGrabar(guardada)).not.toBe(claveGrabar(primera))
   })
 
   it("refuses once the window closed, with Coni's text, and the video goes on", async () => {
