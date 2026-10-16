@@ -3,6 +3,7 @@
 import { ArrowRight, Check, Info } from "@phosphor-icons/react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { apruebaAlSoltar, progresoDeArrastre, UMBRAL_DE_APROBACION } from "@/lib/diseno/deslizador"
 import { cn } from "@/lib/utils"
 
@@ -161,9 +162,9 @@ export function DeslizarParaAprobar({
           style={{ left: `calc(${MARGEN}px + (100% - ${PULGAR + 2 * MARGEN}px) * ${valor / 100})` }}
         >
           {aprobado ? (
-            <Check aria-hidden="true" weight="bold" size={24} />
+            <Check aria-hidden="true" weight="bold" size={ICONO.grande} />
           ) : (
-            <ArrowRight aria-hidden="true" size={24} />
+            <ArrowRight aria-hidden="true" size={ICONO.grande} />
           )}
         </div>
       </div>
@@ -182,7 +183,7 @@ export function DeslizarParaAprobar({
       </div>
       {conMotivo ? (
         <p id={idMotivo} className="flex items-start gap-2 text-meta font-medium text-tinta">
-          <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+          <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
           {motivo}
         </p>
       ) : null}

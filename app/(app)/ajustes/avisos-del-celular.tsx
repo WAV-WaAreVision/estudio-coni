@@ -3,6 +3,7 @@
 import { ArrowRight, Export, PlusSquare } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { SuscripcionDelNavegador } from "@/lib/acciones/avisos"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -127,7 +128,7 @@ export function AvisosDelCelular({ claveVapid, acciones, puerto }: Propiedades) 
     <div className="grid gap-3">
       <Contenido estado={estado} />
       {estado === "listo" ? (
-        <Boton cargando={ocupada} icono={<ArrowRight aria-hidden="true" size={20} />} onClick={activar}>
+        <Boton cargando={ocupada} icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />} onClick={activar}>
           Activar avisos
         </Boton>
       ) : null}
@@ -191,13 +192,13 @@ function HojaDeInstalacion() {
       </p>
       <ol className="grid gap-3">
         <li className="flex items-start gap-3">
-          <Export aria-hidden="true" className="mt-0.5 shrink-0" size={24} />
+          <Export aria-hidden="true" className="mt-0.5 shrink-0" size={ICONO.grande} />
           <span className="text-cuerpo">
             Toca <strong>Compartir</strong>, el cuadrado con la flecha hacia arriba, abajo en Safari.
           </span>
         </li>
         <li className="flex items-start gap-3">
-          <PlusSquare aria-hidden="true" className="mt-0.5 shrink-0" size={24} />
+          <PlusSquare aria-hidden="true" className="mt-0.5 shrink-0" size={ICONO.grande} />
           <span className="text-cuerpo">
             Elige <strong>Agregar a inicio</strong> y toca Agregar.
           </span>

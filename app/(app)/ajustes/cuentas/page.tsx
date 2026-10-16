@@ -2,6 +2,7 @@ import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Suspense } from "react"
 import { Seccion } from "@/components/seccion"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { avisoDeInstagram } from "@/lib/ajustes/instagram-aviso"
 import { avisoDeLinkedin } from "@/lib/ajustes/linkedin-aviso"
@@ -38,7 +39,7 @@ export default async function Cuentas({
         href="/ajustes"
         className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
       >
-        <CaretLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Ajustes
       </Link>
       <h1 className="mt-1 text-pantalla text-balance">Cuentas conectadas</h1>

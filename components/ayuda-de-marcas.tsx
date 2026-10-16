@@ -1,4 +1,5 @@
 import { CaretDown } from "@phosphor-icons/react/dist/ssr"
+import { ICONO } from "@/components/ui/icono"
 import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 
 export const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
@@ -11,7 +12,7 @@ export function AyudaDeMarcas() {
       <details>
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-meta font-semibold [&::-webkit-details-marker]:hidden">
           Marcas que conozco
-          <CaretDown aria-hidden="true" size={16} className="text-apagado" />
+          <CaretDown aria-hidden="true" size={ICONO.chico} className="text-apagado" />
         </summary>
         <ul className="flex flex-wrap gap-2 pb-2">
           {ETIQUETAS_DE_TONO.map((etiqueta) => (

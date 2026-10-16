@@ -3,6 +3,7 @@
 import { CaretRight, CaretUpDown, Check } from "@phosphor-icons/react"
 import Link from "next/link"
 import { type ReactNode, useId } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { cn } from "@/lib/utils"
 import { Interruptor } from "./interruptor"
 
@@ -14,7 +15,7 @@ export function FilaNavegacion({ href, children }: { href: string; children: Rea
       className="flex min-h-14 items-center justify-between border-t border-linea text-cuerpo font-medium text-tinta"
     >
       {children}
-      <CaretRight aria-hidden="true" size={20} className="text-apagado" />
+      <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" />
     </Link>
   )
 }
@@ -58,7 +59,7 @@ export function FilaConValor<T extends string>({
       <span className="flex items-center gap-2 text-cuerpo text-apagado tabular-nums">
         <span className="tabular-nums">{visible}</span>
         {sufijo ? <span>{sufijo}</span> : null}
-        <CaretUpDown aria-hidden="true" size={20} />
+        <CaretUpDown aria-hidden="true" size={ICONO.medio} />
       </span>
       {tipo === "time" ? (
         <input
@@ -136,7 +137,7 @@ export function FilaConCheck({ nombre, valor, elegido, etiqueta, alElegir }: Pro
         className="absolute inset-0 size-full cursor-pointer opacity-0"
       />
       <span className={elegido ? "font-semibold" : undefined}>{etiqueta}</span>
-      {elegido ? <Check aria-hidden="true" size={20} /> : <span className="size-5" />}
+      {elegido ? <Check aria-hidden="true" size={ICONO.medio} /> : <span className="size-5" />}
     </label>
   )
 }

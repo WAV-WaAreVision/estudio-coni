@@ -4,6 +4,7 @@ import { ArrowCounterClockwise } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { cambiarFechaAccion, descartarAccion, reintentarAccion, reintentarGuionAccion } from "./piezas/acciones"
@@ -67,7 +68,7 @@ export function AccionesDeEstado({ piezaId, version, acciones }: PropiedadesDeEs
             cargando={pendiente}
             icono={
               que === "reintentar" || que === "reintentarGuion" ? (
-                <ArrowCounterClockwise aria-hidden="true" size={20} />
+                <ArrowCounterClockwise aria-hidden="true" size={ICONO.medio} />
               ) : undefined
             }
             onClick={() => ejecutar(() => ACCIONES[que](piezaId, version))}

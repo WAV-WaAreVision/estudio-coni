@@ -1,6 +1,7 @@
 import { CaretRight, CheckCircle, Export, PenNib, WarningCircle } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Seccion } from "@/components/seccion"
+import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import type { Hueco, Ocupante, TonoDeEstado } from "@/lib/calendario/modelo"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
@@ -15,13 +16,13 @@ const TINTA: Record<TonoDeEstado, string> = {
 
 /** The state always has its icon in its ink: «Programado» check, «Para subir» export, «Falta tu firma» pen, a failure warning. */
 function IconoDeEstado({ ocupante }: { ocupante: Ocupante }) {
-  if (ocupante.tono === "ok") return <CheckCircle aria-hidden="true" size={16} />
-  if (ocupante.tono === "error") return <WarningCircle aria-hidden="true" size={16} />
+  if (ocupante.tono === "ok") return <CheckCircle aria-hidden="true" size={ICONO.chico} />
+  if (ocupante.tono === "error") return <WarningCircle aria-hidden="true" size={ICONO.chico} />
   if (ocupante.tono === "aviso")
     return ocupante.estado.startsWith("Para subir") ? (
-      <Export aria-hidden="true" size={16} />
+      <Export aria-hidden="true" size={ICONO.chico} />
     ) : (
-      <PenNib aria-hidden="true" size={16} />
+      <PenNib aria-hidden="true" size={ICONO.chico} />
     )
   return ocupante.href === null && ocupante.estado.startsWith("Grabando") ? <PuntoTrabajando /> : null
 }
@@ -61,7 +62,7 @@ function FilaDeHorario({ hueco }: { hueco: Hueco }) {
       ) : (
         <span className="text-cuerpo font-medium text-apagado">Libre · elige una idea</span>
       )}
-      {destino ? <CaretRight aria-hidden="true" size={20} className="text-apagado" /> : <span />}
+      {destino ? <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" /> : <span />}
     </>
   )
   return (

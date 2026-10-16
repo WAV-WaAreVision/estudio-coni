@@ -14,6 +14,7 @@ import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { FilaConCheck } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
@@ -118,7 +119,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   return (
     <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
       <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
-        <CaretLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Inicio
       </Link>
       <div className="mt-2">

@@ -1,4 +1,5 @@
 import { Warning } from "@phosphor-icons/react/dist/ssr"
+import { ICONO } from "@/components/ui/icono"
 import { tonoDelMedidor } from "@/lib/diseno/medidor"
 import { cn } from "@/lib/utils"
 import { LineaDeEstado } from "./linea-de-estado"
@@ -22,7 +23,7 @@ export function Medidor({ gastado, tope, texto }: PropiedadesDelMedidor) {
           enAviso ? "text-aviso" : "text-tinta",
         )}
       >
-        {enAviso ? <Warning aria-hidden="true" size={16} /> : null}
+        {enAviso ? <Warning aria-hidden="true" size={ICONO.chico} /> : null}
         {texto}
       </p>
       {/* biome-ignore lint/a11y/useSemanticElements: a native meter cannot be drawn as a 4 px rounded track on every browser. */}

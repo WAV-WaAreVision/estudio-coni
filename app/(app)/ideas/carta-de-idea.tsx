@@ -1,5 +1,6 @@
 import { CaretDown } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
@@ -43,7 +44,7 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
           <details className="text-cuerpo">
             <summary className={RESUMEN_DE_DISCLOSURE}>
               Qué revisar antes de grabar
-              <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+              <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
             </summary>
             <ul className="grid gap-2 pb-2 text-meta">
               {alertas.map((alerta) => (
@@ -61,7 +62,7 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
         <details className="border-t border-linea text-cuerpo">
           <summary className={RESUMEN_DE_DISCLOSURE}>
             Por qué
-            <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+            <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
           </summary>
           <div className="grid gap-2 pb-2">
             <p className="font-semibold">{idea.porQue.titulo}</p>

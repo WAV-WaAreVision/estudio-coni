@@ -6,6 +6,7 @@ import { MesDelCalendario } from "@/components/mes-del-calendario"
 import { RitmoDelCalendario } from "@/components/ritmo-del-calendario"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ICONO } from "@/components/ui/icono"
 import { esVista, VistasDelCalendario } from "@/components/vistas-del-calendario"
 import { construirCalendario } from "@/lib/calendario/modelo"
 import { leerDatosDeCalendario } from "@/lib/datos/calendario"
@@ -25,7 +26,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
         >
-          <CaretLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={ICONO.medio} />
           Inicio
         </Link>
         <h1 data-snapshot="varia" className="text-pantalla capitalize">

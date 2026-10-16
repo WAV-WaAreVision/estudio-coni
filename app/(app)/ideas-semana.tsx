@@ -9,6 +9,7 @@ import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { FilaNavegacion } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
@@ -88,7 +89,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       <Boton
         deshabilitado={!lista}
         cargando={pendiente}
-        icono={<ArrowRight aria-hidden="true" size={20} />}
+        icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
         onClick={escribir}
       >
         {lista ? `Escribir ${cuantas} ${cuantas === 1 ? "guion" : "guiones"}` : "Escribir guiones"}

@@ -2,6 +2,7 @@
 
 import { Check } from "@phosphor-icons/react"
 import { useId } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { cn } from "@/lib/utils"
 
 interface PropiedadesDeCasilla {
@@ -46,7 +47,7 @@ export function Casilla({ etiqueta, detalle, marcada, deshabilitada = false, alC
             : cn("bg-superficie ring-[1.5px] ring-inset", deshabilitada ? "ring-linea" : "ring-campo"),
         )}
       >
-        {marcada ? <Check weight="bold" size={14} className="text-sobre-tinta" /> : null}
+        {marcada ? <Check weight="bold" size={ICONO.mini} className="text-sobre-tinta" /> : null}
       </span>
       <span className="grid">
         <span id={idEtiqueta}>{etiqueta}</span>

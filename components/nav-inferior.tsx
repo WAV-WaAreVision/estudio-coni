@@ -3,6 +3,7 @@
 import { ChartBar, GearSix, House } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { ICONO } from "@/components/ui/icono"
 import { cn } from "@/lib/utils"
 
 const PESTANAS = [
@@ -48,7 +49,7 @@ export function NavInferior() {
                 : "font-medium text-apagado",
             )}
           >
-            <Icono aria-hidden="true" size={24} />
+            <Icono aria-hidden="true" size={ICONO.grande} />
             {pestana.etiqueta}
           </Link>
         )

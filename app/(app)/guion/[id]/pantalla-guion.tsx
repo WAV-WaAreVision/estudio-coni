@@ -15,6 +15,7 @@ import { Aviso } from "@/components/ui/aviso"
 import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
@@ -186,7 +187,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
         >
-          <CaretLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={ICONO.medio} />
           Inicio
         </Link>
         <p className="flex items-baseline justify-between gap-4 text-meta text-apagado">
@@ -302,7 +303,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
             </Boton>
             {preparando ? (
               <p id={idSinCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
-                <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+                <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
                 {TEXTO_CAMBIOS_TRAS_LA_VOZ}
               </p>
             ) : null}

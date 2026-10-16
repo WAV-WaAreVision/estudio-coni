@@ -1,6 +1,7 @@
 "use client"
 
 import { Pause, Play } from "@phosphor-icons/react"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { mmss } from "@/lib/formato"
 import { cn } from "@/lib/utils"
@@ -79,9 +80,9 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
           )}
         >
           {reproduciendo ? (
-            <Pause aria-hidden="true" size={28} weight="fill" />
+            <Pause aria-hidden="true" size={ICONO.amplio} weight="fill" />
           ) : (
-            <Play aria-hidden="true" size={28} weight="fill" />
+            <Play aria-hidden="true" size={ICONO.amplio} weight="fill" />
           )}
         </button>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops a tap on the controls from toggling playback. */}

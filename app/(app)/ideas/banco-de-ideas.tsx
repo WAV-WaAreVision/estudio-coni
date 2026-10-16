@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -148,7 +149,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           href="/"
           className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
         >
-          <CaretLeft aria-hidden="true" size={20} />
+          <CaretLeft aria-hidden="true" size={ICONO.medio} />
           Inicio
         </Link>
         <div className="flex items-center justify-between gap-3">
@@ -163,7 +164,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
               "Una a la vez"
             ) : (
               <>
-                <MagnifyingGlass aria-hidden="true" size={20} />
+                <MagnifyingGlass aria-hidden="true" size={ICONO.medio} />
                 Buscar
               </>
             )}
@@ -198,7 +199,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
                 </Boton>
                 <Boton
                   cargando={pendiente}
-                  icono={<ArrowRight aria-hidden="true" size={20} />}
+                  icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
                   onClick={() => usar(actual)}
                 >
                   Usar esta
@@ -237,7 +238,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
 function BotonIdeaPropia({ alTocar }: { alTocar: () => void }) {
   return (
     <Boton variante="callado" onClick={alTocar}>
-      <Plus aria-hidden="true" size={20} />
+      <Plus aria-hidden="true" size={ICONO.medio} />
       Escribir una idea mía
     </Boton>
   )

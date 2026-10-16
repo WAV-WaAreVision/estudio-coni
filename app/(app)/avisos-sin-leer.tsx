@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { MouseEvent } from "react"
 import { Seccion } from "@/components/seccion"
+import { ICONO } from "@/components/ui/icono"
 import type { Resultado } from "@/lib/acciones/resultado"
 
 export interface AvisoParaMostrar {
@@ -47,7 +48,7 @@ export function AvisosSinLeer({
                 <span className="text-cuerpo font-semibold tracking-[-0.004em]">{aviso.mensaje}</span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
-              <CaretRight aria-hidden="true" size={20} className="text-apagado" />
+              <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" />
             </Link>
           </li>
         ))}

@@ -4,6 +4,7 @@ import { Plus } from "@phosphor-icons/react"
 import { useCallback, useState } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -48,7 +49,12 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
       <p data-snapshot="varia" className="text-cuerpo font-semibold">
         {cuantas(total, mes)}
       </p>
-      <Boton variante="linea" cargando={pendiente} icono={<Plus aria-hidden="true" size={20} />} onClick={anotar}>
+      <Boton
+        variante="linea"
+        cargando={pendiente}
+        icono={<Plus aria-hidden="true" size={ICONO.medio} />}
+        onClick={anotar}
+      >
         Llegó una consulta
       </Boton>
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}

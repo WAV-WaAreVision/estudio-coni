@@ -1,10 +1,11 @@
 import { ArrowRight, CheckCircle, Info, Warning } from "@phosphor-icons/react/dist/ssr"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ICONO } from "@/components/ui/icono"
 import { estadoDeAjustes } from "@/lib/ajustes/estado"
 import { cn } from "@/lib/utils"
 import { revisionDeCuentas } from "./revision"
 
-const ICONO = { configurando: Info, todo_bien: CheckCircle, atencion: Warning, sin_revision: Info } as const
+const ICONO_POR_TONO = { configurando: Info, todo_bien: CheckCircle, atencion: Warning, sin_revision: Info } as const
 const TINTA = {
   configurando: "text-tinta",
   todo_bien: "text-exito",
@@ -27,12 +28,12 @@ export async function BloqueDeEstado({
 }) {
   const bloque = estadoDeAjustes({ cuentas: await revisionDeCuentas(), avisosActivos, ahora: Date.now(), zona })
   if ((bloque.tipo === "todo_bien") !== (mostrar === "bueno")) return null
-  const Icono = ICONO[bloque.tipo]
+  const Icono = ICONO_POR_TONO[bloque.tipo]
 
   return (
     <section aria-labelledby="estado-titulo" className="grid gap-4">
       <div className="grid grid-cols-[24px_1fr] gap-x-3 gap-y-1">
-        <Icono aria-hidden="true" size={20} className={cn("mt-1 justify-self-center", TINTA[bloque.tipo])} />
+        <Icono aria-hidden="true" size={ICONO.medio} className={cn("mt-1 justify-self-center", TINTA[bloque.tipo])} />
         <h2 id="estado-titulo" className="text-cuerpo font-semibold">
           {bloque.titulo}
         </h2>
@@ -49,7 +50,11 @@ export async function BloqueDeEstado({
                   paso.listo ? "text-exito" : "text-aviso",
                 )}
               >
-                {paso.listo ? <CheckCircle aria-hidden="true" size={16} /> : <Warning aria-hidden="true" size={16} />}
+                {paso.listo ? (
+                  <CheckCircle aria-hidden="true" size={ICONO.chico} />
+                ) : (
+                  <Warning aria-hidden="true" size={ICONO.chico} />
+                )}
                 {paso.listo ? "Listo" : "Falta"}
               </span>
             </li>
@@ -59,7 +64,7 @@ export async function BloqueDeEstado({
       {bloque.accion ? (
         <a href={bloque.accion.href} className={clasesDeBoton({ variante: "primario", className: "mt-1" })}>
           {bloque.accion.etiqueta}
-          <ArrowRight aria-hidden="true" size={20} />
+          <ArrowRight aria-hidden="true" size={ICONO.medio} />
         </a>
       ) : null}
     </section>

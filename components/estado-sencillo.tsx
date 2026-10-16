@@ -1,6 +1,7 @@
 import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 
 /** The screen of a piece that has nothing to sign: the way back at the top, its title, and what is happening. */
@@ -18,7 +19,7 @@ export function EstadoSencillo({
   return (
     <div className="grid gap-3">
       <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
-        <CaretLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Inicio
       </Link>
       {pilar || segundos ? (

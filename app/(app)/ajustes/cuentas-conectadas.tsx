@@ -6,6 +6,7 @@ import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -18,7 +19,7 @@ const TINTA: Record<FilaDeCuenta["tono"], string> = {
   error: "text-error",
   neutro: "text-tinta",
 }
-const ICONO = { ok: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info } as const
+const ICONO_POR_TONO = { ok: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info } as const
 
 const MENSAJE_DE_LLAVE: Record<EstadoDeLlave, string> = {
   comprobada: "Guardada y comprobada.",
@@ -215,10 +216,10 @@ function FormularioDeLlave({
 
 /** The state of an account at the right of its name: text and icon in its ink, never a chip. */
 function Estado({ fila }: { fila: FilaDeCuenta }) {
-  const Icono = ICONO[fila.tono]
+  const Icono = ICONO_POR_TONO[fila.tono]
   return (
     <span className={cn("inline-flex items-center gap-1 text-meta font-medium", TINTA[fila.tono])}>
-      <Icono aria-hidden="true" size={16} />
+      <Icono aria-hidden="true" size={ICONO.chico} />
       {fila.estado}
     </span>
   )

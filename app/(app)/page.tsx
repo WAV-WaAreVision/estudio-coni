@@ -5,6 +5,7 @@ import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { FilaNavegacion } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
@@ -165,9 +166,9 @@ function AvisoEnInicio({ aviso }: { aviso: AvisoDeInicio }) {
           >
             {aviso.accion.etiqueta}
             {aviso.accion.externo ? (
-              <ArrowUpRight aria-hidden="true" size={20} />
+              <ArrowUpRight aria-hidden="true" size={ICONO.medio} />
             ) : (
-              <CaretRight aria-hidden="true" size={20} />
+              <CaretRight aria-hidden="true" size={ICONO.medio} />
             )}
           </Link>
         ) : undefined

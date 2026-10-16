@@ -8,6 +8,7 @@ import { AyudaDeMarcas } from "@/components/ayuda-de-marcas"
 import { Seccion } from "@/components/seccion"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAutoAlto } from "@/components/use-auto-alto"
@@ -135,7 +136,9 @@ export function EditorDeGuion({
               {palabras} palabras · ≈ {segundos} s
             </span>
             <span className="inline-flex items-center gap-1 font-semibold text-tinta">
-              {estadoDelLargo === "bien" ? <Check aria-hidden="true" size={16} className="text-exito" /> : null}
+              {estadoDelLargo === "bien" ? (
+                <Check aria-hidden="true" size={ICONO.chico} className="text-exito" />
+              ) : null}
               {ESTADOS[estadoDelLargo]}
             </span>
           </span>

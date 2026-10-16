@@ -2,6 +2,7 @@
 
 import { WifiSlash } from "@phosphor-icons/react"
 import { useSyncExternalStore } from "react"
+import { ICONO } from "@/components/ui/icono"
 
 function suscribirse(avisar: () => void) {
   window.addEventListener("online", avisar)
@@ -22,7 +23,7 @@ export function BarraSinConexion() {
   if (enLinea) return null
   return (
     <output className="flex min-h-11 items-center gap-2 border-b border-linea px-5 text-meta font-semibold">
-      <WifiSlash aria-hidden="true" size={16} className="text-aviso" />
+      <WifiSlash aria-hidden="true" size={ICONO.chico} className="text-aviso" />
       Sin conexión. Aprueba cuando vuelva.
     </output>
   )

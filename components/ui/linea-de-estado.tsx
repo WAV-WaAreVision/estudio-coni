@@ -1,5 +1,6 @@
 import { CalendarBlank, CheckCircle, Info, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { cn } from "@/lib/utils"
 
 export type TipoDeEstado = "exito" | "aviso" | "error" | "neutro" | "fecha"
@@ -11,7 +12,13 @@ const TINTA: Record<TipoDeEstado, string> = {
   neutro: "text-tinta",
   fecha: "text-tinta",
 }
-const ICONO = { exito: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info, fecha: CalendarBlank } as const
+const ICONO_POR_TONO = {
+  exito: CheckCircle,
+  aviso: Warning,
+  error: WarningCircle,
+  neutro: Info,
+  fecha: CalendarBlank,
+} as const
 
 interface PropiedadesDeLinea {
   tipo: TipoDeEstado
@@ -38,10 +45,10 @@ export function LineaDeEstado({
   anunciada = false,
   className,
 }: PropiedadesDeLinea) {
-  const Icono = ICONO[tipo]
+  const Icono = ICONO_POR_TONO[tipo]
   const contenido = (
     <>
-      <Icono aria-hidden="true" size={20} className={cn("mt-0.5 justify-self-center", TINTA[tipo])} />
+      <Icono aria-hidden="true" size={ICONO.medio} className={cn("mt-0.5 justify-self-center", TINTA[tipo])} />
       <p className="text-cuerpo">
         {rotulo ? <span className={cn("font-semibold", TINTA[tipo])}>{rotulo} </span> : null}
         <span className={tituloEnTinta || rotulo ? "text-tinta" : TINTA[tipo]}>{titulo}</span>

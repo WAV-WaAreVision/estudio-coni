@@ -149,6 +149,10 @@ describe("design rules", () => {
     expect(culpables).toEqual([])
   })
 
+  it("sizes every Phosphor icon in em through ICONO, never in px", () => {
+    expect(CODIGO.filter((ruta) => /\bsize=\{\d+\}/.test(leer(ruta)))).toEqual([])
+  })
+
   it("lists the files it scans (sanity: the walk found code)", () => {
     expect(CODIGO.map((ruta) => relative(".", ruta)).length).toBeGreaterThan(50)
   })

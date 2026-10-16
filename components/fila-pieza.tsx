@@ -1,5 +1,6 @@
 import { CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { ICONO } from "@/components/ui/icono"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 import { PuntoTrabajando } from "./ui/punto-trabajando"
@@ -44,7 +45,7 @@ export function FilaPieza({
       ) : (
         <span />
       )}
-      {href ? <CaretRight aria-hidden="true" size={20} className="text-apagado" /> : <span />}
+      {href ? <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" /> : <span />}
       {sinLeer ? (
         <>
           <span

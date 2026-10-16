@@ -2,6 +2,7 @@
 
 import { Check } from "@phosphor-icons/react"
 import { useId } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { cn } from "@/lib/utils"
 
@@ -73,7 +74,7 @@ export function ElegirAvatar({ avatares, elegido, alElegir }: PropiedadesDeElegi
                   elegida ? "bg-tinta" : "bg-superficie ring-[1.5px] ring-campo ring-inset",
                 )}
               >
-                {elegida ? <Check weight="bold" size={14} className="text-sobre-tinta" /> : null}
+                {elegida ? <Check weight="bold" size={ICONO.mini} className="text-sobre-tinta" /> : null}
               </span>
               <span className={cn("text-cuerpo", elegida ? "font-semibold" : "font-medium")}>{avatar.nombre}</span>
             </label>

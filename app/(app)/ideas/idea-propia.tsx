@@ -5,6 +5,7 @@ import { useState, useTransition } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { FilaConCheck, FilaConValor } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
@@ -117,7 +118,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
         onClick={alVolver}
         className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
       >
-        <CaretLeft aria-hidden="true" size={20} />
+        <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Volver a las ideas
       </button>
       <h1 className="text-pantalla text-balance">Tu idea</h1>
@@ -154,7 +155,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <Boton
             deshabilitado={!listaParaProponer}
             cargando={pendiente}
-            icono={<ArrowRight aria-hidden="true" size={20} />}
+            icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
             onClick={pedirPropuesta}
           >
             Proponer pilar y alertas
@@ -209,7 +210,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <Boton
             deshabilitado={pilar === null}
             cargando={pendiente}
-            icono={<ArrowRight aria-hidden="true" size={20} />}
+            icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
             onClick={guardar}
           >
             Guardar idea

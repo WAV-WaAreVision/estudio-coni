@@ -3,6 +3,7 @@ import { BarraDeMetrica } from "@/components/barra-de-metrica"
 import { FilaPieza } from "@/components/fila-pieza"
 import { PanelDeComparacion } from "@/components/panel-de-comparacion"
 import { Seccion } from "@/components/seccion"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { leerDatosDeMetricas } from "@/lib/datos/metricas"
 import { construirMetricas } from "@/lib/metricas/modelo"
@@ -64,7 +65,7 @@ export default async function Metricas() {
               <details>
                 <summary className={RESUMEN_PLEGABLE}>
                   {VER_LAS_DEMAS}
-                  <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+                  <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
                 <ul>
                   {restantes.map((barra) => (
@@ -91,7 +92,7 @@ export default async function Metricas() {
               <details key={semana.titulo} open={i === semanaAbierta} aria-label={semana.titulo}>
                 <summary className={RESUMEN_PLEGABLE}>
                   {semana.titulo}
-                  <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+                  <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
                 {semana.reels.length > 0 ? (
                   <ul>

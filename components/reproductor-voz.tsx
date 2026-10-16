@@ -1,6 +1,7 @@
 "use client"
 
 import { Check, Pause, Play } from "@phosphor-icons/react"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { mmss } from "@/lib/formato"
 import { useReproduccion } from "./use-reproduccion"
@@ -32,9 +33,9 @@ export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
         className="grid size-12 place-items-center rounded-full text-tinta ring-[1.5px] ring-tinta transition-transform duration-[var(--dur-corta)] ease-salida active:scale-[0.98] disabled:text-apagado disabled:ring-linea motion-reduce:active:scale-100"
       >
         {reproduciendo ? (
-          <Pause aria-hidden="true" size={20} weight="fill" />
+          <Pause aria-hidden="true" size={ICONO.medio} weight="fill" />
         ) : (
-          <Play aria-hidden="true" size={20} weight="fill" />
+          <Play aria-hidden="true" size={ICONO.medio} weight="fill" />
         )}
       </button>
       <input
@@ -58,7 +59,7 @@ export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
           <LineaDeEstado tipo="error" titulo="No pude cargar la voz. Recarga la pantalla." />
         ) : visto ? (
           <p className="flex items-center gap-2 text-meta text-exito">
-            <Check aria-hidden="true" size={16} />
+            <Check aria-hidden="true" size={ICONO.chico} />
             Ya la escuchaste
           </p>
         ) : (

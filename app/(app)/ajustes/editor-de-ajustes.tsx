@@ -7,6 +7,7 @@ import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { FilaConInterruptor, FilaConValor } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
@@ -249,7 +250,7 @@ export function EditorDeAjustes({
               className="w-11 justify-center px-0"
               onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
             >
-              <Minus aria-hidden="true" size={20} />
+              <Minus aria-hidden="true" size={ICONO.medio} />
             </Boton>
             <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
             <Boton
@@ -260,7 +261,7 @@ export function EditorDeAjustes({
               className="w-11 justify-center px-0"
               onClick={() => moverTope(PASO_DEL_TOPE_USD)}
             >
-              <Plus aria-hidden="true" size={20} />
+              <Plus aria-hidden="true" size={ICONO.medio} />
             </Boton>
           </div>
         </div>

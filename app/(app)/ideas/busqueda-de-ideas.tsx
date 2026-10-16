@@ -4,6 +4,7 @@ import { Check, Warning } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Chip } from "@/components/chip"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { NOMBRE_CORTO_DE_PILAR, NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
@@ -118,19 +119,19 @@ function FilaDeResultado({
         <span>Fuerza {idea.fuerza}</span>
         {idea.estado === "usada" ? (
           <span className="inline-flex items-center gap-1 font-medium text-exito">
-            <Check aria-hidden="true" size={16} />
+            <Check aria-hidden="true" size={ICONO.chico} />
             Usada
           </span>
         ) : null}
         {sumada ? (
           <span className="inline-flex items-center gap-1 font-medium text-exito">
-            <Check aria-hidden="true" size={16} />
+            <Check aria-hidden="true" size={ICONO.chico} />
             En la semana
           </span>
         ) : null}
         {idea.alertas.map((alerta) => (
           <span key={alerta.tipo} className="inline-flex items-center gap-1 font-medium text-aviso">
-            <Warning aria-hidden="true" size={16} />
+            <Warning aria-hidden="true" size={ICONO.chico} />
             {etiquetaDeAlerta(alerta.tipo)}
           </span>
         ))}

@@ -6,6 +6,7 @@ import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
 import { Boton } from "@/components/ui/boton"
 import { CostoDeAccion, LineaDeSaldo } from "@/components/ui/costo"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { useAccion } from "@/components/use-accion"
@@ -45,7 +46,7 @@ export function VozParaFirmar({ piezaId, version, datos, alEscuchar, sinGuardar 
   ) : null
   const razonSinGuardar = sinGuardar ? (
     <p id={idRazon} className="flex items-start gap-2 text-meta font-medium text-tinta">
-      <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+      <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
       {TEXTO_GUARDA_ANTES_DE_VOZ}
     </p>
   ) : null
@@ -88,7 +89,7 @@ export function VozParaFirmar({ piezaId, version, datos, alEscuchar, sinGuardar 
               cargando={pedir.pendiente}
               deshabilitado={cerrado}
               aria-describedby={descrito}
-              icono={<Microphone aria-hidden="true" size={20} />}
+              icono={<Microphone aria-hidden="true" size={ICONO.medio} />}
               onClick={() => pedir.ejecutar(() => pedirVozAccion(piezaId, version, false))}
             >
               Preparar mi voz

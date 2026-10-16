@@ -4,6 +4,7 @@ import { ArrowRight } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
 import { CasillasCodigo } from "@/components/casillas-codigo"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { pedirCodigoAccion, verificarCodigoAccion } from "./acciones"
 
@@ -60,7 +61,7 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
         {error ? <MensajeDeError mensaje={error} /> : null}
         <Boton
           cargando={pendiente}
-          icono={<ArrowRight aria-hidden="true" size={20} />}
+          icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
           onClick={() => mandarCodigo(false)}
         >
           Mandarme el código
