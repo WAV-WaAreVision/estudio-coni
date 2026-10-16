@@ -69,11 +69,11 @@ function motivoParaFirmar(estado: {
 }): string | undefined {
   if (estado.sinGuardar) return "Guarda tus cambios antes de aprobar"
   if (estado.preparando) return TEXTO_PREPARANDO_VOZ
+  // The HeyGen wallet or the month's cap would stop the video: preparing or listening to her voice would not help.
+  if (estado.bloqueoFirma !== null) return estado.bloqueoFirma
   if (estado.voz === null) return TEXTO_FALTA_VOZ
   if (estado.bloqueos > 0) return "Hay algo que corregir antes de aprobar."
   if (estado.sinAvatares) return "Todavía no hay avatares para elegir."
-  // The HeyGen wallet or the month's cap would stop the video: listening would not help.
-  if (estado.bloqueoFirma !== null) return estado.bloqueoFirma
   if (estado.faltan.length > 0) return `Falta ${unirConY(estado.faltan)}.`
   if (estado.escuchada !== estado.voz) return TEXTO_ESCUCHA_COMPLETA
   return undefined

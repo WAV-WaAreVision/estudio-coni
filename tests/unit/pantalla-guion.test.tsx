@@ -127,6 +127,20 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     expect(otraVez).toHaveAccessibleDescription("Guarda tus cambios antes de grabar tu voz.")
   })
 
+  it("says the HeyGen block before the missing voice, so she pays no voice for a video that cannot be paid", () => {
+    const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
+    render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
+
+    expect(aprobar()).toHaveAccessibleDescription(bloqueo)
+  })
+
+  it("asks to save the edit before any reason about her voice", () => {
+    render(<PantallaGuion datos={datos({}, { voz: null })} />)
+    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
+
+    expect(aprobar()).toHaveAccessibleDescription("Guarda tus cambios antes de aprobar")
+  })
+
   it("says what the signature spends and how long she has to undo it, under the slider", () => {
     render(<PantallaGuion datos={datos()} />)
     const barra = screen.getByRole("region", { name: "Firma" })
