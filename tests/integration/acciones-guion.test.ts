@@ -154,6 +154,11 @@ afterAll(async () => {
 })
 
 describe("editarGuion", () => {
+  // Most of these run with an empty production setup, which logs that there is no voice to make.
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+  })
+
   it("reviews the edit, stores the merged findings and writes her version", async () => {
     const id = await pieza()
     const { version } = await leerFila(id)
@@ -280,7 +285,6 @@ describe("editarGuion", () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     servidor.use(http.post(URL_CLAUDE, () => HttpResponse.json({ error: { type: "api_error" } }, { status: 500 })))
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
 
     const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
 
@@ -293,7 +297,6 @@ describe("editarGuion", () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     claudeRevisa()
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
     const real = clienteDeServicio()
     const servicioQueFallaAlConfirmar = new Proxy(real, {
       get(destino, propiedad) {
@@ -358,6 +361,19 @@ describe("editarGuion", () => {
     expect(pedidos).toHaveLength(0)
   })
 
+  it("refuses an edit while her voice is being made, without calling Claude", async () => {
+    const id = await pieza("grabando_voz")
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: false, error: "Este guion ya no se puede editar." })
+    expect(pedidos).toHaveLength(0)
+    expect(disparos).toEqual([])
+    expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz", version })
+  })
+
   it("refuses a blank script and a blank caption", async () => {
     const id = await pieza()
     const { version } = await leerFila(id)
@@ -375,7 +391,7 @@ describe("editarGuion", () => {
   })
 
   it("saves the edit without asking for the voice when the voice setup does not read", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const error = vi.spyOn(console, "error")
     const id = await pieza()
     const { version } = await leerFila(id)
     claudeRevisa()
@@ -410,7 +426,7 @@ describe("editarGuion y la voz", () => {
   beforeEach(() => pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(coniConfig)]))
   afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
 
-  it("asks for her voice of the new wording in the same action, reusing earlier takes", async () => {
+  it("asks for her voice of the new wording in the same action, without asking for a new take", async () => {
     const id = await pieza()
     const { version } = await leerFila(id)
     claudeRevisa()
@@ -425,19 +441,16 @@ describe("editarGuion y la voz", () => {
 
   it("leaves the voice alone when the edit keeps what the voice says", async () => {
     const id = await pieza()
-    await ajustarPieza(id, { guion: GUION_VALIDO })
+    // eleven_multilingual_v2 does not speak tone marks: swapping one gives another script with the same fingerprint.
+    await ajustarPieza(id, { guion: `[warm] ${GUION_VALIDO}` })
     const { version } = await leerFila(id)
     claudeRevisa()
+    const editado = `[softly] ${GUION_VALIDO}`
 
-    const resultado = await editarGuion(deps(), {
-      piezaId: id,
-      version,
-      guion: GUION_VALIDO,
-      texto: `${TEXTO_VALIDO} Y una línea más.`,
-    })
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: editado, texto: TEXTO_VALIDO })
 
     expect(resultado).toMatchObject({ ok: true, version: version + 1 })
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar" })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", guion: editado })
     expect(disparos).toEqual([])
   })
 
