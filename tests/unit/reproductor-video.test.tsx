@@ -21,18 +21,31 @@ describe("ReproductorVideo", () => {
     expect(play).toHaveBeenCalledTimes(1)
   })
 
-  it("keeps the labelled play button, the Avatar IA label and a seek slider", () => {
+  it("is the 9:16 frame at 9.5 by 16.9rem, centred and raised, with Avatar IA and a seek slider", () => {
     render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v3" zonas={false} alVerCompleto={vi.fn()} />)
-    expect(screen.getByRole("button", { name: "Reproducir el video" })).toBeInTheDocument()
+    expect(screen.getByTestId("reproductor-video")).toHaveClass(
+      "w-[9.5rem]",
+      "h-[16.9rem]",
+      "mx-auto",
+      "rounded-video",
+      "shadow-relieve",
+    )
     expect(screen.getByText("Avatar IA")).toBeInTheDocument()
-    expect(screen.getByRole("slider", { name: "Avance del video" })).toBeInTheDocument()
+    expect(screen.getByRole("slider", { name: "Avance del video" })).toHaveClass("avance", "sobre-video")
   })
 
-  it("fits above the sign bar: the height comes from the dynamic viewport, never from vh", () => {
-    render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v4" zonas={false} alVerCompleto={vi.fn()} />)
-    const estilo = screen.getByTestId("reproductor-video").getAttribute("style") ?? ""
-    expect(estilo).toContain("100dvh")
-    expect(estilo).not.toMatch(/\d\s*vh/)
+  it("says what is left while it plays, under Avatar IA", () => {
+    const { container } = render(
+      <ReproductorVideo src="https://almacen.test/v.mp4" clave="v4" zonas={false} alVerCompleto={vi.fn()} />,
+    )
+    const video = container.querySelector("video")
+    if (!video) throw new Error("No hay video")
+    Object.defineProperty(video, "duration", { value: 58, configurable: true })
+    Object.defineProperty(video, "currentTime", { value: 34, configurable: true })
+    fireEvent.play(video)
+    fireEvent.timeUpdate(video)
+    const faltan = screen.getByText("faltan 0:24")
+    expect(faltan.parentElement).toContainElement(screen.getByText("Avatar IA"))
   })
 
   it("says a load failure under the video, not in the middle of the frame", () => {
