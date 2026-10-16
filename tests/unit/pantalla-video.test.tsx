@@ -119,6 +119,15 @@ describe("PantallaVideo: el aviso", () => {
   })
 })
 
+describe("PantallaVideo: visual snapshots", () => {
+  it("marks the chosen date as moving data, so the visual baseline masks it", () => {
+    abrir()
+    revisar()
+    const fecha = screen.getByText("viernes 9 de octubre · 19:00")
+    expect(fecha.closest('[data-snapshot="varia"]')).not.toBeNull()
+  })
+})
+
 describe("PantallaVideo: dónde se publica", () => {
   it("starts with the destinations Ajustes chose and shows no LinkedIn text while LinkedIn is not chosen", () => {
     abrir()

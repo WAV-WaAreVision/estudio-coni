@@ -228,7 +228,9 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
             {fechaElegida ? (
               <div className="grid gap-1">
                 <div className="flex min-h-14 items-center justify-between gap-3 border-b border-linea">
-                  <span className="text-cuerpo font-semibold">{fechaElegida.etiqueta}</span>
+                  <span data-snapshot="varia" className="text-cuerpo font-semibold">
+                    {fechaElegida.etiqueta}
+                  </span>
                   <Boton
                     variante="callado"
                     tamano="chico"

@@ -91,7 +91,7 @@ export default async function Metricas() {
             {modelo.semanas.map((semana, i) => (
               <details key={semana.titulo} open={i === semanaAbierta} aria-label={semana.titulo}>
                 <summary className={RESUMEN_PLEGABLE}>
-                  {semana.titulo}
+                  <span data-snapshot="varia">{semana.titulo}</span>
                   <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
                 {semana.reels.length > 0 ? (
