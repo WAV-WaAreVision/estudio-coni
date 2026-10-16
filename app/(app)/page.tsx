@@ -85,7 +85,7 @@ export default async function Inicio() {
               <p className="text-cuerpo text-apagado">El lunes a las 8:00 te propongo 5 ideas nuevas.</p>
               <Link
                 href="#ideas"
-                className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "mt-2 w-fit" })}
+                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "mt-2 w-fit" })}
               >
                 Elegir ideas ahora
               </Link>

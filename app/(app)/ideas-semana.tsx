@@ -38,7 +38,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
     return (
       <Seccion titulo="Ideas de la semana" id="ideas-titulo">
         <p className="text-cuerpo text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
-        <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+        <Link href="/ideas" className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}>
           Escribir una idea
         </Link>
       </Seccion>

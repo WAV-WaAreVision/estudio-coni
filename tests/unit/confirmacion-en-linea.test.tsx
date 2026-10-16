@@ -21,7 +21,7 @@ describe("ConfirmacionEnLinea", () => {
     expect(alConfirmar).toHaveBeenCalledTimes(1)
   })
 
-  it("confirms a destructive action with an error outline, never filled", () => {
+  it("confirms a destructive action with the raised destructive button and offers a secondary way back", () => {
     render(
       <ConfirmacionEnLinea
         trato="destructivo"
@@ -33,8 +33,9 @@ describe("ConfirmacionEnLinea", () => {
       />,
     )
     const si = screen.getByRole("button", { name: "Sí, pedir cambios" })
-    expect(si).toHaveClass("border-error", "text-error")
-    expect(si.className).not.toMatch(/\bbg-(principal|error|firma)\b/)
+    expect(si).toHaveClass("bg-piedra", "text-error", "shadow-relieve", "min-h-objetivo")
+    expect(si.className).not.toMatch(/\bbg-(tinta|error|firma)\b/)
+    expect(screen.getByRole("button", { name: "Volver" })).toHaveClass("bg-piedra", "text-tinta")
   })
 
   it("moves focus to the question so a screen reader hears it", () => {

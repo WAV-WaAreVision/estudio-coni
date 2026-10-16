@@ -97,7 +97,7 @@ export function SubirAMano({
     <ol className="grid gap-8">
       <Paso numero={1} titulo="Descarga el video">
         <Boton
-          variante="linea"
+          variante="secundario"
           cargando={descarga.pendiente}
           icono={<DownloadSimple aria-hidden="true" size={ICONO.medio} />}
           onClick={() =>

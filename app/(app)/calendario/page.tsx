@@ -46,7 +46,10 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           {calendario.mes.sinPublicaciones ? (
             <div className="mt-10 grid gap-2 py-1">
               <p className="text-cuerpo font-semibold">Nada programado este mes.</p>
-              <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+              <Link
+                href="/ideas"
+                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
+              >
                 Elegir ideas
               </Link>
             </div>

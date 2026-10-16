@@ -67,7 +67,7 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
               // A plain link: the route answers with a redirect to Instagram, which a client navigation cannot follow.
               <a
                 href="/api/meta/conectar"
-                className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "mt-1.5 w-fit" })}
+                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "mt-1.5 w-fit" })}
               >
                 {fila.tono === "aviso" && fila.estado === "Falta" ? "Conectar Instagram" : "Renovar Instagram"}
               </a>
@@ -82,7 +82,7 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
                 alCancelar={() => setAbierta(null)}
               />
             ) : (
-              <Boton variante="linea" tamano="chico" className="mt-1.5" onClick={() => setAbierta(fila.cuenta)}>
+              <Boton variante="secundario" tamano="chico" className="mt-1.5" onClick={() => setAbierta(fila.cuenta)}>
                 {fila.estado === "Falta" ? `Agregar la llave de ${fila.nombre}` : `Cambiar la llave de ${fila.nombre}`}
               </Boton>
             )}
@@ -109,7 +109,7 @@ function FilaDeLinkedin({
   const enlace = (
     <a
       href="/api/linkedin/conectar"
-      className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}
+      className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
     >
       {fila.conectada ? "Renovar LinkedIn" : "Conectar LinkedIn"}
     </a>
@@ -144,7 +144,7 @@ function FilaDeLinkedin({
   return (
     <div className="mt-1.5 flex flex-wrap gap-2">
       {enlace}
-      <Boton variante="linea" tamano="chico" onClick={() => setPreguntando(true)}>
+      <Boton variante="secundario" tamano="chico" onClick={() => setPreguntando(true)}>
         Desconectar
       </Boton>
     </div>
@@ -203,7 +203,7 @@ function FormularioDeLlave({
       </p>
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       <div className="grid grid-cols-2 gap-2">
-        <Boton variante="linea" onClick={alCancelar}>
+        <Boton variante="secundario" onClick={alCancelar}>
           Cancelar
         </Boton>
         <Boton type="submit" cargando={pendiente} deshabilitado={llave.trim() === ""}>

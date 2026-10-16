@@ -39,10 +39,10 @@ describe("SubirAMano", () => {
     for (const boton of screen.getAllByRole("button")) expect(boton.className).not.toMatch(/\bbg-(error|firma)\b/)
   })
 
-  it("has one principal: the last step, the others are outlined or quiet", () => {
+  it("has one principal: the last step, the others are raised secondaries or quiet", () => {
     armar()
-    expect(screen.getByRole("button", { name: "Ya lo subí a Instagram" })).toHaveClass("bg-principal")
-    expect(screen.getByRole("button", { name: "Descargar video" })).not.toHaveClass("bg-principal")
+    expect(screen.getByRole("button", { name: "Ya lo subí a Instagram" })).toHaveClass("bg-tinta")
+    expect(screen.getByRole("button", { name: "Descargar video" })).not.toHaveClass("bg-tinta")
   })
 
   it("shows the approved text so she can read what she is about to paste", () => {

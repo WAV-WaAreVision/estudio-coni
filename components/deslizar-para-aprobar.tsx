@@ -170,7 +170,7 @@ export function DeslizarParaAprobar({
       </div>
       <div className="flex items-center gap-3">
         <Boton
-          variante="linea"
+          variante="secundario"
           tamano="chico"
           className="w-fit shrink-0"
           deshabilitado={!activo || aprobado}

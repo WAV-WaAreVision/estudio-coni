@@ -194,7 +194,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
               <div className="grid grid-cols-2 gap-2">
-                <Boton variante="linea" onClick={() => despues(actual)}>
+                <Boton variante="secundario" onClick={() => despues(actual)}>
                   Después
                 </Boton>
                 <Boton
@@ -217,7 +217,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           </p>
           <a
             href={process.env.NEXT_PUBLIC_URL_INGESTA || URL_DE_INGESTA}
-            className={clasesDeBoton({ variante: "linea", tamano: "chico" })}
+            className={clasesDeBoton({ variante: "secundario", tamano: "chico" })}
           >
             Abrir Conidolly Ingesta
           </a>

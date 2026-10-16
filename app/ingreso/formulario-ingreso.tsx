@@ -100,7 +100,7 @@ export function FormularioIngreso({ correoEnmascarado }: { correoEnmascarado: st
         <Boton type="submit" cargando={pendiente} deshabilitado={codigo.length < 6}>
           Entrar
         </Boton>
-        <Boton variante={error ? "linea" : "callado"} onClick={() => mandarCodigo(true)} cargando={pendiente}>
+        <Boton variante={error ? "secundario" : "callado"} onClick={() => mandarCodigo(true)} cargando={pendiente}>
           Mandar otro código
         </Boton>
       </div>

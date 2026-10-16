@@ -243,7 +243,7 @@ export function EditorDeAjustes({
           <span className="text-cuerpo">Tope</span>
           <div className="flex items-center gap-3">
             <Boton
-              variante="linea"
+              variante="secundario"
               tamano="chico"
               aria-label="Bajar el tope"
               deshabilitado={valores.tope <= 0}
@@ -254,7 +254,7 @@ export function EditorDeAjustes({
             </Boton>
             <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
             <Boton
-              variante="linea"
+              variante="secundario"
               tamano="chico"
               aria-label="Subir el tope"
               deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}

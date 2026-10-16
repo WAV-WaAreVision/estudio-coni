@@ -83,7 +83,7 @@ describe("BancoDeIdeas: composition", () => {
     mostrar()
     const descartar = screen.getByRole("button", { name: "Descartar" })
     expect(descartar).toHaveClass("text-error")
-    expect(descartar.className).not.toMatch(/\bbg-/)
+    expect(descartar.className).not.toMatch(/\bbg-(error|firma)\b/)
   })
 })
 

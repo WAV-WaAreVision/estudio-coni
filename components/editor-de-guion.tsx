@@ -179,7 +179,7 @@ export function EditorDeGuion({
           />
         ) : null}
         <Boton
-          variante="linea"
+          variante="secundario"
           cargando={pendiente && guardando}
           deshabilitado={!sinGuardar || pendiente}
           onClick={guardar}

@@ -79,7 +79,7 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
       {resultados.length === 0 ? (
         <div className="grid gap-2.5 py-1">
           <p className="text-cuerpo font-semibold">No encontré ideas con esa palabra.</p>
-          <Boton variante="linea" onClick={alEscribirPropia}>
+          <Boton variante="secundario" onClick={alEscribirPropia}>
             Escribir una idea mía
           </Boton>
         </div>

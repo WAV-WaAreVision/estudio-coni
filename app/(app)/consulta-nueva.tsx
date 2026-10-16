@@ -50,7 +50,7 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
         {cuantas(total, mes)}
       </p>
       <Boton
-        variante="linea"
+        variante="secundario"
         cargando={pendiente}
         icono={<Plus aria-hidden="true" size={ICONO.medio} />}
         onClick={anotar}

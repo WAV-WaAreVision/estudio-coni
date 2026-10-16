@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 import { Boton } from "./boton"
 
 interface PropiedadesDeConfirmacion {
-  /** «gasto» confirms with the principal, «destructivo» with an error outline (never filled), «neutro» with the principal. */
+  /** «gasto» and «neutro» confirm with the primary; «destructivo» with the raised destructive confirm and a secondary way back. */
   trato: "gasto" | "destructivo" | "neutro"
   pregunta: string
   confirmar: string
@@ -14,7 +14,7 @@ interface PropiedadesDeConfirmacion {
   cargando?: boolean
 }
 
-/** Brandkit 9.5: the confirmation appears in line where the action was; its question takes focus so it is heard. */
+/** The confirmation appears in line where the action was; its question takes focus so it is heard. */
 export function ConfirmacionEnLinea({
   trato,
   pregunta,
@@ -29,23 +29,30 @@ export function ConfirmacionEnLinea({
     preguntaRef.current?.focus()
   }, [])
 
-  const destructivo = trato === "destructivo"
   return (
-    <div className="confirmacion grid gap-2">
+    <div className="confirmacion grid gap-3">
       <p ref={preguntaRef} tabIndex={-1} className="text-cuerpo outline-none">
         {pregunta}
       </p>
-      <Boton
-        variante={destructivo ? "linea" : "primario"}
-        className={destructivo ? "border-error text-error" : undefined}
-        cargando={cargando}
-        onClick={alConfirmar}
-      >
-        {confirmar}
-      </Boton>
-      <Boton variante="callado" onClick={alVolver}>
-        {volver}
-      </Boton>
+      {trato === "destructivo" ? (
+        <div className="flex flex-wrap gap-2.5">
+          <Boton variante="destructiva" tamano="chico" cargando={cargando} onClick={alConfirmar}>
+            {confirmar}
+          </Boton>
+          <Boton variante="secundario" tamano="chico" onClick={alVolver}>
+            {volver}
+          </Boton>
+        </div>
+      ) : (
+        <>
+          <Boton cargando={cargando} onClick={alConfirmar}>
+            {confirmar}
+          </Boton>
+          <Boton variante="callado" onClick={alVolver}>
+            {volver}
+          </Boton>
+        </>
+      )}
     </div>
   )
 }

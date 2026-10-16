@@ -134,7 +134,7 @@ export function AvisosDelCelular({ claveVapid, acciones, puerto }: Propiedades) 
       ) : null}
       {estado === "activo" ? (
         <div className="grid gap-2">
-          <Boton variante="linea" cargando={ocupada} onClick={probar}>
+          <Boton variante="secundario" cargando={ocupada} onClick={probar}>
             Enviar uno de prueba
           </Boton>
           <Boton variante="callado" tamano="chico" cargando={ocupada} onClick={desactivar}>

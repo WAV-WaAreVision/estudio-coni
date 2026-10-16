@@ -65,7 +65,7 @@ export function VozParaFirmar({ piezaId, version, datos, alEscuchar, sinGuardar 
           <div className="grid gap-2">
             <div className="grid grid-cols-[1fr_auto] items-center gap-4">
               <Boton
-                variante="linea"
+                variante="secundario"
                 tamano="chico"
                 className="w-fit"
                 cargando={pedir.pendiente}

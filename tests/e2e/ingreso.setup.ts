@@ -23,9 +23,11 @@ setup("Coni entra con el código que le llega al correo", async ({ page }) => {
   await primera.click()
   await page.keyboard.type("000000")
   await expect(alerta(page, "Ese código no sirve o ya venció. Pide otro.")).toBeVisible()
-  // The error is said once, and asking for another code is a secondary with a visible outline.
+  // The error is said once, and asking for another code is a raised secondary.
   await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(1)
-  await expect(page.getByRole("button", { name: "Mandar otro código" })).toHaveCSS("border-top-width", "1px")
+  await expect(page.getByRole("button", { name: "Mandar otro código" })).toHaveClass(
+    /\bbg-piedra\b.*\bshadow-relieve\b/,
+  )
   await capturar(page, "02-ingreso-codigo")
 
   const codigo = await leerCodigo(CORREO_DE_CONI)
