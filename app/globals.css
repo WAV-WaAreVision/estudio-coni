@@ -316,11 +316,31 @@ body {
   }
 }
 
-/* The toast slides in 8 px and fades; a transition (not a keyframe) so a second toast retargets smoothly. */
+/* Decision 6: the toast sits above the bottom nav, at the top on a signing screen (never over the sign bar), and at
+   the bottom at large text, where nothing is pinned. It slides in 8 px and fades; a transition (not a keyframe) so a
+   second toast retargets smoothly. */
 .aviso {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  z-index: var(--capa-toast);
+  margin-inline: auto;
+  max-width: 520px;
   transition:
     transform var(--dur-media) var(--curva-salida),
     opacity var(--dur-media) var(--curva-salida);
+}
+.aviso[data-lugar="nav"] {
+  bottom: calc(var(--alto-nav) + 12px);
+}
+.aviso[data-lugar="arriba"] {
+  top: calc(env(safe-area-inset-top) + 12px);
+}
+/* From md the nav moves to the top: the toast sits at the bottom. */
+@media (min-width: 768px) {
+  .aviso[data-lugar="nav"] {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
 }
 @starting-style {
   .aviso {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { cn } from "@/lib/utils"
+import { createPortal } from "react-dom"
 
 export const DURACION_DEL_AVISO_MS = 8000
 
@@ -17,11 +17,14 @@ interface PropiedadesDeAviso {
   /** Focus "Deshacer" on mount, for a toast whose undo is what she most likely wants next. */
   enfocarDeshacer?: boolean
   duracionMs?: number
-  /** On Guion and Video the sign bar, not the bottom nav, sits under the toast. */
-  sobreBarra?: boolean
+  /** "nav": above the bottom nav. "arriba": at the top, on a screen with a sign bar (answered question 2). */
+  lugar?: "nav" | "arriba"
 }
 
-/** Brandkit 9.23: the toast. Ink background, gone after 8 s, with "Deshacer" only when the action can be undone. */
+/**
+ * Decisions 4 and 6: the toast, in ink with high relief, gone after 8 s, with "Deshacer" only when the action can be
+ * undone. Portalled to <body>, so a screen's layout never moves it; globals.css places it by `data-lugar`.
+ */
 export function Aviso({
   mensaje,
   alCerrar,
@@ -29,17 +32,24 @@ export function Aviso({
   deshaciendo,
   enfocarDeshacer = false,
   duracionMs = DURACION_DEL_AVISO_MS,
-  sobreBarra = false,
+  lugar = "nav",
 }: PropiedadesDeAviso) {
-  // A live region is announced when its content changes, not when it arrives already filled: it mounts empty.
+  // A live region is announced when its content changes, not when it arrives already filled: it mounts empty in
+  // <body> on one commit and gets its message on the next.
   const [montado, setMontado] = useState(false)
+  const [lleno, setLleno] = useState(false)
   const botonDeshacer = useRef<HTMLButtonElement>(null)
   const sigueDeshaciendo = deshaciendo === true
 
   useEffect(() => {
     setMontado(true)
+  }, [])
+
+  useEffect(() => {
+    if (!montado) return
+    setLleno(true)
     if (enfocarDeshacer) botonDeshacer.current?.focus()
-  }, [enfocarDeshacer])
+  }, [montado, enfocarDeshacer])
 
   useEffect(() => {
     // An undo on its way decides how the toast ends; the timer must not close it first.
@@ -48,23 +58,20 @@ export function Aviso({
     return () => clearTimeout(temporizador)
   }, [alCerrar, duracionMs, sigueDeshaciendo])
 
-  return (
+  if (!montado) return null
+  return createPortal(
     <output
-      className={cn(
-        "aviso fixed inset-x-5 z-20 mx-auto flex max-w-[520px] items-center justify-between gap-3 rounded-12 bg-tinta px-4 py-3 text-cuerpo text-sobre-tinta shadow-flotante",
-        sobreBarra
-          ? "bottom-[calc(var(--barra-max)+12px+env(safe-area-inset-bottom))]"
-          : "bottom-[calc(56px+12px+env(safe-area-inset-bottom))]",
-      )}
+      data-lugar={lugar}
+      className="aviso flex items-center gap-3 rounded-toast bg-tinta py-2.5 pr-2.5 pl-5 text-cuerpo font-semibold text-luz shadow-relieve-alto"
     >
-      <span>{montado ? mensaje : null}</span>
+      <span className="min-w-0 flex-1">{lleno ? mensaje : null}</span>
       {alDeshacer ? (
         <button
           ref={botonDeshacer}
           type="button"
           // aria-disabled, not disabled: the button keeps her focus while the undo is on its way.
           aria-disabled={sigueDeshaciendo || undefined}
-          className="min-h-11 px-2 font-semibold text-sobre-tinta underline aria-disabled:no-underline"
+          className="min-h-objetivo shrink-0 rounded-control bg-luz px-[18px] text-cuerpo font-semibold text-tinta focus-visible:outline-luz aria-disabled:opacity-70"
           onClick={() => {
             if (sigueDeshaciendo) return
             alDeshacer()
@@ -74,6 +81,7 @@ export function Aviso({
           {sigueDeshaciendo ? "Deshaciendo…" : "Deshacer"}
         </button>
       ) : null}
-    </output>
+    </output>,
+    document.body,
   )
 }

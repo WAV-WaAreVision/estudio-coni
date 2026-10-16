@@ -32,7 +32,8 @@ describe("ConsultaNueva", () => {
 
     await waitFor(() => expect(screen.getByText("3 consultas en octubre")).toBeInTheDocument())
     expect(alAnotar).toHaveBeenCalledTimes(1)
-    expect(screen.getByText("Anotada. Van 3 en octubre.")).toBeInTheDocument()
+    // The toast fills one commit after it mounts, so the message is announced.
+    expect(await screen.findByText("Anotada. Van 3 en octubre.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Deshacer" })).toBeInTheDocument()
   })
 

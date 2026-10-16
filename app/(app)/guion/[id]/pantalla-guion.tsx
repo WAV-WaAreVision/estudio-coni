@@ -306,7 +306,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           </>
         )}
       </div>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
       <BarraDeFirma
         idConsecuencia={idConsecuencia}
         consecuencia={grabacion.lineaDeFirma}

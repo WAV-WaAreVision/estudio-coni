@@ -288,7 +288,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         )}
       </div>
 
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
       <BarraDeFirma
         arriba={
           <>
