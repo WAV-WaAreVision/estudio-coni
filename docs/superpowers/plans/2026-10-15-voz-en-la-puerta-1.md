@@ -4568,6 +4568,8 @@ pnpm install --frozen-lockfile
 TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check
 ```
 
+If this deploy fails, stop: do not run Step 5 (Vercel). The new app needs the new tasks.
+
 The dashboard shows the new version; `producir-pieza` has `maxDuration` 1200. From here until Step 5 is served, Coni
 does not approve or record a voice (minutes): the old app would write `guion_aprobado`/`grabando_voz` with an approval
 the new tasks no longer expect.
@@ -4577,9 +4579,28 @@ the new tasks no longer expect.
 `vercel deploy --prod --yes`. The push does not deploy by itself. Wait 15 to 45 s for the alias, hard-refresh, and
 confirm the Guion screen of a script reads "Desliza para aprobar y grabar" before judging anything.
 
-Then run the check of Step 2 again: pieces the old app left in `grabando_voz` between Steps 3 and 5 go to
-`guion_por_aprobar` with the same SQL (OK needed). No "script ready" notice fires for them, because `20261016000210`
-skips the way back from `grabando_voz`; that is fine, Coni finds them on Inicio.
+Then check the pieces in flight again (read-only), now also for a stale signature: a voice the old app asked for between
+Steps 4 and 5 comes back to `guion_por_aprobar` with the old approval still on it.
+
+```sql
+select id, estado, puerta1_hash is not null as firmada, audio_id from public.piezas
+where estado in ('guion_aprobado', 'grabando_voz')
+   or (estado = 'guion_por_aprobar' and puerta1_hash is not null);
+```
+
+Expected: zero rows. If there are rows, and only with Federico's OK, move them to gate 1 with the signature cleared:
+
+```sql
+update public.piezas
+   set estado = 'guion_por_aprobar', puerta1_hash = null, puerta1_en = null, explicacion = null, version = version + 1
+ where estado in ('guion_aprobado', 'grabando_voz')
+    or (estado = 'guion_por_aprobar' and puerta1_hash is not null);
+```
+
+Notices: a row moved from `guion_aprobado` does write "Tu guion «...» está listo para revisar." (the SQL editor is not
+Coni), which is right, the script waits for her again. A row moved from `grabando_voz` writes none, because
+`20261016000210` skips the way back from `grabando_voz`; that is fine, Coni finds it on Inicio. A row already in
+`guion_por_aprobar` does not change state, so it writes none either.
 
 - [ ] **Step 6 (OK needed): smoke test with the Coni test account (`federico@wearevision.cl`)**
 
