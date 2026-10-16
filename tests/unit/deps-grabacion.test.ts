@@ -85,7 +85,11 @@ afterEach(() => {
   }
 })
 
-const ESPERA = { callbackUrl: "https://api.trigger.dev/callback", esperarRender: async () => {} }
+const ESPERA = {
+  callbackUrl: "https://api.trigger.dev/callback",
+  esperarRender: async () => {},
+  esperar: async () => {},
+}
 
 describe("depsGrabacion", () => {
   it("names the missing Supabase variable first", async () => {
@@ -120,12 +124,16 @@ describe("depsGrabacion", () => {
   it("builds the dependencies of a run with the callback and the wait it was given", async () => {
     entornoCompleto()
     const esperas: string[] = []
+    const ventanas: number[] = []
 
     const deps = await depsGrabacion(
       {
         callbackUrl: "https://api.trigger.dev/callback",
         esperarRender: async (videoId) => {
           esperas.push(videoId)
+        },
+        esperar: async (ms) => {
+          ventanas.push(ms)
         },
       },
       SIN_FFMPEG_DEL_SISTEMA,
@@ -138,5 +146,7 @@ describe("depsGrabacion", () => {
     expect(typeof deps.sondear).toBe("function")
     expect(typeof deps.almacen.subir).toBe("function")
     expect(deps.ahora()).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    await deps.esperar(7000)
+    expect(ventanas).toEqual([7000])
   })
 })

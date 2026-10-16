@@ -215,6 +215,7 @@ describe.skipIf(!FFMPEG)("ffmpeg with libass (skipped without it: brew install f
         const deps = await depsGrabacion({
           callbackUrl: "https://api.trigger.dev/callback",
           esperarRender: async () => {},
+          esperar: async () => {},
         })
 
         const final = await deps.quemar({ video: await clip(ffmpeg, 6), ass: ASS })

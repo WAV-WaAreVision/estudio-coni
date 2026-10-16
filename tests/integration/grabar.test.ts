@@ -20,7 +20,7 @@ import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
 import { comoConi, comoServicio, pool } from "./db"
-import { AUDIO, AVATAR, aplicar, crearPiezaEn, GUION, TEXTO } from "./flujo"
+import { AUDIO, AVATAR, aplicar, aprobarComoConi, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
@@ -142,6 +142,7 @@ interface Doble {
   quemados: { video: Uint8Array; ass: string }[]
   sondeados: Uint8Array[]
   esperas: string[]
+  ventanas: number[]
 }
 
 function doble(cambios: Partial<DepsGrabacion> = {}): Doble {
@@ -149,6 +150,7 @@ function doble(cambios: Partial<DepsGrabacion> = {}): Doble {
   const quemados: Doble["quemados"] = []
   const sondeados: Uint8Array[] = []
   const esperas: string[] = []
+  const ventanas: number[] = []
   const deps: DepsGrabacion = {
     db: clienteDeServicio(),
     avisos: notificadorEnMemoria(),
@@ -166,9 +168,12 @@ function doble(cambios: Partial<DepsGrabacion> = {}): Doble {
     },
     callbackUrl: CALLBACK,
     ahora: () => new Date().toISOString(),
+    esperar: async (ms) => {
+      ventanas.push(ms)
+    },
     ...cambios,
   }
-  return { deps, almacen, quemados, sondeados, esperas }
+  return { deps, almacen, quemados, sondeados, esperas, ventanas }
 }
 
 const piezasCreadas: string[] = []
@@ -1073,6 +1078,158 @@ describe("deshacer la firma mientras el render espera", () => {
     expect(sim.creaciones).toHaveLength(0)
     expect(await gastos(id)).toEqual([])
     expect(clave(deshecha.intento)).not.toBe(clave(firmada.intento))
+  })
+})
+
+describe("grabarPieza y la ventana para deshacer", () => {
+  /** A clock that starts `desde` ms after the signature and moves only when the run waits. */
+  async function relojTrasLaFirma(id: string, desde: number) {
+    const { rows } = await pool.query<{ en: Date }>("select puerta1_en as en from public.piezas where id = $1", [id])
+    const firma = rows[0]?.en
+    if (!firma) throw new Error(`La pieza ${id} no tiene firma`)
+    let ms = firma.getTime() + desde
+    return {
+      firma: firma.getTime(),
+      ahora: () => new Date(ms).toISOString(),
+      avanzar: (espera: number) => {
+        ms += espera
+      },
+    }
+  }
+
+  it("waits out the window and the clock margin before it spends, then records once", async () => {
+    const id = await crearPiezaEnRender()
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(ventanas).toEqual([7000])
+    expect(sim.creaciones).toHaveLength(1)
+  })
+
+  it("spends nothing when Coni undoes while the run waits", async () => {
+    const id = await crearPiezaEnRender()
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        await enTransaccion(async (c) => {
+          await aplicar(c, id, comoConi, {
+            tipo: "deshacer_aprobacion",
+            actor: "coni",
+            ahora: new Date(reloj.firma + 4000).toISOString(),
+          })
+        })
+        reloj.avanzar(ms)
+      },
+    })
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "nada_que_hacer" })
+    expect(sim.assets).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toEqual([])
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
+  })
+
+  it("waits for the second window when she undoes and signs again, and pays HeyGen once", async () => {
+    const id = await crearPiezaEnRender()
+    const primera = await pieza(id)
+    // The run of the second signature starts 1 s after it, an early fire of its 10 s delay.
+    const reloj = await relojTrasLaFirma(id, 6000)
+    await enTransaccion(async (c) => {
+      await aplicar(c, id, comoConi, {
+        tipo: "deshacer_aprobacion",
+        actor: "coni",
+        ahora: new Date(reloj.firma + 4000).toISOString(),
+      })
+      await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
+    })
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    // It carries the attempt the undo opened and waits until the second window and the margin are over.
+    expect((await grabarPieza(d.deps, id, primera.intento + 1)).resultado).toBe("grabada")
+    expect(ventanas).toEqual([9000])
+    // Another run of the same attempt (a resumption) finds the video already made.
+    expect(await grabarPieza(d.deps, id, primera.intento + 1)).toEqual({ resultado: "nada_que_hacer" })
+    expect(sim.creaciones).toHaveLength(1)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toHaveLength(1)
+  })
+
+  it("ends the run of an undone signature when she signed again while it waited, without a second wait", async () => {
+    const id = await crearPiezaEnRender()
+    const primera = await pieza(id)
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        await enTransaccion(async (c) => {
+          await aplicar(c, id, comoConi, {
+            tipo: "deshacer_aprobacion",
+            actor: "coni",
+            ahora: new Date(reloj.firma + 4000).toISOString(),
+          })
+          await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
+        })
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    // The run of the first signature: the piece is back in render for the same text, but it is another attempt.
+    expect(await grabarPieza(d.deps, id, primera.intento)).toEqual({ resultado: "nada_que_hacer" })
+    expect(ventanas).toEqual([7000])
+    expect(sim.creaciones).toHaveLength(0)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toEqual([])
+  })
+
+  it("does not wait for a signature whose window closed long ago", async () => {
+    const id = await crearPiezaEnRender()
+    simular()
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(d.ventanas).toEqual([])
+  })
+
+  it("throws for WAV, without sleeping or spending, when the task clock is far behind the signature", async () => {
+    const id = await crearPiezaEnRender()
+    const reloj = await relojTrasLaFirma(id, -120_000)
+    const sim = simular()
+    const d = doble({ ahora: reloj.ahora })
+    await conVozEnAlmacen(d.almacen, id)
+
+    const error = await grabarPieza(d.deps, id).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toHaveProperty("message", expect.stringContaining(id))
+    expect(error).toHaveProperty("message", expect.stringContaining("130 s"))
+    expect(d.ventanas).toEqual([])
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+    expect(await pieza(id)).toMatchObject({ estado: "en_render" })
   })
 })
 

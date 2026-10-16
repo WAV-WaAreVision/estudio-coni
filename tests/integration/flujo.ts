@@ -78,6 +78,8 @@ export async function aplicar(
 
 const ahora = (): string => new Date().toISOString()
 const maniana = (): string => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+/** A walked piece was signed a minute ago: its undo window is long closed, so a render of it never waits. */
+const haceUnMinuto = (): string => new Date(Date.now() - 60_000).toISOString()
 
 /**
  * Gate 1 as the screen writes it: Coni's session, with the avatar and the formula in the same update as the
@@ -129,7 +131,7 @@ function pasos(opciones: OpcionesDePieza): Paso[] {
           ...(opciones.textoLinkedin === undefined ? {} : { texto_linkedin: opciones.textoLinkedin }),
         },
       ),
-    (c, id) => aprobarComoConi(c, id, ahora()),
+    (c, id) => aprobarComoConi(c, id, haceUnMinuto()),
     (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
     (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),
     (c, id) =>

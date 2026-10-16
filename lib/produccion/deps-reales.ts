@@ -80,7 +80,11 @@ function carpetaDeFuentes(): string {
  * ffmpeg with libass, the Montserrat face) fails here, before the run reserves or spends anything.
  */
 export async function depsGrabacion(
-  espera: { callbackUrl: string; esperarRender: (videoId: string) => Promise<void> },
+  espera: {
+    callbackUrl: string
+    esperarRender: (videoId: string) => Promise<void>
+    esperar: (ms: number) => Promise<void>
+  },
   opciones: { ffmpegFijos?: readonly string[] } = {},
 ): Promise<DepsGrabacion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
@@ -102,6 +106,7 @@ export async function depsGrabacion(
     quemar: ({ video, ass }) => quemarSubtitulos({ ffmpeg, video, ass, fontsdir }),
     sondear: (bytes) => sondear({ ffprobe, bytes }),
     esperarRender: espera.esperarRender,
+    esperar: espera.esperar,
     callbackUrl: espera.callbackUrl,
     ahora: () => new Date().toISOString(),
   }

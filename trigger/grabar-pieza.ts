@@ -35,6 +35,10 @@ export const grabarPiezaTask = schemaTask({
     const deps = await depsGrabacion({
       callbackUrl: token.url,
       esperarRender: async () => terminarEspera(await wait.forToken(token)),
+      // The undo window of a fresh signature: a checkpointed wait, so the run costs nothing meanwhile.
+      esperar: async (ms) => {
+        await wait.for({ seconds: Math.ceil(ms / 1000) })
+      },
     })
     return grabarPieza(deps, piezaId, intento)
   },
