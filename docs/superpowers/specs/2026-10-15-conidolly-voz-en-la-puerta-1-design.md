@@ -110,6 +110,10 @@ through `iniciar(...)`, so a run that fails to start is still resumed by `reanud
   `puedeGrabar`. It covers a run that starts before its window has closed (a delayed run that fires early, a
   resumption by `reanudarArranques`, a clock that differs between Vercel and Trigger.dev): HeyGen stays untouched until
   the window of the signature the row holds now has closed.
+- **The run takes the piece before it spends.** After the wait and before any spend of a render not yet created,
+  `grabarPieza` bumps only `version` (locked on the version it read; no state change, no notice). An undo that committed
+  first makes it miss (a retryable error; the retry finds gate 1); a later undo is refused by the version lock, or with
+  the late text, which `deshacerAprobacion` checks before the version.
 - **Why the undo bumps `intento`.** Trigger.dev keeps the idempotency key of a completed run (30 days by default) and a
   new trigger under that key returns the old run. The key of the render is the approved text plus `intento`
   (`claveGrabar`). If an undo kept `intento`, the delayed run of the undone signature would fire, find the piece back at

@@ -2252,10 +2252,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 Spec section 5, "second lock in the render". The wait covers a run that starts before its own window has closed (an
 early fire of the delayed run, a resumption by maintenance, clock skew between Vercel and Trigger.dev). A newer
-signature always means a newer attempt (the undo bumps `intento`), which ends this run; the `esperada` guard of the loop
-matters only for a run queued without an `intento` by the previously deployed app. A wait longer than the window, the
-margin and a minute of skew is a clock far off: the run fails as a `FallaDeConfiguracion` instead of sleeping, so WAV
-hears of it through `onFailure` (added in review, C5).
+signature always means a newer attempt (the undo bumps `intento`), which ends a run that carries its own; a run queued
+without an `intento` by the previously deployed app waits for that signature too. The `esperada` guard applies to every
+run: after one wait for a signature the loop trusts that wait (timed by Trigger.dev) instead of reading again a clock
+that may lag, so the loop always ends. A wait longer than the window, the margin and a minute of skew is a clock far
+off: the run fails as a `FallaDeConfiguracion` instead of sleeping, so WAV hears of it through `onFailure` (added in
+review, C5). After the wait and before its first spend the run takes the piece with a version-only write (added in
+review, R1), so an undo that commits late either makes that write miss or is refused by the version lock.
 
 **Files:**
 - Modify: `lib/produccion/grabar.ts` (`DepsGrabacion` lines 41-60; `grabarPieza` lines 248-256; a new helper before it)
@@ -2466,9 +2469,10 @@ Expected: FAIL. The run creates the video without waiting (`ventanas` is `[]`), 
 /**
  * The second lock of the undo window (design 2026-10-15, decision 5). A run that starts before the window of its
  * signature has closed (a delayed run that fires early, a resumption by maintenance, a task clock behind the app's)
- * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature always
- * comes with a newer attempt, which ends this run in `grabarPieza`; `esperada` keeps a run queued without an attempt
- * by the previously deployed app from waiting twice for the same signature.
+ * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature comes
+ * with a newer attempt, which ends a run that carries its own in `grabarPieza`; a run queued without one by the
+ * previously deployed app waits for that signature too. After one wait for a signature (`esperada`) the loop trusts
+ * that wait, timed by Trigger.dev, instead of reading again a clock that may lag, so the loop always ends.
  */
 async function despuesDeLaVentana(
   deps: DepsGrabacion,
@@ -2534,7 +2538,8 @@ and the returned object gains `esperar: espera.esperar,` after `esperarRender`.
     const deps = await depsGrabacion({
       callbackUrl: token.url,
       esperarRender: async () => terminarEspera(await wait.forToken(token)),
-      // The undo window of a fresh signature: a checkpointed wait, so the run costs nothing meanwhile.
+      // The undo window of a fresh signature. Checkpointed when longer than 5 s, so the run costs nothing meanwhile;
+      // a shorter wait runs in process and counts as compute.
       esperar: async (ms) => {
         await wait.for({ seconds: Math.ceil(ms / 1000) })
       },
