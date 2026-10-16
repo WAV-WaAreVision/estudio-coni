@@ -427,6 +427,35 @@ describe("tema_mas_cercano", () => {
     })
   })
 
+  it("still finds an active topic behind more merged topics than one HNSW scan returns", async () => {
+    await como(comoServicio, async (c) => {
+      const centroide = `[${Array.from({ length: 1024 }, (_, i) => (i === 0 ? 0.95 : i === 1 ? 0.31 : 0)).join(",")}]`
+      const activo = await id(
+        c,
+        "insert into public.temas (nombre, descripcion, centroide) values ('Activo', 'd', $1::extensions.vector) returning id",
+        [centroide],
+      )
+      // 45 distinct merged topics sit closer to the query than the active one: more than one HNSW scan returns
+      // (hnsw.ef_search is 40), and an approximate scan of near-duplicates can miss the active topic altogether.
+      for (let n = 0; n < 45; n++) {
+        const cerca = `[${Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : i === n + 2 ? 0.01 : 0)).join(",")}]`
+        await c.query(
+          "insert into public.temas (nombre, descripcion, centroide, fusionado_en) values ($1, 'd', $2::extensions.vector, $3)",
+          [`Fusionado ${n}`, cerca, activo],
+        )
+      }
+      // The planner reaches for the HNSW index on a production-size table; these settings make it do so here too.
+      await c.query("set local enable_seqscan = off")
+      await c.query("set local enable_bitmapscan = off")
+      await c.query("set local enable_sort = off")
+      const { rows } = await c.query("select * from public.tema_mas_cercano($1::extensions.vector, 0.8)", [
+        vector(1, 0),
+      ])
+      expect(rows).toHaveLength(1)
+      expect(rows[0].tema_id).toBe(activo)
+    })
+  })
+
   it("is callable only by the service role", async () => {
     await como(comoConi, async (c) => {
       expect(
