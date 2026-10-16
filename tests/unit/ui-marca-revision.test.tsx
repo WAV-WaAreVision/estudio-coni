@@ -48,7 +48,7 @@ describe("MarcaRevision", () => {
     expect(screen.getByText(/no puedes aprobar/i)).toBeInTheDocument()
   })
 
-  it("writes a warning as a status line with its label in the aviso ink and no box", () => {
+  it("writes a warning as a honda block with its label in ink, never a coloured box", () => {
     const { container } = render(
       <MarcaRevision
         hallazgo={{ regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" }}
@@ -57,7 +57,7 @@ describe("MarcaRevision", () => {
       />,
     )
 
-    expect(screen.getByText("Para confirmar:")).toHaveClass("text-aviso")
+    expect(screen.getByText("Para confirmar:").closest("output")).toHaveClass("bg-piedra-honda")
     expect(container.innerHTML).not.toMatch(/\bbg-aviso|\bbg-error/)
   })
 
@@ -71,6 +71,6 @@ describe("MarcaRevision", () => {
     )
 
     expect(screen.getByRole("alert")).toHaveTextContent("Hay que corregirlo:")
-    expect(screen.getByText("Hay que corregirlo:")).toHaveClass("text-error")
+    expect(screen.getByText("Hay que corregirlo:").closest("[role=alert]")).toHaveClass("bg-piedra-honda")
   })
 })

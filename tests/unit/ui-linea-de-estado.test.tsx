@@ -3,37 +3,50 @@ import { describe, expect, it } from "vitest"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 
 describe("LineaDeEstado", () => {
-  it("interrupts with role=alert when it is an error", () => {
+  it("interrupts with an error block", () => {
     render(<LineaDeEstado tipo="error" titulo="No pude cargar esta pantalla." detalle="Puede ser la conexión." />)
-    expect(screen.getByRole("alert")).toHaveTextContent("No pude cargar esta pantalla.Puede ser la conexión.")
+    const alerta = screen.getByRole("alert")
+    expect(alerta).toHaveTextContent("No pude cargar esta pantalla.Puede ser la conexión.")
+    expect(alerta).toHaveClass("bg-piedra-honda")
+    expect(screen.getByText("No pude cargar esta pantalla.")).toHaveClass("text-error")
   })
 
-  it("waits politely (status) for the other tones", () => {
+  it("says success as a flat ok pill, politely", () => {
     render(<LineaDeEstado tipo="exito" titulo="Guardado" />)
-    expect(screen.getByRole("status")).toHaveTextContent("Guardado")
+    const estado = screen.getByRole("status")
+    expect(estado).toHaveTextContent("Guardado")
+    expect(screen.getByText("Guardado").parentElement).toHaveClass("bg-piedra-honda", "min-h-pildora")
+    expect(estado.innerHTML).not.toMatch(/shadow-/)
   })
 
-  it("colours the title when it is the state itself and keeps a message in ink", () => {
-    const { rerender } = render(<LineaDeEstado tipo="exito" titulo="Lo viste completo" />)
-    expect(screen.getByText("Lo viste completo")).toHaveClass("text-exito")
-    rerender(<LineaDeEstado tipo="aviso" rotulo="Para confirmar:" titulo="La fuente es débil." tituloEnTinta />)
-    expect(screen.getByText("Para confirmar:")).toHaveClass("text-aviso")
-    expect(screen.getByText("La fuente es débil.")).toHaveClass("text-tinta")
+  it("draws a warning as a honda block with its icon, in ink", () => {
+    render(<LineaDeEstado tipo="aviso" titulo="Llegaste al tope de gasto de este mes." />)
+    const estado = screen.getByRole("status")
+    expect(estado).toHaveClass("bg-piedra-honda")
+    expect(estado.querySelector("svg")).not.toBeNull()
+    expect(estado.innerHTML).not.toMatch(/text-error/)
   })
 
-  it("never paints a background or a box", () => {
-    const { container } = render(<LineaDeEstado tipo="aviso" titulo="Saldo bajo" />)
-    expect(container.firstElementChild?.className).not.toMatch(/\bbg-|\bborder\b|rounded/)
+  it("keeps an error title in ink when it is a message", () => {
+    render(<LineaDeEstado tipo="error" titulo="Esto cambió mientras lo revisabas." tituloEnTinta />)
+    expect(screen.getByText("Esto cambió mientras lo revisabas.")).toHaveClass("text-tinta")
   })
 
-  it("renders its optional action aligned with the text", () => {
+  it("is a flat line with its icon for neutral news, without a box", () => {
     render(<LineaDeEstado tipo="neutro" titulo="Puedes decir que no" accion={<a href="/x">Revisar la frase</a>} />)
-    expect(screen.getByRole("link", { name: "Revisar la frase" }).parentElement).toHaveClass("col-start-2")
+    const estado = screen.getByRole("status")
+    expect(estado.className).not.toMatch(/\bbg-/)
+    expect(screen.getByRole("link", { name: "Revisar la frase" })).toBeInTheDocument()
   })
 
   it("is not a live region when it is a date the screen simply states", () => {
-    render(<LineaDeEstado tipo="fecha" titulo="Si lo apruebas hoy, sale el jueves" />)
+    render(<LineaDeEstado tipo="fecha" titulo="Si lo firmas hoy, sale el jueves" />)
     expect(screen.queryByRole("status")).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("does not interrupt again for an error already announced", () => {
+    render(<LineaDeEstado tipo="error" titulo="Hay que corregirlo" anunciada />)
     expect(screen.queryByRole("alert")).toBeNull()
   })
 })
