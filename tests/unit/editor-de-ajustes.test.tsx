@@ -165,11 +165,12 @@ describe("EditorDeAjustes", () => {
     expect(screen.getByText("hora de Chile")).toBeInTheDocument()
   })
 
-  it("draws the month's spend as a meter that turns to aviso from 80 percent of the cap", () => {
+  it("draws the month's spend as a sunken meter that adds a warning icon from 80 percent of the cap", () => {
     render(<EditorDeAjustes inicial={{ ...INICIAL, usado: 32 }} acciones={acciones()} linkedinConectado={false} />)
 
     expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveAttribute("aria-valuenow", "32")
-    expect(screen.getByText("Llevas US$ 32,00 este mes")).toHaveClass("text-aviso")
+    expect(screen.getByText("Llevas US$ 32,00 este mes")).toHaveClass("text-tinta")
+    expect(screen.getByText("Llevas US$ 32,00 este mes").querySelector("svg")).not.toBeNull()
   })
 
   it("keeps the spend in ink below 80 percent", () => {

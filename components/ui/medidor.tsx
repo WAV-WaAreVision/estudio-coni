@@ -1,7 +1,6 @@
 import { Warning } from "@phosphor-icons/react/dist/ssr"
-import { ICONO } from "@/components/ui/icono"
 import { tonoDelMedidor } from "@/lib/diseno/medidor"
-import { cn } from "@/lib/utils"
+import { ICONO } from "./icono"
 import { LineaDeEstado } from "./linea-de-estado"
 
 interface PropiedadesDelMedidor {
@@ -11,22 +10,16 @@ interface PropiedadesDelMedidor {
   texto: string
 }
 
-/** Brandkit 9.15: a 4 px meter of the month's spend; from 80 percent of the cap it turns to aviso. */
+/** Decision 4: a sunken .625rem meter with an ink fill; from 80 percent the figure adds a warning icon, no colour. */
 export function Medidor({ gastado, tope, texto }: PropiedadesDelMedidor) {
   const { tono, porcentaje, alTope } = tonoDelMedidor(gastado, tope)
-  const enAviso = tono === "aviso"
   return (
     <div className="grid gap-2">
-      <p
-        className={cn(
-          "flex items-center gap-2 text-meta font-medium tabular-nums",
-          enAviso ? "text-aviso" : "text-tinta",
-        )}
-      >
-        {enAviso ? <Warning aria-hidden="true" size={ICONO.chico} /> : null}
+      <p className="flex items-center gap-2 text-meta font-medium text-tinta tabular-nums">
+        {tono === "aviso" ? <Warning aria-hidden="true" size={ICONO.chico} /> : null}
         {texto}
       </p>
-      {/* biome-ignore lint/a11y/useSemanticElements: a native meter cannot be drawn as a 4 px rounded track on every browser. */}
+      {/* biome-ignore lint/a11y/useSemanticElements: a native meter cannot be drawn as a sunken rounded track on every browser. */}
       <div
         role="meter"
         aria-label="Gasto del mes"
@@ -34,14 +27,11 @@ export function Medidor({ gastado, tope, texto }: PropiedadesDelMedidor) {
         aria-valuemax={tope}
         aria-valuenow={gastado}
         aria-valuetext={texto}
-        className="h-1 overflow-hidden rounded-full bg-pista"
+        className="h-riel overflow-hidden rounded-control bg-piedra-honda shadow-hundido"
       >
-        <div
-          className={cn("h-full rounded-full", enAviso ? "bg-aviso" : "bg-tinta")}
-          style={{ width: `${porcentaje}%` }}
-        />
+        <div className="h-full rounded-control bg-tinta" style={{ width: `${porcentaje}%` }} />
       </div>
-      {alTope ? <LineaDeEstado tipo="aviso" titulo="Llegaste al tope de gasto de este mes." tituloEnTinta /> : null}
+      {alTope ? <LineaDeEstado tipo="aviso" titulo="Llegaste al tope de gasto de este mes." /> : null}
     </div>
   )
 }

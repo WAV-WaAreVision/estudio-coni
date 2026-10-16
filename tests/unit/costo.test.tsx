@@ -25,10 +25,12 @@ describe("Medidor", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
-  it("turns to aviso from 80 percent", () => {
+  it("adds a warning icon from 80 percent, without changing colour", () => {
     render(<Medidor gastado={33} tope={40} texto="Llevas US$ 33,00 este mes" />)
-    expect(screen.getByText("Llevas US$ 33,00 este mes")).toHaveClass("text-aviso")
-    expect(screen.queryByRole("status")).toBeNull()
+    const cifra = screen.getByText("Llevas US$ 33,00 este mes")
+    expect(cifra).toHaveClass("text-tinta")
+    expect(cifra.querySelector("svg")).not.toBeNull()
+    expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveClass("bg-piedra-honda", "shadow-hundido")
   })
 
   it("adds the cap line when the cap is reached", () => {
