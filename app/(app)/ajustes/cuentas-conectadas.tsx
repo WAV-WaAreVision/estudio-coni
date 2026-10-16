@@ -1,7 +1,7 @@
 "use client"
 
 import { CheckCircle, Info, Warning, WarningCircle } from "@phosphor-icons/react"
-import { type FormEvent, useState, useTransition } from "react"
+import { type FormEvent, useCallback, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
@@ -35,6 +35,8 @@ interface PropiedadesDeCuentas {
 export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: PropiedadesDeCuentas) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  // Stable, so a re-render while the toast is up does not restart its 8 s.
+  const cerrarMensaje = useCallback(() => setMensaje(null), [])
 
   return (
     <div className="grid">
@@ -86,7 +88,7 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
           </li>
         ))}
       </ul>
-      {mensaje ? <Aviso mensaje={mensaje} alCerrar={() => setMensaje(null)} /> : null}
+      {mensaje ? <Aviso mensaje={mensaje} alCerrar={cerrarMensaje} /> : null}
     </div>
   )
 }

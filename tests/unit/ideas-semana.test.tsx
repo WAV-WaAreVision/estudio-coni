@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { IdeasSemana } from "@/app/(app)/ideas-semana"
 
 const IDEAS = [
@@ -16,7 +16,32 @@ function elegir(...ganchos: string[]) {
   for (const gancho of ganchos) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(gancho.slice(0, 20)) }))
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("IdeasSemana", () => {
+  it("keeps the toast's 8 s while she picks again: a re-render does not restart its timer", async () => {
+    vi.useFakeTimers()
+    render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn(async () => ({ ok: true as const, piezas: ["p1"] }))} />)
+    elegir(IDEAS[0].gancho)
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Escribir 1 guion" }))
+    })
+    const aviso = "Escribiendo 1 guiones. Te aviso cuando estén."
+    expect(screen.getByText(aviso)).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    elegir(IDEAS[1].gancho)
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(screen.queryByText(aviso)).toBeNull()
+  })
+
   it("offers the ideas with the pillar named, and asks for at least one", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 

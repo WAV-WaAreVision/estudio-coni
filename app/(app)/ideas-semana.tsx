@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "@phosphor-icons/react"
 import Link from "next/link"
-import { useState, useTransition } from "react"
+import { useCallback, useState, useTransition } from "react"
 import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
@@ -29,6 +29,8 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   const [elegidas, setElegidas] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  // Stable, so a re-render while the toast is up does not restart its 8 s.
+  const cerrarAviso = useCallback(() => setAviso(null), [])
   const [pendiente, empezar] = useTransition()
 
   if (ideas.length === 0) {
@@ -99,7 +101,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
             : `Elige al menos una idea. Puedes elegir hasta ${MAXIMO_DE_IDEAS}.`}
       </p>
       <FilaNavegacion href="/ideas">Ver todas las ideas</FilaNavegacion>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} /> : null}
     </Seccion>
   )
 }

@@ -1,11 +1,12 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeVideo, PantallaVideo } from "@/app/(app)/video/[id]/pantalla-video"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, type Hallazgo } from "@/lib/dominio/revision"
 
-const { aprobarVideoAccion, editarTextoLinkedinAccion } = vi.hoisted(() => ({
+const { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } = vi.hoisted(() => ({
   aprobarVideoAccion: vi.fn(),
   editarTextoLinkedinAccion: vi.fn(),
+  regrabarAccion: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -13,7 +14,7 @@ vi.mock("@/app/(app)/piezas/acciones", () => ({
   aprobarVideoAccion,
   editarTextoLinkedinAccion,
   editarTextoAccion: vi.fn(),
-  regrabarAccion: vi.fn(),
+  regrabarAccion,
 }))
 vi.mock("@/app/(app)/ajustes/acciones", () => ({ marcarAvatarVistoAccion: vi.fn() }))
 // The player is a real <video>: here it only says it was watched to the end.
@@ -89,6 +90,33 @@ beforeEach(() => {
   })
   HTMLElement.prototype.setPointerCapture = vi.fn()
   HTMLElement.prototype.releasePointerCapture = vi.fn()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+describe("PantallaVideo: el aviso", () => {
+  it("keeps the toast's 8 s while she reviews: a re-render does not restart its timer", async () => {
+    vi.useFakeTimers()
+    regrabarAccion.mockResolvedValue({ ok: true, advertencia: "Regrabo sin tu voz." })
+    abrir()
+    fireEvent.click(screen.getByRole("button", { name: "Regrabar" }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sí, regrabar" }))
+    })
+    expect(screen.getByText("Regrabo sin tu voz.")).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    revisar()
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(screen.queryByText("Regrabo sin tu voz.")).toBeNull()
+  })
 })
 
 describe("PantallaVideo: dónde se publica", () => {

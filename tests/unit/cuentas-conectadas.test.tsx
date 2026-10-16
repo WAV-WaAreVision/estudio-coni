@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { CuentasConectadas } from "@/app/(app)/ajustes/cuentas-conectadas"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -18,7 +18,32 @@ function mostrar(guardarLlave: (cuenta: string, llave: string) => Promise<Result
   render(<CuentasConectadas filas={FILAS} guardarLlave={guardarLlave} desconectarLinkedin={vi.fn()} />)
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("CuentasConectadas", () => {
+  it("keeps the toast's 8 s while she opens another key: a re-render does not restart its timer", async () => {
+    vi.useFakeTimers()
+    mostrar(vi.fn(async () => ({ ok: true as const, estado: "comprobada" as const })))
+    fireEvent.click(screen.getByRole("button", { name: "Agregar la llave de ElevenLabs" }))
+    fireEvent.change(screen.getByLabelText("Llave de ElevenLabs"), { target: { value: "la-llave" } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y comprobar" }))
+    })
+    expect(screen.getByText("Guardada y comprobada.")).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar la llave de HeyGen" }))
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(screen.queryByText("Guardada y comprobada.")).toBeNull()
+  })
+
   it("says in words how each account is", () => {
     mostrar(vi.fn())
 
