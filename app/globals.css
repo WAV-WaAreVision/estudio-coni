@@ -130,7 +130,6 @@
   --anillo-foco: 0 0 0 2px var(--piedra), 0 0 0 4px var(--tinta);
   --barra-max: 176px;
   --r-12: 12px;
-  --foto-brillo: 1;
 }
 
 @theme inline {

@@ -471,15 +471,14 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  const grupo = page.getByRole("radiogroup", { name: "Elige con qué avatar se graba" })
+  const grupo = page.getByRole("group", { name: "Avatar" })
   await expect(grupo).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(2)
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(0)
-  await expect(page.getByRole("img", { name: "Estudio" })).toBeVisible()
-  await expect(page.getByRole("img", { name: "Terraza" })).toBeVisible()
-  await expect
-    .poll(() => page.getByRole("img", { name: "Estudio" }).evaluate((img: HTMLImageElement) => img.naturalWidth))
-    .toBeGreaterThan(0)
+  const foto = page.locator('img[src*="look-a"]')
+  await expect(foto).toBeVisible()
+  await expect(page.locator('img[src*="look-b"]')).toBeVisible()
+  await expect.poll(() => foto.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
   await grupo.scrollIntoViewIfNeeded()
   await capturar(page, "guion-avatar-sin-elegir")
 
