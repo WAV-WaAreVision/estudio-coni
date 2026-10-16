@@ -10,13 +10,13 @@ export function AyudaDeMarcas() {
     <div className="grid gap-1">
       <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p>
       <details>
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-meta font-semibold [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-objetivo cursor-pointer list-none items-center gap-2 text-meta font-semibold [&::-webkit-details-marker]:hidden">
           Marcas que conozco
           <CaretDown aria-hidden="true" size={ICONO.chico} className="text-apagado" />
         </summary>
         <ul className="flex flex-wrap gap-2 pb-2">
           {ETIQUETAS_DE_TONO.map((etiqueta) => (
-            <li key={etiqueta} className="rounded-full bg-pista px-2 text-meta font-medium text-apagado">
+            <li key={etiqueta} className="rounded-control bg-piedra-honda px-2.5 text-meta font-medium text-tinta">
               [{etiqueta}]
             </li>
           ))}
