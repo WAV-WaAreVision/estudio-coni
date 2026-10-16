@@ -204,7 +204,7 @@ describe("Agenda", () => {
 
     const ocupantes = agenda.semanas.flatMap((s) => s.huecos.flatMap((h) => (h.ocupante ? [h.ocupante] : [])))
     expect(ocupantes).toMatchObject([
-      { titulo: "Voz", estado: "Grabando la voz", href: null },
+      { titulo: "Voz", estado: "Preparando la voz", href: null },
       { titulo: "Aprobado", estado: "Guion aprobado · falta grabar", href: expect.stringMatching(/^\/guion\//) },
     ])
   })

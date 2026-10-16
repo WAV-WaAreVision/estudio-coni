@@ -110,8 +110,10 @@ export interface CostoDeGrabar {
 }
 
 /**
- * The cost line of the approve bar. The voice is generated after gate 1, so it counts unless the piece already has
- * its audio (`audioId`, a legacy piece whose voice was paid). If the production setup is unreadable it says nothing rather than a wrong number. */
+ * The cost line of a recording. The voice is made with the script, before gate 1 (design 2026-10-15), so it counts
+ * only when the piece has no audio yet (`audioId`). If the production setup is unreadable it says nothing rather than
+ * a wrong number.
+ */
 export async function leerCostoDeGrabar(
   db: Db,
   guion: string,
