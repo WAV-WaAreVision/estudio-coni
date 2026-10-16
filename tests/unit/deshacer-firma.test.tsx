@@ -65,4 +65,14 @@ describe("DeshacerFirma", () => {
 
     expect(screen.queryByText("Firmaste. Grabo el video en 8 s.")).toBeNull()
   })
+
+  it("says exactly 8 s for a fresh signature, the request having taken a moment", () => {
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={7800} />)
+    expect(screen.getByText("Firmaste. Grabo el video en 8 s.")).toBeInTheDocument()
+  })
+
+  it("says the seconds really left when the screen opens mid-window", () => {
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={4200} />)
+    expect(screen.getByText("Firmaste. Grabo el video en 5 s.")).toBeInTheDocument()
+  })
 })

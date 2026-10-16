@@ -6,7 +6,7 @@ import { Aviso } from "@/components/ui/aviso"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { deshacerAprobacionAccion } from "../../piezas/acciones"
-import { TEXTO_FIRMASTE } from "./textos"
+import { textoFirmaste } from "./textos"
 
 /**
  * The toast of a fresh signature (design 2026-10-15, section 6): "Deshacer" while the undo window lasts. `quedanMs`
@@ -28,7 +28,7 @@ export function DeshacerFirma({ piezaId, version, quedanMs }: { piezaId: string;
     <>
       {visible ? (
         <Aviso
-          mensaje={TEXTO_FIRMASTE}
+          mensaje={textoFirmaste(duracionMs)}
           duracionMs={duracionMs}
           alCerrar={cerrar}
           alDeshacer={() =>
