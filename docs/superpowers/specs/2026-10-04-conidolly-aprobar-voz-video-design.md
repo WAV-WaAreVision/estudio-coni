@@ -3,6 +3,10 @@
 Status: approved by Federico on 2026-10-04 (decisions 1 to 7 of the brief). This document turns them into concrete
 states, keys, migrations and screens. Plan: `docs/superpowers/plans/2026-10-04-aprobar-voz-video.md`.
 
+Superseded in part on 2026-10-15 by `2026-10-15-conidolly-voz-en-la-puerta-1-design.md`: the voice is made with the
+script, gate 1 signs the script, the voice and the video spend, and the video starts after an 8 s undo window. The
+voice keys and their reuse, the balances, the live refresh and the `grabar-voz` task stay as designed here.
+
 ## Problem
 
 Today one slide on the Guion screen does three things: approves gate 1, generates the voice in ElevenLabs and sends
