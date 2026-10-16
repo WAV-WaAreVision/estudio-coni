@@ -4,7 +4,7 @@ import { ArrowRight, CaretLeft } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
-import { FilaConCheck, FilaConValor } from "@/components/ui/filas"
+import { Eleccion, FilaConValor } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -175,7 +175,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <fieldset className="grid">
             <legend className="mb-1 text-meta font-semibold">Pilar</legend>
             {PILARES.map((candidato) => (
-              <FilaConCheck
+              <Eleccion
                 key={candidato}
                 nombre="pilar"
                 valor={candidato}

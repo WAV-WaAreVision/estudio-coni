@@ -7,7 +7,7 @@ interface PropiedadesDeInterruptor extends Omit<ButtonHTMLAttributes<HTMLButtonE
   encendido: boolean
 }
 
-/** Brandkit 9.10: 52 x 32 switch. Off is outlined (3:1), on is ink; the state is never only a colour. */
+/** Decision 4: a 3.25 x 2rem switch. Off: a sunken track with a campo ring and a raised thumb; on: ink and light. */
 export function Interruptor({ encendido, className, ...resto }: PropiedadesDeInterruptor) {
   return (
     <button
@@ -16,16 +16,16 @@ export function Interruptor({ encendido, className, ...resto }: PropiedadesDeInt
       role="switch"
       aria-checked={encendido}
       className={cn(
-        "flex h-8 w-13 shrink-0 items-center rounded-full px-1",
-        encendido ? "bg-tinta" : "bg-pista ring-[1.5px] ring-campo ring-inset",
+        "flex h-interruptor-alto w-interruptor-ancho shrink-0 items-center rounded-control px-1",
+        encendido ? "bg-tinta" : "bg-piedra-honda shadow-hundido outline-2 -outline-offset-2 outline-campo",
         className,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "size-6 rounded-full transition-transform duration-[var(--dur-corta)] ease-salida motion-reduce:transition-none",
-          encendido ? "translate-x-5 bg-sobre-tinta" : "bg-campo",
+          "size-[calc(2rem-8px)] rounded-full transition-transform duration-[var(--dur-corta)] ease-salida motion-reduce:transition-none",
+          encendido ? "translate-x-[1.25rem] bg-luz" : "bg-piedra shadow-relieve-perilla",
         )}
       />
     </button>

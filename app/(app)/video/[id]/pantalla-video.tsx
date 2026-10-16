@@ -13,7 +13,7 @@ import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
-import { FilaConCheck } from "@/components/ui/filas"
+import { Eleccion } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
@@ -243,7 +243,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
                   <fieldset className="mt-2 grid border-0 p-0">
                     <legend className="sr-only">Elige cuándo sale</legend>
                     {datos.fechas.map((propuesta) => (
-                      <FilaConCheck
+                      <Eleccion
                         key={propuesta.iso}
                         nombre="fecha"
                         valor={propuesta.iso}
