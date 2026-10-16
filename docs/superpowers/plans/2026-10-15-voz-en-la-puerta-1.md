@@ -4541,7 +4541,9 @@ where estado in ('guion_aprobado', 'grabando_voz');
 ```
 
 Expected: zero rows (production was wiped on 2026-10-08). If there are rows, and only with Federico's OK, he moves them
-back to gate 1 with the signature cleared (Coni signs again; her voice is reused, the key is by text):
+back to gate 1 with the signature cleared (Coni signs again; her voice is reused, the key is by text). Pieces the old app
+left in `grabando_voz` go to `guion_por_aprobar` with this SQL too; no "script ready" notice fires for them, because
+`20261016000210` skips the way back from `grabando_voz` (that is fine: Coni finds them on Inicio):
 
 ```sql
 update public.piezas
@@ -4551,8 +4553,9 @@ update public.piezas
 
 - [ ] **Step 3 (OK needed): database**
 
-Federico, from the macOS Terminal, in the repo: `supabase db push`. It applies `20261015000050` and `20261015000060`
-(branch `fix/aprobada-para-grabar`, unless deployed before) and `20261016000200` and `20261016000210`; `supabase/pendientes/20261003000350_borrar_vinculos.sql` must not be in `supabase/migrations/`. Check:
+Federico, from the macOS Terminal, in the repo: `supabase db push`. Production already has everything up to
+`20261016000100` (including `20261015000050` and `20261015000060`), so it applies only `20261016000200` and
+`20261016000210`; `supabase/pendientes/20261003000350_borrar_vinculos.sql` must not be in `supabase/migrations/`. Check:
 
 ```sql
 select pg_get_constraintdef(oid) from pg_constraint where conname = 'aprobada_para_grabar';
