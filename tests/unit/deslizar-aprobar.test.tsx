@@ -73,6 +73,33 @@ describe("DeslizarParaAprobar: drag", () => {
 })
 
 describe("DeslizarParaAprobar: tap to arm, tap to sign (WCAG 2.5.7)", () => {
+  it("arms and then signs on assistive-technology clicks that send no pointer events (detail 0)", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.click(pista(), { detail: 0 })
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(pista(), { detail: 0 })
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+  })
+
+  it("ignores the click a real pointer sends after its own tap (detail 1), so a tap counts once", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.click(pista(), { detail: 1 })
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+    tocar()
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(pista(), { detail: 1 })
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+  })
+
   it("arms on a tap: the thumb goes to the end and the label says to tap again", () => {
     const alFirmar = vi.fn()
     render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)

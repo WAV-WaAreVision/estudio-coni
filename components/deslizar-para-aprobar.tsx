@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowRight, Check } from "@phosphor-icons/react"
-import { type KeyboardEvent, type PointerEvent, useEffect, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type MouseEvent, type PointerEvent, useEffect, useId, useRef, useState } from "react"
 import { ICONO } from "@/components/ui/icono"
 import {
   ARMADO_MAXIMO_MS,
@@ -164,6 +164,12 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
     else setValor(0)
   }
 
+  // VoiceOver's double tap, Voice Control, Switch Control and desktop screen readers send a click with no pointer
+  // events (detail 0). A real pointer's click has detail >= 1 and alSoltar already handled its tap.
+  function alActivar(evento: MouseEvent<HTMLDivElement>) {
+    if (evento.detail === 0) tocar()
+  }
+
   function alCancelar() {
     const actual = gesto.current
     gesto.current = null
@@ -207,6 +213,7 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
       onPointerMove={alMover}
       onPointerUp={alSoltar}
       onPointerCancel={alCancelar}
+      onClick={alActivar}
       onKeyDown={alTeclear}
       className={cn(
         "pista-de-firma relative flex min-h-[var(--pista-firma)] touch-pan-y items-center rounded-control bg-piedra-honda shadow-hundido select-none focus-visible:outline-3 focus-visible:outline-offset-3",
