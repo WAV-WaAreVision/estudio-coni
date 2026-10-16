@@ -13,24 +13,25 @@ interface PropiedadesDePestanas<T extends string> {
   opciones: readonly OpcionDePestana<T>[]
 }
 
-/** Brandkit 9.10: views as links, so each has an address and works without a script. The current one is underlined. */
+/**
+ * Decision 4, the segmented control: views as links (each has an address and works without a script) on a sunken
+ * track; the current one is raised.
+ */
 export function Pestanas<T extends string>({ etiqueta, actual, opciones }: PropiedadesDePestanas<T>) {
   return (
     <nav aria-label={etiqueta}>
-      <ul className="flex gap-6 border-b border-linea">
+      <ul className="flex gap-1 rounded-control bg-piedra-honda p-1 shadow-hundido">
         {opciones.map((opcion) => {
           const esActual = opcion.valor === actual
           return (
-            <li key={opcion.valor}>
+            <li key={opcion.valor} className="flex-1">
               <Link
                 href={opcion.href}
                 replace
                 aria-current={esActual ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-11 min-w-11 items-center text-cuerpo",
-                  esActual
-                    ? "font-semibold text-tinta after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-tinta"
-                    : "font-medium text-apagado",
+                  "flex min-h-objetivo items-center justify-center rounded-control px-3 text-cuerpo transition-shadow duration-[var(--dur-corta)] ease-salida",
+                  esActual ? "bg-piedra font-semibold text-tinta shadow-relieve" : "font-medium text-apagado",
                 )}
               >
                 {opcion.etiqueta}

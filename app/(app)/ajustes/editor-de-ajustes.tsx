@@ -202,6 +202,7 @@ export function EditorDeAjustes({
             <Chip
               key={dia.numero}
               className="px-0"
+              conCheck={false}
               presionado={valores.dias.includes(dia.numero)}
               onClick={() => alternarDia(dia.numero)}
             >
