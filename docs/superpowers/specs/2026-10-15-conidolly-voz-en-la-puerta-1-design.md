@@ -113,7 +113,9 @@ through `iniciar(...)`, so a run that fails to start is still resumed by `reanud
 - **The run takes the piece before it spends.** After the wait and before any spend of a render not yet created,
   `grabarPieza` bumps only `version` (locked on the version it read; no state change, no notice). An undo that committed
   first makes it miss (a retryable error; the retry finds gate 1); a later undo is refused by the version lock, or with
-  the late text, which `deshacerAprobacion` checks before the version.
+  the late text, which `deshacerAprobacion` checks before the version. For that lock to hold, the undo toast sends the
+  version she signed at (`aprobarGuion` returns it, gate 1 carries it to the video screen as `?firmada=N` and the toast
+  keeps it from its first render), never one a 4 s refresh brought after the claim.
 - **Why the undo bumps `intento`.** Trigger.dev keeps the idempotency key of a completed run (30 days by default) and a
   new trigger under that key returns the old run. The key of the render is the approved text plus `intento`
   (`claveGrabar`). If an undo kept `intento`, the delayed run of the undone signature would fire, find the piece back at

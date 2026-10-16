@@ -3688,6 +3688,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 17: The video screen after the signature, with "Deshacer"
 
+> **Amendment (money-safety review):** the toast must send the version she SIGNED at, never a refreshed one (the
+> screen polls every 4 s and the render's claim bumps `version`). `aprobarGuion` returns `{ version }` (the row after
+> the signature), gate 1 replaces its address with `/guion/<id>?firmada=<version>`, the page passes that value (or
+> `fila.version` without a valid one) and `DeshacerFirma` keeps `version` and `quedanMs` from its first render. Its test
+> re-renders with a newer version and expects the undo with the signed one. Where a snippet below disagrees, this wins.
+
 **Files:**
 - Modify: `app/(app)/guion/[id]/textos.ts` (two texts)
 - Create: `app/(app)/guion/[id]/deshacer-firma.tsx`
