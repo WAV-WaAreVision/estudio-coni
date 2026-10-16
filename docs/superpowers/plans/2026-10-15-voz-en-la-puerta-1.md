@@ -4541,9 +4541,7 @@ where estado in ('guion_aprobado', 'grabando_voz');
 ```
 
 Expected: zero rows (production was wiped on 2026-10-08). If there are rows, and only with Federico's OK, he moves them
-back to gate 1 with the signature cleared (Coni signs again; her voice is reused, the key is by text). Pieces the old app
-left in `grabando_voz` go to `guion_por_aprobar` with this SQL too; no "script ready" notice fires for them, because
-`20261016000210` skips the way back from `grabando_voz` (that is fine: Coni finds them on Inicio):
+back to gate 1 with the signature cleared (Coni signs again; her voice is reused, the key is by text):
 
 ```sql
 update public.piezas
@@ -4578,6 +4576,10 @@ the new tasks no longer expect.
 
 `vercel deploy --prod --yes`. The push does not deploy by itself. Wait 15 to 45 s for the alias, hard-refresh, and
 confirm the Guion screen of a script reads "Desliza para aprobar y grabar" before judging anything.
+
+Then run the check of Step 2 again: pieces the old app left in `grabando_voz` between Steps 3 and 5 go to
+`guion_por_aprobar` with the same SQL (OK needed). No "script ready" notice fires for them, because `20261016000210`
+skips the way back from `grabando_voz`; that is fine, Coni finds them on Inicio.
 
 - [ ] **Step 6 (OK needed): smoke test with the Coni test account (`federico@wearevision.cl`)**
 
