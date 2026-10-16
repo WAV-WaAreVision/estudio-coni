@@ -118,6 +118,15 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     expect(aprobar()).toHaveAttribute("aria-disabled", "true")
   })
 
+  it("keeps her voice buttons closed while the script has unsaved changes", () => {
+    render(<PantallaGuion datos={datos()} />)
+    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
+
+    const otraVez = screen.getByRole("button", { name: "Grabar la voz de nuevo" })
+    expect(otraVez).toHaveAttribute("aria-disabled", "true")
+    expect(otraVez).toHaveAccessibleDescription("Guarda tus cambios antes de grabar tu voz.")
+  })
+
   it("says what the signature spends and how long she has to undo it, under the slider", () => {
     render(<PantallaGuion datos={datos()} />)
     const barra = screen.getByRole("region", { name: "Firma" })

@@ -178,7 +178,13 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </div>
       ) : null}
 
-      <VozParaFirmar piezaId={datos.id} version={version} datos={grabacion} alEscuchar={setEscuchada} />
+      <VozParaFirmar
+        piezaId={datos.id}
+        version={version}
+        datos={grabacion}
+        alEscuchar={setEscuchada}
+        sinGuardar={sinGuardar}
+      />
 
       {preparando ? (
         <>
