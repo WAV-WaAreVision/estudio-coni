@@ -2,10 +2,13 @@
 
 import { CaretLeft } from "@phosphor-icons/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
+import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { Seccion } from "@/components/seccion"
 import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
@@ -15,9 +18,13 @@ import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
+import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
+import { ETIQUETA_DE_FIRMA, TEXTO_ESCUCHA_COMPLETA, TEXTO_FALTA_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
+import { VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
   id: string
@@ -38,42 +45,78 @@ export interface DatosDeGuion {
   explicacion: string | null
   /** The looks WAV lets her choose; empty means there is nothing to choose and the approval stays blocked. */
   avatares: AvatarParaElegir[]
+  /** Her voice of this script and what the signature spends (design 2026-10-15, decisions 3 and 4). */
+  grabacion: DatosDeGrabacion
+  /** A toast the screen opens with: she just took a signature back. */
+  avisoInicial: string | null
 }
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 
-/** Gate 1: she reads and edits the script, confirms what the review flagged, and slides. Signing starts the video. */
+const unirConY = (partes: readonly string[]) =>
+  partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}` : partes.join("")
+
+/** What still keeps the signature closed, the most useful first; undefined when she can sign. */
+function motivoParaFirmar(estado: {
+  sinGuardar: boolean
+  preparando: boolean
+  voz: string | null
+  escuchada: string | null
+  bloqueos: number
+  sinAvatares: boolean
+  bloqueoFirma: string | null
+  faltan: readonly string[]
+}): string | undefined {
+  if (estado.sinGuardar) return "Guarda tus cambios antes de aprobar"
+  if (estado.preparando) return TEXTO_PREPARANDO_VOZ
+  if (estado.voz === null) return TEXTO_FALTA_VOZ
+  if (estado.bloqueos > 0) return "Hay algo que corregir antes de aprobar."
+  if (estado.sinAvatares) return "Todavía no hay avatares para elegir."
+  // The HeyGen wallet or the month's cap would stop the video: listening would not help.
+  if (estado.bloqueoFirma !== null) return estado.bloqueoFirma
+  if (estado.faltan.length > 0) return `Falta ${unirConY(estado.faltan)}.`
+  if (estado.escuchada !== estado.voz) return TEXTO_ESCUCHA_COMPLETA
+  return undefined
+}
+
+/**
+ * Gate 1 (design 2026-10-15): she listens to her voice of the script, reads and edits it, confirms what the review
+ * flagged and slides once. The signature approves the script and the voice, and the video starts after the undo window.
+ */
 export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
+  const router = useRouter()
   const [version, setVersion] = useState(datos.version)
   const [revision, setRevision] = useState(datos.revision)
   const [sinGuardar, setSinGuardar] = useState(false)
   const [avatarElegido, setAvatarElegido] = useState<string | null>(null)
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
-  const [aviso, setAviso] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(datos.avisoInicial)
+  // The take she heard to the end: another take (a new text, or "Grabar la voz de nuevo") asks again.
+  const [escuchada, setEscuchada] = useState<string | null>(null)
   const aprobacion = useAccion()
   const cambios = useAccion()
 
+  const { grabacion } = datos
+  const preparando = grabacion.estado === "grabando_voz"
   const bloqueos = revision.filter((hallazgo) => hallazgo.tipo === "bloquea")
   const advertencias = revision.filter((hallazgo) => hallazgo.tipo === "advierte")
   const sinConfirmar = advertencias.filter((hallazgo) => !confirmadas.has(claveDe(hallazgo)))
-
   const sinAvatares = datos.avatares.length === 0
   const faltan = [
     ...(avatarElegido === null && !sinAvatares ? ["elegir el avatar"] : []),
     ...(sinConfirmar.length > 0 ? ["confirmar la revisión"] : []),
   ]
-  const faltaTexto = faltan.length > 1 ? `${faltan.slice(0, -1).join(", ")} y ${faltan.at(-1)}` : faltan.join("")
-  const motivo = sinGuardar
-    ? "Guarda tus cambios antes de aprobar"
-    : bloqueos.length > 0
-      ? "Hay algo que corregir antes de aprobar."
-      : sinAvatares
-        ? "Todavía no hay avatares para elegir."
-        : faltan.length > 0
-          ? `Falta ${faltaTexto}.`
-          : undefined
-  const habilitado = motivo === undefined
+  const motivo = motivoParaFirmar({
+    sinGuardar,
+    preparando,
+    voz: grabacion.voz?.clave ?? null,
+    escuchada,
+    bloqueos: bloqueos.length,
+    sinAvatares,
+    bloqueoFirma: grabacion.botones?.bloqueoVideo ?? null,
+    faltan,
+  })
 
   function alGuardar(guardado: GuionGuardado) {
     setVersion(guardado.version)
@@ -89,6 +132,12 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
       else siguientes.delete(claveDe(hallazgo))
       return siguientes
     })
+  }
+
+  function cerrarAviso() {
+    setAviso(null)
+    // The toast after an undo came in the address: it is said once.
+    if (datos.avisoInicial !== null) router.replace(`/guion/${datos.id}`)
   }
 
   return (
@@ -129,17 +178,32 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </div>
       ) : null}
 
-      <div className="mt-10">
-        <EditorDeGuion
-          piezaId={datos.id}
-          version={version}
-          guion={datos.guion}
-          texto={datos.texto}
-          tieneVersionDeClaude={datos.tieneVersionDeClaude}
-          alGuardar={alGuardar}
-          alCambiarSinGuardar={setSinGuardar}
-        />
-      </div>
+      <VozParaFirmar piezaId={datos.id} version={version} datos={grabacion} alEscuchar={setEscuchada} />
+
+      {preparando ? (
+        <>
+          {/* Her voice is being made of this text: it cannot change until the voice is back. */}
+          <Seccion titulo="Guion" id="guion">
+            <GuionEnLectura guion={datos.guion} />
+            {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
+          </Seccion>
+          <Seccion titulo="Texto de la publicación" id="texto">
+            <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
+          </Seccion>
+        </>
+      ) : (
+        <div className="mt-10">
+          <EditorDeGuion
+            piezaId={datos.id}
+            version={version}
+            guion={datos.guion}
+            texto={datos.texto}
+            tieneVersionDeClaude={datos.tieneVersionDeClaude}
+            alGuardar={alGuardar}
+            alCambiarSinGuardar={setSinGuardar}
+          />
+        </div>
+      )}
       {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
       <Seccion titulo="Avatar" id="avatar">
         <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
@@ -180,7 +244,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
             alVolver={() => setPidiendoCambios(false)}
           />
         ) : (
-          <Boton variante="destructiva" onClick={() => setPidiendoCambios(true)}>
+          <Boton variante="destructiva" deshabilitado={preparando} onClick={() => setPidiendoCambios(true)}>
             Pedir cambios
           </Boton>
         )}
@@ -190,14 +254,15 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
           <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
         ) : null}
         <DeslizarParaAprobar
-          etiqueta="Desliza para aprobar el guion"
-          habilitado={habilitado}
+          etiqueta={ETIQUETA_DE_FIRMA}
+          habilitado={motivo === undefined}
           motivo={motivo}
+          nota={grabacion.lineaDeFirma}
           enviando={aprobacion.pendiente}
           alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
         />
       </BarraDeFirma>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }

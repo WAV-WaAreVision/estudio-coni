@@ -8,7 +8,7 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { vozVigente } from "@/lib/datos/grabacion"
+import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
@@ -124,9 +124,10 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const [avatares, conVersionDeClaude] = await Promise.all([
+  const [avatares, conVersionDeClaude, grabacion] = await Promise.all([
     avataresParaElegir(db),
     tieneVersionDeClaude({ db }, fila.id),
+    leerDatosDeGrabacion(db, { fila, estado: fila.estado, guion: fila.guion, zona: contexto.horario.zona }),
   ])
 
   return (
@@ -151,6 +152,8 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
           explicacion: fila.explicacion,
           avatares,
+          grabacion,
+          avisoInicial: null,
         }}
       />
     </>
