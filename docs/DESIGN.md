@@ -2,22 +2,16 @@
 name: Conidolly
 description: App donde Coni del Rosario firma, en su iPhone, las ideas, guiones, voces y videos de su avatar para LinkedIn.
 colors:
-  piedra: "#ecebe6"
-  piedra-alta: "#f5f4f0"
-  piedra-honda: "#dcdad4"
-  luz: "#fbfaf7"
-  tinta: "#2a2925"
-  apagado: "#5c5a54"
-  campo: "#8a877f"
-  menta: "#bfe8d0"
-  menta-tinta: "#1d6b47"
-  menta-foco: "#1f8a5a"
-  aviso: "#f3e08e"
-  aviso-tinta: "#5a4300"
-  error: "#f2aaa6"
-  error-tinta: "#7a1f1d"
+  piedra: "#ebebea"
+  piedra-alta: "#f4f4f3"
+  piedra-honda: "#dcdcdb"
+  luz: "#fbfbfa"
+  tinta: "#262626"
+  apagado: "#5a5a59"
+  campo: "#727271"
+  error-tinta: "#b5137a"
   firma: "#a8285a"
-  sobre-firma: "#fbfaf7"
+  sobre-firma: "#fbfbfa"
 typography:
   pantalla:
     fontFamily: "Geist, ui-sans-serif, -apple-system, system-ui, sans-serif"
@@ -61,8 +55,8 @@ spacing:
   margen: "20px"
 components:
   boton-principal:
-    backgroundColor: "{colors.menta}"
-    textColor: "{colors.tinta}"
+    backgroundColor: "{colors.tinta}"
+    textColor: "{colors.luz}"
     typography: "{typography.cuerpo}"
     rounded: "{rounded.pildora}"
     height: "52px"
@@ -102,7 +96,7 @@ components:
     height: "44px"
     padding: "0 16px"
   chip-elegido:
-    backgroundColor: "{colors.menta}"
+    backgroundColor: "{colors.piedra-honda}"
     textColor: "{colors.tinta}"
     rounded: "{rounded.pildora}"
   segmentado:
@@ -111,18 +105,18 @@ components:
     rounded: "{rounded.pildora}"
     height: "52px"
   aviso-exito:
-    backgroundColor: "{colors.menta}"
+    backgroundColor: "{colors.piedra-honda}"
     textColor: "{colors.tinta}"
     rounded: "{rounded.pildora}"
     padding: "14px 20px"
   aviso-advertencia:
-    backgroundColor: "{colors.aviso}"
-    textColor: "{colors.aviso-tinta}"
+    backgroundColor: "{colors.piedra-honda}"
+    textColor: "{colors.tinta}"
     rounded: "{rounded.pildora}"
     padding: "14px 20px"
   aviso-error:
-    backgroundColor: "{colors.error}"
-    textColor: "{colors.error-tinta}"
+    backgroundColor: "{colors.piedra-honda}"
+    textColor: "{colors.tinta}"
     rounded: "{rounded.pildora}"
     padding: "14px 20px"
   panel:
@@ -132,7 +126,8 @@ components:
     padding: "20px"
 ---
 
-<!-- Target system, approved by Federico on 2026-10-15 ("Adoptar soft UI completo", mint + raspberry signature).
+<!-- Palette: gris neutro, chosen by Federico on 2026-10-16 (monochrome, dark primary, no yellow; raspberry only signs). Mockups: conidolly-rediseno/soft-ui/v3.
+     Target system, approved by Federico on 2026-10-15 ("Adoptar soft UI completo", mint + raspberry signature).
      The code still runs Calma suiza (app/globals.css); migrating it needs mockups, a spec and a plan.
      Re-run /impeccable document once the migration lands. -->
 
@@ -144,7 +139,7 @@ components:
 
 Una piedra tibia y blanda, tallada en relieve suave, donde lo único de color fuerte es la firma de
 Coni. Cada control es un objeto: sobresale del fondo con una luz arriba a la izquierda y una sombra
-abajo a la derecha, y se hunde cuando ella lo toca. La menta acompaña lo que está bien o lo que se
+abajo a la derecha, y se hunde cuando ella lo toca. La tinta marca la acción principal y lo que se
 puede hacer; la frambuesa queda reservada para el acto de firmar.
 
 La app es suave al tacto y seria al leer. La forma es blanda; el texto no. Tinta casi negra sobre
@@ -165,43 +160,29 @@ es instantáneo. Columna de lectura de 560 px como máximo en tablet y computado
 
 ## 2. Colors
 
-Piedra cálida casi monocroma, con una menta suave para la acción y una frambuesa que firma.
+Gris neutro casi monocromo, con una sola nota de color: la frambuesa que firma.
 
 ### Primary
-- **Menta de consulta** (#bfe8d0): relleno del botón principal, del chip elegido, de la pestaña
-  activa y del aviso de éxito. Siempre con texto en tinta (10,86:1). Contra la piedra el relleno
-  solo da 1,12:1, por eso nunca va plano: lleva el relieve completo.
-- **Menta honda** (#1d6b47): texto de enlaces y de estados correctos sobre piedra (5,42:1).
-- **Menta de foco** (#1f8a5a): anillo de foco y progreso (3,63:1 sobre piedra).
+- **Tinta** (#262626): el botón principal (relleno, con texto luz 14,6:1), los estados activos, el progreso de la voz y las casillas marcadas. Es también el color de todo el texto (12,7:1 sobre piedra).
 
 ### Secondary
-- **Frambuesa de firma** (#a8285a): el pulgar del deslizador de aprobar, su rastro y la fecha que
-  compromete. Es el mismo valor del logo, el ícono y `/l` (5,65:1 sobre piedra; texto encima 6,46:1).
-
-### Tertiary
-- **Trigo de aviso** (#f3e08e) con tinta (#5a4300, 7,09:1): saldos bajos, gasto sobre el 80 % del
-  tope, LinkedIn por vencer.
-- **Coral de error** (#f2aaa6) con tinta (#7a1f1d, 5,43:1): errores y acciones destructivas.
+- **Frambuesa de firma** (#a8285a): solo el pulgar del deslizador de aprobar, su rastro y la fecha comprometida. Es el mismo valor del logo, el ícono y `/l` (4,91:1 sobre honda; texto luz encima 6,51:1).
 
 ### Neutral
-- **Piedra** (#ecebe6): fondo de página y de todo lo que está en relieve.
-- **Piedra alta** (#f5f4f0): paneles de lectura (guion, texto de LinkedIn).
-- **Piedra honda** (#dcdad4): lo que está hundido: pistas, campos, segmentados, deshabilitados.
-- **Luz** (#fbfaf7): el lado iluminado de la doble sombra y el texto sobre frambuesa.
-- **Tinta** (#2a2925): todo el texto (12,20:1).
-- **Apagado** (#5c5a54): meta, ayuda, pilares (5,78:1).
-- **Campo** (#8a877f): contornos que deben verse sin relieve, como el foco en modo de alto contraste
-  (3,01:1).
+- **Piedra** (#ebebea): fondo de página y de todo lo que está en relieve.
+- **Piedra alta** (#f4f4f3): paneles de lectura y grupos planos.
+- **Piedra honda** (#dcdcdb): lo hundido (pistas, campos, segmentados, deshabilitados) y las píldoras de estado y de aviso, siempre con ícono y texto tinta (11,0:1).
+- **Luz** (#fbfbfa): el lado iluminado de la doble sombra y el texto sobre tinta o frambuesa.
+- **Apagado** (#5a5a59): meta, ayuda, pilares (5,79:1 sobre piedra; 5,03:1 sobre honda).
+- **Campo** (#727271): anillo de casillas vacías y contornos de alto contraste (4,04:1 sobre piedra; 3,51:1 sobre honda).
+- **Magenta fresa de error** (#b5137a): mensajes de error y acciones destructivas, siempre con ícono (5,27:1 sobre piedra; 4,58:1 sobre honda). Es distinta de la frambuesa de firma a propósito.
 
 ### Named Rules
-**The One Signature Rule.** La frambuesa aparece solo donde Coni firma. Si un elemento frambuesa no
-aprueba nada, está mal.
+**The One Signature Rule.** La frambuesa aparece solo donde Coni firma. Si un elemento frambuesa no aprueba nada, está mal.
 
-**The Ink Over Pastel Rule.** Sobre menta, trigo y coral, el texto es siempre su tinta oscura.
-Prohibido el texto blanco o pastel sobre un relleno pastel.
+**The No Yellow Rule.** Avisos y advertencias van en píldoras grises con ícono; el color no es la señal.
 
-**The Relief Is Not A Boundary Rule.** El relieve es decorativo. Lo que identifica un control es su
-forma, su texto o su ícono, y en modo de alto contraste lleva contorno `campo`.
+**The Relief Is Not A Boundary Rule.** El relieve es decorativo. Lo que identifica un control es su forma, su texto o su ícono, y en modo de alto contraste lleva contorno `campo`.
 
 ## 3. Typography
 
@@ -249,7 +230,7 @@ sobra un elemento.
 
 ### Buttons
 - **Shape:** píldora completa (999px), 52 px de alto, etiqueta a la izquierda y el ícono a la derecha.
-- **Principal:** relleno menta, texto tinta en 600, con relieve. Uno por pantalla.
+- **Principal:** relleno tinta, texto luz en 600, con relieve. Uno por pantalla.
 - **Presionado:** hundido, sin cambio de tamaño.
 - **Secundario:** piedra en relieve, texto tinta.
 - **Deshabilitado:** piedra honda, plano y sin relieve, texto apagado; debajo, una línea que dice qué
@@ -261,7 +242,7 @@ rastro frambuesa al 14 %; aprueba al 96 % y vuelve a cero si se suelta antes. Si
 del botón "Aprobar" (WCAG 2.5.7).
 
 ### Chips
-- **Style:** píldora de 44 px en piedra con relieve; elegido en menta con check.
+- **Style:** píldora de 44 px en piedra con relieve; elegido en tinta con texto luz y check.
 - **State:** deshabilitado plano en piedra honda.
 
 ### Cards / Containers
@@ -275,29 +256,29 @@ del botón "Aprobar" (WCAG 2.5.7).
 ### Inputs / Fields
 - **Style:** píldora hundida en piedra honda, 52 px; las áreas de texto usan 24 px de radio y crecen
   con su contenido.
-- **Focus:** anillo de 2 px en menta de foco, separado 2 px del campo.
+- **Focus:** anillo de 2 px en tinta, separado 2 px del campo.
 - **Error:** contorno de 2 px en tinta de error, mensaje debajo con ícono.
 
 ### Navigation
 Barra inferior de tres pestañas sobre piedra con relieve alto hacia arriba. La activa va en una
-píldora menta con relieve, en texto tinta 600; las demás, en apagado. En computador sube al borde
+píldora hundida en piedra honda, en texto tinta 600; las demás, en apagado. En computador sube al borde
 superior.
 
 ### Avisos y estados
-Planos, sin sombra: píldoras de 32 px con su relleno (menta, trigo, coral), ícono a la izquierda y
+Planos, sin sombra: píldoras de 32 px en piedra honda, ícono a la izquierda y
 texto en su tinta. Nunca con el relieve ni el peso de un botón. Las casillas vacías llevan anillo
 `campo` (3,01:1) sobre cualquier fondo. Con `prefers-contrast: more`, todo control suma contorno
 `campo`. El toast flota en tinta sobre piedra, 8 s, con "Deshacer" después de firmar o gastar.
 
 ### Pestañas
-Control segmentado: pista hundida en piedra honda y la opción activa en menta con relieve.
+Control segmentado: pista hundida en piedra honda y la opción activa en piedra con relieve.
 
 ## 6. Do's and Don'ts
 
 ### Do:
 - **Do** usar la misma piedra (#ecebe6) en fondo y superficies; separar con relieve, no con bordes.
 - **Do** dejar la frambuesa (#a8285a) solo para firmar: pulgar, rastro y fecha comprometida.
-- **Do** poner texto tinta sobre menta, trigo y coral, y un ícono en cada estado.
+- **Do** poner texto tinta sobre piedra honda en estados y avisos, y un ícono en cada estado.
 - **Do** mostrar lo aprobado completo y tal como se publicará: video 9:16 y texto de LinkedIn con el
   aviso de avatar.
 - **Do** respetar el tamaño de texto del sistema y reducir movimiento.
