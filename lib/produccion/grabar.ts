@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
+  type CambiosDePieza,
   confirmarGasto,
   type FilaDeGasto,
   type FilaDePieza,
@@ -138,15 +139,29 @@ async function escribir(contexto: Contexto, evento: Evento): Promise<void> {
   contexto.fila = guardada
 }
 
-/** The write that makes the video findable by a retry, right after POST /v3/videos and before any wait. */
-async function guardarRender(contexto: Contexto, videoId: string): Promise<void> {
+/** A write of columns outside the domain, locked on the version the run holds; the run holds the new row after it. */
+async function guardarConVersion(contexto: Contexto, cambios: Omit<CambiosDePieza, "version">): Promise<void> {
   const { fila } = contexto
   const guardada = await actualizarPieza(contexto.deps.db, fila.id, fila.version, {
-    render_id: videoId,
+    ...cambios,
     version: fila.version + 1,
   })
   if (!guardada) throw piezaCambio()
   contexto.fila = guardada
+}
+
+/** The write that makes the video findable by a retry, right after POST /v3/videos and before any wait. */
+function guardarRender(contexto: Contexto, videoId: string): Promise<void> {
+  return guardarConVersion(contexto, { render_id: videoId })
+}
+
+/**
+ * The run takes the piece before its first spend (design 2026-10-15, decision 5): a write of the version alone, so the
+ * state and the notices stay as they are. An undo that committed after the run read the row makes it miss, and the
+ * retry finds the piece back at gate 1; an undo that comes after it misses the version her screen signed.
+ */
+function tomarLaPieza(contexto: Contexto): Promise<void> {
+  return guardarConVersion(contexto, {})
 }
 
 /**
@@ -384,6 +399,8 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
   const { db } = deps
   const enRender = contexto.fila.estado === "en_render"
 
+  // Only a render that was never created spends from here; a stored render id or a delivered video was paid already.
+  if (enRender && contexto.fila.render_id === null) await tomarLaPieza(contexto)
   if (enRender && vozAprobada(contexto) === null && !(await ponerLaVoz(contexto))) {
     return { resultado: "tope" }
   }

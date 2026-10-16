@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto"
-import { HttpResponse, http } from "msw"
+import { HttpResponse, http, passthrough } from "msw"
 import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { claveGrabar } from "@/lib/acciones/disparos"
+import { claveGrabar, type Disparos } from "@/lib/acciones/disparos"
+import { deshacerAprobacion } from "@/lib/acciones/piezas"
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { cargarRespaldoDeIdea, leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -22,6 +23,7 @@ import { servidor } from "../msw"
 import { comoConi, comoServicio, pool } from "./db"
 import { AUDIO, AVATAR, aplicar, aprobarComoConi, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { clienteDeConi } from "./sesion-coni"
 import { sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
@@ -1202,6 +1204,91 @@ describe("grabarPieza y la ventana para deshacer", () => {
     expect(ventanas).toEqual([7000])
     expect(sim.creaciones).toHaveLength(0)
     expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toEqual([])
+  })
+
+  it("spends nothing when her undo lands after the run read the piece again, and the retry ends there", async () => {
+    const id = await crearPiezaEnRender()
+    const firmada = await pieza(id)
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    let deshecha = false
+    // The run reads the settings right after the row: her undo, checked inside the window, commits in between.
+    servidor.use(
+      http.get(/\/rest\/v1\/ajustes/, async () => {
+        if (!deshecha) {
+          deshecha = true
+          await enTransaccion(async (c) => {
+            await aplicar(c, id, comoConi, {
+              tipo: "deshacer_aprobacion",
+              actor: "coni",
+              ahora: new Date(reloj.firma + 7000).toISOString(),
+            })
+          })
+        }
+        return passthrough()
+      }),
+    )
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    await expect(grabarPieza(d.deps, id, firmada.intento)).rejects.toThrow("La pieza cambió mientras se producía.")
+    expect(deshecha).toBe(true)
+    expect(ventanas).toEqual([7000])
+    expect(sim.assets).toHaveLength(0)
+    expect(sim.creaciones).toHaveLength(0)
+    expect(await gastos(id)).toEqual([])
+    // Trigger.dev retries the run, which finds the piece back at gate 1.
+    expect(await grabarPieza(d.deps, id, firmada.intento)).toEqual({ resultado: "nada_que_hacer" })
+    expect(await pieza(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
+  })
+
+  it("refuses her undo once the run took the piece, and records once", async () => {
+    const id = await crearPiezaEnRender()
+    const firmada = await pieza(id)
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sinDisparos: Disparos = {
+      producir: async () => {
+        throw new Error("Deshacer no inicia nada")
+      },
+      grabar: async () => {
+        throw new Error("Deshacer no inicia nada")
+      },
+      voz: async () => {
+        throw new Error("Deshacer no inicia nada")
+      },
+    }
+    // Her screen still has the version she signed, and the app's clock is behind the task's: the window looks open.
+    const deConi = {
+      db: await clienteDeConi(),
+      disparar: sinDisparos,
+      ahora: () => new Date(reloj.firma + 7000).toISOString(),
+    }
+    let deshacer: Awaited<ReturnType<typeof deshacerAprobacion>> | null = null
+    const sim = simular({
+      alCrear: async () => {
+        deshacer = await deshacerAprobacion(deConi, id, firmada.version)
+      },
+    })
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect((await grabarPieza(d.deps, id, firmada.intento)).resultado).toBe("grabada")
+    expect(deshacer).toEqual({ ok: false, error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla." })
+    expect(sim.creaciones).toHaveLength(1)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toHaveLength(1)
+    expect(await pieza(id)).toMatchObject({ estado: "video_por_aprobar" })
   })
 
   it("does not wait for a signature whose window closed long ago", async () => {
