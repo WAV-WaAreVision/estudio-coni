@@ -17,12 +17,46 @@ import {
   TEXTO_VALIDO,
 } from "./ayudas"
 
-const ETIQUETA = "Desliza para aprobar el guion"
+const ETIQUETA = "Desliza para aprobar y grabar"
+const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
+const GRABANDO = "Estoy grabando tu video."
 // A literal, so the spec does not import a TSX component.
 const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
 const LOOK_A = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.png" }
 const LOOK_B = { avatar_id: "look-b", nombre: "Terraza", imagen: "avatares/look-b.png" }
+const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`
+const produccionDeLaPrueba = { ...BASE, heygen: { ...BASE.heygen, avatares: [LOOK_A, LOOK_B] } }
+const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
+
+/** A take of `guion` for this piece, as the writer or grabar-voz stores it. */
+const tomaDe = (id: string, guion: string, toma: number) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
+
+async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO, { conVoz = true } = {}) {
+  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const id = await sembrarPieza("guion_por_aprobar", {
+    titulo: "El deseo no se apaga, se esconde",
+    idea_id: idea,
+    guion: GUION_VALIDO,
+    texto,
+    revision: JSON.stringify(revision),
+  })
+  // The writer delivers the script with her voice of it, without the note of a voice that failed.
+  if (conVoz) await ajustarPieza(id, { audio_id: tomaDe(id, GUION_VALIDO, 0), explicacion: null })
+  return id
+}
+
+/** What grabar-voz does when it finishes: her take of the script on the row, back at gate 1. The screen polls. */
+async function vozLista(id: string) {
+  const fila = await leerFila(id)
+  await ajustarPieza(id, { estado: "guion_por_aprobar", audio_id: tomaDe(id, fila.guion, fila.intento) })
+}
+
+/** She plays her voice to the end; the player remembers it for this take. */
+async function escucharLaVoz(page: Page) {
+  await page.getByRole("button", { name: "Escuchar la voz" }).click()
+  await expect(page.getByText("Ya la escuchaste")).toBeVisible({ timeout: 15_000 })
+}
 
 /** Taps the card like she would: the radio itself is visually hidden. */
 async function elegirAvatar(page: Page, nombre: string) {
@@ -34,7 +68,6 @@ async function sembrarAvatares(avatares: object[]) {
   const produccion = { ...BASE, heygen: { ...BASE.heygen, avatares } }
   await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(produccion)])
 }
-const produccionDeLaPrueba = { ...BASE, heygen: { ...BASE.heygen, avatares: [LOOK_A, LOOK_B] } }
 const AVISO_DE_RIESGO = {
   regla: "tema_de_riesgo",
   tipo: "advierte",
@@ -62,24 +95,10 @@ test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name in ('anthropic', 'heygen', 'elevenlabs')")
 })
 
-async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO) {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
-  return sembrarPieza("guion_por_aprobar", {
-    titulo: "El deseo no se apaga, se esconde",
-    idea_id: idea,
-    guion: GUION_VALIDO,
-    texto,
-    revision: JSON.stringify(revision),
-  })
-}
-
-test("she edits a sentence, saves, picks the avatar and slides: approved without any audio, recording starts", async ({
+test("she edits a sentence and her voice is remade by itself; she listens, picks the avatar and signs", async ({
   page,
 }) => {
-  const id = await guionPorAprobar(
-    [AVISO_DE_RIESGO],
-    `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`,
-  )
+  const id = await guionPorAprobar([AVISO_DE_RIESGO], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
@@ -87,9 +106,7 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
   await expect(page.getByText(/^Si lo apruebas hoy, sale el /)).toBeVisible()
-  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toHaveCount(0)
-  await expect(page.getByText("Aprobar no gasta nada.")).toBeVisible()
-  await expect(page.getByText("Después grabas la voz y el video.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await expect(deslizador).toHaveAttribute("aria-valuetext", "No aprobado")
   await expect(page.getByText("Falta elegir el avatar y confirmar la revisión.")).toBeVisible()
@@ -98,7 +115,7 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   // Pushing the slider while it is not enabled does nothing.
   await deslizador.focus()
   await page.keyboard.press("End")
-  await expect(page.getByText("Aprobado. Estoy grabando el video.")).toHaveCount(0)
+  await expect(page.getByText(GRABANDO)).toHaveCount(0)
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
   const guion = page.getByRole("textbox", { name: "Guion", exact: true })
@@ -110,67 +127,62 @@ test("she edits a sentence, saves, picks the avatar and slides: approved without
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await capturar(page, "guion-editor")
   await page.getByRole("button", { name: "Guardar cambios" }).click()
-  await expect(page.getByRole("status")).toContainText("Guardado")
-  await expect(page.getByText("Guarda tus cambios antes de aprobar")).toHaveCount(0)
 
+  // The new wording needs its own voice: the screen says so, keeps the script still and waits.
+  await expect(page.getByText(PREPARANDO).first()).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Guion", exact: true })).toHaveCount(0)
+  await capturar(page, "guion-grabando")
+  expect((await leerFila(id)).estado).toBe("grabando_voz")
+  expect(disparosRegistrados()).toMatchObject([{ tarea: "voz", piezaId: id, nueva: false }])
+
+  await vozLista(id)
+  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
   await elegirAvatar(page, "Terraza")
-  // Saving runs a new review: the helplines are in the caption, so there is nothing left to confirm.
+  // Saving ran a new review: the helplines are in the caption, so there is nothing left to confirm.
   await expect(page.getByRole("checkbox", { name: "Lo revisé y está bien" })).toHaveCount(0)
+  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await escucharLaVoz(page)
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
 
   await deslizador.focus()
   await page.keyboard.press("End")
 
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  const fila = await leerFila(id)
-  expect(fila.estado).toBe("guion_aprobado")
-  expect(fila.guion).toBe(GUION_EDITADO)
-  expect(fila.puerta1_por).toBe(CONI)
-  expect(fila.avatar_id).toBe("look-b")
-  expect(disparosRegistrados()).toEqual([])
+  await expect(page.getByText(GRABANDO)).toBeVisible()
+  expect(await leerFila(id)).toMatchObject({
+    estado: "en_render",
+    guion: GUION_EDITADO,
+    puerta1_por: CONI,
+    avatar_id: "look-b",
+  })
+  expect(disparosRegistrados().map((d) => d.tarea)).toEqual(["voz", "grabar"])
 })
 
-test("she records the voice alone, listens to it, and then records the video reusing it", async ({ page }) => {
-  const id = await sembrarPieza("guion_aprobado")
+test("a script without its voice asks to prepare it, and the voice arrives by itself", async ({ page }) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA, { conVoz: false })
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
+  await expect(page.getByText("Falta preparar tu voz.").first()).toBeVisible()
   await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
-  await expect(page.getByText(/^US\$ \d+,\d\d$/).first()).toBeVisible()
   await expect(
     page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
   ).toBeVisible()
-  await expect(page.getByText("Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.")).toBeVisible()
-  await capturar(page, "guion-aprobado-sin-voz", { completa: true })
-  await page.getByRole("button", { name: "Grabar voz" }).click()
-  await expect(page.getByText("Grabando la voz · unos segundos")).toBeVisible()
-  await capturar(page, "guion-grabando")
+  await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
+  await capturar(page, "guion-sin-voz", { completa: true })
+
+  await page.getByRole("button", { name: "Preparar mi voz" }).click()
+  await expect(page.getByText(PREPARANDO).first()).toBeVisible()
   expect((await leerFila(id)).estado).toBe("grabando_voz")
   expect(disparosRegistrados()).toMatchObject([{ tarea: "voz", piezaId: id, nueva: false }])
 
-  // What grabar-voz does when it finishes; the screen picks it up by itself.
-  const fila = await leerFila(id)
-  const config = leerConfigProduccion(produccionDeLaPrueba)
-  await ajustarPieza(id, {
-    estado: "guion_aprobado",
-    audio_id: claveDeToma(id, huellaDelGuion(fila.guion, config.elevenlabs), fila.intento),
-  })
+  await vozLista(id)
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByRole("button", { name: "Volver a grabar voz" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).toBeVisible()
   await capturar(page, "guion-con-voz", { completa: true })
-  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
-  await expect(page.getByRole("button", { name: "Grabar voz", exact: true })).toHaveCount(0)
-  await expect(page.getByText(/incluye la voz/)).toHaveCount(0)
-
-  await page.getByRole("button", { name: "Grabar video" }).click()
-  await page.getByRole("button", { name: "Sí, grabar" }).click()
-  await expect(page.getByText("Aprobado. Estoy grabando el video.")).toBeVisible()
-  expect((await leerFila(id)).estado).toBe("en_render")
-  expect(disparosRegistrados().at(-1)).toMatchObject({ tarea: "grabar", piezaId: id })
 })
 
 test("a piece that failed is discarded only after she confirms, and it leaves Inicio", async ({ page }) => {
-  const id = await sembrarPieza("guion_aprobado", {
+  const id = await sembrarPieza("en_render", {
     estado: "error_produccion",
     estado_antes_del_error: "en_render",
     explicacion: "HeyGen no pudo terminar el video",
@@ -209,14 +221,13 @@ test("gate 1 shows the committed date in the signature colour and the whole scri
   await capturar(page, "guion-por-aprobar-completa", { completa: true })
 })
 
-const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`
-
 test("a tap on the track never approves, a drag to the end does (brandkit 9.12)", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
 
   const pista = await deslizador.locator("..").boundingBox()
@@ -230,8 +241,8 @@ test("a tap on the track never approves, a drag to the end does (brandkit 9.12)"
   await page.mouse.down()
   await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 12 })
   await page.mouse.up()
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+  await expect(page.getByText(GRABANDO)).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("en_render")
 })
 
 test("the visible Aprobar button is the alternative to dragging and asks for the same things (WCAG 2.5.7)", async ({
@@ -249,69 +260,76 @@ test("the visible Aprobar button is the alternative to dragging and asks for the
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
   await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
   await expect(aprobar).toBeEnabled()
   await aprobar.click()
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+  await expect(page.getByText(GRABANDO)).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("en_render")
 })
 
-test("approve, take it back, edit, save and approve again, all on the same screen", async ({ page }) => {
-  const id = await guionPorAprobar(
-    [],
-    `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`,
-  )
+test("she listens to her voice, signs, undoes inside the window and signs again: the video starts", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
 
+  await expect(
+    page.getByText(/^Al firmar grabo el video: ~\d+ s, US\$ \d+,\d\d\. Tienes 8 s para deshacer\.$/),
+  ).toBeVisible()
   await elegirAvatar(page, "Estudio")
+  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await expect(deslizador).toHaveAttribute("aria-disabled", "true")
+  await escucharLaVoz(page)
+  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
+
   await deslizador.focus()
   await page.keyboard.press("End")
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  expect((await leerFila(id)).estado).toBe("guion_aprobado")
+  await expect(page.getByText("Firmaste. Grabo el video en 8 s.")).toBeVisible()
+  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await capturar(page, "guion-firmado")
+  expect((await leerFila(id)).estado).toBe("en_render")
+  const [primera] = disparosRegistrados()
+  expect(primera).toMatchObject({ tarea: "grabar", piezaId: id, retraso: "10s" })
 
-  await page.getByRole("button", { name: "Volver a revisar el guion" }).click()
+  await page.getByRole("button", { name: "Deshacer" }).click()
+  await expect(page.getByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeVisible()
   await expect(deslizador).toBeVisible()
-  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
+  expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null })
 
-  const guion = page.getByRole("textbox", { name: "Guion", exact: true })
-  await guion.fill(GUION_EDITADO)
-  await page.getByRole("button", { name: "Guardar cambios" }).click()
-  await expect(page.getByRole("status")).toContainText("Guardado")
-  await elegirAvatar(page, "Terraza")
+  // The take she already heard is remembered by the player: only the avatar is picked again.
+  await elegirAvatar(page, "Estudio")
+  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
   await deslizador.focus()
   await page.keyboard.press("End")
-
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  const fila = await leerFila(id)
-  expect(fila.estado).toBe("guion_aprobado")
-  expect(fila.guion).toBe(GUION_EDITADO)
-  expect(fila.avatar_id).toBe("look-b")
+  await expect(page.getByText(GRABANDO)).toBeVisible()
+  expect((await leerFila(id)).estado).toBe("en_render")
+  // The second signature starts its own run: another attempt, so another key than the undone one.
+  const [, segunda] = disparosRegistrados()
+  expect(segunda).toMatchObject({ tarea: "grabar", piezaId: id, retraso: "10s" })
+  expect(segunda?.clave).not.toBe(primera?.clave)
+  expect(segunda?.intento).toBe((primera?.intento ?? 0) + 1)
 })
 
-test("an approved script is read-only: changing it goes through taking the approval back", async ({ page }) => {
-  const id = await sembrarPieza("guion_aprobado")
+test("while her voice is being made the script is read-only and keeps its tone marks with the help", async ({
+  page,
+}) => {
+  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const id = await sembrarPieza("grabando_voz", {
+    titulo: "El deseo no se apaga, se esconde",
+    idea_id: idea,
+    guion: `[warm] ${GUION_VALIDO}`,
+    texto: TEXTO_CON_AYUDA,
+  })
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByRole("button", { name: "Grabar voz" })).toBeVisible()
-  await expect(page.getByRole("textbox")).toHaveCount(0)
-  await expect(page.getByText((await leerFila(id)).guion)).toBeVisible()
-  await expect(page.getByText("Para cambiar el guion o el texto, vuelve a revisar el guion.")).toBeVisible()
-  // That script has no marks: the help is only for scripts that have them.
-  await expect(page.getByText(AYUDA_DE_MARCAS)).toHaveCount(0)
-})
-
-test("an approved script that has tone marks shows them with the help", async ({ page }) => {
-  const id = await sembrarPieza("guion_aprobado")
-  const guion: string = (await leerFila(id)).guion
-  await ajustarPieza(id, { guion: `[warm] ${guion}` })
-  await simularMedios(page)
-  await page.goto(`/guion/${id}`)
-
+  await expect(page.getByText(PREPARANDO).first()).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Guion", exact: true })).toHaveCount(0)
   await expect(page.getByText("[warm]", { exact: true })).toBeVisible()
-  await expect(page.getByText(guion)).toBeVisible()
   await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
+  await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
 })
 
 test("a render stopped by the monthly cap shows why and stops polling", async ({ page }) => {
@@ -321,7 +339,7 @@ test("a render stopped by the monthly cap shows why and stops polling", async ({
   await page.goto(`/guion/${id}`)
 
   await expect(page.getByText("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")).toBeVisible()
-  await expect(page.getByText("Aprobado. Estoy grabando el video.")).toHaveCount(0)
+  await expect(page.getByText(GRABANDO)).toHaveCount(0)
   // Nothing refreshes it: no further navigation requests in the next seconds.
   let pedidos = 0
   page.on("request", (peticion) => {
@@ -331,28 +349,42 @@ test("a render stopped by the monthly cap shows why and stops polling", async ({
   expect(pedidos).toBe(0)
 })
 
-test("an empty HeyGen API wallet disables the video and says where to top up", async ({ page }) => {
+test("an empty HeyGen API wallet keeps the signature closed and says where to top up", async ({ page }) => {
   await configurarServicios({ heygenSaldo: 0 })
-  const id = await sembrarPieza("guion_aprobado")
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByRole("button", { name: "Grabar video" })).toHaveAttribute("aria-disabled", "true")
+  await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
-  // The voice alone still works without HeyGen.
-  await expect(page.getByRole("button", { name: "Grabar voz" })).not.toHaveAttribute("aria-disabled", "true")
+  await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
+  // Her voice alone still works without HeyGen.
+  await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  )
 })
 
 test("a balance that does not answer is said, and blocks nothing", async ({ page }) => {
   await configurarServicios({ elevenlabs: "401" })
-  const id = await sembrarPieza("guion_aprobado")
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
   await expect(page.getByText("No pude ver tu saldo de ElevenLabs.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Grabar voz" })).not.toHaveAttribute("aria-disabled", "true")
-  await expect(page.getByRole("button", { name: "Grabar video" })).not.toHaveAttribute("aria-disabled", "true")
+  await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  )
+  await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
+  await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "false")
 })
 
-test("she goes back to Claude's version after editing and the original text returns", async ({ page }) => {
+test("she goes back to Claude's version after editing, and her voice is asked for again reusing earlier takes", async ({
+  page,
+}) => {
   const id = await guionPorAprobar()
   await pool.query(
     "insert into public.guion_versiones (pieza_id, numero, guion, texto, autor) values ($1, 1, $2, $3, 'claude')",
@@ -360,19 +392,24 @@ test("she goes back to Claude's version after editing and the original text retu
   )
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
-  const guion = page.getByRole("textbox", { name: "Guion", exact: true })
 
-  await guion.fill(GUION_EDITADO)
+  await page.getByRole("textbox", { name: "Guion", exact: true }).fill(GUION_EDITADO)
   await page.getByRole("button", { name: "Guardar cambios" }).click()
-  await expect(page.getByText("Guardado", { exact: true })).toBeVisible()
+  await expect(page.getByText(PREPARANDO).first()).toBeVisible()
+  await vozLista(id)
+  await expect(page.getByRole("button", { name: "Volver a la versión de Claude" })).toBeVisible({ timeout: 15_000 })
 
   await page.getByRole("button", { name: "Volver a la versión de Claude" }).click()
   await expect(page.getByText("¿Volver al guion que escribió Claude? Se guarda como una versión nueva.")).toBeVisible()
   await page.getByRole("button", { name: "Sí, volver" }).click()
 
-  await expect(guion).toHaveValue(GUION_VALIDO)
-  await expect(page.getByText("Guardado", { exact: true })).toBeVisible()
+  await expect(page.getByText(PREPARANDO).first()).toBeVisible()
   expect((await leerFila(id)).guion).toBe(GUION_VALIDO)
+  // Neither request asks for a new take: Claude's wording finds the take it already had.
+  expect(disparosRegistrados().map((d) => [d.tarea, d.nueva])).toEqual([
+    ["voz", false],
+    ["voz", false],
+  ])
 })
 
 test("a caption that forgets the avatar notice blocks the approval until she puts it back", async ({ page }) => {
@@ -397,7 +434,11 @@ test("a caption that forgets the avatar notice blocks the approval until she put
 
   await expect(page.getByText("Guardado", { exact: true })).toBeVisible()
   await elegirAvatar(page, "Estudio")
+  // The caption is not what her voice says: the voice stays, and only listening to it is left.
+  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await escucharLaVoz(page)
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "false")
+  expect(disparosRegistrados()).toEqual([])
 })
 
 test("asking for changes sends the script back to be rewritten", async ({ page }) => {
@@ -420,6 +461,7 @@ test("a screen opened before the piece changed does not approve", async ({ page 
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
 
   // While the screen is open, the script changes underneath it.
   await pool.query("update public.piezas set guion = guion || ' Una frase más.', version = version + 1 where id = $1", [
@@ -483,6 +525,7 @@ test("a look removed from the list while the screen was open is refused, with a 
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
   await sembrarAvatares([LOOK_B])
 
   await page.getByRole("slider", { name: ETIQUETA }).focus()

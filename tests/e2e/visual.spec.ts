@@ -123,7 +123,7 @@ test("video por aprobar", async ({ page }) => {
   await capturaDe(page, "video-por-aprobar")
 })
 
-async function guionAprobado(estado: "guion_aprobado" | "grabando_voz") {
+async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_render") {
   await vaciarPiezasEIdeas()
   const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
   return sembrarPieza(estado, {
@@ -134,30 +134,33 @@ async function guionAprobado(estado: "guion_aprobado" | "grabando_voz") {
   })
 }
 
-test("guion aprobado sin voz", async ({ page }) => {
-  const id = await guionAprobado("guion_aprobado")
+test("guion sin voz", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
   await page.goto(`/guion/${id}`)
-  await capturaDe(page, "guion-aprobado-sin-voz")
+  await capturaDe(page, "guion-sin-voz")
 })
 
 test("guion con voz", async ({ page }) => {
-  const id = await guionAprobado("guion_aprobado")
+  const id = await guionSembrado("guion_por_aprobar")
   const fila = await leerFila(id)
   const config = leerConfigProduccion(CONFIG)
-  await ajustarPieza(id, { audio_id: claveDeToma(id, huellaDelGuion(fila.guion, config.elevenlabs), fila.intento) })
+  await ajustarPieza(id, {
+    audio_id: claveDeToma(id, huellaDelGuion(fila.guion, config.elevenlabs), fila.intento),
+    explicacion: null,
+  })
   await page.goto(`/guion/${id}`)
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await capturaDe(page, "guion-con-voz")
 })
 
 test("guion grabando", async ({ page }) => {
-  const id = await guionAprobado("grabando_voz")
+  const id = await guionSembrado("grabando_voz")
   await page.goto(`/guion/${id}`)
   await capturaDe(page, "guion-grabando")
 })
 
 test("guion error", async ({ page }) => {
-  const id = await guionAprobado("guion_aprobado")
+  const id = await guionSembrado("en_render")
   await ajustarPieza(id, {
     estado: "error_produccion",
     estado_antes_del_error: "en_render",
