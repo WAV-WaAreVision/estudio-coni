@@ -73,7 +73,7 @@ async function piezaPorFirmar(ajustes: Record<string, unknown> = {}) {
 }
 
 describe("leerDatosDeGrabacion", () => {
-  it("reads the balances through the real wiring and prices her voice and the signature, with no voice yet", async () => {
+  it("reads the balances through the real wiring and prices voice and signature, no voice yet", async () => {
     const id = await piezaPorFirmar()
     const fila = await leerFila(id)
 

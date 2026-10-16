@@ -199,7 +199,9 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
 
 /**
  * The edit is already saved, so a failure to ask for the voice must not report it as failed: it is logged and the
- * screen keeps "Preparar mi voz". Returns the version the piece was left on.
+ * screen keeps "Preparar mi voz". If the `pedir_voz` trigger fails and the `falla_voz` write throws too, the piece is
+ * left in `grabando_voz` and the screen shows "Estoy preparando tu voz" until maintenance hands it back. Returns the
+ * version the piece was left on.
  */
 async function pedirLaVozDelEditado(deps: DepsGuion, editada: FilaDePieza): Promise<number> {
   try {
