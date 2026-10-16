@@ -315,7 +315,13 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           motivo={motivo}
           nota={grabacion.lineaDeFirma}
           enviando={aprobacion.pendiente}
-          alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
+          alAprobar={() =>
+            aprobacion.ejecutar(
+              () => aprobarGuionAccion(datos.id, version, avatarElegido),
+              // The undo on the video screen sends the version she signed at, never one a refresh brought later.
+              (firmada) => router.replace(`/guion/${datos.id}?firmada=${firmada.version}`),
+            )
+          }
         />
       </BarraDeFirma>
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}

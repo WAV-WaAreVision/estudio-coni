@@ -10,9 +10,10 @@ import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
-import { piezaTrabajando } from "@/lib/dominio/estados"
+import { piezaTrabajando, restoDeVentana } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
@@ -23,7 +24,9 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
+import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
+import { TEXTO_DESHECHO } from "./textos"
 import { VozSuelta } from "./voz-suelta"
 
 const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
@@ -31,8 +34,17 @@ const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
 
-export default async function PaginaDeGuion({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+/** The version she signed at, from the address gate 1 opens after the signature; any other value is ignored. */
+const versionFirmada = z.coerce.number().int().positive()
+
+export default async function PaginaDeGuion({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ deshecho?: string; firmada?: string }>
+}) {
+  const [{ id }, { deshecho, firmada }] = await Promise.all([params, searchParams])
   if (!z.uuid().safeParse(id).success) notFound()
   const { db } = await exigirConi()
   const pantalla = await leerPantallaDePieza(db, id)
@@ -61,20 +73,32 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
         </EstadoSencillo>
       )
     case "en_render":
-    case "subtitulando":
+    case "subtitulando": {
+      const firma = piezaDesdeFila(fila).puerta1
+      // The undo window of a fresh signature, on the same server clock the undo is checked against.
+      const quedanMs =
+        fila.estado === "en_render" && fila.explicacion === null && firma !== null
+          ? restoDeVentana(firma.en, new Date().toISOString())
+          : 0
+      const firmadaEn = versionFirmada.safeParse(firmada)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <LineaDeEstado tipo="error" titulo="El video está detenido" detalle={fila.explicacion} />
           ) : (
-            <Trabajando
-              titulo="Aprobado. Estoy grabando el video."
-              detalle="Tarda unos 5 minutos; te aviso cuando esté para que lo veas."
-            />
+            <Trabajando titulo="Estoy grabando tu video." detalle="Te aviso cuando esté listo." />
           )}
+          {quedanMs > 0 ? (
+            <DeshacerFirma
+              piezaId={fila.id}
+              version={firmadaEn.success ? firmadaEn.data : fila.version}
+              quedanMs={quedanMs}
+            />
+          ) : null}
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )
+    }
     case "error_produccion": {
       const voz = await vozParaEscuchar(db, fila)
       return (
@@ -153,7 +177,7 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           explicacion: fila.explicacion,
           avatares,
           grabacion,
-          avisoInicial: null,
+          avisoInicial: deshecho === "1" && fila.estado === "guion_por_aprobar" ? TEXTO_DESHECHO : null,
           avatarGuardado: fila.avatar_id,
         }}
       />

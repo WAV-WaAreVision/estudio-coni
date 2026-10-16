@@ -287,11 +287,13 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
       { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en: deps.ahora() },
       { avatar_id: avatar, puerta1_formula: 3 },
     )
-    return iniciar(
+    const inicio = await iniciar(
       "grabar-pieza",
       () => deps.disparar.grabar(firmada.id, claveGrabar(firmada), firmada.intento, RETRASO_DE_GRABACION),
       AVISO_GRABACION,
     )
+    // The undo toast sends this version, never a refreshed one: once the render claims the piece the lock refuses it.
+    return { version: firmada.version, ...inicio }
   })
 }
 

@@ -66,7 +66,7 @@ const elegirEstudio = () => fireEvent.click(screen.getByRole("radio", { name: "E
 const escuchar = () => fireEvent.click(screen.getByRole("button", { name: "Terminé de escuchar" }))
 
 beforeEach(() => {
-  aprobarGuionAccion.mockReset().mockResolvedValue({ ok: true })
+  aprobarGuionAccion.mockReset().mockResolvedValue({ ok: true, version: 6 })
   editarGuionAccion.mockReset()
   pedirVozAccion.mockReset().mockResolvedValue({ ok: true })
   replace.mockReset()
@@ -105,6 +105,17 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     expect(aprobar()).not.toHaveAttribute("aria-disabled", "true")
     fireEvent.click(aprobar())
     await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 5, "look-a"))
+  })
+
+  it("carries the version she signed at to the video screen, for its undo", async () => {
+    aprobarGuionAccion.mockResolvedValue({ ok: true, version: 6 })
+    render(<PantallaGuion datos={datos()} />)
+    elegirEstudio()
+    escuchar()
+
+    fireEvent.click(aprobar())
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/guion/p1?firmada=6"))
   })
 
   it("asks her to listen again when another take of her voice arrives", () => {

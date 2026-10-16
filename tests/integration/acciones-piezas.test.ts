@@ -287,7 +287,8 @@ describe("aprobarGuion", () => {
 
     const resultado = await aprobarGuion(deps, id, versionVista, "look-b")
 
-    expect(resultado).toEqual({ ok: true })
+    // The version she signed at: the undo toast sends it, so the lock refuses an undo once the render took the piece.
+    expect(resultado).toEqual({ ok: true, version: versionVista + 1 })
     const guardada = await fila(id)
     expect(guardada).toMatchObject({
       estado: "en_render",
@@ -328,8 +329,11 @@ describe("aprobarGuion", () => {
     const id = await paraAprobar()
     const { deps } = armar(coni, { grabar: new Error("Trigger.dev no responde") })
 
-    expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({
+    const versionVista = await versionDe(id)
+
+    expect(await aprobarGuion(deps, id, versionVista, "look-a")).toEqual({
       ok: true,
+      version: versionVista + 1,
       advertencia: AVISO_GRABACION,
     })
     expect(await fila(id)).toMatchObject({ estado: "en_render" })
@@ -360,7 +364,7 @@ describe("aprobarGuion", () => {
 
     const resultado = await aprobarGuion(armar().deps, id, await versionDe(id), "look-a")
 
-    expect(resultado).toEqual({ ok: true })
+    expect(resultado).toMatchObject({ ok: true })
     expect(await fila(id)).toMatchObject({ estado: "en_render", texto_linkedin: "Sin el aviso de avatar." })
   })
 
