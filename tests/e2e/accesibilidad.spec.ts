@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import AxeBuilder from "@axe-core/playwright"
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
+import { TEXTO_ARMADO } from "@/lib/diseno/deslizador"
+import { pool } from "../integration/db"
 import { bloquearRedExterna, configurarServicios, simularMedios } from "./ayudas"
 import { sembrarEscena } from "./escena"
 
@@ -89,4 +93,54 @@ test("every control on every screen is at least 44 x 44", async ({ page }) => {
     hallazgos.push(...chicos.map((chico) => `${ruta}: ${chico}`))
   }
   expect(hallazgos).toEqual([])
+})
+
+const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
+const LOOK = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.png" }
+
+async function hallazgosDeAxe(page: Page, estado: string): Promise<string[]> {
+  // The frame of the video is the user's footage: its contrast is not the app's.
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .exclude("video")
+    .analyze()
+  return violations.map((v) => `${estado}: ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)
+}
+
+// Amendment 1: the states the Soft UI kit adds (Lote 2), opened before axe reads them. Later lotes add theirs here.
+test("the states the Soft UI kit adds pass WCAG 2.x AA: the armed sign track and the portalled toast", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  const { guion } = await sembrarEscena()
+  const {
+    rows: [anterior],
+  } = await pool.query<{ produccion: unknown }>("select produccion from public.ajustes limit 1")
+  await pool.query("update public.ajustes set produccion = $1::jsonb", [
+    JSON.stringify({ ...BASE, heygen: { ...BASE.heygen, avatares: [LOOK] } }),
+  ])
+  try {
+    const hallazgos: string[] = []
+
+    // Gate 1 with the track armed by a first tap: the thumb at the end and the trail in --firma-rastro.
+    await page.goto(`/guion/${guion}`)
+    await page.getByRole("radio", { name: LOOK.nombre }).locator("xpath=ancestor::label").click()
+    await page.getByRole("button", { name: "Escuchar la voz" }).click()
+    await expect(page.getByText("La escuchaste completa")).toBeVisible({ timeout: 15_000 })
+    const pista = page.getByRole("slider", { name: "Desliza para firmar" })
+    await expect(pista).toHaveAttribute("aria-disabled", "false")
+    await pista.click()
+    await expect(pista).toHaveAttribute("aria-valuetext", TEXTO_ARMADO)
+    hallazgos.push(...(await hallazgosDeAxe(page, "firma armada")))
+
+    // The toast, portalled to <body>, above the bottom nav.
+    await page.goto("/")
+    await page.getByRole("button", { name: "Llegó una consulta" }).click()
+    await expect(page.getByRole("status").filter({ hasText: /^Anotada\./ })).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "aviso")))
+
+    expect(hallazgos).toEqual([])
+  } finally {
+    await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(anterior?.produccion ?? {})])
+  }
 })
