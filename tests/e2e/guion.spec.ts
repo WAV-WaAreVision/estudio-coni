@@ -55,7 +55,7 @@ async function vozLista(id: string) {
 /** She plays her voice to the end; the player remembers it for this take. */
 async function escucharLaVoz(page: Page) {
   await page.getByRole("button", { name: "Escuchar la voz" }).click()
-  await expect(page.getByText("Ya la escuchaste")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText("La escuchaste completa")).toBeVisible({ timeout: 15_000 })
 }
 
 /** Taps the card like she would: the radio itself is visually hidden. */

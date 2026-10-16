@@ -70,12 +70,12 @@ describe("VozParaFirmar", () => {
         sinGuardar={false}
       />,
     )
-    expect(screen.queryByText("Ya la escuchaste")).toBeNull()
+    expect(screen.queryByText("La escuchaste completa")).toBeNull()
     expect(alEscuchar).toHaveBeenCalledTimes(1)
 
     escucharEntera(container)
     expect(alEscuchar).toHaveBeenLastCalledWith("voces/p1/t-x-1.mp3")
-    expect(screen.getByText("Ya la escuchaste")).toBeInTheDocument()
+    expect(screen.getByText("La escuchaste completa")).toBeInTheDocument()
   })
 
   it.each([
