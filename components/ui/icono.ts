@@ -8,6 +8,5 @@ export const ICONO = {
   chico: "1em", // 16: next to meta text
   medio: "1.2em", // 20: next to body text, chevrons
   grande: "1.45em", // 24: nav, the sign thumb
-  amplio: "1.6em", // 28: the video play
   cierre: "1.9em", // 32: the closing moment
 } as const

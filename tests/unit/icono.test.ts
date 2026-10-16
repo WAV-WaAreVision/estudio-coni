@@ -8,7 +8,6 @@ describe("ICONO", () => {
       chico: "1em",
       medio: "1.2em",
       grande: "1.45em",
-      amplio: "1.6em",
       cierre: "1.9em",
     })
   })
