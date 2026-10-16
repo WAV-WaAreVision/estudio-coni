@@ -317,21 +317,27 @@ export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionV
 }
 
 /**
- * Her voice of the current script, before the signature. Nothing else would start this run, so a failure to start
- * hands the piece back.
+ * Moves a script waiting for her signature to `grabando_voz` and starts `grabar-voz`. Nothing else would start this
+ * run, so a failure to start hands the piece back with the reason. Returns the row as it was left.
  */
+export async function pedirVozDeFila(deps: DepsAcciones, fila: FilaDePieza, nueva: boolean): Promise<FilaDePieza> {
+  const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_voz" })
+  try {
+    await deps.disparar.voz(guardada.id, claveVoz(guardada), nueva)
+    return guardada
+  } catch (error) {
+    console.error("No pude iniciar grabar-voz", error)
+    return guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_VOZ })
+  }
+}
+
+/** Her voice of the current script, before the signature: "Preparar mi voz" and "Grabar la voz de nuevo". */
 export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
   return aResultado("pedirVoz", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
-    const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_voz" })
-    try {
-      await deps.disparar.voz(guardada.id, claveVoz(guardada), nueva)
-    } catch (error) {
-      console.error("No pude iniciar grabar-voz", error)
-      await guardarEvento(deps.db, guardada, { tipo: "falla_voz", explicacion: TEXTO_SIN_VOZ })
-      throw new Falla(TEXTO_SIN_VOZ)
-    }
+    const dejada = await pedirVozDeFila(deps, fila, nueva)
+    if (dejada.estado !== "grabando_voz") throw new Falla(TEXTO_SIN_VOZ)
     return {}
   })
 }

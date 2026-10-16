@@ -24,7 +24,7 @@ import {
   reintentarGuion,
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
-import { clienteDeServicio, comoConi, conSesionDeConi } from "@/lib/acciones/servidor"
+import { clienteDeServicio, comoConi, conSesionDeConi, disparosDeLaApp } from "@/lib/acciones/servidor"
 import { DESTINOS } from "@/lib/dominio/destinos"
 import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
@@ -43,6 +43,7 @@ function depsDeGuion(db: DepsGuion["db"]): DepsGuion {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
+    disparar: disparosDeLaApp(),
     ahora: () => new Date().toISOString(),
   }
 }
