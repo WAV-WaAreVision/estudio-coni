@@ -422,6 +422,29 @@ describe("editarGuion", () => {
   })
 })
 
+/** Her client, but once the edit is saved the next read or write of a piece fails: the voice step cannot run. */
+function conFalloDespuesDeEditar(db: Db): Db {
+  let editada = false
+  return new Proxy(db, {
+    get(destino, propiedad) {
+      if (propiedad === "rpc") {
+        return (funcion: string, ...resto: unknown[]) => {
+          if (funcion === "editar_guion_como_coni") editada = true
+          return Reflect.apply(destino.rpc, destino, [funcion, ...resto])
+        }
+      }
+      if (propiedad === "from") {
+        return (tabla: string) => {
+          if (editada && tabla === "piezas") throw new Error("La base no responde")
+          return Reflect.apply(destino.from, destino, [tabla])
+        }
+      }
+      const valor = Reflect.get(destino, propiedad)
+      return typeof valor === "function" ? valor.bind(destino) : valor
+    },
+  })
+}
+
 describe("editarGuion y la voz", () => {
   beforeEach(() => pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(coniConfig)]))
   afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
@@ -473,6 +496,23 @@ describe("editarGuion y la voz", () => {
       guion: GUION_VALIDO,
       explicacion: TEXTO_SIN_VOZ,
     })
+  })
+
+  it("reports the saved edit, not a failure, when the voice cannot be requested after it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    claudeRevisa()
+
+    const resultado = await editarGuion(
+      { ...deps(), db: conFalloDespuesDeEditar(coni) },
+      { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    )
+
+    expect(resultado).toMatchObject({ ok: true, version: version + 1 })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", guion: GUION_VALIDO })
+    expect(disparos).toEqual([])
+    expect(error).toHaveBeenCalledWith("No pude pedir la voz después de guardar el guion", expect.any(Error))
   })
 })
 

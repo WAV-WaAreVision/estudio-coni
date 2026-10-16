@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   confirmarGasto,
+  type FilaDePieza,
   leerGuiaVigente,
   leerIdea,
   leerPieza,
@@ -191,11 +192,23 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
   })
   if (error) throw traducir(new Error(error.message, { cause: error }))
   // Her voice follows the script she sees, in the same action; going back to an earlier wording reuses its take.
-  const dejada = conVozNueva
-    ? await pedirVozDeFila({ db, disparar: deps.disparar, ahora: deps.ahora }, data, false)
-    : data
+  const version = conVozNueva ? await pedirLaVozDelEditado(deps, data) : data.version
   // Gate 1 shows the script and the caption; the LinkedIn findings wait for gate 2, where she can edit that text.
-  return { version: dejada.version, revision: sinLinkedin(revision) }
+  return { version, revision: sinLinkedin(revision) }
+}
+
+/**
+ * The edit is already saved, so a failure to ask for the voice must not report it as failed: it is logged and the
+ * screen keeps "Preparar mi voz". Returns the version the piece was left on.
+ */
+async function pedirLaVozDelEditado(deps: DepsGuion, editada: FilaDePieza): Promise<number> {
+  try {
+    const dejada = await pedirVozDeFila({ db: deps.db, disparar: deps.disparar, ahora: deps.ahora }, editada, false)
+    return dejada.version
+  } catch (error) {
+    console.error("No pude pedir la voz después de guardar el guion", error)
+    return editada.version
+  }
 }
 
 async function textoDelTope(db: Db): Promise<string> {
