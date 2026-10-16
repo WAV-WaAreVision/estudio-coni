@@ -12,9 +12,10 @@ import { sembrarEscena } from "./escena"
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
  * which wants VISUAL_SHEET=1: device scale and no masks, to read) and the committed baselines every later run diffs
- * against (css scale, date text masked). The app server reads the real clock, which a test cannot freeze: the masks
- * hide the leaf nodes that carry dates and the month grid, but a month change moves the calendar rows, so the baselines
- * may need regenerating then (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
+ * against (css scale, moving data masked). The app server reads the real clock, which a test cannot freeze: the masks
+ * hide every element marked data-snapshot="varia" (dates, times, balances, durations, the month grid), but a month
+ * change moves the calendar rows, so the baselines may need regenerating then
+ * (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
  */
 const PARA_LA_HOJA = Boolean(process.env.VISUAL_SHEET)
 // VISUAL_FINALES=<folder> writes plain 390 px css PNGs of every screen there (no masks, no comparison) for review by eye.
@@ -43,21 +44,12 @@ test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name in ('anthropic', 'heygen', 'elevenlabs')")
 })
 
-const DIAS = "lunes|martes|miércoles|jueves|viernes|sábado|domingo"
-const MESES = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre"
-const MESES_CORTOS = "ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic"
-const FECHAS = new RegExp(
-  `\\b(${DIAS}|${MESES}|${MESES_CORTOS}|Lun|Mar|Mié|Jue|Vie|Sáb|Dom)\\b|\\d{1,2}:\\d{2}|Semana del|hoy a las`,
-  "i",
-)
+// What moves with the real clock (relative dates, times, balances, durations) carries data-snapshot="varia" in the app.
+// The mask is painted in the honda stone (--piedra-honda of app/globals.css) so it reads as a sunken tile.
+const COLOR_DE_MASCARA = "#dcdcdb"
 
-/** The text-only nodes that say a date or an hour, and the month grid: what moves with the real clock. */
 function mascaras(page: Page) {
-  const hojas = page
-    .locator("span, p, h1, h2, h3, summary, div")
-    .filter({ hasText: FECHAS })
-    .filter({ hasNot: page.locator("*") })
-  return [hojas, page.locator("ol.grid-cols-7")]
+  return [page.locator('[data-snapshot="varia"]')]
 }
 
 async function capturaDe(page: Page, nombre: string) {
@@ -77,7 +69,7 @@ async function capturaDe(page: Page, nombre: string) {
   }
   await expect(page).toHaveScreenshot(`${nombre}.png`, {
     fullPage: true,
-    ...(PARA_LA_HOJA ? { scale: "device" as const } : { mask: mascaras(page) }),
+    ...(PARA_LA_HOJA ? { scale: "device" as const } : { mask: mascaras(page), maskColor: COLOR_DE_MASCARA }),
   })
 }
 

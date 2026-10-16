@@ -45,7 +45,9 @@ export function ConsultaNueva({ total: inicial, mes, alAnotar, alDeshacer }: Pro
 
   return (
     <div className="grid gap-3">
-      <p className="text-cuerpo font-semibold">{cuantas(total, mes)}</p>
+      <p data-snapshot="varia" className="text-cuerpo font-semibold">
+        {cuantas(total, mes)}
+      </p>
       <Boton variante="linea" cargando={pendiente} icono={<Plus aria-hidden="true" size={20} />} onClick={anotar}>
         Llegó una consulta
       </Boton>

@@ -16,16 +16,16 @@ test("the app text is set in Geist, one family", async ({ page }) => {
   expect(cargada).toBe(true)
 })
 
-test("the app stays light even when the phone is in dark mode (light only for now)", async ({ page }) => {
+test("the app stays light even when the phone is in dark mode (light only)", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" })
   await page.goto("/")
   const fondo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-  expect(fondo).toBe("rgb(247, 246, 243)") // #f7f6f3
+  expect(fondo).toBe("rgb(235, 235, 234)") // #ebebea, piedra
   const esquema = await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)
   expect(esquema).toBe("light")
 })
 
-// Light only for now (decision of Federico): dark is wired in the CSS but not active, so it is not audited.
+// Light only: there is no dark theme to audit.
 async function rutas(): Promise<string[]> {
   const { guion, video } = await sembrarEscena()
   return [

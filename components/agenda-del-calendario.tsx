@@ -31,7 +31,7 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
     <span className="grid gap-0.5">
       {ocupante.pilar ? <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[ocupante.pilar]}</span> : null}
       <span className="text-cuerpo font-semibold tracking-[-0.004em]">{ocupante.titulo}</span>
-      <span className={cn("flex items-center gap-2 text-meta font-medium", TINTA[ocupante.tono])}>
+      <span data-snapshot="varia" className={cn("flex items-center gap-2 text-meta font-medium", TINTA[ocupante.tono])}>
         <IconoDeEstado ocupante={ocupante} />
         {ocupante.estado}
         {ocupante.provisional ? " · lugar propuesto" : ""}
@@ -47,7 +47,7 @@ const FILA =
 /** Brandkit 9.19: a free slot goes to the idea bank: «Libre · elige una idea». */
 function FilaDeHorario({ hueco }: { hueco: Hueco }) {
   const fecha = (
-    <span className="grid self-start text-meta leading-tight">
+    <span data-snapshot="varia" className="grid self-start text-meta leading-tight">
       <span className="font-semibold">{hueco.dia}</span>
       <span className="text-apagado tabular-nums">{hueco.hora}</span>
     </span>
@@ -81,7 +81,7 @@ export function AgendaDelCalendario({ semanas }: { semanas: { titulo: string; hu
   return (
     <div>
       {semanas.map((semana) => (
-        <Seccion key={semana.titulo} titulo={semana.titulo} id={`semana-${semana.titulo.replaceAll(" ", "-")}`}>
+        <Seccion key={semana.titulo} titulo={semana.titulo} varia id={`semana-${semana.titulo.replaceAll(" ", "-")}`}>
           {semana.huecos.length > 0 ? (
             <ul>
               {semana.huecos.map((hueco) => (

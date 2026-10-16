@@ -56,7 +56,9 @@ export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
 function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; actual: boolean }) {
   return (
     <>
-      <span className={cn("text-meta tabular-nums", actual ? "font-semibold" : "text-apagado")}>{semana.etiqueta}</span>
+      <span data-snapshot="varia" className={cn("text-meta tabular-nums", actual ? "font-semibold" : "text-apagado")}>
+        {semana.etiqueta}
+      </span>
       {semana.celdas.map((celda, i) =>
         celda.tipo === "llena" ? (
           <span

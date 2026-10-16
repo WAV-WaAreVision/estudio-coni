@@ -28,7 +28,9 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           <CaretLeft aria-hidden="true" size={20} />
           Inicio
         </Link>
-        <h1 className="text-pantalla capitalize">{calendario.mes.nombre}</h1>
+        <h1 data-snapshot="varia" className="text-pantalla capitalize">
+          {calendario.mes.nombre}
+        </h1>
       </header>
 
       <div className="mt-4">

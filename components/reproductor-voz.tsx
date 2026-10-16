@@ -50,7 +50,7 @@ export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
         className="avance"
         style={{ "--p": `${avance}%` } as React.CSSProperties}
       />
-      <span className="text-meta text-tinta tabular-nums">
+      <span data-snapshot="varia" className="text-meta text-tinta tabular-nums">
         {mmss(tiempo)} / {mmss(duracion)}
       </span>
       <div className="col-span-2 col-start-2">

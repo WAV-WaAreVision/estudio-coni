@@ -103,7 +103,7 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
             className="avance [--avance-color:var(--sobre-video)] [--avance-riel:color-mix(in_srgb,var(--sobre-video)_50%,transparent)]"
             style={{ "--p": `${avance}%` } as React.CSSProperties}
           />
-          <span className="text-meta tabular-nums">
+          <span data-snapshot="varia" className="text-meta tabular-nums">
             {mmss(tiempo)} / {mmss(duracion)}
           </span>
         </div>

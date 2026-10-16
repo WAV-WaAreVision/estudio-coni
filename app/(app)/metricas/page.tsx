@@ -30,7 +30,9 @@ export default async function Metricas() {
     <div>
       <header className="grid gap-1">
         <p className="text-meta font-semibold">Métricas</p>
-        <h1 className="mt-4 text-pantalla capitalize">{modelo.mes}</h1>
+        <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
+          {modelo.mes}
+        </h1>
         <p className="text-cuerpo text-apagado">{modelo.resumen}</p>
       </header>
 

@@ -1,76 +1,77 @@
+/* biome-ignore-all lint/a11y/useGenericFontNames: `font: -apple-system-body` is a system keyword; body sets the family again. */
+/* biome-ignore-all lint/suspicious/noShorthandPropertyOverrides: that shorthand deliberately replaces the 17 px root on touch screens. */
 @import "tailwindcss";
 /* Closes the default palette, radii, shadows and type sizes (before the tokens below define the real ones). */
 @import "./tema-cerrado.css";
 
 /*
- * Calma suiza tokens (docs/rediseno/tokens.css). This is the only place with literal colours: components use the
- * names below (bg-fondo, text-tinta, bg-firma, ...). Light only for now; the dark block is kept but not active.
+ * Soft UI v6, gris neutro (docs/superpowers/specs/2026-10-16-conidolly-soft-ui-design.md, decision 2; the values come
+ * from ~/Projects/conidolly-rediseno/soft-ui/v6/soft.css). This is the only place with literal colours: components use
+ * the names below (bg-piedra, text-tinta, shadow-relieve, ...). Light only.
  */
 :root {
   color-scheme: light;
 
-  /* ---------- Colour: warm stone neutrals (oklch hue 77 to 91, chroma under 0.016) ---------- */
-  --fondo: #f7f6f3; /* page */
-  --superficie: #fcfbf9; /* the one raised surface per screen, fields. 1.05:1, always with a line or shadow */
-  --tinta: #1d1b18; /* text, primary fill, selection, active tab, focus, section rules. 15.90:1 */
-  --apagado: #69645d; /* meta, help, pillar word, chevrons. 5.43:1 (4.79:1 on pista, 5.67:1 on superficie) */
-  --campo: #8a847b; /* field and control outlines, secondary outline, empty marks. 3.43:1 (3.58:1 on superficie) */
-  --linea: #e5e2dc; /* hairlines between rows. Decorative, 1.20:1 */
-  --pista: #ebe8e2; /* slider track, meter track, skeletons, tone-mark chip. 1.13:1 */
+  /* ---------- Colour ---------- */
+  --piedra: #ebebea; /* page and every raised surface */
+  --piedra-alta: #f4f4f3; /* reading panels, flat groups. Tinta 13.75:1 */
+  --piedra-honda: #dcdcdb; /* sunken tracks and fields, status pills, warning and error blocks, disabled. Tinta 11.03:1 */
+  --luz: #fbfbfa; /* light side of the relief; text on tinta (14.62:1), firma (6.51:1) and video (11.27:1) */
+  --tinta: #262626; /* all text, primary fill, checked boxes, progress, focus ring. 12.69:1 on piedra */
+  --apagado: #5a5a59; /* meta, help, disabled labels. 5.79, 6.27 and 5.03:1 on piedra, alta and honda */
+  --campo: #727271; /* empty checkbox and radio rings, high-contrast outlines. 3.51:1 on honda */
+  --hilo: var(--piedra-honda); /* 1 px dividers between rows, decorative */
+  --error: #b5137a; /* magenta fresa: error titles and the destructive confirm, always after an icon. 4.58:1 on honda */
+  --firma: #a8285a; /* raspberry: the thumb, its trail, the wordmark dot, /l. 4.91:1 against its honda track */
+  --sobre-firma: var(--luz);
+  --firma-rastro: rgb(168 40 90 / 0.14); /* trail while dragging or armed */
+  --video: #3a3836; /* the video frame before it loads */
+  --velo-video: rgb(38 38 38 / 0.78); /* badges and controls over the video */
+  --riel-video: rgb(251 251 250 / 0.35); /* the part of the video rail still to play */
 
-  /* ---------- Roles built on ink ---------- */
-  --principal: var(--tinta); /* filled primary button */
-  --sobre-principal: var(--superficie); /* label on the primary. 16.61:1 */
-  --sobre-tinta: var(--superficie); /* toast text, check inside a checked box, today's number. 16.61:1 */
+  /* ---------- Relief: sunken, raised and high, never a fourth level ---------- */
+  --relieve: -6px -6px 14px rgb(251 251 250 / 0.9), 6px 6px 14px rgb(60 60 60 / 0.18);
+  --relieve-alto: -10px -10px 24px rgb(251 251 250 / 0.9), 10px 10px 24px rgb(60 60 60 / 0.22);
+  --relieve-fijo: 0 -4px 14px rgb(60 60 60 / 0.1), inset 0 1px 0 rgb(251 251 250 / 0.9);
+  --relieve-alto-fijo: 0 -8px 24px rgb(60 60 60 / 0.16), inset 0 1px 0 rgb(251 251 250 / 0.9);
+  --hundido: inset 4px 4px 10px rgb(60 60 60 / 0.18), inset -4px -4px 10px rgb(251 251 250 / 0.9);
+  --relieve-pulgar: -3px -3px 8px rgb(251 251 250 / 0.7), 3px 3px 8px rgb(60 60 60 / 0.3);
+  --relieve-perilla: -2px -2px 5px rgb(251 251 250 / 0.9), 2px 2px 5px rgb(60 60 60 / 0.25);
+  --hundido-marcado: inset 2px 2px 5px rgb(60 60 60 / 0.18);
 
-  /* ---------- The signature: raspberry, ONLY the approve slider and the date it commits to ---------- */
-  --firma: #a8285a; /* oklch(0.495 0.167 2.2), HSL saturation 62 %. 6.24:1 (5.51:1 on pista). Same value as /l */
-  --sobre-firma: var(--superficie); /* arrow on the thumb, label on the filled track. 6.52:1 */
-  --firma-rastro: rgb(168 40 90 / 0.14); /* trail behind the thumb while dragging. Ink label on it: 11.35:1 */
-
-  /* ---------- States: inks, never fills. Always text plus icon ---------- */
-  --error: var(--firma); /* every highlight is the signature raspberry (Federico): error and destructive text, field border in error. 6.24:1 */
-  --exito: #2e6a44; /* 5.96:1 */
-  --aviso: var(--firma); /* warnings, blocks (balance, cap), spend from 80 % of the cap: the same raspberry, told from error by its icon and its text. 6.24:1 */
-
-  /* ---------- Media: constant across themes, the video is always dark under its controls ---------- */
-  --velo-video: rgb(29 27 24 / 0.64); /* play disc, "Avatar IA" label, bottom scrim. Text on it >= 5.00:1 even over a white frame */
-  --sobre-video: #fcfbf9; /* icons and text on the veil */
-  --foto-brillo: 1; /* avatar look photos. The video being approved is never dimmed */
-
-  /* ---------- Focus: a gap in the page colour, then an ink ring. Works on any surface ---------- */
-  --anillo-foco: 0 0 0 2px var(--fondo), 0 0 0 4px var(--firma);
-
-  /* ---------- Elevation: at most one raised surface per screen (sign bar, idea card or toast) ---------- */
-  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(29 27 24 / 0.06); /* faces up */
-  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(29 27 24 / 0.08); /* faces down: idea card, toast */
-
-  /* ---------- Type: one family, three weights, five sizes. rem so the user's text size scales it ---------- */
+  /* ---------- Type: rem on the iOS body size, so the system text size scales text and targets together ---------- */
   --letra: var(--font-geist-sans), ui-sans-serif, -apple-system, system-ui, "Segoe UI", sans-serif;
-
-  --t-pantalla: 2rem; /* 32, screen title, the answer of the screen */
-  --i-pantalla: calc(36 / 32);
+  --t-pantalla: 2rem; /* screen title */
+  --i-pantalla: 1.125;
   --tr-pantalla: -0.022em;
-  --t-pieza: 1.5rem; /* 24, piece title, idea hook, cost amount */
-  --i-pieza: calc(28 / 24);
+  --t-pieza: 1.5rem; /* piece title, idea hook, "Grabo tu video en 8 s" */
+  --i-pieza: 1.167;
   --tr-pieza: -0.014em;
-  --t-guion: 1.25rem; /* 20, the script, reading and editing (a role, not a hierarchy step) */
-  --i-guion: calc(32 / 20);
-  --t-cuerpo: 1.125rem; /* 18, accessibility base: body, rows, buttons */
-  --i-cuerpo: calc(24 / 18); /* UI lines */
-  --i-prosa: calc(28 / 18); /* paragraphs, Instagram text */
-  --t-meta: 0.9375rem; /* 15, meta, section labels, help, units, tone marks */
-  --i-meta: calc(20 / 15);
-  --t-marca: 2.75rem; /* 44, ONLY the name on the public page /l (brand register, outside the app) */
-  --i-marca: calc(48 / 44);
+  --t-guion: 1.18rem; /* the script */
+  --i-guion: 1.6;
+  --t-boton: 1.125rem; /* labels of the 3.25rem buttons and the working line */
+  --i-boton: 1.333;
+  --t-cuerpo: 1rem; /* body, row titles, small buttons, toast, track label */
+  --i-cuerpo: 1.333;
+  --i-prosa: 1.55; /* paragraphs: the LinkedIn text, the caption */
+  --t-meta: 0.9375rem; /* meta, section labels, pills, help, figures */
+  --i-meta: 1.333;
+  --t-insignia: 0.8125rem; /* badges on the video */
+  --i-insignia: 1.3;
+  --t-marca: 2.75rem; /* only the name on /l */
+  --i-marca: 1.09;
+  --peso-titulo: 600;
 
-  --peso-normal: 400;
-  --peso-medio: 500;
-  --peso-fuerte: 600;
-  --peso-titulo: 600; /* screen and piece titles; one step lighter at night */
-  --cifras: tabular-nums; /* money, times, durations, balances, counts, metrics */
+  /* ---------- Shape ---------- */
+  --r-control: 999px; /* everything touchable */
+  --r-panel: 24px;
+  --r-bloque: 18px;
+  --r-barra: 28px;
+  --r-toast: 22px;
+  --r-casilla: 9px;
+  --r-video: 22px;
 
-  /* ---------- Space: 4 / 8 grid ---------- */
+  /* ---------- Space: px on the 4/8 grid. Targets and min-heights are rem tokens of the @theme block ---------- */
   --e-1: 4px;
   --e-2: 8px;
   --e-3: 12px;
@@ -80,85 +81,29 @@
   --e-10: 40px;
   --e-12: 48px;
   --e-16: 64px;
-  --margen: 20px; /* side margin: the left axis never moves */
-  --sangria: 36px; /* icon indent = 24 icon box + 12 gap: text of status lines, checkboxes, reasons at x = 56 */
-  --columna-max: 560px; /* reading column on tablet or computer */
-  --entre-secciones: 40px;
-  --final-pagina: 96px; /* free space after the last control, so a toast never covers it */
+  --margen: 20px;
+  --final-pagina: 96px; /* free space after the last control of a screen without a sign bar */
 
-  /* ---------- Shape: two radii only ---------- */
-  --r-12: 12px; /* buttons, fields, photos, video, idea card, toast, chips, thumbnails */
-  --r-circulo: 999px; /* what is round by nature: slider, thumb, checkbox, switch, play, dots, meters */
+  /* ---------- The sign control and the bottom nav, in rem; large text shrinks the thumb (decision 6) ---------- */
+  --pulgar-firma: 3rem;
+  --pista-firma: 3.5rem;
+  --hueco-etiqueta: 1rem;
+  --alto-nav: calc(3.5rem + 32px + env(safe-area-inset-bottom));
 
-  /* ---------- Lines ---------- */
-  --trazo: 1px; /* rules, hairlines, field and secondary outlines */
-  --trazo-control: 1.5px; /* checkbox, switch, disabled thumb, voice play ring */
-  --trazo-seleccion: 2px; /* selected avatar ring, active tab underline, field in error */
-  --medidor: 4px; /* filled mark: spend meter, metric bar, reel progress, rhythm cell */
-
-  /* ---------- Sizes of things you touch ---------- */
-  --objetivo-min: 44px;
-  --alto-boton: 52px;
-  --alto-fila: 64px; /* piece rows */
-  --alto-fila-nav: 56px; /* navigation, value and switch rows */
-  --alto-pista: 56px; /* approve slider track */
-  --pulgar: 48px; /* approve slider thumb, voice play */
-  --casilla: 24px;
-  --interruptor-ancho: 52px;
-  --interruptor-alto: 32px;
-  --play-video: 64px;
-  --miniatura-ancho: 48px; /* video thumbnail in a row */
-  --miniatura-alto: 64px;
-  --icono: 20px; /* next to 18 px text */
-  --icono-chico: 16px; /* next to 15 px text */
-  --icono-nav: 24px;
-  --icono-cierre: 32px; /* the closing moment ("Ya se publicó") */
-  --barra-max: 112px; /* sign bar without the safe area */
-
-  /* ---------- Motion: only in response to touch, only transform and opacity ---------- */
-  --dur-corta: 150ms; /* press: scale(0.98), checkbox, switch */
-  --dur-media: 200ms; /* state change, inline confirmation, toast in, disclosure */
-  --dur-larga: 220ms; /* thumb returning or reaching the end, idea card in */
-  --curva-salida: cubic-bezier(0.23, 1, 0.32, 1); /* enter and settle, no bounce */
-  --curva-vuelta: cubic-bezier(0.32, 0.72, 0, 1); /* thumb spring-back, no bounce */
-  --latido: 1.6s; /* the "working" dot. Components drop the animation under reduced motion */
-  --toast-duracion: 8s;
+  /* ---------- Motion: only in response to touch ---------- */
+  --dur-corta: 150ms; /* press: relief to sunken */
+  --dur-media: 200ms; /* state change, disclosure, toast */
+  --dur-larga: 220ms; /* thumb travelling or springing back */
+  --curva-salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --curva-vuelta: cubic-bezier(0.32, 0.72, 0, 1);
+  --latido: 1.6s; /* the working dot and the skeletons */
 
   /* ---------- Layers ---------- */
-  --capa-barra: 10; /* sign bar and bottom navigation */
+  --capa-barra: 10;
   --capa-toast: 20;
 }
 
-/* ---------- Dark: kept ready, NOT active. Light only for now (decision of Federico): there is no
-   system colour-scheme switching, so the app is light on every phone. Setting data-theme="dark" on <html> opts in.
-   Night rules: titles one weight lighter, the primary one step below the ink, look photos at 94 % brightness,
-   the video to approve never dimmed. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --fondo: #161513;
-  --superficie: #1f1d1a;
-  --tinta: #ece9e3;
-  --apagado: #a39d94;
-  --campo: #7c766d;
-  --linea: #2f2c28;
-  --pista: #2a2724;
-  --principal: #d6d2cb;
-  --sobre-principal: #161513;
-  --sobre-tinta: #161513;
-  --firma: #d78099;
-  --sobre-firma: #161513;
-  --firma-rastro: rgb(215 128 153 / 0.22);
-  --error: var(--firma);
-  --exito: #86c39c;
-  --aviso: var(--firma);
-  --foto-brillo: 0.94;
-  --peso-titulo: 500;
-  --sombra-barra: 0 -1px 0 var(--linea), 0 -8px 24px rgb(8 7 6 / 0.45);
-  --sombra-flotante: 0 0 0 1px var(--linea), 0 8px 24px rgb(8 7 6 / 0.45);
-}
-
-/* Reduced motion keeps every state change (colour, opacity, the written state) and drops the
-   movement. The approve gesture is identical: only its animations become instant. */
+/* Reduced motion keeps every state change and drops the movement (decision 7). */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-corta: 0ms;
@@ -167,32 +112,61 @@
   }
 }
 
-/* The sign bar is taller than the brief's 112 px: the slider block carries the Aprobar button (WCAG 2.5.7). */
+/* ---------- Calma suiza names, aliases of the new values while the screens move over (spec "Migration order",
+   step 1). Task 48 deletes this block and the one below, and the guard test bans the names. ---------- */
 :root {
+  --fondo: var(--piedra);
+  --superficie: var(--piedra);
+  --linea: var(--hilo);
+  --pista: var(--piedra-honda);
+  --principal: var(--tinta);
+  --sobre-principal: var(--luz);
+  --sobre-tinta: var(--luz);
+  --exito: var(--tinta);
+  --aviso: var(--tinta);
+  --sobre-video: var(--luz);
+  --sombra-barra: var(--relieve-alto-fijo);
+  --sombra-flotante: var(--relieve-alto);
+  --anillo-foco: 0 0 0 2px var(--piedra), 0 0 0 4px var(--tinta);
   --barra-max: 176px;
+  --r-12: 12px;
+  --foto-brillo: 1;
 }
 
 @theme inline {
-  --color-transparent: transparent;
-  --color-current: currentColor;
   --color-fondo: var(--fondo);
   --color-superficie: var(--superficie);
-  --color-tinta: var(--tinta);
-  --color-apagado: var(--apagado);
-  --color-campo: var(--campo);
   --color-linea: var(--linea);
   --color-pista: var(--pista);
   --color-principal: var(--principal);
   --color-sobre-principal: var(--sobre-principal);
   --color-sobre-tinta: var(--sobre-tinta);
+  --color-exito: var(--exito);
+  --color-aviso: var(--aviso);
+  --color-sobre-video: var(--sobre-video);
+  --radius-12: var(--r-12);
+  --shadow-barra: var(--sombra-barra);
+  --shadow-flotante: var(--sombra-flotante);
+}
+/* ---------- End of the Calma suiza aliases ---------- */
+
+@theme inline {
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-piedra: var(--piedra);
+  --color-piedra-alta: var(--piedra-alta);
+  --color-piedra-honda: var(--piedra-honda);
+  --color-luz: var(--luz);
+  --color-tinta: var(--tinta);
+  --color-apagado: var(--apagado);
+  --color-campo: var(--campo);
+  --color-hilo: var(--hilo);
+  --color-error: var(--error);
   --color-firma: var(--firma);
   --color-sobre-firma: var(--sobre-firma);
   --color-firma-rastro: var(--firma-rastro);
-  --color-error: var(--error);
-  --color-exito: var(--exito);
-  --color-aviso: var(--aviso);
+  --color-video: var(--video);
   --color-velo-video: var(--velo-video);
-  --color-sobre-video: var(--sobre-video);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, -apple-system, system-ui, sans-serif;
 
@@ -206,29 +180,73 @@
   --text-pieza--font-weight: var(--peso-titulo);
   --text-guion: var(--t-guion);
   --text-guion--line-height: var(--i-guion);
+  --text-boton: var(--t-boton);
+  --text-boton--line-height: var(--i-boton);
   --text-cuerpo: var(--t-cuerpo);
   --text-cuerpo--line-height: var(--i-cuerpo);
   --text-meta: var(--t-meta);
   --text-meta--line-height: var(--i-meta);
+  --text-insignia: var(--t-insignia);
+  --text-insignia--line-height: var(--i-insignia);
   --text-marca: var(--t-marca);
   --text-marca--line-height: var(--i-marca);
   --leading-prosa: var(--i-prosa);
 
-  --radius-12: var(--r-12);
+  --radius-control: var(--r-control);
+  --radius-panel: var(--r-panel);
+  --radius-bloque: var(--r-bloque);
+  --radius-barra: var(--r-barra);
+  --radius-toast: var(--r-toast);
+  --radius-casilla: var(--r-casilla);
+  --radius-video: var(--r-video);
 
-  --shadow-barra: var(--sombra-barra);
-  --shadow-flotante: var(--sombra-flotante);
+  --shadow-relieve: var(--relieve);
+  --shadow-relieve-alto: var(--relieve-alto);
+  --shadow-relieve-fijo: var(--relieve-fijo);
+  --shadow-relieve-alto-fijo: var(--relieve-alto-fijo);
+  --shadow-hundido: var(--hundido);
+  --shadow-relieve-pulgar: var(--relieve-pulgar);
+  --shadow-relieve-perilla: var(--relieve-perilla);
+  --shadow-hundido-marcado: var(--hundido-marcado);
+
+  /* Paddings stay px when the root grows with the iOS text size; targets are rem (lib/utils.ts lists these names). */
+  --spacing: 4px;
+  --spacing-objetivo: 2.75rem;
+  --spacing-boton: 3.25rem;
+  --spacing-fila: 4.5rem;
+  --spacing-fila-baja: 3.75rem;
+  --spacing-casilla: 1.65rem;
+  --spacing-pildora: 2rem;
+  --spacing-play: 3.5rem;
+  --spacing-nav: 3.5rem;
+  --spacing-foto: 2.25rem;
+  --spacing-riel: 0.625rem;
+  --spacing-interruptor-ancho: 3.25rem;
+  --spacing-interruptor-alto: 2rem;
+  --spacing-punto: 0.625rem;
+  --spacing-punto-chico: 0.5rem;
 
   --ease-salida: var(--curva-salida);
   --ease-vuelta: var(--curva-vuelta);
 }
 
+/* 17 px everywhere; iPhone and iPad with touch take Dynamic Type. The media guard is ours: on macOS Safari
+   -apple-system-body resolves to the desktop body size and would shrink the app. */
 html {
+  font-size: 106.25%;
   -webkit-text-size-adjust: 100%;
 }
+@media (hover: none) and (pointer: coarse) {
+  @supports (font: -apple-system-body) {
+    html {
+      font: -apple-system-body;
+    }
+  }
+}
 
+/* The shorthand above also sets a system family: the body sets family, size and line height again. */
 body {
-  background: var(--fondo);
+  background: var(--piedra);
   color: var(--tinta);
   font-family: var(--letra);
   font-size: var(--t-cuerpo);
@@ -236,10 +254,66 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* A gap in the page colour, then an ink ring; the transparent outline still shows in forced-colors mode. */
-:focus-visible {
-  outline: 2px solid transparent;
-  box-shadow: var(--anillo-foco);
+/* In the base layer so a utility can change the colour where the surface is dark (the toast, /l). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--tinta);
+    outline-offset: 2px;
+  }
+  /* Rows that wrap a hidden input show the ring on the row. */
+  label:has(> input:focus-visible) {
+    outline: 2px solid var(--tinta);
+    outline-offset: 2px;
+    border-radius: var(--r-bloque);
+  }
+}
+
+/* Decision 7: with more contrast every raised, sunken or flat container gets a campo outline and apagado turns ink. */
+@media (prefers-contrast: more) {
+  :root {
+    --apagado: var(--tinta);
+  }
+  :where(
+      .shadow-relieve,
+      .shadow-relieve-alto,
+      .shadow-relieve-fijo,
+      .shadow-relieve-alto-fijo,
+      .shadow-hundido,
+      .shadow-relieve-pulgar,
+      [data-contorno]
+    ) {
+    outline: 2px solid var(--campo);
+    outline-offset: -2px;
+  }
+  :where(
+      .shadow-relieve,
+      .shadow-relieve-alto,
+      .shadow-relieve-fijo,
+      .shadow-relieve-alto-fijo,
+      .shadow-hundido,
+      .shadow-relieve-pulgar,
+      [data-contorno]
+    ):focus-visible {
+    outline-color: var(--tinta);
+    outline-offset: 2px;
+  }
+}
+
+/* Shadows vanish in forced colours: raised and sunken shapes get a system border. */
+@media (forced-colors: active) {
+  :where(
+      .shadow-relieve,
+      .shadow-relieve-alto,
+      .shadow-relieve-fijo,
+      .shadow-relieve-alto-fijo,
+      .shadow-hundido,
+      .shadow-relieve-pulgar,
+      .shadow-relieve-perilla,
+      .shadow-hundido-marcado,
+      [data-contorno]
+    ) {
+    border: 1px solid CanvasText;
+  }
 }
 
 /* The toast slides in 8 px and fades; a transition (not a keyframe) so a second toast retargets smoothly. */
@@ -276,11 +350,11 @@ body {
 }
 .esqueleto {
   animation: latido var(--latido) ease-in-out infinite;
-  background: var(--pista);
-  border-radius: var(--r-circulo);
+  background: var(--piedra-honda);
+  border-radius: var(--r-control);
 }
 
-/* The 8 px dot that says something real is happening. */
+/* The dot that says something real is happening. */
 @keyframes trabajando {
   50% {
     opacity: 0.25;
@@ -321,66 +395,97 @@ body {
   }
 }
 
-/* Brandkit 9.8: fields grow with their text, never scroll inside. In the components layer so a utility can still adjust one. */
+/* Fields sink (decision 4): a 3.25rem pill for one line; a text area has 24 px corners and grows with its text. In the
+   components layer so a utility can still adjust one. */
 @layer components {
   .campo {
-    background: var(--superficie);
-    border: var(--trazo) solid var(--campo);
-    border-radius: var(--r-12);
-    padding: var(--e-4);
-    min-height: var(--alto-boton);
+    background: var(--piedra-honda);
+    box-shadow: var(--hundido);
+    border: 0;
+    border-radius: var(--r-control);
+    padding: 0 20px;
+    min-height: 3.25rem;
+    color: var(--tinta);
   }
   /* Only a text area grows with its text: a one-line input that did would push its column wider than the screen. */
   textarea.campo {
     field-sizing: content;
+    border-radius: var(--r-panel);
+    padding: 14px 20px;
   }
   .campo[aria-invalid="true"] {
-    border: var(--trazo-seleccion) solid var(--error);
+    outline: 2px solid var(--error);
+    outline-offset: 0;
+  }
+  .campo:disabled {
+    box-shadow: none;
+    color: var(--apagado);
   }
   .campo::placeholder {
     color: var(--apagado);
   }
 }
 
-/* Brandkit 9.16 and 9.17: a seekable rail. 44 px target, 2 px rail, 2 px ink progress (--p), 14 px knob. */
+/* A seekable rail (decision 4): a 0.625rem sunken track, the ink progress (--p) and a raised 1.25rem knob, on a
+   2.75rem target. */
 .avance {
   --avance-color: var(--tinta);
-  --avance-riel: var(--campo);
+  --avance-pista: var(--piedra-honda);
+  --avance-sombra: var(--hundido);
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 44px;
+  height: 2.75rem;
   margin: 0;
   cursor: pointer;
-  background-color: transparent;
-  background-image:
-    linear-gradient(var(--avance-color), var(--avance-color)), linear-gradient(var(--avance-riel), var(--avance-riel));
-  background-position:
-    0 50%,
-    0 50%;
-  background-size:
-    var(--p, 0%) 2px,
-    100% 2px;
-  background-repeat: no-repeat;
+  background: transparent;
 }
 .avance:disabled {
   cursor: default;
   --avance-color: var(--apagado);
 }
+/* Over the video: a light fill on a translucent rail, no relief (the frame is not a surface). */
+.avance.sobre-video {
+  --avance-color: var(--luz);
+  --avance-pista: var(--riel-video);
+  --avance-sombra: none;
+}
+.avance::-webkit-slider-runnable-track {
+  height: 0.625rem;
+  border-radius: var(--r-control);
+  background:
+    linear-gradient(var(--avance-color), var(--avance-color)) 0 0 / var(--p, 0%) 100% no-repeat,
+    var(--avance-pista);
+  box-shadow: var(--avance-sombra);
+}
 .avance::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: -0.3125rem;
   border: 0;
-  border-radius: var(--r-circulo);
+  border-radius: var(--r-control);
+  background: var(--piedra);
+  box-shadow: var(--relieve-perilla);
+}
+.avance::-moz-range-track {
+  height: 0.625rem;
+  border-radius: var(--r-control);
+  background: var(--avance-pista);
+  box-shadow: var(--avance-sombra);
+}
+.avance::-moz-range-progress {
+  height: 0.625rem;
+  border-radius: var(--r-control);
   background: var(--avance-color);
 }
 .avance::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 1.25rem;
+  height: 1.25rem;
   border: 0;
-  border-radius: var(--r-circulo);
-  background: var(--avance-color);
+  border-radius: var(--r-control);
+  background: var(--piedra);
+  box-shadow: var(--relieve-perilla);
 }
 
 /* The public page of the bio link is signature-coloured edge to edge, overscroll included. */

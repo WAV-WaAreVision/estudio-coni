@@ -172,14 +172,17 @@ test("a link that is not ready, or does not exist, sends the visitor back to the
   expect(await clics()).toEqual({})
 })
 
-test("/l is raspberry edge to edge with Coni's name in Geist 44, without the app wordmark", async ({ page }) => {
+test("/l is raspberry edge to edge with Coni's name in Geist at 2.75rem, without the app wordmark", async ({
+  page,
+}) => {
   await page.goto("/l")
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(168, 40, 90)")
   await expect(page.getByRole("img", { name: "Conidolly" })).toHaveCount(0)
   const titulo = page.getByRole("heading", { level: 1 })
-  await expect(titulo).toHaveCSS("font-size", "44px")
+  // 2.75rem on the 17 px root (106.25 %).
+  await expect(titulo).toHaveCSS("font-size", "46.75px")
   expect(await titulo.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Geist/i)
-  // Text on the raspberry is the full on-signature colour, never a transparency.
-  await expect(titulo).toHaveCSS("color", "rgb(252, 251, 249)")
+  // Text on the raspberry is the full light colour, never a transparency.
+  await expect(titulo).toHaveCSS("color", "rgb(251, 251, 250)")
   await capturar(page, "enlace-publico")
 })

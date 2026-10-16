@@ -17,7 +17,7 @@ export function MesDelCalendario({ celdas }: { celdas: readonly CeldaDeMes[] }) 
           <span key={i}>{inicial}</span>
         ))}
       </div>
-      <ol className="grid grid-cols-7 gap-1">
+      <ol data-snapshot="varia" className="grid grid-cols-7 gap-1">
         {celdas.map((celda, i) => {
           if (celda.dia === null)
             // biome-ignore lint/suspicious/noArrayIndexKey: blanks before the first day have no other identity

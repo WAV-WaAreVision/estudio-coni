@@ -203,7 +203,9 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
             titulo={
               <>
                 Si lo apruebas hoy, sale el{" "}
-                <span className="font-semibold whitespace-nowrap text-firma tabular-nums">{datos.salida}</span>
+                <span data-snapshot="varia" className="font-semibold whitespace-nowrap text-firma tabular-nums">
+                  {datos.salida}
+                </span>
               </>
             }
             tituloEnTinta

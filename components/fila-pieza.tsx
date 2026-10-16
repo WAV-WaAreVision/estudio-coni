@@ -33,7 +33,7 @@ export function FilaPieza({
       <span className="grid gap-0.5">
         {pilar ? <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[pilar]}</span> : null}
         <span className="text-cuerpo font-semibold tracking-[-0.004em]">{titulo}</span>
-        <span className="flex items-center gap-2 text-meta font-medium text-tinta">
+        <span data-snapshot="varia" className="flex items-center gap-2 text-meta font-medium text-tinta">
           {trabajando ? <PuntoTrabajando /> : null}
           {estado}
         </span>

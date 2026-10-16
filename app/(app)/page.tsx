@@ -42,7 +42,9 @@ export default async function Inicio() {
       <header className="grid gap-1">
         <p className="flex items-baseline justify-between gap-4 text-meta">
           <span className="font-semibold">Hola, Coni</span>
-          <span className="text-apagado">{inicio.semana}</span>
+          <span data-snapshot="varia" className="text-apagado">
+            {inicio.semana}
+          </span>
         </p>
         <h1 className="mt-6 text-pantalla text-balance">{inicio.titulo}</h1>
         {inicio.tiempo ? <p className="mt-1 text-cuerpo text-apagado">{inicio.tiempo}</p> : null}
