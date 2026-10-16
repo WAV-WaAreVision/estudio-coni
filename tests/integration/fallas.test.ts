@@ -60,7 +60,7 @@ const GENERICO_VIDEO = "Algo falló al preparar tu video. WAV ya está revisando
 const GENERICO_GUION = "Algo falló al preparar tu guion. WAV ya está revisando."
 
 describe("avisarFalla", () => {
-  it("returns a piece left in grabando_voz to guion_por_aprobar with a generic text when grabar-voz gives up", async () => {
+  it("hands a piece stuck in grabando_voz back to guion_por_aprobar with a generic text on a failure", async () => {
     const id = await piezaEn("grabando_voz")
     const { deps } = doble()
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerAvataresElegibles, leerInstagramConectado } from "@/lib/datos/pantallas"
+import { leerInstagramConectado } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -40,7 +40,7 @@ import {
 } from "@/lib/dominio/revision"
 import { vozDelGuion } from "@/lib/dominio/voz"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
-import { leerConfigProduccion } from "@/lib/proveedores/config"
+import { type AvatarElegible, type ConfigElevenlabs, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
@@ -145,18 +145,16 @@ async function iniciar(
 const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
 
 /** The undo window plus the clock margin: the render starts once Coni can no longer take the signature back. */
-export const RETRASO_DE_GRABACION = `${(VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS) / 1000}s` as const
+const RETRASO_DE_GRABACION = `${(VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS) / 1000}s` as const
 
 const TEXTO_VOZ_AJENA = "Tu voz no corresponde al guion actual. Prepárala antes de firmar."
 
-/** The voice she heard has to be a take of this exact script with the configured voice (design 2026-10-15, decision 4). */
-async function exigirVozDelGuion(db: Db, fila: FilaDePieza, guion: string): Promise<void> {
-  const config = leerConfigProduccion(await leerProduccion(db))
-  const voz = vozDelGuion({
-    audioId: fila.audio_id,
-    piezaId: fila.id,
-    huella: huellaDelGuion(guion, config.elevenlabs),
-  })
+/**
+ * The voice she heard has to be a take of this exact script with the configured voice (design 2026-10-15,
+ * decision 4).
+ */
+function exigirVozDelGuion(fila: FilaDePieza, guion: string, elevenlabs: ConfigElevenlabs): void {
+  const voz = vozDelGuion({ audioId: fila.audio_id, piezaId: fila.id, huella: huellaDelGuion(guion, elevenlabs) })
   if (voz === null) throw new Falla(TEXTO_VOZ_AJENA)
 }
 
@@ -249,8 +247,7 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
 }
 
 /** The avatar she signs with the script: it has to be one of the looks WAV lets her choose right now. */
-async function exigirAvatarElegible(db: Db, avatarId: string | null): Promise<string> {
-  const elegibles = await leerAvataresElegibles(db)
+function exigirAvatarElegible(elegibles: readonly AvatarElegible[], avatarId: string | null): string {
   if (elegibles.length === 0) throw new Falla("Todavía no hay avatares para elegir: avísale a Federico.")
   const elegido = avatarId?.trim()
   if (!elegido) throw new Falla("Elige con qué avatar se graba antes de aprobar.")
@@ -277,8 +274,9 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
       throw new Error(`La pieza ${fila.id} está por aprobar sin guion o sin texto.`)
     }
     exigirRevisionLimpia(fila, { linkedin: false })
-    const avatar = await exigirAvatarElegible(deps.db, avatarId)
-    await exigirVozDelGuion(deps.db, fila, fila.guion)
+    const config = leerConfigProduccion(await leerProduccion(deps.db))
+    const avatar = exigirAvatarElegible(config.heygen.avatares, avatarId)
+    exigirVozDelGuion(fila, fila.guion, config.elevenlabs)
     const respaldo = huellaDeRespaldo(leerRespaldo(fila.respaldo))
     const hash = hashPuerta1({ formula: 3, guion: fila.guion, texto: fila.texto, avatarId: avatar, respaldo })
     const firmada = await guardarEvento(
@@ -295,7 +293,10 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
   })
 }
 
-/** Her voice of the current script, before the signature. Nothing else would start this run, so a failure to start hands the piece back. */
+/**
+ * Her voice of the current script, before the signature. Nothing else would start this run, so a failure to start
+ * hands the piece back.
+ */
 export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
   return aResultado("pedirVoz", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)

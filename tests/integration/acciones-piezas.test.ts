@@ -279,7 +279,7 @@ describe("aprobarGuion", () => {
     )
   })
 
-  it("signs the script with her voice, stores formula 3, binds the hash and starts the video after the undo window", async () => {
+  it("signs with her voice, stores formula 3, binds the hash and starts the video after the undo window", async () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
     const versionVista = await versionDe(id)
@@ -308,7 +308,10 @@ describe("aprobarGuion", () => {
     const id = await paraAprobar()
     const { deps, disparos } = armar()
 
-    for (const audio of [null, claveAudio(id, new Uint8Array([1, 2, 3])), tomaDe(id, "Un guion que ya no está.")]) {
+    // The last one is a take of this very script, made with another voice of ElevenLabs.
+    const conOtraVoz = claveDeToma(id, huellaDelGuion(GUION_VALIDO, { ...ELEVENLABS, voice_id: "otra" }), 0)
+    const ajenas = [null, claveAudio(id, new Uint8Array([1, 2, 3])), tomaDe(id, "Un guion que ya no está."), conOtraVoz]
+    for (const audio of ajenas) {
       await ajustarComoPostgres(id, { audio_id: audio })
       expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({
         ok: false,
@@ -1019,7 +1022,7 @@ describe("subir a mano", () => {
 })
 
 describe("pedirVoz", () => {
-  it("moves a script waiting for her signature to grabando_voz and starts grabar-voz once with the attempt's key", async () => {
+  it("moves a script waiting for her signature to grabando_voz and starts grabar-voz once, keyed", async () => {
     const id = await pieza("guion_por_aprobar")
     const antes = await fila(id)
     const { deps, disparos } = armar()
@@ -1043,9 +1046,11 @@ describe("pedirVoz", () => {
   it("refuses a signed piece: the voice is made before the signature", async () => {
     const id = await pieza("en_render")
     const { deps, disparos } = armar()
+    const version = await versionDe(id)
 
-    expect((await pedirVoz(deps, id, await versionDe(id), false)).ok).toBe(false)
+    expect((await pedirVoz(deps, id, version, false)).ok).toBe(false)
     expect(disparos).toEqual([])
+    expect(await fila(id)).toMatchObject({ estado: "en_render", version })
   })
 
   it("refuses a stale screen and starts nothing", async () => {

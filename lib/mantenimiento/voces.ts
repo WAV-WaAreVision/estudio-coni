@@ -5,8 +5,6 @@ import { transicionar } from "@/lib/dominio/estados"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import type { Database } from "@/lib/supabase/database.types"
 
-/** A stuck voice is handed back like any voice that could not be made: Coni asks for it again with "Preparar mi voz". */
-export const EXPLICACION_VOZ_TRABADA = TEXTO_SIN_VOZ
 /** A voice takes seconds; a quarter of an hour without a write means the run is gone. */
 const MINUTOS_PARA_DEVOLVER = 15
 
@@ -22,7 +20,8 @@ export async function devolverVocesTrabadas(deps: {
   const corte = new Date(Date.parse(deps.ahora()) - MINUTOS_PARA_DEVOLVER * 60_000).toISOString()
   const devueltas: string[] = []
   for (const fila of await leerVocesTrabadas(deps.db, corte)) {
-    const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "falla_voz", explicacion: EXPLICACION_VOZ_TRABADA })
+    // Handed back like any voice that could not be made: Coni asks for it again with "Preparar mi voz".
+    const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "falla_voz", explicacion: TEXTO_SIN_VOZ })
     // Null: the run wrote meanwhile, so it is not stuck.
     if (await actualizarPieza(deps.db, fila.id, fila.version, cambiosDesdePieza(pieza))) devueltas.push(fila.id)
   }

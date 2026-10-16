@@ -79,7 +79,10 @@ export async function aplicar(
 const ahora = (): string => new Date().toISOString()
 const maniana = (): string => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
-/** Gate 1 as the screen writes it: Coni's session, with the avatar and the formula in the same update as the approval. */
+/**
+ * Gate 1 as the screen writes it: Coni's session, with the avatar and the formula in the same update as the
+ * approval.
+ */
 export function aprobarComoConi(c: pg.PoolClient, id: string, en: string): Promise<FilaLeida> {
   const hash = hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR })
   return aplicar(
