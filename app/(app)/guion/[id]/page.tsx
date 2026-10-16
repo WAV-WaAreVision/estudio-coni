@@ -13,7 +13,7 @@ import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from
 import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
-import { piezaTrabajando, restoDeVentana } from "@/lib/dominio/estados"
+import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
@@ -26,16 +26,13 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
-import { TEXTO_DESHECHO } from "./textos"
+import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
 const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
-
-/** The version she signed at, from the address gate 1 opens after the signature; any other value is ignored. */
-const versionFirmada = z.coerce.number().int().positive()
 
 export default async function PaginaDeGuion({
   params,
@@ -74,13 +71,11 @@ export default async function PaginaDeGuion({
       )
     case "en_render":
     case "subtitulando": {
-      const firma = piezaDesdeFila(fila).puerta1
-      // The undo window of a fresh signature, on the same server clock the undo is checked against.
-      const quedanMs =
-        fila.estado === "en_render" && fila.explicacion === null && firma !== null
-          ? restoDeVentana(firma.en, new Date().toISOString())
-          : 0
-      const firmadaEn = versionFirmada.safeParse(firmada)
+      const ventana = ventanaDeDeshacer(
+        { ...fila, firmaEn: piezaDesdeFila(fila).puerta1?.en ?? null },
+        firmada,
+        new Date().toISOString(),
+      )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
@@ -88,12 +83,8 @@ export default async function PaginaDeGuion({
           ) : (
             <Trabajando titulo="Estoy grabando tu video." detalle="Te aviso cuando esté listo." />
           )}
-          {quedanMs > 0 ? (
-            <DeshacerFirma
-              piezaId={fila.id}
-              version={firmadaEn.success ? firmadaEn.data : fila.version}
-              quedanMs={quedanMs}
-            />
+          {ventana.quedanMs > 0 ? (
+            <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
           ) : null}
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
@@ -177,7 +168,7 @@ export default async function PaginaDeGuion({
           explicacion: fila.explicacion,
           avatares,
           grabacion,
-          avisoInicial: deshecho === "1" && fila.estado === "guion_por_aprobar" ? TEXTO_DESHECHO : null,
+          avisoInicial: avisoAlVolver(deshecho, fila.estado),
           avatarGuardado: fila.avatar_id,
         }}
       />
