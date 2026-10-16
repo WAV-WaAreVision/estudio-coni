@@ -97,13 +97,11 @@ describe("líneas", () => {
 })
 
 describe("lineaDeFirma", () => {
-  it("says what the signature spends and how long she has to undo it", () => {
-    expect(lineaDeFirma({ segundos: 52.4, usd: 3.48 })).toBe(
-      "Al firmar grabo el video: ~52 s, US$ 3,48. Tienes 8 s para deshacer.",
-    )
+  it("says what the signature does, what it costs and how long she has to undo it", () => {
+    expect(lineaDeFirma({ segundos: 52.4, usd: 3.48 })).toBe("Graba el video · US$ 3,48 · 8 s para deshacer")
   })
 
-  it("still says the video starts and the undo window when the cost cannot be read", () => {
-    expect(lineaDeFirma(null)).toBe("Al firmar grabo el video. Tienes 8 s para deshacer.")
+  it("still says what it does and the undo window when the cost cannot be read", () => {
+    expect(lineaDeFirma(null)).toBe("Graba el video · 8 s para deshacer")
   })
 })

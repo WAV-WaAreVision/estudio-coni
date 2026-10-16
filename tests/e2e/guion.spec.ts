@@ -267,9 +267,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
   await page.goto(`/guion/${id}`)
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
 
-  await expect(
-    page.getByText(/^Al firmar grabo el video: ~\d+ s, US\$ \d+,\d\d\. Tienes 8 s para deshacer\.$/),
-  ).toBeVisible()
+  await expect(page.getByText(/^Graba el video · US\$ \d+,\d\d · 8 s para deshacer$/)).toBeVisible()
   await elegirAvatar(page, "Estudio")
   await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
