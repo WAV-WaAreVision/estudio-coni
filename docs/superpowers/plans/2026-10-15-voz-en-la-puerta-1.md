@@ -53,7 +53,7 @@ this plan builds). Style reference: `docs/superpowers/plans/2026-10-04-aprobar-v
   logs and returns a result, or rethrows).
 - Biome safe mode only (`pnpm check`, never `--unsafe`). `"use client"` stays on line 1 of client files: after
   `pnpm check`, run `grep -L '^"use client"' $(grep -rl 'use client' app components)` and expect no output.
-- Migrations are append-only, after `20261007000110`: this plan uses `20261015000100` and `20261015000110`.
+- Migrations are append-only, after `20261016000100` (the nearest-topic fix, already in production; `supabase db push` refuses files older than the remote): this plan uses `20261016000200` and `20261016000210`.
   `supabase/pendientes/20261003000350_borrar_vinculos.sql` stays where it is.
 - Copy for Coni: Spanish of Chile, `tú`, no em dashes. Before each commit: `git diff --cached | grep '—'` must print
   nothing.
@@ -82,8 +82,8 @@ them. `pnpm type`, unit and integration suites are green after every task.
 
 | File | Status | Responsibility |
 |---|---|---|
-| `supabase/migrations/20261015000100_voz_antes_de_firmar.sql` | new | `aprobada_para_grabar` without `grabando_voz` |
-| `supabase/migrations/20261015000110_avisos_sin_ruido_de_voz.sql` | new | no "script ready" notice for a voice round trip or Coni's own undo (not in the spec, see Task 2) |
+| `supabase/migrations/20261016000200_voz_antes_de_firmar.sql` | new | `aprobada_para_grabar` without `grabando_voz` |
+| `supabase/migrations/20261016000210_avisos_sin_ruido_de_voz.sql` | new | no "script ready" notice for a voice round trip or Coni's own undo (not in the spec, see Task 2) |
 | `lib/dominio/estados.ts` | modify | window constants, `restoDeVentana`, `esperaDeVentana`, `TEXTO_DESHACER_TARDE`, the new and moved events, removal of `grabar_video`/`reabrir_guion` |
 | `lib/dominio/puertas.ts` | modify | `puedeGrabarVoz(pieza, guion)` without approval, motivo `sin_guion` |
 | `lib/dominio/saldos.ts` | modify | `lineaDeFirma` |
@@ -120,7 +120,7 @@ them. `pnpm type`, unit and integration suites are green after every task.
 ### Task 1: Schema: a voice may exist before the signature
 
 **Files:**
-- Create: `supabase/migrations/20261015000100_voz_antes_de_firmar.sql`
+- Create: `supabase/migrations/20261016000200_voz_antes_de_firmar.sql`
 - Create: `tests/integration/voz-antes-de-firmar-esquema.test.ts`
 - Modify: `tests/integration/aprobar-voz-esquema.test.ts:36-48` (the test that refused `grabando_voz` without approval)
 - `lib/supabase/database.types.ts`: no change (a check constraint does not reach the generated types)
@@ -178,7 +178,7 @@ second test passes (it guards what must not change).
 - [ ] **Step 3: Write the migration**
 
 ```sql
--- supabase/migrations/20261015000100_voz_antes_de_firmar.sql
+-- supabase/migrations/20261016000200_voz_antes_de_firmar.sql
 -- The voice joins gate 1 (design 2026-10-15): it is made with the script, before the signature, so a piece can be in
 -- grabando_voz without an approval. Only grabando_voz leaves the list of 20261015000050; guion_aprobado stays
 -- (unreachable now, harmless). proteger_pieza does not change: only Coni moves a piece into grabando_voz or en_render.
@@ -220,7 +220,7 @@ Expected: PASS. Then `pnpm test:db` (whole integration suite), expected green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20261015000100_voz_antes_de_firmar.sql tests/integration/voz-antes-de-firmar-esquema.test.ts tests/integration/aprobar-voz-esquema.test.ts
+git add supabase/migrations/20261016000200_voz_antes_de_firmar.sql tests/integration/voz-antes-de-firmar-esquema.test.ts tests/integration/aprobar-voz-esquema.test.ts
 git commit -m "Let a piece record its voice before gate 1
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -238,7 +238,7 @@ This task keeps the notice for the writer and for HeyGen's refusal (`politica_co
 notices, drop this task; nothing else depends on it.
 
 **Files:**
-- Create: `supabase/migrations/20261015000110_avisos_sin_ruido_de_voz.sql`
+- Create: `supabase/migrations/20261016000210_avisos_sin_ruido_de_voz.sql`
 - Modify: `tests/integration/avisos-automaticos.test.ts` (append a describe)
 
 - [ ] **Step 1: Write the failing tests** (append to `tests/integration/avisos-automaticos.test.ts`; add `asumir` and
@@ -297,7 +297,7 @@ The third passes.
 - [ ] **Step 3: Write the migration**
 
 ```sql
--- supabase/migrations/20261015000110_avisos_sin_ruido_de_voz.sql
+-- supabase/migrations/20261016000210_avisos_sin_ruido_de_voz.sql
 -- The voice is made before gate 1 now (design 2026-10-15): every script edit sends the piece through grabando_voz and
 -- back, and an undo brings a signed piece back to guion_por_aprobar. Neither is news for Coni, who is on that screen:
 -- the "script ready" notice is written only when someone else hands the script to her (the writer, HeyGen's refusal).
@@ -334,7 +334,7 @@ Expected: PASS (8 tests). Then `pnpm test:db`, expected green.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20261015000110_avisos_sin_ruido_de_voz.sql tests/integration/avisos-automaticos.test.ts
+git add supabase/migrations/20261016000210_avisos_sin_ruido_de_voz.sql tests/integration/avisos-automaticos.test.ts
 git commit -m "Skip the script-ready notice for a voice round trip or Coni's own undo
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -4465,7 +4465,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 Under "## Lo que está hecho", after the bullet "**Aprobar, grabar la voz y grabar el video en tres pasos** ...", add:
 
 ```markdown
-- **La voz en la puerta 1 y el video que parte solo** (spec `docs/superpowers/specs/2026-10-15-conidolly-voz-en-la-puerta-1-design.md`, plan `docs/superpowers/plans/2026-10-15-voz-en-la-puerta-1.md`, sin desplegar): **dos visitas por pieza**. El escritor entrega el guion con la voz de Coni (si ElevenLabs o el tope fallan, llega sin voz y con «No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz.»). Editar el guion vuelve a pedir la voz en la misma acción (volver a un texto anterior reusa su toma); editar solo el texto de la publicación o el de LinkedIn no la toca. En la puerta 1 Coni escucha su voz completa y firma con «Desliza para aprobar y grabar»: la firma aprueba guion y voz y deja la pieza en `en_render`, y `grabar-pieza` parte con 10 s de retraso. **Regla de gasto:** ningún video sin la firma de Coni; la voz (unos US$ 0,20) es un borrador que se hace con el guion y cuenta para el tope. **Ventana para deshacer:** 8 s («Firmaste. Grabo el video en 8 s.» con «Deshacer»); además el render espera la ventana más 2 s de margen antes de gastar y vuelve a leer la pieza, así que un deshacer o una segunda firma nunca pagan HeyGen dos veces. `grabar_video` y `reabrir_guion` ya no existen; `guion_aprobado` quedó inalcanzable (el enum no se puede borrar). Migraciones `20261015000100` (la voz antes de la firma) y `20261015000110` (sin aviso de «guion listo» por la ida y vuelta de la voz o por un deshacer de Coni).
+- **La voz en la puerta 1 y el video que parte solo** (spec `docs/superpowers/specs/2026-10-15-conidolly-voz-en-la-puerta-1-design.md`, plan `docs/superpowers/plans/2026-10-15-voz-en-la-puerta-1.md`, sin desplegar): **dos visitas por pieza**. El escritor entrega el guion con la voz de Coni (si ElevenLabs o el tope fallan, llega sin voz y con «No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz.»). Editar el guion vuelve a pedir la voz en la misma acción (volver a un texto anterior reusa su toma); editar solo el texto de la publicación o el de LinkedIn no la toca. En la puerta 1 Coni escucha su voz completa y firma con «Desliza para aprobar y grabar»: la firma aprueba guion y voz y deja la pieza en `en_render`, y `grabar-pieza` parte con 10 s de retraso. **Regla de gasto:** ningún video sin la firma de Coni; la voz (unos US$ 0,20) es un borrador que se hace con el guion y cuenta para el tope. **Ventana para deshacer:** 8 s («Firmaste. Grabo el video en 8 s.» con «Deshacer»); además el render espera la ventana más 2 s de margen antes de gastar y vuelve a leer la pieza, así que un deshacer o una segunda firma nunca pagan HeyGen dos veces. `grabar_video` y `reabrir_guion` ya no existen; `guion_aprobado` quedó inalcanzable (el enum no se puede borrar). Migraciones `20261016000200` (la voz antes de la firma) y `20261016000210` (sin aviso de «guion listo» por la ida y vuelta de la voz o por un deshacer de Coni).
 ```
 
 Under "## Siguiente", add as the first bullet:
@@ -4552,7 +4552,7 @@ update public.piezas
 - [ ] **Step 3 (OK needed): database**
 
 Federico, from the macOS Terminal, in the repo: `supabase db push`. It applies `20261015000050` and `20261015000060`
-(branch `fix/aprobada-para-grabar`, unless deployed before) and `20261015000100` and `20261015000110`; `supabase/pendientes/20261003000350_borrar_vinculos.sql` must not be in `supabase/migrations/`. Check:
+(branch `fix/aprobada-para-grabar`, unless deployed before) and `20261016000200` and `20261016000210`; `supabase/pendientes/20261003000350_borrar_vinculos.sql` must not be in `supabase/migrations/`. Check:
 
 ```sql
 select pg_get_constraintdef(oid) from pg_constraint where conname = 'aprobada_para_grabar';
@@ -4590,7 +4590,7 @@ confirm the Guion screen of a script reads "Desliza para aprobar y grabar" befor
 
 - [ ] **Step 7: update the handoff**
 
-In `docs/TRASPASO.md`, "Producción": migrations applied up to `20261015000110` and the new Trigger version; move the
+In `docs/TRASPASO.md`, "Producción": migrations applied up to `20261016000210` and the new Trigger version; move the
 bullet of Task 20 from "sin desplegar" to "en producción desde <fecha>". Commit as
 `Record the voice in gate 1 deploy` with the co-author line, and push only if Federico asks.
 
@@ -4658,7 +4658,7 @@ and, if Task 2 shipped, re-create `public.avisar_pieza_lista()` with the body of
 | Decision 5, undo window (`VENTANA_DESHACER_MS`, `MARGEN_DE_RELOJ_MS`, `deshacer_aprobacion` with `intento + 1`, `deshacerAprobacion`, no cancellation, `grabar-pieza` carries its `intento`, `esperaDeVentana` + `deps.esperar` + re-read) | 3, 4, 12, 13, 17 |
 | Decision 6, screens and copy (every row of the table, Inicio "Preparando la voz", `en_render` text) | 15, 16, 17, 18 |
 | Section 7, transitions and removals (`grabar_video`, `reabrir_guion`, `editar_texto` from `guion_aprobado`) | 4, 5, 11 |
-| Section 8, migration `20261015000100` | 1 |
+| Section 8, migration `20261016000200` | 1 |
 | Pieces in flight, deploy order, rollback | 22 |
 | Docs to update (`TRASPASO.md`, 2026-10-04 status line; `PRODUCT.md` unchanged) | 20 |
 | Testing, unit (transitions incl. 7.999 s and 8 s, `esperaDeVentana`, `puedeGrabarVoz`, gate 1 bar gating and `no_alcanza`, toast with "Deshacer") | 3, 4, 10, 11, 16, 17 |

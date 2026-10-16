@@ -169,7 +169,7 @@ unreachable; the enum value stays (Postgres cannot drop it). `politica_contenido
 
 ### 8. Database (one migration after `20261007000110`)
 
-`20261015000100_voz_antes_de_firmar.sql`:
+`20261016000200_voz_antes_de_firmar.sql`:
 
 - constraint `aprobada_para_grabar` recreated without `grabando_voz` (the voice may now be made before the signature);
   `guion_aprobado` stays in the list (harmless, unreachable).
