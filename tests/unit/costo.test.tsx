@@ -1,14 +1,9 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { CostoDeAccion, LineaDeSaldo } from "@/components/ui/costo"
+import { LineaDeSaldo } from "@/components/ui/costo"
 import { Medidor } from "@/components/ui/medidor"
 
 describe("costo", () => {
-  it("shows the amount at 24/600 tabular with its unit, right aligned", () => {
-    render(<CostoDeAccion monto="US$ 1,16" unidad="~52 s" />)
-    expect(screen.getByText("US$ 1,16")).toHaveClass("text-pieza", "tabular-nums")
-    expect(screen.getByText("~52 s").parentElement).toHaveClass("text-right")
-  })
   it("keeps the balance explanation with its figure, left aligned, never centred", () => {
     render(<LineaDeSaldo>ElevenLabs: te quedan 99.000 de 100.000 caracteres.</LineaDeSaldo>)
     expect(screen.getByText(/te quedan/)).not.toHaveClass("text-center")

@@ -165,7 +165,7 @@ test("a script without its voice asks to prepare it, and the voice arrives by it
   await page.goto(`/guion/${id}`)
 
   await expect(page.getByText("Falta preparar tu voz.").first()).toBeVisible()
-  await expect(page.getByText(/^~\d+ caracteres$/)).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })).toBeVisible()
   await expect(
     page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
   ).toBeVisible()

@@ -1,106 +1,125 @@
 "use client"
 
-import { Info, Microphone } from "@phosphor-icons/react"
+import { Info } from "@phosphor-icons/react"
 import { useId } from "react"
 import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
+import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
-import { CostoDeAccion, LineaDeSaldo } from "@/components/ui/costo"
+import { LineaDeSaldo } from "@/components/ui/costo"
 import { ICONO } from "@/components/ui/icono"
-import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import { pedirVozAccion } from "../../piezas/acciones"
-import { TEXTO_FALTA_VOZ, TEXTO_GUARDA_ANTES_DE_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
+import { separarFallaDeVoz, TEXTO_FALTA_VOZ, TEXTO_GUARDA_ANTES_DE_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
 
 interface PropiedadesDeVoz {
   piezaId: string
   /** The version of the screen: a request on a piece that moved on is refused. */
   version: number
   datos: DatosDeGrabacion
+  /** Why the last voice could not be made; given only when there is no voice. */
+  explicacion: string | null
   /** Which take she heard to the end. */
   alEscuchar: (clave: string) => void
   /** The editor holds changes she has not saved: a voice now would speak the old text and lose her draft. */
   sinGuardar: boolean
 }
 
+/** Why the voice buttons are closed, if they are: unsaved changes first, else what does not reach. */
+function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string | null {
+  if (sinGuardar) return TEXTO_GUARDA_ANTES_DE_VOZ
+  return datos.botones?.bloqueoVoz ?? null
+}
+
+/** Under a voice button: its reason when it is closed, the ElevenLabs balance when it is open. */
+function LineaBajoElBoton({ id, razon, datos }: { id: string; razon: string | null; datos: DatosDeGrabacion }) {
+  if (razon !== null)
+    return (
+      <p id={id} className="flex items-start gap-2 text-meta font-medium text-tinta">
+        <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+        {razon}
+      </p>
+    )
+  return datos.botones ? <LineaDeSaldo>{datos.botones.saldoVoz}</LineaDeSaldo> : null
+}
+
 /**
- * Gate 1's voice, above the script (design 2026-10-15, decision 3): her take of this script with "Grabar la voz de
- * nuevo", the take being made, or "Falta preparar tu voz." with "Preparar mi voz". The cost sits beside the button and
- * the balance under it; a balance or cap that does not reach disables the button and says why on that line.
+ * Decision 9, step 4: "1. Escucha tu voz". Her take of this script in the player, the take being made as a working
+ * line, or, without a voice, a block with "Preparar mi voz" and its cost (an error block when the last one failed).
  */
-export function VozParaFirmar({ piezaId, version, datos, alEscuchar, sinGuardar }: PropiedadesDeVoz) {
+export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar, sinGuardar }: PropiedadesDeVoz) {
   const pedir = useAccion()
   const idRazon = useId()
   const { voz, botones } = datos
-  const bloqueoVoz = botones?.bloqueoVoz ?? null
-  const cerrado = sinGuardar || bloqueoVoz !== null
-  const descrito = cerrado ? idRazon : undefined
-  const costo = botones ? <CostoDeAccion monto={botones.montoVoz} unidad={botones.unidadVoz} /> : null
-  // One reason describes the buttons: unsaved changes first, else what does not reach (on the balance line).
-  const saldo = botones ? (
-    <LineaDeSaldo id={!sinGuardar && bloqueoVoz !== null ? idRazon : undefined}>
-      {bloqueoVoz ?? botones.saldoVoz}
-    </LineaDeSaldo>
-  ) : null
-  const razonSinGuardar = sinGuardar ? (
-    <p id={idRazon} className="flex items-start gap-2 text-meta font-medium text-tinta">
-      <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
-      {TEXTO_GUARDA_ANTES_DE_VOZ}
-    </p>
-  ) : null
+  const razon = razonDeVoz(datos, sinGuardar)
+  const falla = explicacion ? separarFallaDeVoz(explicacion) : null
 
   return (
-    <Seccion titulo="Voz" id="voz">
+    <Seccion titulo="1. Escucha tu voz" id="voz">
       {datos.estado === "grabando_voz" ? (
-        <output className="flex items-center gap-3 text-cuerpo font-medium">
+        <output className="flex items-center gap-3 text-boton font-semibold">
           <PuntoTrabajando />
           {TEXTO_PREPARANDO_VOZ}
         </output>
       ) : voz ? (
-        <>
-          {/* Keyed by the take: the player's "she heard it" belongs to one file, and a new take starts unheard. */}
-          <ReproductorVoz key={voz.clave} src={voz.url} clave={voz.clave} alEscuchar={() => alEscuchar(voz.clave)} />
-          <div className="grid gap-2">
-            <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                className="w-fit"
-                cargando={pedir.pendiente}
-                deshabilitado={cerrado}
-                aria-describedby={descrito}
-                onClick={() => pedir.ejecutar(() => pedirVozAccion(piezaId, version, true))}
-              >
-                Grabar la voz de nuevo
-              </Boton>
-              {costo}
-            </div>
-            {saldo}
-            {razonSinGuardar}
-          </div>
-        </>
+        // Keyed by the take: "she heard it" belongs to one file, and a new take starts unheard.
+        <ReproductorVoz key={voz.clave} src={voz.url} clave={voz.clave} alEscuchar={() => alEscuchar(voz.clave)} />
       ) : (
-        <div className="grid gap-2">
-          <LineaDeEstado tipo="aviso" titulo={TEXTO_FALTA_VOZ} tituloEnTinta />
-          <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-            <Boton
-              cargando={pedir.pendiente}
-              deshabilitado={cerrado}
-              aria-describedby={descrito}
-              icono={<Microphone aria-hidden="true" size={ICONO.medio} />}
-              onClick={() => pedir.ejecutar(() => pedirVozAccion(piezaId, version, false))}
-            >
-              Preparar mi voz
-            </Boton>
-            {costo}
-          </div>
-          {saldo}
-          {razonSinGuardar}
-        </div>
+        <Bloque
+          tipo={falla ? "error" : "neutro"}
+          grande
+          titulo={falla ? falla.titulo : TEXTO_FALTA_VOZ}
+          accion={
+            <div className="grid gap-2">
+              <Boton
+                precio={botones?.montoVoz}
+                cargando={pedir.pendiente}
+                deshabilitado={razon !== null}
+                aria-describedby={razon !== null ? idRazon : undefined}
+                onClick={() => pedir.ejecutar(() => pedirVozAccion(piezaId, version, false))}
+              >
+                Preparar mi voz
+              </Boton>
+              <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} />
+            </div>
+          }
+        >
+          {falla?.detalle}
+        </Bloque>
       )}
-      {pedir.error ? <LineaDeEstado tipo="error" titulo={pedir.error} /> : null}
+      {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}
     </Seccion>
+  )
+}
+
+/** Inside "Editar el guion" (decision 9, step 5): a new take of the same text, its cost on the right. */
+export function GrabarDeNuevo({
+  piezaId,
+  version,
+  datos,
+  sinGuardar,
+}: Pick<PropiedadesDeVoz, "piezaId" | "version" | "datos" | "sinGuardar">) {
+  const pedir = useAccion()
+  const idRazon = useId()
+  const razon = razonDeVoz(datos, sinGuardar)
+  return (
+    <div className="grid gap-2">
+      <Boton
+        variante="secundario"
+        tamano="chico"
+        className="w-full"
+        precio={datos.botones?.montoVoz}
+        cargando={pedir.pendiente}
+        deshabilitado={razon !== null}
+        aria-describedby={razon !== null ? idRazon : undefined}
+        onClick={() => pedir.ejecutar(() => pedirVozAccion(piezaId, version, true))}
+      >
+        Grabar la voz de nuevo
+      </Boton>
+      <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} />
+      {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}
+    </div>
   )
 }

@@ -13,6 +13,7 @@ import { Seccion } from "@/components/seccion"
 import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
 import { BarraDeFirma } from "@/components/ui/barra-de-firma"
+import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { ICONO } from "@/components/ui/icono"
@@ -25,7 +26,7 @@ import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { TEXTO_CAMBIOS_TRAS_LA_VOZ, TEXTO_ESCUCHA_COMPLETA, TEXTO_FALTA_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
-import { VozParaFirmar } from "./voz-para-firmar"
+import { GrabarDeNuevo, VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
   id: string
@@ -210,16 +211,17 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         ) : null}
       </header>
 
-      {datos.explicacion ? (
-        <div className="mt-6">
-          <LineaDeEstado tipo="aviso" titulo={datos.explicacion} tituloEnTinta />
-        </div>
+      {grabacion.voz && datos.explicacion ? (
+        <Bloque tipo="aviso" className="mt-6">
+          {datos.explicacion}
+        </Bloque>
       ) : null}
 
       <VozParaFirmar
         piezaId={datos.id}
         version={version}
         datos={grabacion}
+        explicacion={grabacion.voz ? null : datos.explicacion}
         alEscuchar={setEscuchada}
         sinGuardar={sinGuardar}
       />
@@ -246,6 +248,9 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
             alGuardar={alGuardar}
             alCambiarSinGuardar={setSinGuardar}
           />
+          {grabacion.voz ? (
+            <GrabarDeNuevo piezaId={datos.id} version={version} datos={grabacion} sinGuardar={sinGuardar} />
+          ) : null}
         </div>
       )}
       {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
