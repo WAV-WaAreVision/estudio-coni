@@ -1291,6 +1291,56 @@ describe("grabarPieza y la ventana para deshacer", () => {
     expect(await pieza(id)).toMatchObject({ estado: "video_por_aprobar" })
   })
 
+  it("waits for each window when a run without an attempt sees her undo and sign again, and records once", async () => {
+    const id = await crearPiezaEnRender()
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        if (ventanas.length === 0) {
+          await enTransaccion(async (c) => {
+            await aplicar(c, id, comoConi, {
+              tipo: "deshacer_aprobacion",
+              actor: "coni",
+              ahora: new Date(reloj.firma + 4000).toISOString(),
+            })
+            await aprobarComoConi(c, id, new Date(reloj.firma + 5000).toISOString())
+          })
+        }
+        ventanas.push(ms)
+        reloj.avanzar(ms)
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    // Queued by the app deployed before runs carried their attempt: only the row says which signature it renders.
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(ventanas).toEqual([7000, 5000])
+    expect(sim.creaciones).toHaveLength(1)
+    expect((await gastos(id)).filter((g) => g.proveedor === "heygen")).toHaveLength(1)
+  })
+
+  it("trusts one wait per signature when the task clock does not move, and the loop ends", async () => {
+    const id = await crearPiezaEnRender()
+    const reloj = await relojTrasLaFirma(id, 3000)
+    const sim = simular()
+    const ventanas: number[] = []
+    const d = doble({
+      ahora: reloj.ahora,
+      esperar: async (ms) => {
+        ventanas.push(ms)
+        if (ventanas.length > 3) throw new Error("La espera no termina nunca")
+      },
+    })
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(ventanas).toEqual([7000])
+    expect(sim.creaciones).toHaveLength(1)
+  })
+
   it("does not wait for a signature whose window closed long ago", async () => {
     const id = await crearPiezaEnRender()
     simular()
