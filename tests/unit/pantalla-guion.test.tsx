@@ -273,7 +273,7 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     act(() => {
       vi.advanceTimersByTime(5000)
     })
-    fireEvent.change(screen.getByRole("textbox", { name: "Guion", exact: true }), { target: { value: "Otro texto." } })
+    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Otro texto." } })
     act(() => {
       vi.advanceTimersByTime(3000)
     })
