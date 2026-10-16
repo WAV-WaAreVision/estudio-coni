@@ -21,6 +21,8 @@ import {
   type Evento,
   instanteEstricto,
   MARGEN_DE_RELOJ_MS,
+  restoDeVentana,
+  TEXTO_DESHACER_TARDE,
   TransicionInvalida,
   transicionar,
   VENTANA_DESHACER_MS,
@@ -301,8 +303,15 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
 export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("deshacerAprobacion", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
+    const ahora = deps.ahora()
+    const firma = piezaDesdeFila(fila).puerta1
+    // Late is late before anything else: once the window closed the run may have taken the piece, which moves its
+    // version, and she should read that the video started rather than that the piece changed.
+    if (fila.estado === "en_render" && firma !== null && restoDeVentana(firma.en, ahora) === 0) {
+      throw new Falla(TEXTO_DESHACER_TARDE)
+    }
     exigirVersion(fila, versionVista)
-    await guardarEvento(deps.db, fila, { tipo: "deshacer_aprobacion", actor: "coni", ahora: deps.ahora() })
+    await guardarEvento(deps.db, fila, { tipo: "deshacer_aprobacion", actor: "coni", ahora })
     return {}
   })
 }

@@ -1581,6 +1581,21 @@ describe("deshacerAprobacion", () => {
     expect(await fila(id)).toMatchObject({ estado: "en_render" })
   })
 
+  it("says the video already started to a late undo, even when the run took the piece since her screen", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps } = await firmadaEn(firma)
+    const firmada = await fila(id)
+    // The run's claim: a write of the version alone.
+    await ajustarComoPostgres(id, {})
+    reloj.ms = firma + 8000
+
+    expect(await deshacerAprobacion(deps, id, firmada.version)).toEqual({
+      ok: false,
+      error: "Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.",
+    })
+    expect(await fila(id)).toMatchObject({ estado: "en_render", version: firmada.version + 1 })
+  })
+
   it("does not let the maintainer take Coni's signature back", async () => {
     const firma = Date.now()
     const { id, reloj, deps } = await firmadaEn(firma, await clienteDelMantenedor())
