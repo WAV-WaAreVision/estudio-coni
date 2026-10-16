@@ -197,9 +197,13 @@ export async function marcarSubidoAManoAccion(piezaId: string, version: number, 
 }
 
 export async function pedirVozAccion(piezaId: string, version: number, nueva: boolean) {
-  return refrescar(
-    await comoConi("pedirVoz", sobrePieza.extend({ nueva: z.boolean() }), { piezaId, version, nueva }, (deps, d) =>
-      pedirVoz(deps, d.piezaId, d.version, d.nueva),
-    ),
+  const resultado = await comoConi(
+    "pedirVoz",
+    sobrePieza.extend({ nueva: z.boolean() }),
+    { piezaId, version, nueva },
+    (deps, d) => pedirVoz(deps, d.piezaId, d.version, d.nueva),
   )
+  // Refreshed either way: a voice that failed to start still moved the piece (asked, then failed) to a new version.
+  revalidatePath("/", "layout")
+  return resultado
 }

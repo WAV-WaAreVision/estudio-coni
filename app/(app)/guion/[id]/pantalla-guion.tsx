@@ -118,6 +118,12 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   const { avatarElegido, setAvatarElegido, confirmadas, setConfirmadas } = elecciones
   const router = useRouter()
   const [version, setVersion] = useState(datos.version)
+  const [versionVista, setVersionVista] = useState(datos.version)
+  // The server sent a newer piece without a change of state (a voice that failed to start): it is the new base.
+  if (versionVista !== datos.version) {
+    setVersionVista(datos.version)
+    setVersion(datos.version)
+  }
   const [revision, setRevision] = useState(datos.revision)
   const [sinGuardar, setSinGuardar] = useState(false)
   const [pidiendoCambios, setPidiendoCambios] = useState(false)

@@ -232,6 +232,14 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     expect(screen.getByRole("radio", { name: "Estudio" })).not.toBeChecked()
   })
 
+  it("follows the version the server sends, so a request after a refused one is not stale", async () => {
+    const { rerender } = render(<PantallaGuion datos={datos()} />)
+    rerender(<PantallaGuion datos={datos({ version: 7 })} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Grabar la voz de nuevo" }))
+    await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 7, true))
+  })
+
   it("opens with the toast it was given, and takes it out of the address when it closes", () => {
     vi.useFakeTimers()
     render(<PantallaGuion datos={datos({ avisoInicial: "Listo, no grabé nada. Puedes seguir revisando." })} />)
