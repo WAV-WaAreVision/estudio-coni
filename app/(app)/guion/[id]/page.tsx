@@ -133,9 +133,9 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
   return (
     <>
       <RefrescoAutomatico activo={fila.estado === "grabando_voz"} cadaMs={4000} />
-      {/* Remounted when the piece changes state: the screen keeps its own copy of the version and the choices. */}
+      {/* One per piece: the screen starts over with each state on its own and keeps her choices across them. */}
       <PantallaGuion
-        key={`${fila.id}:${fila.estado}`}
+        key={fila.id}
         datos={{
           id: fila.id,
           version: fila.version,
@@ -154,6 +154,7 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           avatares,
           grabacion,
           avisoInicial: null,
+          avatarGuardado: fila.avatar_id,
         }}
       />
     </>

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeGuion, PantallaGuion } from "@/app/(app)/guion/[id]/pantalla-guion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import type { Hallazgo } from "@/lib/dominio/revision"
 
 const { aprobarGuionAccion, editarGuionAccion, pedirVozAccion, replace } = vi.hoisted(() => ({
   aprobarGuionAccion: vi.fn(),
@@ -54,6 +55,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     explicacion: null,
     avatares: [{ id: "look-a", nombre: "Estudio", imagenUrl: null }],
     avisoInicial: null,
+    avatarGuardado: null,
     grabacion: { estado: "guion_por_aprobar", voz: VOZ, botones: BOTONES, lineaDeFirma: LINEA, ...grabacion },
     ...sobre,
   }
@@ -203,6 +205,31 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     escuchar()
     fireEvent.click(aprobar())
     await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 7, "look-a"))
+  })
+
+  it("keeps her avatar and her review ticks across the round trip of her voice", () => {
+    const aviso: Hallazgo = { regla: "cifra_sin_verificar", tipo: "advierte", mensaje: "Verifica la cifra." }
+    const enRevision = datos({ revision: [aviso] })
+    const { rerender } = render(<PantallaGuion datos={enRevision} />)
+    elegirEstudio()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
+
+    rerender(
+      <PantallaGuion datos={{ ...enRevision, grabacion: { ...enRevision.grabacion, estado: "grabando_voz" } }} />,
+    )
+    rerender(<PantallaGuion datos={enRevision} />)
+
+    expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
+    expect(screen.getByRole("checkbox", { name: "Lo revisé y está bien" })).toBeChecked()
+  })
+
+  it("opens with the avatar she signed with chosen, when it is still one to choose", () => {
+    const { unmount } = render(<PantallaGuion datos={datos({ avatarGuardado: "look-a" })} />)
+    expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
+    unmount()
+
+    render(<PantallaGuion datos={datos({ avatarGuardado: "look-retirado" })} />)
+    expect(screen.getByRole("radio", { name: "Estudio" })).not.toBeChecked()
   })
 
   it("opens with the toast it was given, and takes it out of the address when it closes", () => {

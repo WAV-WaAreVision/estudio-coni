@@ -3,7 +3,7 @@
 import { CaretLeft, Info } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useId, useState } from "react"
+import { type Dispatch, type SetStateAction, useId, useState } from "react"
 import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -55,6 +55,8 @@ export interface DatosDeGuion {
   grabacion: DatosDeGrabacion
   /** A toast the screen opens with: she just took a signature back. */
   avisoInicial: string | null
+  /** The look stored on the piece (the one she signed with before an undo); preselected while it is still offered. */
+  avatarGuardado: string | null
 }
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
@@ -90,12 +92,34 @@ function motivoParaFirmar(estado: {
  * flagged and slides once. The signature approves the script and the voice, and the video starts after the undo window.
  */
 export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
+  // Her choices outlive the round trips of gate 1 (her voice being made, a new take): the page keys this by piece, and
+  // only the screen below starts over with each state.
+  const [avatarElegido, setAvatarElegido] = useState<string | null>(() =>
+    datos.avatares.some((avatar) => avatar.id === datos.avatarGuardado) ? datos.avatarGuardado : null,
+  )
+  const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
+  return (
+    <PuertaUno
+      key={datos.grabacion.estado}
+      datos={datos}
+      elecciones={{ avatarElegido, setAvatarElegido, confirmadas, setConfirmadas }}
+    />
+  )
+}
+
+interface Elecciones {
+  avatarElegido: string | null
+  setAvatarElegido: (avatarId: string | null) => void
+  confirmadas: ReadonlySet<string>
+  setConfirmadas: Dispatch<SetStateAction<ReadonlySet<string>>>
+}
+
+function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Elecciones }) {
+  const { avatarElegido, setAvatarElegido, confirmadas, setConfirmadas } = elecciones
   const router = useRouter()
   const [version, setVersion] = useState(datos.version)
   const [revision, setRevision] = useState(datos.revision)
   const [sinGuardar, setSinGuardar] = useState(false)
-  const [avatarElegido, setAvatarElegido] = useState<string | null>(null)
-  const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
   const [aviso, setAviso] = useState<string | null>(datos.avisoInicial)
   // The take she heard to the end: another take (a new text, or "Grabar la voz de nuevo") asks again.
