@@ -2,9 +2,11 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   confirmarGasto,
+  type FilaDePieza,
   leerGuiaVigente,
   leerIdea,
   leerPieza,
+  leerProduccion,
   leerSecreto,
   liberarGasto,
   reservarGasto,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
-import { Falla } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import {
@@ -26,9 +28,12 @@ import {
   sinLinkedin,
 } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
+import { huellaDelGuion } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA, revisarConClaude } from "@/lib/proveedores/anthropic"
+import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
-import { MAXIMO_DEL_TEXTO, normalizarTexto } from "./piezas"
+import type { Disparos } from "./disparos"
+import { MAXIMO_DEL_TEXTO, normalizarTexto, pedirVozDeFila } from "./piezas"
 import { aResultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
@@ -39,6 +44,8 @@ export interface DepsGuion {
   /** A `service_role` client, for what only the server may read (her keys, the guide) and the spend of the month. */
   servicio: () => Db
   crearClaude: (llave: string) => Anthropic
+  /** Starts her voice when an edit changes what it says (design 2026-10-15, decision 3). */
+  disparar: Disparos
   ahora: () => string
 }
 
@@ -106,6 +113,24 @@ function aResultadoDeGuion(resultado: Awaited<ReturnType<typeof aResultado<Cuerp
   return { ok: true, version: resultado.version, revision: resultado.revision }
 }
 
+/**
+ * Whether the saved script speaks differently: the voice fingerprint of the new wording is not the old one, so editing
+ * only the caption keeps the voice. Without a readable voice setup there is no voice to make: the edit is saved and
+ * the screen offers "Preparar mi voz", whose run reports the setup.
+ */
+async function cambiaLaVoz(db: Db, antes: string | null, despues: string): Promise<boolean> {
+  if (antes === despues) return false
+  let config: ConfigCompleta
+  try {
+    config = leerConfigProduccion(await leerProduccion(db))
+  } catch (error) {
+    if (!(error instanceof FallaDeConfiguracion)) throw error
+    console.error("No pude leer la configuración de la voz al editar el guion", error)
+    return false
+  }
+  return antes === null || huellaDelGuion(antes, config.elevenlabs) !== huellaDelGuion(despues, config.elevenlabs)
+}
+
 async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerpo> {
   const { db } = deps
   await exigirConi(db)
@@ -113,8 +138,7 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
 
   const fila = await leerPieza(db, edicion.piezaId)
   if (!fila) throw new Falla("No encuentro esa pieza.")
-  if (fila.estado !== "guion_por_aprobar" && fila.estado !== "guion_aprobado")
-    throw new Falla("Este guion ya no se puede editar.")
+  if (fila.estado !== "guion_por_aprobar") throw new Falla("Este guion ya no se puede editar.")
   if (fila.version !== edicion.version) throw traducir(new Error("version_desfasada"))
 
   const idea = fila.idea_id ? await leerIdea(db, fila.idea_id) : null
@@ -134,6 +158,9 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
 
   const deterministas = revisar(pideLineasDeAyuda(alertas) || previos.some((h) => h.regla === "tema_de_riesgo"))
   if (bloquea(deterministas)) return { motivo: "revision_bloquea", error: ERROR_BLOQUEA, hallazgos: deterministas }
+
+  // Read before the review spends: a database error here must not leave a paid review behind an unsaved edit.
+  const conVozNueva = await cambiaLaVoz(db, fila.guion, guion)
 
   const juicio = await juzgarConClaude(deps, {
     piezaId: fila.id,
@@ -163,8 +190,26 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
     p_revision: revisionAJson(revision),
   })
   if (error) throw traducir(new Error(error.message, { cause: error }))
+  // Her voice follows the script she sees, in the same action; going back to an earlier wording reuses its take.
+  const version = conVozNueva ? await pedirLaVozDelEditado(deps, data) : data.version
   // Gate 1 shows the script and the caption; the LinkedIn findings wait for gate 2, where she can edit that text.
-  return { version: data.version, revision: sinLinkedin(revision) }
+  return { version, revision: sinLinkedin(revision) }
+}
+
+/**
+ * The edit is already saved, so a failure to ask for the voice must not report it as failed: it is logged and the
+ * screen keeps "Preparar mi voz". If the `pedir_voz` trigger fails and the `falla_voz` write throws too, the piece is
+ * left in `grabando_voz` and the screen shows "Estoy preparando tu voz" until maintenance hands it back. Returns the
+ * version the piece was left on.
+ */
+async function pedirLaVozDelEditado(deps: DepsGuion, editada: FilaDePieza): Promise<number> {
+  try {
+    const dejada = await pedirVozDeFila({ db: deps.db, disparar: deps.disparar, ahora: deps.ahora }, editada, false)
+    return dejada.version
+  } catch (error) {
+    console.error("No pude pedir la voz después de guardar el guion", error)
+    return editada.version
+  }
 }
 
 async function textoDelTope(db: Db): Promise<string> {

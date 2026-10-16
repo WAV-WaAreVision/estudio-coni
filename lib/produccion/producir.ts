@@ -1,5 +1,4 @@
 import type Anthropic from "@anthropic-ai/sdk"
-import type { SupabaseClient } from "@supabase/supabase-js"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -9,13 +8,14 @@ import {
   leerGuiaVigente,
   leerIdea,
   leerPieza,
+  leerProduccion,
   liberarGasto,
   reservarGasto,
   revisionAJson,
 } from "@/lib/datos/repositorio"
 import { cargarRespaldoDeIdea, respaldoAJson } from "@/lib/datos/respaldo"
 import { transicionar } from "@/lib/dominio/estados"
-import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
 import {
@@ -27,6 +27,7 @@ import {
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
 import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { asegurarVoz, type DepsVoz, leerLlaveDeVoz, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import {
   costoClaude,
   escribirGuion,
@@ -35,14 +36,16 @@ import {
   revisarConClaude,
 } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
-import type { Database, Json } from "@/lib/supabase/database.types"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
+import type { Json } from "@/lib/supabase/database.types"
 
-export interface DepsProduccion {
-  /** A `service_role` client: the database triggers keep enforcing the gates on everything it writes. */
-  db: SupabaseClient<Database>
+/**
+ * `db` is a `service_role` client: the database triggers keep enforcing the gates on everything it writes. The store
+ * and the ElevenLabs base come from `DepsVoz`, because the writer makes her voice of the draft.
+ */
+export interface DepsProduccion extends DepsVoz {
   avisos: Notificador
   claude: Anthropic
-  ahora: () => string
 }
 
 export type ResultadoProduccion =
@@ -183,9 +186,37 @@ function borradorGuardado(fila: FilaDePieza): Borrador {
 }
 
 /**
- * Writes and reviews the script and the caption of a piece in `guion_en_proceso` and leaves it in
- * `guion_por_aprobar`. The voice is generated after gate 1 by the recording task. It never approves anything. It is safe to run again: a finished piece is left alone, and a
- * run that stopped half way resumes from what was saved instead of paying twice.
+ * Her voice of the draft, so gate 1 signs the script and the voice together (design 2026-10-15, decision 2). The take
+ * is keyed by the piece's attempt, so a retry of this round finds the one it already paid for. Whatever goes wrong,
+ * the script is still delivered: without a voice and with `TEXTO_SIN_VOZ`, and Coni asks for it with "Preparar mi voz".
+ */
+async function vozDelBorrador(
+  deps: DepsProduccion,
+  fila: FilaDePieza,
+  guion: string,
+): Promise<{ audioId: string } | { audioId: null; explicacion: string }> {
+  try {
+    const config = leerConfigProduccion(await leerProduccion(deps.db))
+    const voz = await asegurarVoz(deps, {
+      fila,
+      guion,
+      config: config.elevenlabs,
+      llave: () => leerLlaveDeVoz(deps.db, config),
+      nueva: false,
+    })
+    if (voz.tipo === "lista") return { audioId: voz.audioId }
+  } catch (error) {
+    // A Falla is expected and needs no log: Coni reads TEXTO_SIN_VOZ, and the voice task gives its own text if it
+    // happens again. Anything else is for WAV to look at.
+    if (!(error instanceof Falla)) console.error(`No pude preparar la voz de la pieza ${fila.id}`, error)
+  }
+  return { audioId: null, explicacion: TEXTO_SIN_VOZ }
+}
+
+/**
+ * Writes and reviews the script and the caption of a piece in `guion_en_proceso`, makes her voice of the draft and
+ * leaves it in `guion_por_aprobar`. It never approves anything. It is safe to run again: a finished piece is left
+ * alone, and a run that stopped half way resumes from what was saved (the draft, the take) instead of paying twice.
  */
 export async function producirPieza(deps: DepsProduccion, piezaId: string): Promise<ResultadoProduccion> {
   const { db } = deps
@@ -252,7 +283,8 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     }
   }
 
-  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo" })
+  const voz = await vozDelBorrador(deps, fila, borrador.guion)
+  const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "guion_listo", ...voz })
   const lista = await actualizarPieza(db, fila.id, fila.version, {
     ...cambiosDesdePieza(pieza),
     guion: borrador.guion,

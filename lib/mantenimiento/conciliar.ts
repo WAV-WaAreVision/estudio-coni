@@ -13,10 +13,10 @@ export interface DepsConciliacion {
   avisos: Notificador
   ahora: () => string
   /**
-   * Starts `grabar-pieza` for a piece. `clave` is the idempotency key of this reconciliation, so the same piece, step
-   * and render are resumed once and not every ten minutes.
+   * Starts `grabar-pieza` for a piece, for the attempt it is on. `clave` is the idempotency key of this
+   * reconciliation, so the same piece, step and render are resumed once and not every ten minutes.
    */
-  dispararGrabacion: (piezaId: string, clave: string) => Promise<void>
+  dispararGrabacion: (piezaId: string, clave: string, intento: number) => Promise<void>
 }
 
 export type ResultadoConciliacion = {
@@ -90,13 +90,13 @@ async function conciliar(
   if (subtitulando) {
     // The render is delivered and stored: what is missing is burning the subtitles, which only a new run can do.
     if (sinProgreso) return fallar(deps, fila, EXPLICACION_SIN_SUBTITULOS, "lleva una hora en subtitulando")
-    await deps.dispararGrabacion(fila.id, claveDeConciliacion(fila))
+    await deps.dispararGrabacion(fila.id, claveDeConciliacion(fila), fila.intento)
     return { piezaId: fila.id, resultado: "reanudada" }
   }
 
   const video = await leerVideo({ clave: await leerLlave(), videoId: fila.render_id })
   if (video.estado === "listo" || video.estado === "fallido") {
-    await deps.dispararGrabacion(fila.id, claveDeConciliacion(fila))
+    await deps.dispararGrabacion(fila.id, claveDeConciliacion(fila), fila.intento)
     return { piezaId: fila.id, resultado: "reanudada" }
   }
   if (sinProgreso) {

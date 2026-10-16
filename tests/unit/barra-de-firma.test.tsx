@@ -5,13 +5,13 @@ import { BarraDeFirma } from "@/components/ui/barra-de-firma"
 describe("BarraDeFirma", () => {
   it("is a labelled region fixed at the bottom with one action and one line", () => {
     render(
-      <BarraDeFirma etiqueta="Firma" linea="Aprobar no gasta nada.">
+      <BarraDeFirma etiqueta="Firma" linea="Tienes 8 s para deshacer.">
         <button type="button">x</button>
       </BarraDeFirma>,
     )
     const barra = screen.getByRole("region", { name: "Firma" })
     expect(barra).toHaveClass("fixed", "bottom-0", "shadow-barra")
-    expect(screen.getByText("Aprobar no gasta nada.")).toHaveClass("text-meta")
+    expect(screen.getByText("Tienes 8 s para deshacer.")).toHaveClass("text-meta")
   })
 
   it("keeps the content above the home indicator", () => {

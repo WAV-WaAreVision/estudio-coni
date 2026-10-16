@@ -10,6 +10,7 @@ import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import { piezaTrabajando } from "@/lib/dominio/estados"
@@ -23,7 +24,9 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
+import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
+import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
 const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
@@ -31,8 +34,14 @@ const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
 
-export default async function PaginaDeGuion({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function PaginaDeGuion({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ deshecho?: string; firmada?: string }>
+}) {
+  const [{ id }, { deshecho, firmada }] = await Promise.all([params, searchParams])
   if (!z.uuid().safeParse(id).success) notFound()
   const { db } = await exigirConi()
   const pantalla = await leerPantallaDePieza(db, id)
@@ -41,7 +50,6 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
 
   switch (fila.estado) {
     case "guion_por_aprobar":
-    case "guion_aprobado":
     case "grabando_voz":
       break
     case "guion_en_proceso":
@@ -62,20 +70,26 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
         </EstadoSencillo>
       )
     case "en_render":
-    case "subtitulando":
+    case "subtitulando": {
+      const ventana = ventanaDeDeshacer(
+        { ...fila, firmaEn: piezaDesdeFila(fila).puerta1?.en ?? null },
+        firmada,
+        new Date().toISOString(),
+      )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <LineaDeEstado tipo="error" titulo="El video está detenido" detalle={fila.explicacion} />
           ) : (
-            <Trabajando
-              titulo="Aprobado. Estoy grabando el video."
-              detalle="Tarda unos 5 minutos; te aviso cuando esté para que lo veas."
-            />
+            <Trabajando titulo="Estoy grabando tu video." detalle="Te aviso cuando esté listo." />
           )}
+          {ventana.quedanMs > 0 ? (
+            <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
+          ) : null}
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )
+    }
     case "error_produccion": {
       const voz = await vozParaEscuchar(db, fila)
       return (
@@ -125,25 +139,18 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
     antelacionMs: DOCE_HORAS_MS,
   })
   const salida = propuestas[contexto.enCola]
-  const estado = fila.estado
-  const aprobada = estado === "guion_aprobado" || estado === "grabando_voz"
-  // Once approved the screen only names the look and the script is read-only: no photos to sign, no Claude version to look up.
-  const [avatares, conVersionDeClaude] = await Promise.all([
-    avataresParaElegir(db, { conFotos: !aprobada }),
-    aprobada ? false : tieneVersionDeClaude({ db }, fila.id),
+  const [avatares, conVersionDeClaude, grabacion] = await Promise.all([
+    avataresParaElegir(db),
+    tieneVersionDeClaude({ db }, fila.id),
+    leerDatosDeGrabacion(db, { fila, estado: fila.estado, guion: fila.guion, zona: contexto.horario.zona }),
   ])
-
-  const grabacion = aprobada
-    ? await leerDatosDeGrabacion(db, { fila, estado, guion: fila.guion, zona: contexto.horario.zona })
-    : null
-  const avatarElegido = avatares.find((avatar) => avatar.id === fila.avatar_id)?.nombre ?? null
 
   return (
     <>
       <RefrescoAutomatico activo={fila.estado === "grabando_voz"} cadaMs={4000} />
-      {/* Remounted when the piece changes state: the screen keeps its own copy of the version and the choices. */}
+      {/* One per piece: the screen starts over with each state on its own and keeps her choices across them. */}
       <PantallaGuion
-        key={`${fila.id}:${fila.estado}`}
+        key={fila.id}
         datos={{
           id: fila.id,
           version: fila.version,
@@ -158,10 +165,11 @@ export default async function PaginaDeGuion({ params }: { params: Promise<{ id: 
           revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
-          grabacion,
-          avatarElegido,
           explicacion: fila.explicacion,
           avatares,
+          grabacion,
+          avisoInicial: avisoAlVolver(deshecho, fila.estado),
+          avatarGuardado: fila.avatar_id,
         }}
       />
     </>
@@ -183,10 +191,7 @@ async function vozParaEscuchar(db: Parameters<typeof leerProduccion>[0], fila: P
 }
 
 /** The curated looks with a signed link to each photo. A setup that does not read leaves the list empty, which blocks. */
-async function avataresParaElegir(
-  db: Parameters<typeof leerAvataresElegibles>[0],
-  { conFotos }: { conFotos: boolean },
-) {
+async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0]) {
   let elegibles: Awaited<ReturnType<typeof leerAvataresElegibles>>
   try {
     elegibles = await leerAvataresElegibles(db)
@@ -199,7 +204,7 @@ async function avataresParaElegir(
     elegibles.map(async (avatar) => ({
       id: avatar.avatar_id,
       nombre: avatar.nombre,
-      imagenUrl: conFotos ? await urlParaVer(avatar.imagen) : null,
+      imagenUrl: await urlParaVer(avatar.imagen),
     })),
   )
 }

@@ -68,13 +68,13 @@ function simularHeygen(respuesta: Record<string, unknown>) {
 
 function doble(ahora: () => string, cambios: Partial<DepsConciliacion> = {}) {
   const avisos = notificadorEnMemoria()
-  const disparos: { piezaId: string; clave: string }[] = []
+  const disparos: { piezaId: string; clave: string; intento: number }[] = []
   const deps: DepsConciliacion = {
     db: clienteDeServicio(),
     avisos,
     ahora,
-    dispararGrabacion: async (piezaId, clave) => {
-      disparos.push({ piezaId, clave })
+    dispararGrabacion: async (piezaId, clave, intento) => {
+      disparos.push({ piezaId, clave, intento })
     },
     ...cambios,
   }
@@ -114,7 +114,7 @@ describe("conciliarRenders", () => {
 
     expect(resultado).toEqual([{ piezaId: id, resultado: "reanudada" }])
     expect(lecturas).toEqual([`v_1|${CLAVE_HEYGEN}`])
-    expect(disparos).toEqual([{ piezaId: id, clave: `conciliar:${id}:0:en_render:v_1` }])
+    expect(disparos).toEqual([{ piezaId: id, clave: `conciliar:${id}:0:en_render:v_1`, intento: 0 }])
     expect((await leer(id)).estado).toBe("en_render")
   })
 
@@ -181,7 +181,7 @@ describe("conciliarRenders", () => {
     const { deps, disparos } = doble(dentroDe(20))
 
     expect(await conciliarRenders(deps)).toEqual([{ piezaId: id, resultado: "reanudada" }])
-    expect(disparos).toEqual([{ piezaId: id, clave: `conciliar:${id}:0:subtitulando:v_1` }])
+    expect(disparos).toEqual([{ piezaId: id, clave: `conciliar:${id}:0:subtitulando:v_1`, intento: 0 }])
 
     const { deps: tarde, disparos: nuevos } = doble(dentroDe(61))
     expect(await conciliarRenders(tarde)).toEqual([{ piezaId: id, resultado: "falla_produccion" }])

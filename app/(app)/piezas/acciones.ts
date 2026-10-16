@@ -10,6 +10,7 @@ import {
   aprobarVideo,
   cambiarFecha,
   descartar,
+  deshacerAprobacion,
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
@@ -17,15 +18,13 @@ import {
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
-  pedirVideo,
   pedirVoz,
-  reabrirGuion,
   regrabar,
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
-import { clienteDeServicio, comoConi, conSesionDeConi } from "@/lib/acciones/servidor"
+import { clienteDeServicio, comoConi, conSesionDeConi, disparosDeLaApp } from "@/lib/acciones/servidor"
 import { DESTINOS } from "@/lib/dominio/destinos"
 import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
@@ -44,6 +43,7 @@ function depsDeGuion(db: DepsGuion["db"]): DepsGuion {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
+    disparar: disparosDeLaApp(),
     ahora: () => new Date().toISOString(),
   }
 }
@@ -71,6 +71,14 @@ export async function aprobarGuionAccion(piezaId: string, version: number, avata
       sobrePieza.extend({ avatarId: z.string().max(200).nullable() }),
       { piezaId, version, avatarId },
       (deps, d) => aprobarGuion(deps, d.piezaId, d.version, d.avatarId),
+    ),
+  )
+}
+
+export async function deshacerAprobacionAccion(piezaId: string, version: number) {
+  return refrescar(
+    await comoConi("deshacerAprobacion", sobrePieza, { piezaId, version }, (deps, d) =>
+      deshacerAprobacion(deps, d.piezaId, d.version),
     ),
   )
 }
@@ -189,23 +197,13 @@ export async function marcarSubidoAManoAccion(piezaId: string, version: number, 
 }
 
 export async function pedirVozAccion(piezaId: string, version: number, nueva: boolean) {
-  return refrescar(
-    await comoConi("pedirVoz", sobrePieza.extend({ nueva: z.boolean() }), { piezaId, version, nueva }, (deps, d) =>
-      pedirVoz(deps, d.piezaId, d.version, d.nueva),
-    ),
+  const resultado = await comoConi(
+    "pedirVoz",
+    sobrePieza.extend({ nueva: z.boolean() }),
+    { piezaId, version, nueva },
+    (deps, d) => pedirVoz(deps, d.piezaId, d.version, d.nueva),
   )
-}
-
-export async function pedirVideoAccion(piezaId: string, version: number) {
-  return refrescar(
-    await comoConi("pedirVideo", sobrePieza, { piezaId, version }, (deps, d) => pedirVideo(deps, d.piezaId, d.version)),
-  )
-}
-
-export async function reabrirGuionAccion(piezaId: string, version: number) {
-  return refrescar(
-    await comoConi("reabrirGuion", sobrePieza, { piezaId, version }, (deps, d) =>
-      reabrirGuion(deps, d.piezaId, d.version),
-    ),
-  )
+  // Refreshed either way: a voice that failed to start still moved the piece (asked, then failed) to a new version.
+  revalidatePath("/", "layout")
+  return resultado
 }

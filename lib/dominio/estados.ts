@@ -26,6 +26,13 @@ export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado"
 /** An approved time this late goes back to Coni instead of being published (accepted change A3). */
 export const MARGEN_HORA_APROBADA_MS = 30 * 60 * 1000
 
+/** How long Coni can take her gate 1 signature back before the video is recorded (design 2026-10-15, decision 5). */
+export const VENTANA_DESHACER_MS = 8000
+/** What the render adds to the window, so a task clock a little behind the app's never records before it closes. */
+export const MARGEN_DE_RELOJ_MS = 2000
+/** Said when the undo arrives after the window: the run may have started, so the video goes on. */
+export const TEXTO_DESHACER_TARDE = "Ya empecé a grabar el video. Puedes revisarlo cuando esté listo."
+
 export interface AprobacionGuion {
   hash: string
   en: string
@@ -60,17 +67,18 @@ export interface Pieza {
  */
 export type Evento =
   | { tipo: "elegir" }
-  | { tipo: "guion_listo" }
+  /** The writer hands the script over with her voice of it; without a voice, only together with the reason. */
+  | { tipo: "guion_listo"; audioId: string }
+  | { tipo: "guion_listo"; audioId: null; explicacion: string }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
+  /** Coni signs the script, her voice and the video spend in one gesture; the video starts after the undo window. */
   | { tipo: "aprobar_guion"; actor: Actor; hashVisto: string; hashActual: string; en: string }
-  /** Coni asks for her voice on the approved script (spends ElevenLabs). */
+  /** Her voice of the current script, before the signature (spends ElevenLabs; a script edit asks for it too). */
   | { tipo: "pedir_voz" }
   | { tipo: "falla_voz"; explicacion: string }
-  /** Coni asks for the video of the approved script (spends HeyGen). */
-  | { tipo: "grabar_video" }
-  /** Coni takes the approval back to change the script, the caption or the avatar. */
-  | { tipo: "reabrir_guion" }
+  /** Coni takes her gate 1 signature back while the undo window lasts. `ahora` is the server clock. */
+  | { tipo: "deshacer_aprobacion"; actor: Actor; ahora: string }
   /** The voice is stored by the voice task, or by the render when it had to make it. */
   | { tipo: "voz_lista"; audioId: string }
   | { tipo: "render_entregado" }
@@ -176,6 +184,18 @@ export function piezaNueva(): Pieza {
   }
 }
 
+/** What is left of the undo window of a signature made at `puerta1En`, on the server clock; 0 once it closed. */
+export function restoDeVentana(puerta1En: string, ahora: string): number {
+  const cierre = Date.parse(instanteDelServidor(puerta1En)) + VENTANA_DESHACER_MS
+  return Math.max(0, cierre - Date.parse(instanteDelServidor(ahora)))
+}
+
+/** How long the render waits before it may spend: the undo window plus the clock margin, on the task's clock. */
+export function esperaDeVentana(puerta1En: string, ahora: string): number {
+  const cierre = Date.parse(instanteDelServidor(puerta1En)) + VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS
+  return Math.max(0, cierre - Date.parse(instanteDelServidor(ahora)))
+}
+
 /** A task is working on the piece right now: the screens that show it refresh themselves until it settles. */
 export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | null }): boolean {
   switch (pieza.estado) {
@@ -214,57 +234,65 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "guion_listo":
       if (estado !== "guion_en_proceso") throw invalida()
-      return a("guion_por_aprobar", { audioId: null })
+      return a("guion_por_aprobar", {
+        audioId: evento.audioId,
+        explicacion: evento.audioId === null ? evento.explicacion : null,
+      })
 
     case "pedir_cambios":
       if (estado !== "guion_por_aprobar") throw invalida()
       // A new script round is a new attempt: its Claude and voice spend must not reuse the keys of the old round.
       return a("guion_en_proceso", { audioId: null, intento: pieza.intento + 1 })
 
-    case "editar_texto":
-      if (estado === "guion_por_aprobar") return a("guion_por_aprobar", {}, ["revisar_texto"])
-      // The caption is part of gate 1: changing it after approving takes the approval back.
-      if (estado === "guion_aprobado") return a("guion_por_aprobar", { puerta1: null }, ["revisar_texto"])
-      if (estado === "video_por_aprobar") return a("video_por_aprobar", { puerta2: null }, ["revisar_texto"])
+    case "editar_texto": {
+      // Editing the caption does not answer the reason on the piece (no voice, a missed hour): it stays, as in
+      // `editar_texto_como_coni`.
+      const nota = pieza.explicacion
+      if (estado === "guion_por_aprobar") return a("guion_por_aprobar", { explicacion: nota }, ["revisar_texto"])
+      if (estado === "video_por_aprobar") {
+        return a("video_por_aprobar", { puerta2: null, explicacion: nota }, ["revisar_texto"])
+      }
       if (estado === "programado") {
-        return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1 }, [
+        return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1, explicacion: nota }, [
           "cancelar_publicacion",
           "revisar_texto",
         ])
       }
       throw invalida()
+    }
 
     case "aprobar_guion":
       // The actor is checked first so an unauthorised attempt is flagged even on a stale piece.
       soloConi(evento.actor)
       if (estado !== "guion_por_aprobar") throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
-      // Approving spends nothing: the voice and the video are asked for afterwards. A stored voice is kept, because
-      // the steps that use it check it against the approved text.
-      return a("guion_aprobado", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+      // The signature commits the video (design 2026-10-15): the action starts it after the undo window. The voice
+      // she heard stays; the action checked that it speaks this script.
+      return a("en_render", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
 
     case "pedir_voz":
-      if (estado !== "guion_aprobado") throw invalida()
-      // A new attempt: a new run, a new spend key and, for "Volver a grabar voz", a new take.
+      if (estado !== "guion_por_aprobar") throw invalida()
+      // A new attempt: a new run, a new spend key and, for "Grabar la voz de nuevo", a new take.
       return a("grabando_voz", { intento: pieza.intento + 1 })
 
     case "voz_lista":
-      if (estado === "grabando_voz") return a("guion_aprobado", { audioId: evento.audioId })
+      if (estado === "grabando_voz") return a("guion_por_aprobar", { audioId: evento.audioId })
       if (estado !== "en_render") throw invalida()
       return a("en_render", { audioId: evento.audioId })
 
     case "falla_voz":
       if (estado !== "grabando_voz") throw invalida()
       // A new attempt, so the next voice or render never meets the released reservation of this one.
-      return a("guion_aprobado", { intento: pieza.intento + 1, explicacion: evento.explicacion })
+      return a("guion_por_aprobar", { intento: pieza.intento + 1, explicacion: evento.explicacion })
 
-    case "grabar_video":
-      if (estado !== "guion_aprobado") throw invalida()
-      return a("en_render")
-
-    case "reabrir_guion":
-      if (estado !== "guion_aprobado") throw invalida()
-      return a("guion_por_aprobar", { puerta1: null })
+    case "deshacer_aprobacion":
+      soloConi(evento.actor)
+      if (estado !== "en_render" || pieza.puerta1 === null) throw invalida()
+      if (restoDeVentana(pieza.puerta1.en, evento.ahora) === 0) throw new Falla(TEXTO_DESHACER_TARDE)
+      // Her voice stays. The attempt moves on: the delayed run of this signature still fires, finds the piece here and
+      // finishes, and Trigger.dev keeps the key of a finished run, so signing the same text again under the same key
+      // would get that finished run back and the video would never start.
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1 })
 
     case "render_entregado":
       if (estado !== "en_render") throw invalida()

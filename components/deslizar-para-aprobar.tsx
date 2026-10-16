@@ -20,7 +20,7 @@ interface PropiedadesDeDeslizar {
   motivo?: string
   /** True while the approval travels to the server: the thumb stays at the end. */
   enviando?: boolean
-  /** One short line beside the Aprobar button («Aprobar no gasta nada.»). */
+  /** One short line beside the slider («Tienes 8 s para deshacer.»). */
   nota?: ReactNode
   alAprobar: () => void
 }

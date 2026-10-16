@@ -42,6 +42,8 @@ const Disparo = z.object({
   piezaId: z.string(),
   clave: z.string(),
   nueva: z.boolean().optional(),
+  intento: z.number().optional(),
+  retraso: z.string().optional(),
 })
 
 export function limpiarDisparos(): void {

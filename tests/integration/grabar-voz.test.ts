@@ -2,6 +2,7 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { leerPieza } from "@/lib/datos/repositorio"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
@@ -33,7 +34,7 @@ function deps(): DepsGrabarVoz & { almacen: ReturnType<typeof almacenEnMemoria> 
 }
 
 // sembrarPieza walks the real flow inside a committed transaction, so `asumir` (SET LOCAL) takes effect.
-async function enEstado(estado: "grabando_voz" | "guion_aprobado"): Promise<string> {
+async function enEstado(estado: "grabando_voz" | "guion_por_aprobar"): Promise<string> {
   const id = await sembrarPieza(estado)
   creadas.push(id)
   return id
@@ -64,7 +65,7 @@ afterEach(async () => {
 })
 
 describe("grabarVoz", () => {
-  it("speaks the approved script once, stores the take and returns the piece to guion_aprobado", async () => {
+  it("speaks the current script once, stores the take and returns the piece to guion_por_aprobar", async () => {
     const id = await grabando()
     const d = deps()
     const { intento } = await leerFila(id)
@@ -75,7 +76,7 @@ describe("grabarVoz", () => {
     expect(resultado).toEqual({ resultado: "lista", audioId: clave })
     expect(llamadas).toBe(1)
     expect(d.almacen.obtener(clave)?.datos).toEqual(VOZ)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_aprobado", audio_id: clave, explicacion: null })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: clave, explicacion: null })
     const { rows } = await pool.query("select proveedor, paso, estado from public.gastos where pieza_id = $1", [id])
     expect(rows).toEqual([{ proveedor: "elevenlabs", paso: "voz", estado: "confirmado" }])
   })
@@ -102,19 +103,33 @@ describe("grabarVoz", () => {
   })
 
   it("does nothing for a piece that is not recording its voice", async () => {
-    const id = await enEstado("guion_aprobado")
+    const id = await enEstado("guion_por_aprobar")
     expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "nada_que_hacer" })
     expect(llamadas).toBe(0)
   })
 
-  it("spends nothing and explains when the script changed after the approval", async () => {
+  it("speaks the script on the row now, even when it changed after she asked", async () => {
     const id = await grabando()
-    await ajustarPieza(id, { guion: "Un guion que nadie aprobó." })
+    const editado = "Un guion que Coni cambió mientras se preparaba la voz."
+    await ajustarPieza(id, { guion: editado })
+    const d = deps()
+    const { intento } = await leerFila(id)
 
-    expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "sin_aprobacion" })
+    const resultado = await grabarVoz(d, { piezaId: id, nueva: false })
+
+    const clave = claveDeToma(id, huellaDelGuion(editado, leerConfigProduccion(coniConfig).elevenlabs), intento)
+    expect(resultado).toEqual({ resultado: "lista", audioId: clave })
+    expect(llamadas).toBe(1)
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", audio_id: clave })
+  })
+
+  it("spends nothing and fails loudly for a piece asking for its voice without a script", async () => {
+    const id = await grabando()
+    await ajustarPieza(id, { guion: null })
+
+    await expect(grabarVoz(deps(), { piezaId: id, nueva: false })).rejects.toThrow(FallaDeConfiguracion)
     expect(llamadas).toBe(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_aprobado" })
-    expect((await leerFila(id)).explicacion).toMatch(/cambió después de aprobarlo/)
+    expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz" })
   })
 
   it("explains the cap and spends nothing when the voice would pass it", async () => {
@@ -124,7 +139,7 @@ describe("grabarVoz", () => {
 
     expect(await grabarVoz(d, { piezaId: id, nueva: false })).toEqual({ resultado: "tope" })
     expect(llamadas).toBe(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_aprobado", explicacion: TEXTO_TOPE })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_TOPE })
   })
 
   it("returns the piece with Coni's text when ElevenLabs has no characters", async () => {
@@ -138,7 +153,7 @@ describe("grabarVoz", () => {
 
     expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "falla" })
     const despues = await leerFila(id)
-    expect(despues).toMatchObject({ estado: "guion_aprobado", intento: antes.intento + 1 })
+    expect(despues).toMatchObject({ estado: "guion_por_aprobar", intento: antes.intento + 1 })
     expect(despues.explicacion).toMatch(/^ElevenLabs no tiene caracteres suficientes/)
   })
 

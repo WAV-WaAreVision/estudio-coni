@@ -61,50 +61,54 @@ afterAll(async () => {
 })
 
 async function piezaAprobada(ajustes: Record<string, unknown> = {}) {
-  const id = await sembrarPieza("guion_aprobado", ajustes)
+  const id = await sembrarPieza("en_render", ajustes)
+  creadas.push(id)
+  return id
+}
+
+async function piezaPorFirmar(ajustes: Record<string, unknown> = {}) {
+  const id = await sembrarPieza("guion_por_aprobar", ajustes)
   creadas.push(id)
   return id
 }
 
 describe("leerDatosDeGrabacion", () => {
-  it("reads both balances through the real wiring and prices the buttons, with no voice yet", async () => {
-    const id = await piezaAprobada()
+  it("reads the balances through the real wiring and prices voice and signature, no voice yet", async () => {
+    const id = await piezaPorFirmar()
     const fila = await leerFila(id)
 
-    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_aprobado", guion: GUION, zona: ZONA })
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
 
-    expect(datos.estado).toBe("guion_aprobado")
+    expect(datos.estado).toBe("guion_por_aprobar")
     expect(datos.voz).toBeNull()
     expect(datos.botones?.saldoVoz).toMatch(/^ElevenLabs: te quedan 99\.000 de 100\.000 caracteres/)
-    expect(datos.botones?.saldoVideo).toBe("Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.")
-    expect(datos.botones?.costoVideo).toMatch(/ · incluye la voz$/)
     expect(datos.botones?.bloqueoVoz).toBeNull()
     expect(datos.botones?.bloqueoVideo).toBeNull()
+    expect(datos.lineaDeFirma).toMatch(/^Al firmar grabo el video: ~\d+ s, US\$ \d+,\d\d\. Tienes 8 s para deshacer\.$/)
   })
 
-  it("offers the voice that speaks the approved script, and stops adding it to the video price", async () => {
-    const id = await piezaAprobada()
+  it("offers her voice of this script", async () => {
+    const id = await piezaPorFirmar()
     const toma = claveDeToma(id, HUELLA, 0)
     await ajustarPieza(id, { audio_id: toma })
 
     const datos = await leerDatosDeGrabacion(coni, {
       fila: await leerFila(id),
-      estado: "guion_aprobado",
+      estado: "guion_por_aprobar",
       guion: GUION,
       zona: ZONA,
     })
 
     expect(datos.voz?.clave).toBe(toma)
-    expect(datos.botones?.costoVideo).not.toMatch(/incluye la voz/)
   })
 
   it("blocks both buttons with the cap line when the month has no room left", async () => {
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
-    const id = await piezaAprobada()
+    const id = await piezaPorFirmar()
 
     const datos = await leerDatosDeGrabacion(coni, {
       fila: await leerFila(id),
-      estado: "guion_aprobado",
+      estado: "guion_por_aprobar",
       guion: GUION,
       zona: ZONA,
     })
@@ -115,13 +119,13 @@ describe("leerDatosDeGrabacion", () => {
   })
 
   it("does not offer a voice of another text or of another piece", async () => {
-    const id = await piezaAprobada()
+    const id = await piezaPorFirmar()
     const ajena = claveDeToma(id, huellaDelGuion("Otro texto.", ELEVENLABS), 0)
     await ajustarPieza(id, { audio_id: ajena })
 
     const datos = await leerDatosDeGrabacion(coni, {
       fila: await leerFila(id),
-      estado: "guion_aprobado",
+      estado: "guion_por_aprobar",
       guion: GUION,
       zona: ZONA,
     })
@@ -134,23 +138,22 @@ describe("leerDatosDeGrabacion", () => {
     // A fresh module, so the one-minute cache of the earlier tests does not hide the failure.
     vi.resetModules()
     const { leerDatosDeGrabacion: leerNuevo } = await import("@/lib/datos/grabacion")
-    const id = await piezaAprobada()
+    const id = await piezaPorFirmar()
 
     const datos = await leerNuevo(coni, {
       fila: await leerFila(id),
-      estado: "guion_aprobado",
+      estado: "guion_por_aprobar",
       guion: GUION,
       zona: ZONA,
     })
 
-    expect(datos.botones?.saldoVideo).toBe("No pude ver tu saldo de API de HeyGen.")
     expect(datos.botones?.bloqueoVideo).toBeNull()
     expect(datos.botones?.bloqueoVoz).toBeNull()
   })
 
   it("answers without numbers, and logs, when the production setup does not read", async () => {
     await pool.query('update public.ajustes set produccion = \'{"ruta_voz": "ElevenLabs"}\'::jsonb')
-    const id = await piezaAprobada()
+    const id = await piezaPorFirmar()
 
     const datos = await leerDatosDeGrabacion(coni, {
       fila: await leerFila(id),
@@ -159,7 +162,12 @@ describe("leerDatosDeGrabacion", () => {
       zona: ZONA,
     })
 
-    expect(datos).toEqual({ estado: "grabando_voz", voz: null, botones: null })
+    expect(datos).toEqual({
+      estado: "grabando_voz",
+      voz: null,
+      botones: null,
+      lineaDeFirma: "Al firmar grabo el video. Tienes 8 s para deshacer.",
+    })
   })
 })
 

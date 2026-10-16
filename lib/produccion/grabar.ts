@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
+  type CambiosDePieza,
   confirmarGasto,
   type FilaDeGasto,
   type FilaDePieza,
@@ -11,7 +12,15 @@ import {
   liberarGasto,
   reservarGasto,
 } from "@/lib/datos/repositorio"
-import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
+import {
+  ArtefactoCambio,
+  type Evento,
+  esperaDeVentana,
+  MARGEN_DE_RELOJ_MS,
+  TransicionInvalida,
+  transicionar,
+  VENTANA_DESHACER_MS,
+} from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, formulaDePuerta1, hashPuerta1, puedeGrabar } from "@/lib/dominio/puertas"
@@ -52,6 +61,8 @@ export interface DepsGrabacion {
    * always read by id afterwards (design A10, the callback URL of a wait token does not authenticate).
    */
   esperarRender: (videoId: string) => Promise<void>
+  /** Waits that long before the run goes on (`wait.for` in the task): the undo window of a fresh signature. */
+  esperar: (ms: number) => Promise<void>
   /** Where HeyGen posts when the video is done; the wait token's URL in the task. */
   callbackUrl?: string
   /** Base URLs of the providers, for tests. */
@@ -128,15 +139,29 @@ async function escribir(contexto: Contexto, evento: Evento): Promise<void> {
   contexto.fila = guardada
 }
 
-/** The write that makes the video findable by a retry, right after POST /v3/videos and before any wait. */
-async function guardarRender(contexto: Contexto, videoId: string): Promise<void> {
+/** A write of columns outside the domain, locked on the version the run holds; the run holds the new row after it. */
+async function guardarConVersion(contexto: Contexto, cambios: Omit<CambiosDePieza, "version">): Promise<void> {
   const { fila } = contexto
   const guardada = await actualizarPieza(contexto.deps.db, fila.id, fila.version, {
-    render_id: videoId,
+    ...cambios,
     version: fila.version + 1,
   })
   if (!guardada) throw piezaCambio()
   contexto.fila = guardada
+}
+
+/** The write that makes the video findable by a retry, right after POST /v3/videos and before any wait. */
+function guardarRender(contexto: Contexto, videoId: string): Promise<void> {
+  return guardarConVersion(contexto, { render_id: videoId })
+}
+
+/**
+ * The run takes the piece before its first spend (design 2026-10-15, decision 5): a write of the version alone, so the
+ * state and the notices stay as they are. An undo that committed after the run read the row makes it miss, and the
+ * retry finds the piece back at gate 1; an undo that comes after it misses the version her screen signed.
+ */
+function tomarLaPieza(contexto: Contexto): Promise<void> {
+  return guardarConVersion(contexto, {})
 }
 
 /**
@@ -240,20 +265,72 @@ async function cargarContexto(deps: DepsGrabacion, fila: FilaDePieza, guion: str
 }
 
 /**
+ * The longest wait a sane clock can ask for: the window and the margin, plus a minute of skew between the task and
+ * the app. More than that means a clock is far off, and sleeping on it would hide a render that never starts.
+ */
+const ESPERA_MAXIMA_MS = VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS + 60_000
+
+/**
+ * The second lock of the undo window (design 2026-10-15, decision 5). A run that starts before the window of its
+ * signature has closed (a delayed run that fires early, a resumption by maintenance, a task clock behind the app's)
+ * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature comes
+ * with a newer attempt, which ends a run that carries its own in `grabarPieza`; a run queued without one by the
+ * previously deployed app waits for that signature too. After one wait for a signature (`esperada`) the loop trusts
+ * that wait, timed by Trigger.dev, instead of reading again a clock that may lag, so the loop always ends.
+ */
+async function despuesDeLaVentana(
+  deps: DepsGrabacion,
+  leida: FilaDePieza,
+  intento: number | undefined,
+): Promise<FilaDePieza | null> {
+  let fila: FilaDePieza | null = leida
+  let esperada: string | null = null
+  while (fila?.estado === "en_render") {
+    // A run of another attempt (an undone signature) ends in `grabarPieza`: waiting for its window would be pointless.
+    if (intento !== undefined && fila.intento !== intento) break
+    const firma = piezaDesdeFila(fila).puerta1
+    if (firma === null || firma.en === esperada) break
+    const ahora = deps.ahora()
+    const espera = esperaDeVentana(firma.en, ahora)
+    if (espera === 0) break
+    if (espera > ESPERA_MAXIMA_MS) {
+      const segundos = Math.ceil(espera / 1000)
+      throw new FallaDeConfiguracion(
+        `La pieza ${fila.id} tendría que esperar ${segundos} s a que cierre la ventana para deshacer: ` +
+          `el reloj de la tarea (${ahora}) no cuadra con el de la firma (${firma.en}).`,
+      )
+    }
+    await deps.esperar(espera)
+    esperada = firma.en
+    fila = await leerPieza(deps.db, fila.id)
+  }
+  return fila
+}
+
+/**
  * Renders the approved script in HeyGen, burns it as subtitles, checks the result and leaves the video in
  * `video_por_aprobar` for Coni. It never approves anything and never spends without the approval of gate 1. It is safe
  * to run again at any point: the render id is stored right after the video is created, a stored id is read instead
- * of creating again, and a piece left in `subtitulando` resumes from the delivered render.
+ * of creating again, and a piece left in `subtitulando` resumes from the delivered render. `intento`: the attempt the
+ * run was started for; when the piece is on another one, the run ends without touching it.
  */
-export async function grabarPieza(deps: DepsGrabacion, piezaId: string): Promise<ResultadoGrabacion> {
-  const { db } = deps
-  const fila = await leerPieza(db, piezaId)
+export async function grabarPieza(deps: DepsGrabacion, piezaId: string, intento?: number): Promise<ResultadoGrabacion> {
+  const leida = await leerPieza(deps.db, piezaId)
+  if (!leida) {
+    throw new FallaDeConfiguracion(`No existe la pieza ${piezaId}.`)
+  }
+  // Before anything that spends: Coni may still be taking this signature back.
+  const fila = await despuesDeLaVentana(deps, leida, intento)
   if (!fila) {
     throw new FallaDeConfiguracion(`No existe la pieza ${piezaId}.`)
   }
   if (fila.estado !== "en_render" && fila.estado !== "subtitulando") {
     return { resultado: "nada_que_hacer" }
   }
+  // A run belongs to the attempt it was started for (the payload carries it; a run queued by an older app sends none).
+  // One whose attempt is over, such as a signature Coni undid, must not render for the newer one: that one has its own.
+  // The row was read again after the wait, so a signature undone and signed again meanwhile is caught here too.
+  if (intento !== undefined && fila.intento !== intento) return { resultado: "nada_que_hacer" }
   const pieza = piezaDesdeFila(fila)
   if (fila.guion === null || pieza.puerta1 === null) {
     return { resultado: "sin_aprobacion" }
@@ -323,6 +400,8 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
   const { db } = deps
   const enRender = contexto.fila.estado === "en_render"
 
+  // Only a render that was never created spends from here; a stored render id or a delivered video was paid already.
+  if (enRender && contexto.fila.render_id === null) await tomarLaPieza(contexto)
   if (enRender && vozAprobada(contexto) === null && !(await ponerLaVoz(contexto))) {
     return { resultado: "tope" }
   }

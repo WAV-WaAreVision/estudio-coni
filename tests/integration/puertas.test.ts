@@ -22,7 +22,8 @@ describe("recorrido completo", () => {
       const id = await crearPiezaEn(c, "publicado")
       const fila = await leer(c, id)
       expect(fila.estado).toBe("publicado")
-      expect(fila.version).toBe(8)
+      // Seven steps: the gate 1 signature goes straight to the render.
+      expect(fila.version).toBe(7)
       expect(fila.puerta1_por).toBe(CONI)
       expect(fila.puerta2_por).toBe(CONI)
       expect(fila.puerta2_video_id).toBe(VIDEO)

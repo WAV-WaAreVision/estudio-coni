@@ -11,6 +11,10 @@ export function CostoDeAccion({ monto, unidad }: { monto: string; unidad: string
 }
 
 /** The balance under its action, left aligned and whole: its explanation never leaves its figure. */
-export function LineaDeSaldo({ children }: { children: ReactNode }) {
-  return <p className="text-meta text-apagado">{children}</p>
+export function LineaDeSaldo({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} className="text-meta text-apagado">
+      {children}
+    </p>
+  )
 }

@@ -44,12 +44,12 @@ async function fila(id: string) {
 }
 
 function doble(ahora: () => string, cambios: Partial<DepsArranques> = {}) {
-  const disparos: { tarea: "grabar" | "producir"; piezaId: string; clave: string }[] = []
+  const disparos: { tarea: "grabar" | "producir"; piezaId: string; clave: string; intento?: number }[] = []
   const deps: DepsArranques = {
     db: clienteDeServicio(),
     ahora,
-    dispararGrabacion: async (piezaId, clave) => {
-      disparos.push({ tarea: "grabar", piezaId, clave })
+    dispararGrabacion: async (piezaId, clave, intento) => {
+      disparos.push({ tarea: "grabar", piezaId, clave, intento })
     },
     dispararProduccion: async (piezaId, clave) => {
       disparos.push({ tarea: "producir", piezaId, clave })
@@ -72,7 +72,10 @@ describe("reanudarArranques: grabar-pieza", () => {
     const resultado = await reanudarArranques(deps)
 
     expect(resultado).toEqual([{ piezaId: id, tarea: "grabar" }])
-    expect(disparos).toEqual([{ tarea: "grabar", piezaId: id, clave: claveGrabar(await fila(id)) }])
+    const reanudada = await fila(id)
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(reanudada), intento: reanudada.intento },
+    ])
   })
 
   it("asks for the same key on every tick, so Trigger.dev starts one run and not one every ten minutes", async () => {

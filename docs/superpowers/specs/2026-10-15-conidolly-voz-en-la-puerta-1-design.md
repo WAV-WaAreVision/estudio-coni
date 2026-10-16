@@ -99,18 +99,37 @@ through `iniciar(...)`, so a run that fails to start is still resumed by `reanud
 
 - `VENTANA_DESHACER_MS = 8000`, `MARGEN_DE_RELOJ_MS = 2000` (domain constants).
 - New event `deshacer_aprobacion { actor; ahora }`: Coni only, `en_render -> guion_por_aprobar`, `puerta1 = null`,
-  `audioId` and `intento` kept. Valid only while `ahora < puerta1.en + VENTANA_DESHACER_MS` (server clock); after that
+  `audioId` kept, `intento + 1` (see "Why the undo bumps `intento`" below). Valid only while
+  `ahora < puerta1.en + VENTANA_DESHACER_MS` (server clock); after that
   `Falla("Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.")`.
 - New action `deshacerAprobacion(piezaId, versionVista)`. No run cancellation: the delayed run starts, finds the piece
   in `guion_por_aprobar` and returns `nada_que_hacer`.
 - **Second lock in the render.** `grabarPieza`, in `en_render` and before any spend, computes
   `esperaDeVentana(puerta1.en, ahora) = max(0, puerta1.en + VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS - ahora)`. When it
   is positive the task waits that long (`deps.esperar(ms)`, `wait.for` in the task) and reads the row again before
-  `puedeGrabar`. This covers a re-signature of the same text inside the window: same hash and `intento`, so the
-  idempotency key returns the first delayed run, which may fire earlier than 10 s after the second signature; the
-  wait keeps HeyGen untouched until the second window has closed.
-- Why no `intento` bump on undo: the render spend key stays the same for the same approved text, so the existing
-  reservation dedupe keeps a double run from paying twice.
+  `puedeGrabar`. It covers a run that starts before its window has closed (a delayed run that fires early, a
+  resumption by `reanudarArranques`, a clock that differs between Vercel and Trigger.dev): HeyGen stays untouched until
+  the window of the signature the row holds now has closed.
+- **The run takes the piece before it spends.** After the wait and before any spend of a render not yet created,
+  `grabarPieza` bumps only `version` (locked on the version it read; no state change, no notice). An undo that committed
+  first makes it miss (a retryable error; the retry finds gate 1); a later undo is refused by the version lock, or with
+  the late text, which `deshacerAprobacion` checks before the version. For that lock to hold, the undo toast sends the
+  version she signed at (`aprobarGuion` returns it, gate 1 carries it to the video screen as `?firmada=N` and the toast
+  keeps it from its first render), never one a 4 s refresh brought after the claim.
+- **Why the undo bumps `intento`.** Trigger.dev keeps the idempotency key of a completed run (30 days by default) and a
+  new trigger under that key returns the old run. The key of the render is the approved text plus `intento`
+  (`claveGrabar`). If an undo kept `intento`, the delayed run of the undone signature would fire, find the piece back at
+  gate 1, return `nada_que_hacer` and complete; signing the same text again would then produce the same key, Trigger.dev
+  would return that completed run and no video would ever start (`reanudarArranques` retries under the same key, so it
+  would be deduplicated too). So `deshacer_aprobacion` opens a new attempt: a later signature of the same text has a new
+  key and starts its own run.
+- **A run belongs to its attempt.** The `grabar-pieza` payload carries the `intento` it was started for
+  (`Disparos.grabar(piezaId, clave, intento, retraso?)`; optional in the task schema so a run queued by the app deployed
+  before it existed still works). `grabarPieza` returns `nada_que_hacer` when the row is on another attempt, checked
+  right after reading the row and again after every re-read (the window wait), before any spend. Hence the delayed run
+  of an undone signature ends at once even when Coni signed again meanwhile and the piece is back in `en_render` with
+  the same text: that second signature has its own run. The render spend key is the reservation key of the attempt, so a
+  double run of the same attempt still cannot pay twice.
 
 ### 6. Screens and copy (es-CL, tú, no em dashes)
 
@@ -143,14 +162,14 @@ Layout changes beyond copy belong to the Soft UI step 2 (`/impeccable harden`). 
 | `voz_lista { audioId }` | `en_render` | `en_render` | unchanged (render made a missing voice) |
 | `falla_voz` | `grabando_voz` | `guion_por_aprobar` | explanation, `intento + 1` |
 | `aprobar_guion` | `guion_por_aprobar` | `en_render` | Coni only |
-| `deshacer_aprobacion` | `en_render` | `guion_por_aprobar` | Coni only, inside the window |
+| `deshacer_aprobacion` | `en_render` | `guion_por_aprobar` | Coni only, inside the window, `intento + 1` |
 
 Removed: `grabar_video`, `reabrir_guion`, and `editar_texto` from `guion_aprobado`. `guion_aprobado` becomes
 unreachable; the enum value stays (Postgres cannot drop it). `politica_contenido`, gate 2 and publishing are unchanged.
 
 ### 8. Database (one migration after `20261007000110`)
 
-`20261015000100_voz_antes_de_firmar.sql`:
+`20261016000200_voz_antes_de_firmar.sql`:
 
 - constraint `aprobada_para_grabar` recreated without `grabando_voz` (the voice may now be made before the signature);
   `guion_aprobado` stays in the list (harmless, unreachable).
@@ -188,7 +207,9 @@ constraint semantics, so move them to `guion_por_aprobar` first, then re-apply t
   delivers the script with `TEXTO_SIN_VOZ` when ElevenLabs fails or the cap is reached; a script edit starts
   `grabar-voz` and a revert reuses the old take; approve moves to `en_render` and records a delayed trigger; undo
   inside the window returns to `guion_por_aprobar` and the delayed run spends nothing; undo after the window is
-  refused; re-signing inside the window waits and pays HeyGen once; the migration's constraint.
+  refused; re-signing inside the window waits and pays HeyGen once; sign, undo, finish the undone run, sign the same
+  text again: the second `grabar-pieza` trigger has another key and `intento + 1`, and a run whose payload `intento`
+  is older than the row's returns `nada_que_hacer` and spends nothing; the migration's constraint.
 - E2E (Playwright, fake services): open a script with its voice, listen to the end, sign, see the toast, undo, sign
   again and see "Estoy grabando tu video".
 

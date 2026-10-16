@@ -87,6 +87,9 @@ export type Veredicto =
 
 const no = (motivo: Exclude<Veredicto, { ok: true }>["motivo"]): Veredicto => ({ ok: false, motivo })
 
+/** The voice guard answers on its own: it has no approval to compare, only a state and a script. */
+export type VeredictoVoz = { ok: true } | { ok: false; motivo: "estado" | "sin_guion" }
+
 /** The render task calls this right before spending HeyGen credits. */
 export function puedeGrabar(pieza: Pieza, hashActual: string): Veredicto {
   if (pieza.estado !== "en_render") return no("estado")
@@ -95,11 +98,13 @@ export function puedeGrabar(pieza: Pieza, hashActual: string): Veredicto {
   return { ok: true }
 }
 
-/** The voice task calls this right before spending ElevenLabs: the script it speaks is the one Coni approved. */
-export function puedeGrabarVoz(pieza: Pieza, hashActual: string): Veredicto {
-  if (pieza.estado !== "grabando_voz") return no("estado")
-  if (!pieza.puerta1) return no("sin_aprobacion")
-  if (pieza.puerta1.hash !== hashActual) return no("artefacto_cambio")
+/**
+ * The voice task calls this right before spending ElevenLabs. The voice is a draft made before gate 1 (design
+ * 2026-10-15, decision 3): it needs no approval and speaks whatever script the row holds now.
+ */
+export function puedeGrabarVoz(pieza: Pieza, guion: string | null): VeredictoVoz {
+  if (pieza.estado !== "grabando_voz") return { ok: false, motivo: "estado" }
+  if (guion === null || guion.trim() === "") return { ok: false, motivo: "sin_guion" }
   return { ok: true }
 }
 

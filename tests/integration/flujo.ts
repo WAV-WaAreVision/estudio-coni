@@ -3,6 +3,7 @@ import { cambiosDesdePieza, type FilaPieza, piezaDesdeFila } from "@/lib/datos/p
 import type { Destino } from "@/lib/dominio/destinos"
 import { type Estado, type Evento, transicionar } from "@/lib/dominio/estados"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { asumir, comoConi, comoPostgres, comoServicio, type Sesion } from "./db"
 
 export const GUION = "Hola, soy Coni. Hoy hablamos de límites."
@@ -77,6 +78,23 @@ export async function aplicar(
 
 const ahora = (): string => new Date().toISOString()
 const maniana = (): string => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+/** A walked piece was signed a minute ago: its undo window is long closed, so a render of it never waits. */
+const haceUnMinuto = (): string => new Date(Date.now() - 60_000).toISOString()
+
+/**
+ * Gate 1 as the screen writes it: Coni's session, with the avatar and the formula in the same update as the
+ * approval.
+ */
+export function aprobarComoConi(c: pg.PoolClient, id: string, en: string): Promise<FilaLeida> {
+  const hash = hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR })
+  return aplicar(
+    c,
+    id,
+    comoConi,
+    { tipo: "aprobar_guion", actor: "coni", hashVisto: hash, hashActual: hash, en },
+    { avatar_id: AVATAR, puerta1_formula: 2 },
+  )
+}
 
 /**
  * What a piece carries for LinkedIn. Without it the walk makes an approval from before LinkedIn (formula 1, Instagram
@@ -106,29 +124,14 @@ function pasos(opciones: OpcionesDePieza): Paso[] {
         c,
         id,
         comoServicio,
-        { tipo: "guion_listo" },
+        { tipo: "guion_listo", audioId: null, explicacion: TEXTO_SIN_VOZ },
         {
           guion: GUION,
           texto: TEXTO,
           ...(opciones.textoLinkedin === undefined ? {} : { texto_linkedin: opciones.textoLinkedin }),
         },
       ),
-    (c, id) =>
-      aplicar(
-        c,
-        id,
-        comoConi,
-        {
-          tipo: "aprobar_guion",
-          actor: "coni",
-          hashVisto: hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR }),
-          hashActual: hashPuerta1({ formula: 2, guion: GUION, texto: TEXTO, avatarId: AVATAR }),
-          en: ahora(),
-        },
-        // Chosen in the same write that approves, like the screen does.
-        { avatar_id: AVATAR, puerta1_formula: 2 },
-      ),
-    (c, id) => aplicar(c, id, comoConi, { tipo: "grabar_video" }),
+    (c, id) => aprobarComoConi(c, id, haceUnMinuto()),
     (c, id) => aplicar(c, id, comoServicio, { tipo: "render_entregado" }),
     (c, id) => aplicar(c, id, comoServicio, { tipo: "video_listo", videoId: VIDEO }),
     (c, id) =>
@@ -161,15 +164,15 @@ const PASOS_HASTA: Partial<Record<Estado, number>> = {
   idea: 0,
   guion_en_proceso: 1,
   guion_por_aprobar: 2,
-  guion_aprobado: 3,
-  grabando_voz: 3,
-  en_render: 4,
-  subtitulando: 5,
-  video_por_aprobar: 6,
-  programado: 7,
-  publicado: 8,
-  para_subir_a_mano: 8,
-  publicado_a_mano: 8,
+  // Walked to guion_por_aprobar, then Coni asks for her voice (`crearPiezaEn`).
+  grabando_voz: 2,
+  en_render: 3,
+  subtitulando: 4,
+  video_por_aprobar: 5,
+  programado: 6,
+  publicado: 7,
+  para_subir_a_mano: 7,
+  publicado_a_mano: 7,
 }
 
 /** Creates a piece and walks it through the real flow, each step written by the actor the design assigns to it. */
@@ -177,7 +180,7 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado, opciones: 
   const cuantos = PASOS_HASTA[destino]
   if (cuantos === undefined) throw new Error(`Sin ruta de prueba hacia ${destino}`)
   const id = await crearPieza(c)
-  const hastaProgramado = destino === "publicado_a_mano" || destino in PASO_A_MANO ? 7 : cuantos
+  const hastaProgramado = destino === "publicado_a_mano" || destino in PASO_A_MANO ? 6 : cuantos
   for (const paso of pasos(opciones).slice(0, hastaProgramado)) {
     await paso(c, id)
   }

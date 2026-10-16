@@ -1,8 +1,9 @@
 "use client"
 
-import { CaretLeft } from "@phosphor-icons/react"
+import { CaretLeft, Info } from "@phosphor-icons/react"
 import Link from "next/link"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { type Dispatch, type SetStateAction, useCallback, useId, useState } from "react"
 import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -18,12 +19,18 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
-import { contarPalabras } from "@/lib/dominio/duracion"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
-import { BarraDeGrabacion } from "./barra-de-grabacion"
+import {
+  ETIQUETA_DE_FIRMA,
+  TEXTO_CAMBIOS_TRAS_LA_VOZ,
+  TEXTO_ESCUCHA_COMPLETA,
+  TEXTO_FALTA_VOZ,
+  TEXTO_PREPARANDO_VOZ,
+} from "./textos"
+import { VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
   id: string
@@ -41,49 +48,112 @@ export interface DatosDeGuion {
   tieneVersionDeClaude: boolean
   /** "jueves 16 de octubre · 19:00": when it would go out if she approves today. */
   salida: string | null
-  /** Set once gate 1 is signed: the voice and video bar replaces the approve bar. */
-  grabacion: DatosDeGrabacion | null
-  /** The name of the approved look, shown instead of the chooser once gate 1 is signed. */
-  avatarElegido: string | null
   explicacion: string | null
   /** The looks WAV lets her choose; empty means there is nothing to choose and the approval stays blocked. */
   avatares: AvatarParaElegir[]
+  /** Her voice of this script and what the signature spends (design 2026-10-15, decisions 3 and 4). */
+  grabacion: DatosDeGrabacion
+  /** A toast the screen opens with: she just took a signature back. */
+  avisoInicial: string | null
+  /** The look stored on the piece (the one she signed with before an undo); preselected while it is still offered. */
+  avatarGuardado: string | null
 }
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 
-/** Gate 1: she reads and edits the script, confirms what the review flagged, and slides. The voice comes after, in the video. */
+const unirConY = (partes: readonly string[]) =>
+  partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}` : partes.join("")
+
+/** What still keeps the signature closed, the most useful first; undefined when she can sign. */
+function motivoParaFirmar(estado: {
+  sinGuardar: boolean
+  preparando: boolean
+  voz: string | null
+  escuchada: string | null
+  bloqueos: number
+  sinAvatares: boolean
+  bloqueoFirma: string | null
+  faltan: readonly string[]
+}): string | undefined {
+  if (estado.sinGuardar) return "Guarda tus cambios antes de aprobar"
+  if (estado.preparando) return TEXTO_PREPARANDO_VOZ
+  // The HeyGen wallet or the month's cap would stop the video: preparing or listening to her voice would not help.
+  if (estado.bloqueoFirma !== null) return estado.bloqueoFirma
+  if (estado.voz === null) return TEXTO_FALTA_VOZ
+  if (estado.bloqueos > 0) return "Hay algo que corregir antes de aprobar."
+  if (estado.sinAvatares) return "Todavía no hay avatares para elegir."
+  if (estado.faltan.length > 0) return `Falta ${unirConY(estado.faltan)}.`
+  if (estado.escuchada !== estado.voz) return TEXTO_ESCUCHA_COMPLETA
+  return undefined
+}
+
+/**
+ * Gate 1 (design 2026-10-15): she listens to her voice of the script, reads and edits it, confirms what the review
+ * flagged and slides once. The signature approves the script and the voice, and the video starts after the undo window.
+ */
 export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
+  // Her choices outlive the round trips of gate 1 (her voice being made, a new take): the page keys this by piece, and
+  // only the screen below starts over with each state.
+  const [avatarElegido, setAvatarElegido] = useState<string | null>(() =>
+    datos.avatares.some((avatar) => avatar.id === datos.avatarGuardado) ? datos.avatarGuardado : null,
+  )
+  const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
+  return (
+    <PuertaUno
+      key={datos.grabacion.estado}
+      datos={datos}
+      elecciones={{ avatarElegido, setAvatarElegido, confirmadas, setConfirmadas }}
+    />
+  )
+}
+
+interface Elecciones {
+  avatarElegido: string | null
+  setAvatarElegido: (avatarId: string | null) => void
+  confirmadas: ReadonlySet<string>
+  setConfirmadas: Dispatch<SetStateAction<ReadonlySet<string>>>
+}
+
+function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Elecciones }) {
+  const { avatarElegido, setAvatarElegido, confirmadas, setConfirmadas } = elecciones
+  const router = useRouter()
   const [version, setVersion] = useState(datos.version)
+  const [versionVista, setVersionVista] = useState(datos.version)
+  // The server sent a newer piece without a change of state (a voice that failed to start): it is the new base.
+  if (versionVista !== datos.version) {
+    setVersionVista(datos.version)
+    setVersion(datos.version)
+  }
   const [revision, setRevision] = useState(datos.revision)
   const [sinGuardar, setSinGuardar] = useState(false)
-  const [avatarElegido, setAvatarElegido] = useState<string | null>(null)
-  const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
   const [pidiendoCambios, setPidiendoCambios] = useState(false)
-  const [aviso, setAviso] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(datos.avisoInicial)
+  // The take she heard to the end: another take (a new text, or "Grabar la voz de nuevo") asks again.
+  const [escuchada, setEscuchada] = useState<string | null>(null)
   const aprobacion = useAccion()
   const cambios = useAccion()
+  const idSinCambios = useId()
 
+  const { grabacion } = datos
+  const preparando = grabacion.estado === "grabando_voz"
   const bloqueos = revision.filter((hallazgo) => hallazgo.tipo === "bloquea")
   const advertencias = revision.filter((hallazgo) => hallazgo.tipo === "advierte")
   const sinConfirmar = advertencias.filter((hallazgo) => !confirmadas.has(claveDe(hallazgo)))
-
   const sinAvatares = datos.avatares.length === 0
   const faltan = [
     ...(avatarElegido === null && !sinAvatares ? ["elegir el avatar"] : []),
     ...(sinConfirmar.length > 0 ? ["confirmar la revisión"] : []),
   ]
-  const faltaTexto = faltan.length > 1 ? `${faltan.slice(0, -1).join(", ")} y ${faltan.at(-1)}` : faltan.join("")
-  const motivo = sinGuardar
-    ? "Guarda tus cambios antes de aprobar"
-    : bloqueos.length > 0
-      ? "Hay algo que corregir antes de aprobar."
-      : sinAvatares
-        ? "Todavía no hay avatares para elegir."
-        : faltan.length > 0
-          ? `Falta ${faltaTexto}.`
-          : undefined
-  const habilitado = motivo === undefined
+  const motivo = motivoParaFirmar({
+    sinGuardar,
+    preparando,
+    voz: grabacion.voz?.clave ?? null,
+    escuchada,
+    bloqueos: bloqueos.length,
+    sinAvatares,
+    bloqueoFirma: grabacion.botones?.bloqueoVideo ?? null,
+    faltan,
+  })
 
   function alGuardar(guardado: GuionGuardado) {
     setVersion(guardado.version)
@@ -101,8 +171,16 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
     })
   }
 
+  // Stable, so typing, saving or a refresh does not restart the toast's timer.
+  const { avisoInicial, id } = datos
+  const cerrarAviso = useCallback(() => {
+    setAviso(null)
+    // The toast after an undo came in the address: it is said once.
+    if (avisoInicial !== null) router.replace(`/guion/${id}`)
+  }, [avisoInicial, id, router])
+
   return (
-    <div className={datos.grabacion ? undefined : "pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]"}>
+    <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
       <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
         <Link
           href="/"
@@ -119,7 +197,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
           </span>
         </p>
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>
-        {datos.salida && !datos.grabacion ? (
+        {datos.salida ? (
           <LineaDeEstado
             tipo="fecha"
             titulo={
@@ -129,7 +207,6 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
               </>
             }
             tituloEnTinta
-            detalle="Después grabas la voz y el video."
           />
         ) : null}
       </header>
@@ -140,108 +217,116 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
         </div>
       ) : null}
 
-      {datos.grabacion ? (
-        // The server's version, not the screen's own: the screen refreshes by itself while the voice is recorded and
-        // its saved version only follows her own edits, so it would be stale after the voice is ready.
-        <BarraDeGrabacion piezaId={datos.id} version={datos.version} datos={datos.grabacion}>
-          <Seccion titulo="Guion" id="guion" cifra={`${contarPalabras(datos.guion)} palabras · ≈ ${datos.segundos} s`}>
+      <VozParaFirmar
+        piezaId={datos.id}
+        version={version}
+        datos={grabacion}
+        alEscuchar={setEscuchada}
+        sinGuardar={sinGuardar}
+      />
+
+      {preparando ? (
+        <>
+          {/* Her voice is being made of this text: it cannot change until the voice is back. */}
+          <Seccion titulo="Guion" id="guion">
             <GuionEnLectura guion={datos.guion} />
             {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
           </Seccion>
-          <Seccion
-            titulo="Texto de la publicación"
-            id="texto"
-            cifra={`${[...datos.texto].length.toLocaleString("es-CL")} de 2.200`}
-          >
+          <Seccion titulo="Texto de la publicación" id="texto">
             <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
-            {/* What the bar records is what she approved: changing it means taking the approval back first. */}
-            <p className="text-meta text-apagado">Para cambiar el guion o el texto, vuelve a revisar el guion.</p>
           </Seccion>
-          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
-          <Seccion titulo="Avatar" id="avatar">
-            <p className="text-cuerpo font-semibold">{datos.avatarElegido ?? "El avatar que elegiste"}</p>
-          </Seccion>
-        </BarraDeGrabacion>
+        </>
       ) : (
-        <>
-          <div className="mt-10">
-            <EditorDeGuion
-              piezaId={datos.id}
-              version={version}
-              guion={datos.guion}
-              texto={datos.texto}
-              tieneVersionDeClaude={datos.tieneVersionDeClaude}
-              alGuardar={alGuardar}
-              alCambiarSinGuardar={setSinGuardar}
+        <div className="mt-10">
+          <EditorDeGuion
+            piezaId={datos.id}
+            version={version}
+            guion={datos.guion}
+            texto={datos.texto}
+            tieneVersionDeClaude={datos.tieneVersionDeClaude}
+            alGuardar={alGuardar}
+            alCambiarSinGuardar={setSinGuardar}
+          />
+        </div>
+      )}
+      {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
+      <Seccion titulo="Avatar" id="avatar">
+        <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+      </Seccion>
+
+      <Seccion titulo="Revisión" id="revision" cifra={revision.length > 0 ? revision.length : undefined}>
+        <p className="text-cuerpo text-apagado">
+          {revision.length === 0
+            ? "Claude revisó el guion y no encontró observaciones. Tú decides."
+            : "Claude revisó el guion. Tú decides."}
+        </p>
+        <div className="grid gap-4">
+          {revision.map((hallazgo) => (
+            <MarcaRevision
+              key={claveDe(hallazgo)}
+              hallazgo={hallazgo}
+              confirmada={confirmadas.has(claveDe(hallazgo))}
+              alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
             />
-          </div>
-          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
-          <Seccion titulo="Avatar" id="avatar">
-            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
-          </Seccion>
-        </>
-      )}
+          ))}
+        </div>
+      </Seccion>
 
-      {datos.grabacion ? null : (
-        <Seccion titulo="Revisión" id="revision" cifra={revision.length > 0 ? revision.length : undefined}>
-          <p className="text-cuerpo text-apagado">
-            {revision.length === 0
-              ? "Claude revisó el guion y no encontró observaciones. Tú decides."
-              : "Claude revisó el guion. Tú decides."}
-          </p>
-          <div className="grid gap-4">
-            {revision.map((hallazgo) => (
-              <MarcaRevision
-                key={claveDe(hallazgo)}
-                hallazgo={hallazgo}
-                confirmada={confirmadas.has(claveDe(hallazgo))}
-                alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
-              />
-            ))}
-          </div>
-        </Seccion>
-      )}
-
-      {datos.grabacion ? null : (
-        <>
-          <div className="mt-10 grid gap-2">
-            {pidiendoCambios ? (
-              <ConfirmacionEnLinea
-                trato="destructivo"
-                pregunta="Se escribe un guion nuevo y este se descarta. ¿Seguro?"
-                confirmar="Sí, pedir cambios"
-                volver="Volver"
-                cargando={cambios.pendiente}
-                alConfirmar={() =>
-                  cambios.ejecutar(
-                    () => pedirCambiosAccion(datos.id, version),
-                    (r) => setAviso(r.advertencia ?? null),
-                  )
-                }
-                alVolver={() => setPidiendoCambios(false)}
-              />
-            ) : (
-              <Boton variante="destructiva" onClick={() => setPidiendoCambios(true)}>
-                Pedir cambios
-              </Boton>
-            )}
-          </div>
-          <BarraDeFirma etiqueta="Firma">
-            {aprobacion.error || cambios.error ? (
-              <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
+      <div className="mt-10 grid gap-2">
+        {pidiendoCambios ? (
+          <ConfirmacionEnLinea
+            trato="destructivo"
+            pregunta="Se escribe un guion nuevo y este se descarta. ¿Seguro?"
+            confirmar="Sí, pedir cambios"
+            volver="Volver"
+            cargando={cambios.pendiente}
+            alConfirmar={() =>
+              cambios.ejecutar(
+                () => pedirCambiosAccion(datos.id, version),
+                (r) => setAviso(r.advertencia ?? null),
+              )
+            }
+            alVolver={() => setPidiendoCambios(false)}
+          />
+        ) : (
+          <>
+            <Boton
+              variante="destructiva"
+              deshabilitado={preparando}
+              aria-describedby={preparando ? idSinCambios : undefined}
+              onClick={() => setPidiendoCambios(true)}
+            >
+              Pedir cambios
+            </Boton>
+            {preparando ? (
+              <p id={idSinCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                <Info aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+                {TEXTO_CAMBIOS_TRAS_LA_VOZ}
+              </p>
             ) : null}
-            <DeslizarParaAprobar
-              etiqueta="Desliza para aprobar el guion"
-              habilitado={habilitado}
-              motivo={motivo}
-              nota="Aprobar no gasta nada."
-              enviando={aprobacion.pendiente}
-              alAprobar={() => aprobacion.ejecutar(() => aprobarGuionAccion(datos.id, version, avatarElegido))}
-            />
-          </BarraDeFirma>
-        </>
-      )}
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
+          </>
+        )}
+      </div>
+      <BarraDeFirma etiqueta="Firma">
+        {aprobacion.error || cambios.error ? (
+          <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
+        ) : null}
+        <DeslizarParaAprobar
+          etiqueta={ETIQUETA_DE_FIRMA}
+          habilitado={motivo === undefined}
+          motivo={motivo}
+          nota={grabacion.lineaDeFirma}
+          enviando={aprobacion.pendiente}
+          alAprobar={() =>
+            aprobacion.ejecutar(
+              () => aprobarGuionAccion(datos.id, version, avatarElegido),
+              // The undo on the video screen sends the version she signed at, never one a refresh brought later.
+              (firmada) => router.replace(`/guion/${datos.id}?firmada=${firmada.version}`),
+            )
+          }
+        />
+      </BarraDeFirma>
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }

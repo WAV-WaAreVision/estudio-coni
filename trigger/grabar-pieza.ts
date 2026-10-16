@@ -16,20 +16,31 @@ export const CONFIGURACION_GRABAR = {
 // The most HeyGen is given to answer before the run reads the status by itself (design A10).
 const ESPERA_DEL_RENDER = "60m"
 
+// `intento` is optional so that a run queued by the app deployed before it existed still works.
+export const ENTRADA_DE_GRABAR = z.object({
+  piezaId: z.string().uuid(),
+  intento: z.number().int().nonnegative().optional(),
+})
+
 export const grabarPiezaTask = schemaTask({
   ...CONFIGURACION_GRABAR,
-  schema: z.object({ piezaId: z.string().uuid() }),
+  schema: ENTRADA_DE_GRABAR,
   catchError: ({ error }) => decisionDeReintento(error),
   // Once the retries are over: the piece is left readable for Coni and the alerts go out (design A9).
   onFailure: alFallarDeTarea("grabar-pieza", depsFalla),
-  run: async ({ piezaId }, { ctx }) => {
+  run: async ({ piezaId, intento }, { ctx }) => {
     // One token per run, not per attempt: a retry of this run gets the same token back (same key), so it does not
     // wait a second hour for a callback that HeyGen already sent, or will send, to the first one.
     const token = await wait.createToken({ timeout: ESPERA_DEL_RENDER, idempotencyKey: `render-${ctx.run.id}` })
     const deps = await depsGrabacion({
       callbackUrl: token.url,
       esperarRender: async () => terminarEspera(await wait.forToken(token)),
+      // The undo window of a fresh signature. Checkpointed when longer than 5 s, so the run costs nothing meanwhile;
+      // a shorter wait runs in process and counts as compute.
+      esperar: async (ms) => {
+        await wait.for({ seconds: Math.ceil(ms / 1000) })
+      },
     })
-    return grabarPieza(deps, piezaId)
+    return grabarPieza(deps, piezaId, intento)
   },
 })

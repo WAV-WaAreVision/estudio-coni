@@ -9,16 +9,12 @@ import {
   type Alcance,
   alcanceDeVideo,
   alcanceDeVoz,
-  costoDeVideo,
   costoDeVoz,
-  lineaDeCostoVideo,
-  lineaDeCostoVoz,
-  lineaDeSaldoVideo,
+  lineaDeFirma,
   lineaDeSaldoVoz,
   type Saldos,
 } from "@/lib/dominio/saldos"
 import { vozDelGuion } from "@/lib/dominio/voz"
-import { dolares } from "@/lib/formato"
 import { formulaGuardada } from "@/lib/produccion/aprobacion"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo, estimarCreditosVideo } from "@/lib/produccion/grabar"
@@ -29,27 +25,25 @@ import { leerSaldos } from "@/lib/saldos/reales"
 import type { Database } from "@/lib/supabase/database.types"
 
 export interface BotonesDeGrabacion {
-  costoVoz: string
-  costoVideo: string
-  /** The same costs split for the layout: «US$ 0,33» and «~1.100 caracteres». */
+  /** The cost of her voice split for the layout: «US$ 0,33» and «~1.100 caracteres». */
   montoVoz: string
   unidadVoz: string
-  montoVideo: string
-  unidadVideo: string
-  confirmacionVideo: string
   saldoVoz: string
-  saldoVideo: string
-  /** What to top up when ElevenLabs does not reach; null lets the button work. */
+  /** What to top up when ElevenLabs or the month's cap does not reach; null lets the button work. */
   bloqueoVoz: string | null
+  /** Closes the signature when HeyGen or the month's cap cannot cover the video; the voice is already made. */
   bloqueoVideo: string | null
 }
 
 export interface DatosDeGrabacion {
-  estado: "guion_aprobado" | "grabando_voz"
-  /** The voice that speaks this approved script, signed for an hour; null when there is none yet. */
+  /** Gate 1: the script waits for her signature, or her voice of it is being made. */
+  estado: "guion_por_aprobar" | "grabando_voz"
+  /** Her voice of this exact script, signed for an hour; null when there is none yet. */
   voz: { url: string | null; clave: string } | null
   /** Null when the production setup does not read: the buttons still work, without numbers. */
   botones: BotonesDeGrabacion | null
+  /** Under the slider: what the signature spends and how long she has to undo it. */
+  lineaDeFirma: string
 }
 
 const TEXTO_SIN_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
@@ -59,7 +53,6 @@ const bloqueo = (alcance: Alcance) => (alcance.tipo === "no_alcanza" ? alcance.m
 export function presentarGrabacion(entrada: {
   guion: string
   motor: string | null
-  conVoz: boolean
   saldos: Saldos
   zona: string
   /** The ElevenLabs model: it decides which tone marks reach the voice, and so the characters it bills. */
@@ -67,32 +60,22 @@ export function presentarGrabacion(entrada: {
   /** What is left of the month's cap. */
   quedanUsd: number
 }): BotonesDeGrabacion {
-  const { guion, motor, conVoz, saldos } = entrada
-  // Cost and balance are about the text ElevenLabs receives, not the stored script.
+  const { guion, motor, saldos } = entrada
+  // The cost and the balance of the voice are about the text ElevenLabs receives, not the stored script.
   const textoDeVoz = textoParaVoz(guion, entrada.modeloDeVoz)
   const usdVoz = estimarCostoVoz(textoDeVoz)
   const usdVideo = estimarCostoVideo(guion, motor)
-  const totalVideo = usdVideo + (conVoz ? 0 : usdVoz)
   const sinTope = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_SIN_TOPE : null)
-  const bloqueoVoz = sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length))
-  const bloqueoHeygen = bloqueo(
-    alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
-  )
   const costoVozPartido = costoDeVoz(textoDeVoz.length, usdVoz)
-  const costoVideoPartido = costoDeVideo(estimarSegundos(guion), totalVideo, !conVoz)
   return {
     montoVoz: costoVozPartido.monto,
     unidadVoz: costoVozPartido.unidad,
-    montoVideo: costoVideoPartido.monto,
-    unidadVideo: costoVideoPartido.unidad,
-    costoVoz: lineaDeCostoVoz(textoDeVoz.length, usdVoz, conVoz),
-    costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
-    confirmacionVideo: `¿Grabar el video? Cuesta unos ${dolares(totalVideo)}.`,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
-    saldoVideo: lineaDeSaldoVideo(saldos.heygen),
-    bloqueoVoz,
-    // Without a voice, the video also needs ElevenLabs.
-    bloqueoVideo: sinTope(totalVideo) ?? bloqueoHeygen ?? (conVoz ? null : bloqueoVoz),
+    bloqueoVoz: sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
+    // The signature needs her voice first, so the video is only about its own cost.
+    bloqueoVideo:
+      sinTope(usdVideo) ??
+      bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
   }
 }
 
@@ -115,7 +98,7 @@ export function vozVigente(
   })
 }
 
-/** Everything the record bar shows, read when the screen opens. */
+/** Everything gate 1 shows about her voice and the video, read when the screen opens. */
 export async function leerDatosDeGrabacion(
   db: SupabaseClient<Database>,
   entrada: { fila: FilaDePieza; estado: DatosDeGrabacion["estado"]; guion: string; zona: string },
@@ -126,8 +109,8 @@ export async function leerDatosDeGrabacion(
     config = leerConfigProduccion(await leerProduccion(db))
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
-    console.error("No pude leer la configuración para la barra de grabación", error)
-    return { estado, voz: null, botones: null }
+    console.error("No pude leer la configuración para la puerta 1", error)
+    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null) }
   }
   const clave = vozVigente(fila, guion, config)
   const [saldos, presupuesto, url] = await Promise.all([
@@ -141,11 +124,14 @@ export async function leerDatosDeGrabacion(
     botones: presentarGrabacion({
       guion,
       motor: config.heygen.motor,
-      conVoz: clave !== null,
       saldos,
       zona,
       modeloDeVoz: config.elevenlabs.model_id,
       quedanUsd: presupuesto.tope - presupuesto.usado,
+    }),
+    lineaDeFirma: lineaDeFirma({
+      segundos: estimarSegundos(guion),
+      usd: estimarCostoVideo(guion, config.heygen.motor),
     }),
   }
 }

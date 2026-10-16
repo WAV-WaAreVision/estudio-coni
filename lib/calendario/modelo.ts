@@ -241,10 +241,11 @@ function ocupanteDe(pieza: PiezaDeCalendario, provisional: boolean): Ocupante {
       return { ...base, estado: "Falta tu firma: video y fecha", tono: "aviso", href: `/video/${pieza.id}` }
     case "guion_por_aprobar":
       return { ...base, estado: "Falta tu firma: guion", tono: "aviso", href: `/guion/${pieza.id}` }
+    // Only a piece the old app left there (design 2026-10-15): the deploy moves those back to gate 1.
     case "guion_aprobado":
       return { ...base, estado: "Guion aprobado · falta grabar", tono: "aviso", href: `/guion/${pieza.id}` }
     case "grabando_voz":
-      return { ...base, estado: "Grabando la voz", tono: "neutro", href: null }
+      return { ...base, estado: "Preparando la voz", tono: "neutro", href: null }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando", tono: "neutro", href: null }

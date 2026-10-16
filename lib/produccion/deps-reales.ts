@@ -22,8 +22,9 @@ import type { DepsGrabacion } from "./grabar"
 import type { DepsGrabarVoz } from "./grabar-voz"
 import type { DepsProduccion } from "./producir"
 
-// Three calls of at most two attempts each must fit in the task's 900 s (trigger.config.ts), unlike the SDK's
-// default of 10 minutes and two retries, where one hung call would end the run.
+// Three calls of at most two attempts each (720 s) must fit in producir-pieza's 1200 s together with the voice of the
+// draft (ElevenLabs waits up to 300 s), unlike the SDK's default of 10 minutes and two retries, where one hung call
+// would end the run.
 const CLAUDE_ESPERA_MS = 120_000
 
 /**
@@ -53,6 +54,8 @@ export function depsVoz(): DepsGrabarVoz {
 export async function depsReales(): Promise<DepsProduccion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
   const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  // The writer stores her voice of the draft: a missing R2 setting fails here, before any key is read.
+  const almacen = almacenReal()
   const db = createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
   const llaveDeAnthropic = await leerSecreto(db, "anthropic")
   if (!llaveDeAnthropic) {
@@ -61,6 +64,7 @@ export async function depsReales(): Promise<DepsProduccion> {
   return {
     db,
     avisos: avisosReales(),
+    almacen,
     claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),
     ahora: () => new Date().toISOString(),
   }
@@ -76,7 +80,11 @@ function carpetaDeFuentes(): string {
  * ffmpeg with libass, the Montserrat face) fails here, before the run reserves or spends anything.
  */
 export async function depsGrabacion(
-  espera: { callbackUrl: string; esperarRender: (videoId: string) => Promise<void> },
+  espera: {
+    callbackUrl: string
+    esperarRender: (videoId: string) => Promise<void>
+    esperar: (ms: number) => Promise<void>
+  },
   opciones: { ffmpegFijos?: readonly string[] } = {},
 ): Promise<DepsGrabacion> {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
@@ -98,6 +106,7 @@ export async function depsGrabacion(
     quemar: ({ video, ass }) => quemarSubtitulos({ ffmpeg, video, ass, fontsdir }),
     sondear: (bytes) => sondear({ ffprobe, bytes }),
     esperarRender: espera.esperarRender,
+    esperar: espera.esperar,
     callbackUrl: espera.callbackUrl,
     ahora: () => new Date().toISOString(),
   }

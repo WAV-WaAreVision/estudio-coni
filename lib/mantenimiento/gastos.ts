@@ -49,8 +49,9 @@ function tomaDeLaReserva(gasto: FilaDeGasto, pieza: FilaDePieza): boolean | null
 function pasoRealizado(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
   if (gasto.proveedor === "heygen") return pieza.render_id !== null || DESPUES_DEL_RENDER.includes(pieza.estado)
   if (gasto.proveedor === "elevenlabs" && gasto.paso === "voz") {
-    // The voice happens after gate 1, on its own, and approving keeps an earlier voice: only the take of this
-    // reservation says it was paid. Older keys fall back to any stored voice.
+    // The voice is made before gate 1 (by the writer, or by "Preparar mi voz") and signing keeps it, so a stored
+    // voice may belong to an earlier reservation: only the take of this one says it was paid. Older keys fall back to
+    // any stored voice. A reservation with no take of its own is released after an hour by `vozSinToma`.
     return tomaDeLaReserva(gasto, pieza) ?? pieza.audio_id !== null
   }
   return !ANTES_DEL_GUION.includes(pieza.estado)

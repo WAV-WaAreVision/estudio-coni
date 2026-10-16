@@ -2,7 +2,7 @@
 
 import { CaretLeft } from "@phosphor-icons/react"
 import Link from "next/link"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { MensajeDePrimeraVez } from "@/components/mensaje-primera-vez"
 import { ReproductorVideo } from "@/components/reproductor-video"
@@ -72,6 +72,8 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const [cambiandoFecha, setCambiandoFecha] = useState(false)
   const [regrabando, setRegrabando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
+  // Stable, so a re-render while the toast is up does not restart its 8 s.
+  const cerrarAviso = useCallback(() => setAviso(null), [])
   const aprobacion = useAccion()
   const regrabacion = useAccion()
 
@@ -298,7 +300,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           }}
         />
       </BarraDeFirma>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={() => setAviso(null)} sobreBarra /> : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }

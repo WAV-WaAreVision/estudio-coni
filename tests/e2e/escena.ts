@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { claveDeToma } from "@/lib/dominio/voz"
+import { huellaDelGuion } from "@/lib/produccion/voz"
+import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import { ajustarPieza, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { GUION_VALIDO, limpiarDisparos, TEXTO_VALIDO } from "./ayudas"
 
 const IDEAS = [
@@ -9,6 +14,9 @@ const IDEAS = [
   { pilar: "limites", gancho: "Puedes decir que no sin dar explicaciones larguísimas." },
   { pilar: "deseo", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?" },
 ]
+const ELEVENLABS = leerConfigProduccion(
+  JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8")),
+).elevenlabs
 
 async function conIdea(destino: Parameters<typeof sembrarPieza>[0], pilar: string, titulo: string) {
   // The idea of a piece in flight is used: Inicio does not offer it again, as in the design.
@@ -33,6 +41,12 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   // Numbered, so the five that Inicio offers do not depend on the random ids that break ties.
   for (const [i, idea] of IDEAS.entries()) await sembrarIdea({ ...idea, numero: i + 1 })
   const guion = await conIdea("guion_por_aprobar", "deseo", "El deseo no se apaga, se esconde")
+  // The writer delivers the script with her voice, and so without the note of a voice that failed: gate 1 shows its
+  // player.
+  await ajustarPieza(guion, {
+    audio_id: claveDeToma(guion, huellaDelGuion(GUION_VALIDO, ELEVENLABS), 0),
+    explicacion: null,
+  })
   const video = await conIdea("video_por_aprobar", "autoestima", "Ser tu propia diosa")
   await conIdea("en_render", "limites", "Puedes decir que no")
   await conIdea("programado", "pareja", "Si van a discutir, siéntense del mismo lado")

@@ -107,7 +107,7 @@ test("regrabar goes back to recording as a new attempt", async ({ page }) => {
   await page.getByRole("button", { name: "Sí, regrabar" }).click()
 
   await expect(page).toHaveURL(new RegExp(`/guion/${id}$`))
-  await expect(page.getByText("Aprobado. Estoy grabando el video.")).toBeVisible()
+  await expect(page.getByText("Estoy grabando tu video.")).toBeVisible()
   const fila = await leerFila(id)
   expect(fila.estado).toBe("en_render")
   expect(fila.intento).toBe(1)

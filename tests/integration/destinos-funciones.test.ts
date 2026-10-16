@@ -51,7 +51,7 @@ describe("editar_texto_linkedin_como_coni", () => {
     })
   })
 
-  it.each(["guion_por_aprobar", "guion_aprobado"] as const)(
+  it.each(["guion_por_aprobar"] as const)(
     "saves it in %s without taking gate 1 back: it is not part of gate 1",
     async (estado) => {
       await como(comoPostgres, async (c) => {

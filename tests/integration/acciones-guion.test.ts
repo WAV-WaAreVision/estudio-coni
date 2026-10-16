@@ -4,12 +4,14 @@ import Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-import { editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
-import type { DepsIdeas } from "@/lib/acciones/ideas"
+import { claveVoz } from "@/lib/acciones/disparos"
+import { type DepsGuion, editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
+import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
@@ -50,12 +52,32 @@ let coni: Db
 let mantenedor: Db
 const piezasCreadas: string[] = []
 
-function deps(db: Db = coni): DepsIdeas {
+interface Disparo {
+  tarea: "voz"
+  piezaId: string
+  clave: string
+  nueva: boolean
+}
+const disparos: Disparo[] = []
+
+function deps(db: Db = coni, fallos: { voz?: Error } = {}): DepsGuion {
   return {
     db,
     servicio: clienteDeServicio,
     crearClaude: (llave) => new Anthropic({ apiKey: llave, maxRetries: 0 }),
     ahora: () => new Date().toISOString(),
+    disparar: {
+      producir: async () => {
+        throw new Error("editarGuion no escribe guiones")
+      },
+      grabar: async () => {
+        throw new Error("editarGuion no graba videos")
+      },
+      voz: async (piezaId, clave, nueva) => {
+        if (fallos.voz) throw fallos.voz
+        disparos.push({ tarea: "voz", piezaId, clave, nueva })
+      },
+    },
   }
 }
 
@@ -120,6 +142,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks()
+  disparos.length = 0
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await pool.query("update public.ajustes set tope_mensual_usd = 40")
   await pool.query("delete from public.guion_versiones where pieza_id = any($1::uuid[])", [piezasCreadas])
@@ -131,15 +154,9 @@ afterAll(async () => {
 })
 
 describe("editarGuion", () => {
-  it("takes the approval back when she edits the script of an approved piece", async () => {
-    const id = await pieza("guion_aprobado")
-    const { version } = await leerFila(id)
-    claudeRevisa()
-
-    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
-
-    expect(resultado).toMatchObject({ ok: true })
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", puerta1_hash: null, guion: GUION_VALIDO })
+  // Most of these run with an empty production setup, which logs that there is no voice to make.
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
   })
 
   it("reviews the edit, stores the merged findings and writes her version", async () => {
@@ -268,7 +285,6 @@ describe("editarGuion", () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     servidor.use(http.post(URL_CLAUDE, () => HttpResponse.json({ error: { type: "api_error" } }, { status: 500 })))
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
 
     const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
 
@@ -281,7 +297,6 @@ describe("editarGuion", () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     claudeRevisa()
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
     const real = clienteDeServicio()
     const servicioQueFallaAlConfirmar = new Proxy(real, {
       get(destino, propiedad) {
@@ -346,6 +361,32 @@ describe("editarGuion", () => {
     expect(pedidos).toHaveLength(0)
   })
 
+  it("refuses a piece left in guion_aprobado by the old app, without calling Claude", async () => {
+    // A signed piece put back where the old app left it: the flow itself no longer reaches guion_aprobado.
+    const id = await pieza("en_render")
+    await ajustarPieza(id, { estado: "guion_aprobado" })
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: false, error: "Este guion ya no se puede editar." })
+    expect(pedidos).toHaveLength(0)
+  })
+
+  it("refuses an edit while her voice is being made, without calling Claude", async () => {
+    const id = await pieza("grabando_voz")
+    const { version } = await leerFila(id)
+    const pedidos = claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: false, error: "Este guion ya no se puede editar." })
+    expect(pedidos).toHaveLength(0)
+    expect(disparos).toEqual([])
+    expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz", version })
+  })
+
   it("refuses a blank script and a blank caption", async () => {
     const id = await pieza()
     const { version } = await leerFila(id)
@@ -360,6 +401,20 @@ describe("editarGuion", () => {
       error: "El texto de la publicación no puede quedar vacío.",
     })
     expect(pedidos).toHaveLength(0)
+  })
+
+  it("saves the edit without asking for the voice when the voice setup does not read", async () => {
+    const error = vi.spyOn(console, "error")
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: true, version: version + 1 })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", guion: GUION_VALIDO })
+    expect(disparos).toEqual([])
+    expect(error).toHaveBeenCalledWith("No pude leer la configuración de la voz al editar el guion", expect.any(Error))
   })
 
   it("refuses the maintainer before spending anything", async () => {
@@ -377,6 +432,100 @@ describe("editarGuion", () => {
     expect(resultado.ok).toBe(false)
     expect(pedidos).toHaveLength(0)
     expect(await gastosDe(id)).toEqual([])
+  })
+})
+
+/** Her client, but once the edit is saved the next read or write of a piece fails: the voice step cannot run. */
+function conFalloDespuesDeEditar(db: Db): Db {
+  let editada = false
+  return new Proxy(db, {
+    get(destino, propiedad) {
+      if (propiedad === "rpc") {
+        return (funcion: string, ...resto: unknown[]) => {
+          if (funcion === "editar_guion_como_coni") editada = true
+          return Reflect.apply(destino.rpc, destino, [funcion, ...resto])
+        }
+      }
+      if (propiedad === "from") {
+        return (tabla: string) => {
+          if (editada && tabla === "piezas") throw new Error("La base no responde")
+          return Reflect.apply(destino.from, destino, [tabla])
+        }
+      }
+      const valor = Reflect.get(destino, propiedad)
+      return typeof valor === "function" ? valor.bind(destino) : valor
+    },
+  })
+}
+
+describe("editarGuion y la voz", () => {
+  beforeEach(() => pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(coniConfig)]))
+  afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
+
+  it("asks for her voice of the new wording in the same action, without asking for a new take", async () => {
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    claudeRevisa()
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    const guardada = await leerFila(id)
+    expect(guardada).toMatchObject({ estado: "grabando_voz", guion: GUION_VALIDO, version: version + 2 })
+    expect(resultado).toMatchObject({ ok: true, version: version + 2 })
+    expect(disparos).toEqual([{ tarea: "voz", piezaId: id, clave: claveVoz(guardada), nueva: false }])
+  })
+
+  it("leaves the voice alone when the edit keeps what the voice says", async () => {
+    const id = await pieza()
+    // eleven_multilingual_v2 does not speak tone marks: swapping one gives another script with the same fingerprint.
+    await ajustarPieza(id, { guion: `[warm] ${GUION_VALIDO}` })
+    const { version } = await leerFila(id)
+    claudeRevisa()
+    const editado = `[softly] ${GUION_VALIDO}`
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: editado, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: true, version: version + 1 })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", guion: editado })
+    expect(disparos).toEqual([])
+  })
+
+  it("keeps the edit and hands the piece back with the reason when the voice cannot start", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    claudeRevisa()
+
+    const resultado = await editarGuion(deps(coni, { voz: new Error("Trigger.dev no responde") }), {
+      piezaId: id,
+      version,
+      guion: GUION_VALIDO,
+      texto: TEXTO_VALIDO,
+    })
+
+    expect(resultado).toMatchObject({ ok: true, version: version + 3 })
+    expect(await leerFila(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      guion: GUION_VALIDO,
+      explicacion: TEXTO_SIN_VOZ,
+    })
+  })
+
+  it("reports the saved edit, not a failure, when the voice cannot be requested after it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const id = await pieza()
+    const { version } = await leerFila(id)
+    claudeRevisa()
+
+    const resultado = await editarGuion(
+      { ...deps(), db: conFalloDespuesDeEditar(coni) },
+      { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    )
+
+    expect(resultado).toMatchObject({ ok: true, version: version + 1 })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", guion: GUION_VALIDO })
+    expect(disparos).toEqual([])
+    expect(error).toHaveBeenCalledWith("No pude pedir la voz después de guardar el guion", expect.any(Error))
   })
 })
 

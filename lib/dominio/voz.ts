@@ -43,7 +43,7 @@ export function prefijoDeTomas(piezaId: string, huella: string): string {
   return `voces/${piezaId}/t-${huella}-`
 }
 
-/** One take: the piece's attempt when the voice was made. "Volver a grabar voz" is a new attempt, so a new take. */
+/** One take: the piece's attempt when the voice was made. "Grabar la voz de nuevo" is a new attempt, so a new take. */
 export function claveDeToma(piezaId: string, huella: string, toma: number): string {
   if (!Number.isSafeInteger(toma) || toma < 0) throw new Error(`Toma inválida: ${toma}`)
   return `${prefijoDeTomas(piezaId, huella)}${toma}.mp3`

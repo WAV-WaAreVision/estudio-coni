@@ -2,11 +2,16 @@ import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 
 /**
  * The background runs the app starts. The key makes a double tap, a retry or a second device start the work once
- * (Trigger.dev deduplicates by it with `scope: "global"`); the real implementation lives in `disparos-reales.ts`.
+ * (Trigger.dev deduplicates by it with `scope: "global"`); the real implementation lives in `disparos-entorno.ts`.
  */
 export interface Disparos {
   producir(piezaId: string, clave: string): Promise<void>
-  grabar(piezaId: string, clave: string): Promise<void>
+  /**
+   * `intento`: the attempt the run is started for. The run ends without touching a piece that has moved on to another
+   * one, such as a signature Coni undid. `retraso`: when to start, as Trigger.dev reads it ("10s"); the signature
+   * waits out the undo window this way.
+   */
+  grabar(piezaId: string, clave: string, intento: number, retraso?: `${number}s`): Promise<void>
   /** `nueva`: Coni asked to record again, so an earlier take of the same text is not reused. */
   voz(piezaId: string, clave: string, nueva: boolean): Promise<void>
 }
@@ -36,10 +41,10 @@ export function claveGrabar(fila: FilaParaClave): string {
   return claveIdempotencia({ piezaId: fila.id, paso: "grabar", hash: fila.puerta1_hash, intento: fila.intento })
 }
 
-/** One voice request: the approval and the attempt, which every "Grabar voz" bumps. */
+/**
+ * One voice request: the piece and the attempt, which every "Preparar mi voz", "Grabar la voz de nuevo" and script
+ * edit bumps. The voice comes before gate 1 (design 2026-10-15), so no approval is part of it.
+ */
 export function claveVoz(fila: FilaParaClave): string {
-  if (fila.puerta1_hash === null) {
-    throw new Error(`La pieza ${fila.id} pide su voz sin guion aprobado.`)
-  }
-  return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: fila.puerta1_hash, intento: fila.intento })
+  return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: hashTexto("voz"), intento: fila.intento })
 }

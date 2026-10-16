@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest"
-import { como, comoPostgres, comoServicio, pool } from "./db"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
+import { asumir, como, comoConi, comoPostgres, comoServicio, pool } from "./db"
 import { aplicar, crearPiezaEn, TEXTO } from "./flujo"
 
 afterAll(() => pool.end())
@@ -61,10 +62,58 @@ describe("avisos que crea la base cuando una pieza queda lista para Coni", () =>
     await como(comoPostgres, async (c) => {
       const id = await crearPiezaEn(c, "guion_por_aprobar")
       await aplicar(c, id, { tipo: "usuario", id: "c0000000-0000-4000-8000-000000000001" }, { tipo: "pedir_cambios" })
-      await aplicar(c, id, comoServicio, { tipo: "guion_listo" }, { guion: TEXTO, texto: TEXTO })
+      await aplicar(
+        c,
+        id,
+        comoServicio,
+        { tipo: "guion_listo", audioId: null, explicacion: TEXTO_SIN_VOZ },
+        { guion: TEXTO, texto: TEXTO },
+      )
       const avisos = await avisosDe(c, id)
       expect(avisos.map((a) => a.tipo)).toEqual(["guion_listo", "guion_listo"])
       expect(new Set(avisos.map((a) => a.clave)).size).toBe(2)
+    })
+  })
+})
+
+describe("avisos de la puerta 1 con la voz antes de la firma", () => {
+  it("notes no ready script when her voice comes back to gate 1", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoConi)
+      await c.query(
+        "update public.piezas set estado = 'grabando_voz', intento = intento + 1, version = version + 1 where id = $1",
+        [id],
+      )
+      await asumir(c, comoServicio)
+      await c.query(
+        "update public.piezas set estado = 'guion_por_aprobar', audio_id = 'voces/x.mp3', version = version + 1 where id = $1",
+        [id],
+      )
+      await asumir(c, comoPostgres)
+      expect((await avisosDe(c, id)).map((a) => a.tipo)).toEqual(["guion_listo"])
+    })
+  })
+
+  it("adds no notice when Coni herself takes a signature back", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "en_render")
+      await asumir(c, comoConi)
+      await c.query(
+        "update public.piezas set estado = 'guion_por_aprobar', puerta1_hash = null, puerta1_en = null, version = version + 1 where id = $1",
+        [id],
+      )
+      await asumir(c, comoPostgres)
+      expect((await avisosDe(c, id)).map((a) => a.tipo)).toEqual(["guion_listo"])
+    })
+  })
+
+  it("still notes a script that HeyGen sent back to her", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "en_render")
+      await aplicar(c, id, comoServicio, { tipo: "politica_contenido", explicacion: "HeyGen marcó una frase." })
+      await asumir(c, comoPostgres)
+      expect((await avisosDe(c, id)).map((a) => a.tipo)).toEqual(["guion_listo", "guion_listo"])
     })
   })
 })

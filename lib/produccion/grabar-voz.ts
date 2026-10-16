@@ -3,8 +3,7 @@ import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { actualizarPieza, type FilaDePieza, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
 import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { hashPuerta1, puedeGrabarVoz } from "@/lib/dominio/puertas"
-import { artefactoAprobado } from "@/lib/produccion/aprobacion"
+import { puedeGrabarVoz } from "@/lib/dominio/puertas"
 import { avisarTope, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz } from "@/lib/produccion/voz"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -17,11 +16,8 @@ export interface DepsGrabarVoz extends DepsVoz {
 export type ResultadoVoz =
   | { resultado: "lista"; audioId: string }
   | { resultado: "nada_que_hacer" }
-  | { resultado: "sin_aprobacion" }
   | { resultado: "tope" }
   | { resultado: "falla" }
-
-const TEXTO_GUION_CAMBIO = "El guion cambió después de aprobarlo. Vuelve a aprobarlo antes de grabar la voz."
 
 async function escribir(deps: DepsGrabarVoz, fila: FilaDePieza, evento: Evento): Promise<void> {
   const { pieza } = transicionar(piezaDesdeFila(fila), evento)
@@ -31,9 +27,10 @@ async function escribir(deps: DepsGrabarVoz, fila: FilaDePieza, evento: Evento):
 }
 
 /**
- * Speaks the approved script with Coni's voice and hands the piece back to her in `guion_aprobado`. It spends only
- * after checking gate 1 against the row, reuses a take of the same text unless she asked for a new one, and never
- * approves anything. Safe to run again: the take of this attempt is found in the store.
+ * Speaks the script on the row with Coni's voice and hands the piece back to gate 1. The voice is a draft made before
+ * the signature (design 2026-10-15, decision 3), so it needs no approval and always matches what she sees. It reuses a
+ * take of the same text unless she asked for a new one, and never approves anything. Safe to run again: the take of
+ * this attempt is found in the store.
  */
 export async function grabarVoz(
   deps: DepsGrabarVoz,
@@ -42,18 +39,17 @@ export async function grabarVoz(
   const fila = await leerPieza(deps.db, entrada.piezaId)
   if (!fila) throw new FallaDeConfiguracion(`No existe la pieza ${entrada.piezaId}.`)
   if (fila.estado !== "grabando_voz") return { resultado: "nada_que_hacer" }
-
-  const artefacto = fila.guion === null ? null : artefactoAprobado(fila, fila.guion)
-  if (fila.guion === null || artefacto === null || !puedeGrabarVoz(piezaDesdeFila(fila), hashPuerta1(artefacto)).ok) {
-    await escribir(deps, fila, { tipo: "falla_voz", explicacion: TEXTO_GUION_CAMBIO })
-    return { resultado: "sin_aprobacion" }
+  const { guion } = fila
+  // The app only asks for the voice of a written script: a piece without one is a bug for WAV, never a spend.
+  if (guion === null || !puedeGrabarVoz(piezaDesdeFila(fila), guion).ok) {
+    throw new FallaDeConfiguracion(`La pieza ${fila.id} pide su voz sin guion.`)
   }
 
   const config = leerConfigProduccion(await leerProduccion(deps.db))
   try {
     const voz = await asegurarVoz(deps, {
       fila,
-      guion: fila.guion,
+      guion,
       config: config.elevenlabs,
       llave: () => leerLlaveDeVoz(deps.db, config),
       nueva: entrada.nueva,
