@@ -10,6 +10,7 @@ import {
   aprobarVideo,
   cambiarFecha,
   descartar,
+  deshacerAprobacion,
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
@@ -69,6 +70,14 @@ export async function aprobarGuionAccion(piezaId: string, version: number, avata
       sobrePieza.extend({ avatarId: z.string().max(200).nullable() }),
       { piezaId, version, avatarId },
       (deps, d) => aprobarGuion(deps, d.piezaId, d.version, d.avatarId),
+    ),
+  )
+}
+
+export async function deshacerAprobacionAccion(piezaId: string, version: number) {
+  return refrescar(
+    await comoConi("deshacerAprobacion", sobrePieza, { piezaId, version }, (deps, d) =>
+      deshacerAprobacion(deps, d.piezaId, d.version),
     ),
   )
 }

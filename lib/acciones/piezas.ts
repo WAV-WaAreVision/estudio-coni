@@ -294,6 +294,20 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
 }
 
 /**
+ * Coni takes her signature back inside the undo window (design 2026-10-15, decision 5): nothing was recorded and the
+ * script waits for her again. The delayed run is not cancelled: it finds the piece in `guion_por_aprobar`, or on a
+ * newer attempt, and spends nothing. The window is measured on the server clock, in the domain.
+ */
+export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("deshacerAprobacion", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    await guardarEvento(deps.db, fila, { tipo: "deshacer_aprobacion", actor: "coni", ahora: deps.ahora() })
+    return {}
+  })
+}
+
+/**
  * Her voice of the current script, before the signature. Nothing else would start this run, so a failure to start
  * hands the piece back.
  */

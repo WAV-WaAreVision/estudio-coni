@@ -9,6 +9,7 @@ import {
   cambiarFecha,
   type DepsAcciones,
   descartar,
+  deshacerAprobacion,
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
@@ -1508,5 +1509,96 @@ describe("marcarSubidoAMano por destino", () => {
 
     expect(resultado.ok).toBe(false)
     expect((await publicacionesDe(id)).map((p) => p.estado)).toEqual(["para_subir", "para_subir"])
+  })
+})
+
+describe("deshacerAprobacion", () => {
+  beforeEach(() => sembrarAvatares([LOOK_A, LOOK_B]))
+  afterEach(() => pool.query("update public.ajustes set produccion = '{}'::jsonb"))
+
+  /**
+   * Signed by Coni through the real action at `firma`. `db` chooses who tries the undo, with a clock the test moves;
+   * `disparos` records only what the undoing deps start, so the first signature's run is not in it.
+   */
+  async function firmadaEn(firma: number, db: Db = coni) {
+    const id = await paraAprobar()
+    const reloj = { ms: firma }
+    const { deps, disparos } = armar(db)
+    const conReloj: DepsAcciones = { ...deps, ahora: () => new Date(reloj.ms).toISOString() }
+    const firmaDeConi = { ...armar().deps, ahora: () => new Date(firma).toISOString() }
+    expect((await aprobarGuion(firmaDeConi, id, await versionDe(id), "look-a")).ok).toBe(true)
+    return { id, reloj, deps: conReloj, disparos }
+  }
+
+  it("takes the signature back inside the window: back to her, with her voice and a new attempt", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps, disparos } = await firmadaEn(firma)
+    const firmada = await fila(id)
+    reloj.ms = firma + 7999
+
+    expect(await deshacerAprobacion(deps, id, firmada.version)).toEqual({ ok: true })
+
+    expect(await fila(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      puerta1_hash: null,
+      puerta1_en: null,
+      puerta1_por: null,
+      audio_id: firmada.audio_id,
+      intento: firmada.intento + 1,
+    })
+    // The delayed run is not cancelled: it finds the piece back here and spends nothing (grabar.test.ts).
+    expect(disparos).toEqual([])
+  })
+
+  it("signs the same text again after an undo: another run key, the next attempt and the 10 s delay", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps, disparos } = await firmadaEn(firma)
+    const primera = await fila(id)
+    reloj.ms = firma + 1000
+    expect(await deshacerAprobacion(deps, id, primera.version)).toEqual({ ok: true })
+
+    const segunda = { ...deps, ahora: () => new Date(firma + 2000).toISOString() }
+    expect((await aprobarGuion(segunda, id, await versionDe(id), "look-a")).ok).toBe(true)
+
+    const guardada = await fila(id)
+    expect(guardada).toMatchObject({ estado: "en_render", intento: primera.intento + 1 })
+    expect(guardada.puerta1_hash).toBe(primera.puerta1_hash)
+    expect(disparos).toEqual([
+      { tarea: "grabar", piezaId: id, clave: claveGrabar(guardada), intento: primera.intento + 1, retraso: "10s" },
+    ])
+    expect(claveGrabar(guardada)).not.toBe(claveGrabar(primera))
+  })
+
+  it("refuses once the window closed, with Coni's text, and the video goes on", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps } = await firmadaEn(firma)
+    reloj.ms = firma + 8000
+
+    expect(await deshacerAprobacion(deps, id, await versionDe(id))).toEqual({
+      ok: false,
+      error: "Ya empecé a grabar el video. Puedes revisarlo cuando esté listo.",
+    })
+    expect(await fila(id)).toMatchObject({ estado: "en_render" })
+  })
+
+  it("does not let the maintainer take Coni's signature back", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps } = await firmadaEn(firma, await clienteDelMantenedor())
+    reloj.ms = firma + 1000
+
+    expect((await deshacerAprobacion(deps, id, await versionDe(id))).ok).toBe(false)
+    expect(await fila(id)).toMatchObject({ estado: "en_render" })
+  })
+
+  it("refuses a stale screen", async () => {
+    const firma = Date.now()
+    const { id, reloj, deps } = await firmadaEn(firma)
+    reloj.ms = firma + 1000
+
+    expect(await deshacerAprobacion(deps, id, (await versionDe(id)) - 1)).toEqual({
+      ok: false,
+      error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla.",
+    })
+    expect(await fila(id)).toMatchObject({ estado: "en_render" })
   })
 })
