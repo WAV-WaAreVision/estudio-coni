@@ -24,13 +24,7 @@ import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
-import {
-  ETIQUETA_DE_FIRMA,
-  TEXTO_CAMBIOS_TRAS_LA_VOZ,
-  TEXTO_ESCUCHA_COMPLETA,
-  TEXTO_FALTA_VOZ,
-  TEXTO_PREPARANDO_VOZ,
-} from "./textos"
+import { TEXTO_CAMBIOS_TRAS_LA_VOZ, TEXTO_ESCUCHA_COMPLETA, TEXTO_FALTA_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
 import { VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
@@ -135,6 +129,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   const cambios = useAccion()
   const idSinCambios = useId()
   const idConsecuencia = useId()
+  const idMotivo = useId()
 
   const { grabacion } = datos
   const preparando = grabacion.estado === "grabando_voz"
@@ -316,17 +311,24 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         idConsecuencia={idConsecuencia}
         consecuencia={grabacion.lineaDeFirma}
         arriba={
-          aprobacion.error || cambios.error ? (
-            <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
-          ) : null
+          <>
+            {aprobacion.error || cambios.error ? (
+              <LineaDeEstado tipo="error" titulo={aprobacion.error ?? cambios.error} />
+            ) : null}
+            {motivo ? (
+              <p id={idMotivo} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+                {motivo}
+              </p>
+            ) : null}
+          </>
         }
       >
         <DeslizarParaAprobar
-          etiqueta={ETIQUETA_DE_FIRMA}
           habilitado={motivo === undefined}
-          motivo={motivo}
           enviando={aprobacion.pendiente}
-          alAprobar={() =>
+          describidoPor={motivo ? `${idMotivo} ${idConsecuencia}` : idConsecuencia}
+          alFirmar={() =>
             aprobacion.ejecutar(
               () => aprobarGuionAccion(datos.id, version, avatarElegido),
               // The undo on the video screen sends the version she signed at, never one a refresh brought later.

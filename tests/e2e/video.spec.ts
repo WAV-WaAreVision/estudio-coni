@@ -1,9 +1,17 @@
 import { expect, test } from "@playwright/test"
 import { CONI, pool } from "../integration/db"
 import { leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { capturar, disparosRegistrados, GUION_VALIDO, limpiarDisparos, simularMedios, TEXTO_VALIDO } from "./ayudas"
+import {
+  capturar,
+  deslizarHastaElFinal,
+  disparosRegistrados,
+  GUION_VALIDO,
+  limpiarDisparos,
+  simularMedios,
+  TEXTO_VALIDO,
+} from "./ayudas"
 
-const ETIQUETA = "Desliza para aprobar video y fecha"
+const ETIQUETA = "Desliza para firmar"
 
 test.beforeEach(async () => {
   await vaciarPiezasEIdeas()
@@ -59,15 +67,8 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
   await expect(page.getByText(etiquetaElegida, { exact: true })).toBeVisible()
   await capturar(page, "05-video")
 
-  // Drag the thumb across the track with the pointer: the other way to approve besides the keyboard.
-  await deslizador.scrollIntoViewIfNeeded()
-  const pulgar = await deslizador.boundingBox()
-  const pista = await deslizador.locator("..").boundingBox()
-  if (!pulgar || !pista) throw new Error("El deslizador no tiene caja")
-  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 14 })
-  await page.mouse.up()
+  // Drag the thumb across the track with the pointer: the other way to sign besides the keyboard and two taps.
+  await deslizarHastaElFinal(page)
 
   await expect(page.getByText(`Programado para el ${etiquetaElegida}`)).toBeVisible()
   const fila = await leerFila(id)

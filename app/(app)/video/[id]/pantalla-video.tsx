@@ -1,8 +1,8 @@
 "use client"
 
-import { CaretLeft } from "@phosphor-icons/react"
+import { CaretLeft, Info } from "@phosphor-icons/react"
 import Link from "next/link"
-import { useCallback, useState } from "react"
+import { useCallback, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { MensajeDePrimeraVez } from "@/components/mensaje-primera-vez"
 import { ReproductorVideo } from "@/components/reproductor-video"
@@ -77,6 +77,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const cerrarAviso = useCallback(() => setAviso(null), [])
   const aprobacion = useAccion()
   const regrabacion = useAccion()
+  const idMotivo = useId()
 
   const conLinkedin = destinos.includes("linkedin")
   // The findings of the LinkedIn text are shown with it, and only count when LinkedIn is among the destinations.
@@ -290,17 +291,24 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
       <BarraDeFirma
         arriba={
-          aprobacion.error || regrabacion.error ? (
-            <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
-          ) : null
+          <>
+            {aprobacion.error || regrabacion.error ? (
+              <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
+            ) : null}
+            {motivo ? (
+              <p id={idMotivo} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+                {motivo}
+              </p>
+            ) : null}
+          </>
         }
       >
         <DeslizarParaAprobar
-          etiqueta="Desliza para aprobar video y fecha"
           habilitado={habilitado}
-          motivo={motivo}
           enviando={aprobacion.pendiente}
-          alAprobar={() => {
+          describidoPor={motivo ? idMotivo : undefined}
+          alFirmar={() => {
             if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, destinos))
           }}
         />

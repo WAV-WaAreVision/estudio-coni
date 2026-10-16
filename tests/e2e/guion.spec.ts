@@ -10,14 +10,16 @@ import {
   alerta,
   capturar,
   configurarServicios,
+  deslizarHastaElFinal,
   disparosRegistrados,
+  firmarConDosToques,
   GUION_VALIDO,
   limpiarDisparos,
   simularMedios,
   TEXTO_VALIDO,
 } from "./ayudas"
 
-const ETIQUETA = "Desliza para aprobar y grabar"
+const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
 const GRABANDO = "Estoy grabando tu video."
 // A literal, so the spec does not import a TSX component.
@@ -108,7 +110,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   await expect(page.getByText(/^Si lo apruebas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
-  await expect(deslizador).toHaveAttribute("aria-valuetext", "No aprobado")
+  await expect(deslizador).toHaveAttribute("aria-valuetext", "Sin firmar")
   await expect(page.getByText("Falta elegir el avatar y confirmar la revisión.")).toBeVisible()
   await capturar(page, "04-guion")
 
@@ -220,48 +222,39 @@ test("gate 1 shows the committed date in the signature colour and the whole scri
   await capturar(page, "guion-por-aprobar-completa", { completa: true })
 })
 
-test("a tap on the track never approves, a drag to the end does (brandkit 9.12)", async ({ page }) => {
+test("without dragging: a tap arms the signature and a second tap signs (WCAG 2.5.7)", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
-  const deslizador = page.getByRole("slider", { name: ETIQUETA })
+  const pista = page.getByRole("slider", { name: ETIQUETA })
+
+  // Closed, a tap does nothing. Playwright treats aria-disabled as not actionable; forcing it is what a finger does.
+  await expect(pista).toHaveAttribute("aria-disabled", "true")
+  await pista.click({ force: true })
+  await expect(pista).toHaveAttribute("aria-valuetext", "Sin firmar")
+
   await elegirAvatar(page, "Estudio")
   await escucharLaVoz(page)
-  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
-
-  const pista = await deslizador.locator("..").boundingBox()
-  if (!pista) throw new Error("The slider track has no box")
-  await page.mouse.click(pista.x + pista.width - 8, pista.y + pista.height / 2)
+  await expect(pista).toHaveAttribute("aria-disabled", "false")
+  await pista.click()
+  await expect(pista).toContainText("Toca otra vez para firmar")
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
-  const pulgar = await deslizador.boundingBox()
-  if (!pulgar) throw new Error("The thumb has no box")
-  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 12 })
-  await page.mouse.up()
+  await page.waitForTimeout(500)
+  await pista.click()
   await expect(page.getByText(GRABANDO)).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
 })
 
-test("the visible Aprobar button is the alternative to dragging and asks for the same things (WCAG 2.5.7)", async ({
-  page,
-}) => {
+test("a drag of the thumb to the end signs", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
-  const aprobar = page.getByRole("button", { name: "Aprobar", exact: true })
-
-  // Without an avatar it is as disabled as the slider.
-  await expect(aprobar).toBeDisabled()
-  // Playwright treats aria-disabled as not actionable; forcing the tap is what a finger does.
-  await aprobar.click({ force: true })
-  expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
-
   await elegirAvatar(page, "Estudio")
   await escucharLaVoz(page)
-  await expect(aprobar).toBeEnabled()
-  await aprobar.click()
+
+  await deslizarHastaElFinal(page)
+
   await expect(page.getByText(GRABANDO)).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
 })
@@ -300,8 +293,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
   // The take she already heard is remembered by the player: only the avatar is picked again.
   await elegirAvatar(page, "Estudio")
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
-  await deslizador.focus()
-  await page.keyboard.press("End")
+  await firmarConDosToques(page)
   await expect(page.getByText(GRABANDO)).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
   // The second signature starts its own run: another attempt, so another key than the undone one.

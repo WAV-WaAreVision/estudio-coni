@@ -70,7 +70,7 @@ function abrir(sobre: Partial<DatosDeVideo> = {}) {
   fireEvent.click(screen.getByRole("button", { name: "Terminé de ver" }))
 }
 
-const deslizador = () => screen.getByRole("slider", { name: "Desliza para aprobar video y fecha" })
+const deslizador = () => screen.getByRole("slider", { name: "Desliza para firmar" })
 const revisar = () => fireEvent.click(screen.getByRole("checkbox", { name: /Revisé labios/ }))
 const destino = (nombre: string) => screen.getByRole("checkbox", { name: nombre })
 
@@ -231,9 +231,7 @@ describe("PantallaVideo: una pieza de antes de LinkedIn", () => {
 
 describe("PantallaVideo: aprobar", () => {
   function deslizarHastaElFinal() {
-    fireEvent.pointerDown(deslizador(), { pointerId: 1, clientX: 0 })
-    fireEvent.pointerMove(deslizador(), { pointerId: 1, clientX: 300 })
-    fireEvent.pointerUp(deslizador(), { pointerId: 1, clientX: 300 })
+    fireEvent.keyDown(deslizador(), { key: "Enter" })
   }
 
   it("sends the destinations she chose with the piece, its version and the date", async () => {

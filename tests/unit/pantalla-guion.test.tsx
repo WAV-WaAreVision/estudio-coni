@@ -63,9 +63,11 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
   }
 }
 
-const aprobar = () => screen.getByRole("button", { name: "Aprobar" })
+const aprobar = () => screen.getByRole("slider", { name: "Desliza para firmar" })
 const elegirEstudio = () => fireEvent.click(screen.getByRole("radio", { name: "Estudio" }))
 const escuchar = () => fireEvent.click(screen.getByRole("button", { name: "Terminé de escuchar" }))
+/** The slider's description joins the reason, the consequence and the hint: match the part a test is about. */
+const contiene = (texto: string) => new RegExp(texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 
 beforeEach(() => {
   aprobarGuionAccion.mockReset().mockResolvedValue({ ok: true, version: 6 })
@@ -105,7 +107,7 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
 
     escuchar()
     expect(aprobar()).not.toHaveAttribute("aria-disabled", "true")
-    fireEvent.click(aprobar())
+    fireEvent.keyDown(aprobar(), { key: "Enter" })
     await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 5, "look-a"))
   })
 
@@ -115,7 +117,7 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     elegirEstudio()
     escuchar()
 
-    fireEvent.click(aprobar())
+    fireEvent.keyDown(aprobar(), { key: "Enter" })
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/guion/p1?firmada=6"))
   })
@@ -146,20 +148,20 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
     render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
 
-    expect(aprobar()).toHaveAccessibleDescription(bloqueo)
+    expect(aprobar()).toHaveAccessibleDescription(contiene(bloqueo))
   })
 
   it("asks to save the edit before any reason about her voice", () => {
     render(<PantallaGuion datos={datos({}, { voz: null })} />)
     fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
 
-    expect(aprobar()).toHaveAccessibleDescription("Guarda tus cambios antes de aprobar")
+    expect(aprobar()).toHaveAccessibleDescription(contiene("Guarda tus cambios antes de aprobar"))
   })
 
   it("says what the signature spends and how long she has to undo it, under the slider", () => {
     render(<PantallaGuion datos={datos()} />)
     const barra = screen.getByRole("region", { name: "Firma" })
-    expect(within(barra).getByRole("slider", { name: "Desliza para aprobar y grabar" })).toBeInTheDocument()
+    expect(within(barra).getByRole("slider", { name: "Desliza para firmar" })).toBeInTheDocument()
     expect(within(barra).getByText(LINEA)).toBeInTheDocument()
   })
 
@@ -216,7 +218,7 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 7, true))
     elegirEstudio()
     escuchar()
-    fireEvent.click(aprobar())
+    fireEvent.keyDown(aprobar(), { key: "Enter" })
     await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 7, "look-a"))
   })
 
