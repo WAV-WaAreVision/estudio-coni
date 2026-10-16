@@ -23,6 +23,8 @@ export function DeshacerFirma({ piezaId, version, quedanMs }: { piezaId: string;
   const [visible, setVisible] = useState(true)
   // Stable, so a re-render does not restart the toast's timer.
   const cerrar = useCallback(() => setVisible(false), [])
+  // A refused undo ends the toast; the refusal is said below it. A done one leaves for the script.
+  if (deshacer.error !== null && visible) setVisible(false)
 
   return (
     <>
@@ -31,6 +33,8 @@ export function DeshacerFirma({ piezaId, version, quedanMs }: { piezaId: string;
           mensaje={textoFirmaste(duracionMs)}
           duracionMs={duracionMs}
           alCerrar={cerrar}
+          deshaciendo={deshacer.pendiente}
+          enfocarDeshacer
           alDeshacer={() =>
             deshacer.ejecutar(
               () => deshacerAprobacionAccion(piezaId, firmada),

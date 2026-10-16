@@ -75,4 +75,28 @@ describe("DeshacerFirma", () => {
     render(<DeshacerFirma piezaId="p1" version={6} quedanMs={4200} />)
     expect(screen.getByText("Firmaste. Grabo el video en 5 s.")).toBeInTheDocument()
   })
+
+  it("puts her focus on 'Deshacer' as it appears", () => {
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={8000} />)
+    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus()
+  })
+
+  it("shows 'Deshaciendo…' while the undo is on its way, and closes on a refusal that it shows", async () => {
+    let responder: (resultado: { ok: false; error: string }) => void = () => undefined
+    deshacerAprobacionAccion.mockReturnValue(
+      new Promise((resolver) => {
+        responder = resolver
+      }),
+    )
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={8000} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
+    expect(await screen.findByRole("button", { name: "Deshaciendo…" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText("Firmaste. Grabo el video en 8 s.")).toBeInTheDocument()
+
+    await act(async () => responder({ ok: false, error: TEXTO_DESHACER_TARDE }))
+
+    expect(screen.getByText(TEXTO_DESHACER_TARDE)).toBeInTheDocument()
+    expect(screen.queryByText("Firmaste. Grabo el video en 8 s.")).toBeNull()
+  })
 })
