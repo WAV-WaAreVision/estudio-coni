@@ -9,12 +9,8 @@ import {
   type Alcance,
   alcanceDeVideo,
   alcanceDeVoz,
-  costoDeVideo,
   costoDeVoz,
-  lineaDeCostoVideo,
-  lineaDeCostoVoz,
   lineaDeFirma,
-  lineaDeSaldoVideo,
   lineaDeSaldoVoz,
   type Saldos,
 } from "@/lib/dominio/saldos"
@@ -29,17 +25,13 @@ import { leerSaldos } from "@/lib/saldos/reales"
 import type { Database } from "@/lib/supabase/database.types"
 
 export interface BotonesDeGrabacion {
-  costoVoz: string
-  costoVideo: string
-  /** The same costs split for the layout: «US$ 0,33» and «~1.100 caracteres». */
+  /** The cost of her voice split for the layout: «US$ 0,33» and «~1.100 caracteres». */
   montoVoz: string
   unidadVoz: string
-  montoVideo: string
-  unidadVideo: string
   saldoVoz: string
-  saldoVideo: string
-  /** What to top up when ElevenLabs does not reach; null lets the button work. */
+  /** What to top up when ElevenLabs or the month's cap does not reach; null lets the button work. */
   bloqueoVoz: string | null
+  /** Closes the signature when HeyGen or the month's cap cannot cover the video; the voice is already made. */
   bloqueoVideo: string | null
 }
 
@@ -61,7 +53,6 @@ const bloqueo = (alcance: Alcance) => (alcance.tipo === "no_alcanza" ? alcance.m
 export function presentarGrabacion(entrada: {
   guion: string
   motor: string | null
-  conVoz: boolean
   saldos: Saldos
   zona: string
   /** The ElevenLabs model: it decides which tone marks reach the voice, and so the characters it bills. */
@@ -69,31 +60,22 @@ export function presentarGrabacion(entrada: {
   /** What is left of the month's cap. */
   quedanUsd: number
 }): BotonesDeGrabacion {
-  const { guion, motor, conVoz, saldos } = entrada
-  // Cost and balance are about the text ElevenLabs receives, not the stored script.
+  const { guion, motor, saldos } = entrada
+  // The cost and the balance of the voice are about the text ElevenLabs receives, not the stored script.
   const textoDeVoz = textoParaVoz(guion, entrada.modeloDeVoz)
   const usdVoz = estimarCostoVoz(textoDeVoz)
   const usdVideo = estimarCostoVideo(guion, motor)
-  const totalVideo = usdVideo + (conVoz ? 0 : usdVoz)
   const sinTope = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_SIN_TOPE : null)
-  const bloqueoVoz = sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length))
-  const bloqueoHeygen = bloqueo(
-    alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
-  )
   const costoVozPartido = costoDeVoz(textoDeVoz.length, usdVoz)
-  const costoVideoPartido = costoDeVideo(estimarSegundos(guion), totalVideo, !conVoz)
   return {
     montoVoz: costoVozPartido.monto,
     unidadVoz: costoVozPartido.unidad,
-    montoVideo: costoVideoPartido.monto,
-    unidadVideo: costoVideoPartido.unidad,
-    costoVoz: lineaDeCostoVoz(textoDeVoz.length, usdVoz, conVoz),
-    costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
-    saldoVideo: lineaDeSaldoVideo(saldos.heygen),
-    bloqueoVoz,
-    // Without a voice, the video also needs ElevenLabs.
-    bloqueoVideo: sinTope(totalVideo) ?? bloqueoHeygen ?? (conVoz ? null : bloqueoVoz),
+    bloqueoVoz: sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
+    // The signature needs her voice first, so the video is only about its own cost.
+    bloqueoVideo:
+      sinTope(usdVideo) ??
+      bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
   }
 }
 
@@ -127,7 +109,7 @@ export async function leerDatosDeGrabacion(
     config = leerConfigProduccion(await leerProduccion(db))
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
-    console.error("No pude leer la configuración para la barra de grabación", error)
+    console.error("No pude leer la configuración para la puerta 1", error)
     return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null) }
   }
   const clave = vozVigente(fila, guion, config)
@@ -142,7 +124,6 @@ export async function leerDatosDeGrabacion(
     botones: presentarGrabacion({
       guion,
       motor: config.heygen.motor,
-      conVoz: clave !== null,
       saldos,
       zona,
       modeloDeVoz: config.elevenlabs.model_id,

@@ -73,7 +73,7 @@ async function piezaPorFirmar(ajustes: Record<string, unknown> = {}) {
 }
 
 describe("leerDatosDeGrabacion", () => {
-  it("reads both balances through the real wiring and prices the buttons, with no voice yet", async () => {
+  it("reads the balances through the real wiring and prices her voice and the signature, with no voice yet", async () => {
     const id = await piezaPorFirmar()
     const fila = await leerFila(id)
 
@@ -82,14 +82,12 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.estado).toBe("guion_por_aprobar")
     expect(datos.voz).toBeNull()
     expect(datos.botones?.saldoVoz).toMatch(/^ElevenLabs: te quedan 99\.000 de 100\.000 caracteres/)
-    expect(datos.botones?.saldoVideo).toBe("Saldo de API de HeyGen: US$ 50,00. Es aparte de tu plan de HeyGen.")
-    expect(datos.botones?.costoVideo).toMatch(/ · incluye la voz$/)
     expect(datos.botones?.bloqueoVoz).toBeNull()
     expect(datos.botones?.bloqueoVideo).toBeNull()
     expect(datos.lineaDeFirma).toMatch(/^Al firmar grabo el video: ~\d+ s, US\$ \d+,\d\d\. Tienes 8 s para deshacer\.$/)
   })
 
-  it("offers her voice of this script, and stops adding it to the video price", async () => {
+  it("offers her voice of this script", async () => {
     const id = await piezaPorFirmar()
     const toma = claveDeToma(id, HUELLA, 0)
     await ajustarPieza(id, { audio_id: toma })
@@ -102,7 +100,6 @@ describe("leerDatosDeGrabacion", () => {
     })
 
     expect(datos.voz?.clave).toBe(toma)
-    expect(datos.botones?.costoVideo).not.toMatch(/incluye la voz/)
   })
 
   it("blocks both buttons with the cap line when the month has no room left", async () => {
@@ -150,7 +147,6 @@ describe("leerDatosDeGrabacion", () => {
       zona: ZONA,
     })
 
-    expect(datos.botones?.saldoVideo).toBe("No pude ver tu saldo de API de HeyGen.")
     expect(datos.botones?.bloqueoVideo).toBeNull()
     expect(datos.botones?.bloqueoVoz).toBeNull()
   })

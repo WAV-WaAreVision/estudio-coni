@@ -3092,6 +3092,11 @@ spend goes in the slider's existing `nota` slot (under the track, beside "Aproba
 nada." without changing the bar's height. `components/deslizar-para-aprobar.tsx` and
 `components/ui/barra-de-firma.tsx` do not change.
 
+**Note from Task 15 (the review of batch 7):** `BotonesDeGrabacion` now has only `montoVoz`, `unidadVoz`, `saldoVoz`,
+`bloqueoVoz` and `bloqueoVideo` (`costoVoz`, `costoVideo`, `montoVideo`, `unidadVideo` and `saldoVideo` had no consumer
+and are gone, with the "includes the voice" math and `presentarGrabacion`'s `conVoz` input). Trim the `BOTONES` fixture
+in the test below to those five fields.
+
 **Files:**
 - Create: `app/(app)/guion/[id]/textos.ts`
 - Create: `app/(app)/guion/[id]/voz-para-firmar.tsx`

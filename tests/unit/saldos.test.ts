@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   alcanceDeVideo,
   alcanceDeVoz,
-  costoDeVideo,
   costoDeVoz,
-  lineaDeCostoVideo,
-  lineaDeCostoVoz,
   lineaDeFirma,
   lineaDeSaldoVideo,
   lineaDeSaldoVoz,
@@ -84,23 +81,16 @@ describe("líneas", () => {
     expect(lineaDeSaldoVideo({ ok: false, motivo: "x" })).toBe("No pude ver tu saldo de API de HeyGen.")
   })
 
-  it("writes the cost next to each button", () => {
-    expect(lineaDeCostoVoz(1100, 0.33)).toBe("Grabar voz: ~1.100 caracteres (US$ 0,33)")
-    expect(lineaDeCostoVideo(55.6, 3.73, false)).toBe("Grabar video: ~56 s (US$ 3,73)")
-    expect(lineaDeCostoVideo(55.6, 4.06, true)).toBe("Grabar video: ~56 s (US$ 4,06) · incluye la voz")
-  })
-
-  it("splits the cost in the amount and its unit, the figure the screens set beside the action", () => {
+  it("splits the cost of the voice in the amount and its unit, the figure the screens set beside the action", () => {
     expect(costoDeVoz(1100, 0.33)).toEqual({ monto: "US$ 0,33", unidad: "~1.100 caracteres" })
-    expect(costoDeVideo(55.6, 3.73, false)).toEqual({ monto: "US$ 3,73", unidad: "~56 s" })
-    expect(costoDeVideo(55.6, 4.06, true)).toEqual({ monto: "US$ 4,06", unidad: "~56 s · incluye la voz" })
   })
 
   it("never uses an em dash", () => {
     const todas = [
       lineaDeSaldoVoz(ELEVEN, "America/Santiago"),
       lineaDeSaldoVideo(BILLETERA),
-      lineaDeCostoVideo(10, 1, true),
+      lineaDeFirma({ segundos: 10, usd: 1 }),
+      lineaDeFirma(null),
     ]
     for (const linea of todas) expect(linea).not.toContain("—")
   })
