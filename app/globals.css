@@ -360,8 +360,13 @@ body {
     opacity: 0.25;
   }
 }
+/* The working dot keeps a soft halo of its own colour (v6 `.punto`, its green normalised to ink, decision 2). */
 .punto-trabajando {
   animation: trabajando var(--latido) ease-in-out infinite;
+  box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 16%, transparent);
+}
+.punto-trabajando[data-chico] {
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent);
 }
 
 /* A new card of the idea bank slides up 8 px and fades in; a transition on mount, so a quick second tap retargets it. */

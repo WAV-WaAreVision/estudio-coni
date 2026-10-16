@@ -1,4 +1,15 @@
-/** The 8 px dot that pulses while something real is happening (brandkit section 8). Still under reduced motion. */
-export function PuntoTrabajando() {
-  return <span aria-hidden="true" className="punto-trabajando inline-block size-2 shrink-0 rounded-full bg-current" />
+import { cn } from "@/lib/utils"
+
+/** The dot that pulses while something real is happening (v6 `.punto`). Still under reduced motion. */
+export function PuntoTrabajando({ chico = false }: { chico?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-chico={chico || undefined}
+      className={cn(
+        "punto-trabajando inline-block shrink-0 rounded-full bg-current",
+        chico ? "size-punto-chico" : "size-punto",
+      )}
+    />
+  )
 }
