@@ -6,6 +6,7 @@ import {
   costoDeVoz,
   lineaDeCostoVideo,
   lineaDeCostoVoz,
+  lineaDeFirma,
   lineaDeSaldoVideo,
   lineaDeSaldoVoz,
   type SaldoElevenlabs,
@@ -102,5 +103,17 @@ describe("líneas", () => {
       lineaDeCostoVideo(10, 1, true),
     ]
     for (const linea of todas) expect(linea).not.toContain("—")
+  })
+})
+
+describe("lineaDeFirma", () => {
+  it("says what the signature spends and how long she has to undo it", () => {
+    expect(lineaDeFirma({ segundos: 52.4, usd: 3.48 })).toBe(
+      "Al firmar grabo el video: ~52 s, US$ 3,48. Tienes 8 s para deshacer.",
+    )
+  })
+
+  it("still says the video starts and the undo window when the cost cannot be read", () => {
+    expect(lineaDeFirma(null)).toBe("Al firmar grabo el video. Tienes 8 s para deshacer.")
   })
 })

@@ -13,12 +13,12 @@ import {
   costoDeVoz,
   lineaDeCostoVideo,
   lineaDeCostoVoz,
+  lineaDeFirma,
   lineaDeSaldoVideo,
   lineaDeSaldoVoz,
   type Saldos,
 } from "@/lib/dominio/saldos"
 import { vozDelGuion } from "@/lib/dominio/voz"
-import { dolares } from "@/lib/formato"
 import { formulaGuardada } from "@/lib/produccion/aprobacion"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo, estimarCreditosVideo } from "@/lib/produccion/grabar"
@@ -36,7 +36,6 @@ export interface BotonesDeGrabacion {
   unidadVoz: string
   montoVideo: string
   unidadVideo: string
-  confirmacionVideo: string
   saldoVoz: string
   saldoVideo: string
   /** What to top up when ElevenLabs does not reach; null lets the button work. */
@@ -45,11 +44,14 @@ export interface BotonesDeGrabacion {
 }
 
 export interface DatosDeGrabacion {
-  estado: "guion_aprobado" | "grabando_voz"
-  /** The voice that speaks this approved script, signed for an hour; null when there is none yet. */
+  /** Gate 1: the script waits for her signature, or her voice of it is being made. */
+  estado: "guion_por_aprobar" | "grabando_voz"
+  /** Her voice of this exact script, signed for an hour; null when there is none yet. */
   voz: { url: string | null; clave: string } | null
   /** Null when the production setup does not read: the buttons still work, without numbers. */
   botones: BotonesDeGrabacion | null
+  /** Under the slider: what the signature spends and how long she has to undo it. */
+  lineaDeFirma: string
 }
 
 const TEXTO_SIN_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
@@ -87,7 +89,6 @@ export function presentarGrabacion(entrada: {
     unidadVideo: costoVideoPartido.unidad,
     costoVoz: lineaDeCostoVoz(textoDeVoz.length, usdVoz, conVoz),
     costoVideo: lineaDeCostoVideo(estimarSegundos(guion), totalVideo, !conVoz),
-    confirmacionVideo: `¿Grabar el video? Cuesta unos ${dolares(totalVideo)}.`,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
     saldoVideo: lineaDeSaldoVideo(saldos.heygen),
     bloqueoVoz,
@@ -115,7 +116,7 @@ export function vozVigente(
   })
 }
 
-/** Everything the record bar shows, read when the screen opens. */
+/** Everything gate 1 shows about her voice and the video, read when the screen opens. */
 export async function leerDatosDeGrabacion(
   db: SupabaseClient<Database>,
   entrada: { fila: FilaDePieza; estado: DatosDeGrabacion["estado"]; guion: string; zona: string },
@@ -127,7 +128,7 @@ export async function leerDatosDeGrabacion(
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude leer la configuración para la barra de grabación", error)
-    return { estado, voz: null, botones: null }
+    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null) }
   }
   const clave = vozVigente(fila, guion, config)
   const [saldos, presupuesto, url] = await Promise.all([
@@ -146,6 +147,10 @@ export async function leerDatosDeGrabacion(
       zona,
       modeloDeVoz: config.elevenlabs.model_id,
       quedanUsd: presupuesto.tope - presupuesto.usado,
+    }),
+    lineaDeFirma: lineaDeFirma({
+      segundos: estimarSegundos(guion),
+      usd: estimarCostoVideo(guion, config.heygen.motor),
     }),
   }
 }

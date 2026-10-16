@@ -1,4 +1,5 @@
 // lib/dominio/saldos.ts
+import { VENTANA_DESHACER_MS } from "@/lib/dominio/estados"
 import { dolares } from "@/lib/formato"
 
 /** What ElevenLabs says about Coni's characters (`GET /v1/user/subscription`). */
@@ -88,4 +89,11 @@ export function lineaDeCostoVoz(caracteres: number, usd: number, repite = false)
 export function lineaDeCostoVideo(segundos: number, usd: number, incluyeVoz: boolean): string {
   const { monto, unidad } = costoDeVideo(segundos, usd, false)
   return `Grabar video: ${unidad} (${monto})${incluyeVoz ? " · incluye la voz" : ""}`
+}
+
+/** The line of the gate 1 signature: what it spends and how long she has to take it back (design 2026-10-15). */
+export function lineaDeFirma(video: { segundos: number; usd: number } | null): string {
+  const ventana = `Tienes ${VENTANA_DESHACER_MS / 1000} s para deshacer.`
+  if (video === null) return `Al firmar grabo el video. ${ventana}`
+  return `Al firmar grabo el video: ~${Math.round(video.segundos)} s, ${dolares(video.usd)}. ${ventana}`
 }
