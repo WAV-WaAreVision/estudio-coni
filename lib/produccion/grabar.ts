@@ -273,9 +273,10 @@ const ESPERA_MAXIMA_MS = VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS + 60_000
 /**
  * The second lock of the undo window (design 2026-10-15, decision 5). A run that starts before the window of its
  * signature has closed (a delayed run that fires early, a resumption by maintenance, a task clock behind the app's)
- * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature always
- * comes with a newer attempt, which ends this run in `grabarPieza`; `esperada` keeps a run queued without an attempt
- * by the previously deployed app from waiting twice for the same signature.
+ * waits until the window and the clock margin are over, then decides on the row as it is now. A newer signature comes
+ * with a newer attempt, which ends a run that carries its own in `grabarPieza`; a run queued without one by the
+ * previously deployed app waits for that signature too. After one wait for a signature (`esperada`) the loop trusts
+ * that wait, timed by Trigger.dev, instead of reading again a clock that may lag, so the loop always ends.
  */
 async function despuesDeLaVentana(
   deps: DepsGrabacion,
