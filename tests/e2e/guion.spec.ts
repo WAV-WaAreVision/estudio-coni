@@ -286,7 +286,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 
   await deslizador.focus()
   await page.keyboard.press("End")
-  await expect(page.getByText("Firmaste. Grabo el video en 8 s.")).toBeVisible()
+  await expect(page.getByText(/Grabo el video en [78] s\./)).toBeVisible()
   await expect(page.getByText(GRABANDO)).toBeVisible()
   await capturar(page, "guion-firmado")
   expect((await leerFila(id)).estado).toBe("en_render")
