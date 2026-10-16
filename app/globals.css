@@ -280,6 +280,7 @@ body {
       .shadow-relieve-alto-fijo,
       .shadow-hundido,
       .shadow-relieve-pulgar,
+      .campo,
       [data-contorno]
     ) {
     outline: 2px solid var(--campo);
@@ -292,10 +293,26 @@ body {
       .shadow-relieve-alto-fijo,
       .shadow-hundido,
       .shadow-relieve-pulgar,
+      .campo,
       [data-contorno]
     ):focus-visible {
     outline-color: var(--tinta);
     outline-offset: 2px;
+  }
+  .campo[aria-invalid="true"] {
+    outline-color: var(--error);
+  }
+  /* The rail's track is a pseudo-element, out of reach of the list above: a border inside its box, the knob re-centred. */
+  .avance::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    border: 2px solid var(--campo);
+  }
+  .avance::-webkit-slider-thumb {
+    margin-top: calc(-0.3125rem - 2px);
+  }
+  .avance::-moz-range-track {
+    box-sizing: border-box;
+    border: 2px solid var(--campo);
   }
 }
 
@@ -310,8 +327,20 @@ body {
       .shadow-relieve-pulgar,
       .shadow-relieve-perilla,
       .shadow-hundido-marcado,
+      .campo,
       [data-contorno]
     ) {
+    border: 1px solid CanvasText;
+  }
+  .avance::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    border: 1px solid CanvasText;
+  }
+  .avance::-webkit-slider-thumb {
+    margin-top: calc(-0.3125rem - 1px);
+  }
+  .avance::-moz-range-track {
+    box-sizing: border-box;
     border: 1px solid CanvasText;
   }
 }

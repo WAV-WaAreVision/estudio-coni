@@ -19,4 +19,14 @@ describe("FilaConInterruptor", () => {
     expect(alCambiar).toHaveBeenCalledTimes(1)
     expect(alCambiar).toHaveBeenCalledWith(false)
   })
+
+  it("keeps the switch visible in forced colours: the lit track has a contour and the thumb paints CanvasText", () => {
+    render(<FilaConInterruptor etiqueta="Avisos" encendido alCambiar={vi.fn()} />)
+    const interruptor = screen.getByRole("switch", { name: "Avisos" })
+    expect(interruptor).toHaveAttribute("data-contorno")
+    expect(interruptor.firstElementChild).toHaveClass(
+      "forced-colors:forced-color-adjust-none",
+      "forced-colors:bg-[color:CanvasText]",
+    )
+  })
 })

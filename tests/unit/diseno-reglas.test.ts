@@ -114,6 +114,19 @@ describe("design rules", () => {
     expect(CSS).not.toMatch(/--anillo-foco: [^;]*firma/)
   })
 
+  it("outlines fields and the seek rail with more contrast, and borders them in forced colours (decision 7)", () => {
+    const bloque = (consulta: string) => {
+      const inicio = CSS.indexOf(`@media (${consulta}) {`)
+      return inicio < 0 ? "" : CSS.slice(inicio, CSS.indexOf("\n}\n", inicio))
+    }
+    for (const consulta of ["prefers-contrast: more", "forced-colors: active"]) {
+      const reglas = bloque(consulta)
+      expect(reglas, consulta).toMatch(/\.campo\b/)
+      expect(reglas, consulta).toContain(".avance::-webkit-slider-runnable-track")
+      expect(reglas, consulta).toContain(".avance::-moz-range-track")
+    }
+  })
+
   it("sets the type on the iOS body size, only on touch screens, with px spacing", () => {
     expect(CSS).toMatch(/html \{\s*font-size: 106\.25%;/)
     expect(CSS).toMatch(

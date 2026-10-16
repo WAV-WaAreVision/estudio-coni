@@ -149,7 +149,9 @@ export function Eleccion({ nombre, valor, elegido, etiqueta, detalle, imagen, al
           elegido ? "bg-tinta shadow-hundido-marcado" : "bg-piedra-honda shadow-hundido outline-2 outline-campo",
         )}
       >
-        {elegido ? <span className="size-[0.6rem] rounded-full bg-luz" /> : null}
+        {elegido ? (
+          <span className="size-[0.6rem] rounded-full bg-luz forced-colors:forced-color-adjust-none forced-colors:bg-[color:CanvasText]" />
+        ) : null}
       </span>
       {imagen}
       <span className="grid min-w-0">

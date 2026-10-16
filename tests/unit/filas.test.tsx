@@ -46,6 +46,11 @@ describe("filas", () => {
     )
     expect(screen.getByRole("radio", { name: "jueves 8 de octubre · 19:00" })).toBeChecked()
     expect(container.querySelector("label > span[aria-hidden]")).toHaveClass("size-casilla", "bg-tinta")
+    // In forced colours the dot keeps CanvasText, so the chosen row differs from the others by more than its ring.
+    expect(container.querySelector("label > span[aria-hidden] > span")).toHaveClass(
+      "forced-colors:forced-color-adjust-none",
+      "forced-colors:bg-[color:CanvasText]",
+    )
   })
 
   it("Eleccion reports the value when it is chosen, and carries a detail and an image when given", () => {
