@@ -81,7 +81,11 @@ function FilaDeHorario({ hueco }: { hueco: Hueco }) {
   )
 }
 
-export function AgendaDelCalendario({ semanas }: { semanas: { titulo: string; huecos: readonly Hueco[] }[] }) {
+export function AgendaDelCalendario({
+  semanas,
+}: {
+  semanas: { titulo: string; huecos: readonly Hueco[]; libresMas: string | null }[]
+}) {
   return (
     <div>
       {semanas.map((semana) => (
@@ -92,9 +96,10 @@ export function AgendaDelCalendario({ semanas }: { semanas: { titulo: string; hu
                 <FilaDeHorario key={hueco.instante} hueco={hueco} />
               ))}
             </Grupo>
-          ) : (
+          ) : semana.libresMas === null ? (
             <p className="py-2 text-meta text-apagado">Sin espacios de publicación en lo que queda de esta semana.</p>
-          )}
+          ) : null}
+          {semana.libresMas ? <p className="py-2 text-meta text-apagado">{semana.libresMas}</p> : null}
         </Seccion>
       ))}
     </div>

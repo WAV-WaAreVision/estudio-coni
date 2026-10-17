@@ -1,7 +1,13 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { capturar } from "./ayudas"
+import {
+  marcarPublicacion,
+  quitarPublicacion,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
+import { abrirDesplegable, capturar } from "./ayudas"
 
 const HOY_EN_SANTIAGO = "(now() at time zone 'America/Santiago')::date"
 
@@ -9,6 +15,7 @@ async function limpiar() {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
+  await pool.query("delete from public.metricas_linkedin_cuenta")
 }
 
 test.beforeEach(limpiar)
@@ -90,7 +97,8 @@ test("with few reels it orders by what served, shows the sample size and refuses
 
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   // How many of the three went out this month depends on the day the test runs; the unit tests pin that count.
-  await expect(page.getByText(/^\d reels? publicados? · 1 consulta · 8 toques en tu link$/)).toBeVisible()
+  await expect(page.getByText(/^Este mes: \d reels? en Instagram · 0 posts en LinkedIn$/)).toBeVisible()
+  await expect(page.getByText("Este mes también: 1 consulta · 8 toques en tu link")).toBeVisible()
   const barras = page.getByRole("region", { name: "Lo que sirvió" }).getByRole("listitem")
   await expect(barras.nth(0)).toContainText("Si van a discutir, siéntense del mismo lado")
   await expect(barras.nth(0)).toContainText("50,4")
@@ -99,6 +107,9 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(barras.nth(0)).toContainText("IA y salud mental · 1 reel de este tema")
   await expect(barras.nth(1)).toContainText("El deseo no se apaga, se esconde")
   await expect(barras.nth(2)).toContainText("Ser tu propia diosa")
+  await expect(page.getByRole("heading", { name: "Instagram" })).toBeVisible()
+  await expect(page.getByText("Guardados cada 1.000 personas que lo vieron.")).toBeVisible()
+  await expect(page.getByText("Últimas 12 semanas").first()).toBeVisible()
 
   // The panel that stops the order from being read as a conclusion sits right under the bars.
   const panel = page.getByRole("region", { name: "Todavía es temprano para concluir" })
@@ -119,8 +130,9 @@ test("without published reels it says so and still counts consultations", async 
 
   await page.goto("/metricas")
 
-  await expect(page.getByText("Todavía no hay reels publicados.")).toBeVisible()
-  await expect(page.getByText("0 reels publicados · 1 consulta · 0 toques en tu link")).toBeVisible()
+  await expect(page.getByText("Todavía no hay publicaciones.")).toBeVisible()
+  await expect(page.getByText("Este mes: 0 reels en Instagram · 0 posts en LinkedIn")).toBeVisible()
+  await expect(page.getByText("Este mes también: 1 consulta · 0 toques en tu link")).toBeVisible()
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)
   await capturar(page, "metricas-vacio")
 })
@@ -168,4 +180,37 @@ test("warns when the morning reading did not arrive and shows the last one it ha
 
   await expect(page.getByText(/^No pude traer las métricas de hoy; muestro las del /)).toBeVisible()
   await expect(page.getByText("10 guardados de 1.000 personas")).toBeVisible()
+})
+
+test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what worked", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Lo que firma un modelo" })
+  const id = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo", idea_id: idea })
+  await quitarPublicacion(id, "instagram")
+  await marcarPublicacion(id, "linkedin")
+  await moverLaHoraAprobada(id, 2)
+
+  await page.goto("/metricas")
+  await expect(page.getByRole("heading", { name: "LinkedIn" })).toBeVisible()
+  await expect(page.getByText("sin números").first()).toBeVisible()
+
+  await abrirDesplegable(page, "Para WAV")
+  await page.getByLabel("Impresiones de Lo que firma un modelo").fill("1.200")
+  await page.getByLabel("Reacciones de Lo que firma un modelo").fill("14")
+  await page.getByLabel("Comentarios de Lo que firma un modelo").fill("3")
+  await page.getByLabel("Compartidos de Lo que firma un modelo").fill("1")
+  await page.getByLabel("Seguidores esta semana").fill("830")
+  await page.getByRole("button", { name: "Guardar números" }).click()
+
+  await expect(page.getByText("Guardado: 1 post y los seguidores.")).toBeVisible()
+  // The post stays listed with what was saved, to be corrected this week.
+  await expect(page.getByText("Anotado esta semana: puedes corregirlo.")).toBeVisible()
+  await expect(page.getByLabel("Impresiones de Lo que firma un modelo")).toHaveValue("1.200")
+  await expect(page.getByText("1.200", { exact: true })).toBeVisible()
+  await expect(page.getByText("14 reacciones · 3 comentarios · 1 vez compartido").first()).toBeVisible()
+  const { rows } = await pool.query(
+    "select origen, anotado_por is not null as sellado from public.metricas_linkedin where pieza_id = $1",
+    [id],
+  )
+  expect(rows).toEqual([{ origen: "manual", sellado: true }])
+  await capturar(page, "metricas-linkedin-anotado")
 })

@@ -24,10 +24,11 @@ export async function leerDatosDeCalendario(
   piezas: PiezaDeCalendario[]
   horario: Horario
   primeraPublicacion: string | null
+  yaPublico: boolean
   pilares: CatalogoDePilares
 }> {
   const desde = new Date(ahora - DIAS_DE_HISTORIA * 86_400_000).toISOString()
-  const [piezas, ajustes, primera, pilares] = await Promise.all([
+  const [piezas, ajustes, primera, publicada, pilares] = await Promise.all([
     db
       .from("piezas")
       .select(
@@ -47,11 +48,18 @@ export async function leerDatosDeCalendario(
       .order("puerta2_publicar_en", { ascending: true })
       .limit(1)
       .maybeSingle(),
+    // Decision 22: "before her first publication" is read where publishing is recorded (decision 15).
+    db
+      .from("publicaciones")
+      .select("pieza_id")
+      .in("estado", ["publicado", "subido_a_mano"])
+      .limit(1),
     leerPilares(db),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas del calendario", piezas.error)
   if (ajustes.error) throw fallo("No pude leer los horarios", ajustes.error)
   if (primera.error) throw fallo("No pude leer la primera publicación", primera.error)
+  if (publicada.error) throw fallo("No pude saber si ya publicó", publicada.error)
   return {
     piezas: piezas.data.map((fila) => ({
       id: fila.id,
@@ -65,6 +73,7 @@ export async function leerDatosDeCalendario(
       pendientes: pendientesDe(fila.publicaciones),
     })),
     primeraPublicacion: primera.data?.puerta2_publicar_en ?? null,
+    yaPublico: publicada.data.length > 0,
     pilares,
     horario: {
       dias: ajustes.data?.dias_publicacion ?? [2, 4, 6],

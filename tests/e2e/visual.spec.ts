@@ -5,7 +5,16 @@ import { claveDeToma } from "@/lib/dominio/voz"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
-import { ajustarPieza, leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import {
+  ajustarPieza,
+  leerFila,
+  marcarPublicacion,
+  moverHoraAprobada,
+  quitarPublicacion,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
 import {
   bloquearRedExterna,
   conectarLinkedin,
@@ -413,6 +422,42 @@ test("metricas", async ({ page }) => {
   }
   await page.goto("/metricas")
   await capturaDe(page, "metricas")
+})
+
+test("metricas con linkedin", async ({ page }) => {
+  await vaciarPiezasEIdeas()
+  await pool.query("delete from public.consultas")
+  await pool.query("delete from public.clics_enlace_dia")
+  await pool.query("delete from public.metricas_linkedin_cuenta")
+  const ambas = await sembrarPieza("publicado", {
+    titulo: "Si van a discutir, siéntense del mismo lado",
+    media_id: "media_v1",
+  })
+  await marcarPublicacion(ambas, "linkedin")
+  const soloLinkedin = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo" })
+  await quitarPublicacion(soloLinkedin, "instagram")
+  await marcarPublicacion(soloLinkedin, "linkedin")
+  const aMano = await sembrarPieza("publicado_a_mano", { titulo: "Subido a mano" })
+  // The flow approves for tomorrow: an hour ago keeps them in this month and in the window every day but the first hour
+  // of a month.
+  const haceUnaHora = new Date(Date.now() - 3_600_000).toISOString()
+  for (const id of [ambas, soloLinkedin, aMano]) await moverHoraAprobada(id, haceUnaHora)
+  await pool.query(
+    "insert into public.metricas_reel (pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio) values ($1, (now() at time zone 'America/Santiago')::date, 2400, 121, 30, 7, 24400)",
+    [ambas],
+  )
+  await pool.query(
+    "insert into public.metricas_linkedin (pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos, origen) values ($1, (now() at time zone 'America/Santiago')::date, 1200, 14, 3, 1, 'manual')",
+    [ambas],
+  )
+  await page.goto("/metricas")
+  await capturaDe(page, "metricas-con-linkedin")
+})
+
+test("calendario ritmo vacio", async ({ page }) => {
+  await vaciarPiezasEIdeas()
+  await page.goto("/calendario?vista=ritmo")
+  await capturaDe(page, "calendario-ritmo-vacio")
 })
 
 test("ingreso", async ({ browser }) => {

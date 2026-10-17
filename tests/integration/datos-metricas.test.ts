@@ -5,7 +5,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeServicio as clienteDeServicioParaMetricas } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
+import { marcarPublicacion, quitarPublicacion, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -22,6 +22,7 @@ async function limpiar() {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
+  await pool.query("delete from public.metricas_linkedin_cuenta")
 }
 
 beforeEach(limpiar)
@@ -31,13 +32,42 @@ afterAll(async () => {
 })
 
 describe("leerDatosDeMetricas", () => {
-  it("leaves out a piece that went out only on LinkedIn: it has no Instagram reel to measure", async () => {
-    await sembrarPieza("publicado", { titulo: "Solo LinkedIn" })
-    const conReel = await sembrarPieza("publicado", { titulo: "Con reel", media_id: "media_9" })
+  it("reads each network a piece went out on, once per network, with her own uploads marked", async () => {
+    const ambas = await sembrarPieza("publicado", { titulo: "En las dos", media_id: "media_1" })
+    await marcarPublicacion(ambas, "linkedin")
+    const soloLinkedin = await sembrarPieza("publicado", { titulo: "Solo LinkedIn" })
+    await quitarPublicacion(soloLinkedin, "instagram")
+    await marcarPublicacion(soloLinkedin, "linkedin")
+    await sembrarPieza("publicado_a_mano", { titulo: "A mano" })
+    await sembrarPieza("para_subir_a_mano", { titulo: "Sin subir" })
 
     const datos = await leerDatosDeMetricas(coni, AHORA)
 
-    expect(datos.publicadas.map((p) => p.id)).toEqual([conReel])
+    expect(
+      datos.publicaciones.map((p) => [p.titulo, p.red, p.aMano]).sort((a, b) => String(a).localeCompare(String(b))),
+    ).toEqual([
+      ["A mano", "instagram", true],
+      ["En las dos", "instagram", false],
+      ["En las dos", "linkedin", false],
+      ["Solo LinkedIn", "linkedin", false],
+    ])
+    expect(datos.publicaciones.every((p) => !Number.isNaN(Date.parse(p.publicadoEn)))).toBe(true)
+  })
+
+  it("reads the newest LinkedIn reading of each post", async () => {
+    const post = await sembrarPieza("publicado", { titulo: "Post" })
+    await marcarPublicacion(post, "linkedin")
+    await pool.query(
+      `insert into public.metricas_linkedin (pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos, origen)
+       values ($1, '2026-10-05', 300, 2, 0, 0, 'manual'), ($1, '2026-10-12', 1200, 14, 3, 1, 'manual')`,
+      [post],
+    )
+
+    const datos = await leerDatosDeMetricas(coni, AHORA)
+
+    expect(datos.lecturasLinkedin).toEqual([
+      { piezaId: post, medidoEn: "2026-10-12", impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 },
+    ])
   })
 
   it("reads published reels with their theme, their readings, the consultations and the clicks summed by day", async () => {
@@ -60,9 +90,10 @@ describe("leerDatosDeMetricas", () => {
     const datos = await leerDatosDeMetricas(coni, AHORA)
 
     expect(datos.zona).toBe("America/Santiago")
-    expect(datos.publicadas).toHaveLength(1)
-    expect(datos.publicadas[0]).toMatchObject({
-      id: publicada,
+    expect(datos.publicaciones).toHaveLength(1)
+    expect(datos.publicaciones[0]).toMatchObject({
+      piezaId: publicada,
+      red: "instagram",
       titulo: "Ser tu propia diosa",
       pilar: "etica-regulacion",
     })
@@ -82,7 +113,7 @@ describe("leerDatosDeMetricas", () => {
 
     const datos = await leerDatosDeMetricas(coni, AHORA)
 
-    expect(datos.publicadas[0]).toMatchObject({ titulo: "Sin idea", pilar: null })
+    expect(datos.publicaciones[0]).toMatchObject({ titulo: "Sin idea", pilar: null })
   })
 
   it("lets the maintainer read the same numbers, however old the newest reading of a reel is", async () => {
@@ -98,7 +129,7 @@ describe("leerDatosDeMetricas", () => {
 })
 
 describe("reels subidos a mano", () => {
-  it("never reaches the screen or the daily Instagram reading, with or without the link she pasted", async () => {
+  it("reach the screen marked as hers, while the daily Instagram reading asks only for the platform's", async () => {
     await sembrarPieza("publicado_a_mano", { titulo: "Sin enlace" })
     await sembrarPieza("publicado_a_mano", {
       titulo: "Con enlace",
@@ -110,7 +141,11 @@ describe("reels subidos a mano", () => {
     const datos = await leerDatosDeMetricas(coni, AHORA)
     const paraLeer = await leerReelsPublicados(clienteDeServicioParaMetricas())
 
-    expect(datos.publicadas.map((p) => p.titulo)).toEqual(["Publicada por la plataforma"])
+    expect(datos.publicaciones.map((p) => [p.titulo, p.aMano]).sort()).toEqual([
+      ["Con enlace", true],
+      ["Publicada por la plataforma", false],
+      ["Sin enlace", true],
+    ])
     expect(paraLeer).toEqual([{ piezaId: publicada, mediaId: "media_1" }])
   })
 })

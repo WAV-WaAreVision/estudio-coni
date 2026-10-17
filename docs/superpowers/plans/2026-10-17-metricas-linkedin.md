@@ -3114,8 +3114,9 @@ width, with large text and on a desktop width for the "Para WAV" form. Record th
 Federico runs every production command from the **macOS Terminal** (not the app's terminal), where his keys live.
 **Order: database, then Trigger.dev, then the app.**
 
-- **Old code on the new database is safe:** the migration only adds two tables, one view, one function and two
-  triggers on the new tables; nothing the running app or worker reads changes.
+- **Old code on the new database is safe:** the migration only adds three tables (`metricas_linkedin`,
+  `metricas_linkedin_cuenta`, `recordatorios_linkedin`), two functions (`sellar_anotacion`, `anotar_numeros_linkedin`),
+  one view and two triggers on the new tables; nothing the running app or worker reads changes.
 - **New code on the old database is not:** the new Métricas page and the nightly job read
   `metricas_linkedin_ultima` and `metricas_linkedin_cuenta`; they would fail without them. Hence the order.
 
@@ -3131,12 +3132,15 @@ select tablename, policyname, cmd from pg_policies
 select grantee, privilege_type from information_schema.role_table_grants
  where table_name = 'metricas_linkedin' and grantee in ('anon', 'authenticated') order by 1, 2;
 select count(*) from public.metricas_linkedin_ultima;
+select has_function_privilege('anon', 'public.anotar_numeros_linkedin(date,date,jsonb,integer)', 'execute');
+select to_regclass('public.recordatorios_linkedin');
 ```
 
 Expected: three policies per table (SELECT, INSERT, UPDATE); `authenticated` has INSERT, SELECT, UPDATE (no DELETE),
-`anon` nothing; the view answers `0`.
+`anon` nothing; the view answers `0`; `anon` cannot execute the save (`false`); `recordatorios_linkedin` exists (not
+null).
 
-- [ ] **Step 3 (OK needed): Trigger.dev** (the nightly maintenance gains the Monday job):
+- [ ] **Step 3 (OK needed): Trigger.dev** (the nightly maintenance gains the weekly LinkedIn reminder):
 
 ```bash
 pnpm install --frozen-lockfile
@@ -3166,7 +3170,8 @@ select pieza_id, medido_en, impresiones, origen, anotado_por is not null as sell
 ```
 
 Expected: the row with `origen = 'manual'` and `sellado = true`. On the next Monday after 03:00, check the run of
-`mantenimiento-nocturno` in Trigger.dev: `numerosLinkedin` is `avisado` (and WAV got the email) or `al_dia`.
+`mantenimiento-nocturno` in Trigger.dev: `numerosLinkedin` is `avisado` (and WAV got the email), `ya_avisado` or
+`al_dia`.
 
 - [ ] **Step 6: Handoff.** Update `docs/TRASPASO.md` "Producción" (migrations up to `20261017000300`, the new Trigger
 version) and the Part 3 bullet ("en producción desde ...") in a commit on `main`, pushed only if Federico asks.

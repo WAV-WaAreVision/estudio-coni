@@ -6,10 +6,15 @@ import { Seccion } from "@/components/seccion"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Panel } from "@/components/ui/panel"
 import { leerDatosDeMetricas } from "@/lib/datos/metricas"
-import { construirMetricas } from "@/lib/metricas/modelo"
+import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
+import { etiquetaDeFecha } from "@/lib/dominio/fechas"
+import { type Barra, construirMetricas } from "@/lib/metricas/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { anotarNumerosDeLinkedinAccion } from "./acciones"
+import { NumerosDeLinkedin } from "./numeros-de-linkedin"
 
 const BARRAS_A_LA_VISTA = 5
 // Copy nuevo (brandkit 13.2, open question 2): Federico confirms the words.
@@ -18,15 +23,42 @@ const VER_LAS_DEMAS = "Ver las demás"
 const RESUMEN_PLEGABLE =
   "flex min-h-fila-baja cursor-pointer list-none items-center justify-between gap-2 border-b border-hilo text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
 
+function ListaDeBarras({ barras }: { barras: readonly Barra[] }) {
+  const principales = barras.slice(0, BARRAS_A_LA_VISTA)
+  const restantes = barras.slice(BARRAS_A_LA_VISTA)
+  return (
+    <Panel className="py-1">
+      <ul>
+        {principales.map((barra) => (
+          <BarraDeMetrica key={barra.piezaId} {...barra} />
+        ))}
+      </ul>
+      {restantes.length > 0 ? (
+        <details>
+          <summary className={RESUMEN_PLEGABLE}>
+            {VER_LAS_DEMAS}
+            <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
+          </summary>
+          <ul>
+            {restantes.map((barra) => (
+              <BarraDeMetrica key={barra.piezaId} {...barra} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </Panel>
+  )
+}
+
 export default async function Metricas() {
   const { db } = await exigirConi()
-  const modelo = construirMetricas(await leerDatosDeMetricas(db, Date.now()))
-  const principales = modelo.barras.slice(0, BARRAS_A_LA_VISTA)
-  const restantes = modelo.barras.slice(BARRAS_A_LA_VISTA)
+  const ahora = Date.now()
+  const [datos, paraAnotar] = await Promise.all([leerDatosDeMetricas(db, ahora), leerLinkedinParaAnotar(db, ahora)])
+  const modelo = construirMetricas(datos)
   // The week with something to read is open; the others fold.
   const semanaAbierta = Math.max(
     0,
-    modelo.semanas.findIndex((semana) => semana.reels.length > 0),
+    modelo.semanas.findIndex((semana) => semana.publicaciones.length > 0),
   )
 
   return (
@@ -36,7 +68,8 @@ export default async function Metricas() {
         <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
           {modelo.mes}
         </h1>
-        <p className="text-cuerpo text-apagado">{modelo.resumen}</p>
+        <p className="text-cuerpo">{modelo.resumen}</p>
+        <p className="text-cuerpo text-apagado">{modelo.contacto}</p>
       </header>
 
       {modelo.aviso ? (
@@ -47,37 +80,31 @@ export default async function Metricas() {
 
       {modelo.comparacion ? <PanelDeComparacion panel={modelo.comparacion} /> : null}
 
-      <Seccion titulo="Lo que sirvió" id="sirvio" cifra={modelo.vacio ? undefined : `${modelo.barras.length} reels`}>
+      <Seccion titulo="Lo que sirvió" id="sirvio">
         {modelo.vacio ? (
           <div className="grid gap-1 py-1">
-            <p className="text-cuerpo font-semibold">Todavía no hay reels publicados.</p>
+            <p className="text-cuerpo font-semibold">Todavía no hay publicaciones.</p>
             <p className="text-cuerpo text-apagado">
-              Cuando salga el primero, aquí vas a ver qué le sirvió a la gente.
+              Cuando salga la primera, aquí vas a ver qué le sirvió a la gente.
             </p>
           </div>
         ) : (
           <>
-            <p className="text-meta text-apagado">Guardados cada 1.000 personas que lo vieron.</p>
-            <Panel className="py-1">
-              <ul>
-                {principales.map((barra) => (
-                  <BarraDeMetrica key={barra.piezaId} {...barra} />
-                ))}
-              </ul>
-              {restantes.length > 0 ? (
-                <details>
-                  <summary className={RESUMEN_PLEGABLE}>
-                    {VER_LAS_DEMAS}
-                    <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
-                  </summary>
-                  <ul>
-                    {restantes.map((barra) => (
-                      <BarraDeMetrica key={barra.piezaId} {...barra} />
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-            </Panel>
+            <p className="text-meta text-apagado">{modelo.periodo}</p>
+            {modelo.grupos.length === 0 ? (
+              <p className="text-cuerpo text-apagado">Nada publicado en estas semanas.</p>
+            ) : (
+              modelo.grupos.map((grupo) => (
+                <div key={grupo.red} className="grid gap-2">
+                  <div className="mx-0.5 flex flex-wrap items-baseline justify-between gap-x-3">
+                    <h3 className="text-meta font-semibold text-tinta">{grupo.titulo}</h3>
+                    <span className="text-meta font-medium text-apagado tabular-nums">{grupo.cifra}</span>
+                  </div>
+                  <p className="text-meta text-apagado">{grupo.medida}</p>
+                  <ListaDeBarras barras={grupo.barras} />
+                </div>
+              ))
+            )}
           </>
         )}
       </Seccion>
@@ -87,9 +114,13 @@ export default async function Metricas() {
         id="semanas"
         cifra={modelo.semanas.length > 0 ? modelo.semanas.length : undefined}
       >
-        <p className="text-meta text-apagado">Los toques en tu link cuentan una vez por persona, por link y por día.</p>
+        <p className="text-meta text-apagado">
+          {`${modelo.periodo}. Los toques en tu link cuentan una vez por persona, por link y por día.`}
+        </p>
         {modelo.semanas.length === 0 ? (
-          <p className="text-cuerpo text-apagado">Cuando haya reels, consultas o clics, los verás aquí por semana.</p>
+          <p className="text-cuerpo text-apagado">
+            Cuando haya publicaciones, consultas o clics, los verás aquí por semana.
+          </p>
         ) : (
           <div>
             {modelo.semanas.map((semana, i) => (
@@ -98,10 +129,10 @@ export default async function Metricas() {
                   <span data-snapshot="varia">{semana.titulo}</span>
                   <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
-                {semana.reels.length > 0 ? (
+                {semana.publicaciones.length > 0 ? (
                   <Grupo plano lista>
-                    {semana.reels.map((reel) => (
-                      <FilaPieza key={reel.piezaId} titulo={reel.titulo} estado={reel.meta} pilar={reel.pilar} />
+                    {semana.publicaciones.map((fila) => (
+                      <FilaPieza key={fila.clave} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} />
                     ))}
                   </Grupo>
                 ) : null}
@@ -111,6 +142,21 @@ export default async function Metricas() {
           </div>
         )}
       </Seccion>
+
+      {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Números de LinkedIn">
+        <NumerosDeLinkedin
+          posts={paraAnotar.posts.map((post) => ({
+            piezaId: post.piezaId,
+            titulo: post.titulo,
+            fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
+            estaSemana: post.estaSemana,
+          }))}
+          seguidores={paraAnotar.seguidores}
+          seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
+          alGuardar={anotarNumerosDeLinkedinAccion}
+        />
+      </MasOpciones>
     </div>
   )
 }

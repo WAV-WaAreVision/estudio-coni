@@ -809,6 +809,74 @@ export type Database = {
         }
         Relationships: []
       }
+      metricas_linkedin: {
+        Row: {
+          anotado_en: string
+          anotado_por: string | null
+          comentarios: number | null
+          compartidos: number | null
+          impresiones: number | null
+          medido_en: string
+          origen: string
+          pieza_id: string
+          reacciones: number | null
+        }
+        Insert: {
+          anotado_en?: string
+          anotado_por?: string | null
+          comentarios?: number | null
+          compartidos?: number | null
+          impresiones?: number | null
+          medido_en: string
+          origen: string
+          pieza_id: string
+          reacciones?: number | null
+        }
+        Update: {
+          anotado_en?: string
+          anotado_por?: string | null
+          comentarios?: number | null
+          compartidos?: number | null
+          impresiones?: number | null
+          medido_en?: string
+          origen?: string
+          pieza_id?: string
+          reacciones?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metricas_linkedin_cuenta: {
+        Row: {
+          anotado_en: string
+          anotado_por: string | null
+          origen: string
+          seguidores: number
+          semana: string
+        }
+        Insert: {
+          anotado_en?: string
+          anotado_por?: string | null
+          origen: string
+          seguidores: number
+          semana: string
+        }
+        Update: {
+          anotado_en?: string
+          anotado_por?: string | null
+          origen?: string
+          seguidores?: number
+          semana?: string
+        }
+        Relationships: []
+      }
       metricas_reel: {
         Row: {
           alcance: number | null
@@ -1090,6 +1158,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recordatorios_linkedin: {
+        Row: {
+          avisado_en: string
+          semana: string
+        }
+        Insert: {
+          avisado_en?: string
+          semana: string
+        }
+        Update: {
+          avisado_en?: string
+          semana?: string
+        }
+        Relationships: []
       }
       suscripciones_push: {
         Row: {
@@ -1455,6 +1538,26 @@ export type Database = {
       }
     }
     Views: {
+      metricas_linkedin_ultima: {
+        Row: {
+          comentarios: number | null
+          compartidos: number | null
+          impresiones: number | null
+          medido_en: string | null
+          origen: string | null
+          pieza_id: string | null
+          reacciones: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metricas_reel_ultima: {
         Row: {
           alcance: number | null
@@ -1502,6 +1605,15 @@ export type Database = {
       }
     }
     Functions: {
+      anotar_numeros_linkedin: {
+        Args: {
+          p_medido_en: string
+          p_posts: Json
+          p_seguidores?: number
+          p_semana: string
+        }
+        Returns: undefined
+      }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
