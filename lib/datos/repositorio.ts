@@ -202,9 +202,12 @@ export async function confirmarGasto(db: Db, clave: string, realUsd: number): Pr
   if (error) throw fallo("No pude confirmar el gasto", error)
 }
 
-/** Releasing a reservation that is no longer `reservado` changes nothing, so it is safe to repeat. */
-export async function liberarGasto(db: Db, clave: string): Promise<void> {
-  const { error } = await db.rpc("liberar_gasto", { p_clave: clave })
+/**
+ * Releasing a reservation that is no longer `reservado` changes nothing, so it is safe to repeat. `sinCobro` only when
+ * the provider refused the request: it is what lets the screen say the attempt was not charged.
+ */
+export async function liberarGasto(db: Db, clave: string, opciones: { sinCobro?: boolean } = {}): Promise<void> {
+  const { error } = await db.rpc("liberar_gasto", { p_clave: clave, p_sin_cobro: opciones.sinCobro ?? false })
   if (error) throw fallo("No pude liberar el gasto", error)
 }
 

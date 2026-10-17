@@ -251,3 +251,41 @@ describe("quién puede reservar", () => {
     })
   })
 })
+
+describe("liberar sin cobro", () => {
+  it("marks a release as sin_cobro only when asked, and a plain release leaves it false", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-sin-cobro", 1)
+      await reservar(c, "clave-barrida", 1)
+      await c.query("select public.liberar_gasto('clave-sin-cobro', true)")
+      await c.query("select public.liberar_gasto('clave-barrida')")
+      const { rows } = await c.query<{ clave: string; estado: string; sin_cobro: boolean }>(
+        "select clave, estado, sin_cobro from public.gastos where clave in ('clave-sin-cobro', 'clave-barrida') order by clave",
+      )
+      expect(rows).toEqual([
+        { clave: "clave-barrida", estado: "liberado", sin_cobro: false },
+        { clave: "clave-sin-cobro", estado: "liberado", sin_cobro: true },
+      ])
+    })
+  })
+
+  it("does not mark a confirmed spend as sin_cobro", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-pagada", 1)
+      await c.query("select public.confirmar_gasto('clave-pagada', 1)")
+      await c.query("select public.liberar_gasto('clave-pagada', true)")
+      const { rows } = await c.query("select estado, sin_cobro from public.gastos where clave = 'clave-pagada'")
+      expect(rows).toEqual([{ estado: "confirmado", sin_cobro: false }])
+    })
+  })
+
+  it.each([
+    ["Coni", comoConi],
+    ["the maintainer", comoMantenedor],
+  ])("still refuses %s the new release", async (_quien, sesion) => {
+    await como(sesion, async (c) => {
+      const err = await fallaCon(c, "select public.liberar_gasto('clave-x', true)")
+      expect(err.code).toBe("42501")
+    })
+  })
+})
