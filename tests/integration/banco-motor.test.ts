@@ -117,6 +117,32 @@ describe("leerBanco con el motor", () => {
     expect(idea?.porQue?.nivel).toBe("debil")
   })
 
+  it("brings the source line of the claims still in force", async () => {
+    await sembrarCorrida(SEMANA)
+    await sembrarIdeaDelMotor({
+      gancho: "Con fuente",
+      semana: SEMANA,
+      teoria: {
+        ...TEORIA,
+        respaldo: [
+          {
+            autor: "Siembra Stanford",
+            cita: "La IA ya se usa para la salud mental.",
+            titulo: "AI for Mental Health",
+            anio: 2026,
+          },
+          { autor: "Siembra Excluida", cita: "Una afirmación que ya no vale." },
+        ],
+      },
+    })
+    await pool.query("update public.afirmaciones set excluida = true where cita = 'Una afirmación que ya no vale.'")
+
+    const [idea] = await leerBanco(coni, AHORA)
+
+    expect(idea?.porQue?.fuente).toBe("Fuente: Siembra Stanford · AI for Mental Health (2026)")
+    expect(idea?.porQue?.respaldo.map((r) => r.autor)).toEqual(["Siembra Stanford"])
+  })
+
   it("has no theory for an idea that did not come from the engine", async () => {
     await sembrarIdea({ gancho: "Mía" })
 

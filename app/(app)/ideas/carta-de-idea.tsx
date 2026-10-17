@@ -23,6 +23,7 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
       <div className="grid gap-3">
         <p className="text-meta text-apagado">{idea.nombrePilar}</p>
         <h2 className="text-pieza text-balance">{idea.gancho}</h2>
+        {idea.porQue?.fuente ? <p className="text-meta text-apagado">{idea.porQue.fuente}</p> : null}
         {idea.tema ? <p className="text-cuerpo text-apagado">{idea.tema}</p> : null}
         <p className="text-meta font-medium text-tinta">
           Fuerza {idea.fuerza}

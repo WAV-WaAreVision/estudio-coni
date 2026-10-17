@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
+import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
 import { nombreDePilar, soloActivos } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
@@ -47,6 +48,7 @@ const NUEVA_PARA_ORDEN = idea({
     tesis: "Tesis.",
     nivel: "medio",
     respaldo: [],
+    fuente: null,
   },
 })
 
@@ -374,6 +376,7 @@ const TEORIA = {
     { autor: "Autora Uno", cita: "El cansancio es una forma de decir que no." },
     { autor: "Autora Dos", cita: "El deseo necesita seguridad para aparecer." },
   ],
+  fuente: null,
 }
 
 const NUEVA = idea({
@@ -382,6 +385,20 @@ const NUEVA = idea({
   gancho: "Estar cansada no siempre es cansancio.",
   nueva: true,
   porQue: TEORIA,
+})
+
+describe("CartaDeIdea: fuente", () => {
+  it("shows the source under the hook", () => {
+    render(<CartaDeIdea idea={{ ...NUEVA, porQue: { ...TEORIA, fuente: "Fuente: OMS · Informe (2025)" } }} />)
+    const gancho = screen.getByRole("heading", { level: 2 })
+    const fuente = screen.getByText("Fuente: OMS · Informe (2025)")
+    expect(gancho.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("shows no source line for an idea without backing", () => {
+    render(<CartaDeIdea idea={{ ...NUEVA, porQue: null }} />)
+    expect(screen.queryByText(/^Fuentes?:|^De Coni$/)).not.toBeInTheDocument()
+  })
 })
 
 describe("BancoDeIdeas: nuevas de la semana", () => {

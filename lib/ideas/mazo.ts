@@ -29,6 +29,8 @@ export interface PorQueDeIdea {
   tesis: string
   nivel: NivelDeEvidencia | null
   respaldo: { autor: string; cita: string }[]
+  /** "Fuente: ..." or "De Coni"; null when no claim says where it comes from. */
+  fuente: string | null
 }
 
 export interface FiltroDeIdeas {

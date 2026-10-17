@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { leerPilares } from "@/lib/datos/pilares"
+import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { nombreDePilar } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco, NivelDeEvidencia, PorQueDeIdea } from "@/lib/ideas/mazo"
@@ -36,14 +37,31 @@ function porQueDe(teoria: {
   titulo: string | null
   tesis: string | null
   nivel_evidencia: string | null
-  teoria_afirmaciones: { afirmaciones: { cita: string; autores: { nombre: string } | null } | null }[]
+  teoria_afirmaciones: {
+    afirmaciones: {
+      cita: string
+      excluida: boolean
+      autores: { nombre: string; tipo: string } | null
+      materiales: { titulo: string | null; anio: number | null } | null
+    } | null
+  }[]
 }): PorQueDeIdea {
+  // Excluded claims never inspire a script (`respaldo_de_idea`), so they leave the list and the source line too.
+  const vigentes = teoria.teoria_afirmaciones.flatMap(({ afirmaciones }) =>
+    afirmaciones && !afirmaciones.excluida && afirmaciones.autores
+      ? [{ ...afirmaciones, autores: afirmaciones.autores }]
+      : [],
+  )
   return {
     titulo: teoria.titulo ?? "",
     tesis: teoria.tesis ?? "",
     nivel: nivelDe(teoria.nivel_evidencia),
-    respaldo: teoria.teoria_afirmaciones.flatMap(({ afirmaciones }) =>
-      afirmaciones?.autores ? [{ autor: afirmaciones.autores.nombre, cita: afirmaciones.cita }] : [],
+    respaldo: vigentes.map((a) => ({ autor: a.autores.nombre, cita: a.cita })),
+    fuente: lineaDeFuente(
+      vigentes.map((a) => ({
+        deConi: a.autores.tipo === "coni",
+        fuente: { autor: a.autores.nombre, titulo: a.materiales?.titulo ?? null, anio: a.materiales?.anio ?? null },
+      })),
     ),
   }
 }
@@ -58,7 +76,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
     db
       .from("ideas")
       .select(
-        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(cita, autores(nombre))))",
+        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
       )
       .in("estado", ["idea", "usada"]),
     db
