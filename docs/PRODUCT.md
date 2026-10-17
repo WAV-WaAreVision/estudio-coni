@@ -37,6 +37,11 @@ clínicas son un efecto secundario, no la meta.
 Pilares de contenido: IA y salud mental; Práctica clínica aumentada; Ética y regulación; Acceso y
 salud pública; Caso Coni: humana + avatar.
 
+Los pilares viven en la base (`categorias` con `es_pilar`); los cinco de sexología quedaron retirados (sus ideas usadas
+y su material se conservan). La sexología aparece como mirada dentro de los pilares. Fuentes: la tarjeta de idea y la
+puerta 1 muestran «Fuente: autor · obra (año)»; LinkedIn cita la fuente en el texto, Instagram lleva la línea antes
+del aviso de avatar y el guion hablado nunca nombra autores.
+
 ## Brand Personality
 
 Experta, clara, cálida. Una psicóloga que piensa en público: rigor de revista de ideas, con la
