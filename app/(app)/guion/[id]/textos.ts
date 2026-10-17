@@ -24,10 +24,15 @@ export const TEXTO_REINTENTA_VOZ = "Vuelve a intentarlo con Preparar mi voz."
 export const TEXTO_SIN_SALDO_VOZ = "No alcanza el saldo para preparar tu voz. Avísale a Federico."
 export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video. Avísale a Federico."
 export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."
-export const TEXTO_NO_PUDE_REHACER_VOZ =
-  "No pude grabar tu voz de nuevo. Puedes intentarlo otra vez en Editar el guion."
+export const TEXTO_NO_PUDE_REHACER_VOZ = "No pude grabar tu voz de nuevo."
+export const TEXTO_REINTENTA_REHACER_VOZ = "Puedes intentarlo otra vez en Editar el guion."
+export const TEXTO_AVISA_A_FEDERICO = "Avísale a Federico."
 export const TEXTO_REINTENTA = "Vuelve a intentarlo con Reintentar."
 export const TEXTO_DETENIDO_EN_SUS_PALABRAS = "No puedo seguir grabando por ahora. Avísale a Federico."
+
+// A key ElevenLabs refused, or none saved: trying again gives the same answer, so the text never offers it.
+const FALLA_DE_LLAVE = /\b(401|403)\b|\bllave\b/i
+export const esFallaDeLlave = (texto: string) => FALLA_DE_LLAVE.test(texto)
 
 /** "Grabo tu video en 8 s": the seconds really left of the undo window, computed once (decision 10). */
 export const textoGraboEn = (quedanMs: number) =>

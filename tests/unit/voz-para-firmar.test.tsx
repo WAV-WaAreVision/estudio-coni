@@ -144,10 +144,64 @@ describe("VozParaFirmar", () => {
     // One fold per block: the reason and the balance go together.
     expect(screen.getAllByText("Detalle para WAV")).toHaveLength(1)
     const alerta = screen.getByRole("alert")
-    expect(alerta).toHaveTextContent("Vuelve a intentarlo con Preparar mi voz.")
+    // A key ElevenLabs refused does not work again by trying again: she tells Federico.
+    expect(alerta).toHaveTextContent("Avísale a Federico.")
+    expect(alerta).not.toHaveTextContent(/Vuelve a intentarlo/)
     const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
     expect(detalle).toContainElement(screen.getByText("ElevenLabs respondió 401: la llave no sirve."))
     expect(screen.getByRole("link", { name: "Abrir ElevenLabs" })).toBeInTheDocument()
+  })
+
+  it("offers trying again after a provider's passing refusal, while 'Preparar mi voz' is open", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES })}
+        explicacion="No pude preparar tu voz. ElevenLabs respondió HTTP 429: demasiadas solicitudes."
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("alert")).toHaveTextContent("Vuelve a intentarlo con Preparar mi voz.")
+  })
+
+  it.each([
+    [
+      "the app's own reason, with unsaved changes",
+      "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz.",
+      true,
+      null,
+    ],
+    [
+      "a provider's reason, with unsaved changes",
+      "No pude preparar tu voz. ElevenLabs respondió HTTP 429: demasiadas solicitudes.",
+      true,
+      null,
+    ],
+    [
+      "the app's own reason, past the month's cap",
+      "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz.",
+      false,
+      TOPE,
+    ],
+  ])("never offers trying again while 'Preparar mi voz' is closed: %s", (_, explicacion, sinGuardar, bloqueoVoz) => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: { ...BOTONES, bloqueoVoz } })}
+        explicacion={explicacion}
+        alEscuchar={vi.fn()}
+        sinGuardar={sinGuardar}
+      />,
+    )
+    const alerta = screen.getByRole("alert")
+    expect(alerta).not.toHaveTextContent(/Vuelve a intentarlo/)
+    // What she can do instead is the reason under the closed button.
+    const accion = screen.getByRole("button", { name: /^Preparar mi voz/ })
+    expect(accion).toHaveAttribute("aria-disabled", "true")
+    expect(accion).toHaveAccessibleDescription(sinGuardar ? "Guarda tus cambios antes de grabar tu voz." : TOPE)
   })
 
   it("says a short ElevenLabs balance in her words on the closed button, with the numbers for WAV", () => {

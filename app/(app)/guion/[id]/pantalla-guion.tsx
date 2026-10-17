@@ -33,14 +33,17 @@ import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
 import {
+  esFallaDeLlave,
+  TEXTO_AVISA_A_FEDERICO,
   TEXTO_CAMBIOS_TRAS_LA_VOZ,
   TEXTO_NO_PUDE_GRABAR,
   TEXTO_NO_PUDE_REHACER_VOZ,
   TEXTO_PEDIR_CAMBIOS,
+  TEXTO_REINTENTA_REHACER_VOZ,
   TEXTO_SIN_OBSERVACIONES,
   TEXTO_SIN_SALDO_VIDEO,
 } from "./textos"
-import { GrabarDeNuevo, VozParaFirmar } from "./voz-para-firmar"
+import { GrabarDeNuevo, razonDeVoz, VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
   id: string
@@ -69,11 +72,15 @@ export interface DatosDeGuion {
   avatarGuardado: string | null
 }
 
-/** A provider's reason left on a script that has her voice, said by what failed: the video, or a new take. */
-function enSusPalabras(explicacion: string): string {
+/**
+ * A provider's reason left on a script that has her voice, said by what failed: the video, or a new take. A new take
+ * is offered only while "Grabar la voz de nuevo" is open (no `razon`), and never for a key ElevenLabs refused.
+ */
+function enSusPalabras(explicacion: string, razon: string | null): string {
   if (/\bHeyGen\b/i.test(explicacion)) return TEXTO_NO_PUDE_GRABAR
-  if (/\bElevenLabs\b/i.test(explicacion)) return TEXTO_NO_PUDE_REHACER_VOZ
-  return TEXTO_ALGO_FALLO
+  if (!/\bElevenLabs\b/i.test(explicacion)) return TEXTO_ALGO_FALLO
+  if (esFallaDeLlave(explicacion)) return `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_AVISA_A_FEDERICO}`
+  return razon === null ? `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_REINTENTA_REHACER_VOZ}` : TEXTO_NO_PUDE_REHACER_VOZ
 }
 
 const TEXTO_AUN_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
@@ -213,7 +220,10 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
 
       {grabacion.voz && datos.explicacion ? (
         <Bloque tipo="aviso" className="mt-6">
-          <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={enSusPalabras(datos.explicacion)} />
+          <ExplicacionParaConi
+            texto={datos.explicacion}
+            enSusPalabras={enSusPalabras(datos.explicacion, razonDeVoz(grabacion, sinGuardar))}
+          />
         </Bloque>
       ) : null}
 

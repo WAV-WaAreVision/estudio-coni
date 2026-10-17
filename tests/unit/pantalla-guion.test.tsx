@@ -211,6 +211,25 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.queryByText(/No pude grabar el video/)).toBeNull()
   })
 
+  it("offers no new take in Editar el guion while that button is closed", () => {
+    const tope = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+    render(
+      <PantallaGuion
+        datos={datos(
+          { explicacion: "ElevenLabs respondió HTTP 429: demasiadas solicitudes." },
+          { botones: { ...BOTONES, bloqueoVoz: tope } },
+        )}
+      />,
+    )
+    expect(screen.getByText("No pude grabar tu voz de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText(/Puedes intentarlo otra vez/)).toBeNull()
+  })
+
+  it("sends a key ElevenLabs refused to Federico instead of offering a new take", () => {
+    render(<PantallaGuion datos={datos({ explicacion: "ElevenLabs respondió HTTP 401: la llave no sirve." })} />)
+    expect(screen.getByText("No pude grabar tu voz de nuevo. Avísale a Federico.")).toBeInTheDocument()
+  })
+
   it("says a phrase HeyGen refused in her words in a warning block, with HeyGen's text for WAV", () => {
     render(<PantallaGuion datos={datos({ explicacion: "HeyGen marcó una frase como sensible." })} />)
     const bloque = screen

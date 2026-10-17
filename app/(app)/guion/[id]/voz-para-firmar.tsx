@@ -14,7 +14,9 @@ import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import { separarParaConi } from "@/lib/diseno/para-coni"
 import { pedirVozAccion } from "../../piezas/acciones"
 import {
+  esFallaDeLlave,
   separarFallaDeVoz,
+  TEXTO_AVISA_A_FEDERICO,
   TEXTO_FALTA_VOZ,
   TEXTO_GUARDA_ANTES_DE_VOZ,
   TEXTO_PREPARANDO_VOZ,
@@ -36,9 +38,18 @@ interface PropiedadesDeVoz {
 }
 
 /** Why the voice buttons are closed, if they are: unsaved changes first, else what does not reach. */
-function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string | null {
+export function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string | null {
   if (sinGuardar) return TEXTO_GUARDA_ANTES_DE_VOZ
   return datos.botones?.bloqueoVoz ?? null
+}
+
+/**
+ * The rest of a failed voice's reason as she reads it: "try again" only while the button is open (else the reason
+ * under it says what to do), and Federico for a key, which trying again does not fix.
+ */
+function fallaEnSusPalabras(detalle: string, razon: string | null): { texto: string | null; detalle: string[] } {
+  const para = separarParaConi(detalle, esFallaDeLlave(detalle) ? TEXTO_AVISA_A_FEDERICO : TEXTO_REINTENTA_VOZ)
+  return { texto: para.texto === TEXTO_REINTENTA_VOZ && razon !== null ? null : para.texto, detalle: para.detalle }
 }
 
 /**
@@ -84,7 +95,7 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
   const { voz, botones } = datos
   const razon = razonDeVoz(datos, sinGuardar)
   const falla = explicacion ? separarFallaDeVoz(explicacion) : null
-  const detalleDeFalla = falla?.detalle ? separarParaConi(falla.detalle, TEXTO_REINTENTA_VOZ) : null
+  const detalleDeFalla = falla?.detalle ? fallaEnSusPalabras(falla.detalle, razon) : null
 
   return (
     <Seccion titulo="1. Escucha tu voz" id="voz">
