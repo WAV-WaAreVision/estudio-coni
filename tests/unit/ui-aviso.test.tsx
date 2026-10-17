@@ -81,6 +81,8 @@ describe("Aviso", () => {
     rerender(<Aviso mensaje="Firmaste." alCerrar={alCerrar} alDeshacer={alDeshacer} deshaciendo />)
     const boton = screen.getByRole("button", { name: "Deshaciendo…" })
     expect(boton).toHaveAttribute("aria-disabled", "true")
+    // Muted, not only faded.
+    expect(boton).toHaveClass("aria-disabled:text-apagado")
     fireEvent.click(boton)
     act(() => {
       vi.advanceTimersByTime(8000)

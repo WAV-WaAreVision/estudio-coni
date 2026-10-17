@@ -48,7 +48,7 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
                 onClick={() => {
                   if (!ocupada) alElegir(motivo)
                 }}
-                className="flex min-h-fila-baja w-full items-center text-left text-cuerpo font-semibold text-tinta transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
+                className="flex min-h-fila-baja w-full items-center text-left text-cuerpo font-semibold text-tinta transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda aria-disabled:cursor-not-allowed aria-disabled:text-apagado aria-disabled:active:bg-transparent"
               >
                 {texto}
               </button>

@@ -71,7 +71,7 @@ export function Aviso({
           type="button"
           // aria-disabled, not disabled: the button keeps her focus while the undo is on its way.
           aria-disabled={sigueDeshaciendo || undefined}
-          className="min-h-objetivo shrink-0 rounded-control bg-luz px-[18px] text-cuerpo font-semibold text-tinta focus-visible:outline-luz aria-disabled:opacity-70"
+          className="min-h-objetivo shrink-0 rounded-control bg-luz px-[18px] text-cuerpo font-semibold text-tinta focus-visible:outline-luz aria-disabled:cursor-not-allowed aria-disabled:text-apagado"
           onClick={() => {
             if (sigueDeshaciendo) return
             alDeshacer()

@@ -65,6 +65,20 @@ describe("Boton", () => {
     expect(boton).toHaveClass("aria-disabled:bg-piedra-honda", "aria-disabled:shadow-none")
   })
 
+  it("mutes the label of a disabled button of every kind, not only its shadow", () => {
+    for (const variante of ["primario", "secundario", "callado", "destructiva"] as const) {
+      const { unmount } = render(
+        <Boton variante={variante} deshabilitado>
+          Entrar
+        </Boton>,
+      )
+      const boton = screen.getByRole("button", { name: "Entrar" })
+      expect(boton).toHaveAttribute("aria-disabled", "true")
+      expect(boton).toHaveClass("aria-disabled:text-apagado")
+      unmount()
+    }
+  })
+
   it("does not submit a form while loading", () => {
     const alEnviar = vi.fn((evento: { preventDefault: () => void }) => evento.preventDefault())
     render(
