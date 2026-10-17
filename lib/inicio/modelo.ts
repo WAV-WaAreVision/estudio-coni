@@ -273,18 +273,22 @@ function reciente(piezas: readonly PiezaDeInicio[], estado: Estado, ahora: numbe
 /** What Inicio shows, from the pieces and the clock: no database, no rendering (decision 8). */
 export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; ahora: number; zona: string }): Inicio {
   const { piezas, ahora, zona } = entrada
-  const firma = piezas.filter((pieza) => ESPERAN_FIRMA.includes(pieza.estado)).map(filaDeFirma)
   const enPreparacion = piezas.filter((pieza) => pieza.estado === "grabando_voz").map(filaEnPreparacion)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))
     .filter((par): par is { pieza: PiezaDeInicio; fila: FilaEnCamino } => par.fila !== null)
     .sort((a, b) => porHoraDePublicacion(a.pieza, b.pieza))
     .map((par) => par.fila)
-  const atencion = piezas
+  const conAviso = piezas
     .map((pieza) => ({ pieza, aviso: avisoDeError(pieza) }))
     .filter((par): par is { pieza: PiezaDeInicio; aviso: AvisoDeInicio } => par.aviso !== null)
     .sort((a, b) => ORDEN_DE_ATENCION.indexOf(a.pieza.estado) - ORDEN_DE_ATENCION.indexOf(b.pieza.estado))
-    .map((par) => par.aviso)
+  const atencion = conAviso.map((par) => par.aviso)
+  // A piece under attention is reached from its notice: counting it again would tell her a second one waits.
+  const enAtencion = new Set(conAviso.map((par) => par.pieza.id))
+  const firma = piezas
+    .filter((pieza) => ESPERAN_FIRMA.includes(pieza.estado) && !enAtencion.has(pieza.id))
+    .map(filaDeFirma)
 
   const avisos: AvisoDeInicio[] = []
   const publicada = reciente(piezas, "publicado", ahora)

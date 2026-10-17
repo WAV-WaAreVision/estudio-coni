@@ -129,11 +129,18 @@ describe("construirInicio", () => {
     expect(atencion[4]?.accion).toEqual({ etiqueta: "Elegir otra fecha", href: `/video/${fecha.id}` })
   })
 
-  it("keeps a script HeyGen sent back in the signature list too", () => {
+  it("shows a script HeyGen sent back once, under attention, and not again in the signature list", () => {
     const devuelta = pieza("guion_por_aprobar", { explicacion: "HeyGen marcó una frase como sensible." })
     const inicio = construirInicio({ piezas: [devuelta], ahora: AHORA, zona: ZONA })
     expect(inicio.atencion).toHaveLength(1)
-    expect(inicio.firma).toHaveLength(1)
+    expect(inicio.firma).toEqual([])
+  })
+
+  it("does not say something else waits when the only signable piece is the one under attention", () => {
+    const otraFecha = pieza("video_por_aprobar", { explicacion: "La fecha que elegiste ya pasó." })
+    const inicio = construirInicio({ piezas: [otraFecha], ahora: AHORA, zona: ZONA })
+    expect([inicio.titulo, inicio.linea]).toEqual(["Una cosa necesita tu atención", null])
+    expect(inicio.firma).toEqual([])
   })
 
   it("shows what is on its way, each row opening its screen", () => {
@@ -348,7 +355,7 @@ describe("Inicio con la voz en la puerta 1", () => {
     expect(inicio.camino).toEqual([])
   })
 
-  it("turns a voice that could not be made into a failure to review, and keeps the script to sign", () => {
+  it("turns a voice that could not be made into a failure to review, reached from its notice only", () => {
     const texto = "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz."
     const inicio = construirInicio(entrada([{ ...base, id: "c", estado: "guion_por_aprobar", explicacion: texto }]))
     expect(inicio.atencion).toEqual([
@@ -361,7 +368,7 @@ describe("Inicio con la voz en la puerta 1", () => {
         accion: { etiqueta: "Revisar", href: "/guion/c" },
       },
     ])
-    expect(inicio.firma).toHaveLength(1)
+    expect(inicio.firma).toEqual([])
   })
 
   it("shows a signed piece on its way, with the way to its screen", () => {
