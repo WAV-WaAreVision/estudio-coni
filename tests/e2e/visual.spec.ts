@@ -14,6 +14,7 @@ import {
   desconectarLinkedin,
   GUION_VALIDO,
   simularMedios,
+  TEXTO_LINKEDIN_VALIDO,
   TEXTO_VALIDO,
 } from "./ayudas"
 import { sembrarEscena } from "./escena"
@@ -172,11 +173,20 @@ async function videoVisto(page: Page, id: string) {
   await page.addInitScript((clave) => window.localStorage.setItem(clave, "1"), `visto:${video_id}`)
 }
 
-test("video por aprobar", async ({ page }) => {
+// LinkedIn and Instagram: the LinkedIn text leads ("Así sale en LinkedIn") and the caption folds under it. The
+// Instagram-only layout stays in "video sin terminar", which is also the state before she watched it.
+test("video por aprobar con linkedin", async ({ page }) => {
   const { video } = await sembrarEscena()
-  await videoVisto(page, video)
-  await page.goto(`/video/${video}`)
-  await capturaDe(page, "video-por-aprobar")
+  await ajustarPieza(video, { texto_linkedin: TEXTO_LINKEDIN_VALIDO })
+  await pool.query("update public.ajustes set destinos_por_defecto = '{instagram,linkedin}'")
+  try {
+    await videoVisto(page, video)
+    await page.goto(`/video/${video}`)
+    await expect(page.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeVisible()
+    await capturaDe(page, "video-por-aprobar-con-linkedin")
+  } finally {
+    await pool.query("update public.ajustes set destinos_por_defecto = '{instagram}'")
+  }
 })
 
 test("video sin terminar", async ({ page }) => {
