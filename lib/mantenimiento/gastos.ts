@@ -31,8 +31,11 @@ const DESPUES_DEL_RENDER = [
 /** Before the script step is over: nothing was saved from it. */
 const ANTES_DEL_GUION = ["idea", "guion_en_proceso"]
 
-/** `<pieza>:voz:<huella de 16>:<intento>`: the key of a voice reservation by text; older keys do not match. */
-const CLAVE_DE_VOZ = /:voz:([0-9a-f]{16}):(\d+)$/
+/**
+ * `<pieza>:voz:<huella de 16>:<intento>[:r<n>]`: the key of a voice reservation by text; `:r<n>` is a further counted
+ * try of the same attempt (`claveDeGastoDeVoz`). Older keys do not match.
+ */
+const CLAVE_DE_VOZ = /:voz:([0-9a-f]{16}):(\d+)(?::r\d+)?$/
 
 /** The take this very reservation pays for is the voice of the piece. Null when the key is an older one. */
 function tomaDeLaReserva(gasto: FilaDeGasto, pieza: FilaDePieza): boolean | null {
@@ -49,10 +52,10 @@ function tomaDeLaReserva(gasto: FilaDeGasto, pieza: FilaDePieza): boolean | null
 function pasoRealizado(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
   if (gasto.proveedor === "heygen") return pieza.render_id !== null || DESPUES_DEL_RENDER.includes(pieza.estado)
   if (gasto.proveedor === "elevenlabs" && gasto.paso === "voz") {
-    // The voice is made before gate 1 (by the writer, or by "Preparar mi voz") and signing keeps it, so a stored
-    // voice may belong to an earlier reservation: only the take of this one says it was paid. Older keys fall back to
-    // any stored voice. A reservation with no take of its own is released after an hour by `vozSinToma`.
-    return tomaDeLaReserva(gasto, pieza) ?? pieza.audio_id !== null
+    // The voice is made before gate 1 (by the writer, or by "Preparar mi voz") and signing keeps it, so a stored voice
+    // may belong to another reservation: only the take of this one says it was paid. An older key cannot tell, so it
+    // waits for the day-old release; a reservation with no take of its own is released after an hour (`vozSinToma`).
+    return tomaDeLaReserva(gasto, pieza) ?? false
   }
   return !ANTES_DEL_GUION.includes(pieza.estado)
 }
