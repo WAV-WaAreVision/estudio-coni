@@ -152,4 +152,32 @@ describe("métricas de LinkedIn", () => {
       expect(rows).toEqual([{ medido_en: "2026-10-19", impresiones: 2000 }])
     })
   })
+  it("saves nothing of a post when the followers of the same save cannot be written", async () => {
+    await como(comoPostgres, async (c) => {
+      const pieza = await nuevaPieza(c)
+      await c.query(SEGUIDORES, ["2026-10-19", "api"])
+      await asumir(c, comoConi)
+      const error = await fallaCon(
+        c,
+        "select public.anotar_numeros_linkedin('2026-10-19', '2026-10-19', $1::jsonb, 900)",
+        [JSON.stringify([{ pieza_id: pieza, impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 }])],
+      )
+      expect(error.message).toMatch(/row-level security/)
+      await asumir(c, comoPostgres)
+      expect((await c.query("select * from public.metricas_linkedin")).rowCount).toBe(0)
+      const { rows } = await c.query("select seguidores, origen from public.metricas_linkedin_cuenta")
+      expect(rows).toEqual([{ seguidores: 830, origen: "api" }])
+    })
+  })
+
+  it("does not let anyone signed out run the weekly save", async () => {
+    await como(comoPostgres, async (c) => {
+      await c.query("set local role anon")
+      const error = await fallaCon(
+        c,
+        "select public.anotar_numeros_linkedin('2026-10-19', '2026-10-19', '[]'::jsonb, 900)",
+      )
+      expect(error.message).toMatch(/permission denied for function/)
+    })
+  })
 })
