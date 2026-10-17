@@ -51,7 +51,7 @@ export function TextoLinkedin({
     return (
       <div className="grid gap-3">
         <Panel>
-          <p className="whitespace-pre-line text-[1.125rem] leading-prosa">{texto}</p>
+          <p className="whitespace-pre-line text-guion leading-prosa">{texto}</p>
         </Panel>
         <p className="mx-0.5 text-meta text-apagado tabular-nums">
           {miles([...texto].length)} de {miles(MAXIMO_TEXTO_LINKEDIN)}

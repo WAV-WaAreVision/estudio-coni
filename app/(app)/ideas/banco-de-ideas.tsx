@@ -34,6 +34,9 @@ interface Mensaje {
   deshacer?: () => void
 }
 
+// "Usar esta" with its arrow wrapped inside a 151 px column at the 22 px inset: a tighter inset keeps it whole.
+const PAR_DE_BOTONES = "gap-2 px-[18px] whitespace-nowrap"
+
 /**
  * The idea bank: one idea at a time on the tint of its pillar, with "Después" and "Usar esta" as buttons (never only a
  * swipe), a switch to search, and a way to write an idea of her own. `ideas` arrives in the order the deck shows it.
@@ -187,11 +190,13 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           <div ref={carta} tabIndex={-1} className="outline-none">
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
-              <div className="grid grid-cols-2 gap-2">
-                <Boton variante="secundario" onClick={() => despues(actual)}>
+              {/* Side by side at 390 px, one per row at large text; neither label wraps inside its pill. */}
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-2">
+                <Boton variante="secundario" className={PAR_DE_BOTONES} onClick={() => despues(actual)}>
                   Después
                 </Boton>
                 <Boton
+                  className={PAR_DE_BOTONES}
                   cargando={pendiente}
                   icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
                   onClick={() => usar(actual)}

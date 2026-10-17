@@ -79,6 +79,14 @@ describe("BancoDeIdeas: composition", () => {
     expect(usar.compareDocumentPosition(porQue) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it("keeps both labels on one line, side by side until large text stacks them", () => {
+    mostrar({}, [{ ...NUEVA_PARA_ORDEN }])
+    const usar = screen.getByRole("button", { name: "Usar esta" })
+    const despues = screen.getByRole("button", { name: "Después" })
+    for (const boton of [usar, despues]) expect(boton).toHaveClass("whitespace-nowrap")
+    expect(usar.parentElement?.className).toMatch(/auto-fit/)
+  })
+
   it("draws discard as a quiet action, never filled and never magenta", () => {
     mostrar()
     const descartar = screen.getByRole("button", { name: "Descartar" })

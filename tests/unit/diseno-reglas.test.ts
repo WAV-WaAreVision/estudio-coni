@@ -180,6 +180,10 @@ describe("design rules", () => {
     expect(CODIGO.filter((ruta) => /\b(min-h-(11|12|13|14|16)|size-12|h-14)\b/.test(leer(ruta)))).toEqual([])
   })
 
+  it("sizes text with the type scale tokens, never an arbitrary text-[size]", () => {
+    expect(CODIGO.filter((ruta) => /\btext-\[\d/.test(leer(ruta)))).toEqual([])
+  })
+
   it("keeps the error magenta to the error block, the error pill and the destructive confirm", () => {
     const permitidos = new Set([
       "components/ui/bloque.tsx",

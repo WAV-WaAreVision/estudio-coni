@@ -44,11 +44,11 @@ describe("CuentasConectadas", () => {
     expect(screen.queryByText("Guardada y comprobada.")).toBeNull()
   })
 
-  it("draws each state as a flat pill and the name of the account at 1.25rem", () => {
+  it("draws each state as a flat pill and the name of the account at the script size", () => {
     mostrar(vi.fn())
     expect(screen.getByText("Conectada").parentElement).toHaveClass("bg-piedra-honda", "min-h-pildora")
     expect(screen.getByText("No aceptó la llave").parentElement).toHaveClass("text-error")
-    expect(screen.getByText("HeyGen")).toHaveClass("text-[1.25rem]", "font-semibold")
+    expect(screen.getByText("HeyGen")).toHaveClass("text-guion", "font-semibold")
   })
 
   it("folds 'Cambiar la llave' under Más opciones, open when the key was refused", () => {

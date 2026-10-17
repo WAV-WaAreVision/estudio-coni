@@ -19,10 +19,10 @@ describe("TextoLinkedin", () => {
     expect(screen.getByText(`${[...TEXTO].length} de 3.000`)).toBeInTheDocument()
   })
 
-  it("reads the saved text in a panel at 1.125rem and edits it from a small secondary", () => {
+  it("reads the saved text in a panel at the script size and edits it from a small secondary", () => {
     armar()
     expect(screen.getByText(/Llevan diez años juntos/).closest("[data-contorno]")).toHaveClass("bg-piedra-alta")
-    expect(screen.getByText(/Llevan diez años juntos/)).toHaveClass("text-[1.125rem]")
+    expect(screen.getByText(/Llevan diez años juntos/)).toHaveClass("text-guion")
     expect(screen.getByRole("button", { name: "Editar el texto para LinkedIn" })).toHaveClass(
       "bg-piedra",
       "min-h-objetivo",
