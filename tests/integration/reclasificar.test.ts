@@ -145,6 +145,14 @@ describe("reclasificación de pilares", () => {
     expect(rows[0]?.estado).toBe("confirmado")
   })
 
+  it("prices each batch with the model that served it", async () => {
+    await materialEn("deseo", "Siembra modelo")
+    servidor.use(http.post(URL_MENSAJES, ({ request }) => asignandoTodo(request, "claude-opus-5-5")))
+    const { estimado, realUsd } = await proponer()
+    // 500 input and 100 output tokens per batch at Opus list prices (4 and 20 US$ per million).
+    expect(realUsd).toBeCloseTo(0.004 * estimado.tandas, 6)
+  })
+
   it("releases the reservation when Claude fails, so the cap does not count it", async () => {
     await materialEn("limites", "Siembra falla")
     servidor.use(

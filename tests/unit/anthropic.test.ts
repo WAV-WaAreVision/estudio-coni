@@ -804,12 +804,26 @@ describe("clasificarEnPilares", () => {
     )
     const { asignaciones } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
     const { cuerpo } = pedidos[0] as PedidoCapturado
-    expect(cuerpo.system).toEqual([{ type: "text", text: expect.stringContaining("- caso-coni: Caso Coni: humana + avatar.") }])
+    expect(cuerpo.system).toEqual([
+      { type: "text", text: expect.stringContaining("- caso-coni: Caso Coni: humana + avatar.") },
+    ])
     expect(JSON.stringify(cuerpo.messages[0]?.content)).toContain("<elementos>")
     expect(asignaciones).toEqual([
       { id: "m1", pilar: "ia-salud-mental", razon: "Chatbots" },
       { id: "t1", pilar: "general", razon: "Claude no propuso un pilar." },
     ])
+  })
+
+  it("reports the model that served the batch, so a fallback is priced at its own rates", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [] }, { model: "claude-opus-5-5" })))
+    const { modelo } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    expect(modelo).toBe("claude-opus-5-5")
+  })
+
+  it("prices a served model it does not know at the highest list price", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [] }, { model: "claude-desconocido-9" })))
+    const { modelo } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    expect(modelo).toBe("claude-opus-5-5")
   })
 
   it("turns an unknown pillar into general", async () => {

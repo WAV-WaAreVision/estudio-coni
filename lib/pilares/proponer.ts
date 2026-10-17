@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { pilaresActivos } from "@/lib/datos/pilares"
 import { leerElementosPorReclasificar } from "@/lib/datos/reclasificacion"
 import { confirmarGasto, liberarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
-import { clasificarEnPilares, costoClaude, guiaDeReclasificacion, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
+import { clasificarEnPilares, costoClaude, guiaDeReclasificacion } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { estimarClasificacion, type FilaDeReclasificacion, POR_TANDA } from "./reclasificar"
 
@@ -38,8 +38,12 @@ export async function proponerReclasificacion(deps: {
   try {
     for (let desde = 0; desde < elementos.length; desde += POR_TANDA) {
       const tanda = elementos.slice(desde, desde + POR_TANDA)
-      const { asignaciones, uso } = await clasificarEnPilares({ cliente: deps.claude, pilares, elementos: tanda })
-      realUsd += costoClaude(uso, MODELO_POR_TAREA.clasificarEnPilares.modelo)
+      const { asignaciones, uso, modelo } = await clasificarEnPilares({
+        cliente: deps.claude,
+        pilares,
+        elementos: tanda,
+      })
+      realUsd += costoClaude(uso, modelo)
       const porId = new Map(asignaciones.map((a) => [a.id, a]))
       for (const e of tanda) {
         const a = porId.get(e.id)

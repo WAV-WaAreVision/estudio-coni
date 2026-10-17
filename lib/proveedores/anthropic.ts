@@ -73,6 +73,11 @@ const PRECIOS: Record<ModeloClaude, { entrada: number; salida: number; lecturaCa
 }
 const FACTOR_ESCRITURA_CACHE = 1.25
 
+/** The model whose prices apply to a response. One this file does not price bills as the dearest it knows. */
+export function modeloQueCobra(servido: string): ModeloClaude {
+  return servido === "claude-opus-5-5" || servido === "claude-sonnet-5-5" ? servido : "claude-opus-5-5"
+}
+
 export interface UsoClaude {
   input_tokens: number
   output_tokens: number
@@ -279,7 +284,7 @@ async function pedirJson<S extends z.ZodType>(
     /** False for a guide below the 1024-token cache minimum, where the marker buys nothing. */
     cachearGuia?: boolean
   },
-): Promise<{ salida: z.infer<S>; uso: UsoClaude }> {
+): Promise<{ salida: z.infer<S>; uso: UsoClaude; modelo: string }> {
   const formato = betaZodOutputFormat(pedido.esquema)
   const config: ConfigDeTarea = MODELO_POR_TAREA[tarea]
   let respuesta: Anthropic.Beta.Messages.BetaMessage
@@ -322,7 +327,7 @@ async function pedirJson<S extends z.ZodType>(
       cause: new Error(describirIncumplimientos(lectura.error.issues, crudo)),
     })
   }
-  return { salida: lectura.data, uso: respuesta.usage }
+  return { salida: lectura.data, uso: respuesta.usage, modelo: respuesta.model }
 }
 
 const MAXIMO_INCUMPLIMIENTOS_EN_LOG = 10
@@ -488,14 +493,19 @@ export async function clasificarEnPilares(entrada: {
   cliente: Anthropic
   pilares: readonly DatosDePilar[]
   elementos: readonly ElementoPorClasificar[]
-}): Promise<{ asignaciones: { id: string; pilar: string; razon: string }[]; uso: UsoClaude }> {
+}): Promise<{
+  asignaciones: { id: string; pilar: string; razon: string }[]
+  uso: UsoClaude
+  /** The model that served the batch (a fallback may), as priced by `costoClaude`. */
+  modelo: ModeloClaude
+}> {
   const valores: [string, ...string[]] = ["general", ...slugsActivos(entrada.pilares)]
   const esquema = z.object({
     asignaciones: z.array(
       z.object({ id: z.string(), pilar: enumTolerante(valores, { porDefecto: "general" }), razon: z.string() }),
     ),
   })
-  const { salida, uso } = await pedirJson(entrada.cliente, "clasificarEnPilares", {
+  const { salida, uso, modelo } = await pedirJson(entrada.cliente, "clasificarEnPilares", {
     guia: guiaDeReclasificacion(entrada.pilares),
     cachearGuia: false,
     usuario: `Clasifica estos elementos.\n\n<elementos>\n${sinCierre(JSON.stringify(entrada.elementos))}\n</elementos>`,
@@ -509,7 +519,7 @@ export async function clasificarEnPilares(entrada: {
     id: e.id,
     ...(respuestas.get(e.id) ?? { pilar: "general", razon: "Claude no propuso un pilar." }),
   }))
-  return { asignaciones, uso }
+  return { asignaciones, uso, modelo: modeloQueCobra(modelo) }
 }
 
 const IMAGENES_POR_PEDIDO = 20
