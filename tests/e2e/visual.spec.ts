@@ -320,7 +320,8 @@ test("guion sin saldo", async ({ page }) => {
   const id = await guionSembrado("guion_por_aprobar")
   await vozEscuchada(page, id)
   await page.goto(`/guion/${id}`)
-  await expect(page.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toBeVisible()
+  // Said twice: at the top, before the steps, and at the sign control.
+  await expect(page.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toHaveCount(2)
   await capturaDe(page, "guion-sin-saldo")
 })
 
@@ -361,17 +362,17 @@ test("guion error", async ({ page }) => {
   await capturaDe(page, "guion-error")
 })
 
-test("metricas", async ({ page }) => {
 /**
  * The server reads the real clock, which a test cannot stop: the reels go out on the 7th, 14th and 21st of last month
  * (Santiago noon), so on any run date they are more than a week old, inside the 12 weeks shown, outside this month and
  * in three weeks that never cross a month (their titles keep one line). The page then draws the same screen whatever
  * day it runs; only masked labels (month, weeks) move.
  */
+test("metricas", async ({ page }) => {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
-  const reels = [
   await pool.query("delete from public.clics_enlace_dia")
+  const reels = [
     ["Ser tu propia diosa", "autoestima", 7, 2000, 10],
     ["Si van a discutir, siéntense del mismo lado", "pareja", 14, 2400, 121],
     ["El deseo no se apaga, se esconde", "deseo", 21, 1000, 12],
