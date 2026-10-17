@@ -1,6 +1,7 @@
 -- The editorial guide every prompt reads moves to the LinkedIn pillars (spec 2026-10-17, decision 10;
--- amendment 10). Text: tests/fixtures/linea-editorial.md, a copy of coni-heygen/contenido/linea-editorial.md;
--- the integration tests compare both. Production gets it as the next version; a fresh database as version 1.
+-- amendment 10). Text: tests/fixtures/linea-editorial.md, copied by hand from coni-heygen/contenido/linea-editorial.md
+-- (no test reads the other repo); tests/integration/produccion-esquema.test.ts checks the vigente guide equals the
+-- fixture. Production gets it as the next version; a fresh database as version 1.
 update public.guias set vigente = false where vigente;
 insert into public.guias (version, texto, vigente)
 select coalesce(max(version), 0) + 1, $guia$# Línea editorial de Coni para redes
