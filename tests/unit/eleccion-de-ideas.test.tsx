@@ -40,8 +40,17 @@ function mostrar(cambios: Partial<AccionesDeEleccion> = {}) {
   }
   const alSacar = vi.fn()
   const alDevolver = vi.fn()
-  render(<EleccionDeIdeas ideas={IDEAS} acciones={acciones} alSacar={alSacar} alDevolver={alDevolver} />)
-  return { acciones, alSacar, alDevolver }
+  const alEmpezar = vi.fn()
+  render(
+    <EleccionDeIdeas
+      ideas={IDEAS}
+      acciones={acciones}
+      alSacar={alSacar}
+      alDevolver={alDevolver}
+      alEmpezar={alEmpezar}
+    />,
+  )
+  return { acciones, alSacar, alDevolver, alEmpezar }
 }
 
 const marcar = (gancho: string) => fireEvent.click(screen.getByRole("checkbox", { name: gancho }))
@@ -145,5 +154,39 @@ describe("EleccionDeIdeas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (1)" }))
     expect(await screen.findByText(/Llegaste al tope de gasto/)).toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: "Uno" })).toBeChecked()
+  })
+
+  it("takes out only what left the bank, keeps the idea that came back ticked and says the truth", async () => {
+    const elegirVarias = vi.fn(async () => ({
+      ok: true as const,
+      tipo: "empezadas" as const,
+      resultados: [
+        { ideaId: "i0", tipo: "empezada" as const, piezaId: "p0" },
+        { ideaId: "i1", tipo: "devuelta" as const },
+        { ideaId: "i2", tipo: "con_aviso" as const, piezaId: "p2" },
+      ],
+    }))
+    const { alSacar, alEmpezar } = mostrar({ elegirVarias })
+    marcar("Uno")
+    marcar("Dos")
+    marcar("Tres")
+    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (3)" }))
+
+    expect(
+      await screen.findByText("Empecé 1 de 3. 1 volvió al banco y 1 quedó con un aviso en Inicio."),
+    ).toBeInTheDocument()
+    expect(alSacar).toHaveBeenCalledWith(["i0", "i2"])
+    expect(alEmpezar).toHaveBeenCalled()
+    expect(screen.getByRole("checkbox", { name: "Dos" })).toBeChecked()
+    expect(screen.getByRole("checkbox", { name: "Uno" })).not.toBeChecked()
+    expect(screen.getByRole("button", { name: "Hacer los guiones (1)" })).toBeInTheDocument()
+  })
+
+  it("puts the focus on Deshacer after a discard, since undoing is what she may want next", async () => {
+    mostrar()
+    marcar("Uno")
+    fireEvent.click(screen.getByRole("button", { name: "Descartar (1)" }))
+    fireEvent.click(screen.getByRole("button", { name: "Débil" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus())
   })
 })

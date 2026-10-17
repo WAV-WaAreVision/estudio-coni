@@ -574,4 +574,12 @@ describe("BancoDeIdeas: elegir varias", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }))
     expect(screen.getByText("Idea 1 de 2")).toBeInTheDocument()
   })
+
+  it("moves the focus to the view's heading once the scripts started, as the bar it was on goes away", async () => {
+    mostrar()
+    fireEvent.click(screen.getByRole("button", { name: "Elegir varias" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "Si van a discutir, siéntense del mismo lado." }))
+    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (1)" }))
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Elegir varias", level: 1 })).toHaveFocus())
+  })
 })

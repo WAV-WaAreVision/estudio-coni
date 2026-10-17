@@ -65,6 +65,7 @@ export function BancoDeIdeas({
   const [fuera, setFuera] = useState<string[]>([])
   const [enfocarCarta, setEnfocarCarta] = useState(false)
   const carta = useRef<HTMLDivElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, empezar] = useTransition()
@@ -167,7 +168,7 @@ export function BancoDeIdeas({
       <header className="grid gap-1">
         <Volver href="/">Inicio</Volver>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-pantalla">
+          <h1 ref={titulo} tabIndex={-1} className="text-pantalla outline-none">
             {vista === "varias" ? "Elegir varias" : buscando ? "Buscar ideas" : "Ideas"}
           </h1>
           <div className="flex shrink-0 items-center gap-4">
@@ -207,6 +208,7 @@ export function BancoDeIdeas({
           acciones={acciones}
           alSacar={(ids) => setFuera((previas) => [...previas, ...ids])}
           alDevolver={(ids) => setFuera((previas) => previas.filter((id) => !ids.includes(id)))}
+          alEmpezar={() => titulo.current?.focus()}
         />
       ) : buscando ? (
         <BusquedaDeIdeas

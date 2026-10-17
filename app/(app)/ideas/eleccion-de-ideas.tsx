@@ -8,7 +8,7 @@ import { Casilla } from "@/components/ui/casilla"
 import { Grupo } from "@/components/ui/grupo"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
-import type { LoteElegido } from "@/lib/acciones/piezas"
+import type { InicioDeIdea, LoteElegido } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import {
@@ -16,7 +16,7 @@ import {
   detalleDeAlcance,
   preguntaDeAlcance,
   textoDeDescartadas,
-  textoDeEmpezadas,
+  textoDelLote,
   textoDeRestauradas,
 } from "@/lib/dominio/lote"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
@@ -43,6 +43,7 @@ export function EleccionDeIdeas({
   acciones,
   alSacar,
   alDevolver,
+  alEmpezar,
 }: {
   ideas: readonly IdeaDeBanco[]
   acciones: AccionesDeEleccion
@@ -50,6 +51,8 @@ export function EleccionDeIdeas({
   alSacar: (ideaIds: string[]) => void
   /** They came back with Deshacer. */
   alDevolver: (ideaIds: string[]) => void
+  /** The scripts were asked for: the bar she was on may be gone, so the screen takes the focus. */
+  alEmpezar: () => void
 }) {
   const [elegidas, setElegidas] = useState<string[]>([])
   const [alcanza, setAlcanza] = useState<number | null>(null)
@@ -80,10 +83,21 @@ export function EleccionDeIdeas({
         setAlcanza(resultado.cuantas)
         return
       }
+      // Only an idea whose piece could not be created is back in the bank: it stays ticked to try again.
+      const devueltas = resultado.resultados.filter((r) => r.tipo === "devuelta").map((r) => r.ideaId)
+      const cuantasDe = (tipo: InicioDeIdea["tipo"]) => resultado.resultados.filter((r) => r.tipo === tipo).length
       setAlcanza(null)
-      setElegidas([])
-      alSacar(ideaIds)
-      setMensaje({ texto: textoDeEmpezadas(resultado.resultados.filter((r) => r.tipo === "empezada").length) })
+      setElegidas((previas) => previas.filter((id) => devueltas.includes(id)))
+      alSacar(ideaIds.filter((id) => !devueltas.includes(id)))
+      setMensaje({
+        texto: textoDelLote({
+          empezadas: cuantasDe("empezada"),
+          devueltas: devueltas.length,
+          conAviso: cuantasDe("con_aviso"),
+          noDisponibles: cuantasDe("no_disponible"),
+        }),
+      })
+      alEmpezar()
     })
   }
 
@@ -185,6 +199,7 @@ export function EleccionDeIdeas({
           mensaje={mensaje.texto}
           alCerrar={cerrarMensaje}
           alDeshacer={mensaje.deshacer}
+          enfocarDeshacer={mensaje.deshacer !== undefined}
           deshaciendo={mensaje.deshacer ? deshaciendo : undefined}
         />
       ) : null}
