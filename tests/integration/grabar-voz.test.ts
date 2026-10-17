@@ -307,18 +307,35 @@ describe("asegurarVoz releases by outcome", () => {
     ])
   })
 
-  it("stops without calling ElevenLabs once every counted key of the attempt is taken", async () => {
+  it("pays a new key after an outage whose four keys the sweeper released", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    for (let cobro = 0; cobro < 4; cobro += 1) {
+      const clave = claveDeGastoDeVoz(id, HUELLA, fila.intento, cobro)
+      await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.25, $2, now())", [id, clave])
+      await pool.query("select public.liberar_gasto($1)", [clave])
+    }
+
+    const voz = await intentar(deps(), fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(1)
+    const r4 = `${claveDeGastoDeVoz(id, HUELLA, fila.intento)}:r4`
+    expect(await gastosDeVoz(id)).toContainEqual(expect.objectContaining({ clave: r4, estado: "confirmado" }))
+  })
+
+  it("stops without calling ElevenLabs after twelve keys of the attempt, open or swept", async () => {
     responder(() => new HttpResponse("x", { status: 503 }))
     const id = await grabando()
     const fila = await filaDe(id)
-    for (let vez = 0; vez < 4; vez += 1) {
+    for (let vez = 0; vez < 12; vez += 1) {
       await expect(intentar(deps(), fila)).rejects.toThrow("503")
     }
 
-    await expect(intentar(deps(), fila)).rejects.toThrow(FallaDeConfiguracion)
+    await expect(intentar(deps(), fila)).rejects.toThrow(/usó 12 reservas de voz/)
 
-    expect(llamadas).toBe(4)
-    expect((await gastosDeVoz(id)).map((g) => g.estado)).toEqual(["reservado", "reservado", "reservado", "reservado"])
+    expect(llamadas).toBe(12)
   })
 
   it("never lets two racing runs of an attempt call ElevenLabs under the same key", async () => {
@@ -433,7 +450,9 @@ describe("asegurarVoz keeps a paid audio", () => {
       await expect(intentar({ ...deps(), almacen: almacenQueFalla(4).almacen }, fila)).rejects.toThrow("R2")
     }
 
-    await expect(intentar(deps(), fila)).rejects.toThrow(FallaDeConfiguracion)
+    const error = intentar(deps(), fila)
+    await expect(error).rejects.toThrow(FallaDeConfiguracion)
+    await expect(error).rejects.toThrow(/pagó 4 tomas que no se pudieron guardar/)
 
     expect(llamadas).toBe(4)
   })

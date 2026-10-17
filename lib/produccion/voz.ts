@@ -91,12 +91,16 @@ async function guardarTomaPagada(
   throw ultimoError
 }
 
-const COBROS_EXTRA_MAXIMOS = 3
+/** Paid takes lost on upload before the attempt stops paying (the attempt's own key and three more). */
+const TOMAS_PERDIDAS_MAXIMAS = 4
+/** Keys looked at in all: open and swept ones are stepped past, an outage must not jam the attempt for good. */
+const CLAVES_MAXIMAS = 12
 
 /**
  * The reservation this try may call ElevenLabs under, so every call is counted once. The attempt's key, reopened after
- * a refusal; or the next `:r<n>` key when the previous one is taken: still `reservado` by an earlier try whose call had
- * an unknown outcome (it stays for the sweeper), released by the sweeper, or confirmed without its take.
+ * a refusal; or the next `:r<n>` key when the previous one is taken: still `reservado` by another try (unknown outcome,
+ * it stays for the sweeper), released by the sweeper, or confirmed without its take. Only the last kind is a lost paid
+ * take and counts toward the stop.
  */
 async function reservarIntento(
   deps: DepsVoz,
@@ -105,7 +109,8 @@ async function reservarIntento(
   const { fila, huella, estimado } = entrada
   // This try's own token: a reservation is ours only if it comes back with it (another run may hold the same key).
   const token = crypto.randomUUID()
-  for (let cobro = 0; cobro <= COBROS_EXTRA_MAXIMOS; cobro += 1) {
+  let perdidas = 0
+  for (let cobro = 0; cobro < CLAVES_MAXIMAS; cobro += 1) {
     const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
     const reserva = await reservarGasto(deps.db, {
       piezaId: fila.id,
@@ -122,11 +127,19 @@ async function reservarIntento(
     // Reserved by another try (unknown outcome, or still running): calling again under it would go uncounted.
     if (reserva.gasto.estado === "reservado" && reserva.gasto.reservado_por === token)
       return { tipo: "reservada", clave }
-    // A run that ended meanwhile may have stored the take and confirmed: then that paid audio is the voice.
-    if (reserva.gasto.estado === "confirmado" && (await deps.almacen.existe(entrada.toma))) return { tipo: "lista" }
+    if (reserva.gasto.estado === "confirmado") {
+      // A run that ended meanwhile may have stored the take and confirmed: then that paid audio is the voice.
+      if (await deps.almacen.existe(entrada.toma)) return { tipo: "lista" }
+      perdidas += 1
+      if (perdidas >= TOMAS_PERDIDAS_MAXIMAS) {
+        throw new FallaDeConfiguracion(
+          `La voz de la pieza ${fila.id} ya pagó ${TOMAS_PERDIDAS_MAXIMAS} tomas que no se pudieron guardar.`,
+        )
+      }
+    }
   }
   throw new FallaDeConfiguracion(
-    `La voz de la pieza ${fila.id} ya se intentó ${COBROS_EXTRA_MAXIMOS + 1} veces sin guardar la toma.`,
+    `La voz de la pieza ${fila.id} ya usó ${CLAVES_MAXIMAS} reservas de voz (pagadas, abiertas o barridas) sin guardar la toma.`,
   )
 }
 
