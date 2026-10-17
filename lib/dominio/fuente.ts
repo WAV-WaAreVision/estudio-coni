@@ -54,5 +54,7 @@ export function conLineaDeFuente(texto: string, linea: string | null): string {
   if (linea === null || linea === DE_CONI || texto.includes(linea)) return texto
   const aviso = texto.lastIndexOf(AVISO_AVATAR)
   if (aviso < 0) return `${texto.trimEnd()}\n\n${linea}`
-  return `${texto.slice(0, aviso)}${linea}\n\n${texto.slice(aviso)}`
+  // Its own paragraph however the writer separated the notice (same line, one break or a blank line).
+  const antes = texto.slice(0, aviso).trimEnd()
+  return `${antes === "" ? "" : `${antes}\n\n`}${linea}\n\n${texto.slice(aviso)}`
 }

@@ -62,6 +62,14 @@ describe("conLineaDeFuente", () => {
     )
   })
 
+  it.each([
+    ["on the same line", `Un texto. ${AVISO_AVATAR}`],
+    ["after a single line break", `Un texto.\n${AVISO_AVATAR}`],
+    ["after a blank line", `Un texto.\n\n${AVISO_AVATAR}`],
+  ])("sets the line apart as its own paragraph when the notice is %s", (_caso, conAviso) => {
+    expect(conLineaDeFuente(conAviso, "Fuente: OMS")).toBe(`Un texto.\n\nFuente: OMS\n\n${AVISO_AVATAR}`)
+  })
+
   it("adds it at the end when the notice is missing (the revision blocks that anyway)", () => {
     expect(conLineaDeFuente("Un texto.", "Fuente: OMS")).toBe("Un texto.\n\nFuente: OMS")
   })

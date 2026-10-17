@@ -760,7 +760,7 @@ describe("producirPieza con una idea del motor", () => {
 
     const fila = await leerFila(id)
     expect(fila.texto).toBe(
-      `Hablemos de esto, como dice Siembra Stanford. Fuente: Siembra Stanford · AI for Mental Health (2026)\n\n${AVISO_AVATAR}`,
+      `Hablemos de esto, como dice Siembra Stanford.\n\nFuente: Siembra Stanford · AI for Mental Health (2026)\n\n${AVISO_AVATAR}`,
     )
     expect(leerRespaldo(fila.respaldo)?.afirmaciones[0]?.fuente).toEqual({
       autor: "Siembra Stanford",
