@@ -809,6 +809,74 @@ export type Database = {
         }
         Relationships: []
       }
+      metricas_linkedin: {
+        Row: {
+          anotado_en: string
+          anotado_por: string | null
+          comentarios: number | null
+          compartidos: number | null
+          impresiones: number | null
+          medido_en: string
+          origen: string
+          pieza_id: string
+          reacciones: number | null
+        }
+        Insert: {
+          anotado_en?: string
+          anotado_por?: string | null
+          comentarios?: number | null
+          compartidos?: number | null
+          impresiones?: number | null
+          medido_en: string
+          origen: string
+          pieza_id: string
+          reacciones?: number | null
+        }
+        Update: {
+          anotado_en?: string
+          anotado_por?: string | null
+          comentarios?: number | null
+          compartidos?: number | null
+          impresiones?: number | null
+          medido_en?: string
+          origen?: string
+          pieza_id?: string
+          reacciones?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metricas_linkedin_cuenta: {
+        Row: {
+          anotado_en: string
+          anotado_por: string | null
+          origen: string
+          seguidores: number
+          semana: string
+        }
+        Insert: {
+          anotado_en?: string
+          anotado_por?: string | null
+          origen: string
+          seguidores: number
+          semana: string
+        }
+        Update: {
+          anotado_en?: string
+          anotado_por?: string | null
+          origen?: string
+          seguidores?: number
+          semana?: string
+        }
+        Relationships: []
+      }
       metricas_reel: {
         Row: {
           alcance: number | null
@@ -1455,6 +1523,26 @@ export type Database = {
       }
     }
     Views: {
+      metricas_linkedin_ultima: {
+        Row: {
+          comentarios: number | null
+          compartidos: number | null
+          impresiones: number | null
+          medido_en: string | null
+          origen: string | null
+          pieza_id: string | null
+          reacciones: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metricas_reel_ultima: {
         Row: {
           alcance: number | null
