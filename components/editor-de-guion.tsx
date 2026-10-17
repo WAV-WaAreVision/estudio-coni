@@ -137,7 +137,7 @@ export function EditorDeGuion({
             </span>
             <span className="inline-flex items-center gap-1 font-semibold text-tinta">
               {estadoDelLargo === "bien" ? (
-                <Check aria-hidden="true" size={ICONO.chico} className="text-exito" />
+                <Check aria-hidden="true" size={ICONO.chico} className="text-tinta" />
               ) : null}
               {ESTADOS[estadoDelLargo]}
             </span>

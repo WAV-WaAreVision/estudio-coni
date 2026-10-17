@@ -195,3 +195,10 @@ export async function firmarConDosToques(page: Page): Promise<void> {
   await page.waitForTimeout(500)
   await pista.click()
 }
+
+/** Opens a native disclosure by the text of its summary, when it is folded. */
+export async function abrirDesplegable(page: Page, titulo: string): Promise<void> {
+  const detalles = page.locator("details", { has: page.locator("summary", { hasText: titulo }) }).first()
+  const abierto = await detalles.evaluate((elemento) => (elemento as HTMLDetailsElement).open)
+  if (!abierto) await detalles.locator("summary").first().click()
+}

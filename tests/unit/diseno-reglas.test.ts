@@ -149,13 +149,8 @@ describe("design rules", () => {
     expect(CODIGO.filter((ruta) => viejos.test(leer(ruta)))).toEqual([])
   })
 
-  it("keeps the signature colour to the slider, the committed date, the wordmark dot and the public page", () => {
-    const permitidos = new Set([
-      "components/deslizar-para-aprobar.tsx",
-      "app/(app)/guion/[id]/pantalla-guion.tsx",
-      "components/ui/wordmark.tsx",
-      "app/l/page.tsx",
-    ])
+  it("keeps the signature colour to the slider, the wordmark dot and the public page", () => {
+    const permitidos = new Set(["components/deslizar-para-aprobar.tsx", "components/ui/wordmark.tsx", "app/l/page.tsx"])
     const culpables = CODIGO.filter(
       (ruta) => /\b(text|bg|fill|border|ring|outline)-firma\b/.test(leer(ruta)) && !permitidos.has(ruta),
     )

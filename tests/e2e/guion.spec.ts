@@ -7,6 +7,7 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { CONI, pool } from "../integration/db"
 import { ajustarPieza, leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
+  abrirDesplegable,
   alerta,
   capturar,
   configurarServicios,
@@ -60,8 +61,9 @@ async function escucharLaVoz(page: Page) {
   await expect(page.getByText("La escuchaste completa")).toBeVisible({ timeout: 15_000 })
 }
 
-/** Taps the card like she would: the radio itself is visually hidden. */
+/** Taps the row like she would (the radio itself is visually hidden), opening "Más opciones" first if it is folded. */
 async function elegirAvatar(page: Page, nombre: string) {
+  await abrirDesplegable(page, "Más opciones")
   await page.getByRole("radio", { name: nombre }).locator("xpath=ancestor::label").click()
   await expect(page.getByRole("radio", { name: nombre })).toBeChecked()
 }
@@ -103,15 +105,15 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   const id = await guionPorAprobar([AVISO_DE_RIESGO], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
-  await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
 
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
+  const barra = page.getByRole("region", { name: "Firma" })
   await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
-  await expect(page.getByText(/^Si lo apruebas hoy, sale el /)).toBeVisible()
+  await expect(page.getByText(/^Si lo firmas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await expect(deslizador).toHaveAttribute("aria-valuetext", "Sin firmar")
-  await expect(page.getByText("Falta elegir el avatar y confirmar la revisión.")).toBeVisible()
+  await expect(barra.getByText("escuchar tu voz · revisar 1 aviso · elegir el avatar", { exact: false })).toBeVisible()
   await capturar(page, "04-guion")
 
   // Pushing the slider while it is not enabled does nothing.
@@ -120,12 +122,13 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   await expect(page.getByText(GRABANDO)).toHaveCount(0)
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
+  await abrirDesplegable(page, "Editar el guion")
   const guion = page.getByRole("textbox", { name: "Guion", exact: true })
   await expect(guion).toHaveValue(GUION_VALIDO)
   await expect(page.getByRole("button", { name: "Guardar cambios" })).toHaveAttribute("aria-disabled", "true")
   await guion.fill(GUION_EDITADO)
   await expect(page.getByText(/palabras · ≈ \d+ s/)).toBeVisible()
-  await expect(page.getByText("Guarda tus cambios antes de aprobar")).toBeVisible()
+  await expect(barra.getByText("guardar tus cambios", { exact: false })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await capturar(page, "guion-editor")
   await page.getByRole("button", { name: "Guardar cambios" }).click()
@@ -142,7 +145,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   await elegirAvatar(page, "Terraza")
   // Saving ran a new review: the helplines are in the caption, so there is nothing left to confirm.
   await expect(page.getByRole("checkbox", { name: "Lo revisé y está bien" })).toHaveCount(0)
-  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await expect(barra.getByText("escuchar tu voz", { exact: false })).toBeVisible()
   await escucharLaVoz(page)
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
 
@@ -164,7 +167,8 @@ test("a script without its voice asks to prepare it, and the voice arrives by it
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText("Falta preparar tu voz.").first()).toBeVisible()
+  // The writer delivered the script without her voice and with TEXTO_SIN_VOZ: the voice block is an error block.
+  await expect(page.getByText("No pude preparar tu voz.", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })).toBeVisible()
   await expect(
     page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
@@ -179,6 +183,7 @@ test("a script without its voice asks to prepare it, and the voice arrives by it
 
   await vozLista(id)
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
+  await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).toBeVisible()
   await capturar(page, "guion-con-voz", { completa: true })
 })
@@ -205,19 +210,18 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
   await expect(page.getByText("No se pudo terminar el video")).toHaveCount(0)
 })
 
-test("gate 1 shows the committed date in the signature colour and the whole script without inner scroll", async ({
-  page,
-}) => {
+test("gate 1 shows the date in ink and bold, and the editor without inner scroll", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
   const fecha = page.getByText(/^(lunes|martes|miércoles|jueves|viernes|sábado|domingo) \d/).first()
-  await expect(fecha).toHaveCSS("color", "rgb(168, 40, 90)")
+  await expect(fecha).toHaveCSS("color", "rgb(38, 38, 38)")
+  await expect(fecha).toHaveCSS("font-weight", "600")
+  await abrirDesplegable(page, "Editar el guion")
   const guion = page.getByRole("textbox", { name: "Guion", exact: true })
   const [alto, altoDelContenido] = await guion.evaluate((el) => [el.clientHeight, el.scrollHeight])
   expect(altoDelContenido).toBeLessThanOrEqual(alto + 1)
-  // The bar sticks to the bottom as the screen's last element (decision 6): no fixed height to reserve any more.
   await expect(page.getByRole("region", { name: "Firma" })).toHaveCSS("position", "sticky")
   await capturar(page, "guion-por-aprobar-completa", { completa: true })
 })
@@ -269,7 +273,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 
   await expect(page.getByText(/^Graba el video · US\$ \d+,\d\d · 8 s para deshacer$/)).toBeVisible()
   await elegirAvatar(page, "Estudio")
-  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await expect(page.getByRole("region", { name: "Firma" }).getByText("escuchar tu voz", { exact: false })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await escucharLaVoz(page)
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
@@ -349,6 +353,7 @@ test("an empty HeyGen API wallet keeps the signature closed and says where to to
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
   // Her voice alone still works without HeyGen.
+  await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).not.toHaveAttribute(
     "aria-disabled",
     "true",
@@ -360,6 +365,7 @@ test("a balance that does not answer is said, and blocks nothing", async ({ page
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
+  await abrirDesplegable(page, "Editar el guion")
 
   await expect(page.getByText("No pude ver tu saldo de ElevenLabs.")).toBeVisible()
   await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).not.toHaveAttribute(
@@ -381,11 +387,14 @@ test("she goes back to Claude's version after editing, and her voice is asked fo
   )
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
+  await abrirDesplegable(page, "Editar el guion")
 
   await page.getByRole("textbox", { name: "Guion", exact: true }).fill(GUION_EDITADO)
   await page.getByRole("button", { name: "Guardar cambios" }).click()
   await expect(page.getByText(PREPARANDO).first()).toBeVisible()
   await vozLista(id)
+  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible({ timeout: 15_000 })
+  await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Volver a la versión de Claude" })).toBeVisible({ timeout: 15_000 })
 
   await page.getByRole("button", { name: "Volver a la versión de Claude" }).click()
@@ -405,6 +414,7 @@ test("a caption that forgets the avatar notice blocks the approval until she put
   const id = await guionPorAprobar()
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
+  await abrirDesplegable(page, "Editar el guion")
   const texto = page.getByRole("textbox", { name: "Texto de la publicación" })
 
   await texto.fill("Un texto sin el aviso.")
@@ -412,7 +422,9 @@ test("a caption that forgets the avatar notice blocks the approval until she put
 
   await expect(page.getByText("Hay que corregirlo", { exact: true })).toBeVisible()
   await expect(page.getByText(/tiene que avisar que es un avatar digital/).first()).toBeVisible()
-  await expect(page.getByText("Guarda tus cambios antes de aprobar")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("guardar tus cambios", { exact: false }),
+  ).toBeVisible()
   await page.getByRole("slider", { name: ETIQUETA }).focus()
   await page.keyboard.press("End")
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
@@ -424,7 +436,7 @@ test("a caption that forgets the avatar notice blocks the approval until she put
   await expect(page.getByText("Guardado", { exact: true })).toBeVisible()
   await elegirAvatar(page, "Estudio")
   // The caption is not what her voice says: the voice stays, and only listening to it is left.
-  await expect(page.getByText("Escucha tu voz completa para firmar.")).toBeVisible()
+  await expect(page.getByRole("region", { name: "Firma" }).getByText("escuchar tu voz", { exact: false })).toBeVisible()
   await escucharLaVoz(page)
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "false")
   expect(disparosRegistrados()).toEqual([])
@@ -434,6 +446,7 @@ test("asking for changes sends the script back to be rewritten", async ({ page }
   const id = await guionPorAprobar()
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
+  await abrirDesplegable(page, "Editar el guion")
 
   await page.getByRole("button", { name: "Pedir cambios" }).click()
   await page.getByRole("button", { name: "Sí, pedir cambios" }).click()
@@ -473,6 +486,7 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
 
   const grupo = page.getByRole("group", { name: "Avatar" })
   await expect(grupo).toBeVisible()
+  await expect(page.getByText("Avatar: falta elegirlo")).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(2)
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(0)
   const foto = page.locator('img[src*="look-a"]')
@@ -486,6 +500,7 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeChecked()
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeFocused()
+  await expect(page.getByText("Avatar: Terraza")).toBeVisible()
   const alto = await page.getByRole("radio", { name: "Terraza" }).locator("xpath=ancestor::label").boundingBox()
   expect(alto?.height).toBeGreaterThanOrEqual(44)
   await capturar(page, "guion-avatar-elegido")
@@ -498,10 +513,11 @@ test("with an empty list it says so and approval stays blocked", async ({ page }
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
 
-  await expect(page.getByText("Todavía no hay avatares para elegir: avísale a Federico.")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("Todavía no hay avatares para elegir: avísale a Federico."),
+  ).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(0)
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
-  await expect(page.getByText("Todavía no hay avatares para elegir.", { exact: false }).last()).toBeVisible()
   await capturar(page, "guion-avatar-lista-vacia")
   await page.getByRole("slider", { name: ETIQUETA }).focus()
   await page.keyboard.press("End")
