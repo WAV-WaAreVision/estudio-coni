@@ -74,4 +74,14 @@ describe("AccionesDeEstado", () => {
     expect(error.closest("[data-contorno]")).toContainElement(screen.getByRole("button", { name: "Sí, descartar" }))
     expect(screen.getAllByText("No pude descartarla.")).toHaveLength(1)
   })
+
+  it("opens the discard question clean: a refused retry from before is not said inside it", async () => {
+    reintentarAccion.mockResolvedValueOnce({ ok: false, error: "No pude reintentar." })
+    render(<AccionesDeEstado piezaId="p" version={2} acciones={["reintentar", "descartar"]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
+    await screen.findByText("No pude reintentar.")
+    fireEvent.click(screen.getByRole("button", { name: "Descartar esta pieza" }))
+    expect(screen.getByRole("button", { name: "Sí, descartar" })).toBeInTheDocument()
+    expect(screen.queryByText("No pude reintentar.")).toBeNull()
+  })
 })

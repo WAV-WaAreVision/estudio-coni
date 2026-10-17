@@ -42,7 +42,7 @@ interface PropiedadesDeEstado {
 
 /** The buttons of a piece that is not waiting for a signature: retry or change the date, or let it go quietly (asking first). */
 export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false }: PropiedadesDeEstado) {
-  const { pendiente, error, ejecutar } = useAccion()
+  const { pendiente, error, ejecutar, limpiarError } = useAccion()
   const [descartando, setDescartando] = useState(false)
   return (
     <div className="grid gap-2">
@@ -64,7 +64,15 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
               alVolver={() => setDescartando(false)}
             />
           ) : (
-            <Boton key={que} variante="callado" onClick={() => setDescartando(true)}>
+            <Boton
+              key={que}
+              variante="callado"
+              onClick={() => {
+                // A refusal of another button is not this question's: it opens without it.
+                limpiarError()
+                setDescartando(true)
+              }}
+            >
               {ETIQUETAS[que]}
             </Boton>
           )
