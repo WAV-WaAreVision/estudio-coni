@@ -1,10 +1,11 @@
-import type { Pilar } from "@/lib/dominio/pilares"
+import type { CatalogoDePilares } from "@/lib/dominio/pilares"
 import { type Alerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 
 /** An idea as `contenido/ideas/banco.md` writes it, ready for the `ideas` table. */
 export interface IdeaDelBanco {
   numero: number
-  pilar: Pilar
+  /** The slug of the pillar whose heading the row sits under. */
+  pilar: string
   gancho: string
   tema: string
   formato: string
@@ -12,15 +13,6 @@ export interface IdeaDelBanco {
   alertas: Alerta[]
   fuentes: string[]
   estado: "idea" | "usada"
-}
-
-/** The headings of the pillar tables. Any other table of the file (summary, patterns, accounts) is not an idea. */
-const PILAR_POR_TITULO: Record<string, Pilar> = {
-  "Pareja y conversación": "pareja",
-  "Deseo y sexualidad": "deseo",
-  'Autoestima y "ser tu propia diosa"': "autoestima",
-  "Género y límites": "limites",
-  "Bienestar emocional": "bienestar",
 }
 
 const FUERZAS = ["alta", "media", "baja"] as const
@@ -77,15 +69,17 @@ function leerEstado(celda: string, numero: string): IdeaDelBanco["estado"] {
  * Reads the bank. A row it cannot read stops the import with the idea's number, because a half-read bank would be
  * imported as if it were whole.
  */
-export function parsearBanco(markdown: string): IdeaDelBanco[] {
+export function parsearBanco(markdown: string, pilares: CatalogoDePilares): IdeaDelBanco[] {
+  // A pillar's table sits under its name. Any other table of the file (summary, patterns, accounts) is not an idea.
+  const porTitulo = new Map(pilares.map((p) => [p.nombre, p.slug]))
   const ideas: IdeaDelBanco[] = []
   const vistos = new Set<number>()
-  let pilar: Pilar | null = null
+  let pilar: string | null = null
 
   for (const linea of markdown.split(/\r?\n/)) {
     const titulo = /^## (.+?)\s*$/.exec(linea)
     if (titulo?.[1]) {
-      pilar = PILAR_POR_TITULO[titulo[1]] ?? null
+      pilar = porTitulo.get(titulo[1]) ?? null
       continue
     }
     if (!pilar || !/^\|\s*\d+\s*\|/.test(linea)) continue
