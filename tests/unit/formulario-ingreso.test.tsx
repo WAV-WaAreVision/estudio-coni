@@ -9,6 +9,7 @@ vi.mock("@/app/ingreso/acciones", () => ({
 import { FormularioIngreso } from "@/app/ingreso/formulario-ingreso"
 
 describe("FormularioIngreso", () => {
+  // An invariant through Boton, not a regression guard: this form was not part of the fix that muted disabled labels.
   it("keeps Entrar disabled, muted and flat while the code is incomplete", async () => {
     render(<FormularioIngreso correoEnmascarado="c•••@estudio.test" />)
     fireEvent.click(screen.getByRole("button", { name: "Mandarme el código" }))

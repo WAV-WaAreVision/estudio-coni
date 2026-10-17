@@ -65,7 +65,9 @@ describe("Boton", () => {
     expect(boton).toHaveClass("aria-disabled:bg-piedra-honda", "aria-disabled:shadow-none")
   })
 
-  it("mutes the label of a disabled button of every kind, not only its shadow", () => {
+  // An invariant of clases-de-boton, true before the round that muted the disabled labels: the guards of that fix are
+  // ui-aviso and descartar-idea, whose controls did not mute theirs.
+  it("keeps the label of a disabled button muted in every kind, not only its shadow", () => {
     for (const variante of ["primario", "secundario", "callado", "destructiva"] as const) {
       const { unmount } = render(
         <Boton variante={variante} deshabilitado>
