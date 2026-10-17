@@ -15,12 +15,67 @@ const SEGMENTO_MAXIMO_SEGUNDOS = 30
 // Scribe list price per hour of audio. Must be checked against the account's plan before trusting the estimate.
 const USD_POR_HORA_TRANSCRIPCION = 0.4
 
-/** Still a plain Error for the retry policy; the class only lets `verificarVoz` tell "no connection" apart. */
+/** Retrying does not help: Coni has to top up first, so the text says so. */
+export const TEXTO_SIN_CARACTERES =
+  "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo."
+
+/** Still a plain Error for the retry policy; the class lets `verificarVoz` tell "no connection" apart. Nothing answered. */
 class SinConexion extends Error {
+  readonly respondio = false
+  readonly http = null
   constructor(cause: unknown) {
     super("No pude conectar con ElevenLabs.", { cause })
     this.name = "SinConexion"
   }
+}
+
+/**
+ * ElevenLabs answered the voice request. `http` is its status (200 when the audio itself was empty or broke). Which
+ * of these were billed is `rechazoSinCobro`'s question (spec 2026-10-17, decision 11, amendment A1 of its plan).
+ */
+export class SinCaracteres extends Falla {
+  readonly respondio = true
+  constructor(readonly http: number) {
+    super(TEXTO_SIN_CARACTERES)
+    this.name = "SinCaracteres"
+  }
+}
+
+export class RechazoDeElevenlabs extends FallaDeConfiguracion {
+  readonly respondio = true
+  constructor(
+    mensaje: string,
+    readonly http: number,
+  ) {
+    super(mensaje)
+    this.name = "RechazoDeElevenlabs"
+  }
+}
+
+/** A plain Error on purpose: Trigger.dev retries it. */
+export class FallaPasajeraDeElevenlabs extends Error {
+  readonly respondio = true
+  constructor(
+    mensaje: string,
+    readonly http: number,
+    opciones?: ErrorOptions,
+  ) {
+    super(mensaje, opciones)
+    this.name = "FallaPasajeraDeElevenlabs"
+  }
+}
+
+/**
+ * True only when ElevenLabs refused the voice request with a 4xx: the request was rejected before any audio was made,
+ * and text to speech bills per generated character. A 5xx, a network failure or a 200 without a whole audio may have
+ * been billed, so they are not refusals (the ElevenLabs docs do not say either way; see the plan of 2026-10-17).
+ */
+export function rechazoSinCobro(error: unknown): boolean {
+  const http =
+    error instanceof SinCaracteres || error instanceof RechazoDeElevenlabs || error instanceof FallaPasajeraDeElevenlabs
+      ? error.http
+      : null
+  return http !== null && http >= 400 && http < 500
 }
 
 function baseDe(base: string | undefined): string {
@@ -35,10 +90,6 @@ function sinLlave(texto: string, clave: string): string {
 function esErrorDeConfiguracion(estado: number): boolean {
   return estado >= 400 && estado < 500 && estado !== 408 && estado !== 429
 }
-
-/** Retrying does not help: Coni has to top up first, so the text says so. */
-export const TEXTO_SIN_CARACTERES =
-  "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo."
 
 function esFaltaDeCaracteres(cuerpo: string): boolean {
   return /quota_exceeded/i.test(cuerpo)
@@ -93,13 +144,23 @@ export async function generarVoz(entrada: {
     async (respuesta) => {
       if (!respuesta.ok) {
         const cuerpo = sinLlave(await respuesta.text(), clave)
-        if (esFaltaDeCaracteres(cuerpo)) throw new Falla(TEXTO_SIN_CARACTERES)
+        if (esFaltaDeCaracteres(cuerpo)) throw new SinCaracteres(respuesta.status)
         const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${mensajeErrorElevenlabs(cuerpo)}`
-        throw esErrorDeConfiguracion(respuesta.status) ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)
+        throw esErrorDeConfiguracion(respuesta.status)
+          ? new RechazoDeElevenlabs(mensaje, respuesta.status)
+          : new FallaPasajeraDeElevenlabs(mensaje, respuesta.status)
       }
-      const audio = new Uint8Array(await respuesta.arrayBuffer())
+      let audio: Uint8Array
+      try {
+        audio = new Uint8Array(await respuesta.arrayBuffer())
+      } catch (error) {
+        // The answer was a 200 and the body broke (a drop or the timeout while reading): it may have been billed.
+        throw new FallaPasajeraDeElevenlabs("ElevenLabs cortó el audio antes de terminar.", respuesta.status, {
+          cause: error,
+        })
+      }
       if (audio.length === 0) {
-        throw new Error("ElevenLabs devolvió un audio vacío.")
+        throw new FallaPasajeraDeElevenlabs("ElevenLabs devolvió un audio vacío.", respuesta.status)
       }
       return audio
     },
