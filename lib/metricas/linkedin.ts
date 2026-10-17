@@ -61,12 +61,15 @@ export interface Anotacion {
   seguidores: number | null
 }
 
-/** "1.200", "1200" or " 1 200 " is 1200 (as LinkedIn and Chile write it); empty is null; anything else is not a count. */
+/** Plain digits ("1200") or dot thousands groups ("1.200", as LinkedIn and Chile write them). */
+const CIFRA = /^(\d{1,9}|\d{1,3}(\.\d{3}){1,2})$/
+
+/** "1200" or "1.200" is 1200; empty is null; anything else ("1.2", "1 200", "-3") is not a count. */
 export function leerCifra(texto: string): number | null | "invalida" {
-  const limpio = texto.replace(/[\s.]/g, "")
+  const limpio = texto.trim()
   if (limpio === "") return null
-  if (!/^\d{1,9}$/.test(limpio)) return "invalida"
-  return Number(limpio)
+  if (!CIFRA.test(limpio)) return "invalida"
+  return Number(limpio.replaceAll(".", ""))
 }
 
 export function armarAnotacion(

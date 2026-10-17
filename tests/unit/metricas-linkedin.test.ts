@@ -39,13 +39,18 @@ describe("leerCifra", () => {
   it.each([
     ["1200", 1200],
     ["1.200", 1200],
-    [" 1 200 ", 1200],
+    ["12.345.678", 12_345_678],
+    [" 1200 ", 1200],
     ["0", 0],
     ["", null],
     ["  ", null],
     ["12a", "invalida"],
     ["-3", "invalida"],
     ["1,5", "invalida"],
+    ["1.2", "invalida"],
+    ["1.25", "invalida"],
+    ["12.00.0", "invalida"],
+    ["1 200", "invalida"],
   ])("reads %j as %j", (texto, esperado) => {
     expect(leerCifra(texto)).toBe(esperado)
   })
