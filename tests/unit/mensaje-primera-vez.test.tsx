@@ -9,6 +9,14 @@ describe("MensajeDePrimeraVez", () => {
     expect(screen.getByText("Así se ve tu avatar. Si algo no te calza, regrábalo.")).toBeInTheDocument()
   })
 
+  it("is a reading panel", () => {
+    render(<MensajeDePrimeraVez marcar={vi.fn(async () => ({ ok: true as const }))} />)
+    expect(screen.getByText("Así se ve tu avatar. Si algo no te calza, regrábalo.").parentElement).toHaveClass(
+      "bg-piedra-alta",
+      "rounded-panel",
+    )
+  })
+
   it("marks it as seen once it is on screen, so the next visit does not show it again", async () => {
     const marcar = vi.fn(async () => ({ ok: true as const }))
     render(<MensajeDePrimeraVez marcar={marcar} />)

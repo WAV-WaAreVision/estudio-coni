@@ -19,6 +19,16 @@ describe("TextoLinkedin", () => {
     expect(screen.getByText(`${[...TEXTO].length} de 3.000`)).toBeInTheDocument()
   })
 
+  it("reads the saved text in a panel at 1.125rem and edits it from a small secondary", () => {
+    armar()
+    expect(screen.getByText(/Llevan diez años juntos/).closest("[data-contorno]")).toHaveClass("bg-piedra-alta")
+    expect(screen.getByText(/Llevan diez años juntos/)).toHaveClass("text-[1.125rem]")
+    expect(screen.getByRole("button", { name: "Editar el texto para LinkedIn" })).toHaveClass(
+      "bg-piedra",
+      "min-h-objetivo",
+    )
+  })
+
   it("edits the text and saves it for this piece and this version, then goes back to reading", async () => {
     const { alGuardar } = armar()
 
@@ -61,7 +71,9 @@ describe("TextoLinkedin", () => {
     const campo = screen.getByLabelText("Texto de la publicación en LinkedIn")
 
     fireEvent.change(campo, { target: { value: "a".repeat(3001) } })
-    expect(screen.getByText("3.001 de 3.000")).toHaveClass("text-error")
+    const cuenta = screen.getByText("3.001 de 3.000").closest("p")
+    expect(cuenta).toHaveClass("font-semibold", "text-tinta")
+    expect(cuenta?.querySelector("svg")).not.toBeNull()
     expect(screen.getByRole("button", { name: "Guardar el texto para LinkedIn" })).toHaveAttribute(
       "aria-disabled",
       "true",
