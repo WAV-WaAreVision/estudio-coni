@@ -16,12 +16,13 @@ export interface LinkedinParaAnotar {
   semana: string
   /** Today in the app's zone (`metricas_linkedin.medido_en`). */
   medidoEn: string
-  pendientes: PostPorAnotar[]
+  /** The posts of the last four weeks, with this week's manual numbers to correct. */
+  posts: PostPorAnotar[]
   /** This week's followers, if already noted. */
   seguidores: number | null
 }
 
-/** What WAV still has to note this week. Read by Métricas (Coni's session) and the Monday reminder (service role). */
+/** What WAV notes or corrects this week. Read by Métricas (Coni's session) and the Monday reminder (service role). */
 export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<LinkedinParaAnotar> {
   const zona = await leerZona(db)
   const semana = lunesDeLaSemana(ahora, zona)
@@ -31,7 +32,9 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
       .select("pieza_id, marcado_en, piezas(titulo, puerta2_publicar_en)")
       .eq("destino", "linkedin")
       .in("estado", ["publicado", "subido_a_mano"]),
-    db.from("metricas_linkedin_ultima").select("pieza_id, medido_en"),
+    db
+      .from("metricas_linkedin_ultima")
+      .select("pieza_id, medido_en, origen, impresiones, reacciones, comentarios, compartidos"),
     db.from("metricas_linkedin_cuenta").select("seguidores").eq("semana", semana).maybeSingle(),
   ])
   if (posts.error) throw fallo("No pude leer los posts de LinkedIn", posts.error)
@@ -40,14 +43,26 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
   return {
     semana,
     medidoEn: diaLocal(ahora, zona),
-    pendientes: postsPorAnotar({
+    posts: postsPorAnotar({
       posts: posts.data.flatMap((fila) => {
         const publicadoEn = fila.piezas?.puerta2_publicar_en ?? fila.marcado_en
         return fila.piezas && publicadoEn ? [{ piezaId: fila.pieza_id, titulo: fila.piezas.titulo, publicadoEn }] : []
       }),
       // A view types every column as nullable; the primary key keeps both present.
       medidos: medidos.data.flatMap((fila) =>
-        fila.pieza_id && fila.medido_en ? [{ piezaId: fila.pieza_id, medidoEn: fila.medido_en }] : [],
+        fila.pieza_id && fila.medido_en && fila.origen
+          ? [
+              {
+                piezaId: fila.pieza_id,
+                medidoEn: fila.medido_en,
+                origen: fila.origen,
+                impresiones: fila.impresiones,
+                reacciones: fila.reacciones,
+                comentarios: fila.comentarios,
+                compartidos: fila.compartidos,
+              },
+            ]
+          : [],
       ),
       ahora,
       zona,

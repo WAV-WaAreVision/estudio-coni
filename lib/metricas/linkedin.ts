@@ -5,29 +5,55 @@ import { lunesDeLaSemana } from "@/lib/dominio/metricas"
 /** Posts published in the last four weeks are asked for (amendment A10). */
 export const SEMANAS_POR_ANOTAR = 4
 
-export interface PostPorAnotar {
+export interface PublicacionEnLinkedin {
   piezaId: string
   titulo: string
   /** ISO instant. */
   publicadoEn: string
 }
 
-/** A post is pending when its newest row is older than this week's Monday. Newest first. */
+export interface NumerosDeLaSemana {
+  impresiones: number | null
+  reacciones: number | null
+  comentarios: number | null
+  compartidos: number | null
+}
+
+export interface PostPorAnotar extends PublicacionEnLinkedin {
+  /** What she noted this week, to correct; null when this week has no row yet. */
+  estaSemana: NumerosDeLaSemana | null
+}
+
+/**
+ * The posts of the last four weeks (amendment A10), newest first. One noted by hand this week stays, with its numbers,
+ * to be corrected; one whose row of this week came from the API or Metricool is not hers to change and leaves the list.
+ */
 export function postsPorAnotar(entrada: {
-  posts: readonly PostPorAnotar[]
-  medidos: readonly { piezaId: string; medidoEn: string }[]
+  posts: readonly PublicacionEnLinkedin[]
+  /** The newest row of each post. */
+  medidos: readonly ({ piezaId: string; medidoEn: string; origen: string } & NumerosDeLaSemana)[]
   ahora: number
   zona: string
 }): PostPorAnotar[] {
   const semana = lunesDeLaSemana(entrada.ahora, entrada.zona)
   const desde = entrada.ahora - SEMANAS_POR_ANOTAR * 7 * 86_400_000
-  const anotados = new Set(entrada.medidos.filter((m) => m.medidoEn >= semana).map((m) => m.piezaId))
+  const deEstaSemana = new Map(entrada.medidos.filter((m) => m.medidoEn >= semana).map((m) => [m.piezaId, m]))
   return entrada.posts
-    .filter((post) => {
+    .flatMap((post): PostPorAnotar[] => {
       const instante = Date.parse(post.publicadoEn)
-      return instante >= desde && instante <= entrada.ahora && !anotados.has(post.piezaId)
+      if (instante < desde || instante > entrada.ahora) return []
+      const fila = deEstaSemana.get(post.piezaId)
+      if (!fila) return [{ ...post, estaSemana: null }]
+      if (fila.origen !== "manual") return []
+      const { impresiones, reacciones, comentarios, compartidos } = fila
+      return [{ ...post, estaSemana: { impresiones, reacciones, comentarios, compartidos } }]
     })
     .sort((a, b) => Date.parse(b.publicadoEn) - Date.parse(a.publicadoEn))
+}
+
+/** The posts still waiting for this week's numbers: what the Monday reminder counts. */
+export function sinNumerosEstaSemana(posts: readonly PostPorAnotar[]): PostPorAnotar[] {
+  return posts.filter((post) => post.estaSemana === null)
 }
 
 export function asuntoDelRecordatorio(cuantos: number): string {

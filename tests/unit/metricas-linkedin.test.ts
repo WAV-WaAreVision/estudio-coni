@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { armarAnotacion, asuntoDelRecordatorio, leerCifra, postsPorAnotar } from "@/lib/metricas/linkedin"
+import {
+  armarAnotacion,
+  asuntoDelRecordatorio,
+  leerCifra,
+  postsPorAnotar,
+  sinNumerosEstaSemana,
+} from "@/lib/metricas/linkedin"
 
 // Monday 19 Oct 2026, 03:00 in Santiago.
 const LUNES = Date.parse("2026-10-19T06:00:00.000Z")
@@ -7,24 +13,41 @@ const ZONA = "America/Santiago"
 const post = (piezaId: string, publicadoEn: string) => ({ piezaId, titulo: `Post ${piezaId}`, publicadoEn })
 
 describe("postsPorAnotar", () => {
-  it("asks for the posts of the last four weeks that have no row this week, newest first", () => {
-    const pendientes = postsPorAnotar({
+  const fila = (piezaId: string, medidoEn: string, origen = "manual") => ({
+    piezaId,
+    medidoEn,
+    origen,
+    impresiones: 1200,
+    reacciones: 14,
+    comentarios: 3,
+    compartidos: 1,
+  })
+
+  it("lists the posts of the last four weeks, newest first, with this week's manual numbers to correct", () => {
+    const posts = postsPorAnotar({
       posts: [
         post("viejo", "2026-09-20T22:00:00.000Z"), // 29 days ago
         post("a", "2026-09-22T22:00:00.000Z"),
         post("b", "2026-10-14T22:00:00.000Z"),
         post("anotado", "2026-10-15T22:00:00.000Z"),
+        post("api", "2026-10-16T22:00:00.000Z"),
         post("futuro", "2026-10-20T22:00:00.000Z"),
       ],
       medidos: [
-        { piezaId: "a", medidoEn: "2026-10-12" }, // last week: pending again
-        { piezaId: "anotado", medidoEn: "2026-10-19" },
+        fila("a", "2026-10-12"), // last week: to note again
+        fila("anotado", "2026-10-19"),
+        fila("api", "2026-10-19", "api"), // an automated row is not hers to correct
       ],
       ahora: LUNES,
       zona: ZONA,
     })
 
-    expect(pendientes.map((p) => p.piezaId)).toEqual(["b", "a"])
+    expect(posts.map((p) => [p.piezaId, p.estaSemana])).toEqual([
+      ["anotado", { impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 }],
+      ["b", null],
+      ["a", null],
+    ])
+    expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b", "a"])
   })
 })
 

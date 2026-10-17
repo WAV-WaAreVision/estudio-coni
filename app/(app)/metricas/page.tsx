@@ -146,10 +146,11 @@ export default async function Metricas() {
       {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
       <MasOpciones className="mt-8" titulo="Para WAV" resumen="Números de LinkedIn">
         <NumerosDeLinkedin
-          pendientes={paraAnotar.pendientes.map((post) => ({
+          posts={paraAnotar.posts.map((post) => ({
             piezaId: post.piezaId,
             titulo: post.titulo,
             fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
+            estaSemana: post.estaSemana,
           }))}
           seguidores={paraAnotar.seguidores}
           alGuardar={anotarNumerosDeLinkedinAccion}

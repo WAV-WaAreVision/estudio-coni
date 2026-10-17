@@ -32,7 +32,7 @@ afterAll(async () => {
 })
 
 describe("leerLinkedinParaAnotar", () => {
-  it("lists the LinkedIn posts of the last four weeks without a row this week, and this week's followers", async () => {
+  it("lists the LinkedIn posts of the last four weeks, this week's manual numbers to correct, and the followers", async () => {
     const reciente = await postEnLinkedin("Reciente", "2026-10-14T22:00:00.000Z")
     const anotado = await postEnLinkedin("Anotado", "2026-10-13T22:00:00.000Z")
     await postEnLinkedin("Viejo", "2026-09-01T22:00:00.000Z")
@@ -50,7 +50,10 @@ describe("leerLinkedinParaAnotar", () => {
 
     expect(lista.semana).toBe("2026-10-19")
     expect(lista.medidoEn).toBe("2026-10-19")
-    expect(lista.pendientes.map((p) => [p.piezaId, p.titulo])).toEqual([[reciente, "Reciente"]])
+    expect(lista.posts.map((p) => [p.piezaId, p.titulo, p.estaSemana?.impresiones ?? null])).toEqual([
+      [reciente, "Reciente", null],
+      [anotado, "Anotado", 10],
+    ])
     expect(lista.seguidores).toBe(830)
   })
 })

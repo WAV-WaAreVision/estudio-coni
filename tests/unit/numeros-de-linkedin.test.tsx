@@ -5,7 +5,12 @@ import { NumerosDeLinkedin } from "@/app/(app)/metricas/numeros-de-linkedin"
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
 
 const PENDIENTES = [
-  { piezaId: "11111111-1111-4111-8111-111111111111", titulo: "Si van a discutir", fecha: "miércoles 14 · 19:00" },
+  {
+    piezaId: "11111111-1111-4111-8111-111111111111",
+    titulo: "Si van a discutir",
+    fecha: "miércoles 14 · 19:00",
+    estaSemana: null,
+  },
 ]
 
 function escribir(etiqueta: string, valor: string) {
@@ -15,7 +20,7 @@ function escribir(etiqueta: string, valor: string) {
 describe("NumerosDeLinkedin", () => {
   it("sends the four numbers of a post and the followers, then says it saved", async () => {
     const alGuardar = vi.fn(async () => ({ ok: true as const, anotados: 1 }))
-    render(<NumerosDeLinkedin pendientes={PENDIENTES} seguidores={null} alGuardar={alGuardar} />)
+    render(<NumerosDeLinkedin posts={PENDIENTES} seguidores={null} alGuardar={alGuardar} />)
 
     escribir("Impresiones de Si van a discutir", "1.200")
     escribir("Reacciones de Si van a discutir", "14")
@@ -33,7 +38,7 @@ describe("NumerosDeLinkedin", () => {
 
   it("does not send a half-filled post and says which one", async () => {
     const alGuardar = vi.fn()
-    render(<NumerosDeLinkedin pendientes={PENDIENTES} seguidores={null} alGuardar={alGuardar} />)
+    render(<NumerosDeLinkedin posts={PENDIENTES} seguidores={null} alGuardar={alGuardar} />)
 
     escribir("Impresiones de Si van a discutir", "5")
     fireEvent.click(screen.getByRole("button", { name: "Guardar números" }))
@@ -44,12 +49,33 @@ describe("NumerosDeLinkedin", () => {
     ).toBeInTheDocument()
   })
 
-  it("says when every post already has this week's numbers and keeps the followers it knows", () => {
-    render(<NumerosDeLinkedin pendientes={[]} seguidores={830} alGuardar={vi.fn()} />)
+  it("says when there is no LinkedIn post in the last four weeks and keeps the followers it knows", () => {
+    render(<NumerosDeLinkedin posts={[]} seguidores={830} alGuardar={vi.fn()} />)
 
-    expect(
-      screen.getByText("Todos los posts de las últimas 4 semanas ya tienen sus números de esta semana."),
-    ).toBeInTheDocument()
+    expect(screen.getByText("No hay posts de LinkedIn de las últimas 4 semanas.")).toBeInTheDocument()
     expect(screen.getByLabelText("Seguidores esta semana")).toHaveValue("830")
+  })
+
+  it("shows a post noted this week with its numbers and sends it again only when corrected", async () => {
+    const anotado = {
+      ...PENDIENTES[0],
+      piezaId: "22222222-2222-4222-8222-222222222222",
+      titulo: "Lo que firma un modelo",
+      estaSemana: { impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 },
+    }
+    const alGuardar = vi.fn(async () => ({ ok: true as const, anotados: 1 }))
+    render(<NumerosDeLinkedin posts={[...PENDIENTES, anotado]} seguidores={null} alGuardar={alGuardar} />)
+
+    expect(screen.getByLabelText("Impresiones de Lo que firma un modelo")).toHaveValue("1.200")
+    expect(screen.getByText("Anotado esta semana: puedes corregirlo.")).toBeInTheDocument()
+    escribir("Impresiones de Lo que firma un modelo", "1.300")
+    fireEvent.click(screen.getByRole("button", { name: "Guardar números" }))
+
+    expect(alGuardar).toHaveBeenCalledWith({
+      posts: [{ piezaId: anotado.piezaId, impresiones: 1300, reacciones: 14, comentarios: 3, compartidos: 1 }],
+      seguidores: null,
+    })
+    expect(await screen.findByText("Guardado: 1 post.")).toBeInTheDocument()
+    expect(screen.getByLabelText("Impresiones de Lo que firma un modelo")).toHaveValue("1.300")
   })
 })

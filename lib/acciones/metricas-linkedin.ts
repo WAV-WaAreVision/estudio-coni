@@ -28,11 +28,9 @@ export async function anotarNumerosDeLinkedin(
       throw new Falla("Anota al menos un post o los seguidores.")
     }
     const lista = await leerLinkedinParaAnotar(deps.db, Date.parse(deps.ahora()))
-    const enLista = new Set(lista.pendientes.map((post) => post.piezaId))
+    const enLista = new Set(lista.posts.map((post) => post.piezaId))
     if (anotacion.posts.some((post) => !enLista.has(post.piezaId))) {
-      throw new Falla(
-        "Uno de esos posts ya tiene sus números de esta semana o salió de la lista. Vuelve a abrir Métricas.",
-      )
+      throw new Falla("Uno de esos posts ya no está entre los de las últimas 4 semanas. Vuelve a abrir Métricas.")
     }
     await guardarNumerosDeLinkedin(deps.db, { medidoEn: lista.medidoEn, semana: lista.semana, ...anotacion })
     return { anotados: anotacion.posts.length }
