@@ -3,6 +3,12 @@
 -- also releases voice keys, after an unknown outcome that may have been billed, and those stay closed. Opt-in: the
 -- script writer reads a released Claude key as "Claude refused, do not ask again" (lib/produccion/producir.ts) and must
 -- keep getting it back as it is.
+-- Who opened the reservation: the caller passes a token of its own and owns the reservation only when the row comes
+-- back with it. Read under the month's lock, so two runs racing for one key cannot both believe they hold it.
+alter table public.gastos add column reservado_por uuid;
+comment on column public.gastos.reservado_por is
+  'Token of the call that inserted or reopened this reservation (reservar_gasto p_reservado_por); null for older rows.';
+
 drop function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz);
 
 create function public.reservar_gasto(
@@ -12,7 +18,8 @@ create function public.reservar_gasto(
   p_estimado numeric,
   p_clave text,
   p_ahora timestamptz default now(),
-  p_reabrir boolean default false
+  p_reabrir boolean default false,
+  p_reservado_por uuid default null
 ) returns public.gastos
 language plpgsql set search_path = '' as $$
 declare
@@ -46,17 +53,18 @@ begin
     -- Reopened: counted again in this month, with a fresh clock for the sweeper and no proof of "not charged".
     update public.gastos
        set estado = 'reservado', estimado_usd = p_estimado, real_usd = null, mes = v_mes,
-           creado_en = now(), sin_cobro = false
+           creado_en = now(), sin_cobro = false, reservado_por = p_reservado_por
      where id = v_existente.id
     returning * into v_nuevo;
   else
-    insert into public.gastos (pieza_id, proveedor, paso, mes, estimado_usd, clave)
-    values (p_pieza, p_proveedor, p_paso, v_mes, p_estimado, p_clave)
+    insert into public.gastos (pieza_id, proveedor, paso, mes, estimado_usd, clave, reservado_por)
+    values (p_pieza, p_proveedor, p_paso, v_mes, p_estimado, p_clave, p_reservado_por)
     returning * into v_nuevo;
   end if;
   return v_nuevo;
 end $$;
 
-revoke execute on function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz, boolean)
+revoke execute on function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz, boolean, uuid)
   from public, anon, authenticated;
-grant execute on function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz, boolean) to service_role;
+grant execute on function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz, boolean, uuid)
+  to service_role;

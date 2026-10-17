@@ -462,6 +462,7 @@ export type Database = {
           pieza_id: string | null
           proveedor: string
           real_usd: number | null
+          reservado_por: string | null
           sin_cobro: boolean
         }
         Insert: {
@@ -475,6 +476,7 @@ export type Database = {
           pieza_id?: string | null
           proveedor: string
           real_usd?: number | null
+          reservado_por?: string | null
           sin_cobro?: boolean
         }
         Update: {
@@ -488,6 +490,7 @@ export type Database = {
           pieza_id?: string | null
           proveedor?: string
           real_usd?: number | null
+          reservado_por?: string | null
           sin_cobro?: boolean
         }
         Relationships: [
@@ -1529,6 +1532,7 @@ export type Database = {
           pieza_id: string | null
           proveedor: string
           real_usd: number | null
+          reservado_por: string | null
           sin_cobro: boolean
         }
         SetofOptions: {
@@ -1810,6 +1814,7 @@ export type Database = {
           pieza_id: string | null
           proveedor: string
           real_usd: number | null
+          reservado_por: string | null
           sin_cobro: boolean
         }
         SetofOptions: {
@@ -1936,6 +1941,7 @@ export type Database = {
           p_pieza: string
           p_proveedor: string
           p_reabrir?: boolean
+          p_reservado_por?: string
         }
         Returns: {
           clave: string
@@ -1948,6 +1954,7 @@ export type Database = {
           pieza_id: string | null
           proveedor: string
           real_usd: number | null
+          reservado_por: string | null
           sin_cobro: boolean
         }
         SetofOptions: {
@@ -1976,6 +1983,7 @@ export type Database = {
           pieza_id: string | null
           proveedor: string
           real_usd: number | null
+          reservado_por: string | null
           sin_cobro: boolean
         }
         SetofOptions: {

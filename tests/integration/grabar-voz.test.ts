@@ -321,6 +321,32 @@ describe("asegurarVoz releases by outcome", () => {
     expect((await gastosDeVoz(id)).map((g) => g.estado)).toEqual(["reservado", "reservado", "reservado", "reservado"])
   })
 
+  it("never lets two racing runs of an attempt call ElevenLabs under the same key", async () => {
+    let llegadas = 0
+    let soltar: () => void = () => {}
+    const ambas = new Promise<void>((resolver) => {
+      soltar = resolver
+    })
+    servidor.use(
+      http.post("https://api.elevenlabs.io/v1/text-to-speech/:voz", async () => {
+        llamadas += 1
+        llegadas += 1
+        if (llegadas >= 2) soltar()
+        // Both runs are inside ElevenLabs at once, or one gives up after a moment.
+        await Promise.race([ambas, new Promise((resolver) => setTimeout(resolver, 1500))])
+        return audioOk()
+      }),
+    )
+    const id = await grabando()
+    const fila = await filaDe(id)
+
+    await Promise.all([intentar(deps(), fila), intentar(deps(), fila)])
+
+    const gastos = await gastosDeVoz(id)
+    expect(gastos).toHaveLength(llamadas)
+    expect(new Set(gastos.map((g) => g.clave)).size).toBe(llamadas)
+  })
+
   it.each([
     ["a server error", () => new HttpResponse("x", { status: 503 })],
     ["a network drop", () => HttpResponse.error()],

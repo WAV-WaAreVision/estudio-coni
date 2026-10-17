@@ -165,6 +165,8 @@ export async function reservarGasto(
     ahora: string
     /** Reopen a released key (only the voice, whose release means "refused, not charged"). */
     reabrir?: boolean
+    /** The caller's token: the reservation it gets back is its own only when `reservado_por` matches. */
+    reservadoPor?: string
   },
 ): Promise<Reserva> {
   const { data, error } = await db.rpc("reservar_gasto", {
@@ -175,6 +177,7 @@ export async function reservarGasto(
     p_clave: reserva.clave,
     p_ahora: reserva.ahora,
     p_reabrir: reserva.reabrir ?? false,
+    p_reservado_por: reserva.reservadoPor,
   })
   return resultadoDeReserva(error, data)
 }
@@ -198,12 +201,6 @@ export async function reservarGastoGeneral(
     p_ahora: reserva.ahora,
   })
   return resultadoDeReserva(error, data)
-}
-
-export async function leerGasto(db: Db, clave: string): Promise<FilaDeGasto | null> {
-  const { data, error } = await db.from("gastos").select("*").eq("clave", clave).maybeSingle()
-  if (error) throw fallo("No pude leer el gasto", error)
-  return data
 }
 
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {

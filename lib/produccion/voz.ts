@@ -1,12 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import {
-  confirmarGasto,
-  type FilaDePieza,
-  leerGasto,
-  leerSecreto,
-  liberarGasto,
-  reservarGasto,
-} from "@/lib/datos/repositorio"
+import { confirmarGasto, type FilaDePieza, leerSecreto, liberarGasto, reservarGasto } from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia } from "@/lib/dominio/puertas"
@@ -110,10 +103,10 @@ async function reservarIntento(
   entrada: { fila: FilaDePieza; huella: string; estimado: number; toma: string },
 ): Promise<{ tipo: "tope" } | { tipo: "lista" } | { tipo: "reservada"; clave: string }> {
   const { fila, huella, estimado } = entrada
+  // This try's own token: a reservation is ours only if it comes back with it (another run may hold the same key).
+  const token = crypto.randomUUID()
   for (let cobro = 0; cobro <= COBROS_EXTRA_MAXIMOS; cobro += 1) {
     const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
-    // Another try already called ElevenLabs under this key and its outcome is unknown: calling again would go uncounted.
-    if ((await leerGasto(deps.db, clave))?.estado === "reservado") continue
     const reserva = await reservarGasto(deps.db, {
       piezaId: fila.id,
       proveedor: "elevenlabs",
@@ -123,9 +116,12 @@ async function reservarIntento(
       ahora: deps.ahora(),
       // Only a key released as a refusal (sin_cobro) reopens; a sweeper release stays closed and comes back `liberado`.
       reabrir: true,
+      reservadoPor: token,
     })
     if (reserva.tope) return { tipo: "tope" }
-    if (reserva.gasto.estado === "reservado") return { tipo: "reservada", clave }
+    // Reserved by another try (unknown outcome, or still running): calling again under it would go uncounted.
+    if (reserva.gasto.estado === "reservado" && reserva.gasto.reservado_por === token)
+      return { tipo: "reservada", clave }
     // A run that ended meanwhile may have stored the take and confirmed: then that paid audio is the voice.
     if (reserva.gasto.estado === "confirmado" && (await deps.almacen.existe(entrada.toma))) return { tipo: "lista" }
   }
