@@ -362,14 +362,21 @@ test("guion error", async ({ page }) => {
 })
 
 test("metricas", async ({ page }) => {
+/**
+ * The server reads the real clock, which a test cannot stop: the reels go out on the 7th, 14th and 21st of last month
+ * (Santiago noon), so on any run date they are more than a week old, inside the 12 weeks shown, outside this month and
+ * in three weeks that never cross a month (their titles keep one line). The page then draws the same screen whatever
+ * day it runs; only masked labels (month, weeks) move.
+ */
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
   const reels = [
-    ["Ser tu propia diosa", "autoestima", 20, 2000, 10],
-    ["Si van a discutir, siéntense del mismo lado", "pareja", 12, 2400, 121],
-    ["El deseo no se apaga, se esconde", "deseo", 8, 1000, 12],
+  await pool.query("delete from public.clics_enlace_dia")
+    ["Ser tu propia diosa", "autoestima", 7, 2000, 10],
+    ["Si van a discutir, siéntense del mismo lado", "pareja", 14, 2400, 121],
+    ["El deseo no se apaga, se esconde", "deseo", 21, 1000, 12],
   ] as const
-  for (const [titulo, pilar, haceDias, alcance, guardados] of reels) {
+  for (const [titulo, pilar, diaDelMesPasado, alcance, guardados] of reels) {
     const idea = await sembrarIdea({ pilar, gancho: titulo })
     const id = await sembrarPieza("publicado", { titulo, idea_id: idea, media_id: `media_${titulo}` })
     const cliente = await pool.connect()
@@ -377,8 +384,11 @@ test("metricas", async ({ page }) => {
       await cliente.query("begin")
       await cliente.query("set local session_replication_role = replica")
       await cliente.query(
-        "update public.piezas set puerta2_publicar_en = now() - make_interval(days => $2) where id = $1",
-        [id, haceDias],
+        `update public.piezas set puerta2_publicar_en = (
+           date_trunc('month', now() at time zone 'America/Santiago') - interval '1 month'
+           + make_interval(days => $2 - 1, hours => 12)
+         ) at time zone 'America/Santiago' where id = $1`,
+        [id, diaDelMesPasado],
       )
       await cliente.query("commit")
     } finally {
