@@ -56,6 +56,8 @@ export interface DatosDeGuion {
   texto: string
   /** The LinkedIn text, shown read only: it is reviewed and edited at gate 2. Null when the piece has none yet. */
   textoLinkedin: string | null
+  /** The backing's source line; null without one. */
+  fuente: string | null
   revision: Hallazgo[]
   /** Whether there is a version Claude wrote to go back to. */
   tieneVersionDeClaude: boolean
@@ -254,6 +256,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         <Panel>
           <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
         </Panel>
+        {datos.fuente ? <p className="text-meta text-apagado">{datos.fuente}</p> : null}
         {revision.length === 0 ? (
           <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES}</p>
         ) : (

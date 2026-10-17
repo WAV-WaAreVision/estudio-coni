@@ -61,6 +61,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     guion: "Hola, soy Coni. Soy Coni del Rosario.",
     texto: "Video hecho con mi avatar digital.",
     textoLinkedin: null,
+    fuente: null,
     revision: [],
     tieneVersionDeClaude: false,
     salida: null,
@@ -110,6 +111,19 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
     expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
     expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
+  })
+
+  it("shows the backing's source under the script, inside 2. Revisa el guion", () => {
+    render(<PantallaGuion datos={datos({ fuente: "Fuente: OMS · Informe (2025)" })} />)
+    const lectura = screen.getByRole("region", { name: "2. Revisa el guion" })
+    const fuente = within(lectura).getByText("Fuente: OMS · Informe (2025)")
+    const guion = within(lectura).getByText("Hola, soy Coni. Soy Coni del Rosario.", { selector: "span" })
+    expect(guion.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("shows no source line when the piece has no backing", () => {
+    render(<PantallaGuion datos={datos({ fuente: null })} />)
+    expect(screen.queryByText(/^Fuentes?:|^De Coni$/)).not.toBeInTheDocument()
   })
 
   it("shows the script in a reading panel, marks a finding's phrase and links it to its panel", () => {

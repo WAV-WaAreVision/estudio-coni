@@ -17,11 +17,13 @@ import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from
 import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerPilares } from "@/lib/datos/pilares"
 import { leerProduccion } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { leerRevision } from "@/lib/datos/revision"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
+import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { pilarVisible } from "@/lib/dominio/pilares"
 import { sinLinkedin } from "@/lib/dominio/revision"
 import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
@@ -192,6 +194,7 @@ export default async function PaginaDeGuion({
           guion: fila.guion,
           texto: fila.texto,
           textoLinkedin: fila.texto_linkedin,
+          fuente: lineaDeFuente(leerRespaldo(fila.respaldo)?.afirmaciones ?? []),
           // Gate 1 is about the script and the caption: the LinkedIn findings are reviewed at gate 2.
           revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,
