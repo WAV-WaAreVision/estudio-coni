@@ -720,16 +720,18 @@ describe("aprobarVideo", () => {
 
   it("signs the date she chose even when another one was proposed, and leaves the proposal alone", async () => {
     const id = await paraAprobar()
-    const propuesta = new Date(Date.parse(FUTURO) + 7 * 86_400_000).toISOString()
+    // Its own time: earlier tests of this block already scheduled a reel at FUTURO.
+    const hora = "2097-10-15T19:00:00-03:00"
+    const propuesta = new Date(Date.parse(hora) + 7 * 86_400_000).toISOString()
     await proponerFecha(id, propuesta)
     const { deps } = armar()
     const version = (await fila(id)).version
 
-    const resultado = await aprobarVideo(deps, id, version, FUTURO, ["instagram"])
+    const resultado = await aprobarVideo(deps, id, version, hora, ["instagram"])
 
     expect(resultado.ok).toBe(true)
     const guardada = await fila(id)
-    expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2099-10-09T22:00:00.000Z")
+    expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2097-10-15T22:00:00.000Z")
     expect(guardada.puerta2_hash_texto).toBe(
       hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: null, destinos: ["instagram"] }),
     )
