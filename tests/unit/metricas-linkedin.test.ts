@@ -85,6 +85,13 @@ describe("armarAnotacion", () => {
     })
   })
 
+  it("tells a figure with letters or signs apart from a missing one", () => {
+    expect(armarAnotacion([{ piezaId: "a", titulo: "Si van", campos: { ...lleno, reacciones: "14a" } }], "")).toEqual({
+      ok: false,
+      error: "Las cifras de «Si van» van como número, sin letras ni signos.",
+    })
+  })
+
   it("refuses followers that are not a count, and an empty save", () => {
     expect(armarAnotacion([], "mil")).toEqual({
       ok: false,

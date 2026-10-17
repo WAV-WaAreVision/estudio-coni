@@ -82,7 +82,10 @@ export function armarAnotacion(
     const numeros: Partial<Record<keyof CamposDePost, number>> = {}
     for (const { campo } of CAMPOS_DE_POST) {
       const cifra = leerCifra(post.campos[campo])
-      if (typeof cifra === "number") numeros[campo] = cifra
+      if (cifra === "invalida") {
+        return { ok: false, error: `Las cifras de «${post.titulo}» van como número, sin letras ni signos.` }
+      }
+      if (cifra !== null) numeros[campo] = cifra
     }
     const { impresiones, reacciones, comentarios, compartidos } = numeros
     if (
