@@ -1,3 +1,4 @@
+import type { Destino } from "@/lib/dominio/destinos"
 import { instanteLocal, semanaDe } from "@/lib/dominio/fechas"
 import {
   agruparPorSemana,
@@ -18,15 +19,6 @@ import { type CatalogoDePilares, nombreDePilar, type PilarVisible, pilarVisible 
 
 // The Métricas screen as data: every sentence Coni reads is decided here, so it can be tested without a browser.
 
-export interface PiezaPublicada {
-  id: string
-  titulo: string
-  /** The slug of its idea's pillar. */
-  pilar: string | null
-  /** The approved publishing time, as an ISO instant. */
-  publicadoEn: string
-}
-
 export interface LecturaDeReel {
   piezaId: string
   dia: string
@@ -37,10 +29,34 @@ export interface LecturaDeReel {
   tiempoPromedio: number | null
 }
 
+/** One network a piece went out on (`publicaciones` in `publicado` or `subido_a_mano`, decision 15). */
+export interface PublicacionMedible {
+  piezaId: string
+  titulo: string
+  /** The slug of its idea's pillar. */
+  pilar: string | null
+  red: Destino
+  /** She uploaded it herself (`subido_a_mano`): Instagram has no reel to ask about. */
+  aMano: boolean
+  /** The signed publishing time or, without one, when the row was marked (amendment A3), as an ISO instant. */
+  publicadoEn: string
+}
+
+export interface LecturaDeLinkedin {
+  piezaId: string
+  medidoEn: string
+  impresiones: number | null
+  reacciones: number | null
+  comentarios: number | null
+  compartidos: number | null
+}
+
 export interface EntradaDeMetricas {
-  publicadas: readonly PiezaPublicada[]
-  /** Any readings; the newest of each reel is the one shown. */
+  publicaciones: readonly PublicacionMedible[]
+  /** Instagram readings; the newest of each reel is the one shown. */
   lecturas: readonly LecturaDeReel[]
+  /** The newest LinkedIn reading of each post. */
+  lecturasLinkedin: readonly LecturaDeLinkedin[]
   /** When each consultation was noted. */
   consultas: readonly string[]
   /** Clicks on the links of `/l`, by day. */
@@ -134,8 +150,14 @@ const SIN_LECTURA: Omit<LecturaDeReel, "piezaId"> = {
   tiempoPromedio: null,
 }
 
-function reelMedido(pieza: PiezaPublicada, lectura: Omit<LecturaDeReel, "piezaId">): ReelMedido {
-  return { piezaId: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar, publicadoEn: pieza.publicadoEn, ...lectura }
+function reelMedido(pieza: PublicacionMedible, lectura: Omit<LecturaDeReel, "piezaId">): ReelMedido {
+  return {
+    piezaId: pieza.piezaId,
+    titulo: pieza.titulo,
+    pilar: pieza.pilar,
+    publicadoEn: pieza.publicadoEn,
+    ...lectura,
+  }
 }
 
 const UNIDAD_DE_BARRA = "cada 1.000"
@@ -229,20 +251,21 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
   const { zona, ahora } = entrada
   const mes = limitesDelMes(ahora, zona)
   const ultimas = newestReadings(entrada.lecturas)
+  const reels = entrada.publicaciones.filter((p) => p.red === "instagram" && !p.aMano)
 
   const enElMes = (instante: number) => instante >= mes.desde && instante < mes.hasta
-  const reelsDelMes = entrada.publicadas.filter((pieza) => enElMes(Date.parse(pieza.publicadoEn))).length
+  const reelsDelMes = reels.filter((pieza) => enElMes(Date.parse(pieza.publicadoEn))).length
   const consultasDelMes = contarEnMes(entrada.consultas, mes.clave, zona)
   const clicsDelMes = entrada.clics
     .filter((clic) => clic.dia.startsWith(`${mes.clave}-`))
     .reduce((suma, clic) => suma + clic.clics, 0)
 
   const desde = sumarDias(lunesDeLaSemana(ahora, zona), -7 * (SEMANAS_A_MOSTRAR - 1))
-  const reciente = (pieza: PiezaPublicada) => lunesDeLaSemana(Date.parse(pieza.publicadoEn), zona) >= desde
+  const reciente = (pieza: PublicacionMedible) => lunesDeLaSemana(Date.parse(pieza.publicadoEn), zona) >= desde
 
   const medidos: ReelMedido[] = []
-  for (const pieza of entrada.publicadas) {
-    const lectura = ultimas.get(pieza.id)
+  for (const pieza of reels) {
+    const lectura = ultimas.get(pieza.piezaId)
     if (lectura) medidos.push(reelMedido(pieza, lectura))
   }
   const corte = ahora - DIAS_PARA_COMPARAR * 86_400_000
@@ -254,9 +277,9 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     }
   }
 
-  const visibles = entrada.publicadas.filter(reciente)
+  const visibles = reels.filter(reciente)
   const conBarra = visibles.map((pieza) => {
-    const lectura = ultimas.get(pieza.id)
+    const lectura = ultimas.get(pieza.piezaId)
     const porMil = lectura ? guardadosPorMil(lectura.guardados, lectura.alcance) : null
     return { pieza, lectura, porMil }
   })
@@ -267,7 +290,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         (b.porMil ?? -1) - (a.porMil ?? -1) || Date.parse(b.pieza.publicadoEn) - Date.parse(a.pieza.publicadoEn),
     )
     .map(({ pieza, lectura, porMil }) => ({
-      piezaId: pieza.id,
+      piezaId: pieza.piezaId,
       titulo: pieza.titulo,
       pilar: pilarVisible(entrada.pilares, pieza.pilar),
       porMil,
@@ -280,7 +303,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     }))
 
   const semanas = agruparPorSemana({
-    reels: visibles.map((pieza) => reelMedido(pieza, ultimas.get(pieza.id) ?? SIN_LECTURA)),
+    reels: visibles.map((pieza) => reelMedido(pieza, ultimas.get(pieza.piezaId) ?? SIN_LECTURA)),
     consultas: entrada.consultas,
     clics: entrada.clics,
     zona,
@@ -292,19 +315,19 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
   )
   const alDia = metricasAlDia({ ultimoDia, ahora, zona })
   const sinNingunaLectura =
-    ultimoDia === null && entrada.publicadas.some((pieza) => Date.parse(pieza.publicadoEn) < ahora - 2 * 86_400_000)
+    ultimoDia === null && reels.some((pieza) => Date.parse(pieza.publicadoEn) < ahora - 2 * 86_400_000)
 
   return {
     mes: mes.nombre,
     resumen: `${plural(reelsDelMes, "reel publicado", "reels publicados")} · ${plural(consultasDelMes, "consulta", "consultas")} · ${plural(clicsDelMes, "toque", "toques")} en tu link`,
-    vacio: entrada.publicadas.length === 0,
+    vacio: reels.length === 0,
     aviso: sinNingunaLectura
       ? "Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico."
       : alDia || ultimoDia === null
         ? null
         : `No pude traer las métricas de hoy; muestro las del ${etiquetaDelDia(ultimoDia)}.`,
     barras,
-    comparacion: entrada.publicadas.length === 0 ? null : panelDeComparacion(comparacion, entrada.pilares),
+    comparacion: reels.length === 0 ? null : panelDeComparacion(comparacion, entrada.pilares),
     semanas: semanas.map((semana) => ({
       titulo: `Semana del ${semanaDe(instanteLocal({ ...partesDe(semana.lunes), hora: 12, minuto: 0 }, zona), zona)}`,
       reels: semana.reels.map((reel) => ({

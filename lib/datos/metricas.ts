@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerPilares } from "@/lib/datos/pilares"
+import { esDestino } from "@/lib/dominio/destinos"
 import { diaLocal } from "@/lib/dominio/fechas"
 import { sumarDias } from "@/lib/dominio/metricas"
 import type { EntradaDeMetricas } from "@/lib/metricas/modelo"
@@ -82,19 +83,19 @@ const DIAS_DE_HISTORIA = 7 * 12
 export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<EntradaDeMetricas> {
   const zona = await leerZona(db)
   const hoy = diaLocal(ahora, zona)
-  const [piezas, lecturas, consultas, clics, pilares] = await Promise.all([
+  const [publicaciones, lecturas, lecturasLinkedin, consultas, clics, pilares] = await Promise.all([
+    // Decision 15: what went out is a `publicaciones` row, once per network.
     db
-      .from("piezas")
-      .select("id, titulo, puerta2_publicar_en, ideas(pilar)")
-      .eq("estado", "publicado")
-      // A piece that went out only on LinkedIn has no Instagram reel to measure.
-      .not("media_id", "is", null)
-      .not("puerta2_publicar_en", "is", null)
-      .order("puerta2_publicar_en", { ascending: false }),
+      .from("publicaciones")
+      .select("pieza_id, destino, estado, marcado_en, piezas(titulo, puerta2_publicar_en, ideas(pilar))")
+      .in("estado", ["publicado", "subido_a_mano"]),
     // One row per reel (the newest): the table keeps a row per day and would hit the API's row cap in a few months.
     db
       .from("metricas_reel_ultima")
       .select("pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio"),
+    db
+      .from("metricas_linkedin_ultima")
+      .select("pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos"),
     db
       .from("consultas")
       .select("anotada_en")
@@ -102,8 +103,9 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
     db.from("clics_enlace_dia").select("dia, clics").gte("dia", sumarDias(hoy, -DIAS_DE_HISTORIA)),
     leerPilares(db),
   ])
-  if (piezas.error) throw fallo("No pude leer los reels publicados", piezas.error)
+  if (publicaciones.error) throw fallo("No pude leer lo publicado", publicaciones.error)
   if (lecturas.error) throw fallo("No pude leer las métricas", lecturas.error)
+  if (lecturasLinkedin.error) throw fallo("No pude leer las métricas de LinkedIn", lecturasLinkedin.error)
   if (consultas.error) throw fallo("No pude leer las consultas", consultas.error)
   if (clics.error) throw fallo("No pude leer los clics", clics.error)
 
@@ -114,18 +116,23 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
     zona,
     ahora,
     pilares,
-    publicadas: piezas.data.flatMap((fila) =>
-      fila.puerta2_publicar_en
-        ? [
-            {
-              id: fila.id,
-              titulo: fila.titulo,
-              pilar: fila.ideas?.pilar ?? null,
-              publicadoEn: fila.puerta2_publicar_en,
-            },
-          ]
-        : [],
-    ),
+    publicaciones: publicaciones.data
+      .flatMap((fila) => {
+        const pieza = fila.piezas
+        const publicadoEn = pieza?.puerta2_publicar_en ?? fila.marcado_en
+        if (!pieza || !publicadoEn || !esDestino(fila.destino)) return []
+        return [
+          {
+            piezaId: fila.pieza_id,
+            titulo: pieza.titulo,
+            pilar: pieza.ideas?.pilar ?? null,
+            red: fila.destino,
+            aMano: fila.estado === "subido_a_mano",
+            publicadoEn,
+          },
+        ]
+      })
+      .sort((a, b) => Date.parse(b.publicadoEn) - Date.parse(a.publicadoEn)),
     // A view types every column as nullable; a row without its reel or its day cannot come out of the primary key.
     lecturas: lecturas.data.flatMap((fila) =>
       fila.pieza_id && fila.dia
@@ -138,6 +145,21 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
               compartidos: fila.compartidos,
               comentarios: fila.comentarios,
               tiempoPromedio: fila.tiempo_promedio,
+            },
+          ]
+        : [],
+    ),
+    // A view types every column as nullable; a row without its post or its day cannot come out of the primary key.
+    lecturasLinkedin: lecturasLinkedin.data.flatMap((fila) =>
+      fila.pieza_id && fila.medido_en
+        ? [
+            {
+              piezaId: fila.pieza_id,
+              medidoEn: fila.medido_en,
+              impresiones: fila.impresiones,
+              reacciones: fila.reacciones,
+              comentarios: fila.comentarios,
+              compartidos: fila.compartidos,
             },
           ]
         : [],

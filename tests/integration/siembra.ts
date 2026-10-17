@@ -198,7 +198,8 @@ export async function vaciarPiezasEIdeas(): Promise<void> {
 
 /**
  * Marks a destination of a piece as out, as the database owner (the publishing run or her upload would). LinkedIn's
- * `publicado` needs a post URN (`linkedin_publicado_con_urn`), so one is made up from the piece id.
+ * `publicado` needs a numeric post URN (`linkedin_publicado_con_urn`, `post_urn_es_de_post`), so one is made up from
+ * a hash of the piece id.
  */
 export async function marcarPublicacion(
   piezaId: string,
@@ -207,8 +208,8 @@ export async function marcarPublicacion(
 ): Promise<void> {
   await pool.query(
     `insert into public.publicaciones (pieza_id, destino, estado, marcado_en, post_urn)
-     values ($1, $2::text, $3::text, now(),
-             case when $2::text = 'linkedin' and $3::text = 'publicado' then 'urn:li:share:' || $1::text end)
+     values ($1::uuid, $2::text, $3::text, now(),
+             case when $2::text = 'linkedin' and $3::text = 'publicado' then 'urn:li:share:' || abs(hashtext($1::text)) end)
      on conflict (pieza_id, destino) do update
        set estado = excluded.estado, marcado_en = excluded.marcado_en, post_urn = excluded.post_urn`,
     [piezaId, destino, estado],

@@ -7,7 +7,8 @@ const AHORA = Date.parse("2026-10-15T15:00:00.000Z") // Thursday 15 Oct 2026, 12
 
 function entrada(extra: Partial<EntradaDeMetricas> = {}): EntradaDeMetricas {
   return {
-    publicadas: [],
+    publicaciones: [],
+    lecturasLinkedin: [],
     lecturas: [],
     consultas: [],
     clics: [],
@@ -19,7 +20,7 @@ function entrada(extra: Partial<EntradaDeMetricas> = {}): EntradaDeMetricas {
 }
 
 function publicada(id: string, pilar: string | null, publicadoEn: string, titulo = `Reel ${id}`) {
-  return { id, titulo, pilar, publicadoEn }
+  return { piezaId: id, titulo, pilar, red: "instagram" as const, aMano: false, publicadoEn }
 }
 
 function lectura(piezaId: string, extra: Partial<EntradaDeMetricas["lecturas"][number]> = {}) {
@@ -39,7 +40,7 @@ describe("construirMetricas", () => {
   it("names the month and sums reels, consultations and clicks of that month", () => {
     const modelo = construirMetricas(
       entrada({
-        publicadas: [
+        publicaciones: [
           publicada("a", "pareja", "2026-10-08T22:00:00.000Z"),
           publicada("b", "deseo", "2026-09-26T22:00:00.000Z"),
         ],
@@ -68,7 +69,7 @@ describe("construirMetricas", () => {
   it("orders the bars by saves per 1,000 and scales them to the best one, with the numbers and the theme's n beside", () => {
     const modelo = construirMetricas(
       entrada({
-        publicadas: [
+        publicaciones: [
           publicada("a", "pareja", "2026-10-06T22:00:00.000Z"),
           publicada("b", "pareja", "2026-10-08T22:00:00.000Z"),
           publicada("c", "autoestima", "2026-10-13T22:00:00.000Z"),
@@ -100,7 +101,7 @@ describe("construirMetricas", () => {
   it("lists a reel with no figures yet at the end, without a bar", () => {
     const modelo = construirMetricas(
       entrada({
-        publicadas: [
+        publicaciones: [
           publicada("nuevo", "deseo", "2026-10-14T22:00:00.000Z"),
           publicada("a", "pareja", "2026-10-06T22:00:00.000Z"),
         ],
@@ -121,7 +122,7 @@ describe("construirMetricas", () => {
   it("uses the newest reading of each reel", () => {
     const modelo = construirMetricas(
       entrada({
-        publicadas: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")],
+        publicaciones: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")],
         lecturas: [
           lectura("a", { dia: "2026-10-13", guardados: 1 }),
           lectura("a", { dia: "2026-10-15", guardados: 30 }),
@@ -135,7 +136,9 @@ describe("construirMetricas", () => {
   it("shows the sample size and refuses to conclude while no two themes have eight reels", () => {
     const publicadas = [0, 1, 2].map((i) => publicada(`a${i}`, "autoestima", `2026-10-0${i + 1}T22:00:00.000Z`))
     publicadas.push(publicada("p0", "pareja", "2026-10-07T22:00:00.000Z"))
-    const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
+    const modelo = construirMetricas(
+      entrada({ publicaciones: publicadas, lecturas: publicadas.map((p) => lectura(p.piezaId)) }),
+    )
 
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
@@ -157,7 +160,9 @@ describe("construirMetricas", () => {
       publicada("p0", "pareja", "2026-10-06T22:00:00.000Z"),
       publicada("p1", "pareja", "2026-10-07T22:00:00.000Z"),
     ]
-    const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
+    const modelo = construirMetricas(
+      entrada({ publicaciones: publicadas, lecturas: publicadas.map((p) => lectura(p.piezaId)) }),
+    )
 
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
@@ -178,7 +183,7 @@ describe("construirMetricas", () => {
       ...guardados.map((g, i) => lectura(`p${i}`, { guardados: g - 10 })),
     ]
 
-    const modelo = construirMetricas(entrada({ publicadas, lecturas }))
+    const modelo = construirMetricas(entrada({ publicaciones: publicadas, lecturas }))
 
     const comparacion = modelo.comparacion
     if (comparacion?.tipo !== "comparable") throw new Error(`Se esperaba comparable y fue ${comparacion?.tipo}`)
@@ -199,7 +204,9 @@ describe("construirMetricas", () => {
       ...Array.from({ length: 8 }, (_, i) => publicada(`c${i}`, "caso-coni", `2026-09-${10 + i}T22:00:00.000Z`)),
       publicada("i0", "ia-salud-mental", "2026-10-06T22:00:00.000Z"),
     ]
-    const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
+    const modelo = construirMetricas(
+      entrada({ publicaciones: publicadas, lecturas: publicadas.map((p) => lectura(p.piezaId)) }),
+    )
 
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
@@ -216,7 +223,7 @@ describe("construirMetricas", () => {
     const reciente = publicada("p7", "pareja", "2026-10-13T22:00:00.000Z")
     const todas = [...antiguos, reciente]
 
-    const modelo = construirMetricas(entrada({ publicadas: todas, lecturas: todas.map((p) => lectura(p.id)) }))
+    const modelo = construirMetricas(entrada({ publicaciones: todas, lecturas: todas.map((p) => lectura(p.piezaId)) }))
 
     expect(modelo.comparacion?.tipo).toBe("temprano")
   })
@@ -224,7 +231,7 @@ describe("construirMetricas", () => {
   it("groups the last weeks, newest first, with their reels' raw numbers", () => {
     const modelo = construirMetricas(
       entrada({
-        publicadas: [
+        publicaciones: [
           publicada("a", "pareja", "2026-10-08T22:00:00.000Z", "Si van a discutir"),
           publicada("b", "deseo", "2026-10-13T22:00:00.000Z"),
         ],
@@ -261,13 +268,13 @@ describe("construirMetricas", () => {
   })
 
   it("warns when reels have been out for days and not one reading has arrived", () => {
-    const modelo = construirMetricas(entrada({ publicadas: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")] }))
+    const modelo = construirMetricas(entrada({ publicaciones: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")] }))
 
     expect(modelo.aviso).toBe("Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico.")
   })
 
   it("does not warn about a reel that went out today and has no reading yet", () => {
-    const modelo = construirMetricas(entrada({ publicadas: [publicada("a", "pareja", "2026-10-15T13:00:00.000Z")] }))
+    const modelo = construirMetricas(entrada({ publicaciones: [publicada("a", "pareja", "2026-10-15T13:00:00.000Z")] }))
 
     expect(modelo.aviso).toBeNull()
   })
@@ -275,12 +282,12 @@ describe("construirMetricas", () => {
   it("warns, with the day it shows, when the morning reading did not arrive", () => {
     const atrasada = construirMetricas(
       entrada({
-        publicadas: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")],
+        publicaciones: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")],
         lecturas: [lectura("a", { dia: "2026-10-12" })],
       }),
     )
     const alDia = construirMetricas(
-      entrada({ publicadas: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")], lecturas: [lectura("a")] }),
+      entrada({ publicaciones: [publicada("a", "pareja", "2026-10-06T22:00:00.000Z")], lecturas: [lectura("a")] }),
     )
 
     expect(atrasada.aviso).toBe("No pude traer las métricas de hoy; muestro las del lunes 12 de octubre.")
