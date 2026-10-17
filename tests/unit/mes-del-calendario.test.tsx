@@ -20,7 +20,13 @@ const publicada: PiezaDeCalendario = {
 }
 
 function montar(piezas: PiezaDeCalendario[]) {
-  const { mes } = construirCalendario({ piezas, horario: HORARIO, ahora: AHORA, pilares: PILARES_DE_PRUEBA })
+  const { mes } = construirCalendario({
+    piezas,
+    horario: HORARIO,
+    ahora: AHORA,
+    yaPublico: true,
+    pilares: PILARES_DE_PRUEBA,
+  })
   render(<MesDelCalendario celdas={mes.celdas} />)
 }
 

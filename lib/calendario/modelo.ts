@@ -90,6 +90,8 @@ export interface ModeloDeCalendario {
     columnas: string[]
     semanas: { etiqueta: string; celdas: CeldaDeRitmo[] }[]
     resumen: string
+    /** Before her first publication (decision 22): her schedule in words, shown instead of the count. */
+    antesDeEmpezar: string | null
     sugerencia: string | null
   }
 }
@@ -107,6 +109,13 @@ const PARTE_LIBRE_PARA_OPINAR = 0.75
 
 const DIA_CORTO = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const DIA_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+/** "martes, jueves y sábado". */
+function diasEnPalabras(dias: readonly number[]): string {
+  const nombres = [...dias].sort((a, b) => a - b).map((dia) => DIA_LARGO[dia - 1] ?? "")
+  if (nombres.length <= 1) return nombres.join("")
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres.at(-1)}`
+}
 const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
 function partesDeDia(dia: string): { anio: number; mes: number; dia: number } {
@@ -355,6 +364,7 @@ function construirRitmo(
   horario: Horario,
   ahora: number,
   primeraPublicacion: string | null | undefined,
+  yaPublico: boolean,
 ): ModeloDeCalendario["ritmo"] {
   const { zona } = horario
   const dias = [...horario.dias].sort((a, b) => a - b)
@@ -392,7 +402,10 @@ function construirRitmo(
     columnas: dias.map((d) => DIA_CORTO[d - 1] ?? ""),
     semanas: semanas.map((s) => ({ etiqueta: etiqueta(s.inicio), celdas: s.celdas })),
     resumen: `Tu horario tiene ${espacios} ${espacios === 1 ? "espacio" : "espacios"} por semana. En estas ${SEMANAS_DE_RITMO} semanas van ${usados} de ${esperados}.`,
-    sugerencia: sugerirCambio({ semanas, dias, lunesDeLaPrimera }),
+    antesDeEmpezar: yaPublico
+      ? null
+      : `Todavía no publicas. Tu ritmo es ${diasEnPalabras(dias)} a las ${horario.hora.slice(0, 5)}. Cuando salga la primera pieza, aquí verás si vas al día.`,
+    sugerencia: yaPublico ? sugerirCambio({ semanas, dias, lunesDeLaPrimera }) : null,
   }
 }
 
@@ -435,6 +448,8 @@ export function construirCalendario(entrada: {
   ahora: number
   /** When her first reel went out or was scheduled for, if the pieces given do not go back that far. */
   primeraPublicacion?: string | null
+  /** Any network row out or uploaded by her (decision 15); false before her first publication. */
+  yaPublico: boolean
   pilares: CatalogoDePilares
 }): ModeloDeCalendario {
   const { horario, ahora, primeraPublicacion } = entrada
@@ -442,6 +457,6 @@ export function construirCalendario(entrada: {
   return {
     mes: construirMes(piezas, ahora, horario.zona),
     agenda: construirAgenda(piezas, horario, ahora),
-    ritmo: construirRitmo(piezas, horario, ahora, primeraPublicacion),
+    ritmo: construirRitmo(piezas, horario, ahora, primeraPublicacion, entrada.yaPublico),
   }
 }

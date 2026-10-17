@@ -25,8 +25,15 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
   }
 }
 
-function calendario(piezas: PiezaDeCalendario[], ahora = AHORA, primeraPublicacion?: string) {
-  return construirCalendario({ piezas, horario: HORARIO, ahora, primeraPublicacion, pilares: PILARES_DE_PRUEBA })
+function calendario(piezas: PiezaDeCalendario[], ahora = AHORA, primeraPublicacion?: string, yaPublico = true) {
+  return construirCalendario({
+    piezas,
+    horario: HORARIO,
+    ahora,
+    primeraPublicacion,
+    yaPublico,
+    pilares: PILARES_DE_PRUEBA,
+  })
 }
 
 describe("Mes", () => {
@@ -112,6 +119,7 @@ describe("Agenda", () => {
       piezas: [],
       horario: HORARIO,
       ahora: casiAhora,
+      yaPublico: true,
       pilares: PILARES_DE_PRUEBA,
     })
 
@@ -239,6 +247,36 @@ describe("Agenda", () => {
 })
 
 describe("Ritmo", () => {
+  it("teaches her schedule before her first publication, instead of counting 0 of 0", () => {
+    const { ritmo } = calendario([pieza({ estado: "programado", publicarEn: alas19(17) })], AHORA, undefined, false)
+
+    expect(ritmo.antesDeEmpezar).toBe(
+      "Todavía no publicas. Tu ritmo es martes, jueves y sábado a las 19:00. Cuando salga la primera pieza, aquí verás si vas al día.",
+    )
+    expect(ritmo.sugerencia).toBeNull()
+    expect(ritmo.vacio).toBe(false)
+  })
+
+  it("names a single day without a list", () => {
+    const { ritmo } = construirCalendario({
+      piezas: [],
+      horario: { ...HORARIO, dias: [4], hora: "18:30:00" },
+      ahora: AHORA,
+      yaPublico: false,
+      pilares: PILARES_DE_PRUEBA,
+    })
+
+    expect(ritmo.antesDeEmpezar).toBe(
+      "Todavía no publicas. Tu ritmo es jueves a las 18:30. Cuando salga la primera pieza, aquí verás si vas al día.",
+    )
+  })
+
+  it("counts as before once she has published", () => {
+    const { ritmo } = calendario([pieza({ estado: "publicado", publicarEn: alas19(8) })])
+
+    expect(ritmo.antesDeEmpezar).toBeNull()
+  })
+
   it("shows the last four weeks by the days of the schedule, filled or free, and how many were used", () => {
     // Published: Tue 29 Sep and Thu 1 Oct; Thu 8 Oct; Tue 13 Oct. Scheduled: Thu 15, Sat 17.
     const { ritmo } = calendario([
