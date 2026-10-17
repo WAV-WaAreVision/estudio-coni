@@ -171,11 +171,45 @@ describe("leerDatosDeGrabacion", () => {
     })
   })
 
-  async function gastoDeVoz(piezaId: string, clave: string, cierre: "sin_cobro" | "barrido" | "abierto") {
+  async function gastoDeVoz(
+    piezaId: string,
+    clave: string,
+    cierre: "sin_cobro" | "barrido" | "abierto" | "confirmado",
+  ) {
     await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.2, $2, now())", [piezaId, clave])
     if (cierre === "sin_cobro") await pool.query("select public.liberar_gasto($1, true)", [clave])
     if (cierre === "barrido") await pool.query("select public.liberar_gasto($1)", [clave])
+    if (cierre === "confirmado") await pool.query("select public.confirmar_gasto($1, 0.2)", [clave])
   }
+
+  const claveDelIntento = (id: string, intento: number) => `${id}:voz:${"ab".repeat(8)}:${intento}`
+
+  it.each([
+    ["an earlier try of the attempt is still open after a 5xx", "abierto"],
+    ["an earlier try of the attempt was paid and its upload failed", "confirmado"],
+  ] as const)("does not say the attempt was not charged when %s", async (_caso, primera) => {
+    const id = await piezaPorFirmar()
+    const base = claveDelIntento(id, 0)
+    await gastoDeVoz(id, base, primera)
+    await gastoDeVoz(id, `${base}:r1`, "sin_cobro")
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+  })
+
+  it("says it for an attempt whose every try was refused", async () => {
+    const id = await piezaPorFirmar()
+    const base = claveDelIntento(id, 0)
+    await gastoDeVoz(id, base, "sin_cobro")
+    await gastoDeVoz(id, `${base}:r1`, "sin_cobro")
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(true)
+  })
 
   it.each([
     ["a refusal released it", "sin_cobro", true],
