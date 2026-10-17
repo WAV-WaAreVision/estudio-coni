@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import AxeBuilder from "@axe-core/playwright"
 import { expect, type Page, test } from "@playwright/test"
+import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "@/app/(app)/guion/[id]/textos"
 import { TEXTO_ARMADO } from "@/lib/diseno/deslizador"
 import { pool } from "../integration/db"
-import { bloquearRedExterna, configurarServicios, simularMedios } from "./ayudas"
+import { sembrarPieza } from "../integration/siembra"
+import { abrirDesplegable, bloquearRedExterna, configurarServicios, simularMedios } from "./ayudas"
 import { sembrarEscena } from "./escena"
 
 test("the app text is set in Geist, one family", async ({ page }) => {
@@ -47,6 +49,20 @@ async function rutas(): Promise<string[]> {
   ]
 }
 
+/**
+ * Gate 1 folds its editor (and "Más opciones" once a look is chosen): a folded control is skipped by axe and by the
+ * size audit, so both open them first to measure the script and caption fields, "Guardar cambios", "Pedir cambios" and
+ * the rest.
+ */
+async function abrirPliegues(page: Page, ruta: string): Promise<void> {
+  if (!ruta.startsWith("/guion/")) return
+  await abrirDesplegable(page, "Editar el guion")
+  await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible()
+  // With no looks to choose and no LinkedIn text there is no "Más opciones" to open.
+  if ((await page.locator("summary", { hasText: "Más opciones" }).count()) > 0)
+    await abrirDesplegable(page, "Más opciones")
+}
+
 test.beforeEach(async ({ page }) => {
   // The idea card fades in: axe would read the colours halfway. Reduced motion is also a real way to use the app.
   await page.emulateMedia({ reducedMotion: "reduce" })
@@ -61,6 +77,7 @@ test("every screen passes WCAG 2.x AA", async ({ page }) => {
   const hallazgos: string[] = []
   for (const ruta of await rutas()) {
     await page.goto(ruta)
+    await abrirPliegues(page, ruta)
     // The frame of the video is the user's footage: its contrast is not the app's.
     const { violations } = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -75,6 +92,7 @@ test("every control on every screen is at least 44 x 44", async ({ page }) => {
   const hallazgos: string[] = []
   for (const ruta of await rutas()) {
     await page.goto(ruta)
+    await abrirPliegues(page, ruta)
     const chicos = await page.evaluate(() =>
       [
         ...document.querySelectorAll<HTMLElement>(
@@ -107,10 +125,12 @@ async function hallazgosDeAxe(page: Page, estado: string): Promise<string[]> {
   return violations.map((v) => `${estado}: ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)
 }
 
-// Amendment 1: the states the Soft UI kit adds (Lote 2), opened before axe reads them. Later lotes add theirs here.
-test("the states the Soft UI kit adds pass WCAG 2.x AA: the armed sign track and the portalled toast", async ({
+// Amendment 1: the states the Soft UI kit adds (Lote 2 on), opened before axe reads them. Later lotes add theirs here.
+test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failures and the toast", async ({
   page,
 }) => {
+  // The undo window lasts 8 s and is read twice, open and closed.
+  test.setTimeout(90_000)
   await page.setViewportSize({ width: 390, height: 2600 })
   const { guion } = await sembrarEscena()
   const {
@@ -127,11 +147,56 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: the armed sign track and
     await page.getByRole("radio", { name: LOOK.nombre }).locator("xpath=ancestor::label").click()
     await page.getByRole("button", { name: "Escuchar la voz" }).click()
     await expect(page.getByText("La escuchaste completa")).toBeVisible({ timeout: 15_000 })
+
+    // Gate 1 with the editor open and the "Pedir cambios" confirm asked.
+    await abrirDesplegable(page, "Editar el guion")
+    await page.getByRole("button", { name: "Pedir cambios" }).click()
+    await expect(page.getByRole("button", { name: "Sí, pedir cambios" })).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "pedir cambios")))
+    await page.getByRole("button", { name: "Volver", exact: true }).click()
+
     const pista = page.getByRole("slider", { name: "Desliza para firmar" })
     await expect(pista).toHaveAttribute("aria-disabled", "false")
     await pista.click()
     await expect(pista).toHaveAttribute("aria-valuetext", TEXTO_ARMADO)
     hallazgos.push(...(await hallazgosDeAxe(page, "firma armada")))
+
+    // Signing (from the keyboard: the armed tap may have lapsed while axe read) opens the undo window, an <output>
+    // holding the focused "Deshacer"; then the recording going on.
+    await pista.focus()
+    await page.keyboard.press("End")
+    await page.waitForURL(/\?firmada=\d+$/)
+    await expect(page.getByRole("button", { name: "Deshacer" })).toBeFocused()
+    hallazgos.push(...(await hallazgosDeAxe(page, "ventana de deshacer")))
+    await expect(page.getByText("Estoy grabando tu video.")).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole("button", { name: "Deshacer" })).toHaveCount(0)
+    hallazgos.push(...(await hallazgosDeAxe(page, "ventana cerrada")))
+
+    // A video that failed: the large error block with its one way forward and the quiet discard.
+    const fallida = await sembrarPieza("en_render", {
+      estado: "error_produccion",
+      estado_antes_del_error: "en_render",
+      explicacion: "HeyGen no pudo terminar el video",
+    })
+    await page.goto(`/guion/${fallida}`)
+    await expect(page.getByText(TEXTO_NO_TERMINE)).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "error de produccion")))
+
+    // A script that could not be written, with the destructive confirm of the discard asked.
+    const sinGuion = await sembrarPieza("guion_en_proceso", { explicacion: "Claude no respondió a tiempo." })
+    await page.goto(`/guion/${sinGuion}`)
+    await expect(page.getByText(TEXTO_NO_ESCRIBI)).toBeVisible()
+    await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+    await expect(page.getByRole("button", { name: "Sí, descartar" })).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "guion sin escribir")))
+
+    // A render stopped with a reason.
+    const detenida = await sembrarPieza("en_render", {
+      explicacion: "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.",
+    })
+    await page.goto(`/guion/${detenida}`)
+    await expect(page.getByText(TEXTO_VIDEO_DETENIDO)).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "video detenido")))
 
     // The toast, portalled to <body>, above the bottom nav.
     await page.goto("/")
