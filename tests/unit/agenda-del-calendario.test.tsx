@@ -70,6 +70,8 @@ describe("AgendaDelCalendario: proposals", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sábado 24 · 19:00" }))
 
     await waitFor(() => expect(acciones.cambiar).toHaveBeenCalledWith("p1", "2026-10-24T22:00:00.000Z"))
+    // The row she was on moves: focus goes to the Agenda's heading, not to the top of the page.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Agenda" })).toHaveFocus())
   })
 
   it("keeps the piece's link whole next to Cambiar", () => {

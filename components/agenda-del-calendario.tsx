@@ -1,5 +1,6 @@
 import { CaretRight, CheckCircle, Export, PenNib, WarningCircle } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { COLUMNAS_DE_FILA, ID_DEL_TITULO_DE_LA_AGENDA } from "@/components/agenda-filas"
 import { CambiarPropuesta } from "@/components/cambiar-propuesta"
 import { RepartirFechas } from "@/components/repartir-fechas"
 import { Seccion } from "@/components/seccion"
@@ -46,7 +47,7 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
   )
 }
 
-const FILA = "grid min-h-fila grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-x-3 py-3 text-left"
+const FILA = `grid min-h-fila ${COLUMNAS_DE_FILA} items-center py-3 text-left`
 
 /** Brandkit 9.19: a free slot goes to the idea bank: «Libre · elige una idea». */
 type Alternativas = readonly { instante: string; etiqueta: string }[]
@@ -120,6 +121,9 @@ export function AgendaDelCalendario({
 }) {
   return (
     <div>
+      <h2 id={ID_DEL_TITULO_DE_LA_AGENDA} tabIndex={-1} className="sr-only">
+        Agenda
+      </h2>
       <RepartirFechas cuantas={porRepartir} repartir={acciones.repartir} />
       {semanas.map((semana) => (
         <Seccion key={semana.titulo} titulo={semana.titulo} varia id={`semana-${semana.titulo.replaceAll(" ", "-")}`}>
