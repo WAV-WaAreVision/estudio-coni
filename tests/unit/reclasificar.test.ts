@@ -34,6 +34,10 @@ describe("CSV de reclasificación", () => {
     expect(leerCsv(csv)[0]?.propuesta).toBe("etica-regulacion")
   })
 
+  it("reads a file a spreadsheet saved with a UTF-8 byte order mark", () => {
+    expect(leerCsv(`\uFEFF${aCsv(FILAS)}`)).toEqual(FILAS)
+  })
+
   it("names the line of a row it cannot read", () => {
     expect(() => leerCsv("id,tipo,antes,propuesta,razon\nm1,cosa,pareja,general,x\n")).toThrow(
       "Línea 2: tipo desconocido «cosa».",

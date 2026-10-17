@@ -74,7 +74,7 @@ function campos(texto: string): { valores: string[]; linea: number }[] {
 }
 
 export function leerCsv(texto: string): FilaDeReclasificacion[] {
-  const [cabecera, ...resto] = campos(texto)
+  const [cabecera, ...resto] = campos(texto.replace(/^\uFEFF/, ""))
   if (!cabecera || cabecera.valores.join(",") !== COLUMNAS.join(",")) {
     throw new Error(`La primera línea tiene que ser: ${COLUMNAS.join(",")}`)
   }
