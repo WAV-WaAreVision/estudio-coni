@@ -21,17 +21,23 @@ describe("ReproductorVideo", () => {
     expect(play).toHaveBeenCalledTimes(1)
   })
 
-  it("is the 9:16 frame at 9.5 by 16.9rem, centred and raised, with Avatar IA and a seek slider", () => {
+  it("is the 9:16 frame at the column width, capped so it fits above the bar, raised, with Avatar IA and a seek slider", () => {
     render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v3" zonas={false} alVerCompleto={vi.fn()} />)
-    expect(screen.getByTestId("reproductor-video")).toHaveClass(
-      "w-[9.5rem]",
-      "h-[16.9rem]",
-      "mx-auto",
-      "rounded-video",
-      "shadow-relieve",
-    )
+    const marco = screen.getByTestId("reproductor-video")
+    expect(marco).toHaveClass("w-full", "aspect-[9/16]", "mx-auto", "rounded-video", "shadow-relieve")
+    expect(marco.className).toMatch(/max-w-\[calc\(\(100svh/)
+    expect(marco.className).not.toMatch(/w-\[9\.5rem\]|h-\[16\.9rem\]/)
     expect(screen.getByText("Avatar IA")).toBeInTheDocument()
     expect(screen.getByRole("slider", { name: "Avance del video" })).toHaveClass("avance", "sobre-video")
+  })
+
+  it("keeps play, the rail and the time in one row on the bottom strip, so the lips and subtitles stay clear", () => {
+    render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v7" zonas={false} alVerCompleto={vi.fn()} />)
+    const play = screen.getByRole("button", { name: "Reproducir el video" })
+    const fila = play.parentElement as HTMLElement
+    expect(fila).toContainElement(screen.getByRole("slider", { name: "Avance del video" }))
+    expect(fila).toHaveClass("flex", "items-center")
+    expect(fila.closest(".absolute")).toHaveClass("bottom-2.5")
   })
 
   it("says what is left while it plays, under Avatar IA", () => {

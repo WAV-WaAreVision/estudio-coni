@@ -461,10 +461,9 @@ html[data-letra="grande"] .pildora {
   align-items: flex-start;
   border-radius: 20px;
 }
+/* At large text the frame keeps the whole column: the reserve for the bar grows with the text and would shrink it. */
 html[data-letra="grande"] .video-puerta {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 9 / 16;
+  max-width: none;
 }
 html[data-letra="grande"] .insignia-video {
   font-size: 0.75rem;

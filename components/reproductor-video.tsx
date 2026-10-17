@@ -21,8 +21,9 @@ const INSIGNIA =
   "insignia-video grid min-h-6 place-items-center rounded-control bg-velo-video px-2.5 text-insignia font-semibold"
 
 /**
- * Decision 11: the 9:16 video at 9.5 x 16.9rem, centred and raised (full width at large text), with "Avatar IA" and,
- * while it plays, what is left. Controls in two rows over the veil: the play and the time, then the rail.
+ * Decision 11, revised after the exit critique: the 9:16 video at the column width, large enough to check lips and
+ * subtitles, narrowed only so all of it fits above the sign bar on load (16rem: the back link and the bar). Raised,
+ * with "Avatar IA" and, while it plays, what is left. The controls are one row on the bottom strip: play, rail, time.
  */
 export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: PropiedadesDeVideo) {
   const { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar, buscar } =
@@ -39,7 +40,7 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
         role="presentation"
         data-testid="reproductor-video"
         onClick={alternar}
-        className="video-puerta relative mx-auto h-[16.9rem] w-[9.5rem] max-w-full overflow-hidden rounded-video bg-video text-luz shadow-relieve"
+        className="video-puerta relative mx-auto aspect-[9/16] w-full max-w-[calc((100svh-16rem)*9/16)] overflow-hidden rounded-video bg-video text-luz shadow-relieve"
       >
         {src ? (
           <video
@@ -74,9 +75,9 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: not a control; the button and the range inside are. */}
         <div
           onClick={(evento) => evento.stopPropagation()}
-          className="absolute inset-x-2.5 bottom-2.5 z-10 grid rounded-[14px] bg-velo-video px-2 pb-1"
+          className="absolute inset-x-2.5 bottom-2.5 z-10 rounded-[14px] bg-velo-video px-1.5"
         >
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={alternar}
@@ -90,23 +91,23 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
                 <Play aria-hidden="true" size={ICONO.chico} weight="fill" />
               )}
             </button>
-            <span data-snapshot="varia" className="text-insignia tabular-nums">
+            <input
+              type="range"
+              aria-label="Avance del video"
+              aria-valuetext={`${mmss(tiempo)} de ${mmss(duracion)}`}
+              min={0}
+              max={duracion > 0 ? duracion : 0}
+              step={0.1}
+              value={Math.min(tiempo, duracion > 0 ? duracion : 0)}
+              disabled={falla || duracion <= 0}
+              onChange={(evento) => buscar(Number(evento.target.value))}
+              className="avance sobre-video min-w-0 flex-1"
+              style={{ "--p": `${avance}%` } as CSSProperties}
+            />
+            <span data-snapshot="varia" className="shrink-0 pr-2 text-insignia tabular-nums">
               {mmss(tiempo)} / {mmss(duracion)}
             </span>
           </div>
-          <input
-            type="range"
-            aria-label="Avance del video"
-            aria-valuetext={`${mmss(tiempo)} de ${mmss(duracion)}`}
-            min={0}
-            max={duracion > 0 ? duracion : 0}
-            step={0.1}
-            value={Math.min(tiempo, duracion > 0 ? duracion : 0)}
-            disabled={falla || duracion <= 0}
-            onChange={(evento) => buscar(Number(evento.target.value))}
-            className="avance sobre-video"
-            style={{ "--p": `${avance}%` } as CSSProperties}
-          />
         </div>
       </div>
       {falla ? (
