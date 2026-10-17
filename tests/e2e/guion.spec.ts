@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
+import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { huellaDelGuion } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { CONI, pool } from "../integration/db"
-import { ajustarPieza, leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import {
+  ajustarPieza,
+  leerFila,
+  proponerFecha,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
 import {
   abrirDesplegable,
   alerta,
@@ -563,4 +571,28 @@ test("a look removed from the list while the screen was open is refused, with a 
   const fila = await leerFila(id)
   expect(fila.estado).toBe("guion_por_aprobar")
   expect(fila.avatar_id).toBeNull()
+})
+
+test("gate 1 shows the proposed date as when it would go out", async ({ page }) => {
+  const { guion } = await sembrarEscena()
+  const { rows } = await pool.query("select dias_publicacion, hora_publicacion, zona from public.ajustes")
+  const h = { dias: rows[0].dias_publicacion, hora: rows[0].hora_publicacion, zona: rows[0].zona }
+  const ocupadas = (
+    await pool.query<{ puerta2_publicar_en: Date }>(
+      "select puerta2_publicar_en from public.piezas where estado = 'programado'",
+    )
+  ).rows.map((f) => f.puerta2_publicar_en.toISOString())
+  const lejana = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas,
+    cuantas: 6,
+    antelacionMs: 12 * 3_600_000,
+  })[5]
+  if (!lejana) throw new Error("Sin horario")
+  await proponerFecha(guion, lejana)
+
+  await page.goto(`/guion/${guion}`)
+
+  await expect(page.getByText(`Si lo firmas hoy, sale el ${etiquetaDeFecha(lejana, h.zona, "larga")}`)).toBeVisible()
 })
