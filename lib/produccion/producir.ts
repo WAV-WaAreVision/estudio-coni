@@ -94,7 +94,8 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
   if (!datosDelPilar) {
     throw new FallaDeConfiguracion(`La idea ${idea.id} apunta a un pilar que no existe: ${idea.pilar}.`)
   }
-  const pilar = { nombre: datosDelPilar.nombre, descripcion: datosDelPilar.descripcion }
+  // A retired pillar keeps its name for the idea, but its description no longer guides what gets written.
+  const pilar = { nombre: datosDelPilar.nombre, descripcion: datosDelPilar.activa ? datosDelPilar.descripcion : null }
   const respaldo = await cargarRespaldoDeIdea(db, idea.id)
   const guia = await leerGuiaVigente(db)
   if (!guia) {

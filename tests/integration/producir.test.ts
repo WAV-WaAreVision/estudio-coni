@@ -271,6 +271,50 @@ describe("producirPieza", () => {
     expect(sim.revisiones).toHaveLength(1)
   })
 
+  it("names a retired pillar without its description, which no longer guides the writing", async () => {
+    const { rows: antes } = await pool.query<{ descripcion: string | null }>(
+      "select descripcion from public.categorias where slug = 'pareja'",
+    )
+    await pool.query("update public.categorias set descripcion = 'Una descripción de antes' where slug = 'pareja'")
+    // A used idea of a pillar retired after it was written: the trigger refuses a new one, so it is seeded around it.
+    const cliente = await pool.connect()
+    let ideaId: string | undefined
+    try {
+      await cliente.query("set session_replication_role = replica")
+      const { rows } = await cliente.query<{ id: string }>(
+        `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado)
+         values ('pareja', 'Una idea de antes', 'tema', 'Mito o realidad', 'alta', '[]', 'usada') returning id`,
+      )
+      ideaId = rows[0]?.id
+    } finally {
+      await cliente.query("reset session_replication_role")
+      cliente.release()
+    }
+    if (!ideaId) throw new Error("No se creó la idea")
+    ideasCreadas.push(ideaId)
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into public.piezas (idea_id, titulo) values ($1, 'Pilar retirado') returning id",
+      [ideaId],
+    )
+    const id = rows[0]?.id
+    if (!id) throw new Error("No se creó la pieza")
+    piezasCreadas.push(id)
+    await pool.query("update public.piezas set estado = 'guion_en_proceso', version = 1 where id = $1", [id])
+    const sim = simular()
+
+    try {
+      await producirPieza(deps(), id)
+    } finally {
+      await pool.query("update public.categorias set descripcion = $1 where slug = 'pareja'", [
+        antes[0]?.descripcion ?? null,
+      ])
+    }
+
+    const pedido = sim.escrituras[0]?.messages[0]?.content ?? ""
+    expect(pedido).toContain("Pilar: Pareja y conversación\n")
+    expect(pedido).not.toContain("Una descripción de antes")
+  })
+
   it("records the Claude spend at its real cost and the voice at its estimate", async () => {
     const id = await crearPiezaEnProduccion()
     simular()
