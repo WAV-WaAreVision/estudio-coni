@@ -199,7 +199,7 @@ describe("escribirTeorias", () => {
     expect(usuario).not.toContain("- pareja:")
   })
 
-  it("drops an idea whose pillar is retired and keeps one of an active pillar", async () => {
+  it("rejects the whole response when an idea names a retired pillar", async () => {
     respondiendo({
       teorias: [teoria({ ideas: [{ gancho: "g", tema: "t", pilar: "deseo", formato: "reel" }] })],
     })
