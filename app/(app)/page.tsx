@@ -5,6 +5,7 @@ import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { FilaNavegacion } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
@@ -28,6 +29,8 @@ import { IdeasSemana } from "./ideas-semana"
 import { elegirIdeasAccion } from "./piezas/acciones"
 
 const IDEAS_DE_LA_SEMANA = 5
+// A failure whose only text is a provider's: what she can do, with "Revisar" right under it.
+const TEXTO_ENTRA_A_LA_PIEZA = "Entra con Revisar para ver qué puedes hacer."
 const AVISOS_A_MOSTRAR = 5
 
 /** "5 nuevas", "1 nueva", or nothing: the meta of the row that opens the week's ideas. */
@@ -77,7 +80,7 @@ export default async function Inicio() {
             pieza={principal.titulo}
             accion={principal.accion ? <AccionDeAviso accion={principal.accion} principal /> : undefined}
           >
-            {principal.texto}
+            <ExplicacionParaConi texto={principal.texto} enSusPalabras={TEXTO_ENTRA_A_LA_PIEZA} />
           </Bloque>
           {otrasFallas.length > 0 ? (
             <Grupo lista>

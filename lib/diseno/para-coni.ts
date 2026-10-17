@@ -3,6 +3,9 @@
  * folded under "Detalle para WAV" with a link to the provider. Texts the app already writes for her stay as they are.
  */
 
+/** What she reads when a provider's text says nothing she can act on. */
+export const TEXTO_ALGO_FALLO = "Algo no salió como esperaba con esta pieza."
+
 export interface Proveedor {
   nombre: string
   href: string

@@ -12,12 +12,14 @@ import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { Eleccion } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
+import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
@@ -156,7 +158,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
       ) : null}
       {datos.explicacion ? (
         <Bloque tipo="aviso" className="mt-6">
-          {datos.explicacion}
+          <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={TEXTO_ALGO_FALLO} />
         </Bloque>
       ) : null}
 

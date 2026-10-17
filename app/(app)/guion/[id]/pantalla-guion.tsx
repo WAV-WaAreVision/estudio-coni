@@ -24,6 +24,7 @@ import { Panel } from "@/components/ui/panel"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
@@ -32,7 +33,6 @@ import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
 import {
-  TEXTO_ALGO_FALLO,
   TEXTO_CAMBIOS_TRAS_LA_VOZ,
   TEXTO_NO_PUDE_GRABAR,
   TEXTO_NO_PUDE_REHACER_VOZ,

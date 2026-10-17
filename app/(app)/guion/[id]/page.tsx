@@ -7,7 +7,7 @@ import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
-import { LineaDeSaldo } from "@/components/ui/costo"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
@@ -30,7 +30,13 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
-import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "./textos"
+import {
+  TEXTO_DETENIDO_EN_SUS_PALABRAS,
+  TEXTO_NO_ESCRIBI,
+  TEXTO_NO_TERMINE,
+  TEXTO_REINTENTA,
+  TEXTO_VIDEO_DETENIDO,
+} from "./textos"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
@@ -70,7 +76,7 @@ export default async function PaginaDeGuion({
                   <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} enUnError />
                 }
               >
-                {fila.explicacion}
+                <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_REINTENTA} />
               </Bloque>
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
@@ -94,7 +100,7 @@ export default async function PaginaDeGuion({
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <Bloque tipo="error" grande titulo={TEXTO_VIDEO_DETENIDO}>
-              {fila.explicacion}
+              <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_DETENIDO_EN_SUS_PALABRAS} />
             </Bloque>
           ) : (
             <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
@@ -117,7 +123,12 @@ export default async function PaginaDeGuion({
             titulo={TEXTO_NO_TERMINE}
             accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} enUnError />}
           >
-            {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+            {/* The HeyGen balance is WAV's: it goes with the provider's reason under "Detalle para WAV". */}
+            <ExplicacionParaConi
+              texto={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+              enSusPalabras={TEXTO_REINTENTA}
+              extra={[lineaDeSaldoVideo((await leerSaldos()).heygen)]}
+            />
           </Bloque>
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
           {voz ? (
@@ -126,7 +137,6 @@ export default async function PaginaDeGuion({
               <VozSuelta src={voz.url} clave={voz.clave} />
             </Seccion>
           ) : null}
-          <LineaDeSaldo>{lineaDeSaldoVideo((await leerSaldos()).heygen)}</LineaDeSaldo>
         </EstadoSencillo>
       )
     }

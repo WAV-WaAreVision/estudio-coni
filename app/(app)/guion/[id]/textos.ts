@@ -26,7 +26,8 @@ export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video. 
 export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."
 export const TEXTO_NO_PUDE_REHACER_VOZ =
   "No pude grabar tu voz de nuevo. Puedes intentarlo otra vez en Editar el guion."
-export const TEXTO_ALGO_FALLO = "Algo no salió como esperaba con esta pieza."
+export const TEXTO_REINTENTA = "Vuelve a intentarlo con Reintentar."
+export const TEXTO_DETENIDO_EN_SUS_PALABRAS = "No puedo seguir grabando por ahora. Avísale a Federico."
 
 /** "Grabo tu video en 8 s": the seconds really left of the undo window, computed once (decision 10). */
 export const textoGraboEn = (quedanMs: number) =>

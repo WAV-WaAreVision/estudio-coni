@@ -196,6 +196,11 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   await expect(page.getByText("No pude terminar el video.")).toBeVisible()
+  // HeyGen's words are WAV's: folded, never in the text she reads.
+  await expect(page.getByText("Vuelve a intentarlo con Reintentar.")).toBeVisible()
+  await expect(page.getByText("HeyGen no pudo terminar el video")).toBeHidden()
+  await abrirDesplegable(page, "Detalle para WAV")
+  await expect(page.getByText("HeyGen no pudo terminar el video")).toBeVisible()
   await expect(page.getByRole("link", { name: "Volver a Inicio" })).toHaveCount(0)
   await capturar(page, "guion-error")
 
@@ -343,7 +348,9 @@ test("a render stopped by the monthly cap shows why and stops polling", async ({
   expect(pedidos).toBe(0)
 })
 
-test("an empty HeyGen API wallet keeps the signature closed and says where to top up", async ({ page }) => {
+test("an empty HeyGen API wallet keeps the signature closed, says it in her words and folds where to top up", async ({
+  page,
+}) => {
   await configurarServicios({ heygenSaldo: 0 })
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
@@ -351,7 +358,12 @@ test("an empty HeyGen API wallet keeps the signature closed and says where to to
 
   await elegirAvatar(page, "Estudio")
   await escucharLaVoz(page)
+  const barra = page.getByRole("region", { name: "Firma" })
+  await expect(barra.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toBeVisible()
+  await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeHidden()
+  await abrirDesplegable(barra, "Detalle para WAV")
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
+  await expect(barra.getByRole("link", { name: "Abrir HeyGen" })).toHaveAttribute("href", "https://app.heygen.com")
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
   // Her voice alone still works without HeyGen.
   await abrirDesplegable(page, "Editar el guion")
@@ -367,6 +379,7 @@ test("a balance that does not answer is said, and blocks nothing", async ({ page
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
   await abrirDesplegable(page, "Editar el guion")
+  await abrirDesplegable(page.locator("details", { hasText: "Grabar la voz de nuevo" }).first(), "Detalle para WAV")
 
   await expect(page.getByText("No pude ver tu saldo de ElevenLabs.")).toBeVisible()
   await expect(page.getByRole("button", { name: "Grabar la voz de nuevo" })).not.toHaveAttribute(

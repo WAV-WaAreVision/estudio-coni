@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { EstadoSencillo } from "@/components/estado-sencillo"
 import { MomentoDeCierre } from "@/components/momento-de-cierre"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
 import {
@@ -149,10 +150,13 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
             titulo="No se pudo publicar"
             detalle={
               <>
-                {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-                {fila.media_id
-                  ? " Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo."
-                  : null}
+                <ExplicacionParaConi
+                  texto={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+                  enSusPalabras="Vuelve a intentarlo con Reintentar."
+                />
+                {fila.media_id ? (
+                  <p>Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo.</p>
+                ) : null}
               </>
             }
           />

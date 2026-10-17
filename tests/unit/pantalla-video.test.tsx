@@ -167,6 +167,19 @@ describe("PantallaVideo: dónde y cuándo", () => {
     expect(screen.getByRole("button", { name: "Editar el texto para LinkedIn" })).toBeInTheDocument()
   })
 
+  it("says a provider's explanation in her words and folds it for WAV", () => {
+    abrir({ explicacion: "Los subtítulos de HeyGen no calzan con el guion." })
+    const bloque = screen.getByText("Algo no salió como esperaba con esta pieza.").closest("output") as HTMLElement
+    const detalle = within(bloque).getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText("Los subtítulos de HeyGen no calzan con el guion."))
+  })
+
+  it("keeps an explanation written for her as it is", () => {
+    abrir({ explicacion: "Pasó la hora aprobada. Elige otra fecha." })
+    expect(screen.getByText("Pasó la hora aprobada. Elige otra fecha.")).toBeInTheDocument()
+    expect(screen.queryByText("Detalle para WAV")).toBeNull()
+  })
+
   it("keeps the Instagram caption as an open section when Instagram goes out alone", () => {
     abrir()
     const instagram = screen.getByRole("heading", { name: "Así sale en Instagram" })
