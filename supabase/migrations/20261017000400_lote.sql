@@ -96,7 +96,8 @@ create table public.fechas_propuestas (
 alter table public.fechas_propuestas enable row level security;
 create policy "coni y wav leen las fechas propuestas" on public.fechas_propuestas for select to authenticated
   using (public.es_coni() or public.es_mantenedor());
--- Nothing on the server reads or writes it with the service role: Coni's session reads it, proponer_fechas writes it.
+-- Coni and WAV (the maintainer, who operates the app) read it from their own sessions, as the policy above says;
+-- only proponer_fechas writes it. Nothing on the server uses the service role for it.
 revoke all on public.fechas_propuestas from anon, authenticated, service_role;
 grant select on public.fechas_propuestas to authenticated;
 
