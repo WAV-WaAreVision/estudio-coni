@@ -7,12 +7,17 @@ import { cn } from "@/lib/utils"
 
 type Ritmo = ModeloDeCalendario["ritmo"]
 
+const CELDA = "flex min-h-objetivo min-w-0 items-center rounded-bloque px-2.5 text-meta break-words"
+
 /** The first word of the theme is enough inside a small cell; the full name is in the cell's accessible name. */
 function nombreCorto(nombre: string): string {
   return nombre.split(" ")[0] ?? nombre
 }
 
-/** Brandkit 9.19: weeks against the days of the schedule, as lines and bars: filled is a 4 px ink bar, free is a 1 px line. */
+/**
+ * Brandkit 9.19: weeks against the days of the schedule. A free slot is a sunken honda tile, as fields and tracks are; a
+ * filled one is an ink tile with the theme in light. Read only: neither is raised.
+ */
 export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
   if (ritmo.vacio) {
     return (
@@ -66,19 +71,17 @@ function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; act
             // biome-ignore lint/suspicious/noArrayIndexKey: one cell per day of the schedule, in order
             key={i}
             title={celda.titulo}
-            className="grid gap-1 text-meta font-medium"
+            className={cn(CELDA, "bg-tinta font-semibold text-luz")}
           >
             {celda.pilar ? nombreCorto(NOMBRE_DE_PILAR[celda.pilar]) : "Reel"}
-            <span aria-hidden="true" className="h-1 bg-tinta" />
           </span>
         ) : (
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: one cell per day of the schedule, in order
             key={i}
-            className="grid gap-1 text-meta text-apagado"
+            className={cn(CELDA, "bg-piedra-honda text-apagado shadow-hundido")}
           >
             libre
-            <span aria-hidden="true" className="h-px bg-campo" />
           </span>
         ),
       )}
