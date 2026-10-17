@@ -82,3 +82,30 @@ create table public.recordatorios_linkedin (
 
 alter table public.recordatorios_linkedin enable row level security;
 revoke all on public.recordatorios_linkedin from anon, authenticated;
+
+-- WAV's weekly save (decision 19): the posts of the day and the week's followers in one transaction, so a failure in
+-- one leaves nothing half written. Runs with the caller's rights, so the policies above decide what it may write.
+create function public.anotar_numeros_linkedin(
+  p_medido_en date,
+  p_semana date,
+  p_posts jsonb,
+  p_seguidores integer default null
+) returns void
+language plpgsql security invoker set search_path = '' as $$
+begin
+  insert into public.metricas_linkedin (pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos, origen)
+  select (post ->> 'pieza_id')::uuid, p_medido_en, (post ->> 'impresiones')::integer, (post ->> 'reacciones')::integer,
+         (post ->> 'comentarios')::integer, (post ->> 'compartidos')::integer, 'manual'
+    from jsonb_array_elements(coalesce(p_posts, '[]'::jsonb)) as post
+  on conflict (pieza_id, medido_en) do update
+    set impresiones = excluded.impresiones, reacciones = excluded.reacciones, comentarios = excluded.comentarios,
+        compartidos = excluded.compartidos, origen = excluded.origen;
+  if p_seguidores is not null then
+    insert into public.metricas_linkedin_cuenta (semana, seguidores, origen)
+    values (p_semana, p_seguidores, 'manual')
+    on conflict (semana) do update set seguidores = excluded.seguidores, origen = excluded.origen;
+  end if;
+end $$;
+
+revoke all on function public.anotar_numeros_linkedin(date, date, jsonb, integer) from public, anon;
+grant execute on function public.anotar_numeros_linkedin(date, date, jsonb, integer) to authenticated;

@@ -71,30 +71,25 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
   }
 }
 
-/** Manual rows only: `anotado_por` and `anotado_en` are sealed by the database. Saving twice in a day replaces. */
+/**
+ * Manual rows only, posts and followers in one transaction (`anotar_numeros_linkedin`): `anotado_por` and `anotado_en`
+ * are sealed by the database. Saving twice in a day replaces.
+ */
 export async function guardarNumerosDeLinkedin(
   db: Db,
   entrada: { medidoEn: string; semana: string; posts: readonly NumerosDePost[]; seguidores: number | null },
 ): Promise<void> {
-  if (entrada.posts.length > 0) {
-    const { error } = await db.from("metricas_linkedin").upsert(
-      entrada.posts.map((post) => ({
-        pieza_id: post.piezaId,
-        medido_en: entrada.medidoEn,
-        impresiones: post.impresiones,
-        reacciones: post.reacciones,
-        comentarios: post.comentarios,
-        compartidos: post.compartidos,
-        origen: "manual",
-      })),
-      { onConflict: "pieza_id,medido_en" },
-    )
-    if (error) throw fallo("No pude guardar los números de LinkedIn", error)
-  }
-  if (entrada.seguidores !== null) {
-    const { error } = await db
-      .from("metricas_linkedin_cuenta")
-      .upsert({ semana: entrada.semana, seguidores: entrada.seguidores, origen: "manual" }, { onConflict: "semana" })
-    if (error) throw fallo("No pude guardar los seguidores de LinkedIn", error)
-  }
+  const { error } = await db.rpc("anotar_numeros_linkedin", {
+    p_medido_en: entrada.medidoEn,
+    p_semana: entrada.semana,
+    p_posts: entrada.posts.map((post) => ({
+      pieza_id: post.piezaId,
+      impresiones: post.impresiones,
+      reacciones: post.reacciones,
+      comentarios: post.comentarios,
+      compartidos: post.compartidos,
+    })),
+    ...(entrada.seguidores === null ? {} : { p_seguidores: entrada.seguidores }),
+  })
+  if (error) throw fallo("No pude guardar los números de LinkedIn", error)
 }

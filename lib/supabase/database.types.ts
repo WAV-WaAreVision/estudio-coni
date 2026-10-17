@@ -1605,6 +1605,15 @@ export type Database = {
       }
     }
     Functions: {
+      anotar_numeros_linkedin: {
+        Args: {
+          p_medido_en: string
+          p_posts: Json
+          p_seguidores?: number
+          p_semana: string
+        }
+        Returns: undefined
+      }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }

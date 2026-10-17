@@ -84,4 +84,15 @@ describe("guardarNumerosDeLinkedin", () => {
     const cuenta = await pool.query("select seguidores, anotado_por from public.metricas_linkedin_cuenta")
     expect(cuenta.rows).toEqual([{ seguidores: 830, anotado_por: CONI }])
   })
+
+  it("writes the posts and the followers together or not at all", async () => {
+    const post = await postEnLinkedin("Post", "2026-10-14T22:00:00.000Z")
+    const fila = { piezaId: post, impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 }
+
+    await expect(
+      guardarNumerosDeLinkedin(coni, { medidoEn: "2026-10-19", semana: "2026-10-19", posts: [fila], seguidores: -5 }),
+    ).rejects.toThrow(/No pude guardar los números de LinkedIn/)
+
+    expect((await pool.query("select * from public.metricas_linkedin where pieza_id = $1", [post])).rowCount).toBe(0)
+  })
 })
