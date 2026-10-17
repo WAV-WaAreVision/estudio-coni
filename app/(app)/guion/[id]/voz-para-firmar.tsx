@@ -6,13 +6,21 @@ import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
-import { LineaDeSaldo } from "@/components/ui/costo"
+import { DetalleParaWav, ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { separarParaConi } from "@/lib/diseno/para-coni"
 import { pedirVozAccion } from "../../piezas/acciones"
-import { separarFallaDeVoz, TEXTO_FALTA_VOZ, TEXTO_GUARDA_ANTES_DE_VOZ, TEXTO_PREPARANDO_VOZ } from "./textos"
+import {
+  separarFallaDeVoz,
+  TEXTO_FALTA_VOZ,
+  TEXTO_GUARDA_ANTES_DE_VOZ,
+  TEXTO_PREPARANDO_VOZ,
+  TEXTO_REINTENTA_VOZ,
+  TEXTO_SIN_SALDO_VOZ,
+} from "./textos"
 
 interface PropiedadesDeVoz {
   piezaId: string
@@ -33,16 +41,23 @@ function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string | null
   return datos.botones?.bloqueoVoz ?? null
 }
 
-/** Under a voice button: its reason when it is closed, the ElevenLabs balance when it is open. */
+/**
+ * Under a voice button: its reason when it is closed, in her words, and the ElevenLabs numbers (the balance, a reason
+ * that names the provider) folded for WAV.
+ */
 function LineaBajoElBoton({ id, razon, datos }: { id: string; razon: string | null; datos: DatosDeGrabacion }) {
-  if (razon !== null)
-    return (
-      <p id={id} className="flex items-start gap-2 text-meta font-medium text-tinta">
-        <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
-        {razon}
-      </p>
-    )
-  return datos.botones ? <LineaDeSaldo>{datos.botones.saldoVoz}</LineaDeSaldo> : null
+  const para = separarParaConi(razon ?? "", TEXTO_SIN_SALDO_VOZ, datos.botones ? [datos.botones.saldoVoz] : [])
+  return (
+    <>
+      {razon !== null ? (
+        <p id={id} className="flex items-start gap-2 text-meta font-medium text-tinta">
+          <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+          {para.texto}
+        </p>
+      ) : null}
+      {para.detalle.length > 0 ? <DetalleParaWav lineas={para.detalle} proveedor={para.proveedor} /> : null}
+    </>
+  )
 }
 
 /**
@@ -86,7 +101,7 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
             </div>
           }
         >
-          {falla?.detalle}
+          {falla?.detalle ? <ExplicacionParaConi texto={falla.detalle} enSusPalabras={TEXTO_REINTENTA_VOZ} /> : null}
         </Bloque>
       )}
       {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}

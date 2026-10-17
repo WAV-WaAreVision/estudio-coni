@@ -15,6 +15,7 @@ import { BarraDeFirma, LineaDeFalta } from "@/components/ui/barra-de-firma"
 import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
@@ -30,7 +31,15 @@ import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
-import { TEXTO_CAMBIOS_TRAS_LA_VOZ, TEXTO_PEDIR_CAMBIOS, TEXTO_SIN_OBSERVACIONES } from "./textos"
+import {
+  TEXTO_ALGO_FALLO,
+  TEXTO_CAMBIOS_TRAS_LA_VOZ,
+  TEXTO_NO_PUDE_GRABAR,
+  TEXTO_NO_PUDE_REHACER_VOZ,
+  TEXTO_PEDIR_CAMBIOS,
+  TEXTO_SIN_OBSERVACIONES,
+  TEXTO_SIN_SALDO_VIDEO,
+} from "./textos"
 import { GrabarDeNuevo, VozParaFirmar } from "./voz-para-firmar"
 
 export interface DatosDeGuion {
@@ -58,6 +67,13 @@ export interface DatosDeGuion {
   avisoInicial: string | null
   /** The look stored on the piece (the one she signed with before an undo); preselected while it is still offered. */
   avatarGuardado: string | null
+}
+
+/** A provider's reason left on a script that has her voice, said by what failed: the video, or a new take. */
+function enSusPalabras(explicacion: string): string {
+  if (/\bHeyGen\b/i.test(explicacion)) return TEXTO_NO_PUDE_GRABAR
+  if (/\bElevenLabs\b/i.test(explicacion)) return TEXTO_NO_PUDE_REHACER_VOZ
+  return TEXTO_ALGO_FALLO
 }
 
 const TEXTO_AUN_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
@@ -197,7 +213,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
 
       {grabacion.voz && datos.explicacion ? (
         <Bloque tipo="aviso" className="mt-6">
-          {datos.explicacion}
+          <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={enSusPalabras(datos.explicacion)} />
         </Bloque>
       ) : null}
 
@@ -328,8 +344,8 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           <>
             {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
             {falta.tipo === "bloqueo" ? (
-              <Bloque tipo="aviso" id={idFalta}>
-                {falta.texto}
+              <Bloque tipo="aviso">
+                <ExplicacionParaConi id={idFalta} texto={falta.texto} enSusPalabras={TEXTO_SIN_SALDO_VIDEO} />
               </Bloque>
             ) : null}
             {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}

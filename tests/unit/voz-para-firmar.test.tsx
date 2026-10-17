@@ -104,7 +104,10 @@ describe("VozParaFirmar", () => {
       />,
     )
     expect(screen.getByText("Falta preparar tu voz.")).toBeInTheDocument()
-    expect(screen.getByText(BOTONES.saldoVoz)).toBeInTheDocument()
+    // The ElevenLabs balance is WAV's: folded under "Detalle para WAV", never in her text.
+    const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).not.toHaveAttribute("open")
+    expect(detalle).toContainElement(screen.getByText(BOTONES.saldoVoz))
     const boton = screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })
     fireEvent.click(boton)
     await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 5, false))
@@ -125,6 +128,43 @@ describe("VozParaFirmar", () => {
     expect(screen.getByText("No pude preparar tu voz.")).toHaveClass("text-error")
     expect(alerta).toHaveTextContent("Vuelve a intentarlo con Preparar mi voz.")
     expect(screen.getByRole("button", { name: "Preparar mi voz" })).toBeInTheDocument()
+  })
+
+  it("says a provider's reason in her words and folds it under 'Detalle para WAV'", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null)}
+        explicacion="No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    const alerta = screen.getByRole("alert")
+    expect(alerta).toHaveTextContent("Vuelve a intentarlo con Preparar mi voz.")
+    const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText("ElevenLabs respondió 401: la llave no sirve."))
+    expect(screen.getByRole("link", { name: "Abrir ElevenLabs" })).toBeInTheDocument()
+  })
+
+  it("says a short ElevenLabs balance in her words on the closed button, with the numbers for WAV", () => {
+    const sinCaracteres =
+      "No te alcanzan los caracteres de ElevenLabs (te quedan 100 y esta voz usa 1.100). Recarga o mejora tu plan en elevenlabs.io, en Suscripción."
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: { ...BOTONES, bloqueoVoz: sinCaracteres } })}
+        explicacion={null}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    const accion = screen.getByRole("button", { name: /^Preparar mi voz/ })
+    expect(accion).toHaveAccessibleDescription("No alcanza el saldo para preparar tu voz. Avísale a Federico.")
+    const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText(sinCaracteres))
   })
 
   it("keeps 'Preparar mi voz' closed while the script has unsaved changes, and says why", () => {
@@ -190,7 +230,7 @@ describe("GrabarDeNuevo", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: "Grabar la voz de nuevo US$ 0,33" }))
     await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 5, true))
-    expect(screen.getByText(BOTONES.saldoVoz)).toBeInTheDocument()
+    expect(screen.getByText("Detalle para WAV").closest("details")).toContainElement(screen.getByText(BOTONES.saldoVoz))
   })
 
   it("stays closed while the script has unsaved changes, and says why", () => {

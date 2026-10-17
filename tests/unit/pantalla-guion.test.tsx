@@ -203,9 +203,22 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.queryByText(/^Avatar:/)).toBeNull()
   })
 
-  it("shows a phrase HeyGen refused as a warning block when her voice is there", () => {
+  it("never blames the video for a new take of her voice that ElevenLabs refused", () => {
+    render(<PantallaGuion datos={datos({ explicacion: "ElevenLabs respondió 429: demasiadas solicitudes." })} />)
+    expect(
+      screen.getByText("No pude grabar tu voz de nuevo. Puedes intentarlo otra vez en Editar el guion."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/No pude grabar el video/)).toBeNull()
+  })
+
+  it("says a phrase HeyGen refused in her words in a warning block, with HeyGen's text for WAV", () => {
     render(<PantallaGuion datos={datos({ explicacion: "HeyGen marcó una frase como sensible." })} />)
-    expect(screen.getByText("HeyGen marcó una frase como sensible.").closest("output")).toHaveClass("bg-piedra-honda")
+    const bloque = screen
+      .getByText("No pude grabar el video. Revisa el guion y vuelve a firmarlo.")
+      .closest("output") as HTMLElement
+    expect(bloque).toHaveClass("bg-piedra-honda")
+    const detalle = within(bloque).getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText("HeyGen marcó una frase como sensible."))
   })
 })
 
@@ -236,13 +249,25 @@ describe("PantallaGuion: la firma", () => {
     expect(firma()).toHaveAttribute("aria-disabled", "true")
   })
 
-  it("says HeyGen's balance as a block in the bar, with no list, even before her voice", () => {
+  it("says a short HeyGen balance in her words in the bar, with no list, and folds the numbers for WAV", () => {
     const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
+    const suyo = "No alcanza el saldo para grabar el video. Avísale a Federico."
     render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
-    expect(within(barra()).getByRole("status")).toHaveTextContent(bloqueo)
+    expect(within(barra()).getByRole("status")).toHaveTextContent(suyo)
     expect(within(barra()).queryByText("Falta:")).toBeNull()
     expect(firma()).toHaveAttribute("aria-disabled", "true")
-    expect(firma()).toHaveAccessibleDescription(contiene(bloqueo))
+    expect(firma()).toHaveAccessibleDescription(contiene(suyo))
+    expect(firma()).not.toHaveAccessibleDescription(/HeyGen|Detalle para WAV/)
+    expect(within(barra()).getByText("Detalle para WAV").closest("details")).toContainElement(
+      within(barra()).getByText(bloqueo),
+    )
+  })
+
+  it("keeps the monthly cap, which is hers, as it is in the bar", () => {
+    const tope = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+    render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: tope } })} />)
+    expect(within(barra()).getByRole("status")).toHaveTextContent(tope)
+    expect(within(barra()).queryByText("Detalle para WAV")).toBeNull()
   })
 
   it("blocks in the bar with today's text when there are no looks to choose", () => {

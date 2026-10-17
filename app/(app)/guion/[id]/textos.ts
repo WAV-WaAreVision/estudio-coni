@@ -19,6 +19,15 @@ export const TEXTO_NO_TERMINE = "No pude terminar el video."
 export const TEXTO_NO_ESCRIBI = "No pude escribir el guion"
 export const TEXTO_VIDEO_DETENIDO = "El video está detenido"
 
+// Exit critique 3: what happened in her words when the app only has a provider's text (that goes to "Detalle para WAV").
+export const TEXTO_REINTENTA_VOZ = "Vuelve a intentarlo con Preparar mi voz."
+export const TEXTO_SIN_SALDO_VOZ = "No alcanza el saldo para preparar tu voz. Avísale a Federico."
+export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video. Avísale a Federico."
+export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."
+export const TEXTO_NO_PUDE_REHACER_VOZ =
+  "No pude grabar tu voz de nuevo. Puedes intentarlo otra vez en Editar el guion."
+export const TEXTO_ALGO_FALLO = "Algo no salió como esperaba con esta pieza."
+
 /** "Grabo tu video en 8 s": the seconds really left of the undo window, computed once (decision 10). */
 export const textoGraboEn = (quedanMs: number) =>
   `Grabo tu video en ${Math.min(VENTANA_DESHACER_MS / 1000, Math.ceil(quedanMs / 1000))} s`
