@@ -33,7 +33,66 @@ const slugDe = async (id: string) =>
     )
   ).rows[0]?.slug ?? null
 
+const URL_MENSAJES = "https://api.anthropic.com/v1/messages"
+
+async function materialesEn(slug: string, cuantos: number): Promise<string[]> {
+  const ids: string[] = []
+  for (let i = 0; i < cuantos; i++) ids.push(await materialEn(slug, `Siembra lote ${i}`))
+  return ids
+}
+
+/** A Messages API answer that assigns every item id in the request to one pillar. */
+async function asignandoTodo(request: Request, modelo = "claude-sonnet-5-5"): Promise<Response> {
+  const cuerpo = JSON.stringify(await request.json())
+  const ids = [...cuerpo.matchAll(/\\"id\\":\\"([0-9a-f-]{36})\\"/g)].map((m) => m[1])
+  return HttpResponse.json({
+    id: "msg",
+    type: "message",
+    role: "assistant",
+    model: modelo,
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: { input_tokens: 500, output_tokens: 100 },
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ asignaciones: ids.map((id) => ({ id, pilar: "ia-salud-mental", razon: "IA" })) }),
+      },
+    ],
+  })
+}
+
+const proponer = () =>
+  proponerReclasificacion({
+    db: clienteDeServicio(),
+    claude: new Anthropic({ apiKey: "sk-ant-prueba", maxRetries: 0 }),
+    ahora: "2026-10-17T12:00:00.000Z",
+    avisar: () => {},
+  })
+
+const ultimoGasto = async () =>
+  (
+    await pool.query<{ estado: string; real_usd: string | null }>(
+      "select estado, real_usd from public.gastos where paso = 'reclasificar_pilares' order by creado_en desc limit 1",
+    )
+  ).rows[0]
+
 describe("reclasificación de pilares", () => {
+  it("confirms what earlier batches cost when a later batch fails, and rethrows the failure", async () => {
+    await materialesEn("pareja", 41)
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_MENSAJES, ({ request }) => {
+        llamadas += 1
+        if (llamadas === 1) return asignandoTodo(request)
+        return HttpResponse.json({ type: "error", error: { type: "api_error", message: "caído" } }, { status: 500 })
+      }),
+    )
+    await expect(proponer()).rejects.toThrow()
+    expect(llamadas).toBe(2)
+    expect(await ultimoGasto()).toEqual({ estado: "confirmado", real_usd: "0.0020" })
+  })
+
   it("reads items of retired pillars, general and none, and leaves active pillars alone", async () => {
     const viejo = await materialEn("pareja", "Siembra viejo")
     const general = await materialEn("general", "Siembra general")

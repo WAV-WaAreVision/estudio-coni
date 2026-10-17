@@ -47,10 +47,26 @@ export async function proponerReclasificacion(deps: {
       }
     }
   } catch (error) {
-    // Nothing usable came back: release so the cap does not count it, and let the error say what failed.
-    await liberarGasto(deps.db, clave)
+    // Batches that answered were billed: confirm them so the cap counts them; release only when nothing was billed.
+    await cerrarGastoTrasFalla(deps, clave, realUsd)
     throw error
   }
   await confirmarGasto(deps.db, clave, Number(realUsd.toFixed(4)))
   return { filas, estimado, realUsd }
+}
+
+/** Never masks the failure that brought us here: a failure closing the spend is reported, then the caller rethrows. */
+async function cerrarGastoTrasFalla(
+  deps: { db: SupabaseClient<Database>; avisar: (linea: string) => void },
+  clave: string,
+  realUsd: number,
+): Promise<void> {
+  try {
+    if (realUsd > 0) await confirmarGasto(deps.db, clave, Number(realUsd.toFixed(4)))
+    else await liberarGasto(deps.db, clave)
+  } catch (cierre) {
+    deps.avisar(
+      `No pude cerrar el gasto ${clave} (US$ ${realUsd.toFixed(4)}): ${cierre instanceof Error ? cierre.message : String(cierre)}. Revísalo en la tabla gastos.`,
+    )
+  }
 }
