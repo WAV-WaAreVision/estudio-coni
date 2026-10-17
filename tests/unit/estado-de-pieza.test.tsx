@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { descartarAccion, reintentarAccion } = vi.hoisted(() => ({
   descartarAccion: vi.fn(async (..._: unknown[]) => ({ ok: true as const })),
-  reintentarAccion: vi.fn(async (..._: unknown[]) => ({ ok: true as const })),
+  reintentarAccion: vi.fn(
+    async (..._: unknown[]): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true }),
+  ),
 }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({
   descartarAccion,
@@ -43,5 +45,22 @@ describe("AccionesDeEstado", () => {
     render(<AccionesDeEstado piezaId="p" version={2} acciones={["reintentar", "descartar"]} />)
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
     await waitFor(() => expect(reintentarAccion).toHaveBeenCalledWith("p", 2))
+  })
+
+  it("says a refused retry as its own alert block when it stands alone", async () => {
+    reintentarAccion.mockResolvedValueOnce({ ok: false, error: "No pude reintentar." })
+    render(<AccionesDeEstado piezaId="p" version={2} acciones={["reintentar"]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pude reintentar.")
+  })
+
+  it("inside an error block, says a refused retry as a plain error line: no block on the block, no second alert", async () => {
+    reintentarAccion.mockResolvedValueOnce({ ok: false, error: "No pude reintentar." })
+    render(<AccionesDeEstado piezaId="p" version={2} acciones={["reintentar"]} enUnError />)
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
+    const linea = await screen.findByText("No pude reintentar.")
+    expect(linea).toHaveClass("text-error", "font-semibold")
+    expect(linea.closest(".bg-piedra-honda")).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

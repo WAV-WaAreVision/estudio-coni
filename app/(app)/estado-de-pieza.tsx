@@ -33,15 +33,21 @@ interface PropiedadesDeEstado {
   version: number
   /** The buttons the state offers, in order; the first one is the main one. */
   acciones: readonly Que[]
+  /**
+   * The buttons sit inside a large error block that is already the alert: a refusal is a plain error line in it, read
+   * by that alert, not a second honda block with its own.
+   */
+  enUnError?: boolean
 }
 
 /** The buttons of a piece that is not waiting for a signature: retry or change the date, or let it go quietly (asking first). */
-export function AccionesDeEstado({ piezaId, version, acciones }: PropiedadesDeEstado) {
+export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false }: PropiedadesDeEstado) {
   const { pendiente, error, ejecutar } = useAccion()
   const [descartando, setDescartando] = useState(false)
   return (
     <div className="grid gap-2">
-      {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      {error && enUnError ? <p className="font-semibold text-error">{error}</p> : null}
+      {error && !enUnError ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {acciones.map((que, indice) => {
         if (que === "descartar") {
           return descartando ? (

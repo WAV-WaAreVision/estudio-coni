@@ -66,7 +66,9 @@ export default async function PaginaDeGuion({
                 tipo="error"
                 grande
                 titulo={TEXTO_NO_ESCRIBI}
-                accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} />}
+                accion={
+                  <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} enUnError />
+                }
               >
                 {fila.explicacion}
               </Bloque>
@@ -113,7 +115,7 @@ export default async function PaginaDeGuion({
             tipo="error"
             grande
             titulo={TEXTO_NO_TERMINE}
-            accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} />}
+            accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} enUnError />}
           >
             {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
           </Bloque>
