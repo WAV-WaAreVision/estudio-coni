@@ -27,6 +27,18 @@ function enLinkedin(id: string, publicadoEn: string, titulo = `Post ${id}`, pila
   return { piezaId: id, titulo, pilar, red: "linkedin" as const, aMano: false, publicadoEn }
 }
 
+function lecturaLinkedin(piezaId: string, extra: Partial<EntradaDeMetricas["lecturasLinkedin"][number]> = {}) {
+  return {
+    piezaId,
+    medidoEn: "2026-10-12",
+    impresiones: 1200,
+    reacciones: 14,
+    comentarios: 3,
+    compartidos: 1,
+    ...extra,
+  }
+}
+
 function lectura(piezaId: string, extra: Partial<EntradaDeMetricas["lecturas"][number]> = {}) {
   return {
     piezaId,
@@ -74,6 +86,58 @@ describe("construirMetricas", () => {
     expect(modelo.comparacion).toBeNull()
   })
 
+  it("splits what worked by network, each with its measure, and never mixes them in one bar", () => {
+    const modelo = construirMetricas(
+      entrada({
+        publicaciones: [
+          publicada("a", "ia-salud-mental", "2026-10-06T22:00:00.000Z"),
+          enLinkedin("a", "2026-10-06T22:00:00.000Z", "Reel a"),
+          enLinkedin("b", "2026-10-08T22:00:00.000Z"),
+        ],
+        lecturas: [lectura("a", { guardados: 121, alcance: 2400 })],
+        lecturasLinkedin: [lecturaLinkedin("a", { impresiones: 600 }), lecturaLinkedin("b")],
+      }),
+    )
+
+    expect(modelo.grupos.map((g) => [g.red, g.titulo, g.cifra, g.medida])).toEqual([
+      ["instagram", "Instagram", "1 reel", "Guardados cada 1.000 personas que lo vieron."],
+      ["linkedin", "LinkedIn", "2 posts", "Impresiones: las veces que LinkedIn lo mostró."],
+    ])
+    const [instagram, linkedin] = modelo.grupos
+    expect(instagram?.barras.map((b) => [b.piezaId, b.cifra])).toEqual([["a", "50,4"]])
+    expect(linkedin?.barras.map((b) => [b.piezaId, b.cifra, b.unidad, b.ancho, b.muestra])).toEqual([
+      ["b", "1.200", "impresiones", 100, "14 reacciones · 3 comentarios · 1 vez compartido"],
+      ["a", "600", "impresiones", 50, "14 reacciones · 3 comentarios · 1 vez compartido"],
+    ])
+    expect(linkedin?.barras.every((b) => b.reelsDelTema === 0)).toBe(true)
+  })
+
+  it("lists a manual upload and a post without numbers as «sin números», without a bar", () => {
+    const modelo = construirMetricas(
+      entrada({
+        publicaciones: [
+          { ...publicada("a", null, "2026-10-06T22:00:00.000Z"), aMano: true },
+          enLinkedin("b", "2026-10-08T22:00:00.000Z"),
+        ],
+      }),
+    )
+
+    const barras = modelo.grupos.flatMap((g) => g.barras)
+    expect(barras.map((b) => [b.piezaId, b.texto, b.cifra, b.ancho, b.muestra])).toEqual([
+      ["a", "sin números", null, 0, null],
+      ["b", "sin números", null, 0, null],
+    ])
+  })
+
+  it("leaves out a network with nothing in the last twelve weeks, and says so when neither has anything", () => {
+    const modelo = construirMetricas(
+      entrada({ publicaciones: [publicada("a", null, "2026-06-02T22:00:00.000Z")], lecturas: [lectura("a")] }),
+    )
+
+    expect(modelo.vacio).toBe(false)
+    expect(modelo.grupos).toEqual([])
+  })
+
   it("orders the bars by saves per 1,000 and scales them to the best one, with the numbers and the theme's n beside", () => {
     const modelo = construirMetricas(
       entrada({
@@ -90,10 +154,10 @@ describe("construirMetricas", () => {
       }),
     )
 
-    expect(modelo.barras.map((b) => b.piezaId)).toEqual(["b", "c", "a"])
-    const mejor = modelo.barras[0]
+    expect((modelo.grupos[0]?.barras ?? []).map((b) => b.piezaId)).toEqual(["b", "c", "a"])
+    const mejor = (modelo.grupos[0]?.barras ?? [])[0]
     expect(mejor).toMatchObject({
-      porMil: 50.4,
+      valor: 50.4,
       ancho: 100,
       texto: "50,4 cada 1.000 · 121 guardados de 2.400 personas",
       cifra: "50,4",
@@ -102,8 +166,8 @@ describe("construirMetricas", () => {
       pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
       reelsDelTema: 2,
     })
-    expect(modelo.barras[1]?.ancho).toBe(24)
-    expect(modelo.barras[2]?.ancho).toBe(10)
+    expect((modelo.grupos[0]?.barras ?? [])[1]?.ancho).toBe(24)
+    expect((modelo.grupos[0]?.barras ?? [])[2]?.ancho).toBe(10)
   })
 
   it("lists a reel with no figures yet at the end, without a bar", () => {
@@ -117,9 +181,9 @@ describe("construirMetricas", () => {
       }),
     )
 
-    expect(modelo.barras.map((b) => b.piezaId)).toEqual(["a", "nuevo"])
-    expect(modelo.barras[1]).toMatchObject({
-      porMil: null,
+    expect((modelo.grupos[0]?.barras ?? []).map((b) => b.piezaId)).toEqual(["a", "nuevo"])
+    expect((modelo.grupos[0]?.barras ?? [])[1]).toMatchObject({
+      valor: null,
       ancho: 0,
       texto: "Todavía sin números: llegan cada mañana a las 7:00.",
       cifra: null,
@@ -138,7 +202,7 @@ describe("construirMetricas", () => {
       }),
     )
 
-    expect(modelo.barras[0]?.porMil).toBe(30)
+    expect((modelo.grupos[0]?.barras ?? [])[0]?.valor).toBe(30)
   })
 
   it("shows the sample size and refuses to conclude while no two themes have eight reels", () => {
@@ -220,7 +284,7 @@ describe("construirMetricas", () => {
       tipo: "temprano",
       texto: expect.stringMatching(/^Caso Coni: humana \+ avatar ya tiene 8 reels\./),
     })
-    expect(modelo.barras.find((b) => b.piezaId === "i0")?.pilar?.nombre).toBe("IA y salud mental")
+    expect((modelo.grupos[0]?.barras ?? []).find((b) => b.piezaId === "i0")?.pilar?.nombre).toBe("IA y salud mental")
   })
 
   it("leaves the reels of the last seven days out of the comparison: their saves are still adding up", () => {

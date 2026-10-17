@@ -21,8 +21,8 @@ const RESUMEN_PLEGABLE =
 export default async function Metricas() {
   const { db } = await exigirConi()
   const modelo = construirMetricas(await leerDatosDeMetricas(db, Date.now()))
-  const principales = modelo.barras.slice(0, BARRAS_A_LA_VISTA)
-  const restantes = modelo.barras.slice(BARRAS_A_LA_VISTA)
+  const principales = (modelo.grupos[0]?.barras ?? []).slice(0, BARRAS_A_LA_VISTA)
+  const restantes = (modelo.grupos[0]?.barras ?? []).slice(BARRAS_A_LA_VISTA)
   // The week with something to read is open; the others fold.
   const semanaAbierta = Math.max(
     0,
@@ -47,7 +47,11 @@ export default async function Metricas() {
 
       {modelo.comparacion ? <PanelDeComparacion panel={modelo.comparacion} /> : null}
 
-      <Seccion titulo="Lo que sirvió" id="sirvio" cifra={modelo.vacio ? undefined : `${modelo.barras.length} reels`}>
+      <Seccion
+        titulo="Lo que sirvió"
+        id="sirvio"
+        cifra={modelo.vacio ? undefined : `${(modelo.grupos[0]?.barras ?? []).length} reels`}
+      >
         {modelo.vacio ? (
           <div className="grid gap-1 py-1">
             <p className="text-cuerpo font-semibold">Todavía no hay reels publicados.</p>
