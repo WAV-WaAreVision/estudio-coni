@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { construirInicio, type PiezaDeInicio } from "@/lib/inicio/modelo"
+import { construirInicio, type PiezaDeInicio, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
 
 const ZONA = "America/Santiago"
 // Wednesday 7 October 2026, 12:00 in Santiago.
@@ -380,5 +380,26 @@ describe("Inicio con la voz en la puerta 1", () => {
       href: "/guion/d",
     })
     expect(inicio.firma).toEqual([])
+  })
+})
+
+describe("TEXTO_ENTRA_A_LA_PIEZA", () => {
+  it("names no button, so it holds under every failure's own button", () => {
+    const tecnico = "HeyGen respondió HTTP 500."
+    const estados = [
+      "error_publicacion",
+      "error_produccion",
+      "guion_por_aprobar",
+      "guion_en_proceso",
+      "video_por_aprobar",
+    ] as const
+    const inicio = construirInicio({
+      piezas: estados.map((estado) => pieza(estado, { explicacion: tecnico })),
+      ahora: AHORA,
+      zona: ZONA,
+    })
+    const etiquetas = new Set(inicio.atencion.flatMap((aviso) => (aviso.accion ? [aviso.accion.etiqueta] : [])))
+    expect(etiquetas).toEqual(new Set(["Revisar", "Elegir otra fecha"]))
+    for (const etiqueta of etiquetas) expect(TEXTO_ENTRA_A_LA_PIEZA).not.toContain(etiqueta)
   })
 })

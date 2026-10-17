@@ -171,6 +171,9 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
   }
 }
 
+/** What she reads under a failure whose only text is a provider's. It names no button: each failure has its own. */
+export const TEXTO_ENTRA_A_LA_PIEZA = "Entra a la pieza para ver qué puedes hacer."
+
 function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   const base = {
     tipo: "error" as const,

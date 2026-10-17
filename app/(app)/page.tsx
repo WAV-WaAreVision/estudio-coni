@@ -19,7 +19,7 @@ import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
-import { type AvisoDeInicio, construirInicio, type FilaDeFirma } from "@/lib/inicio/modelo"
+import { type AvisoDeInicio, construirInicio, type FilaDeFirma, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
 import { marcarAvisoLeidoAccion } from "./ajustes/acciones"
 import { AvisosSinLeer } from "./avisos-sin-leer"
@@ -29,8 +29,6 @@ import { IdeasSemana } from "./ideas-semana"
 import { elegirIdeasAccion } from "./piezas/acciones"
 
 const IDEAS_DE_LA_SEMANA = 5
-// A failure whose only text is a provider's: what she can do, with "Revisar" right under it.
-const TEXTO_ENTRA_A_LA_PIEZA = "Entra con Revisar para ver qué puedes hacer."
 const AVISOS_A_MOSTRAR = 5
 
 /** "5 nuevas", "1 nueva", or nothing: the meta of the row that opens the week's ideas. */
