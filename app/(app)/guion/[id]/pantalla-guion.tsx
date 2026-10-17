@@ -134,6 +134,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   })
   const frases = revision.map((hallazgo) => hallazgo.frase ?? null)
   const { resaltadas } = resaltarFrases(datos.guion, frases)
+  const marcadas = new Set(revision.filter((_, indice) => resaltadas.has(indice)))
   const avatar = datos.avatares.find((candidato) => candidato.id === avatarElegido)
   const errorDeAccion = aprobacion.error ?? cambios.error
 
@@ -211,7 +212,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
       <Seccion
         titulo="2. Revisa el guion"
         id="guion"
-        cifra={cifraDeRevision([...bloqueos, ...sinConfirmar], revision.length) ?? undefined}
+        cifra={cifraDeRevision([...bloqueos, ...sinConfirmar], revision.length, marcadas) ?? undefined}
       >
         {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
         <Panel>
