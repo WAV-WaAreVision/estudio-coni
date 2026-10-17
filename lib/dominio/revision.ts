@@ -320,8 +320,9 @@ const SUGIERE_CONSULTA = patron(
 )
 
 const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
-// A pictograph, or a keycap such as 1️⃣ (a digit, the emoji selector and the keycap mark).
-const EMOJI = /(?![©®™])\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
+// A keycap (a digit or # or *, the optional emoji selector and the keycap mark) or the ten keycap.
+const KEYCAP = /[0-9#*]\uFE0F?\u20E3|\u{1F51F}/gu
+const EMOJI = /(?![©®™])\p{Extended_Pictographic}/gu
 const ENLACE = patron(`(?:https?://|www\\.)\\S+|${ANTES}[\\p{L}\\p{N}-]+\\.(?:com|cl|org|net|io|co)/\\S*`)
 
 // LinkedIn lowers the reach of the "no es X, es Y" construction (it reads as machine writing). These catch its usual
@@ -432,7 +433,18 @@ export function revisarTextoLinkedin(entrada: {
     )
   }
 
-  const emojis = texto.match(EMOJI)?.length ?? 0
+  const keycap = texto.match(KEYCAP)?.[0]
+  if (keycap) {
+    hallazgos.push({
+      regla: "formato_linkedin",
+      tipo: "bloquea",
+      mensaje: "En LinkedIn las listas van con números normales («1.») o en prosa, sin emojis numerados.",
+      frase: keycap,
+    })
+  }
+
+  // 🔟 is a pictograph too: without the keycaps it is not counted twice.
+  const emojis = texto.replace(KEYCAP, "").match(EMOJI)?.length ?? 0
   if (requiereLineasAyuda ? emojis > 0 : emojis > MAXIMO_EMOJIS_LINKEDIN) {
     advierte(
       "emojis_linkedin",

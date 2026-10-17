@@ -272,6 +272,8 @@ describe("escribirGuion", () => {
     expect(linkedin).toContain("Sin enlaces en el texto")
     expect(linkedin).toContain("de cero a tres, en la última línea")
     expect(linkedin).toContain("de cero a tres, solo para ordenar")
+    expect(linkedin).toContain("Las listas van con números normales («1.») o en prosa")
+    expect(linkedin).not.toContain("1️⃣")
   })
 
   it("forbids the contrast formula, engagement bait, Unicode letters and long dashes in the LinkedIn text", async () => {

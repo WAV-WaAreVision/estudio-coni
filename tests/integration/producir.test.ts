@@ -865,6 +865,20 @@ describe("producirPieza: el texto para LinkedIn", () => {
     expect(await leerFila(id)).toMatchObject({ texto_linkedin: LINKEDIN_BUENO, revision: [] })
   })
 
+  it("asks Claude to rewrite a numbered emoji in the LinkedIn text and stores the plain list", async () => {
+    const id = await crearPiezaEnProduccion()
+    const conLista = (marca: string) =>
+      LINKEDIN_BUENO.replace("¿En qué momento", `${marca} Primero, mira tu rutina.\n\n¿En qué momento`)
+    const sim = simular({
+      borrador: (n) => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: conLista(n === 0 ? "1️⃣" : "1.") }),
+    })
+
+    await producirPieza(deps(), id)
+
+    expect(sim.escrituras).toHaveLength(2)
+    expect(await leerFila(id)).toMatchObject({ texto_linkedin: conLista("1."), revision: [] })
+  })
+
   it("leaves a LinkedIn finding that still blocks after the correction round for Coni, with its field", async () => {
     const id = await crearPiezaEnProduccion()
     simular({ borrador: () => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: SIN_AVISO }) })

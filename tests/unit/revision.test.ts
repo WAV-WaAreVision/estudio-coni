@@ -702,8 +702,20 @@ describe("revisarTextoLinkedin", () => {
       expect(reglasDe(textoLinkedin({ gancho: `${GANCHO} ✅📌✅📌` }))).toEqual(["emojis_linkedin"])
     })
 
-    it("counts a keycap such as 1️⃣ as an emoji", () => {
-      expect(reglasDe(textoLinkedin({ gancho: "1️⃣ 2️⃣ 3️⃣ 4️⃣ cuatro pasos" }))).toContain("emojis_linkedin")
+    it.each(["1️⃣ Primero", "Paso 2⃣", "🔟 ideas"])("blocks a numbered emoji: %s", (linea) => {
+      const hallazgos = revisarLinkedin({ texto: `${OK}\n${linea}` })
+      const keycap = hallazgos.find((h) => h.regla === "formato_linkedin" && h.tipo === "bloquea")
+      expect(keycap?.mensaje).toBe(
+        "En LinkedIn las listas van con números normales («1.») o en prosa, sin emojis numerados.",
+      )
+    })
+
+    it("does not count a keycap again as one of the three emojis", () => {
+      expect(reglasDe(`${OK}\n✅ 📌 ✅ 1️⃣`)).not.toContain("emojis_linkedin")
+    })
+
+    it("leaves a plain numbered list alone", () => {
+      expect(reglasDe(`${OK}\n1. Primero\n2. Segundo`)).not.toContain("formato_linkedin")
     })
 
     it("warns for any emoji in a sensitive topic", () => {

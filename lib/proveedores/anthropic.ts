@@ -188,7 +188,7 @@ ${listaDeAlertas(idea.alertas)}`,
 - Sin enlaces en el texto.
 - ${SIN_CONSULTA}
 - Hashtags: de cero a tres, en la última línea y con letras normales.
-- Emojis: de cero a tres, solo para ordenar (✅ ▸ 📌 1️⃣), nunca como adorno. Ninguno si el tema es delicado.
+- Emojis: de cero a tres, solo para ordenar (✅ ▸ 📌), nunca como adorno. Ninguno si el tema es delicado. Las listas van con números normales («1.») o en prosa, nunca con emojis numerados.
 - Prohibido: la fórmula de contraste «no es X, es Y» y sus variantes («X no es el problema, el problema es Y», «no se trata de X, sino de Y», «no se apaga: se esconde»); pedir reacciones («comenta SÍ», «dale like si», «etiqueta a», «reacciona con», «vota con una reacción»); letras Unicode en negrita o cursiva; rayas largas.
 - Sin marcas de tono. Sin diagnósticos, sin consejos para casos particulares, sin promesas de resultados y sin referencias a pacientes, tampoco anonimizadas. No nombres autores, cuentas, libros ni estudios, y no copies frases de las fuentes.${
       requiereLineasAyuda ? `\n- Después de la pregunta incluye, tal cual, esta línea: ${LINEAS_AYUDA}` : ""
