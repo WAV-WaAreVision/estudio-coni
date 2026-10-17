@@ -90,7 +90,8 @@ test("with few reels it orders by what served, shows the sample size and refuses
 
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   // How many of the three went out this month depends on the day the test runs; the unit tests pin that count.
-  await expect(page.getByText(/^\d reels? publicados? · 1 consulta · 8 toques en tu link$/)).toBeVisible()
+  await expect(page.getByText(/^Este mes: \d reels? en Instagram · 0 posts en LinkedIn$/)).toBeVisible()
+  await expect(page.getByText("Este mes también: 1 consulta · 8 toques en tu link")).toBeVisible()
   const barras = page.getByRole("region", { name: "Lo que sirvió" }).getByRole("listitem")
   await expect(barras.nth(0)).toContainText("Si van a discutir, siéntense del mismo lado")
   await expect(barras.nth(0)).toContainText("50,4")
@@ -99,6 +100,9 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(barras.nth(0)).toContainText("IA y salud mental · 1 reel de este tema")
   await expect(barras.nth(1)).toContainText("El deseo no se apaga, se esconde")
   await expect(barras.nth(2)).toContainText("Ser tu propia diosa")
+  await expect(page.getByRole("heading", { name: "Instagram" })).toBeVisible()
+  await expect(page.getByText("Guardados cada 1.000 personas que lo vieron.")).toBeVisible()
+  await expect(page.getByText("Últimas 12 semanas").first()).toBeVisible()
 
   // The panel that stops the order from being read as a conclusion sits right under the bars.
   const panel = page.getByRole("region", { name: "Todavía es temprano para concluir" })
@@ -119,8 +123,9 @@ test("without published reels it says so and still counts consultations", async 
 
   await page.goto("/metricas")
 
-  await expect(page.getByText("Todavía no hay reels publicados.")).toBeVisible()
-  await expect(page.getByText("0 reels publicados · 1 consulta · 0 toques en tu link")).toBeVisible()
+  await expect(page.getByText("Todavía no hay publicaciones.")).toBeVisible()
+  await expect(page.getByText("Este mes: 0 reels en Instagram · 0 posts en LinkedIn")).toBeVisible()
+  await expect(page.getByText("Este mes también: 1 consulta · 0 toques en tu link")).toBeVisible()
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)
   await capturar(page, "metricas-vacio")
 })
