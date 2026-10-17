@@ -135,12 +135,14 @@ describe("VozParaFirmar", () => {
       <VozParaFirmar
         piezaId="p1"
         version={5}
-        datos={grabacion(null)}
+        datos={grabacion(null, { botones: BOTONES })}
         explicacion="No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
         alEscuchar={vi.fn()}
         sinGuardar={false}
       />,
     )
+    // One fold per block: the reason and the balance go together.
+    expect(screen.getAllByText("Detalle para WAV")).toHaveLength(1)
     const alerta = screen.getByRole("alert")
     expect(alerta).toHaveTextContent("Vuelve a intentarlo con Preparar mi voz.")
     const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement

@@ -8,8 +8,8 @@ export function DetalleParaWav({ lineas, proveedor }: { lineas: readonly string[
   return (
     <MasOpciones forma="linea" titulo="Detalle para WAV">
       {lineas.map((linea) => (
-        // A balance moves with the clock: the visual baselines mask it if the fold is ever open.
-        <p key={linea} data-snapshot="varia" className="text-meta text-tinta">
+        // No data-snapshot mask: Chromium keeps a box for a closed fold's content and the mask would paint over the page.
+        <p key={linea} className="text-meta text-tinta">
           {linea}
         </p>
       ))}

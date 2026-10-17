@@ -6,7 +6,7 @@ import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
-import { DetalleParaWav, ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
+import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { useAccion } from "@/components/use-accion"
@@ -45,8 +45,22 @@ function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string | null
  * Under a voice button: its reason when it is closed, in her words, and the ElevenLabs numbers (the balance, a reason
  * that names the provider) folded for WAV.
  */
-function LineaBajoElBoton({ id, razon, datos }: { id: string; razon: string | null; datos: DatosDeGrabacion }) {
-  const para = separarParaConi(razon ?? "", TEXTO_SIN_SALDO_VOZ, datos.botones ? [datos.botones.saldoVoz] : [])
+function LineaBajoElBoton({
+  id,
+  razon,
+  datos,
+  paraWav = [],
+}: {
+  id: string
+  razon: string | null
+  datos: DatosDeGrabacion
+  /** WAV's lines of the block above (a provider's reason for the failed voice): one fold per block, not two. */
+  paraWav?: readonly string[]
+}) {
+  const para = separarParaConi(razon ?? "", TEXTO_SIN_SALDO_VOZ, [
+    ...paraWav,
+    ...(datos.botones ? [datos.botones.saldoVoz] : []),
+  ])
   return (
     <>
       {razon !== null ? (
@@ -70,6 +84,7 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
   const { voz, botones } = datos
   const razon = razonDeVoz(datos, sinGuardar)
   const falla = explicacion ? separarFallaDeVoz(explicacion) : null
+  const detalleDeFalla = falla?.detalle ? separarParaConi(falla.detalle, TEXTO_REINTENTA_VOZ) : null
 
   return (
     <Seccion titulo="1. Escucha tu voz" id="voz">
@@ -97,11 +112,11 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
               >
                 Preparar mi voz
               </Boton>
-              <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} />
+              <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} paraWav={detalleDeFalla?.detalle} />
             </div>
           }
         >
-          {falla?.detalle ? <ExplicacionParaConi texto={falla.detalle} enSusPalabras={TEXTO_REINTENTA_VOZ} /> : null}
+          {detalleDeFalla?.texto}
         </Bloque>
       )}
       {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}
