@@ -86,7 +86,7 @@ export interface TeoriaSembrada {
   titulo: string
   tesis: string
   nivel: "alto" | "medio" | "debil"
-  respaldo: { autor: string; cita: string }[]
+  respaldo: { autor: string; cita: string; titulo?: string; anio?: number; deConi?: boolean }[]
 }
 
 /** An idea the weekly engine wrote: with its theory and the claims behind it, as the engine leaves them. */
@@ -110,15 +110,18 @@ export async function sembrarIdeaDelMotor(extra: {
       "select id from public.categorias where slug = 'general'",
     )
     for (const [i, apoyo] of extra.teoria.respaldo.entries()) {
-      const { rows: autor } = await pool.query<{ id: string }>(
-        `insert into public.autores (nombre, tipo) values ($1, 'persona')
-         on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
-        [apoyo.autor],
-      )
+      // Coni's own claims reuse her one author row; anyone else is a seeded person.
+      const { rows: autor } = apoyo.deConi
+        ? await pool.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+        : await pool.query<{ id: string }>(
+            `insert into public.autores (nombre, tipo) values ($1, 'persona')
+             on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
+            [apoyo.autor],
+          )
       const { rows: material } = await pool.query<{ id: string }>(
-        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ($1, 'documento', $2, 'siembra-motor', now(), $3) returning id`,
-        [autor[0]?.id, categoria[0]?.id, CONI],
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, titulo, anio)
+         values ($1, 'documento', $2, 'siembra-motor', now(), $3, $4, $5) returning id`,
+        [autor[0]?.id, categoria[0]?.id, CONI, apoyo.titulo ?? null, apoyo.anio ?? null],
       )
       const { rows: afirmacion } = await pool.query<{ id: string }>(
         `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia)

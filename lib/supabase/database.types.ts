@@ -668,6 +668,7 @@ export type Database = {
       }
       materiales: {
         Row: {
+          anio: number | null
           archivo_clave: string | null
           autor: string | null
           autor_id: string
@@ -692,6 +693,7 @@ export type Database = {
           titulo: string | null
         }
         Insert: {
+          anio?: number | null
           archivo_clave?: string | null
           autor?: string | null
           autor_id: string
@@ -716,6 +718,7 @@ export type Database = {
           titulo?: string | null
         }
         Update: {
+          anio?: number | null
           archivo_clave?: string | null
           autor?: string | null
           autor_id?: string
