@@ -167,6 +167,41 @@ describe("reclasificación de pilares", () => {
     expect(realUsd).toBeCloseTo(0.004 * estimado.tandas, 6)
   })
 
+  it("sends more than one batch and brings back a row for every item", async () => {
+    const sembrados = await materialesEn("autoestima", 41)
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_MENSAJES, ({ request }) => {
+        llamadas += 1
+        return asignandoTodo(request)
+      }),
+    )
+    const { filas, estimado } = await proponer()
+    expect(estimado.tandas).toBeGreaterThanOrEqual(2)
+    expect(llamadas).toBe(estimado.tandas)
+    expect(new Set(filas.map((f) => f.id)).size).toBe(filas.length)
+    for (const id of sembrados) expect(filas.find((f) => f.id === id)?.propuesta).toBe("ia-salud-mental")
+  })
+
+  it("stops before calling Claude when the monthly cap cannot cover the estimate", async () => {
+    await materialEn("bienestar", "Siembra tope")
+    const { rows } = await pool.query<{ tope: string }>("select tope_mensual_usd as tope from public.ajustes")
+    await pool.query("update public.ajustes set tope_mensual_usd = 0")
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_MENSAJES, ({ request }) => {
+        llamadas += 1
+        return asignandoTodo(request)
+      }),
+    )
+    try {
+      await expect(proponer()).rejects.toThrow("El tope mensual no alcanza para la reclasificación.")
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.tope])
+    }
+    expect(llamadas).toBe(0)
+  })
+
   it("releases the reservation when Claude fails, so the cap does not count it", async () => {
     await materialEn("limites", "Siembra falla")
     servidor.use(
