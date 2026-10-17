@@ -1,15 +1,37 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { FilaPieza } from "@/components/fila-pieza"
+import { pilarVisible } from "@/lib/dominio/pilares"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 describe("FilaPieza", () => {
   it("reads pillar, title and state, and links when there is something to do", () => {
     render(
       <ul>
-        <FilaPieza pilar="deseo" titulo="El deseo no se apaga" estado="Guion · 52 s" href="/guion/1" />
+        <FilaPieza
+          pilar={pilarVisible(PILARES_DE_PRUEBA, "deseo")}
+          titulo="El deseo no se apaga"
+          estado="Guion · 52 s"
+          href="/guion/1"
+        />
       </ul>,
     )
     expect(screen.getByRole("link")).toHaveAccessibleName(/Deseo y sexualidad.*El deseo no se apaga.*Guion · 52 s/)
+  })
+
+  it("shows the pillar it is given by name and keeps its slug for data-pilar", () => {
+    render(
+      <ul>
+        <FilaPieza
+          titulo="Lo que decidí no delegarle a mi avatar"
+          estado="Lista para firmar"
+          pilar={{ slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" }}
+          href="/guion/1"
+        />
+      </ul>,
+    )
+    expect(screen.getByText("Caso Coni: humana + avatar")).toBeInTheDocument()
+    expect(screen.getByRole("listitem")).toHaveAttribute("data-pilar", "caso-coni")
   })
 
   it("is not a link while working, and says so with the pulsing dot", () => {
@@ -68,7 +90,12 @@ describe("FilaPieza", () => {
   it("shows a failure's cause in a honda pill with its warning icon, in place of the state", () => {
     render(
       <ul>
-        <FilaPieza pilar="deseo" titulo="El deseo" causa="No pude publicar." href="/video/1" />
+        <FilaPieza
+          pilar={pilarVisible(PILARES_DE_PRUEBA, "deseo")}
+          titulo="El deseo"
+          causa="No pude publicar."
+          href="/video/1"
+        />
       </ul>,
     )
     const causa = screen.getByText("No pude publicar.").parentElement

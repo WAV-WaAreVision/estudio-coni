@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { BarraDeMetrica } from "@/components/barra-de-metrica"
+import { pilarVisible } from "@/lib/dominio/pilares"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const BASE = {
   titulo: "Si van a discutir, siéntense del mismo lado",
-  pilar: "pareja" as const,
+  pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
   ancho: 100,
   texto: "50,4 cada 1.000 · 121 guardados de 2.400 personas",
   cifra: "50,4",

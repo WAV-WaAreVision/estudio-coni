@@ -28,7 +28,7 @@ import { separarParaConi, TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
@@ -49,7 +49,7 @@ export interface DatosDeGuion {
   id: string
   version: number
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   formato: string | null
   segundos: number
   guion: string
@@ -196,10 +196,10 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
 
   return (
     <div>
-      <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
+      <header data-pilar={datos.pilar?.slug} className="grid gap-3">
         <Volver href="/">Inicio</Volver>
         <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-          <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
+          <span>{datos.pilar?.nombre}</span>
           <span>
             {datos.formato ? `${datos.formato} · ` : ""}
             {datos.segundos} s

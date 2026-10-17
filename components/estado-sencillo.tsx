@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import { Volver } from "./ui/volver"
 
 /** The screen of a piece that has nothing to sign: the way back at the top, its title, and what is happening. */
@@ -10,7 +10,7 @@ export function EstadoSencillo({
   children,
 }: {
   titulo: string
-  pilar?: Pilar | null
+  pilar?: PilarVisible | null
   segundos?: number
   children: ReactNode
 }) {
@@ -19,7 +19,7 @@ export function EstadoSencillo({
       <Volver href="/">Inicio</Volver>
       {pilar || segundos ? (
         <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-          <span>{pilar ? NOMBRE_DE_PILAR[pilar] : null}</span>
+          <span>{pilar ? pilar.nombre : null}</span>
           <span>{segundos ? `${segundos} s` : null}</span>
         </p>
       ) : null}

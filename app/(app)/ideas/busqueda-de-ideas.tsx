@@ -114,7 +114,7 @@ function FilaDeResultado({
   const abierta = idea.estado === "idea" && !sumada
   const contenido = (
     <>
-      <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[idea.pilar]}</span>
+      <span className="text-meta text-apagado">{idea.nombrePilar}</span>
       <span className="text-cuerpo leading-[1.3] font-semibold">{idea.gancho}</span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-apagado">
         <span>Fuerza {idea.fuerza}</span>

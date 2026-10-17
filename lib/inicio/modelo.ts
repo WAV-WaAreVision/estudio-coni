@@ -2,7 +2,6 @@ import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destino
 import type { Estado } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
-import type { Pilar } from "@/lib/dominio/pilares"
 
 export interface PiezaDeInicio {
   id: string
@@ -10,7 +9,7 @@ export interface PiezaDeInicio {
   estado: Estado
   explicacion: string | null
   guion: string | null
-  pilar: Pilar | null
+  pilar: string | null
   publicarEn: string | null
   permalink: string | null
   actualizadaEn: string
@@ -23,7 +22,7 @@ export interface PiezaDeInicio {
 export interface FilaDeFirma {
   id: string
   titulo: string
-  pilar: Pilar | null
+  pilar: string | null
   meta: string
   href: string
   /** What signing it takes, for the card of the first one (decision 8, step 6). */
@@ -34,14 +33,14 @@ export interface FilaDeFirma {
 export interface FilaEnPreparacion {
   id: string
   titulo: string
-  pilar: Pilar | null
+  pilar: string | null
   meta: string
 }
 
 export interface FilaEnCamino {
   id: string
   titulo: string
-  pilar: Pilar | null
+  pilar: string | null
   estado: string
   /** Being worked on right now: the row shows the working dot. */
   ocupada: boolean
@@ -52,7 +51,7 @@ export interface FilaEnCamino {
 export interface FilaPorSubir {
   id: string
   titulo: string
-  pilar: Pilar | null
+  pilar: string | null
   meta: string
   href: string
 }
@@ -65,7 +64,7 @@ export interface AvisoDeInicio {
   /** Error notices: the cause in one sentence, the large block's title (decision 8, step 3). */
   causa?: string
   /** Error notices: the piece's pillar, for its row when it is not the first one. */
-  pilar?: Pilar | null
+  pilar?: string | null
   accion?: { etiqueta: string; href: string; externo?: boolean }
 }
 

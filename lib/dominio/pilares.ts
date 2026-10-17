@@ -29,6 +29,8 @@ function buscar(catalogo: CatalogoDePilares, slug: string): DatosDePilar {
 }
 
 /** Ideas point at pillar rows only (FK and trigger), so an unknown slug is a bug, not data to hide. */
+export function pilarVisible(catalogo: CatalogoDePilares, slug: string): PilarVisible
+export function pilarVisible(catalogo: CatalogoDePilares, slug: string | null | undefined): PilarVisible | null
 export function pilarVisible(catalogo: CatalogoDePilares, slug: string | null | undefined): PilarVisible | null {
   if (slug == null) return null
   const { nombre, nombreCorto } = buscar(catalogo, slug)

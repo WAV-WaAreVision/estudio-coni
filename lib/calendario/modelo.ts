@@ -2,7 +2,7 @@ import { canonicos, type Destino, nombreDeDestino, nombreDeDestinos } from "@/li
 import type { Estado } from "@/lib/dominio/estados"
 import { diaLocal, etiquetaDeFecha, type Horario, instanteLocal, proponerFechas, semanaDe } from "@/lib/dominio/fechas"
 import { limitesDelMes, lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import { type CatalogoDePilares, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
 
 // The Calendario screen as data (Mes, Agenda, Ritmo). Everything Coni reads is decided here.
 
@@ -10,7 +10,8 @@ export interface PiezaDeCalendario {
   id: string
   titulo: string
   estado: Estado
-  pilar: Pilar | null
+  /** The slug of its idea's pillar. */
+  pilar: string | null
   /** The approved publishing time; null until the video is approved. */
   publicarEn: string | null
   creadaEn: string
@@ -20,12 +21,15 @@ export interface PiezaDeCalendario {
   pendientes: readonly Destino[]
 }
 
+/** A piece with its pillar already read from the catalog. */
+type PiezaConPilar = PiezaDeCalendario & { visible: PilarVisible | null }
+
 export type TonoDeEstado = "ok" | "aviso" | "error" | "neutro"
 
 export interface Ocupante {
   piezaId: string
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   estado: string
   tono: TonoDeEstado
   /** Where the piece can be opened, when there is anything for her to do there. */
@@ -51,7 +55,8 @@ export interface CeldaDeMes {
   /** Day of the month; null for the blanks before the first. */
   dia: number | null
   hoy: boolean
-  puntos: (Pilar | null)[]
+  /** The pillar slug of each publication of the day. */
+  puntos: (string | null)[]
   /** For a screen reader: the weekday and, when there are publications, which themes. */
   descripcion: string
 }
@@ -59,14 +64,14 @@ export interface CeldaDeMes {
 export interface ProximaPublicacion {
   piezaId: string
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   fecha: string
   /** The networks she still has to upload it to: "Instagram y LinkedIn". */
   pendientes: string
 }
 
 export type CeldaDeRitmo =
-  | { tipo: "llena"; pilar: Pilar | null; titulo: string }
+  | { tipo: "llena"; pilar: PilarVisible | null; titulo: string }
   /** `falta`: the slot was expected to have a reel (it is past and came after her first one) and has none. */
   | { tipo: "libre"; falta: boolean }
 
@@ -121,7 +126,7 @@ function mayuscula(texto: string): string {
 
 const ESTADOS_FECHADOS: readonly Estado[] = ["publicado", "programado", "para_subir_a_mano", "publicado_a_mano"]
 
-function esFechada(pieza: PiezaDeCalendario): pieza is PiezaDeCalendario & { publicarEn: string } {
+function esFechada(pieza: PiezaConPilar): pieza is PiezaConPilar & { publicarEn: string } {
   return ESTADOS_FECHADOS.includes(pieza.estado) && pieza.publicarEn !== null
 }
 
@@ -131,17 +136,17 @@ const NOTA_DE_MANO: Partial<Record<Estado, string>> = {
   publicado_a_mano: ", subido a mano",
 }
 
-function esperando(pieza: PiezaDeCalendario): Destino[] {
+function esperando(pieza: PiezaConPilar): Destino[] {
   return canonicos(pieza.pendientes.length > 0 ? pieza.pendientes : pieza.destinos)
 }
 
 /** Said only when LinkedIn is among the destinations: an Instagram-only day reads as it always did. */
-function enLinkedin(pieza: PiezaDeCalendario): string {
+function enLinkedin(pieza: PiezaConPilar): string {
   return pieza.destinos.includes("linkedin") ? `, en ${nombreDeDestinos(pieza.destinos)}` : ""
 }
 
-function nombreDeTema(pilar: Pilar | null): string {
-  return pilar ? NOMBRE_DE_PILAR[pilar] : "sin tema"
+function nombreDeTema(pilar: PilarVisible | null): string {
+  return pilar ? pilar.nombre : "sin tema"
 }
 
 function instanteDeHueco(dia: string, horaTexto: string, zona: string): number {
@@ -152,7 +157,7 @@ function instanteDeHueco(dia: string, horaTexto: string, zona: string): number {
 
 // --- Mes ---------------------------------------------------------------------------------------------------------
 
-function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona: string): ModeloDeCalendario["mes"] {
+function construirMes(piezas: readonly PiezaConPilar[], ahora: number, zona: string): ModeloDeCalendario["mes"] {
   const mes = limitesDelMes(ahora, zona)
   const primero = `${mes.clave}-01`
   const { anio, mes: numeroDeMes } = partesDeDia(primero)
@@ -176,7 +181,7 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
       puntos: delDia.map((pieza) => pieza.pilar),
       descripcion:
         delDia.length > 0
-          ? `${nombre}: ${delDia.map((pieza) => `${nombreDeTema(pieza.pilar)}${NOTA_DE_MANO[pieza.estado] ?? ""}${enLinkedin(pieza)}`).join(", ")}`
+          ? `${nombre}: ${delDia.map((pieza) => `${nombreDeTema(pieza.visible)}${NOTA_DE_MANO[pieza.estado] ?? ""}${enLinkedin(pieza)}`).join(", ")}`
           : nombre,
     })
   }
@@ -185,10 +190,10 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
     const instante = Date.parse(pieza.publicarEn)
     return instante >= mes.desde && instante < mes.hasta
   })
-  const aLaLista = (pieza: PiezaDeCalendario & { publicarEn: string }): ProximaPublicacion => ({
+  const aLaLista = (pieza: PiezaConPilar & { publicarEn: string }): ProximaPublicacion => ({
     piezaId: pieza.id,
     titulo: pieza.titulo,
-    pilar: pieza.pilar,
+    pilar: pieza.visible,
     fecha: etiquetaDeFecha(pieza.publicarEn, zona, "corta"),
     pendientes: nombreDeDestinos(esperando(pieza)),
   })
@@ -207,7 +212,7 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
       .map((pieza) => ({
         piezaId: pieza.id,
         titulo: pieza.titulo,
-        pilar: pieza.pilar,
+        pilar: pieza.visible,
         fecha: etiquetaDeFecha(pieza.publicarEn, zona, "corta"),
         pendientes: nombreDeDestinos(esperando(pieza)),
       })),
@@ -217,11 +222,11 @@ function construirMes(piezas: readonly PiezaDeCalendario[], ahora: number, zona:
 // --- Agenda ------------------------------------------------------------------------------------------------------
 
 /** What the piece is doing, in her words, and whether there is something for her to open. */
-function ocupanteDe(pieza: PiezaDeCalendario, provisional: boolean): Ocupante {
+function ocupanteDe(pieza: PiezaConPilar, provisional: boolean): Ocupante {
   const base = {
     piezaId: pieza.id,
     titulo: pieza.titulo,
-    pilar: pieza.pilar,
+    pilar: pieza.visible,
     provisional,
     destinos: provisional ? null : canonicos(pieza.destinos).map(nombreDeDestino).join(" · "),
   }
@@ -269,7 +274,7 @@ const ORDEN_EN_CAMINO: Partial<Record<Estado, number>> = {
 }
 
 function construirAgenda(
-  piezas: readonly PiezaDeCalendario[],
+  piezas: readonly PiezaConPilar[],
   horario: Horario,
   ahora: number,
 ): ModeloDeCalendario["agenda"] {
@@ -277,7 +282,7 @@ function construirAgenda(
   const lunes = lunesDeLaSemana(ahora, zona)
   const fin = instanteDeHueco(sumarDias(lunes, 7 * SEMANAS_DE_AGENDA), "00:00", zona)
   const programadas = piezas.filter(
-    (pieza): pieza is PiezaDeCalendario & { publicarEn: string } =>
+    (pieza): pieza is PiezaConPilar & { publicarEn: string } =>
       (pieza.estado === "programado" || pieza.estado === "para_subir_a_mano" || pieza.estado === "publicado_a_mano") &&
       pieza.publicarEn !== null,
   )
@@ -346,7 +351,7 @@ function construirAgenda(
 // --- Ritmo -------------------------------------------------------------------------------------------------------
 
 function construirRitmo(
-  piezas: readonly PiezaDeCalendario[],
+  piezas: readonly PiezaConPilar[],
   horario: Horario,
   ahora: number,
   primeraPublicacion: string | null | undefined,
@@ -370,7 +375,7 @@ function construirRitmo(
     celdas: dias.map((diaIso): CeldaDeRitmo => {
       const dia = sumarDias(inicio, diaIso - 1)
       const pieza = fechadas.find((candidata) => diaLocal(Date.parse(candidata.publicarEn), zona) === dia)
-      if (pieza) return { tipo: "llena", pilar: pieza.pilar, titulo: pieza.titulo }
+      if (pieza) return { tipo: "llena", pilar: pieza.visible, titulo: pieza.titulo }
       const instante = instanteDeHueco(dia, horario.hora, zona)
       return { tipo: "libre", falta: instante < ahora && primera !== undefined && instante >= primera }
     }),
@@ -430,8 +435,10 @@ export function construirCalendario(entrada: {
   ahora: number
   /** When her first reel went out or was scheduled for, if the pieces given do not go back that far. */
   primeraPublicacion?: string | null
+  pilares: CatalogoDePilares
 }): ModeloDeCalendario {
-  const { piezas, horario, ahora, primeraPublicacion } = entrada
+  const { horario, ahora, primeraPublicacion } = entrada
+  const piezas = entrada.piezas.map((pieza) => ({ ...pieza, visible: pilarVisible(entrada.pilares, pieza.pilar) }))
   return {
     mes: construirMes(piezas, ahora, horario.zona),
     agenda: construirAgenda(piezas, horario, ahora),

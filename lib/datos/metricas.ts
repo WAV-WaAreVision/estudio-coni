@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerPilares } from "@/lib/datos/pilares"
 import { diaLocal } from "@/lib/dominio/fechas"
 import { sumarDias } from "@/lib/dominio/metricas"
 import type { EntradaDeMetricas } from "@/lib/metricas/modelo"
@@ -81,7 +82,7 @@ const DIAS_DE_HISTORIA = 7 * 12
 export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<EntradaDeMetricas> {
   const zona = await leerZona(db)
   const hoy = diaLocal(ahora, zona)
-  const [piezas, lecturas, consultas, clics] = await Promise.all([
+  const [piezas, lecturas, consultas, clics, pilares] = await Promise.all([
     db
       .from("piezas")
       .select("id, titulo, puerta2_publicar_en, ideas(pilar)")
@@ -99,6 +100,7 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
       .select("anotada_en")
       .gte("anotada_en", new Date(ahora - DIAS_DE_HISTORIA * 86_400_000).toISOString()),
     db.from("clics_enlace_dia").select("dia, clics").gte("dia", sumarDias(hoy, -DIAS_DE_HISTORIA)),
+    leerPilares(db),
   ])
   if (piezas.error) throw fallo("No pude leer los reels publicados", piezas.error)
   if (lecturas.error) throw fallo("No pude leer las métricas", lecturas.error)
@@ -111,6 +113,7 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
   return {
     zona,
     ahora,
+    pilares,
     publicadas: piezas.data.flatMap((fila) =>
       fila.puerta2_publicar_en
         ? [

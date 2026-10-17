@@ -1,11 +1,9 @@
-import type { Pilar } from "@/lib/dominio/pilares"
-
 /** Most ideas she can turn into scripts at once. */
 export const MAXIMO_DE_IDEAS = 5
 
 export interface IdeaDelBanco {
   id: string
-  pilar: Pilar
+  pilar: string
   fuerza: "alta" | "media" | "baja"
   numero: number | null
   /** She added it to the week's ideas from the bank ("Usar esta"): it goes first. */
@@ -22,10 +20,10 @@ const PESO_DE_FUERZA: Record<IdeaDelBanco["fuerza"], number> = { alta: 0, media:
 export function sugerirIdeas(entrada: {
   banco: readonly IdeaDelBanco[]
   /** Pillars of the pieces started in the last weeks, one entry per piece. */
-  recientes: readonly Pilar[]
+  recientes: readonly string[]
   cuantas: number
 }): IdeaDelBanco[] {
-  const usos = new Map<Pilar, number>()
+  const usos = new Map<string, number>()
   for (const pilar of entrada.recientes) usos.set(pilar, (usos.get(pilar) ?? 0) + 1)
 
   const porNumero = (a: IdeaDelBanco, b: IdeaDelBanco) =>

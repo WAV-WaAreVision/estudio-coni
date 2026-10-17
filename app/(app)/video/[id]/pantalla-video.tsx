@@ -22,7 +22,7 @@ import { useAccion } from "@/components/use-accion"
 import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } from "../../piezas/acciones"
@@ -43,7 +43,7 @@ export interface DatosDeVideo {
   id: string
   version: number
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   segundos: number
   texto: string
   /** Null for a piece from before LinkedIn, or one the writer gave none: the screen starts it from the caption. */
@@ -142,7 +142,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
       </div>
 
       <p className="mt-[18px] flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-        <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
+        <span>{datos.pilar?.nombre}</span>
         <span>{datos.segundos} s</span>
       </p>
       <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
