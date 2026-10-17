@@ -166,8 +166,8 @@ function simularClaude(
           nivelEvidencia: "medio",
           advertencias: [],
           ideas: [
-            { gancho: `Gancho ${i} a`, tema: "t", pilar: "deseo", formato: "reel" },
-            { gancho: `Gancho ${i} b`, tema: "t", pilar: "pareja", formato: "reel" },
+            { gancho: `Gancho ${i} a`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
+            { gancho: `Gancho ${i} b`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
           ],
         }
       })
@@ -277,6 +277,33 @@ describe("correrMotor", () => {
     expect(gasto.rows).toHaveLength(1)
     expect(gasto.rows[0]?.estado).toBe("confirmado")
     expect(gasto.rows[0]?.clave).toMatch(new RegExp(`^motor:${SEMANA}:`))
+  })
+
+  it("writes its ideas with three pillars empty and names them in what to upload", async () => {
+    const ana = await autor("Ana")
+    const beto = await autor("Beto")
+    const mAna = await material(ana, "referente")
+    const mBeto = await material(beto, "referente")
+    const t1 = await tema("Chatbots", "ia-salud-mental", 0)
+    const t2 = await tema("Regulación", "etica-regulacion", 1)
+    for (const t of [t1, t2]) {
+      await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`)
+      await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`)
+    }
+    const claude = simularClaude()
+
+    const resultado = await correrMotor(deps(), { semana: SEMANA, manual: false })
+
+    expect(resultado.resultado).toBe("lista")
+    expect(claude.usuario).toContain("- caso-coni: Caso Coni: humana + avatar.")
+    expect(
+      await contar("select count(*) as n from public.ideas where origen = 'motor' and pilar = 'ia-salud-mental'"),
+    ).toBe(2)
+    expect((await corrida())?.resumen).toMatchObject({
+      queSubir: {
+        pilaresSinMaterial: ["Práctica clínica aumentada", "Acceso y salud pública", "Caso Coni: humana + avatar"],
+      },
+    })
   })
 
   it("sends eight crossings to Claude in batches of three, one paid step each", async () => {

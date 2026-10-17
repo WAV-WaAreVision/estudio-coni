@@ -5,7 +5,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import { z } from "zod"
 import { ETIQUETAS_DE_TONO, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS, sinEtiquetas } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { type DatosDePilar, PILARES, slugsActivos, soloActivos } from "@/lib/dominio/pilares"
+import { type DatosDePilar, slugsActivos, soloActivos } from "@/lib/dominio/pilares"
 import type { paraElGuion } from "@/lib/dominio/respaldo"
 import {
   type Alerta,
@@ -927,28 +927,30 @@ REGLAS
 - Responde cada cruce una sola vez, con el mismo cruceId que recibiste. Sin rayas largas en ningún texto.`
 
 // One flat object per crossing, not a union: `anyOf` in structured outputs is unverified on the real API.
-const SalidaTeorias = z.object({
-  teorias: z.array(
-    z.object({
-      cruceId: z.string(),
-      nada: z.boolean(),
-      razon: z.string().nullable(),
-      titulo: z.string().nullable(),
-      tesis: z.string().nullable(),
-      porQue: z.string().nullable(),
-      aportes: z.array(z.object({ afirmacionId: z.string(), aporte: z.string() })),
-      tensiones: z.array(z.string()),
-      nivelEvidencia: enumTolerante(["alto", "medio", "debil"] as const, { porDefecto: "debil" }).nullable(),
-      advertencias: z.array(z.string()),
-      // Structured outputs cannot enforce lengths: 1 to 2 is enforced in `validarTeoria`.
-      ideas: z.array(
-        z.object({ gancho: z.string(), tema: z.string(), pilar: enumTolerante(PILARES), formato: z.string() }),
-      ),
-    }),
-  ),
-})
+function salidaTeorias(slugs: readonly [string, ...string[]]) {
+  return z.object({
+    teorias: z.array(
+      z.object({
+        cruceId: z.string(),
+        nada: z.boolean(),
+        razon: z.string().nullable(),
+        titulo: z.string().nullable(),
+        tesis: z.string().nullable(),
+        porQue: z.string().nullable(),
+        aportes: z.array(z.object({ afirmacionId: z.string(), aporte: z.string() })),
+        tensiones: z.array(z.string()),
+        nivelEvidencia: enumTolerante(["alto", "medio", "debil"] as const, { porDefecto: "debil" }).nullable(),
+        advertencias: z.array(z.string()),
+        // Structured outputs cannot enforce lengths: 1 to 2 is enforced in `validarTeoria`.
+        ideas: z.array(
+          z.object({ gancho: z.string(), tema: z.string(), pilar: enumTolerante(slugs), formato: z.string() }),
+        ),
+      }),
+    ),
+  })
+}
 
-export type SalidaDeTeoria = z.infer<typeof SalidaTeorias>["teorias"][number]
+export type SalidaDeTeoria = z.infer<ReturnType<typeof salidaTeorias>>["teorias"][number]
 
 export interface TeoriaDelMotor {
   cruceId: string
@@ -987,6 +989,8 @@ export interface ContextoDeTeorias {
   guia: string
   estrategia: readonly string[]
   vozPropia: readonly string[]
+  /** The active pillars: every idea goes in one of them. */
+  pilares: readonly DatosDePilar[]
 }
 
 export type ResultadoDeValidacion = { teoria: TeoriaDelMotor } | { descartada: { cruceId: string; razon: string } }
@@ -1056,6 +1060,9 @@ export async function escribirTeorias(entrada: {
 GUÍA EDITORIAL DE CONI
 ${contexto.guia}
 
+PILARES (cada idea va en uno de estos; usa exactamente el slug en pilar. Un tema de la categoría general puede ir en cualquiera)
+${listaDePilares(contexto.pilares)}
+
 <estrategia>
 ${sinCierre(JSON.stringify(contexto.estrategia))}
 </estrategia>
@@ -1067,7 +1074,7 @@ ${sinCierre(JSON.stringify(contexto.vozPropia))}
 <cruces>
 ${sinCierre(JSON.stringify(entrada.cruces))}
 </cruces>`,
-    esquema: SalidaTeorias,
+    esquema: salidaTeorias(slugsActivos(contexto.pilares)),
   })
   const enviados = new Map(entrada.cruces.map((cruce) => [cruce.id, cruce]))
   const vistos = new Set<string>()

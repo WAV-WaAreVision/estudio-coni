@@ -123,6 +123,7 @@ async function contextoEditorial(db: Db) {
     guia: guia?.texto ?? "",
     estrategia: fichas.data.map((f) => f.resumen),
     vozPropia: voz.data.map((a) => a.texto),
+    pilares: await pilaresActivos(db),
   }
 }
 
