@@ -44,6 +44,8 @@ export interface DatosDeGrabacion {
   botones: BotonesDeGrabacion | null
   /** Under the slider: what the signature spends and how long she has to undo it. */
   lineaDeFirma: string
+  /** The piece's latest voice reservation was released because ElevenLabs refused it: that attempt cost nothing. */
+  vozSinCobro: boolean
 }
 
 const TEXTO_SIN_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
@@ -98,6 +100,23 @@ export function vozVigente(
   })
 }
 
+/** Read through Coni's session (she can read `gastos`). Only a release proven by a refusal counts, never the sweeper's. */
+async function leerVozSinCobro(db: SupabaseClient<Database>, piezaId: string): Promise<boolean> {
+  const { data, error } = await db
+    .from("gastos")
+    .select("estado, sin_cobro")
+    .eq("pieza_id", piezaId)
+    .eq("proveedor", "elevenlabs")
+    .eq("paso", "voz")
+    .order("creado_en", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  // A plain Error, like the other readers of lib/datos: the screen's error boundary shows it.
+  if (error) throw new Error(`No pude leer el gasto de la voz: ${error.message}`)
+  return data?.estado === "liberado" && data.sin_cobro
+}
+
 /** Everything gate 1 shows about her voice and the video, read when the screen opens. */
 export async function leerDatosDeGrabacion(
   db: SupabaseClient<Database>,
@@ -110,17 +129,19 @@ export async function leerDatosDeGrabacion(
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude leer la configuración para la puerta 1", error)
-    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null) }
+    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null), vozSinCobro: false }
   }
   const clave = vozVigente(fila, guion, config)
-  const [saldos, presupuesto, url] = await Promise.all([
+  const [saldos, presupuesto, url, vozSinCobro] = await Promise.all([
     leerSaldos(),
     leerPresupuesto(db, Date.now(), zona),
     urlParaVer(clave),
+    leerVozSinCobro(db, fila.id),
   ])
   return {
     estado,
     voz: clave === null ? null : { url, clave },
+    vozSinCobro,
     botones: presentarGrabacion({
       guion,
       motor: config.heygen.motor,

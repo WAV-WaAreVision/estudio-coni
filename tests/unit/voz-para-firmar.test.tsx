@@ -23,6 +23,7 @@ function grabacion(clave: string | null, sobre: Partial<DatosDeGrabacion> = {}):
     voz: clave === null ? null : { url: `https://almacen.test/${clave}`, clave },
     botones: null,
     lineaDeFirma: "Graba el video · 8 s para deshacer",
+    vozSinCobro: false,
     ...sobre,
   }
 }

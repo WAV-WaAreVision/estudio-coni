@@ -167,7 +167,39 @@ describe("leerDatosDeGrabacion", () => {
       voz: null,
       botones: null,
       lineaDeFirma: "Graba el video · 8 s para deshacer",
+      vozSinCobro: false,
     })
+  })
+
+  async function gastoDeVoz(piezaId: string, clave: string, cierre: "sin_cobro" | "barrido" | "abierto") {
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.2, $2, now())", [piezaId, clave])
+    if (cierre === "sin_cobro") await pool.query("select public.liberar_gasto($1, true)", [clave])
+    if (cierre === "barrido") await pool.query("select public.liberar_gasto($1)", [clave])
+  }
+
+  it.each([
+    ["a refusal released it", "sin_cobro", true],
+    ["the sweeper released it", "barrido", false],
+    ["it is still open", "abierto", false],
+  ] as const)("says the last voice attempt was not charged only when %s", async (_caso, cierre, esperado) => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:0`, cierre)
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(esperado)
+  })
+
+  it("reads the latest voice attempt, not an older refused one", async () => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:0`, "sin_cobro")
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:1`, "abierto")
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
   })
 })
 
