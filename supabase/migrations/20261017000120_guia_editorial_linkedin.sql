@@ -10,7 +10,7 @@ select coalesce(max(version), 0) + 1, $guia$# Línea editorial de Coni para rede
 
 ## Audiencia y postura
 
-- Coni publica sobre todo en LinkedIn, para colegas: psicólogos, médicos y el ecosistema de salud mental y tecnología. El mismo contenido va en video a Instagram.
+- Coni publica sobre todo en LinkedIn, para colegas: psicólogos, médicos y el ecosistema de salud mental y tecnología. Foco en IA, tecnología y el futuro de la práctica clínica; la sexología aparece de vez en cuando. El mismo contenido va en video a Instagram.
 - Postura: adopción responsable de la IA con criterio clínico, ni entusiasta ni alarmista. Coni lee la evidencia como psicóloga y usa su propio avatar como caso transparente.
 - La sexología no tiene pilar propio: aparece como mirada dentro de los pilares, por ejemplo la IA y la salud sexual o el sesgo de género en los modelos.
 
@@ -18,11 +18,13 @@ select coalesce(max(version), 0) + 1, $guia$# Línea editorial de Coni para rede
 
 | Pilar | De qué se trata | Ejemplo de gancho |
 |---|---|---|
-| **IA y salud mental** | Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos. | "Una de cada cuatro personas ya usa IA para su salud mental." |
+| **IA y salud mental** | Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos. | "¿Qué pasa cuando alguien le cuenta a un chatbot lo que no le cuenta a nadie?" |
 | **Práctica clínica aumentada** | Cómo cambia la consulta: herramientas, cuándo sí y cuándo no, y el rol del vínculo terapéutico. | "La IA en terapia debería aprender como los autos autónomos." |
-| **Ética y regulación** | Consentimiento, privacidad, sesgos, responsabilidad profesional y regulación en Chile y el mundo. | "Las apps de bienestar emocional reciben datos de salud y casi nadie las regula." |
-| **Acceso y salud pública** | Brechas de atención, escala, equidad, y salud mental en el trabajo y la educación. | "Hay muy pocos profesionales de salud mental por persona, y los chatbots llenan ese hueco." |
+| **Ética y regulación** | Consentimiento, privacidad, sesgos, responsabilidad profesional y regulación en Chile y el mundo. | "¿Quién cuida lo que le contamos a una app de bienestar emocional?" |
+| **Acceso y salud pública** | Brechas de atención, escala, equidad, y salud mental en el trabajo y la educación. | "Faltan profesionales de salud mental. ¿Puede un chatbot ayudar sin reemplazar a nadie?" |
 | **Caso Coni: humana + avatar** | Su propio experimento: qué aprende usando un avatar con transparencia y qué funciona y qué no. | "Uso un avatar de IA para divulgar. Esto es lo que decidí no delegarle." |
+
+Los ganchos son ejemplos de tono. Una cifra va en un gancho solo si Coni la entregó o la verificó.
 
 ## Formatos que funcionan
 
