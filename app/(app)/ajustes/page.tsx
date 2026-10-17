@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { FilaNavegacion } from "@/components/ui/filas"
-import { Grupo } from "@/components/ui/grupo"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { destinosPorDefecto } from "@/lib/dominio/destinos"
 import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
@@ -62,9 +62,10 @@ export default async function Ajustes() {
         />
       </div>
 
-      <Grupo className="mt-8">
+      {/* Exit critique 3: the accounts, keys, balances and Claude are WAV's operation, folded out of her way. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Cuentas, llaves, saldos y Claude">
         <FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>
-      </Grupo>
+      </MasOpciones>
 
       <div className="mt-6">
         <CerrarSesion cerrar={cerrarSesionAccion} />

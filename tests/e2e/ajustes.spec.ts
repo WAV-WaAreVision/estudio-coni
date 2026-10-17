@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test"
 import coniConfig from "../fixtures/coni.config.json"
 import { pool } from "../integration/db"
-import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
+import {
+  abrirDesplegable,
+  alerta,
+  bloquearRedExterna,
+  capturar,
+  configurarServicios,
+  registroDeServicios,
+} from "./ayudas"
 import { URL_DE_LA_APP } from "./entorno"
 
 const NOMBRES_DE_LLAVES = "('heygen','elevenlabs','anthropic','meta')"
@@ -57,6 +64,7 @@ test("when every account answers, the block says everything is connected", async
   // Once nothing is missing the status block leaves Ajustes and the good news lives with the accounts.
   await page.goto("/ajustes")
   await expect(page.getByRole("heading", { name: /Configuración|Todo conectado/ })).toHaveCount(0)
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("link", { name: "Cuentas conectadas" }).click()
   await expect(page).toHaveURL(/\/ajustes\/cuentas$/)
 
@@ -86,6 +94,7 @@ test("a key a provider refuses is flagged, and one that cannot be checked is not
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "HeyGen no aceptó la llave" })).toBeVisible()
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("link", { name: "Cuentas conectadas" }).click()
   await expect(page.getByText("No aceptó la llave", { exact: true })).toBeVisible()
   await expect(page.getByText("Sin revisar")).toBeVisible()

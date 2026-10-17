@@ -77,6 +77,11 @@ async function abrirPliegues(page: Page, ruta: string): Promise<void> {
     await abrirPlieguesDeInicio(page)
     return
   }
+  if (ruta === "/ajustes") {
+    // WAV's accounts fold under "Para WAV".
+    await abrirDesplegable(page, "Para WAV")
+    return
+  }
   if (!ruta.startsWith("/guion/")) return
   await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible()
@@ -162,6 +167,7 @@ test("more contrast outlines the raised controls and turns the quiet text to ink
   await page.emulateMedia({ contrast: "more", reducedMotion: "reduce" })
   await sembrarEscena()
   await page.goto("/ajustes")
+  await abrirDesplegable(page, "Para WAV")
   await expect(page.getByRole("link", { name: "Cuentas conectadas" })).toBeVisible()
   // Computed colours, not the custom property: the contrast block declares --apagado as var(--tinta).
   const { contorno, colorApagado, colorTinta } = await page.evaluate(() => {
