@@ -6,7 +6,14 @@ import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "@/app/
 import { TEXTO_ARMADO } from "@/lib/diseno/deslizador"
 import { pool } from "../integration/db"
 import { sembrarPieza } from "../integration/siembra"
-import { abrirDesplegable, bloquearRedExterna, configurarServicios, simularMedios } from "./ayudas"
+import {
+  abrirDesplegable,
+  bloquearRedExterna,
+  conectarLinkedin,
+  configurarServicios,
+  desconectarLinkedin,
+  simularMedios,
+} from "./ayudas"
 import { sembrarEscena } from "./escena"
 
 test("the app text is set in Geist, one family", async ({ page }) => {
@@ -242,4 +249,25 @@ test("Inicio with a failure, a piece to sign and its folds open passes WCAG 2.x 
   await expect(page.getByRole("alert")).toContainText("No pude terminar el video.")
   await abrirPlieguesDeInicio(page)
   expect(await hallazgosDeAxe(page, "inicio con falla")).toEqual([])
+})
+
+// Lote 6: Cuentas with LinkedIn connected, its danger disclosure and a key's "Más opciones" open.
+test("Cuentas with LinkedIn connected and its folds open passes WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await sembrarEscena()
+  await conectarLinkedin()
+  // A stored key folds "Cambiar la llave" under its "Más opciones"; a missing one shows "Agregar la llave" instead.
+  await pool.query("delete from vault.secrets where name = 'heygen'")
+  await pool.query("select vault.create_secret('llave-de-heygen-e2e', 'heygen')")
+  try {
+    await page.goto("/ajustes/cuentas")
+    await abrirDesplegable(page, "Desconectar LinkedIn")
+    await expect(page.getByRole("button", { name: "Sí, desconectar" })).toBeVisible()
+    await abrirDesplegable(page, "Más opciones")
+    await expect(page.getByRole("button", { name: /^Cambiar la llave de / }).first()).toBeVisible()
+    expect(await hallazgosDeAxe(page, "cuentas con pliegues")).toEqual([])
+  } finally {
+    await pool.query("delete from vault.secrets where name = 'heygen'")
+    await desconectarLinkedin()
+  }
 })
