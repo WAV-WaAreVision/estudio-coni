@@ -22,11 +22,9 @@ import {
   configurarServicios,
   conLetraGrande,
   desconectarLinkedin,
-  GUION_VALIDO,
   simularMedios,
-  TEXTO_VALIDO,
 } from "./ayudas"
-import { sembrarEscena } from "./escena"
+import { FUENTES, lineaDeFuenteDe, PIEZAS, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 test("the app text is set in Geist, one family", async ({ page }) => {
   await page.goto("/")
@@ -139,17 +137,7 @@ async function auditar(page: Page, lista: string[], antes?: (page: Page) => Prom
 /** The states v6 draws that the scene does not: a voice that failed, Inicio with failures and a missed time. */
 async function estadosNuevos(): Promise<string[]> {
   const { video } = await sembrarEscena()
-  const idea = await sembrarIdea({
-    pilar: "practica-clinica",
-    gancho: "El deseo no se apaga, se esconde",
-    estado: "usada",
-  })
-  const fallaDeVoz = await sembrarPieza("guion_por_aprobar", {
-    titulo: "El deseo no se apaga, se esconde",
-    idea_id: idea,
-    guion: GUION_VALIDO,
-    texto: TEXTO_VALIDO,
-  })
+  const fallaDeVoz = await sembrarPiezaDeEscena("guion_por_aprobar", PIEZAS.conFalla)
   await ajustarPieza(fallaDeVoz, { audio_id: null, explicacion: TEXTO_SIN_VOZ })
   await ajustarPieza(video, { explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha." })
   await pool.query("delete from public.avisos")
@@ -172,7 +160,7 @@ test("the source line on the idea card and at gate 1 passes WCAG 2.x AA", async 
   const { guion } = await sembrarEscena()
   for (const ruta of ["/ideas", `/guion/${guion}`]) {
     await page.goto(ruta)
-    await expect(page.getByText(/^Fuente: (Siembra )?Stanford · AI for Mental Health \(2026\)$/)).toBeVisible()
+    await expect(page.getByText(lineaDeFuenteDe(FUENTES.stanford), { exact: true })).toBeVisible()
   }
   expect(await auditar(page, ["/ideas", `/guion/${guion}`])).toEqual([])
 })

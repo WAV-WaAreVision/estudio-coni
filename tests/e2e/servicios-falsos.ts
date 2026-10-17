@@ -130,7 +130,8 @@ const servidor = createServer((req, res) => {
             status: "active",
             character_count: estado.elevenlabsUsados,
             character_limit: 100_000,
-            next_character_count_reset_unix: 1_760_281_200,
+            // Always ahead of the run date: a renewal in the past would read as stale data on Ajustes.
+            next_character_count_reset_unix: 4_098_178_800,
             can_extend_character_limit: false,
             allowed_to_extend_character_limit: false,
           })

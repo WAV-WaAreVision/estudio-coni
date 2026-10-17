@@ -295,7 +295,7 @@ test("the Saldos section shows the ElevenLabs characters and the HeyGen API wall
 
   await expect(page.getByRole("heading", { name: "Saldos" })).toBeVisible()
   await expect(
-    page.getByText("ElevenLabs: te quedan 23.400 de 100.000 caracteres. Se renuevan el 12 de octubre."),
+    page.getByText("ElevenLabs: te quedan 23.400 de 100.000 caracteres. Se renuevan el 12 de noviembre."),
   ).toBeVisible()
   await expect(page.getByText("Saldo de API de HeyGen: US$ 12,00. Es aparte de tu plan de HeyGen.")).toBeVisible()
   await expect(
