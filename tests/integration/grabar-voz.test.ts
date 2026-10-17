@@ -412,6 +412,31 @@ describe("asegurarVoz keeps a paid audio", () => {
     expect(llamadas).toBe(4)
   })
 
+  it("uses the take another run stored and confirmed while this one was reserving", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const toma = claveDeToma(id, HUELLA, fila.intento)
+    const clave = claveDeGastoDeVoz(id, HUELLA, fila.intento)
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.25, $2, now())", [id, clave])
+    await pool.query("select public.confirmar_gasto($1, 0.25)", [clave])
+    const almacen = almacenEnMemoria()
+    await almacen.subir(toma, VOZ, "audio/mpeg")
+    let miradas = 0
+    // The first look (before reserving) misses the take; the other run lands it right after.
+    const tardio = { ...almacen, existe: async (k: string) => (miradas++ === 0 ? false : almacen.existe(k)) }
+
+    // `nueva` skips the earlier-take lookup, so only the look after reserving can find it.
+    const voz = await asegurarVoz(
+      { ...deps(), almacen: tardio },
+      { fila, guion: GUION, config: ELEVENLABS, llave: async () => "sk_eleven_de_prueba", nueva: true },
+    )
+
+    expect(voz).toEqual({ tipo: "lista", audioId: toma })
+    expect(llamadas).toBe(0)
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ clave, estado: "confirmado" })])
+  })
+
   it("waits a little longer before each upload retry", async () => {
     responder(audioOk)
     const id = await grabando()

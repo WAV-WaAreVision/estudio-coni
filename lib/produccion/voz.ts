@@ -107,8 +107,8 @@ const COBROS_EXTRA_MAXIMOS = 3
  */
 async function reservarIntento(
   deps: DepsVoz,
-  entrada: { fila: FilaDePieza; huella: string; estimado: number },
-): Promise<{ tipo: "tope" } | { tipo: "reservada"; clave: string }> {
+  entrada: { fila: FilaDePieza; huella: string; estimado: number; toma: string },
+): Promise<{ tipo: "tope" } | { tipo: "lista" } | { tipo: "reservada"; clave: string }> {
   const { fila, huella, estimado } = entrada
   for (let cobro = 0; cobro <= COBROS_EXTRA_MAXIMOS; cobro += 1) {
     const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
@@ -126,6 +126,8 @@ async function reservarIntento(
     })
     if (reserva.tope) return { tipo: "tope" }
     if (reserva.gasto.estado === "reservado") return { tipo: "reservada", clave }
+    // A run that ended meanwhile may have stored the take and confirmed: then that paid audio is the voice.
+    if (reserva.gasto.estado === "confirmado" && (await deps.almacen.existe(entrada.toma))) return { tipo: "lista" }
   }
   throw new FallaDeConfiguracion(
     `La voz de la pieza ${fila.id} ya se intentó ${COBROS_EXTRA_MAXIMOS + 1} veces sin guardar la toma.`,
@@ -160,8 +162,9 @@ export async function asegurarVoz(
   const llave = await entrada.llave()
   const texto = textoParaVoz(guion, config.model_id)
   const estimado = estimarCostoVoz(texto)
-  const reserva = await reservarIntento(deps, { fila, huella, estimado })
+  const reserva = await reservarIntento(deps, { fila, huella, estimado, toma: exacta })
   if (reserva.tipo === "tope") return { tipo: "tope" }
+  if (reserva.tipo === "lista") return { tipo: "lista", audioId: exacta }
   const { clave } = reserva
   let audio: Uint8Array
   try {
