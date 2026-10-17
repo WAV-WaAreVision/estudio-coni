@@ -65,16 +65,17 @@ export async function leerFila(id: string) {
 }
 
 export async function sembrarIdea(
-  extra: { pilar?: string; gancho?: string; alertas?: unknown; numero?: number; estado?: string } = {},
+  extra: { pilar?: string; gancho?: string; tema?: string; alertas?: unknown; numero?: number; estado?: string } = {},
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
+    "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, $6, 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
     [
       extra.pilar ?? "practica-clinica",
       extra.gancho ?? "El deseo no se apaga, se esconde",
       JSON.stringify(extra.alertas ?? []),
       extra.numero ?? null,
       extra.estado ?? "idea",
+      extra.tema ?? "tema",
     ],
   )
   const id = rows[0]?.id
@@ -92,6 +93,8 @@ export interface TeoriaSembrada {
     titulo?: string
     anio?: number
     deConi?: boolean
+    /** The kind of author row; `persona` when absent. */
+    tipo?: "persona" | "institucion"
     /** `opinion` when absent. */
     evidencia?: "estudio" | "clinica" | "opinion"
   }[]
@@ -101,6 +104,7 @@ export interface TeoriaSembrada {
 export async function sembrarIdeaDelMotor(extra: {
   gancho: string
   semana: string
+  tema?: string
   pilar?: string
   estado?: string
   alertas?: unknown
@@ -122,9 +126,9 @@ export async function sembrarIdeaDelMotor(extra: {
       const { rows: autor } = apoyo.deConi
         ? await pool.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
         : await pool.query<{ id: string }>(
-            `insert into public.autores (nombre, tipo) values ($1, 'persona')
+            `insert into public.autores (nombre, tipo) values ($1, $2)
              on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
-            [apoyo.autor],
+            [apoyo.autor, apoyo.tipo ?? "persona"],
           )
       const { rows: material } = await pool.query<{ id: string }>(
         `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, titulo, anio)
@@ -144,7 +148,7 @@ export async function sembrarIdeaDelMotor(extra: {
   }
   const { rows } = await pool.query<{ id: string }>(
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado, origen, semana, teoria_id, numero)
-     values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, 'motor', $5, $6, $7) returning id`,
+     values ($1, $2, $8, 'Mito o realidad', 'alta', $3::jsonb, $4, 'motor', $5, $6, $7) returning id`,
     [
       extra.pilar ?? "ia-salud-mental",
       extra.gancho,
@@ -153,6 +157,7 @@ export async function sembrarIdeaDelMotor(extra: {
       extra.semana,
       teoriaId,
       extra.numero ?? null,
+      extra.tema ?? "tema",
     ],
   )
   const id = rows[0]?.id
@@ -171,11 +176,22 @@ export async function sembrarCorrida(
 
 /** Removes the engine's rows the tests seeded: runs, theories (and their claims) and the authors made for them. */
 export async function vaciarMotor(): Promise<void> {
+  const { rows: sembrados } = await pool.query<{ autor_id: string }>(
+    "select distinct autor_id from public.materiales where texto_pegado = 'siembra-motor' and autor_id is not null",
+  )
   await pool.query("delete from public.ideas where origen = 'motor'")
   await pool.query("delete from public.teorias where origen = 'motor'")
   await pool.query("delete from public.motor_corridas")
   await pool.query("delete from public.materiales where texto_pegado = 'siembra-motor'")
-  await pool.query("delete from public.autores where tipo = 'persona' and nombre like 'Siembra %'")
+  // The authors the seed made, by name (`Siembra %`) or because only seeded material pointed at them; one that real
+  // material or claims still use stays.
+  await pool.query(
+    `delete from public.autores a where a.tipo <> 'coni'
+       and (a.nombre like 'Siembra %' or a.id = any($1::uuid[]))
+       and not exists (select 1 from public.materiales m where m.autor_id = a.id)
+       and not exists (select 1 from public.afirmaciones f where f.autor_id = a.id)`,
+    [sembrados.map((fila) => fila.autor_id)],
+  )
 }
 
 /** Removes what the tests created. Only the database owner can delete pieces; the audit rows stay (append-only). */
