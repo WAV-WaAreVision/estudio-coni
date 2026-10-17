@@ -48,7 +48,7 @@ export default async function PaginaPublica() {
                 <li key={enlace.id} className="border-b border-sobre-firma/40 first:border-t">
                   <a
                     href={`/l/ir/${enlace.id}`}
-                    className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 py-4 outline-offset-2 transition-opacity duration-[var(--dur-corta)] focus-visible:outline-sobre-firma active:opacity-80 motion-reduce:transition-none"
+                    className="grid min-h-fila grid-cols-[1fr_auto] items-center gap-x-3 py-4 outline-offset-2 transition-opacity duration-[var(--dur-corta)] focus-visible:outline-sobre-firma active:opacity-80 motion-reduce:transition-none"
                   >
                     <span className="text-cuerpo font-semibold leading-tight">{enlace.titulo}</span>
                     <ArrowRight aria-hidden="true" size={ICONO.grande} className="row-span-2" />
