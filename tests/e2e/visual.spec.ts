@@ -205,7 +205,10 @@ async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_
 
 test("guion sin voz", async ({ page }) => {
   const id = await guionSembrado("guion_por_aprobar")
+  // The seed leaves TEXTO_SIN_VOZ on a script without a voice; with no failure the block is the neutral one.
+  await ajustarPieza(id, { audio_id: null, explicacion: null })
   await page.goto(`/guion/${id}`)
+  await expect(page.getByText("Falta preparar tu voz.")).toBeVisible()
   await capturaDe(page, "guion-sin-voz")
 })
 
@@ -291,9 +294,14 @@ test("guion preparando voz", async ({ page }) => {
 
 test("guion falla voz", async ({ page }) => {
   const id = await guionSembrado("guion_por_aprobar")
-  await ajustarPieza(id, { audio_id: null, explicacion: TEXTO_SIN_VOZ })
+  // A provider's reason (v6 7): her words in the block, ElevenLabs folded under "Detalle para WAV".
+  await ajustarPieza(id, {
+    audio_id: null,
+    explicacion: `${TEXTO_SIN_VOZ} ElevenLabs respondió 401: la llave no sirve.`,
+  })
   await page.goto(`/guion/${id}`)
   await expect(page.getByText("No pude preparar tu voz.")).toBeVisible()
+  await expect(page.getByText("Detalle para WAV")).toBeVisible()
   await capturaDe(page, "guion-falla-voz")
 })
 
@@ -302,7 +310,7 @@ test("guion sin saldo", async ({ page }) => {
   const id = await guionSembrado("guion_por_aprobar")
   await vozEscuchada(page, id)
   await page.goto(`/guion/${id}`)
-  await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
+  await expect(page.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toBeVisible()
   await capturaDe(page, "guion-sin-saldo")
 })
 
