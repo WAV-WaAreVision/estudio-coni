@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { aCsv, estimarClasificacion, leerCsv, POR_TANDA, validarFilas } from "@/lib/pilares/reclasificar"
+import { pedidoDeReclasificacion } from "@/lib/proveedores/anthropic"
 
 const FILAS = [
   {
@@ -62,6 +63,28 @@ describe("validarFilas", () => {
 })
 
 describe("estimarClasificacion", () => {
+  // The production run of 2026-10-17: 19 items in one batch, estimated at US$ 0.0143, billed US$ 0.0231. These sizes
+  // reproduce the old estimate (system 2000 chars, 19 UUID items of 120 chars of text).
+  const PRODUCCION = Array.from({ length: 19 }, (_, i) => ({
+    id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    tipo: "material" as const,
+    texto: "x".repeat(120),
+  }))
+
+  it("estimates at least what the production run of 2026-10-17 really cost, and not far above it", () => {
+    const { tandas, usd } = estimarClasificacion({ elementos: PRODUCCION, sistema: "s".repeat(2000) })
+    expect(tandas).toBe(1)
+    expect(usd).toBeGreaterThanOrEqual(0.0231)
+    expect(usd).toBeLessThanOrEqual(0.0231 * 1.25)
+  })
+
+  it("prices the exact user message of a batch, wrapper included", () => {
+    const elementos = [{ id: "a", tipo: "tema" as const, texto: "x".repeat(400) }]
+    const pedido = pedidoDeReclasificacion(elementos)
+    expect(pedido).toContain(JSON.stringify(elementos))
+    expect(pedido.startsWith("Clasifica estos elementos.")).toBe(true)
+  })
+
   it("counts batches and a positive cost that grows with the items", () => {
     const pocos = estimarClasificacion({
       elementos: [{ id: "a", tipo: "tema", texto: "x".repeat(400) }],

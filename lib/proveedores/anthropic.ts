@@ -503,6 +503,11 @@ Recibes, dentro de <elementos>, un JSON con materiales, temas y teorías (id, ti
 Para cada elemento responde una vez, con su mismo id, el pilar que mejor le calza y una razón de una oración en español de Chile, sin rayas largas. Si duda entre dos, elige el del tema central. Si no calza en ninguno, general.`
 }
 
+/** The user message of one re-classification batch; the cost estimate counts this exact text. */
+export function pedidoDeReclasificacion(elementos: readonly ElementoPorClasificar[]): string {
+  return `Clasifica estos elementos.\n\n<elementos>\n${sinCierre(JSON.stringify(elementos))}\n</elementos>`
+}
+
 /** One batch of the one-off re-classification (spec 2026-10-17, decision 4). Every item it sent comes back once. */
 export async function clasificarEnPilares(entrada: {
   cliente: Anthropic
@@ -523,7 +528,7 @@ export async function clasificarEnPilares(entrada: {
   const { salida, uso, modelo } = await pedirJson(entrada.cliente, "clasificarEnPilares", {
     guia: guiaDeReclasificacion(entrada.pilares),
     cachearGuia: false,
-    usuario: `Clasifica estos elementos.\n\n<elementos>\n${sinCierre(JSON.stringify(entrada.elementos))}\n</elementos>`,
+    usuario: pedidoDeReclasificacion(entrada.elementos),
     esquema,
   })
   const respuestas = new Map<string, { pilar: string; razon: string }>()
