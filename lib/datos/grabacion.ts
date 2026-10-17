@@ -121,7 +121,6 @@ async function leerVozSinCobro(db: SupabaseClient<Database>, fila: FilaDePieza):
     .order("id", { ascending: false })
     .limit(1)
     .maybeSingle()
-  // A plain Error, like the other readers of lib/datos: the screen's error boundary shows it.
   if (error) throw new Error(`No pude leer el gasto de la voz: ${error.message}`)
   const partes = ultima ? CLAVE_DE_INTENTO.exec(ultima.clave) : null
   const base = partes?.[1]
@@ -130,6 +129,16 @@ async function leerVozSinCobro(db: SupabaseClient<Database>, fila: FilaDePieza):
   const { data: intentos, error: errorIntentos } = await voz().or(`clave.eq."${base}",clave.like."${base}:r%"`)
   if (errorIntentos) throw new Error(`No pude leer los gastos del intento de voz: ${errorIntentos.message}`)
   return intentos.length > 0 && intentos.every((g) => g.estado === "liberado" && g.sin_cobro)
+}
+
+/** The line is a courtesy: a failed read only hides it, gate 1 still opens. */
+async function vozSinCobroOFalso(db: SupabaseClient<Database>, fila: FilaDePieza): Promise<boolean> {
+  try {
+    return await leerVozSinCobro(db, fila)
+  } catch (error) {
+    console.error(`No pude saber si el último intento de voz de la pieza ${fila.id} se cobró`, error)
+    return false
+  }
 }
 
 /** Everything gate 1 shows about her voice and the video, read when the screen opens. */
@@ -151,7 +160,7 @@ export async function leerDatosDeGrabacion(
     leerSaldos(),
     leerPresupuesto(db, Date.now(), zona),
     urlParaVer(clave),
-    leerVozSinCobro(db, fila),
+    vozSinCobroOFalso(db, fila),
   ])
   return {
     estado,

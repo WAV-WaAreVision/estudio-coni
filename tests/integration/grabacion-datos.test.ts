@@ -199,6 +199,19 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.vozSinCobro).toBe(false)
   })
 
+  it("keeps gate 1 open, without the line and with a log, when the voice spend cannot be read", async () => {
+    const id = await piezaPorFirmar()
+    const registro = vi.spyOn(console, "error").mockImplementation(() => {})
+    // A piece id that is not a UUID makes only the spend read fail: the rest of gate 1 does not filter by it.
+    const fila = { ...(await leerFila(id)), id: "no-es-un-uuid" }
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+    expect(datos.botones).not.toBeNull()
+    expect(registro).toHaveBeenCalledWith(expect.stringContaining("no-es-un-uuid"), expect.any(Error))
+  })
+
   it("says it for an attempt whose every try was refused", async () => {
     const id = await piezaPorFirmar()
     const base = claveDelIntento(id, 0)
