@@ -6,6 +6,7 @@ import { ICONO } from "@/components/ui/icono"
 import {
   ARMADO_MAXIMO_MS,
   apruebaAlSoltar,
+  ETIQUETA_CORTA_DE_FIRMA,
   ETIQUETA_DE_FIRMA,
   esToque,
   PISTA_DE_FIRMA,
@@ -193,7 +194,7 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
     }
   }
 
-  const texto = firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : ETIQUETA_DE_FIRMA
+  const texto = firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : null
   const posicion = `calc(${MARGEN}px + (100% - var(--pulgar-firma) - ${2 * MARGEN}px) * ${valor / 100})`
 
   return (
@@ -236,7 +237,18 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
           firmado ? "text-luz" : activo ? "text-tinta" : "text-apagado",
         )}
       >
-        {texto}
+        {texto ? (
+          <span data-etiqueta-de-firma>{texto}</span>
+        ) : (
+          <>
+            <span data-etiqueta-de-firma className="etiqueta-de-firma-larga">
+              {ETIQUETA_DE_FIRMA}
+            </span>
+            <span data-etiqueta-de-firma className="etiqueta-de-firma-corta">
+              {ETIQUETA_CORTA_DE_FIRMA}
+            </span>
+          </>
+        )}
       </span>
       <span
         ref={pulgar}

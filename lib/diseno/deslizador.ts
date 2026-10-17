@@ -21,6 +21,8 @@ export function apruebaAlSoltar(progreso: number): boolean {
 
 /** Decision 5: one label on both gates, the armed and the sent states, and how to sign without dragging. */
 export const ETIQUETA_DE_FIRMA = "Desliza para firmar"
+/** The same label at large text, where the whole one would break in two lines next to the thumb (decision 6). */
+export const ETIQUETA_CORTA_DE_FIRMA = "Desliza"
 export const TEXTO_ARMADO = "Toca otra vez para firmar"
 export const TEXTO_FIRMADO = "Firmado"
 /** What the slider's value reads at rest (v6 `aria-valuetext`). */

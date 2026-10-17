@@ -30,7 +30,7 @@ test("at large text the nav sits after the content with three tabs that keep the
   }
 })
 
-test("at large text the sign bar sits at the end of gate 1, round all over, with the smaller thumb", async ({
+test("at large text the sign bar sits at the end of gate 1, round all over, with the full thumb and a one-line label", async ({
   page,
 }) => {
   const { guion } = await sembrarEscena()
@@ -41,7 +41,15 @@ test("at large text the sign bar sits at the end of gate 1, round all over, with
   await expect(barra).toHaveCSS("position", "static")
   await expect(barra).toHaveCSS("border-bottom-left-radius", "28px")
   const raiz = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
-  expect((await page.getByTestId("pulgar-firma").boundingBox())?.width ?? 0).toBeCloseTo(2.25 * raiz, 0)
+  expect((await page.getByTestId("pulgar-firma").boundingBox())?.width ?? 0).toBeCloseTo(3 * raiz, 0)
+  const etiqueta = page.getByTestId("pista-de-firma").locator("[data-etiqueta-de-firma]:visible")
+  await expect(etiqueta).toHaveCount(1)
+  const lineas = await etiqueta.evaluate((nodo) => {
+    const alto = nodo.getBoundingClientRect().height
+    const linea = Number.parseFloat(getComputedStyle(nodo).lineHeight)
+    return Math.round(alto / linea)
+  })
+  expect(lineas).toBe(1)
   await expect(page.locator("h1")).toHaveCSS("font-size", `${1.5 * raiz}px`)
 })
 

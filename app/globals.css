@@ -84,7 +84,7 @@
   --margen: 20px;
   --final-pagina: 96px; /* free space after the last control of a screen without a sign bar */
 
-  /* ---------- The sign control and the bottom nav, in rem; large text shrinks the thumb (decision 6) ---------- */
+  /* ---------- The sign control and the bottom nav, in rem: they grow with the text, the thumb included ---------- */
   --pulgar-firma: 3rem;
   --pista-firma: 3.5rem;
   --hueco-etiqueta: 1rem;
@@ -414,9 +414,17 @@ body {
 /* ---------- Large text (decision 6): the head script sets data-letra="grande" when fewer than 18 rem fit across.
    Unlayered, so these beat the sticky and size utilities. ---------- */
 html[data-letra="grande"] {
-  --pulgar-firma: 2.25rem;
-  --pista-firma: 3rem;
   --hueco-etiqueta: 0.6rem;
+}
+/* The thumb keeps its size: the label at rest says the short form, which fits one line next to it. */
+.etiqueta-de-firma-corta {
+  display: none;
+}
+html[data-letra="grande"] .etiqueta-de-firma-larga {
+  display: none;
+}
+html[data-letra="grande"] .etiqueta-de-firma-corta {
+  display: inline;
 }
 /* A long word wraps instead of pushing the page sideways (WCAG 1.4.10). */
 html[data-letra="grande"] body {
