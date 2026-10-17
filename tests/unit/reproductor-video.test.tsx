@@ -69,11 +69,17 @@ describe("ReproductorVideo", () => {
     )
     const video = container.querySelector("video")
     if (!video) throw new Error("No hay video")
+    expect(screen.getByText("Míralo completo para poder firmar")).toBeInTheDocument()
     fireEvent.play(video)
     expect(screen.queryByText("Míralo completo para poder firmar")).toBeNull()
   })
 
   it("does not show the state on a video she already watched whole", () => {
+    const sinVer = render(
+      <ReproductorVideo src="https://almacen.test/v.mp4" clave="v10" zonas={false} alVerCompleto={vi.fn()} />,
+    )
+    expect(screen.getByText("Míralo completo para poder firmar")).toBeInTheDocument()
+    sinVer.unmount()
     recordarVisto("v10")
     render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v10" zonas={false} alVerCompleto={vi.fn()} />)
     expect(screen.queryByText("Míralo completo para poder firmar")).toBeNull()
