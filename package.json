@@ -20,6 +20,7 @@
     "test:db": "vitest run --config vitest.integration.config.ts",
     "test:eval": "vitest run --config vitest.eval.config.ts",
     "importar:banco": "tsx scripts/importar-banco.ts",
+    "reclasificar:pilares": "tsx scripts/reclasificar-pilares.ts",
     "avatares:agregar": "tsx scripts/agregar-avatar.ts agregar",
     "avatares:quitar": "tsx scripts/agregar-avatar.ts quitar",
     "comparar": "tsx scripts/hoja-de-comparacion.ts"

@@ -14,7 +14,13 @@ describe("ideas-eval.json", () => {
   it("has ten ideas, two per pillar", () => {
     expect(ideas).toHaveLength(10)
     const porPilar = Object.groupBy(ideas, (idea) => idea.pilar)
-    expect(Object.keys(porPilar).sort()).toEqual(["autoestima", "bienestar", "deseo", "limites", "pareja"])
+    expect(Object.keys(porPilar).sort()).toEqual([
+      "acceso-salud-publica",
+      "caso-coni",
+      "etica-regulacion",
+      "ia-salud-mental",
+      "practica-clinica",
+    ])
     for (const grupo of Object.values(porPilar)) expect(grupo).toHaveLength(2)
   })
 
