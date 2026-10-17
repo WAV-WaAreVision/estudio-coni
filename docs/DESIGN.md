@@ -241,7 +241,7 @@ sobra un elemento.
   falta.
 
 ### Deslizar para aprobar (signature)
-Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar baja a 2,25rem y la barra pasa al final de la página.
+Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Desliza» para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
 
 ### Chips
 - **Style:** píldora de 44 px en piedra con relieve; elegido en tinta con texto luz y check.
@@ -257,23 +257,47 @@ Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve
 
 ### Inputs / Fields
 - **Style:** píldora hundida en piedra honda, 52 px; las áreas de texto usan 24 px de radio y crecen
-  con su contenido.
+  con su contenido. Lo que se lee con forma de campo (los espacios del ritmo) usa el mismo hundido en
+  honda, nunca una línea suelta debajo.
 - **Focus:** anillo de 2 px en tinta, separado 2 px del campo.
 - **Error:** contorno de 2 px en tinta de error, mensaje debajo con ícono.
 
 ### Navigation
 Barra inferior de tres pestañas sobre piedra con relieve alto hacia arriba. La activa va en una
 píldora hundida en piedra honda, en texto tinta 600; las demás, en apagado. En computador sube al borde
-superior.
+superior. Con letra grande queda al final del contenido, una pestaña por fila, con su etiqueta visible
+al lado del ícono y 44 px o más de alto.
 
 ### Avisos y estados
 Planos, sin sombra: píldoras de 32 px en piedra honda, ícono a la izquierda y
-texto en su tinta. Nunca con el relieve ni el peso de un botón. Las casillas vacías llevan anillo
+texto en su tinta (con letra grande, si el texto se parte, el radio pasa a `bloque`, 18 px). Nunca con el relieve ni el peso de un botón. Las casillas vacías llevan anillo
 `campo` (3,01:1) sobre cualquier fondo. Con `prefers-contrast: more`, todo control suma contorno
 `campo`. El toast flota en tinta sobre piedra, 8 s, con "Deshacer" después de firmar o gastar.
 
 ### Pestañas
 Control segmentado: pista hundida en piedra honda y la opción activa en piedra con relieve.
+
+### Filas de elección
+Radio redondo hundido con anillo `campo`; el elegido en tinta con punto luz. Las filas no elegidas
+bajan a 500 y siguen en tinta: son opciones, nunca algo cerrado.
+
+### Confirmaciones
+En línea, bajo el botón que las pidió (descartar, pedir cambios, regrabar, desconectar, cerrar
+sesión): la pregunta, la acción y «Volver». Nunca un diálogo.
+
+### Detalle para WAV
+Lo que Coni lee va en sus palabras. El proveedor, los saldos, las llaves y el enlace al proveedor van
+plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, cuentas, llaves, saldos y Claude viven
+en la sección plegada «Para WAV».
+
+### Puertas
+- **Puerta 1:** tres pasos en orden: «1. Escucha tu voz», «2. Revisa el guion», «3. Elige tu avatar»
+  (requisito para firmar, nunca plegado). Si el saldo o el tope de gasto no alcanzan, el motivo va
+  arriba, antes del paso 1, y otra vez junto a la firma. Si una falla solo la arregla Federico, el
+  texto lo dice primero y reintentar queda como botón secundario.
+- **Puerta 2:** el video 9:16 al ancho de la columna (sin achicarse con letra grande), con «Míralo
+  completo para poder firmar» sobre el cuadro hasta que ella lo inicia. Con LinkedIn entre los
+  destinos, su texto va primero y el de Instagram se pliega debajo.
 
 ## 6. Do's and Don'ts
 
