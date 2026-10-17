@@ -505,6 +505,42 @@ describe("asegurarVoz keeps a paid audio", () => {
     await pool.query("drop sequence if exists public.prueba_fallas_confirmar")
   }
 
+  it("retries the confirmation once when it fails after a stored take", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    await confirmacionQueFalla(id, 1)
+    let voz: unknown
+    try {
+      voz = await intentar(deps(), await filaDe(id))
+    } finally {
+      await quitarFallaDeConfirmar()
+    }
+
+    expect(voz).toMatchObject({ tipo: "lista" })
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado" })])
+  })
+
+  it("carries both confirmation failures when a stored take cannot be confirmed twice", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    await confirmacionQueFalla(id, 2)
+    let error: unknown
+    try {
+      error = await intentar(deps(), await filaDe(id)).catch((e: unknown) => e)
+    } finally {
+      await quitarFallaDeConfirmar()
+    }
+
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/no pude confirmar el gasto de la voz/i),
+      cause: {
+        primera: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+        segunda: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+      },
+    })
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado" })])
+  })
+
   it("retries the confirmation once when it fails after a lost upload", async () => {
     responder(audioOk)
     const id = await grabando()
@@ -538,7 +574,13 @@ describe("asegurarVoz keeps a paid audio", () => {
       message: expect.stringMatching(/no pude guardar la toma ni confirmar su gasto/i),
       cause: {
         subida: expect.objectContaining({ message: "R2 no respondió" }),
-        confirmacion: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+        confirmacion: expect.objectContaining({
+          message: expect.stringMatching(/no pude confirmar el gasto de la voz/i),
+          cause: {
+            primera: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+            segunda: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+          },
+        }),
       },
     })
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado" })])

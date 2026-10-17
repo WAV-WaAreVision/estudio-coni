@@ -102,13 +102,20 @@ async function guardarTomaPagada(
   throw ultimoError
 }
 
-/** The confirmation that counts a paid audio is tried twice: losing it would leave paid money as only reserved. */
+/**
+ * The confirmation that counts a paid audio is tried twice: losing it would leave paid money as only reserved (the
+ * sweeper or the next try still confirms it). The error carries both failures.
+ */
 async function confirmarUnaVezMas(deps: DepsVoz, clave: string, estimado: number): Promise<void> {
   try {
     await confirmarGasto(deps.db, clave, estimado)
   } catch (primera) {
     console.error(`No pude confirmar el gasto de la voz ${clave}; lo intento otra vez`, primera)
-    await confirmarGasto(deps.db, clave, estimado)
+    try {
+      await confirmarGasto(deps.db, clave, estimado)
+    } catch (segunda) {
+      throw new Error(`No pude confirmar el gasto de la voz ${clave}.`, { cause: { primera, segunda } })
+    }
   }
 }
 
@@ -214,6 +221,6 @@ export async function asegurarVoz(
     throw error
   }
   await guardarTomaPagada(deps, { toma: exacta, audio, clave, estimado })
-  await confirmarGasto(deps.db, clave, estimado)
+  await confirmarUnaVezMas(deps, clave, estimado)
   return { tipo: "lista", audioId: exacta }
 }
