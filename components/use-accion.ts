@@ -13,13 +13,18 @@ export function useAccion() {
   function ejecutar<T extends object>(
     accion: () => Promise<Resultado<T>>,
     alTerminar?: (resultado: { ok: true } & T) => void,
+    /** For a refusal that changed what the screen should show (the error is already in `error`). */
+    alFallar?: () => void,
   ) {
     setError(null)
     empezar(async () => {
       const resultado = await accion()
       if (!resultado.ok) {
         if (resultado.error === ERROR_SESION_VENCIDA) router.push("/ingreso")
-        else setError(resultado.error)
+        else {
+          setError(resultado.error)
+          alFallar?.()
+        }
         return
       }
       // The action already revalidated the screens; `alTerminar` is for what only this component knows.

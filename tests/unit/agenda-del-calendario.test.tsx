@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import { AgendaDelCalendario } from "@/components/agenda-del-calendario"
 import type { Hueco, Ocupante } from "@/lib/calendario/modelo"
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
 
 function ocupante(extra: Partial<Ocupante>): Ocupante {
   return {
@@ -90,5 +91,29 @@ describe("AgendaDelCalendario: proposals", () => {
   it("hides Repartir fechas when every unsigned piece already has a proposal", () => {
     mostrar([], 0)
     expect(screen.queryByRole("button", { name: "Repartir fechas" })).toBeNull()
+  })
+
+  it("redraws the Agenda when the slot was taken, and says so", async () => {
+    replace.mockClear()
+    const cambiar = vi.fn(async () => ({ ok: false as const, error: "Ese espacio ya no está libre. Elige otro." }))
+    render(
+      <AgendaDelCalendario
+        semanas={[
+          {
+            titulo: "Semana del 12 al 18 de octubre",
+            huecos: [hueco("2026-10-15T22:00:00.000Z", "Jueves 15", ocupante({ propuesta: true }))],
+            libresMas: null,
+          },
+        ]}
+        porRepartir={0}
+        alternativas={ALTERNATIVAS}
+        acciones={{ repartir: vi.fn(), cambiar }}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar la fecha de Ser tu propia diosa" }))
+    fireEvent.click(screen.getByRole("button", { name: "Sábado 24 · 19:00" }))
+
+    expect(await screen.findByText("Ese espacio ya no está libre. Elige otro.")).toBeInTheDocument()
+    expect(replace).toHaveBeenCalled()
   })
 })

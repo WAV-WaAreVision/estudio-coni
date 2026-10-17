@@ -20,8 +20,14 @@ export async function repartirFechasAccion() {
 
 const cambio = z.object({ piezaId: z.uuid(), instante: z.iso.datetime({ offset: true }) })
 
+/** A refused change also refreshes: the slot was taken by someone else, so the free days she sees changed too. */
+async function refrescarSiempre<T extends object>(resultado: Resultado<T>): Promise<Resultado<T>> {
+  revalidatePath("/", "layout")
+  return resultado
+}
+
 export async function cambiarPropuestaAccion(piezaId: string, instante: string) {
-  return refrescar(
+  return refrescarSiempre(
     await conSesionDeConi("cambiarPropuesta", cambio, { piezaId, instante }, (db, d) =>
       cambiarPropuesta({ db, ahora }, d.piezaId, d.instante),
     ),

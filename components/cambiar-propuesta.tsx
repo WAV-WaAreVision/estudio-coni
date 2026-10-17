@@ -44,6 +44,8 @@ export function CambiarPropuesta({
         document.getElementById(ID_DEL_TITULO_DE_LA_AGENDA)?.focus()
         redibujar()
       },
+      // The slot was taken meanwhile: redraw so the days offered are free ones; the error stays in line.
+      redibujar,
     )
   }
 
