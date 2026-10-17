@@ -212,6 +212,20 @@ describe("leerDatosDeGrabacion", () => {
     expect(registro).toHaveBeenCalledWith(expect.stringContaining("no-es-un-uuid"), expect.any(Error))
   })
 
+  it.each(["abierto", "confirmado"] as const)(
+    "does not say it when an earlier script of the same attempt left a %s reservation",
+    async (primera) => {
+      const id = await piezaPorFirmar()
+      await gastoDeVoz(id, `${id}:voz:${"cd".repeat(8)}:0`, primera)
+      await gastoDeVoz(id, claveDelIntento(id, 0), "sin_cobro")
+      const fila = await leerFila(id)
+
+      const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+      expect(datos.vozSinCobro).toBe(false)
+    },
+  )
+
   it("says it for an attempt whose every try was refused", async () => {
     const id = await piezaPorFirmar()
     const base = claveDelIntento(id, 0)
@@ -253,6 +267,8 @@ describe("leerDatosDeGrabacion", () => {
     const id = await piezaPorFirmar()
     await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:0`, "sin_cobro")
     await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:1`, "abierto")
+    // The open key belongs to the piece's current attempt; the refused one to the attempt before it.
+    await ajustarPieza(id, { intento: 1 })
     const fila = await leerFila(id)
 
     const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
