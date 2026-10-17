@@ -42,9 +42,12 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
       <Grupo plano lista>
         {filas.map((fila) => (
           <li key={fila.cuenta} id={`cuenta-${fila.cuenta}`} className="grid scroll-mt-4 gap-2.5 py-[18px]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-guion leading-tight font-semibold">{fila.nombre}</span>
-              <PildoraDeEstado tipo={fila.tono}>{fila.estado}</PildoraDeEstado>
+            {/* The name grows from zero, so a long one wraps beside its pill before the pill drops to a row of its own. */}
+            <div className="cabecera-de-cuenta flex flex-wrap items-center justify-between gap-3">
+              <span className="flex-1 basis-0 text-guion leading-tight font-semibold">{fila.nombre}</span>
+              <PildoraDeEstado tipo={fila.tono} className="shrink-0">
+                {fila.estado}
+              </PildoraDeEstado>
             </div>
             {fila.detalle ? <p className="text-meta text-apagado">{fila.detalle}</p> : null}
             {fila.cuenta === "linkedin" ? (

@@ -303,3 +303,17 @@ test("the Saldos section shows the ElevenLabs characters and the HeyGen API wall
     ),
   ).toBeVisible()
 })
+
+test("each account keeps its state pill on the row of its name, Claude (Anthropic) included", async ({ page }) => {
+  await conectarTodo()
+
+  await page.goto("/ajustes/cuentas")
+
+  for (const cuenta of ["heygen", "elevenlabs", "anthropic"]) {
+    const fila = page.locator(`#cuenta-${cuenta}`)
+    await expect(fila.locator(".pildora").first()).toBeVisible()
+    const nombre = await fila.locator("span.text-guion").boundingBox()
+    const pildora = await fila.locator(".pildora").first().boundingBox()
+    expect(pildora?.y ?? 0, cuenta).toBeLessThan((nombre?.y ?? 0) + (nombre?.height ?? 0))
+  }
+})

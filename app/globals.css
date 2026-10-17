@@ -460,6 +460,11 @@ html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
 }
+/* A word may break anywhere at this size, so an account's name would shrink to nothing beside its pill: it takes
+   its own width and the pill wraps under it. */
+html[data-letra="grande"] .cabecera-de-cuenta > :first-child {
+  flex-basis: auto;
+}
 html[data-letra="grande"] h1.text-pantalla {
   font-size: 1.5rem;
 }
