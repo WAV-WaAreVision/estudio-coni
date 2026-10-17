@@ -40,6 +40,7 @@ const ADVIERTE_LINKEDIN: Hallazgo = {
   mensaje: "Demasiados hashtags en LinkedIn.",
   campo: "linkedin",
 }
+const BLOQUEA_TEXTO: Hallazgo = { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso del avatar." }
 const ADVIERTE_TEXTO: Hallazgo = { regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras." }
 
 function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
@@ -188,6 +189,15 @@ describe("PantallaVideo: lo que bloquea", () => {
     expect(within(barra()).getByText("revisar 1 aviso", { exact: false })).toBeInTheDocument()
     fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
     expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("keeps the caption editor on screen when LinkedIn is the only destination and the caption blocks", () => {
+    abrir({ destinosPorDefecto: ["linkedin"], revision: [BLOQUEA_TEXTO] })
+    revisar()
+    expect(within(barra()).getByText("corregir el texto", { exact: false })).toBeInTheDocument()
+    const revision = screen.getByRole("heading", { name: "Revisión" }).closest("section") as HTMLElement
+    fireEvent.click(within(revision).getByRole("button", { name: "Editar el texto" }))
+    expect(within(revision).getByRole("textbox", { name: /Texto de la publicación/ })).toHaveValue(CAPTION)
   })
 
   it("asks to save a LinkedIn text that is only a starting point", () => {

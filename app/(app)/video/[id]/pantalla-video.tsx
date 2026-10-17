@@ -187,6 +187,15 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
 
       {revisionDelTexto.length > 0 ? (
         <Seccion titulo="Revisión" id="revision">
+          {/* The caption findings count whatever the destinations: without Instagram its editor lives here. */}
+          {conInstagram ? null : (
+            <TextoDeInstagram
+              piezaId={datos.id}
+              version={datos.version}
+              texto={datos.texto}
+              alEditar={setEditandoElTexto}
+            />
+          )}
           {revisionDelTexto.map(panelDe)}
         </Seccion>
       ) : null}
