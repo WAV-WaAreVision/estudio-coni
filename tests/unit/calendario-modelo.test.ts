@@ -18,6 +18,7 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
     estado: "programado",
     pilar: "pareja",
     publicarEn: null,
+    fechaPropuesta: null,
     creadaEn: `2026-10-0${(contador % 9) + 1}T12:00:00.000Z`,
     destinos: ["instagram"],
     pendientes: [],
@@ -268,6 +269,64 @@ describe("Agenda", () => {
     ])
 
     expect(agenda.semanas.flatMap((s) => s.huecos).every((h) => h.ocupante === null)).toBe(true)
+  })
+
+  it("puts a stored proposal in its slot as «propuesta» and the rest where they would go, as before", () => {
+    const video = pieza({ estado: "video_por_aprobar", titulo: "Video listo", fechaPropuesta: alas19(22) })
+    const guion = pieza({ estado: "guion_por_aprobar", titulo: "Guion listo" })
+    const { agenda } = calendario([video, guion])
+
+    const huecos = agenda.semanas.flatMap((s) => s.huecos)
+    expect(huecos.find((h) => h.dia === "Jueves 22")?.ocupante).toMatchObject({
+      titulo: "Video listo",
+      provisional: true,
+      propuesta: true,
+    })
+    expect(huecos.find((h) => h.dia === "Jueves 15")?.ocupante).toMatchObject({
+      titulo: "Guion listo",
+      provisional: true,
+      propuesta: false,
+    })
+  })
+
+  it("counts what Repartir would store and offers the next three slots nobody holds", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "video_por_aprobar", fechaPropuesta: alas19(22) }),
+      pieza({ estado: "guion_por_aprobar" }),
+      pieza({ estado: "programado", publicarEn: alas19(17) }),
+    ])
+
+    expect(agenda.porRepartir).toBe(1)
+    expect(agenda.alternativas).toEqual([
+      { instante: alas19(20), etiqueta: "Martes 20 · 19:00" },
+      { instante: alas19(24), etiqueta: "Sábado 24 · 19:00" },
+      { instante: alas19(27), etiqueta: "Martes 27 · 19:00" },
+    ])
+  })
+
+  it("drops a proposal a signed piece took: the piece goes where it would go without it", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "guion_por_aprobar", titulo: "Desplazado", fechaPropuesta: alas19(17) }),
+      pieza({ estado: "programado", publicarEn: alas19(17), titulo: "Firmado" }),
+    ])
+
+    const huecos = agenda.semanas.flatMap((s) => s.huecos)
+    expect(huecos.find((h) => h.dia === "Sábado 17")?.ocupante?.titulo).toBe("Firmado")
+    expect(huecos.find((h) => h.dia === "Jueves 15")?.ocupante).toMatchObject({
+      titulo: "Desplazado",
+      propuesta: false,
+    })
+    expect(agenda.porRepartir).toBe(1)
+  })
+
+  it("keeps a stored proposal off the schedule as its own row", () => {
+    const fuera = "2026-10-16T21:30:00.000Z" // Friday 18:30
+    const { agenda } = calendario([pieza({ estado: "guion_por_aprobar", titulo: "Viernes", fechaPropuesta: fuera })])
+    expect(agenda.semanas[0]?.huecos.map((h) => [h.dia, h.ocupante?.titulo ?? null])).toEqual([
+      ["Jueves 15", null],
+      ["Viernes 16", "Viernes"],
+      ["Sábado 17", null],
+    ])
   })
 })
 

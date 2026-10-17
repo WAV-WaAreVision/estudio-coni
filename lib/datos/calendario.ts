@@ -68,6 +68,7 @@ export async function leerDatosDeCalendario(
       estado: fila.estado satisfies Estado,
       pilar: fila.ideas?.pilar ?? null,
       publicarEn: fila.puerta2_publicar_en,
+      fechaPropuesta: null,
       creadaEn: fila.creada_en,
       destinos: destinosDe(fila.destinos),
       pendientes: pendientesDe(fila.publicaciones),
