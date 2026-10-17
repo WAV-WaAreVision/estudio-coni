@@ -19,8 +19,8 @@ vi.mock("@/app/(app)/piezas/acciones", () => ({
 vi.mock("@/app/(app)/ajustes/acciones", () => ({ marcarAvatarVistoAccion: vi.fn() }))
 // The player is a real <video>: here it only says it was watched to the end.
 vi.mock("@/components/reproductor-video", () => ({
-  ReproductorVideo: ({ alVerCompleto }: { alVerCompleto: () => void }) => (
-    <button type="button" onClick={alVerCompleto}>
+  ReproductorVideo: ({ alVerCompleto, zonas }: { alVerCompleto: () => void; zonas: boolean }) => (
+    <button type="button" onClick={alVerCompleto} data-zonas={String(zonas)}>
       Terminé de ver
     </button>
   ),
@@ -216,6 +216,19 @@ describe("PantallaVideo: lo que bloquea", () => {
     expect(within(barra()).getByText("guardar o cancelar la edición del texto", { exact: false })).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
     expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+})
+
+describe("PantallaVideo: zonas de Instagram", () => {
+  it("takes the zones off the video when she unticks Instagram", () => {
+    abrir()
+    const reproductor = screen.getByRole("button", { name: "Terminé de ver" })
+    fireEvent.click(screen.getByRole("button", { name: "Ver zonas de Instagram" }))
+    expect(reproductor).toHaveAttribute("data-zonas", "true")
+    fireEvent.click(destino("LinkedIn"))
+    fireEvent.click(destino("Instagram"))
+    expect(screen.queryByRole("button", { name: /zonas de Instagram/ })).toBeNull()
+    expect(reproductor).toHaveAttribute("data-zonas", "false")
   })
 })
 

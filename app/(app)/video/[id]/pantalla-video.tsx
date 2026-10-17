@@ -135,7 +135,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           src={datos.videoUrl}
           clave={datos.videoId}
           alVerCompleto={() => setVisto(true)}
-          zonas={zonas}
+          zonas={zonas && conInstagram}
         />
       </div>
 
