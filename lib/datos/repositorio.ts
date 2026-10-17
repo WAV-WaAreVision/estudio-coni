@@ -203,6 +203,23 @@ export async function reservarGastoGeneral(
   return resultadoDeReserva(error, data)
 }
 
+/** The still open reservations of one voice attempt: its own key and every `:r<n>` try of it. */
+export async function leerReservasAbiertasDeVoz(
+  db: Db,
+  entrada: { piezaId: string; claveDelIntento: string },
+): Promise<FilaDeGasto[]> {
+  const { claveDelIntento } = entrada
+  const { data, error } = await db
+    .from("gastos")
+    .select("*")
+    .eq("pieza_id", entrada.piezaId)
+    .eq("paso", "voz")
+    .eq("estado", "reservado")
+    .or(`clave.eq."${claveDelIntento}",clave.like."${claveDelIntento}:r%"`)
+  if (error) throw fallo("No pude leer las reservas abiertas de la voz", error)
+  return data
+}
+
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {
   const { error } = await db.rpc("confirmar_gasto", { p_clave: clave, p_real: realUsd })
   if (error) throw fallo("No pude confirmar el gasto", error)

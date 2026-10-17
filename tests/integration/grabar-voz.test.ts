@@ -544,6 +544,22 @@ describe("asegurarVoz keeps a paid audio", () => {
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado" })])
   })
 
+  it("confirms the open reservation of a run that died between the upload and the confirmation", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const clave = claveDeGastoDeVoz(id, HUELLA, fila.intento)
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.25, $2, now())", [id, clave])
+    const d = deps()
+    await d.almacen.subir(claveDeToma(id, HUELLA, fila.intento), VOZ, "audio/mpeg")
+
+    const voz = await intentar(d, fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(0)
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ clave, estado: "confirmado" })])
+  })
+
   it("waits a little longer before each upload retry", async () => {
     responder(audioOk)
     const id = await grabando()

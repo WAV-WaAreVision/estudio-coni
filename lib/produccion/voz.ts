@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { confirmarGasto, type FilaDePieza, leerSecreto, liberarGasto, reservarGasto } from "@/lib/datos/repositorio"
+import {
+  confirmarGasto,
+  type FilaDePieza,
+  leerReservasAbiertasDeVoz,
+  leerSecreto,
+  liberarGasto,
+  reservarGasto,
+} from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia } from "@/lib/dominio/puertas"
@@ -170,7 +177,15 @@ export async function asegurarVoz(
   const { fila, guion, config } = entrada
   const huella = huellaDelGuion(guion, config)
   const exacta = claveDeToma(fila.id, huella, fila.intento)
-  if (await deps.almacen.existe(exacta)) return { tipo: "lista", audioId: exacta }
+  if (await deps.almacen.existe(exacta)) {
+    // A run that died between the upload and the confirmation left its paid audio only reserved: count it now.
+    const abiertas = await leerReservasAbiertasDeVoz(deps.db, {
+      piezaId: fila.id,
+      claveDelIntento: claveDeGastoDeVoz(fila.id, huella, fila.intento),
+    })
+    for (const gasto of abiertas) await confirmarGasto(deps.db, gasto.clave, gasto.estimado_usd)
+    return { tipo: "lista", audioId: exacta }
+  }
   if (!entrada.nueva) {
     const tomas = await deps.almacen.listar(prefijoDeTomas(fila.id, huella))
     const previa = ultimaToma(
