@@ -81,6 +81,38 @@ describe("métricas de LinkedIn", () => {
     })
   })
 
+  it("rejects a manual writer updating an api row, on both tables", async () => {
+    await como(comoPostgres, async (c) => {
+      const pieza = await nuevaPieza(c)
+      await c.query(NUMEROS, [pieza, "2026-10-19", "api"])
+      await c.query(SEGUIDORES, ["2026-10-19", "metricool"])
+      await asumir(c, comoConi)
+      const numeros = await c.query(
+        "update public.metricas_linkedin set impresiones = 1, origen = 'manual' where pieza_id = $1",
+        [pieza],
+      )
+      const cuenta = await c.query("update public.metricas_linkedin_cuenta set seguidores = 1, origen = 'manual'")
+      expect([numeros.rowCount, cuenta.rowCount]).toEqual([0, 0])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query("select impresiones, origen from public.metricas_linkedin")
+      expect(rows).toEqual([{ impresiones: 1200, origen: "api" }])
+    })
+  })
+
+  it("lets a manual writer correct a manual row", async () => {
+    await como(comoPostgres, async (c) => {
+      const pieza = await nuevaPieza(c)
+      await c.query(NUMEROS, [pieza, "2026-10-19", "manual"])
+      await c.query(SEGUIDORES, ["2026-10-19", "manual"])
+      await asumir(c, comoMantenedor)
+      const numeros = await c.query("update public.metricas_linkedin set impresiones = 1300 where pieza_id = $1", [
+        pieza,
+      ])
+      const cuenta = await c.query("update public.metricas_linkedin_cuenta set seguidores = 900")
+      expect([numeros.rowCount, cuenta.rowCount]).toEqual([1, 1])
+    })
+  })
+
   it("lets nobody signed in delete a row", async () => {
     await como(comoPostgres, async (c) => {
       const pieza = await nuevaPieza(c)

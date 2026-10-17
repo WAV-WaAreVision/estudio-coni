@@ -47,8 +47,9 @@ create policy "coni y wav leen metricas de linkedin" on public.metricas_linkedin
   using (public.es_coni() or public.es_mantenedor());
 create policy "coni y wav anotan metricas de linkedin" on public.metricas_linkedin for insert to authenticated
   with check ((public.es_coni() or public.es_mantenedor()) and origen = 'manual');
+-- Only manual rows can be corrected: an api or metricool row is never relabelled by a person.
 create policy "coni y wav corrigen metricas de linkedin" on public.metricas_linkedin for update to authenticated
-  using (public.es_coni() or public.es_mantenedor())
+  using ((public.es_coni() or public.es_mantenedor()) and origen = 'manual')
   with check ((public.es_coni() or public.es_mantenedor()) and origen = 'manual');
 
 create policy "coni y wav leen la cuenta de linkedin" on public.metricas_linkedin_cuenta for select to authenticated
@@ -56,7 +57,7 @@ create policy "coni y wav leen la cuenta de linkedin" on public.metricas_linkedi
 create policy "coni y wav anotan la cuenta de linkedin" on public.metricas_linkedin_cuenta for insert
   to authenticated with check ((public.es_coni() or public.es_mantenedor()) and origen = 'manual');
 create policy "coni y wav corrigen la cuenta de linkedin" on public.metricas_linkedin_cuenta for update
-  to authenticated using (public.es_coni() or public.es_mantenedor())
+  to authenticated using ((public.es_coni() or public.es_mantenedor()) and origen = 'manual')
   with check ((public.es_coni() or public.es_mantenedor()) and origen = 'manual');
 
 revoke all on public.metricas_linkedin, public.metricas_linkedin_cuenta from anon;
