@@ -152,6 +152,41 @@ describe("VozParaFirmar", () => {
     expect(screen.getByRole("link", { name: "Abrir ElevenLabs" })).toBeInTheDocument()
   })
 
+  it("does not lead with a paid try when the failure needs Federico: telling him comes first, trying again after", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES })}
+        explicacion="No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Avísale a Federico. Cuando lo arregle, puedes intentarlo otra vez.",
+    )
+    const accion = screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })
+    expect(accion).not.toHaveClass("bg-tinta")
+    expect(accion).toHaveClass("bg-piedra")
+    // The app does not know whether the failed try was charged: nothing says "again" about money.
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/cobr|de nuevo.*US\$/i)
+  })
+
+  it("keeps 'Preparar mi voz' as the main action after a passing refusal", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES })}
+        explicacion="No pude preparar tu voz. ElevenLabs respondió HTTP 429: demasiadas solicitudes."
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })).toHaveClass("bg-tinta")
+  })
+
   it("offers trying again after a provider's passing refusal, while 'Preparar mi voz' is open", () => {
     render(
       <VozParaFirmar
