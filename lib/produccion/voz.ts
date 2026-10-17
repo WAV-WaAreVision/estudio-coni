@@ -50,9 +50,39 @@ export interface DepsVoz {
   almacen: Almacen
   ahora: () => string
   base?: { elevenlabs?: string }
+  /** Pause between upload retries; tests pass one that does not sleep. */
+  esperar?: (ms: number) => Promise<void>
 }
 
 export type VozAsegurada = { tipo: "lista"; audioId: string } | { tipo: "tope" }
+
+const REINTENTOS_DE_SUBIDA = 3
+const ESPERA_DE_SUBIDA_MS = 1_000
+
+const dormir = (ms: number) => new Promise<void>((resolver) => setTimeout(resolver, ms))
+
+/**
+ * The audio was paid the moment ElevenLabs returned it, so it is uploaded from memory up to three more times. If the
+ * store still fails, the reservation is confirmed before the error goes on: the cap must count what was paid.
+ */
+async function guardarTomaPagada(
+  deps: DepsVoz,
+  entrada: { toma: string; audio: Uint8Array; clave: string; estimado: number },
+): Promise<void> {
+  const esperar = deps.esperar ?? dormir
+  let ultimoError: unknown
+  for (let vez = 0; vez <= REINTENTOS_DE_SUBIDA; vez += 1) {
+    if (vez > 0) await esperar(ESPERA_DE_SUBIDA_MS * 2 ** (vez - 1))
+    try {
+      await deps.almacen.subir(entrada.toma, entrada.audio, "audio/mpeg")
+      return
+    } catch (error) {
+      ultimoError = error
+    }
+  }
+  await confirmarGasto(deps.db, entrada.clave, entrada.estimado)
+  throw ultimoError
+}
 
 /**
  * The voice of `guion` for this piece, paid at most once per text and voice. In order: the take of this attempt if a
@@ -108,7 +138,7 @@ export async function asegurarVoz(
     if (rechazoSinCobro(error)) await liberarGasto(deps.db, clave, { sinCobro: true })
     throw error
   }
-  await deps.almacen.subir(exacta, audio, "audio/mpeg")
+  await guardarTomaPagada(deps, { toma: exacta, audio, clave, estimado })
   await confirmarGasto(deps.db, clave, estimado)
   return { tipo: "lista", audioId: exacta }
 }

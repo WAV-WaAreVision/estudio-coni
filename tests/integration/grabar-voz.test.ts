@@ -30,6 +30,7 @@ function deps(): DepsGrabarVoz & { almacen: ReturnType<typeof almacenEnMemoria> 
     almacen: almacenEnMemoria(),
     avisos: notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
+    esperar: async () => {},
   }
 }
 
@@ -299,5 +300,66 @@ describe("asegurarVoz releases by outcome", () => {
     await expect(intentar(deps(), await filaDe(id))).rejects.toThrow()
 
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado", sin_cobro: false })])
+  })
+})
+
+function almacenQueFalla(veces: number) {
+  const almacen = almacenEnMemoria()
+  let quedan = veces
+  let subidas = 0
+  return {
+    almacen: {
+      ...almacen,
+      async subir(clave: string, datos: Uint8Array, tipo: string) {
+        subidas += 1
+        if (quedan > 0) {
+          quedan -= 1
+          throw new Error("R2 no respondió")
+        }
+        return almacen.subir(clave, datos, tipo)
+      },
+    },
+    subidas: () => subidas,
+  }
+}
+
+describe("asegurarVoz keeps a paid audio", () => {
+  it("retries the upload with the audio in memory and pays once", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const falla = almacenQueFalla(3)
+
+    const voz = await intentar({ ...deps(), almacen: falla.almacen }, fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(1)
+    expect(falla.subidas()).toBe(4)
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado" })])
+  })
+
+  it("confirms the reservation when the upload still fails, because the audio was paid", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const falla = almacenQueFalla(4)
+
+    await expect(intentar({ ...deps(), almacen: falla.almacen }, await filaDe(id))).rejects.toThrow("R2 no respondió")
+
+    expect(falla.subidas()).toBe(4)
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado", sin_cobro: false })])
+  })
+
+  it("waits a little longer before each upload retry", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const esperas: number[] = []
+
+    const esperar = async (ms: number) => {
+      esperas.push(ms)
+    }
+
+    await intentar({ ...deps(), almacen: almacenQueFalla(3).almacen, esperar }, await filaDe(id))
+
+    expect(esperas).toEqual([1000, 2000, 4000])
   })
 })
