@@ -107,6 +107,8 @@ create trigger auditar after insert or update or delete on public.fechas_propues
 -- Repartir and Cambiar. The states are ORDEN_SIN_FECHA of lib/calendario/propuestas.ts: everything before gate 2.
 create function public.proponer_fechas(p_piezas uuid[], p_fechas timestamptz[]) returns void
 language plpgsql security definer set search_path = '' as $$
+declare
+  v_n int;
 begin
   if not public.es_coni() then
     raise exception using errcode = '42501', message = 'sin_permiso';
@@ -117,11 +119,15 @@ begin
      or (select count(distinct p) from unnest(p_piezas) as p) <> cardinality(p_piezas) then
     raise exception using errcode = '22023', message = 'lote_invalido';
   end if;
-  if exists (select 1 from unnest(p_fechas) as f where f <= now())
-     or (select count(*) from public.piezas p
-          where p.id = any (p_piezas)
-            and p.estado in ('guion_en_proceso', 'guion_por_aprobar', 'guion_aprobado', 'grabando_voz', 'en_render',
-                             'subtitulando', 'error_produccion', 'video_por_aprobar')) <> cardinality(p_piezas) then
+  -- for share holds the pieces until this commits: gate 2 cannot sign one between the check and the insert, and a
+  -- piece signed while this waited is re-read in its new state and fails the check.
+  select count(*) into v_n
+    from (select p.id from public.piezas p
+           where p.id = any (p_piezas)
+             and p.estado in ('guion_en_proceso', 'guion_por_aprobar', 'guion_aprobado', 'grabando_voz', 'en_render',
+                              'subtitulando', 'error_produccion', 'video_por_aprobar')
+             for share) s;
+  if exists (select 1 from unnest(p_fechas) as f where f <= now()) or v_n <> cardinality(p_piezas) then
     raise exception using errcode = '22023', message = 'propuesta_invalida';
   end if;
   insert into public.fechas_propuestas (pieza_id, publicar_en)

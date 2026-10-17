@@ -17,6 +17,7 @@ import {
   pool,
 } from "./db"
 import { crearPiezaEn } from "./flujo"
+import { borrarSembrado, sembrarPieza } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -307,5 +308,34 @@ describe("proponer_fechas", () => {
       await asumir(c, comoOtra)
       expect(await propuestaDe(c, id)).toBeNull()
     })
+  })
+})
+
+describe("proponer_fechas against gate 2", () => {
+  it("holds the pieces it checked until it commits, so gate 2 cannot sign one in between", async () => {
+    const id = await sembrarPieza("video_por_aprobar")
+    const propone = await pool.connect()
+    const firma = await pool.connect()
+    try {
+      await propone.query("begin")
+      await asumir(propone, comoConi)
+      await propone.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[id], [EN_UN_MES()]])
+      await firma.query("begin")
+      // An update of the piece (gate 2 signing) takes this lock; it must wait for the proposal to commit.
+      const error = await fallaCon(firma, "select id from public.piezas where id = $1 for no key update nowait", [id])
+      expect(error.code).toBe("55P03")
+    } finally {
+      await propone.query("rollback")
+      await firma.query("rollback")
+      propone.release()
+      firma.release()
+      const { rows } = await pool.query<{ idea_id: string | null }>("select idea_id from public.piezas where id = $1", [
+        id,
+      ])
+      await borrarSembrado(
+        [id],
+        rows.flatMap((fila) => (fila.idea_id ? [fila.idea_id] : [])),
+      )
+    }
   })
 })
