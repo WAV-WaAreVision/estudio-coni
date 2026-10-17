@@ -47,28 +47,3 @@ export function slugsActivos(catalogo: CatalogoDePilares): [string, ...string[]]
   if (primero === undefined) throw new Error("No hay pilares activos.")
   return [primero, ...resto]
 }
-
-export const PILARES = ["pareja", "deseo", "autoestima", "limites", "bienestar"] as const
-export type Pilar = (typeof PILARES)[number]
-
-/** The names Coni knows her pillars by (editorial guide); the colour of a pillar is never its only signal. */
-export const NOMBRE_DE_PILAR: Record<Pilar, string> = {
-  pareja: "Pareja y conversación",
-  deseo: "Deseo y sexualidad",
-  autoestima: "Autoestima",
-  limites: "Género y límites",
-  bienestar: "Bienestar emocional",
-}
-
-/** For filters and chips, where the long names do not fit. */
-export const NOMBRE_CORTO_DE_PILAR: Record<Pilar, string> = {
-  pareja: "Pareja",
-  deseo: "Deseo",
-  autoestima: "Autoestima",
-  limites: "Límites",
-  bienestar: "Bienestar",
-}
-
-export function esPilar(valor: string | null | undefined): valor is Pilar {
-  return PILARES.some((pilar) => pilar === valor)
-}

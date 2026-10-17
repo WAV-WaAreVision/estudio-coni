@@ -12,7 +12,6 @@ import {
   sumarDias,
   UMBRAL_DE_REELS,
 } from "@/lib/dominio/metricas"
-import type { Pilar } from "@/lib/dominio/pilares"
 
 const ZONA = "America/Santiago"
 
@@ -32,7 +31,7 @@ function reel(extra: Partial<ReelMedido> & { id: string }): ReelMedido {
   }
 }
 
-function reels(pilar: Pilar, porMil: readonly number[]): ReelMedido[] {
+function reels(pilar: string, porMil: readonly number[]): ReelMedido[] {
   return porMil.map((valor, i) => reel({ id: `${pilar}-${i}`, pilar, alcance: 1000, guardados: valor }))
 }
 

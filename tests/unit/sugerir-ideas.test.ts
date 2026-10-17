@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { type IdeaDelBanco, sugerirIdeas } from "@/lib/dominio/ideas"
-import type { Pilar } from "@/lib/dominio/pilares"
 
 let numero = 0
-function idea(pilar: Pilar, fuerza: IdeaDelBanco["fuerza"] = "media"): IdeaDelBanco {
+function idea(pilar: string, fuerza: IdeaDelBanco["fuerza"] = "media"): IdeaDelBanco {
   numero += 1
   return { id: `idea-${numero}`, pilar, fuerza, numero }
 }
