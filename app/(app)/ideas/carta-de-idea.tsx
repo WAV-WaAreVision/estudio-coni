@@ -10,7 +10,7 @@ const TIPO_RESPALDO = "respaldo"
 const NIVEL: Record<NivelDeEvidencia, string> = { alto: "Alta", medio: "Media", debil: "Débil" }
 
 const RESUMEN_DE_DISCLOSURE =
-  "flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
+  "flex min-h-objetivo cursor-pointer list-none items-center justify-between gap-2 text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
 
 /**
  * Brandkit 9.18: the one raised card of the screen, neutral (the pillar is a word). `children` are the actions: they sit
@@ -20,7 +20,7 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
   const respaldoDebil = idea.alertas.some((alerta) => alerta.tipo === TIPO_RESPALDO)
   const alertas = idea.alertas.filter((alerta) => alerta.tipo !== TIPO_RESPALDO)
   return (
-    <article data-pilar={idea.pilar} className="carta-idea grid gap-4 rounded-12 bg-superficie p-5 shadow-flotante">
+    <article data-pilar={idea.pilar} className="carta-idea grid gap-4 rounded-panel bg-piedra p-5 shadow-relieve-alto">
       <div className="grid gap-3">
         <p className="text-meta text-apagado">{NOMBRE_DE_PILAR[idea.pilar]}</p>
         <h2 className="text-pieza text-balance">{idea.gancho}</h2>
@@ -59,7 +59,7 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
       {idea.fijada ? <p className="text-meta font-semibold">Ya está en las ideas de la semana.</p> : null}
       {children}
       {idea.porQue ? (
-        <details className="border-t border-linea text-cuerpo">
+        <details className="border-t border-hilo text-cuerpo">
           <summary className={RESUMEN_DE_DISCLOSURE}>
             Por qué
             <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />

@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { Boton } from "@/components/ui/boton"
 import { FilaNavegacion } from "@/components/ui/filas"
+import { Grupo } from "@/components/ui/grupo"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { destinosPorDefecto } from "@/lib/dominio/destinos"
 import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
@@ -61,9 +62,9 @@ export default async function Ajustes() {
         />
       </div>
 
-      <div className="mt-10">
+      <Grupo className="mt-8">
         <FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>
-      </div>
+      </Grupo>
 
       <form action={cerrarSesionAccion} className="mt-6">
         <Boton type="submit" variante="callado">

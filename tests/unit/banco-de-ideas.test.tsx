@@ -79,11 +79,16 @@ describe("BancoDeIdeas: composition", () => {
     expect(usar.compareDocumentPosition(porQue) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("draws discard as destructive text, never filled", () => {
+  it("draws discard as a quiet action, never filled and never magenta", () => {
     mostrar()
     const descartar = screen.getByRole("button", { name: "Descartar" })
-    expect(descartar).toHaveClass("text-error")
-    expect(descartar.className).not.toMatch(/\bbg-(error|firma)\b/)
+    expect(descartar).toHaveClass("underline")
+    expect(descartar.className).not.toMatch(/\btext-error\b|\bbg-/)
+  })
+
+  it("raises the idea as the one high card of the screen", () => {
+    mostrar()
+    expect(screen.getByRole("article")).toHaveClass("bg-piedra", "shadow-relieve-alto", "rounded-panel")
   })
 })
 

@@ -44,6 +44,24 @@ describe("CuentasConectadas", () => {
     expect(screen.queryByText("Guardada y comprobada.")).toBeNull()
   })
 
+  it("draws each state as a flat pill and the name of the account at 1.25rem", () => {
+    mostrar(vi.fn())
+    expect(screen.getByText("Conectada").parentElement).toHaveClass("bg-piedra-honda", "min-h-pildora")
+    expect(screen.getByText("No aceptó la llave").parentElement).toHaveClass("text-error")
+    expect(screen.getByText("HeyGen")).toHaveClass("text-[1.25rem]", "font-semibold")
+  })
+
+  it("folds 'Cambiar la llave' under Más opciones, open when the key was refused", () => {
+    mostrar(vi.fn())
+    expect(screen.getByRole("button", { name: "Cambiar la llave de HeyGen" }).closest("details")).not.toHaveAttribute(
+      "open",
+    )
+    expect(
+      screen.getByRole("button", { name: "Cambiar la llave de Claude (Anthropic)" }).closest("details"),
+    ).toHaveAttribute("open")
+    expect(screen.getByRole("button", { name: "Agregar la llave de ElevenLabs" }).closest("details")).toBeNull()
+  })
+
   it("says in words how each account is", () => {
     mostrar(vi.fn())
 
@@ -149,7 +167,7 @@ describe("CuentasConectadas, LinkedIn", () => {
       />,
     )
     expect(screen.getByRole("link", { name: "Conectar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
-    expect(screen.queryByRole("button", { name: "Desconectar" })).toBeNull()
+    expect(screen.queryByText("Desconectar LinkedIn")).toBeNull()
   })
 
   it("shows who it publishes as, Renovar and Desconectar when connected", () => {
@@ -158,20 +176,35 @@ describe("CuentasConectadas, LinkedIn", () => {
     expect(screen.getByRole("link", { name: "Renovar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
   })
 
-  it("asks before disconnecting and tells her afterwards", async () => {
+  it("asks in a folded honda block before disconnecting, and tells her afterwards", async () => {
     const desconectar = vi.fn(async () => ({ ok: true as const }))
     render(<CuentasConectadas filas={[LINKEDIN_CONECTADO]} guardarLlave={vi.fn()} desconectarLinkedin={desconectar} />)
-    fireEvent.click(screen.getByRole("button", { name: "Desconectar" }))
+    const peligro = screen.getByText("Desconectar LinkedIn").closest("details") as HTMLElement
+    expect(peligro).not.toHaveAttribute("open")
+    fireEvent.click(screen.getByText("Desconectar LinkedIn"))
+    expect(peligro).toHaveAttribute("open")
     expect(
-      screen.getByText("¿Desconectar LinkedIn? Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."),
+      screen.getByText("Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."),
     ).toBeInTheDocument()
     expect(desconectar).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: "Desconectar" }))
+    expect(screen.getByRole("button", { name: "Sí, desconectar" })).toHaveClass("text-error", "bg-piedra")
+    fireEvent.click(screen.getByRole("button", { name: "Sí, desconectar" }))
     await waitFor(() => expect(desconectar).toHaveBeenCalledOnce())
     expect(
       await screen.findByText(
         "LinkedIn quedó desconectado. Si quieres, también puedes quitar el permiso desde la configuración de tu cuenta de LinkedIn.",
       ),
     ).toBeInTheDocument()
+  })
+
+  it("makes Renovar LinkedIn the primary when the connection needs her", () => {
+    render(
+      <CuentasConectadas
+        filas={[{ ...LINKEDIN_CONECTADO, estado: "Vence en 10 días", tono: "aviso" }]}
+        guardarLlave={vi.fn()}
+        desconectarLinkedin={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole("link", { name: "Renovar LinkedIn" })).toHaveClass("bg-tinta")
   })
 })

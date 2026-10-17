@@ -119,7 +119,7 @@ export function SubirAMano({
         </Boton>
         <output className="block min-h-6 text-meta text-apagado">
           {copia === "copiado" ? (
-            <span className="inline-flex items-center gap-1 text-exito">
+            <span className="inline-flex items-center gap-1 font-semibold text-tinta">
               <Check aria-hidden="true" size={ICONO.chico} />
               Texto copiado
             </span>
@@ -170,7 +170,7 @@ export function SubirAMano({
 /** One numbered step: the number sits in the icon column, so the content keeps the screen's left axis at x = 56. */
 function Paso({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
   return (
-    <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-x-3 border-t border-tinta pt-3">
+    <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-x-3 pt-1">
       <span aria-hidden="true" className="text-meta font-semibold tabular-nums">
         {numero}
       </span>

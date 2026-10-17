@@ -206,7 +206,7 @@ function HojaDeInstalacion() {
         <li className="flex items-start gap-3">
           <span
             aria-hidden="true"
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-12 bg-tinta text-meta font-semibold text-sobre-tinta"
+            className="mt-0.5 flex size-[1.5rem] shrink-0 items-center justify-center rounded-casilla bg-tinta text-meta font-semibold text-luz"
           >
             c
           </span>

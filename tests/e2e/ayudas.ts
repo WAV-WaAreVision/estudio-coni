@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { ETIQUETA_DE_FIRMA, TEXTO_ARMADO } from "@/lib/diseno/deslizador"
+import { pool } from "../integration/db"
 import {
   ARCHIVO_DE_DISPAROS,
   BUZON,
@@ -201,4 +202,20 @@ export async function abrirDesplegable(page: Page, titulo: string): Promise<void
   const detalles = page.locator("details", { has: page.locator("summary", { hasText: titulo }) }).first()
   const abierto = await detalles.evaluate((elemento) => (elemento as HTMLDetailsElement).open)
   if (!abierto) await detalles.locator("summary").first().click()
+}
+
+export async function desconectarLinkedin() {
+  await pool.query("delete from vault.secrets where name = 'linkedin'")
+  await pool.query(
+    "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
+  )
+}
+
+/** Connected with a token that lasts 9 days and a half, which Coni reads as "Vence en 10 días". */
+export async function conectarLinkedin() {
+  await desconectarLinkedin()
+  await pool.query("select vault.create_secret('AQV_token_de_prueba', 'linkedin')")
+  await pool.query(
+    "update public.ajustes set linkedin_miembro = 'urn:li:person:abc123XYZ', linkedin_nombre = 'Coni del Rosario', linkedin_conectado_en = now(), linkedin_token_expira_en = now() + interval '9 days 12 hours'",
+  )
 }

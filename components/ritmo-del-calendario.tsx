@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { ModeloDeCalendario } from "@/lib/calendario/modelo"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
@@ -43,7 +44,7 @@ export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
           titulo={ritmo.sugerencia}
           tituloEnTinta
           accion={
-            <Link href="/ajustes" className="inline-flex min-h-11 items-center text-cuerpo font-medium text-tinta">
+            <Link href="/ajustes" className={clasesDeBoton({ variante: "callado", tamano: "chico" })}>
               Cambiar días de publicación
             </Link>
           }

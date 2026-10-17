@@ -4,6 +4,7 @@ import { Check, Warning } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Chip } from "@/components/chip"
 import { Boton } from "@/components/ui/boton"
+import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { NOMBRE_CORTO_DE_PILAR, NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
@@ -84,13 +85,13 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
           </Boton>
         </div>
       ) : (
-        <ul>
+        <Grupo lista>
           {visibles.map((idea) => (
-            <li key={idea.id} className="border-b border-linea last:border-b-0">
+            <li key={idea.id}>
               <FilaDeResultado idea={idea} sumada={sumadas.includes(idea.id)} alAbrir={alAbrir} />
             </li>
           ))}
-        </ul>
+        </Grupo>
       )}
       {resultados.length > visibles.length ? (
         <p className="text-meta text-apagado">
@@ -114,23 +115,23 @@ function FilaDeResultado({
   const contenido = (
     <>
       <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[idea.pilar]}</span>
-      <span className="text-cuerpo font-semibold tracking-[-0.004em]">{idea.gancho}</span>
+      <span className="text-cuerpo leading-[1.3] font-semibold">{idea.gancho}</span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-apagado">
         <span>Fuerza {idea.fuerza}</span>
         {idea.estado === "usada" ? (
-          <span className="inline-flex items-center gap-1 font-medium text-exito">
+          <span className="inline-flex items-center gap-1 font-semibold text-tinta">
             <Check aria-hidden="true" size={ICONO.chico} />
             Usada
           </span>
         ) : null}
         {sumada ? (
-          <span className="inline-flex items-center gap-1 font-medium text-exito">
+          <span className="inline-flex items-center gap-1 font-semibold text-tinta">
             <Check aria-hidden="true" size={ICONO.chico} />
             En la semana
           </span>
         ) : null}
         {idea.alertas.map((alerta) => (
-          <span key={alerta.tipo} className="inline-flex items-center gap-1 font-medium text-aviso">
+          <span key={alerta.tipo} className="inline-flex items-center gap-1 font-semibold text-tinta">
             <Warning aria-hidden="true" size={ICONO.chico} />
             {etiquetaDeAlerta(alerta.tipo)}
           </span>
@@ -142,11 +143,11 @@ function FilaDeResultado({
     <button
       type="button"
       onClick={() => alAbrir(idea.id)}
-      className="grid min-h-16 w-full gap-0.5 py-3 text-left transition-opacity duration-[var(--dur-corta)] active:opacity-70"
+      className="grid min-h-fila w-full gap-0.5 py-3 text-left transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
     >
       {contenido}
     </button>
   ) : (
-    <div className="grid min-h-16 gap-0.5 py-3">{contenido}</div>
+    <div className="grid min-h-fila gap-0.5 py-3">{contenido}</div>
   )
 }

@@ -1,16 +1,17 @@
 import { LineaDeSaldo } from "@/components/ui/costo"
+import { Panel } from "@/components/ui/panel"
 import { lineaDeSaldoVideo, lineaDeSaldoVoz } from "@/lib/dominio/saldos"
 import { leerSaldos } from "@/lib/saldos/reales"
 
 export function TarjetaDeSaldos({ voz, video }: { voz: string; video: string }) {
   return (
-    <div className="grid gap-3">
+    <Panel className="grid gap-3">
       <p className="text-cuerpo">{voz}</p>
       <p className="text-cuerpo">{video}</p>
       <LineaDeSaldo>
         El saldo de API de HeyGen es distinto de los créditos de tu plan: Conidolly graba con el saldo de API.
       </LineaDeSaldo>
-    </div>
+    </Panel>
   )
 }
 

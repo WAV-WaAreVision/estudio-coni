@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { Grupo } from "@/components/ui/grupo"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 
 const MOTIVOS: { motivo: MotivoDeDescarte; texto: string }[] = [
@@ -38,19 +39,21 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
       {abierto ? (
         <fieldset className="grid">
           <legend className="pb-1 text-meta font-semibold">¿Por qué la descartas?</legend>
-          {MOTIVOS.map(({ motivo, texto }) => (
-            <button
-              key={motivo}
-              type="button"
-              aria-disabled={ocupada || undefined}
-              onClick={() => {
-                if (!ocupada) alElegir(motivo)
-              }}
-              className="min-h-14 border-b border-linea text-left text-cuerpo text-tinta active:opacity-70"
-            >
-              {texto}
-            </button>
-          ))}
+          <Grupo>
+            {MOTIVOS.map(({ motivo, texto }) => (
+              <button
+                key={motivo}
+                type="button"
+                aria-disabled={ocupada || undefined}
+                onClick={() => {
+                  if (!ocupada) alElegir(motivo)
+                }}
+                className="flex min-h-fila-baja w-full items-center text-left text-cuerpo font-semibold text-tinta transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
+              >
+                {texto}
+              </button>
+            ))}
+          </Grupo>
           <Boton
             variante="callado"
             onClick={() => {
@@ -62,7 +65,7 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
           </Boton>
         </fieldset>
       ) : (
-        <Boton variante="destructiva" onClick={() => setAbierto(true)}>
+        <Boton variante="callado" onClick={() => setAbierto(true)}>
           Descartar
         </Boton>
       )}

@@ -40,13 +40,13 @@ describe("BarraSinConexion", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
-  it("says it without painting a background or a box, as a 44 px line with its icon", () => {
+  it("says it without painting a background or a box, as a 2.75rem line with its icon in ink", () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
     render(<BarraSinConexion />)
 
     const linea = screen.getByRole("status")
     expect(linea.className).not.toMatch(/\bbg-/)
-    expect(linea).toHaveClass("min-h-11")
-    expect(linea.querySelector("svg")).not.toBeNull()
+    expect(linea).toHaveClass("min-h-objetivo", "border-hilo")
+    expect(linea.querySelector("svg")?.getAttribute("class") ?? "").not.toMatch(/text-aviso/)
   })
 })
