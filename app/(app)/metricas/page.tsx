@@ -6,10 +6,15 @@ import { Seccion } from "@/components/seccion"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Panel } from "@/components/ui/panel"
 import { leerDatosDeMetricas } from "@/lib/datos/metricas"
+import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
+import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { type Barra, construirMetricas } from "@/lib/metricas/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { anotarNumerosDeLinkedinAccion } from "./acciones"
+import { NumerosDeLinkedin } from "./numeros-de-linkedin"
 
 const BARRAS_A_LA_VISTA = 5
 // Copy nuevo (brandkit 13.2, open question 2): Federico confirms the words.
@@ -47,7 +52,9 @@ function ListaDeBarras({ barras }: { barras: readonly Barra[] }) {
 
 export default async function Metricas() {
   const { db } = await exigirConi()
-  const modelo = construirMetricas(await leerDatosDeMetricas(db, Date.now()))
+  const ahora = Date.now()
+  const [datos, paraAnotar] = await Promise.all([leerDatosDeMetricas(db, ahora), leerLinkedinParaAnotar(db, ahora)])
+  const modelo = construirMetricas(datos)
   // The week with something to read is open; the others fold.
   const semanaAbierta = Math.max(
     0,
@@ -135,6 +142,19 @@ export default async function Metricas() {
           </div>
         )}
       </Seccion>
+
+      {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Números de LinkedIn">
+        <NumerosDeLinkedin
+          pendientes={paraAnotar.pendientes.map((post) => ({
+            piezaId: post.piezaId,
+            titulo: post.titulo,
+            fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
+          }))}
+          seguidores={paraAnotar.seguidores}
+          alGuardar={anotarNumerosDeLinkedinAccion}
+        />
+      </MasOpciones>
     </div>
   )
 }
