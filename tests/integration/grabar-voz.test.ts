@@ -6,7 +6,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
-import { asegurarVoz, huellaDelGuion } from "@/lib/produccion/voz"
+import { asegurarVoz, claveDeGastoDeVoz, huellaDelGuion } from "@/lib/produccion/voz"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -347,6 +347,37 @@ describe("asegurarVoz keeps a paid audio", () => {
 
     expect(falla.subidas()).toBe(4)
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado", sin_cobro: false })])
+  })
+
+  it("pays a new key when the attempt's key was confirmed but its take was lost", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const d = deps()
+    await expect(intentar({ ...d, almacen: almacenQueFalla(4).almacen }, fila)).rejects.toThrow("R2 no respondió")
+
+    const voz = await intentar(d, fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(2)
+    const base = claveDeGastoDeVoz(id, HUELLA, fila.intento)
+    expect(await gastosDeVoz(id)).toEqual([
+      expect.objectContaining({ clave: base, estado: "confirmado" }),
+      expect.objectContaining({ clave: `${base}:r1`, estado: "confirmado" }),
+    ])
+  })
+
+  it("stops, without paying again, after three new keys lost their take", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    for (let vez = 0; vez < 4; vez += 1) {
+      await expect(intentar({ ...deps(), almacen: almacenQueFalla(4).almacen }, fila)).rejects.toThrow("R2")
+    }
+
+    await expect(intentar(deps(), fila)).rejects.toThrow(FallaDeConfiguracion)
+
+    expect(llamadas).toBe(4)
   })
 
   it("waits a little longer before each upload retry", async () => {

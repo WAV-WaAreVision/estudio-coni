@@ -28,8 +28,15 @@ export function huellaDelGuion(guion: string, config: ConfigElevenlabs): string 
   return huellaDeVoz({ guion: textoParaVoz(guion, config.model_id), voz: vozDe(config) })
 }
 
-export function claveDeGastoDeVoz(piezaId: string, huella: string, intento: number): string {
-  return claveIdempotencia({ piezaId, paso: "voz", hash: huella, intento })
+/**
+ * The spend key of one paid try of an attempt. `cobro` 0 is the attempt's own key; a try after a paid audio whose take
+ * was lost on upload is `:r1`, `:r2`, ... and counts again, because it is paid again. The sweeper reads this format
+ * (`lib/mantenimiento/gastos.ts`).
+ */
+export function claveDeGastoDeVoz(piezaId: string, huella: string, intento: number, cobro = 0): string {
+  if (!Number.isSafeInteger(cobro) || cobro < 0) throw new Error(`Cobro inválido para la clave de la voz: ${cobro}`)
+  const base = claveIdempotencia({ piezaId, paso: "voz", hash: huella, intento })
+  return cobro === 0 ? base : `${base}:r${cobro}`
 }
 
 /** What Coni reads when her voice could not be made; the screen offers "Preparar mi voz" next to it. */
@@ -84,10 +91,40 @@ async function guardarTomaPagada(
   throw ultimoError
 }
 
+const COBROS_SIN_TOMA_MAXIMOS = 3
+
+/** The open reservation of this try: the attempt's key, reopened if refused, or the next key after a lost paid take. */
+async function reservarIntento(
+  deps: DepsVoz,
+  entrada: { fila: FilaDePieza; huella: string; estimado: number },
+): Promise<{ tope: true } | { tope: false; clave: string }> {
+  const { fila, huella, estimado } = entrada
+  for (let cobro = 0; cobro <= COBROS_SIN_TOMA_MAXIMOS; cobro += 1) {
+    const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
+    const reserva = await reservarGasto(deps.db, {
+      piezaId: fila.id,
+      proveedor: "elevenlabs",
+      paso: "voz",
+      estimadoUsd: estimado,
+      clave,
+      ahora: deps.ahora(),
+      // A released key was a refusal that billed nothing: trying the same attempt again reopens it.
+      reabrir: true,
+    })
+    if (reserva.tope) return { tope: true }
+    if (reserva.gasto.estado === "reservado") return { tope: false, clave }
+    // Confirmed without the take (checked before reserving): that audio was paid and lost, so the next key pays anew.
+  }
+  throw new FallaDeConfiguracion(
+    `La voz de la pieza ${fila.id} se pagó ${COBROS_SIN_TOMA_MAXIMOS + 1} veces sin poder guardar la toma.`,
+  )
+}
+
 /**
  * The voice of `guion` for this piece, paid at most once per text and voice. In order: the take of this attempt if a
- * dead run already stored it; unless `nueva`, the newest earlier take of the same text; only then a reservation, one
- * ElevenLabs call, the upload and the confirmation. The caller writes the audio id into the piece.
+ * dead run already stored it; unless `nueva`, the newest earlier take of the same text; only then a reservation
+ * (reopened after a refusal, a new key after a paid take that was lost), one ElevenLabs call, the upload with retries
+ * and the confirmation. The caller writes the audio id into the piece.
  */
 export async function asegurarVoz(
   deps: DepsVoz,
@@ -109,26 +146,11 @@ export async function asegurarVoz(
 
   // Before reserving: a missing key or voice id is a setup error and must not leave a reservation behind.
   const llave = await entrada.llave()
-  const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento)
   const texto = textoParaVoz(guion, config.model_id)
   const estimado = estimarCostoVoz(texto)
-  const reserva = await reservarGasto(deps.db, {
-    piezaId: fila.id,
-    proveedor: "elevenlabs",
-    paso: "voz",
-    estimadoUsd: estimado,
-    clave,
-    ahora: deps.ahora(),
-    // A released key was a refusal that billed nothing: trying the same attempt again reopens it.
-    reabrir: true,
-  })
+  const reserva = await reservarIntento(deps, { fila, huella, estimado })
   if (reserva.tope) return { tipo: "tope" }
-  if (reserva.gasto.estado !== "reservado") {
-    // Confirmed only after the upload, and each attempt has its own key: a closed reservation without the take is a bug.
-    throw new FallaDeConfiguracion(
-      `La reserva de la voz de la pieza ${fila.id} está ${reserva.gasto.estado}, pero la toma no está guardada.`,
-    )
-  }
+  const { clave } = reserva
   let audio: Uint8Array
   try {
     audio = await generarVoz({ clave: llave, config, texto, base: deps.base?.elevenlabs })
