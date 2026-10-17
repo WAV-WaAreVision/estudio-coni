@@ -117,7 +117,7 @@ interface Pedido {
 
 /** Claude answers by the kind of prompt: names for `nombrarTemas`, verdicts for `confirmarFusiones`. */
 function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boolean; pilar?: string } = {}) {
-  const llamadas = { nombres: 0, fusiones: 0 }
+  const llamadas = { nombres: 0, fusiones: 0, pilaresOfrecidos: [] as string[] }
   servidor.use(
     http.post<never, Pedido>(URL_CLAUDE, async ({ request }) => {
       const cuerpo = await request.json()
@@ -126,12 +126,13 @@ function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boole
       let salida: unknown
       if (Array.isArray(datos.grupos)) {
         llamadas.nombres += 1
+        llamadas.pilaresOfrecidos = datos.pilares as string[]
         salida = {
           temas: (datos.grupos as { id: string }[]).map((g, i) => ({
             id: g.id,
             nombre: opciones.nombre ? opciones.nombre(i) : `Tema ${i}`,
             descripcion: "Descripción.",
-            pilar: opciones.pilar ?? "deseo",
+            pilar: opciones.pilar ?? "ia-salud-mental",
           })),
         }
       } else {
@@ -261,13 +262,25 @@ describe("formarTemas", () => {
       "select t.id, c.slug as categoria from public.temas t left join public.categorias c on c.id = t.categoria_id order by t.nombre",
     )
     expect(rows).toHaveLength(2)
-    expect(rows.every((r) => r.categoria === "deseo")).toBe(true)
+    expect(rows.every((r) => r.categoria === "ia-salud-mental")).toBe(true)
     const temasA = new Set(await Promise.all(a.map(temaDe)))
     const temasB = new Set(await Promise.all(b.map(temaDe)))
     expect(temasA.size).toBe(1)
     expect(temasB.size).toBe(1)
     expect([...temasA][0]).not.toBe([...temasB][0])
     expect(await Promise.all(chico.map(temaDe))).toEqual([null, null])
+  })
+
+  it("offers only the active categories and never stores a retired pillar Claude answers with", async () => {
+    await dosGrupos()
+    const llamadas = simularClaude({ pilar: "deseo" })
+    await formarTemas(deps())
+    expect(llamadas.pilaresOfrecidos).toContain("ia-salud-mental")
+    expect(llamadas.pilaresOfrecidos).toContain("general")
+    expect(llamadas.pilaresOfrecidos).not.toContain("deseo")
+    const { rows } = await pool.query<{ categoria_id: string | null }>("select categoria_id from public.temas")
+    expect(rows).toHaveLength(2)
+    expect(rows.every((r) => r.categoria_id === null)).toBe(true)
   })
 
   it("gives the topic the plain mean of its group, not normalized", async () => {

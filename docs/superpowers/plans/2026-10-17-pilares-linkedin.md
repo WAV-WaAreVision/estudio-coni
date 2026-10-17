@@ -55,8 +55,10 @@ tests, docs and deploy). Parts 2 to 4 have their own plans and branches.
 12. **Fuente in the gate 1 hash only when present.** `huellaDeRespaldo` (the canonical form, not the stored JSON, is
     what formula 3 hashes) appends `autor, titulo, anio` to a claim's tuple only when the claim has `fuente`; a stored
     respaldo without it hashes byte for byte as today (Task 14 pins the literal).
-13. **`reporteQueSubir` reports pillar names, not slugs.** The ingesta's Semana prints `PILAR[x] ?? x`; old runs
-    keep their slugs and still map, new runs show the name.
+13. **`reporteQueSubir` reports pillar slugs, not names** (corrected after the final review). The ingesta's Semana
+    (`feat/categorias-activas`, `lib/ingesta/semana.ts`) maps each slug to its `categorias.nombre` and drops retired
+    ones, so old runs and new runs both store slugs. estudio-coni does not display the list; if it ever does, it maps
+    slug to name from the catalog at display time.
 14. **Ingesta has one category picker:** the Temas filter (`listarPilares`, `lib/ingesta/temas.ts:75`); the upload
     form has none. Its `CLAUDE.md` says "local only" but TRASPASO and Vercel say it is deployed
     (https://conidolly-ingesta.vercel.app): the runbook deploys it like the app.
@@ -663,15 +665,15 @@ Add to `tests/unit/motor-puntaje.test.ts`:
 import { soloActivos } from "@/lib/dominio/pilares"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
-it("names the active pillars without material, with any subset empty", () => {
+it("lists the slugs of the active pillars without material, with any subset empty", () => {
   const temas = [
     { tema_id: "t1", nombre: "Chatbots", pilar: "ia-salud-mental", afirmaciones: 5, autores: 2, evidencia_fuerte: 1, cubierto_por_coni: false },
     { tema_id: "t2", nombre: "Regulación", pilar: "etica-regulacion", afirmaciones: 4, autores: 2, evidencia_fuerte: 0, cubierto_por_coni: false },
   ]
   expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
-    "Práctica clínica aumentada",
-    "Acceso y salud pública",
-    "Caso Coni: humana + avatar",
+    "practica-clinica",
+    "acceso-salud-publica",
+    "caso-coni",
   ])
 })
 ```
@@ -696,7 +698,7 @@ Expected: FAIL (wrong arity / `nombrePilar` missing / `NOMBRE_DE_PILAR["caso-con
 ```ts
 export function reporteQueSubir(
   temas: TemaDelMotor[],
-  activos: readonly Pick<DatosDePilar, "slug" | "nombre">[],
+  activos: readonly Pick<DatosDePilar, "slug">[],
 ): { unSoloAutor: string[]; pilaresSinMaterial: string[] } {
   const unSoloAutor = temas
     .filter((t) => t.autores === 1 && t.afirmaciones >= AFIRMACIONES_MINIMAS_UN_SOLO_AUTOR)
@@ -704,8 +706,8 @@ export function reporteQueSubir(
     .slice(0, MAXIMO_UN_SOLO_AUTOR)
     .map((t) => t.nombre)
   const conMaterial = new Set(temas.map((t) => t.pilar))
-  // Names, not slugs: the ingesta's Semana prints what it gets (amendment 13).
-  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.nombre) }
+  // Slugs, not names: the ingesta's Semana names them from `categorias` and drops retired ones (amendment 13).
+  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.slug) }
 }
 ```
 
@@ -1165,8 +1167,8 @@ answer with one idea `pilar: "deseo"` fails the schema (the call throws the form
 
 `tests/integration/motor-semanal.test.ts`: a run whose topics sit only in `ia-salud-mental` and `etica-regulacion`
 (three pillars empty, including `caso-coni`) writes its ideas (MSW answers `pilar: "ia-salud-mental"`), and its
-`resumen.queSubir.pilaresSinMaterial` lists `Práctica clínica aumentada`, `Acceso y salud pública` and
-`Caso Coni: humana + avatar`. Reuse the file's existing seeding helpers for topics and the MSW answer builder.
+`resumen.queSubir.pilaresSinMaterial` lists `practica-clinica`, `acceso-salud-publica` and `caso-coni` (slugs,
+amendment 13). Reuse the file's existing seeding helpers for topics and the MSW answer builder.
 
 - [ ] **Step 2: Run red.**
 
@@ -3106,11 +3108,23 @@ branches, then `superpowers:finishing-a-development-branch`. Do not push, do not
 ### Task 30: Deploy runbook (Federico; nothing runs without his explicit OK, step by step)
 
 Federico runs every production command from the **macOS Terminal** (not the app's terminal), where his keys live.
-Order matters: the database first (the old app keeps working on it), then the CSV round with WAV, then Trigger, then
-the ingesta, then the app.
+
+**Order matters, and Steps 3 to 6 run back to back, the same day.** Once `...105` is applied, `ideas.pilar` only
+accepts active pillars (the trigger rejects an inactive one on insert) and the old slugs are inactive. The old code
+still writes old slugs: the old Trigger worker (the `motor-semanal` engine and the classifier) and the old app (Coni's
+own idea) would fail on every write of a new idea until their new versions are out. So the database goes first, then
+Trigger, the ingesta and the app right after, and only then the CSV round with WAV (Steps 7 to 9), which needs nothing
+but the new database and can take days.
+
+**The gap is not "minutes".** It lasts from the end of Step 3 to the end of Step 6: three deploys, each with its install
+and build, plus the checks between them (count on most of an hour, more if a step fails and has to be retried). If the
+three deploys cannot all happen the same day as Step 3, or a deploy fails and the rest has to wait, first pause the
+`motor-semanal` schedule in the Trigger.dev dashboard (project `proj_spcwrflbtedwehbvsmhv`, prod, Schedules,
+`motor-semanal`, Deactivate) and re-activate it only after Step 6. Coni should not create ideas by hand in that window
+either (the old form only offers old pillars).
 
 - [ ] **Step 1 (OK needed): merge, no push unless asked.** `main` of each repo gets its branch with `--no-ff`
-(estudio-coni `feat/pilares-linkedin`, conidolly-ingesta `feat/pilares-linkedin`, coni-heygen
+(estudio-coni `feat/pilares-linkedin`, conidolly-ingesta `feat/categorias-activas`, coni-heygen
 `contenido/pilares-linkedin`). `git push` only when Federico asks.
 
 - [ ] **Step 2 (OK needed, read-only): pre-checks in the Supabase SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`)**
@@ -3141,40 +3155,20 @@ select count(*) from public.ideas where motivo_descarte = 'pilar_retirado';
 select version, vigente from public.guias order by version;
 ```
 
-The old app keeps working: it reads `ideas.pilar` as text and its constants still name the old slugs (used ideas
-render; new pillars show as nothing until the new app is out, minutes).
+The old app still reads: it reads `ideas.pilar` as text, so used ideas render (new pillars show as nothing until the
+new app is out). It cannot write a new idea, and neither can the old engine: go straight to Step 4.
 
-- [ ] **Step 4 (OK needed): re-classification proposal.** From the macOS Terminal, with the production URL and service
-key exported in that shell only:
-
-```bash
-pnpm reclasificar:pilares ~/Desktop/reclasificacion-pilares.csv
-```
-
-It prints the estimate before calling (cents), then the real cost, and changes nothing. Federico sends the CSV to WAV.
-
-- [ ] **Step 5 (wait for WAV): review.** WAV edits `propuesta` where needed (only the five slugs or `general`) and fills
-`materiales.anio` in Supabase Studio where the year is certain (D2; no year is better than a guess).
-
-- [ ] **Step 6 (OK needed): apply.**
-
-```bash
-pnpm reclasificar:pilares ~/Desktop/reclasificacion-pilares.csv --aplicar
-```
-
-It prints rows read, moved and skipped (with why). Skipped rows are reviewed with WAV; re-running is safe (rows already
-moved are skipped as "changed").
-
-- [ ] **Step 7 (OK needed): Trigger.dev** (writer, engine and classifier read the new code):
+- [ ] **Step 4 (OK needed): Trigger.dev** (writer, engine and classifier read the new code):
 
 ```bash
 pnpm install --frozen-lockfile
 TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check
 ```
 
-If it fails, stop: do not deploy the app.
+If it fails, stop: do not deploy the app, pause the `motor-semanal` schedule (see above) and fix the deploy before
+going on.
 
-- [ ] **Step 8 (OK needed): ingesta.** From a clean export of its `main`:
+- [ ] **Step 5 (OK needed): ingesta.** From a clean export of its `main`:
 
 ```bash
 cd /Users/fede/Projects/conidolly-ingesta
@@ -3185,7 +3179,7 @@ cp -R .vercel /tmp/ingesta-deploy/ && cd /tmp/ingesta-deploy && vercel deploy --
 Check https://conidolly-ingesta.vercel.app/temas: the Pilar filter lists the five new pillars and General, not the
 old five.
 
-- [ ] **Step 9 (OK needed): app, right after.** Same clean export for estudio-coni:
+- [ ] **Step 6 (OK needed): app, right after.** Same clean export for estudio-coni:
 
 ```bash
 cd /Users/fede/Projects/estudio-coni
@@ -3195,6 +3189,27 @@ cp -R .vercel /tmp/estudio-deploy/ && cd /tmp/estudio-deploy && vercel deploy --
 
 Wait 15 to 45 s for the alias, hard-refresh. Verify programmatically before judging: the Ideas screen lists the five
 new pillar chips, an engine idea of the next run shows `Fuente:` under its hook.
+
+- [ ] **Step 7 (OK needed): re-classification proposal.** From the macOS Terminal, with the production URL and service
+key exported in that shell only:
+
+```bash
+pnpm reclasificar:pilares ~/Desktop/reclasificacion-pilares.csv
+```
+
+It prints the estimate before calling (cents), then the real cost, and changes nothing. Federico sends the CSV to WAV.
+
+- [ ] **Step 8 (wait for WAV): review.** WAV edits `propuesta` where needed (only the five slugs or `general`) and fills
+`materiales.anio` in Supabase Studio where the year is certain (D2; no year is better than a guess).
+
+- [ ] **Step 9 (OK needed): apply.**
+
+```bash
+pnpm reclasificar:pilares ~/Desktop/reclasificacion-pilares.csv --aplicar
+```
+
+It prints rows read, moved and skipped (with why). Skipped rows are reviewed with WAV; re-running is safe (rows already
+moved are skipped as "changed").
 
 - [ ] **Step 10 (OK needed, read-only): smoke.** With Federico's Coni account: Ideas shows the new chips; "Proponer
 ahora" in the ingesta's Semana lists `Caso Coni: humana + avatar` under "Pilares sin material" until Federico sends

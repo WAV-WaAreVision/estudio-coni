@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
+import { leerPilares } from "@/lib/datos/pilares"
 import {
   actualizarPieza,
   type FilaDePieza,
@@ -16,6 +17,7 @@ import {
 import { cargarRespaldoDeIdea, respaldoAJson } from "@/lib/datos/respaldo"
 import { transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { conLineaDeFuente, fuentesCitadas, lineaDeFuente } from "@/lib/dominio/fuente"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
 import {
@@ -71,6 +73,8 @@ function claveDeGasto(fila: FilaDePieza, que: string): string {
 
 interface Contexto {
   idea: IdeaLeida
+  /** The idea's pillar as the writer reads it. */
+  pilar: { nombre: string; descripcion: string | null }
   guia: string
   respaldo: Respaldo | null
 }
@@ -85,12 +89,19 @@ async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<
   if (!idea) {
     throw new FallaDeConfiguracion(`No existe la idea ${fila.idea_id} de la pieza ${fila.id}.`)
   }
+  const pilares = await leerPilares(db)
+  const datosDelPilar = pilares.find((candidato) => candidato.slug === idea.pilar)
+  if (!datosDelPilar) {
+    throw new FallaDeConfiguracion(`La idea ${idea.id} apunta a un pilar que no existe: ${idea.pilar}.`)
+  }
+  // A retired pillar keeps its name for the idea, but its description no longer guides what gets written.
+  const pilar = { nombre: datosDelPilar.nombre, descripcion: datosDelPilar.activa ? datosDelPilar.descripcion : null }
   const respaldo = await cargarRespaldoDeIdea(db, idea.id)
   const guia = await leerGuiaVigente(db)
   if (!guia) {
     throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
   }
-  return { idea, guia: guia.texto, respaldo }
+  return { idea, pilar, guia: guia.texto, respaldo }
 }
 
 interface Borrador {
@@ -110,10 +121,19 @@ async function redactarBorrador(
   contexto: Contexto,
 ): Promise<{ borrador: Borrador; costoUsd: number }> {
   const { claude: cliente } = deps
-  const { idea, guia, respaldo } = contexto
+  const { idea, pilar, guia, respaldo } = contexto
   const ajeno = ajenoDelRespaldo(respaldo)
   const paraEscribir = respaldo === null ? null : paraElGuion(respaldo)
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
+  const apoyos = respaldo?.afirmaciones ?? []
+  const linea = lineaDeFuente(apoyos)
+  const fuentes = fuentesCitadas(apoyos)
+  const paraElEscritor = { ...idea, pilar }
+  // The app signs the caption with its source line, so every revision pass and the stored draft see what Coni signs.
+  const conFuente = <E extends { texto: string }>(escrito: E): E => ({
+    ...escrito,
+    texto: conLineaDeFuente(escrito.texto, linea),
+  })
   let costoUsd = 0
 
   // The LinkedIn text is reviewed with the script and the caption: a blocking finding of any of them earns the one
@@ -126,19 +146,24 @@ async function redactarBorrador(
     ]
   }
 
-  let escrito = await escribirGuion({ cliente, guia, idea, respaldo: paraEscribir, requiereLineasAyuda })
+  let escrito = conFuente(
+    await escribirGuion({ cliente, guia, idea: paraElEscritor, respaldo: paraEscribir, fuentes, requiereLineasAyuda }),
+  )
   costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
   let hallazgos = revisar(escrito, requiereLineasAyuda)
   if (bloquea(hallazgos)) {
     // One correction round only: whatever still blocks after it is left for Coni to see.
-    escrito = await escribirGuion({
-      cliente,
-      guia,
-      idea,
-      respaldo: paraEscribir,
-      requiereLineasAyuda,
-      correcciones: hallazgos,
-    })
+    escrito = conFuente(
+      await escribirGuion({
+        cliente,
+        guia,
+        idea: paraElEscritor,
+        respaldo: paraEscribir,
+        fuentes,
+        requiereLineasAyuda,
+        correcciones: hallazgos,
+      }),
+    )
     costoUsd += costoClaude(escrito.uso, MODELO_POR_TAREA.escribirGuion.modelo)
     hallazgos = revisar(escrito, requiereLineasAyuda)
   }

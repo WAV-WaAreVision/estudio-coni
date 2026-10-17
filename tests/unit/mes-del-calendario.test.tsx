@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { MesDelCalendario } from "@/components/mes-del-calendario"
 import { construirCalendario, type PiezaDeCalendario } from "@/lib/calendario/modelo"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 // Tuesday 6 October 2026, 10:30 in Santiago (UTC-3).
 const AHORA = Date.parse("2026-10-06T13:30:00.000Z")
@@ -19,7 +20,7 @@ const publicada: PiezaDeCalendario = {
 }
 
 function montar(piezas: PiezaDeCalendario[]) {
-  const { mes } = construirCalendario({ piezas, horario: HORARIO, ahora: AHORA })
+  const { mes } = construirCalendario({ piezas, horario: HORARIO, ahora: AHORA, pilares: PILARES_DE_PRUEBA })
   render(<MesDelCalendario celdas={mes.celdas} />)
 }
 

@@ -25,7 +25,7 @@ async function crearIdea(
 ) {
   const { rows } = await c.query<{ id: string }>(
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, estado, origen, semana, fijada_en)
-     values ('pareja', 'Gancho', 'Tema', 'reel', 'media', $1, $2, $3, case when $4 then now() end) returning id`,
+     values ('ia-salud-mental', 'Gancho', 'Tema', 'reel', 'media', $1, $2, $3, case when $4 then now() end) returning id`,
     [extra.estado ?? "idea", extra.origen ?? "motor", extra.semana ?? null, extra.fijada ?? false],
   )
   const fila = rows[0]
@@ -38,7 +38,7 @@ describe("ideas del motor", () => {
     await como(comoPostgres, async (c) => {
       const { rows } = await c.query<{ origen: string }>(
         `insert into public.ideas (pilar, gancho, tema, formato, fuerza)
-         values ('pareja', 'g', 't', 'f', 'media') returning origen`,
+         values ('ia-salud-mental', 'g', 't', 'f', 'media') returning origen`,
       )
       expect(rows[0]?.origen).toBe("propuesta")
       const error = await fallaCon(c, "update public.ideas set origen = 'otro' where origen = 'propuesta'")
@@ -273,11 +273,11 @@ describe("backfill of origen in the migration", () => {
     await como(comoPostgres, async (c) => {
       const propia = await c.query<{ id: string }>(
         `insert into public.ideas (pilar, gancho, tema, formato, fuerza, origen, fuentes)
-         values ('pareja', 'g', 't', 'f', 'media', 'importada', '["Idea de Coni"]'::jsonb) returning id`,
+         values ('ia-salud-mental', 'g', 't', 'f', 'media', 'importada', '["Idea de Coni"]'::jsonb) returning id`,
       )
       const importada = await c.query<{ id: string }>(
         `insert into public.ideas (pilar, gancho, tema, formato, fuerza, origen, fuentes)
-         values ('pareja', 'h', 't', 'f', 'media', 'importada', '["Un libro"]'::jsonb) returning id`,
+         values ('ia-salud-mental', 'h', 't', 'f', 'media', 'importada', '["Un libro"]'::jsonb) returning id`,
       )
       await c.query(backfill)
       const { rows } = await c.query<{ id: string; origen: string }>(

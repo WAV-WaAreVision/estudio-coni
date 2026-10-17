@@ -19,6 +19,7 @@ import {
   simularMedios,
   TEXTO_VALIDO,
 } from "./ayudas"
+import { sembrarEscena } from "./escena"
 
 const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
@@ -36,7 +37,7 @@ const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
 const tomaDe = (id: string, guion: string, toma: number) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
 
 async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO, { conVoz = true } = {}) {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   const id = await sembrarPieza("guion_por_aprobar", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,
@@ -216,6 +217,12 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
   await expect(page.getByText("No pude terminar el video.")).toHaveCount(0)
 })
 
+test("gate 1 shows the source of its backing after the script", async ({ page }) => {
+  const { guion } = await sembrarEscena()
+  await page.goto(`/guion/${guion}`)
+  await expect(page.getByText("Fuente: Stanford · AI for Mental Health (2026)")).toBeVisible()
+})
+
 test("gate 1 shows the date in ink and bold, and the editor without inner scroll", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
@@ -314,7 +321,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 test("while her voice is being made the script is read-only and keeps its tone marks with the help", async ({
   page,
 }) => {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   const id = await sembrarPieza("grabando_voz", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,

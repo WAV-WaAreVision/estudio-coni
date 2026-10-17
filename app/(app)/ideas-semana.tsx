@@ -12,12 +12,12 @@ import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 
 export interface IdeaParaElegir {
   id: string
   gancho: string
-  pilar: Pilar
+  pilar: PilarVisible
 }
 
 interface PropiedadesDeIdeas {
@@ -75,10 +75,10 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
         {ideas.map((idea) => {
           const marcada = elegidas.includes(idea.id)
           return (
-            <li key={idea.id} data-pilar={idea.pilar} className="list-none">
+            <li key={idea.id} data-pilar={idea.pilar.slug} className="list-none">
               <Casilla
                 etiqueta={idea.gancho}
-                detalle={NOMBRE_DE_PILAR[idea.pilar]}
+                detalle={idea.pilar.nombre}
                 marcada={marcada}
                 deshabilitada={(!marcada && enElMaximo) || pendiente}
                 alCambiar={(valor) => alternar(idea.id, valor)}

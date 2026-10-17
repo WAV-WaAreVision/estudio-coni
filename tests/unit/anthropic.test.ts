@@ -4,14 +4,17 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { soloActivos } from "@/lib/dominio/pilares"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
+  clasificarEnPilares,
   clasificarIdea,
   costoClaude,
   escribirGuion,
   RespuestaCortada,
   revisarConClaude,
 } from "@/lib/proveedores/anthropic"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
 const CLAVE = "sk-ant-clave-de-prueba"
@@ -19,8 +22,13 @@ const GUIA = "# Línea editorial de Coni\n\nTrata de tú. Español de Chile."
 const URL_MENSAJES = "https://api.anthropic.com/v1/messages"
 const RECHAZO = "Claude no quiso escribir este guion. Prueba con otra idea."
 
+const PILAR = {
+  nombre: "IA y salud mental",
+  descripcion: "Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos.",
+}
+
 const IDEA = {
-  pilar: "pareja",
+  pilar: PILAR,
   gancho: "Hay una palabra que enciende cualquier discusión de pareja.",
   tema: "Cambiar el por qué hiciste eso por preguntas con qué o cómo.",
   formato: "Ejercicio de la semana",
@@ -114,6 +122,7 @@ function escribir(extra: Partial<Parameters<typeof escribirGuion>[0]> = {}) {
     guia: GUIA,
     idea: IDEA,
     respaldo: null,
+    fuentes: [],
     requiereLineasAyuda: false,
     ...extra,
   })
@@ -270,6 +279,8 @@ describe("escribirGuion", () => {
     expect(linkedin).toContain("Sin enlaces en el texto")
     expect(linkedin).toContain("de cero a tres, en la última línea")
     expect(linkedin).toContain("de cero a tres, solo para ordenar")
+    expect(linkedin).toContain("Las listas van con números normales («1.») o en prosa")
+    expect(linkedin).not.toContain("1️⃣")
   })
 
   it("forbids the contrast formula, engagement bait, Unicode letters and long dashes in the LinkedIn text", async () => {
@@ -646,8 +657,8 @@ describe("costoClaude", () => {
 
 describe("clasificarIdea", () => {
   const propuesta = {
-    pilar: "pareja",
-    formato: "Ejercicio de la semana",
+    pilar: "ia-salud-mental",
+    formato: "Mito o realidad",
     alertas: [{ tipo: "no es terapia", texto: "Presentarlo como ejercicio general." }],
   }
 
@@ -657,9 +668,41 @@ describe("clasificarIdea", () => {
       guia: GUIA,
       gancho: "¿Tu pareja te escucha o solo espera su turno?",
       tema: "Escuchar de verdad",
+      pilares: soloActivos(PILARES_DE_PRUEBA),
       ...extra,
     })
   }
+
+  it("lists the active pillars with their descriptions and accepts only their slugs", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "practica-clinica" })))
+    const { propuesta: leida } = await clasificar()
+    const usuario = JSON.stringify(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("- practica-clinica: Práctica clínica aumentada. Cómo cambia la consulta")
+    expect(usuario).not.toContain("- pareja:")
+    expect(leida.pilar).toBe("practica-clinica")
+  })
+
+  it("tells Claude the slug before the colon is what goes in pilar", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+    await clasificar()
+    const usuario = String(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("usa exactamente el slug (lo que va antes de los dos puntos) en pilar")
+    expect(usuario).not.toContain("usa exactamente estos nombres")
+  })
+
+  it("offers only the guide's formats, without the sexology ones Federico dropped", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+    await clasificar()
+    const usuario = String(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("Mito o realidad, Tres señales, Pregunta de la audiencia")
+    expect(usuario).not.toContain("Ejercicio de la semana")
+    expect(usuario).not.toContain("Idea de sus libros")
+  })
+
+  it("refuses a retired pillar in the answer", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "pareja" })))
+    await expect(clasificar()).rejects.toThrow("Claude devolvió una respuesta que no tiene el formato pedido.")
+  })
 
   it("asks for the pillar, the format and the alerts with the guide cached and the idea in the user message", async () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
@@ -694,11 +737,11 @@ describe("clasificarIdea", () => {
   })
 
   it("accepts the pillar written with accents or capitals", async () => {
-    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "Límites" })))
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "Ética-Regulación" })))
 
     const resultado = await clasificar()
 
-    expect(resultado.propuesta.pilar).toBe("limites")
+    expect(resultado.propuesta.pilar).toBe("etica-regulacion")
   })
 
   it("treats a refusal as a refusal", async () => {
@@ -731,7 +774,7 @@ describe("escribirGuion con respaldo", () => {
 
     const texto = textoDelPedido(pedidos[0])
     expect(texto).toContain("INSPIRACIÓN DEL RESPALDO")
-    expect(texto).toContain("No cites ni nombres autores")
+    expect(texto).toContain("En el guion y el texto de publicación no cites ni nombres autores")
     expect(texto).toContain("No copies frases de las citas")
     expect(texto).toContain("El deseo baja con la rutina.")
     expect(texto).toContain("<respaldo>")
@@ -755,5 +798,93 @@ describe("escribirGuion con respaldo", () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
     await escribir({ respaldo: null })
     expect(textoDelPedido(pedidos[0])).not.toContain("<respaldo>")
+  })
+})
+
+describe("escribirGuion: pilar y fuentes", () => {
+  it("names the idea's pillar with its description", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir()
+    expect(textoDelPedido(pedidos[0])).toContain(
+      "Pilar: IA y salud mental (Qué dice la evidencia sobre chatbots, apps y modelos",
+    )
+  })
+
+  it("names only the pillar when it has no description", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ idea: { ...IDEA, pilar: { nombre: "Bienestar", descripcion: null } } })
+    expect(textoDelPedido(pedidos[0])).toContain("Pilar: Bienestar\n")
+  })
+
+  it("gives LinkedIn the sources to cite and keeps them out of the script and the caption", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ respaldo: RESPALDO, fuentes: [{ autor: "Stanford", titulo: "AI for Mental Health", anio: 2026 }] })
+    const usuario = textoDelPedido(pedidos[0])
+    expect(usuario).toContain("FUENTES QUE PUEDES CITAR EN LINKEDIN")
+    expect(usuario).toContain("- Stanford · AI for Mental Health (2026)")
+    expect(usuario).toContain("No escribas la línea de fuente en el texto de publicación: la agrega la app.")
+    expect(usuario).not.toContain("No nombres autores, cuentas, libros ni estudios")
+    expect(usuario).toContain("No copies frases de las fuentes.")
+  })
+
+  it("keeps the old rule when there is nothing to cite", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ respaldo: RESPALDO, fuentes: [] })
+    const usuario = textoDelPedido(pedidos[0])
+    expect(usuario).toContain("No nombres autores, cuentas, libros ni estudios")
+    expect(usuario).not.toContain("FUENTES QUE PUEDES CITAR EN LINKEDIN")
+  })
+})
+
+describe("clasificarEnPilares", () => {
+  const pilares = soloActivos(PILARES_DE_PRUEBA)
+  const elementos = [
+    { id: "m1", tipo: "material" as const, texto: "AI for Mental Health, Stanford. Chatbots y uso real." },
+    { id: "t1", tipo: "tema" as const, texto: "Recetas de cocina" },
+  ]
+
+  it("sends the pillars in an uncached system prompt and the items as data, and keeps only items it sent", async () => {
+    const pedidos = respondiendo(() =>
+      HttpResponse.json(
+        conTexto({
+          asignaciones: [
+            { id: "m1", pilar: "ia-salud-mental", razon: "Chatbots" },
+            { id: "x9", pilar: "caso-coni", razon: "No lo envié" },
+          ],
+        }),
+      ),
+    )
+    const { asignaciones } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    const { cuerpo } = pedidos[0] as PedidoCapturado
+    expect(cuerpo.system).toEqual([
+      { type: "text", text: expect.stringContaining("- caso-coni: Caso Coni: humana + avatar.") },
+    ])
+    expect(JSON.stringify(cuerpo.messages[0]?.content)).toContain("<elementos>")
+    expect(asignaciones).toEqual([
+      { id: "m1", pilar: "ia-salud-mental", razon: "Chatbots" },
+      { id: "t1", pilar: "general", razon: "Claude no propuso un pilar." },
+    ])
+  })
+
+  it("reports the model that served the batch, so a fallback is priced at its own rates", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [] }, { model: "claude-opus-5-5" })))
+    const { modelo } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    expect(modelo).toBe("claude-opus-5-5")
+  })
+
+  it("prices a served model it does not know at the highest list price", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [] }, { model: "claude-desconocido-9" })))
+    const { modelo } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    expect(modelo).toBe("claude-opus-5-5")
+  })
+
+  it("turns an unknown pillar into general", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [{ id: "m1", pilar: "deseo", razon: "x" }] })))
+    const { asignaciones } = await clasificarEnPilares({
+      cliente: cliente(),
+      pilares,
+      elementos: elementos.slice(0, 1),
+    })
+    expect(asignaciones[0]?.pilar).toBe("general")
   })
 })

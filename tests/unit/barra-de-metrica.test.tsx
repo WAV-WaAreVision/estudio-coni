@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { BarraDeMetrica } from "@/components/barra-de-metrica"
+import { pilarVisible } from "@/lib/dominio/pilares"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const BASE = {
   titulo: "Si van a discutir, siéntense del mismo lado",
-  pilar: "pareja" as const,
+  pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
   ancho: 100,
   texto: "50,4 cada 1.000 · 121 guardados de 2.400 personas",
   cifra: "50,4",
@@ -33,8 +35,23 @@ describe("BarraDeMetrica", () => {
         <BarraDeMetrica {...BASE} />
       </ul>,
     )
-    expect(screen.getByText("Pareja y conversación · 1 reel de este tema")).toBeInTheDocument()
+    expect(screen.getByText("Pareja y conversación").parentElement).toHaveTextContent(
+      "Pareja y conversación · 1 reel de este tema",
+    )
     expect(container.innerHTML).not.toMatch(/pilar-/)
+  })
+
+  it("keeps the theme's sample whole when a long pillar name wraps", () => {
+    render(
+      <ul>
+        <BarraDeMetrica
+          {...BASE}
+          pilar={{ slug: "practica-clinica", nombre: "Práctica clínica aumentada", nombreCorto: "Práctica clínica" }}
+          reelsDelTema={3}
+        />
+      </ul>,
+    )
+    expect(screen.getByText("3 reels de este tema")).toHaveClass("whitespace-nowrap")
   })
 
   it("says it has no numbers yet, with no bar and no figure", () => {

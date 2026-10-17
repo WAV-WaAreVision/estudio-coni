@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { soloActivos } from "@/lib/dominio/pilares"
 import type { ParDelMotor, TemaDelMotor } from "@/lib/motor/datos"
 import { claveDePar } from "@/lib/motor/datos"
 import {
@@ -9,6 +10,7 @@ import {
   puntuarPar,
   reporteQueSubir,
 } from "@/lib/motor/puntaje"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const tema = (id: string, extra: Partial<TemaDelMotor> = {}): TemaDelMotor => ({
   tema_id: id,
@@ -197,20 +199,24 @@ describe("reporteQueSubir", () => {
       tema("poco", { autores: 1, afirmaciones: 2 }),
       tema("dos", { autores: 2, afirmaciones: 99 }),
     ]
-    const { unSoloAutor } = reporteQueSubir(temas)
+    const { unSoloAutor } = reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA))
     expect(unSoloAutor).toHaveLength(10)
     expect(unSoloAutor[0]).toBe("Solo 11")
     expect(unSoloAutor).not.toContain("Tema poco")
     expect(unSoloAutor).not.toContain("Tema dos")
   })
 
-  it("lists pillars with no topic", () => {
+  it("lists the slugs of the active pillars without material, with any subset empty", () => {
     const temas = [
-      tema("a", { pilar: "pareja" }),
-      tema("b", { pilar: "deseo" }),
+      tema("t1", { nombre: "Chatbots", pilar: "ia-salud-mental" }),
+      tema("t2", { nombre: "Regulación", pilar: "etica-regulacion" }),
       tema("c", { pilar: null }),
       tema("d", { pilar: "general" }),
     ]
-    expect(reporteQueSubir(temas).pilaresSinMaterial).toEqual(["autoestima", "limites", "bienestar"])
+    expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
+      "practica-clinica",
+      "acceso-salud-publica",
+      "caso-coni",
+    ])
   })
 })

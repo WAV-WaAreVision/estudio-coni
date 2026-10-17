@@ -61,6 +61,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     guion: "Hola, soy Coni. Soy Coni del Rosario.",
     texto: "Video hecho con mi avatar digital.",
     textoLinkedin: null,
+    fuente: null,
     revision: [],
     tieneVersionDeClaude: false,
     salida: null,
@@ -110,6 +111,47 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
     expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
     expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
+  })
+
+  it("shows the backing's source under the script, inside 2. Revisa el guion", () => {
+    render(<PantallaGuion datos={datos({ fuente: "Fuente: OMS · Informe (2025)" })} />)
+    const lectura = screen.getByRole("region", { name: "2. Revisa el guion" })
+    const fuente = within(lectura).getByText("Fuente: OMS · Informe (2025)")
+    const guion = within(lectura).getByText("Hola, soy Coni. Soy Coni del Rosario.", { selector: "span" })
+    expect(guion.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("names the pillar by its short name at gate 1 and keeps format and length whole on the right when they wrap", () => {
+    render(
+      <PantallaGuion
+        datos={datos({
+          pilar: { slug: "practica-clinica", nombre: "Práctica clínica aumentada", nombreCorto: "Práctica clínica" },
+          formato: "Mito o realidad",
+        })}
+      />,
+    )
+    const pilar = screen.getByText("Práctica clínica")
+    const duracion = screen.getByText("Mito o realidad · 52 s")
+    expect(screen.queryByText("Práctica clínica aumentada")).not.toBeInTheDocument()
+    expect(pilar.parentElement).toBe(duracion.parentElement)
+    expect(pilar.parentElement).toHaveClass("flex", "flex-wrap")
+    expect(duracion).toHaveClass("ml-auto", "whitespace-nowrap")
+  })
+
+  it("keeps the source inside the script's reading panel, apart from Claude's note, as the idea card's row", () => {
+    render(<PantallaGuion datos={datos({ fuente: "Fuente: OMS · Informe (2025)" })} />)
+    const guion = screen.getByText("Hola, soy Coni. Soy Coni del Rosario.", { selector: "span" })
+    const panel = guion.closest("[data-contorno]")
+    const fila = screen.getByText("Fuente: OMS · Informe (2025)").closest("[data-fuente]")
+    expect(fila).not.toBeNull()
+    expect(panel).toContainElement(fila as HTMLElement)
+    expect(fila).toHaveClass("border-t", "border-hilo")
+    expect(fila?.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
+  })
+
+  it("shows no source line when the piece has no backing", () => {
+    render(<PantallaGuion datos={datos({ fuente: null })} />)
+    expect(screen.queryByText(/^Fuentes?:|^De Coni$/)).not.toBeInTheDocument()
   })
 
   it("shows the script in a reading panel, marks a finding's phrase and links it to its panel", () => {

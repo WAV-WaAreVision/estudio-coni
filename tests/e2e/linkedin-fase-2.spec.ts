@@ -26,7 +26,7 @@ async function capturarCuentas(page: import("@playwright/test").Page, nombre: st
 }
 
 async function piezaDeLinkedin(estado: "programado" | "para_subir_a_mano" | "publicado") {
-  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
   return sembrarPieza(
     estado,
     {

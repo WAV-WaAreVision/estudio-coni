@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { leerPilares } from "@/lib/datos/pilares"
+import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
-import { esPilar, type Pilar } from "@/lib/dominio/pilares"
+import { nombreDePilar } from "@/lib/dominio/pilares"
+import { afirmacionesDelRespaldo } from "@/lib/dominio/respaldo"
 import type { IdeaDeBanco, NivelDeEvidencia, PorQueDeIdea } from "@/lib/ideas/mazo"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -35,14 +38,33 @@ function porQueDe(teoria: {
   titulo: string | null
   tesis: string | null
   nivel_evidencia: string | null
-  teoria_afirmaciones: { afirmaciones: { cita: string; autores: { nombre: string } | null } | null }[]
+  teoria_afirmaciones: {
+    afirmaciones: {
+      id: string
+      evidencia: string
+      cita: string
+      excluida: boolean
+      autores: { nombre: string; tipo: string } | null
+      materiales: { titulo: string | null; anio: number | null } | null
+    } | null
+  }[]
 }): PorQueDeIdea {
+  // Excluded claims never inspire a script (`respaldo_de_idea`), so they leave the list and the source line too.
+  const vigentes = teoria.teoria_afirmaciones.flatMap(({ afirmaciones }) =>
+    afirmaciones && !afirmaciones.excluida && afirmaciones.autores
+      ? [{ ...afirmaciones, autores: afirmaciones.autores }]
+      : [],
+  )
   return {
     titulo: teoria.titulo ?? "",
     tesis: teoria.tesis ?? "",
     nivel: nivelDe(teoria.nivel_evidencia),
-    respaldo: teoria.teoria_afirmaciones.flatMap(({ afirmaciones }) =>
-      afirmaciones?.autores ? [{ autor: afirmaciones.autores.nombre, cita: afirmaciones.cita }] : [],
+    respaldo: vigentes.map((a) => ({ autor: a.autores.nombre, cita: a.cita })),
+    fuente: lineaDeFuente(
+      afirmacionesDelRespaldo(vigentes).map((a) => ({
+        deConi: a.autores.tipo === "coni",
+        fuente: { autor: a.autores.nombre, titulo: a.materiales?.titulo ?? null, anio: a.materiales?.anio ?? null },
+      })),
     ),
   }
 }
@@ -53,11 +75,11 @@ function porQueDe(teoria: {
  * ones after them. This week's engine ideas (the latest ready run) go first. Discarded and archived ideas are not shown.
  */
 export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
-  const [ideas, piezas, corrida] = await Promise.all([
+  const [ideas, piezas, corrida, pilares] = await Promise.all([
     db
       .from("ideas")
       .select(
-        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(cita, autores(nombre))))",
+        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(id, evidencia, cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
       )
       .in("estado", ["idea", "usada"]),
     db
@@ -71,6 +93,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
       .order("semana", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    leerPilares(db),
   ])
   if (ideas.error) throw fallo("No pude leer el banco de ideas", ideas.error)
   if (piezas.error) throw fallo("No pude leer lo que salió últimamente", piezas.error)
@@ -79,7 +102,6 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
   const semanaNueva = corrida.data?.semana ?? null
 
   const banco = ideas.data.flatMap((fila): IdeaDeBanco[] => {
-    if (!esPilar(fila.pilar)) throw new Error(`Pilar de idea desconocido: ${fila.pilar}`)
     const alertas = Alertas.safeParse(fila.alertas)
     if (!alertas.success) throw new Error(`Las alertas de la idea ${fila.id} no tienen el formato esperado.`)
     return [
@@ -87,6 +109,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
         id: fila.id,
         numero: fila.numero,
         pilar: fila.pilar,
+        nombrePilar: nombreDePilar(pilares, fila.pilar),
         gancho: fila.gancho,
         tema: fila.tema,
         formato: fila.formato,
@@ -101,7 +124,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
   })
 
   const libres = banco.filter((idea) => idea.estado === "idea")
-  const recientes: Pilar[] = piezas.data.flatMap((pieza) => (pieza.ideas ? [pieza.ideas.pilar] : []))
+  const recientes: string[] = piezas.data.flatMap((pieza) => (pieza.ideas ? [pieza.ideas.pilar] : []))
   const enOrden = sugerirIdeas({ banco: libres, recientes, cuantas: libres.length })
   const porId = new Map(libres.map((idea) => [idea.id, idea]))
   const usadas = banco

@@ -1,5 +1,4 @@
 import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
-import type { Pilar } from "@/lib/dominio/pilares"
 
 // What Instagram's numbers say, and how little they are allowed to say (design "Métricas y aprendizaje"): nothing is
 // compared before 8 reels per group, and every comparison carries its sample size. All of it is computed here, in
@@ -13,7 +12,7 @@ export interface ReelMedido {
   piezaId: string
   titulo: string
   /** Null for a piece that did not come from an idea: it is listed, but belongs to no theme. */
-  pilar: Pilar | null
+  pilar: string | null
   /** When the reel was due on Instagram (the approved time), as an ISO instant. */
   publicadoEn: string
   /** The day of the snapshot, `2026-10-09`. */
@@ -158,7 +157,7 @@ export function metricasAlDia(entrada: { ultimoDia: string | null; ahora: number
 }
 
 export interface TemaMedido {
-  pilar: Pilar
+  pilar: string
   /** Reels with a measured saves-per-1,000 figure. */
   n: number
 }
@@ -183,8 +182,8 @@ export type Comparacion =
       pendientes: TemaMedido[]
       /** The best theme against the next one. */
       diferencia: {
-        mayor: Pilar
-        menor: Pilar
+        mayor: string
+        menor: string
         valor: number
         desde: number
         hasta: number
@@ -225,7 +224,7 @@ function redondear(valor: number): number {
  * each theme carries its mean with a 95 % interval, and the best is set against the next with Welch's interval.
  */
 export function compararTemas(reels: readonly ReelMedido[]): Comparacion {
-  const porTema = new Map<Pilar, number[]>()
+  const porTema = new Map<string, number[]>()
   for (const reel of reels) {
     const valor = guardadosPorMil(reel.guardados, reel.alcance)
     if (reel.pilar === null || valor === null) continue

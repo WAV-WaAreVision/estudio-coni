@@ -194,11 +194,17 @@ describe("leerDatosDelMotor", () => {
     return rows[0]?.id ?? ""
   }
 
-  async function idea(teoriaId: string, semana: string, estado: string, origen = "motor") {
+  async function idea(
+    teoriaId: string,
+    semana: string,
+    estado: string,
+    origen = "motor",
+    motivo: string | null = null,
+  ) {
     await pool.query(
-      `insert into public.ideas (pilar, gancho, tema, formato, fuerza, estado, origen, semana, teoria_id)
-       values ('pareja', 'motor-datos', 't', 'reel', 'media', $1, $2, $3, $4)`,
-      [estado, origen, semana, teoriaId],
+      `insert into public.ideas (pilar, gancho, tema, formato, fuerza, estado, origen, semana, teoria_id, motivo_descarte)
+       values ('ia-salud-mental', 'motor-datos', 't', 'reel', 'media', $1, $2, $3, $4, $5)`,
+      [estado, origen, semana, teoriaId, motivo],
     )
   }
 
@@ -238,6 +244,27 @@ describe("leerDatosDelMotor", () => {
     expect(datos.descartes.get(t1)).toBe(2)
     expect(datos.descartes.get(t2)).toBe(3)
     expect(datos.descartes.get(t3)).toBe(1)
+  })
+
+  it("does not count an idea archived because its pillar retired as a discard of its topics", async () => {
+    const c = await pool.connect()
+    let t1 = ""
+    try {
+      const autor = await crearAutor(c, "Caro datos motor")
+      const material = await crearMaterial(c, autor)
+      t1 = await crearTema(c, "Datos retirado", "ia-salud-mental", 0)
+      await crearAfirmacion(c, material, autor, t1)
+    } finally {
+      c.release()
+    }
+
+    const reciente = await teoria("motor-datos retirado", "2026-09-27", [t1])
+    await idea(reciente, "2026-09-27", "descartada", "motor", "pilar_retirado")
+    await idea(reciente, "2026-09-27", "descartada", "motor", "debil")
+
+    const datos = await leerDatosDelMotor(db, { hoy, minimoAutores: 1 })
+
+    expect(datos.descartes.get(t1)).toBe(1)
   })
 
   it("pages past 1000 rows", async () => {

@@ -277,27 +277,42 @@ export type Database = {
       }
       categorias: {
         Row: {
+          activa: boolean
           creada_en: string
           creada_por: string | null
+          descripcion: string | null
+          es_pilar: boolean
           id: string
           nombre: string
+          nombre_corto: string | null
           nombre_normalizado: string | null
+          orden: number | null
           slug: string
         }
         Insert: {
+          activa?: boolean
           creada_en?: string
           creada_por?: string | null
+          descripcion?: string | null
+          es_pilar?: boolean
           id?: string
           nombre: string
+          nombre_corto?: string | null
           nombre_normalizado?: string | null
+          orden?: number | null
           slug: string
         }
         Update: {
+          activa?: boolean
           creada_en?: string
           creada_por?: string | null
+          descripcion?: string | null
+          es_pilar?: boolean
           id?: string
           nombre?: string
+          nombre_corto?: string | null
           nombre_normalizado?: string | null
+          orden?: number | null
           slug?: string
         }
         Relationships: []
@@ -555,7 +570,7 @@ export type Database = {
           motivo_descarte: string | null
           numero: number | null
           origen: string
-          pilar: Database["public"]["Enums"]["pilar"]
+          pilar: string
           semana: string | null
           tema: string
           teoria_id: string | null
@@ -573,7 +588,7 @@ export type Database = {
           motivo_descarte?: string | null
           numero?: number | null
           origen?: string
-          pilar: Database["public"]["Enums"]["pilar"]
+          pilar: string
           semana?: string | null
           tema?: string
           teoria_id?: string | null
@@ -591,12 +606,19 @@ export type Database = {
           motivo_descarte?: string | null
           numero?: number | null
           origen?: string
-          pilar?: Database["public"]["Enums"]["pilar"]
+          pilar?: string
           semana?: string | null
           tema?: string
           teoria_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ideas_pilar_fkey"
+            columns: ["pilar"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["slug"]
+          },
           {
             foreignKeyName: "ideas_teoria_id_fkey"
             columns: ["teoria_id"]
@@ -646,6 +668,7 @@ export type Database = {
       }
       materiales: {
         Row: {
+          anio: number | null
           archivo_clave: string | null
           autor: string | null
           autor_id: string
@@ -670,6 +693,7 @@ export type Database = {
           titulo: string | null
         }
         Insert: {
+          anio?: number | null
           archivo_clave?: string | null
           autor?: string | null
           autor_id: string
@@ -694,6 +718,7 @@ export type Database = {
           titulo?: string | null
         }
         Update: {
+          anio?: number | null
           archivo_clave?: string | null
           autor?: string | null
           autor_id?: string
@@ -1471,6 +1496,7 @@ export type Database = {
       }
     }
     Functions: {
+      archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
       conectar_instagram: {
@@ -2040,7 +2066,6 @@ export type Database = {
         | "descartado"
         | "para_subir_a_mano"
         | "publicado_a_mano"
-      pilar: "pareja" | "deseo" | "autoestima" | "limites" | "bienestar"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2188,7 +2213,6 @@ export const Constants = {
         "para_subir_a_mano",
         "publicado_a_mano",
       ],
-      pilar: ["pareja", "deseo", "autoestima", "limites", "bienestar"],
     },
   },
 } as const

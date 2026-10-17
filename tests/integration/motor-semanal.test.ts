@@ -166,8 +166,8 @@ function simularClaude(
           nivelEvidencia: "medio",
           advertencias: [],
           ideas: [
-            { gancho: `Gancho ${i} a`, tema: "t", pilar: "deseo", formato: "reel" },
-            { gancho: `Gancho ${i} b`, tema: "t", pilar: "pareja", formato: "reel" },
+            { gancho: `Gancho ${i} a`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
+            { gancho: `Gancho ${i} b`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
           ],
         }
       })
@@ -217,7 +217,7 @@ describe("correrMotor", () => {
   it("turns three crossings into theories, ideas and a finished run", async () => {
     const { t1 } = await tresTemas()
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana) values (500, 'pareja', 'vieja', 'idea', 'baja', 'motor', '2026-01-04')",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana) values (500, 'ia-salud-mental', 'vieja', 'idea', 'baja', 'motor', '2026-01-04')",
     )
     const claude = simularClaude()
 
@@ -277,6 +277,33 @@ describe("correrMotor", () => {
     expect(gasto.rows).toHaveLength(1)
     expect(gasto.rows[0]?.estado).toBe("confirmado")
     expect(gasto.rows[0]?.clave).toMatch(new RegExp(`^motor:${SEMANA}:`))
+  })
+
+  it("writes its ideas with three pillars empty and names them in what to upload", async () => {
+    const ana = await autor("Ana")
+    const beto = await autor("Beto")
+    const mAna = await material(ana, "referente")
+    const mBeto = await material(beto, "referente")
+    const t1 = await tema("Chatbots", "ia-salud-mental", 0)
+    const t2 = await tema("Regulación", "etica-regulacion", 1)
+    for (const t of [t1, t2]) {
+      await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`)
+      await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`)
+    }
+    const claude = simularClaude()
+
+    const resultado = await correrMotor(deps(), { semana: SEMANA, manual: false })
+
+    expect(resultado.resultado).toBe("lista")
+    expect(claude.usuario).toContain("- caso-coni: Caso Coni: humana + avatar.")
+    expect(
+      await contar("select count(*) as n from public.ideas where origen = 'motor' and pilar = 'ia-salud-mental'"),
+    ).toBe(2)
+    expect((await corrida())?.resumen).toMatchObject({
+      queSubir: {
+        pilaresSinMaterial: ["practica-clinica", "acceso-salud-publica", "caso-coni"],
+      },
+    })
   })
 
   it("sends eight crossings to Claude in batches of three, one paid step each", async () => {
@@ -366,7 +393,7 @@ describe("correrMotor", () => {
       [SEMANA, CONI],
     )
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values (700, 'pareja', 'sobra', 'idea', 'baja', 'motor', $1, $2)",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values (700, 'ia-salud-mental', 'sobra', 'idea', 'baja', 'motor', $1, $2)",
       [SEMANA, sobra],
     )
     simularClaude()
@@ -390,7 +417,7 @@ describe("correrMotor", () => {
       [SEMANA, CONI],
     )
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id, fijada_en) values (710, 'pareja', 'fijada', 'idea', 'baja', 'motor', $1, $2, now())",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id, fijada_en) values (710, 'ia-salud-mental', 'fijada', 'idea', 'baja', 'motor', $1, $2, now())",
       [SEMANA, fijada],
     )
     simularClaude()
@@ -466,7 +493,7 @@ describe("correrMotor", () => {
     )
     for (const n of [601, 602]) {
       await pool.query(
-        "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values ($1, 'pareja', 'previa', 'descartada', 'media', 'motor', '2026-09-13', $2)",
+        "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values ($1, 'ia-salud-mental', 'previa', 'descartada', 'media', 'motor', '2026-09-13', $2)",
         [n, teoria],
       )
     }

@@ -8,6 +8,7 @@ import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
+import { LineaDeFuente } from "@/components/linea-de-fuente"
 import { Seccion } from "@/components/seccion"
 import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
@@ -28,7 +29,7 @@ import { separarParaConi, TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
@@ -49,13 +50,15 @@ export interface DatosDeGuion {
   id: string
   version: number
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   formato: string | null
   segundos: number
   guion: string
   texto: string
   /** The LinkedIn text, shown read only: it is reviewed and edited at gate 2. Null when the piece has none yet. */
   textoLinkedin: string | null
+  /** The backing's source line; null without one. */
+  fuente: string | null
   revision: Hallazgo[]
   /** Whether there is a version Claude wrote to go back to. */
   tieneVersionDeClaude: boolean
@@ -196,11 +199,12 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
 
   return (
     <div>
-      <header data-pilar={datos.pilar ?? undefined} className="grid gap-3">
+      <header data-pilar={datos.pilar?.slug} className="grid gap-3">
         <Volver href="/">Inicio</Volver>
-        <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-          <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
-          <span>
+        {/* The short name keeps pillar, format and length on one line; when the text grows they wrap and stay right. */}
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-4 text-meta text-apagado">
+          <span>{datos.pilar?.nombreCorto}</span>
+          <span className="ml-auto whitespace-nowrap">
             {datos.formato ? `${datos.formato} · ` : ""}
             {datos.segundos} s
           </span>
@@ -253,6 +257,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         ) : null}
         <Panel>
           <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
+          {datos.fuente ? <LineaDeFuente texto={datos.fuente} className="mt-4 border-t border-hilo pt-4" /> : null}
         </Panel>
         {revision.length === 0 ? (
           <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES}</p>

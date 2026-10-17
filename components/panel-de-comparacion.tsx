@@ -1,14 +1,13 @@
 import { ProgresoDeReels } from "@/components/progreso-de-reels"
 import { Seccion } from "@/components/seccion"
-import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
-import type { PanelDeComparacion as Panel } from "@/lib/metricas/modelo"
+import type { PanelDeComparacion as Panel, TemaEnLista } from "@/lib/metricas/modelo"
 
-function Temas({ temas }: { temas: { pilar: keyof typeof NOMBRE_DE_PILAR; n: number }[] }) {
+function Temas({ temas }: { temas: TemaEnLista[] }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-apagado">
       {temas.map((tema) => (
-        <li key={tema.pilar}>
-          {NOMBRE_DE_PILAR[tema.pilar]} · {tema.n}
+        <li key={tema.pilar.slug}>
+          {tema.pilar.nombre} · {tema.n}
         </li>
       ))}
     </ul>
@@ -26,7 +25,7 @@ export function PanelDeComparacion({ panel }: { panel: Panel }) {
       <Seccion titulo={panel.titulo} id="comparacion">
         <ul className="grid gap-2 text-cuerpo">
           {panel.temas.map((tema) => (
-            <li key={tema.pilar}>{tema.texto}</li>
+            <li key={tema.pilar.slug}>{tema.texto}</li>
           ))}
         </ul>
         <p className="text-cuerpo">{panel.frase}</p>

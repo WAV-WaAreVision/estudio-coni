@@ -1,3 +1,4 @@
+import type { DatosDePilar } from "@/lib/dominio/pilares"
 import type { DatosDelMotor, ParDelMotor, TemaDelMotor } from "@/lib/motor/datos"
 import { claveDePar } from "@/lib/motor/datos"
 
@@ -12,8 +13,6 @@ export const PUENTE_MAX = 0.8
 export const CRUCES_POR_SEMANA = 8
 export const MAXIMO_CRUCES_POR_TEMA = 2
 export const MINIMO_CRUCES_PARA_NO_ARRANQUE_EN_FRIO = 3
-
-export const PILARES = ["pareja", "deseo", "autoestima", "limites", "bienestar"] as const
 
 const AUTORES_PARA_SOPORTE_MAXIMO = 8
 const AFIRMACIONES_PARA_SOPORTE_MAXIMO = 40
@@ -151,15 +150,16 @@ export function elegirTemasSolos(temas: TemaDelMotor[], contexto: ContextoDelPun
     .map(({ t }) => t)
 }
 
-export function reporteQueSubir(temas: TemaDelMotor[]): {
-  unSoloAutor: string[]
-  pilaresSinMaterial: string[]
-} {
+export function reporteQueSubir(
+  temas: TemaDelMotor[],
+  activos: readonly Pick<DatosDePilar, "slug">[],
+): { unSoloAutor: string[]; pilaresSinMaterial: string[] } {
   const unSoloAutor = temas
     .filter((t) => t.autores === 1 && t.afirmaciones >= AFIRMACIONES_MINIMAS_UN_SOLO_AUTOR)
     .sort((x, y) => y.afirmaciones - x.afirmaciones || porId(x.tema_id, y.tema_id))
     .slice(0, MAXIMO_UN_SOLO_AUTOR)
     .map((t) => t.nombre)
   const conMaterial = new Set(temas.map((t) => t.pilar))
-  return { unSoloAutor, pilaresSinMaterial: PILARES.filter((p) => !conMaterial.has(p)) }
+  // Slugs, not names: the ingesta's Semana names them from `categorias` and drops retired ones (amendment 13).
+  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.slug) }
 }

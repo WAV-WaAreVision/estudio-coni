@@ -10,17 +10,11 @@ import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { CLASES_DE_VOLVER } from "@/components/ui/volver"
 import type { Resultado } from "@/lib/acciones/resultado"
-import { NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 
-export const FORMATOS = [
-  "Mito o realidad",
-  "Tres señales",
-  "Ejercicio de la semana",
-  "Pregunta de la audiencia",
-  "Idea de sus libros",
-]
+export const FORMATOS = ["Mito o realidad", "Tres señales", "Pregunta de la audiencia"]
 
 const DESCRIPCION_DE_ALERTA: Record<(typeof TIPOS_DE_ALERTA)[number], string> = {
   "verificar dato": "Hay una cifra o un estudio que confirmar",
@@ -41,24 +35,26 @@ export interface IdeaConfirmada {
   gancho: string
   tema: string
   formato: string
-  pilar: Pilar
+  pilar: string
   alertas: Alerta[]
 }
 
 interface PropiedadesDeIdeaPropia {
   proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
+  /** The active pillars, in order: the only ones she can file an idea under. */
+  pilares: readonly PilarVisible[]
   alGuardar: () => void
   alVolver: () => void
 }
 
 type Paso = "escribir" | "confirmar"
 
-export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: PropiedadesDeIdeaPropia) {
+export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: PropiedadesDeIdeaPropia) {
   const [paso, setPaso] = useState<Paso>("escribir")
   const [gancho, setGancho] = useState("")
   const [tema, setTema] = useState("")
-  const [pilar, setPilar] = useState<Pilar | null>(null)
+  const [pilar, setPilar] = useState<string | null>(null)
   const [formato, setFormato] = useState(FORMATOS[0] ?? "")
   const [alertas, setAlertas] = useState<Partial<Record<(typeof TIPOS_DE_ALERTA)[number], string>>>({})
   const [error, setError] = useState<string | null>(null)
@@ -172,14 +168,14 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
 
           <fieldset className="elecciones grid">
             <legend className="mb-1 text-meta font-semibold">Pilar</legend>
-            {PILARES.map((candidato) => (
+            {pilares.map((candidato) => (
               <Eleccion
-                key={candidato}
+                key={candidato.slug}
                 nombre="pilar"
-                valor={candidato}
-                elegido={pilar === candidato}
-                etiqueta={NOMBRE_DE_PILAR[candidato]}
-                alElegir={() => setPilar(candidato)}
+                valor={candidato.slug}
+                elegido={pilar === candidato.slug}
+                etiqueta={candidato.nombre}
+                alElegir={() => setPilar(candidato.slug)}
               />
             ))}
           </fieldset>

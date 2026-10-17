@@ -70,7 +70,7 @@ export async function sembrarIdea(
   const { rows } = await pool.query<{ id: string }>(
     "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
     [
-      extra.pilar ?? "deseo",
+      extra.pilar ?? "practica-clinica",
       extra.gancho ?? "El deseo no se apaga, se esconde",
       JSON.stringify(extra.alertas ?? []),
       extra.numero ?? null,
@@ -86,7 +86,15 @@ export interface TeoriaSembrada {
   titulo: string
   tesis: string
   nivel: "alto" | "medio" | "debil"
-  respaldo: { autor: string; cita: string }[]
+  respaldo: {
+    autor: string
+    cita: string
+    titulo?: string
+    anio?: number
+    deConi?: boolean
+    /** `opinion` when absent. */
+    evidencia?: "estudio" | "clinica" | "opinion"
+  }[]
 }
 
 /** An idea the weekly engine wrote: with its theory and the claims behind it, as the engine leaves them. */
@@ -110,20 +118,23 @@ export async function sembrarIdeaDelMotor(extra: {
       "select id from public.categorias where slug = 'general'",
     )
     for (const [i, apoyo] of extra.teoria.respaldo.entries()) {
-      const { rows: autor } = await pool.query<{ id: string }>(
-        `insert into public.autores (nombre, tipo) values ($1, 'persona')
-         on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
-        [apoyo.autor],
-      )
+      // Coni's own claims reuse her one author row; anyone else is a seeded person.
+      const { rows: autor } = apoyo.deConi
+        ? await pool.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+        : await pool.query<{ id: string }>(
+            `insert into public.autores (nombre, tipo) values ($1, 'persona')
+             on conflict (nombre_normalizado) do update set nombre = excluded.nombre returning id`,
+            [apoyo.autor],
+          )
       const { rows: material } = await pool.query<{ id: string }>(
-        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por)
-         values ($1, 'documento', $2, 'siembra-motor', now(), $3) returning id`,
-        [autor[0]?.id, categoria[0]?.id, CONI],
+        `insert into public.materiales (autor_id, tipo, categoria_id, texto_pegado, declaracion_sin_pacientes_en, subido_por, titulo, anio)
+         values ($1, 'documento', $2, 'siembra-motor', now(), $3, $4, $5) returning id`,
+        [autor[0]?.id, categoria[0]?.id, CONI, apoyo.titulo ?? null, apoyo.anio ?? null],
       )
       const { rows: afirmacion } = await pool.query<{ id: string }>(
         `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia)
-         values ($1, $2, $3, '{}', 'texto', $4, 'consejo', 'opinion') returning id`,
-        [material[0]?.id, autor[0]?.id, i, apoyo.cita],
+         values ($1, $2, $3, '{}', 'texto', $4, 'consejo', $5) returning id`,
+        [material[0]?.id, autor[0]?.id, i, apoyo.cita, apoyo.evidencia ?? "opinion"],
       )
       await pool.query(
         "insert into public.teoria_afirmaciones (teoria_id, afirmacion_id, aporte) values ($1, $2, 'aporta')",
@@ -135,7 +146,7 @@ export async function sembrarIdeaDelMotor(extra: {
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado, origen, semana, teoria_id, numero)
      values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, 'motor', $5, $6, $7) returning id`,
     [
-      extra.pilar ?? "pareja",
+      extra.pilar ?? "ia-salud-mental",
       extra.gancho,
       JSON.stringify(extra.alertas ?? []),
       extra.estado ?? "idea",

@@ -20,7 +20,7 @@ test.beforeEach(async () => {
 })
 
 async function videoPorAprobar() {
-  const idea = await sembrarIdea({ pilar: "autoestima", gancho: "Ser tu propia diosa" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Ser tu propia diosa" })
   return sembrarPieza("video_por_aprobar", {
     titulo: "Ser tu propia diosa",
     idea_id: idea,
@@ -121,7 +121,7 @@ test("regrabar goes back to recording as a new attempt", async ({ page }) => {
 })
 
 test("a scheduled piece shows its date and lets her change it", async ({ page }) => {
-  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Si van a discutir" })
+  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Si van a discutir" })
   const id = await sembrarPieza("programado", { titulo: "Si van a discutir, siéntense del mismo lado", idea_id: idea })
 
   await page.goto(`/video/${id}`)

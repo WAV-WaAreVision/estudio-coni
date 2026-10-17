@@ -12,12 +12,13 @@ import {
   leerLinkedinConectado,
   leerPantallaDePieza,
 } from "@/lib/datos/pantallas"
+import { leerPilares } from "@/lib/datos/pilares"
 import { leerPublicaciones } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import { type Destino, destinosDe, destinosPorDefecto, nombreDeDestino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
-import { esPilar } from "@/lib/dominio/pilares"
+import { pilarVisible } from "@/lib/dominio/pilares"
 import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
@@ -26,7 +27,6 @@ import { detalleDeProgramado, detalleDePublicado } from "./detalle-programado"
 import { PantallaVideo } from "./pantalla-video"
 import { PorSubir } from "./por-subir"
 
-const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
 
 const UNA_HORA_MS = 60 * 60 * 1000
@@ -36,9 +36,10 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
   const { id } = await params
   if (!z.uuid().safeParse(id).success) notFound()
   const { db } = await exigirConi()
-  const pantalla = await leerPantallaDePieza(db, id)
+  const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
+  const pilar = pilarVisible(pilares, idea?.pilar)
 
   switch (fila.estado) {
     case "video_por_aprobar":
@@ -57,7 +58,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         )
         .map((p) => p.destino)
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="exito"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
@@ -84,7 +85,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       const publicaciones = await leerPublicaciones(db, fila.id)
       const pendientes = publicaciones.filter((p) => p.estado === "para_subir").map((p) => p.destino)
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="aviso"
             titulo={`Listo para que lo subas a ${nombreDeDestinos(pendientes)}`}
@@ -115,7 +116,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       const linkedinSolo = publicaciones.some((p) => p.destino === "linkedin" && p.estado === "publicado")
       const cierre = linkedinSolo ? detalleDePublicado(publicaciones) : null
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <MomentoDeCierre
             titulo="Subido a mano"
             detalle={cierre ? cierre.detalle : detalleDeSubida(subidas.map((p) => p.destino))}
@@ -132,7 +133,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     case "publicado": {
       const cierre = detalleDePublicado(await leerPublicaciones(db, fila.id))
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <MomentoDeCierre
             titulo="Ya se publicó"
             detalle={cierre.detalle}
@@ -144,7 +145,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     }
     case "error_publicacion":
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <LineaDeEstado
             tipo="error"
             titulo="No se pudo publicar"
@@ -173,7 +174,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       return redirect(`/guion/${fila.id}`)
     default:
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <p className="text-cuerpo text-apagado">Esta pieza ya no está en curso.</p>
         </EstadoSencillo>
       )
@@ -211,7 +212,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         id: fila.id,
         version: fila.version,
         titulo: fila.titulo,
-        pilar: esPilar(idea?.pilar) ? idea.pilar : null,
+        pilar,
         segundos: Math.round(estimarSegundos(fila.guion)),
         texto: fila.texto,
         textoLinkedin: fila.texto_linkedin,

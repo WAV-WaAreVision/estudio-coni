@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest"
+import { pilarVisible } from "@/lib/dominio/pilares"
 import { construirMetricas, type EntradaDeMetricas } from "@/lib/metricas/modelo"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const AHORA = Date.parse("2026-10-15T15:00:00.000Z") // Thursday 15 Oct 2026, 12:00 in Santiago
 
 function entrada(extra: Partial<EntradaDeMetricas> = {}): EntradaDeMetricas {
-  return { publicadas: [], lecturas: [], consultas: [], clics: [], zona: "America/Santiago", ahora: AHORA, ...extra }
+  return {
+    publicadas: [],
+    lecturas: [],
+    consultas: [],
+    clics: [],
+    zona: "America/Santiago",
+    ahora: AHORA,
+    pilares: PILARES_DE_PRUEBA,
+    ...extra,
+  }
 }
 
-function publicada(
-  id: string,
-  pilar: "pareja" | "autoestima" | "deseo" | null,
-  publicadoEn: string,
-  titulo = `Reel ${id}`,
-) {
+function publicada(id: string, pilar: string | null, publicadoEn: string, titulo = `Reel ${id}`) {
   return { id, titulo, pilar, publicadoEn }
 }
 
@@ -84,7 +90,7 @@ describe("construirMetricas", () => {
       cifra: "50,4",
       unidad: "cada 1.000",
       muestra: "121 guardados de 2.400 personas",
-      pilar: "pareja",
+      pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
       reelsDelTema: 2,
     })
     expect(modelo.barras[1]?.ancho).toBe(24)
@@ -139,8 +145,8 @@ describe("construirMetricas", () => {
       avance: 3,
       meta: 8,
       temas: [
-        { pilar: "autoestima", n: 3 },
-        { pilar: "pareja", n: 1 },
+        { pilar: pilarVisible(PILARES_DE_PRUEBA, "autoestima"), n: 3 },
+        { pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"), n: 1 },
       ],
     })
   })
@@ -156,7 +162,7 @@ describe("construirMetricas", () => {
     expect(modelo.comparacion).toMatchObject({
       tipo: "temprano",
       texto:
-        "Autoestima ya tiene 8 reels. Comparo cuando otro tema también llegue a 8; el siguiente lleva 2 de 8. Cuento los reels desde que cumplen una semana.",
+        'Autoestima y "ser tu propia diosa" ya tiene 8 reels. Comparo cuando otro tema también llegue a 8; el siguiente lleva 2 de 8. Cuento los reels desde que cumplen una semana.',
       avance: 2,
     })
   })
@@ -177,13 +183,29 @@ describe("construirMetricas", () => {
     const comparacion = modelo.comparacion
     if (comparacion?.tipo !== "comparable") throw new Error(`Se esperaba comparable y fue ${comparacion?.tipo}`)
     expect(comparacion.temas.map((t) => t.texto)).toEqual([
-      "Autoestima · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)",
+      'Autoestima y "ser tu propia diosa" · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)',
       "Pareja y conversación · 8 reels · promedio 11 cada 1.000 (entre 9,9 y 12,1)",
     ])
-    expect(comparacion.frase).toContain("Autoestima va por delante de Pareja y conversación por 10 cada 1.000")
+    expect(comparacion.frase).toContain(
+      'Autoestima y "ser tu propia diosa" va por delante de Pareja y conversación por 10 cada 1.000',
+    )
     expect(comparacion.frase).toContain("La diferencia es mayor que lo que varían tus reels entre sí.")
     expect(comparacion.cautela).toContain("lo ya publicado")
     expect(comparacion.cautela).toContain("últimos 7 días")
+  })
+
+  it("names a LinkedIn pillar from the catalog in what worked", () => {
+    const publicadas = [
+      ...Array.from({ length: 8 }, (_, i) => publicada(`c${i}`, "caso-coni", `2026-09-${10 + i}T22:00:00.000Z`)),
+      publicada("i0", "ia-salud-mental", "2026-10-06T22:00:00.000Z"),
+    ]
+    const modelo = construirMetricas(entrada({ publicadas, lecturas: publicadas.map((p) => lectura(p.id)) }))
+
+    expect(modelo.comparacion).toMatchObject({
+      tipo: "temprano",
+      texto: expect.stringMatching(/^Caso Coni: humana \+ avatar ya tiene 8 reels\./),
+    })
+    expect(modelo.barras.find((b) => b.piezaId === "i0")?.pilar?.nombre).toBe("IA y salud mental")
   })
 
   it("leaves the reels of the last seven days out of the comparison: their saves are still adding up", () => {
@@ -225,7 +247,7 @@ describe("construirMetricas", () => {
       {
         piezaId: "a",
         titulo: "Si van a discutir",
-        pilar: "pareja",
+        pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
         meta: "121 guardados · 2.400 de alcance · en promedio se vio 24 s",
       },
     ])

@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 import { leerBanco } from "@/lib/datos/banco"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
-import type { Database } from "@/lib/supabase/database.types"
-import { pool } from "./db"
+import { leerRespaldo } from "@/lib/datos/respaldo"
+import { lineaDeFuente } from "@/lib/dominio/fuente"
+import type { Database, Json } from "@/lib/supabase/database.types"
+import { como, comoServicio, pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
 import { sembrarCorrida, sembrarIdea, sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
 
@@ -115,6 +117,61 @@ describe("leerBanco con el motor", () => {
 
     expect(idea?.alertas).toEqual([{ tipo: "respaldo", texto: "respaldo débil" }])
     expect(idea?.porQue?.nivel).toBe("debil")
+  })
+
+  it("brings the source line of the claims still in force", async () => {
+    await sembrarCorrida(SEMANA)
+    await sembrarIdeaDelMotor({
+      gancho: "Con fuente",
+      semana: SEMANA,
+      teoria: {
+        ...TEORIA,
+        respaldo: [
+          {
+            autor: "Siembra Stanford",
+            cita: "La IA ya se usa para la salud mental.",
+            titulo: "AI for Mental Health",
+            anio: 2026,
+          },
+          { autor: "Siembra Excluida", cita: "Una afirmación que ya no vale." },
+        ],
+      },
+    })
+    await pool.query("update public.afirmaciones set excluida = true where cita = 'Una afirmación que ya no vale.'")
+
+    const [idea] = await leerBanco(coni, AHORA)
+
+    expect(idea?.porQue?.fuente).toBe("Fuente: Siembra Stanford · AI for Mental Health (2026)")
+    expect(idea?.porQue?.respaldo.map((r) => r.autor)).toEqual(["Siembra Stanford"])
+  })
+
+  it("names the same sources as the backing the script is written from, past its cap and evidence first", async () => {
+    await sembrarCorrida(SEMANA)
+    const opiniones = Array.from({ length: 12 }, (_, i) => ({
+      autor: `Siembra Opinión ${i}`,
+      cita: `Opinión ${i}`,
+      titulo: `Columna ${i}`,
+    }))
+    const estudios = ["A", "B"].map((letra) => ({
+      autor: `Siembra Estudio ${letra}`,
+      cita: `Estudio ${letra}`,
+      titulo: `Paper ${letra}`,
+      evidencia: "estudio" as const,
+    }))
+    const id = await sembrarIdeaDelMotor({
+      gancho: "Muchas fuentes",
+      semana: SEMANA,
+      teoria: { ...TEORIA, respaldo: [...opiniones, ...estudios] },
+    })
+    const respaldo = await como(comoServicio, async (c) => {
+      const { rows } = await c.query<{ r: Json }>("select public.respaldo_de_idea($1, 12) as r", [id])
+      return leerRespaldo(rows[0]?.r)
+    })
+
+    const [idea] = await leerBanco(coni, AHORA)
+
+    expect(idea?.porQue?.fuente).toMatch(/ y 10 más$/)
+    expect(idea?.porQue?.fuente).toBe(lineaDeFuente(respaldo?.afirmaciones ?? []))
   })
 
   it("has no theory for an idea that did not come from the engine", async () => {

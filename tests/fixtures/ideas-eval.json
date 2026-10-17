@@ -1,145 +1,126 @@
 [
   {
-    "numero": 2,
-    "pilar": "pareja",
-    "gancho": "Hay una palabra que enciende cualquier discusión de pareja.",
-    "tema": "Cambiar el '¿por qué hiciste eso?' por preguntas con 'qué' o 'cómo' para que una conversación difícil de pareja no empiece en defensa.",
-    "formato": "otro: una palabra que cambiar",
+    "numero": 1,
+    "pilar": "ia-salud-mental",
+    "gancho": "Una de cada cuatro personas ya usa IA para su salud mental.",
+    "tema": "Una muestra nacional presentada en el simposio AI for Mental Health de Stanford: la mitad de esas personas está en tratamiento y cuatro de cada diez tiene problemas de acceso. Lectura clínica: el chatbot está llenando un hueco.",
+    "formato": "otro: dato que sorprende",
     "fuerza": "alta",
     "alertas": [
       {
         "tipo": "verificar dato",
-        "texto": "La explicación sobre la infancia es una hipótesis de la fuente sin dato: no presentarla como hecho."
+        "texto": "Las cifras vienen de una sola muestra presentada en el simposio: decirlas como lo que mostró ese estudio, no como un hecho general."
       }
     ]
   },
   {
-    "numero": 21,
-    "pilar": "pareja",
-    "gancho": "Las parejas sanas también se hieren. Lo que cambia es la reparación.",
-    "tema": "Un vínculo sano no es el que nunca hiere, sino el que repara: reconocer el daño, hacerse cargo y volver a acercarse.",
+    "numero": 2,
+    "pilar": "ia-salud-mental",
+    "gancho": "Un modelo de lenguaje mide la depresión casi como un cuestionario, salvo en algo clave.",
+    "tema": "La correlación con el autorreporte es alta, pero el modelo trata el sueño y la ideación suicida distinto que el PHQ-9. Qué significa eso para tamizar.",
     "formato": "Mito o realidad",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "La correlación viene de un estudio presentado en el simposio: no presentarla como validación clínica."
+      },
+      {
+        "tipo": "líneas de ayuda",
+        "texto": "Toca la ideación suicida: tono cuidadoso y líneas de ayuda en la publicación."
+      }
+    ]
+  },
+  {
+    "numero": 3,
+    "pilar": "practica-clinica",
+    "gancho": "La IA en terapia debería aprender como los autos autónomos.",
+    "tema": "Primero tareas pequeñas, con la terapeuta al mando y pudiendo corregirla. Dónde sí ayuda hoy: tamizaje, práctica entre sesiones y listas de espera.",
+    "formato": "Tres señales",
+    "fuerza": "alta",
+    "alertas": [{ "tipo": "nota", "texto": "Hablar de la práctica en general, sin casos de consulta." }]
+  },
+  {
+    "numero": 4,
+    "pilar": "practica-clinica",
+    "gancho": "Un chatbot puede simular cercanía, pero no hace lo incómodo que una terapia necesita.",
+    "tema": "La relación clínica se usa para hacer lo incómodo que la persona necesita; un chatbot puede simular cercanía sin eso.",
+    "formato": "Mito o realidad",
+    "fuerza": "media",
+    "alertas": [
+      {
+        "tipo": "no es terapia",
+        "texto": "Educar sobre el vínculo terapéutico, sin aconsejar a alguien en particular."
+      }
+    ]
+  },
+  {
+    "numero": 5,
+    "pilar": "etica-regulacion",
+    "gancho": "Hay mil cuatrocientos dispositivos médicos con IA aprobados por la FDA, y ninguno es de psiquiatría.",
+    "tema": "La psiquiatría no tiene una verdad objetiva con la cual entrenar, y la regulación es anterior a la IA generativa. Abre la pregunta de qué pasa en Chile.",
+    "formato": "otro: dato que sorprende",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "La cifra de la FDA viene del simposio: confirmar el número y la fecha antes de grabar."
+      }
+    ]
+  },
+  {
+    "numero": 6,
+    "pilar": "etica-regulacion",
+    "gancho": "Las apps de bienestar emocional reciben datos de salud y casi nadie las regula.",
+    "tema": "Privacidad, consentimiento y qué revisar antes de recomendar una app de bienestar emocional.",
+    "formato": "Tres señales",
+    "fuerza": "media",
+    "alertas": [{ "tipo": "nota", "texto": "Sin nombrar apps ni empresas." }]
+  },
+  {
+    "numero": 7,
+    "pilar": "acceso-salud-publica",
+    "gancho": "Hay trece profesionales de salud mental por cada cien mil personas en el mundo.",
+    "tema": "Y menos de dos en los países de ingresos bajos y medios. La escasez explica el auge de los chatbots y obliga a pensar la IA como complemento de la atención.",
+    "formato": "otro: dato que sorprende",
+    "fuerza": "alta",
+    "alertas": [
+      {
+        "tipo": "verificar dato",
+        "texto": "Las cifras vienen del simposio: confirmar la fuente original antes de grabar."
+      }
+    ]
+  },
+  {
+    "numero": 8,
+    "pilar": "acceso-salud-publica",
+    "gancho": "Un contacto de confianza nombrado de antemano puede salvar una vida.",
+    "tema": "Cómo algunos sistemas de IA derivan a una persona en crisis, y qué podemos aprender de eso en la práctica clínica.",
+    "formato": "Ejercicio de la semana",
     "fuerza": "alta",
     "alertas": [
       {
         "tipo": "líneas de ayuda",
-        "texto": "Dejar claro que reparar aplica a roces, no a violencia: si hay miedo o control constante, derivar a ayuda."
+        "texto": "Toca el suicidio y las crisis: tono cuidadoso y líneas de ayuda en la publicación."
       }
     ]
   },
   {
-    "numero": 31,
-    "pilar": "deseo",
-    "gancho": "¿Tu deseo se apagó o tu cuerpo está en modo alerta?",
-    "tema": "El estrés sostenido pone al cuerpo en modo alerta y puede apagar el deseo: no siempre es falta de amor, a veces es falta de espacio interno. Distinguir deseo apagado de cuerpo en alerta y hablarlo en pareja sin culpa.",
-    "formato": "Mito o realidad",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "verificar dato",
-        "texto": "Se apoya en afirmaciones científicas de la fuente (sistema nervioso simpático, cortisol, libido) y en una cifra (90% o 91,4% de las preocupaciones nunca ocurre): Coni debe verificarlas o no usarlas. Hay otras causas del bajo deseo; sin consejos para casos particulares."
-      }
-    ]
-  },
-  {
-    "numero": 32,
-    "pilar": "deseo",
-    "gancho": "¿Por qué nos cuesta tanto decir 'vulva' en voz alta?",
-    "tema": "Llamar a las partes del cuerpo y a la sexualidad por su nombre (vulva, clítoris, pene) sin eufemismos: hablar claro baja la vergüenza y mejora la conversación sexual en pareja.",
-    "formato": "Ejercicio de la semana",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "nota",
-        "texto": "Mantener lenguaje educativo con nombres anatómicos, sin descripciones explícitas. La fuente habla de confianza social en general (ejemplos 'plata' y 'baño'): el puente a sexualidad es de Coni."
-      }
-    ]
-  },
-  {
-    "numero": 41,
-    "pilar": "autoestima",
-    "gancho": "Cuenta cuántas veces hoy te dijiste 'debería'.",
-    "tema": "Contar cuántos 'debería' y 'tengo que' te dices al día y detectar de quién es esa voz (mandatos sobre cómo ser mujer, madre o pareja), cambiándolos por 'elijo' o 'quiero'.",
-    "formato": "Ejercicio de la semana",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "verificar dato",
-        "texto": "Cita un estudio de 2015 (metas 'debería' frente a 'quiero') sin autor: verificar o no citarlo."
-      },
-      {
-        "tipo": "verificar dato",
-        "texto": "La fuente lo atribuye a la programación neurolingüística (sin respaldo científico sólido): no nombrarla. Cuidar que \"elijo\" no suene a culpar a la persona por límites reales (por ejemplo, crianza)."
-      }
-    ]
-  },
-  {
-    "numero": 45,
-    "pilar": "autoestima",
-    "gancho": "¿Quién te enseñó que cuidarte era egoísmo?",
-    "tema": "Autocuidado como preservarte (cuerpo, mente y emociones), no como capricho ni egoísmo; ligado al mandato de cuidar a todos antes que a una misma.",
-    "formato": "Mito o realidad",
+    "numero": 9,
+    "pilar": "caso-coni",
+    "gancho": "Uso un avatar de IA para divulgar. Esto es lo que decidí no delegarle.",
+    "tema": "Ella aprueba cada guion y cada video, el avatar se declara siempre y nunca contesta comentarios. Transparencia como práctica.",
+    "formato": "otro: detrás del avatar",
     "fuerza": "alta",
     "alertas": []
   },
   {
-    "numero": 81,
-    "pilar": "limites",
-    "gancho": "Tu 'sí' automático tiene un costo que nadie ve.",
-    "tema": "Responder 'déjame revisarlo y te aviso' en vez del 'sí' automático, para ganar tiempo antes de aceptar un pedido que no quieres o no puedes.",
-    "formato": "Ejercicio de la semana",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "verificar dato",
-        "texto": "La fuente afirma que basta demorar 50 a 100 milisegundos para decidir mejor: dato poco creíble, no citarlo. Los guiones son laborales; adaptar a familia y pareja."
-      }
-    ]
-  },
-  {
-    "numero": 98,
-    "pilar": "limites",
-    "gancho": "¿Un 'no' es un test o es simplemente un no?",
-    "tema": "Mito: que una mujer te ponga a prueba o te lleve la contra sea 'parte del juego'. Una incomodidad o un no son límites, no tests; y nadie necesita 'liderar' la interacción.",
-    "formato": "Mito o realidad",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "líneas de ayuda",
-        "texto": "Consentimiento y posible acoso: las fuentes normalizan 'probar' al hombre, 'el hombre lidera' y desviar con humor los temas serios de ella. Tratar con encuadre educativo, sin casos particulares; ante insistencia o violencia, mencionar líneas de ayuda."
-      }
-    ]
-  },
-  {
-    "numero": 108,
-    "pilar": "bienestar",
-    "gancho": "Cuando tu mente inventa lo peor, pídele pruebas.",
-    "tema": "Cuando la mente inventa lo peor: un ejercicio de cuatro pasos (qué pasó, qué sentiste, qué pensaste, qué podría pasar de verdad) para bajar la espiral de sobrepensar.",
-    "formato": "Ejercicio de la semana",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "no es terapia",
-        "texto": "Técnica de corte cognitivo-conductual: presentarla como ejercicio general, no como terapia. Si la ansiedad es intensa o persistente, sugerir consultar a un profesional."
-      }
-    ]
-  },
-  {
-    "numero": 119,
-    "pilar": "bienestar",
-    "gancho": "¿Dónde sientes la ansiedad en tu cuerpo? Ahí empieza.",
-    "tema": "Mapa corporal de la emoción: ubicar dónde sientes la rabia, el miedo o la ansiedad y ponerles nombre antes de reaccionar.",
-    "formato": "Ejercicio de la semana",
-    "fuerza": "alta",
-    "alertas": [
-      {
-        "tipo": "verificar dato",
-        "texto": "La fuente afirma localizaciones corporales por emoción y 'nombrar baja la tensión': afirmaciones científicas simplificadas, verificar. Lista 'depresión' y 'ansiedad' como emociones: no equivalen a un diagnóstico."
-      },
-      {
-        "tipo": "no es terapia",
-        "texto": "La fuente afirma localizaciones corporales por emoción y 'nombrar baja la tensión': afirmaciones científicas simplificadas, verificar. Lista 'depresión' y 'ansiedad' como emociones: no equivalen a un diagnóstico."
-      }
-    ]
+    "numero": 10,
+    "pilar": "caso-coni",
+    "gancho": "Lo que la complacencia de los chatbots me enseñó sobre mi propio avatar.",
+    "tema": "Los riesgos que muestra la evidencia, como validarlo todo o la dependencia, y los resguardos que tomó Coni.",
+    "formato": "otro: detrás del avatar",
+    "fuerza": "media",
+    "alertas": [{ "tipo": "nota", "texto": "Hablar de su experiencia con el avatar, sin casos de consulta." }]
   }
 ]

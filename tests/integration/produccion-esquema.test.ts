@@ -54,6 +54,18 @@ describe("guías", () => {
     })
   })
 
+  it("no trae los formatos de sexología ni la mirada de género como tono", async () => {
+    await como(comoPostgres, async (c) => {
+      const { rows } = await c.query<{ texto: string }>("select texto from public.guias where vigente")
+      const texto = rows[0]?.texto ?? ""
+      expect(texto).not.toContain("Ejercicio de la semana")
+      expect(texto).not.toContain("Idea de sus libros")
+      expect(texto).not.toContain("Mirada de género explícita")
+      expect(texto).toContain("- Nunca sermonea.")
+      expect(texto).toContain("La sexología no tiene pilar propio: aparece como mirada dentro de los pilares")
+    })
+  })
+
   it("admite una sola vigente", async () => {
     await como(comoServicio, async (c) => {
       const err = await fallaCon(c, "insert into public.guias (version, texto, vigente) values (2, 'otra', true)")

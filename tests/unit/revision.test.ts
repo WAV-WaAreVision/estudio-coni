@@ -23,7 +23,7 @@ import {
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
-const SIN_AJENO = { citas: [], autores: [], personas: [] }
+const SIN_AJENO = { citas: [], autores: [], personas: [], citadas: [], titulosCitados: [] }
 const CITA = "El deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días."
 
 // 91 words: inside the 75 to 150 range, ends with the fixed closing, no digits or symbols.
@@ -422,7 +422,7 @@ describe("revisarGuion con respaldo", () => {
     const hallazgos = revisar({
       guion: `${copia}. ${GUION}`,
       texto: `${copia}. ${TEXTO}`,
-      ajeno: { citas: [CITA], autores: [], personas: [] },
+      ajeno: { citas: [CITA], autores: [], personas: [], citadas: [], titulosCitados: [] },
     })
     const copias = hallazgos.filter((h) => h.regla === "copia_de_fuente")
     expect(copias).toEqual([
@@ -439,7 +439,7 @@ describe("revisarGuion con respaldo", () => {
   it("warns when an author of the backing is named", () => {
     const hallazgos = revisar({
       guion: `Según Esther Perel, ${GUION}`,
-      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"] },
+      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"], citadas: [], titulosCitados: [] },
     })
     expect(hallazgos.filter((h) => h.regla === "nombra_autor")).toEqual([
       {
@@ -453,6 +453,55 @@ describe("revisarGuion con respaldo", () => {
 
   it("adds nothing when there is no backing", () => {
     expect(revisar({ ajeno: SIN_AJENO })).toEqual([])
+  })
+
+  describe("cited sources", () => {
+    // "OMS" is too short to be looked for at all (four letters at least), so the cited source here is Stanford.
+    const AJENO = {
+      citas: [],
+      autores: ["Ana Pérez", "Stanford"],
+      personas: ["Ana Pérez"],
+      citadas: ["Stanford"],
+      titulosCitados: [],
+    }
+
+    it("still warns when the spoken script names a cited source", () => {
+      const h = revisar({ guion: `Según Stanford, hoy hablamos de esto. ${GUION}`, ajeno: AJENO })
+      expect(h.filter((x) => x.regla === "nombra_autor").map((x) => x.frase)).toEqual(["Stanford"])
+    })
+
+    it("accepts the cited source in the caption and warns on another backing author", () => {
+      const texto = `Lo dice Pérez.\n\nFuente: Stanford · Informe\n\n${AVISO_AVATAR}`
+      const nombrados = revisar({ texto, ajeno: AJENO }).filter((x) => x.regla === "nombra_autor")
+      expect(nombrados.map((x) => x.frase)).toEqual(["Pérez"])
+      expect(nombrados[0]?.mensaje).toBe(
+        "Aquí aparece el nombre de una fuente que no citas. Nómbrala solo si es una de las fuentes citadas.",
+      )
+    })
+
+    it("warns when the spoken script says a cited work's title, and lets the caption say it", () => {
+      const ajeno = { ...AJENO, titulosCitados: ["AI for Mental Health"] }
+      const enElGuion = revisar({ guion: `Lo muestra AI for Mental Health. ${GUION}`, ajeno })
+      expect(enElGuion.filter((x) => x.regla === "nombra_autor")).toEqual([
+        {
+          regla: "nombra_autor",
+          tipo: "advierte",
+          mensaje: "Aquí aparece el nombre de una fuente. En el reel no se nombran autores: dilo sin nombrarla.",
+          frase: "AI for Mental Health",
+        },
+      ])
+      const enElTexto = revisar({ texto: `Lo muestra AI for Mental Health. ${AVISO_AVATAR}`, ajeno })
+      expect(enElTexto.some((x) => x.regla === "nombra_autor")).toBe(false)
+    })
+
+    it("reports a phrase once when the script and the caption both name it", () => {
+      const nombrados = revisar({
+        guion: `Lo dice Pérez. ${GUION}`,
+        texto: `Lo dice Pérez. ${AVISO_AVATAR}`,
+        ajeno: AJENO,
+      }).filter((x) => x.regla === "nombra_autor")
+      expect(nombrados.map((x) => x.frase)).toEqual(["Pérez"])
+    })
   })
 
   it("reads stored findings of the new rules", () => {
@@ -702,8 +751,20 @@ describe("revisarTextoLinkedin", () => {
       expect(reglasDe(textoLinkedin({ gancho: `${GANCHO} ✅📌✅📌` }))).toEqual(["emojis_linkedin"])
     })
 
-    it("counts a keycap such as 1️⃣ as an emoji", () => {
-      expect(reglasDe(textoLinkedin({ gancho: "1️⃣ 2️⃣ 3️⃣ 4️⃣ cuatro pasos" }))).toContain("emojis_linkedin")
+    it.each(["1️⃣ Primero", "Paso 2⃣", "🔟 ideas"])("blocks a numbered emoji: %s", (linea) => {
+      const hallazgos = revisarLinkedin({ texto: `${OK}\n${linea}` })
+      const keycap = hallazgos.find((h) => h.regla === "formato_linkedin" && h.tipo === "bloquea")
+      expect(keycap?.mensaje).toBe(
+        "En LinkedIn las listas van con números normales («1.») o en prosa, sin emojis numerados.",
+      )
+    })
+
+    it("does not count a keycap again as one of the three emojis", () => {
+      expect(reglasDe(`${OK}\n✅ 📌 ✅ 1️⃣`)).not.toContain("emojis_linkedin")
+    })
+
+    it("leaves a plain numbered list alone", () => {
+      expect(reglasDe(`${OK}\n1. Primero\n2. Segundo`)).not.toContain("formato_linkedin")
     })
 
     it("warns for any emoji in a sensitive topic", () => {
@@ -839,8 +900,20 @@ describe("revisarTextoLinkedin", () => {
   })
 
   describe("what comes from the backing", () => {
+    it("accepts the cited source in the LinkedIn text", () => {
+      const ajeno = {
+        citas: [],
+        autores: ["Ana Pérez", "Stanford"],
+        personas: ["Ana Pérez"],
+        citadas: ["Stanford"],
+        titulosCitados: [],
+      }
+      const h = revisarLinkedin({ texto: `${OK}\nComo muestra Stanford en su informe.`, ajeno })
+      expect(h.some((x) => x.regla === "nombra_autor")).toBe(false)
+    })
+
     it("warns when an author of the backing is named or a quote is copied", () => {
-      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [] }
+      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [], citadas: [], titulosCitados: [] }
       const hallazgos = revisarLinkedin({
         texto: textoLinkedin({
           gancho: "Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.",

@@ -1,8 +1,8 @@
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 
 interface PropiedadesDeBarra {
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   /** 0 to 100. */
   ancho: number
   /** The figure at 24/600 («50,4»), its base («cada 1.000») and the sample it comes from. Null figure: no numbers yet. */
@@ -41,8 +41,14 @@ export function BarraDeMetrica({
       <span className="text-meta">{muestra ?? texto}</span>
       {pilar ? (
         <span className="text-meta text-apagado">
-          {NOMBRE_DE_PILAR[pilar]}
-          {reelsDelTema > 0 ? ` · ${reelsDelTema} ${reelsDelTema === 1 ? "reel" : "reels"} de este tema` : ""}
+          <span>{pilar.nombre}</span>
+          {reelsDelTema > 0 ? (
+            // The sample moves as a whole, so a long pillar name never leaves «tema» alone on a line.
+            <>
+              {" · "}
+              <span className="whitespace-nowrap">{`${reelsDelTema} ${reelsDelTema === 1 ? "reel" : "reels"} de este tema`}</span>
+            </>
+          ) : null}
         </span>
       ) : null}
     </li>

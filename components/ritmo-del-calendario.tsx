@@ -2,7 +2,6 @@ import Link from "next/link"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { ModeloDeCalendario } from "@/lib/calendario/modelo"
-import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 
 type Ritmo = ModeloDeCalendario["ritmo"]
@@ -73,7 +72,7 @@ function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; act
             title={celda.titulo}
             className={cn(CELDA, "bg-tinta font-semibold text-luz")}
           >
-            {celda.pilar ? nombreCorto(NOMBRE_DE_PILAR[celda.pilar]) : "Reel"}
+            {celda.pilar ? nombreCorto(celda.pilar.nombre) : "Reel"}
           </span>
         ) : (
           <span

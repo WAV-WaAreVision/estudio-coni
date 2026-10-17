@@ -1,6 +1,6 @@
 import { CaretRight, Warning } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 import { ICONO } from "./ui/icono"
 import { PuntoTrabajando } from "./ui/punto-trabajando"
@@ -11,7 +11,7 @@ interface PropiedadesDeFila {
   estado?: string
   /** A failure's cause, in a honda pill with the warning icon, in place of the state (Inicio, decision 8). */
   causa?: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   /** Without it the row is not a link (something is happening to the piece and there is nothing to do yet). */
   href?: string
   trabajando?: boolean
@@ -35,7 +35,7 @@ export function FilaPieza({
   const contenido = (
     <>
       <span className="grid min-w-0 gap-0.5">
-        {pilar ? <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[pilar]}</span> : null}
+        {pilar ? <span className="text-meta text-apagado">{pilar.nombre}</span> : null}
         <span className="text-cuerpo leading-[1.3] font-semibold">{titulo}</span>
         {causa ? (
           <span className="mt-1.5 inline-flex w-fit items-start gap-1.5 rounded-bloque bg-piedra-honda px-2.5 py-1 text-meta font-semibold">
@@ -67,7 +67,7 @@ export function FilaPieza({
   const clases = "relative grid min-h-fila grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 py-[14px] text-left"
 
   return (
-    <li data-pilar={pilar ?? undefined} className="list-none">
+    <li data-pilar={pilar?.slug} className="list-none">
       {href ? (
         <Link
           href={href}

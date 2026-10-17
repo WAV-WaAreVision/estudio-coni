@@ -1,16 +1,38 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { IdeasSemana } from "@/app/(app)/ideas-semana"
+import { pilarVisible } from "@/lib/dominio/pilares"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const IDEAS = [
-  { id: "i1", gancho: "¿Te achicas para que nadie se incomode?", pilar: "autoestima" as const },
-  { id: "i2", gancho: "Si van a discutir, siéntense del mismo lado.", pilar: "pareja" as const },
-  { id: "i3", gancho: "Un visto sin respuesta y ya imaginas lo peor.", pilar: "bienestar" as const },
-  { id: "i4", gancho: "Puedes decir que no sin explicaciones larguísimas.", pilar: "limites" as const },
-  { id: "i5", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?", pilar: "deseo" as const },
+  { id: "i1", gancho: "¿Te achicas para que nadie se incomode?", pilar: pilarVisible(PILARES_DE_PRUEBA, "autoestima") },
+  {
+    id: "i2",
+    gancho: "Si van a discutir, siéntense del mismo lado.",
+    pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
+  },
+  {
+    id: "i3",
+    gancho: "Un visto sin respuesta y ya imaginas lo peor.",
+    pilar: pilarVisible(PILARES_DE_PRUEBA, "bienestar"),
+  },
+  {
+    id: "i4",
+    gancho: "Puedes decir que no sin explicaciones larguísimas.",
+    pilar: pilarVisible(PILARES_DE_PRUEBA, "limites"),
+  },
+  {
+    id: "i5",
+    gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?",
+    pilar: pilarVisible(PILARES_DE_PRUEBA, "deseo"),
+  },
 ]
 
-const EXTRA = { id: "i6", gancho: "Descansar también es avanzar, aunque no se note.", pilar: "bienestar" as const }
+const EXTRA = {
+  id: "i6",
+  gancho: "Descansar también es avanzar, aunque no se note.",
+  pilar: pilarVisible(PILARES_DE_PRUEBA, "bienestar"),
+}
 
 function elegir(...ganchos: string[]) {
   for (const gancho of ganchos) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(gancho.slice(0, 20)) }))

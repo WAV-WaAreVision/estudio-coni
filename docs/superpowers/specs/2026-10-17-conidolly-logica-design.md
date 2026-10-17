@@ -102,9 +102,10 @@ Ideas
    `descripcion` takes the one-line description of the PDF. The old five get `activa = false`, `es_pilar = true`
    (kept: materials, topics and used ideas point at them). `general` stays `es_pilar = false`.
 3. **`ideas.pilar` becomes `text references categorias(slug)`**; `public.pilar` is dropped. Ideas still in the bank
-   (`estado = 'idea'`) whose pillar is inactive are discarded with a new motive `pilar_retirado` (added to
-   `descartar_idea`'s list and to the motive check); used ideas keep their old slug. A trigger rejects a new idea
-   whose category is not an active pillar.
+   (`estado = 'idea'`) whose pillar is inactive are discarded with a new motive `pilar_retirado`, added only to the
+   motive check: it is a system motive, set by the postgres-only `archivar_ideas_de_pilares_retirados()`, and
+   `descartar_idea` (Coni's) does not offer it. Used ideas keep their old slug. A trigger rejects a new idea, or a
+   change of pillar, whose category is not an active pillar.
 4. **Re-classification, once.** `scripts/reclasificar-pilares.ts` asks Claude to place every material, topic and
    claim of an inactive or `general` category into one of the five, writes a CSV for WAV
    (`id, tipo, antes, propuesta, razon`) and applies only with `--aplicar`. Unplaced items go to `general`. Cost

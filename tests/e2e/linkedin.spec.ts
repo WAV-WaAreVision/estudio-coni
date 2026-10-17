@@ -28,7 +28,7 @@ async function sinInstagram() {
 }
 
 async function videoPorAprobar(textoLinkedin: string | null) {
-  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
   return sembrarPieza(
     "video_por_aprobar",
     {
@@ -200,7 +200,7 @@ test("Ajustes chooses where reels are published by default and keeps at least on
 })
 
 test("the Guion screen shows the LinkedIn text read only, and its findings do not stop gate 1", async ({ page }) => {
-  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
   const id = await sembrarPieza(
     "guion_por_aprobar",
     { titulo: "Llevan diez años juntos", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
@@ -225,13 +225,13 @@ test("the Guion screen shows the LinkedIn text read only, and its findings do no
 })
 
 test("Inicio says which network a reel waits for, with a LinkedIn item pending", async ({ page }) => {
-  const idea = await sembrarIdea({ pilar: "pareja", gancho: "Solo en LinkedIn" })
+  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Solo en LinkedIn" })
   await sembrarPieza(
     "para_subir_a_mano",
     { titulo: "Solo en LinkedIn", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
     { destinos: ["linkedin"], textoLinkedin: TEXTO_LINKEDIN_VALIDO },
   )
-  const otraIdea = await sembrarIdea({ pilar: "deseo", gancho: "En las dos redes" })
+  const otraIdea = await sembrarIdea({ pilar: "practica-clinica", gancho: "En las dos redes" })
   await sembrarPieza(
     "para_subir_a_mano",
     { titulo: "En las dos redes", idea_id: otraIdea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },

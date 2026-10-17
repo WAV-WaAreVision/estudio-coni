@@ -126,7 +126,11 @@ async function auditar(page: Page, lista: string[], antes?: (page: Page) => Prom
 /** The states v6 draws that the scene does not: a voice that failed, Inicio with failures and a missed time. */
 async function estadosNuevos(): Promise<string[]> {
   const { video } = await sembrarEscena()
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde", estado: "usada" })
+  const idea = await sembrarIdea({
+    pilar: "practica-clinica",
+    gancho: "El deseo no se apaga, se esconde",
+    estado: "usada",
+  })
   const fallaDeVoz = await sembrarPieza("guion_por_aprobar", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,
@@ -148,6 +152,16 @@ test("the new states pass WCAG 2.x AA: a failed voice, an empty wallet, Inicio w
   const { guion } = await sembrarEscena()
   hallazgos.push(...(await auditar(page, [`/guion/${guion}`])))
   expect(hallazgos).toEqual([])
+})
+
+test("the source line on the idea card and at gate 1 passes WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  const { guion } = await sembrarEscena()
+  for (const ruta of ["/ideas", `/guion/${guion}`]) {
+    await page.goto(ruta)
+    await expect(page.getByText(/^Fuente: (Siembra )?Stanford · AI for Mental Health \(2026\)$/)).toBeVisible()
+  }
+  expect(await auditar(page, ["/ideas", `/guion/${guion}`])).toEqual([])
 })
 
 test("every screen passes WCAG 2.x AA at large text", async ({ page }) => {

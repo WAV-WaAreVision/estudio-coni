@@ -197,7 +197,8 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
   const resultado: ResultadoFormacion = { tope: false, creados: 0, unidos: 0, pendientes: pendientes.size }
   if (grupos.length === 0) return resultado
 
-  const { data: categorias, error: errorCategorias } = await db.from("categorias").select("id, slug")
+  // Only active categories: a retired pillar is neither offered to Claude nor stored if Claude answers with it.
+  const { data: categorias, error: errorCategorias } = await db.from("categorias").select("id, slug").eq("activa", true)
   if (errorCategorias) throw falloDeBase("No pude leer los pilares", errorCategorias)
   const categoriaDe = new Map(categorias.map((c) => [c.slug, c.id]))
   const pilares = categorias.map((c) => c.slug)

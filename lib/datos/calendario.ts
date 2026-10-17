@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PiezaDeCalendario } from "@/lib/calendario/modelo"
+import { leerPilares } from "@/lib/datos/pilares"
 import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
 import type { Estado } from "@/lib/dominio/estados"
 import type { Horario } from "@/lib/dominio/fechas"
+import type { CatalogoDePilares } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -18,9 +20,14 @@ const DIAS_DE_HISTORIA = 35
 export async function leerDatosDeCalendario(
   db: Db,
   ahora: number,
-): Promise<{ piezas: PiezaDeCalendario[]; horario: Horario; primeraPublicacion: string | null }> {
+): Promise<{
+  piezas: PiezaDeCalendario[]
+  horario: Horario
+  primeraPublicacion: string | null
+  pilares: CatalogoDePilares
+}> {
   const desde = new Date(ahora - DIAS_DE_HISTORIA * 86_400_000).toISOString()
-  const [piezas, ajustes, primera] = await Promise.all([
+  const [piezas, ajustes, primera, pilares] = await Promise.all([
     db
       .from("piezas")
       .select(
@@ -40,6 +47,7 @@ export async function leerDatosDeCalendario(
       .order("puerta2_publicar_en", { ascending: true })
       .limit(1)
       .maybeSingle(),
+    leerPilares(db),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas del calendario", piezas.error)
   if (ajustes.error) throw fallo("No pude leer los horarios", ajustes.error)
@@ -57,6 +65,7 @@ export async function leerDatosDeCalendario(
       pendientes: pendientesDe(fila.publicaciones),
     })),
     primeraPublicacion: primera.data?.puerta2_publicar_en ?? null,
+    pilares,
     horario: {
       dias: ajustes.data?.dias_publicacion ?? [2, 4, 6],
       hora: ajustes.data?.hora_publicacion ?? "19:00",

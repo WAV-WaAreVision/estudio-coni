@@ -14,6 +14,9 @@ const esquema = z.object({
       autor: z.string(),
       deConi: z.boolean(),
       esPersona: z.boolean(),
+      fuente: z
+        .object({ autor: z.string(), titulo: z.string().nullable(), anio: z.number().int().nullable() })
+        .optional(),
     }),
   ),
 })
@@ -41,6 +44,9 @@ export function respaldoAJson(respaldo: Respaldo | null): Json | null {
       autor: a.autor,
       deConi: a.deConi,
       esPersona: a.esPersona,
+      ...(a.fuente === undefined
+        ? {}
+        : { fuente: { autor: a.fuente.autor, titulo: a.fuente.titulo, anio: a.fuente.anio } }),
     })),
   }
 }

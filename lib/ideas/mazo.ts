@@ -1,11 +1,12 @@
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import type { Alerta } from "@/lib/dominio/revision"
 
 /** An idea of the bank as the Banco screen needs it. */
 export interface IdeaDeBanco {
   id: string
   numero: number | null
-  pilar: Pilar
+  pilar: string
+  /** The pillar's name from the catalog: the search finds an idea by it. */
+  nombrePilar: string
   gancho: string
   tema: string
   formato: string
@@ -28,11 +29,13 @@ export interface PorQueDeIdea {
   tesis: string
   nivel: NivelDeEvidencia | null
   respaldo: { autor: string; cita: string }[]
+  /** "Fuente: ..." or "De Coni"; null when no claim says where it comes from. */
+  fuente: string | null
 }
 
 export interface FiltroDeIdeas {
   texto: string
-  pilar: Pilar | null
+  pilar: string | null
   soloFuerzaAlta: boolean
   soloSinAlertas: boolean
   soloSinUsar: boolean
@@ -49,7 +52,7 @@ function plano(texto: string): string {
 function coincide(idea: IdeaDeBanco, texto: string): boolean {
   const numero = /^#\s*(\d+)$/.exec(texto)
   if (numero) return idea.numero === Number(numero[1])
-  const paja = plano([idea.gancho, idea.tema, idea.formato, NOMBRE_DE_PILAR[idea.pilar]].join(" "))
+  const paja = plano([idea.gancho, idea.tema, idea.formato, idea.nombrePilar].join(" "))
   return texto.split(/\s+/).every((palabra) => paja.includes(palabra))
 }
 

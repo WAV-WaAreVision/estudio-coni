@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { nombreDePilar } from "@/lib/dominio/pilares"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
   return {
@@ -15,6 +17,7 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     nueva: false,
     porQue: null,
     ...parcial,
+    nombrePilar: nombreDePilar(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja"),
   }
 }
 
@@ -54,6 +57,11 @@ describe("buscarIdeas", () => {
 
   it("finds a pillar by the name Coni knows it by", () => {
     expect(buscarIdeas(BANCO, { ...sinFiltro, texto: "deseo y sexualidad" }).map((i) => i.id)).toEqual(["a"])
+  })
+
+  it("finds an idea by its pillar's name from the catalog", () => {
+    const propia = idea({ id: "e", pilar: "caso-coni", gancho: "Uso un avatar." })
+    expect(buscarIdeas([...BANCO, propia], { ...sinFiltro, texto: "humana" }).map((i) => i.id)).toEqual(["e"])
   })
 
   it("finds an idea by its number", () => {

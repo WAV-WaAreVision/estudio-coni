@@ -18,7 +18,7 @@ import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
-import { leerFila, sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
+import { leerFila, sembrarIdeaDelMotor, type TeoriaSembrada, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -143,7 +143,7 @@ const ideasCreadas: string[] = []
 async function crearPiezaEnProduccion(alertas: Alerta[] = []): Promise<string> {
   const idea = await pool.query<{ id: string }>(
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas)
-     values ('pareja', 'Hay una palabra que enciende cualquier discusión de pareja.', 'Cambiar el por qué por un qué.',
+     values ('ia-salud-mental', 'Hay una palabra que enciende cualquier discusión de pareja.', 'Cambiar el por qué por un qué.',
              'Ejercicio de la semana', 'alta', $1::jsonb) returning id`,
     [JSON.stringify(alertas)],
   )
@@ -269,6 +269,50 @@ describe("producirPieza", () => {
     expect(almacen.obtener(toma)?.datos).toEqual(AUDIO)
     expect(sim.escrituras).toHaveLength(1)
     expect(sim.revisiones).toHaveLength(1)
+  })
+
+  it("names a retired pillar without its description, which no longer guides the writing", async () => {
+    const { rows: antes } = await pool.query<{ descripcion: string | null }>(
+      "select descripcion from public.categorias where slug = 'pareja'",
+    )
+    await pool.query("update public.categorias set descripcion = 'Una descripción de antes' where slug = 'pareja'")
+    // A used idea of a pillar retired after it was written: the trigger refuses a new one, so it is seeded around it.
+    const cliente = await pool.connect()
+    let ideaId: string | undefined
+    try {
+      await cliente.query("set session_replication_role = replica")
+      const { rows } = await cliente.query<{ id: string }>(
+        `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado)
+         values ('pareja', 'Una idea de antes', 'tema', 'Mito o realidad', 'alta', '[]', 'usada') returning id`,
+      )
+      ideaId = rows[0]?.id
+    } finally {
+      await cliente.query("reset session_replication_role")
+      cliente.release()
+    }
+    if (!ideaId) throw new Error("No se creó la idea")
+    ideasCreadas.push(ideaId)
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into public.piezas (idea_id, titulo) values ($1, 'Pilar retirado') returning id",
+      [ideaId],
+    )
+    const id = rows[0]?.id
+    if (!id) throw new Error("No se creó la pieza")
+    piezasCreadas.push(id)
+    await pool.query("update public.piezas set estado = 'guion_en_proceso', version = 1 where id = $1", [id])
+    const sim = simular()
+
+    try {
+      await producirPieza(deps(), id)
+    } finally {
+      await pool.query("update public.categorias set descripcion = $1 where slug = 'pareja'", [
+        antes[0]?.descripcion ?? null,
+      ])
+    }
+
+    const pedido = sim.escrituras[0]?.messages[0]?.content ?? ""
+    expect(pedido).toContain("Pilar: Pareja y conversación\n")
+    expect(pedido).not.toContain("Una descripción de antes")
   })
 
   it("records the Claude spend at its real cost and the voice at its estimate", async () => {
@@ -695,7 +739,12 @@ describe("producirPieza", () => {
 
 const CITA_AJENA = "el deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días"
 
-async function crearPiezaDelMotor(): Promise<string> {
+const RESPALDO_DEL_MOTOR: TeoriaSembrada["respaldo"] = [
+  { autor: "Siembra Esther Prueba", cita: CITA_AJENA },
+  { autor: "Siembra Luis Soto", cita: "la rutina apaga lo que no se nombra" },
+]
+
+async function crearPiezaDelMotor(respaldo = RESPALDO_DEL_MOTOR): Promise<string> {
   const ideaId = await sembrarIdeaDelMotor({
     gancho: "El deseo se esconde",
     semana: "2026-09-27",
@@ -703,10 +752,7 @@ async function crearPiezaDelMotor(): Promise<string> {
       titulo: "El deseo se cuida",
       tesis: "El deseo baja con la rutina.",
       nivel: "medio",
-      respaldo: [
-        { autor: "Siembra Esther Prueba", cita: CITA_AJENA },
-        { autor: "Siembra Luis Soto", cita: "la rutina apaga lo que no se nombra" },
-      ],
+      respaldo,
     },
   })
   const { rows } = await pool.query<{ id: string }>(
@@ -731,9 +777,44 @@ describe("producirPieza con una idea del motor", () => {
     expect(pedido).toContain("<respaldo>")
     expect(pedido).toContain("El deseo baja con la rutina.")
     expect(pedido).toContain(CITA_AJENA)
-    expect(pedido).not.toContain("Siembra Esther Prueba")
+    // The backing the script is written from carries no names; only the LinkedIn sources do.
+    const bloque = pedido.slice(pedido.indexOf("<respaldo>"), pedido.indexOf("</respaldo>"))
+    expect(bloque).not.toContain("Siembra Esther Prueba")
+    const fuentes = pedido.slice(pedido.indexOf("FUENTES QUE PUEDES CITAR EN LINKEDIN"))
+    expect(fuentes).toContain("\n- Siembra Esther Prueba\n")
+    expect(fuentes).toContain("\n- Siembra Luis Soto\n")
     const respaldo = leerRespaldo((await leerFila(id)).respaldo)
     expect(respaldo?.afirmaciones.map((a) => a.autor).sort()).toEqual(["Siembra Esther Prueba", "Siembra Luis Soto"])
+  })
+
+  it("signs the caption with the source line right before the avatar notice and freezes the source", async () => {
+    const id = await crearPiezaDelMotor([
+      {
+        autor: "Siembra Stanford",
+        cita: "la ia ya se usa para la salud mental",
+        titulo: "AI for Mental Health",
+        anio: 2026,
+      },
+    ])
+    const sim = simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: `Hablemos de esto, como dice Siembra Stanford. ${AVISO_AVATAR}` }),
+    })
+
+    await producirPieza(deps(), id)
+
+    const fila = await leerFila(id)
+    expect(fila.texto).toBe(
+      `Hablemos de esto, como dice Siembra Stanford.\n\nFuente: Siembra Stanford · AI for Mental Health (2026)\n\n${AVISO_AVATAR}`,
+    )
+    expect(leerRespaldo(fila.respaldo)?.afirmaciones[0]?.fuente).toEqual({
+      autor: "Siembra Stanford",
+      titulo: "AI for Mental Health",
+      anio: 2026,
+    })
+    expect(fila.revision).not.toEqual(expect.arrayContaining([expect.objectContaining({ regla: "nombra_autor" })]))
+    const pedido = sim.escrituras[0]?.messages[0]?.content ?? ""
+    expect(pedido).toContain("- Siembra Stanford · AI for Mental Health (2026)")
+    expect(pedido).toContain("Pilar: IA y salud mental (")
   })
 
   it("warns, without blocking, when the draft copies 8 words of a quote", async () => {
@@ -863,6 +944,20 @@ describe("producirPieza: el texto para LinkedIn", () => {
     expect(sim.escrituras[1]?.messages[0]?.content).toContain("CORRECCIONES")
     expect(sim.escrituras[1]?.messages[0]?.content).toContain("El texto para LinkedIn tiene que avisar")
     expect(await leerFila(id)).toMatchObject({ texto_linkedin: LINKEDIN_BUENO, revision: [] })
+  })
+
+  it("asks Claude to rewrite a numbered emoji in the LinkedIn text and stores the plain list", async () => {
+    const id = await crearPiezaEnProduccion()
+    const conLista = (marca: string) =>
+      LINKEDIN_BUENO.replace("¿En qué momento", `${marca} Primero, mira tu rutina.\n\n¿En qué momento`)
+    const sim = simular({
+      borrador: (n) => ({ guion: GUION_BUENO, texto: TEXTO_BUENO, textoLinkedin: conLista(n === 0 ? "1️⃣" : "1.") }),
+    })
+
+    await producirPieza(deps(), id)
+
+    expect(sim.escrituras).toHaveLength(2)
+    expect(await leerFila(id)).toMatchObject({ texto_linkedin: conLista("1."), revision: [] })
   })
 
   it("leaves a LinkedIn finding that still blocks after the correction round for Coni, with its field", async () => {

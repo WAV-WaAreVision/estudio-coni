@@ -14,10 +14,20 @@ import {
   revisarConClaude,
   type UsoClaude,
 } from "@/lib/proveedores/anthropic"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
-interface IdeaDeEval extends IdeaParaGuion {
+/** As `ideas-eval.json` stores it: the pillar is a slug. */
+interface IdeaDeEval extends Omit<IdeaParaGuion, "pilar"> {
   numero: number
+  pilar: string
   alertas: Alerta[]
+}
+
+/** The pillar as the writer reads it, from the test catalog. */
+function paraElEscritor(idea: IdeaDeEval): IdeaParaGuion {
+  const pilar = PILARES_DE_PRUEBA.find((candidato) => candidato.slug === idea.pilar)
+  if (!pilar) throw new Error(`La idea ${idea.numero} del eval tiene un pilar que no existe: ${idea.pilar}`)
+  return { ...idea, pilar: { nombre: pilar.nombre, descripcion: pilar.descripcion } }
 }
 
 function leer(archivo: string): string {
@@ -46,7 +56,14 @@ async function escribirConUnaCorreccion(cliente: Anthropic, idea: IdeaDeEval) {
   const revisar = (guion: string, texto: string) =>
     revisarGuion({ guion, texto, esAvatar: true, requiereLineasAyuda, ajeno: ajenoDelRespaldo(null) })
 
-  let escrito = await escribirGuion({ cliente, guia: GUIA, idea, respaldo: null, requiereLineasAyuda })
+  let escrito = await escribirGuion({
+    cliente,
+    guia: GUIA,
+    idea: paraElEscritor(idea),
+    respaldo: null,
+    fuentes: [],
+    requiereLineasAyuda,
+  })
   gasto(escrito.uso)
   let hallazgos = revisar(escrito.guion, escrito.texto)
   let correcciones = 0
@@ -55,8 +72,9 @@ async function escribirConUnaCorreccion(cliente: Anthropic, idea: IdeaDeEval) {
     escrito = await escribirGuion({
       cliente,
       guia: GUIA,
-      idea,
+      idea: paraElEscritor(idea),
       respaldo: null,
+      fuentes: [],
       requiereLineasAyuda,
       correcciones: hallazgos,
     })

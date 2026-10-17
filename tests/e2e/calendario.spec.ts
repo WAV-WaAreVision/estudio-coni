@@ -25,7 +25,7 @@ test("Inicio links to the calendar, which opens on the month with today marked",
 })
 
 test("a scheduled piece shows up among the next ones of the month", async ({ page }) => {
-  await pieza("programado", "Si van a discutir, siéntense del mismo lado", "pareja")
+  await pieza("programado", "Si van a discutir, siéntense del mismo lado", "ia-salud-mental")
 
   await page.goto("/calendario")
 
@@ -39,9 +39,9 @@ test("a scheduled piece shows up among the next ones of the month", async ({ pag
 test("the agenda places what is on its way in the next slots and leaves the rest free, linking to the ideas", async ({
   page,
 }) => {
-  const video = await pieza("video_por_aprobar", "Ser tu propia diosa", "autoestima")
-  const guion = await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "deseo")
-  await pieza("guion_en_proceso", "Cuando tu mente inventa lo peor", "bienestar")
+  const video = await pieza("video_por_aprobar", "Ser tu propia diosa", "etica-regulacion")
+  const guion = await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "practica-clinica")
+  await pieza("guion_en_proceso", "Cuando tu mente inventa lo peor", "caso-coni")
 
   await page.goto("/calendario")
   await page.getByRole("link", { name: "Agenda" }).click()
@@ -65,7 +65,7 @@ test("the agenda places what is on its way in the next slots and leaves the rest
 test("the rhythm shows the last four weeks by the days of the schedule and has no advice without history", async ({
   page,
 }) => {
-  await pieza("programado", "Un reel", "limites")
+  await pieza("programado", "Un reel", "acceso-salud-publica")
 
   await page.goto("/calendario?vista=ritmo")
 

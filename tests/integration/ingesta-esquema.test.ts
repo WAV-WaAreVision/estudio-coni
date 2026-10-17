@@ -46,19 +46,24 @@ async function crearFicha(c: Cliente, materialId: string): Promise<void> {
 }
 
 describe("categorias", () => {
-  it("is seeded with the six categories and no author", async () => {
+  it("is seeded with the six categories and the five LinkedIn pillars, with no author", async () => {
     await como(comoConi, async (c) => {
       const { rows } = await c.query<{ slug: string; nombre: string; creada_por: string | null }>(
         "select slug, nombre, creada_por from public.categorias order by slug",
       )
       expect(rows).toEqual(
         [
+          { slug: "acceso-salud-publica", nombre: "Acceso y salud pública" },
           { slug: "autoestima", nombre: 'Autoestima y "ser tu propia diosa"' },
           { slug: "bienestar", nombre: "Bienestar emocional" },
+          { slug: "caso-coni", nombre: "Caso Coni: humana + avatar" },
           { slug: "deseo", nombre: "Deseo y sexualidad" },
+          { slug: "etica-regulacion", nombre: "Ética y regulación" },
           { slug: "general", nombre: "General" },
+          { slug: "ia-salud-mental", nombre: "IA y salud mental" },
           { slug: "limites", nombre: "Género y límites" },
           { slug: "pareja", nombre: "Pareja y conversación" },
+          { slug: "practica-clinica", nombre: "Práctica clínica aumentada" },
         ].map((f) => ({ ...f, creada_por: null })),
       )
     })

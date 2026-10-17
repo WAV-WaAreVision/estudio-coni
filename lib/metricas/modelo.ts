@@ -14,14 +14,15 @@ import {
   sumarDias,
   UMBRAL_DE_REELS,
 } from "@/lib/dominio/metricas"
-import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
+import { type CatalogoDePilares, nombreDePilar, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
 
 // The Métricas screen as data: every sentence Coni reads is decided here, so it can be tested without a browser.
 
 export interface PiezaPublicada {
   id: string
   titulo: string
-  pilar: Pilar | null
+  /** The slug of its idea's pillar. */
+  pilar: string | null
   /** The approved publishing time, as an ISO instant. */
   publicadoEn: string
 }
@@ -46,12 +47,13 @@ export interface EntradaDeMetricas {
   clics: readonly { dia: string; clics: number }[]
   zona: string
   ahora: number
+  pilares: CatalogoDePilares
 }
 
 export interface Barra {
   piezaId: string
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   porMil: number | null
   /** 0 to 100, scaled to the best bar that is visible. */
   ancho: number
@@ -65,7 +67,7 @@ export interface Barra {
 }
 
 export interface TemaEnLista {
-  pilar: Pilar
+  pilar: PilarVisible
   n: number
 }
 
@@ -75,7 +77,7 @@ export type PanelDeComparacion =
   | {
       tipo: "comparable"
       titulo: string
-      temas: { pilar: Pilar; texto: string }[]
+      temas: { pilar: PilarVisible; texto: string }[]
       frase: string
       cautela: string
       pendientes: TemaEnLista[]
@@ -84,7 +86,7 @@ export type PanelDeComparacion =
 export interface ReelDeSemana {
   piezaId: string
   titulo: string
-  pilar: Pilar | null
+  pilar: PilarVisible | null
   meta: string
 }
 
@@ -172,7 +174,9 @@ function etiquetaDelDia(dia: string): string {
   return texto.replace(",", "")
 }
 
-function panelDeComparacion(comparacion: Comparacion): PanelDeComparacion {
+function panelDeComparacion(comparacion: Comparacion, pilares: CatalogoDePilares): PanelDeComparacion {
+  const enLista = (temas: readonly { pilar: string; n: number }[]): TemaEnLista[] =>
+    temas.map(({ pilar, n }) => ({ pilar: pilarVisible(pilares, pilar), n }))
   if (comparacion.estado === "sin_reels") {
     return {
       tipo: "sin_numeros",
@@ -182,7 +186,7 @@ function panelDeComparacion(comparacion: Comparacion): PanelDeComparacion {
   }
   if (comparacion.estado === "temprano") {
     const [lider, segundo] = comparacion.temas
-    const nombre = lider ? NOMBRE_DE_PILAR[lider.pilar] : ""
+    const nombre = lider ? nombreDePilar(pilares, lider.pilar) : ""
     const yaLlego = (lider?.n ?? 0) >= UMBRAL_DE_REELS
     const avance = yaLlego ? (segundo?.n ?? 0) : (lider?.n ?? 0)
     const texto = yaLlego
@@ -194,26 +198,26 @@ function panelDeComparacion(comparacion: Comparacion): PanelDeComparacion {
       texto,
       avance,
       meta: UMBRAL_DE_REELS,
-      temas: comparacion.temas.map(({ pilar, n }) => ({ pilar, n })),
+      temas: enLista(comparacion.temas),
     }
   }
   const { diferencia } = comparacion
-  const mayor = NOMBRE_DE_PILAR[diferencia.mayor]
-  const menor = NOMBRE_DE_PILAR[diferencia.menor]
+  const mayor = nombreDePilar(pilares, diferencia.mayor)
+  const menor = nombreDePilar(pilares, diferencia.menor)
   const gap = `${numero(diferencia.valor)} cada 1.000 (entre ${numero(diferencia.desde)} y ${numero(diferencia.hasta)})`
   return {
     tipo: "comparable",
     titulo: "Comparación de temas",
     temas: comparacion.temas.map((tema) => ({
-      pilar: tema.pilar,
-      texto: `${NOMBRE_DE_PILAR[tema.pilar]} · ${plural(tema.n, "reel", "reels")} · promedio ${numero(tema.media)} cada 1.000 (entre ${numero(tema.desde)} y ${numero(tema.hasta)})`,
+      pilar: pilarVisible(pilares, tema.pilar),
+      texto: `${nombreDePilar(pilares, tema.pilar)} · ${plural(tema.n, "reel", "reels")} · promedio ${numero(tema.media)} cada 1.000 (entre ${numero(tema.desde)} y ${numero(tema.hasta)})`,
     })),
     frase: diferencia.distinguible
       ? `${mayor} va por delante de ${menor} por ${gap}. La diferencia es mayor que lo que varían tus reels entre sí.`
       : `${mayor} va por delante de ${menor} por ${gap}. Todavía no es mayor que lo que varían tus reels entre sí.`,
     cautela:
       "Es una comparación de lo ya publicado: entre un tema y otro cambian también el gancho y el día. No entran los reels de los últimos 7 días, que aún están sumando guardados.",
-    pendientes: comparacion.pendientes,
+    pendientes: enLista(comparacion.pendientes),
   }
 }
 
@@ -243,7 +247,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
   }
   const corte = ahora - DIAS_PARA_COMPARAR * 86_400_000
   const comparacion = compararTemas(medidos.filter((reel) => Date.parse(reel.publicadoEn) <= corte))
-  const reelsPorTema = new Map<Pilar, number>()
+  const reelsPorTema = new Map<string, number>()
   for (const reel of medidos) {
     if (reel.pilar !== null && guardadosPorMil(reel.guardados, reel.alcance) !== null) {
       reelsPorTema.set(reel.pilar, (reelsPorTema.get(reel.pilar) ?? 0) + 1)
@@ -265,7 +269,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     .map(({ pieza, lectura, porMil }) => ({
       piezaId: pieza.id,
       titulo: pieza.titulo,
-      pilar: pieza.pilar,
+      pilar: pilarVisible(entrada.pilares, pieza.pilar),
       porMil,
       ancho: porMil === null || maximo === 0 ? 0 : Math.max(porMil > 0 ? 2 : 0, Math.round((porMil / maximo) * 100)),
       texto: textoDeBarra(lectura, porMil),
@@ -300,13 +304,13 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         ? null
         : `No pude traer las métricas de hoy; muestro las del ${etiquetaDelDia(ultimoDia)}.`,
     barras,
-    comparacion: entrada.publicadas.length === 0 ? null : panelDeComparacion(comparacion),
+    comparacion: entrada.publicadas.length === 0 ? null : panelDeComparacion(comparacion, entrada.pilares),
     semanas: semanas.map((semana) => ({
       titulo: `Semana del ${semanaDe(instanteLocal({ ...partesDe(semana.lunes), hora: 12, minuto: 0 }, zona), zona)}`,
       reels: semana.reels.map((reel) => ({
         piezaId: reel.piezaId,
         titulo: reel.titulo,
-        pilar: reel.pilar,
+        pilar: pilarVisible(entrada.pilares, reel.pilar),
         meta: metaDeReel(ultimas.get(reel.piezaId)),
       })),
       resumen: resumenDeSemana(semana.consultas, semana.clics),

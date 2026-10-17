@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { construirCalendario, type PiezaDeCalendario } from "@/lib/calendario/modelo"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 // Thursday 15 Oct 2026, 12:00 in Santiago (summer time, UTC-3, since early September).
 const AHORA = Date.parse("2026-10-15T15:00:00.000Z")
@@ -25,7 +26,7 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
 }
 
 function calendario(piezas: PiezaDeCalendario[], ahora = AHORA, primeraPublicacion?: string) {
-  return construirCalendario({ piezas, horario: HORARIO, ahora, primeraPublicacion })
+  return construirCalendario({ piezas, horario: HORARIO, ahora, primeraPublicacion, pilares: PILARES_DE_PRUEBA })
 }
 
 describe("Mes", () => {
@@ -49,9 +50,21 @@ describe("Mes", () => {
     expect(hoy?.hoy).toBe(true)
     expect(mes.celdas.filter((c) => c.hoy)).toHaveLength(1)
     expect(publicada?.puntos).toEqual(["autoestima"])
-    expect(publicada?.descripcion).toBe("jueves 8: Autoestima")
+    expect(publicada?.descripcion).toBe('jueves 8: Autoestima y "ser tu propia diosa"')
     expect(mes.celdas.find((c) => c.dia === 17)?.puntos).toEqual(["pareja"])
     expect(mes.celdas.find((c) => c.dia === 9)?.puntos).toEqual([])
+  })
+
+  it("names a LinkedIn pillar from the catalog it is given", () => {
+    const { mes, agenda } = calendario([pieza({ estado: "programado", publicarEn: alas19(17), pilar: "caso-coni" })])
+
+    expect(mes.celdas.find((c) => c.dia === 17)?.descripcion).toBe("sábado 17: Caso Coni: humana + avatar")
+    expect(mes.proximos[0]?.pilar?.nombre).toBe("Caso Coni: humana + avatar")
+    expect(agenda.semanas[0]?.huecos.find((h) => h.dia === "Sábado 17")?.ocupante?.pilar).toEqual({
+      slug: "caso-coni",
+      nombre: "Caso Coni: humana + avatar",
+      nombreCorto: "Caso Coni",
+    })
   })
 
   it("says nothing is scheduled when the month has no dated publications, even with scripts on their way", () => {
@@ -95,7 +108,12 @@ describe("Agenda", () => {
 
   it("leaves a slot free when nothing is in it, and does not offer one that is less than two hours away", () => {
     const casiAhora = Date.parse("2026-10-15T20:30:00.000Z") // 17:30: Thursday's 19:00 is 1.5 hours away
-    const { agenda } = construirCalendario({ piezas: [], horario: HORARIO, ahora: casiAhora })
+    const { agenda } = construirCalendario({
+      piezas: [],
+      horario: HORARIO,
+      ahora: casiAhora,
+      pilares: PILARES_DE_PRUEBA,
+    })
 
     expect(agenda.semanas[0]?.huecos.map((h) => h.dia)).toEqual(["Sábado 17"])
     expect(agenda.semanas[0]?.huecos[0]?.ocupante).toBeNull()

@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { pilaresActivos } from "@/lib/datos/pilares"
 import { leerGuiaVigente } from "@/lib/datos/repositorio"
 import { falloDeBase, pagarPaso, redondear } from "@/lib/ingesta/gasto-material"
 import { MOTIVO_TOPE } from "@/lib/ingesta/procesar"
@@ -122,6 +123,7 @@ async function contextoEditorial(db: Db) {
     guia: guia?.texto ?? "",
     estrategia: fichas.data.map((f) => f.resumen),
     vozPropia: voz.data.map((a) => a.texto),
+    pilares: await pilaresActivos(db),
   }
 }
 
@@ -331,7 +333,7 @@ type Trabajo =
 async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
   const { db } = deps
   const datos = await leerDatosDelMotor(db, { hoy: semana })
-  const queSubir = reporteQueSubir(datos.temas)
+  const queSubir = reporteQueSubir(datos.temas, await pilaresActivos(db))
   const { cruces, arranqueEnFrio } = elegir(datos)
   const resumenBase = {
     cruces: cruces.map((c) => ({

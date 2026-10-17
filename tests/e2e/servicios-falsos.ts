@@ -29,7 +29,7 @@ let registro: { metodo: string; ruta: string; cuerpo: string }[] = []
 const PUERTO = Number(process.env.PUERTO_SERVICIOS_FALSOS ?? 3201)
 
 const PROPUESTA = {
-  pilar: "limites",
+  pilar: "acceso-salud-publica",
   formato: "Mito o realidad",
   alertas: [{ tipo: "líneas de ayuda", texto: "El tema roza la violencia en la pareja." }],
 }

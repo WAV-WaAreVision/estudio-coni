@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { pilaresActivos } from "@/lib/datos/pilares"
 import {
   confirmarGasto,
   leerGuiaVigente,
@@ -9,7 +10,6 @@ import {
   reservarGastoGeneral,
 } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
-import { PILARES } from "@/lib/dominio/pilares"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
 import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
@@ -110,6 +110,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
     }
     const guia = await leerGuiaVigente(servicio)
     if (!guia) throw new Error("No hay una guía editorial vigente para clasificar la idea.")
+    const pilares = await pilaresActivos(servicio)
 
     const clave = `idea_propia:${crypto.randomUUID()}`
     const reserva = await reservarGastoGeneral(servicio, {
@@ -131,6 +132,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
         guia: guia.texto,
         gancho: idea.data.gancho,
         tema: idea.data.tema,
+        pilares,
       })
       await confirmarGasto(servicio, clave, Number(costoClaude(uso, MODELO_POR_TAREA.clasificarIdea.modelo).toFixed(4)))
       return { propuesta }
@@ -145,7 +147,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
 
 const IdeaConfirmada = EntradaDeIdea.extend({
   formato: z.string().trim().max(80),
-  pilar: z.enum(PILARES),
+  pilar: z.string().min(1),
   alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string().trim().min(1).max(400) })).max(8),
 })
 
@@ -154,6 +156,8 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
   return aResultado("crearIdeaPropia", async () => {
     const idea = IdeaConfirmada.safeParse(entrada)
     if (!idea.success) throw new Falla(ERROR_ENTRADA)
+    const activos = await pilaresActivos(deps.db)
+    if (!activos.some((p) => p.slug === idea.data.pilar)) throw new Falla(ERROR_ENTRADA)
     const { data, error } = await deps.db
       .from("ideas")
       .insert({

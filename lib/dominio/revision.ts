@@ -45,6 +45,8 @@ const MENSAJE_COPIA = "Esta frase repite palabra por palabra una de las fuentes.
 const MENSAJE_CONSULTA =
   "Esto sugiere que hablas de personas que atiendes. Dilo en general, sin que parezca una consulta real."
 const MENSAJE_AUTOR = "Aquí aparece el nombre de una fuente. En el reel no se nombran autores: dilo sin nombrarla."
+const MENSAJE_AUTOR_SIN_CITA =
+  "Aquí aparece el nombre de una fuente que no citas. Nómbrala solo si es una de las fuentes citadas."
 
 /** Third-party quotes and author names of the piece's backing; empty when it has none. */
 export interface Ajeno {
@@ -52,6 +54,16 @@ export interface Ajeno {
   autores: readonly string[]
   /** The authors of type persona: their surname alone also gives them away. */
   personas: readonly string[]
+  /** Authors of the cited sources: the caption and the LinkedIn text may name them. */
+  citadas: readonly string[]
+  /** Titles of the cited works: the caption and the LinkedIn text may name them, the spoken script never. */
+  titulosCitados: readonly string[]
+}
+
+/** The caption and the LinkedIn text cite their sources; any other backing author is still a finding. */
+function sinCitadas(ajeno: Ajeno): { autores: string[]; personas: string[] } {
+  const citada = (nombre: string) => ajeno.citadas.includes(nombre)
+  return { autores: ajeno.autores.filter((a) => !citada(a)), personas: ajeno.personas.filter((p) => !citada(p)) }
 }
 
 interface Palabra {
@@ -284,8 +296,18 @@ export function revisarGuion(entrada: {
   for (const frase of new Set(campos.flatMap((campo) => tramosCopiados(campo, ajeno.citas)))) {
     hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
   }
-  for (const frase of new Set(campos.flatMap((campo) => autoresNombrados(campo, ajeno.autores, ajeno.personas)))) {
+  // The spoken script never names a source; the caption may name the cited ones.
+  const enElGuion = new Set([
+    ...autoresNombrados(hablado, ajeno.autores, ajeno.personas),
+    ...autoresNombrados(hablado, ajeno.titulosCitados),
+  ])
+  for (const frase of enElGuion) {
     hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
+  }
+  const citables = sinCitadas(ajeno)
+  for (const frase of new Set(autoresNombrados(texto, citables.autores, citables.personas))) {
+    if (enElGuion.has(frase)) continue
+    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR_SIN_CITA, frase })
   }
   for (const frase of new Set(campos.flatMap((campo) => distintos(campo, [SUGIERE_CONSULTA])))) {
     hallazgos.push({ regla: "sugiere_consulta", tipo: "advierte", mensaje: MENSAJE_CONSULTA, frase })
@@ -318,8 +340,9 @@ const SUGIERE_CONSULTA = patron(
 )
 
 const HASHTAG = /(^|\s)#[\p{L}\p{N}_]+/gu
-// A pictograph, or a keycap such as 1️⃣ (a digit, the emoji selector and the keycap mark).
-const EMOJI = /(?![©®™])\p{Extended_Pictographic}|[0-9#*]\uFE0F?\u20E3/gu
+// A keycap (a digit or # or *, the optional emoji selector and the keycap mark) or the ten keycap.
+const KEYCAP = /[0-9#*]\uFE0F?\u20E3|\u{1F51F}/gu
+const EMOJI = /(?![©®™])\p{Extended_Pictographic}/gu
 const ENLACE = patron(`(?:https?://|www\\.)\\S+|${ANTES}[\\p{L}\\p{N}-]+\\.(?:com|cl|org|net|io|co)/\\S*`)
 
 // LinkedIn lowers the reach of the "no es X, es Y" construction (it reads as machine writing). These catch its usual
@@ -430,7 +453,18 @@ export function revisarTextoLinkedin(entrada: {
     )
   }
 
-  const emojis = texto.match(EMOJI)?.length ?? 0
+  const keycap = texto.match(KEYCAP)?.[0]
+  if (keycap) {
+    hallazgos.push({
+      regla: "formato_linkedin",
+      tipo: "bloquea",
+      mensaje: "En LinkedIn las listas van con números normales («1.») o en prosa, sin emojis numerados.",
+      frase: keycap,
+    })
+  }
+
+  // 🔟 is a pictograph too: without the keycaps it is not counted twice.
+  const emojis = texto.replace(KEYCAP, "").match(EMOJI)?.length ?? 0
   if (requiereLineasAyuda ? emojis > 0 : emojis > MAXIMO_EMOJIS_LINKEDIN) {
     advierte(
       "emojis_linkedin",
@@ -491,8 +525,9 @@ export function revisarTextoLinkedin(entrada: {
   for (const frase of new Set(tramosCopiados(texto, ajeno.citas))) {
     hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
   }
-  for (const frase of new Set(autoresNombrados(texto, ajeno.autores, ajeno.personas))) {
-    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
+  const citables = sinCitadas(ajeno)
+  for (const frase of new Set(autoresNombrados(texto, citables.autores, citables.personas))) {
+    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR_SIN_CITA, frase })
   }
   for (const frase of distintos(texto, [SUGIERE_CONSULTA])) {
     hallazgos.push({ regla: "sugiere_consulta", tipo: "advierte", mensaje: MENSAJE_CONSULTA, frase })

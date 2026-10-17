@@ -15,13 +15,16 @@ import { urlParaVer } from "@/lib/acciones/medios"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { piezaDesdeFila } from "@/lib/datos/piezas"
+import { leerPilares } from "@/lib/datos/pilares"
 import { leerProduccion } from "@/lib/datos/repositorio"
+import { leerRespaldo } from "@/lib/datos/respaldo"
 import { leerRevision } from "@/lib/datos/revision"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
-import { esPilar } from "@/lib/dominio/pilares"
+import { lineaDeFuente } from "@/lib/dominio/fuente"
+import { pilarVisible } from "@/lib/dominio/pilares"
 import { sinLinkedin } from "@/lib/dominio/revision"
 import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -40,7 +43,6 @@ import {
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
-const pilarDe = (idea: { pilar?: string | null } | null | undefined) => (esPilar(idea?.pilar) ? idea.pilar : null)
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
 
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000
@@ -55,9 +57,10 @@ export default async function PaginaDeGuion({
   const [{ id }, { deshecho, firmada }] = await Promise.all([params, searchParams])
   if (!z.uuid().safeParse(id).success) notFound()
   const { db } = await exigirConi()
-  const pantalla = await leerPantallaDePieza(db, id)
+  const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
+  const pilar = pilarVisible(pilares, idea?.pilar)
 
   switch (fila.estado) {
     case "guion_por_aprobar":
@@ -65,7 +68,7 @@ export default async function PaginaDeGuion({
       break
     case "guion_en_proceso":
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <>
               <Bloque
@@ -97,7 +100,7 @@ export default async function PaginaDeGuion({
         new Date().toISOString(),
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <Bloque tipo="error" grande titulo={TEXTO_VIDEO_DETENIDO}>
               <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_DETENIDO_EN_SUS_PALABRAS} />
@@ -116,7 +119,7 @@ export default async function PaginaDeGuion({
     case "error_produccion": {
       const voz = await vozParaEscuchar(db, fila)
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <Bloque
             tipo="error"
             grande
@@ -149,7 +152,7 @@ export default async function PaginaDeGuion({
       return redirect(`/video/${fila.id}`)
     default:
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <p className="text-cuerpo text-apagado">Esta pieza ya no está en curso.</p>
         </EstadoSencillo>
       )
@@ -185,12 +188,13 @@ export default async function PaginaDeGuion({
           id: fila.id,
           version: fila.version,
           titulo: fila.titulo,
-          pilar: esPilar(idea?.pilar) ? idea.pilar : null,
+          pilar,
           formato: idea?.formato || null,
           segundos: Math.round(estimarSegundos(fila.guion)),
           guion: fila.guion,
           texto: fila.texto,
           textoLinkedin: fila.texto_linkedin,
+          fuente: lineaDeFuente(leerRespaldo(fila.respaldo)?.afirmaciones ?? []),
           // Gate 1 is about the script and the caption: the LinkedIn findings are reviewed at gate 2.
           revision: sinLinkedin(leerRevision(fila.revision)),
           tieneVersionDeClaude: conVersionDeClaude,
