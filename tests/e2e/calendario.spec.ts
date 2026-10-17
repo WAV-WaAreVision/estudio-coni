@@ -58,7 +58,8 @@ test("the agenda places what is on its way in the next slots and leaves the rest
   await expect(page.getByText("Guion en preparación")).toBeVisible()
   const libres = page.getByRole("link", { name: "Libre · elige una idea" })
   await expect(libres.first()).toHaveAttribute("href", "/ideas")
-  expect(await libres.count()).toBeGreaterThanOrEqual(4)
+  expect(await libres.count()).toBeLessThanOrEqual(3)
+  await expect(page.getByText(/^y \d+ libres? más$/).first()).toBeVisible()
   await capturar(page, "calendario-agenda")
 })
 

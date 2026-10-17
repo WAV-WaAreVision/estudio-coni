@@ -99,6 +99,31 @@ describe("Mes", () => {
 })
 
 describe("Agenda", () => {
+  it("lists only the next three free slots and says how many more each week has", () => {
+    const { agenda } = calendario([])
+
+    const libres = agenda.semanas.flatMap((s) => s.huecos).filter((h) => h.ocupante === null)
+    expect(libres.map((h) => h.dia)).toEqual(["Jueves 15", "Sábado 17", "Martes 20"])
+    expect(agenda.semanas.map((s) => s.libresMas)).toEqual([null, "y 2 libres más", "y 3 libres más", "y 3 libres más"])
+  })
+
+  it("never hides a slot that has a piece, and says «1 libre» in the singular", () => {
+    const { agenda } = calendario([
+      pieza({ estado: "programado", publicarEn: alas19(15) }),
+      pieza({ estado: "programado", publicarEn: alas19(17) }),
+      pieza({ estado: "programado", publicarEn: alas19(20) }),
+      pieza({ estado: "programado", publicarEn: alas19(22) }),
+    ])
+
+    expect(agenda.semanas[0]?.huecos.map((h) => h.ocupante !== null)).toEqual([true, true])
+    expect(agenda.semanas[1]?.huecos.map((h) => [h.dia, h.ocupante !== null])).toEqual([
+      ["Martes 20", true],
+      ["Jueves 22", true],
+      ["Sábado 24", false],
+    ])
+    expect(agenda.semanas[2]?.libresMas).toBe("y 1 libre más")
+  })
+
   it("shows four weeks from this one, with the slots of the schedule that have not passed", () => {
     const { agenda } = calendario([])
 

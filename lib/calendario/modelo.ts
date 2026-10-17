@@ -84,7 +84,7 @@ export interface ModeloDeCalendario {
     /** Approved for a time that came while Instagram was not connected: she has to upload them. Oldest first. */
     porSubir: ProximaPublicacion[]
   }
-  agenda: { semanas: { titulo: string; huecos: Hueco[] }[] }
+  agenda: { semanas: { titulo: string; huecos: Hueco[]; libresMas: string | null }[] }
   ritmo: {
     vacio: boolean
     columnas: string[]
@@ -97,6 +97,8 @@ export interface ModeloDeCalendario {
 }
 
 const SEMANAS_DE_AGENDA = 4
+/** Decision 22 (amendment A4): the Agenda lists the next three free slots; the rest are counted per week. */
+const LIBRES_A_LA_VISTA = 3
 const SEMANAS_DE_RITMO = 4
 /** The platform proposes slots at least this far ahead (design, "Calendario"). */
 const ANTELACION_MS = 2 * 60 * 60 * 1000
@@ -346,12 +348,24 @@ function construirAgenda(
     if (hueco) hueco.ocupante = ocupanteDe(pieza, true)
   })
 
+  let libresVistos = 0
+  const visible = new Set(
+    huecos.filter((hueco) => {
+      if (hueco.ocupante !== null) return true
+      libresVistos += 1
+      return libresVistos <= LIBRES_A_LA_VISTA
+    }),
+  )
+
   return {
     semanas: Array.from({ length: SEMANAS_DE_AGENDA }, (_, i) => {
       const inicio = sumarDias(lunes, 7 * i)
+      const deLaSemana = huecos.filter((hueco) => lunesDeLaSemana(Date.parse(hueco.instante), zona) === inicio)
+      const ocultos = deLaSemana.filter((hueco) => !visible.has(hueco)).length
       return {
         titulo: `Semana del ${semanaDe(instanteDeHueco(inicio, "12:00", zona), zona)}`,
-        huecos: huecos.filter((hueco) => lunesDeLaSemana(Date.parse(hueco.instante), zona) === inicio),
+        huecos: deLaSemana.filter((hueco) => visible.has(hueco)),
+        libresMas: ocultos === 0 ? null : ocultos === 1 ? "y 1 libre más" : `y ${ocultos} libres más`,
       }
     }),
   }
