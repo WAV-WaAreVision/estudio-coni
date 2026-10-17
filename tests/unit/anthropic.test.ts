@@ -7,6 +7,7 @@ import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { soloActivos } from "@/lib/dominio/pilares"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
+  clasificarEnPilares,
   clasificarIdea,
   costoClaude,
   escribirGuion,
@@ -780,5 +781,45 @@ describe("escribirGuion con respaldo", () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
     await escribir({ respaldo: null })
     expect(textoDelPedido(pedidos[0])).not.toContain("<respaldo>")
+  })
+})
+
+describe("clasificarEnPilares", () => {
+  const pilares = soloActivos(PILARES_DE_PRUEBA)
+  const elementos = [
+    { id: "m1", tipo: "material" as const, texto: "AI for Mental Health, Stanford. Chatbots y uso real." },
+    { id: "t1", tipo: "tema" as const, texto: "Recetas de cocina" },
+  ]
+
+  it("sends the pillars in a cached system prompt and the items as data, and keeps only items it sent", async () => {
+    const pedidos = respondiendo(() =>
+      HttpResponse.json(
+        conTexto({
+          asignaciones: [
+            { id: "m1", pilar: "ia-salud-mental", razon: "Chatbots" },
+            { id: "x9", pilar: "caso-coni", razon: "No lo envié" },
+          ],
+        }),
+      ),
+    )
+    const { asignaciones } = await clasificarEnPilares({ cliente: cliente(), pilares, elementos })
+    const { cuerpo } = pedidos[0] as PedidoCapturado
+    expect(cuerpo.system).toEqual([expect.objectContaining({ cache_control: { type: "ephemeral" } })])
+    expect(JSON.stringify(cuerpo.system)).toContain("- caso-coni: Caso Coni: humana + avatar.")
+    expect(JSON.stringify(cuerpo.messages[0]?.content)).toContain("<elementos>")
+    expect(asignaciones).toEqual([
+      { id: "m1", pilar: "ia-salud-mental", razon: "Chatbots" },
+      { id: "t1", pilar: "general", razon: "Claude no propuso un pilar." },
+    ])
+  })
+
+  it("turns an unknown pillar into general", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ asignaciones: [{ id: "m1", pilar: "deseo", razon: "x" }] })))
+    const { asignaciones } = await clasificarEnPilares({
+      cliente: cliente(),
+      pilares,
+      elementos: elementos.slice(0, 1),
+    })
+    expect(asignaciones[0]?.pilar).toBe("general")
   })
 })
