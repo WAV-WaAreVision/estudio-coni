@@ -274,6 +274,20 @@ describe("asegurarVoz releases by outcome", () => {
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
   })
 
+  it("lets a retry of the same attempt reopen the released key and pay once", async () => {
+    responder(() => new HttpResponse("slow down", { status: 429 }), audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const d = deps()
+
+    await expect(intentar(d, fila)).rejects.toThrow("429")
+    const voz = await intentar(d, fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(2)
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado", sin_cobro: false })])
+  })
+
   it.each([
     ["a server error", () => new HttpResponse("x", { status: 503 })],
     ["a network drop", () => HttpResponse.error()],

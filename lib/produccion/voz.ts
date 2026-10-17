@@ -89,6 +89,8 @@ export async function asegurarVoz(
     estimadoUsd: estimado,
     clave,
     ahora: deps.ahora(),
+    // A released key was a refusal that billed nothing: trying the same attempt again reopens it.
+    reabrir: true,
   })
   if (reserva.tope) return { tipo: "tope" }
   if (reserva.gasto.estado !== "reservado") {
