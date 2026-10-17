@@ -96,8 +96,8 @@ create table public.fechas_propuestas (
 alter table public.fechas_propuestas enable row level security;
 create policy "coni y wav leen las fechas propuestas" on public.fechas_propuestas for select to authenticated
   using (public.es_coni() or public.es_mantenedor());
-revoke all on public.fechas_propuestas from anon;
-revoke insert, update, delete, truncate on public.fechas_propuestas from authenticated;
+-- Nothing on the server reads or writes it with the service role: Coni's session reads it, proponer_fechas writes it.
+revoke all on public.fechas_propuestas from anon, authenticated, service_role;
 grant select on public.fechas_propuestas to authenticated;
 
 -- One event per piece and change (decision 26), under its own table name: the friction query reads only 'piezas'.

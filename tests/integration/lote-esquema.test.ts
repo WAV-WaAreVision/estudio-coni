@@ -339,3 +339,39 @@ describe("proponer_fechas against gate 2", () => {
     }
   })
 })
+
+describe("fechas_propuestas grants", () => {
+  it("lets no session write the table directly, Coni's and the service role's included", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoPostgres)
+      await c.query("insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, $2)", [id, EN_UN_MES()])
+      for (const sesion of [comoConi, comoServicio]) {
+        await asumir(c, sesion)
+        for (const sql of [
+          "insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, now() + interval '1 day')",
+          "update public.fechas_propuestas set publicar_en = now() + interval '2 days' where pieza_id = $1",
+          "delete from public.fechas_propuestas where pieza_id = $1",
+        ]) {
+          expect((await fallaCon(c, sql, [id])).code).toBe("42501")
+        }
+      }
+    })
+  })
+
+  it("keeps the service role out of the proposals: only Coni's session and the maintainer read them", async () => {
+    await como(comoServicio, async (c) => {
+      expect((await fallaCon(c, "select pieza_id from public.fechas_propuestas")).code).toBe("42501")
+    })
+  })
+
+  it("still lets a piece be deleted with its proposal", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoPostgres)
+      await c.query("insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, $2)", [id, EN_UN_MES()])
+      await c.query("delete from public.piezas where id = $1", [id])
+      expect(await propuestaDe(c, id)).toBeNull()
+    })
+  })
+})
