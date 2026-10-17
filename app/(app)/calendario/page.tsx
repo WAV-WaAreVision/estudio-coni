@@ -65,7 +65,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           ) : null}
           {calendario.mes.proximos.length > 0 ? (
             <Seccion titulo="Próximos" id="proximos" cifra={calendario.mes.proximos.length}>
-              <Grupo lista>
+              <Grupo plano lista>
                 {calendario.mes.proximos.map((proxima) => (
                   <FilaPieza
                     key={proxima.piezaId}
