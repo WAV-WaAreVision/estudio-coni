@@ -17,7 +17,7 @@ import {
   pool,
 } from "./db"
 import { crearPiezaEn } from "./flujo"
-import { borrarSembrado, sembrarPieza } from "./siembra"
+import { borrarSembrado, moverHoraAprobada, sembrarPieza } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -339,6 +339,27 @@ describe("proponer_fechas and the slots already held (A8)", () => {
       await asumir(c, comoConi)
       expect(await fallaCon(c, sql, [[id], [tomada]])).toMatchObject({ message: "propuesta_invalida" })
     })
+  })
+
+  it("refuses the time of a piece waiting to be uploaded by hand, as a scheduled one", async () => {
+    const aMano = await sembrarPieza("para_subir_a_mano")
+    const id = await sembrarPieza("guion_por_aprobar")
+    const hora = EN_UN_MES()
+    try {
+      await moverHoraAprobada(aMano, hora)
+      await como(comoConi, async (c) => {
+        expect(await fallaCon(c, sql, [[id], [hora]])).toMatchObject({ message: "propuesta_invalida" })
+      })
+    } finally {
+      const { rows } = await pool.query<{ idea_id: string | null }>(
+        "select idea_id from public.piezas where id = any($1)",
+        [[aMano, id]],
+      )
+      await borrarSembrado(
+        [aMano, id],
+        rows.flatMap((fila) => (fila.idea_id ? [fila.idea_id] : [])),
+      )
+    }
   })
 
   it("refuses the time another piece's live proposal holds, and two pieces of one batch on one time", async () => {
