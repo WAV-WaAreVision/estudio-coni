@@ -1,31 +1,27 @@
 "use client"
 
-import { CheckCircle, Info, Warning, WarningCircle } from "@phosphor-icons/react"
-import { type FormEvent, useCallback, useState, useTransition } from "react"
+import { ArrowRight, Warning } from "@phosphor-icons/react"
+import { type FormEvent, useCallback, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
-import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
+import { PildoraDeEstado } from "@/components/ui/estado"
+import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { FilaDeCuenta } from "@/lib/ajustes/presentar"
-import { cn } from "@/lib/utils"
-
-const TINTA: Record<FilaDeCuenta["tono"], string> = {
-  ok: "text-exito",
-  aviso: "text-aviso",
-  error: "text-error",
-  neutro: "text-tinta",
-}
-const ICONO_POR_TONO = { ok: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info } as const
 
 const MENSAJE_DE_LLAVE: Record<EstadoDeLlave, string> = {
   comprobada: "Guardada y comprobada.",
   sin_comprobar: "Guardada. No pude comprobarla ahora, la reviso más tarde.",
   sin_voz: "Guardada. Falta tu voz de ElevenLabs: avísale a Federico.",
 }
+const TEXTO_DESCONECTAR = "Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."
+const MENSAJE_DESCONECTADO =
+  "LinkedIn quedó desconectado. Si quieres, también puedes quitar el permiso desde la configuración de tu cuenta de LinkedIn."
 
 interface PropiedadesDeCuentas {
   filas: readonly FilaDeCuenta[]
@@ -33,6 +29,7 @@ interface PropiedadesDeCuentas {
   desconectarLinkedin: () => Promise<Resultado>
 }
 
+/** Decision 12 (v6 screens 6 and 6b): each account with its state as a pill, what it does, and its actions. */
 export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: PropiedadesDeCuentas) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
@@ -41,33 +38,25 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
 
   return (
     <div className="grid">
-      <ul className="grid">
+      <Grupo plano lista>
         {filas.map((fila) => (
-          <li
-            key={fila.cuenta}
-            id={`cuenta-${fila.cuenta}`}
-            className="scroll-mt-4 border-b border-linea py-3 last:border-b-0"
-          >
-            <div className="flex min-h-11 items-center justify-between gap-3">
-              <span className="text-cuerpo font-semibold">{fila.nombre}</span>
-              <Estado fila={fila} />
+          <li key={fila.cuenta} id={`cuenta-${fila.cuenta}`} className="grid scroll-mt-4 gap-2.5 py-[18px]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[1.25rem] font-semibold">{fila.nombre}</span>
+              <PildoraDeEstado tipo={fila.tono}>{fila.estado}</PildoraDeEstado>
             </div>
             {fila.detalle ? <p className="text-meta text-apagado">{fila.detalle}</p> : null}
             {fila.cuenta === "linkedin" ? (
-              <FilaDeLinkedin
+              <AccionesDeLinkedin
                 fila={fila}
                 desconectar={desconectarLinkedin}
-                alDesconectar={() =>
-                  setMensaje(
-                    "LinkedIn quedó desconectado. Si quieres, también puedes quitar el permiso desde la configuración de tu cuenta de LinkedIn.",
-                  )
-                }
+                alDesconectar={() => setMensaje(MENSAJE_DESCONECTADO)}
               />
             ) : fila.cuenta === "instagram" ? (
               // A plain link: the route answers with a redirect to Instagram, which a client navigation cannot follow.
               <a
                 href="/api/meta/conectar"
-                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "mt-1.5 w-fit" })}
+                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
               >
                 {fila.tono === "aviso" && fila.estado === "Falta" ? "Conectar Instagram" : "Renovar Instagram"}
               </a>
@@ -81,20 +70,28 @@ export function CuentasConectadas({ filas, guardarLlave, desconectarLinkedin }: 
                 }}
                 alCancelar={() => setAbierta(null)}
               />
-            ) : (
-              <Boton variante="secundario" tamano="chico" className="mt-1.5" onClick={() => setAbierta(fila.cuenta)}>
-                {fila.estado === "Falta" ? `Agregar la llave de ${fila.nombre}` : `Cambiar la llave de ${fila.nombre}`}
+            ) : fila.estado === "Falta" ? (
+              <Boton variante="callado" onClick={() => setAbierta(fila.cuenta)}>
+                {`Agregar la llave de ${fila.nombre}`}
               </Boton>
+            ) : (
+              // WAV's operation, not Coni's (answered question 3): folded, open when the key was refused.
+              <MasOpciones forma="linea" titulo="Más opciones" abiertaAlInicio={fila.tono === "error"}>
+                <Boton variante="callado" onClick={() => setAbierta(fila.cuenta)}>
+                  {`Cambiar la llave de ${fila.nombre}`}
+                </Boton>
+              </MasOpciones>
             )}
           </li>
         ))}
-      </ul>
+      </Grupo>
       {mensaje ? <Aviso mensaje={mensaje} alCerrar={cerrarMensaje} /> : null}
     </div>
   )
 }
 
-function FilaDeLinkedin({
+/** LinkedIn: renew (the primary when it needs her), and disconnect behind a danger disclosure. */
+function AccionesDeLinkedin({
   fila,
   desconectar,
   alDesconectar,
@@ -103,51 +100,71 @@ function FilaDeLinkedin({
   desconectar: () => Promise<Resultado>
   alDesconectar: () => void
 }) {
-  const [preguntando, setPreguntando] = useState(false)
+  const peligro = useRef<HTMLDetailsElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, empezar] = useTransition()
-  const enlace = (
-    <a
-      href="/api/linkedin/conectar"
-      className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
-    >
-      {fila.conectada ? "Renovar LinkedIn" : "Conectar LinkedIn"}
-    </a>
-  )
-  if (!fila.conectada) return <div className="mt-1.5">{enlace}</div>
-  if (preguntando) {
+
+  if (!fila.conectada)
     return (
-      <div className="mt-2 grid gap-2">
-        <ConfirmacionEnLinea
-          trato="destructivo"
-          pregunta="¿Desconectar LinkedIn? Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."
-          confirmar="Desconectar"
-          volver="Volver"
-          cargando={pendiente}
-          alVolver={() => setPreguntando(false)}
-          alConfirmar={() =>
-            empezar(async () => {
-              const resultado = await desconectar()
-              if (!resultado.ok) {
-                setError(resultado.error)
-                return
-              }
-              setPreguntando(false)
-              alDesconectar()
-            })
-          }
-        />
-        {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
-      </div>
+      <a
+        href="/api/linkedin/conectar"
+        className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
+      >
+        Conectar LinkedIn
+      </a>
     )
+
+  const urgente = fila.tono === "aviso" || fila.tono === "error"
+  function cerrar() {
+    if (peligro.current) peligro.current.open = false
   }
+
   return (
-    <div className="mt-1.5 flex flex-wrap gap-2">
-      {enlace}
-      <Boton variante="secundario" tamano="chico" onClick={() => setPreguntando(true)}>
-        Desconectar
-      </Boton>
-    </div>
+    <>
+      <a
+        href="/api/linkedin/conectar"
+        className={
+          urgente
+            ? clasesDeBoton({ variante: "primario" })
+            : clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })
+        }
+      >
+        Renovar LinkedIn
+        {urgente ? <ArrowRight aria-hidden="true" size={ICONO.grande} /> : null}
+      </a>
+      <MasOpciones ref={peligro} forma="linea" titulo="Desconectar LinkedIn">
+        <div data-contorno className="grid gap-2.5 rounded-bloque bg-piedra-honda p-[14px]">
+          <p className="flex items-start gap-2.5 text-meta text-tinta">
+            <Warning aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+            {TEXTO_DESCONECTAR}
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            <Boton
+              variante="destructiva"
+              tamano="chico"
+              cargando={pendiente}
+              onClick={() =>
+                empezar(async () => {
+                  const resultado = await desconectar()
+                  if (!resultado.ok) {
+                    setError(resultado.error)
+                    return
+                  }
+                  cerrar()
+                  alDesconectar()
+                })
+              }
+            >
+              Sí, desconectar
+            </Boton>
+            <Boton variante="secundario" tamano="chico" onClick={cerrar}>
+              Cancelar
+            </Boton>
+          </div>
+          {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+        </div>
+      </MasOpciones>
+    </>
   )
 }
 
@@ -183,8 +200,8 @@ function FormularioDeLlave({
   }
 
   return (
-    <form onSubmit={enviar} className="mt-2 grid gap-3">
-      <label className="grid gap-2 text-meta font-semibold" htmlFor={id}>
+    <form onSubmit={enviar} className="grid gap-3">
+      <label className="mx-0.5 text-meta font-semibold" htmlFor={id}>
         {`Llave de ${fila.nombre}`}
       </label>
       <input
@@ -198,7 +215,7 @@ function FormularioDeLlave({
         aria-describedby={`${id}-ayuda`}
         className="campo text-cuerpo text-tinta"
       />
-      <p id={`${id}-ayuda`} className="text-meta text-apagado">
+      <p id={`${id}-ayuda`} className="mx-0.5 text-meta text-apagado">
         Pégala completa. La reviso con {fila.nombre.split(" ")[0]} y queda guardada cifrada.
       </p>
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
@@ -211,16 +228,5 @@ function FormularioDeLlave({
         </Boton>
       </div>
     </form>
-  )
-}
-
-/** The state of an account at the right of its name: text and icon in its ink, never a chip. */
-function Estado({ fila }: { fila: FilaDeCuenta }) {
-  const Icono = ICONO_POR_TONO[fila.tono]
-  return (
-    <span className={cn("inline-flex items-center gap-1 text-meta font-medium", TINTA[fila.tono])}>
-      <Icono aria-hidden="true" size={ICONO.chico} />
-      {fila.estado}
-    </span>
   )
 }

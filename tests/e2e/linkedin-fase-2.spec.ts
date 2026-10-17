@@ -5,7 +5,9 @@ import { pool } from "../integration/db"
 import { ajustarPieza, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
   bloquearRedExterna,
+  conectarLinkedin,
   configurarServicios,
+  desconectarLinkedin,
   GUION_VALIDO,
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
@@ -21,22 +23,6 @@ async function capturarCuentas(page: import("@playwright/test").Page, nombre: st
   const carpeta = process.env.CAPTURAS_E2E ?? "test-results/capturas"
   await mkdir(carpeta, { recursive: true })
   await page.locator("ul:has(#cuenta-linkedin)").screenshot({ path: join(carpeta, `${nombre}.png`) })
-}
-
-async function desconectarLinkedin() {
-  await pool.query("delete from vault.secrets where name = 'linkedin'")
-  await pool.query(
-    "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
-  )
-}
-
-/** Connected with a token that lasts 9 days and a half, which Coni reads as "Vence en 10 días". */
-async function conectarLinkedin() {
-  await desconectarLinkedin()
-  await pool.query("select vault.create_secret('AQV_token_de_prueba', 'linkedin')")
-  await pool.query(
-    "update public.ajustes set linkedin_miembro = 'urn:li:person:abc123XYZ', linkedin_nombre = 'Coni del Rosario', linkedin_conectado_en = now(), linkedin_token_expira_en = now() + interval '9 days 12 hours'",
-  )
 }
 
 async function piezaDeLinkedin(estado: "programado" | "para_subir_a_mano" | "publicado") {
@@ -74,7 +60,7 @@ test("Cuentas conectadas offers to connect LinkedIn while it goes by hand, with 
   const fila = page.locator("#cuenta-linkedin")
   await expect(fila.getByText("A mano", { exact: true })).toBeVisible()
   await expect(fila.getByRole("link", { name: "Conectar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
-  await expect(fila.getByRole("button", { name: "Desconectar" })).toHaveCount(0)
+  await expect(fila.getByText("Desconectar LinkedIn")).toHaveCount(0)
   await capturarCuentas(page, "cuentas-linkedin-desconectado")
 })
 
@@ -90,9 +76,9 @@ test("a connected LinkedIn shows who it publishes as and when it expires, can be
   await expect(fila.getByRole("link", { name: "Renovar LinkedIn" })).toHaveAttribute("href", "/api/linkedin/conectar")
   await capturarCuentas(page, "cuentas-linkedin-conectado")
 
-  await fila.getByRole("button", { name: "Desconectar" }).click()
-  await expect(page.getByText(/¿Desconectar LinkedIn\? Tus videos dejarán de salir solos ahí/)).toBeVisible()
-  await page.getByRole("button", { name: "Desconectar", exact: true }).click()
+  await fila.getByText("Desconectar LinkedIn").click()
+  await expect(fila.getByText("Tus videos dejarán de salir solos ahí y te quedarán para subir a mano.")).toBeVisible()
+  await fila.getByRole("button", { name: "Sí, desconectar" }).click()
 
   await expect(page.getByText(/LinkedIn quedó desconectado\./)).toBeVisible()
   expect((await pool.query("select linkedin_miembro from public.ajustes")).rows[0]).toEqual({ linkedin_miembro: null })
