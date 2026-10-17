@@ -399,3 +399,47 @@ test("Métricas with LinkedIn and Para WAV open, and the empty Ritmo, pass WCAG 
 
   expect([...metricas, ...ritmo]).toEqual([])
 })
+
+// Part 4: the batch bar with the motive choice open, the undo toast, the cap question, and the Agenda with a
+// proposal and Cambiar open.
+test("the batch mode, its undo, the cap question and the Agenda with proposals pass WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1600 })
+  await vaciarPiezasEIdeas()
+  for (const gancho of [
+    "Primera idea del lote",
+    "Segunda idea del lote",
+    "Tercera idea del lote",
+    "Cuarta idea del lote",
+  ])
+    await sembrarIdea({ gancho })
+
+  await page.goto("/ideas")
+  await page.getByRole("button", { name: "Elegir varias" }).click()
+  await page.getByRole("checkbox", { name: /Primera idea del lote/ }).check()
+  await page.getByRole("checkbox", { name: /Segunda idea del lote/ }).check()
+  await page.getByRole("button", { name: "Descartar (2)" }).click()
+  const motivos = await hallazgosDeAxe(page, "lote con motivos")
+  await page.getByRole("button", { name: "Repetida" }).click()
+  await expect(page.getByRole("button", { name: "Deshacer" })).toBeVisible()
+  const deshacer = await hallazgosDeAxe(page, "lote deshacer")
+
+  await page.getByRole("checkbox", { name: /Tercera idea del lote/ }).check()
+  await page.getByRole("checkbox", { name: /Cuarta idea del lote/ }).check()
+  await pool.query("update public.ajustes set tope_mensual_usd = 1.5")
+  try {
+    await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()
+    await expect(page.getByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeVisible()
+  } finally {
+    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  }
+  const tope = await hallazgosDeAxe(page, "lote tope")
+
+  await sembrarPieza("guion_por_aprobar", { titulo: "Pieza con propuesta" })
+  await page.goto("/calendario?vista=agenda")
+  await page.getByRole("button", { name: "Repartir fechas" }).click()
+  await page.getByRole("button", { name: "Cambiar la fecha de Pieza con propuesta" }).click()
+  await expect(page.getByRole("group", { name: "¿Qué otro día?" })).toBeVisible()
+  const agenda = await hallazgosDeAxe(page, "agenda con propuestas")
+
+  expect([...motivos, ...deshacer, ...tope, ...agenda]).toEqual([])
+})
