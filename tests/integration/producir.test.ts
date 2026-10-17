@@ -18,7 +18,7 @@ import { servidor } from "../msw"
 import { comoConi, pool } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
-import { leerFila, sembrarIdeaDelMotor, vaciarMotor } from "./siembra"
+import { leerFila, sembrarIdeaDelMotor, type TeoriaSembrada, vaciarMotor } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -695,7 +695,12 @@ describe("producirPieza", () => {
 
 const CITA_AJENA = "el deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días"
 
-async function crearPiezaDelMotor(): Promise<string> {
+const RESPALDO_DEL_MOTOR: TeoriaSembrada["respaldo"] = [
+  { autor: "Siembra Esther Prueba", cita: CITA_AJENA },
+  { autor: "Siembra Luis Soto", cita: "la rutina apaga lo que no se nombra" },
+]
+
+async function crearPiezaDelMotor(respaldo = RESPALDO_DEL_MOTOR): Promise<string> {
   const ideaId = await sembrarIdeaDelMotor({
     gancho: "El deseo se esconde",
     semana: "2026-09-27",
@@ -703,10 +708,7 @@ async function crearPiezaDelMotor(): Promise<string> {
       titulo: "El deseo se cuida",
       tesis: "El deseo baja con la rutina.",
       nivel: "medio",
-      respaldo: [
-        { autor: "Siembra Esther Prueba", cita: CITA_AJENA },
-        { autor: "Siembra Luis Soto", cita: "la rutina apaga lo que no se nombra" },
-      ],
+      respaldo,
     },
   })
   const { rows } = await pool.query<{ id: string }>(
@@ -731,9 +733,44 @@ describe("producirPieza con una idea del motor", () => {
     expect(pedido).toContain("<respaldo>")
     expect(pedido).toContain("El deseo baja con la rutina.")
     expect(pedido).toContain(CITA_AJENA)
-    expect(pedido).not.toContain("Siembra Esther Prueba")
+    // The backing the script is written from carries no names; only the LinkedIn sources do.
+    const bloque = pedido.slice(pedido.indexOf("<respaldo>"), pedido.indexOf("</respaldo>"))
+    expect(bloque).not.toContain("Siembra Esther Prueba")
+    const fuentes = pedido.slice(pedido.indexOf("FUENTES QUE PUEDES CITAR EN LINKEDIN"))
+    expect(fuentes).toContain("\n- Siembra Esther Prueba\n")
+    expect(fuentes).toContain("\n- Siembra Luis Soto\n")
     const respaldo = leerRespaldo((await leerFila(id)).respaldo)
     expect(respaldo?.afirmaciones.map((a) => a.autor).sort()).toEqual(["Siembra Esther Prueba", "Siembra Luis Soto"])
+  })
+
+  it("signs the caption with the source line right before the avatar notice and freezes the source", async () => {
+    const id = await crearPiezaDelMotor([
+      {
+        autor: "Siembra Stanford",
+        cita: "la ia ya se usa para la salud mental",
+        titulo: "AI for Mental Health",
+        anio: 2026,
+      },
+    ])
+    const sim = simular({
+      borrador: () => ({ guion: GUION_BUENO, texto: `Hablemos de esto, como dice Siembra Stanford. ${AVISO_AVATAR}` }),
+    })
+
+    await producirPieza(deps(), id)
+
+    const fila = await leerFila(id)
+    expect(fila.texto).toBe(
+      `Hablemos de esto, como dice Siembra Stanford. Fuente: Siembra Stanford · AI for Mental Health (2026)\n\n${AVISO_AVATAR}`,
+    )
+    expect(leerRespaldo(fila.respaldo)?.afirmaciones[0]?.fuente).toEqual({
+      autor: "Siembra Stanford",
+      titulo: "AI for Mental Health",
+      anio: 2026,
+    })
+    expect(fila.revision).not.toEqual(expect.arrayContaining([expect.objectContaining({ regla: "nombra_autor" })]))
+    const pedido = sim.escrituras[0]?.messages[0]?.content ?? ""
+    expect(pedido).toContain("- Siembra Stanford · AI for Mental Health (2026)")
+    expect(pedido).toContain("Pilar: IA y salud mental (")
   })
 
   it("warns, without blocking, when the draft copies 8 words of a quote", async () => {

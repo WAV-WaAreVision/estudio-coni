@@ -21,8 +21,13 @@ const GUIA = "# Línea editorial de Coni\n\nTrata de tú. Español de Chile."
 const URL_MENSAJES = "https://api.anthropic.com/v1/messages"
 const RECHAZO = "Claude no quiso escribir este guion. Prueba con otra idea."
 
+const PILAR = {
+  nombre: "IA y salud mental",
+  descripcion: "Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos.",
+}
+
 const IDEA = {
-  pilar: "pareja",
+  pilar: PILAR,
   gancho: "Hay una palabra que enciende cualquier discusión de pareja.",
   tema: "Cambiar el por qué hiciste eso por preguntas con qué o cómo.",
   formato: "Ejercicio de la semana",
@@ -116,6 +121,7 @@ function escribir(extra: Partial<Parameters<typeof escribirGuion>[0]> = {}) {
     guia: GUIA,
     idea: IDEA,
     respaldo: null,
+    fuentes: [],
     requiereLineasAyuda: false,
     ...extra,
   })
@@ -758,7 +764,7 @@ describe("escribirGuion con respaldo", () => {
 
     const texto = textoDelPedido(pedidos[0])
     expect(texto).toContain("INSPIRACIÓN DEL RESPALDO")
-    expect(texto).toContain("No cites ni nombres autores")
+    expect(texto).toContain("En el guion y el texto de publicación no cites ni nombres autores")
     expect(texto).toContain("No copies frases de las citas")
     expect(texto).toContain("El deseo baja con la rutina.")
     expect(texto).toContain("<respaldo>")
@@ -782,5 +788,40 @@ describe("escribirGuion con respaldo", () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
     await escribir({ respaldo: null })
     expect(textoDelPedido(pedidos[0])).not.toContain("<respaldo>")
+  })
+})
+
+describe("escribirGuion: pilar y fuentes", () => {
+  it("names the idea's pillar with its description", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir()
+    expect(textoDelPedido(pedidos[0])).toContain(
+      "Pilar: IA y salud mental (Qué dice la evidencia sobre chatbots, apps y modelos",
+    )
+  })
+
+  it("names only the pillar when it has no description", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ idea: { ...IDEA, pilar: { nombre: "Bienestar", descripcion: null } } })
+    expect(textoDelPedido(pedidos[0])).toContain("Pilar: Bienestar\n")
+  })
+
+  it("gives LinkedIn the sources to cite and keeps them out of the script and the caption", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ respaldo: RESPALDO, fuentes: [{ autor: "Stanford", titulo: "AI for Mental Health", anio: 2026 }] })
+    const usuario = textoDelPedido(pedidos[0])
+    expect(usuario).toContain("FUENTES QUE PUEDES CITAR EN LINKEDIN")
+    expect(usuario).toContain("- Stanford · AI for Mental Health (2026)")
+    expect(usuario).toContain("No escribas la línea de fuente en el texto de publicación: la agrega la app.")
+    expect(usuario).not.toContain("No nombres autores, cuentas, libros ni estudios")
+    expect(usuario).toContain("No copies frases de las fuentes.")
+  })
+
+  it("keeps the old rule when there is nothing to cite", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(guionOk)))
+    await escribir({ respaldo: RESPALDO, fuentes: [] })
+    const usuario = textoDelPedido(pedidos[0])
+    expect(usuario).toContain("No nombres autores, cuentas, libros ni estudios")
+    expect(usuario).not.toContain("FUENTES QUE PUEDES CITAR EN LINKEDIN")
   })
 })

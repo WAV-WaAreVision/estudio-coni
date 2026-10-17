@@ -51,7 +51,7 @@ function capturando(salida: unknown) {
   return cuerpos
 }
 
-const IDEA = { pilar: "pareja", gancho: "g", tema: "t", formato: "f", alertas: [] }
+const IDEA = { pilar: { nombre: "Pareja", descripcion: null }, gancho: "g", tema: "t", formato: "f", alertas: [] }
 const FICHA = {
   resumen: "r",
   ideasClave: ["a", "b", "c", "d", "e"],
@@ -63,7 +63,14 @@ const FICHA = {
 describe("a model per task", () => {
   it("writes the script with Opus at medium effort", async () => {
     const cuerpos = capturando({ guion: "g", texto: "t", textoLinkedin: "l" })
-    await escribirGuion({ cliente: cliente(), guia: "guia", idea: IDEA, respaldo: null, requiereLineasAyuda: false })
+    await escribirGuion({
+      cliente: cliente(),
+      guia: "guia",
+      idea: IDEA,
+      respaldo: null,
+      fuentes: [],
+      requiereLineasAyuda: false,
+    })
     expect(cuerpos[0]?.model).toBe(OPUS)
     expect(cuerpos[0]?.output_config?.effort).toBe("medium")
     expect(cuerpos[0]?.thinking).toBeUndefined()
