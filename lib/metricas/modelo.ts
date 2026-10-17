@@ -114,7 +114,12 @@ export interface Semana {
 
 export interface ModeloDeMetricas {
   mes: string
+  /** "Este mes: 2 reels en Instagram · 1 post en LinkedIn". */
   resumen: string
+  /** "Este mes también: 2 consultas · 15 toques en tu link". */
+  contacto: string
+  /** The window of "Lo que sirvió" and "Semana a semana". */
+  periodo: string
   vacio: boolean
   aviso: string | null
   barras: Barra[]
@@ -123,6 +128,8 @@ export interface ModeloDeMetricas {
 }
 
 const SEMANAS_A_MOSTRAR = 12
+/** Decision 16: every number says its period. */
+export const PERIODO = `Últimas ${SEMANAS_A_MOSTRAR} semanas`
 
 const REGLA_DE_LA_SEMANA = "Cuento los reels desde que cumplen una semana."
 
@@ -254,7 +261,8 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
   const reels = entrada.publicaciones.filter((p) => p.red === "instagram" && !p.aMano)
 
   const enElMes = (instante: number) => instante >= mes.desde && instante < mes.hasta
-  const reelsDelMes = reels.filter((pieza) => enElMes(Date.parse(pieza.publicadoEn))).length
+  const delMes = (red: Destino) =>
+    entrada.publicaciones.filter((p) => p.red === red && enElMes(Date.parse(p.publicadoEn))).length
   const consultasDelMes = contarEnMes(entrada.consultas, mes.clave, zona)
   const clicsDelMes = entrada.clics
     .filter((clic) => clic.dia.startsWith(`${mes.clave}-`))
@@ -319,8 +327,10 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
 
   return {
     mes: mes.nombre,
-    resumen: `${plural(reelsDelMes, "reel publicado", "reels publicados")} · ${plural(consultasDelMes, "consulta", "consultas")} · ${plural(clicsDelMes, "toque", "toques")} en tu link`,
-    vacio: reels.length === 0,
+    resumen: `Este mes: ${plural(delMes("instagram"), "reel", "reels")} en Instagram · ${plural(delMes("linkedin"), "post", "posts")} en LinkedIn`,
+    contacto: `Este mes también: ${plural(consultasDelMes, "consulta", "consultas")} · ${plural(clicsDelMes, "toque", "toques")} en tu link`,
+    periodo: PERIODO,
+    vacio: entrada.publicaciones.length === 0,
     aviso: sinNingunaLectura
       ? "Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico."
       : alDia || ultimoDia === null

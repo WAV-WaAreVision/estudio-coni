@@ -23,6 +23,10 @@ function publicada(id: string, pilar: string | null, publicadoEn: string, titulo
   return { piezaId: id, titulo, pilar, red: "instagram" as const, aMano: false, publicadoEn }
 }
 
+function enLinkedin(id: string, publicadoEn: string, titulo = `Post ${id}`, pilar: string | null = null) {
+  return { piezaId: id, titulo, pilar, red: "linkedin" as const, aMano: false, publicadoEn }
+}
+
 function lectura(piezaId: string, extra: Partial<EntradaDeMetricas["lecturas"][number]> = {}) {
   return {
     piezaId,
@@ -37,14 +41,15 @@ function lectura(piezaId: string, extra: Partial<EntradaDeMetricas["lecturas"][n
 }
 
 describe("construirMetricas", () => {
-  it("names the month and sums reels, consultations and clicks of that month", () => {
+  it("counts this month per network, singular included, and says the period of the contact numbers", () => {
     const modelo = construirMetricas(
       entrada({
         publicaciones: [
-          publicada("a", "pareja", "2026-10-08T22:00:00.000Z"),
-          publicada("b", "deseo", "2026-09-26T22:00:00.000Z"),
+          publicada("a", "ia-salud-mental", "2026-10-08T22:00:00.000Z"),
+          enLinkedin("a", "2026-10-08T22:00:00.000Z"),
+          publicada("b", "practica-clinica", "2026-09-26T22:00:00.000Z"),
+          { ...publicada("c", null, "2026-10-13T22:00:00.000Z"), aMano: true },
         ],
-        lecturas: [lectura("a"), lectura("b")],
         consultas: ["2026-10-07T15:00:00.000Z", "2026-10-12T15:00:00.000Z", "2026-09-30T15:00:00.000Z"],
         clics: [
           { dia: "2026-10-06", clics: 8 },
@@ -55,15 +60,18 @@ describe("construirMetricas", () => {
     )
 
     expect(modelo.mes).toBe("octubre")
-    expect(modelo.resumen).toBe("1 reel publicado · 2 consultas · 15 toques en tu link")
+    expect(modelo.resumen).toBe("Este mes: 2 reels en Instagram · 1 post en LinkedIn")
+    expect(modelo.contacto).toBe("Este mes también: 2 consultas · 15 toques en tu link")
+    expect(modelo.periodo).toBe("Últimas 12 semanas")
   })
 
   it("says plainly that nothing is published yet, and still counts consultations", () => {
     const modelo = construirMetricas(entrada({ consultas: ["2026-10-07T15:00:00.000Z"] }))
 
     expect(modelo.vacio).toBe(true)
-    expect(modelo.barras).toEqual([])
-    expect(modelo.resumen).toBe("0 reels publicados · 1 consulta · 0 toques en tu link")
+    expect(modelo.resumen).toBe("Este mes: 0 reels en Instagram · 0 posts en LinkedIn")
+    expect(modelo.contacto).toBe("Este mes también: 1 consulta · 0 toques en tu link")
+    expect(modelo.comparacion).toBeNull()
   })
 
   it("orders the bars by saves per 1,000 and scales them to the best one, with the numbers and the theme's n beside", () => {
