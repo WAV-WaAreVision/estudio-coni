@@ -2,7 +2,6 @@
 
 import { useId } from "react"
 import { Eleccion } from "@/components/ui/filas"
-import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 
 export interface AvatarParaElegir {
   id: string
@@ -18,14 +17,15 @@ interface PropiedadesDeElegirAvatar {
   alElegir: (avatarId: string) => void
 }
 
+/** Gate 1 says it as a block in the sign bar, and then does not render this list at all. */
 export const TEXTO_SIN_AVATARES = "Todavía no hay avatares para elegir: avísale a Federico."
 
-/** Decision 9, step 6: WAV's looks as choice rows with their round photo. A native radio group: arrows come free. */
+/**
+ * Decision 9, step 6: WAV's looks as choice rows with their round photo. A native radio group: arrows come free. The
+ * list is never empty: with no looks the caller shows TEXTO_SIN_AVATARES instead.
+ */
 export function ElegirAvatar({ avatares, elegido, alElegir }: PropiedadesDeElegirAvatar) {
   const grupo = useId()
-
-  if (avatares.length === 0) return <LineaDeEstado tipo="aviso" titulo={TEXTO_SIN_AVATARES} />
-
   return (
     <fieldset className="elecciones grid border-0 p-0">
       <legend className="sr-only">Avatar</legend>

@@ -60,10 +60,4 @@ describe("ElegirAvatar", () => {
     expect(screen.getByRole("radio", { name: "Estudio" })).toBeInTheDocument()
     expect(container.querySelector("img")).toBeNull()
   })
-
-  it("says plainly that there is nothing to choose, and offers no radios, when the list is empty", () => {
-    render(<ElegirAvatar avatares={[]} elegido={null} alElegir={() => undefined} />)
-    expect(screen.getByText("Todavía no hay avatares para elegir: avísale a Federico.")).toBeInTheDocument()
-    expect(screen.queryByRole("radio")).toBeNull()
-  })
 })
