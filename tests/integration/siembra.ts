@@ -195,3 +195,46 @@ export async function vaciarPiezasEIdeas(): Promise<void> {
   await pool.query("delete from public.ideas")
   await vaciarMotor()
 }
+
+/**
+ * Marks a destination of a piece as out, as the database owner (the publishing run or her upload would). LinkedIn's
+ * `publicado` needs a post URN (`linkedin_publicado_con_urn`), so one is made up from the piece id.
+ */
+export async function marcarPublicacion(
+  piezaId: string,
+  destino: "instagram" | "linkedin",
+  estado: "publicado" | "subido_a_mano" = "publicado",
+): Promise<void> {
+  await pool.query(
+    `insert into public.publicaciones (pieza_id, destino, estado, marcado_en, post_urn)
+     values ($1, $2::text, $3::text, now(),
+             case when $2::text = 'linkedin' and $3::text = 'publicado' then 'urn:li:share:' || $1::text end)
+     on conflict (pieza_id, destino) do update
+       set estado = excluded.estado, marcado_en = excluded.marcado_en, post_urn = excluded.post_urn`,
+    [piezaId, destino, estado],
+  )
+}
+
+/** Removes a destination row: for a piece that went out on one network only. */
+export async function quitarPublicacion(piezaId: string, destino: "instagram" | "linkedin"): Promise<void> {
+  await pool.query("delete from public.publicaciones where pieza_id = $1 and destino = $2", [piezaId, destino])
+}
+
+/**
+ * Moves the signed publishing time. Only the owner can rewrite an approval, and only with the triggers off, so it is
+ * done here on purpose, in one transaction.
+ */
+export async function moverHoraAprobada(piezaId: string, instante: string): Promise<void> {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await cliente.query("set local session_replication_role = replica")
+    await cliente.query("update public.piezas set puerta2_publicar_en = $2 where id = $1", [piezaId, instante])
+    await cliente.query("commit")
+  } catch (error) {
+    await cliente.query("rollback")
+    throw error
+  } finally {
+    cliente.release()
+  }
+}
