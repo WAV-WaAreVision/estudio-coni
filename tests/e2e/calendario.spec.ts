@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { pool } from "../integration/db"
 import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { capturar } from "./ayudas"
 
@@ -103,4 +104,35 @@ test("an unknown view falls back to the month instead of an error", async ({ pag
   await page.goto("/calendario?vista=inventada")
 
   await expect(page.getByRole("link", { name: "Mes" })).toHaveAttribute("aria-current", "page")
+})
+
+test("Repartir fechas proposes the places the Agenda shows and Cambiar moves one; nothing scheduled moves", async ({
+  page,
+}) => {
+  const video = await pieza("video_por_aprobar", "Ser tu propia diosa", "etica-regulacion")
+  await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "practica-clinica")
+  const programada = await pieza("programado", "Ya programado", "caso-coni")
+
+  await page.goto("/calendario?vista=agenda")
+  await expect(page.getByText("2 piezas en camino sin fecha propuesta.")).toBeVisible()
+  await page.getByRole("button", { name: "Repartir fechas" }).click()
+
+  await expect(page.getByText("Propuse fecha para 2 piezas. Puedes cambiarlas.")).toBeVisible()
+  await expect(page.getByText(/ · propuesta$/)).toHaveCount(2)
+  await expect(page.getByRole("button", { name: "Repartir fechas" })).toHaveCount(0)
+  const filas = await pool.query<{ pieza_id: string }>("select pieza_id from public.fechas_propuestas")
+  expect(filas.rows.map((f) => f.pieza_id)).not.toContain(programada)
+
+  const fechaDelVideo = async () => {
+    const { rows } = await pool.query<{ publicar_en: Date }>(
+      "select publicar_en from public.fechas_propuestas where pieza_id = $1",
+      [video],
+    )
+    return rows[0]?.publicar_en.getTime()
+  }
+  const antes = await fechaDelVideo()
+  await page.getByRole("button", { name: "Cambiar la fecha de Ser tu propia diosa" }).click()
+  await page.getByRole("group", { name: "¿Qué otro día?" }).getByRole("button").first().click()
+  await expect.poll(fechaDelVideo).not.toBe(antes)
+  await capturar(page, "calendario-agenda-propuestas")
 })

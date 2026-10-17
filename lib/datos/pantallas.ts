@@ -51,10 +51,12 @@ export interface ContextoDeFechas {
   ocupadas: string[]
   /** Pieces ahead of this one on the way to a slot: being recorded or waiting for their video approval. */
   enCola: number
+  /** Her stored proposal for this piece, live or not: the gate decides (amendment A9). */
+  propuesta: string | null
 }
 
 export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<ContextoDeFechas> {
-  const [ajustes, programadas, enCola] = await Promise.all([
+  const [ajustes, programadas, enCola, propuesta] = await Promise.all([
     db.from("ajustes").select("dias_publicacion, hora_publicacion, zona").maybeSingle(),
     db.from("piezas").select("puerta2_publicar_en").eq("estado", "programado").neq("id", piezaId),
     db
@@ -62,10 +64,12 @@ export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<Con
       .select("id", { count: "exact", head: true })
       .in("estado", ["guion_aprobado", "grabando_voz", "en_render", "subtitulando", "video_por_aprobar"])
       .neq("id", piezaId),
+    db.from("fechas_propuestas").select("publicar_en").eq("pieza_id", piezaId).maybeSingle(),
   ])
   if (ajustes.error) throw fallo("No pude leer los horarios", ajustes.error)
   if (programadas.error) throw fallo("No pude leer lo programado", programadas.error)
   if (enCola.error) throw fallo("No pude contar lo que viene", enCola.error)
+  if (propuesta.error) throw fallo("No pude leer la fecha propuesta", propuesta.error)
   return {
     horario: {
       dias: ajustes.data?.dias_publicacion ?? [2, 4, 6],
@@ -74,6 +78,7 @@ export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<Con
     },
     ocupadas: programadas.data.flatMap((fila) => (fila.puerta2_publicar_en ? [fila.puerta2_publicar_en] : [])),
     enCola: enCola.count ?? 0,
+    propuesta: propuesta.data?.publicar_en ?? null,
   }
 }
 
