@@ -22,7 +22,7 @@ import {
 
 const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
-const GRABANDO = "Estoy grabando tu video."
+const FIRMASTE = "Firmaste"
 // A literal, so the spec does not import a TSX component.
 const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
@@ -119,7 +119,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   // Pushing the slider while it is not enabled does nothing.
   await deslizador.focus()
   await page.keyboard.press("End")
-  await expect(page.getByText(GRABANDO)).toHaveCount(0)
+  await expect(page.getByText(FIRMASTE, { exact: true })).toHaveCount(0)
   expect((await leerFila(id)).estado).toBe("guion_por_aprobar")
 
   await abrirDesplegable(page, "Editar el guion")
@@ -152,7 +152,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
   await deslizador.focus()
   await page.keyboard.press("End")
 
-  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toBeVisible()
   expect(await leerFila(id)).toMatchObject({
     estado: "en_render",
     guion: GUION_EDITADO,
@@ -246,7 +246,7 @@ test("without dragging: a tap arms the signature and a second tap signs (WCAG 2.
 
   await page.waitForTimeout(500)
   await pista.click()
-  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
 })
 
@@ -259,7 +259,7 @@ test("a drag of the thumb to the end signs", async ({ page }) => {
 
   await deslizarHastaElFinal(page)
 
-  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
 })
 
@@ -280,8 +280,8 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 
   await deslizador.focus()
   await page.keyboard.press("End")
-  await expect(page.getByText(/Grabo el video en [78] s\./)).toBeVisible()
-  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await expect(page.getByText(/^Grabo tu video en [78] s$/)).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toBeVisible()
   await capturar(page, "guion-firmado")
   expect((await leerFila(id)).estado).toBe("en_render")
   const [primera] = disparosRegistrados()
@@ -296,7 +296,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
   await elegirAvatar(page, "Estudio")
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
   await firmarConDosToques(page)
-  await expect(page.getByText(GRABANDO)).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toBeVisible()
   expect((await leerFila(id)).estado).toBe("en_render")
   // The second signature starts its own run: another attempt, so another key than the undone one.
   const [, segunda] = disparosRegistrados()
@@ -332,7 +332,8 @@ test("a render stopped by the monthly cap shows why and stops polling", async ({
   await page.goto(`/guion/${id}`)
 
   await expect(page.getByText("Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.")).toBeVisible()
-  await expect(page.getByText(GRABANDO)).toHaveCount(0)
+  await expect(page.getByText("El video está detenido")).toBeVisible()
+  await expect(page.getByText(FIRMASTE, { exact: true })).toHaveCount(0)
   // Nothing refreshes it: no further navigation requests in the next seconds.
   let pedidos = 0
   page.on("request", (peticion) => {

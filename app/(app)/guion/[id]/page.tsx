@@ -1,9 +1,14 @@
+import { House } from "@phosphor-icons/react/dist/ssr"
+import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { EstadoSencillo } from "@/components/estado-sencillo"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
+import { Bloque } from "@/components/ui/bloque"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeSaldo } from "@/components/ui/costo"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
@@ -26,6 +31,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
+import { TEXTO_VIDEO_DETENIDO } from "./textos"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
@@ -79,13 +85,16 @@ export default async function PaginaDeGuion({
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
-            <LineaDeEstado tipo="error" titulo="El video está detenido" detalle={fila.explicacion} />
+            <Bloque tipo="error" grande titulo={TEXTO_VIDEO_DETENIDO}>
+              {fila.explicacion}
+            </Bloque>
           ) : (
-            <Trabajando titulo="Estoy grabando tu video." detalle="Te aviso cuando esté listo." />
-          )}
-          {ventana.quedanMs > 0 ? (
             <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
-          ) : null}
+          )}
+          <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
+            Volver a Inicio
+            <House aria-hidden="true" size={ICONO.medio} />
+          </Link>
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )

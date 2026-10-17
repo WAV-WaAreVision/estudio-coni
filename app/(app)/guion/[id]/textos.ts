@@ -6,9 +6,6 @@ export const TEXTO_FALTA_VOZ = "Falta preparar tu voz."
 export const TEXTO_PREPARANDO_VOZ = "Estoy preparando tu voz. Tarda unos segundos."
 export const TEXTO_GUARDA_ANTES_DE_VOZ = "Guarda tus cambios antes de grabar tu voz."
 export const TEXTO_CAMBIOS_TRAS_LA_VOZ = "Puedes pedir cambios cuando tu voz esté lista."
-/** The toast of a signature: the seconds really left of the window, 8 for a fresh one. */
-export const textoFirmaste = (quedanMs: number) =>
-  `Firmaste. Grabo el video en ${Math.min(VENTANA_DESHACER_MS / 1000, Math.ceil(quedanMs / 1000))} s.`
 export const TEXTO_DESHECHO = "Listo, no grabé nada. Puedes seguir revisando."
 
 // Soft UI copy (design 2026-10-16, decisions 9, 10 and 13, and its copy table).
