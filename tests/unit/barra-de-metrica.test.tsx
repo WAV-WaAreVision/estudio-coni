@@ -35,8 +35,23 @@ describe("BarraDeMetrica", () => {
         <BarraDeMetrica {...BASE} />
       </ul>,
     )
-    expect(screen.getByText("Pareja y conversación · 1 reel de este tema")).toBeInTheDocument()
+    expect(screen.getByText("Pareja y conversación").parentElement).toHaveTextContent(
+      "Pareja y conversación · 1 reel de este tema",
+    )
     expect(container.innerHTML).not.toMatch(/pilar-/)
+  })
+
+  it("keeps the theme's sample whole when a long pillar name wraps", () => {
+    render(
+      <ul>
+        <BarraDeMetrica
+          {...BASE}
+          pilar={{ slug: "practica-clinica", nombre: "Práctica clínica aumentada", nombreCorto: "Práctica clínica" }}
+          reelsDelTema={3}
+        />
+      </ul>,
+    )
+    expect(screen.getByText("3 reels de este tema")).toHaveClass("whitespace-nowrap")
   })
 
   it("says it has no numbers yet, with no bar and no figure", () => {
