@@ -173,8 +173,15 @@ async function videoVisto(page: Page, id: string) {
   await page.addInitScript((clave) => window.localStorage.setItem(clave, "1"), `visto:${video_id}`)
 }
 
-// LinkedIn and Instagram: the LinkedIn text leads ("Así sale en LinkedIn") and the caption folds under it. The
-// Instagram-only layout stays in "video sin terminar", which is also the state before she watched it.
+// Instagram only, watched to the end: the video is ready to sign.
+test("video por aprobar", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await videoVisto(page, video)
+  await page.goto(`/video/${video}`)
+  await capturaDe(page, "video-por-aprobar")
+})
+
+// LinkedIn and Instagram: the LinkedIn text leads ("Así sale en LinkedIn") and the caption folds under it.
 test("video por aprobar con linkedin", async ({ page }) => {
   const { video } = await sembrarEscena()
   await ajustarPieza(video, { texto_linkedin: TEXTO_LINKEDIN_VALIDO })
