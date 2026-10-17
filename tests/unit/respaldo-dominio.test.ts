@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
 import { leerRespaldo, respaldoAJson } from "@/lib/datos/respaldo"
-import { ajenoDelRespaldo, huellaDeRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
+import {
+  afirmacionesDelRespaldo,
+  ajenoDelRespaldo,
+  huellaDeRespaldo,
+  MAXIMO_AFIRMACIONES_DE_RESPALDO,
+  paraElGuion,
+  type Respaldo,
+} from "@/lib/dominio/respaldo"
 
 const RESPALDO: Respaldo = {
   teoria: {
@@ -147,5 +154,22 @@ describe("respaldo con fuente", () => {
 
   it("lists the cited authors for the revision", () => {
     expect(ajenoDelRespaldo(leerRespaldo(conFuente)).citadas).toEqual(["Ana Pérez", "OMS"])
+  })
+})
+
+describe("afirmacionesDelRespaldo", () => {
+  const de = (id: string, evidencia: string) => ({ id, evidencia })
+
+  it("keeps studies and clinical practice first, then the lowest ids, and returns them by id", () => {
+    const elegidas = afirmacionesDelRespaldo(
+      [de("d", "opinion"), de("z", "estudio"), de("a", "opinion"), de("y", "clinica"), de("b", "opinion")],
+      4,
+    )
+    expect(elegidas.map((a) => a.id)).toEqual(["a", "b", "y", "z"])
+  })
+
+  it("caps at MAXIMO_AFIRMACIONES_DE_RESPALDO by default", () => {
+    const muchas = Array.from({ length: 15 }, (_, i) => de(String(i).padStart(2, "0"), "opinion"))
+    expect(afirmacionesDelRespaldo(muchas)).toHaveLength(MAXIMO_AFIRMACIONES_DE_RESPALDO)
   })
 })

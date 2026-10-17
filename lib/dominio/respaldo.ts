@@ -26,7 +26,23 @@ export interface Respaldo {
 /** Bounds the prompt: about 3 000 input tokens at most. */
 export const MAXIMO_AFIRMACIONES_DE_RESPALDO = 12
 
-const porId = (a: AfirmacionDeRespaldo, b: AfirmacionDeRespaldo) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+const porId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+const deEvidencia = (a: { evidencia: string }) => (a.evidencia === "estudio" || a.evidencia === "clinica" ? 0 : 1)
+
+/**
+ * The claims a backing keeps, as `respaldo_de_idea` picks them (20261017000110): studies and clinical practice first,
+ * then by id, up to the cap; returned by id. Whoever shows a source without that function (the idea card) uses this,
+ * so the card and the script name the same sources.
+ */
+export function afirmacionesDelRespaldo<A extends { id: string; evidencia: string }>(
+  afirmaciones: readonly A[],
+  limite = MAXIMO_AFIRMACIONES_DE_RESPALDO,
+): A[] {
+  return afirmaciones
+    .toSorted((a, b) => deEvidencia(a) - deEvidencia(b) || porId(a, b))
+    .slice(0, limite)
+    .toSorted(porId)
+}
 
 /** Canonical form for the gate-1 hash: fixed field order, claims by id. No backing is the empty string. */
 export function huellaDeRespaldo(respaldo: Respaldo | null): string {

@@ -4,6 +4,7 @@ import { leerPilares } from "@/lib/datos/pilares"
 import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { nombreDePilar } from "@/lib/dominio/pilares"
+import { afirmacionesDelRespaldo } from "@/lib/dominio/respaldo"
 import type { IdeaDeBanco, NivelDeEvidencia, PorQueDeIdea } from "@/lib/ideas/mazo"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -39,6 +40,8 @@ function porQueDe(teoria: {
   nivel_evidencia: string | null
   teoria_afirmaciones: {
     afirmaciones: {
+      id: string
+      evidencia: string
       cita: string
       excluida: boolean
       autores: { nombre: string; tipo: string } | null
@@ -58,7 +61,7 @@ function porQueDe(teoria: {
     nivel: nivelDe(teoria.nivel_evidencia),
     respaldo: vigentes.map((a) => ({ autor: a.autores.nombre, cita: a.cita })),
     fuente: lineaDeFuente(
-      vigentes.map((a) => ({
+      afirmacionesDelRespaldo(vigentes).map((a) => ({
         deConi: a.autores.tipo === "coni",
         fuente: { autor: a.autores.nombre, titulo: a.materiales?.titulo ?? null, anio: a.materiales?.anio ?? null },
       })),
@@ -76,7 +79,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
     db
       .from("ideas")
       .select(
-        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
+        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(id, evidencia, cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
       )
       .in("estado", ["idea", "usada"]),
     db

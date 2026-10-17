@@ -86,7 +86,15 @@ export interface TeoriaSembrada {
   titulo: string
   tesis: string
   nivel: "alto" | "medio" | "debil"
-  respaldo: { autor: string; cita: string; titulo?: string; anio?: number; deConi?: boolean }[]
+  respaldo: {
+    autor: string
+    cita: string
+    titulo?: string
+    anio?: number
+    deConi?: boolean
+    /** `opinion` when absent. */
+    evidencia?: "estudio" | "clinica" | "opinion"
+  }[]
 }
 
 /** An idea the weekly engine wrote: with its theory and the claims behind it, as the engine leaves them. */
@@ -125,8 +133,8 @@ export async function sembrarIdeaDelMotor(extra: {
       )
       const { rows: afirmacion } = await pool.query<{ id: string }>(
         `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia)
-         values ($1, $2, $3, '{}', 'texto', $4, 'consejo', 'opinion') returning id`,
-        [material[0]?.id, autor[0]?.id, i, apoyo.cita],
+         values ($1, $2, $3, '{}', 'texto', $4, 'consejo', $5) returning id`,
+        [material[0]?.id, autor[0]?.id, i, apoyo.cita, apoyo.evidencia ?? "opinion"],
       )
       await pool.query(
         "insert into public.teoria_afirmaciones (teoria_id, afirmacion_id, aporte) values ($1, $2, 'aporta')",
