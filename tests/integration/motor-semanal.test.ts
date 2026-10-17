@@ -217,7 +217,7 @@ describe("correrMotor", () => {
   it("turns three crossings into theories, ideas and a finished run", async () => {
     const { t1 } = await tresTemas()
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana) values (500, 'pareja', 'vieja', 'idea', 'baja', 'motor', '2026-01-04')",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana) values (500, 'ia-salud-mental', 'vieja', 'idea', 'baja', 'motor', '2026-01-04')",
     )
     const claude = simularClaude()
 
@@ -366,7 +366,7 @@ describe("correrMotor", () => {
       [SEMANA, CONI],
     )
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values (700, 'pareja', 'sobra', 'idea', 'baja', 'motor', $1, $2)",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values (700, 'ia-salud-mental', 'sobra', 'idea', 'baja', 'motor', $1, $2)",
       [SEMANA, sobra],
     )
     simularClaude()
@@ -390,7 +390,7 @@ describe("correrMotor", () => {
       [SEMANA, CONI],
     )
     await pool.query(
-      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id, fijada_en) values (710, 'pareja', 'fijada', 'idea', 'baja', 'motor', $1, $2, now())",
+      "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id, fijada_en) values (710, 'ia-salud-mental', 'fijada', 'idea', 'baja', 'motor', $1, $2, now())",
       [SEMANA, fijada],
     )
     simularClaude()
@@ -466,7 +466,7 @@ describe("correrMotor", () => {
     )
     for (const n of [601, 602]) {
       await pool.query(
-        "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values ($1, 'pareja', 'previa', 'descartada', 'media', 'motor', '2026-09-13', $2)",
+        "insert into public.ideas (numero, pilar, gancho, estado, fuerza, origen, semana, teoria_id) values ($1, 'ia-salud-mental', 'previa', 'descartada', 'media', 'motor', '2026-09-13', $2)",
         [n, teoria],
       )
     }

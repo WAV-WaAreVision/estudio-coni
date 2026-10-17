@@ -70,7 +70,7 @@ export async function sembrarIdea(
   const { rows } = await pool.query<{ id: string }>(
     "insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, numero, estado) values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, $5) returning id",
     [
-      extra.pilar ?? "deseo",
+      extra.pilar ?? "practica-clinica",
       extra.gancho ?? "El deseo no se apaga, se esconde",
       JSON.stringify(extra.alertas ?? []),
       extra.numero ?? null,
@@ -135,7 +135,7 @@ export async function sembrarIdeaDelMotor(extra: {
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas, estado, origen, semana, teoria_id, numero)
      values ($1, $2, 'tema', 'Mito o realidad', 'alta', $3::jsonb, $4, 'motor', $5, $6, $7) returning id`,
     [
-      extra.pilar ?? "pareja",
+      extra.pilar ?? "ia-salud-mental",
       extra.gancho,
       JSON.stringify(extra.alertas ?? []),
       extra.estado ?? "idea",

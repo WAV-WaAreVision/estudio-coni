@@ -87,6 +87,8 @@ export async function leerDatosDelMotor(
       .select("id, teorias!inner(temas)")
       .eq("origen", "motor")
       .eq("estado", "descartada")
+      // A retired pillar is not a verdict on its topics (amendment 4).
+      .or("motivo_descarte.is.null,motivo_descarte.neq.pilar_retirado")
       .gte("semana", desde)
       .order("id")
       .range(a, b),

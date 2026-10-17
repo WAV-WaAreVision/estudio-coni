@@ -42,7 +42,7 @@ function simularInsights(opciones: { medias: Record<string, unknown>; toques?: (
   return pedidos
 }
 
-async function reelPublicado(mediaId: string | null, pilar = "autoestima") {
+async function reelPublicado(mediaId: string | null, pilar = "etica-regulacion") {
   const idea = await sembrarIdea({ pilar, gancho: `Gancho ${mediaId ?? "sin media"}` })
   return sembrarPieza("publicado", { idea_id: idea, titulo: `Reel ${mediaId}`, media_id: mediaId })
 }

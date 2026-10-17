@@ -41,7 +41,7 @@ describe("leerDatosDeMetricas", () => {
   })
 
   it("reads published reels with their theme, their readings, the consultations and the clicks summed by day", async () => {
-    const idea = await sembrarIdea({ pilar: "autoestima" })
+    const idea = await sembrarIdea({ pilar: "etica-regulacion" })
     const publicada = await sembrarPieza("publicado", {
       titulo: "Ser tu propia diosa",
       idea_id: idea,
@@ -61,7 +61,11 @@ describe("leerDatosDeMetricas", () => {
 
     expect(datos.zona).toBe("America/Santiago")
     expect(datos.publicadas).toHaveLength(1)
-    expect(datos.publicadas[0]).toMatchObject({ id: publicada, titulo: "Ser tu propia diosa", pilar: "autoestima" })
+    expect(datos.publicadas[0]).toMatchObject({
+      id: publicada,
+      titulo: "Ser tu propia diosa",
+      pilar: "etica-regulacion",
+    })
     // Only the newest reading of the reel comes back.
     expect(datos.lecturas.map((l) => [l.dia, l.alcance, l.guardados, l.tiempoPromedio])).toEqual([
       ["2026-10-15", 1000, 30, 25000],

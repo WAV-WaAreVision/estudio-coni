@@ -143,7 +143,7 @@ const ideasCreadas: string[] = []
 async function crearPiezaEnProduccion(alertas: Alerta[] = []): Promise<string> {
   const idea = await pool.query<{ id: string }>(
     `insert into public.ideas (pilar, gancho, tema, formato, fuerza, alertas)
-     values ('pareja', 'Hay una palabra que enciende cualquier discusión de pareja.', 'Cambiar el por qué por un qué.',
+     values ('ia-salud-mental', 'Hay una palabra que enciende cualquier discusión de pareja.', 'Cambiar el por qué por un qué.',
              'Ejercicio de la semana', 'alta', $1::jsonb) returning id`,
     [JSON.stringify(alertas)],
   )

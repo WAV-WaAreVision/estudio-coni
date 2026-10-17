@@ -50,7 +50,7 @@ describe("destinos de las piezas en Inicio y Calendario", () => {
 
 describe("leerDatosDeCalendario", () => {
   it("reads the live pieces with their theme, the schedule, and leaves out ideas and discarded ones", async () => {
-    const idea = await sembrarIdea({ pilar: "limites" })
+    const idea = await sembrarIdea({ pilar: "acceso-salud-publica" })
     await sembrarPieza("programado", { titulo: "Programada", idea_id: idea })
     await sembrarPieza("guion_en_proceso", { titulo: "En proceso" })
     await sembrarPieza("guion_en_proceso", { titulo: "Descartada", estado: "descartado" })
@@ -59,7 +59,7 @@ describe("leerDatosDeCalendario", () => {
 
     expect(datos.piezas.map((p) => [p.titulo, p.estado, p.pilar]).sort()).toEqual([
       ["En proceso", "guion_en_proceso", null],
-      ["Programada", "programado", "limites"],
+      ["Programada", "programado", "acceso-salud-publica"],
     ])
     expect(datos.horario).toEqual({ dias: [2, 4, 6], hora: "19:00:00", zona: "America/Santiago" })
   })

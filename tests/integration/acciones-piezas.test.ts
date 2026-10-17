@@ -142,7 +142,7 @@ afterAll(async () => {
 
 describe("elegirIdeas", () => {
   it("creates one piece per idea, marks the ideas as used and starts the script of each", async () => {
-    const [a, b] = [await idea(), await idea({ pilar: "pareja" })]
+    const [a, b] = [await idea(), await idea({ pilar: "ia-salud-mental" })]
     const { deps, disparos } = armar()
 
     const resultado = await elegirIdeas(deps, [a, b])

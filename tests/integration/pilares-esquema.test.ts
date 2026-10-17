@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest"
-import { como, comoConi, comoMantenedor, comoOtra, comoPostgres, pool } from "./db"
+import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, comoServicio, fallaCon, pool } from "./db"
 
 afterAll(() => pool.end())
 
@@ -73,5 +73,82 @@ describe("categorias como pilares", () => {
     expect(await leer(comoConi)).toBe(5)
     expect(await leer(comoMantenedor)).toBe(5)
     expect(await leer(comoOtra)).toBe(0)
+  })
+})
+
+const insertarIdea = (pilar: string, estado = "idea") =>
+  `insert into public.ideas (pilar, gancho, fuerza, estado) values ('${pilar}', 'gancho', 'alta', '${estado}') returning id`
+
+describe("ideas.pilar apunta a un pilar activo", () => {
+  it("takes an active pillar", async () => {
+    await como(comoPostgres, async (c) => {
+      const { rowCount } = await c.query(insertarIdea("caso-coni"))
+      expect(rowCount).toBe(1)
+    })
+  })
+
+  it("refuses a retired pillar on insert and on update", async () => {
+    await como(comoPostgres, async (c) => {
+      expect((await fallaCon(c, insertarIdea("pareja"))).message).toBe("pilar_inactivo")
+      const { rows } = await c.query<{ id: string }>(insertarIdea("caso-coni"))
+      const error = await fallaCon(c, "update public.ideas set pilar = 'deseo' where id = $1", [rows[0]?.id])
+      expect(error.message).toBe("pilar_inactivo")
+    })
+  })
+
+  it("refuses a category that is not a pillar and a slug that does not exist", async () => {
+    await como(comoPostgres, async (c) => {
+      expect((await fallaCon(c, insertarIdea("general"))).message).toBe("pilar_inactivo")
+      expect((await fallaCon(c, insertarIdea("no-existe"))).code).toBe("23503")
+    })
+  })
+
+  it("has no pilar enum any more", async () => {
+    await como(comoPostgres, async (c) => {
+      const { rowCount } = await c.query(
+        "select 1 from pg_type where typname = 'pilar' and typnamespace = 'public'::regnamespace",
+      )
+      expect(rowCount).toBe(0)
+    })
+  })
+
+  it("archives bank ideas of retired pillars as pilar_retirado and keeps used ones", async () => {
+    await como(comoPostgres, async (c) => {
+      // Ideas of a retired pillar can no longer be inserted: the trigger is lifted for this transaction only.
+      await c.query("alter table public.ideas disable trigger exigir_pilar_activo")
+      const libre = (await c.query<{ id: string }>(insertarIdea("pareja"))).rows[0]?.id
+      const usada = (await c.query<{ id: string }>(insertarIdea("deseo", "usada"))).rows[0]?.id
+      const nueva = (await c.query<{ id: string }>(insertarIdea("caso-coni"))).rows[0]?.id
+      await c.query("alter table public.ideas enable trigger exigir_pilar_activo")
+
+      const { rows } = await c.query<{ n: number }>("select public.archivar_ideas_de_pilares_retirados() as n")
+      expect(rows[0]?.n).toBeGreaterThanOrEqual(1)
+
+      const estado = async (id: string | undefined) =>
+        (
+          await c.query<{ estado: string; motivo_descarte: string | null; pilar: string }>(
+            "select estado, motivo_descarte, pilar from public.ideas where id = $1",
+            [id],
+          )
+        ).rows[0]
+      expect(await estado(libre)).toEqual({ estado: "descartada", motivo_descarte: "pilar_retirado", pilar: "pareja" })
+      expect(await estado(usada)).toEqual({ estado: "usada", motivo_descarte: null, pilar: "deseo" })
+      expect(await estado(nueva)).toMatchObject({ estado: "idea" })
+    })
+  })
+
+  it("does not let Coni pick pilar_retirado", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = (await c.query<{ id: string }>(insertarIdea("caso-coni"))).rows[0]?.id
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, "select public.descartar_idea($1, 'pilar_retirado')", [id])
+      expect(error.message).toBe("motivo_invalido")
+    })
+  })
+
+  it("keeps the archive function for postgres only", async () => {
+    await como(comoServicio, async (c) => {
+      expect((await fallaCon(c, "select public.archivar_ideas_de_pilares_retirados()")).code).toBe("42501")
+    })
   })
 })
