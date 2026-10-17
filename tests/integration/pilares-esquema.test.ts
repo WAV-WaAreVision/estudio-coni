@@ -96,6 +96,26 @@ describe("ideas.pilar apunta a un pilar activo", () => {
     })
   })
 
+  it("lets an upsert rewrite a row that keeps its retired pillar, and still refuses moving to one", async () => {
+    await como(comoPostgres, async (c) => {
+      await c.query("alter table public.ideas disable trigger exigir_pilar_activo")
+      await c.query(
+        "insert into public.ideas (numero, pilar, gancho, fuerza, estado, motivo_descarte) values (9901, 'pareja', 'vieja', 'alta', 'descartada', 'pilar_retirado')",
+      )
+      await c.query("alter table public.ideas enable trigger exigir_pilar_activo")
+
+      const { rowCount } = await c.query(
+        `insert into public.ideas (numero, pilar, gancho, fuerza) values (9901, 'pareja', 'corregida', 'alta')
+         on conflict (numero) do update set pilar = excluded.pilar, gancho = excluded.gancho`,
+      )
+      expect(rowCount).toBe(1)
+
+      const { rows } = await c.query<{ id: string }>(insertarIdea("caso-coni"))
+      const error = await fallaCon(c, "update public.ideas set pilar = 'limites' where id = $1", [rows[0]?.id])
+      expect(error.message).toBe("pilar_inactivo")
+    })
+  })
+
   it("refuses a category that is not a pillar and a slug that does not exist", async () => {
     await como(comoPostgres, async (c) => {
       expect((await fallaCon(c, insertarIdea("general"))).message).toBe("pilar_inactivo")

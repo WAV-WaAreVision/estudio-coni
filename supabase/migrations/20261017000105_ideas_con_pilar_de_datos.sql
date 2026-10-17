@@ -6,18 +6,23 @@ alter table public.ideas add constraint ideas_pilar_fkey foreign key (pilar) ref
 create index ideas_pilar on public.ideas (pilar);
 
 -- A new idea, or a pillar change, must name an active pillar. Retired slugs stay valid on rows that already have them.
--- A slug that is no category at all is left to the foreign key (23503), which runs after this before-trigger.
+-- After, not before: INSERT ... ON CONFLICT DO UPDATE (the bank import) runs BEFORE INSERT triggers on the proposed row
+-- even when it ends up updating, so a before-trigger would refuse re-importing an idea that keeps its retired pillar.
+-- A slug that is no category at all is left to the foreign key (23503).
 create function public.exigir_pilar_activo() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  if tg_op = 'UPDATE' and old.pilar is not distinct from new.pilar then
+    return null;
+  end if;
   if exists (select 1 from public.categorias c where c.slug = new.pilar)
      and not exists (select 1 from public.categorias c where c.slug = new.pilar and c.es_pilar and c.activa) then
     raise exception using errcode = '23514', message = 'pilar_inactivo';
   end if;
-  return new;
+  return null;
 end $$;
 
-create trigger exigir_pilar_activo before insert or update of pilar on public.ideas
+create trigger exigir_pilar_activo after insert or update of pilar on public.ideas
   for each row execute function public.exigir_pilar_activo();
 
 -- System motive only: descartar_idea (Coni's) keeps its four.
