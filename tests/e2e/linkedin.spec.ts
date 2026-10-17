@@ -6,6 +6,7 @@ import { pool } from "../integration/db"
 import { clienteDeServicio } from "../integration/servicio"
 import { leerFila, publicacionesDe, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
+  abrirDesplegable,
   bloquearRedExterna,
   capturar,
   configurarServicios,
@@ -67,6 +68,7 @@ test("she approves for Instagram and LinkedIn, the time comes and she uploads ea
   await page.goto(`/video/${id}`)
   await verYAprobar(page)
 
+  await abrirDesplegable(page, "Más opciones")
   await expect(page.getByRole("checkbox", { name: "Instagram" })).toBeChecked()
   await expect(page.getByRole("checkbox", { name: "LinkedIn" })).toBeChecked()
   await expect(page.getByRole("heading", { name: "Texto para LinkedIn" })).toBeVisible()
@@ -142,7 +144,9 @@ test("a piece from before LinkedIn starts its text from the caption and cannot b
 
   const campo = page.getByLabel("Texto de la publicación en LinkedIn")
   await expect(campo).toHaveValue(/Este video lo narra mi avatar digital/)
-  await expect(page.getByText("Guarda el texto para LinkedIn.")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("guardar el texto para LinkedIn", { exact: false }),
+  ).toBeVisible()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
 
   await page.getByRole("button", { name: "Guardar el texto para LinkedIn" }).click()
@@ -160,7 +164,10 @@ test("she can approve for Instagram alone even when the LinkedIn text has someth
   await page.goto(`/video/${id}`)
   await verYAprobar(page)
 
-  await expect(page.getByText("Hay algo que corregir antes de aprobar.")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("corregir el texto", { exact: false }),
+  ).toBeVisible()
+  await abrirDesplegable(page, "Más opciones")
   await page.getByRole("checkbox", { name: "LinkedIn" }).uncheck()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "false")
   await deslizarHastaElFinal(page)
