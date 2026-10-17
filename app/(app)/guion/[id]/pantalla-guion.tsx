@@ -8,6 +8,7 @@ import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
+import { LineaDeFuente } from "@/components/linea-de-fuente"
 import { Seccion } from "@/components/seccion"
 import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
@@ -255,8 +256,8 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         ) : null}
         <Panel>
           <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
+          {datos.fuente ? <LineaDeFuente texto={datos.fuente} className="mt-4 border-t border-hilo pt-4" /> : null}
         </Panel>
-        {datos.fuente ? <p className="text-meta text-apagado">{datos.fuente}</p> : null}
         {revision.length === 0 ? (
           <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES}</p>
         ) : (
