@@ -395,6 +395,21 @@ describe("CartaDeIdea: fuente", () => {
     expect(gancho.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it("gives the source its own row after the topic and the strength, with a decorative icon beside the text", () => {
+    render(
+      <CartaDeIdea
+        idea={{ ...NUEVA, tema: "Un tema", porQue: { ...TEORIA, fuente: "Fuente: OMS · Informe (2025)" } }}
+      />,
+    )
+    const fila = screen.getByText("Fuente: OMS · Informe (2025)").closest("[data-fuente]")
+    expect(fila).not.toBeNull()
+    expect(fila).toHaveClass("text-meta", "text-apagado")
+    expect(fila?.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
+    const fuerza = screen.getByText(/^Fuerza/)
+    expect(screen.getByText("Un tema").compareDocumentPosition(fuerza) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(fuerza.compareDocumentPosition(fila as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("shows no source line for an idea without backing", () => {
     render(<CartaDeIdea idea={{ ...NUEVA, porQue: null }} />)
     expect(screen.queryByText(/^Fuentes?:|^De Coni$/)).not.toBeInTheDocument()

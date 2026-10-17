@@ -1,5 +1,6 @@
 import { CaretDown } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
+import { LineaDeFuente } from "@/components/linea-de-fuente"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
@@ -23,7 +24,6 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
       <div className="grid gap-3">
         <p className="text-meta text-apagado">{idea.nombrePilar}</p>
         <h2 className="text-pieza text-balance">{idea.gancho}</h2>
-        {idea.porQue?.fuente ? <p className="text-meta text-apagado">{idea.porQue.fuente}</p> : null}
         {idea.tema ? <p className="text-cuerpo text-apagado">{idea.tema}</p> : null}
         <p className="text-meta font-medium text-tinta">
           Fuerza {idea.fuerza}
@@ -35,6 +35,9 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
             </>
           ) : null}
         </p>
+        {idea.porQue?.fuente ? (
+          <LineaDeFuente texto={idea.porQue.fuente} className="border-t border-hilo pt-3" />
+        ) : null}
       </div>
       {alertas.length > 0 ? (
         <div className="grid gap-1">
