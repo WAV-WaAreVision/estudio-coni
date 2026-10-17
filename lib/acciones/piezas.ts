@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerInstagramConectado } from "@/lib/datos/pantallas"
+import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -29,6 +29,7 @@ import {
 } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
+import { cuantasAlcanzan } from "@/lib/dominio/lote"
 import { hashPuerta1, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import {
@@ -41,6 +42,7 @@ import {
   sinLinkedin,
 } from "@/lib/dominio/revision"
 import { vozDelGuion } from "@/lib/dominio/voz"
+import { ESTIMADO_POR_GUION_USD, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { type AvatarElegible, type ConfigElevenlabs, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
@@ -160,26 +162,59 @@ function exigirVozDelGuion(fila: FilaDePieza, guion: string, elevenlabs: ConfigE
   if (voz === null) throw new Falla(TEXTO_VOZ_AJENA)
 }
 
+function exigirLoteDeIdeas(ideaIds: readonly string[]): void {
+  if (ideaIds.length === 0 || ideaIds.length > MAXIMO_DE_IDEAS || new Set(ideaIds).size !== ideaIds.length) {
+    throw new Falla(`Elige entre una y ${MAXIMO_DE_IDEAS} ideas distintas.`)
+  }
+}
+
+/** Claims every idea and starts its script, in the order given. Every script then goes to its own gate 1. */
+async function empezarIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<string[]> {
+  const noDisponible = new Falla("Una de esas ideas ya no está disponible. Vuelve a elegir.")
+  const { data: ideas, error } = await deps.db
+    .from("ideas")
+    .select("id, gancho, estado")
+    .in("id", [...ideaIds])
+  if (error) throw new Error(`No pude leer las ideas: ${error.message}`, { cause: error })
+  if (ideas.length !== ideaIds.length || ideas.some((idea) => idea.estado !== "idea")) throw noDisponible
+
+  const piezas: string[] = []
+  for (const id of ideaIds) {
+    const idea = ideas.find((candidata) => candidata.id === id)
+    if (!idea) throw noDisponible
+    piezas.push(await empezarPieza(deps, idea, noDisponible))
+  }
+  return piezas
+}
+
 export function elegirIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<{ piezas: string[] }>> {
   return aResultado("elegirIdeas", async () => {
-    if (ideaIds.length === 0 || ideaIds.length > MAXIMO_DE_IDEAS || new Set(ideaIds).size !== ideaIds.length) {
-      throw new Falla(`Elige entre una y ${MAXIMO_DE_IDEAS} ideas distintas.`)
-    }
-    const noDisponible = new Falla("Una de esas ideas ya no está disponible. Vuelve a elegir.")
-    const { data: ideas, error } = await deps.db
-      .from("ideas")
-      .select("id, gancho, estado")
-      .in("id", [...ideaIds])
-    if (error) throw new Error(`No pude leer las ideas: ${error.message}`, { cause: error })
-    if (ideas.length !== ideaIds.length || ideas.some((idea) => idea.estado !== "idea")) throw noDisponible
+    exigirLoteDeIdeas(ideaIds)
+    return { piezas: await empezarIdeas(deps, ideaIds) }
+  })
+}
 
-    const piezas: string[] = []
-    for (const id of ideaIds) {
-      const idea = ideas.find((candidata) => candidata.id === id)
-      if (!idea) throw noDisponible
-      piezas.push(await empezarPieza(deps, idea, noDisponible))
-    }
-    return { piezas }
+export type LoteElegido = { tipo: "empezadas"; piezas: string[] } | { tipo: "alcanza"; cuantas: number }
+
+/**
+ * "Hacer los guiones (N)" on Ideas (decision 23): the month is checked for the whole batch first. When it covers
+ * fewer, nothing starts and she is told how many fit; she asks again for those. The reservation inside the writer
+ * stays the real guard (amendment A2).
+ */
+export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<LoteElegido>> {
+  return aResultado("elegirLote", async (): Promise<LoteElegido> => {
+    exigirLoteDeIdeas(ideaIds)
+    const { data, error } = await deps.db.from("ajustes").select("zona").maybeSingle()
+    if (error) throw new Error(`No pude leer la zona: ${error.message}`, { cause: error })
+    const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()), data?.zona ?? "America/Santiago")
+    const alcanza = cuantasAlcanzan({
+      ...presupuesto,
+      estimadoPorGuion: ESTIMADO_POR_GUION_USD,
+      pedidas: ideaIds.length,
+    })
+    if (alcanza === 0) throw new Falla(TEXTO_TOPE)
+    if (alcanza < ideaIds.length) return { tipo: "alcanza", cuantas: alcanza }
+    return { tipo: "empezadas", piezas: await empezarIdeas(deps, ideaIds) }
   })
 }
 

@@ -13,6 +13,7 @@ import {
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
+  elegirLote,
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
@@ -21,12 +22,14 @@ import {
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
+import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
 import { claveDeToma } from "@/lib/dominio/voz"
+import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -216,6 +219,60 @@ describe("elegirIdeas", () => {
     piezasCreadas.push(...rows.map((r) => r.id))
     expect(rows[0]).toMatchObject({ estado: "guion_en_proceso" })
     expect(rows[0].explicacion).toMatch(/no pude empezar/i)
+  })
+})
+
+describe("elegirLote", () => {
+  async function topeConLugarPara(guiones: number): Promise<void> {
+    const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
+    await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado + guiones * 1.1 + 0.05])
+  }
+  afterEach(async () => {
+    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  })
+
+  it("starts every script when the month covers the whole batch", async () => {
+    const [a, b] = [await idea(), await idea()]
+    await topeConLugarPara(2)
+    const { deps, disparos } = armar()
+
+    const resultado = await elegirLote(deps, [a, b])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...resultado.piezas)
+    expect(resultado.piezas).toHaveLength(2)
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("says how many fit and starts nothing when the month covers fewer", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(2)
+    const { deps, disparos } = armar()
+    const antes = await pool.query("select count(*)::int as n from public.piezas")
+
+    expect(await elegirLote(deps, [a, b, c])).toEqual({ ok: true, tipo: "alcanza", cuantas: 2 })
+
+    expect(disparos).toEqual([])
+    expect((await pool.query("select count(*)::int as n from public.piezas")).rows[0].n).toBe(antes.rows[0].n)
+    const { rows } = await pool.query("select estado from public.ideas where id = any($1::uuid[])", [[a, b, c]])
+    expect(rows.every((fila) => fila.estado === "idea")).toBe(true)
+  })
+
+  it("says the cap is reached when not even one fits", async () => {
+    const id = await idea()
+    await topeConLugarPara(0)
+    const { deps, disparos } = armar()
+
+    expect(await elegirLote(deps, [id])).toEqual({ ok: false, error: TEXTO_TOPE })
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses what elegirIdeas refuses before reading the month", async () => {
+    const id = await idea()
+    const { deps } = armar()
+    expect(await elegirLote(deps, [])).toMatchObject({ ok: false })
+    expect(await elegirLote(deps, [id, id])).toMatchObject({ ok: false })
   })
 })
 
