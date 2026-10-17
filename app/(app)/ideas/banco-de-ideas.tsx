@@ -1,13 +1,13 @@
 "use client"
 
-import { ArrowRight, CaretLeft, MagnifyingGlass, Plus } from "@phosphor-icons/react"
-import Link from "next/link"
+import { ArrowRight, MagnifyingGlass, Plus } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Volver } from "@/components/ui/volver"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
@@ -145,13 +145,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
   return (
     <div className="grid gap-4">
       <header className="grid gap-1">
-        <Link
-          href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
-        >
-          <CaretLeft aria-hidden="true" size={ICONO.medio} />
-          Inicio
-        </Link>
+        <Volver href="/">Inicio</Volver>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-pantalla">{buscando ? "Buscar ideas" : "Ideas"}</h1>
           <Boton
