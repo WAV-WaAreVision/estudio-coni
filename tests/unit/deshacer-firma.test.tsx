@@ -74,6 +74,24 @@ describe("DeshacerFirma", () => {
     expect(screen.getByText("Unos 5 min. Te aviso cuando esté listo.")).toBeInTheDocument()
   })
 
+  it("hands the focus to the recording line when the window ends, so it does not fall to the page (WCAG 2.4.3)", () => {
+    vi.useFakeTimers()
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={3000} />)
+    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus()
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+    expect(screen.getByText("Estoy grabando tu video.")).toHaveFocus()
+  })
+
+  it("hands the focus to the recording line when a refused undo closes the window", async () => {
+    deshacerAprobacionAccion.mockResolvedValue({ ok: false, error: TEXTO_DESHACER_TARDE })
+    render(<DeshacerFirma piezaId="p1" version={6} quedanMs={8000} />)
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
+    await screen.findByRole("alert")
+    expect(screen.getByText("Estoy grabando tu video.")).toHaveFocus()
+  })
+
   it("says the seconds really left when the screen opens mid-window", () => {
     render(<DeshacerFirma piezaId="p1" version={6} quedanMs={4200} />)
     expect(screen.getByText("Grabo tu video en 5 s")).toBeInTheDocument()
@@ -83,5 +101,7 @@ describe("DeshacerFirma", () => {
     render(<DeshacerFirma piezaId="p1" version={6} quedanMs={0} />)
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
     expect(screen.getByText("Estoy grabando tu video.")).toBeInTheDocument()
+    // Nothing had the focus to lose: a later visit does not take it.
+    expect(screen.getByText("Estoy grabando tu video.")).not.toHaveFocus()
   })
 })
