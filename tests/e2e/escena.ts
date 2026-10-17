@@ -8,11 +8,14 @@ import { ajustarPieza, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../
 import { GUION_VALIDO, limpiarDisparos, TEXTO_VALIDO } from "./ayudas"
 
 const IDEAS = [
-  { pilar: "autoestima", gancho: "¿Te achicas para que nadie se incomode?" },
-  { pilar: "pareja", gancho: "Si van a discutir, siéntense del mismo lado." },
-  { pilar: "bienestar", gancho: "Un visto sin respuesta y ya imaginas lo peor. ¿Te pasa?" },
-  { pilar: "limites", gancho: "Puedes decir que no sin dar explicaciones larguísimas." },
-  { pilar: "deseo", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?" },
+  {
+    pilar: "etica-regulacion",
+    gancho: "Las apps de bienestar emocional reciben datos de salud y casi nadie las regula.",
+  },
+  { pilar: "ia-salud-mental", gancho: "Una de cada cuatro personas ya usa IA para su salud mental." },
+  { pilar: "caso-coni", gancho: "Uso un avatar de IA para divulgar. Esto es lo que decidí no delegarle." },
+  { pilar: "acceso-salud-publica", gancho: "Un contacto de confianza nombrado de antemano puede salvar una vida." },
+  { pilar: "practica-clinica", gancho: "La IA en terapia debería aprender como los autos autónomos." },
 ]
 const ELEVENLABS = leerConfigProduccion(
   JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8")),
@@ -40,16 +43,16 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   await pool.query("delete from public.consultas")
   // Numbered, so the five that Inicio offers do not depend on the random ids that break ties.
   for (const [i, idea] of IDEAS.entries()) await sembrarIdea({ ...idea, numero: i + 1 })
-  const guion = await conIdea("guion_por_aprobar", "deseo", "El deseo no se apaga, se esconde")
+  const guion = await conIdea("guion_por_aprobar", "practica-clinica", "El deseo no se apaga, se esconde")
   // The writer delivers the script with her voice, and so without the note of a voice that failed: gate 1 shows its
   // player.
   await ajustarPieza(guion, {
     audio_id: claveDeToma(guion, huellaDelGuion(GUION_VALIDO, ELEVENLABS), 0),
     explicacion: null,
   })
-  const video = await conIdea("video_por_aprobar", "autoestima", "Ser tu propia diosa")
-  await conIdea("en_render", "limites", "Puedes decir que no")
-  await conIdea("programado", "pareja", "Si van a discutir, siéntense del mismo lado")
+  const video = await conIdea("video_por_aprobar", "etica-regulacion", "Ser tu propia diosa")
+  await conIdea("en_render", "acceso-salud-publica", "Puedes decir que no")
+  await conIdea("programado", "ia-salud-mental", "Si van a discutir, siéntense del mismo lado")
   for (let i = 0; i < 3; i++) await pool.query("insert into public.consultas default values")
   // Seeding a piece through the real flow raises its notices, in an order that can change from run to run: the scene
   // shows none, so every run draws the same Inicio.

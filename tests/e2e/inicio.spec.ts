@@ -12,11 +12,11 @@ import {
 } from "./ayudas"
 
 const IDEAS = [
-  { pilar: "autoestima", gancho: "¿Te achicas para que nadie se incomode?" },
-  { pilar: "pareja", gancho: "Si van a discutir, siéntense del mismo lado." },
-  { pilar: "bienestar", gancho: "Un visto sin respuesta y ya imaginas lo peor. ¿Te pasa?" },
-  { pilar: "limites", gancho: "Puedes decir que no sin dar explicaciones larguísimas." },
-  { pilar: "deseo", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?" },
+  { pilar: "etica-regulacion", gancho: "¿Te achicas para que nadie se incomode?" },
+  { pilar: "ia-salud-mental", gancho: "Si van a discutir, siéntense del mismo lado." },
+  { pilar: "caso-coni", gancho: "Un visto sin respuesta y ya imaginas lo peor. ¿Te pasa?" },
+  { pilar: "acceso-salud-publica", gancho: "Puedes decir que no sin dar explicaciones larguísimas." },
+  { pilar: "practica-clinica", gancho: "¿Tu deseo se apagó o tu cuerpo está en modo alerta?" },
 ]
 
 test.beforeEach(async () => {
@@ -29,7 +29,7 @@ async function pareja(
   titulo: string,
   extra: Record<string, unknown> = {},
 ) {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: titulo })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: titulo })
   return sembrarPieza(destino, { titulo, idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO, ...extra })
 }
 

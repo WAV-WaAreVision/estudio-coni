@@ -109,14 +109,18 @@ test("inicio vacio", async ({ page }) => {
     "Un visto sin respuesta y ya imaginas lo peor. ¿Te pasa?",
     "¿Por qué sientes culpa al descansar?",
   ])
-    await sembrarIdea({ pilar: "bienestar", gancho })
+    await sembrarIdea({ pilar: "caso-coni", gancho })
   await page.goto("/")
   await capturaDe(page, "inicio-vacio")
 })
 
 test("inicio con fallas", async ({ page }) => {
   const { video } = await sembrarEscena()
-  const idea = await sembrarIdea({ pilar: "limites", gancho: "Decir que no también es cuidarte", estado: "usada" })
+  const idea = await sembrarIdea({
+    pilar: "acceso-salud-publica",
+    gancho: "Decir que no también es cuidarte",
+    estado: "usada",
+  })
   const fallida = await sembrarPieza("en_render", {
     titulo: "Decir que no también es cuidarte",
     idea_id: idea,
@@ -211,7 +215,7 @@ test("video sin terminar letra grande", async ({ page }) => {
 
 async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_render") {
   await vaciarPiezasEIdeas()
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   return sembrarPieza(estado, {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,
@@ -296,7 +300,7 @@ test("guion sin escuchar", async ({ page }) => {
 
 test("guion preparando voz", async ({ page }) => {
   await vaciarPiezasEIdeas()
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   // With tone marks, as v6 3 draws them in the script she reads while the voice is made.
   const id = await sembrarPieza("grabando_voz", {
     titulo: "El deseo no se apaga, se esconde",
@@ -380,9 +384,9 @@ test("metricas", async ({ page }) => {
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
   const reels = [
-    ["Ser tu propia diosa", "autoestima", 7, 2000, 10],
-    ["Si van a discutir, siéntense del mismo lado", "pareja", 14, 2400, 121],
-    ["El deseo no se apaga, se esconde", "deseo", 21, 1000, 12],
+    ["Ser tu propia diosa", "etica-regulacion", 7, 2000, 10],
+    ["Si van a discutir, siéntense del mismo lado", "ia-salud-mental", 14, 2400, 121],
+    ["El deseo no se apaga, se esconde", "practica-clinica", 21, 1000, 12],
   ] as const
   for (const [titulo, pilar, diaDelMesPasado, alcance, guardados] of reels) {
     const idea = await sembrarIdea({ pilar, gancho: titulo })

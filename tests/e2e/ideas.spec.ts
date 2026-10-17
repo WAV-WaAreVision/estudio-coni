@@ -26,13 +26,13 @@ test.afterAll(async () => {
 
 async function sembrarBanco() {
   await sembrarIdea({
-    pilar: "pareja",
+    pilar: "ia-salud-mental",
     gancho: "Si van a discutir, siéntense del mismo lado.",
     alertas: ALERTA,
     numero: 1,
   })
-  await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga: se esconde.", numero: 2 })
-  await sembrarIdea({ pilar: "autoestima", gancho: "¿Por qué sientes culpa al descansar?", numero: 3 })
+  await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga: se esconde.", numero: 2 })
+  await sembrarIdea({ pilar: "etica-regulacion", gancho: "¿Por qué sientes culpa al descansar?", numero: 3 })
 }
 
 test("the bank shows one idea at a time with its pillar, strength and alerts", async ({ page }) => {
@@ -43,7 +43,7 @@ test("the bank shows one idea at a time with its pillar, strength and alerts", a
   await expect(page.getByRole("heading", { name: "Ideas", level: 1 })).toBeVisible()
   await expect(page.getByText("Idea 1 de 3")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeVisible()
-  await expect(page.getByText("Pareja y conversación")).toBeVisible()
+  await expect(page.getByText("IA y salud mental")).toBeVisible()
   await expect(page.getByText("Verificar dato", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Usar esta" })).toBeVisible()
   await capturar(page, "ideas-mazo")
@@ -112,7 +112,7 @@ test("she writes an idea of her own, Claude proposes the pillar and alerts, and 
   await page.getByLabel("Tu idea").fill("Tu pareja te revisa el celular y lo llama amor.")
   await page.getByRole("button", { name: "Proponer pilar y alertas" }).click()
 
-  await expect(page.getByRole("radio", { name: "Género y límites" })).toBeChecked()
+  await expect(page.getByRole("radio", { name: "Acceso y salud pública" })).toBeChecked()
   await expect(page.getByRole("checkbox", { name: /Líneas de ayuda/ })).toBeChecked()
   await capturar(page, "ideas-propia")
   await page.getByRole("checkbox", { name: /Verificar dato/ }).check()
@@ -123,7 +123,7 @@ test("she writes an idea of her own, Claude proposes the pillar and alerts, and 
     "select pilar, alertas, numero, fijada_en from public.ideas where gancho like 'Tu pareja te revisa%'",
   )
   expect(rows).toHaveLength(1)
-  expect(rows[0]).toMatchObject({ pilar: "limites", numero: null })
+  expect(rows[0]).toMatchObject({ pilar: "acceso-salud-publica", numero: null })
   expect(rows[0].alertas.map((a: { tipo: string }) => a.tipo)).toEqual(["verificar dato", "líneas de ayuda"])
   expect(rows[0].fijada_en).not.toBeNull()
   const llamadas = await registroDeServicios()
@@ -140,7 +140,7 @@ test("without her Anthropic key the proposal explains it and she can still choos
 
   await expect(alerta(page, "necesito tu llave de Anthropic")).toBeVisible()
   await page.getByRole("button", { name: "Elegir yo el pilar" }).click()
-  await page.getByRole("radio", { name: "Bienestar emocional" }).check()
+  await page.getByRole("radio", { name: "Caso Coni: humana + avatar" }).check()
   await page.getByRole("button", { name: "Guardar idea" }).click()
 
   await expect(page.getByText("Guardé tu idea y la sumé a las ideas de la semana.")).toBeVisible()
@@ -165,7 +165,7 @@ test.describe("ideas del motor", () => {
         respaldo: [{ autor: "Siembra Autora Uno", cita: "El cansancio es una forma de decir que no." }],
       },
     })
-    await sembrarIdeaDelMotor({ gancho: "Otra del motor.", semana: SEMANA, pilar: "limites", numero: 11 })
+    await sembrarIdeaDelMotor({ gancho: "Otra del motor.", semana: SEMANA, pilar: "acceso-salud-publica", numero: 11 })
   }
 
   test("this week's engine ideas come first with their why and backing, and discarding leaves a reason", async ({

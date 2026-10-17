@@ -18,7 +18,7 @@ async function paraSubir(
   estado: "para_subir_a_mano" | "publicado_a_mano" = "para_subir_a_mano",
   titulo = "Ser tu propia diosa",
 ) {
-  const idea = await sembrarIdea({ pilar: "autoestima", gancho: titulo })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: titulo })
   const id = await sembrarPieza(estado, { titulo, idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
   const cliente = await pool.connect()
   try {
@@ -110,7 +110,7 @@ test("a link that is not Instagram's is refused and the reel stays waiting", asy
 })
 
 test("while Instagram is not connected a scheduled reel already offers the tools", async ({ page }) => {
-  const idea = await sembrarIdea({ pilar: "autoestima", gancho: "Programada" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Programada" })
   const id = await sembrarPieza("programado", { titulo: "Programada", idea_id: idea, texto: TEXTO_VALIDO })
 
   await page.goto(`/video/${id}`)
@@ -122,7 +122,7 @@ test("while Instagram is not connected a scheduled reel already offers the tools
 
 test("with Instagram connected a scheduled reel shows no manual tools", async ({ page }) => {
   await pool.query("update public.ajustes set meta_cuenta_id = '17841400000000000'")
-  const idea = await sembrarIdea({ pilar: "autoestima", gancho: "Programada" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Programada" })
   const id = await sembrarPieza("programado", { titulo: "Programada", idea_id: idea, texto: TEXTO_VALIDO })
 
   await page.goto(`/video/${id}`)

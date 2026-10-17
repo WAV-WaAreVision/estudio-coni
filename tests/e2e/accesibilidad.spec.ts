@@ -126,7 +126,11 @@ async function auditar(page: Page, lista: string[], antes?: (page: Page) => Prom
 /** The states v6 draws that the scene does not: a voice that failed, Inicio with failures and a missed time. */
 async function estadosNuevos(): Promise<string[]> {
   const { video } = await sembrarEscena()
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde", estado: "usada" })
+  const idea = await sembrarIdea({
+    pilar: "practica-clinica",
+    gancho: "El deseo no se apaga, se esconde",
+    estado: "usada",
+  })
   const fallaDeVoz = await sembrarPieza("guion_por_aprobar", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,

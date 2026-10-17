@@ -64,21 +64,21 @@ test("with few reels it orders by what served, shows the sample size and refuses
 }) => {
   await reelPublicado({
     titulo: "Ser tu propia diosa",
-    pilar: "autoestima",
+    pilar: "etica-regulacion",
     haceDias: 20,
     alcance: 2000,
     guardados: 10,
   })
   await reelPublicado({
     titulo: "Si van a discutir, siéntense del mismo lado",
-    pilar: "pareja",
+    pilar: "ia-salud-mental",
     haceDias: 12,
     alcance: 2400,
     guardados: 121,
   })
   await reelPublicado({
     titulo: "El deseo no se apaga, se esconde",
-    pilar: "deseo",
+    pilar: "practica-clinica",
     haceDias: 8,
     alcance: 1000,
     guardados: 12,
@@ -96,7 +96,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(barras.nth(0)).toContainText("50,4")
   await expect(barras.nth(0)).toContainText("cada 1.000")
   await expect(barras.nth(0)).toContainText("121 guardados de 2.400 personas")
-  await expect(barras.nth(0)).toContainText("Pareja y conversación · 1 reel de este tema")
+  await expect(barras.nth(0)).toContainText("IA y salud mental · 1 reel de este tema")
   await expect(barras.nth(1)).toContainText("El deseo no se apaga, se esconde")
   await expect(barras.nth(2)).toContainText("Ser tu propia diosa")
 
@@ -105,7 +105,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(panel).toContainText(
     "El tema con más reels lleva 1 de 8. Cuento los reels desde que cumplen una semana.",
   )
-  await expect(panel).toContainText("Autoestima · 1")
+  await expect(panel).toContainText("Ética y regulación · 1")
   await expect(page.getByText("Comparación de temas")).toHaveCount(0)
 
   await expect(page.getByRole("heading", { name: "Semana a semana" })).toBeVisible()
@@ -130,19 +130,25 @@ test("compares themes only once two of them have eight reels, with the interval"
   for (const [i, g] of guardados.entries()) {
     await reelPublicado({
       titulo: `Autoestima ${i}`,
-      pilar: "autoestima",
+      pilar: "etica-regulacion",
       haceDias: 20 + i,
       alcance: 1000,
       guardados: g,
     })
-    await reelPublicado({ titulo: `Pareja ${i}`, pilar: "pareja", haceDias: 20 + i, alcance: 1000, guardados: g - 10 })
+    await reelPublicado({
+      titulo: `Pareja ${i}`,
+      pilar: "ia-salud-mental",
+      haceDias: 20 + i,
+      alcance: 1000,
+      guardados: g - 10,
+    })
   }
 
   await page.goto("/metricas")
 
   const panel = page.getByRole("region", { name: "Comparación de temas" })
-  await expect(panel).toContainText("Autoestima · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)")
-  await expect(panel).toContainText("Autoestima va por delante de Pareja y conversación por 10 cada 1.000")
+  await expect(panel).toContainText("Ética y regulación · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)")
+  await expect(panel).toContainText("Ética y regulación va por delante de IA y salud mental por 10 cada 1.000")
   await expect(panel).toContainText("La diferencia es mayor que lo que varían tus reels entre sí.")
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)
   await capturar(page, "metricas-comparable")
@@ -151,7 +157,7 @@ test("compares themes only once two of them have eight reels, with the interval"
 test("warns when the morning reading did not arrive and shows the last one it has", async ({ page }) => {
   await reelPublicado({
     titulo: "Un reel",
-    pilar: "pareja",
+    pilar: "ia-salud-mental",
     haceDias: 6,
     alcance: 1000,
     guardados: 10,

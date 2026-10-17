@@ -36,7 +36,7 @@ const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
 const tomaDe = (id: string, guion: string, toma: number) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
 
 async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO, { conVoz = true } = {}) {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   const id = await sembrarPieza("guion_por_aprobar", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,
@@ -314,7 +314,7 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 test("while her voice is being made the script is read-only and keeps its tone marks with the help", async ({
   page,
 }) => {
-  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   const id = await sembrarPieza("grabando_voz", {
     titulo: "El deseo no se apaga, se esconde",
     idea_id: idea,
