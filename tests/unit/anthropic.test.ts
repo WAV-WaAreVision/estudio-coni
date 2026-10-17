@@ -673,6 +673,14 @@ describe("clasificarIdea", () => {
     expect(leida.pilar).toBe("practica-clinica")
   })
 
+  it("tells Claude the slug before the colon is what goes in pilar", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+    await clasificar()
+    const usuario = String(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("usa exactamente el slug (lo que va antes de los dos puntos) en pilar")
+    expect(usuario).not.toContain("usa exactamente estos nombres")
+  })
+
   it("refuses a retired pillar in the answer", async () => {
     respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "pareja" })))
     await expect(clasificar()).rejects.toThrow("Claude devolvió una respuesta que no tiene el formato pedido.")

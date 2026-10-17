@@ -430,7 +430,7 @@ function listaDePilares(pilares: readonly DatosDePilar[]): string {
 function pedidoDeClasificacion(entrada: { gancho: string; tema: string; pilares: readonly DatosDePilar[] }): string {
   return `Coni del Rosario escribió una idea propia para un reel. Propón en qué pilar de la línea editorial va, qué formato le calza y qué alertas necesita antes de escribir el guion. Ella confirma o corrige lo que propongas.
 
-PILARES (usa exactamente estos nombres)
+PILARES (usa exactamente el slug (lo que va antes de los dos puntos) en pilar)
 ${listaDePilares(entrada.pilares)}
 
 FORMATOS (elige uno de la línea editorial; si ninguno calza, escribe «otro: » y dos o tres palabras)
