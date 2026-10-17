@@ -48,6 +48,52 @@ afterEach(() => {
 })
 
 describe("VozParaFirmar", () => {
+  const FALLA = "No pude preparar tu voz. ElevenLabs respondió HTTP 429: too many requests"
+
+  it("says the failed attempt was not charged when its reservation was released by a refusal", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES, vozSinCobro: true })}
+        explicacion={FALLA}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("alert")).toHaveTextContent("Este intento no se cobró.")
+    expect(screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })).toBeInTheDocument()
+  })
+
+  it("says nothing about money when the outcome is unknown", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES, vozSinCobro: false })}
+        explicacion={FALLA}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/cobr/i)
+    expect(screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })).toBeInTheDocument()
+  })
+
+  it("does not say it outside a failure, even if an older attempt was refused", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { vozSinCobro: true })}
+        explicacion={null}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.queryByText("Este intento no se cobró.")).not.toBeInTheDocument()
+  })
+
   it("is the first step of gate 1", () => {
     render(
       <VozParaFirmar

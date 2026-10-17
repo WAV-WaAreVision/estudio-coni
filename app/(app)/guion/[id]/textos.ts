@@ -21,6 +21,8 @@ export const TEXTO_VIDEO_DETENIDO = "El video está detenido"
 
 // Exit critique 3: what happened in her words when the app only has a provider's text (that goes to "Detalle para WAV").
 export const TEXTO_REINTENTA_VOZ = "Vuelve a intentarlo con Preparar mi voz."
+/** Spec 2026-10-17, decision 14: only when ElevenLabs refused the attempt, so the data proves nothing was charged. */
+export const TEXTO_INTENTO_SIN_COBRO = "Este intento no se cobró."
 export const TEXTO_SIN_SALDO_VOZ = "No alcanza el saldo para preparar tu voz. Avísale a Federico."
 export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video. Avísale a Federico."
 export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."
