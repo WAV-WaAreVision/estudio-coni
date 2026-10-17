@@ -131,4 +131,22 @@ describe("fechas propuestas", () => {
     expect(Date.parse((await leerContextoDeFechas(coni, con)).propuesta ?? "")).toBe(Date.parse(EN_UN_MES))
     expect((await leerContextoDeFechas(coni, sin)).propuesta).toBeNull()
   })
+
+  it("gives the gates the other pieces' proposals, only of pieces before gate 2", async () => {
+    const [propia, otra, firmada] = [
+      await sembrarPieza("video_por_aprobar"),
+      await sembrarPieza("guion_por_aprobar"),
+      await sembrarPieza("programado"),
+    ]
+    const EN_DOS_MESES = new Date(Date.now() + 60 * 86_400_000).toISOString()
+    const EN_TRES_MESES = new Date(Date.now() + 90 * 86_400_000).toISOString()
+    await proponerFecha(propia, EN_UN_MES)
+    await proponerFecha(otra, EN_DOS_MESES)
+    // Left from before gate 2: a signed piece holds its signed time, not this one.
+    await proponerFecha(firmada, EN_TRES_MESES)
+
+    const { otrasPropuestas } = await leerContextoDeFechas(coni, propia)
+
+    expect(otrasPropuestas.map((iso) => Date.parse(iso))).toEqual([Date.parse(EN_DOS_MESES)])
+  })
 })

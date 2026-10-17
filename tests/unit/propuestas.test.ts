@@ -3,7 +3,9 @@ import {
   conLaPropuestaPrimero,
   espacioLibreParaCambiar,
   huecosLibres,
+  ocupadasEnLaPuerta,
   type PiezaConFechas,
+  propuestasVivas,
   propuestaVigente,
   repartir,
   textoDePropuestas,
@@ -136,5 +138,22 @@ describe("Agenda copy", () => {
     expect(textoDePropuestas(1)).toBe("Propuse fecha para 1 pieza. Puedes cambiarla.")
     expect(textoDePropuestas(2)).toBe("Propuse fecha para 2 piezas. Puedes cambiarlas.")
     expect(textoDePropuestas(0)).toBe("Todas tus piezas ya tienen fecha propuesta.")
+  })
+})
+
+describe("propuestasVivas", () => {
+  it("keeps the other pieces' proposals that still hold their time at the Agenda's margin", () => {
+    const tomadas = new Set([Date.parse(alas19(20))])
+    expect(
+      propuestasVivas([alas19(22), alas19(20), alas19(15), "2026-10-15T16:00:00.000Z"], { ahora: AHORA, tomadas }),
+    ).toEqual([alas19(22), alas19(15)])
+  })
+})
+
+describe("ocupadasEnLaPuerta", () => {
+  it("adds the other pieces' live proposals to the signed times a gate keeps free", () => {
+    expect(
+      ocupadasEnLaPuerta({ ocupadas: [alas19(17)], otrasPropuestas: [alas19(20), alas19(17), alas19(13)] }, AHORA),
+    ).toEqual([alas19(17), alas19(20)])
   })
 })

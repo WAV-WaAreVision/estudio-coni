@@ -64,6 +64,29 @@ export function propuestaVigente(
   return new Date(instante).toISOString()
 }
 
+/**
+ * The other pieces' stored proposals that still hold their time (A8 and A9): at least the Agenda's margin ahead and no
+ * signed piece there. The gates keep those times for them; signing one anyway is allowed (a signed piece wins).
+ */
+export function propuestasVivas(
+  otras: readonly string[],
+  entrada: { ahora: number; tomadas: ReadonlySet<number> },
+): string[] {
+  return otras.flatMap((propuesta) => {
+    const vigente = propuestaVigente(propuesta, { ...entrada, antelacionMs: ANTELACION_DE_AGENDA_MS })
+    return vigente === null ? [] : [vigente]
+  })
+}
+
+/** What a gate keeps free: the signed times and the other pieces' live proposals. */
+export function ocupadasEnLaPuerta(
+  contexto: { ocupadas: readonly string[]; otrasPropuestas: readonly string[] },
+  ahora: number,
+): string[] {
+  const tomadas = new Set(contexto.ocupadas.map((iso) => Date.parse(iso)))
+  return [...contexto.ocupadas, ...propuestasVivas(contexto.otrasPropuestas, { ahora, tomadas })]
+}
+
 function enOrden(piezas: readonly PiezaConFechas[]): PiezaConFechas[] {
   return piezas
     .filter((pieza) => sinFechaFirmada(pieza.estado))

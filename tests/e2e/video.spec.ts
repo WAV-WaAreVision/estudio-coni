@@ -227,3 +227,34 @@ test("gate 2 proposes as before when a scheduled piece took the proposed time", 
     page.getByRole("region", { name: "Dónde y cuándo" }).getByText(etiquetaDeFecha(primera, h.zona, "larga")),
   ).toBeVisible()
 })
+
+test("gate 2 does not offer the time another piece's proposal holds", async ({ page }) => {
+  const id = await videoPorAprobar()
+  const otra = await sembrarPieza("guion_por_aprobar")
+  const h = await horario()
+  const [libre] = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [],
+    cuantas: 1,
+    antelacionMs: 2 * 3_600_000,
+  })
+  if (!libre) throw new Error("Sin horario")
+  await proponerFecha(otra, libre)
+  const [primera] = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [libre],
+    cuantas: 1,
+    antelacionMs: 3_600_000,
+  })
+  if (!primera) throw new Error("Sin horario")
+  await simularMedios(page)
+
+  await page.goto(`/video/${id}`)
+
+  const lugar = page.getByRole("region", { name: "Dónde y cuándo" })
+  await expect(lugar.getByText(etiquetaDeFecha(primera, h.zona, "larga"))).toBeVisible()
+  await lugar.getByRole("button", { name: "Cambiar" }).click()
+  await expect(lugar.getByText(etiquetaDeFecha(libre, h.zona, "larga"))).toHaveCount(0)
+})

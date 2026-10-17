@@ -596,3 +596,39 @@ test("gate 1 shows the proposed date as when it would go out", async ({ page }) 
 
   await expect(page.getByText(`Si lo firmas hoy, sale el ${etiquetaDeFecha(lejana, h.zona, "larga")}`)).toBeVisible()
 })
+
+test("gate 1 leaves the time another piece's proposal holds out of its estimate", async ({ page }) => {
+  const { guion, video } = await sembrarEscena()
+  const { rows } = await pool.query("select dias_publicacion, hora_publicacion, zona from public.ajustes")
+  const h = { dias: rows[0].dias_publicacion, hora: rows[0].hora_publicacion, zona: rows[0].zona }
+  const ocupadas = (
+    await pool.query<{ puerta2_publicar_en: Date }>(
+      "select puerta2_publicar_en from public.piezas where estado = 'programado'",
+    )
+  ).rows.map((f) => f.puerta2_publicar_en.toISOString())
+  const enCola = (
+    await pool.query<{ n: number }>(
+      `select count(*)::int as n from public.piezas where id <> $1 and estado in
+       ('guion_aprobado', 'grabando_voz', 'en_render', 'subtitulando', 'video_por_aprobar')`,
+      [guion],
+    )
+  ).rows[0]?.n
+  if (enCola === undefined) throw new Error("Sin cola")
+  const estimar = (tomadas: string[]) =>
+    proponerFechas({
+      ahora: Date.now(),
+      horario: h,
+      ocupadas: tomadas,
+      cuantas: enCola + 1,
+      antelacionMs: 12 * 3_600_000,
+    })[enCola]
+  const antes = estimar(ocupadas)
+  if (!antes) throw new Error("Sin horario")
+  await proponerFecha(video, antes)
+  const despues = estimar([...ocupadas, antes])
+  if (!despues) throw new Error("Sin horario")
+
+  await page.goto(`/guion/${guion}`)
+
+  await expect(page.getByText(`Si lo firmas hoy, sale el ${etiquetaDeFecha(despues, h.zona, "larga")}`)).toBeVisible()
+})
