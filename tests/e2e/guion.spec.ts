@@ -196,7 +196,7 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
   })
   await simularMedios(page)
   await page.goto(`/guion/${id}`)
-  await expect(page.getByText("No se pudo terminar el video")).toBeVisible()
+  await expect(page.getByText("No pude terminar el video.")).toBeVisible()
   await expect(page.getByRole("link", { name: "Volver a Inicio" })).toHaveCount(0)
   await capturar(page, "guion-error")
 
@@ -207,7 +207,7 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
   await expect.poll(async () => (await leerFila(id)).estado).toBe("descartado")
 
   await page.goto("/")
-  await expect(page.getByText("No se pudo terminar el video")).toHaveCount(0)
+  await expect(page.getByText("No pude terminar el video.")).toHaveCount(0)
 })
 
 test("gate 1 shows the date in ink and bold, and the editor without inner scroll", async ({ page }) => {

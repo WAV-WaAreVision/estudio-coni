@@ -9,7 +9,6 @@ import { Bloque } from "@/components/ui/bloque"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeSaldo } from "@/components/ui/costo"
 import { ICONO } from "@/components/ui/icono"
-import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
@@ -31,7 +30,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
-import { TEXTO_VIDEO_DETENIDO } from "./textos"
+import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "./textos"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
@@ -63,8 +62,15 @@ export default async function PaginaDeGuion({
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <>
-              <LineaDeEstado tipo="error" titulo="No pude escribir el guion" detalle={fila.explicacion} />
-              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion", "descartar"]} />
+              <Bloque
+                tipo="error"
+                grande
+                titulo={TEXTO_NO_ESCRIBI}
+                accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} />}
+              >
+                {fila.explicacion}
+              </Bloque>
+              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
           ) : (
             <Trabajando
@@ -103,19 +109,22 @@ export default async function PaginaDeGuion({
       const voz = await vozParaEscuchar(db, fila)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
-          <LineaDeEstado
+          <Bloque
             tipo="error"
-            titulo="No se pudo terminar el video"
-            detalle={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-          />
+            grande
+            titulo={TEXTO_NO_TERMINE}
+            accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} />}
+          >
+            {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+          </Bloque>
+          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
           {voz ? (
             <Seccion titulo="Voz" id="voz">
-              <p className="text-cuerpo text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+              <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
               <VozSuelta src={voz.url} clave={voz.clave} />
             </Seccion>
           ) : null}
           <LineaDeSaldo>{lineaDeSaldoVideo((await leerSaldos()).heygen)}</LineaDeSaldo>
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
     }

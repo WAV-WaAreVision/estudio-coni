@@ -35,7 +35,7 @@ interface PropiedadesDeEstado {
   acciones: readonly Que[]
 }
 
-/** The buttons of a piece that is not waiting for a signature: retry, change the date or let it go (asking first). */
+/** The buttons of a piece that is not waiting for a signature: retry or change the date, or let it go quietly (asking first). */
 export function AccionesDeEstado({ piezaId, version, acciones }: PropiedadesDeEstado) {
   const { pendiente, error, ejecutar } = useAccion()
   const [descartando, setDescartando] = useState(false)
@@ -56,7 +56,7 @@ export function AccionesDeEstado({ piezaId, version, acciones }: PropiedadesDeEs
               alVolver={() => setDescartando(false)}
             />
           ) : (
-            <Boton key={que} variante="destructiva" onClick={() => setDescartando(true)}>
+            <Boton key={que} variante="callado" onClick={() => setDescartando(true)}>
               {ETIQUETAS[que]}
             </Boton>
           )

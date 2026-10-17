@@ -18,13 +18,16 @@ import { AccionesDeEstado } from "@/app/(app)/estado-de-pieza"
 beforeEach(() => vi.clearAllMocks())
 
 describe("AccionesDeEstado", () => {
-  it("asks before discarding a piece and draws discard as destructive text", async () => {
+  it("draws 'Descartar esta pieza' as a quiet action and asks with the raised destructive confirm", async () => {
     render(<AccionesDeEstado piezaId="p" version={1} acciones={["descartar"]} />)
     const descartar = screen.getByRole("button", { name: "Descartar esta pieza" })
-    expect(descartar).toHaveClass("text-error")
+    expect(descartar).toHaveClass("underline")
+    expect(descartar.className).not.toMatch(/\btext-error\b|\bbg-/)
     fireEvent.click(descartar)
     expect(descartarAccion).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: "Sí, descartar" }))
+    const si = screen.getByRole("button", { name: "Sí, descartar" })
+    expect(si).toHaveClass("text-error", "bg-piedra")
+    fireEvent.click(si)
     await waitFor(() => expect(descartarAccion).toHaveBeenCalledWith("p", 1))
   })
 
