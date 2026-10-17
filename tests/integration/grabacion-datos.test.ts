@@ -211,6 +211,17 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.vozSinCobro).toBe(true)
   })
 
+  it("does not carry an older attempt's refusal over a newer failure that reserved nothing, like the cap", async () => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, claveDelIntento(id, 0), "sin_cobro")
+    await ajustarPieza(id, { intento: 1 })
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+  })
+
   it.each([
     ["a refusal released it", "sin_cobro", true],
     ["the sweeper released it", "barrido", false],

@@ -101,13 +101,14 @@ export function vozVigente(
 }
 
 /** `<pieza>:voz:<huella>:<intento>` plus an optional `:r<n>`: the attempt's key and its further tries. */
-const CLAVE_DE_INTENTO = /^(.*:voz:[0-9a-f]{16}:\d+)(?::r\d+)?$/
+const CLAVE_DE_INTENTO = /^(.*:voz:[0-9a-f]{16}:(\d+))(?::r\d+)?$/
 
 /**
  * Read through Coni's session (she can read `gastos`). True only when every try of the latest voice attempt was released
  * as a refusal: one open (unknown outcome), swept or confirmed try means that attempt may have cost money.
  */
-async function leerVozSinCobro(db: SupabaseClient<Database>, piezaId: string): Promise<boolean> {
+async function leerVozSinCobro(db: SupabaseClient<Database>, fila: FilaDePieza): Promise<boolean> {
+  const piezaId = fila.id
   const voz = () =>
     db
       .from("gastos")
@@ -122,8 +123,10 @@ async function leerVozSinCobro(db: SupabaseClient<Database>, piezaId: string): P
     .maybeSingle()
   // A plain Error, like the other readers of lib/datos: the screen's error boundary shows it.
   if (error) throw new Error(`No pude leer el gasto de la voz: ${error.message}`)
-  const base = ultima ? CLAVE_DE_INTENTO.exec(ultima.clave)?.[1] : undefined
-  if (!base) return false
+  const partes = ultima ? CLAVE_DE_INTENTO.exec(ultima.clave) : null
+  const base = partes?.[1]
+  // A newer attempt that failed before reserving (the cap, a missing key) must not inherit an older refusal.
+  if (!base || Number(partes?.[2]) !== fila.intento) return false
   const { data: intentos, error: errorIntentos } = await voz().or(`clave.eq."${base}",clave.like."${base}:r%"`)
   if (errorIntentos) throw new Error(`No pude leer los gastos del intento de voz: ${errorIntentos.message}`)
   return intentos.length > 0 && intentos.every((g) => g.estado === "liberado" && g.sin_cobro)
@@ -148,7 +151,7 @@ export async function leerDatosDeGrabacion(
     leerSaldos(),
     leerPresupuesto(db, Date.now(), zona),
     urlParaVer(clave),
-    leerVozSinCobro(db, fila.id),
+    leerVozSinCobro(db, fila),
   ])
   return {
     estado,
