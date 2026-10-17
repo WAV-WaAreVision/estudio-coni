@@ -18,16 +18,26 @@ function nombreCorto(nombre: string): string {
  * filled one is an ink tile with the theme in light. Read only: neither is raised.
  */
 export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
+  const ensenanza = ritmo.antesDeEmpezar ? (
+    <div className="grid gap-3">
+      <p className="text-cuerpo">{ritmo.antesDeEmpezar}</p>
+      <Link href="/ajustes" className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "w-fit" })}>
+        Cambiar días y hora
+      </Link>
+    </div>
+  ) : null
   if (ritmo.vacio) {
     return (
-      <p className="text-cuerpo text-apagado">
-        Cuando haya reels publicados o programados, aquí verás cómo se reparten por semana.
-      </p>
+      ensenanza ?? (
+        <p className="text-cuerpo text-apagado">
+          Cuando haya reels publicados o programados, aquí verás cómo se reparten por semana.
+        </p>
+      )
     )
   }
   return (
     <div className="grid gap-6">
-      <p className="text-cuerpo">{ritmo.resumen}</p>
+      {ensenanza ?? <p className="text-cuerpo">{ritmo.resumen}</p>}
       <div
         className="grid items-end gap-x-3 gap-y-4"
         style={{ gridTemplateColumns: `56px repeat(${ritmo.columnas.length}, minmax(0, 1fr))` }}

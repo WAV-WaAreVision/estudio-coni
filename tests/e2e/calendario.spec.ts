@@ -65,7 +65,7 @@ test("the agenda places what is on its way in the next slots and leaves the rest
 test("the rhythm shows the last four weeks by the days of the schedule and has no advice without history", async ({
   page,
 }) => {
-  await pieza("programado", "Un reel", "acceso-salud-publica")
+  await pieza("publicado", "Un reel", "acceso-salud-publica")
 
   await page.goto("/calendario?vista=ritmo")
 
@@ -81,6 +81,21 @@ test("the rhythm shows the last four weeks by the days of the schedule and has n
   await expect(libre).toHaveCSS("box-shadow", /inset/)
   await expect(libre).toHaveCSS("border-bottom-width", "0px")
   await capturar(page, "calendario-ritmo")
+})
+
+test("before her first publication, Ritmo says her schedule and links to Ajustes", async ({ page }) => {
+  await pieza("programado", "Un reel", "acceso-salud-publica")
+
+  await page.goto("/calendario?vista=ritmo")
+
+  await expect(
+    page.getByText(
+      /^Todavía no publicas\. Tu ritmo es .+ a las \d{2}:\d{2}\. Cuando salga la primera pieza, aquí verás si vas al día\.$/,
+    ),
+  ).toBeVisible()
+  await expect(page.getByText(/van \d+ de \d+/)).toHaveCount(0)
+  await page.getByRole("link", { name: "Cambiar días y hora" }).click()
+  await expect(page).toHaveURL(/\/ajustes$/)
 })
 
 test("an unknown view falls back to the month instead of an error", async ({ page }) => {
