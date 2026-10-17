@@ -169,9 +169,11 @@ test("a script without its voice asks to prepare it, and the voice arrives by it
   // The writer delivered the script without her voice and with TEXTO_SIN_VOZ: the voice block is an error block.
   await expect(page.getByText("No pude preparar tu voz.", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })).toBeVisible()
-  await expect(
-    page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre."),
-  ).toBeVisible()
+  // The ElevenLabs balance is WAV's: folded under the button.
+  const saldo = page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre.")
+  await expect(saldo).toBeHidden()
+  await abrirDesplegable(page.getByRole("region", { name: "1. Escucha tu voz" }), "Detalle para WAV")
+  await expect(saldo).toBeVisible()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
   await capturar(page, "guion-sin-voz", { completa: true })
 

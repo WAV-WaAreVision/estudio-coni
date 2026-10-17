@@ -301,7 +301,7 @@ test("guion falla voz", async ({ page }) => {
   })
   await page.goto(`/guion/${id}`)
   await expect(page.getByText("No pude preparar tu voz.")).toBeVisible()
-  await expect(page.getByText("Detalle para WAV")).toBeVisible()
+  await expect(page.getByRole("alert").getByText("Detalle para WAV")).toBeVisible()
   await capturaDe(page, "guion-falla-voz")
 })
 
