@@ -66,6 +66,9 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
       },
     })),
     crear: vi.fn(async () => ({ ok: true as const, id: "nueva" })),
+    elegirVarias: vi.fn(async (ids: string[]) => ({ ok: true as const, tipo: "empezadas" as const, piezas: ids })),
+    descartarVarias: vi.fn(async () => ({ ok: true as const })),
+    restaurar: vi.fn(async (ids: string[]) => ({ ok: true as const, restauradas: ids })),
     ...cambios,
   }
 }
@@ -542,5 +545,27 @@ describe("BancoDeIdeas: banco vacío", () => {
       "href",
       "https://conidolly-ingesta.vercel.app",
     )
+  })
+})
+
+describe("BancoDeIdeas: elegir varias", () => {
+  it("opens the batch view with the free ideas only, and Listo brings the deck back", () => {
+    mostrar()
+    fireEvent.click(screen.getByRole("button", { name: "Elegir varias" }))
+    expect(screen.getByRole("heading", { name: "Elegir varias", level: 1 })).toBeInTheDocument()
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3)
+    expect(screen.queryByRole("checkbox", { name: "Ya la usé hace poco." })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }))
+    expect(screen.getByText("Idea 1 de 3")).toBeInTheDocument()
+  })
+
+  it("stops offering the ideas it started, in the batch view and in the deck", async () => {
+    mostrar()
+    fireEvent.click(screen.getByRole("button", { name: "Elegir varias" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "Si van a discutir, siéntense del mismo lado." }))
+    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (1)" }))
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(2))
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }))
+    expect(screen.getByText("Idea 1 de 2")).toBeInTheDocument()
   })
 })
