@@ -436,23 +436,21 @@ html[data-letra="grande"] .nav-inferior {
   border-radius: var(--r-panel);
   box-shadow: var(--relieve);
 }
+/* One tab per row, the label beside its icon: three words that never fit side by side at this size stay readable. */
+html[data-letra="grande"] .nav-inferior {
+  grid-template-columns: minmax(0, 1fr);
+}
 html[data-letra="grande"] .nav-inferior a {
   min-height: 2.75rem;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: var(--e-3);
+  padding-inline: var(--e-4);
 }
 html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
-}
-/* Hidden, still the accessible name of each tab (iOS's Large Content Viewer does not reach web content). */
-html[data-letra="grande"] .nav-etiqueta {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 html[data-letra="grande"] h1.text-pantalla {
   font-size: 1.5rem;

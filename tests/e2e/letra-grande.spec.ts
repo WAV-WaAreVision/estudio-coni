@@ -9,7 +9,9 @@ test.beforeEach(async ({ page }) => {
   await simularMedios(page)
 })
 
-test("at large text the nav sits after the content with three named icons and no visible labels", async ({ page }) => {
+test("at large text the nav sits after the content with three tabs that keep their labels, 44 px or more", async ({
+  page,
+}) => {
   await sembrarEscena()
   await page.goto("/")
   await conLetraGrande(page)
@@ -19,8 +21,12 @@ test("at large text the nav sits after the content with three named icons and no
   for (const nombre of ["Inicio", "Métricas", "Ajustes"]) {
     const pestana = nav.getByRole("link", { name: nombre })
     await expect(pestana).toBeVisible()
-    expect((await pestana.boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
-    expect((await nav.getByText(nombre, { exact: true }).boundingBox())?.width ?? 0, nombre).toBeLessThanOrEqual(1)
+    const caja = await pestana.boundingBox()
+    expect(caja?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
+    expect(caja?.width ?? 0, nombre).toBeGreaterThanOrEqual(44)
+    const etiqueta = nav.getByText(nombre, { exact: true })
+    await expect(etiqueta).toBeVisible()
+    expect((await etiqueta.boundingBox())?.width ?? 0, nombre).toBeGreaterThan(20)
   }
 })
 
