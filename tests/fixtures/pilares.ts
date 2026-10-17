@@ -1,0 +1,71 @@
+import type { CatalogoDePilares } from "@/lib/dominio/pilares"
+
+/** Mirrors 20261017000100: the five LinkedIn pillars active, the five old ones inactive with their category names. */
+export const PILARES_DE_PRUEBA: CatalogoDePilares = [
+  {
+    slug: "ia-salud-mental",
+    nombre: "IA y salud mental",
+    nombreCorto: "IA y salud mental",
+    descripcion: "Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos.",
+    activa: true,
+    orden: 1,
+  },
+  {
+    slug: "practica-clinica",
+    nombre: "Práctica clínica aumentada",
+    nombreCorto: "Práctica clínica",
+    descripcion: "Cómo cambia la consulta: herramientas, cuándo sí y cuándo no, y el rol del vínculo terapéutico.",
+    activa: true,
+    orden: 2,
+  },
+  {
+    slug: "etica-regulacion",
+    nombre: "Ética y regulación",
+    nombreCorto: "Ética",
+    descripcion: "Consentimiento, privacidad, sesgos, responsabilidad profesional y regulación en Chile y el mundo.",
+    activa: true,
+    orden: 3,
+  },
+  {
+    slug: "acceso-salud-publica",
+    nombre: "Acceso y salud pública",
+    nombreCorto: "Acceso",
+    descripcion: "Brechas de atención, escala, equidad, y salud mental en el trabajo y la educación.",
+    activa: true,
+    orden: 4,
+  },
+  {
+    slug: "caso-coni",
+    nombre: "Caso Coni: humana + avatar",
+    nombreCorto: "Caso Coni",
+    descripcion: "Su propio experimento: qué aprende usando un avatar con transparencia y qué funciona y qué no.",
+    activa: true,
+    orden: 5,
+  },
+  {
+    slug: "pareja",
+    nombre: "Pareja y conversación",
+    nombreCorto: "Pareja",
+    descripcion: null,
+    activa: false,
+    orden: 6,
+  },
+  { slug: "deseo", nombre: "Deseo y sexualidad", nombreCorto: "Deseo", descripcion: null, activa: false, orden: 7 },
+  {
+    slug: "autoestima",
+    nombre: 'Autoestima y "ser tu propia diosa"',
+    nombreCorto: "Autoestima",
+    descripcion: null,
+    activa: false,
+    orden: 8,
+  },
+  { slug: "limites", nombre: "Género y límites", nombreCorto: "Límites", descripcion: null, activa: false, orden: 9 },
+  {
+    slug: "bienestar",
+    nombre: "Bienestar emocional",
+    nombreCorto: "Bienestar",
+    descripcion: null,
+    activa: false,
+    orden: 10,
+  },
+]
