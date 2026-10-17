@@ -61,7 +61,7 @@ async function rutas(): Promise<string[]> {
 }
 
 /**
- * Gate 1 folds its editor (and "Más opciones" once a look is chosen) and gate 2 folds its options: a folded control is skipped by axe and by the
+ * Gate 1 folds its editor (and the LinkedIn text under "Más opciones") and gate 2 folds its options: a folded control is skipped by axe and by the
  * size audit, so both open them first to measure the script and caption fields, "Guardar cambios", "Pedir cambios" and
  * the rest.
  */
@@ -80,7 +80,7 @@ async function abrirPliegues(page: Page, ruta: string): Promise<void> {
   if (!ruta.startsWith("/guion/")) return
   await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible()
-  // With no looks to choose and no LinkedIn text there is no "Más opciones" to open.
+  // Without a LinkedIn text there is no "Más opciones" to open.
   if ((await page.locator("summary", { hasText: "Más opciones" }).count()) > 0)
     await abrirDesplegable(page, "Más opciones")
 }

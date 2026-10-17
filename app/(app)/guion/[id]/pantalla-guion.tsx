@@ -60,12 +60,14 @@ export interface DatosDeGuion {
   avatarGuardado: string | null
 }
 
+const TEXTO_AUN_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
+
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 const idDeRevision = (indice: number) => `revision-${indice}`
 
 /**
  * Gate 1 (design 2026-10-16, decision 9): she listens to her voice of the script, reads it with the review beside it,
- * edits it if she wants, picks the look and signs once. The signature approves the script and the voice, and the video
+ * edits it if she wants, picks the look (step 3) and signs once. The signature approves the script and the voice, and the video
  * starts after the undo window.
  */
 export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
@@ -135,7 +137,6 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   const frases = revision.map((hallazgo) => hallazgo.frase ?? null)
   const { resaltadas } = resaltarFrases(datos.guion, frases)
   const marcadas = new Set(revision.filter((_, indice) => resaltadas.has(indice)))
-  const avatar = datos.avatares.find((candidato) => candidato.id === avatarElegido)
   const errorDeAccion = aprobacion.error ?? cambios.error
 
   function alGuardar(guardado: GuionGuardado) {
@@ -303,20 +304,21 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         </MasOpciones>
       </Seccion>
 
-      {/* With no looks at all, the bar's block is the only message: nothing here asks her to pick one. */}
-      {sinAvatares && datos.textoLinkedin === null ? null : (
-        <MasOpciones
-          className="mt-8"
-          titulo="Más opciones"
-          resumen={sinAvatares ? undefined : avatar ? `Avatar: ${avatar.nombre}` : "Avatar: falta elegirlo"}
-          abiertaAlInicio={!sinAvatares && avatarElegido === null}
-        >
-          {sinAvatares ? null : (
-            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
-          )}
-          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
+      {/* Required to sign, so it is a step of its own and never folded. */}
+      <Seccion titulo="3. Elige tu avatar" id="avatar">
+        {sinAvatares ? (
+          <p className="text-meta text-apagado">{TEXTO_AUN_SIN_AVATARES}</p>
+        ) : (
+          <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+        )}
+      </Seccion>
+
+      {/* Only what is optional: the LinkedIn text, read here and reviewed at gate 2. */}
+      {datos.textoLinkedin !== null ? (
+        <MasOpciones className="mt-8" titulo="Más opciones">
+          <TextoLinkedinEnLectura texto={datos.textoLinkedin} />
         </MasOpciones>
-      )}
+      ) : null}
 
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
       <BarraDeFirma

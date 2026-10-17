@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeGuion, PantallaGuion } from "@/app/(app)/guion/[id]/pantalla-guion"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
+import { TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
@@ -97,15 +98,15 @@ afterEach(() => {
 })
 
 describe("PantallaGuion: el orden de v6", () => {
-  it("goes back, meta, title, date in ink, 1. the voice, 2. the script, Más opciones and the bar", () => {
+  it("goes back, meta, title, date in ink, 1. the voice, 2. the script, 3. the avatar and the bar", () => {
     render(<PantallaGuion datos={datos({ salida: "jueves 22 de octubre · 09:00" })} />)
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/")
     const voz = screen.getByRole("heading", { name: "1. Escucha tu voz" })
     const guion = screen.getByRole("heading", { name: "2. Revisa el guion" })
-    const mas = screen.getByText("Más opciones")
+    const avatar = screen.getByRole("heading", { name: "3. Elige tu avatar" })
     expect(voz.compareDocumentPosition(guion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(guion.compareDocumentPosition(mas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(mas.compareDocumentPosition(barra()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(guion.compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(avatar.compareDocumentPosition(barra()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
     expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
     expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
@@ -164,33 +165,42 @@ describe("PantallaGuion: el orden de v6", () => {
     await waitFor(() => expect(pedirCambiosAccion).toHaveBeenCalledWith("p1", 5))
   })
 
-  it("folds the looks under 'Más opciones', open while none is chosen, and names the chosen one", () => {
+  it("shows the looks as step 3, never folded, with nothing chosen for her", () => {
     render(<PantallaGuion datos={datos()} />)
-    const mas = screen.getByText("Más opciones").closest("details")
-    expect(mas).toHaveAttribute("open")
-    expect(screen.getByText("Avatar: falta elegirlo")).toBeInTheDocument()
+    const paso = screen.getByRole("region", { name: "3. Elige tu avatar" })
+    expect(paso.closest("details")).toBeNull()
+    expect(within(paso).getByRole("radio", { name: "Estudio" })).not.toBeChecked()
     elegirEstudio()
-    expect(screen.getByText("Avatar: Estudio")).toBeInTheDocument()
+    expect(within(paso).getByRole("radio", { name: "Estudio" })).toBeChecked()
   })
 
-  it("starts 'Más opciones' folded when the look she signed with is still offered", () => {
+  it("preselects the look the piece already has while it is still offered", () => {
     render(<PantallaGuion datos={datos({ avatarGuardado: "look-a" })} />)
-    expect(screen.getByText("Más opciones").closest("details")).not.toHaveAttribute("open")
-    expect(screen.getByText("Avatar: Estudio")).toBeInTheDocument()
     expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
   })
 
-  it("leaves 'Más opciones' out when there are no looks and no LinkedIn text: the bar's block is the only message", () => {
-    render(<PantallaGuion datos={datos({ avatares: [] })} />)
-    expect(screen.queryByText("Más opciones")).toBeNull()
-    expect(screen.queryByText(/^Avatar:/)).toBeNull()
+  it("keeps step 3 while her voice is being made", () => {
+    render(<PantallaGuion datos={datos({}, { estado: "grabando_voz", voz: null })} />)
+    expect(screen.getByRole("radio", { name: "Estudio" })).toBeInTheDocument()
   })
 
-  it("starts 'Más opciones' folded, with no avatar line, when there are no looks but there is a LinkedIn text", () => {
-    render(<PantallaGuion datos={datos({ avatares: [], textoLinkedin: "Un texto para LinkedIn." })} />)
-    expect(screen.getByText("Más opciones").closest("details")).not.toHaveAttribute("open")
+  it("says in step 3 that there are no looks yet, and the bar keeps the block", () => {
+    render(<PantallaGuion datos={datos({ avatares: [] })} />)
+    const paso = screen.getByRole("region", { name: "3. Elige tu avatar" })
+    expect(within(paso).getByText("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí.")).toBeInTheDocument()
+    expect(within(barra()).getByText(TEXTO_SIN_AVATARES)).toBeInTheDocument()
+  })
+
+  it("keeps only the optional LinkedIn text under 'Más opciones', folded, and no fold without it", () => {
+    const { unmount } = render(<PantallaGuion datos={datos()} />)
+    expect(screen.queryByText("Más opciones")).toBeNull()
+    unmount()
+    render(<PantallaGuion datos={datos({ textoLinkedin: "Un texto para LinkedIn." })} />)
+    const mas = screen.getByText("Más opciones").closest("details") as HTMLElement
+    expect(mas).not.toHaveAttribute("open")
+    expect(within(mas).getByText("Un texto para LinkedIn.")).toBeInTheDocument()
+    expect(within(mas).queryByRole("radio")).toBeNull()
     expect(screen.queryByText(/^Avatar:/)).toBeNull()
-    expect(screen.getByText("Un texto para LinkedIn.")).toBeInTheDocument()
   })
 
   it("shows a phrase HeyGen refused as a warning block when her voice is there", () => {

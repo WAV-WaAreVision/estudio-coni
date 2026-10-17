@@ -61,9 +61,8 @@ async function escucharLaVoz(page: Page) {
   await expect(page.getByText("La escuchaste completa")).toBeVisible({ timeout: 15_000 })
 }
 
-/** Taps the row like she would (the radio itself is visually hidden), opening "Más opciones" first if it is folded. */
+/** Taps the row of step 3 like she would (the radio itself is visually hidden). */
 async function elegirAvatar(page: Page, nombre: string) {
-  await abrirDesplegable(page, "Más opciones")
   await page.getByRole("radio", { name: nombre }).locator("xpath=ancestor::label").click()
   await expect(page.getByRole("radio", { name: nombre })).toBeChecked()
 }
@@ -487,8 +486,8 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
   await page.goto(`/guion/${id}`)
 
   const grupo = page.getByRole("group", { name: "Avatar" })
+  await expect(page.getByRole("heading", { name: "3. Elige tu avatar" })).toBeVisible()
   await expect(grupo).toBeVisible()
-  await expect(page.getByText("Avatar: falta elegirlo")).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(2)
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(0)
   const foto = page.locator('img[src*="look-a"]')
@@ -502,7 +501,6 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeChecked()
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeFocused()
-  await expect(page.getByText("Avatar: Terraza")).toBeVisible()
   const alto = await page.getByRole("radio", { name: "Terraza" }).locator("xpath=ancestor::label").boundingBox()
   expect(alto?.height).toBeGreaterThanOrEqual(44)
   await capturar(page, "guion-avatar-elegido")
