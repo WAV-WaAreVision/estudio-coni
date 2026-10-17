@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRight, Check } from "@phosphor-icons/react"
+import { ArrowRight, Check, Lock } from "@phosphor-icons/react"
 import { type KeyboardEvent, type MouseEvent, type PointerEvent, useEffect, useId, useRef, useState } from "react"
 import { ICONO } from "@/components/ui/icono"
 import {
@@ -255,8 +255,11 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
       >
         {firmado ? (
           <Check aria-hidden="true" weight="bold" size={ICONO.grande} />
+        ) : habilitado ? (
+          <ArrowRight aria-hidden="true" data-icono="flecha" size={ICONO.grande} />
         ) : (
-          <ArrowRight aria-hidden="true" size={ICONO.grande} />
+          // v6 2b and 3: a closed signature is a lock on a flat thumb; the "Falta:" line says why.
+          <Lock aria-hidden="true" data-icono="candado" size={ICONO.grande} />
         )}
       </span>
       <span id={idPista} className="sr-only">

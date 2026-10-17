@@ -195,6 +195,26 @@ describe("DeslizarParaAprobar: closed, sending, described", () => {
     expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
   })
 
+  it("shows a lock on a flat thumb while closed, hidden from assistive technology, and reads the reason", () => {
+    render(
+      <>
+        <p id="falta">Falta: escuchar tu voz</p>
+        <DeslizarParaAprobar habilitado={false} describidoPor="falta" alFirmar={vi.fn()} />
+      </>,
+    )
+    expect(pista()).toHaveAccessibleDescription(/^Falta: escuchar tu voz/)
+    expect(pulgar()).toHaveClass("bg-piedra")
+    expect(pulgar().className).not.toMatch(/\bshadow-relieve/)
+    const candado = pulgar().querySelector("svg")
+    expect(candado).toHaveAttribute("data-icono", "candado")
+    expect(candado).toHaveAttribute("aria-hidden", "true")
+  })
+
+  it("shows the arrow once it opens", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pulgar().querySelector("svg")).toHaveAttribute("data-icono", "flecha")
+  })
+
   it("goes back to rest when the signature did not go through", () => {
     const { rerender } = render(<DeslizarParaAprobar habilitado enviando={false} alFirmar={vi.fn()} />)
     arrastrar(300)
