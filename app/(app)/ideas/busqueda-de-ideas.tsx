@@ -6,7 +6,7 @@ import { Chip } from "@/components/chip"
 import { Boton } from "@/components/ui/boton"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
-import { NOMBRE_CORTO_DE_PILAR, NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
 
@@ -14,15 +14,17 @@ const RESULTADOS_A_MOSTRAR = 40
 
 interface PropiedadesDeBusqueda {
   ideas: readonly IdeaDeBanco[]
+  /** The active pillars, in order: one chip each. */
+  pilares: readonly PilarVisible[]
   /** Ideas she just added to the week from this screen: they are not offered again. */
   sumadas: readonly string[]
   alAbrir: (ideaId: string) => void
   alEscribirPropia: () => void
 }
 
-export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: PropiedadesDeBusqueda) {
+export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPropia }: PropiedadesDeBusqueda) {
   const [texto, setTexto] = useState("")
-  const [pilar, setPilar] = useState<Pilar | null>(null)
+  const [pilar, setPilar] = useState<string | null>(null)
   const [soloFuerzaAlta, setSoloFuerzaAlta] = useState(false)
   const [soloSinAlertas, setSoloSinAlertas] = useState(false)
   const [soloSinUsar, setSoloSinUsar] = useState(true)
@@ -50,13 +52,13 @@ export function BusquedaDeIdeas({ ideas, sumadas, alAbrir, alEscribirPropia }: P
         <Chip presionado={pilar === null} onClick={() => setPilar(null)}>
           Todos
         </Chip>
-        {PILARES.map((candidato) => (
+        {pilares.map((candidato) => (
           <Chip
-            key={candidato}
-            presionado={pilar === candidato}
-            onClick={() => setPilar(pilar === candidato ? null : candidato)}
+            key={candidato.slug}
+            presionado={pilar === candidato.slug}
+            onClick={() => setPilar(pilar === candidato.slug ? null : candidato.slug)}
           >
-            {NOMBRE_CORTO_DE_PILAR[candidato]}
+            {candidato.nombreCorto}
           </Chip>
         ))}
       </fieldset>

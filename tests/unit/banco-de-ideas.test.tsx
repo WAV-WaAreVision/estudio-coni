@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
-import { nombreDePilar } from "@/lib/dominio/pilares"
+import { nombreDePilar, soloActivos } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
@@ -33,7 +33,7 @@ const IDEAS: IdeaDeBanco[] = [
     tema: "Sentarse al lado cambia el tono.",
     alertas: [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }],
   }),
-  idea({ id: "b", numero: 2, gancho: "El deseo no se apaga: se esconde.", pilar: "deseo", fuerza: "media" }),
+  idea({ id: "b", numero: 2, gancho: "El deseo no se apaga: se esconde.", pilar: "practica-clinica", fuerza: "media" }),
   idea({ id: "c", numero: 3, gancho: "¿Por qué sientes culpa al descansar?", pilar: "autoestima" }),
   idea({ id: "d", numero: 4, gancho: "Ya la usé hace poco.", estado: "usada" }),
 ]
@@ -58,7 +58,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
     proponer: vi.fn(async () => ({
       ok: true as const,
       propuesta: {
-        pilar: "limites" as const,
+        pilar: "acceso-salud-publica",
         formato: "Mito o realidad",
         alertas: [{ tipo: "líneas de ayuda" as const, texto: "El tema roza la violencia en la pareja." }],
       },
@@ -68,9 +68,11 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
   }
 }
 
+const ACTIVOS = soloActivos(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto }) => ({ slug, nombre, nombreCorto }))
+
 function mostrar(cambios: Partial<AccionesDelBanco> = {}, ideas: IdeaDeBanco[] = IDEAS) {
   const a = acciones(cambios)
-  render(<BancoDeIdeas ideas={ideas} acciones={a} />)
+  render(<BancoDeIdeas ideas={ideas} pilares={ACTIVOS} acciones={a} />)
   return a
 }
 
@@ -201,9 +203,25 @@ describe("BancoDeIdeas: buscar", () => {
     expect(screen.getByText("¿Por qué sientes culpa al descansar?")).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText("Buscar por palabra o tema"), { target: { value: "" } })
-    fireEvent.click(screen.getByRole("button", { name: "Deseo" }))
+    fireEvent.click(screen.getByRole("button", { name: "Práctica clínica" }))
     expect(screen.getByText("1 resultado")).toBeInTheDocument()
     expect(screen.getByText("El deseo no se apaga: se esconde.")).toBeInTheDocument()
+  })
+
+  it("offers the pillars it is given, in order, and no others", async () => {
+    mostrar()
+    await abrirBusqueda()
+
+    const chips = within(screen.getByRole("group", { name: "Pilar" })).getAllByRole("button")
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "Todos",
+      "IA y salud mental",
+      "Práctica clínica",
+      "Ética",
+      "Acceso",
+      "Caso Coni",
+    ])
+    expect(screen.queryByRole("button", { name: "Pareja" })).not.toBeInTheDocument()
   })
 
   it("can include the ideas already used", async () => {
@@ -259,7 +277,7 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
 
     await waitFor(() => expect(a.proponer).toHaveBeenCalledWith("Tu pareja te revisa el celular y lo llama amor.", ""))
-    expect(await screen.findByRole("radio", { name: "Género y límites" })).toBeChecked()
+    expect(await screen.findByRole("radio", { name: "Acceso y salud pública" })).toBeChecked()
     expect(screen.getByRole("checkbox", { name: /Líneas de ayuda/ })).toBeChecked()
     expect(screen.getByRole("checkbox", { name: /Verificar dato/ })).not.toBeChecked()
   })
@@ -268,9 +286,9 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     const a = mostrar()
     await escribir()
     fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
-    await screen.findByRole("radio", { name: "Género y límites" })
+    await screen.findByRole("radio", { name: "Acceso y salud pública" })
 
-    fireEvent.click(screen.getByRole("radio", { name: "Pareja y conversación" }))
+    fireEvent.click(screen.getByRole("radio", { name: "IA y salud mental" }))
     fireEvent.click(screen.getByRole("checkbox", { name: /Verificar dato/ }))
     fireEvent.click(screen.getByRole("button", { name: "Guardar idea" }))
 
@@ -279,7 +297,7 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
       gancho: "Tu pareja te revisa el celular y lo llama amor.",
       tema: "",
       formato: "Mito o realidad",
-      pilar: "pareja",
+      pilar: "ia-salud-mental",
       alertas: [
         { tipo: "verificar dato", texto: expect.any(String) },
         { tipo: "líneas de ayuda", texto: "El tema roza la violencia en la pareja." },
@@ -302,12 +320,30 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("No pude proponerte el pilar ahora.")
     fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
     expect(screen.getByRole("button", { name: "Guardar idea" })).toHaveAttribute("aria-disabled", "true")
-    fireEvent.click(screen.getByRole("radio", { name: "Bienestar emocional" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Caso Coni: humana + avatar" }))
     fireEvent.click(screen.getByRole("button", { name: "Guardar idea" }))
 
     await waitFor(() =>
-      expect(a.crear).toHaveBeenCalledWith(expect.objectContaining({ pilar: "bienestar", alertas: [] })),
+      expect(a.crear).toHaveBeenCalledWith(expect.objectContaining({ pilar: "caso-coni", alertas: [] })),
     )
+  })
+
+  it("lets her choose among the pillars it is given, by their full names", async () => {
+    mostrar({ proponer: vi.fn(async () => ({ ok: false as const, error: "No pude proponerte el pilar ahora." })) })
+    await escribir()
+    fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
+    await screen.findByRole("alert")
+    fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
+
+    const nombres = [
+      "IA y salud mental",
+      "Práctica clínica aumentada",
+      "Ética y regulación",
+      "Acceso y salud pública",
+      "Caso Coni: humana + avatar",
+    ]
+    const radios = screen.getAllByRole("radio")
+    expect(radios).toEqual(nombres.map((name) => screen.getByRole("radio", { name })))
   })
 
   it("does not ask Claude about an empty idea", async () => {

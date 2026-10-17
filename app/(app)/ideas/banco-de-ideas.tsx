@@ -10,18 +10,18 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
+import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
-import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
-import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
+import { type IdeaConfirmada, IdeaPropia, type PropuestaParaConfirmar } from "./idea-propia"
 
 export interface AccionesDelBanco {
   usar: (ideaId: string) => Promise<Resultado>
   quitar: (ideaId: string) => Promise<Resultado>
   descartar: (ideaId: string, motivo: MotivoDeDescarte) => Promise<Resultado>
-  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
+  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaParaConfirmar }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
 }
 
@@ -41,7 +41,15 @@ const PAR_DE_BOTONES = "gap-2 px-[18px] whitespace-nowrap"
  * The idea bank: one idea at a time on the tint of its pillar, with "Después" and "Usar esta" as buttons (never only a
  * swipe), a switch to search, and a way to write an idea of her own. `ideas` arrives in the order the deck shows it.
  */
-export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[]; acciones: AccionesDelBanco }) {
+export function BancoDeIdeas({
+  ideas,
+  pilares,
+  acciones,
+}: {
+  ideas: readonly IdeaDeBanco[]
+  pilares: readonly PilarVisible[]
+  acciones: AccionesDelBanco
+}) {
   const [vista, setVista] = useState<Vista>("mazo")
   // Said "Después" to, in the order she did: they go to the back of the deck.
   const [aplazadas, setAplazadas] = useState<string[]>([])
@@ -131,6 +139,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
         <IdeaPropia
           proponer={acciones.proponer}
           crear={acciones.crear}
+          pilares={pilares}
           alVolver={() => setVista("mazo")}
           alGuardar={() => {
             setVista("mazo")
@@ -172,6 +181,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
       {buscando ? (
         <BusquedaDeIdeas
           ideas={ideas}
+          pilares={pilares}
           sumadas={sumadas}
           alAbrir={(ideaId) => {
             setFrente(ideaId)
