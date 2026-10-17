@@ -48,14 +48,14 @@ export default async function Inicio() {
           </span>
         </p>
         <h1 className="mt-6 text-pantalla text-balance">{inicio.titulo}</h1>
-        {inicio.tiempo ? <p className="mt-1 text-cuerpo text-apagado">{inicio.tiempo}</p> : null}
+        {inicio.linea ? <p className="mt-1 text-cuerpo text-apagado">{inicio.linea}</p> : null}
       </header>
 
       <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
-      {inicio.avisos.length > 0 ? (
+      {[...inicio.atencion, ...inicio.avisos].length > 0 ? (
         <div className="mt-6 grid gap-4">
-          {inicio.avisos.map((aviso) => (
+          {[...inicio.atencion, ...inicio.avisos].map((aviso) => (
             <AvisoEnInicio key={`${aviso.titulo}-${aviso.texto}`} aviso={aviso} />
           ))}
         </div>
