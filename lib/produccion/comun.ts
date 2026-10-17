@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { actualizarPieza, type FilaDePieza } from "@/lib/datos/repositorio"
+import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -51,3 +52,14 @@ const USD_POR_CARACTER_ELEVENLABS = 0.0003
 export function estimarCostoVoz(texto: string): number {
   return Math.max(MINIMO_USD, aCuatroDecimales(texto.length * USD_POR_CARACTER_ELEVENLABS))
 }
+
+/** What writing and reviewing one script reserves with Claude; the real cost is confirmed afterwards. */
+export const ESTIMADO_GUION_CLAUDE_USD = 0.5
+
+/**
+ * The most one script can hold against the cap: Claude's draft and review, then her voice of the longest script
+ * allowed. The batch on Ideas checks the month with it before starting anything (decision 23, amendment A2).
+ */
+export const ESTIMADO_POR_GUION_USD = aCuatroDecimales(
+  ESTIMADO_GUION_CLAUDE_USD + estimarCostoVoz("x".repeat(MAXIMO_DEL_GUION)),
+)

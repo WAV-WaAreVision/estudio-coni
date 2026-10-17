@@ -7,10 +7,12 @@ import {
   crearIdeaPropia,
   type DepsIdeas,
   descartarIdea,
+  descartarIdeas,
   MOTIVOS_DE_DESCARTE,
   type MotivoDeDescarte,
   proponerIdea,
   quitarIdea,
+  restaurarIdeas,
   usarIdea,
 } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -41,6 +43,12 @@ async function refrescar<T extends object>(resultado: Resultado<T>): Promise<Res
   return resultado
 }
 
+/** For the batch: one that failed halfway may still have moved some of its ideas. */
+async function refrescarSiempre<T extends object>(resultado: Resultado<T>): Promise<Resultado<T>> {
+  revalidatePath("/", "layout")
+  return resultado
+}
+
 const sobreIdea = z.object({ ideaId: z.uuid() })
 
 export async function usarIdeaAccion(ideaId: string) {
@@ -60,6 +68,24 @@ const descarte = z.object({ ideaId: z.uuid(), motivo: z.enum(MOTIVOS_DE_DESCARTE
 export async function descartarIdeaAccion(ideaId: string, motivo: MotivoDeDescarte) {
   return refrescar(
     await conSesionDeConi("descartarIdea", descarte, { ideaId, motivo }, (db, d) => descartarIdea(depsDeIdeas(db), d)),
+  )
+}
+
+const descarteDeLote = z.object({ ideaIds: z.array(z.uuid()).max(20), motivo: z.enum(MOTIVOS_DE_DESCARTE) })
+
+export async function descartarIdeasAccion(ideaIds: string[], motivo: MotivoDeDescarte) {
+  return refrescarSiempre(
+    await conSesionDeConi("descartarIdeas", descarteDeLote, { ideaIds, motivo }, (db, d) =>
+      descartarIdeas(depsDeIdeas(db), d),
+    ),
+  )
+}
+
+export async function restaurarIdeasAccion(ideaIds: string[]) {
+  return refrescarSiempre(
+    await conSesionDeConi("restaurarIdeas", z.object({ ideaIds: z.array(z.uuid()).max(20) }), { ideaIds }, (db, d) =>
+      restaurarIdeas(depsDeIdeas(db), d.ideaIds),
+    ),
   )
 }
 

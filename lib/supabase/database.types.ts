@@ -412,6 +412,32 @@ export type Database = {
         }
         Relationships: []
       }
+      fechas_propuestas: {
+        Row: {
+          pieza_id: string
+          propuesta_en: string
+          publicar_en: string
+        }
+        Insert: {
+          pieza_id: string
+          propuesta_en?: string
+          publicar_en: string
+        }
+        Update: {
+          pieza_id?: string
+          propuesta_en?: string
+          publicar_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fechas_propuestas_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: true
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fichas: {
         Row: {
           citas: Json
@@ -566,6 +592,8 @@ export type Database = {
         Row: {
           alertas: Json
           creada_en: string
+          descartada_en: string | null
+          descartada_por: string | null
           estado: string
           fijada_en: string | null
           formato: string
@@ -584,6 +612,8 @@ export type Database = {
         Insert: {
           alertas?: Json
           creada_en?: string
+          descartada_en?: string | null
+          descartada_por?: string | null
           estado?: string
           fijada_en?: string | null
           formato?: string
@@ -602,6 +632,8 @@ export type Database = {
         Update: {
           alertas?: Json
           creada_en?: string
+          descartada_en?: string | null
+          descartada_por?: string | null
           estado?: string
           fijada_en?: string | null
           formato?: string
@@ -1663,6 +1695,10 @@ export type Database = {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
       }
+      descartar_ideas: {
+        Args: { p_ids: string[]; p_motivo: string }
+        Returns: undefined
+      }
       desconectar_linkedin: { Args: never; Returns: undefined }
       editar_guion_como_coni: {
         Args: {
@@ -2029,6 +2065,10 @@ export type Database = {
         }[]
       }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      proponer_fechas: {
+        Args: { p_fechas: string[]; p_piezas: string[] }
+        Returns: undefined
+      }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
@@ -2109,6 +2149,7 @@ export type Database = {
         Args: { p_idea: string; p_limite: number }
         Returns: Json
       }
+      restaurar_ideas: { Args: { p_ids: string[] }; Returns: string[] }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
       tema_mas_cercano: {
         Args: { p_umbral: number; p_vector: string }

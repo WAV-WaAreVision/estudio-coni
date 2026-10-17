@@ -340,6 +340,20 @@ body {
   }
 }
 
+/* Decision 23: the batch bar of Ideas floats above the bottom nav while the list scrolls, at the bottom once the nav
+   moves to the top, and in the flow at large text, where nothing is pinned. */
+.barra-de-lote {
+  bottom: calc(var(--alto-nav) + 8px);
+}
+@media (min-width: 768px) {
+  .barra-de-lote {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+html[data-letra="grande"] .barra-de-lote {
+  position: static;
+}
+
 /* An in-line confirmation rises 8 px and fades in, like the toast. */
 .confirmacion {
   transition:

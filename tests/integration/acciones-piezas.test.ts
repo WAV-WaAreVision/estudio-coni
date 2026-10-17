@@ -13,6 +13,8 @@ import {
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
+  elegirLote,
+  type InicioDeIdea,
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
@@ -21,12 +23,14 @@ import {
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
+import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
 import { claveDeToma } from "@/lib/dominio/voz"
+import { TEXTO_TOPE } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -36,7 +40,15 @@ import { CONI, comoConi, pool } from "./db"
 import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { ajustarPieza, borrarSembrado, leerFila, publicacionesDe, sembrarIdea, sembrarPieza } from "./siembra"
+import {
+  ajustarPieza,
+  borrarSembrado,
+  leerFila,
+  proponerFecha,
+  publicacionesDe,
+  sembrarIdea,
+  sembrarPieza,
+} from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -120,7 +132,7 @@ async function versionDe(id: string): Promise<number> {
   return (await fila(id)).version
 }
 
-async function idea(extra: { pilar?: string; alertas?: unknown } = {}): Promise<string> {
+async function idea(extra: { pilar?: string; alertas?: unknown; gancho?: string } = {}): Promise<string> {
   const id = await sembrarIdea(extra)
   ideasCreadas.push(id)
   return id
@@ -216,6 +228,145 @@ describe("elegirIdeas", () => {
     piezasCreadas.push(...rows.map((r) => r.id))
     expect(rows[0]).toMatchObject({ estado: "guion_en_proceso" })
     expect(rows[0].explicacion).toMatch(/no pude empezar/i)
+  })
+})
+
+describe("elegirLote", () => {
+  const piezasDe = (resultados: readonly InicioDeIdea[]) =>
+    resultados.flatMap((resultado) => ("piezaId" in resultado ? [resultado.piezaId] : []))
+  async function topeConLugarPara(guiones: number): Promise<void> {
+    const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
+    await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado + guiones * 1.1 + 0.05])
+  }
+  afterEach(async () => {
+    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  })
+
+  it("starts every script when the month covers the whole batch", async () => {
+    const [a, b] = [await idea(), await idea()]
+    await topeConLugarPara(2)
+    const { deps, disparos } = armar()
+
+    const resultado = await elegirLote(deps, [a, b])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "empezada" },
+    ])
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("keeps what started when another device takes the second idea mid-batch, and goes on with the third", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(3)
+    const { deps, disparos } = armar()
+    const producir = deps.disparar.producir
+    deps.disparar.producir = async (piezaId, clave) => {
+      if (disparos.length === 0) await pool.query("update public.ideas set estado = 'usada' where id = $1", [b])
+      await producir(piezaId, clave)
+    }
+
+    const resultado = await elegirLote(deps, [a, b, c])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "no_disponible" },
+      { ideaId: c, tipo: "empezada" },
+    ])
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("leaves the piece whose script did not start with its reason and still starts the rest", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(3)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const { deps, disparos } = armar()
+    const producir = deps.disparar.producir
+    let llamadas = 0
+    deps.disparar.producir = async (piezaId, clave) => {
+      llamadas += 1
+      if (llamadas === 2) throw new Error("Trigger.dev no responde")
+      await producir(piezaId, clave)
+    }
+
+    const resultado = await elegirLote(deps, [a, b, c])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "con_aviso" },
+      { ideaId: c, tipo: "empezada" },
+    ])
+    const conAviso = resultado.resultados[1]
+    if (conAviso?.tipo !== "con_aviso") return
+    expect((await fila(conAviso.piezaId)).explicacion).toMatch(/no pude empezar/i)
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("gives the idea back to the bank when its piece cannot be created, and still starts the rest", async () => {
+    const [a, b] = [await idea(), await idea({ gancho: "Falla al crear" })]
+    await topeConLugarPara(2)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    await pool.query(`create function public.falla_de_prueba() returns trigger language plpgsql as $$
+      begin if new.titulo = 'Falla al crear' then raise exception 'falla de prueba'; end if; return new; end $$`)
+    await pool.query(
+      "create trigger falla_de_prueba before insert on public.piezas for each row execute function public.falla_de_prueba()",
+    )
+    try {
+      const { deps } = armar()
+
+      const resultado = await elegirLote(deps, [b, a])
+
+      expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+      if (!resultado.ok || resultado.tipo !== "empezadas") return
+      piezasCreadas.push(...piezasDe(resultado.resultados))
+      expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+        { ideaId: b, tipo: "devuelta" },
+        { ideaId: a, tipo: "empezada" },
+      ])
+      expect((await pool.query("select estado from public.ideas where id = $1", [b])).rows[0].estado).toBe("idea")
+    } finally {
+      await pool.query("drop trigger falla_de_prueba on public.piezas")
+      await pool.query("drop function public.falla_de_prueba()")
+    }
+  })
+
+  it("says how many fit and starts nothing when the month covers fewer", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(2)
+    const { deps, disparos } = armar()
+    const antes = await pool.query("select count(*)::int as n from public.piezas")
+
+    expect(await elegirLote(deps, [a, b, c])).toEqual({ ok: true, tipo: "alcanza", cuantas: 2 })
+
+    expect(disparos).toEqual([])
+    expect((await pool.query("select count(*)::int as n from public.piezas")).rows[0].n).toBe(antes.rows[0].n)
+    const { rows } = await pool.query("select estado from public.ideas where id = any($1::uuid[])", [[a, b, c]])
+    expect(rows.every((fila) => fila.estado === "idea")).toBe(true)
+  })
+
+  it("says the cap is reached when not even one fits", async () => {
+    const id = await idea()
+    await topeConLugarPara(0)
+    const { deps, disparos } = armar()
+
+    expect(await elegirLote(deps, [id])).toEqual({ ok: false, error: TEXTO_TOPE })
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses what elegirIdeas refuses before reading the month", async () => {
+    const id = await idea()
+    const { deps } = armar()
+    expect(await elegirLote(deps, [])).toMatchObject({ ok: false })
+    expect(await elegirLote(deps, [id, id])).toMatchObject({ ok: false })
   })
 })
 
@@ -708,6 +859,27 @@ describe("aprobarVideo", () => {
 
     expect(resultado).toMatchObject({ ok: false })
     expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("signs the date she chose even when another one was proposed, and leaves the proposal alone", async () => {
+    const id = await paraAprobar()
+    // Its own time: earlier tests of this block already scheduled a reel at FUTURO.
+    const hora = "2097-10-15T19:00:00-03:00"
+    const propuesta = new Date(Date.parse(hora) + 7 * 86_400_000).toISOString()
+    await proponerFecha(id, propuesta)
+    const { deps } = armar()
+    const version = (await fila(id)).version
+
+    const resultado = await aprobarVideo(deps, id, version, hora, ["instagram"])
+
+    expect(resultado.ok).toBe(true)
+    const guardada = await fila(id)
+    expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2097-10-15T22:00:00.000Z")
+    expect(guardada.puerta2_hash_texto).toBe(
+      hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: null, destinos: ["instagram"] }),
+    )
+    const { rows } = await pool.query("select publicar_en from public.fechas_propuestas where pieza_id = $1", [id])
+    expect(rows[0].publicar_en.toISOString()).toBe(propuesta)
   })
 })
 

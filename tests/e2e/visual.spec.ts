@@ -78,7 +78,7 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   await page.evaluate(() => document.fonts.ready)
   // A full-page capture would stop the sticky nav and bar halfway down: let them take their place at the end.
   await page.addStyleTag({
-    content: "nav[aria-label='Secciones'], [data-barra-de-firma] { position: static !important }",
+    content: "nav[aria-label='Secciones'], [data-barra-de-firma], [data-barra-de-lote] { position: static !important }",
   })
   if (CARPETA_FINALES) {
     mkdirSync(CARPETA_FINALES, { recursive: true })
@@ -111,6 +111,32 @@ for (const [nombre, ruta] of PANTALLAS) {
     await capturaDe(page, nombre)
   })
 }
+
+test("ideas elegir varias", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/ideas")
+  await page.getByRole("button", { name: "Elegir varias" }).click()
+  const casillas = page.getByRole("checkbox")
+  await casillas.nth(0).check()
+  await casillas.nth(1).check()
+  await expect(page.getByRole("region", { name: "Ideas elegidas" })).toBeVisible()
+  await capturaDe(page, "ideas-elegir-varias")
+})
+
+test("calendario agenda con propuestas", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/calendario?vista=agenda")
+  await page.getByRole("button", { name: "Repartir fechas" }).click()
+  await expect(page.getByText(/ · propuesta$/).first()).toBeVisible()
+  // The toast is fixed: in a full-page capture it would sit over the rows. It closes by itself after 8 s.
+  await expect(page.getByText(/^Propuse fecha para/)).toHaveCount(0, { timeout: 10_000 })
+  await page
+    .getByRole("button", { name: /^Cambiar la fecha de/ })
+    .first()
+    .click()
+  await expect(page.getByRole("group", { name: "¿Qué otro día?" })).toBeVisible()
+  await capturaDe(page, "calendario-agenda-propuestas")
+})
 
 test("inicio vacio", async ({ page }) => {
   await vaciarPiezasEIdeas()

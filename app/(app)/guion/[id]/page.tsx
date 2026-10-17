@@ -12,6 +12,7 @@ import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
+import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { piezaDesdeFila } from "@/lib/datos/piezas"
@@ -164,14 +165,17 @@ export default async function PaginaDeGuion({
 
   const ahora = Date.now()
   const contexto = await leerContextoDeFechas(db, fila.id)
+  const ocupadas = ocupadasEnLaPuerta(contexto, ahora)
   const propuestas = proponerFechas({
     ahora,
     horario: contexto.horario,
-    ocupadas: contexto.ocupadas,
+    ocupadas,
     cuantas: contexto.enCola + 1,
     antelacionMs: DOCE_HORAS_MS,
   })
-  const salida = propuestas[contexto.enCola]
+  const tomadas = new Set(ocupadas.map((iso) => Date.parse(iso)))
+  const propuesta = propuestaVigente(contexto.propuesta, { ahora, tomadas, antelacionMs: DOCE_HORAS_MS })
+  const salida = propuesta ?? propuestas[contexto.enCola]
   const [avatares, conVersionDeClaude, grabacion] = await Promise.all([
     avataresParaElegir(db),
     tieneVersionDeClaude({ db }, fila.id),

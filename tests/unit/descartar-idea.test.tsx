@@ -13,4 +13,15 @@ describe("DescartarIdea", () => {
     fireEvent.click(motivo)
     expect(alElegir).not.toHaveBeenCalled()
   })
+
+  it("names the batch on its button and asks about all of them", () => {
+    const alElegir = vi.fn()
+    render(
+      <DescartarIdea ocupada={false} alElegir={alElegir} etiqueta="Descartar (2)" pregunta="¿Por qué las descartas?" />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Descartar (2)" }))
+    expect(screen.getByRole("group", { name: "¿Por qué las descartas?" })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Débil" }))
+    expect(alElegir).toHaveBeenCalledWith("debil")
+  })
 })

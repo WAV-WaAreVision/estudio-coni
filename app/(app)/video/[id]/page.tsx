@@ -5,6 +5,7 @@ import { MomentoDeCierre } from "@/components/momento-de-cierre"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
+import { conLaPropuestaPrimero, ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
 import {
   leerContextoDeFechas,
   leerCostoDeGrabar,
@@ -186,13 +187,20 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
 
   const ahora = Date.now()
   const contexto = await leerContextoDeFechas(db, fila.id)
-  const fechas = proponerFechas({
-    ahora,
-    horario: contexto.horario,
-    ocupadas: contexto.ocupadas,
-    cuantas: FECHAS_A_OFRECER,
-    antelacionMs: UNA_HORA_MS,
-  }).map((iso) => ({
+  const ocupadas = ocupadasEnLaPuerta(contexto, ahora)
+  const tomadas = new Set(ocupadas.map((iso) => Date.parse(iso)))
+  const propuesta = propuestaVigente(contexto.propuesta, { ahora, tomadas, antelacionMs: UNA_HORA_MS })
+  const fechas = conLaPropuestaPrimero(
+    proponerFechas({
+      ahora,
+      horario: contexto.horario,
+      ocupadas,
+      cuantas: FECHAS_A_OFRECER,
+      antelacionMs: UNA_HORA_MS,
+    }),
+    propuesta,
+    FECHAS_A_OFRECER,
+  ).map((iso) => ({
     iso,
     etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga"),
     corta: etiquetaDeFecha(iso, contexto.horario.zona, "corta"),

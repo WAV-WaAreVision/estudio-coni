@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test"
+import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { CONI, pool } from "../integration/db"
-import { leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import {
+  leerFila,
+  moverHoraAprobada,
+  proponerFecha,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
 import {
   abrirDesplegable,
   capturar,
@@ -168,4 +176,85 @@ test("the whole video and its play are visible above the sign bar on load at 390
   // The video is never dimmed (brandkit 9.17).
   expect(await page.locator("video").evaluate((el) => getComputedStyle(el).filter)).toBe("none")
   await capturar(page, "video-por-aprobar-abrir")
+})
+
+async function horario() {
+  const { rows } = await pool.query("select dias_publicacion, hora_publicacion, zona from public.ajustes")
+  return { dias: rows[0].dias_publicacion, hora: rows[0].hora_publicacion, zona: rows[0].zona }
+}
+
+test("gate 2 starts on the proposed date while it is still free", async ({ page }) => {
+  const id = await videoPorAprobar()
+  const h = await horario()
+  const tercera = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [],
+    cuantas: 3,
+    antelacionMs: 3_600_000,
+  })[2]
+  if (!tercera) throw new Error("Sin horario")
+  await proponerFecha(id, tercera)
+  await simularMedios(page)
+
+  await page.goto(`/video/${id}`)
+
+  await expect(
+    page.getByRole("region", { name: "Dónde y cuándo" }).getByText(etiquetaDeFecha(tercera, h.zona, "larga")),
+  ).toBeVisible()
+})
+
+test("gate 2 proposes as before when a scheduled piece took the proposed time", async ({ page }) => {
+  const id = await videoPorAprobar()
+  const h = await horario()
+  const [primera, segunda] = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [],
+    cuantas: 2,
+    antelacionMs: 3_600_000,
+  })
+  if (!primera || !segunda) throw new Error("Sin horario")
+  const otra = await sembrarPieza("programado")
+  // Rewriting a signed time needs the owner with the triggers off: the helper does exactly that.
+  await moverHoraAprobada(otra, segunda)
+  await proponerFecha(id, segunda)
+  await simularMedios(page)
+
+  await page.goto(`/video/${id}`)
+
+  await expect(
+    page.getByRole("region", { name: "Dónde y cuándo" }).getByText(etiquetaDeFecha(primera, h.zona, "larga")),
+  ).toBeVisible()
+})
+
+test("gate 2 does not offer the time another piece's proposal holds", async ({ page }) => {
+  const id = await videoPorAprobar()
+  const otra = await sembrarPieza("guion_por_aprobar")
+  const h = await horario()
+  const [libre] = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [],
+    cuantas: 1,
+    antelacionMs: 2 * 3_600_000,
+  })
+  if (!libre) throw new Error("Sin horario")
+  await proponerFecha(otra, libre)
+  const [primera] = proponerFechas({
+    ahora: Date.now(),
+    horario: h,
+    ocupadas: [libre],
+    cuantas: 1,
+    antelacionMs: 3_600_000,
+  })
+  if (!primera) throw new Error("Sin horario")
+  await simularMedios(page)
+
+  await page.goto(`/video/${id}`)
+
+  const lugar = page.getByRole("region", { name: "Dónde y cuándo" })
+  await expect(lugar.getByText(etiquetaDeFecha(primera, h.zona, "larga"))).toBeVisible()
+  await lugar.getByRole("button", { name: "Cambiar" }).click()
+  await expect(lugar.getByText(etiquetaDeFecha(libre, h.zona, "larga"))).toHaveCount(0)
 })

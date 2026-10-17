@@ -14,6 +14,7 @@ import {
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
+  elegirLote,
   MAXIMO_DEL_TEXTO,
   marcarSubidoAMano,
   pedirCambios,
@@ -62,6 +63,18 @@ export async function elegirIdeasAccion(ideaIds: string[]) {
       elegirIdeas(deps, d.ideaIds),
     ),
   )
+}
+
+export async function elegirLoteAccion(ideaIds: string[]) {
+  const resultado = await comoConi(
+    "elegirLote",
+    z.object({ ideaIds: z.array(z.uuid()).max(20) }),
+    { ideaIds },
+    (deps, d) => elegirLote(deps, d.ideaIds),
+  )
+  // Refreshed either way: a batch that failed halfway may still have started scripts.
+  revalidatePath("/", "layout")
+  return resultado
 }
 
 export async function aprobarGuionAccion(piezaId: string, version: number, avatarId: string | null) {

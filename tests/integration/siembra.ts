@@ -239,3 +239,12 @@ export async function moverHoraAprobada(piezaId: string, instante: string): Prom
     cliente.release()
   }
 }
+
+/** A proposal stored as the database owner, the way Repartir would leave it. */
+export async function proponerFecha(piezaId: string, instante: string): Promise<void> {
+  await pool.query(
+    `insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, $2)
+     on conflict (pieza_id) do update set publicar_en = excluded.publicar_en`,
+    [piezaId, instante],
+  )
+}

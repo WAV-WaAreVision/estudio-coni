@@ -15,13 +15,22 @@ const MOTIVOS: { motivo: MotivoDeDescarte; texto: string }[] = [
 interface PropiedadesDeDescarte {
   ocupada: boolean
   alElegir: (motivo: MotivoDeDescarte) => void
+  /** "Descartar (N)" in the batch bar. */
+  etiqueta?: string
+  /** "¿Por qué las descartas?" when it is several. */
+  pregunta?: string
 }
 
 /**
  * "Descartar" opens its choice in the page, not in a dialog: focus goes to the first reason, and goes back to the
  * button when she cancels. The reasons feed the next week's scores, so the choice is required.
  */
-export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
+export function DescartarIdea({
+  ocupada,
+  alElegir,
+  etiqueta = "Descartar",
+  pregunta = "¿Por qué la descartas?",
+}: PropiedadesDeDescarte) {
   const [abierto, setAbierto] = useState(false)
   const [devolverFoco, setDevolverFoco] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
@@ -38,7 +47,7 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
     <div ref={contenedor}>
       {abierto ? (
         <fieldset className="grid">
-          <legend className="pb-1 text-meta font-semibold">¿Por qué la descartas?</legend>
+          <legend className="pb-1 text-meta font-semibold">{pregunta}</legend>
           <Grupo>
             {MOTIVOS.map(({ motivo, texto }) => (
               <button
@@ -66,7 +75,7 @@ export function DescartarIdea({ ocupada, alElegir }: PropiedadesDeDescarte) {
         </fieldset>
       ) : (
         <Boton variante="callado" onClick={() => setAbierto(true)}>
-          Descartar
+          {etiqueta}
         </Boton>
       )}
     </div>

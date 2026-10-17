@@ -16,9 +16,10 @@ import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
+import { type AccionesDeEleccion, EleccionDeIdeas } from "./eleccion-de-ideas"
 import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
 
-export interface AccionesDelBanco {
+export interface AccionesDelBanco extends AccionesDeEleccion {
   usar: (ideaId: string) => Promise<Resultado>
   quitar: (ideaId: string) => Promise<Resultado>
   descartar: (ideaId: string, motivo: MotivoDeDescarte) => Promise<Resultado>
@@ -28,7 +29,7 @@ export interface AccionesDelBanco {
 
 const URL_DE_INGESTA = "https://conidolly-ingesta.vercel.app"
 
-type Vista = "mazo" | "buscar" | "propia"
+type Vista = "mazo" | "buscar" | "propia" | "varias"
 
 interface Mensaje {
   texto: string
@@ -60,8 +61,11 @@ export function BancoDeIdeas({
   const [frente, setFrente] = useState<string | null>(null)
   // Discarded from this screen; like the added ones they are not offered again while the page refreshes.
   const [descartadas, setDescartadas] = useState<string[]>([])
+  // Started or discarded from Elegir varias; Deshacer takes them off this list.
+  const [fuera, setFuera] = useState<string[]>([])
   const [enfocarCarta, setEnfocarCarta] = useState(false)
   const carta = useRef<HTMLDivElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, empezar] = useTransition()
@@ -75,7 +79,11 @@ export function BancoDeIdeas({
   }, [enfocarCarta])
 
   const libres = ideas.filter(
-    (idea) => idea.estado === "idea" && !sumadas.includes(idea.id) && !descartadas.includes(idea.id),
+    (idea) =>
+      idea.estado === "idea" &&
+      !sumadas.includes(idea.id) &&
+      !descartadas.includes(idea.id) &&
+      !fuera.includes(idea.id),
   )
   const seguidas = libres.filter((idea) => !aplazadas.includes(idea.id))
   const alFinal = aplazadas.flatMap((id) => libres.find((idea) => idea.id === id) ?? [])
@@ -160,26 +168,49 @@ export function BancoDeIdeas({
       <header className="grid gap-1">
         <Volver href="/">Inicio</Volver>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-pantalla">{buscando ? "Buscar ideas" : "Ideas"}</h1>
-          <Boton
-            variante="callado"
-            tamano="chico"
-            onClick={() => setVista(buscando ? "mazo" : "buscar")}
-            className="w-auto shrink-0"
-          >
-            {buscando ? (
-              "Una a la vez"
+          <h1 ref={titulo} tabIndex={-1} className="text-pantalla outline-none">
+            {vista === "varias" ? "Elegir varias" : buscando ? "Buscar ideas" : "Ideas"}
+          </h1>
+          <div className="flex shrink-0 items-center gap-4">
+            {vista === "mazo" ? (
+              <Boton variante="callado" tamano="chico" onClick={() => setVista("varias")} className="w-auto">
+                Elegir varias
+              </Boton>
+            ) : null}
+            {vista === "varias" ? (
+              <Boton variante="callado" tamano="chico" onClick={() => setVista("mazo")} className="w-auto">
+                Listo
+              </Boton>
             ) : (
-              <>
-                <MagnifyingGlass aria-hidden="true" size={ICONO.medio} />
-                Buscar
-              </>
+              <Boton
+                variante="callado"
+                tamano="chico"
+                onClick={() => setVista(buscando ? "mazo" : "buscar")}
+                className="w-auto"
+              >
+                {buscando ? (
+                  "Una a la vez"
+                ) : (
+                  <>
+                    <MagnifyingGlass aria-hidden="true" size={ICONO.medio} />
+                    Buscar
+                  </>
+                )}
+              </Boton>
             )}
-          </Boton>
+          </div>
         </div>
       </header>
 
-      {buscando ? (
+      {vista === "varias" ? (
+        <EleccionDeIdeas
+          ideas={libres}
+          acciones={acciones}
+          alSacar={(ids) => setFuera((previas) => [...previas, ...ids])}
+          alDevolver={(ids) => setFuera((previas) => previas.filter((id) => !ids.includes(id)))}
+          alEmpezar={() => titulo.current?.focus()}
+        />
+      ) : buscando ? (
         <BusquedaDeIdeas
           ideas={ideas}
           pilares={pilares}

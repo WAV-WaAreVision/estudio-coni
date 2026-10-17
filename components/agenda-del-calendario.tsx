@@ -1,9 +1,13 @@
 import { CaretRight, CheckCircle, Export, PenNib, WarningCircle } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { COLUMNAS_DE_FILA, ID_DEL_TITULO_DE_LA_AGENDA } from "@/components/agenda-filas"
+import { CambiarPropuesta } from "@/components/cambiar-propuesta"
+import { RepartirFechas } from "@/components/repartir-fechas"
 import { Seccion } from "@/components/seccion"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
+import type { Resultado } from "@/lib/acciones/resultado"
 import type { Hueco, Ocupante, TonoDeEstado } from "@/lib/calendario/modelo"
 import { cn } from "@/lib/utils"
 
@@ -36,17 +40,27 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
       <span data-snapshot="varia" className={cn("flex items-center gap-2 text-meta font-medium", TINTA[ocupante.tono])}>
         <IconoDeEstado ocupante={ocupante} />
         {ocupante.estado}
-        {ocupante.provisional ? " · lugar propuesto" : ""}
+        {ocupante.provisional ? (ocupante.propuesta ? " · propuesta" : " · lugar propuesto") : ""}
       </span>
       {ocupante.destinos ? <span className="text-meta text-apagado">{ocupante.destinos}</span> : null}
     </span>
   )
 }
 
-const FILA = "grid min-h-fila grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-x-3 py-3 text-left"
+const FILA = `grid min-h-fila ${COLUMNAS_DE_FILA} items-center py-3 text-left`
 
 /** Brandkit 9.19: a free slot goes to the idea bank: «Libre · elige una idea». */
-function FilaDeHorario({ hueco }: { hueco: Hueco }) {
+type Alternativas = readonly { instante: string; etiqueta: string }[]
+
+function FilaDeHorario({
+  hueco,
+  alternativas,
+  cambiar,
+}: {
+  hueco: Hueco
+  alternativas: Alternativas
+  cambiar: AccionesDeAgenda["cambiar"]
+}) {
   const fecha = (
     <span data-snapshot="varia" className="grid self-start text-meta leading-tight">
       <span className="font-semibold">{hueco.dia}</span>
@@ -77,23 +91,51 @@ function FilaDeHorario({ hueco }: { hueco: Hueco }) {
       ) : (
         <div className={FILA}>{contenido}</div>
       )}
+      {hueco.ocupante?.propuesta ? (
+        <CambiarPropuesta
+          piezaId={hueco.ocupante.piezaId}
+          titulo={hueco.ocupante.titulo}
+          alternativas={alternativas}
+          cambiar={cambiar}
+        />
+      ) : null}
     </li>
   )
 }
 
+export interface AccionesDeAgenda {
+  repartir: () => Promise<Resultado<{ propuestas: number }>>
+  cambiar: (piezaId: string, instante: string) => Promise<Resultado>
+}
+
 export function AgendaDelCalendario({
   semanas,
+  porRepartir,
+  alternativas,
+  acciones,
 }: {
   semanas: { titulo: string; huecos: readonly Hueco[]; libresMas: string | null }[]
+  porRepartir: number
+  alternativas: Alternativas
+  acciones: AccionesDeAgenda
 }) {
   return (
     <div>
+      <h2 id={ID_DEL_TITULO_DE_LA_AGENDA} tabIndex={-1} className="sr-only">
+        Agenda
+      </h2>
+      <RepartirFechas cuantas={porRepartir} repartir={acciones.repartir} />
       {semanas.map((semana) => (
         <Seccion key={semana.titulo} titulo={semana.titulo} varia id={`semana-${semana.titulo.replaceAll(" ", "-")}`}>
           {semana.huecos.length > 0 ? (
             <Grupo lista>
               {semana.huecos.map((hueco) => (
-                <FilaDeHorario key={hueco.instante} hueco={hueco} />
+                <FilaDeHorario
+                  key={hueco.instante}
+                  hueco={hueco}
+                  alternativas={alternativas}
+                  cambiar={acciones.cambiar}
+                />
               ))}
             </Grupo>
           ) : semana.libresMas === null ? (

@@ -11,6 +11,7 @@ import { esVista, VistasDelCalendario } from "@/components/vistas-del-calendario
 import { construirCalendario } from "@/lib/calendario/modelo"
 import { leerDatosDeCalendario } from "@/lib/datos/calendario"
 import { exigirConi } from "@/lib/sesion/coni"
+import { cambiarPropuestaAccion, repartirFechasAccion } from "./acciones"
 
 export default async function Calendario({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
   const [{ db }, { vista: pedida }] = await Promise.all([exigirConi(), searchParams])
@@ -81,7 +82,12 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
       ) : null}
       {vista === "agenda" ? (
         <div className="mt-6">
-          <AgendaDelCalendario semanas={calendario.agenda.semanas} />
+          <AgendaDelCalendario
+            semanas={calendario.agenda.semanas}
+            porRepartir={calendario.agenda.porRepartir}
+            alternativas={calendario.agenda.alternativas}
+            acciones={{ repartir: repartirFechasAccion, cambiar: cambiarPropuestaAccion }}
+          />
         </div>
       ) : null}
       {vista === "ritmo" ? (

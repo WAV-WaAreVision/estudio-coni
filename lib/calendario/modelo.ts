@@ -3,6 +3,7 @@ import type { Estado } from "@/lib/dominio/estados"
 import { diaLocal, etiquetaDeFecha, type Horario, instanteLocal, proponerFechas, semanaDe } from "@/lib/dominio/fechas"
 import { limitesDelMes, lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 import { type CatalogoDePilares, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
+import { ANTELACION_DE_AGENDA_MS, ESTADOS_FECHADOS, huecosLibres, repartir } from "./propuestas"
 
 // The Calendario screen as data (Mes, Agenda, Ritmo). Everything Coni reads is decided here.
 
@@ -14,6 +15,8 @@ export interface PiezaDeCalendario {
   pilar: string | null
   /** The approved publishing time; null until the video is approved. */
   publicarEn: string | null
+  /** Her stored proposal (`fechas_propuestas`); ignored on read once a signed piece has its time. */
+  fechaPropuesta: string | null
   creadaEn: string
   /** Where the reel was approved to go. */
   destinos: readonly Destino[]
@@ -36,6 +39,8 @@ export interface Ocupante {
   href: string | null
   /** Placed in the slot as a proposal: it has no approved time yet. */
   provisional: boolean
+  /** Her stored proposal (Repartir or Cambiar): it reads «propuesta» and can be changed. */
+  propuesta: boolean
   /** "Instagram · LinkedIn": where it goes. Null for a proposal, which has not been approved for anywhere. */
   destinos: string | null
 }
@@ -84,7 +89,13 @@ export interface ModeloDeCalendario {
     /** Approved for a time that came while Instagram was not connected: she has to upload them. Oldest first. */
     porSubir: ProximaPublicacion[]
   }
-  agenda: { semanas: { titulo: string; huecos: Hueco[]; libresMas: string | null }[] }
+  agenda: {
+    semanas: { titulo: string; huecos: Hueco[]; libresMas: string | null }[]
+    /** Unsigned pieces without a live proposal: what `Repartir fechas` would store. */
+    porRepartir: number
+    /** The next three slots nobody holds: what `Cambiar` offers. */
+    alternativas: { instante: string; etiqueta: string }[]
+  }
   ritmo: {
     vacio: boolean
     columnas: string[]
@@ -100,8 +111,6 @@ const SEMANAS_DE_AGENDA = 4
 /** Decision 22 (amendment A4): the Agenda lists the next three free slots; the rest are counted per week. */
 const LIBRES_A_LA_VISTA = 3
 const SEMANAS_DE_RITMO = 4
-/** The platform proposes slots at least this far ahead (design, "Calendario"). */
-const ANTELACION_MS = 2 * 60 * 60 * 1000
 /** A scheduled piece whose time just passed is about to go out: it stays on the agenda for this long. */
 const MARGEN_DE_PUBLICACION_MS = 60 * 60 * 1000
 const PROXIMOS = 3
@@ -134,8 +143,6 @@ function diaIsoDe(dia: string): number {
 function mayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
-
-const ESTADOS_FECHADOS: readonly Estado[] = ["publicado", "programado", "para_subir_a_mano", "publicado_a_mano"]
 
 function esFechada(pieza: PiezaConPilar): pieza is PiezaConPilar & { publicarEn: string } {
   return ESTADOS_FECHADOS.includes(pieza.estado) && pieza.publicarEn !== null
@@ -233,12 +240,13 @@ function construirMes(piezas: readonly PiezaConPilar[], ahora: number, zona: str
 // --- Agenda ------------------------------------------------------------------------------------------------------
 
 /** What the piece is doing, in her words, and whether there is something for her to open. */
-function ocupanteDe(pieza: PiezaConPilar, provisional: boolean): Ocupante {
+function ocupanteDe(pieza: PiezaConPilar, provisional: boolean, propuesta = false): Ocupante {
   const base = {
     piezaId: pieza.id,
     titulo: pieza.titulo,
     pilar: pieza.visible,
     provisional,
+    propuesta,
     destinos: provisional ? null : canonicos(pieza.destinos).map(nombreDeDestino).join(" · "),
   }
   switch (pieza.estado) {
@@ -270,18 +278,6 @@ function ocupanteDe(pieza: PiezaConPilar, provisional: boolean): Ocupante {
     default:
       return { ...base, estado: "Guion en preparación", tono: "neutro", href: null }
   }
-}
-
-/** The pieces without a date, the ones closest to publishing first. */
-const ORDEN_EN_CAMINO: Partial<Record<Estado, number>> = {
-  video_por_aprobar: 0,
-  subtitulando: 1,
-  en_render: 1,
-  grabando_voz: 1,
-  error_produccion: 2,
-  guion_aprobado: 2,
-  guion_por_aprobar: 3,
-  guion_en_proceso: 4,
 }
 
 function construirAgenda(
@@ -318,11 +314,22 @@ function construirAgenda(
     if (cuenta && instante < fin) instantes.add(instante)
   }
 
+  const lugares = repartir({ piezas, horario, ahora })
+  const lugarPorInstante = new Map(lugares.map((lugar) => [Date.parse(lugar.instante), lugar]))
+  const piezaPorId = new Map(piezas.map((pieza) => [pieza.id, pieza]))
+  // A stored proposal that no longer matches the schedule keeps its row, like an approved time.
+  for (const lugar of lugares) {
+    const instante = Date.parse(lugar.instante)
+    if (lugar.guardada && instante < fin) instantes.add(instante)
+  }
+
   const huecos: Hueco[] = [...instantes]
     .sort((a, b) => a - b)
     .flatMap((instante) => {
       const programada = programadasPorInstante.get(instante)
-      if (!programada && instante < ahora + ANTELACION_MS) return []
+      if (!programada && instante < ahora + ANTELACION_DE_AGENDA_MS) return []
+      const lugar = programada ? undefined : lugarPorInstante.get(instante)
+      const enCamino = lugar ? piezaPorId.get(lugar.piezaId) : undefined
       const texto = etiquetaDeFecha(new Date(instante).toISOString(), zona, "corta")
       const [dia = "", hora = ""] = texto.split(" · ")
       return [
@@ -330,23 +337,14 @@ function construirAgenda(
           instante: new Date(instante).toISOString(),
           dia: mayuscula(dia),
           hora,
-          ocupante: programada ? ocupanteDe(programada, false) : null,
+          ocupante: programada
+            ? ocupanteDe(programada, false)
+            : enCamino && lugar
+              ? ocupanteDe(enCamino, true, lugar.guardada)
+              : null,
         },
       ]
     })
-
-  const enCamino = piezas
-    .filter((pieza) => ORDEN_EN_CAMINO[pieza.estado] !== undefined)
-    .sort(
-      (a, b) =>
-        (ORDEN_EN_CAMINO[a.estado] ?? 9) - (ORDEN_EN_CAMINO[b.estado] ?? 9) ||
-        Date.parse(a.creadaEn) - Date.parse(b.creadaEn),
-    )
-  const libres = huecos.filter((hueco) => hueco.ocupante === null)
-  enCamino.forEach((pieza, i) => {
-    const hueco = libres[i]
-    if (hueco) hueco.ocupante = ocupanteDe(pieza, true)
-  })
 
   let libresVistos = 0
   const visible = new Set(
@@ -368,6 +366,10 @@ function construirAgenda(
         libresMas: ocultos === 0 ? null : ocultos === 1 ? "y 1 libre más" : `y ${ocultos} libres más`,
       }
     }),
+    porRepartir: lugares.filter((lugar) => !lugar.guardada).length,
+    alternativas: huecosLibres({ piezas, horario, ahora, cuantas: LIBRES_A_LA_VISTA, contar: "todos" }).map(
+      (instante) => ({ instante, etiqueta: mayuscula(etiquetaDeFecha(instante, zona, "corta")) }),
+    ),
   }
 }
 

@@ -2,10 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { leerDatosDeCalendario } from "@/lib/datos/calendario"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { leerContextoDeFechas } from "@/lib/datos/pantallas"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
-import { marcarPublicacion, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
+import { marcarPublicacion, proponerFecha, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
 
 let coni: SupabaseClient<Database>
 
@@ -107,5 +108,45 @@ describe("primera publicación", () => {
     const subida = await sembrarPieza("para_subir_a_mano", { titulo: "Subida" })
     await marcarPublicacion(subida, "instagram", "subido_a_mano")
     expect((await leerDatosDeCalendario(coni, Date.now())).yaPublico).toBe(true)
+  })
+})
+
+describe("fechas propuestas", () => {
+  const EN_UN_MES = new Date(Date.now() + 30 * 86_400_000).toISOString()
+
+  it("reads each piece's stored proposal in the calendar, null without one", async () => {
+    const [con, sin] = [await sembrarPieza("guion_por_aprobar"), await sembrarPieza("guion_por_aprobar")]
+    await proponerFecha(con, EN_UN_MES)
+
+    const { piezas } = await leerDatosDeCalendario(coni, Date.now())
+
+    expect(Date.parse(piezas.find((p) => p.id === con)?.fechaPropuesta ?? "")).toBe(Date.parse(EN_UN_MES))
+    expect(piezas.find((p) => p.id === sin)?.fechaPropuesta).toBeNull()
+  })
+
+  it("gives the gates the piece's own proposal, and null to a piece without one", async () => {
+    const [con, sin] = [await sembrarPieza("video_por_aprobar"), await sembrarPieza("video_por_aprobar")]
+    await proponerFecha(con, EN_UN_MES)
+
+    expect(Date.parse((await leerContextoDeFechas(coni, con)).propuesta ?? "")).toBe(Date.parse(EN_UN_MES))
+    expect((await leerContextoDeFechas(coni, sin)).propuesta).toBeNull()
+  })
+
+  it("gives the gates the other pieces' proposals, only of pieces before gate 2", async () => {
+    const [propia, otra, firmada] = [
+      await sembrarPieza("video_por_aprobar"),
+      await sembrarPieza("guion_por_aprobar"),
+      await sembrarPieza("programado"),
+    ]
+    const EN_DOS_MESES = new Date(Date.now() + 60 * 86_400_000).toISOString()
+    const EN_TRES_MESES = new Date(Date.now() + 90 * 86_400_000).toISOString()
+    await proponerFecha(propia, EN_UN_MES)
+    await proponerFecha(otra, EN_DOS_MESES)
+    // Left from before gate 2: a signed piece holds its signed time, not this one.
+    await proponerFecha(firmada, EN_TRES_MESES)
+
+    const { otrasPropuestas } = await leerContextoDeFechas(coni, propia)
+
+    expect(otrasPropuestas.map((iso) => Date.parse(iso))).toEqual([Date.parse(EN_DOS_MESES)])
   })
 })
