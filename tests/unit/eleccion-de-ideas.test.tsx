@@ -5,6 +5,12 @@ import { nombreDePilar } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
+const todasEmpezadas = (ids: string[]) => ({
+  ok: true as const,
+  tipo: "empezadas" as const,
+  resultados: ids.map((ideaId) => ({ ideaId, tipo: "empezada" as const, piezaId: `p-${ideaId}` })),
+})
+
 function idea(id: string, gancho: string): IdeaDeBanco {
   return {
     id,
@@ -27,7 +33,7 @@ const IDEAS = ["Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis"].map((g, i) => id
 
 function mostrar(cambios: Partial<AccionesDeEleccion> = {}) {
   const acciones: AccionesDeEleccion = {
-    elegirVarias: vi.fn(async (ids: string[]) => ({ ok: true as const, tipo: "empezadas" as const, piezas: ids })),
+    elegirVarias: vi.fn(async (ids: string[]) => todasEmpezadas(ids)),
     descartarVarias: vi.fn(async () => ({ ok: true as const })),
     restaurar: vi.fn(async (ids: string[]) => ({ ok: true as const, restauradas: ids })),
     ...cambios,
@@ -76,7 +82,7 @@ describe("EleccionDeIdeas", () => {
     const elegirVarias = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, tipo: "alcanza", cuantas: 1 })
-      .mockResolvedValueOnce({ ok: true, tipo: "empezadas", piezas: ["p"] })
+      .mockResolvedValueOnce(todasEmpezadas(["i0"]))
     const { alSacar } = mostrar({ elegirVarias })
     marcar("Uno")
     marcar("Dos")

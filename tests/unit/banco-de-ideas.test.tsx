@@ -6,6 +6,12 @@ import { nombreDePilar, soloActivos } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
+const todasEmpezadas = (ids: string[]) => ({
+  ok: true as const,
+  tipo: "empezadas" as const,
+  resultados: ids.map((ideaId) => ({ ideaId, tipo: "empezada" as const, piezaId: `p-${ideaId}` })),
+})
+
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
 
 function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
@@ -66,7 +72,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
       },
     })),
     crear: vi.fn(async () => ({ ok: true as const, id: "nueva" })),
-    elegirVarias: vi.fn(async (ids: string[]) => ({ ok: true as const, tipo: "empezadas" as const, piezas: ids })),
+    elegirVarias: vi.fn(async (ids: string[]) => todasEmpezadas(ids)),
     descartarVarias: vi.fn(async () => ({ ok: true as const })),
     restaurar: vi.fn(async (ids: string[]) => ({ ok: true as const, restauradas: ids })),
     ...cambios,

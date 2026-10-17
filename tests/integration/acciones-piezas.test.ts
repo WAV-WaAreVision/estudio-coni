@@ -14,6 +14,7 @@ import {
   editarTextoLinkedin,
   elegirIdeas,
   elegirLote,
+  type InicioDeIdea,
   marcarSubidoAMano,
   pedirCambios,
   pedirDescargaDelVideo,
@@ -123,7 +124,7 @@ async function versionDe(id: string): Promise<number> {
   return (await fila(id)).version
 }
 
-async function idea(extra: { pilar?: string; alertas?: unknown } = {}): Promise<string> {
+async function idea(extra: { pilar?: string; alertas?: unknown; gancho?: string } = {}): Promise<string> {
   const id = await sembrarIdea(extra)
   ideasCreadas.push(id)
   return id
@@ -223,6 +224,8 @@ describe("elegirIdeas", () => {
 })
 
 describe("elegirLote", () => {
+  const piezasDe = (resultados: readonly InicioDeIdea[]) =>
+    resultados.flatMap((resultado) => ("piezaId" in resultado ? [resultado.piezaId] : []))
   async function topeConLugarPara(guiones: number): Promise<void> {
     const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
     await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado + guiones * 1.1 + 0.05])
@@ -240,9 +243,92 @@ describe("elegirLote", () => {
 
     expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
     if (!resultado.ok || resultado.tipo !== "empezadas") return
-    piezasCreadas.push(...resultado.piezas)
-    expect(resultado.piezas).toHaveLength(2)
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "empezada" },
+    ])
     expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("keeps what started when another device takes the second idea mid-batch, and goes on with the third", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(3)
+    const { deps, disparos } = armar()
+    const producir = deps.disparar.producir
+    deps.disparar.producir = async (piezaId, clave) => {
+      if (disparos.length === 0) await pool.query("update public.ideas set estado = 'usada' where id = $1", [b])
+      await producir(piezaId, clave)
+    }
+
+    const resultado = await elegirLote(deps, [a, b, c])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "no_disponible" },
+      { ideaId: c, tipo: "empezada" },
+    ])
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("leaves the piece whose script did not start with its reason and still starts the rest", async () => {
+    const [a, b, c] = [await idea(), await idea(), await idea()]
+    await topeConLugarPara(3)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const { deps, disparos } = armar()
+    const producir = deps.disparar.producir
+    let llamadas = 0
+    deps.disparar.producir = async (piezaId, clave) => {
+      llamadas += 1
+      if (llamadas === 2) throw new Error("Trigger.dev no responde")
+      await producir(piezaId, clave)
+    }
+
+    const resultado = await elegirLote(deps, [a, b, c])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (!resultado.ok || resultado.tipo !== "empezadas") return
+    piezasCreadas.push(...piezasDe(resultado.resultados))
+    expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+      { ideaId: a, tipo: "empezada" },
+      { ideaId: b, tipo: "con_aviso" },
+      { ideaId: c, tipo: "empezada" },
+    ])
+    const conAviso = resultado.resultados[1]
+    if (conAviso?.tipo !== "con_aviso") return
+    expect((await fila(conAviso.piezaId)).explicacion).toMatch(/no pude empezar/i)
+    expect(disparos.filter((d) => d.tarea === "producir")).toHaveLength(2)
+  })
+
+  it("gives the idea back to the bank when its piece cannot be created, and still starts the rest", async () => {
+    const [a, b] = [await idea(), await idea({ gancho: "Falla al crear" })]
+    await topeConLugarPara(2)
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    await pool.query(`create function public.falla_de_prueba() returns trigger language plpgsql as $$
+      begin if new.titulo = 'Falla al crear' then raise exception 'falla de prueba'; end if; return new; end $$`)
+    await pool.query(
+      "create trigger falla_de_prueba before insert on public.piezas for each row execute function public.falla_de_prueba()",
+    )
+    try {
+      const { deps } = armar()
+
+      const resultado = await elegirLote(deps, [b, a])
+
+      expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+      if (!resultado.ok || resultado.tipo !== "empezadas") return
+      piezasCreadas.push(...piezasDe(resultado.resultados))
+      expect(resultado.resultados.map(({ ideaId, tipo }) => ({ ideaId, tipo }))).toEqual([
+        { ideaId: b, tipo: "devuelta" },
+        { ideaId: a, tipo: "empezada" },
+      ])
+      expect((await pool.query("select estado from public.ideas where id = $1", [b])).rows[0].estado).toBe("idea")
+    } finally {
+      await pool.query("drop trigger falla_de_prueba on public.piezas")
+      await pool.query("drop function public.falla_de_prueba()")
+    }
   })
 
   it("says how many fit and starts nothing when the month covers fewer", async () => {

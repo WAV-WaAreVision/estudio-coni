@@ -168,33 +168,55 @@ function exigirLoteDeIdeas(ideaIds: readonly string[]): void {
   }
 }
 
-/** Claims every idea and starts its script, in the order given. Every script then goes to its own gate 1. */
-async function empezarIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<string[]> {
-  const noDisponible = new Falla("Una de esas ideas ya no está disponible. Vuelve a elegir.")
+const TEXTO_NO_DISPONIBLE = "Una de esas ideas ya no está disponible. Vuelve a elegir."
+const TEXTO_SIN_EMPEZAR = "No pude empezar a escribir el guion. Inténtalo de nuevo en unos minutos."
+
+/**
+ * What became of one idea of a batch. `empezada`: its piece exists and its script is on its way. `con_aviso`: its
+ * piece exists but the script did not start; the piece says so on Inicio, where she retries it. `devuelta`: its piece
+ * could not be created and the idea is back in the bank. `no_disponible`: another device took it first.
+ */
+export type InicioDeIdea =
+  | { ideaId: string; tipo: "empezada"; piezaId: string }
+  | { ideaId: string; tipo: "con_aviso"; piezaId: string }
+  | { ideaId: string; tipo: "devuelta" }
+  | { ideaId: string; tipo: "no_disponible" }
+
+/**
+ * Claims every idea and starts its script, in the order given; every script then goes to its own gate 1. One idea
+ * failing never undoes or hides the ones already started: each one says what became of it.
+ */
+async function empezarIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<InicioDeIdea[]> {
   const { data: ideas, error } = await deps.db
     .from("ideas")
     .select("id, gancho, estado")
     .in("id", [...ideaIds])
   if (error) throw new Error(`No pude leer las ideas: ${error.message}`, { cause: error })
-  if (ideas.length !== ideaIds.length || ideas.some((idea) => idea.estado !== "idea")) throw noDisponible
+  if (ideas.length !== ideaIds.length || ideas.some((idea) => idea.estado !== "idea")) {
+    throw new Falla(TEXTO_NO_DISPONIBLE)
+  }
 
-  const piezas: string[] = []
+  const resultados: InicioDeIdea[] = []
   for (const id of ideaIds) {
     const idea = ideas.find((candidata) => candidata.id === id)
-    if (!idea) throw noDisponible
-    piezas.push(await empezarPieza(deps, idea, noDisponible))
+    resultados.push(idea ? await empezarPieza(deps, idea) : { ideaId: id, tipo: "no_disponible" })
   }
-  return piezas
+  return resultados
 }
 
 export function elegirIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<{ piezas: string[] }>> {
   return aResultado("elegirIdeas", async () => {
     exigirLoteDeIdeas(ideaIds)
-    return { piezas: await empezarIdeas(deps, ideaIds) }
+    const resultados = await empezarIdeas(deps, ideaIds)
+    const fallida = resultados.find((resultado) => resultado.tipo !== "empezada")
+    // Inicio keeps its single message; the pieces that did start are on Inicio after the refresh.
+    if (fallida?.tipo === "con_aviso") throw new Falla(TEXTO_SIN_EMPEZAR)
+    if (fallida) throw new Falla(TEXTO_NO_DISPONIBLE)
+    return { piezas: resultados.flatMap((resultado) => ("piezaId" in resultado ? [resultado.piezaId] : [])) }
   })
 }
 
-export type LoteElegido = { tipo: "empezadas"; piezas: string[] } | { tipo: "alcanza"; cuantas: number }
+export type LoteElegido = { tipo: "empezadas"; resultados: InicioDeIdea[] } | { tipo: "alcanza"; cuantas: number }
 
 /**
  * "Hacer los guiones (N)" on Ideas (decision 23): the month is checked for the whole batch first. When it covers
@@ -214,11 +236,11 @@ export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Prom
     })
     if (alcanza === 0) throw new Falla(TEXTO_TOPE)
     if (alcanza < ideaIds.length) return { tipo: "alcanza", cuantas: alcanza }
-    return { tipo: "empezadas", piezas: await empezarIdeas(deps, ideaIds) }
+    return { tipo: "empezadas", resultados: await empezarIdeas(deps, ideaIds) }
   })
 }
 
-async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: string }, noDisponible: Falla) {
+async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: string }): Promise<InicioDeIdea> {
   // The claim is atomic (`estado = 'idea'` in the update): a second tap or a second device finds it taken.
   const { data: reclamada, error } = await deps.db
     .from("ideas")
@@ -227,8 +249,11 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
     .eq("estado", "idea")
     .select("id")
     .maybeSingle()
-  if (error) throw new Error(`No pude reservar la idea: ${error.message}`, { cause: error })
-  if (!reclamada) throw noDisponible
+  if (error) {
+    console.error(`No pude reservar la idea ${idea.id}`, error)
+    return { ideaId: idea.id, tipo: "devuelta" }
+  }
+  if (!reclamada) return { ideaId: idea.id, tipo: "no_disponible" }
 
   let nueva: FilaDePieza
   try {
@@ -236,8 +261,10 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
     if (creada.error) throw new Error(`No pude crear la pieza: ${creada.error.message}`, { cause: creada.error })
     nueva = await guardarEvento(deps.db, creada.data, { tipo: "elegir" })
   } catch (error) {
-    await liberarIdea(deps.db, idea.id)
-    throw error
+    console.error(`No pude crear la pieza de la idea ${idea.id}`, error)
+    // Said "volvió al banco" only when it did.
+    const liberada = await liberarIdea(deps.db, idea.id)
+    return { ideaId: idea.id, tipo: liberada ? "devuelta" : "no_disponible" }
   }
 
   try {
@@ -245,14 +272,15 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
   } catch (error) {
     console.error("No pude iniciar producir-pieza", error)
     await explicarSinGuion(deps.db, nueva)
-    throw new Falla("No pude empezar a escribir el guion. Inténtalo de nuevo en unos minutos.")
+    return { ideaId: idea.id, tipo: "con_aviso", piezaId: nueva.id }
   }
-  return nueva.id
+  return { ideaId: idea.id, tipo: "empezada", piezaId: nueva.id }
 }
 
-async function liberarIdea(db: Db, ideaId: string): Promise<void> {
+async function liberarIdea(db: Db, ideaId: string): Promise<boolean> {
   const { error } = await db.from("ideas").update({ estado: "idea" }).eq("id", ideaId)
   if (error) console.error(`No pude devolver la idea ${ideaId} al banco`, error)
+  return !error
 }
 
 const EXPLICACION_SIN_GUION = "No pude empezar a escribir el guion. Inténtalo de nuevo."

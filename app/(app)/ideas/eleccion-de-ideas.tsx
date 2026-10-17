@@ -82,7 +82,7 @@ export function EleccionDeIdeas({
       setAlcanza(null)
       setElegidas([])
       alSacar(ideaIds)
-      setMensaje({ texto: textoDeEmpezadas(resultado.piezas.length) })
+      setMensaje({ texto: textoDeEmpezadas(resultado.resultados.filter((r) => r.tipo === "empezada").length) })
     })
   }
 
