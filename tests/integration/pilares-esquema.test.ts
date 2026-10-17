@@ -66,7 +66,10 @@ describe("categorias como pilares", () => {
 
   it("is readable by Coni and WAV and by nobody else", async () => {
     const leer = (sesion: typeof comoConi) =>
-      como(sesion, async (c) => (await c.query("select slug from public.categorias where es_pilar and activa")).rowCount)
+      como(
+        sesion,
+        async (c) => (await c.query("select slug from public.categorias where es_pilar and activa")).rowCount,
+      )
     expect(await leer(comoConi)).toBe(5)
     expect(await leer(comoMantenedor)).toBe(5)
     expect(await leer(comoOtra)).toBe(0)
