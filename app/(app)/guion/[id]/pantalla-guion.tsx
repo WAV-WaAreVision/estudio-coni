@@ -24,7 +24,7 @@ import { Panel } from "@/components/ui/panel"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
-import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
+import { separarParaConi, TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
@@ -217,6 +217,13 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           />
         ) : null}
       </header>
+
+      {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
+      {grabacion.botones?.bloqueoVideo ? (
+        <div data-testid="bloqueo-de-firma" className="mt-6">
+          <Bloque tipo="aviso">{separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}</Bloque>
+        </div>
+      ) : null}
 
       {grabacion.voz && datos.explicacion ? (
         <Bloque tipo="aviso" className="mt-6">

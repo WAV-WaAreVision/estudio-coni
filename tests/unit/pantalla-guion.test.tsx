@@ -289,6 +289,33 @@ describe("PantallaGuion: la firma", () => {
     expect(within(barra()).queryByText("Detalle para WAV")).toBeNull()
   })
 
+  it.each([
+    [
+      "a short HeyGen balance",
+      "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48).",
+      "No alcanza el saldo para grabar el video. Avísale a Federico.",
+    ],
+    [
+      "the monthly cap",
+      "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes.",
+      "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes.",
+    ],
+  ])("says %s at the top of gate 1, before step 1, and still at the sign control", (_, bloqueo, suyo) => {
+    render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
+    const arriba = screen.getByTestId("bloqueo-de-firma")
+    expect(arriba).toHaveTextContent(suyo)
+    // In her words only: the provider's numbers stay folded once, at the control.
+    expect(within(arriba).queryByText("Detalle para WAV")).toBeNull()
+    const paso1 = screen.getByRole("heading", { name: "1. Escucha tu voz" })
+    expect(arriba.compareDocumentPosition(paso1) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(barra()).getByRole("status")).toHaveTextContent(suyo)
+  })
+
+  it("adds nothing at the top while the signature is only missing steps", () => {
+    render(<PantallaGuion datos={datos()} />)
+    expect(screen.queryByTestId("bloqueo-de-firma")).toBeNull()
+  })
+
   it("blocks in the bar with today's text when there are no looks to choose", () => {
     render(<PantallaGuion datos={datos({ avatares: [] })} />)
     expect(within(barra()).getByText("Todavía no hay avatares para elegir: avísale a Federico.")).toBeInTheDocument()
