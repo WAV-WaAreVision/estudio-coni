@@ -82,3 +82,52 @@ end $$;
 
 revoke execute on function public.descartar_ideas(uuid[], text), public.restaurar_ideas(uuid[]) from public, anon;
 grant execute on function public.descartar_ideas(uuid[], text), public.restaurar_ideas(uuid[]) to authenticated;
+
+-- 2. A proposed date for a piece that has not passed gate 2 (decision 25). Its own table, not a column of piezas:
+--    every update of piezas must bump its version (proteger_pieza), which would invalidate an open screen and the
+--    running tasks' writes, and is logged whole in eventos, where docs/metricas-friccion.sql would read it as a step of
+--    the piece. Nothing signs a proposal: gate 2 signs puerta2_publicar_en, and a signed piece always wins the slot.
+create table public.fechas_propuestas (
+  pieza_id uuid primary key references public.piezas (id) on delete cascade,
+  publicar_en timestamptz not null,
+  propuesta_en timestamptz not null default now()
+);
+
+alter table public.fechas_propuestas enable row level security;
+create policy "coni y wav leen las fechas propuestas" on public.fechas_propuestas for select to authenticated
+  using (public.es_coni() or public.es_mantenedor());
+revoke all on public.fechas_propuestas from anon;
+revoke insert, update, delete, truncate on public.fechas_propuestas from authenticated;
+grant select on public.fechas_propuestas to authenticated;
+
+-- One event per piece and change (decision 26), under its own table name: the friction query reads only 'piezas'.
+create trigger auditar after insert or update or delete on public.fechas_propuestas
+  for each row execute function public.registrar_evento();
+
+-- Repartir and Cambiar. The states are ORDEN_SIN_FECHA of lib/calendario/propuestas.ts: everything before gate 2.
+create function public.proponer_fechas(p_piezas uuid[], p_fechas timestamptz[]) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.es_coni() then
+    raise exception using errcode = '42501', message = 'sin_permiso';
+  end if;
+  if p_piezas is null or p_fechas is null or cardinality(p_piezas) <> cardinality(p_fechas)
+     or cardinality(p_piezas) not between 1 and 200
+     or array_position(p_piezas, null) is not null or array_position(p_fechas, null) is not null
+     or (select count(distinct p) from unnest(p_piezas) as p) <> cardinality(p_piezas) then
+    raise exception using errcode = '22023', message = 'lote_invalido';
+  end if;
+  if exists (select 1 from unnest(p_fechas) as f where f <= now())
+     or (select count(*) from public.piezas p
+          where p.id = any (p_piezas)
+            and p.estado in ('guion_en_proceso', 'guion_por_aprobar', 'guion_aprobado', 'grabando_voz', 'en_render',
+                             'subtitulando', 'error_produccion', 'video_por_aprobar')) <> cardinality(p_piezas) then
+    raise exception using errcode = '22023', message = 'propuesta_invalida';
+  end if;
+  insert into public.fechas_propuestas (pieza_id, publicar_en)
+  select * from unnest(p_piezas, p_fechas)
+  on conflict (pieza_id) do update set publicar_en = excluded.publicar_en, propuesta_en = now();
+end $$;
+
+revoke execute on function public.proponer_fechas(uuid[], timestamptz[]) from public, anon;
+grant execute on function public.proponer_fechas(uuid[], timestamptz[]) to authenticated;

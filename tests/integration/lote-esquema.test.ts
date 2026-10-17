@@ -16,6 +16,7 @@ import {
   MANTENEDOR,
   pool,
 } from "./db"
+import { crearPiezaEn } from "./flujo"
 
 afterAll(() => pool.end())
 
@@ -197,5 +198,114 @@ describe("restaurar_ideas", () => {
 
   it("measures the same window as the app's undo", () => {
     expect(MIGRACION).toContain(`interval '${VENTANA_DESHACER_MS / 1000} seconds'`)
+  })
+})
+
+const EN_UN_MES = () => new Date(Date.now() + 30 * 86_400_000).toISOString()
+const EN_DOS_MESES = () => new Date(Date.now() + 60 * 86_400_000).toISOString()
+
+async function propuestaDe(c: Cliente, piezaId: string) {
+  const { rows } = await c.query<{ publicar_en: Date }>(
+    "select publicar_en from public.fechas_propuestas where pieza_id = $1",
+    [piezaId],
+  )
+  return rows[0]?.publicar_en.toISOString() ?? null
+}
+
+describe("proponer_fechas", () => {
+  it("stores one proposal per piece not past gate 2 and replaces it on a second proposal", async () => {
+    await como(comoPostgres, async (c) => {
+      const [guion, video] = [await crearPiezaEn(c, "guion_por_aprobar"), await crearPiezaEn(c, "video_por_aprobar")]
+      const [primera, segunda] = [EN_UN_MES(), EN_DOS_MESES()]
+      await asumir(c, comoConi)
+      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [
+        [guion, video],
+        [primera, primera],
+      ])
+      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[video], [segunda]])
+      expect(await propuestaDe(c, guion)).toBe(new Date(primera).toISOString())
+      expect(await propuestaDe(c, video)).toBe(new Date(segunda).toISOString())
+    })
+  })
+
+  it("never moves the piece: no version bump and no event of the piece", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_en_proceso")
+      const antes = await c.query("select version from public.piezas where id = $1", [id])
+      const eventosAntes = await c.query(
+        "select count(*)::int as n from public.eventos where pieza_id = $1 and tabla = 'piezas'",
+        [id],
+      )
+      await asumir(c, comoConi)
+      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[id], [EN_UN_MES()]])
+      await asumir(c, comoPostgres)
+      expect((await c.query("select version from public.piezas where id = $1", [id])).rows[0]).toEqual(antes.rows[0])
+      const eventosDespues = await c.query(
+        "select count(*)::int as n from public.eventos where pieza_id = $1 and tabla = 'piezas'",
+        [id],
+      )
+      expect(eventosDespues.rows[0]).toEqual(eventosAntes.rows[0])
+      const propios = await c.query(
+        "select operacion, actor_rol from public.eventos where pieza_id = $1 and tabla = 'fechas_propuestas'",
+        [id],
+      )
+      expect(propios.rows).toEqual([{ operacion: "insert", actor_rol: "authenticated" }])
+    })
+  })
+
+  it("refuses a scheduled piece, a date in the past and mismatched lists", async () => {
+    await como(comoPostgres, async (c) => {
+      const [programada, guion] = [await crearPiezaEn(c, "programado"), await crearPiezaEn(c, "guion_por_aprobar")]
+      await asumir(c, comoConi)
+      const sql = "select public.proponer_fechas($1::uuid[], $2::timestamptz[])"
+      expect(await fallaCon(c, sql, [[programada], [EN_UN_MES()]])).toMatchObject({
+        code: "22023",
+        message: "propuesta_invalida",
+      })
+      expect(await fallaCon(c, sql, [[guion], [new Date(Date.now() - 60_000).toISOString()]])).toMatchObject({
+        message: "propuesta_invalida",
+      })
+      expect(await fallaCon(c, sql, [[guion], [EN_UN_MES(), EN_DOS_MESES()]])).toMatchObject({
+        message: "lote_invalido",
+      })
+      expect(
+        await fallaCon(c, sql, [
+          [guion, guion],
+          [EN_UN_MES(), EN_UN_MES()],
+        ]),
+      ).toMatchObject({
+        message: "lote_invalido",
+      })
+    })
+  })
+
+  it("is Coni's only, and nobody writes the table directly", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      const sql = "select public.proponer_fechas($1::uuid[], $2::timestamptz[])"
+      for (const sesion of [comoMantenedor, comoOtra, comoServicio]) {
+        await asumir(c, sesion)
+        expect((await fallaCon(c, sql, [[id], [EN_UN_MES()]])).code).toBe("42501")
+      }
+      await asumir(c, comoConi)
+      const directa = await fallaCon(
+        c,
+        "insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, $2)",
+        [id, EN_UN_MES()],
+      )
+      expect(directa.code).toBe("42501")
+    })
+  })
+
+  it("lets Coni and the maintainer read the proposals, and nobody else", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoConi)
+      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[id], [EN_UN_MES()]])
+      await asumir(c, comoMantenedor)
+      expect(await propuestaDe(c, id)).not.toBeNull()
+      await asumir(c, comoOtra)
+      expect(await propuestaDe(c, id)).toBeNull()
+    })
   })
 })
