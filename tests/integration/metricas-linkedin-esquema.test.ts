@@ -152,6 +152,7 @@ describe("métricas de LinkedIn", () => {
       expect(rows).toEqual([{ medido_en: "2026-10-19", impresiones: 2000 }])
     })
   })
+
   it("saves nothing of a post when the followers of the same save cannot be written", async () => {
     await como(comoPostgres, async (c) => {
       const pieza = await nuevaPieza(c)

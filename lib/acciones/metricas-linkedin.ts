@@ -32,6 +32,9 @@ export async function anotarNumerosDeLinkedin(
     if (anotacion.posts.some((post) => !enLista.has(post.piezaId))) {
       throw new Falla("Uno de esos posts ya no está entre los de las últimas 4 semanas. Vuelve a abrir Métricas.")
     }
+    if (anotacion.seguidores !== null && lista.seguidoresAutomaticos) {
+      throw new Falla("Los seguidores de esta semana llegaron solos; no se cambian a mano.")
+    }
     await guardarNumerosDeLinkedin(deps.db, { medidoEn: lista.medidoEn, semana: lista.semana, ...anotacion })
     return { anotados: anotacion.posts.length }
   })

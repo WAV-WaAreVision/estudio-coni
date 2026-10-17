@@ -75,6 +75,21 @@ describe("anotarNumerosDeLinkedin", () => {
     expect((await pool.query("select * from public.metricas_linkedin_cuenta")).rowCount).toBe(0)
   })
 
+  it("refuses followers this week already has from the API, and writes nothing", async () => {
+    const post = await postPendiente()
+    await pool.query(
+      "insert into public.metricas_linkedin_cuenta (semana, seguidores, origen) values ('2026-10-19', 900, 'api')",
+    )
+
+    const resultado = await anotarNumerosDeLinkedin(deps(), { posts: [numeros(post)], seguidores: 830 })
+
+    expect(resultado).toEqual({
+      ok: false,
+      error: "Los seguidores de esta semana llegaron solos; no se cambian a mano.",
+    })
+    expect((await pool.query("select * from public.metricas_linkedin where pieza_id = $1", [post])).rowCount).toBe(0)
+  })
+
   it("refuses an empty save", async () => {
     expect(await anotarNumerosDeLinkedin(deps(), { posts: [], seguidores: null })).toEqual({
       ok: false,
