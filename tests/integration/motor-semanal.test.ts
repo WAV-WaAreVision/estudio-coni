@@ -301,7 +301,7 @@ describe("correrMotor", () => {
     ).toBe(2)
     expect((await corrida())?.resumen).toMatchObject({
       queSubir: {
-        pilaresSinMaterial: ["Práctica clínica aumentada", "Acceso y salud pública", "Caso Coni: humana + avatar"],
+        pilaresSinMaterial: ["practica-clinica", "acceso-salud-publica", "caso-coni"],
       },
     })
   })

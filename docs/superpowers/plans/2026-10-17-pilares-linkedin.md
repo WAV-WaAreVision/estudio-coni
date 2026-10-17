@@ -55,8 +55,10 @@ tests, docs and deploy). Parts 2 to 4 have their own plans and branches.
 12. **Fuente in the gate 1 hash only when present.** `huellaDeRespaldo` (the canonical form, not the stored JSON, is
     what formula 3 hashes) appends `autor, titulo, anio` to a claim's tuple only when the claim has `fuente`; a stored
     respaldo without it hashes byte for byte as today (Task 14 pins the literal).
-13. **`reporteQueSubir` reports pillar names, not slugs.** The ingesta's Semana prints `PILAR[x] ?? x`; old runs
-    keep their slugs and still map, new runs show the name.
+13. **`reporteQueSubir` reports pillar slugs, not names** (corrected after the final review). The ingesta's Semana
+    (`feat/categorias-activas`, `lib/ingesta/semana.ts`) maps each slug to its `categorias.nombre` and drops retired
+    ones, so old runs and new runs both store slugs. estudio-coni does not display the list; if it ever does, it maps
+    slug to name from the catalog at display time.
 14. **Ingesta has one category picker:** the Temas filter (`listarPilares`, `lib/ingesta/temas.ts:75`); the upload
     form has none. Its `CLAUDE.md` says "local only" but TRASPASO and Vercel say it is deployed
     (https://conidolly-ingesta.vercel.app): the runbook deploys it like the app.
@@ -663,15 +665,15 @@ Add to `tests/unit/motor-puntaje.test.ts`:
 import { soloActivos } from "@/lib/dominio/pilares"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
-it("names the active pillars without material, with any subset empty", () => {
+it("lists the slugs of the active pillars without material, with any subset empty", () => {
   const temas = [
     { tema_id: "t1", nombre: "Chatbots", pilar: "ia-salud-mental", afirmaciones: 5, autores: 2, evidencia_fuerte: 1, cubierto_por_coni: false },
     { tema_id: "t2", nombre: "Regulación", pilar: "etica-regulacion", afirmaciones: 4, autores: 2, evidencia_fuerte: 0, cubierto_por_coni: false },
   ]
   expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
-    "Práctica clínica aumentada",
-    "Acceso y salud pública",
-    "Caso Coni: humana + avatar",
+    "practica-clinica",
+    "acceso-salud-publica",
+    "caso-coni",
   ])
 })
 ```
@@ -696,7 +698,7 @@ Expected: FAIL (wrong arity / `nombrePilar` missing / `NOMBRE_DE_PILAR["caso-con
 ```ts
 export function reporteQueSubir(
   temas: TemaDelMotor[],
-  activos: readonly Pick<DatosDePilar, "slug" | "nombre">[],
+  activos: readonly Pick<DatosDePilar, "slug">[],
 ): { unSoloAutor: string[]; pilaresSinMaterial: string[] } {
   const unSoloAutor = temas
     .filter((t) => t.autores === 1 && t.afirmaciones >= AFIRMACIONES_MINIMAS_UN_SOLO_AUTOR)
@@ -704,8 +706,8 @@ export function reporteQueSubir(
     .slice(0, MAXIMO_UN_SOLO_AUTOR)
     .map((t) => t.nombre)
   const conMaterial = new Set(temas.map((t) => t.pilar))
-  // Names, not slugs: the ingesta's Semana prints what it gets (amendment 13).
-  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.nombre) }
+  // Slugs, not names: the ingesta's Semana names them from `categorias` and drops retired ones (amendment 13).
+  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.slug) }
 }
 ```
 
@@ -1165,8 +1167,8 @@ answer with one idea `pilar: "deseo"` fails the schema (the call throws the form
 
 `tests/integration/motor-semanal.test.ts`: a run whose topics sit only in `ia-salud-mental` and `etica-regulacion`
 (three pillars empty, including `caso-coni`) writes its ideas (MSW answers `pilar: "ia-salud-mental"`), and its
-`resumen.queSubir.pilaresSinMaterial` lists `Práctica clínica aumentada`, `Acceso y salud pública` and
-`Caso Coni: humana + avatar`. Reuse the file's existing seeding helpers for topics and the MSW answer builder.
+`resumen.queSubir.pilaresSinMaterial` lists `practica-clinica`, `acceso-salud-publica` and `caso-coni` (slugs,
+amendment 13). Reuse the file's existing seeding helpers for topics and the MSW answer builder.
 
 - [ ] **Step 2: Run red.**
 

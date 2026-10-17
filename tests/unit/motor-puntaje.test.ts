@@ -206,7 +206,7 @@ describe("reporteQueSubir", () => {
     expect(unSoloAutor).not.toContain("Tema dos")
   })
 
-  it("names the active pillars without material, with any subset empty", () => {
+  it("lists the slugs of the active pillars without material, with any subset empty", () => {
     const temas = [
       tema("t1", { nombre: "Chatbots", pilar: "ia-salud-mental" }),
       tema("t2", { nombre: "Regulación", pilar: "etica-regulacion" }),
@@ -214,9 +214,9 @@ describe("reporteQueSubir", () => {
       tema("d", { pilar: "general" }),
     ]
     expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
-      "Práctica clínica aumentada",
-      "Acceso y salud pública",
-      "Caso Coni: humana + avatar",
+      "practica-clinica",
+      "acceso-salud-publica",
+      "caso-coni",
     ])
   })
 })

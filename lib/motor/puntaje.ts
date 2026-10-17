@@ -152,7 +152,7 @@ export function elegirTemasSolos(temas: TemaDelMotor[], contexto: ContextoDelPun
 
 export function reporteQueSubir(
   temas: TemaDelMotor[],
-  activos: readonly Pick<DatosDePilar, "slug" | "nombre">[],
+  activos: readonly Pick<DatosDePilar, "slug">[],
 ): { unSoloAutor: string[]; pilaresSinMaterial: string[] } {
   const unSoloAutor = temas
     .filter((t) => t.autores === 1 && t.afirmaciones >= AFIRMACIONES_MINIMAS_UN_SOLO_AUTOR)
@@ -160,6 +160,6 @@ export function reporteQueSubir(
     .slice(0, MAXIMO_UN_SOLO_AUTOR)
     .map((t) => t.nombre)
   const conMaterial = new Set(temas.map((t) => t.pilar))
-  // Names, not slugs: the ingesta's Semana prints what it gets (amendment 13).
-  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.nombre) }
+  // Slugs, not names: the ingesta's Semana names them from `categorias` and drops retired ones (amendment 13).
+  return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.slug) }
 }
