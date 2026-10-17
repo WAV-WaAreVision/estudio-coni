@@ -658,7 +658,7 @@ describe("costoClaude", () => {
 describe("clasificarIdea", () => {
   const propuesta = {
     pilar: "ia-salud-mental",
-    formato: "Ejercicio de la semana",
+    formato: "Mito o realidad",
     alertas: [{ tipo: "no es terapia", texto: "Presentarlo como ejercicio general." }],
   }
 
@@ -688,6 +688,15 @@ describe("clasificarIdea", () => {
     const usuario = String(pedidos[0]?.cuerpo.messages[0]?.content)
     expect(usuario).toContain("usa exactamente el slug (lo que va antes de los dos puntos) en pilar")
     expect(usuario).not.toContain("usa exactamente estos nombres")
+  })
+
+  it("offers only the guide's formats, without the sexology ones Federico dropped", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
+    await clasificar()
+    const usuario = String(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("Mito o realidad, Tres señales, Pregunta de la audiencia")
+    expect(usuario).not.toContain("Ejercicio de la semana")
+    expect(usuario).not.toContain("Idea de sus libros")
   })
 
   it("refuses a retired pillar in the answer", async () => {

@@ -458,7 +458,7 @@ PILARES (usa exactamente el slug (lo que va antes de los dos puntos) en pilar)
 ${listaDePilares(entrada.pilares)}
 
 FORMATOS (elige uno de la línea editorial; si ninguno calza, escribe «otro: » y dos o tres palabras)
-Mito o realidad, Tres señales, Ejercicio de la semana, Pregunta de la audiencia, Idea de sus libros
+Mito o realidad, Tres señales, Pregunta de la audiencia
 
 ALERTAS (usa exactamente estos tipos; propón solo las que de verdad apliquen, la lista puede ir vacía)
 - verificar dato: la idea se apoya en una cifra, un estudio o una afirmación científica que habría que confirmar.

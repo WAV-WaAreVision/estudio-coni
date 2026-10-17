@@ -14,13 +14,7 @@ import type { PilarVisible } from "@/lib/dominio/pilares"
 import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 
-export const FORMATOS = [
-  "Mito o realidad",
-  "Tres señales",
-  "Ejercicio de la semana",
-  "Pregunta de la audiencia",
-  "Idea de sus libros",
-]
+export const FORMATOS = ["Mito o realidad", "Tres señales", "Pregunta de la audiencia"]
 
 const DESCRIPCION_DE_ALERTA: Record<(typeof TIPOS_DE_ALERTA)[number], string> = {
   "verificar dato": "Hay una cifra o un estudio que confirmar",
