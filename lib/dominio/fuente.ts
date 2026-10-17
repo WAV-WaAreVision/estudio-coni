@@ -42,6 +42,7 @@ export function describirFuente({ autor, titulo, anio }: Fuente): string {
 export function lineaDeFuente(apoyos: readonly ApoyoConFuente[]): string | null {
   if (apoyos.length === 0) return null
   const ajenas = fuentesAjenas(apoyos)
+  // A piece stored before sources existed has no `fuente`: its frozen, signed backing shows no line, on purpose.
   if (ajenas.length === 0) return apoyos.every((a) => a.deConi) ? DE_CONI : null
   const nombradas = ajenas.slice(0, FUENTES_NOMBRADAS).map(describirFuente).join("; ")
   if (ajenas.length === 1) return `Fuente: ${nombradas}`
