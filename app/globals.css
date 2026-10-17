@@ -112,43 +112,6 @@
   }
 }
 
-/* ---------- Calma suiza names, aliases of the new values while the screens move over (spec "Migration order",
-   step 1). Task 48 deletes this block and the one below, and the guard test bans the names. ---------- */
-:root {
-  --fondo: var(--piedra);
-  --superficie: var(--piedra);
-  --linea: var(--hilo);
-  --pista: var(--piedra-honda);
-  --principal: var(--tinta);
-  --sobre-principal: var(--luz);
-  --sobre-tinta: var(--luz);
-  --exito: var(--tinta);
-  --aviso: var(--tinta);
-  --sobre-video: var(--luz);
-  --sombra-barra: var(--relieve-alto-fijo);
-  --sombra-flotante: var(--relieve-alto);
-  --anillo-foco: 0 0 0 2px var(--piedra), 0 0 0 4px var(--tinta);
-  --barra-max: 176px;
-  --r-12: 12px;
-}
-
-@theme inline {
-  --color-fondo: var(--fondo);
-  --color-superficie: var(--superficie);
-  --color-linea: var(--linea);
-  --color-pista: var(--pista);
-  --color-principal: var(--principal);
-  --color-sobre-principal: var(--sobre-principal);
-  --color-sobre-tinta: var(--sobre-tinta);
-  --color-exito: var(--exito);
-  --color-aviso: var(--aviso);
-  --color-sobre-video: var(--sobre-video);
-  --radius-12: var(--r-12);
-  --shadow-barra: var(--sombra-barra);
-  --shadow-flotante: var(--sombra-flotante);
-}
-/* ---------- End of the Calma suiza aliases ---------- */
-
 @theme inline {
   --color-transparent: transparent;
   --color-current: currentColor;

@@ -161,6 +161,39 @@ describe("design rules", () => {
     expect(CODIGO.filter((ruta) => /\bsize=\{\d+\}/.test(leer(ruta)))).toEqual([])
   })
 
+  it("uses no Calma suiza name: the aliases are gone and so are their utilities", () => {
+    const utilidades =
+      /\b(bg|text|border|divide|ring|outline|fill|stroke)-(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video)\b|\brounded-12\b|\bshadow-(barra|flotante)\b/
+    const variables =
+      /var\(--(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video|sombra-barra|sombra-flotante|anillo-foco|barra-max|r-12|foto-brillo)\)/
+    expect(CODIGO.filter((ruta) => utilidades.test(leer(ruta)) || variables.test(leer(ruta)))).toEqual([])
+    expect(CSS).not.toMatch(
+      /--(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video|sombra-barra|sombra-flotante|anillo-foco|barra-max|r-12|foto-brillo):/,
+    )
+    expect(CSS).not.toMatch(
+      /--color-(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video):|--radius-12:|--shadow-(barra|flotante):/,
+    )
+    expect(CSS).not.toMatch(variables)
+  })
+
+  it("sizes every target in rem tokens, never with the old px heights", () => {
+    expect(CODIGO.filter((ruta) => /\b(min-h-(11|12|13|14|16)|size-12|h-14)\b/.test(leer(ruta)))).toEqual([])
+  })
+
+  it("keeps the error magenta to the error block, the error pill and the destructive confirm", () => {
+    const permitidos = new Set([
+      "components/ui/bloque.tsx",
+      "components/ui/estado.tsx",
+      "components/ui/clases-de-boton.ts",
+      // A refused retry is a plain error line drawn only inside the large error block (`enUnError`).
+      "app/(app)/estado-de-pieza.tsx",
+    ])
+    const culpables = CODIGO.filter(
+      (ruta) => /\b(text|bg|border|ring|outline|fill)-error\b/.test(leer(ruta)) && !permitidos.has(ruta),
+    )
+    expect(culpables).toEqual([])
+  })
+
   it("lists the files it scans (sanity: the walk found code)", () => {
     expect(CODIGO.map((ruta) => relative(".", ruta)).length).toBeGreaterThan(50)
   })
