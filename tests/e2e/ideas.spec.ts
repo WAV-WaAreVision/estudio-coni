@@ -9,6 +9,7 @@ import {
   configurarServicios,
   registroDeServicios,
 } from "./ayudas"
+import { sembrarEscena } from "./escena"
 
 const ALERTA = [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }]
 
@@ -51,6 +52,12 @@ test("the bank shows one idea at a time with its pillar, strength and alerts", a
   await page.getByRole("button", { name: "Después" }).click()
   await expect(page.getByRole("heading", { name: "El deseo no se apaga: se esconde." })).toBeVisible()
   await expect(page.getByText("Idea 2 de 3")).toBeVisible()
+})
+
+test("the idea card shows its source under the hook", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/ideas")
+  await expect(page.getByText("Fuente: Siembra Stanford · AI for Mental Health (2026)")).toBeVisible()
 })
 
 test("Usar esta puts the idea first among the week's ideas on Inicio, and Deshacer takes it out", async ({ page }) => {

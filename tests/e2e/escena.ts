@@ -4,7 +4,14 @@ import { claveDeToma } from "@/lib/dominio/voz"
 import { huellaDelGuion } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
-import { ajustarPieza, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import {
+  ajustarPieza,
+  sembrarCorrida,
+  sembrarIdea,
+  sembrarIdeaDelMotor,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
 import { GUION_VALIDO, limpiarDisparos, TEXTO_VALIDO } from "./ayudas"
 
 const IDEAS = [
@@ -43,12 +50,49 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   await pool.query("delete from public.consultas")
   // Numbered, so the five that Inicio offers do not depend on the random ids that break ties.
   for (const [i, idea] of IDEAS.entries()) await sembrarIdea({ ...idea, numero: i + 1 })
+  // This week's engine idea with its backing comes first in the deck, so the card shows its source line. Its author is
+  // a seeded person (`Siembra %`), which vaciarMotor cleans.
+  const semana = "2026-10-12"
+  await sembrarCorrida(semana)
+  await sembrarIdeaDelMotor({
+    gancho: "Una de cada cuatro personas ya usa IA para su salud mental.",
+    semana,
+    pilar: "ia-salud-mental",
+    teoria: {
+      titulo: "El chatbot llena un hueco de acceso",
+      tesis: "Quien usa IA para su salud mental suele tener problemas de acceso.",
+      nivel: "alto",
+      respaldo: [
+        {
+          autor: "Siembra Stanford",
+          cita: "Una de cada cuatro personas usa IA.",
+          titulo: "AI for Mental Health",
+          anio: 2026,
+        },
+      ],
+    },
+  })
   const guion = await conIdea("guion_por_aprobar", "practica-clinica", "El deseo no se apaga, se esconde")
   // The writer delivers the script with her voice, and so without the note of a voice that failed: gate 1 shows its
-  // player.
+  // player. Its backing is frozen JSON on the piece, so it needs no author row; gate 1 shows its source line.
   await ajustarPieza(guion, {
     audio_id: claveDeToma(guion, huellaDelGuion(GUION_VALIDO, ELEVENLABS), 0),
     explicacion: null,
+    respaldo: {
+      teoria: { id: "00000000-0000-4000-8000-0000000000aa", titulo: "T", tesis: "Te", porQue: "P" },
+      afirmaciones: [
+        {
+          id: "00000000-0000-4000-8000-0000000000ab",
+          texto: "x",
+          cita: "c",
+          aporte: "a",
+          autor: "Stanford",
+          deConi: false,
+          esPersona: false,
+          fuente: { autor: "Stanford", titulo: "AI for Mental Health", anio: 2026 },
+        },
+      ],
+    },
   })
   const video = await conIdea("video_por_aprobar", "etica-regulacion", "Ser tu propia diosa")
   await conIdea("en_render", "acceso-salud-publica", "Puedes decir que no")

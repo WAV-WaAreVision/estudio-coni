@@ -154,6 +154,16 @@ test("the new states pass WCAG 2.x AA: a failed voice, an empty wallet, Inicio w
   expect(hallazgos).toEqual([])
 })
 
+test("the source line on the idea card and at gate 1 passes WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  const { guion } = await sembrarEscena()
+  for (const ruta of ["/ideas", `/guion/${guion}`]) {
+    await page.goto(ruta)
+    await expect(page.getByText(/^Fuente: (Siembra )?Stanford · AI for Mental Health \(2026\)$/)).toBeVisible()
+  }
+  expect(await auditar(page, ["/ideas", `/guion/${guion}`])).toEqual([])
+})
+
 test("every screen passes WCAG 2.x AA at large text", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 2600 })
   expect(await auditar(page, await rutas(), conLetraGrande)).toEqual([])

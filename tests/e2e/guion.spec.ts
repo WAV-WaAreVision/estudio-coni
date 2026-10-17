@@ -19,6 +19,7 @@ import {
   simularMedios,
   TEXTO_VALIDO,
 } from "./ayudas"
+import { sembrarEscena } from "./escena"
 
 const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
@@ -214,6 +215,12 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
 
   await page.goto("/")
   await expect(page.getByText("No pude terminar el video.")).toHaveCount(0)
+})
+
+test("gate 1 shows the source of its backing after the script", async ({ page }) => {
+  const { guion } = await sembrarEscena()
+  await page.goto(`/guion/${guion}`)
+  await expect(page.getByText("Fuente: Stanford · AI for Mental Health (2026)")).toBeVisible()
 })
 
 test("gate 1 shows the date in ink and bold, and the editor without inner scroll", async ({ page }) => {
