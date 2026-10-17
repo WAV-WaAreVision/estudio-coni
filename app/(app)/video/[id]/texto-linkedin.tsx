@@ -1,12 +1,16 @@
 "use client"
 
+import { PencilSimple, Warning } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Panel } from "@/components/ui/panel"
 import { useAccion } from "@/components/use-accion"
 import { useAutoAlto } from "@/components/use-auto-alto"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
+import { cn } from "@/lib/utils"
 
 interface PropiedadesDeTextoLinkedin {
   piezaId: string
@@ -45,22 +49,26 @@ export function TextoLinkedin({
 
   if (!editando) {
     return (
-      <div className="grid gap-1">
-        <p className="whitespace-pre-line text-cuerpo leading-prosa">{texto}</p>
-        <p className="text-meta text-apagado tabular-nums">
+      <div className="grid gap-3">
+        <Panel>
+          <p className="whitespace-pre-line text-[1.125rem] leading-prosa">{texto}</p>
+        </Panel>
+        <p className="mx-0.5 text-meta text-apagado tabular-nums">
           {miles([...texto].length)} de {miles(MAXIMO_TEXTO_LINKEDIN)}
         </p>
         {editable ? (
-          <button
-            type="button"
-            className="min-h-11 w-fit text-cuerpo font-medium text-tinta underline"
+          <Boton
+            variante="secundario"
+            tamano="chico"
+            className="w-fit"
+            icono={<PencilSimple aria-hidden="true" size={ICONO.medio} />}
             onClick={() => {
               setBorrador(texto)
               setEditando(true)
             }}
           >
             Editar el texto para LinkedIn
-          </button>
+          </Boton>
         ) : null}
       </div>
     )
@@ -95,8 +103,16 @@ export function TextoLinkedin({
           className="campo w-full text-cuerpo"
         />
       </label>
-      <p className={`text-meta tabular-nums ${largo > MAXIMO_TEXTO_LINKEDIN ? "text-error" : "text-apagado"}`}>
-        {miles(largo)} de {miles(MAXIMO_TEXTO_LINKEDIN)}
+      <p
+        className={cn(
+          "flex items-center gap-1.5 text-meta tabular-nums",
+          largo > MAXIMO_TEXTO_LINKEDIN ? "font-semibold text-tinta" : "text-apagado",
+        )}
+      >
+        {largo > MAXIMO_TEXTO_LINKEDIN ? <Warning aria-hidden="true" size={ICONO.chico} /> : null}
+        <span>
+          {miles(largo)} de {miles(MAXIMO_TEXTO_LINKEDIN)}
+        </span>
       </p>
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       <div className="grid gap-2">

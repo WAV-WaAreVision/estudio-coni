@@ -1,9 +1,13 @@
 "use client"
 
+import { PencilSimple, Warning } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import { editarTextoAccion } from "@/app/(app)/piezas/acciones"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Panel } from "@/components/ui/panel"
+import { cn } from "@/lib/utils"
 import { useAccion } from "./use-accion"
 import { useAutoAlto } from "./use-auto-alto"
 
@@ -33,19 +37,23 @@ export function TextoDeInstagram({ piezaId, version, texto, puedeEditar = true, 
 
   if (!editando) {
     return (
-      <div className="grid gap-1">
-        <p className="whitespace-pre-line text-cuerpo leading-prosa">{texto}</p>
+      <div className="grid gap-3">
+        <Panel>
+          <p className="whitespace-pre-line text-cuerpo leading-prosa">{texto}</p>
+        </Panel>
         {puedeEditar ? (
-          <button
-            type="button"
-            className="min-h-11 w-fit text-cuerpo font-medium text-tinta underline"
+          <Boton
+            variante="secundario"
+            tamano="chico"
+            className="w-fit"
+            icono={<PencilSimple aria-hidden="true" size={ICONO.medio} />}
             onClick={() => {
               setBorrador(texto)
               setEditando(true)
             }}
           >
             Editar el texto
-          </button>
+          </Boton>
         ) : null}
       </div>
     )
@@ -73,8 +81,16 @@ export function TextoDeInstagram({ piezaId, version, texto, puedeEditar = true, 
           className="campo w-full text-cuerpo"
         />
       </label>
-      <p className={`text-meta ${largo > MAXIMO ? "text-error" : "text-apagado"}`}>
-        {largo.toLocaleString("es-CL")} de {MAXIMO.toLocaleString("es-CL")}
+      <p
+        className={cn(
+          "flex items-center gap-1.5 text-meta tabular-nums",
+          largo > MAXIMO ? "font-semibold text-tinta" : "text-apagado",
+        )}
+      >
+        {largo > MAXIMO ? <Warning aria-hidden="true" size={ICONO.chico} /> : null}
+        <span>
+          {largo.toLocaleString("es-CL")} de {MAXIMO.toLocaleString("es-CL")}
+        </span>
       </p>
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       <div className="grid gap-2">

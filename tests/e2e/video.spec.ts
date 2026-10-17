@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test"
 import { CONI, pool } from "../integration/db"
 import { leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
+  abrirDesplegable,
   capturar,
   deslizarHastaElFinal,
   disparosRegistrados,
@@ -38,11 +39,11 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
 
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   await expect(page.getByText("Avatar IA")).toBeVisible()
-  await expect(page.getByText("Míralo completo para aprobar")).toBeVisible()
-  await expect(page.getByText("Se activa al terminar de verlo.")).toBeVisible()
+  const barra = page.getByRole("region", { name: "Firma" })
+  await expect(barra.getByText("terminar el video", { exact: false })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
-  // The review panel is not there until the video was watched to the end.
-  await expect(page.getByRole("checkbox", { name: /Revisé labios/ })).toHaveCount(0)
+  // Everything is on screen before the end: the checkbox can be ticked at any time.
+  await expect(page.getByRole("checkbox", { name: /Revisé labios/ })).toBeVisible()
 
   await page.getByRole("button", { name: "Reproducir el video" }).click()
   await expect(page.getByText("Lo viste completo")).toBeVisible({ timeout: 15_000 })
@@ -52,7 +53,7 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
     .first()
     .scrollIntoViewIfNeeded()
 
-  await expect(page.getByText("Marca lo que revisaste.")).toBeVisible()
+  await expect(barra.getByText("marcar lo que revisaste", { exact: false })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
   await page.getByRole("checkbox", { name: /Revisé labios/ }).check()
   await expect(deslizador).toHaveAttribute("aria-disabled", "false")
@@ -64,6 +65,7 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
   await opciones.nth(1).check()
   const etiquetaElegida = (await page.locator("label:has(input[type=radio])").nth(1).innerText()).trim()
   await page.getByRole("button", { name: "Listo" }).click()
+  await expect(barra.getByText(/^Sale el /)).toBeVisible()
   await expect(page.getByText(etiquetaElegida, { exact: true })).toBeVisible()
   await capturar(page, "05-video")
 
@@ -96,7 +98,9 @@ test("skipping to the end of the video does not count as watching it", async ({ 
   await page.waitForTimeout(1500)
 
   await expect(page.getByText("Lo viste completo")).toHaveCount(0)
-  await expect(page.getByText("Míralo completo para aprobar")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("terminar el video", { exact: false }),
+  ).toBeVisible()
 })
 
 test("regrabar goes back to recording as a new attempt", async ({ page }) => {
@@ -104,7 +108,8 @@ test("regrabar goes back to recording as a new attempt", async ({ page }) => {
   await simularMedios(page)
   await page.goto(`/video/${id}`)
 
-  await page.getByRole("button", { name: "Regrabar" }).click()
+  await abrirDesplegable(page, "Más opciones")
+  await page.getByRole("button", { name: "Regrabar video" }).click()
   await page.getByRole("button", { name: "Sí, regrabar" }).click()
 
   await expect(page).toHaveURL(new RegExp(`/guion/${id}$`))

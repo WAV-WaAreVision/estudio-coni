@@ -50,11 +50,18 @@ async function rutas(): Promise<string[]> {
 }
 
 /**
- * Gate 1 folds its editor (and "Más opciones" once a look is chosen): a folded control is skipped by axe and by the
+ * Gate 1 folds its editor (and "Más opciones" once a look is chosen) and gate 2 folds its options: a folded control is skipped by axe and by the
  * size audit, so both open them first to measure the script and caption fields, "Guardar cambios", "Pedir cambios" and
  * the rest.
  */
 async function abrirPliegues(page: Page, ruta: string): Promise<void> {
+  if (ruta.startsWith("/video/")) {
+    // Gate 2: the destinations, the zones and "Regrabar video" sit in "Más opciones"; "Cambiar" opens the dates.
+    await abrirDesplegable(page, "Más opciones")
+    await page.getByRole("button", { name: "Cambiar" }).click()
+    await expect(page.getByRole("radio").first()).toBeVisible()
+    return
+  }
   if (!ruta.startsWith("/guion/")) return
   await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible()
