@@ -10,6 +10,7 @@ import {
   reservarGastoGeneral,
 } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
+import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import { dolares } from "@/lib/formato"
 import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
@@ -83,6 +84,40 @@ export function descartarIdea(deps: DepsIdeas, entrada: unknown): Promise<Result
     if (error?.message === "no_descartable") throw NoDisponible
     if (error) throw new Error(`No pude descartar la idea: ${error.message}`, { cause: error })
     return {}
+  })
+}
+
+const UnaDeEsasNoEsta = new Falla("Una de esas ideas ya no está disponible. Vuelve a elegir.")
+const LoteDeIdeas = z.array(z.uuid()).min(1).max(MAXIMO_DE_IDEAS)
+const ERROR_LOTE = `Elige entre una y ${MAXIMO_DE_IDEAS} ideas distintas.`
+const DescarteDeLote = z.object({ ideaIds: z.array(z.uuid()), motivo: z.enum(MOTIVOS_DE_DESCARTE) })
+
+/** "Descartar (N)" (decision 24): one motive for the whole batch; all of them leave the bank or none does. */
+export function descartarIdeas(deps: DepsIdeas, entrada: unknown): Promise<Resultado> {
+  return aResultado("descartarIdeas", async () => {
+    const descarte = DescarteDeLote.safeParse(entrada)
+    if (!descarte.success) throw new Falla("Elige por qué las descartas.")
+    const ids = LoteDeIdeas.safeParse(descarte.data.ideaIds)
+    if (!ids.success || new Set(ids.data).size !== ids.data.length) throw new Falla(ERROR_LOTE)
+    const { error } = await deps.db.rpc("descartar_ideas", { p_ids: ids.data, p_motivo: descarte.data.motivo })
+    if (error?.message === "no_descartable") throw UnaDeEsasNoEsta
+    if (error?.message === "lote_invalido") throw new Falla(ERROR_LOTE)
+    if (error) throw new Error(`No pude descartar las ideas: ${error.message}`, { cause: error })
+    return {}
+  })
+}
+
+/** "Deshacer" of the batch discard: the database brings back what is still inside the 8 s and says which. */
+export function restaurarIdeas(
+  deps: DepsIdeas,
+  ideaIds: readonly string[],
+): Promise<Resultado<{ restauradas: string[] }>> {
+  return aResultado("restaurarIdeas", async () => {
+    const ids = LoteDeIdeas.safeParse(ideaIds)
+    if (!ids.success) throw new Falla(ERROR_LOTE)
+    const { data, error } = await deps.db.rpc("restaurar_ideas", { p_ids: ids.data })
+    if (error) throw new Error(`No pude devolver las ideas al banco: ${error.message}`, { cause: error })
+    return { restauradas: data ?? [] }
   })
 }
 

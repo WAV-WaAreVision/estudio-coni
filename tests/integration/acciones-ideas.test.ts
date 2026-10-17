@@ -6,8 +6,10 @@ import {
   crearIdeaPropia,
   type DepsIdeas,
   descartarIdea,
+  descartarIdeas,
   proponerIdea,
   quitarIdea,
+  restaurarIdeas,
   usarIdea,
 } from "@/lib/acciones/ideas"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
@@ -307,5 +309,57 @@ describe("crearIdeaPropia", () => {
     expect(await crearIdeaPropia(deps(), { ...entrada, gancho: " " })).toMatchObject({ ok: false })
     const { rows } = await pool.query("select id from public.ideas where gancho = $1", [entrada.gancho])
     expect(rows).toEqual([])
+  })
+})
+
+describe("descartarIdeas", () => {
+  it("discards the batch with one motive", async () => {
+    const [a, b] = [await idea(), await idea()]
+    expect(await descartarIdeas(deps(), { ideaIds: [a, b], motivo: "repetida" })).toEqual({ ok: true })
+    for (const id of [a, b]) expect(await fila(id)).toMatchObject({ estado: "descartada", motivo_descarte: "repetida" })
+  })
+
+  it("says one of them is gone and discards none", async () => {
+    const [a, b] = [await idea(), await idea()]
+    await pool.query("update public.ideas set estado = 'usada' where id = $1", [b])
+    expect(await descartarIdeas(deps(), { ideaIds: [a, b], motivo: "debil" })).toEqual({
+      ok: false,
+      error: "Una de esas ideas ya no está disponible. Vuelve a elegir.",
+    })
+    expect((await fila(a)).estado).toBe("idea")
+  })
+
+  it("asks for a reason and for one to five distinct ideas", async () => {
+    const id = await idea()
+    expect(await descartarIdeas(deps(), { ideaIds: [id] })).toEqual({
+      ok: false,
+      error: "Elige por qué las descartas.",
+    })
+    expect(await descartarIdeas(deps(), { ideaIds: [], motivo: "otro" })).toEqual({
+      ok: false,
+      error: "Elige entre una y 5 ideas distintas.",
+    })
+  })
+})
+
+describe("restaurarIdeas", () => {
+  it("brings the batch back inside the window and says which came back", async () => {
+    const [a, b] = [await idea(), await idea()]
+    await descartarIdeas(deps(), { ideaIds: [a, b], motivo: "debil" })
+
+    const resultado = await restaurarIdeas(deps(), [a, b])
+
+    expect(resultado.ok).toBe(true)
+    if (!resultado.ok) return
+    expect([...resultado.restauradas].sort()).toEqual([a, b].sort())
+    expect((await fila(a)).estado).toBe("idea")
+  })
+
+  it("brings nothing back after the window", async () => {
+    const id = await idea()
+    await descartarIdeas(deps(), { ideaIds: [id], motivo: "debil" })
+    await pool.query("update public.ideas set descartada_en = now() - interval '9 seconds' where id = $1", [id])
+
+    expect(await restaurarIdeas(deps(), [id])).toEqual({ ok: true, restauradas: [] })
   })
 })
