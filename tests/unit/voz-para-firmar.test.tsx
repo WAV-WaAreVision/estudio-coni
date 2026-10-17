@@ -173,6 +173,7 @@ describe("VozParaFirmar", () => {
     expect(screen.getByRole("alert")).not.toHaveTextContent(/cobr|de nuevo.*US\$/i)
   })
 
+  // Guard, not a regression test: the secondary variant above is only for a key failure, never a passing refusal.
   it("keeps 'Preparar mi voz' as the main action after a passing refusal", () => {
     render(
       <VozParaFirmar
