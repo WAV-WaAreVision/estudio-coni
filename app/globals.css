@@ -581,10 +581,7 @@ body:has([data-superficie="marca"]) {
   background: var(--firma);
 }
 
-/* Decision 4, choice rows: once one is chosen the others turn apagado 500. */
-.elecciones:has(input:checked) > label:not(:has(input:checked)) {
-  color: var(--apagado);
-}
+/* Decision 4, choice rows: once one is chosen the others drop to 500, still in ink (an option, never a closed one). */
 .elecciones:has(input:checked) > label:not(:has(input:checked)) .eleccion-titulo {
   font-weight: 500;
 }

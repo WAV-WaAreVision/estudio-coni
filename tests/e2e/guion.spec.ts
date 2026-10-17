@@ -516,6 +516,8 @@ test("the picker offers the curated looks with nothing chosen, and keeps her cho
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeChecked()
   await expect(page.getByRole("radio", { name: "Terraza" })).toBeFocused()
+  // The look she did not choose is still a choice: ink, never the apagado of something closed.
+  await expect(grupo.getByText("Estudio", { exact: true })).toHaveCSS("color", "rgb(38, 38, 38)")
   const alto = await page.getByRole("radio", { name: "Terraza" }).locator("xpath=ancestor::label").boundingBox()
   expect(alto?.height).toBeGreaterThanOrEqual(44)
   await capturar(page, "guion-avatar-elegido")
