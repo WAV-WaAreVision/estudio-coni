@@ -1,12 +1,21 @@
 import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { expect, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
 import { claveDeToma } from "@/lib/dominio/voz"
-import { huellaDelGuion } from "@/lib/produccion/voz"
+import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
 import { ajustarPieza, leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { bloquearRedExterna, configurarServicios, GUION_VALIDO, simularMedios, TEXTO_VALIDO } from "./ayudas"
+import {
+  bloquearRedExterna,
+  conectarLinkedin,
+  configurarServicios,
+  conLetraGrande,
+  desconectarLinkedin,
+  GUION_VALIDO,
+  simularMedios,
+  TEXTO_VALIDO,
+} from "./ayudas"
 import { sembrarEscena } from "./escena"
 
 /**
@@ -52,7 +61,7 @@ function mascaras(page: Page) {
   return [page.locator('[data-snapshot="varia"]')]
 }
 
-async function capturaDe(page: Page, nombre: string) {
+async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   // Ajustes streams its status block and its accounts behind Suspense: wait until the skeletons are gone.
   await page.waitForLoadState("networkidle")
   await expect(page.locator("output[aria-label^='Revisando']")).toHaveCount(0)
@@ -68,7 +77,9 @@ async function capturaDe(page: Page, nombre: string) {
   }
   await expect(page).toHaveScreenshot(`${nombre}.png`, {
     fullPage: true,
-    ...(PARA_LA_HOJA ? { scale: "device" as const } : { mask: mascaras(page), maskColor: COLOR_DE_MASCARA }),
+    ...(PARA_LA_HOJA
+      ? { scale: "device" as const }
+      : { mask: [...mascaras(page), ...ocultar], maskColor: COLOR_DE_MASCARA }),
   })
 }
 
@@ -102,16 +113,83 @@ test("inicio vacio", async ({ page }) => {
   await capturaDe(page, "inicio-vacio")
 })
 
+test("inicio con fallas", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  const idea = await sembrarIdea({ pilar: "limites", gancho: "Decir que no también es cuidarte", estado: "usada" })
+  const fallida = await sembrarPieza("en_render", {
+    titulo: "Decir que no también es cuidarte",
+    idea_id: idea,
+    guion: GUION_VALIDO,
+    texto: TEXTO_VALIDO,
+  })
+  await ajustarPieza(fallida, {
+    estado: "error_produccion",
+    estado_antes_del_error: "en_render",
+    explicacion: "HeyGen no pudo terminar el video",
+  })
+  await ajustarPieza(video, { explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha." })
+  await pool.query("delete from public.avisos")
+  await page.goto("/")
+  await capturaDe(page, "inicio-con-fallas")
+})
+
+test("inicio letra grande", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/")
+  await conLetraGrande(page)
+  await capturaDe(page, "inicio-letra-grande")
+})
+
+test("cuentas desconectar", async ({ page }) => {
+  await sembrarEscena()
+  await conectarLinkedin()
+  try {
+    await page.goto("/ajustes/cuentas")
+    await page.getByText("Desconectar LinkedIn").click()
+    await expect(page.getByText("Tus videos dejarán de salir solos ahí y te quedarán para subir a mano.")).toBeVisible()
+    await capturaDe(page, "cuentas-desconectar")
+  } finally {
+    await desconectarLinkedin()
+  }
+})
+
+test("ajustes cuentas letra grande", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/ajustes/cuentas")
+  await conLetraGrande(page)
+  await capturaDe(page, "ajustes-cuentas-letra-grande")
+})
+
 test("guion por aprobar", async ({ page }) => {
   const { guion } = await sembrarEscena()
   await page.goto(`/guion/${guion}`)
   await capturaDe(page, "guion-por-aprobar")
 })
 
+/** The video she already watched to the end: the player reads it from the browser, as on her phone. */
+async function videoVisto(page: Page, id: string) {
+  const { video_id } = await leerFila(id)
+  await page.addInitScript((clave) => window.localStorage.setItem(clave, "1"), `visto:${video_id}`)
+}
+
 test("video por aprobar", async ({ page }) => {
   const { video } = await sembrarEscena()
+  await videoVisto(page, video)
   await page.goto(`/video/${video}`)
   await capturaDe(page, "video-por-aprobar")
+})
+
+test("video sin terminar", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await page.goto(`/video/${video}`)
+  await capturaDe(page, "video-sin-terminar")
+})
+
+test("video sin terminar letra grande", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await page.goto(`/video/${video}`)
+  await conLetraGrande(page)
+  await capturaDe(page, "video-sin-terminar-letra-grande")
 })
 
 async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_render") {
@@ -142,6 +220,110 @@ test("guion con voz", async ({ page }) => {
   await page.goto(`/guion/${id}`)
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await capturaDe(page, "guion-con-voz")
+})
+
+/** The look already chosen. Only Coni may choose it (a trigger): the seed writes it with the triggers off. */
+async function lookElegido(id: string) {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await cliente.query("set local session_replication_role = replica")
+    await cliente.query("update public.piezas set avatar_id = 'look-a', version = version + 1 where id = $1", [id])
+    await cliente.query("commit")
+  } finally {
+    cliente.release()
+  }
+}
+
+/** Her voice of this take, already heard to the end, and the look already chosen: gate 1 ready to sign (v6 2). */
+async function vozEscuchada(page: Page, id: string) {
+  const fila = await leerFila(id)
+  const clave = claveDeToma(id, huellaDelGuion(fila.guion, leerConfigProduccion(CONFIG).elevenlabs), fila.intento)
+  await ajustarPieza(id, { audio_id: clave, explicacion: null })
+  await lookElegido(id)
+  await page.addInitScript((visto) => window.localStorage.setItem(visto, "1"), `visto:${clave}`)
+}
+
+test("guion escuchada", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("La escuchaste completa")).toBeVisible()
+  await capturaDe(page, "guion-escuchada")
+})
+
+test("guion escuchada letra grande", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("La escuchaste completa")).toBeVisible()
+  await conLetraGrande(page)
+  await capturaDe(page, "guion-escuchada-letra-grande")
+})
+
+test("guion sin escuchar", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  const fila = await leerFila(id)
+  await ajustarPieza(id, {
+    audio_id: claveDeToma(id, huellaDelGuion(fila.guion, leerConfigProduccion(CONFIG).elevenlabs), fila.intento),
+    explicacion: null,
+  })
+  await lookElegido(id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
+  await capturaDe(page, "guion-sin-escuchar")
+})
+
+test("guion preparando voz", async ({ page }) => {
+  await vaciarPiezasEIdeas()
+  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  // With tone marks, as v6 3 draws them in the script she reads while the voice is made.
+  const id = await sembrarPieza("grabando_voz", {
+    titulo: "El deseo no se apaga, se esconde",
+    idea_id: idea,
+    guion: `[warm] ${GUION_VALIDO.replace(". ", ". [pause] ")}`,
+    texto: TEXTO_VALIDO,
+  })
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("[warm]")).toBeVisible()
+  await capturaDe(page, "guion-preparando-voz")
+})
+
+test("guion falla voz", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  await ajustarPieza(id, { audio_id: null, explicacion: TEXTO_SIN_VOZ })
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("No pude preparar tu voz.")).toBeVisible()
+  await capturaDe(page, "guion-falla-voz")
+})
+
+test("guion sin saldo", async ({ page }) => {
+  await configurarServicios({ heygenSaldo: 0 })
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
+  await capturaDe(page, "guion-sin-saldo")
+})
+
+test("guion firmado ventana", async ({ page }) => {
+  const id = await guionSembrado("en_render")
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await cliente.query("set local session_replication_role = replica")
+    await cliente.query("update public.piezas set puerta1_en = now(), explicacion = null where id = $1", [id])
+    await cliente.query("commit")
+  } finally {
+    cliente.release()
+  }
+  const { version } = await leerFila(id)
+  await page.clock.install()
+  await page.goto(`/guion/${id}?firmada=${version}`)
+  await expect(page.getByText("Firmaste")).toBeVisible()
+  // The 8 s window would close before a slow capture ends: the page clock stops, the seconds are masked.
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  await capturaDe(page, "guion-firmado-ventana", [page.getByText(/^Grabo tu video en/)])
 })
 
 test("guion grabando", async ({ page }) => {
