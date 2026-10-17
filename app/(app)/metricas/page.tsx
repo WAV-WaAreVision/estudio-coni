@@ -26,7 +26,7 @@ export default async function Metricas() {
   // The week with something to read is open; the others fold.
   const semanaAbierta = Math.max(
     0,
-    modelo.semanas.findIndex((semana) => semana.reels.length > 0),
+    modelo.semanas.findIndex((semana) => semana.publicaciones.length > 0),
   )
 
   return (
@@ -102,10 +102,10 @@ export default async function Metricas() {
                   <span data-snapshot="varia">{semana.titulo}</span>
                   <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
-                {semana.reels.length > 0 ? (
+                {semana.publicaciones.length > 0 ? (
                   <Grupo plano lista>
-                    {semana.reels.map((reel) => (
-                      <FilaPieza key={reel.piezaId} titulo={reel.titulo} estado={reel.meta} pilar={reel.pilar} />
+                    {semana.publicaciones.map((fila) => (
+                      <FilaPieza key={fila.clave} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} />
                     ))}
                   </Grupo>
                 ) : null}

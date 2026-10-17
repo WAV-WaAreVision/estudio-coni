@@ -1,4 +1,4 @@
-import type { Destino } from "@/lib/dominio/destinos"
+import { type Destino, nombreDeDestino } from "@/lib/dominio/destinos"
 import { instanteLocal, semanaDe } from "@/lib/dominio/fechas"
 import {
   agruparPorSemana,
@@ -133,19 +133,6 @@ export type PanelDeComparacion =
       pendientes: TemaEnLista[]
     }
 
-export interface ReelDeSemana {
-  piezaId: string
-  titulo: string
-  pilar: PilarVisible | null
-  meta: string
-}
-
-export interface Semana {
-  titulo: string
-  reels: ReelDeSemana[]
-  resumen: string
-}
-
 export interface ModeloDeMetricas {
   mes: string
   /** "Este mes: 2 reels en Instagram · 1 post en LinkedIn". */
@@ -182,15 +169,6 @@ function newestReadings(lecturas: readonly LecturaDeReel[]): Map<string, Lectura
   return ultimas
 }
 
-const SIN_LECTURA: Omit<LecturaDeReel, "piezaId"> = {
-  dia: "",
-  alcance: null,
-  guardados: null,
-  compartidos: null,
-  comentarios: null,
-  tiempoPromedio: null,
-}
-
 function reelMedido(pieza: PublicacionMedible, lectura: Omit<LecturaDeReel, "piezaId">): ReelMedido {
   return {
     piezaId: pieza.piezaId,
@@ -224,6 +202,38 @@ function metaDeReel(lectura: LecturaDeReel | undefined): string {
   if (segundos !== null) partes.push(`en promedio se vio ${segundos} s`)
   return partes.join(" · ")
 }
+
+export interface FilaDeSemana {
+  /** `instagram:<piece>`: a piece on both networks is two rows. */
+  clave: string
+  titulo: string
+  pilar: PilarVisible | null
+  meta: string
+}
+
+export interface Semana {
+  titulo: string
+  publicaciones: FilaDeSemana[]
+  resumen: string
+}
+
+function metaDeFila(
+  publicacion: PublicacionMedible,
+  ultimas: Map<string, LecturaDeReel>,
+  ultimasLinkedin: Map<string, LecturaDeLinkedin>,
+): string {
+  const red = nombreDeDestino(publicacion.red)
+  if (publicacion.red === "linkedin") {
+    const lectura = ultimasLinkedin.get(publicacion.piezaId)
+    if (!lectura || lectura.impresiones === null) return `${red} · ${SIN_NUMEROS}`
+    const muestra = muestraDeLinkedin(lectura)
+    return `${red} · ${numero(lectura.impresiones)} impresiones${muestra ? ` · ${muestra}` : ""}`
+  }
+  if (publicacion.aMano) return `${red} · ${SIN_NUMEROS}`
+  return `${red} · ${metaDeReel(ultimas.get(publicacion.piezaId))}`
+}
+
+const ORDEN_DE_RED: Record<Destino, number> = { instagram: 0, linkedin: 1 }
 
 function etiquetaDelDia(dia: string): string {
   // Noon UTC keeps the calendar day whatever the zone.
@@ -391,14 +401,22 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     })
   }
 
-  const semanas = agruparPorSemana({
-    reels: recientes
-      .filter((p) => p.red === "instagram" && !p.aMano)
-      .map((pieza) => reelMedido(pieza, ultimas.get(pieza.piezaId) ?? SIN_LECTURA)),
-    consultas: entrada.consultas,
-    clics: entrada.clics,
-    zona,
-  }).filter((semana) => semana.lunes >= desde)
+  // Consultations and clicks come grouped by week; publications are added to the same weeks, both networks.
+  const porLunes = new Map(
+    agruparPorSemana({ reels: [], consultas: entrada.consultas, clics: entrada.clics, zona }).map((s) => [
+      s.lunes,
+      { lunes: s.lunes, consultas: s.consultas, clics: s.clics, publicaciones: [] as PublicacionMedible[] },
+    ]),
+  )
+  for (const publicacion of recientes) {
+    const lunes = lunesDeLaSemana(Date.parse(publicacion.publicadoEn), zona)
+    const semana = porLunes.get(lunes) ?? { lunes, consultas: 0, clics: 0, publicaciones: [] }
+    semana.publicaciones.push(publicacion)
+    porLunes.set(lunes, semana)
+  }
+  const semanas = [...porLunes.values()]
+    .filter((semana) => semana.lunes >= desde)
+    .sort((a, b) => b.lunes.localeCompare(a.lunes))
 
   const ultimoDia = entrada.lecturas.reduce<string | null>(
     (ultimo, l) => (ultimo === null || l.dia > ultimo ? l.dia : ultimo),
@@ -423,12 +441,16 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     comparacion: reels.length === 0 ? null : panelDeComparacion(comparacion, entrada.pilares),
     semanas: semanas.map((semana) => ({
       titulo: `Semana del ${semanaDe(instanteLocal({ ...partesDe(semana.lunes), hora: 12, minuto: 0 }, zona), zona)}`,
-      reels: semana.reels.map((reel) => ({
-        piezaId: reel.piezaId,
-        titulo: reel.titulo,
-        pilar: pilarVisible(entrada.pilares, reel.pilar),
-        meta: metaDeReel(ultimas.get(reel.piezaId)),
-      })),
+      publicaciones: [...semana.publicaciones]
+        .sort(
+          (a, b) => Date.parse(a.publicadoEn) - Date.parse(b.publicadoEn) || ORDEN_DE_RED[a.red] - ORDEN_DE_RED[b.red],
+        )
+        .map((publicacion) => ({
+          clave: `${publicacion.red}:${publicacion.piezaId}`,
+          titulo: publicacion.titulo,
+          pilar: pilarVisible(entrada.pilares, publicacion.pilar),
+          meta: metaDeFila(publicacion, ultimas, ultimasLinkedin),
+        })),
       resumen: resumenDeSemana(semana.consultas, semana.clics),
     })),
   }

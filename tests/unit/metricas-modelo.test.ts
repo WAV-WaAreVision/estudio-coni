@@ -322,15 +322,37 @@ describe("construirMetricas", () => {
     ])
     const semana = modelo.semanas[1]
     expect(semana?.resumen).toBe("1 consulta · 8 toques en tu link")
-    expect(semana?.reels).toEqual([
+    expect(semana?.publicaciones).toEqual([
       {
-        piezaId: "a",
+        clave: "instagram:a",
         titulo: "Si van a discutir",
         pilar: pilarVisible(PILARES_DE_PRUEBA, "pareja"),
-        meta: "121 guardados · 2.400 de alcance · en promedio se vio 24 s",
+        meta: "Instagram · 121 guardados · 2.400 de alcance · en promedio se vio 24 s",
       },
     ])
-    expect(modelo.semanas[0]?.reels[0]?.meta).toBe("Todavía sin números")
+    expect(modelo.semanas[0]?.publicaciones[0]?.meta).toBe("Instagram · Todavía sin números")
+  })
+
+  it("lists every publication of a week once per network, with the network and its numbers or «sin números»", () => {
+    const modelo = construirMetricas(
+      entrada({
+        publicaciones: [
+          publicada("a", null, "2026-10-13T22:00:00.000Z", "Las dos"),
+          enLinkedin("a", "2026-10-13T22:00:00.000Z", "Las dos"),
+          { ...publicada("b", null, "2026-10-14T22:00:00.000Z", "A mano"), aMano: true },
+          enLinkedin("c", "2026-10-14T23:00:00.000Z", "Sin números"),
+        ],
+        lecturas: [lectura("a", { guardados: 12, alcance: 2400, tiempoPromedio: null })],
+        lecturasLinkedin: [lecturaLinkedin("a", { comentarios: null, compartidos: null })],
+      }),
+    )
+
+    expect(modelo.semanas[0]?.publicaciones.map((f) => [f.clave, f.titulo, f.meta])).toEqual([
+      ["instagram:a", "Las dos", "Instagram · 12 guardados · 2.400 de alcance"],
+      ["linkedin:a", "Las dos", "LinkedIn · 1.200 impresiones · 14 reacciones"],
+      ["instagram:b", "A mano", "Instagram · sin números"],
+      ["linkedin:c", "Sin números", "LinkedIn · sin números"],
+    ])
   })
 
   it("leaves out weeks older than twelve", () => {
