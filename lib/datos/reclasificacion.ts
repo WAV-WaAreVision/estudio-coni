@@ -19,8 +19,33 @@ function falla(contexto: string, error: { message: string }): Error {
   return new Error(`${contexto}: ${error.message}`, { cause: error })
 }
 
+/** PostgREST cuts a response at its row limit (1000 here) without an error: read page by page until a short page. */
+const POR_PAGINA = 1000
+
+type Pagina<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+
+async function todasLasPaginas<T>(
+  leer: (desde: number, hasta: number) => Pagina<T>,
+  porPagina: number,
+  contexto: string,
+): Promise<T[]> {
+  const filas: T[] = []
+  let pagina: T[]
+  do {
+    const { data, error } = await leer(filas.length, filas.length + porPagina - 1)
+    if (error) throw falla(contexto, error)
+    pagina = data ?? []
+    filas.push(...pagina)
+  } while (pagina.length === porPagina)
+  return filas
+}
+
 /** Everything whose category is a retired pillar, `general` or none: what decision 4 re-classifies (amendment 1). */
-export async function leerElementosPorReclasificar(db: Db): Promise<ElementoLeido[]> {
+export async function leerElementosPorReclasificar(
+  db: Db,
+  opciones: { porPagina?: number } = {},
+): Promise<ElementoLeido[]> {
+  const porPagina = opciones.porPagina ?? POR_PAGINA
   const { data: categorias, error } = await db.from("categorias").select("id, slug, es_pilar, activa")
   if (error) throw falla("No pude leer las categorías", error)
   const slugPorId = new Map(categorias.map((c) => [c.id, c.slug]))
@@ -32,17 +57,43 @@ export async function leerElementosPorReclasificar(db: Db): Promise<ElementoLeid
   const antes = (id: string | null) => (id === null ? "" : (slugPorId.get(id) ?? ""))
 
   const [materiales, temas, teorias] = await Promise.all([
-    db.from("materiales").select("id, titulo, autor, categoria_id, fichas(resumen)").order("id"),
-    db.from("temas").select("id, nombre, descripcion, categoria_id").is("fusionado_en", null).order("id"),
-    db.from("teorias").select("id, titulo, tesis, categoria_id").eq("origen", "manual").order("id"),
+    todasLasPaginas(
+      (desde, hasta) =>
+        db
+          .from("materiales")
+          .select("id, titulo, autor, categoria_id, fichas(resumen)")
+          .order("id")
+          .range(desde, hasta),
+      porPagina,
+      "No pude leer los materiales",
+    ),
+    todasLasPaginas(
+      (desde, hasta) =>
+        db
+          .from("temas")
+          .select("id, nombre, descripcion, categoria_id")
+          .is("fusionado_en", null)
+          .order("id")
+          .range(desde, hasta),
+      porPagina,
+      "No pude leer los temas",
+    ),
+    todasLasPaginas(
+      (desde, hasta) =>
+        db
+          .from("teorias")
+          .select("id, titulo, tesis, categoria_id")
+          .eq("origen", "manual")
+          .order("id")
+          .range(desde, hasta),
+      porPagina,
+      "No pude leer las teorías",
+    ),
   ])
-  if (materiales.error) throw falla("No pude leer los materiales", materiales.error)
-  if (temas.error) throw falla("No pude leer los temas", temas.error)
-  if (teorias.error) throw falla("No pude leer las teorías", teorias.error)
   const recortar = (partes: (string | null | undefined)[]) => partes.filter(Boolean).join(". ").slice(0, MAXIMO_TEXTO)
 
   return [
-    ...materiales.data
+    ...materiales
       .filter((m) => porReclasificar(m.categoria_id))
       .map((m) => ({
         id: m.id,
@@ -50,7 +101,7 @@ export async function leerElementosPorReclasificar(db: Db): Promise<ElementoLeid
         antes: antes(m.categoria_id),
         texto: recortar([m.titulo, m.autor, m.fichas?.resumen]),
       })),
-    ...temas.data
+    ...temas
       .filter((t) => porReclasificar(t.categoria_id))
       .map((t) => ({
         id: t.id,
@@ -58,7 +109,7 @@ export async function leerElementosPorReclasificar(db: Db): Promise<ElementoLeid
         antes: antes(t.categoria_id),
         texto: recortar([t.nombre, t.descripcion]),
       })),
-    ...teorias.data
+    ...teorias
       .filter((t) => porReclasificar(t.categoria_id))
       .map((t) => ({
         id: t.id,

@@ -1,11 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk"
-import { HttpResponse, http } from "msw"
+import { HttpResponse, http, passthrough } from "msw"
 import { afterAll, describe, expect, it } from "vitest"
 import { aplicarReclasificacion, leerElementosPorReclasificar } from "@/lib/datos/reclasificacion"
 import { proponerReclasificacion } from "@/lib/pilares/proponer"
 import { servidor } from "../msw"
 import { CONI, pool } from "./db"
-import { clienteDeServicio } from "./servicio"
+import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 
 afterAll(async () => {
   await pool.query("delete from public.materiales where texto_pegado = 'siembra-reclasificar'")
@@ -100,6 +100,20 @@ describe("reclasificación de pilares", () => {
     const ids = (await leerElementosPorReclasificar(clienteDeServicio())).map((e) => e.id)
     expect(ids).toEqual(expect.arrayContaining([viejo, general]))
     expect(ids).not.toContain(nuevo)
+  })
+
+  it("reads every page, so nothing is cut at the API's row limit", async () => {
+    const sembrados = await materialesEn("pareja", 3)
+    let paginas = 0
+    servidor.use(
+      http.get(`${credencialesDeServicio().url}/rest/v1/materiales`, () => {
+        paginas += 1
+        return passthrough()
+      }),
+    )
+    const ids = (await leerElementosPorReclasificar(clienteDeServicio(), { porPagina: 2 })).map((e) => e.id)
+    expect(ids).toEqual(expect.arrayContaining(sembrados))
+    expect(paginas).toBeGreaterThanOrEqual(2)
   })
 
   it("proposes through Claude under the monthly cap and writes nothing to the items", async () => {
