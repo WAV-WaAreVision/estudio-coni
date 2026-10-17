@@ -105,6 +105,7 @@ describe("armarAnotacion", () => {
     expect(armarAnotacion([{ piezaId: "a", titulo: "Si van", campos: { ...vacio, impresiones: "5" } }], "")).toEqual({
       ok: false,
       error: "Completa los cuatro números de «Si van» o déjalos todos vacíos.",
+      campo: { piezaId: "a", campo: "reacciones" },
     })
   })
 
@@ -112,6 +113,7 @@ describe("armarAnotacion", () => {
     expect(armarAnotacion([{ piezaId: "a", titulo: "Si van", campos: { ...lleno, reacciones: "14a" } }], "")).toEqual({
       ok: false,
       error: "Las cifras de «Si van» van como número, sin letras ni signos.",
+      campo: { piezaId: "a", campo: "reacciones" },
     })
   })
 
@@ -119,6 +121,7 @@ describe("armarAnotacion", () => {
     expect(armarAnotacion([], "mil")).toEqual({
       ok: false,
       error: "Los seguidores van como un número, sin letras.",
+      campo: "seguidores",
     })
     expect(armarAnotacion([{ piezaId: "a", titulo: "A", campos: vacio }], "")).toEqual({
       ok: false,

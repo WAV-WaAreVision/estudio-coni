@@ -9,6 +9,7 @@ import {
   type Anotacion,
   armarAnotacion,
   CAMPOS_DE_POST,
+  type CampoConError,
   type CamposDePost,
   leerCifra,
   type NumerosDeLaSemana,
@@ -65,10 +66,21 @@ export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, al
   )
   const [campos, setCampos] = useState<Record<string, CamposDePost>>({})
   const id = useId()
+  const idDelError = `${id}-error`
+  const conError = (piezaId: string, campo: keyof CamposDePost) =>
+    typeof invalido?.campo === "object" && invalido.campo.piezaId === piezaId && invalido.campo.campo === campo
+  /** The field the error is about says so, and is described by the error (the error itself is an alert). */
+  const marcaDeError = (marcado: boolean, ayuda: string | null = null) => {
+    const descripcion = [marcado ? idDelError : null, ayuda].filter((parte) => parte !== null).join(" ")
+    return {
+      "aria-invalid": marcado ? true : undefined,
+      "aria-describedby": descripcion === "" ? undefined : descripcion,
+    }
+  }
   const valores = (piezaId: string) => campos[piezaId] ?? guardados[piezaId] ?? VACIOS
   const [textoDeSeguidores, setTextoDeSeguidores] = useState(comoTexto(seguidores))
   const [seguidoresGuardados, setSeguidoresGuardados] = useState(seguidores)
-  const [invalido, setInvalido] = useState<string | null>(null)
+  const [invalido, setInvalido] = useState<{ error: string; campo?: CampoConError } | null>(null)
   const [guardado, setGuardado] = useState<string | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
 
@@ -90,7 +102,7 @@ export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, al
       seguidoresAutomaticos || leerCifra(textoDeSeguidores) === seguidoresGuardados ? "" : textoDeSeguidores,
     )
     if (!armada.ok) {
-      setInvalido(armada.error)
+      setInvalido({ error: armada.error, campo: armada.campo })
       return
     }
     setInvalido(null)
@@ -136,6 +148,7 @@ export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, al
                       autoComplete="off"
                       aria-label={`${etiqueta} de ${post.titulo}`}
                       value={valores(post.piezaId)[campo]}
+                      {...marcaDeError(conError(post.piezaId, campo))}
                       onChange={(evento) => cambiar(post.piezaId, campo, evento.target.value)}
                       className={CAMPO}
                     />
@@ -155,7 +168,10 @@ export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, al
             autoComplete="off"
             value={textoDeSeguidores}
             readOnly={seguidoresAutomaticos}
-            aria-describedby={seguidoresAutomaticos ? `${id}-seguidores-automaticos` : undefined}
+            {...marcaDeError(
+              invalido?.campo === "seguidores",
+              seguidoresAutomaticos ? `${id}-seguidores-automaticos` : null,
+            )}
             onChange={(evento) => {
               setGuardado(null)
               setTextoDeSeguidores(evento.target.value)
@@ -169,7 +185,11 @@ export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, al
           </span>
         ) : null}
       </div>
-      {invalido ? <LineaDeEstado tipo="error" titulo={invalido} /> : null}
+      {invalido ? (
+        <div id={idDelError}>
+          <LineaDeEstado tipo="error" titulo={invalido.error} />
+        </div>
+      ) : null}
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {guardado ? <LineaDeEstado tipo="exito" titulo={guardado} /> : null}
       <Boton type="submit" variante="secundario" cargando={pendiente}>

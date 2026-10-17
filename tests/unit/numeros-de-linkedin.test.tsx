@@ -48,9 +48,14 @@ describe("NumerosDeLinkedin", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar números" }))
 
     expect(alGuardar).not.toHaveBeenCalled()
-    expect(
-      screen.getByText("Completa los cuatro números de «Si van a discutir» o déjalos todos vacíos."),
-    ).toBeInTheDocument()
+    const aviso = screen.getByRole("alert")
+    expect(aviso).toHaveTextContent("Completa los cuatro números de «Si van a discutir» o déjalos todos vacíos.")
+    const campo = screen.getByLabelText("Reacciones de Si van a discutir")
+    expect(campo).toHaveAttribute("aria-invalid", "true")
+    expect(campo).toHaveAccessibleDescription(
+      "Completa los cuatro números de «Si van a discutir» o déjalos todos vacíos.",
+    )
+    expect(screen.getByLabelText("Impresiones de Si van a discutir")).not.toHaveAttribute("aria-invalid")
   })
 
   it("says when there is no LinkedIn post in the last four weeks and keeps the followers it knows", () => {

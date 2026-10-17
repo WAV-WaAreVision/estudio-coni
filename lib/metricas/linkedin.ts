@@ -98,34 +98,50 @@ export function leerCifra(texto: string): number | null | "invalida" {
   return Number(limpio.replaceAll(".", ""))
 }
 
+/** The field an error points at: one figure of a post, or the followers. */
+export type CampoConError = { piezaId: string; campo: keyof CamposDePost } | "seguidores"
+
 export function armarAnotacion(
   posts: readonly { piezaId: string; titulo: string; campos: CamposDePost }[],
   seguidores: string,
-): { ok: true; anotacion: Anotacion } | { ok: false; error: string } {
+): { ok: true; anotacion: Anotacion } | { ok: false; error: string; campo?: CampoConError } {
   const listos: NumerosDePost[] = []
   for (const post of posts) {
     if (CAMPOS_DE_POST.every(({ campo }) => post.campos[campo].trim() === "")) continue
     const numeros: Partial<Record<keyof CamposDePost, number>> = {}
+    let vacio: keyof CamposDePost | null = null
     for (const { campo } of CAMPOS_DE_POST) {
       const cifra = leerCifra(post.campos[campo])
       if (cifra === "invalida") {
-        return { ok: false, error: `Las cifras de «${post.titulo}» van como número, sin letras ni signos.` }
+        return {
+          ok: false,
+          error: `Las cifras de «${post.titulo}» van como número, sin letras ni signos.`,
+          campo: { piezaId: post.piezaId, campo },
+        }
       }
-      if (cifra !== null) numeros[campo] = cifra
+      if (cifra === null) vacio ??= campo
+      else numeros[campo] = cifra
     }
     const { impresiones, reacciones, comentarios, compartidos } = numeros
     if (
+      vacio !== null ||
       impresiones === undefined ||
       reacciones === undefined ||
       comentarios === undefined ||
       compartidos === undefined
     ) {
-      return { ok: false, error: `Completa los cuatro números de «${post.titulo}» o déjalos todos vacíos.` }
+      return {
+        ok: false,
+        error: `Completa los cuatro números de «${post.titulo}» o déjalos todos vacíos.`,
+        campo: { piezaId: post.piezaId, campo: vacio ?? "impresiones" },
+      }
     }
     listos.push({ piezaId: post.piezaId, impresiones, reacciones, comentarios, compartidos })
   }
   const cuenta = leerCifra(seguidores)
-  if (cuenta === "invalida") return { ok: false, error: "Los seguidores van como un número, sin letras." }
+  if (cuenta === "invalida") {
+    return { ok: false, error: "Los seguidores van como un número, sin letras.", campo: "seguidores" }
+  }
   if (listos.length === 0 && cuenta === null) return { ok: false, error: "Anota al menos un post o los seguidores." }
   return { ok: true, anotacion: { posts: listos, seguidores: cuenta } }
 }
