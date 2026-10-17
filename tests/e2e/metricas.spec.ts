@@ -1,7 +1,13 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { capturar } from "./ayudas"
+import {
+  marcarPublicacion,
+  quitarPublicacion,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
+import { abrirDesplegable, capturar } from "./ayudas"
 
 const HOY_EN_SANTIAGO = "(now() at time zone 'America/Santiago')::date"
 
@@ -9,6 +15,7 @@ async function limpiar() {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
+  await pool.query("delete from public.metricas_linkedin_cuenta")
 }
 
 test.beforeEach(limpiar)
@@ -173,4 +180,37 @@ test("warns when the morning reading did not arrive and shows the last one it ha
 
   await expect(page.getByText(/^No pude traer las métricas de hoy; muestro las del /)).toBeVisible()
   await expect(page.getByText("10 guardados de 1.000 personas")).toBeVisible()
+})
+
+test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what worked", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Lo que firma un modelo" })
+  const id = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo", idea_id: idea })
+  await quitarPublicacion(id, "instagram")
+  await marcarPublicacion(id, "linkedin")
+  await moverLaHoraAprobada(id, 2)
+
+  await page.goto("/metricas")
+  await expect(page.getByRole("heading", { name: "LinkedIn" })).toBeVisible()
+  await expect(page.getByText("sin números").first()).toBeVisible()
+
+  await abrirDesplegable(page, "Para WAV")
+  await page.getByLabel("Impresiones de Lo que firma un modelo").fill("1.200")
+  await page.getByLabel("Reacciones de Lo que firma un modelo").fill("14")
+  await page.getByLabel("Comentarios de Lo que firma un modelo").fill("3")
+  await page.getByLabel("Compartidos de Lo que firma un modelo").fill("1")
+  await page.getByLabel("Seguidores esta semana").fill("830")
+  await page.getByRole("button", { name: "Guardar números" }).click()
+
+  await expect(page.getByText("Guardado: 1 post.")).toBeVisible()
+  await expect(
+    page.getByText("Todos los posts de las últimas 4 semanas ya tienen sus números de esta semana."),
+  ).toBeVisible()
+  await expect(page.getByText("1.200", { exact: true })).toBeVisible()
+  await expect(page.getByText("14 reacciones · 3 comentarios · 1 vez compartido").first()).toBeVisible()
+  const { rows } = await pool.query(
+    "select origen, anotado_por is not null as sellado from public.metricas_linkedin where pieza_id = $1",
+    [id],
+  )
+  expect(rows).toEqual([{ origen: "manual", sellado: true }])
+  await capturar(page, "metricas-linkedin-anotado")
 })
