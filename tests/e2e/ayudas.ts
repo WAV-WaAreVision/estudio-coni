@@ -219,3 +219,15 @@ export async function conectarLinkedin() {
     "update public.ajustes set linkedin_miembro = 'urn:li:person:abc123XYZ', linkedin_nombre = 'Coni del Rosario', linkedin_conectado_en = now(), linkedin_token_expira_en = now() + interval '9 days 12 hours'",
   )
 }
+
+/**
+ * Decision 6 at the accessibility sizes: the root at 212.5 % (34 px, under 18 rem across a 390 px phone), then the head
+ * script's check again, as iOS triggers it when the app comes back with a new text size.
+ */
+export async function conLetraGrande(page: Page): Promise<void> {
+  // The screen streams in after its loading state: what is measured at large text is the screen, not the skeleton.
+  await expect(page.getByRole("status", { name: "Cargando" })).toHaveCount(0)
+  await page.addStyleTag({ content: "html { font-size: 212.5% !important }" })
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")))
+  await expect(page.locator("html")).toHaveAttribute("data-letra", "grande")
+}

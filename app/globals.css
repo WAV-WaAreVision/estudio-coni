@@ -448,6 +448,76 @@ body {
   }
 }
 
+/* ---------- Large text (decision 6): the head script sets data-letra="grande" when fewer than 18 rem fit across.
+   Unlayered, so these beat the sticky and size utilities. ---------- */
+html[data-letra="grande"] {
+  --pulgar-firma: 2.25rem;
+  --pista-firma: 3rem;
+  --hueco-etiqueta: 0.6rem;
+}
+/* A long word wraps instead of pushing the page sideways (WCAG 1.4.10). */
+html[data-letra="grande"] body {
+  overflow-wrap: anywhere;
+}
+html[data-letra="grande"] .barra-de-firma {
+  position: static;
+  margin: 24px 0 calc(16px + env(safe-area-inset-bottom));
+  padding-bottom: 14px;
+  border-radius: var(--r-barra);
+  box-shadow: var(--relieve);
+}
+html[data-letra="grande"] .nav-inferior {
+  position: static;
+  margin: 0 12px calc(12px + env(safe-area-inset-bottom));
+  padding-bottom: 8px;
+  border-radius: var(--r-panel);
+  box-shadow: var(--relieve);
+}
+html[data-letra="grande"] .nav-inferior a {
+  min-height: 2.75rem;
+}
+html[data-letra="grande"] .nav-inferior svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+/* Hidden, still the accessible name of each tab (iOS's Large Content Viewer does not reach web content). */
+html[data-letra="grande"] .nav-etiqueta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+html[data-letra="grande"] h1.text-pantalla {
+  font-size: 1.5rem;
+}
+html[data-letra="grande"] .pildora {
+  align-items: flex-start;
+  border-radius: 20px;
+}
+html[data-letra="grande"] .video-puerta {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+}
+html[data-letra="grande"] .insignia-video {
+  font-size: 0.75rem;
+}
+html[data-letra="grande"] .aviso[data-lugar] {
+  top: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  flex-wrap: wrap;
+}
+html[data-letra="grande"] .aviso > span {
+  flex-basis: 100%;
+}
+html[data-letra="grande"] .aviso > button {
+  margin-left: auto;
+}
+
 /* Fields sink (decision 4): a 3.25rem pill for one line; a text area has 24 px corners and grows with its text. In the
    components layer so a utility can still adjust one. */
 @layer components {
