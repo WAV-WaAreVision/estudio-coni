@@ -3,15 +3,21 @@
 > Lo que el agente lee antes de escribir cualquier guion. Coni puede editar este archivo cuando quiera:
 > es el "brief" permanente de su canal. El contexto biográfico está en `../perfil-coni-del-rosario.md`.
 
+## Audiencia y postura
+
+- Coni publica sobre todo en LinkedIn, para colegas: psicólogos, médicos y el ecosistema de salud mental y tecnología. El mismo contenido va en video a Instagram.
+- Postura: adopción responsable de la IA con criterio clínico, ni entusiasta ni alarmista. Coni lee la evidencia como psicóloga y usa su propio avatar como caso transparente.
+- La sexología no tiene pilar propio: aparece como mirada dentro de los pilares, por ejemplo la IA y la salud sexual o el sesgo de género en los modelos.
+
 ## Pilares (rotar para no repetir)
 
-| Pilar | De qué se trata | Ejemplos de gancho |
+| Pilar | De qué se trata | Ejemplo de gancho |
 |---|---|---|
-| **Pareja y conversación** | Relaciones inteligentes: acuerdos, conflictos, celos, rutina. | "La pelea no es el problema. El problema es cómo termina." |
-| **Deseo y sexualidad** | Educación sexual adulta, deseo en parejas largas, placer compartido. Siempre con encuadre educativo. | "El deseo no se apaga: se esconde." |
-| **Autoestima y "ser tu propia diosa"** | Autocuidado, culpa, mandatos culturales sobre las mujeres. | "¿Cuándo fue la última vez que te elegiste a ti primero?" |
-| **Género y límites** | Consentimiento, límites, violencia simbólica. Tono firme y cuidadoso. | "Un 'no' no necesita explicación." |
-| **Bienestar emocional** | Inteligencia emocional, ansiedad en vínculos, regulación. | "Lo que sientes no se equivoca. Lo que haces con eso, a veces sí." |
+| **IA y salud mental** | Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos. | "Una de cada cuatro personas ya usa IA para su salud mental." |
+| **Práctica clínica aumentada** | Cómo cambia la consulta: herramientas, cuándo sí y cuándo no, y el rol del vínculo terapéutico. | "La IA en terapia debería aprender como los autos autónomos." |
+| **Ética y regulación** | Consentimiento, privacidad, sesgos, responsabilidad profesional y regulación en Chile y el mundo. | "Las apps de bienestar emocional reciben datos de salud y casi nadie las regula." |
+| **Acceso y salud pública** | Brechas de atención, escala, equidad, y salud mental en el trabajo y la educación. | "Hay muy pocos profesionales de salud mental por persona, y los chatbots llenan ese hueco." |
+| **Caso Coni: humana + avatar** | Su propio experimento: qué aprende usando un avatar con transparencia y qué funciona y qué no. | "Uso un avatar de IA para divulgar. Esto es lo que decidí no delegarle." |
 
 ## Formatos que funcionan
 
@@ -37,6 +43,7 @@
 
 ## Reglas que no se negocian
 
+- **Fuentes:** la autoridad se respalda. En LinkedIn la fuente se cita dentro del texto (autor y obra, y el año si se sabe); en Instagram la publicación lleva la línea «Fuente:» antes del aviso de avatar; el guion hablado nunca nombra autores.
 - **Transparencia:** el video no lo dice en voz alta, pero el texto de cada publicación dice que es un
   avatar digital, y en Instagram se activa la etiqueta "Información de IA" (Meta la exige para videos
   realistas hechos con IA).
