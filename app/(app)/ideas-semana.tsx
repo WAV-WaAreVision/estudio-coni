@@ -3,7 +3,6 @@
 import { ArrowRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useCallback, useState, useTransition } from "react"
-import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
@@ -36,12 +35,12 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
 
   if (ideas.length === 0) {
     return (
-      <Seccion titulo="Ideas de la semana" id="ideas-titulo">
+      <div className="grid gap-3">
         <p className="text-cuerpo text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
         <Link href="/ideas" className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}>
           Escribir una idea
         </Link>
-      </Seccion>
+      </div>
     )
   }
 
@@ -68,7 +67,10 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   }
 
   return (
-    <Seccion titulo="Ideas de la semana" id="ideas-titulo" cifra={`${cuantas} de ${MAXIMO_DE_IDEAS}`}>
+    <div className="grid gap-3">
+      <p className="mx-0.5 text-meta text-apagado tabular-nums">
+        {cuantas} de {MAXIMO_DE_IDEAS}
+      </p>
       <ul>
         {ideas.map((idea) => {
           const marcada = elegidas.includes(idea.id)
@@ -103,6 +105,6 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       </p>
       <FilaNavegacion href="/ideas">Ver todas las ideas</FilaNavegacion>
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} /> : null}
-    </Seccion>
+    </div>
   )
 }

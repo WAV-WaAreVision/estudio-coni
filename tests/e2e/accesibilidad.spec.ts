@@ -55,12 +55,23 @@ async function rutas(): Promise<string[]> {
  * the rest.
  */
 async function abrirPliegues(page: Page, ruta: string): Promise<void> {
+  if (ruta === "/") {
+    await abrirPlieguesDeInicio(page)
+    return
+  }
   if (!ruta.startsWith("/guion/")) return
   await abrirDesplegable(page, "Editar el guion")
   await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible()
   // With no looks to choose and no LinkedIn text there is no "Más opciones" to open.
   if ((await page.locator("summary", { hasText: "Más opciones" }).count()) > 0)
     await abrirDesplegable(page, "Más opciones")
+}
+
+/** Inicio folds the week's ideas and the consultations: a folded control is skipped by axe and by the size audit. */
+async function abrirPlieguesDeInicio(page: Page): Promise<void> {
+  await abrirDesplegable(page, "Elegir ideas de la semana")
+  await abrirDesplegable(page, "Consultas")
+  await expect(page.getByRole("button", { name: "Llegó una consulta" })).toBeVisible()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -200,6 +211,7 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
 
     // The toast, portalled to <body>, above the bottom nav.
     await page.goto("/")
+    await abrirDesplegable(page, "Consultas")
     await page.getByRole("button", { name: "Llegó una consulta" }).click()
     await expect(page.getByRole("status").filter({ hasText: /^Anotada\./ })).toBeVisible()
     hallazgos.push(...(await hallazgosDeAxe(page, "aviso")))
@@ -208,4 +220,19 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
   } finally {
     await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(anterior?.produccion ?? {})])
   }
+})
+
+// Lote 5: Inicio with a failure (the large block holds the one primary), a signable piece (the card) and both folds open.
+test("Inicio with a failure, a piece to sign and its folds open passes WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await sembrarEscena()
+  await sembrarPieza("en_render", {
+    estado: "error_produccion",
+    estado_antes_del_error: "en_render",
+    explicacion: "HeyGen no pudo terminar el video",
+  })
+  await page.goto("/")
+  await expect(page.getByRole("alert")).toContainText("No pude terminar el video.")
+  await abrirPlieguesDeInicio(page)
+  expect(await hallazgosDeAxe(page, "inicio con falla")).toEqual([])
 })
