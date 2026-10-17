@@ -4,6 +4,9 @@ Status: approved by Federico on 2026-10-15 (path A, automatic voice, listen-comp
 flow of `2026-10-04-conidolly-aprobar-voz-video-design.md` (Aprobar guion / Grabar voz / Grabar video) for new pieces;
 everything else in that design (voice keys and reuse, balances, live refresh, `grabar-voz` task) stays.
 
+Status update (2026-10-16): the copy of section 6 is superseded by `2026-10-16-conidolly-soft-ui-design.md`
+(decisions 9, 10 and 17); the rules of the undo window stay as written here.
+
 ## Problem
 
 Since 2026-10-04 every piece needs three visits from Coni: approve the script (gate 1), come back to record the voice,

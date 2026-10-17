@@ -74,7 +74,7 @@ antes de pedir, sin entusiasmo artificial.
 
 - WCAG 2.2 AA como piso, con contraste verificado para cada par de colores.
 - Letra grande por defecto: texto base de 18 px, botones principales de 52 px, objetivos táctiles de
-  44 px o más. Aprobar nunca depende solo de un gesto (WCAG 2.5.7): el deslizador lleva botón.
+  44 px o más. Aprobar nunca depende solo de un gesto: se firma también con dos toques o con el teclado.
 - Respeta el tamaño de texto del sistema (iOS) y la preferencia de reducir movimiento.
 - El color nunca es la única señal: cada estado lleva texto o ícono.
 - Escritorio: columna de lectura máxima de 560 px; las vistas de WAV pueden ser más densas.
