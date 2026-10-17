@@ -1935,6 +1935,7 @@ export type Database = {
           p_paso: string
           p_pieza: string
           p_proveedor: string
+          p_reabrir?: boolean
         }
         Returns: {
           clave: string

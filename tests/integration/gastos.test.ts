@@ -289,3 +289,74 @@ describe("liberar sin cobro", () => {
     })
   })
 })
+
+describe("reabrir una reserva liberada", () => {
+  const reabrir = (c: pg.PoolClient, clave: string, monto: number) =>
+    c.query<Reserva>(`select ${COLUMNAS} from public.reservar_gasto(null, 'elevenlabs', 'voz', $1, $2, now(), true)`, [
+      monto,
+      clave,
+    ])
+
+  it("reopens a released key as reserved, at the new estimate, without sin_cobro", async () => {
+    await como(comoServicio, async (c) => {
+      const primera = await reservar(c, "clave-reabrir", 1)
+      await c.query("select public.liberar_gasto('clave-reabrir', true)")
+
+      const { rows } = await reabrir(c, "clave-reabrir", 2)
+
+      expect(rows[0]).toMatchObject({
+        id: primera.id,
+        clave: "clave-reabrir",
+        estado: "reservado",
+        estimado: 2,
+        real: null,
+      })
+      const { rows: marca } = await c.query("select sin_cobro from public.gastos where clave = 'clave-reabrir'")
+      expect(marca).toEqual([{ sin_cobro: false }])
+    })
+  })
+
+  it("restarts the creation time so the sweeper's hour starts again", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-reloj", 1)
+      await c.query("update public.gastos set creado_en = now() - interval '3 hours' where clave = 'clave-reloj'")
+      await c.query("select public.liberar_gasto('clave-reloj', true)")
+      await reabrir(c, "clave-reloj", 1)
+      const { rows } = await c.query<{ reciente: boolean }>(
+        "select creado_en > now() - interval '1 minute' as reciente from public.gastos where clave = 'clave-reloj'",
+      )
+      expect(rows).toEqual([{ reciente: true }])
+    })
+  })
+
+  it("checks the cap again before reopening", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-tope", 1)
+      await c.query("select public.liberar_gasto('clave-tope', true)")
+      await reservar(c, "clave-llena", 39.5)
+      const err = await fallaCon(
+        c,
+        "select public.reservar_gasto(null, 'elevenlabs', 'voz', 1, 'clave-tope', now(), true)",
+      )
+      expect(err.message).toBe("tope_alcanzado")
+    })
+  })
+
+  it("returns a released key unchanged when reopening is not asked", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-cerrada", 1)
+      await c.query("select public.liberar_gasto('clave-cerrada')")
+      const otra = await reservar(c, "clave-cerrada", 1)
+      expect(otra.estado).toBe("liberado")
+    })
+  })
+
+  it("never reopens a confirmed key", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-confirmada", 1)
+      await c.query("select public.confirmar_gasto('clave-confirmada', 1)")
+      const { rows } = await reabrir(c, "clave-confirmada", 1)
+      expect(rows[0]).toMatchObject({ estado: "confirmado", real: 1 })
+    })
+  })
+})

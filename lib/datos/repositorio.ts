@@ -163,6 +163,8 @@ export async function reservarGasto(
     estimadoUsd: number
     clave: string
     ahora: string
+    /** Reopen a released key (only the voice, whose release means "refused, not charged"). */
+    reabrir?: boolean
   },
 ): Promise<Reserva> {
   const { data, error } = await db.rpc("reservar_gasto", {
@@ -172,6 +174,7 @@ export async function reservarGasto(
     p_estimado: reserva.estimadoUsd,
     p_clave: reserva.clave,
     p_ahora: reserva.ahora,
+    p_reabrir: reserva.reabrir ?? false,
   })
   return resultadoDeReserva(error, data)
 }
