@@ -227,7 +227,7 @@ function metaDeFila(
     const lectura = ultimasLinkedin.get(publicacion.piezaId)
     if (!lectura || lectura.impresiones === null) return `${red} · ${SIN_NUMEROS}`
     const muestra = muestraDeLinkedin(lectura)
-    return `${red} · ${numero(lectura.impresiones)} impresiones${muestra ? ` · ${muestra}` : ""}`
+    return `${red} · ${plural(lectura.impresiones, "impresión", "impresiones")}${muestra ? ` · ${muestra}` : ""}`
   }
   if (publicacion.aMano) return `${red} · ${SIN_NUMEROS}`
   return `${red} · ${metaDeReel(ultimas.get(publicacion.piezaId))}`
@@ -377,9 +377,12 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         pilar: pilarActivo(entrada.pilares, pieza.pilar),
         valor,
         ancho: anchoDe(valor, maximoLinkedin),
-        texto: valor === null ? SIN_NUMEROS : `${numero(valor)} impresiones${muestra ? ` · ${muestra}` : ""}`,
+        texto:
+          valor === null
+            ? SIN_NUMEROS
+            : `${plural(valor, "impresión", "impresiones")}${muestra ? ` · ${muestra}` : ""}`,
         cifra: valor === null ? null : numero(valor),
-        unidad: "impresiones",
+        unidad: valor === 1 ? "impresión" : "impresiones",
         muestra,
         reelsDelTema: 0,
       }

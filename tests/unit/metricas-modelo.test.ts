@@ -112,6 +112,21 @@ describe("construirMetricas", () => {
     expect(linkedin?.barras.every((b) => b.reelsDelTema === 0)).toBe(true)
   })
 
+  it("says «1 impresión» in the singular on the bar and in the week", () => {
+    const modelo = construirMetricas(
+      entrada({
+        publicaciones: [enLinkedin("a", "2026-10-13T22:00:00.000Z")],
+        lecturasLinkedin: [
+          lecturaLinkedin("a", { impresiones: 1, reacciones: null, comentarios: null, compartidos: null }),
+        ],
+      }),
+    )
+
+    const barra = modelo.grupos[0]?.barras[0]
+    expect([barra?.cifra, barra?.unidad, barra?.texto]).toEqual(["1", "impresión", "1 impresión"])
+    expect(modelo.semanas[0]?.publicaciones[0]?.meta).toBe("LinkedIn · 1 impresión")
+  })
+
   it("lists a manual upload and a post without numbers as «sin números», without a bar", () => {
     const modelo = construirMetricas(
       entrada({
