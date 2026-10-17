@@ -430,6 +430,17 @@ html[data-letra="grande"] .etiqueta-de-firma-corta {
 html[data-letra="grande"] body {
   overflow-wrap: anywhere;
 }
+/* A button's label keeps its words whole (a word still breaks if it alone is wider than the line): the price or the
+   icon beside it moves to the next line instead of squeezing the label to "Prepar / ar". */
+html[data-letra="grande"] button:has(> .etiqueta-de-boton) {
+  flex-wrap: wrap;
+  /* Two or three lines in a pill would run into its round ends. */
+  border-radius: var(--r-panel);
+  padding-block: var(--e-3);
+}
+html[data-letra="grande"] .etiqueta-de-boton {
+  overflow-wrap: break-word;
+}
 html[data-letra="grande"] .barra-de-firma {
   position: static;
   margin: 24px 0 calc(16px + env(safe-area-inset-bottom));
