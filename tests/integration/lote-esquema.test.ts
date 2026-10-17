@@ -218,14 +218,15 @@ describe("proponer_fechas", () => {
     await como(comoPostgres, async (c) => {
       const [guion, video] = [await crearPiezaEn(c, "guion_por_aprobar"), await crearPiezaEn(c, "video_por_aprobar")]
       const [primera, segunda] = [EN_UN_MES(), EN_DOS_MESES()]
+      const tercera = new Date(Date.now() + 90 * 86_400_000).toISOString()
       await asumir(c, comoConi)
       await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [
         [guion, video],
-        [primera, primera],
+        [primera, segunda],
       ])
-      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[video], [segunda]])
+      await c.query("select public.proponer_fechas($1::uuid[], $2::timestamptz[])", [[video], [tercera]])
       expect(await propuestaDe(c, guion)).toBe(new Date(primera).toISOString())
-      expect(await propuestaDe(c, video)).toBe(new Date(segunda).toISOString())
+      expect(await propuestaDe(c, video)).toBe(new Date(tercera).toISOString())
     })
   })
 
@@ -308,6 +309,111 @@ describe("proponer_fechas", () => {
       await asumir(c, comoOtra)
       expect(await propuestaDe(c, id)).toBeNull()
     })
+  })
+})
+
+describe("proponer_fechas and the slots already held (A8)", () => {
+  const sql = "select public.proponer_fechas($1::uuid[], $2::timestamptz[])"
+
+  it("refuses a time less than 2 hours ahead", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      await asumir(c, comoConi)
+      const enUnaHora = new Date(Date.now() + 3_600_000).toISOString()
+      expect(await fallaCon(c, sql, [[id], [enUnaHora]])).toMatchObject({
+        code: "22023",
+        message: "propuesta_invalida",
+      })
+    })
+  })
+
+  it("refuses the time a scheduled piece has", async () => {
+    await como(comoPostgres, async (c) => {
+      const programada = await crearPiezaEn(c, "programado")
+      const id = await crearPiezaEn(c, "guion_por_aprobar")
+      const { rows } = await c.query<{ en: Date }>(
+        "select puerta2_publicar_en as en from public.piezas where id = $1",
+        [programada],
+      )
+      const tomada = rows[0]?.en.toISOString()
+      await asumir(c, comoConi)
+      expect(await fallaCon(c, sql, [[id], [tomada]])).toMatchObject({ message: "propuesta_invalida" })
+    })
+  })
+
+  it("refuses the time another piece's live proposal holds, and two pieces of one batch on one time", async () => {
+    await como(comoPostgres, async (c) => {
+      const [a, b] = [await crearPiezaEn(c, "guion_por_aprobar"), await crearPiezaEn(c, "video_por_aprobar")]
+      const hora = EN_UN_MES()
+      await asumir(c, comoConi)
+      await c.query(sql, [[a], [hora]])
+      expect(await fallaCon(c, sql, [[b], [hora]])).toMatchObject({ message: "propuesta_invalida" })
+      expect(
+        await fallaCon(c, sql, [
+          [a, b],
+          [EN_DOS_MESES(), EN_DOS_MESES()],
+        ]),
+      ).toMatchObject({
+        message: "propuesta_invalida",
+      })
+    })
+  })
+
+  it("lets a piece keep its own time or give it up in the same batch, and ignores a proposal no longer live", async () => {
+    await como(comoPostgres, async (c) => {
+      const [a, b] = [await crearPiezaEn(c, "guion_por_aprobar"), await crearPiezaEn(c, "video_por_aprobar")]
+      const programada = await crearPiezaEn(c, "programado")
+      const [hora, otra] = [EN_UN_MES(), EN_DOS_MESES()]
+      await asumir(c, comoConi)
+      await c.query(sql, [[a], [hora]])
+      await c.query(sql, [[a], [hora]])
+      await c.query(sql, [
+        [a, b],
+        [otra, hora],
+      ])
+      // A proposal left on a piece past gate 2 holds nothing.
+      await asumir(c, comoPostgres)
+      await c.query("insert into public.fechas_propuestas (pieza_id, publicar_en) values ($1, $2)", [programada, hora])
+      await c.query("delete from public.fechas_propuestas where pieza_id = $1", [b])
+      await asumir(c, comoConi)
+      await c.query(sql, [[b], [hora]])
+      expect(await propuestaDe(c, b)).toBe(new Date(hora).toISOString())
+    })
+  })
+
+  it("takes one lock, so two sessions never store the same time for two pieces", async () => {
+    const [a, b] = [await sembrarPieza("guion_por_aprobar"), await sembrarPieza("guion_por_aprobar")]
+    const hora = EN_UN_MES()
+    const primera = await pool.connect()
+    const segunda = await pool.connect()
+    try {
+      await primera.query("begin")
+      await asumir(primera, comoConi)
+      await primera.query(sql, [[a], [hora]])
+      await segunda.query("begin")
+      await asumir(segunda, comoConi)
+      const espera = segunda.query(sql, [[b], [hora]]).then(
+        () => "guardó",
+        (error: { message: string }) => error.message,
+      )
+      const antes = await Promise.race([espera, new Promise((r) => setTimeout(() => r("esperando"), 300))])
+      expect(antes).toBe("esperando")
+      await primera.query("commit")
+      expect(await espera).toBe("propuesta_invalida")
+    } finally {
+      await primera.query("rollback")
+      await segunda.query("rollback")
+      primera.release()
+      segunda.release()
+      const { rows } = await pool.query<{ idea_id: string | null }>(
+        "select idea_id from public.piezas where id = any($1)",
+        [[a, b]],
+      )
+      await borrarSembrado(
+        [a, b],
+        rows.flatMap((fila) => (fila.idea_id ? [fila.idea_id] : [])),
+      )
+    }
   })
 })
 

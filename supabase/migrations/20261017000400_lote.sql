@@ -120,6 +120,8 @@ begin
      or (select count(distinct p) from unnest(p_piezas) as p) <> cardinality(p_piezas) then
     raise exception using errcode = '22023', message = 'lote_invalido';
   end if;
+  -- One writer at a time (A8): two sessions that both read a time as free cannot both store it.
+  perform pg_advisory_xact_lock(hashtext('fechas_propuestas'));
   -- for share holds the pieces until this commits: gate 2 cannot sign one between the check and the insert, and a
   -- piece signed while this waited is re-read in its new state and fails the check.
   select count(*) into v_n
@@ -128,7 +130,19 @@ begin
              and p.estado in ('guion_en_proceso', 'guion_por_aprobar', 'guion_aprobado', 'grabando_voz', 'en_render',
                               'subtitulando', 'error_produccion', 'video_por_aprobar')
              for share) s;
-  if exists (select 1 from unnest(p_fechas) as f where f <= now()) or v_n <> cardinality(p_piezas) then
+  -- A8: at least 2 h ahead (the Agenda's margin), one piece per time, never a scheduled piece's time, never the time
+  -- another piece's live proposal holds. A proposal is live while its piece is before gate 2 and it is 2 h ahead; the
+  -- pieces of this call give theirs up, so a batch may swap times among them.
+  if exists (select 1 from unnest(p_fechas) as f where f < now() + interval '2 hours')
+     or (select count(distinct f) from unnest(p_fechas) as f) <> cardinality(p_fechas)
+     or exists (select 1 from public.piezas p where p.estado = 'programado' and p.puerta2_publicar_en = any (p_fechas))
+     or exists (select 1 from public.fechas_propuestas r join public.piezas p on p.id = r.pieza_id
+                 where r.publicar_en = any (p_fechas)
+                   and r.pieza_id <> all (p_piezas)
+                   and r.publicar_en >= now() + interval '2 hours'
+                   and p.estado in ('guion_en_proceso', 'guion_por_aprobar', 'guion_aprobado', 'grabando_voz',
+                                    'en_render', 'subtitulando', 'error_produccion', 'video_por_aprobar'))
+     or v_n <> cardinality(p_piezas) then
     raise exception using errcode = '22023', message = 'propuesta_invalida';
   end if;
   insert into public.fechas_propuestas (pieza_id, publicar_en)
