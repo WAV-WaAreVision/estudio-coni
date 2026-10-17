@@ -1,3 +1,5 @@
+import { type Fuente, fuentesCitadas } from "@/lib/dominio/fuente"
+
 /** One claim behind the theory of an engine idea, as the piece stores it. */
 export interface AfirmacionDeRespaldo {
   id: string
@@ -11,6 +13,8 @@ export interface AfirmacionDeRespaldo {
   deConi: boolean
   /** The author is a person (`autores.tipo = 'persona'`), as opposed to an account or an institution. */
   esPersona: boolean
+  /** Absent on backings stored before sources existed. */
+  fuente?: Fuente
 }
 
 /** What the script was written from: frozen on the piece when the draft is written. */
@@ -28,9 +32,11 @@ const porId = (a: AfirmacionDeRespaldo, b: AfirmacionDeRespaldo) => (a.id < b.id
 export function huellaDeRespaldo(respaldo: Respaldo | null): string {
   if (respaldo === null) return ""
   const { teoria } = respaldo
-  const afirmaciones = [...respaldo.afirmaciones]
-    .sort(porId)
-    .map((a) => [a.id, a.texto, a.cita, a.aporte, a.autor, a.deConi, a.esPersona])
+  const afirmaciones = [...respaldo.afirmaciones].sort(porId).map((a) => {
+    const base = [a.id, a.texto, a.cita, a.aporte, a.autor, a.deConi, a.esPersona]
+    // Only when present, so a backing stored before sources hashes exactly as before (amendment 12).
+    return a.fuente === undefined ? base : [...base, a.fuente.autor, a.fuente.titulo, a.fuente.anio]
+  })
   return JSON.stringify([teoria.id, teoria.titulo, teoria.tesis, teoria.porQue, afirmaciones])
 }
 
@@ -39,12 +45,14 @@ export function ajenoDelRespaldo(respaldo: Respaldo | null): {
   citas: string[]
   autores: string[]
   personas: string[]
+  citadas: string[]
 } {
   const ajenas = respaldo?.afirmaciones.filter((a) => !a.deConi) ?? []
   return {
     citas: ajenas.map((a) => a.cita),
     autores: [...new Set(ajenas.map((a) => a.autor))],
     personas: [...new Set(ajenas.filter((a) => a.esPersona).map((a) => a.autor))],
+    citadas: fuentesCitadas(respaldo?.afirmaciones ?? []).map((f) => f.autor),
   }
 }
 

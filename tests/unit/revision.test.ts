@@ -23,7 +23,7 @@ import {
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
-const SIN_AJENO = { citas: [], autores: [], personas: [] }
+const SIN_AJENO = { citas: [], autores: [], personas: [], citadas: [] }
 const CITA = "El deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días."
 
 // 91 words: inside the 75 to 150 range, ends with the fixed closing, no digits or symbols.
@@ -422,7 +422,7 @@ describe("revisarGuion con respaldo", () => {
     const hallazgos = revisar({
       guion: `${copia}. ${GUION}`,
       texto: `${copia}. ${TEXTO}`,
-      ajeno: { citas: [CITA], autores: [], personas: [] },
+      ajeno: { citas: [CITA], autores: [], personas: [], citadas: [] },
     })
     const copias = hallazgos.filter((h) => h.regla === "copia_de_fuente")
     expect(copias).toEqual([
@@ -439,7 +439,7 @@ describe("revisarGuion con respaldo", () => {
   it("warns when an author of the backing is named", () => {
     const hallazgos = revisar({
       guion: `Según Esther Perel, ${GUION}`,
-      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"] },
+      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"], citadas: [] },
     })
     expect(hallazgos.filter((h) => h.regla === "nombra_autor")).toEqual([
       {
@@ -840,7 +840,7 @@ describe("revisarTextoLinkedin", () => {
 
   describe("what comes from the backing", () => {
     it("warns when an author of the backing is named or a quote is copied", () => {
-      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [] }
+      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [], citadas: [] }
       const hallazgos = revisarLinkedin({
         texto: textoLinkedin({
           gancho: "Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.",

@@ -52,6 +52,8 @@ export interface Ajeno {
   autores: readonly string[]
   /** The authors of type persona: their surname alone also gives them away. */
   personas: readonly string[]
+  /** Authors of the cited sources: the caption and the LinkedIn text may name them. */
+  citadas: readonly string[]
 }
 
 interface Palabra {
