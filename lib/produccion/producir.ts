@@ -28,7 +28,14 @@ import {
   revisarGuion,
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
-import { aCuatroDecimales, avisarTope, explicar, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import {
+  aCuatroDecimales,
+  avisarTope,
+  ESTIMADO_GUION_CLAUDE_USD,
+  explicar,
+  piezaCambio,
+  TEXTO_TOPE,
+} from "@/lib/produccion/comun"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import {
   costoClaude,
@@ -56,8 +63,6 @@ export type ResultadoProduccion =
   | { resultado: "tope" }
   | { resultado: "rechazado" }
 
-// A script and its review fit well under this; the real cost is confirmed afterwards.
-const ESTIMADO_CLAUDE_USD = 0.5
 /**
  * One key per piece, step and script round (`intento` goes up when Coni asks for changes), so a Trigger.dev retry
  * of the same round finds its own reservation and a new round gets a new one.
@@ -259,7 +264,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     piezaId: fila.id,
     proveedor: "anthropic",
     paso: "guion",
-    estimadoUsd: ESTIMADO_CLAUDE_USD,
+    estimadoUsd: ESTIMADO_GUION_CLAUDE_USD,
     clave: claveClaude,
     ahora: deps.ahora(),
   })
