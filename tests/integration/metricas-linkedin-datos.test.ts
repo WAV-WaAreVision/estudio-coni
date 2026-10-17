@@ -54,7 +54,17 @@ describe("leerLinkedinParaAnotar", () => {
       [reciente, "Reciente", null],
       [anotado, "Anotado", 10],
     ])
-    expect(lista.seguidores).toBe(830)
+    expect([lista.seguidores, lista.seguidoresAutomaticos]).toEqual([830, false])
+  })
+
+  it("marks this week's followers from the API as not WAV's to change", async () => {
+    await pool.query(
+      "insert into public.metricas_linkedin_cuenta (semana, seguidores, origen) values ('2026-10-19', 900, 'api')",
+    )
+
+    const lista = await leerLinkedinParaAnotar(coni, LUNES)
+
+    expect([lista.seguidores, lista.seguidoresAutomaticos]).toEqual([900, true])
   })
 })
 

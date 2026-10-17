@@ -201,7 +201,7 @@ test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what
   await page.getByLabel("Seguidores esta semana").fill("830")
   await page.getByRole("button", { name: "Guardar números" }).click()
 
-  await expect(page.getByText("Guardado: 1 post.")).toBeVisible()
+  await expect(page.getByText("Guardado: 1 post y los seguidores.")).toBeVisible()
   // The post stays listed with what was saved, to be corrected this week.
   await expect(page.getByText("Anotado esta semana: puedes corregirlo.")).toBeVisible()
   await expect(page.getByLabel("Impresiones de Lo que firma un modelo")).toHaveValue("1.200")

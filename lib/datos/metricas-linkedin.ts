@@ -20,6 +20,8 @@ export interface LinkedinParaAnotar {
   posts: PostPorAnotar[]
   /** This week's followers, if already noted. */
   seguidores: number | null
+  /** They came from the API or Metricool: not WAV's to change by hand. */
+  seguidoresAutomaticos: boolean
 }
 
 /** What WAV notes or corrects this week. Read by Métricas (Coni's session) and the Monday reminder (service role). */
@@ -35,7 +37,7 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
     db
       .from("metricas_linkedin_ultima")
       .select("pieza_id, medido_en, origen, impresiones, reacciones, comentarios, compartidos"),
-    db.from("metricas_linkedin_cuenta").select("seguidores").eq("semana", semana).maybeSingle(),
+    db.from("metricas_linkedin_cuenta").select("seguidores, origen").eq("semana", semana).maybeSingle(),
   ])
   if (posts.error) throw fallo("No pude leer los posts de LinkedIn", posts.error)
   if (medidos.error) throw fallo("No pude leer los números de LinkedIn", medidos.error)
@@ -68,6 +70,7 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
       zona,
     }),
     seguidores: cuenta.data?.seguidores ?? null,
+    seguidoresAutomaticos: cuenta.data ? cuenta.data.origen !== "manual" : false,
   }
 }
 

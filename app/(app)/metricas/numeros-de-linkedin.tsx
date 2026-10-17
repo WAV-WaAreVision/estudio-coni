@@ -1,6 +1,6 @@
 "use client"
 
-import { type FormEvent, useState } from "react"
+import { type FormEvent, useId, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
@@ -10,6 +10,7 @@ import {
   armarAnotacion,
   CAMPOS_DE_POST,
   type CamposDePost,
+  leerCifra,
   type NumerosDeLaSemana,
   SEMANAS_POR_ANOTAR,
 } from "@/lib/metricas/linkedin"
@@ -26,6 +27,8 @@ interface PostEnLista {
 interface PropiedadesDeNumeros {
   posts: readonly PostEnLista[]
   seguidores: number | null
+  /** This week's followers came from the API or Metricool: shown, never sent. */
+  seguidoresAutomaticos: boolean
   alGuardar: (anotacion: Anotacion) => Promise<Resultado<{ anotados: number }>>
 }
 
@@ -44,17 +47,27 @@ function camposDe(numeros: NumerosDeLaSemana | null): CamposDePost {
   }
 }
 
+/** "Guardado: 1 post y los seguidores.": what went, in her words. */
+function mensajeDeGuardado(anotacion: Anotacion): string {
+  const posts = anotacion.posts.length
+  const deLosPosts = posts === 1 ? "1 post" : `${posts} posts`
+  if (anotacion.seguidores === null) return `Guardado: ${deLosPosts}.`
+  return posts === 0 ? "Guardado: los seguidores." : `Guardado: ${deLosPosts} y los seguidores.`
+}
+
 /**
  * Decision 19: WAV copies each post's four numbers from LinkedIn once a week, plus the followers. A post noted this week
  * shows its numbers and is sent again only when one is changed (a second save of the day replaces the row).
  */
-export function NumerosDeLinkedin({ posts, seguidores, alGuardar }: PropiedadesDeNumeros) {
+export function NumerosDeLinkedin({ posts, seguidores, seguidoresAutomaticos, alGuardar }: PropiedadesDeNumeros) {
   const [guardados, setGuardados] = useState<Record<string, CamposDePost>>(() =>
     Object.fromEntries(posts.map((post) => [post.piezaId, camposDe(post.estaSemana)])),
   )
   const [campos, setCampos] = useState<Record<string, CamposDePost>>({})
+  const id = useId()
   const valores = (piezaId: string) => campos[piezaId] ?? guardados[piezaId] ?? VACIOS
-  const [textoDeSeguidores, setTextoDeSeguidores] = useState(seguidores === null ? "" : String(seguidores))
+  const [textoDeSeguidores, setTextoDeSeguidores] = useState(comoTexto(seguidores))
+  const [seguidoresGuardados, setSeguidoresGuardados] = useState(seguidores)
   const [invalido, setInvalido] = useState<string | null>(null)
   const [guardado, setGuardado] = useState<string | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
@@ -73,19 +86,22 @@ export function NumerosDeLinkedin({ posts, seguidores, alGuardar }: PropiedadesD
         titulo: post.titulo,
         campos: campos[post.piezaId] ?? VACIOS,
       })),
-      textoDeSeguidores,
+      // Followers go only when WAV changed them, and never when they came from the API.
+      seguidoresAutomaticos || leerCifra(textoDeSeguidores) === seguidoresGuardados ? "" : textoDeSeguidores,
     )
     if (!armada.ok) {
       setInvalido(armada.error)
       return
     }
     setInvalido(null)
+    const { anotacion } = armada
     ejecutar(
-      () => alGuardar(armada.anotacion),
-      (resultado) => {
+      () => alGuardar(anotacion),
+      () => {
         setGuardados((anteriores) => ({ ...anteriores, ...campos }))
         setCampos({})
-        setGuardado(resultado.anotados === 1 ? "Guardado: 1 post." : `Guardado: ${resultado.anotados} posts.`)
+        if (anotacion.seguidores !== null) setSeguidoresGuardados(anotacion.seguidores)
+        setGuardado(mensajeDeGuardado(anotacion))
       },
     )
   }
@@ -130,20 +146,29 @@ export function NumerosDeLinkedin({ posts, seguidores, alGuardar }: PropiedadesD
           ))}
         </ul>
       )}
-      <label className="grid gap-1">
-        <span className="text-meta font-semibold">Seguidores esta semana</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          value={textoDeSeguidores}
-          onChange={(evento) => {
-            setGuardado(null)
-            setTextoDeSeguidores(evento.target.value)
-          }}
-          className={CAMPO}
-        />
-      </label>
+      <div className="grid gap-1">
+        <label className="grid gap-1">
+          <span className="text-meta font-semibold">Seguidores esta semana</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={textoDeSeguidores}
+            readOnly={seguidoresAutomaticos}
+            aria-describedby={seguidoresAutomaticos ? `${id}-seguidores-automaticos` : undefined}
+            onChange={(evento) => {
+              setGuardado(null)
+              setTextoDeSeguidores(evento.target.value)
+            }}
+            className={CAMPO}
+          />
+        </label>
+        {seguidoresAutomaticos ? (
+          <span id={`${id}-seguidores-automaticos`} className="text-meta text-apagado">
+            Los seguidores de esta semana llegaron solos; no se cambian a mano.
+          </span>
+        ) : null}
+      </div>
       {invalido ? <LineaDeEstado tipo="error" titulo={invalido} /> : null}
       {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {guardado ? <LineaDeEstado tipo="exito" titulo={guardado} /> : null}

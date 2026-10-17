@@ -153,6 +153,7 @@ export default async function Metricas() {
             estaSemana: post.estaSemana,
           }))}
           seguidores={paraAnotar.seguidores}
+          seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
           alGuardar={anotarNumerosDeLinkedinAccion}
         />
       </MasOpciones>
