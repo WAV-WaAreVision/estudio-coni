@@ -1,4 +1,3 @@
-import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { AgendaDelCalendario } from "@/components/agenda-del-calendario"
 import { FilaPieza } from "@/components/fila-pieza"
@@ -6,6 +5,8 @@ import { MesDelCalendario } from "@/components/mes-del-calendario"
 import { RitmoDelCalendario } from "@/components/ritmo-del-calendario"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { Grupo } from "@/components/ui/grupo"
+import { Volver } from "@/components/ui/volver"
 import { esVista, VistasDelCalendario } from "@/components/vistas-del-calendario"
 import { construirCalendario } from "@/lib/calendario/modelo"
 import { leerDatosDeCalendario } from "@/lib/datos/calendario"
@@ -21,14 +22,10 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
   return (
     <div>
       <header className="grid gap-1">
-        <Link
-          href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
-        >
-          <CaretLeft aria-hidden="true" size={20} />
-          Inicio
-        </Link>
-        <h1 className="text-pantalla capitalize">{calendario.mes.nombre}</h1>
+        <Volver href="/">Inicio</Volver>
+        <h1 data-snapshot="varia" className="text-pantalla capitalize">
+          {calendario.mes.nombre}
+        </h1>
       </header>
 
       <div className="mt-4">
@@ -43,14 +40,17 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           {calendario.mes.sinPublicaciones ? (
             <div className="mt-10 grid gap-2 py-1">
               <p className="text-cuerpo font-semibold">Nada programado este mes.</p>
-              <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+              <Link
+                href="/ideas"
+                className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
+              >
                 Elegir ideas
               </Link>
             </div>
           ) : null}
           {calendario.mes.porSubir.length > 0 ? (
             <Seccion titulo="Para subir" id="por-subir" cifra={calendario.mes.porSubir.length}>
-              <ul>
+              <Grupo lista>
                 {calendario.mes.porSubir.map((fila) => (
                   <FilaPieza
                     key={fila.piezaId}
@@ -60,12 +60,12 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
                     href={`/video/${fila.piezaId}`}
                   />
                 ))}
-              </ul>
+              </Grupo>
             </Seccion>
           ) : null}
           {calendario.mes.proximos.length > 0 ? (
             <Seccion titulo="Próximos" id="proximos" cifra={calendario.mes.proximos.length}>
-              <ul>
+              <Grupo plano lista>
                 {calendario.mes.proximos.map((proxima) => (
                   <FilaPieza
                     key={proxima.piezaId}
@@ -74,7 +74,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
                     pilar={proxima.pilar}
                   />
                 ))}
-              </ul>
+              </Grupo>
             </Seccion>
           ) : null}
         </>

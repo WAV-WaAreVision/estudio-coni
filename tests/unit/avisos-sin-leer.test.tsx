@@ -19,6 +19,12 @@ describe("AvisosSinLeer", () => {
     expect(screen.getByRole("heading", { name: "Avisos" })).toBeInTheDocument()
   })
 
+  it("lists the notices as rows of a raised group, each opening its piece", () => {
+    render(<AvisosSinLeer avisos={AVISOS} marcar={vi.fn(async () => ({ ok: true as const }))} />)
+    expect(screen.getByRole("list")).toHaveClass("bg-piedra", "shadow-relieve")
+    for (const enlace of screen.getAllByRole("link")) expect(enlace).toHaveClass("min-h-fila")
+  })
+
   it("marks the notice as read and then opens the piece it is about", async () => {
     const marcar = vi.fn(async () => ({ ok: true as const }))
     render(<AvisosSinLeer avisos={AVISOS} marcar={marcar} />)

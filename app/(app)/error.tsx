@@ -18,7 +18,7 @@ export default function ErrorDePantalla({ error, reset }: { error: Error & { dig
         tituloEnTinta
         detalle="Puede ser la conexión. Si sigue pasando, avísale a Federico."
       />
-      <Boton variante="linea" onClick={reset}>
+      <Boton variante="secundario" onClick={reset}>
         Intentar de nuevo
       </Boton>
     </div>

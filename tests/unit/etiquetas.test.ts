@@ -5,6 +5,8 @@ import {
   etiquetasDe,
   MAXIMO_DE_ETIQUETAS,
   MINIMO_DE_ETIQUETAS,
+  NOMBRE_DE_TONO,
+  nombreDeMarca,
   partirEnMarcas,
   sinEtiquetas,
   textoParaVoz,
@@ -125,5 +127,31 @@ describe("partirEnMarcas", () => {
   it("returns one text part for a script without marks and none for an empty one", () => {
     expect(partirEnMarcas("Hola.")).toEqual([{ tipo: "texto", valor: "Hola." }])
     expect(partirEnMarcas("")).toEqual([])
+  })
+})
+
+describe("NOMBRE_DE_TONO", () => {
+  it("names every mark of the closed list in Spanish, and only those", () => {
+    expect(Object.keys(NOMBRE_DE_TONO).sort()).toEqual([...ETIQUETAS_DE_TONO].sort())
+    for (const nombre of Object.values(NOMBRE_DE_TONO)) expect(nombre).toMatch(/^[a-záéíóúñ]+$/)
+  })
+
+  it("says warm as cálido, softly as suave and pause as pausa", () => {
+    expect(NOMBRE_DE_TONO.warm).toBe("cálido")
+    expect(NOMBRE_DE_TONO.softly).toBe("suave")
+    expect(NOMBRE_DE_TONO.pause).toBe("pausa")
+  })
+})
+
+describe("nombreDeMarca", () => {
+  it("reads a known mark written in any case or spacing as its Spanish name", () => {
+    expect(nombreDeMarca("[warm]")).toBe("cálido")
+    expect(nombreDeMarca("[ Softly ]")).toBe("suave")
+    expect(nombreDeMarca("[matter-of-fact]")).toBe("directo")
+  })
+
+  it("keeps a mark outside the list as written, so she can find and fix it", () => {
+    expect(nombreDeMarca("[cálido]")).toBe("[cálido]")
+    expect(nombreDeMarca("[laughs]")).toBe("[laughs]")
   })
 })

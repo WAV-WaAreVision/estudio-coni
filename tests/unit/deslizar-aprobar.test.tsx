@@ -1,175 +1,251 @@
-import { fireEvent, render, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 
-const ETIQUETA = "Desliza para aprobar el guion"
-const deslizador = () => screen.getByRole("slider", { name: ETIQUETA })
+const pista = () => screen.getByRole("slider", { name: "Desliza para firmar" })
+const pulgar = () => screen.getByTestId("pulgar-firma")
+
+function caja(ancho: number): DOMRect {
+  return { width: ancho, left: 0, right: ancho, top: 0, bottom: 56, height: 56, x: 0, y: 0, toJSON: () => ({}) }
+}
 
 beforeEach(() => {
   // Track 356 px, thumb 48 px, 4 px inset on each side: free travel 300 px.
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-    width: 356,
-    left: 0,
-    right: 356,
-    top: 0,
-    bottom: 56,
-    height: 56,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return caja(this.dataset.testid === "pulgar-firma" ? 48 : 356)
   })
   HTMLElement.prototype.setPointerCapture = vi.fn()
   HTMLElement.prototype.releasePointerCapture = vi.fn()
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 function arrastrar(hasta: number) {
-  fireEvent.pointerDown(deslizador(), { pointerId: 1, clientX: 0 })
-  fireEvent.pointerMove(deslizador(), { pointerId: 1, clientX: hasta })
-  fireEvent.pointerUp(deslizador(), { pointerId: 1, clientX: hasta })
+  fireEvent.pointerDown(pulgar(), { pointerId: 1, clientX: 0, clientY: 20 })
+  fireEvent.pointerMove(pista(), { pointerId: 1, clientX: hasta, clientY: 20 })
+  fireEvent.pointerUp(pista(), { pointerId: 1, clientX: hasta, clientY: 20 })
 }
 
-describe("DeslizarParaAprobar", () => {
-  it("starts as not approved", () => {
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={vi.fn()} />)
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "0")
-    expect(deslizador()).toHaveAttribute("aria-valuetext", "No aprobado")
+function tocar() {
+  fireEvent.pointerDown(pista(), { pointerId: 1, clientX: 200, clientY: 20 })
+  fireEvent.pointerUp(pista(), { pointerId: 1, clientX: 202, clientY: 21 })
+}
+
+describe("DeslizarParaAprobar: drag", () => {
+  it("starts unsigned, labelled 'Desliza para firmar'", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pista()).toHaveAttribute("aria-valuenow", "0")
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+    expect(pista()).toHaveTextContent("Desliza para firmar")
   })
 
-  it("does not approve when the track is tapped, anywhere", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    const pista = screen.getByTestId("pista-deslizador")
-    fireEvent.pointerDown(pista, { pointerId: 1, clientX: 350 })
-    fireEvent.pointerUp(pista, { pointerId: 1, clientX: 350 })
-    fireEvent.click(pista, { clientX: 350 })
-    expect(alAprobar).not.toHaveBeenCalled()
-  })
-
-  it("does not approve when the thumb is tapped without dragging", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    arrastrar(0)
-    expect(alAprobar).not.toHaveBeenCalled()
-  })
-
-  it("does not approve while dragging past the end, only on release", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    fireEvent.pointerDown(deslizador(), { pointerId: 1, clientX: 0 })
-    fireEvent.pointerMove(deslizador(), { pointerId: 1, clientX: 300 })
-    expect(alAprobar).not.toHaveBeenCalled()
-    fireEvent.pointerUp(deslizador(), { pointerId: 1, clientX: 300 })
-    expect(alAprobar).toHaveBeenCalledTimes(1)
-    expect(deslizador()).toHaveAttribute("aria-valuetext", "Aprobado")
+  it("signs on release after a drag of the thumb past 96 percent, once", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    arrastrar(300)
+    arrastrar(300)
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+    expect(pista()).toHaveAttribute("aria-valuetext", "Firmado")
+    expect(pista()).toHaveTextContent("Firmado")
   })
 
   it("springs back when released before 96 percent", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    arrastrar(280) // 93 %
-    expect(alAprobar).not.toHaveBeenCalled()
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "0")
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    arrastrar(280)
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuenow", "0")
   })
 
-  it("approves only once", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado enviando={false} alAprobar={alAprobar} />)
-    arrastrar(300)
-    arrastrar(300)
-    expect(alAprobar).toHaveBeenCalledTimes(1)
-  })
-
-  it("ignores drags and End while disabled, and says why", () => {
-    const alAprobar = vi.fn()
-    render(
-      <DeslizarParaAprobar
-        etiqueta={ETIQUETA}
-        habilitado={false}
-        motivo="Falta confirmar la revisión."
-        alAprobar={alAprobar}
-      />,
-    )
-    arrastrar(300)
-    fireEvent.keyDown(deslizador(), { key: "End" })
-    expect(alAprobar).not.toHaveBeenCalled()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(deslizador()).toHaveAccessibleDescription("Falta confirmar la revisión.")
-  })
-
-  it("approves with End and moves with the arrows and Home", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    fireEvent.keyDown(deslizador(), { key: "ArrowRight" })
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "4")
-    fireEvent.keyDown(deslizador(), { key: "Home" })
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "0")
-    fireEvent.keyDown(deslizador(), { key: "End" })
-    expect(alAprobar).toHaveBeenCalledTimes(1)
-  })
-
-  it("never reads as approved just because the arrows walked to the end", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    for (let paso = 0; paso < 40; paso += 1) fireEvent.keyDown(deslizador(), { key: "ArrowRight" })
-    expect(alAprobar).not.toHaveBeenCalled()
-    expect(deslizador()).toHaveAttribute("aria-valuetext", "No aprobado")
-  })
-
-  it("goes back to zero when the approval did not go through", () => {
-    const { rerender } = render(
-      <DeslizarParaAprobar etiqueta={ETIQUETA} habilitado enviando={false} alAprobar={vi.fn()} />,
-    )
-    arrastrar(300)
-    rerender(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado enviando alAprobar={vi.fn()} />)
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "100")
-    rerender(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado enviando={false} alAprobar={vi.fn()} />)
-    expect(deslizador()).toHaveAttribute("aria-valuenow", "0")
+  it("treats a pointer that moves off the thumb as a scroll, never a tap or a signature", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.pointerDown(pista(), { pointerId: 1, clientX: 100, clientY: 20 })
+    fireEvent.pointerMove(pista(), { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerUp(pista(), { pointerId: 1, clientX: 100, clientY: 60 })
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
   })
 })
 
-describe("DeslizarParaAprobar, the visible alternative to dragging (WCAG 2.5.7)", () => {
-  it("offers an Aprobar button that approves with a tap, once", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={alAprobar} />)
-    const boton = screen.getByRole("button", { name: "Aprobar" })
-    fireEvent.click(boton)
-    fireEvent.click(boton)
-    expect(alAprobar).toHaveBeenCalledTimes(1)
-    expect(deslizador()).toHaveAttribute("aria-valuetext", "Aprobado")
+describe("DeslizarParaAprobar: tap to arm, tap to sign (WCAG 2.5.7)", () => {
+  it("arms and then signs on assistive-technology clicks that send no pointer events (detail 0)", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.click(pista(), { detail: 0 })
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(pista(), { detail: 0 })
+    expect(alFirmar).toHaveBeenCalledTimes(1)
   })
 
-  it("asks for the same preconditions: disabled, it does nothing and gives the same reason", () => {
-    const alAprobar = vi.fn()
+  it("ignores the click a real pointer sends after its own tap (detail 1), so a tap counts once", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.click(pista(), { detail: 1 })
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+    tocar()
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(pista(), { detail: 1 })
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+  })
+
+  it("arms on a tap: the thumb goes to the end and the label says to tap again", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    tocar()
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuenow", "100")
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+    expect(pista()).toHaveTextContent("Toca otra vez para firmar")
+  })
+
+  it("signs on a second tap between 400 ms and 4 s", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    tocar()
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    tocar()
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+  })
+
+  it("ignores a second tap under 400 ms and still signs on a later one", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    tocar()
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    tocar()
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    tocar()
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+  })
+
+  it("disarms after 4 s, and the next tap arms again instead of signing", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    tocar()
+    act(() => {
+      vi.advanceTimersByTime(4000)
+    })
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+    expect(pista()).toHaveAttribute("aria-valuenow", "0")
+    tocar()
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+  })
+})
+
+describe("DeslizarParaAprobar: keyboard", () => {
+  it.each(["Enter", " ", "End"])("signs at once with %j", (tecla) => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.keyDown(pista(), { key: tecla })
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+  })
+
+  it("arms with ArrowUp and signs on the second press", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.keyDown(pista(), { key: "ArrowUp" })
+    expect(pista()).toHaveAttribute("aria-valuetext", "Toca otra vez para firmar")
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.keyDown(pista(), { key: "ArrowRight" })
+    expect(alFirmar).toHaveBeenCalledTimes(1)
+  })
+
+  it("disarms with Escape", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
+    fireEvent.keyDown(pista(), { key: "ArrowUp" })
+    fireEvent.keyDown(pista(), { key: "Escape" })
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+    expect(alFirmar).not.toHaveBeenCalled()
+  })
+})
+
+describe("DeslizarParaAprobar: closed, sending, described", () => {
+  it("never arms or signs while disabled, and says so to assistive technology", () => {
+    const alFirmar = vi.fn()
+    render(<DeslizarParaAprobar habilitado={false} alFirmar={alFirmar} />)
+    tocar()
+    fireEvent.keyDown(pista(), { key: "Enter" })
+    arrastrar(300)
+    expect(alFirmar).not.toHaveBeenCalled()
+    expect(pista()).toHaveAttribute("aria-disabled", "true")
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
+  })
+
+  it("shows a lock on a flat thumb while closed, hidden from assistive technology, and reads the reason", () => {
     render(
-      <DeslizarParaAprobar
-        etiqueta={ETIQUETA}
-        habilitado={false}
-        motivo="Falta confirmar la revisión."
-        alAprobar={alAprobar}
-      />,
+      <>
+        <p id="falta">Falta: escuchar tu voz</p>
+        <DeslizarParaAprobar habilitado={false} describidoPor="falta" alFirmar={vi.fn()} />
+      </>,
     )
-    const boton = screen.getByRole("button", { name: "Aprobar" })
-    fireEvent.click(boton)
-    expect(alAprobar).not.toHaveBeenCalled()
-    expect(boton).toHaveAttribute("aria-disabled", "true")
-    expect(boton).toHaveAccessibleDescription("Falta confirmar la revisión.")
+    expect(pista()).toHaveAccessibleDescription(/^Falta: escuchar tu voz/)
+    expect(pulgar()).toHaveClass("bg-piedra")
+    expect(pulgar().className).not.toMatch(/\bshadow-relieve/)
+    const candado = pulgar().querySelector("svg")
+    expect(candado).toHaveAttribute("data-icono", "candado")
+    expect(candado).toHaveAttribute("aria-hidden", "true")
   })
 
-  it("does nothing while the approval travels to the server", () => {
-    const alAprobar = vi.fn()
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado enviando alAprobar={alAprobar} />)
-    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }))
-    expect(alAprobar).not.toHaveBeenCalled()
+  it("shows the arrow once it opens", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pulgar().querySelector("svg")).toHaveAttribute("data-icono", "flecha")
   })
 
-  it("never uses the signature colour: only the slider carries it", () => {
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado alAprobar={vi.fn()} />)
-    expect(screen.getByRole("button", { name: "Aprobar" }).className).not.toMatch(/firma/)
+  it("goes back to rest when the signature did not go through", () => {
+    const { rerender } = render(<DeslizarParaAprobar habilitado enviando={false} alFirmar={vi.fn()} />)
+    arrastrar(300)
+    rerender(<DeslizarParaAprobar habilitado enviando alFirmar={vi.fn()} />)
+    expect(pista()).toHaveAttribute("aria-valuenow", "100")
+    rerender(<DeslizarParaAprobar habilitado enviando={false} alFirmar={vi.fn()} />)
+    expect(pista()).toHaveAttribute("aria-valuenow", "0")
+    expect(pista()).toHaveAttribute("aria-valuetext", "Sin firmar")
   })
 
-  it("shows its note on the same row as the Aprobar button", () => {
-    render(<DeslizarParaAprobar etiqueta={ETIQUETA} habilitado nota="Tienes 8 s para deshacer." alAprobar={vi.fn()} />)
-    const boton = screen.getByRole("button", { name: "Aprobar" })
-    expect(boton.parentElement).toContainElement(screen.getByText("Tienes 8 s para deshacer."))
+  it("offers no second control: there is no Aprobar button", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(screen.queryByRole("button")).toBeNull()
+  })
+
+  it("is described by what the bar says and by how to sign without dragging", () => {
+    render(
+      <>
+        <p id="consecuencia">Graba el video · 8 s para deshacer</p>
+        <DeslizarParaAprobar habilitado describidoPor="consecuencia" alFirmar={vi.fn()} />
+      </>,
+    )
+    expect(pista()).toHaveAccessibleDescription(
+      "Graba el video · 8 s para deshacer Enter o Espacio firman. También puedes tocar dos veces: la primera prepara la firma.",
+    )
+  })
+
+  it("keeps the signature colour on the thumb only", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pulgar()).toHaveClass("bg-firma")
+    expect(pista()).toHaveClass("bg-piedra-honda", "shadow-hundido")
+    expect(pista().className).not.toMatch(/\bbg-firma\b/)
   })
 })

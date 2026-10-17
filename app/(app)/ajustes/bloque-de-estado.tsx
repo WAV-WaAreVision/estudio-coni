@@ -1,20 +1,15 @@
 import { ArrowRight, CheckCircle, Info, Warning } from "@phosphor-icons/react/dist/ssr"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { PildoraDeEstado } from "@/components/ui/estado"
+import { ICONO } from "@/components/ui/icono"
 import { estadoDeAjustes } from "@/lib/ajustes/estado"
-import { cn } from "@/lib/utils"
 import { revisionDeCuentas } from "./revision"
 
-const ICONO = { configurando: Info, todo_bien: CheckCircle, atencion: Warning, sin_revision: Info } as const
-const TINTA = {
-  configurando: "text-tinta",
-  todo_bien: "text-exito",
-  atencion: "text-aviso",
-  sin_revision: "text-tinta",
-} as const
+const ICONOS = { configurando: Info, todo_bien: CheckCircle, atencion: Warning, sin_revision: Info } as const
 
 /**
- * The status of the setup (brandkit 9.21) as a status line with its steps. «aqui»: the block while something is missing
- * or needs her, on Ajustes; «todo_bien» is good news and lives with the accounts, so each page asks for its own half.
+ * The status of the setup as a flat honda block with its steps (decision 12). «pendiente»: the block while something
+ * is missing or needs her, on Ajustes; «bueno» is good news and lives with the accounts, so each page asks for its half.
  */
 export async function BloqueDeEstado({
   zona,
@@ -27,31 +22,29 @@ export async function BloqueDeEstado({
 }) {
   const bloque = estadoDeAjustes({ cuentas: await revisionDeCuentas(), avisosActivos, ahora: Date.now(), zona })
   if ((bloque.tipo === "todo_bien") !== (mostrar === "bueno")) return null
-  const Icono = ICONO[bloque.tipo]
+  const Icono = ICONOS[bloque.tipo]
 
   return (
-    <section aria-labelledby="estado-titulo" className="grid gap-4">
-      <div className="grid grid-cols-[24px_1fr] gap-x-3 gap-y-1">
-        <Icono aria-hidden="true" size={20} className={cn("mt-1 justify-self-center", TINTA[bloque.tipo])} />
+    <section
+      aria-labelledby="estado-titulo"
+      data-contorno
+      className="grid gap-4 rounded-bloque bg-piedra-honda px-[14px] py-3"
+    >
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
+        <Icono aria-hidden="true" size={ICONO.medio} className="mt-0.5 text-tinta" />
         <h2 id="estado-titulo" className="text-cuerpo font-semibold">
           {bloque.titulo}
         </h2>
-        {bloque.texto ? <p className="col-start-2 text-cuerpo">{bloque.texto}</p> : null}
+        {bloque.texto ? <p className="col-start-2 text-meta">{bloque.texto}</p> : null}
       </div>
       {bloque.tipo === "configurando" ? (
-        <ul className="grid">
+        <ul className="grid divide-y divide-campo/30">
           {bloque.pasos.map((paso) => (
-            <li key={paso.etiqueta} className="flex min-h-12 items-center justify-between gap-3 border-b border-linea">
+            <li key={paso.etiqueta} className="flex min-h-boton items-center justify-between gap-3 text-meta">
               {paso.etiqueta}
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 text-meta font-medium",
-                  paso.listo ? "text-exito" : "text-aviso",
-                )}
-              >
-                {paso.listo ? <CheckCircle aria-hidden="true" size={16} /> : <Warning aria-hidden="true" size={16} />}
+              <PildoraDeEstado tipo={paso.listo ? "ok" : "aviso"} className="bg-piedra">
                 {paso.listo ? "Listo" : "Falta"}
-              </span>
+              </PildoraDeEstado>
             </li>
           ))}
         </ul>
@@ -59,7 +52,7 @@ export async function BloqueDeEstado({
       {bloque.accion ? (
         <a href={bloque.accion.href} className={clasesDeBoton({ variante: "primario", className: "mt-1" })}>
           {bloque.accion.etiqueta}
-          <ArrowRight aria-hidden="true" size={20} />
+          <ArrowRight aria-hidden="true" size={ICONO.grande} />
         </a>
       ) : null}
     </section>

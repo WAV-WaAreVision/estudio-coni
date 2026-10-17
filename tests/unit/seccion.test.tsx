@@ -14,13 +14,16 @@ describe("Seccion", () => {
     expect(screen.getByText("2")).toHaveClass("tabular-nums")
   })
 
-  it("opens with a 1 px ink rule, not a box", () => {
+  it("opens with its label alone, no rule and no box (v6 .sech)", () => {
     render(
-      <Seccion id="s" titulo="Guion">
+      <Seccion id="s" titulo="Necesita tu firma" cifra="2">
         <p>x</p>
       </Seccion>,
     )
-    const cabecera = screen.getByRole("heading", { name: "Guion" }).parentElement
-    expect(cabecera).toHaveClass("border-t", "border-tinta")
+    const cabecera = screen.getByRole("heading", { name: "Necesita tu firma" }).parentElement
+    expect(cabecera?.className).not.toMatch(/border/)
+    expect(screen.getByRole("heading", { name: "Necesita tu firma" })).toHaveClass("text-meta", "font-semibold")
+    expect(screen.getByText("2")).toHaveClass("text-apagado", "font-medium")
+    expect(screen.getByRole("region", { name: "Necesita tu firma" })).toHaveClass("mt-8")
   })
 })

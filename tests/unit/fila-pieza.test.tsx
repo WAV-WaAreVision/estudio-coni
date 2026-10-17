@@ -54,4 +54,25 @@ describe("FilaPieza", () => {
     expect(miniatura).toHaveAttribute("src", "https://almacen.test/m.jpg")
     expect(miniatura).toHaveAttribute("alt", "")
   })
+
+  it("is a 4.5rem row that turns honda while pressed, with the small working dot", () => {
+    render(
+      <ul>
+        <FilaPieza pilar={null} titulo="X" estado="Grabando · unos 5 min · te aviso" href="/guion/1" trabajando />
+      </ul>,
+    )
+    expect(screen.getByRole("link")).toHaveClass("min-h-fila", "active:bg-piedra-honda")
+    expect(document.querySelector(".punto-trabajando")).toHaveAttribute("data-chico")
+  })
+
+  it("shows a failure's cause in a honda pill with its warning icon, in place of the state", () => {
+    render(
+      <ul>
+        <FilaPieza pilar="deseo" titulo="El deseo" causa="No pude publicar." href="/video/1" />
+      </ul>,
+    )
+    const causa = screen.getByText("No pude publicar.").parentElement
+    expect(causa).toHaveClass("bg-piedra-honda")
+    expect(causa?.querySelector("svg")).not.toBeNull()
+  })
 })

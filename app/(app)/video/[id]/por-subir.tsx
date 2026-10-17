@@ -1,4 +1,5 @@
 import { Seccion } from "@/components/seccion"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { type Destino, nombreDeDestino, type PublicacionConEnlace } from "@/lib/dominio/destinos"
@@ -70,7 +71,7 @@ export function PorSubir({
                 href={automatica.enlace}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center font-medium text-tinta underline"
+                className={clasesDeBoton({ variante: "callado", tamano: "chico" })}
               >
                 Ver en LinkedIn
               </a>
@@ -92,7 +93,7 @@ export function PorSubir({
                     href={hecha.enlace}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center font-medium text-tinta underline"
+                    className={clasesDeBoton({ variante: "callado", tamano: "chico" })}
                   >
                     Ver en {nombreDeDestino(hecha.destino)}
                   </a>

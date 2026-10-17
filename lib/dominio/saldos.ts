@@ -76,9 +76,8 @@ export function costoDeVoz(caracteres: number, usd: number): CostoPartido {
   return { monto: dolares(usd), unidad: `~${miles(caracteres)} caracteres` }
 }
 
-/** The line of the gate 1 signature: what it spends and how long she has to take it back (design 2026-10-15). */
+/** The consequence under gate 1's track (design 2026-10-16, decision 9): what the signature does, its cost, the undo. */
 export function lineaDeFirma(video: { segundos: number; usd: number } | null): string {
-  const ventana = `Tienes ${VENTANA_DESHACER_MS / 1000} s para deshacer.`
-  if (video === null) return `Al firmar grabo el video. ${ventana}`
-  return `Al firmar grabo el video: ~${Math.round(video.segundos)} s, ${dolares(video.usd)}. ${ventana}`
+  const ventana = `${VENTANA_DESHACER_MS / 1000} s para deshacer`
+  return video === null ? `Graba el video · ${ventana}` : `Graba el video · ${dolares(video.usd)} · ${ventana}`
 }

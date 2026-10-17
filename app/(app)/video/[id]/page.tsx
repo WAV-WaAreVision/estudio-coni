@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { EstadoSencillo } from "@/components/estado-sencillo"
 import { MomentoDeCierre } from "@/components/momento-de-cierre"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
 import {
@@ -149,10 +150,13 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
             titulo="No se pudo publicar"
             detalle={
               <>
-                {fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-                {fila.media_id
-                  ? " Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo."
-                  : null}
+                <ExplicacionParaConi
+                  texto={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+                  enSusPalabras="Vuelve a intentarlo con Reintentar."
+                />
+                {fila.media_id ? (
+                  <p>Es posible que el reel ya esté en Instagram. Reintentar solo vuelve a comprobarlo.</p>
+                ) : null}
               </>
             }
           />
@@ -187,7 +191,11 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     ocupadas: contexto.ocupadas,
     cuantas: FECHAS_A_OFRECER,
     antelacionMs: UNA_HORA_MS,
-  }).map((iso) => ({ iso, etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga") }))
+  }).map((iso) => ({
+    iso,
+    etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga"),
+    corta: etiquetaDeFecha(iso, contexto.horario.zona, "corta"),
+  }))
   const [videoUrl, costo, ajustes, instagramConectado, linkedinConectado] = await Promise.all([
     urlParaVer(fila.video_id),
     leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
@@ -215,7 +223,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         videoUrl,
         videoId: fila.video_id,
         fechas,
-        costoDeRegrabar: costo.estimadoUsd === null ? null : `Regrabar cuesta unos ${dolares(costo.estimadoUsd)}.`,
+        costoDeRegrabar: costo.estimadoUsd === null ? null : dolares(costo.estimadoUsd),
         explicacion: fila.explicacion,
         primeraVez: ajustes.primeraVez,
       }}

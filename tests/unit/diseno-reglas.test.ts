@@ -17,6 +17,7 @@ function archivos(carpeta: string, extensiones: readonly string[]): string[] {
 
 const CODIGO = [...archivos("app", [".tsx", ".ts"]), ...archivos("components", [".tsx", ".ts"])]
 const leer = (ruta: string) => readFileSync(join(RAIZ, ruta), "utf-8")
+const CSS = leer("app/globals.css")
 
 // Files that must carry literal colours because the OS reads them before any CSS (marca.ts feeds them).
 const CON_COLOR_LITERAL = new Set(["app/icon.tsx", "app/apple-icon.tsx"])
@@ -44,6 +45,13 @@ function tono(hex: string): number {
   return (base * 60 + 360) % 360
 }
 
+/** The value a token is declared with (the first declaration, :root), following one `var(--x)` alias. */
+function valor(nombre: string): string {
+  const declarado = new RegExp(`--${nombre}: ([^;]+);`).exec(CSS)?.[1]?.trim() ?? ""
+  const alias = /^var\(--([a-z-]+)\)$/.exec(declarado)?.[1]
+  return alias ? valor(alias) : declarado
+}
+
 describe("design rules", () => {
   it("has no hex colour literal in app/ or components/", () => {
     const culpables = CODIGO.filter((ruta) => !CON_COLOR_LITERAL.has(ruta)).filter((ruta) =>
@@ -53,8 +61,7 @@ describe("design rules", () => {
   })
 
   it("has no em dash in app/ or components/", () => {
-    const culpables = CODIGO.filter((ruta) => leer(ruta).includes("—"))
-    expect(culpables).toEqual([])
+    expect(CODIGO.filter((ruta) => leer(ruta).includes("\u2014"))).toEqual([])
   })
 
   it("keeps 'use client' as the very first line of every client module", () => {
@@ -64,23 +71,68 @@ describe("design rules", () => {
     expect(culpables).toEqual([])
   })
 
-  it("defines every Calma suiza token in globals.css", () => {
-    const css = leer("app/globals.css")
-    for (const token of [
-      "--fondo: #f7f6f3",
-      "--tinta: #1d1b18",
-      "--firma: #a8285a",
-      "--campo: #8a847b",
-      "--pista: #ebe8e2",
-    ]) {
-      expect(css).toContain(token)
+  it("defines the gris neutro palette of Soft UI v6", () => {
+    const paleta = [
+      ["piedra", "#ebebea"],
+      ["piedra-alta", "#f4f4f3"],
+      ["piedra-honda", "#dcdcdb"],
+      ["luz", "#fbfbfa"],
+      ["tinta", "#262626"],
+      ["apagado", "#5a5a59"],
+      ["campo", "#727271"],
+      ["hilo", "#dcdcdb"],
+      ["error", "#b5137a"],
+      ["firma", "#a8285a"],
+      ["sobre-firma", "#fbfbfa"],
+    ] as const
+    for (const [token, hex] of paleta) expect(valor(token), token).toBe(hex)
+  })
+
+  it("is light only: no dark block and no system colour-scheme switch", () => {
+    expect(CSS).toContain("color-scheme: light")
+    expect(CSS).not.toContain('data-theme="dark"')
+    expect(CSS).not.toContain("prefers-color-scheme")
+  })
+
+  it("keeps error apart from the signature, and every text pair at AA on the three stones", () => {
+    expect(valor("error")).not.toBe(valor("firma"))
+    for (const superficie of ["piedra", "piedra-alta", "piedra-honda"]) {
+      for (const tinta of ["tinta", "apagado", "error"]) {
+        expect(contraste(valor(tinta), valor(superficie)), `${tinta} on ${superficie}`).toBeGreaterThanOrEqual(4.5)
+      }
+      expect(contraste(valor("campo"), valor(superficie)), `campo on ${superficie}`).toBeGreaterThanOrEqual(3)
+    }
+    expect(contraste(valor("luz"), valor("tinta"))).toBeGreaterThanOrEqual(4.5)
+    expect(contraste(valor("luz"), valor("firma"))).toBeGreaterThanOrEqual(4.5)
+    expect(contraste(valor("firma"), valor("piedra-honda"))).toBeGreaterThanOrEqual(3)
+    expect(tono(valor("firma"))).toBeGreaterThanOrEqual(320)
+    expect(tono(valor("firma"))).toBeLessThanOrEqual(350)
+  })
+
+  it("draws the focus ring in ink, never in the signature", () => {
+    expect(CSS).toMatch(/:focus-visible \{\s*outline: 2px solid var\(--tinta\);\s*outline-offset: 2px;/)
+    expect(CSS).not.toMatch(/--anillo-foco: [^;]*firma/)
+  })
+
+  it("outlines fields and the seek rail with more contrast, and borders them in forced colours (decision 7)", () => {
+    const bloque = (consulta: string) => {
+      const inicio = CSS.indexOf(`@media (${consulta}) {`)
+      return inicio < 0 ? "" : CSS.slice(inicio, CSS.indexOf("\n}\n", inicio))
+    }
+    for (const consulta of ["prefers-contrast: more", "forced-colors: active"]) {
+      const reglas = bloque(consulta)
+      expect(reglas, consulta).toMatch(/\.campo\b/)
+      expect(reglas, consulta).toContain(".avance::-webkit-slider-runnable-track")
+      expect(reglas, consulta).toContain(".avance::-moz-range-track")
     }
   })
 
-  it("keeps the dark tokens but never switches to them by itself (light only for now)", () => {
-    const css = leer("app/globals.css")
-    expect(css).toContain(':root[data-theme="dark"]')
-    expect(css).not.toContain("prefers-color-scheme")
+  it("sets the type on the iOS body size, only on touch screens, with px spacing", () => {
+    expect(CSS).toMatch(/html \{\s*font-size: 106\.25%;/)
+    expect(CSS).toMatch(
+      /@media \(hover: none\) and \(pointer: coarse\) \{\s*@supports \(font: -apple-system-body\) \{\s*html \{\s*font: -apple-system-body;/,
+    )
+    expect(CSS).toContain("--spacing: 4px;")
   })
 
   it("draws icons with Phosphor only, through the SSR entry in server modules", () => {
@@ -91,42 +143,59 @@ describe("design rules", () => {
     expect(servidorConIconoCliente).toEqual([])
   })
 
-  it("uses only Calma suiza token names", () => {
+  it("uses no token name retired before Calma suiza", () => {
     const viejos =
-      /\b(acento|hundido|ok-tinta|ok-fondo|aviso-fondo|error-fondo|aviso-tinta|error-tinta|pilar-tinte|pilar-tinta|pilar-punto|font-serif|text-display|text-title|text-script|text-body|text-label|rounded-(sm|md|lg|xl)|ease-fuerte)\b/
+      /\b(acento|ok-tinta|ok-fondo|aviso-fondo|error-fondo|aviso-tinta|error-tinta|pilar-tinte|pilar-tinta|pilar-punto|font-serif|text-display|text-title|text-script|text-body|text-label|rounded-(sm|md|lg|xl)|ease-fuerte)\b/
     expect(CODIGO.filter((ruta) => viejos.test(leer(ruta)))).toEqual([])
   })
 
-  it("draws every highlight (error, warning, focus ring) in the signature raspberry family, with AA on every surface", () => {
-    const css = leer("app/globals.css")
-    const raiz = css.slice(0, css.indexOf("/* ---------- Dark"))
-    const valor = (nombre: string) => new RegExp(`--${nombre}: (#[0-9a-f]{6})`).exec(raiz)?.[1] ?? ""
-    const firma = valor("firma")
-    expect(firma).toBe("#a8285a")
-    // Their own tokens (the classes stay text-error and text-aviso), but the same ink: an alias or the same value.
-    for (const token of ["error", "aviso"]) {
-      const declarado = new RegExp(`--${token}: (var\\(--firma\\)|#[0-9a-f]{6})`).exec(raiz)?.[1]
-      expect(declarado, `--${token}`).toBeDefined()
-      const tinta = declarado === "var(--firma)" ? firma : declarado
-      expect(tinta, `--${token}`).toBe(firma)
-      for (const superficie of ["fondo", "superficie", "pista"]) {
-        expect(contraste(firma, valor(superficie)), `${token} on ${superficie}`).toBeGreaterThanOrEqual(4.5)
-      }
-    }
-    expect(tono(firma)).toBeGreaterThanOrEqual(320)
-    expect(tono(firma)).toBeLessThanOrEqual(350)
-    expect(raiz).toMatch(/--anillo-foco: [^;]*var\(--firma\)/)
+  it("keeps the signature colour to the slider, the wordmark dot and the public page", () => {
+    const permitidos = new Set(["components/deslizar-para-aprobar.tsx", "components/ui/wordmark.tsx", "app/l/page.tsx"])
+    const culpables = CODIGO.filter(
+      (ruta) => /\b(text|bg|fill|border|ring|outline)-firma\b/.test(leer(ruta)) && !permitidos.has(ruta),
+    )
+    expect(culpables).toEqual([])
   })
 
-  it("keeps the signature colour to the slider, the committed date, the wordmark dot and the public page", () => {
+  it("sizes every Phosphor icon in em through ICONO, never in px", () => {
+    expect(CODIGO.filter((ruta) => /\bsize=\{\d+\}/.test(leer(ruta)))).toEqual([])
+  })
+
+  it("uses no Calma suiza name: the aliases are gone and so are their utilities", () => {
+    const utilidades =
+      /\b(bg|text|border|divide|ring|outline|fill|stroke)-(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video)\b|\brounded-12\b|\bshadow-(barra|flotante)\b/
+    const variables =
+      /var\(--(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video|sombra-barra|sombra-flotante|anillo-foco|barra-max|r-12|foto-brillo)\)/
+    expect(CODIGO.filter((ruta) => utilidades.test(leer(ruta)) || variables.test(leer(ruta)))).toEqual([])
+    expect(CSS).not.toMatch(
+      /--(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video|sombra-barra|sombra-flotante|anillo-foco|barra-max|r-12|foto-brillo):/,
+    )
+    expect(CSS).not.toMatch(
+      /--color-(fondo|superficie|linea|pista|principal|sobre-principal|sobre-tinta|exito|aviso|sobre-video):|--radius-12:|--shadow-(barra|flotante):/,
+    )
+    expect(CSS).not.toMatch(variables)
+  })
+
+  it("sizes every target in rem tokens, never with the old px heights", () => {
+    expect(CODIGO.filter((ruta) => /\b(min-h-(11|12|13|14|16)|size-12|h-14)\b/.test(leer(ruta)))).toEqual([])
+  })
+
+  it("sizes text with the type scale tokens, never an arbitrary text-[size]", () => {
+    expect(CODIGO.filter((ruta) => /\btext-\[\d/.test(leer(ruta)))).toEqual([])
+  })
+
+  it("keeps the error magenta to the error block, the error pill and the destructive confirm", () => {
     const permitidos = new Set([
-      "components/deslizar-para-aprobar.tsx",
-      "app/(app)/guion/[id]/pantalla-guion.tsx",
-      "components/ui/wordmark.tsx",
-      "app/l/page.tsx",
+      "components/ui/bloque.tsx",
+      "components/ui/estado.tsx",
+      "components/ui/clases-de-boton.ts",
+      // The error line said inside the honda block of a confirmation or a danger disclosure.
+      "components/ui/linea-de-error.tsx",
+      // A refused retry is a plain error line drawn only inside the large error block (`enUnError`).
+      "app/(app)/estado-de-pieza.tsx",
     ])
     const culpables = CODIGO.filter(
-      (ruta) => /\b(text|bg|fill|border|ring)-firma\b/.test(leer(ruta)) && !permitidos.has(ruta),
+      (ruta) => /\b(text|bg|border|ring|outline|fill)-error\b/.test(leer(ruta)) && !permitidos.has(ruta),
     )
     expect(culpables).toEqual([])
   })

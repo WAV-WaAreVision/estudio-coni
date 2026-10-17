@@ -27,12 +27,12 @@ typography:
     letterSpacing: "-0.014em"
   guion:
     fontFamily: "Geist, ui-sans-serif, -apple-system, system-ui, sans-serif"
-    fontSize: "1.25rem"
+    fontSize: "1.18rem"
     fontWeight: 400
     lineHeight: 1.6
   cuerpo:
     fontFamily: "Geist, ui-sans-serif, -apple-system, system-ui, sans-serif"
-    fontSize: "1.125rem"
+    fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.333
   meta:
@@ -41,7 +41,12 @@ typography:
     fontWeight: 500
     lineHeight: 1.333
 rounded:
-  control: "16px"
+  control: "999px"
+  bloque: "18px"
+  barra: "28px"
+  toast: "22px"
+  casilla: "9px"
+  video: "22px"
   panel: "24px"
   pildora: "999px"
 spacing:
@@ -59,7 +64,7 @@ components:
     textColor: "{colors.luz}"
     typography: "{typography.cuerpo}"
     rounded: "{rounded.pildora}"
-    height: "52px"
+    height: "3.25rem"
     padding: "0 24px"
   boton-principal-deshabilitado:
     backgroundColor: "{colors.piedra-honda}"
@@ -80,7 +85,7 @@ components:
     backgroundColor: "{colors.firma}"
     textColor: "{colors.sobre-firma}"
     rounded: "{rounded.pildora}"
-    size: "48px"
+    size: "3rem"
   campo:
     backgroundColor: "{colors.piedra}"
     textColor: "{colors.tinta}"
@@ -96,8 +101,8 @@ components:
     height: "44px"
     padding: "0 16px"
   chip-elegido:
-    backgroundColor: "{colors.piedra-honda}"
-    textColor: "{colors.tinta}"
+    backgroundColor: "{colors.tinta}"
+    textColor: "{colors.luz}"
     rounded: "{rounded.pildora}"
   segmentado:
     backgroundColor: "{colors.piedra-honda}"
@@ -126,10 +131,9 @@ components:
     padding: "20px"
 ---
 
-<!-- Palette: gris neutro, chosen by Federico on 2026-10-16 (monochrome, dark primary, no yellow; raspberry only signs). Mockups: conidolly-rediseno/soft-ui/v3.
+<!-- Palette: gris neutro, chosen by Federico on 2026-10-16 (monochrome, dark primary, no yellow; raspberry only signs). Mockups: conidolly-rediseno/soft-ui/v6.
      Target system, approved by Federico on 2026-10-15 ("Adoptar soft UI completo", mint + raspberry signature).
-     The code still runs Calma suiza (app/globals.css); migrating it needs mockups, a spec and a plan.
-     Re-run /impeccable document once the migration lands. -->
+     The code runs it since docs/superpowers/plans/2026-10-16-soft-ui.md; app/globals.css is the source of the values. -->
 
 # Design System: Conidolly
 
@@ -143,7 +147,7 @@ abajo a la derecha, y se hunde cuando ella lo toca. La tinta marca la acción pr
 puede hacer; la frambuesa queda reservada para el acto de firmar.
 
 La app es suave al tacto y seria al leer. La forma es blanda; el texto no. Tinta casi negra sobre
-piedra, 18 px de base, una sola decisión por pantalla. Rechaza el dashboard SaaS (números gigantes,
+piedra, 17 px de base (el cuerpo de iOS en el iPhone), una sola decisión por pantalla. Rechaza el dashboard SaaS (números gigantes,
 gráficos decorativos), la herramienta de IA (destellos, degradados morados, neón), el influencer de
 LinkedIn (emojis en serie, ganchos) y la app de bienestar con texto pastel sobre pastel.
 
@@ -154,7 +158,7 @@ es instantáneo. Columna de lectura de 560 px como máximo en tablet y computado
 **Key Characteristics:**
 - Fondo y superficies del mismo color piedra; la profundidad sale de la doble sombra, no de bordes.
 - Formas de píldora para todo lo que se toca; paneles de 24 px para lo que se lee.
-- Menta para acciones y éxito; frambuesa solo para firmar.
+- Tinta para la acción principal; magenta solo para errores; frambuesa solo para firmar.
 - Estados con fondo de color y su texto, siempre con ícono.
 - Una sola familia (Geist), cinco tamaños en `rem`.
 
@@ -166,7 +170,7 @@ Gris neutro casi monocromo, con una sola nota de color: la frambuesa que firma.
 - **Tinta** (#262626): el botón principal (relleno, con texto luz 14,6:1), los estados activos, el progreso de la voz y las casillas marcadas. Es también el color de todo el texto (12,7:1 sobre piedra).
 
 ### Secondary
-- **Frambuesa de firma** (#a8285a): solo el pulgar del deslizador de aprobar, su rastro y la fecha comprometida. Es el mismo valor del logo, el ícono y `/l` (4,91:1 sobre honda; texto luz encima 6,51:1).
+- **Frambuesa de firma** (#a8285a): solo el pulgar del deslizador de firma y su rastro. Es el mismo valor del logo, el ícono y `/l` (4,91:1 sobre honda; texto luz encima 6,51:1).
 
 ### Neutral
 - **Piedra** (#ebebea): fondo de página y de todo lo que está en relieve.
@@ -196,7 +200,7 @@ la letra.
 - **Pantalla** (600, 2rem, 1,125): el título de cada pantalla, la respuesta de la pantalla.
 - **Pieza** (600, 1,5rem, 1,167): título de pieza, gancho de idea, monto del costo.
 - **Guion** (400, 1,25rem, 1,6): el guion y el texto de LinkedIn, en columna de 65 caracteres.
-- **Cuerpo** (400, 1,125rem, 1,333): base de accesibilidad; filas y botones en 600.
+- **Cuerpo** (400, 1rem sobre el cuerpo de iOS, 1,333): base de accesibilidad; filas y botones en 600.
 - **Meta** (500, 0,9375rem, 1,333): meta, rótulos de sección, ayuda, cifras con `tabular-nums`.
 
 ### Named Rules
@@ -209,11 +213,11 @@ Sistema de relieve suave (soft UI): las superficies son del mismo color del fond
 una doble sombra, luz arriba a la izquierda y sombra abajo a la derecha. Tres niveles, nunca más.
 
 ### Shadow Vocabulary
-- **Relieve** (`box-shadow: -6px -6px 14px rgb(251 250 247 / 0.9), 6px 6px 14px rgb(70 64 52 / 0.18)`):
+- **Relieve** (`box-shadow: -6px -6px 14px rgb(251 251 250 / 0.9), 6px 6px 14px rgb(60 60 60 / 0.18)`):
   botones, chips, campos de búsqueda en reposo, paneles.
-- **Relieve alto** (`box-shadow: -10px -10px 24px rgb(251 250 247 / 0.9), 10px 10px 24px rgb(70 64 52 / 0.22)`):
+- **Relieve alto** (`box-shadow: -10px -10px 24px rgb(251 251 250 / 0.9), 10px 10px 24px rgb(60 60 60 / 0.22)`):
   la barra de firma, el aviso flotante y la carta de idea. Uno por pantalla.
-- **Hundido** (`box-shadow: inset 4px 4px 10px rgb(70 64 52 / 0.18), inset -4px -4px 10px rgb(251 250 247 / 0.9)`):
+- **Hundido** (`box-shadow: inset 4px 4px 10px rgb(60 60 60 / 0.18), inset -4px -4px 10px rgb(251 251 250 / 0.9)`):
   campos, pistas, segmentados y el estado presionado de cualquier botón.
 
 ### Named Rules
@@ -237,9 +241,7 @@ sobra un elemento.
   falta.
 
 ### Deslizar para aprobar (signature)
-Pista hundida de 56 px en piedra honda; pulgar de 48 px en frambuesa con relieve. Al arrastrar deja un
-rastro frambuesa al 14 %; aprueba al 96 % y vuelve a cero si se suelta antes. Siempre va acompañado
-del botón "Aprobar" (WCAG 2.5.7).
+Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Desliza» para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
 
 ### Chips
 - **Style:** píldora de 44 px en piedra con relieve; elegido en tinta con texto luz y check.
@@ -255,29 +257,53 @@ del botón "Aprobar" (WCAG 2.5.7).
 
 ### Inputs / Fields
 - **Style:** píldora hundida en piedra honda, 52 px; las áreas de texto usan 24 px de radio y crecen
-  con su contenido.
+  con su contenido. Lo que se lee con forma de campo (los espacios del ritmo) usa el mismo hundido en
+  honda, nunca una línea suelta debajo.
 - **Focus:** anillo de 2 px en tinta, separado 2 px del campo.
 - **Error:** contorno de 2 px en tinta de error, mensaje debajo con ícono.
 
 ### Navigation
 Barra inferior de tres pestañas sobre piedra con relieve alto hacia arriba. La activa va en una
 píldora hundida en piedra honda, en texto tinta 600; las demás, en apagado. En computador sube al borde
-superior.
+superior. Con letra grande queda al final del contenido, una pestaña por fila, con su etiqueta visible
+al lado del ícono y 44 px o más de alto.
 
 ### Avisos y estados
 Planos, sin sombra: píldoras de 32 px en piedra honda, ícono a la izquierda y
-texto en su tinta. Nunca con el relieve ni el peso de un botón. Las casillas vacías llevan anillo
+texto en su tinta (con letra grande, si el texto se parte, el radio pasa a `bloque`, 18 px). Nunca con el relieve ni el peso de un botón. Las casillas vacías llevan anillo
 `campo` (3,01:1) sobre cualquier fondo. Con `prefers-contrast: more`, todo control suma contorno
 `campo`. El toast flota en tinta sobre piedra, 8 s, con "Deshacer" después de firmar o gastar.
 
 ### Pestañas
 Control segmentado: pista hundida en piedra honda y la opción activa en piedra con relieve.
 
+### Filas de elección
+Radio redondo hundido con anillo `campo`; el elegido en tinta con punto luz. Las filas no elegidas
+bajan a 500 y siguen en tinta: son opciones, nunca algo cerrado.
+
+### Confirmaciones
+En línea, bajo el botón que las pidió (descartar, pedir cambios, regrabar, desconectar, cerrar
+sesión): la pregunta, la acción y «Volver». Nunca un diálogo.
+
+### Detalle para WAV
+Lo que Coni lee va en sus palabras. El proveedor, los saldos, las llaves y el enlace al proveedor van
+plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, cuentas, llaves, saldos y Claude viven
+en la sección plegada «Para WAV».
+
+### Puertas
+- **Puerta 1:** tres pasos en orden: «1. Escucha tu voz», «2. Revisa el guion», «3. Elige tu avatar»
+  (requisito para firmar, nunca plegado). Si el saldo o el tope de gasto no alcanzan, el motivo va
+  arriba, antes del paso 1, y otra vez junto a la firma. Si una falla solo la arregla Federico, el
+  texto lo dice primero y reintentar queda como botón secundario.
+- **Puerta 2:** el video 9:16 al ancho de la columna (sin achicarse con letra grande), con «Míralo
+  completo para poder firmar» sobre el cuadro hasta que ella lo inicia. Con LinkedIn entre los
+  destinos, su texto va primero y el de Instagram se pliega debajo.
+
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** usar la misma piedra (#ecebe6) en fondo y superficies; separar con relieve, no con bordes.
-- **Do** dejar la frambuesa (#a8285a) solo para firmar: pulgar, rastro y fecha comprometida.
+- **Do** usar la misma piedra (#ebebea) en fondo y superficies; separar con relieve, no con bordes.
+- **Do** dejar la frambuesa (#a8285a) solo para firmar: pulgar y rastro.
 - **Do** poner texto tinta sobre piedra honda en estados y avisos, y un ícono en cada estado.
 - **Do** mostrar lo aprobado completo y tal como se publicará: video 9:16 y texto de LinkedIn con el
   aviso de avatar.
@@ -291,4 +317,4 @@ Control segmentado: pista hundida en piedra honda y la opción activa en piedra 
 - **Don't** poner texto pastel o blanco sobre un relleno pastel (app de bienestar genérica).
 - **Don't** apilar más de tres niveles de relieve ni anidar paneles.
 - **Don't** usar bordes laterales de color, texto con degradado ni glassmorphism.
-- **Don't** usar `#fff` ni `#000`: la luz es #fbfaf7 y la tinta #2a2925.
+- **Don't** usar `#fff` ni `#000`: la luz es #fbfbfa y la tinta #262626.

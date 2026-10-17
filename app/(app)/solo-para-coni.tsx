@@ -7,7 +7,7 @@ export function SoloParaConi() {
     <main className="mx-auto grid min-h-dvh w-full max-w-[560px] content-start gap-6 px-5 pt-16">
       <h1 className="text-pantalla text-balance">Esta app es solo para Coni.</h1>
       <form action={cerrarSesionAccion}>
-        <Boton type="submit" variante="linea">
+        <Boton type="submit" variante="secundario">
           Salir
         </Boton>
       </form>

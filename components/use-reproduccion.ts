@@ -17,6 +17,7 @@ export function useReproduccion<T extends HTMLMediaElement>({ clave, alTerminar 
   const avisado = useRef(false)
   const [visto, setVisto] = useState(false)
   const [reproduciendo, setReproduciendo] = useState(false)
+  const [terminado, setTerminado] = useState(false)
   const [tiempo, setTiempo] = useState(0)
   const [duracion, setDuracion] = useState(0)
   const [conError, setConError] = useState(false)
@@ -73,11 +74,17 @@ export function useReproduccion<T extends HTMLMediaElement>({ clave, alTerminar 
   const eventos = {
     onTimeUpdate: alActualizar,
     onLoadedMetadata: alCargar,
-    onPlay: () => setReproduciendo(true),
+    onPlay: () => {
+      setReproduciendo(true)
+      setTerminado(false)
+    },
     onPause: () => setReproduciendo(false),
-    onEnded: () => setReproduciendo(false),
+    onEnded: () => {
+      setReproduciendo(false)
+      setTerminado(true)
+    },
     onError: () => setConError(true),
   }
 
-  return { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar, buscar }
+  return { elemento, eventos, visto, reproduciendo, terminado, tiempo, duracion, conError, alternar, buscar }
 }

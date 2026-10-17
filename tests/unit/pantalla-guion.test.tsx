@@ -1,12 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeGuion, PantallaGuion } from "@/app/(app)/guion/[id]/pantalla-guion"
+import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
+import { TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
-const { aprobarGuionAccion, editarGuionAccion, pedirVozAccion, replace } = vi.hoisted(() => ({
+const { aprobarGuionAccion, editarGuionAccion, pedirCambiosAccion, pedirVozAccion, replace } = vi.hoisted(() => ({
   aprobarGuionAccion: vi.fn(),
   editarGuionAccion: vi.fn(),
+  pedirCambiosAccion: vi.fn(),
   pedirVozAccion: vi.fn(),
   replace: vi.fn(),
 }))
@@ -17,7 +20,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ROUTER }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({
   aprobarGuionAccion,
   pedirVozAccion,
-  pedirCambiosAccion: vi.fn(),
+  pedirCambiosAccion,
   editarGuionAccion,
   volverAVersionDeClaudeAccion: vi.fn(),
 }))
@@ -30,7 +33,7 @@ vi.mock("@/components/reproductor-voz", () => ({
   ),
 }))
 
-const LINEA = "Al firmar grabo el video: ~52 s, US$ 3,48. Tienes 8 s para deshacer."
+const LINEA = "Graba el video · US$ 3,48 · 8 s para deshacer"
 const VOZ = { url: "https://almacen.test/voces/p1/t-x-0.mp3", clave: "voces/p1/t-x-0.mp3" }
 const BOTONES = {
   montoVoz: "US$ 0,33",
@@ -39,6 +42,13 @@ const BOTONES = {
   bloqueoVoz: null,
   bloqueoVideo: null,
 }
+const FRASE: Hallazgo = {
+  regla: "cifra_sin_verificar",
+  tipo: "advierte",
+  mensaje: "Verifica la cifra.",
+  frase: "Soy Coni del Rosario.",
+}
+const BLOQUEA: Hallazgo = { regla: "cierre", tipo: "bloquea", mensaje: "Falta el cierre." }
 
 function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrabacion> = {}): DatosDeGuion {
   return {
@@ -63,28 +73,23 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
   }
 }
 
-const aprobar = () => screen.getByRole("button", { name: "Aprobar" })
+const firma = () => screen.getByRole("slider", { name: "Desliza para firmar" })
+const firmar = () => fireEvent.keyDown(firma(), { key: "Enter" })
+const barra = () => screen.getByRole("region", { name: "Firma" })
 const elegirEstudio = () => fireEvent.click(screen.getByRole("radio", { name: "Estudio" }))
 const escuchar = () => fireEvent.click(screen.getByRole("button", { name: "Terminé de escuchar" }))
+const editor = () => screen.getByText("Editar el guion", { selector: "summary" }).closest("details") as HTMLElement
+/** The slider's description joins the "Falta:" line or block, the consequence and the hint: match one part. */
+const contiene = (texto: string) => new RegExp(texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 
 beforeEach(() => {
   aprobarGuionAccion.mockReset().mockResolvedValue({ ok: true, version: 6 })
   editarGuionAccion.mockReset()
+  pedirCambiosAccion.mockReset().mockResolvedValue({ ok: true })
   pedirVozAccion.mockReset().mockResolvedValue({ ok: true })
   replace.mockReset()
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-    width: 356,
-    left: 0,
-    right: 356,
-    top: 0,
-    bottom: 56,
-    height: 56,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  })
-  HTMLElement.prototype.setPointerCapture = vi.fn()
-  HTMLElement.prototype.releasePointerCapture = vi.fn()
+  // jsdom does not scroll.
+  Element.prototype.scrollIntoView = vi.fn()
 })
 
 afterEach(() => {
@@ -92,31 +97,163 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("PantallaGuion: la voz en la puerta 1", () => {
-  it("shows her voice above the script and keeps the signature closed until she heard it to the end", async () => {
-    render(<PantallaGuion datos={datos()} />)
-    const voz = screen.getByRole("heading", { name: "Voz" })
-    const guion = screen.getByRole("textbox", { name: "Guion" })
+describe("PantallaGuion: el orden de v6", () => {
+  it("goes back, meta, title, date in ink, 1. the voice, 2. the script, 3. the avatar and the bar", () => {
+    render(<PantallaGuion datos={datos({ salida: "jueves 22 de octubre · 09:00" })} />)
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/")
+    const voz = screen.getByRole("heading", { name: "1. Escucha tu voz" })
+    const guion = screen.getByRole("heading", { name: "2. Revisa el guion" })
+    const avatar = screen.getByRole("heading", { name: "3. Elige tu avatar" })
     expect(voz.compareDocumentPosition(guion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    elegirEstudio()
-    expect(screen.getByText("Escucha tu voz completa para firmar.")).toBeInTheDocument()
-    expect(aprobar()).toHaveAttribute("aria-disabled", "true")
-
-    escuchar()
-    expect(aprobar()).not.toHaveAttribute("aria-disabled", "true")
-    fireEvent.click(aprobar())
-    await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 5, "look-a"))
+    expect(guion.compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(avatar.compareDocumentPosition(barra()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
+    expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
+    expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
   })
 
-  it("carries the version she signed at to the video screen, for its undo", async () => {
-    aprobarGuionAccion.mockResolvedValue({ ok: true, version: 6 })
+  it("shows the script in a reading panel, marks a finding's phrase and links it to its panel", () => {
+    render(<PantallaGuion datos={datos({ revision: [FRASE] })} />)
+    expect(screen.getByRole("link", { name: "Soy Coni del Rosario." })).toHaveAttribute("href", "#revision-0")
+    expect(screen.getByRole("region", { name: "Revisa la frase marcada" })).toHaveAttribute("id", "revision-0")
+    expect(screen.getByText("1 frase marcada")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
+    expect(screen.getByText("Revisado")).toBeInTheDocument()
+    expect(screen.getByText("Frase revisada")).toBeInTheDocument()
+  })
+
+  it("reads the tone marks as Spanish chips, with a help about the grey labels instead of the brackets", () => {
+    render(<PantallaGuion datos={datos({ guion: "[warm] Hola, soy Coni. [pause] Soy Coni del Rosario." })} />)
+    const lectura = screen.getByRole("region", { name: "2. Revisa el guion" })
+    expect(within(lectura).getByText("cálido")).toBeInTheDocument()
+    expect(within(lectura).getByText("pausa")).toBeInTheDocument()
+    expect(within(lectura).getByText(AYUDA_DE_MARCAS_EN_LECTURA)).toBeInTheDocument()
+    // Only the folded editor, which keeps the raw marks, talks about brackets.
+    for (const ayuda of within(lectura).queryAllByText(/corchetes/)) expect(editor()).toContainElement(ayuda)
+  })
+
+  it("says Claude found nothing when the review is empty", () => {
     render(<PantallaGuion datos={datos()} />)
+    expect(screen.getByText("Claude revisó el guion y no encontró observaciones. Tú decides.")).toBeInTheDocument()
+  })
+
+  it("folds the editor under 'Editar el guion', with the new take and 'Pedir cambios' inside", () => {
+    render(<PantallaGuion datos={datos()} />)
+    expect(editor()).not.toHaveAttribute("open")
+    expect(within(editor()).getByRole("textbox", { name: "Guion" })).toBeInTheDocument()
+    expect(within(editor()).getByRole("button", { name: /^Grabar la voz de nuevo/ })).toBeInTheDocument()
+    expect(within(editor()).getByText("Escribo un guion nuevo y este se descarta.")).toBeInTheDocument()
+  })
+
+  it("opens the editor by itself when a finding blocks, and the block's 'Editar el guion' opens it too", () => {
+    const { unmount } = render(<PantallaGuion datos={datos({ revision: [BLOQUEA] })} />)
+    expect(editor()).toHaveAttribute("open")
+    unmount()
+
+    render(<PantallaGuion datos={datos({ revision: [BLOQUEA] })} />)
+    fireEvent.click(screen.getByText("Editar el guion", { selector: "summary" }))
+    expect(editor()).not.toHaveAttribute("open")
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Editar el guion" }))
+    expect(editor()).toHaveAttribute("open")
+  })
+
+  it("asks before asking for changes, with today's question", async () => {
+    render(<PantallaGuion datos={datos()} />)
+    fireEvent.click(within(editor()).getByRole("button", { name: "Pedir cambios" }))
+    expect(screen.getByText("Se escribe un guion nuevo y este se descarta. ¿Seguro?")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Sí, pedir cambios" }))
+    await waitFor(() => expect(pedirCambiosAccion).toHaveBeenCalledWith("p1", 5))
+  })
+
+  it("shows the looks as step 3, never folded, with nothing chosen for her", () => {
+    render(<PantallaGuion datos={datos()} />)
+    const paso = screen.getByRole("region", { name: "3. Elige tu avatar" })
+    expect(paso.closest("details")).toBeNull()
+    expect(within(paso).getByRole("radio", { name: "Estudio" })).not.toBeChecked()
+    elegirEstudio()
+    expect(within(paso).getByRole("radio", { name: "Estudio" })).toBeChecked()
+  })
+
+  it("preselects the look the piece already has while it is still offered", () => {
+    render(<PantallaGuion datos={datos({ avatarGuardado: "look-a" })} />)
+    expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
+  })
+
+  it("keeps step 3 while her voice is being made", () => {
+    render(<PantallaGuion datos={datos({}, { estado: "grabando_voz", voz: null })} />)
+    expect(screen.getByRole("radio", { name: "Estudio" })).toBeInTheDocument()
+  })
+
+  it("says in step 3 that there are no looks yet, and the bar keeps the block", () => {
+    render(<PantallaGuion datos={datos({ avatares: [] })} />)
+    const paso = screen.getByRole("region", { name: "3. Elige tu avatar" })
+    expect(within(paso).getByText("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí.")).toBeInTheDocument()
+    expect(within(barra()).getByText(TEXTO_SIN_AVATARES)).toBeInTheDocument()
+  })
+
+  it("keeps only the optional LinkedIn text under 'Más opciones', folded, and no fold without it", () => {
+    const { unmount } = render(<PantallaGuion datos={datos()} />)
+    expect(screen.queryByText("Más opciones")).toBeNull()
+    unmount()
+    render(<PantallaGuion datos={datos({ textoLinkedin: "Un texto para LinkedIn." })} />)
+    const mas = screen.getByText("Más opciones").closest("details") as HTMLElement
+    expect(mas).not.toHaveAttribute("open")
+    expect(within(mas).getByText("Un texto para LinkedIn.")).toBeInTheDocument()
+    expect(within(mas).queryByRole("radio")).toBeNull()
+    expect(screen.queryByText(/^Avatar:/)).toBeNull()
+  })
+
+  it("never blames the video for a new take of her voice that ElevenLabs refused", () => {
+    render(<PantallaGuion datos={datos({ explicacion: "ElevenLabs respondió 429: demasiadas solicitudes." })} />)
+    expect(
+      screen.getByText("No pude grabar tu voz de nuevo. Puedes intentarlo otra vez en Editar el guion."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/No pude grabar el video/)).toBeNull()
+  })
+
+  it("offers no new take in Editar el guion while that button is closed", () => {
+    const tope = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+    render(
+      <PantallaGuion
+        datos={datos(
+          { explicacion: "ElevenLabs respondió HTTP 429: demasiadas solicitudes." },
+          { botones: { ...BOTONES, bloqueoVoz: tope } },
+        )}
+      />,
+    )
+    expect(screen.getByText("No pude grabar tu voz de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText(/Puedes intentarlo otra vez/)).toBeNull()
+  })
+
+  it("sends a key ElevenLabs refused to Federico instead of offering a new take", () => {
+    render(<PantallaGuion datos={datos({ explicacion: "ElevenLabs respondió HTTP 401: la llave no sirve." })} />)
+    expect(screen.getByText("No pude grabar tu voz de nuevo. Avísale a Federico.")).toBeInTheDocument()
+  })
+
+  it("says a phrase HeyGen refused in her words in a warning block, with HeyGen's text for WAV", () => {
+    render(<PantallaGuion datos={datos({ explicacion: "HeyGen marcó una frase como sensible." })} />)
+    const bloque = screen
+      .getByText("No pude grabar el video. Revisa el guion y vuelve a firmarlo.")
+      .closest("output") as HTMLElement
+    expect(bloque).toHaveClass("bg-piedra-honda")
+    const detalle = within(bloque).getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText("HeyGen marcó una frase como sensible."))
+  })
+})
+
+describe("PantallaGuion: la firma", () => {
+  it("lists everything missing after 'Falta:' and signs once nothing is", async () => {
+    render(<PantallaGuion datos={datos()} />)
+    expect(within(barra()).getByText("escuchar tu voz · elegir el avatar", { exact: false })).toBeInTheDocument()
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+    expect(firma()).toHaveAccessibleDescription(contiene("escuchar tu voz · elegir el avatar"))
+
     elegirEstudio()
     escuchar()
-
-    fireEvent.click(aprobar())
-
+    expect(within(barra()).queryByText("Falta:")).toBeNull()
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+    firmar()
+    await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 5, "look-a"))
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/guion/p1?firmada=6"))
   })
 
@@ -124,99 +261,107 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     const { rerender } = render(<PantallaGuion datos={datos()} />)
     elegirEstudio()
     escuchar()
-    expect(aprobar()).not.toHaveAttribute("aria-disabled", "true")
-
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
     const otra = { url: "https://almacen.test/voces/p1/t-x-1.mp3", clave: "voces/p1/t-x-1.mp3" }
     rerender(<PantallaGuion datos={datos({}, { voz: otra })} />)
-
-    expect(screen.getByText("Escucha tu voz completa para firmar.")).toBeInTheDocument()
-    expect(aprobar()).toHaveAttribute("aria-disabled", "true")
+    expect(within(barra()).getByText("escuchar tu voz", { exact: false })).toBeInTheDocument()
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
   })
 
-  it("keeps her voice buttons closed while the script has unsaved changes", () => {
-    render(<PantallaGuion datos={datos()} />)
-    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
+  it("says a short HeyGen balance in her words in the bar, with no list, and folds the numbers for WAV", () => {
+    const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
+    const suyo = "No alcanza el saldo para grabar el video. Avísale a Federico."
+    render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
+    expect(within(barra()).getByRole("status")).toHaveTextContent(suyo)
+    expect(within(barra()).queryByText("Falta:")).toBeNull()
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+    expect(firma()).toHaveAccessibleDescription(contiene(suyo))
+    expect(firma()).not.toHaveAccessibleDescription(/HeyGen|Detalle para WAV/)
+    expect(within(barra()).getByText("Detalle para WAV").closest("details")).toContainElement(
+      within(barra()).getByText(bloqueo),
+    )
+  })
 
-    const otraVez = screen.getByRole("button", { name: "Grabar la voz de nuevo" })
+  it("keeps the monthly cap, which is hers, as it is in the bar", () => {
+    const tope = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+    render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: tope } })} />)
+    expect(within(barra()).getByRole("status")).toHaveTextContent(tope)
+    expect(within(barra()).queryByText("Detalle para WAV")).toBeNull()
+  })
+
+  it.each([
+    [
+      "a short HeyGen balance",
+      "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48).",
+      "No alcanza el saldo para grabar el video. Avísale a Federico.",
+    ],
+    [
+      "the monthly cap",
+      "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes.",
+      "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes.",
+    ],
+  ])("says %s at the top of gate 1, before step 1, and still at the sign control", (_, bloqueo, suyo) => {
+    render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
+    const arriba = screen.getByTestId("bloqueo-de-firma")
+    expect(arriba).toHaveTextContent(suyo)
+    // In her words only: the provider's numbers stay folded once, at the control.
+    expect(within(arriba).queryByText("Detalle para WAV")).toBeNull()
+    const paso1 = screen.getByRole("heading", { name: "1. Escucha tu voz" })
+    expect(arriba.compareDocumentPosition(paso1) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(barra()).getByRole("status")).toHaveTextContent(suyo)
+  })
+
+  it("adds nothing at the top while the signature is only missing steps", () => {
+    render(<PantallaGuion datos={datos()} />)
+    expect(screen.queryByTestId("bloqueo-de-firma")).toBeNull()
+  })
+
+  it("blocks in the bar with today's text when there are no looks to choose", () => {
+    render(<PantallaGuion datos={datos({ avatares: [] })} />)
+    expect(within(barra()).getByText("Todavía no hay avatares para elegir: avísale a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("radio")).toBeNull()
+  })
+
+  it("says what the signature does under the track, and describes the track with it", () => {
+    render(<PantallaGuion datos={datos()} />)
+    expect(within(barra()).getByText(LINEA)).toHaveClass("text-center")
+    expect(firma()).toHaveAccessibleDescription(contiene(LINEA))
+  })
+
+  it("asks to save an edit first, and closes the new take until then", () => {
+    render(<PantallaGuion datos={datos()} />)
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
+    expect(within(barra()).getByText("guardar tus cambios", { exact: false })).toBeInTheDocument()
+    const otraVez = within(editor()).getByRole("button", { name: /^Grabar la voz de nuevo/ })
     expect(otraVez).toHaveAttribute("aria-disabled", "true")
     expect(otraVez).toHaveAccessibleDescription("Guarda tus cambios antes de grabar tu voz.")
   })
 
-  it("says the HeyGen block before the missing voice, so she pays no voice for a video that cannot be paid", () => {
-    const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
-    render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
-
-    expect(aprobar()).toHaveAccessibleDescription(bloqueo)
-  })
-
-  it("asks to save the edit before any reason about her voice", () => {
-    render(<PantallaGuion datos={datos({}, { voz: null })} />)
-    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Hola, soy Coni." } })
-
-    expect(aprobar()).toHaveAccessibleDescription("Guarda tus cambios antes de aprobar")
-  })
-
-  it("says what the signature spends and how long she has to undo it, under the slider", () => {
-    render(<PantallaGuion datos={datos()} />)
-    const barra = screen.getByRole("region", { name: "Firma" })
-    expect(within(barra).getByRole("slider", { name: "Desliza para aprobar y grabar" })).toBeInTheDocument()
-    expect(within(barra).getByText(LINEA)).toBeInTheDocument()
-  })
-
-  it("without her voice of this script, asks to prepare it", async () => {
-    render(<PantallaGuion datos={datos({}, { voz: null })} />)
-    expect(screen.getAllByText("Falta preparar tu voz.")).toHaveLength(2)
-    expect(aprobar()).toHaveAttribute("aria-disabled", "true")
-
-    fireEvent.click(screen.getByRole("button", { name: "Preparar mi voz" }))
-    await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 5, false))
-  })
-
-  it("makes a new take of the same text on request", async () => {
-    render(<PantallaGuion datos={datos()} />)
-    fireEvent.click(screen.getByRole("button", { name: "Grabar la voz de nuevo" }))
-    await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 5, true))
-  })
-
-  it("while her voice is being made, shows the script read-only and keeps the signature closed", () => {
+  it("while her voice is being made keeps the script readable and the editor down to the closed 'Pedir cambios'", () => {
     render(<PantallaGuion datos={datos({}, { estado: "grabando_voz" })} />)
-    expect(screen.getAllByText("Estoy preparando tu voz. Tarda unos segundos.")).toHaveLength(2)
     expect(screen.queryByRole("textbox", { name: "Guion" })).toBeNull()
     expect(screen.getByText("Hola, soy Coni. Soy Coni del Rosario.")).toBeInTheDocument()
-    expect(aprobar()).toHaveAttribute("aria-disabled", "true")
-  })
-
-  it("while her voice is being made, keeps Pedir cambios closed and says why", () => {
-    render(<PantallaGuion datos={datos({}, { estado: "grabando_voz" })} />)
-    const pedir = screen.getByRole("button", { name: "Pedir cambios" })
-
+    const pedir = within(editor()).getByRole("button", { name: "Pedir cambios" })
     expect(pedir).toHaveAttribute("aria-disabled", "true")
     expect(pedir).toHaveAccessibleDescription("Puedes pedir cambios cuando tu voz esté lista.")
+    expect(within(editor()).getByText("Video hecho con mi avatar digital.")).toBeInTheDocument()
+    expect(within(barra()).getByText("que termine tu voz", { exact: false })).toBeInTheDocument()
   })
 
-  it("keeps the signature closed with the HeyGen text when the wallet does not reach, even after listening", () => {
-    const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
-    render(<PantallaGuion datos={datos({}, { botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
-    elegirEstudio()
-    escuchar()
-    expect(screen.getByText(bloqueo)).toBeInTheDocument()
-    expect(aprobar()).toHaveAttribute("aria-disabled", "true")
-  })
-
-  it("after an edit, signs and asks for her voice on the version the server returned", async () => {
+  it("after an edit, asks for her voice and signs on the version the server returned", async () => {
     editarGuionAccion.mockResolvedValue({ ok: true, version: 7, revision: [] })
     render(<PantallaGuion datos={datos()} />)
-    fireEvent.change(screen.getByRole("textbox", { name: "Texto de la publicación" }), {
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Texto de la publicación" }), {
       target: { value: "Video hecho con mi avatar digital. Cuéntame qué te pasa." },
     })
-    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
+    fireEvent.click(within(editor()).getByRole("button", { name: "Guardar cambios" }))
     await screen.findByText("Guardado")
 
-    fireEvent.click(screen.getByRole("button", { name: "Grabar la voz de nuevo" }))
+    fireEvent.click(within(editor()).getByRole("button", { name: /^Grabar la voz de nuevo/ }))
     await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 7, true))
     elegirEstudio()
     escuchar()
-    fireEvent.click(aprobar())
+    firmar()
     await waitFor(() => expect(aprobarGuionAccion).toHaveBeenCalledWith("p1", 7, "look-a"))
   })
 
@@ -226,42 +371,31 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
     const { rerender } = render(<PantallaGuion datos={enRevision} />)
     elegirEstudio()
     fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
-
     rerender(
       <PantallaGuion datos={{ ...enRevision, grabacion: { ...enRevision.grabacion, estado: "grabando_voz" } }} />,
     )
     rerender(<PantallaGuion datos={enRevision} />)
-
     expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
     expect(screen.getByRole("checkbox", { name: "Lo revisé y está bien" })).toBeChecked()
-  })
-
-  it("opens with the avatar she signed with chosen, when it is still one to choose", () => {
-    const { unmount } = render(<PantallaGuion datos={datos({ avatarGuardado: "look-a" })} />)
-    expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
-    unmount()
-
-    render(<PantallaGuion datos={datos({ avatarGuardado: "look-retirado" })} />)
-    expect(screen.getByRole("radio", { name: "Estudio" })).not.toBeChecked()
   })
 
   it("follows the version the server sends, so a request after a refused one is not stale", async () => {
     const { rerender } = render(<PantallaGuion datos={datos()} />)
     rerender(<PantallaGuion datos={datos({ version: 7 })} />)
-
-    fireEvent.click(screen.getByRole("button", { name: "Grabar la voz de nuevo" }))
+    fireEvent.click(within(editor()).getByRole("button", { name: /^Grabar la voz de nuevo/ }))
     await waitFor(() => expect(pedirVozAccion).toHaveBeenCalledWith("p1", 7, true))
   })
 
-  it("opens with the toast it was given, and takes it out of the address when it closes", () => {
+  it("opens with the toast it was given at the top, and takes it out of the address when it closes", () => {
     vi.useFakeTimers()
     render(<PantallaGuion datos={datos({ avisoInicial: "Listo, no grabé nada. Puedes seguir revisando." })} />)
-    expect(screen.getByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeInTheDocument()
-
+    expect(screen.getByText("Listo, no grabé nada. Puedes seguir revisando.").closest("output")).toHaveAttribute(
+      "data-lugar",
+      "arriba",
+    )
     act(() => {
       vi.advanceTimersByTime(8000)
     })
-
     expect(screen.queryByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeNull()
     expect(replace).toHaveBeenCalledWith("/guion/p1")
   })
@@ -269,15 +403,13 @@ describe("PantallaGuion: la voz en la puerta 1", () => {
   it("keeps the toast's 8 s while she types: a re-render does not restart its timer", () => {
     vi.useFakeTimers()
     render(<PantallaGuion datos={datos({ avisoInicial: "Listo, no grabé nada. Puedes seguir revisando." })} />)
-
     act(() => {
       vi.advanceTimersByTime(5000)
     })
-    fireEvent.change(screen.getByRole("textbox", { name: "Guion" }), { target: { value: "Otro texto." } })
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Guion" }), { target: { value: "Otro texto." } })
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-
     expect(screen.queryByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeNull()
   })
 })

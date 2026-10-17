@@ -27,8 +27,8 @@ export function BarraDeMetrica({
   reelsDelTema,
 }: PropiedadesDeBarra) {
   return (
-    <li className="grid gap-2 border-b border-linea py-4 last:border-b-0">
-      <span className="text-cuerpo font-semibold tracking-[-0.004em]">{titulo}</span>
+    <li className="grid gap-2 border-b border-hilo py-4 last:border-b-0">
+      <span className="text-cuerpo leading-[1.3] font-semibold">{titulo}</span>
       {cifra !== null ? (
         <span className="flex items-baseline gap-2">
           <span className="text-pieza tabular-nums">{cifra}</span>

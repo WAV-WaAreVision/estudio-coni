@@ -4,8 +4,11 @@ import { ArrowRight, CaretLeft } from "@phosphor-icons/react"
 import { useState, useTransition } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
-import { FilaConCheck, FilaConValor } from "@/components/ui/filas"
+import { Eleccion, FilaConValor } from "@/components/ui/filas"
+import { Grupo } from "@/components/ui/grupo"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { CLASES_DE_VOLVER } from "@/components/ui/volver"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { NOMBRE_DE_PILAR, PILARES, type Pilar } from "@/lib/dominio/pilares"
 import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
@@ -112,12 +115,8 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
 
   return (
     <div className="grid gap-4">
-      <button
-        type="button"
-        onClick={alVolver}
-        className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
-      >
-        <CaretLeft aria-hidden="true" size={20} />
+      <button type="button" onClick={alVolver} className={CLASES_DE_VOLVER}>
+        <CaretLeft aria-hidden="true" size={ICONO.medio} />
         Volver a las ideas
       </button>
       <h1 className="text-pantalla text-balance">Tu idea</h1>
@@ -134,7 +133,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
               onChange={(evento) => setGancho(evento.target.value)}
               aria-describedby="idea-gancho-ayuda"
               maxLength={220}
-              className="campo min-h-24 text-cuerpo text-tinta"
+              className="campo min-h-24 text-cuerpo font-normal text-tinta"
             />
             <p id="idea-gancho-ayuda" className="text-meta text-apagado">
               La frase con que abrirías el reel, como la dirías tú.
@@ -154,7 +153,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <Boton
             deshabilitado={!listaParaProponer}
             cargando={pendiente}
-            icono={<ArrowRight aria-hidden="true" size={20} />}
+            icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
             onClick={pedirPropuesta}
           >
             Proponer pilar y alertas
@@ -171,10 +170,10 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <p className="text-cuerpo font-semibold">{gancho.trim()}</p>
           <p className="text-cuerpo text-apagado">Esto propongo. Corrígelo si no calza.</p>
 
-          <fieldset className="grid">
+          <fieldset className="elecciones grid">
             <legend className="mb-1 text-meta font-semibold">Pilar</legend>
             {PILARES.map((candidato) => (
-              <FilaConCheck
+              <Eleccion
                 key={candidato}
                 nombre="pilar"
                 valor={candidato}
@@ -185,12 +184,14 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
             ))}
           </fieldset>
 
-          <FilaConValor
-            etiqueta="Formato"
-            valor={formato}
-            opciones={formatos.map((opcion) => ({ valor: opcion, etiqueta: opcion }))}
-            alCambiar={setFormato}
-          />
+          <Grupo>
+            <FilaConValor
+              etiqueta="Formato"
+              valor={formato}
+              opciones={formatos.map((opcion) => ({ valor: opcion, etiqueta: opcion }))}
+              alCambiar={setFormato}
+            />
+          </Grupo>
 
           <fieldset className="grid">
             <legend className="mb-1 text-meta font-semibold">Alertas para el guion</legend>
@@ -209,7 +210,7 @@ export function IdeaPropia({ proponer, crear, alGuardar, alVolver }: Propiedades
           <Boton
             deshabilitado={pilar === null}
             cargando={pendiente}
-            icono={<ArrowRight aria-hidden="true" size={20} />}
+            icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
             onClick={guardar}
           >
             Guardar idea

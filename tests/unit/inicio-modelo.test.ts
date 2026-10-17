@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { construirInicio, type PiezaDeInicio } from "@/lib/inicio/modelo"
+import { construirInicio, type PiezaDeInicio, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
 
 const ZONA = "America/Santiago"
 // Wednesday 7 October 2026, 12:00 in Santiago.
@@ -26,55 +26,134 @@ function pieza(estado: PiezaDeInicio["estado"], extra: Partial<PiezaDeInicio> = 
 }
 
 describe("construirInicio", () => {
-  it("lists what needs her signature with a link to the screen that signs it", () => {
+  it("lists what needs her signature with a link and what signing it takes", () => {
     const guion = pieza("guion_por_aprobar")
     const video = pieza("video_por_aprobar")
 
     const inicio = construirInicio({ piezas: [guion, video], ahora: AHORA, zona: ZONA })
 
     expect(inicio.firma).toEqual([
-      { id: guion.id, titulo: guion.titulo, pilar: "deseo", meta: "Guion · 46 s", href: `/guion/${guion.id}` },
-      { id: video.id, titulo: video.titulo, pilar: "deseo", meta: "Video · 46 s", href: `/video/${video.id}` },
+      {
+        id: guion.id,
+        titulo: guion.titulo,
+        pilar: "deseo",
+        meta: "Guion · 46 s",
+        href: `/guion/${guion.id}`,
+        instruccion: "Escucha tu voz y revisa el guion.",
+      },
+      {
+        id: video.id,
+        titulo: video.titulo,
+        pilar: "deseo",
+        meta: "Video · 46 s",
+        href: `/video/${video.id}`,
+        instruccion: "Mira el video, revisa el texto y elige la fecha.",
+      },
     ])
   })
 
-  it("says how many things wait and about how long they take", () => {
-    const una = construirInicio({ piezas: [pieza("guion_por_aprobar")], ahora: AHORA, zona: ZONA })
-    const dos = construirInicio({
-      piezas: [pieza("guion_por_aprobar"), pieza("video_por_aprobar")],
+  it("answers with what waits for her signature and about how long it takes", () => {
+    const respuesta = (piezas: PiezaDeInicio[]) => {
+      const inicio = construirInicio({ piezas, ahora: AHORA, zona: ZONA })
+      return [inicio.titulo, inicio.linea]
+    }
+    expect(respuesta([])).toEqual(["Esta semana está al día", null])
+    expect(respuesta([pieza("guion_por_aprobar")])).toEqual(["Una espera tu firma", "unos 3 min"])
+    expect(respuesta([pieza("guion_por_aprobar"), pieza("video_por_aprobar")])).toEqual([
+      "2 esperan tu firma",
+      "unos 6 min",
+    ])
+  })
+
+  it("keeps a voice being made out of the count, under 'En preparación'", () => {
+    const preparando = pieza("grabando_voz")
+    const inicio = construirInicio({
+      piezas: [pieza("video_por_aprobar"), pieza("guion_por_aprobar"), preparando],
       ahora: AHORA,
       zona: ZONA,
     })
-    const ninguna = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA })
 
-    expect(una.resumen).toBe("Una cosa espera tu firma · unos 3 min")
-    expect(dos.resumen).toBe("2 cosas esperan tu firma · unos 6 min")
-    expect(ninguna.resumen).toBe("Esta semana está al día")
-    expect({ titulo: una.titulo, tiempo: una.tiempo }).toEqual({
-      titulo: "Una cosa espera tu firma",
-      tiempo: "unos 3 min",
-    })
-    expect({ titulo: dos.titulo, tiempo: dos.tiempo }).toEqual({
-      titulo: "2 cosas esperan tu firma",
-      tiempo: "unos 6 min",
-    })
-    expect({ titulo: ninguna.titulo, tiempo: ninguna.tiempo }).toEqual({
-      titulo: "Esta semana está al día",
-      tiempo: null,
-    })
+    expect(inicio.titulo).toBe("2 esperan tu firma")
+    expect(inicio.linea).toBe("1 en preparación · unos 6 min")
+    expect(inicio.firma.map((fila) => fila.id)).not.toContain(preparando.id)
+    expect(inicio.enPreparacion).toEqual([
+      { id: preparando.id, titulo: preparando.titulo, pilar: "deseo", meta: "Preparando la voz" },
+    ])
   })
 
-  it("shows what is on its way: the script being written, the video being recorded and what is scheduled", () => {
+  it("says only what is in preparation when nothing can be signed yet", () => {
+    const inicio = construirInicio({ piezas: [pieza("grabando_voz")], ahora: AHORA, zona: ZONA })
+    expect([inicio.titulo, inicio.linea]).toEqual(["Esta semana está al día", "1 en preparación"])
+  })
+
+  it("puts failures first: the title counts them and the line says what waits after", () => {
+    const fallida = pieza("error_produccion", { explicacion: "HeyGen no pudo terminar el video." })
+    const una = construirInicio({ piezas: [fallida, pieza("video_por_aprobar")], ahora: AHORA, zona: ZONA })
+    expect([una.titulo, una.linea]).toEqual(["Una cosa necesita tu atención", "Después, una espera tu firma."])
+
+    const dos = construirInicio({
+      piezas: [fallida, pieza("error_publicacion"), pieza("guion_por_aprobar"), pieza("video_por_aprobar")],
+      ahora: AHORA,
+      zona: ZONA,
+    })
+    expect([dos.titulo, dos.linea]).toEqual(["2 cosas necesitan tu atención", "Después, 2 esperan tu firma."])
+
+    expect(construirInicio({ piezas: [fallida], ahora: AHORA, zona: ZONA }).linea).toBeNull()
+  })
+
+  it("orders the failures by what matters most, each with its cause and today's action", () => {
+    const fecha = pieza("video_por_aprobar", { explicacion: "La hora aprobada pasó sin publicarse." })
+    const escrito = pieza("guion_en_proceso", { explicacion: "Llegaste al tope de gasto de este mes." })
+    const frase = pieza("guion_por_aprobar", { explicacion: "HeyGen marcó una frase como sensible." })
+    const video = pieza("error_produccion")
+    const publicar = pieza("error_publicacion", { explicacion: "LinkedIn no respondió." })
+
+    const { atencion } = construirInicio({ piezas: [fecha, escrito, frase, video, publicar], ahora: AHORA, zona: ZONA })
+
+    expect(atencion.map((aviso) => [aviso.titulo, aviso.causa])).toEqual([
+      [publicar.titulo, "No pude publicar."],
+      [video.titulo, "No pude terminar el video."],
+      [frase.titulo, "Tu guion necesita atención."],
+      [escrito.titulo, "No pude escribir el guion."],
+      [fecha.titulo, "Elige otra fecha."],
+    ])
+    expect(atencion[1]).toEqual({
+      tipo: "error",
+      titulo: video.titulo,
+      texto: "Algo no salió como esperábamos con esta pieza.",
+      causa: "No pude terminar el video.",
+      pilar: "deseo",
+      accion: { etiqueta: "Revisar", href: `/guion/${video.id}` },
+    })
+    expect(atencion[0]?.accion).toEqual({ etiqueta: "Revisar", href: `/video/${publicar.id}` })
+    expect(atencion[4]?.accion).toEqual({ etiqueta: "Elegir otra fecha", href: `/video/${fecha.id}` })
+  })
+
+  it("shows a script HeyGen sent back once, under attention, and not again in the signature list", () => {
+    const devuelta = pieza("guion_por_aprobar", { explicacion: "HeyGen marcó una frase como sensible." })
+    const inicio = construirInicio({ piezas: [devuelta], ahora: AHORA, zona: ZONA })
+    expect(inicio.atencion).toHaveLength(1)
+    expect(inicio.firma).toEqual([])
+  })
+
+  it("does not say something else waits when the only signable piece is the one under attention", () => {
+    const otraFecha = pieza("video_por_aprobar", { explicacion: "La fecha que elegiste ya pasó." })
+    const inicio = construirInicio({ piezas: [otraFecha], ahora: AHORA, zona: ZONA })
+    expect([inicio.titulo, inicio.linea]).toEqual(["Una cosa necesita tu atención", null])
+    expect(inicio.firma).toEqual([])
+  })
+
+  it("shows what is on its way, each row opening its screen", () => {
     const escribiendo = pieza("guion_en_proceso")
     const grabando = pieza("en_render")
     const programada = pieza("programado", { publicarEn: "2026-10-10T22:00:00Z" })
 
     const { camino } = construirInicio({ piezas: [escribiendo, grabando, programada], ahora: AHORA, zona: ZONA })
 
-    expect(camino.map((fila) => [fila.id, fila.estado, fila.ocupada])).toEqual([
-      [escribiendo.id, "Escribiendo el guion · te aviso", true],
-      [grabando.id, "Grabando · unos 5 min · te aviso", true],
-      [programada.id, "Programado · sábado 10 · 19:00", false],
+    expect(camino.map((fila) => [fila.id, fila.estado, fila.ocupada, fila.href])).toEqual([
+      [escribiendo.id, "Escribiendo el guion · te aviso", true, `/guion/${escribiendo.id}`],
+      [grabando.id, "Grabando · unos 5 min · te aviso", true, `/guion/${grabando.id}`],
+      [programada.id, "Programado · sábado 10 · 19:00", false, `/video/${programada.id}`],
     ])
   })
 
@@ -87,41 +166,11 @@ describe("construirInicio", () => {
     expect(camino.map((fila) => fila.id)).toEqual([temprano.id, tarde.id])
   })
 
-  it("raises the reason of a failed piece as a notice with the way back to it", () => {
-    const fallida = pieza("error_produccion", { explicacion: "HeyGen no pudo terminar el video." })
-
-    const { avisos } = construirInicio({ piezas: [fallida], ahora: AHORA, zona: ZONA })
-
-    expect(avisos).toEqual([
-      {
-        tipo: "error",
-        titulo: fallida.titulo,
-        texto: "HeyGen no pudo terminar el video.",
-        accion: { etiqueta: "Revisar", href: `/guion/${fallida.id}` },
-      },
-    ])
-  })
-
-  it("raises the reason left on a script that was waiting to be written", () => {
+  it("leaves a script that could not be written out of what is on its way", () => {
     const sinGuion = pieza("guion_en_proceso", { explicacion: "Llegaste al tope de gasto de este mes." })
-
-    const { avisos, camino } = construirInicio({ piezas: [sinGuion], ahora: AHORA, zona: ZONA })
-
-    expect(avisos[0]).toMatchObject({ tipo: "error", texto: "Llegaste al tope de gasto de este mes." })
+    const { atencion, camino } = construirInicio({ piezas: [sinGuion], ahora: AHORA, zona: ZONA })
+    expect(atencion[0]).toMatchObject({ tipo: "error", texto: "Llegaste al tope de gasto de este mes." })
     expect(camino).toEqual([])
-  })
-
-  it("raises the reason of a script HeyGen sent back, and keeps it in the signature list", () => {
-    const devuelta = pieza("guion_por_aprobar", { explicacion: "HeyGen marcó una frase como sensible." })
-
-    const inicio = construirInicio({ piezas: [devuelta], ahora: AHORA, zona: ZONA })
-
-    expect(inicio.avisos[0]).toMatchObject({
-      tipo: "error",
-      texto: "HeyGen marcó una frase como sensible.",
-      accion: { etiqueta: "Revisar", href: `/guion/${devuelta.id}` },
-    })
-    expect(inicio.firma).toHaveLength(1)
   })
 
   it("celebrates the last piece published in the last two days, with the way to Instagram", () => {
@@ -145,9 +194,9 @@ describe("construirInicio", () => {
 
   it("does not list discarded pieces anywhere", () => {
     const inicio = construirInicio({ piezas: [pieza("descartado"), pieza("idea")], ahora: AHORA, zona: ZONA })
-
     expect(inicio.firma).toEqual([])
     expect(inicio.camino).toEqual([])
+    expect(inicio.atencion).toEqual([])
     expect(inicio.avisos).toEqual([])
   })
 
@@ -190,7 +239,7 @@ describe("construirInicio: subir a mano", () => {
 
     expect(inicio.firma).toEqual([])
     expect(inicio.camino).toEqual([])
-    expect(inicio.resumen).toBe("Esta semana está al día")
+    expect(inicio.titulo).toBe("Esta semana está al día")
     expect(inicio.avisos).toEqual([])
   })
 
@@ -299,30 +348,58 @@ describe("Inicio con la voz en la puerta 1", () => {
   }
   const entrada = (piezas: PiezaDeInicio[]) => ({ piezas, ahora: Date.parse(base.actualizadaEn), zona: ZONA })
 
-  it("keeps a voice being made among what needs her signature, saying so", () => {
+  it("keeps a voice being made out of what can be signed, under 'En preparación'", () => {
     const inicio = construirInicio(entrada([{ ...base, id: "b", estado: "grabando_voz" }]))
-
-    expect(inicio.firma).toEqual([
-      { id: "b", titulo: "El deseo", pilar: null, meta: "Preparando la voz", href: "/guion/b" },
-    ])
+    expect(inicio.firma).toEqual([])
+    expect(inicio.enPreparacion).toEqual([{ id: "b", titulo: "El deseo", pilar: null, meta: "Preparando la voz" }])
     expect(inicio.camino).toEqual([])
-    expect(inicio.titulo).toBe("Una cosa espera tu firma")
   })
 
-  it("turns a voice that could not be made into a notice to review, and keeps the script to sign", () => {
+  it("turns a voice that could not be made into a failure to review, reached from its notice only", () => {
     const texto = "No pude preparar tu voz. Vuelve a intentarlo con Preparar mi voz."
     const inicio = construirInicio(entrada([{ ...base, id: "c", estado: "guion_por_aprobar", explicacion: texto }]))
-
-    expect(inicio.avisos).toEqual([
-      { tipo: "error", titulo: "El deseo", texto, accion: { etiqueta: "Revisar", href: "/guion/c" } },
+    expect(inicio.atencion).toEqual([
+      {
+        tipo: "error",
+        titulo: "El deseo",
+        texto,
+        causa: "Tu guion necesita atención.",
+        pilar: null,
+        accion: { etiqueta: "Revisar", href: "/guion/c" },
+      },
     ])
-    expect(inicio.firma).toHaveLength(1)
+    expect(inicio.firma).toEqual([])
   })
 
-  it("shows a signed piece on its way, as before", () => {
+  it("shows a signed piece on its way, with the way to its screen", () => {
     const inicio = construirInicio(entrada([{ ...base, id: "d", estado: "en_render" }]))
-
-    expect(inicio.camino[0]).toMatchObject({ id: "d", estado: "Grabando · unos 5 min · te aviso", ocupada: true })
+    expect(inicio.camino[0]).toMatchObject({
+      id: "d",
+      estado: "Grabando · unos 5 min · te aviso",
+      ocupada: true,
+      href: "/guion/d",
+    })
     expect(inicio.firma).toEqual([])
+  })
+})
+
+describe("TEXTO_ENTRA_A_LA_PIEZA", () => {
+  it("names no button, so it holds under every failure's own button", () => {
+    const tecnico = "HeyGen respondió HTTP 500."
+    const estados = [
+      "error_publicacion",
+      "error_produccion",
+      "guion_por_aprobar",
+      "guion_en_proceso",
+      "video_por_aprobar",
+    ] as const
+    const inicio = construirInicio({
+      piezas: estados.map((estado) => pieza(estado, { explicacion: tecnico })),
+      ahora: AHORA,
+      zona: ZONA,
+    })
+    const etiquetas = new Set(inicio.atencion.flatMap((aviso) => (aviso.accion ? [aviso.accion.etiqueta] : [])))
+    expect(etiquetas).toEqual(new Set(["Revisar", "Elegir otra fecha"]))
+    for (const etiqueta of etiquetas) expect(TEXTO_ENTRA_A_LA_PIEZA).not.toContain(etiqueta)
   })
 })

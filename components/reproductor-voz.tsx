@@ -1,6 +1,8 @@
 "use client"
 
-import { Check, Pause, Play } from "@phosphor-icons/react"
+import { ArrowCounterClockwise, Pause, Play } from "@phosphor-icons/react"
+import type { CSSProperties } from "react"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { mmss } from "@/lib/formato"
 import { useReproduccion } from "./use-reproduccion"
@@ -14,29 +16,35 @@ interface PropiedadesDeVoz {
   alEscuchar: () => void
 }
 
-/** Brandkit 9.16: an outlined play, a seekable rail and the time, flat; the state sits under the rail at x = 80. */
+/**
+ * Decision 9, v6 `.voz`: the raised play and the time on top, the rail below; it never collapses. After a full listen,
+ * the ok pill "La escuchaste completa"; once the voice ended, the play replays it.
+ */
 export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
-  const { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar, buscar } =
+  const { elemento, eventos, visto, reproduciendo, terminado, tiempo, duracion, conError, alternar, buscar } =
     useReproduccion<HTMLAudioElement>({ clave, alTerminar: alEscuchar })
   const falla = src === null || conError
   const avance = duracion > 0 ? Math.min(100, (tiempo / duracion) * 100) : 0
+  const nombre = reproduciendo ? "Pausar la voz" : terminado ? "Escuchar de nuevo" : "Escuchar la voz"
+  const Icono = reproduciendo ? Pause : terminado ? ArrowCounterClockwise : Play
 
   return (
-    <div className="grid grid-cols-[48px_1fr_auto] items-center gap-x-3 gap-y-1">
+    <div className="grid gap-1">
       {src ? <audio ref={elemento} src={src} preload="metadata" {...eventos} /> : null}
-      <button
-        type="button"
-        onClick={alternar}
-        disabled={falla}
-        aria-label={reproduciendo ? "Pausar la voz" : "Escuchar la voz"}
-        className="grid size-12 place-items-center rounded-full text-tinta ring-[1.5px] ring-tinta transition-transform duration-[var(--dur-corta)] ease-salida active:scale-[0.98] disabled:text-apagado disabled:ring-linea motion-reduce:active:scale-100"
-      >
-        {reproduciendo ? (
-          <Pause aria-hidden="true" size={20} weight="fill" />
-        ) : (
-          <Play aria-hidden="true" size={20} weight="fill" />
-        )}
-      </button>
+      <div className="flex items-center gap-[14px]">
+        <button
+          type="button"
+          onClick={alternar}
+          disabled={falla}
+          aria-label={nombre}
+          className="grid size-play shrink-0 place-items-center rounded-full bg-piedra text-tinta shadow-relieve transition-shadow duration-[var(--dur-corta)] ease-salida active:shadow-hundido disabled:bg-piedra-honda disabled:text-apagado disabled:shadow-none"
+        >
+          <Icono aria-hidden="true" size={ICONO.grande} weight={Icono === ArrowCounterClockwise ? "bold" : "fill"} />
+        </button>
+        <span data-snapshot="varia" className="text-meta font-semibold text-tinta tabular-nums">
+          {mmss(tiempo)} / {mmss(duracion)}
+        </span>
+      </div>
       <input
         type="range"
         aria-label="Avance de la voz"
@@ -47,24 +55,14 @@ export function ReproductorVoz({ src, clave, alEscuchar }: PropiedadesDeVoz) {
         value={Math.min(tiempo, duracion > 0 ? duracion : 0)}
         disabled={falla || duracion <= 0}
         onChange={(evento) => buscar(Number(evento.target.value))}
-        className="avance"
-        style={{ "--p": `${avance}%` } as React.CSSProperties}
+        className="avance px-2.5"
+        style={{ "--p": `${avance}%` } as CSSProperties}
       />
-      <span className="text-meta text-tinta tabular-nums">
-        {mmss(tiempo)} / {mmss(duracion)}
-      </span>
-      <div className="col-span-2 col-start-2">
-        {falla ? (
-          <LineaDeEstado tipo="error" titulo="No pude cargar la voz. Recarga la pantalla." />
-        ) : visto ? (
-          <p className="flex items-center gap-2 text-meta text-exito">
-            <Check aria-hidden="true" size={16} />
-            Ya la escuchaste
-          </p>
-        ) : (
-          <p className="text-meta text-apagado">Escucha cómo suena antes de grabar</p>
-        )}
-      </div>
+      {falla ? (
+        <LineaDeEstado tipo="error" titulo="No pude cargar la voz. Recarga la pantalla." />
+      ) : visto ? (
+        <LineaDeEstado tipo="exito" titulo="La escuchaste completa" />
+      ) : null}
     </div>
   )
 }

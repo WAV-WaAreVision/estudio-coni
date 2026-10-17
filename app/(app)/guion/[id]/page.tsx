@@ -1,10 +1,14 @@
+import { House } from "@phosphor-icons/react/dist/ssr"
+import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { EstadoSencillo } from "@/components/estado-sencillo"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Seccion } from "@/components/seccion"
-import { LineaDeSaldo } from "@/components/ui/costo"
-import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Bloque } from "@/components/ui/bloque"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
+import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
@@ -26,6 +30,13 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
+import {
+  TEXTO_DETENIDO_EN_SUS_PALABRAS,
+  TEXTO_NO_ESCRIBI,
+  TEXTO_NO_TERMINE,
+  TEXTO_REINTENTA,
+  TEXTO_VIDEO_DETENIDO,
+} from "./textos"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
@@ -57,8 +68,17 @@ export default async function PaginaDeGuion({
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <>
-              <LineaDeEstado tipo="error" titulo="No pude escribir el guion" detalle={fila.explicacion} />
-              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion", "descartar"]} />
+              <Bloque
+                tipo="error"
+                grande
+                titulo={TEXTO_NO_ESCRIBI}
+                accion={
+                  <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} enUnError />
+                }
+              >
+                <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_REINTENTA} />
+              </Bloque>
+              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
           ) : (
             <Trabajando
@@ -79,13 +99,16 @@ export default async function PaginaDeGuion({
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
-            <LineaDeEstado tipo="error" titulo="El video está detenido" detalle={fila.explicacion} />
+            <Bloque tipo="error" grande titulo={TEXTO_VIDEO_DETENIDO}>
+              <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_DETENIDO_EN_SUS_PALABRAS} />
+            </Bloque>
           ) : (
-            <Trabajando titulo="Estoy grabando tu video." detalle="Te aviso cuando esté listo." />
-          )}
-          {ventana.quedanMs > 0 ? (
             <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
-          ) : null}
+          )}
+          <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
+            Volver a Inicio
+            <House aria-hidden="true" size={ICONO.medio} />
+          </Link>
           <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
         </EstadoSencillo>
       )
@@ -94,19 +117,26 @@ export default async function PaginaDeGuion({
       const voz = await vozParaEscuchar(db, fila)
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilarDe(idea)} segundos={segundosDe(fila.guion)}>
-          <LineaDeEstado
+          <Bloque
             tipo="error"
-            titulo="No se pudo terminar el video"
-            detalle={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-          />
+            grande
+            titulo={TEXTO_NO_TERMINE}
+            accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} enUnError />}
+          >
+            {/* The HeyGen balance is WAV's: it goes with the provider's reason under "Detalle para WAV". */}
+            <ExplicacionParaConi
+              texto={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
+              enSusPalabras={TEXTO_REINTENTA}
+              extra={[lineaDeSaldoVideo((await leerSaldos()).heygen)]}
+            />
+          </Bloque>
+          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
           {voz ? (
             <Seccion titulo="Voz" id="voz">
-              <p className="text-cuerpo text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+              <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
               <VozSuelta src={voz.url} clave={voz.clave} />
             </Seccion>
           ) : null}
-          <LineaDeSaldo>{lineaDeSaldoVideo((await leerSaldos()).heygen)}</LineaDeSaldo>
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
     }
@@ -209,15 +239,15 @@ async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0
   )
 }
 
-/** A piece being worked on: the working dot, what is happening and when she will hear about it. */
+/** A piece being worked on (v6 `.trabajando`): the working dot, what is happening, and when she will hear about it. */
 function Trabajando({ titulo, detalle }: { titulo: string; detalle: string }) {
   return (
-    <div className="grid gap-1">
-      <p className="flex items-center gap-3 text-cuerpo font-semibold">
+    <div className="grid gap-1.5">
+      <output className="flex items-center gap-3 text-boton font-semibold">
         <PuntoTrabajando />
         {titulo}
-      </p>
-      <p className="pl-5 text-meta text-apagado">{detalle}</p>
+      </output>
+      <p className="text-meta text-apagado">{detalle}</p>
     </div>
   )
 }

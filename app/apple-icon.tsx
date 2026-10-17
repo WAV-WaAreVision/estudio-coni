@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { ImageResponse } from "next/og"
-import { COLOR_DE_FIRMA, COLOR_DE_FONDO, COLOR_DE_TINTA } from "@/lib/diseno/marca"
+import { COLOR_DE_FIRMA, COLOR_DE_LUZ, COLOR_DE_TINTA } from "@/lib/diseno/marca"
 
 export const size = { width: 180, height: 180 }
 export const contentType = "image/png"
@@ -21,9 +21,7 @@ export default async function IconoDeApple() {
         background: COLOR_DE_TINTA,
       }}
     >
-      <span style={{ fontFamily: "Geist", fontWeight: 600, fontSize: 116, lineHeight: 1, color: COLOR_DE_FONDO }}>
-        c
-      </span>
+      <span style={{ fontFamily: "Geist", fontWeight: 600, fontSize: 116, lineHeight: 1, color: COLOR_DE_LUZ }}>c</span>
       <span style={{ width: 25, height: 25, borderRadius: 999, background: COLOR_DE_FIRMA, marginTop: 39 }} />
     </div>,
     { ...size, fonts: [{ name: "Geist", data: geist, weight: 600, style: "normal" }] },

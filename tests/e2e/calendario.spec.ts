@@ -75,6 +75,11 @@ test("the rhythm shows the last four weeks by the days of the schedule and has n
   ).toBeVisible()
   await expect(page.getByText("Mar", { exact: true })).toBeVisible()
   await expect(page.getByText("casi siempre quedan libres")).toHaveCount(0)
+  // A free slot is a sunken honda tile, as fields and tracks are, never an underline.
+  const libre = page.getByText("libre", { exact: true }).first()
+  await expect(libre).toHaveCSS("background-color", "rgb(220, 220, 219)")
+  await expect(libre).toHaveCSS("box-shadow", /inset/)
+  await expect(libre).toHaveCSS("border-bottom-width", "0px")
   await capturar(page, "calendario-ritmo")
 })
 

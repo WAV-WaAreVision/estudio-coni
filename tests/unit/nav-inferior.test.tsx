@@ -42,4 +42,21 @@ describe("NavInferior", () => {
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument()
     },
   )
+
+  it("is raised on piedra and draws the current tab as a sunken honda pill", () => {
+    render(<NavInferior />)
+    expect(screen.getByRole("navigation", { name: "Secciones" })).toHaveClass(
+      "bg-piedra",
+      "shadow-relieve-fijo",
+      "rounded-t-panel",
+    )
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveClass(
+      "bg-piedra-honda",
+      "shadow-hundido",
+      "font-semibold",
+      "min-h-nav",
+    )
+    expect(screen.getByRole("link", { name: "Ajustes" })).toHaveClass("text-apagado")
+    expect(screen.getByText("Inicio")).toHaveClass("nav-etiqueta")
+  })
 })

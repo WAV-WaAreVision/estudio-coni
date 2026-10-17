@@ -217,7 +217,7 @@ the only signal: shape, text or icon identifies every control (The Relief Is Not
 | Chip (`components/chip.tsx`) | piedra raised pill, meta 600 | tinta fill, luz label, check icon | honda flat | 2.75rem |
 | Segmented (`pestanas.tsx`) | track honda sunken pill; options flat apagado 500 | active option piedra raised, tinta 600 | n/a | options 2.75rem |
 | Checkbox (`casilla.tsx`) | 1.65rem box, radius 9 px, honda sunken, 2 px `campo` ring | tinta fill, luz check, `--hundido-marcado` | honda flat, label apagado | row min-h 3.25rem, whole row is the target |
-| Radio / choice (`filas.tsx` `FilaConCheck` -> `Eleccion`) | 1.65rem round, honda sunken, `campo` ring; row text 600 | tinta fill with a .6rem luz dot; the other rows turn apagado 500 | as checkbox | row min-h 2.75rem, focus ring around the row |
+| Radio / choice (`filas.tsx` `FilaConCheck` -> `Eleccion`) | 1.65rem round, honda sunken, `campo` ring; row text 600 | tinta fill with a .6rem luz dot; the other rows drop to 500 and stay in tinta (exit critique 2: apagado read as closed) | as checkbox | row min-h 2.75rem, focus ring around the row |
 | Switch (`interruptor.tsx`) | track honda sunken + `campo` ring, thumb piedra raised | track tinta, thumb luz | honda flat | 3.25 x 2rem |
 | Field (`.campo` in globals, `casillas-codigo.tsx`) | honda sunken; input pill 3.25rem, padding 0 20 px; textarea radius 24 px, grows (`field-sizing: content`) | focus ring | honda flat, apagado | error: 2 px `--error` outline and an error block under it |
 | Sign track + thumb (decision 5) | track honda sunken 3.5rem, label 1rem 600 tinta; thumb 3rem `--firma` with `--relieve-pulgar`, luz arrow | trail `--firma-rastro`; signed: trail `--firma`, label luz | label apagado; thumb piedra flat with 2 px `campo` inset ring, apagado arrow | track focus ring 3 px tinta, offset 3 px |
@@ -291,14 +291,14 @@ same switch from the real sizes:
 | Rule | Default and large-but-under-threshold | `data-letra="grande"` |
 |---|---|---|
 | Sign bar | sticky bottom, radius 28 px top, `--relieve-alto-fijo` | `position: static` at the end of the page, radius 28 px all round, `--relieve`, margin-top 24 px |
-| Track | 3.5rem, thumb 3rem, label starts at 4rem | min-h 3rem, thumb 2.25rem, label from 2.85rem, label wraps balanced |
-| Bottom nav | sticky, icon + label | static after the content, one row of three icons at 1.2rem, labels visually hidden (still the accessible name), targets 2.75rem |
+| Track | 3.5rem, thumb 3rem, label starts at 4rem | same track and thumb (exit critique 2: never shrunk); the label at rest reads "Desliza" so it keeps one line; the accessible name stays "Desliza para firmar" |
+| Bottom nav | sticky, icon + label | static after the content, one tab per row with its visible label beside a 1.2rem icon (exit critique 2), targets 2.75rem |
 | Screen title | 2rem | capped at 1.5rem |
 | Meta rows, piece header, date row | one line | wrap |
-| Status pills | one line | icon top-aligned, radius 20 px, text wraps |
+| Status pills | one line | icon top-aligned, radius `--r-bloque` (18 px), text wraps |
 | Voice player | play + time on top, rail below | same (never collapses) |
-| Gate 2 video | 9.5rem x 16.9rem, centred | full width, 9:16 |
-| Video controls | icon + time on top, rail below | same, badges at .75rem |
+| Gate 2 video | full column width at 9:16, capped so it fits above the bar on load | full column width, 9:16 |
+| Video controls | one bottom row: play, rail, time | same; badges keep `--t-insignia`, never smaller than at default size |
 | Toast | see below | fixed at 16 px + safe area, wraps, action on its own row aligned right |
 
 Toast placement (a deviation from v6, which puts the toast in the flow at 200 %: a toast at the end of a long page is
@@ -417,11 +417,10 @@ v6 screens 2, 2b, 3, 7 and 9. Structure:
      `<details>` keeps the editor mounted, so a draft survives closing it. Open by default when a blocking finding
      exists. In `grabando_voz` it holds only the disabled "Pedir cambios" with "Puedes pedir cambios cuando tu voz esté
      lista." (screen 3) and the caption read only.
-6. "Más opciones" (disclosure): summary meta "Avatar: Consulta" (the chosen look's name). Inside: the looks as choice
-   rows (2.25rem round photo, name, radio), and, when the piece has one, the LinkedIn text read only with the note that
-   it is reviewed at gate 2 (`TextoLinkedinEnLectura`). When no look is chosen the summary reads "Avatar: falta
-   elegirlo" and the disclosure renders open. v6's "El de siempre" needs a default look (follow-up j). No looks at all:
-   today's `TEXTO_SIN_AVATARES` as a warning block in the bar (it blocks).
+6. Shipped as step "3. Elige tu avatar" (exit critique: a signing requirement is never folded): the looks as choice
+   rows (2.25rem round photo, name, radio), never inside a disclosure. "Más opciones" keeps only what is optional: the
+   LinkedIn text read only, reviewed at gate 2 (`TextoLinkedinEnLectura`). v6's "El de siempre" needs a default look
+   (follow-up j). No looks at all: today's `TEXTO_SIN_AVATARES` as a warning block in the bar (it blocks).
 7. Sign bar, top to bottom:
    - an action error (`aprobacion` / `cambios`) as an error block;
    - a blocking reason as a block: `bloqueoVideo` (HeyGen balance or the month's cap, today's texts), no looks. v6 screen
@@ -459,11 +458,12 @@ render, `quedanMs` from the server clock, `?deshecho=1` after an undo):
 v6 screens 5 and 5b. Everything is visible before the video ends (today it appears after); the signature still waits
 for the full watch.
 
-1. Back "Inicio"; the video at 9.5rem x 16.9rem centred (full width at large text), radius 22 px, `--relieve`;
-   badges stacked top left: "Avatar IA" and, while it plays and until it is complete, "faltan 0:24" (computed in the
-   player from duration and time); controls in two rows (icon + time, rail below).
-2. Meta row and title. After the full watch, the `ok` pill "Lo viste completo"; before it, nothing (today's "Míralo
-   completo para aprobar" goes, the bar says it).
+1. Back "Inicio"; the video at the full column width, 9:16, capped so all of it fits above the bar on load (full width
+   at large text), radius 22 px, `--relieve`; badges stacked top left: "Avatar IA" and, while it plays and until it is
+   complete, "faltan 0:24" (computed in the player from duration and time); controls in one bottom row (play, rail,
+   time). Before she starts it, "Míralo completo para poder firmar" sits over the frame (exit critique 2: the frame must
+   not look ready); play stays open, since the video is finished and watching it is what opens the signature.
+2. Meta row and title. After the full watch, the `ok` pill "Lo viste completo".
 3. The checkbox "Revisé labios, nombre, subtítulos y cortes", right under the title, mandatory as today (Federico
    confirmed); it can be ticked at any time.
 4. The first-time message (`MensajeDePrimeraVez`) as a reading panel; an `explicacion` as a warning block.
@@ -602,6 +602,25 @@ a mano", "Se vuelve a grabar con tu avatar y este video se descarta.", "Renovar 
 "Conectar Instagram", "Conectada", "Vence en N días", "Publica como", "Reintentar", "Lo revisé y está bien".
 v6 strings not used because no behaviour or data backs them: see the follow-up list.
 
+### 18. Shipped after the exit critiques
+
+What the branch ships where the sections above say otherwise (the code and `docs/DESIGN.md` follow this):
+
+- Gate 1: the avatar is step 3 ("3. Elige tu avatar"), after the voice and the script. A HeyGen balance or the month's
+  cap is said at the top of the screen, before step 1, in her words, and again at the sign control with the provider
+  folded under "Detalle para WAV".
+- A failed voice that only Federico can fix (a key ElevenLabs refused) says "Avísale a Federico. Cuando lo arregle,
+  puedes intentarlo otra vez." and offers "Preparar mi voz" as a secondary button, never as the main action beside it.
+  The button shows what preparing costs; nothing says whether the failed try was charged, which the app does not know.
+- Gate 2: the video at the full column width (9:16); the LinkedIn text leads ("Así sale en LinkedIn") when LinkedIn is a
+  destination and the caption folds under "Así sale en Instagram".
+- Provider details: a text she reads in her words, with the provider, balances and keys folded under "Detalle para
+  WAV"; Ajustes keeps accounts, keys, balances and Claude in its own "Para WAV" section.
+- Confirmations (discard, ask for changes, re-record, disconnect) are inline, under the button that asked, never a
+  dialog.
+- Large text: the tabs keep their labels, the sign thumb keeps 3rem with the short "Desliza" label, and choice rows
+  that were not chosen stay in tinta.
+
 ## Migration order
 
 One branch (`feat/soft-ui`), batches reviewed one by one, TDD for every pure function and component change, the full
@@ -656,7 +675,7 @@ large-text check and captures). `capturaDe` keeps forcing the bars static; its s
   block; gate 2 signs only after the full watch and the checkbox; Inicio with failures shows one primary; the
   disconnect confirmation in Cuentas; at default size the sign bar's bottom equals the viewport bottom while scrolled
   (sticky works) and the toast never overlaps the bar or the nav (bounding boxes); at large text the bar and the nav are
-  static, the nav shows no visible labels, and no route scrolls horizontally (`scrollWidth <= innerWidth`) at 390 px.
+  static, the nav keeps its visible labels, and no route scrolls horizontally (`scrollWidth <= innerWidth`) at 390 px.
   `accesibilidad.spec.ts`: background `rgb(235, 235, 234)`, axe WCAG 2.2 AA on every route plus the new states and the
   large-text variants, and the same with `prefers-contrast: more`.
 - Manual on Coni's iPhone (installed PWA) before merge: Dynamic Type at default, xxLarge and AX2; VoiceOver signs gate

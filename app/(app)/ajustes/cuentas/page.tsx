@@ -1,8 +1,7 @@
-import { CaretLeft } from "@phosphor-icons/react/dist/ssr"
-import Link from "next/link"
 import { Suspense } from "react"
 import { Seccion } from "@/components/seccion"
-import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Bloque } from "@/components/ui/bloque"
+import { Volver } from "@/components/ui/volver"
 import { avisoDeInstagram } from "@/lib/ajustes/instagram-aviso"
 import { avisoDeLinkedin } from "@/lib/ajustes/linkedin-aviso"
 import { filaDeCuenta } from "@/lib/ajustes/presentar"
@@ -13,9 +12,7 @@ import { CuentasConectadas } from "../cuentas-conectadas"
 import { revisionDeCuentas } from "../revision"
 import { SaldosDeLaPagina } from "../saldos"
 
-const TIPO_DE_AVISO = { ok: "exito", aviso: "aviso", error: "error" } as const
-
-/** «Cuentas conectadas» as its own level of Ajustes (brandkit 9.21): each account, its keys and the balances. */
+/** «Cuentas» as its own level of Ajustes (decision 12): each account, its keys and the balances. */
 export default async function Cuentas({
   searchParams,
 }: {
@@ -34,19 +31,16 @@ export default async function Cuentas({
 
   return (
     <div>
-      <Link
-        href="/ajustes"
-        className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
-      >
-        <CaretLeft aria-hidden="true" size={20} />
-        Ajustes
-      </Link>
-      <h1 className="mt-1 text-pantalla text-balance">Cuentas conectadas</h1>
+      <Volver href="/ajustes">Ajustes</Volver>
+      <h1 className="mt-5 text-pantalla text-balance">Cuentas</h1>
+      <p className="mt-1.5 text-meta text-apagado">
+        Conectadas a Conidolly: lo que la app necesita para escribir, grabar y publicar.
+      </p>
 
       {aviso ? (
-        <div className="mt-6">
-          <LineaDeEstado tipo={TIPO_DE_AVISO[aviso.tipo]} titulo={aviso.titulo} tituloEnTinta detalle={aviso.texto} />
-        </div>
+        <Bloque tipo={aviso.tipo} titulo={aviso.titulo} className="mt-6">
+          {aviso.texto}
+        </Bloque>
       ) : null}
 
       <div className="mt-6">
@@ -55,11 +49,11 @@ export default async function Cuentas({
         </Suspense>
       </div>
 
-      <Seccion titulo="Cuentas" id="cuentas">
+      <section aria-label="Cuentas" className="mt-8">
         <Suspense fallback={<EsqueletoDeCuentas />}>
           <CuentasDeLaPagina />
         </Suspense>
-      </Seccion>
+      </section>
 
       <Seccion titulo="Saldos" id="saldos">
         <Suspense fallback={<EsqueletoDeCuentas />}>

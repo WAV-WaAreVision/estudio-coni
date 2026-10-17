@@ -1,6 +1,6 @@
 import { Suspense } from "react"
-import { Boton } from "@/components/ui/boton"
 import { FilaNavegacion } from "@/components/ui/filas"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { destinosPorDefecto } from "@/lib/dominio/destinos"
 import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
@@ -9,6 +9,7 @@ import { cerrarSesionAccion } from "../acciones"
 import { enviarPruebaAccion, guardarAjusteAccion, guardarSuscripcionAccion, quitarSuscripcionAccion } from "./acciones"
 import { AvisosDelCelular } from "./avisos-del-celular"
 import { BloqueDeEstado } from "./bloque-de-estado"
+import { CerrarSesion } from "./cerrar-sesion"
 import { EditorDeAjustes } from "./editor-de-ajustes"
 
 export default async function Ajustes() {
@@ -61,15 +62,14 @@ export default async function Ajustes() {
         />
       </div>
 
-      <div className="mt-10">
+      {/* Exit critique 3: the accounts, keys, balances and Claude are WAV's operation, folded out of her way. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Cuentas, llaves, saldos y Claude">
         <FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>
-      </div>
+      </MasOpciones>
 
-      <form action={cerrarSesionAccion} className="mt-6">
-        <Boton type="submit" variante="callado">
-          Cerrar sesión
-        </Boton>
-      </form>
+      <div className="mt-6">
+        <CerrarSesion cerrar={cerrarSesionAccion} />
+      </div>
     </div>
   )
 }

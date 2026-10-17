@@ -11,16 +11,25 @@ describe("Aviso", () => {
     vi.useRealTimers()
   })
 
-  it("announces itself politely", () => {
-    render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
-
-    expect(screen.getByRole("status")).toHaveTextContent("Guardado")
+  it("announces itself politely, from <body>, not from where it was rendered", () => {
+    render(
+      <div data-testid="lugar">
+        <Aviso mensaje="Guardado" alCerrar={() => undefined} />
+      </div>,
+    )
+    const estado = screen.getByRole("status")
+    expect(estado).toHaveTextContent("Guardado")
+    expect(estado.parentElement).toBe(document.body)
+    expect(screen.getByTestId("lugar")).toBeEmptyDOMElement()
   })
 
-  it("stays 8 seconds by default (brandkit 9.23)", () => {
+  it("renders nothing on the server: the live region mounts empty in the browser and fills after", () => {
+    expect(renderToStaticMarkup(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)).toBe("")
+  })
+
+  it("stays 8 seconds by default", () => {
     const alCerrar = vi.fn()
     render(<Aviso mensaje="Guardado" alCerrar={alCerrar} />)
-
     act(() => {
       vi.advanceTimersByTime(7999)
     })
@@ -28,49 +37,35 @@ describe("Aviso", () => {
     act(() => {
       vi.advanceTimersByTime(1)
     })
-
     expect(alCerrar).toHaveBeenCalledTimes(1)
+  })
+
+  it("sits above the nav by default and at the top on a signing screen", () => {
+    const { rerender } = render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
+    expect(screen.getByRole("status")).toHaveAttribute("data-lugar", "nav")
+    rerender(<Aviso mensaje="Guardado" alCerrar={() => undefined} lugar="arriba" />)
+    expect(screen.getByRole("status")).toHaveAttribute("data-lugar", "arriba")
+  })
+
+  it("reads light on ink with high relief, and a 2.75rem light pill to undo", () => {
+    render(<Aviso mensaje="Idea descartada" alCerrar={() => undefined} alDeshacer={() => undefined} />)
+    expect(screen.getByRole("status")).toHaveClass("bg-tinta", "text-luz", "rounded-toast", "shadow-relieve-alto")
+    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveClass("min-h-objetivo", "bg-luz", "text-tinta")
   })
 
   it("offers 'Deshacer' only when there is something to undo", () => {
     const { rerender } = render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
-    expect(screen.queryByRole("button", { name: "Deshacer" })).not.toBeInTheDocument()
-
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
     const alDeshacer = vi.fn()
     rerender(<Aviso mensaje="Guardado" alCerrar={() => undefined} alDeshacer={alDeshacer} />)
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
-
     expect(alDeshacer).toHaveBeenCalledTimes(1)
-  })
-
-  it("rides above the sign bar instead of the bottom nav when asked", () => {
-    const { rerender } = render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
-    expect(screen.getByRole("status").className).toContain("bottom-[calc(56px+")
-
-    rerender(<Aviso mensaje="Guardado" alCerrar={() => undefined} sobreBarra />)
-    expect(screen.getByRole("status").className).toContain("bottom-[calc(var(--barra-max)+")
-  })
-
-  it("reads in the ink-on-surface pair with a 44 px undo", () => {
-    render(<Aviso mensaje="Idea descartada" alCerrar={() => undefined} alDeshacer={() => undefined} />)
-    expect(screen.getByRole("status")).toHaveClass("bg-tinta", "text-sobre-tinta")
-    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveClass("min-h-11", "text-sobre-tinta")
-  })
-
-  it("paints its live region empty and fills it after mount, so screen readers announce the message", () => {
-    const primerPintado = renderToStaticMarkup(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
-    expect(primerPintado).toContain("<output")
-    expect(primerPintado).not.toContain("Guardado")
-
-    render(<Aviso mensaje="Guardado" alCerrar={() => undefined} />)
-    expect(screen.getByRole("status")).toHaveTextContent("Guardado")
   })
 
   it("moves focus to 'Deshacer' when asked, and leaves it alone otherwise", () => {
     const { unmount } = render(<Aviso mensaje="Guardado" alCerrar={() => undefined} alDeshacer={() => undefined} />)
     expect(screen.getByRole("button", { name: "Deshacer" })).not.toHaveFocus()
     unmount()
-
     render(<Aviso mensaje="Firmaste." alCerrar={() => undefined} alDeshacer={() => undefined} enfocarDeshacer />)
     expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus()
   })
@@ -83,16 +78,15 @@ describe("Aviso", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
     expect(alDeshacer).toHaveBeenCalledTimes(1)
-    expect(alCerrar).not.toHaveBeenCalled()
-
     rerender(<Aviso mensaje="Firmaste." alCerrar={alCerrar} alDeshacer={alDeshacer} deshaciendo />)
     const boton = screen.getByRole("button", { name: "Deshaciendo…" })
     expect(boton).toHaveAttribute("aria-disabled", "true")
+    // Muted, not only faded.
+    expect(boton).toHaveClass("aria-disabled:text-apagado")
     fireEvent.click(boton)
     act(() => {
       vi.advanceTimersByTime(8000)
     })
-
     expect(alDeshacer).toHaveBeenCalledTimes(1)
     expect(alCerrar).not.toHaveBeenCalled()
   })

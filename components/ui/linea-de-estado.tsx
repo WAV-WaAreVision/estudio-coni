@@ -1,24 +1,18 @@
-import { CalendarBlank, CheckCircle, Info, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr"
+import { CalendarBlank, Info } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { Bloque } from "./bloque"
+import { PildoraDeEstado } from "./estado"
+import { ICONO } from "./icono"
 
 export type TipoDeEstado = "exito" | "aviso" | "error" | "neutro" | "fecha"
-
-const TINTA: Record<TipoDeEstado, string> = {
-  exito: "text-exito",
-  aviso: "text-aviso",
-  error: "text-error",
-  neutro: "text-tinta",
-  fecha: "text-tinta",
-}
-const ICONO = { exito: CheckCircle, aviso: Warning, error: WarningCircle, neutro: Info, fecha: CalendarBlank } as const
 
 interface PropiedadesDeLinea {
   tipo: TipoDeEstado
   titulo: ReactNode
-  /** «Para confirmar:», «Hay que corregirlo:»: the only coloured part when the title is a message. */
+  /** A label read before the title, in the same weight. */
   rotulo?: string
-  /** The title is a name or a long message: ink, and only the rotulo carries the colour. */
+  /** An error title that is a message rather than a cause stays in ink. */
   tituloEnTinta?: boolean
   detalle?: ReactNode
   accion?: ReactNode
@@ -27,7 +21,10 @@ interface PropiedadesDeLinea {
   className?: string
 }
 
-/** Brandkit 9.6: icon in the state's ink, text at x = 56, no box. */
+/**
+ * Decision 4: the Calma suiza API, drawn with the Soft UI parts. `exito` is an `ok` pill, `aviso` and `error` are
+ * honda blocks (only the error interrupts), `neutro` and `fecha` a flat line with its icon.
+ */
 export function LineaDeEstado({
   tipo,
   titulo,
@@ -38,28 +35,62 @@ export function LineaDeEstado({
   anunciada = false,
   className,
 }: PropiedadesDeLinea) {
-  const Icono = ICONO[tipo]
+  // Each in its own span, so the label and the title stay two texts for whoever reads them apart.
+  const encabezado = rotulo ? (
+    <>
+      <span>{rotulo}</span> <span>{titulo}</span>
+    </>
+  ) : (
+    titulo
+  )
+  if (tipo === "error") {
+    return (
+      <Bloque
+        tipo="error"
+        titulo={encabezado}
+        tituloEnTinta={tituloEnTinta}
+        anunciada={anunciada}
+        accion={accion}
+        className={className}
+      >
+        {detalle}
+      </Bloque>
+    )
+  }
+  if (tipo === "aviso") {
+    // A warning that is only a message reads in the block's body; one with a detail takes the title's weight.
+    return detalle === undefined && rotulo === undefined ? (
+      <Bloque tipo="aviso" accion={accion} className={className}>
+        {titulo}
+      </Bloque>
+    ) : (
+      <Bloque tipo="aviso" titulo={encabezado} accion={accion} className={className}>
+        {detalle}
+      </Bloque>
+    )
+  }
+  if (tipo === "exito") {
+    return (
+      <output className={cn("grid justify-items-start gap-1", className)}>
+        <PildoraDeEstado tipo="ok">{encabezado}</PildoraDeEstado>
+        {detalle ? <span className="text-meta text-tinta">{detalle}</span> : null}
+        {accion}
+      </output>
+    )
+  }
+  const Icono = tipo === "fecha" ? CalendarBlank : Info
+  const clases = cn("flex items-start gap-2.5 text-meta text-tinta", className)
   const contenido = (
     <>
-      <Icono aria-hidden="true" size={20} className={cn("mt-0.5 justify-self-center", TINTA[tipo])} />
-      <p className="text-cuerpo">
-        {rotulo ? <span className={cn("font-semibold", TINTA[tipo])}>{rotulo} </span> : null}
-        <span className={tituloEnTinta || rotulo ? "text-tinta" : TINTA[tipo]}>{titulo}</span>
-      </p>
-      {detalle ? <p className="col-start-2 text-meta text-tinta">{detalle}</p> : null}
-      {accion ? <div className="col-start-2">{accion}</div> : null}
+      <Icono aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+      <span className="grid gap-1">
+        <span>{encabezado}</span>
+        {detalle ? <span>{detalle}</span> : null}
+        {accion}
+      </span>
     </>
   )
-  const clases = cn("grid grid-cols-[24px_1fr] gap-x-3 gap-y-1", className)
-  // <output> has the implicit role status: it waits politely; only errors interrupt. A date the screen states is
-  // not news, so it is no live region at all.
-  if (tipo === "error" && anunciada) return <div className={clases}>{contenido}</div>
-  if (tipo === "error")
-    return (
-      <div role="alert" className={clases}>
-        {contenido}
-      </div>
-    )
+  // A date the screen states is not news: no live region at all.
   if (tipo === "fecha") return <div className={clases}>{contenido}</div>
   return <output className={clases}>{contenido}</output>
 }

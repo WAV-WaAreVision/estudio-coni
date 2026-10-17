@@ -28,74 +28,68 @@ describe("ReproductorVoz", () => {
     vi.restoreAllMocks()
   })
 
-  it("plays and pauses from one 48 px button", async () => {
+  it("plays from one raised 3.5rem circle that sinks when pressed", async () => {
     render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-1" alEscuchar={vi.fn()} />)
-
+    const boton = screen.getByRole("button", { name: "Escuchar la voz" })
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Escuchar la voz" }))
+      fireEvent.click(boton)
     })
-
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole("button", { name: "Escuchar la voz" })).toHaveClass("size-12")
+    expect(boton).toHaveClass("size-play", "bg-piedra", "shadow-relieve", "active:shadow-hundido")
   })
 
-  it("reports that she listened once she heard 95 percent, and says so", () => {
+  it("puts the play and the time on one row and the rail under them", () => {
+    render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-2" alEscuchar={vi.fn()} />)
+    const fila = screen.getByRole("button", { name: "Escuchar la voz" }).parentElement
+    expect(fila).toContainElement(screen.getByText(/0:00 \/ /))
+    expect(fila).not.toContainElement(screen.getByRole("slider", { name: "Avance de la voz" }))
+    expect(screen.getByText(/0:00 \/ /)).toHaveClass("text-meta", "font-semibold", "tabular-nums")
+  })
+
+  it("reports that she listened once she heard 95 percent, with the ok pill", () => {
     const alEscuchar = vi.fn()
     const { container } = render(
-      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-2" alEscuchar={alEscuchar} />,
+      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-3" alEscuchar={alEscuchar} />,
     )
-
     reproducir(audio(container), 0, SEGUNDOS)
-
     expect(alEscuchar).toHaveBeenCalledTimes(1)
-    expect(screen.getByText("Ya la escuchaste")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent("La escuchaste completa")
   })
 
   it("does not count skipping to the end", () => {
     const alEscuchar = vi.fn()
     const { container } = render(
-      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-3" alEscuchar={alEscuchar} />,
+      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-4" alEscuchar={alEscuchar} />,
     )
-
     const elemento = audio(container)
     reproducir(elemento, 0, 2)
     reproducir(elemento, 19, SEGUNDOS)
-
     expect(alEscuchar).not.toHaveBeenCalled()
+    expect(screen.queryByText("La escuchaste completa")).toBeNull()
   })
 
   it("remembers she listened when she comes back to the screen", () => {
-    const alEscuchar = vi.fn()
-    const primera = render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-4" alEscuchar={alEscuchar} />)
+    const primera = render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-5" alEscuchar={vi.fn()} />)
     reproducir(audio(primera.container), 0, SEGUNDOS)
     primera.unmount()
 
     const alEscucharOtraVez = vi.fn()
-    render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-4" alEscuchar={alEscucharOtraVez} />)
-
-    expect(screen.getByText("Ya la escuchaste")).toBeInTheDocument()
+    render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-5" alEscuchar={alEscucharOtraVez} />)
+    expect(screen.getByText("La escuchaste completa")).toBeInTheDocument()
     expect(alEscucharOtraVez).toHaveBeenCalledTimes(1)
   })
 
+  it("names the play 'Escuchar de nuevo' once the voice ended", () => {
+    const { container } = render(
+      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-6" alEscuchar={vi.fn()} />,
+    )
+    fireEvent.ended(audio(container))
+    expect(screen.getByRole("button", { name: "Escuchar de nuevo" })).toBeInTheDocument()
+  })
+
   it("says when the voice cannot be loaded", () => {
-    render(<ReproductorVoz src={null} clave="voz-5" alEscuchar={vi.fn()} />)
-
-    expect(screen.getByText("No pude cargar la voz. Recarga la pantalla.")).toBeInTheDocument()
-  })
-
-  it("draws play as an outline so the principal stays the only filled shape", () => {
-    render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-6" alEscuchar={vi.fn()} />)
-
-    const boton = screen.getByRole("button", { name: "Escuchar la voz" })
-    expect(boton).toHaveClass("ring-tinta")
-    expect(boton.className).not.toMatch(/\bbg-(principal|firma|tinta)\b/)
-  })
-
-  it("lets her seek with a slider and reads the time in tabular figures", () => {
-    render(<ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-7" alEscuchar={vi.fn()} />)
-
-    expect(screen.getByRole("slider", { name: "Avance de la voz" })).toBeInTheDocument()
-    expect(screen.getByText(/0:00 \/ /)).toHaveClass("tabular-nums")
+    render(<ReproductorVoz src={null} clave="voz-7" alEscuchar={vi.fn()} />)
+    expect(screen.getByRole("alert")).toHaveTextContent("No pude cargar la voz. Recarga la pantalla.")
   })
 
   it("moves the audio when she seeks, and a jump to the end does not count as listening", () => {
@@ -105,20 +99,9 @@ describe("ReproductorVoz", () => {
     )
     const elemento = audio(container)
     fireEvent.loadedMetadata(elemento)
-
     fireEvent.change(screen.getByRole("slider", { name: "Avance de la voz" }), { target: { value: "19" } })
     expect(elemento.currentTime).toBe(19)
     reproducir(elemento, 19, SEGUNDOS)
-
     expect(alEscuchar).not.toHaveBeenCalled()
-  })
-
-  it("says she listened with a check, in the success ink", () => {
-    const { container } = render(
-      <ReproductorVoz src="https://almacen.test/voz.mp3" clave="voz-9" alEscuchar={vi.fn()} />,
-    )
-    reproducir(audio(container), 0, SEGUNDOS)
-
-    expect(screen.getByText("Ya la escuchaste")).toHaveClass("text-exito")
   })
 })

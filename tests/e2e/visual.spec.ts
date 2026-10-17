@@ -1,20 +1,31 @@
 import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { expect, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
 import { claveDeToma } from "@/lib/dominio/voz"
-import { huellaDelGuion } from "@/lib/produccion/voz"
+import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
 import { ajustarPieza, leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { bloquearRedExterna, configurarServicios, GUION_VALIDO, simularMedios, TEXTO_VALIDO } from "./ayudas"
+import {
+  bloquearRedExterna,
+  conectarLinkedin,
+  configurarServicios,
+  conLetraGrande,
+  desconectarLinkedin,
+  GUION_VALIDO,
+  simularMedios,
+  TEXTO_LINKEDIN_VALIDO,
+  TEXTO_VALIDO,
+} from "./ayudas"
 import { sembrarEscena } from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
  * which wants VISUAL_SHEET=1: device scale and no masks, to read) and the committed baselines every later run diffs
- * against (css scale, date text masked). The app server reads the real clock, which a test cannot freeze: the masks
- * hide the leaf nodes that carry dates and the month grid, but a month change moves the calendar rows, so the baselines
- * may need regenerating then (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
+ * against (css scale, moving data masked). The app server reads the real clock, which a test cannot freeze: the masks
+ * hide every element marked data-snapshot="varia" (dates, times, balances, durations, the month grid), but a month
+ * change moves the calendar rows, so the baselines may need regenerating then
+ * (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
  */
 const PARA_LA_HOJA = Boolean(process.env.VISUAL_SHEET)
 // VISUAL_FINALES=<folder> writes plain 390 px css PNGs of every screen there (no masks, no comparison) for review by eye.
@@ -43,32 +54,22 @@ test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name in ('anthropic', 'heygen', 'elevenlabs')")
 })
 
-const DIAS = "lunes|martes|miércoles|jueves|viernes|sábado|domingo"
-const MESES = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre"
-const MESES_CORTOS = "ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic"
-const FECHAS = new RegExp(
-  `\\b(${DIAS}|${MESES}|${MESES_CORTOS}|Lun|Mar|Mié|Jue|Vie|Sáb|Dom)\\b|\\d{1,2}:\\d{2}|Semana del|hoy a las`,
-  "i",
-)
+// What moves with the real clock (relative dates, times, balances, durations) carries data-snapshot="varia" in the app.
+// The mask is painted in the honda stone (--piedra-honda of app/globals.css) so it reads as a sunken tile.
+const COLOR_DE_MASCARA = "#dcdcdb"
 
-/** The text-only nodes that say a date or an hour, and the month grid: what moves with the real clock. */
 function mascaras(page: Page) {
-  const hojas = page
-    .locator("span, p, h1, h2, h3, summary, div")
-    .filter({ hasText: FECHAS })
-    .filter({ hasNot: page.locator("*") })
-  return [hojas, page.locator("ol.grid-cols-7")]
+  return [page.locator('[data-snapshot="varia"]')]
 }
 
-async function capturaDe(page: Page, nombre: string) {
+async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   // Ajustes streams its status block and its accounts behind Suspense: wait until the skeletons are gone.
   await page.waitForLoadState("networkidle")
   await expect(page.locator("output[aria-label^='Revisando']")).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready)
-  // A full-page capture would stop the sticky nav and the fixed bars halfway down: let them take their place at the end.
+  // A full-page capture would stop the sticky nav and bar halfway down: let them take their place at the end.
   await page.addStyleTag({
-    content:
-      "nav[aria-label='Secciones'], section[aria-label='Firma'], section[aria-label='Grabación'] { position: static !important }",
+    content: "nav[aria-label='Secciones'], [data-barra-de-firma] { position: static !important }",
   })
   if (CARPETA_FINALES) {
     mkdirSync(CARPETA_FINALES, { recursive: true })
@@ -77,7 +78,9 @@ async function capturaDe(page: Page, nombre: string) {
   }
   await expect(page).toHaveScreenshot(`${nombre}.png`, {
     fullPage: true,
-    ...(PARA_LA_HOJA ? { scale: "device" as const } : { mask: mascaras(page) }),
+    ...(PARA_LA_HOJA
+      ? { scale: "device" as const }
+      : { mask: [...mascaras(page), ...ocultar], maskColor: COLOR_DE_MASCARA }),
   })
 }
 
@@ -111,16 +114,99 @@ test("inicio vacio", async ({ page }) => {
   await capturaDe(page, "inicio-vacio")
 })
 
+test("inicio con fallas", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  const idea = await sembrarIdea({ pilar: "limites", gancho: "Decir que no también es cuidarte", estado: "usada" })
+  const fallida = await sembrarPieza("en_render", {
+    titulo: "Decir que no también es cuidarte",
+    idea_id: idea,
+    guion: GUION_VALIDO,
+    texto: TEXTO_VALIDO,
+  })
+  await ajustarPieza(fallida, {
+    estado: "error_produccion",
+    estado_antes_del_error: "en_render",
+    explicacion: "HeyGen no pudo terminar el video",
+  })
+  await ajustarPieza(video, { explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha." })
+  await pool.query("delete from public.avisos")
+  await page.goto("/")
+  await capturaDe(page, "inicio-con-fallas")
+})
+
+test("inicio letra grande", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/")
+  await conLetraGrande(page)
+  await capturaDe(page, "inicio-letra-grande")
+})
+
+test("cuentas desconectar", async ({ page }) => {
+  await sembrarEscena()
+  await conectarLinkedin()
+  try {
+    await page.goto("/ajustes/cuentas")
+    await page.getByText("Desconectar LinkedIn").click()
+    await expect(page.getByText("Tus videos dejarán de salir solos ahí y te quedarán para subir a mano.")).toBeVisible()
+    await capturaDe(page, "cuentas-desconectar")
+  } finally {
+    await desconectarLinkedin()
+  }
+})
+
+test("ajustes cuentas letra grande", async ({ page }) => {
+  await sembrarEscena()
+  await page.goto("/ajustes/cuentas")
+  await conLetraGrande(page)
+  await capturaDe(page, "ajustes-cuentas-letra-grande")
+})
+
 test("guion por aprobar", async ({ page }) => {
   const { guion } = await sembrarEscena()
   await page.goto(`/guion/${guion}`)
   await capturaDe(page, "guion-por-aprobar")
 })
 
+/** The video she already watched to the end: the player reads it from the browser, as on her phone. */
+async function videoVisto(page: Page, id: string) {
+  const { video_id } = await leerFila(id)
+  await page.addInitScript((clave) => window.localStorage.setItem(clave, "1"), `visto:${video_id}`)
+}
+
+// Instagram only, watched to the end: the video is ready to sign.
 test("video por aprobar", async ({ page }) => {
   const { video } = await sembrarEscena()
+  await videoVisto(page, video)
   await page.goto(`/video/${video}`)
   await capturaDe(page, "video-por-aprobar")
+})
+
+// LinkedIn and Instagram: the LinkedIn text leads ("Así sale en LinkedIn") and the caption folds under it.
+test("video por aprobar con linkedin", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await ajustarPieza(video, { texto_linkedin: TEXTO_LINKEDIN_VALIDO })
+  await pool.query("update public.ajustes set destinos_por_defecto = '{instagram,linkedin}'")
+  try {
+    await videoVisto(page, video)
+    await page.goto(`/video/${video}`)
+    await expect(page.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeVisible()
+    await capturaDe(page, "video-por-aprobar-con-linkedin")
+  } finally {
+    await pool.query("update public.ajustes set destinos_por_defecto = '{instagram}'")
+  }
+})
+
+test("video sin terminar", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await page.goto(`/video/${video}`)
+  await capturaDe(page, "video-sin-terminar")
+})
+
+test("video sin terminar letra grande", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await page.goto(`/video/${video}`)
+  await conLetraGrande(page)
+  await capturaDe(page, "video-sin-terminar-letra-grande")
 })
 
 async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_render") {
@@ -136,7 +222,10 @@ async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_
 
 test("guion sin voz", async ({ page }) => {
   const id = await guionSembrado("guion_por_aprobar")
+  // The seed leaves TEXTO_SIN_VOZ on a script without a voice; with no failure the block is the neutral one.
+  await ajustarPieza(id, { audio_id: null, explicacion: null })
   await page.goto(`/guion/${id}`)
+  await expect(page.getByText("Falta preparar tu voz.")).toBeVisible()
   await capturaDe(page, "guion-sin-voz")
 })
 
@@ -151,6 +240,116 @@ test("guion con voz", async ({ page }) => {
   await page.goto(`/guion/${id}`)
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await capturaDe(page, "guion-con-voz")
+})
+
+/** The look already chosen. Only Coni may choose it (a trigger): the seed writes it with the triggers off. */
+async function lookElegido(id: string) {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await cliente.query("set local session_replication_role = replica")
+    await cliente.query("update public.piezas set avatar_id = 'look-a', version = version + 1 where id = $1", [id])
+    await cliente.query("commit")
+  } finally {
+    cliente.release()
+  }
+}
+
+/** Her voice of this take, already heard to the end, and the look already chosen: gate 1 ready to sign (v6 2). */
+async function vozEscuchada(page: Page, id: string) {
+  const fila = await leerFila(id)
+  const clave = claveDeToma(id, huellaDelGuion(fila.guion, leerConfigProduccion(CONFIG).elevenlabs), fila.intento)
+  await ajustarPieza(id, { audio_id: clave, explicacion: null })
+  await lookElegido(id)
+  await page.addInitScript((visto) => window.localStorage.setItem(visto, "1"), `visto:${clave}`)
+}
+
+test("guion escuchada", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("La escuchaste completa")).toBeVisible()
+  await capturaDe(page, "guion-escuchada")
+})
+
+test("guion escuchada letra grande", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("La escuchaste completa")).toBeVisible()
+  await conLetraGrande(page)
+  await capturaDe(page, "guion-escuchada-letra-grande")
+})
+
+test("guion sin escuchar", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  const fila = await leerFila(id)
+  await ajustarPieza(id, {
+    audio_id: claveDeToma(id, huellaDelGuion(fila.guion, leerConfigProduccion(CONFIG).elevenlabs), fila.intento),
+    explicacion: null,
+  })
+  await lookElegido(id)
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
+  await capturaDe(page, "guion-sin-escuchar")
+})
+
+test("guion preparando voz", async ({ page }) => {
+  await vaciarPiezasEIdeas()
+  const idea = await sembrarIdea({ pilar: "deseo", gancho: "El deseo no se apaga, se esconde" })
+  // With tone marks, as v6 3 draws them in the script she reads while the voice is made.
+  const id = await sembrarPieza("grabando_voz", {
+    titulo: "El deseo no se apaga, se esconde",
+    idea_id: idea,
+    guion: `[warm] ${GUION_VALIDO.replace(". ", ". [pause] ")}`,
+    texto: TEXTO_VALIDO,
+  })
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("cálido", { exact: true })).toBeVisible()
+  await capturaDe(page, "guion-preparando-voz")
+})
+
+test("guion falla voz", async ({ page }) => {
+  const id = await guionSembrado("guion_por_aprobar")
+  // A provider's reason (v6 7): her words in the block, ElevenLabs folded under "Detalle para WAV".
+  await ajustarPieza(id, {
+    audio_id: null,
+    explicacion: `${TEXTO_SIN_VOZ} ElevenLabs respondió 401: la llave no sirve.`,
+  })
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("No pude preparar tu voz.")).toBeVisible()
+  await expect(page.getByRole("alert").getByText("Detalle para WAV")).toBeVisible()
+  await capturaDe(page, "guion-falla-voz")
+})
+
+test("guion sin saldo", async ({ page }) => {
+  await configurarServicios({ heygenSaldo: 0 })
+  const id = await guionSembrado("guion_por_aprobar")
+  await vozEscuchada(page, id)
+  await page.goto(`/guion/${id}`)
+  // Said twice: at the top, before the steps, and at the sign control.
+  await expect(page.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toHaveCount(2)
+  await capturaDe(page, "guion-sin-saldo")
+})
+
+test("guion firmado ventana", async ({ page }) => {
+  const id = await guionSembrado("en_render")
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    await cliente.query("set local session_replication_role = replica")
+    await cliente.query("update public.piezas set puerta1_en = now(), explicacion = null where id = $1", [id])
+    await cliente.query("commit")
+  } finally {
+    cliente.release()
+  }
+  const { version } = await leerFila(id)
+  await page.clock.install()
+  await page.goto(`/guion/${id}?firmada=${version}`)
+  await expect(page.getByText("Firmaste")).toBeVisible()
+  // The 8 s window would close before a slow capture ends: the page clock stops, the seconds are masked.
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  await capturaDe(page, "guion-firmado-ventana", [page.getByText(/^Grabo tu video en/)])
 })
 
 test("guion grabando", async ({ page }) => {
@@ -170,15 +369,22 @@ test("guion error", async ({ page }) => {
   await capturaDe(page, "guion-error")
 })
 
+/**
+ * The server reads the real clock, which a test cannot stop: the reels go out on the 7th, 14th and 21st of last month
+ * (Santiago noon), so on any run date they are more than a week old, inside the 12 weeks shown, outside this month and
+ * in three weeks that never cross a month (their titles keep one line). The page then draws the same screen whatever
+ * day it runs; only masked labels (month, weeks) move.
+ */
 test("metricas", async ({ page }) => {
   await vaciarPiezasEIdeas()
   await pool.query("delete from public.consultas")
+  await pool.query("delete from public.clics_enlace_dia")
   const reels = [
-    ["Ser tu propia diosa", "autoestima", 20, 2000, 10],
-    ["Si van a discutir, siéntense del mismo lado", "pareja", 12, 2400, 121],
-    ["El deseo no se apaga, se esconde", "deseo", 8, 1000, 12],
+    ["Ser tu propia diosa", "autoestima", 7, 2000, 10],
+    ["Si van a discutir, siéntense del mismo lado", "pareja", 14, 2400, 121],
+    ["El deseo no se apaga, se esconde", "deseo", 21, 1000, 12],
   ] as const
-  for (const [titulo, pilar, haceDias, alcance, guardados] of reels) {
+  for (const [titulo, pilar, diaDelMesPasado, alcance, guardados] of reels) {
     const idea = await sembrarIdea({ pilar, gancho: titulo })
     const id = await sembrarPieza("publicado", { titulo, idea_id: idea, media_id: `media_${titulo}` })
     const cliente = await pool.connect()
@@ -186,8 +392,11 @@ test("metricas", async ({ page }) => {
       await cliente.query("begin")
       await cliente.query("set local session_replication_role = replica")
       await cliente.query(
-        "update public.piezas set puerta2_publicar_en = now() - make_interval(days => $2) where id = $1",
-        [id, haceDias],
+        `update public.piezas set puerta2_publicar_en = (
+           date_trunc('month', now() at time zone 'America/Santiago') - interval '1 month'
+           + make_interval(days => $2 - 1, hours => 12)
+         ) at time zone 'America/Santiago' where id = $1`,
+        [id, diaDelMesPasado],
       )
       await cliente.query("commit")
     } finally {

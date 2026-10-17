@@ -7,6 +7,8 @@ import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { FilaConInterruptor, FilaConValor } from "@/components/ui/filas"
+import { Grupo } from "@/components/ui/grupo"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
@@ -189,18 +191,21 @@ export function EditorDeAjustes({
   return (
     <div>
       <Seccion titulo="Publicación" id="ajuste-publicacion">
-        <FilaConValor
-          etiqueta="Meta de este mes"
-          valor={valores.meta}
-          opciones={METAS}
-          alCambiar={(valor) => cambiar({ campo: "meta", valor })}
-        />
-        <h3 className="mt-4 text-meta font-semibold">Días de publicación</h3>
+        <Grupo>
+          <FilaConValor
+            etiqueta="Meta de este mes"
+            valor={valores.meta}
+            opciones={METAS}
+            alCambiar={(valor) => cambiar({ campo: "meta", valor })}
+          />
+        </Grupo>
+        <h3 className="mx-0.5 mt-2 text-meta font-semibold">Días de publicación</h3>
         <div className="grid grid-cols-7 gap-1">
           {DIAS.map((dia) => (
             <Chip
               key={dia.numero}
               className="px-0"
+              conCheck={false}
               presionado={valores.dias.includes(dia.numero)}
               onClick={() => alternarDia(dia.numero)}
             >
@@ -208,29 +213,33 @@ export function EditorDeAjustes({
             </Chip>
           ))}
         </div>
-        <FilaConValor
-          tipo="time"
-          etiqueta="Hora de publicación"
-          titulo="A las"
-          sufijo="hora de Chile"
-          valor={valores.hora}
-          alCambiar={(hora) => {
-            setValores((actuales) => ({ ...actuales, hora }))
-            if (hora && hora !== ultimos.current.hora) cambiar({ campo: "hora", valor: hora })
-          }}
-        />
+        <Grupo>
+          <FilaConValor
+            tipo="time"
+            etiqueta="Hora de publicación"
+            titulo="A las"
+            sufijo="hora de Chile"
+            valor={valores.hora}
+            alCambiar={(hora) => {
+              setValores((actuales) => ({ ...actuales, hora }))
+              if (hora && hora !== ultimos.current.hora) cambiar({ campo: "hora", valor: hora })
+            }}
+          />
+        </Grupo>
       </Seccion>
 
       <Seccion titulo="Dónde se publica" id="ajuste-destinos">
-        {DESTINOS.map((destino) => (
-          <FilaConInterruptor
-            key={destino}
-            etiqueta={nombreDeDestino(destino)}
-            detalle={destino === "linkedin" ? (linkedinConectado ? "Sale solo" : "A mano") : undefined}
-            encendido={valores.destinos.includes(destino)}
-            alCambiar={() => alternarDestino(destino)}
-          />
-        ))}
+        <Grupo>
+          {DESTINOS.map((destino) => (
+            <FilaConInterruptor
+              key={destino}
+              etiqueta={nombreDeDestino(destino)}
+              detalle={destino === "linkedin" ? (linkedinConectado ? "Sale solo" : "A mano") : undefined}
+              encendido={valores.destinos.includes(destino)}
+              alCambiar={() => alternarDestino(destino)}
+            />
+          ))}
+        </Grupo>
         <p className="text-meta text-apagado">
           Si LinkedIn está conectado, a la hora aprobada sale solo. Si no, te aviso y te dejo el video y el texto listos
           para subirlo a mano.
@@ -238,29 +247,29 @@ export function EditorDeAjustes({
       </Seccion>
 
       <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">
-        <div className="flex min-h-14 items-center justify-between gap-3">
+        <div className="flex min-h-fila-baja items-center justify-between gap-3">
           <span className="text-cuerpo">Tope</span>
           <div className="flex items-center gap-3">
             <Boton
-              variante="linea"
+              variante="secundario"
               tamano="chico"
               aria-label="Bajar el tope"
               deshabilitado={valores.tope <= 0}
-              className="w-11 justify-center px-0"
+              className="w-objetivo justify-center px-0"
               onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
             >
-              <Minus aria-hidden="true" size={20} />
+              <Minus aria-hidden="true" size={ICONO.medio} />
             </Boton>
             <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
             <Boton
-              variante="linea"
+              variante="secundario"
               tamano="chico"
               aria-label="Subir el tope"
               deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
-              className="w-11 justify-center px-0"
+              className="w-objetivo justify-center px-0"
               onClick={() => moverTope(PASO_DEL_TOPE_USD)}
             >
-              <Plus aria-hidden="true" size={20} />
+              <Plus aria-hidden="true" size={ICONO.medio} />
             </Boton>
           </div>
         </div>
@@ -268,16 +277,18 @@ export function EditorDeAjustes({
       </Seccion>
 
       <Seccion titulo="Avisos" id="ajuste-avisos">
-        <FilaConInterruptor
-          etiqueta="Resumen diario a las 08:30"
-          encendido={valores.avisosResumen}
-          alCambiar={(valor) => cambiar({ campo: "avisos_resumen", valor })}
-        />
-        <FilaConInterruptor
-          etiqueta="Avisarme apenas falle algo"
-          encendido={valores.avisosUrgentes}
-          alCambiar={(valor) => cambiar({ campo: "avisos_urgentes", valor })}
-        />
+        <Grupo>
+          <FilaConInterruptor
+            etiqueta="Resumen diario a las 08:30"
+            encendido={valores.avisosResumen}
+            alCambiar={(valor) => cambiar({ campo: "avisos_resumen", valor })}
+          />
+          <FilaConInterruptor
+            etiqueta="Avisarme apenas falle algo"
+            encendido={valores.avisosUrgentes}
+            alCambiar={(valor) => cambiar({ campo: "avisos_urgentes", valor })}
+          />
+        </Grupo>
         <p className="text-meta text-apagado">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
         {avisosDelCelular ? <div className="mt-4">{avisosDelCelular}</div> : null}
       </Seccion>

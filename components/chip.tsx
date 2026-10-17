@@ -1,26 +1,40 @@
 "use client"
 
+import { Check } from "@phosphor-icons/react"
 import type { ButtonHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
+import { ICONO } from "./ui/icono"
 
 interface PropiedadesDeChip extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed"> {
   presionado: boolean
+  /** The check of a pressed chip; off where seven day chips share one row. */
+  conCheck?: boolean
 }
 
-/** Brandkit 9.10: a 44 px toggle that reads as a filter. Pressed is the current state: it fills with ink. */
-export function Chip({ presionado, className, type = "button", ...resto }: PropiedadesDeChip) {
+/** Decision 4: a raised 2.75rem pill that reads as a filter; pressed fills with ink and shows a check. */
+export function Chip({
+  presionado,
+  conCheck = true,
+  className,
+  type = "button",
+  children,
+  ...resto
+}: PropiedadesDeChip) {
   return (
     <button
       {...resto}
       type={type}
       aria-pressed={presionado}
       className={cn(
-        "min-h-11 rounded-12 border border-campo bg-superficie px-3.5 text-meta font-medium text-tinta",
-        "transition-[transform,background-color,color,border-color] duration-[var(--dur-corta)] ease-salida active:scale-[0.98]",
-        "aria-pressed:border-tinta aria-pressed:bg-tinta aria-pressed:text-sobre-tinta",
-        "motion-reduce:transition-colors motion-reduce:active:scale-100",
+        "inline-flex min-h-objetivo shrink-0 items-center justify-center gap-2 rounded-control bg-piedra px-4 text-meta font-semibold text-tinta shadow-relieve",
+        "transition-[box-shadow,background-color,color] duration-[var(--dur-corta)] ease-salida active:shadow-hundido",
+        "aria-pressed:bg-tinta aria-pressed:text-luz",
+        "aria-disabled:bg-piedra-honda aria-disabled:text-apagado aria-disabled:shadow-none",
         className,
       )}
-    />
+    >
+      {presionado && conCheck ? <Check aria-hidden="true" weight="bold" size={ICONO.chico} /> : null}
+      {children}
+    </button>
   )
 }

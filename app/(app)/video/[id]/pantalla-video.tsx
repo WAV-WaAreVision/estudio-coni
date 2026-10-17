@@ -1,29 +1,33 @@
 "use client"
 
-import { CaretLeft } from "@phosphor-icons/react"
-import Link from "next/link"
-import { useCallback, useState } from "react"
+import { useCallback, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { MensajeDePrimeraVez } from "@/components/mensaje-primera-vez"
 import { ReproductorVideo } from "@/components/reproductor-video"
 import { Seccion } from "@/components/seccion"
 import { TextoDeInstagram } from "@/components/texto-de-instagram"
 import { Aviso } from "@/components/ui/aviso"
-import { BarraDeFirma } from "@/components/ui/barra-de-firma"
+import { BarraDeFirma, LineaDeFalta, ResumenListo } from "@/components/ui/barra-de-firma"
+import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
-import { FilaConCheck } from "@/components/ui/filas"
+import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
+import { Eleccion } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
+import { MasOpciones } from "@/components/ui/mas-opciones"
+import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
-import type { Destino } from "@/lib/dominio/destinos"
+import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
+import { type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
 import { NOMBRE_DE_PILAR, type Pilar } from "@/lib/dominio/pilares"
 import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } from "../../piezas/acciones"
 import { ElegirDestinos } from "./elegir-destinos"
+import { faltaParaFirmarVideo, LISTO_PARA_FIRMAR, resumenDeMasOpciones } from "./falta-para-firmar"
 import { TextoLinkedin } from "./texto-linkedin"
 
 export interface FechaPropuesta {
@@ -31,6 +35,8 @@ export interface FechaPropuesta {
   iso: string
   /** "jueves 8 de octubre · 19:00", in Chile time. */
   etiqueta: string
+  /** "jueves 8 · 19:00", for the consequence under the track. */
+  corta: string
 }
 
 export interface DatosDeVideo {
@@ -50,7 +56,7 @@ export interface DatosDeVideo {
   videoUrl: string | null
   videoId: string
   fechas: FechaPropuesta[]
-  /** "Regrabar cuesta unos US$ 2,40"; null when the setup cannot say. */
+  /** "US$ 2,40": what re-recording costs; null when the setup cannot say. */
   costoDeRegrabar: string | null
   explicacion: string | null
   /** She has never opened a ready video before: show "Así se ve tu avatar". */
@@ -59,7 +65,10 @@ export interface DatosDeVideo {
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 
-/** Gate 2: she watches the video as it will look, checks it, picks the date and slides. */
+/**
+ * Gate 2 (design 2026-10-16, decision 11): everything is on screen before the video ends, and the signature waits for
+ * the full watch and her check. She reads what will be published, picks the date and slides.
+ */
 export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const [visto, setVisto] = useState(false)
   const [zonas, setZonas] = useState(false)
@@ -76,35 +85,31 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const cerrarAviso = useCallback(() => setAviso(null), [])
   const aprobacion = useAccion()
   const regrabacion = useAccion()
+  const idFalta = useId()
+  const idConsecuencia = useId()
 
   const conLinkedin = destinos.includes("linkedin")
+  const conInstagram = destinos.includes("instagram")
   // The findings of the LinkedIn text are shown with it, and only count when LinkedIn is among the destinations.
   const revisionDelTexto = sinLinkedin(datos.revision)
   const revisionDeLinkedin = datos.revision.filter((hallazgo) => hallazgo.campo === "linkedin")
   const aplicables = hallazgosDeLaAprobacion(datos.revision, { linkedin: conLinkedin })
   const bloqueos = aplicables.filter((hallazgo) => hallazgo.tipo === "bloquea")
-  const advertencias = aplicables.filter((hallazgo) => hallazgo.tipo === "advierte")
-  // A piece from before LinkedIn has no text for it yet: the one on screen is only a start until she saves it.
-  const linkedinSinGuardar = conLinkedin && datos.textoLinkedin === null
-  const sinConfirmar = advertencias.filter((hallazgo) => !confirmadas.has(claveDe(hallazgo)))
+  const sinConfirmar = aplicables.filter(
+    (hallazgo) => hallazgo.tipo === "advierte" && !confirmadas.has(claveDe(hallazgo)),
+  )
   const fechaElegida = datos.fechas.find((propuesta) => propuesta.iso === fecha)
-
-  const motivo = !visto
-    ? "Se activa al terminar de verlo."
-    : linkedinSinGuardar
-      ? "Guarda el texto para LinkedIn."
-      : editandoElTexto || editandoLinkedin
-        ? "Guarda o cancela la edición del texto."
-        : bloqueos.length > 0
-          ? "Hay algo que corregir antes de aprobar."
-          : !revisado
-            ? "Marca lo que revisaste."
-            : sinConfirmar.length > 0
-              ? "Confirma la revisión."
-              : !fechaElegida
-                ? "No hay un horario libre. Avísale a Federico."
-                : undefined
-  const habilitado = motivo === undefined
+  const falta = faltaParaFirmarVideo({
+    visto,
+    revisado,
+    // A piece from before LinkedIn has no text for it yet: the one on screen is only a start until she saves it.
+    linkedinSinGuardar: conLinkedin && datos.textoLinkedin === null,
+    editando: editandoElTexto || editandoLinkedin,
+    bloqueos: bloqueos.length,
+    sinRevisar: sinConfirmar,
+    hayFecha: fechaElegida !== undefined,
+  })
+  const errorDeAccion = aprobacion.error ?? regrabacion.error
 
   function alternarConfirmacion(hallazgo: Hallazgo, confirmada: boolean) {
     setConfirmadas((actuales) => {
@@ -115,159 +120,156 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
     })
   }
 
+  const panelDe = (hallazgo: Hallazgo) => (
+    <MarcaRevision
+      key={claveDe(hallazgo)}
+      hallazgo={hallazgo}
+      confirmada={confirmadas.has(claveDe(hallazgo))}
+      alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
+    />
+  )
+
   return (
-    <div className="pb-[calc(var(--barra-max)+env(safe-area-inset-bottom))]">
-      <Link href="/" className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta">
-        <CaretLeft aria-hidden="true" size={20} />
-        Inicio
-      </Link>
-      <div className="mt-2">
+    <div>
+      <Volver href="/">Inicio</Volver>
+      <div className="mt-3">
         <ReproductorVideo
           src={datos.videoUrl}
           clave={datos.videoId}
           alVerCompleto={() => setVisto(true)}
-          zonas={zonas}
+          zonas={zonas && conInstagram}
         />
       </div>
 
-      <header className="mt-4 grid gap-3">
-        <p className="flex items-baseline justify-between gap-4 text-meta text-apagado">
-          <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
-          <span>{datos.segundos} s</span>
-        </p>
-        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
-        {visto ? (
-          <LineaDeEstado tipo="exito" titulo="Lo viste completo" />
-        ) : (
-          <LineaDeEstado tipo="neutro" titulo="Míralo completo para aprobar" tituloEnTinta />
-        )}
-        <Boton variante="callado" tamano="chico" aria-pressed={zonas} onClick={() => setZonas((actual) => !actual)}>
-          {zonas ? "Ocultar" : "Ver"} zonas de Instagram
-        </Boton>
-      </header>
+      <p className="mt-[18px] flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
+        <span>{datos.pilar ? NOMBRE_DE_PILAR[datos.pilar] : null}</span>
+        <span>{datos.segundos} s</span>
+      </p>
+      <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
+      {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
+      <div className="mt-3">
+        <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
+      </div>
 
       {datos.primeraVez ? (
         <div className="mt-6">
           <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} />
         </div>
       ) : null}
-
       {datos.explicacion ? (
-        <div className="mt-6">
-          <LineaDeEstado tipo="aviso" titulo={datos.explicacion} tituloEnTinta />
-        </div>
+        <Bloque tipo="aviso" className="mt-6">
+          <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={TEXTO_ALGO_FALLO} />
+        </Bloque>
       ) : null}
 
-      {visto ? (
-        <>
-          <Seccion titulo="Antes de aprobar" id="antes">
-            <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
-          </Seccion>
+      {/* With LinkedIn among the destinations its text leads, as it will be published; the caption folds under it. */}
+      {conLinkedin ? (
+        <Seccion titulo="Así sale en LinkedIn" id="texto-linkedin">
+          <TextoLinkedin
+            piezaId={datos.id}
+            version={datos.version}
+            texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
+            guardado={datos.textoLinkedin !== null}
+            alGuardar={editarTextoLinkedinAccion}
+            alEditar={setEditandoLinkedin}
+          />
+          {datos.textoLinkedin !== null ? revisionDeLinkedin.map(panelDe) : null}
+        </Seccion>
+      ) : null}
 
-          <Seccion titulo="Dónde se publica" id="destinos">
-            <ElegirDestinos
-              elegidos={destinos}
-              instagramConectado={datos.instagramConectado}
-              linkedinConectado={datos.linkedinConectado}
-              alCambiar={setDestinos}
-            />
-          </Seccion>
+      {conInstagram && conLinkedin ? (
+        <MasOpciones className="mt-8" titulo="Así sale en Instagram">
+          <TextoDeInstagram
+            piezaId={datos.id}
+            version={datos.version}
+            texto={datos.texto}
+            alEditar={setEditandoElTexto}
+          />
+        </MasOpciones>
+      ) : conInstagram ? (
+        <Seccion titulo="Así sale en Instagram" id="texto">
+          <TextoDeInstagram
+            piezaId={datos.id}
+            version={datos.version}
+            texto={datos.texto}
+            alEditar={setEditandoElTexto}
+          />
+        </Seccion>
+      ) : null}
 
-          <Seccion titulo="Así sale en Instagram" id="texto">
+      {revisionDelTexto.length > 0 ? (
+        <Seccion titulo="Revisión" id="revision">
+          {/* The caption findings count whatever the destinations: without Instagram its editor lives here. */}
+          {conInstagram ? null : (
             <TextoDeInstagram
               piezaId={datos.id}
               version={datos.version}
               texto={datos.texto}
               alEditar={setEditandoElTexto}
             />
-          </Seccion>
+          )}
+          {revisionDelTexto.map(panelDe)}
+        </Seccion>
+      ) : null}
 
-          {conLinkedin ? (
-            <Seccion titulo="Texto para LinkedIn" id="texto-linkedin">
-              <TextoLinkedin
-                piezaId={datos.id}
-                version={datos.version}
-                texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
-                guardado={datos.textoLinkedin !== null}
-                alGuardar={editarTextoLinkedinAccion}
-                alEditar={setEditandoLinkedin}
-              />
-              {datos.textoLinkedin !== null && revisionDeLinkedin.length > 0 ? (
-                <div className="mt-2 grid gap-4">
-                  {revisionDeLinkedin.map((hallazgo) => (
-                    <MarcaRevision
-                      key={claveDe(hallazgo)}
-                      hallazgo={hallazgo}
-                      confirmada={confirmadas.has(claveDe(hallazgo))}
-                      alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </Seccion>
-          ) : null}
-
-          {revisionDelTexto.length > 0 ? (
-            <Seccion titulo="Revisión" id="revision">
-              <div className="grid gap-4">
-                {revisionDelTexto.map((hallazgo) => (
-                  <MarcaRevision
-                    key={claveDe(hallazgo)}
-                    hallazgo={hallazgo}
-                    confirmada={confirmadas.has(claveDe(hallazgo))}
-                    alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
+      <Seccion titulo="Dónde y cuándo" id="fecha">
+        {fechaElegida ? (
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="grid">
+                <span data-snapshot="varia" className="font-semibold tabular-nums">
+                  {fechaElegida.etiqueta}
+                </span>
+                <span className="text-meta text-apagado">{nombreDeDestinos(destinos)} · hora de Chile</span>
+              </span>
+              <Boton
+                variante="secundario"
+                tamano="chico"
+                aria-expanded={cambiandoFecha}
+                onClick={() => setCambiandoFecha((actual) => !actual)}
+              >
+                {cambiandoFecha ? "Listo" : "Cambiar"}
+              </Boton>
+            </div>
+            {cambiandoFecha ? (
+              <fieldset className="elecciones grid border-0 p-0">
+                <legend className="sr-only">Elige cuándo sale</legend>
+                {datos.fechas.map((propuesta) => (
+                  <Eleccion
+                    key={propuesta.iso}
+                    nombre="fecha"
+                    valor={propuesta.iso}
+                    elegido={propuesta.iso === fecha}
+                    etiqueta={propuesta.etiqueta}
+                    alElegir={setFecha}
                   />
                 ))}
-              </div>
-            </Seccion>
-          ) : null}
+              </fieldset>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-cuerpo text-apagado">No hay un horario libre en los próximos días.</p>
+        )}
+      </Seccion>
 
-          <Seccion titulo="Fecha de publicación" id="fecha">
-            {fechaElegida ? (
-              <div className="grid gap-1">
-                <div className="flex min-h-14 items-center justify-between gap-3 border-b border-linea">
-                  <span className="text-cuerpo font-semibold">{fechaElegida.etiqueta}</span>
-                  <Boton
-                    variante="callado"
-                    tamano="chico"
-                    aria-expanded={cambiandoFecha}
-                    className="w-auto"
-                    onClick={() => setCambiandoFecha((actual) => !actual)}
-                  >
-                    {cambiandoFecha ? "Listo" : "Cambiar"}
-                  </Boton>
-                </div>
-                <p className="text-meta text-apagado">Hora de Chile · próximo horario libre</p>
-                {cambiandoFecha ? (
-                  <fieldset className="mt-2 grid border-0 p-0">
-                    <legend className="sr-only">Elige cuándo sale</legend>
-                    {datos.fechas.map((propuesta) => (
-                      <FilaConCheck
-                        key={propuesta.iso}
-                        nombre="fecha"
-                        valor={propuesta.iso}
-                        elegido={propuesta.iso === fecha}
-                        etiqueta={propuesta.etiqueta}
-                        alElegir={setFecha}
-                      />
-                    ))}
-                  </fieldset>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-cuerpo text-apagado">No hay un horario libre en los próximos días.</p>
-            )}
-          </Seccion>
-        </>
-      ) : (
-        <p className="mt-10 text-cuerpo text-apagado">Cuando termine el video aparece lo que falta para aprobarlo.</p>
-      )}
-
-      <div className="mt-10 grid gap-2">
+      <MasOpciones className="mt-8" titulo="Más opciones" resumen={resumenDeMasOpciones(destinos)}>
+        <ElegirDestinos
+          elegidos={destinos}
+          instagramConectado={datos.instagramConectado}
+          linkedinConectado={datos.linkedinConectado}
+          alCambiar={setDestinos}
+        />
+        {conInstagram ? (
+          <Boton variante="callado" aria-pressed={zonas} onClick={() => setZonas((actual) => !actual)}>
+            {zonas ? "Ocultar" : "Ver"} zonas de Instagram
+          </Boton>
+        ) : null}
         {regrabando ? (
           <ConfirmacionEnLinea
             trato="destructivo"
-            pregunta={`Se vuelve a grabar con tu avatar y este video se descarta. ${datos.costoDeRegrabar ?? ""} ¿Seguro?`}
+            pregunta={`Se vuelve a grabar con tu avatar y este video se descarta.${
+              datos.costoDeRegrabar ? ` Regrabar cuesta unos ${datos.costoDeRegrabar}.` : ""
+            } ¿Seguro?`}
             confirmar="Sí, regrabar"
             volver="Volver"
             cargando={regrabacion.pendiente}
@@ -280,27 +282,47 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
             alVolver={() => setRegrabando(false)}
           />
         ) : (
-          <Boton variante="destructiva" onClick={() => setRegrabando(true)}>
-            Regrabar
-          </Boton>
+          <div className="grid gap-1.5">
+            <Boton
+              variante="secundario"
+              tamano="chico"
+              className="w-full"
+              precio={datos.costoDeRegrabar ?? undefined}
+              onClick={() => setRegrabando(true)}
+            >
+              Regrabar video
+            </Boton>
+            <p className="mx-0.5 text-meta text-apagado">Se vuelve a grabar con tu avatar y este video se descarta.</p>
+          </div>
         )}
-      </div>
+      </MasOpciones>
 
-      <BarraDeFirma etiqueta="Firma">
-        {aprobacion.error || regrabacion.error ? (
-          <LineaDeEstado tipo="error" titulo={aprobacion.error ?? regrabacion.error} />
-        ) : null}
+      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
+      <BarraDeFirma
+        idConsecuencia={idConsecuencia}
+        consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
+        arriba={
+          <>
+            {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
+            {falta.tipo === "bloqueo" ? (
+              <Bloque tipo="aviso" id={idFalta}>
+                {falta.texto}
+              </Bloque>
+            ) : null}
+            {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
+            {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={LISTO_PARA_FIRMAR} /> : null}
+          </>
+        }
+      >
         <DeslizarParaAprobar
-          etiqueta="Desliza para aprobar video y fecha"
-          habilitado={habilitado}
-          motivo={motivo}
+          habilitado={falta.tipo === "nada"}
           enviando={aprobacion.pendiente}
-          alAprobar={() => {
+          describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
+          alFirmar={() => {
             if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, destinos))
           }}
         />
       </BarraDeFirma>
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} sobreBarra /> : null}
     </div>
   )
 }

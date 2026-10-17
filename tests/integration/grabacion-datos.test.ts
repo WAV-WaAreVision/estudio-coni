@@ -84,7 +84,7 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.botones?.saldoVoz).toMatch(/^ElevenLabs: te quedan 99\.000 de 100\.000 caracteres/)
     expect(datos.botones?.bloqueoVoz).toBeNull()
     expect(datos.botones?.bloqueoVideo).toBeNull()
-    expect(datos.lineaDeFirma).toMatch(/^Al firmar grabo el video: ~\d+ s, US\$ \d+,\d\d\. Tienes 8 s para deshacer\.$/)
+    expect(datos.lineaDeFirma).toMatch(/^Graba el video · US\$ \d+,\d\d · 8 s para deshacer$/)
   })
 
   it("offers her voice of this script", async () => {
@@ -166,7 +166,7 @@ describe("leerDatosDeGrabacion", () => {
       estado: "grabando_voz",
       voz: null,
       botones: null,
-      lineaDeFirma: "Al firmar grabo el video. Tienes 8 s para deshacer.",
+      lineaDeFirma: "Graba el video · 8 s para deshacer",
     })
   })
 })

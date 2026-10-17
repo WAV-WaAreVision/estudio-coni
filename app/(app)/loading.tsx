@@ -4,7 +4,7 @@ export default function Cargando() {
     <output className="grid gap-6" aria-label="Cargando">
       <div className="esqueleto h-3 w-1/2" />
       {[0, 1, 2].map((fila) => (
-        <div key={fila} className="grid gap-2 border-b border-linea py-3">
+        <div key={fila} className="grid gap-2 border-b border-hilo py-3">
           <div className="esqueleto h-3 w-4/5" />
           <div className="esqueleto h-3 w-3/5" />
         </div>

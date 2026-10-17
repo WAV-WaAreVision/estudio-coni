@@ -1,12 +1,13 @@
 "use client"
 
-import { ArrowRight, CaretLeft, MagnifyingGlass, Plus } from "@phosphor-icons/react"
-import Link from "next/link"
+import { ArrowRight, MagnifyingGlass, Plus } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Volver } from "@/components/ui/volver"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
@@ -32,6 +33,9 @@ interface Mensaje {
   texto: string
   deshacer?: () => void
 }
+
+// "Usar esta" with its arrow wrapped inside a 151 px column at the 22 px inset: a tighter inset keeps it whole.
+const PAR_DE_BOTONES = "gap-2 px-[18px] whitespace-nowrap"
 
 /**
  * The idea bank: one idea at a time on the tint of its pillar, with "Después" and "Usar esta" as buttons (never only a
@@ -144,13 +148,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
   return (
     <div className="grid gap-4">
       <header className="grid gap-1">
-        <Link
-          href="/"
-          className="-ml-1 inline-flex min-h-11 w-fit items-center gap-1 text-cuerpo font-medium text-tinta"
-        >
-          <CaretLeft aria-hidden="true" size={20} />
-          Inicio
-        </Link>
+        <Volver href="/">Inicio</Volver>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-pantalla">{buscando ? "Buscar ideas" : "Ideas"}</h1>
           <Boton
@@ -163,7 +161,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
               "Una a la vez"
             ) : (
               <>
-                <MagnifyingGlass aria-hidden="true" size={20} />
+                <MagnifyingGlass aria-hidden="true" size={ICONO.medio} />
                 Buscar
               </>
             )}
@@ -192,13 +190,15 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           <div ref={carta} tabIndex={-1} className="outline-none">
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
-              <div className="grid grid-cols-2 gap-2">
-                <Boton variante="linea" onClick={() => despues(actual)}>
+              {/* Side by side at 390 px, one per row at large text; neither label wraps inside its pill. */}
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-2">
+                <Boton variante="secundario" className={PAR_DE_BOTONES} onClick={() => despues(actual)}>
                   Después
                 </Boton>
                 <Boton
+                  className={PAR_DE_BOTONES}
                   cargando={pendiente}
-                  icono={<ArrowRight aria-hidden="true" size={20} />}
+                  icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
                   onClick={() => usar(actual)}
                 >
                   Usar esta
@@ -216,7 +216,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
           </p>
           <a
             href={process.env.NEXT_PUBLIC_URL_INGESTA || URL_DE_INGESTA}
-            className={clasesDeBoton({ variante: "linea", tamano: "chico" })}
+            className={clasesDeBoton({ variante: "secundario", tamano: "chico" })}
           >
             Abrir Conidolly Ingesta
           </a>
@@ -237,7 +237,7 @@ export function BancoDeIdeas({ ideas, acciones }: { ideas: readonly IdeaDeBanco[
 function BotonIdeaPropia({ alTocar }: { alTocar: () => void }) {
   return (
     <Boton variante="callado" onClick={alTocar}>
-      <Plus aria-hidden="true" size={20} />
+      <Plus aria-hidden="true" size={ICONO.medio} />
       Escribir una idea mía
     </Boton>
   )

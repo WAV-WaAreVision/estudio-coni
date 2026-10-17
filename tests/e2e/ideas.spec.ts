@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { sembrarCorrida, sembrarIdea, sembrarIdeaDelMotor, vaciarPiezasEIdeas } from "../integration/siembra"
-import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
+import {
+  abrirDesplegable,
+  alerta,
+  bloquearRedExterna,
+  capturar,
+  configurarServicios,
+  registroDeServicios,
+} from "./ayudas"
 
 const ALERTA = [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }]
 
@@ -55,6 +62,7 @@ test("Usar esta puts the idea first among the week's ideas on Inicio, and Deshac
 
   await expect(page.getByText("La sumé a las ideas de la semana.")).toBeVisible()
   await page.goto("/")
+  await abrirDesplegable(page, "Elegir ideas de la semana")
   await expect(page.getByRole("checkbox").first()).toHaveAccessibleName(/El deseo no se apaga/)
 
   await page.goto("/ideas")
@@ -69,6 +77,7 @@ test("Inicio links to the whole bank", async ({ page }) => {
   await sembrarBanco()
 
   await page.goto("/")
+  await abrirDesplegable(page, "Elegir ideas de la semana")
   await page.getByRole("link", { name: "Ver todas las ideas" }).click()
 
   await expect(page).toHaveURL(/\/ideas$/)

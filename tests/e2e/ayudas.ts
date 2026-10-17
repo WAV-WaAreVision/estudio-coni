@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
-import type { BrowserContext, Page } from "@playwright/test"
+import { type BrowserContext, expect, type Locator, type Page } from "@playwright/test"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { ETIQUETA_DE_FIRMA, TEXTO_ARMADO } from "@/lib/diseno/deslizador"
+import { pool } from "../integration/db"
 import {
   ARCHIVO_DE_DISPAROS,
   BUZON,
@@ -169,4 +171,64 @@ export async function bloquearRedExterna(page: Page): Promise<void> {
     (url) => !HOSTS_PERMITIDOS.has(url.hostname),
     (ruta) => ruta.abort("blockedbyclient"),
   )
+}
+
+/** Drags the thumb of the sign track to the end, the way a finger does. */
+export async function deslizarHastaElFinal(page: Page): Promise<void> {
+  const pista = page.getByRole("slider", { name: ETIQUETA_DE_FIRMA })
+  await pista.scrollIntoViewIfNeeded()
+  const caja = await pista.boundingBox()
+  const pulgar = await page.getByTestId("pulgar-firma").boundingBox()
+  if (!caja || !pulgar) throw new Error("La firma no tiene caja")
+  const y = pulgar.y + pulgar.height / 2
+  await page.mouse.move(pulgar.x + pulgar.width / 2, y)
+  await page.mouse.down()
+  await page.mouse.move(caja.x + caja.width, y, { steps: 14 })
+  await page.mouse.up()
+}
+
+/** Signs without dragging: a tap arms the track, a second one after 400 ms signs (decision 5). */
+export async function firmarConDosToques(page: Page): Promise<void> {
+  const pista = page.getByRole("slider", { name: ETIQUETA_DE_FIRMA })
+  await pista.click()
+  await expect(pista).toHaveAttribute("aria-valuetext", TEXTO_ARMADO)
+  // A second tap sooner than 400 ms is ignored as an accidental double tap: wait like a person would.
+  await page.waitForTimeout(500)
+  await pista.click()
+}
+
+/** Opens a native disclosure by the text of its summary, when it is folded: the first in the page, or inside `dentro` (a bar, a block) when given. */
+export async function abrirDesplegable(dentro: Page | Locator, titulo: string): Promise<void> {
+  const pagina = "page" in dentro ? dentro.page() : dentro
+  const detalles = dentro.locator("details", { has: pagina.locator("summary", { hasText: titulo }) }).first()
+  const abierto = await detalles.evaluate((elemento) => (elemento as HTMLDetailsElement).open)
+  if (!abierto) await detalles.locator("summary").first().click()
+}
+
+export async function desconectarLinkedin() {
+  await pool.query("delete from vault.secrets where name = 'linkedin'")
+  await pool.query(
+    "update public.ajustes set linkedin_miembro = null, linkedin_nombre = null, linkedin_token_expira_en = null, linkedin_conectado_en = null",
+  )
+}
+
+/** Connected with a token that lasts 9 days and a half, which Coni reads as "Vence en 10 días". */
+export async function conectarLinkedin() {
+  await desconectarLinkedin()
+  await pool.query("select vault.create_secret('AQV_token_de_prueba', 'linkedin')")
+  await pool.query(
+    "update public.ajustes set linkedin_miembro = 'urn:li:person:abc123XYZ', linkedin_nombre = 'Coni del Rosario', linkedin_conectado_en = now(), linkedin_token_expira_en = now() + interval '9 days 12 hours'",
+  )
+}
+
+/**
+ * Decision 6 at the accessibility sizes: the root at 212.5 % (34 px, under 18 rem across a 390 px phone), then the head
+ * script's check again, as iOS triggers it when the app comes back with a new text size.
+ */
+export async function conLetraGrande(page: Page): Promise<void> {
+  // The screen streams in after its loading state: what is measured at large text is the screen, not the skeleton.
+  await expect(page.getByRole("status", { name: "Cargando" })).toHaveCount(0)
+  await page.addStyleTag({ content: "html { font-size: 212.5% !important }" })
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")))
+  await expect(page.locator("html")).toHaveAttribute("data-letra", "grande")
 }

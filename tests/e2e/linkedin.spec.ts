@@ -6,16 +6,18 @@ import { pool } from "../integration/db"
 import { clienteDeServicio } from "../integration/servicio"
 import { leerFila, publicacionesDe, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
+  abrirDesplegable,
   bloquearRedExterna,
   capturar,
   configurarServicios,
+  deslizarHastaElFinal,
   GUION_VALIDO,
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
   TEXTO_VALIDO,
 } from "./ayudas"
 
-const ETIQUETA = "Desliza para aprobar video y fecha"
+const ETIQUETA = "Desliza para firmar"
 const ENLACE_LINKEDIN = "https://www.linkedin.com/posts/coni_abc-123"
 
 async function sinInstagram() {
@@ -59,18 +61,6 @@ async function verYAprobar(page: import("@playwright/test").Page) {
   await page.getByRole("checkbox", { name: /Revisé labios/ }).check()
 }
 
-async function deslizar(page: import("@playwright/test").Page) {
-  const deslizador = page.getByRole("slider", { name: ETIQUETA })
-  await deslizador.scrollIntoViewIfNeeded()
-  const pulgar = await deslizador.boundingBox()
-  const pista = await deslizador.locator("..").boundingBox()
-  if (!pulgar || !pista) throw new Error("El deslizador no tiene caja")
-  await page.mouse.move(pulgar.x + pulgar.width / 2, pulgar.y + pulgar.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(pista.x + pista.width, pulgar.y + pulgar.height / 2, { steps: 14 })
-  await page.mouse.up()
-}
-
 test("she approves for Instagram and LinkedIn, the time comes and she uploads each one on its own", async ({
   page,
 }) => {
@@ -78,11 +68,12 @@ test("she approves for Instagram and LinkedIn, the time comes and she uploads ea
   await page.goto(`/video/${id}`)
   await verYAprobar(page)
 
+  await abrirDesplegable(page, "Más opciones")
   await expect(page.getByRole("checkbox", { name: "Instagram" })).toBeChecked()
   await expect(page.getByRole("checkbox", { name: "LinkedIn" })).toBeChecked()
-  await expect(page.getByRole("heading", { name: "Texto para LinkedIn" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeVisible()
   await capturar(page, "video-puerta-2-destinos", { completa: true })
-  await deslizar(page)
+  await deslizarHastaElFinal(page)
 
   await expect(page.getByText(/^Programado para el /)).toBeVisible()
   expect(await leerFila(id)).toMatchObject({
@@ -153,7 +144,9 @@ test("a piece from before LinkedIn starts its text from the caption and cannot b
 
   const campo = page.getByLabel("Texto de la publicación en LinkedIn")
   await expect(campo).toHaveValue(/Este video lo narra mi avatar digital/)
-  await expect(page.getByText("Guarda el texto para LinkedIn.")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("guardar el texto para LinkedIn", { exact: false }),
+  ).toBeVisible()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
 
   await page.getByRole("button", { name: "Guardar el texto para LinkedIn" }).click()
@@ -171,10 +164,13 @@ test("she can approve for Instagram alone even when the LinkedIn text has someth
   await page.goto(`/video/${id}`)
   await verYAprobar(page)
 
-  await expect(page.getByText("Hay algo que corregir antes de aprobar.")).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Firma" }).getByText("corregir el texto", { exact: false }),
+  ).toBeVisible()
+  await abrirDesplegable(page, "Más opciones")
   await page.getByRole("checkbox", { name: "LinkedIn" }).uncheck()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "false")
-  await deslizar(page)
+  await deslizarHastaElFinal(page)
   await expect(page.getByText(/^Programado para el /)).toBeVisible()
   expect((await publicacionesDe(id)).map((p) => p.destino)).toEqual(["instagram"])
 })
@@ -218,6 +214,8 @@ test("the Guion screen shows the LinkedIn text read only, and its findings do no
   ])
 
   await page.goto(`/guion/${id}`)
+  // Gate 1 keeps the LinkedIn text under "Más opciones" (v6 2).
+  await abrirDesplegable(page, "Más opciones")
 
   const seccion = page.getByRole("region", { name: "Texto para LinkedIn" })
   await expect(seccion.getByText(/Llevan diez años juntos y ya casi no se tocan/)).toBeVisible()

@@ -3,7 +3,10 @@ import { BarraDeMetrica } from "@/components/barra-de-metrica"
 import { FilaPieza } from "@/components/fila-pieza"
 import { PanelDeComparacion } from "@/components/panel-de-comparacion"
 import { Seccion } from "@/components/seccion"
+import { Grupo } from "@/components/ui/grupo"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { Panel } from "@/components/ui/panel"
 import { leerDatosDeMetricas } from "@/lib/datos/metricas"
 import { construirMetricas } from "@/lib/metricas/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
@@ -13,7 +16,7 @@ const BARRAS_A_LA_VISTA = 5
 const VER_LAS_DEMAS = "Ver las demás"
 
 const RESUMEN_PLEGABLE =
-  "flex min-h-14 cursor-pointer list-none items-center justify-between gap-2 border-b border-linea text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
+  "flex min-h-fila-baja cursor-pointer list-none items-center justify-between gap-2 border-b border-hilo text-cuerpo font-semibold [&::-webkit-details-marker]:hidden"
 
 export default async function Metricas() {
   const { db } = await exigirConi()
@@ -30,7 +33,9 @@ export default async function Metricas() {
     <div>
       <header className="grid gap-1">
         <p className="text-meta font-semibold">Métricas</p>
-        <h1 className="mt-4 text-pantalla capitalize">{modelo.mes}</h1>
+        <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
+          {modelo.mes}
+        </h1>
         <p className="text-cuerpo text-apagado">{modelo.resumen}</p>
       </header>
 
@@ -53,24 +58,26 @@ export default async function Metricas() {
         ) : (
           <>
             <p className="text-meta text-apagado">Guardados cada 1.000 personas que lo vieron.</p>
-            <ul>
-              {principales.map((barra) => (
-                <BarraDeMetrica key={barra.piezaId} {...barra} />
-              ))}
-            </ul>
-            {restantes.length > 0 ? (
-              <details>
-                <summary className={RESUMEN_PLEGABLE}>
-                  {VER_LAS_DEMAS}
-                  <CaretDown aria-hidden="true" size={20} className="text-apagado" />
-                </summary>
-                <ul>
-                  {restantes.map((barra) => (
-                    <BarraDeMetrica key={barra.piezaId} {...barra} />
-                  ))}
-                </ul>
-              </details>
-            ) : null}
+            <Panel className="py-1">
+              <ul>
+                {principales.map((barra) => (
+                  <BarraDeMetrica key={barra.piezaId} {...barra} />
+                ))}
+              </ul>
+              {restantes.length > 0 ? (
+                <details>
+                  <summary className={RESUMEN_PLEGABLE}>
+                    {VER_LAS_DEMAS}
+                    <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
+                  </summary>
+                  <ul>
+                    {restantes.map((barra) => (
+                      <BarraDeMetrica key={barra.piezaId} {...barra} />
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </Panel>
           </>
         )}
       </Seccion>
@@ -88,15 +95,15 @@ export default async function Metricas() {
             {modelo.semanas.map((semana, i) => (
               <details key={semana.titulo} open={i === semanaAbierta} aria-label={semana.titulo}>
                 <summary className={RESUMEN_PLEGABLE}>
-                  {semana.titulo}
-                  <CaretDown aria-hidden="true" size={20} className="text-apagado" />
+                  <span data-snapshot="varia">{semana.titulo}</span>
+                  <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
                 </summary>
                 {semana.reels.length > 0 ? (
-                  <ul>
+                  <Grupo plano lista>
                     {semana.reels.map((reel) => (
                       <FilaPieza key={reel.piezaId} titulo={reel.titulo} estado={reel.meta} pilar={reel.pilar} />
                     ))}
-                  </ul>
+                  </Grupo>
                 ) : null}
                 <p className="py-3 text-meta text-apagado">{semana.resumen}</p>
               </details>

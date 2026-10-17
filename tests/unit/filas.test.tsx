@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { FilaConCheck, FilaConValor, FilaNavegacion } from "@/components/ui/filas"
+import { Eleccion, FilaConValor, FilaNavegacion } from "@/components/ui/filas"
 
 describe("filas", () => {
-  it("FilaNavegacion is a 56 px link with a caret", () => {
+  it("FilaNavegacion is a 3.75rem group row with a chevron, without a border of its own", () => {
     render(<FilaNavegacion href="/calendario">Ver calendario</FilaNavegacion>)
-    expect(screen.getByRole("link", { name: "Ver calendario" })).toHaveClass("min-h-14")
+    const enlace = screen.getByRole("link", { name: "Ver calendario" })
+    expect(enlace).toHaveClass("min-h-fila-baja", "active:bg-piedra-honda")
+    expect(enlace.className).not.toMatch(/border/)
   })
 
   it("FilaConValor puts the native select over the whole row so iOS shows its own wheel", () => {
@@ -38,15 +40,35 @@ describe("filas", () => {
     expect(screen.getByText("08:30", { selector: "span" })).toHaveClass("tabular-nums")
   })
 
-  it("FilaConCheck is a radio with the check on the chosen one", () => {
-    render(<FilaConCheck nombre="fecha" valor="a" elegido etiqueta="jueves 8 de octubre · 19:00" alElegir={vi.fn()} />)
+  it("Eleccion is a radio row; the chosen one fills with ink around a light dot", () => {
+    const { container } = render(
+      <Eleccion nombre="fecha" valor="a" elegido etiqueta="jueves 8 de octubre · 19:00" alElegir={vi.fn()} />,
+    )
     expect(screen.getByRole("radio", { name: "jueves 8 de octubre · 19:00" })).toBeChecked()
+    expect(container.querySelector("label > span[aria-hidden]")).toHaveClass("size-casilla", "bg-tinta")
+    // In forced colours the dot keeps CanvasText, so the chosen row differs from the others by more than its ring.
+    expect(container.querySelector("label > span[aria-hidden] > span")).toHaveClass(
+      "forced-colors:forced-color-adjust-none",
+      "forced-colors:bg-[color:CanvasText]",
+    )
   })
 
-  it("FilaConCheck reports the value when it is chosen", () => {
+  it("Eleccion reports the value when it is chosen, and carries a detail and an image when given", () => {
     const alElegir = vi.fn()
-    render(<FilaConCheck nombre="fecha" valor="b" elegido={false} etiqueta="viernes 9" alElegir={alElegir} />)
-    fireEvent.click(screen.getByRole("radio", { name: "viernes 9" }))
-    expect(alElegir).toHaveBeenCalledWith("b")
+    render(
+      <Eleccion
+        nombre="avatar"
+        valor="look-b"
+        elegido={false}
+        etiqueta="Terraza"
+        detalle="Exterior"
+        imagen={<span data-testid="foto" />}
+        alElegir={alElegir}
+      />,
+    )
+    fireEvent.click(screen.getByRole("radio", { name: "Terraza" }))
+    expect(alElegir).toHaveBeenCalledWith("look-b")
+    expect(screen.getByRole("radio", { name: "Terraza" })).toHaveAccessibleDescription("Exterior")
+    expect(screen.getByTestId("foto")).toBeInTheDocument()
   })
 })

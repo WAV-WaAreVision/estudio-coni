@@ -19,8 +19,8 @@ vi.mock("@/app/(app)/piezas/acciones", () => ({
 vi.mock("@/app/(app)/ajustes/acciones", () => ({ marcarAvatarVistoAccion: vi.fn() }))
 // The player is a real <video>: here it only says it was watched to the end.
 vi.mock("@/components/reproductor-video", () => ({
-  ReproductorVideo: ({ alVerCompleto }: { alVerCompleto: () => void }) => (
-    <button type="button" onClick={alVerCompleto}>
+  ReproductorVideo: ({ alVerCompleto, zonas }: { alVerCompleto: () => void; zonas: boolean }) => (
+    <button type="button" onClick={alVerCompleto} data-zonas={String(zonas)}>
       Terminé de ver
     </button>
   ),
@@ -40,6 +40,7 @@ const ADVIERTE_LINKEDIN: Hallazgo = {
   mensaje: "Demasiados hashtags en LinkedIn.",
   campo: "linkedin",
 }
+const BLOQUEA_TEXTO: Hallazgo = { regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso del avatar." }
 const ADVIERTE_TEXTO: Hallazgo = { regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras." }
 
 function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
@@ -57,56 +58,237 @@ function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
     revision: [],
     videoUrl: null,
     videoId: "videos/e2e.webm",
-    fechas: [{ iso: "2099-10-09T22:00:00.000Z", etiqueta: "viernes 9 de octubre · 19:00" }],
-    costoDeRegrabar: null,
+    fechas: [
+      { iso: "2099-10-09T22:00:00.000Z", etiqueta: "viernes 9 de octubre · 19:00", corta: "viernes 9 · 19:00" },
+      { iso: "2099-10-12T22:00:00.000Z", etiqueta: "lunes 12 de octubre · 19:00", corta: "lunes 12 · 19:00" },
+    ],
+    costoDeRegrabar: "US$ 3,48",
     explicacion: null,
     primeraVez: false,
     ...sobre,
   }
 }
 
+const ver = () => fireEvent.click(screen.getByRole("button", { name: "Terminé de ver" }))
 function abrir(sobre: Partial<DatosDeVideo> = {}) {
   render(<PantallaVideo datos={datos(sobre)} />)
-  fireEvent.click(screen.getByRole("button", { name: "Terminé de ver" }))
+  ver()
 }
-
-const deslizador = () => screen.getByRole("slider", { name: "Desliza para aprobar video y fecha" })
+const firma = () => screen.getByRole("slider", { name: "Desliza para firmar" })
+const barra = () => screen.getByRole("region", { name: "Firma" })
 const revisar = () => fireEvent.click(screen.getByRole("checkbox", { name: /Revisé labios/ }))
 const destino = (nombre: string) => screen.getByRole("checkbox", { name: nombre })
 
 beforeEach(() => {
   aprobarVideoAccion.mockReset().mockResolvedValue({ ok: true })
   editarTextoLinkedinAccion.mockReset().mockResolvedValue({ ok: true })
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-    width: 356,
-    left: 0,
-    right: 356,
-    top: 0,
-    bottom: 56,
-    height: 56,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  })
-  HTMLElement.prototype.setPointerCapture = vi.fn()
-  HTMLElement.prototype.releasePointerCapture = vi.fn()
+  regrabarAccion.mockReset()
 })
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
-describe("PantallaVideo: el aviso", () => {
-  it("keeps the toast's 8 s while she reviews: a re-render does not restart its timer", async () => {
+describe("PantallaVideo: todo a la vista antes de terminar", () => {
+  it("shows the checkbox, the texts and the date before the video ends, and waits for the full watch to sign", () => {
+    render(<PantallaVideo datos={datos()} />)
+    expect(screen.getByRole("checkbox", { name: /Revisé labios/ })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Así sale en Instagram" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Dónde y cuándo" })).toBeInTheDocument()
+    expect(screen.queryByText("Lo viste completo")).toBeNull()
+    expect(
+      within(barra()).getByText("terminar el video · marcar lo que revisaste", { exact: false }),
+    ).toBeInTheDocument()
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+
+    revisar()
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+    ver()
+    expect(screen.getByText("Lo viste completo")).toBeInTheDocument()
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("says what is done and when it goes out once nothing is missing", () => {
+    abrir()
+    revisar()
+    expect(within(barra()).getByText("Video visto")).toBeInTheDocument()
+    expect(within(barra()).getByText("Texto")).toBeInTheDocument()
+    expect(within(barra()).getByText("Sale el viernes 9 · 19:00")).toBeInTheDocument()
+  })
+
+  it("blocks with today's text when there is no free slot", () => {
+    abrir({ fechas: [] })
+    revisar()
+    expect(within(barra()).getByRole("status")).toHaveTextContent("No hay un horario libre. Avísale a Federico.")
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+  })
+})
+
+describe("PantallaVideo: dónde y cuándo", () => {
+  it("states the date in 600 with the destinations and the zone, and changes it from Cambiar", () => {
+    abrir()
+    expect(screen.getByText("viernes 9 de octubre · 19:00")).toHaveClass("font-semibold")
+    expect(screen.getByText("Instagram · hora de Chile")).toBeInTheDocument()
+    const cambiar = screen.getByRole("button", { name: "Cambiar" })
+    expect(cambiar).toHaveAttribute("aria-expanded", "false")
+    fireEvent.click(cambiar)
+    fireEvent.click(screen.getByRole("radio", { name: "lunes 12 de octubre · 19:00" }))
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }))
+    revisar()
+    expect(within(barra()).getByText("Sale el lunes 12 · 19:00")).toBeInTheDocument()
+  })
+
+  it("keeps the destinations folded under Más opciones, and names them under the date", () => {
+    abrir()
+    const mas = screen.getByText("Más opciones").closest("details") as HTMLElement
+    expect(mas).not.toHaveAttribute("open")
+    expect(within(mas).getByText("LinkedIn, regrabar video")).toBeInTheDocument()
+    fireEvent.click(within(mas).getByRole("checkbox", { name: "LinkedIn" }))
+    expect(screen.getByText("Instagram y LinkedIn · hora de Chile")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeInTheDocument()
+  })
+
+  it("starts with both destinations when Ajustes says so, and shows the LinkedIn text she will publish", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    expect(destino("LinkedIn")).toBeChecked()
+    const seccion = screen.getByRole("heading", { name: "Así sale en LinkedIn" }).closest("section") as HTMLElement
+    expect(within(seccion).getByText(/Llevan diez años juntos/)).toBeInTheDocument()
+  })
+
+  it("leads with the LinkedIn text as it will be published and folds the Instagram caption when both go out", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    const linkedin = screen.getByRole("heading", { name: "Así sale en LinkedIn" })
+    expect(linkedin.closest("details")).toBeNull()
+    const instagram = screen.getByText("Así sale en Instagram").closest("details") as HTMLElement
+    expect(instagram).not.toHaveAttribute("open")
+    expect(linkedin.compareDocumentPosition(instagram) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(instagram).getByText(/Hablemos de límites/)).toBeInTheDocument()
+    expect(within(instagram).getByRole("button", { name: "Editar el texto" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Editar el texto para LinkedIn" })).toBeInTheDocument()
+  })
+
+  it("says a provider's explanation in her words and folds it for WAV", () => {
+    abrir({ explicacion: "Los subtítulos de HeyGen no calzan con el guion." })
+    const bloque = screen.getByText("Algo no salió como esperaba con esta pieza.").closest("output") as HTMLElement
+    const detalle = within(bloque).getByText("Detalle para WAV").closest("details") as HTMLElement
+    expect(detalle).toContainElement(screen.getByText("Los subtítulos de HeyGen no calzan con el guion."))
+  })
+
+  it("keeps an explanation written for her as it is", () => {
+    abrir({ explicacion: "Pasó la hora aprobada. Elige otra fecha." })
+    expect(screen.getByText("Pasó la hora aprobada. Elige otra fecha.")).toBeInTheDocument()
+    expect(screen.queryByText("Detalle para WAV")).toBeNull()
+  })
+
+  it("keeps the Instagram caption as an open section when Instagram goes out alone", () => {
+    abrir()
+    const instagram = screen.getByRole("heading", { name: "Así sale en Instagram" })
+    expect(instagram.closest("details")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Así sale en LinkedIn" })).toBeNull()
+  })
+
+  it("keeps the LinkedIn findings under the LinkedIn text and out of the review of the caption", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"], revision: [ADVIERTE_TEXTO, ADVIERTE_LINKEDIN] })
+    const revision = screen.getByRole("heading", { name: "Revisión" }).closest("section") as HTMLElement
+    expect(within(revision).getByText("Escribe los números con palabras.")).toBeInTheDocument()
+    expect(within(revision).queryByText("Demasiados hashtags en LinkedIn.")).toBeNull()
+    const linkedin = screen.getByRole("heading", { name: "Así sale en LinkedIn" }).closest("section") as HTMLElement
+    expect(within(linkedin).getByText("Demasiados hashtags en LinkedIn.")).toBeInTheDocument()
+  })
+})
+
+describe("PantallaVideo: lo que bloquea", () => {
+  it("lets her sign for Instagram when only the LinkedIn text blocks", () => {
+    abrir({ revision: [BLOQUEA_LINKEDIN] })
+    revisar()
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("asks to fix the text when LinkedIn is chosen and its text blocks", () => {
+    abrir({ revision: [BLOQUEA_LINKEDIN] })
+    revisar()
+    fireEvent.click(destino("LinkedIn"))
+    expect(firma()).toHaveAttribute("aria-disabled", "true")
+    expect(within(barra()).getByText("corregir el texto", { exact: false })).toBeInTheDocument()
+    expect(screen.getByText("Falta el aviso de LinkedIn.")).toBeInTheDocument()
+  })
+
+  it("asks to review a LinkedIn warning only when LinkedIn is chosen", () => {
+    abrir({ revision: [ADVIERTE_LINKEDIN] })
+    revisar()
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+    fireEvent.click(destino("LinkedIn"))
+    expect(within(barra()).getByText("revisar 1 aviso", { exact: false })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+
+  it("keeps the caption editor on screen when LinkedIn is the only destination and the caption blocks", () => {
+    abrir({ destinosPorDefecto: ["linkedin"], revision: [BLOQUEA_TEXTO] })
+    revisar()
+    expect(within(barra()).getByText("corregir el texto", { exact: false })).toBeInTheDocument()
+    const revision = screen.getByRole("heading", { name: "Revisión" }).closest("section") as HTMLElement
+    fireEvent.click(within(revision).getByRole("button", { name: "Editar el texto" }))
+    expect(within(revision).getByRole("textbox", { name: /Texto de la publicación/ })).toHaveValue(CAPTION)
+  })
+
+  it("asks to save a LinkedIn text that is only a starting point", () => {
+    abrir({ textoLinkedin: null, destinosPorDefecto: ["instagram", "linkedin"] })
+    revisar()
+    expect(screen.getByLabelText("Texto de la publicación en LinkedIn")).toHaveValue(
+      `Hablemos de límites\n\n${AVISO_AVATAR_LINKEDIN}`,
+    )
+    expect(within(barra()).getByText("guardar el texto para LinkedIn", { exact: false })).toBeInTheDocument()
+  })
+
+  it("asks to save or cancel an open editor", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    revisar()
+    fireEvent.click(screen.getByRole("button", { name: "Editar el texto para LinkedIn" }))
+    expect(within(barra()).getByText("guardar o cancelar la edición del texto", { exact: false })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(firma()).toHaveAttribute("aria-disabled", "false")
+  })
+})
+
+describe("PantallaVideo: zonas de Instagram", () => {
+  it("takes the zones off the video when she unticks Instagram", () => {
+    abrir()
+    const reproductor = screen.getByRole("button", { name: "Terminé de ver" })
+    fireEvent.click(screen.getByRole("button", { name: "Ver zonas de Instagram" }))
+    expect(reproductor).toHaveAttribute("data-zonas", "true")
+    fireEvent.click(destino("LinkedIn"))
+    fireEvent.click(destino("Instagram"))
+    expect(screen.queryByRole("button", { name: /zonas de Instagram/ })).toBeNull()
+    expect(reproductor).toHaveAttribute("data-zonas", "false")
+  })
+})
+
+describe("PantallaVideo: firmar y regrabar", () => {
+  it("sends the destinations she chose with the piece, its version and the date", async () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    revisar()
+    fireEvent.keyDown(firma(), { key: "Enter" })
+    await waitFor(() =>
+      expect(aprobarVideoAccion).toHaveBeenCalledWith("p1", 5, "2099-10-09T22:00:00.000Z", ["instagram", "linkedin"]),
+    )
+  })
+
+  it("re-records from Más opciones with its cost, after today's confirmation, and says it at the top", async () => {
     vi.useFakeTimers()
     regrabarAccion.mockResolvedValue({ ok: true, advertencia: "Regrabo sin tu voz." })
     abrir()
-    fireEvent.click(screen.getByRole("button", { name: "Regrabar" }))
+    expect(screen.getByText("Se vuelve a grabar con tu avatar y este video se descarta.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Regrabar video US$ 3,48" }))
+    expect(
+      screen.getByText(
+        "Se vuelve a grabar con tu avatar y este video se descarta. Regrabar cuesta unos US$ 3,48. ¿Seguro?",
+      ),
+    ).toBeInTheDocument()
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Sí, regrabar" }))
     })
-    expect(screen.getByText("Regrabo sin tu voz.")).toBeInTheDocument()
-
+    expect(screen.getByText("Regrabo sin tu voz.").closest("output")).toHaveAttribute("data-lugar", "arriba")
     act(() => {
       vi.advanceTimersByTime(5000)
     })
@@ -114,183 +296,6 @@ describe("PantallaVideo: el aviso", () => {
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-
     expect(screen.queryByText("Regrabo sin tu voz.")).toBeNull()
-  })
-})
-
-describe("PantallaVideo: dónde se publica", () => {
-  it("starts with the destinations Ajustes chose and shows no LinkedIn text while LinkedIn is not chosen", () => {
-    abrir()
-    expect(destino("Instagram")).toBeChecked()
-    expect(destino("LinkedIn")).not.toBeChecked()
-    expect(screen.queryByRole("heading", { name: "Texto para LinkedIn" })).not.toBeInTheDocument()
-  })
-
-  it("starts with both when Ajustes says so, and shows the LinkedIn text she will publish", () => {
-    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
-    expect(destino("LinkedIn")).toBeChecked()
-    const seccion = screen.getByRole("heading", { name: "Texto para LinkedIn" }).closest("section")
-    expect(seccion).not.toBeNull()
-    expect(within(seccion as HTMLElement).getByText(/Llevan diez años juntos/)).toBeInTheDocument()
-  })
-
-  it("shows the LinkedIn text when she ticks LinkedIn and hides it when she unticks it", () => {
-    abrir()
-    fireEvent.click(destino("LinkedIn"))
-    expect(screen.getByRole("heading", { name: "Texto para LinkedIn" })).toBeInTheDocument()
-    fireEvent.click(destino("LinkedIn"))
-    expect(screen.queryByRole("heading", { name: "Texto para LinkedIn" })).not.toBeInTheDocument()
-  })
-
-  it("keeps the findings of the LinkedIn text out of the review of the caption and under its own text", () => {
-    abrir({ destinosPorDefecto: ["instagram", "linkedin"], revision: [ADVIERTE_TEXTO, ADVIERTE_LINKEDIN] })
-    const revision = screen.getByRole("heading", { name: "Revisión" }).closest("section") as HTMLElement
-    expect(within(revision).getByText("Escribe los números con palabras.")).toBeInTheDocument()
-    expect(within(revision).queryByText("Demasiados hashtags en LinkedIn.")).not.toBeInTheDocument()
-    const linkedin = screen.getByRole("heading", { name: "Texto para LinkedIn" }).closest("section") as HTMLElement
-    expect(within(linkedin).getByText("Demasiados hashtags en LinkedIn.")).toBeInTheDocument()
-  })
-
-  it("does not show the findings of the LinkedIn text when LinkedIn is not chosen", () => {
-    abrir({ revision: [BLOQUEA_LINKEDIN] })
-    expect(screen.queryByText("Falta el aviso de LinkedIn.")).not.toBeInTheDocument()
-  })
-})
-
-describe("PantallaVideo: lo que bloquea", () => {
-  it("lets her approve for Instagram when only the LinkedIn text blocks", () => {
-    abrir({ revision: [BLOQUEA_LINKEDIN] })
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-  })
-
-  it("blocks the approval when LinkedIn is chosen and its text blocks, and says there is something to fix", () => {
-    abrir({ revision: [BLOQUEA_LINKEDIN] })
-    revisar()
-    fireEvent.click(destino("LinkedIn"))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText("Hay algo que corregir antes de aprobar.")).toBeInTheDocument()
-    expect(screen.getByText("Falta el aviso de LinkedIn.")).toBeInTheDocument()
-  })
-
-  it("asks her to confirm a LinkedIn warning only when LinkedIn is chosen", () => {
-    abrir({ revision: [ADVIERTE_LINKEDIN] })
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-
-    fireEvent.click(destino("LinkedIn"))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText("Confirma la revisión.")).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-  })
-
-  it("still blocks on a finding of the caption, whatever the destinations", () => {
-    abrir({
-      destinosPorDefecto: ["linkedin"],
-      revision: [{ regla: "aviso_avatar", tipo: "bloquea", mensaje: "Falta el aviso de Instagram." }],
-    })
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-  })
-})
-
-describe("PantallaVideo: una pieza de antes de LinkedIn", () => {
-  it("starts the LinkedIn text from the caption without hashtags and with the LinkedIn notice, and asks to save it", () => {
-    abrir({ textoLinkedin: null, destinosPorDefecto: ["instagram", "linkedin"] })
-    revisar()
-    expect(screen.getByLabelText("Texto de la publicación en LinkedIn")).toHaveValue(
-      `Hablemos de límites\n\n${AVISO_AVATAR_LINKEDIN}`,
-    )
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText("Guarda el texto para LinkedIn.")).toBeInTheDocument()
-  })
-
-  it("lets her approve for Instagram without saving a LinkedIn text", () => {
-    abrir({ textoLinkedin: null })
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-  })
-
-  it("saves the starting text through the action of this piece", async () => {
-    abrir({ textoLinkedin: null, destinosPorDefecto: ["instagram", "linkedin"] })
-
-    fireEvent.click(screen.getByRole("button", { name: "Guardar el texto para LinkedIn" }))
-
-    await waitFor(() =>
-      expect(editarTextoLinkedinAccion).toHaveBeenCalledWith(
-        "p1",
-        5,
-        `Hablemos de límites\n\n${AVISO_AVATAR_LINKEDIN}`,
-      ),
-    )
-  })
-})
-
-describe("PantallaVideo: aprobar", () => {
-  function deslizarHastaElFinal() {
-    fireEvent.pointerDown(deslizador(), { pointerId: 1, clientX: 0 })
-    fireEvent.pointerMove(deslizador(), { pointerId: 1, clientX: 300 })
-    fireEvent.pointerUp(deslizador(), { pointerId: 1, clientX: 300 })
-  }
-
-  it("sends the destinations she chose with the piece, its version and the date", async () => {
-    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
-    revisar()
-
-    deslizarHastaElFinal()
-
-    await waitFor(() =>
-      expect(aprobarVideoAccion).toHaveBeenCalledWith("p1", 5, "2099-10-09T22:00:00.000Z", ["instagram", "linkedin"]),
-    )
-  })
-
-  it("sends only the destinations that are ticked when she unticks one", async () => {
-    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
-    fireEvent.click(destino("Instagram"))
-    revisar()
-
-    deslizarHastaElFinal()
-
-    await waitFor(() =>
-      expect(aprobarVideoAccion).toHaveBeenCalledWith("p1", 5, "2099-10-09T22:00:00.000Z", ["linkedin"]),
-    )
-  })
-})
-
-describe("PantallaVideo: ediciones sin guardar", () => {
-  const MOTIVO = "Guarda o cancela la edición del texto."
-
-  it("blocks the approval while the LinkedIn text is being edited, and frees it when she cancels", () => {
-    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-
-    fireEvent.click(screen.getByRole("button", { name: "Editar el texto para LinkedIn" }))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText(MOTIVO)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-  })
-
-  it("blocks the approval while the caption is being edited", () => {
-    abrir()
-    revisar()
-
-    fireEvent.click(screen.getByRole("button", { name: "Editar el texto" }))
-
-    expect(deslizador()).toHaveAttribute("aria-disabled", "true")
-    expect(screen.getByText(MOTIVO)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
-  })
-
-  it("does not wait for an editor of LinkedIn that is not on screen", () => {
-    abrir()
-    revisar()
-    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
   })
 })

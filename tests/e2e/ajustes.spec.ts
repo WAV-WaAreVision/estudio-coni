@@ -1,7 +1,15 @@
 import { expect, test } from "@playwright/test"
 import coniConfig from "../fixtures/coni.config.json"
 import { pool } from "../integration/db"
-import { alerta, bloquearRedExterna, capturar, configurarServicios, registroDeServicios } from "./ayudas"
+import {
+  abrirDesplegable,
+  alerta,
+  bloquearRedExterna,
+  capturar,
+  configurarServicios,
+  conLetraGrande,
+  registroDeServicios,
+} from "./ayudas"
 import { URL_DE_LA_APP } from "./entorno"
 
 const NOMBRES_DE_LLAVES = "('heygen','elevenlabs','anthropic','meta')"
@@ -57,6 +65,7 @@ test("when every account answers, the block says everything is connected", async
   // Once nothing is missing the status block leaves Ajustes and the good news lives with the accounts.
   await page.goto("/ajustes")
   await expect(page.getByRole("heading", { name: /Configuración|Todo conectado/ })).toHaveCount(0)
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("link", { name: "Cuentas conectadas" }).click()
   await expect(page).toHaveURL(/\/ajustes\/cuentas$/)
 
@@ -86,6 +95,7 @@ test("a key a provider refuses is flagged, and one that cannot be checked is not
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "HeyGen no aceptó la llave" })).toBeVisible()
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("link", { name: "Cuentas conectadas" }).click()
   await expect(page.getByText("No aceptó la llave", { exact: true })).toBeVisible()
   await expect(page.getByText("Sin revisar")).toBeVisible()
@@ -267,6 +277,7 @@ test("signing out takes her to the code screen and the app asks for it again", a
   await page.goto("/ajustes")
 
   await page.getByRole("button", { name: "Cerrar sesión" }).click()
+  await page.getByRole("button", { name: "Sí, cerrar sesión" }).click()
 
   await expect(page).toHaveURL(/\/ingreso$/)
   await page.goto("/ajustes")
@@ -292,4 +303,22 @@ test("the Saldos section shows the ElevenLabs characters and the HeyGen API wall
       "El saldo de API de HeyGen es distinto de los créditos de tu plan: Conidolly graba con el saldo de API.",
     ),
   ).toBeVisible()
+})
+
+test("each account's name keeps a usable width beside its state pill at large text, Claude (Anthropic) included", async ({
+  page,
+}) => {
+  await conectarTodo()
+
+  await page.goto("/ajustes/cuentas")
+  await conLetraGrande(page)
+
+  // At this size the pill may wrap under a long name; what must not happen is the name shrinking to a sliver beside it.
+  for (const cuenta of ["heygen", "elevenlabs", "anthropic"]) {
+    const fila = page.locator(`#cuenta-${cuenta}`)
+    await expect(fila.locator(".pildora").first()).toBeVisible()
+    const cabecera = await fila.locator("span.text-guion").locator("..").boundingBox()
+    const nombre = await fila.locator("span.text-guion").boundingBox()
+    expect(nombre?.width ?? 0, cuenta).toBeGreaterThanOrEqual((cabecera?.width ?? 0) / 2)
+  }
 })

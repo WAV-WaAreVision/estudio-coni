@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { MouseEvent } from "react"
 import { Seccion } from "@/components/seccion"
+import { Grupo } from "@/components/ui/grupo"
+import { ICONO } from "@/components/ui/icono"
 import type { Resultado } from "@/lib/acciones/resultado"
 
 export interface AvisoParaMostrar {
@@ -35,23 +37,23 @@ export function AvisosSinLeer({
 
   return (
     <Seccion titulo="Avisos" id="avisos-titulo" cifra={avisos.length}>
-      <ul>
+      <Grupo lista>
         {avisos.map((aviso) => (
           <li key={aviso.id} className="list-none">
             <Link
               href={aviso.href}
               onClick={(evento) => abrir(evento, aviso)}
-              className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-x-3 border-b border-linea py-3 text-left last:border-b-0"
+              className="grid min-h-fila grid-cols-[1fr_auto] items-center gap-x-3 py-[14px] text-left transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
             >
               <span className="grid gap-0.5">
-                <span className="text-cuerpo font-semibold tracking-[-0.004em]">{aviso.mensaje}</span>
+                <span className="text-cuerpo leading-[1.3] font-semibold">{aviso.mensaje}</span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
-              <CaretRight aria-hidden="true" size={20} className="text-apagado" />
+              <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" />
             </Link>
           </li>
         ))}
-      </ul>
+      </Grupo>
     </Seccion>
   )
 }

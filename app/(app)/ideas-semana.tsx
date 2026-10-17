@@ -3,12 +3,12 @@
 import { ArrowRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useCallback, useState, useTransition } from "react"
-import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { FilaNavegacion } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
@@ -35,12 +35,12 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
 
   if (ideas.length === 0) {
     return (
-      <Seccion titulo="Ideas de la semana" id="ideas-titulo">
+      <div className="grid gap-3">
         <p className="text-cuerpo text-apagado">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
-        <Link href="/ideas" className={clasesDeBoton({ variante: "linea", tamano: "chico", className: "w-fit" })}>
+        <Link href="/ideas" className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}>
           Escribir una idea
         </Link>
-      </Seccion>
+      </div>
     )
   }
 
@@ -67,7 +67,10 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   }
 
   return (
-    <Seccion titulo="Ideas de la semana" id="ideas-titulo" cifra={`${cuantas} de ${MAXIMO_DE_IDEAS}`}>
+    <div className="grid gap-3">
+      <p className="mx-0.5 text-meta text-apagado tabular-nums">
+        {cuantas} de {MAXIMO_DE_IDEAS}
+      </p>
       <ul>
         {ideas.map((idea) => {
           const marcada = elegidas.includes(idea.id)
@@ -88,7 +91,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       <Boton
         deshabilitado={!lista}
         cargando={pendiente}
-        icono={<ArrowRight aria-hidden="true" size={20} />}
+        icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
         onClick={escribir}
       >
         {lista ? `Escribir ${cuantas} ${cuantas === 1 ? "guion" : "guiones"}` : "Escribir guiones"}
@@ -102,6 +105,6 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       </p>
       <FilaNavegacion href="/ideas">Ver todas las ideas</FilaNavegacion>
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} /> : null}
-    </Seccion>
+    </div>
   )
 }
