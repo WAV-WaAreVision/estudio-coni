@@ -247,6 +247,12 @@ function etiquetaDelDia(dia: string): string {
   return texto.replace(",", "")
 }
 
+/** Decision 17: a retired pillar is not shown or compared; its pieces stay, without a theme line. */
+function pilarActivo(catalogo: CatalogoDePilares, slug: string | null): PilarVisible | null {
+  const visible = pilarVisible(catalogo, slug)
+  return visible && catalogo.some((pilar) => pilar.slug === visible.slug && pilar.activa) ? visible : null
+}
+
 function panelDeComparacion(comparacion: Comparacion, pilares: CatalogoDePilares): PanelDeComparacion {
   const enLista = (temas: readonly { pilar: string; n: number }[]): TemaEnLista[] =>
     temas.map(({ pilar, n }) => ({ pilar: pilarVisible(pilares, pilar), n }))
@@ -318,7 +324,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
   const medidos: ReelMedido[] = []
   for (const pieza of reels) {
     const lectura = ultimas.get(pieza.piezaId)
-    if (lectura) medidos.push(reelMedido(pieza, lectura))
+    if (lectura && pilarActivo(entrada.pilares, pieza.pilar)) medidos.push(reelMedido(pieza, lectura))
   }
   const corte = ahora - DIAS_PARA_COMPARAR * 86_400_000
   const comparacion = compararTemas(medidos.filter((reel) => Date.parse(reel.publicadoEn) <= corte))
@@ -345,7 +351,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         publicadoEn: pieza.publicadoEn,
         piezaId: pieza.piezaId,
         titulo: pieza.titulo,
-        pilar: pilarVisible(entrada.pilares, pieza.pilar),
+        pilar: pilarActivo(entrada.pilares, pieza.pilar),
         valor,
         ancho: anchoDe(valor, maximoInstagram),
         texto: pieza.aMano ? SIN_NUMEROS : textoDeBarra(lectura, valor),
@@ -368,7 +374,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         publicadoEn: pieza.publicadoEn,
         piezaId: pieza.piezaId,
         titulo: pieza.titulo,
-        pilar: pilarVisible(entrada.pilares, pieza.pilar),
+        pilar: pilarActivo(entrada.pilares, pieza.pilar),
         valor,
         ancho: anchoDe(valor, maximoLinkedin),
         texto: valor === null ? SIN_NUMEROS : `${numero(valor)} impresiones${muestra ? ` · ${muestra}` : ""}`,
@@ -448,7 +454,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         .map((publicacion) => ({
           clave: `${publicacion.red}:${publicacion.piezaId}`,
           titulo: publicacion.titulo,
-          pilar: pilarVisible(entrada.pilares, publicacion.pilar),
+          pilar: pilarActivo(entrada.pilares, publicacion.pilar),
           meta: metaDeFila(publicacion, ultimas, ultimasLinkedin),
         })),
       resumen: resumenDeSemana(semana.consultas, semana.clics),
