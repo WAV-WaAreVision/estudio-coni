@@ -7,6 +7,7 @@ import {
   bloquearRedExterna,
   capturar,
   configurarServicios,
+  conLetraGrande,
   registroDeServicios,
 } from "./ayudas"
 import { URL_DE_LA_APP } from "./entorno"
@@ -304,16 +305,20 @@ test("the Saldos section shows the ElevenLabs characters and the HeyGen API wall
   ).toBeVisible()
 })
 
-test("each account keeps its state pill on the row of its name, Claude (Anthropic) included", async ({ page }) => {
+test("each account's name keeps a usable width beside its state pill at large text, Claude (Anthropic) included", async ({
+  page,
+}) => {
   await conectarTodo()
 
   await page.goto("/ajustes/cuentas")
+  await conLetraGrande(page)
 
+  // At this size the pill may wrap under a long name; what must not happen is the name shrinking to a sliver beside it.
   for (const cuenta of ["heygen", "elevenlabs", "anthropic"]) {
     const fila = page.locator(`#cuenta-${cuenta}`)
     await expect(fila.locator(".pildora").first()).toBeVisible()
+    const cabecera = await fila.locator("span.text-guion").locator("..").boundingBox()
     const nombre = await fila.locator("span.text-guion").boundingBox()
-    const pildora = await fila.locator(".pildora").first().boundingBox()
-    expect(pildora?.y ?? 0, cuenta).toBeLessThan((nombre?.y ?? 0) + (nombre?.height ?? 0))
+    expect(nombre?.width ?? 0, cuenta).toBeGreaterThanOrEqual((cabecera?.width ?? 0) / 2)
   }
 })
