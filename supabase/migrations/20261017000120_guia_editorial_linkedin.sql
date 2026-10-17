@@ -31,15 +31,13 @@ Los ganchos son ejemplos de tono. Una cifra va en un gancho solo si Coni la entr
 
 - **Mito o realidad:** una creencia común, por qué no es así y qué hacer.
 - **Tres señales:** tres señales de algo (una por frase) y un cierre con acción.
-- **Ejercicio de la semana:** una práctica concreta para hacer con la pareja o a solas.
 - **Pregunta de la audiencia:** responder una pregunta real que Coni haya recibido (ella la entrega).
-- **Idea de sus libros:** una idea de *Si la cama hablara…* o *Soy mi propia diosa*, dicha con sus palabras.
 
 ## Cómo suena Coni
 
 - Trata de **tú**. Español de Chile, cercano y claro. Sin tecnicismos y sin modismos de otros países.
 - Valida primero ("es súper común sentir…") y después propone algo concreto.
-- Mirada de género explícita, con humor y calidez. Nunca sermonea.
+- Nunca sermonea.
 - Frases cortas, una idea por frase. Se escribe para el oído, como en la radio.
 
 ## Estructura de un reel (30–60 s, 75–150 palabras)
