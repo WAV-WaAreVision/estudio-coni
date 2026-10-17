@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { soloActivos } from "@/lib/dominio/pilares"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
   clasificarIdea,
@@ -12,6 +13,7 @@ import {
   RespuestaCortada,
   revisarConClaude,
 } from "@/lib/proveedores/anthropic"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
 const CLAVE = "sk-ant-clave-de-prueba"
@@ -646,7 +648,7 @@ describe("costoClaude", () => {
 
 describe("clasificarIdea", () => {
   const propuesta = {
-    pilar: "pareja",
+    pilar: "ia-salud-mental",
     formato: "Ejercicio de la semana",
     alertas: [{ tipo: "no es terapia", texto: "Presentarlo como ejercicio general." }],
   }
@@ -657,9 +659,24 @@ describe("clasificarIdea", () => {
       guia: GUIA,
       gancho: "¿Tu pareja te escucha o solo espera su turno?",
       tema: "Escuchar de verdad",
+      pilares: soloActivos(PILARES_DE_PRUEBA),
       ...extra,
     })
   }
+
+  it("lists the active pillars with their descriptions and accepts only their slugs", async () => {
+    const pedidos = respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "practica-clinica" })))
+    const { propuesta: leida } = await clasificar()
+    const usuario = JSON.stringify(pedidos[0]?.cuerpo.messages[0]?.content)
+    expect(usuario).toContain("- practica-clinica: Práctica clínica aumentada. Cómo cambia la consulta")
+    expect(usuario).not.toContain("- pareja:")
+    expect(leida.pilar).toBe("practica-clinica")
+  })
+
+  it("refuses a retired pillar in the answer", async () => {
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "pareja" })))
+    await expect(clasificar()).rejects.toThrow("Claude devolvió una respuesta que no tiene el formato pedido.")
+  })
 
   it("asks for the pillar, the format and the alerts with the guide cached and the idea in the user message", async () => {
     const pedidos = respondiendo(() => HttpResponse.json(conTexto(propuesta)))
@@ -694,11 +711,11 @@ describe("clasificarIdea", () => {
   })
 
   it("accepts the pillar written with accents or capitals", async () => {
-    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "Límites" })))
+    respondiendo(() => HttpResponse.json(conTexto({ ...propuesta, pilar: "Ética-Regulación" })))
 
     const resultado = await clasificar()
 
-    expect(resultado.propuesta.pilar).toBe("limites")
+    expect(resultado.propuesta.pilar).toBe("etica-regulacion")
   })
 
   it("treats a refusal as a refusal", async () => {

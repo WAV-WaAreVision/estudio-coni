@@ -5,7 +5,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import { z } from "zod"
 import { ETIQUETAS_DE_TONO, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS, sinEtiquetas } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { PILARES } from "@/lib/dominio/pilares"
+import { type DatosDePilar, PILARES, slugsActivos, soloActivos } from "@/lib/dominio/pilares"
 import type { paraElGuion } from "@/lib/dominio/respaldo"
 import {
   type Alerta,
@@ -410,23 +410,28 @@ export async function revisarConClaude(entrada: {
   return { hallazgos, uso }
 }
 
-const SalidaIdea = z.object({
-  pilar: enumTolerante(PILARES),
-  formato: z.string(),
-  alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string() })),
-})
+function salidaIdea(pilares: readonly DatosDePilar[]) {
+  return z.object({
+    pilar: enumTolerante(slugsActivos(pilares)),
+    formato: z.string(),
+    alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string() })),
+  })
+}
 
-export type PropuestaDeIdea = z.infer<typeof SalidaIdea>
+export type PropuestaDeIdea = z.infer<ReturnType<typeof salidaIdea>>
 
-function pedidoDeClasificacion(entrada: { gancho: string; tema: string }): string {
+/** One line per active pillar: slug (what goes in `pilar`), name and the description the prompts read. */
+function listaDePilares(pilares: readonly DatosDePilar[]): string {
+  return soloActivos(pilares)
+    .map((p) => `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd())
+    .join("\n")
+}
+
+function pedidoDeClasificacion(entrada: { gancho: string; tema: string; pilares: readonly DatosDePilar[] }): string {
   return `Coni del Rosario escribió una idea propia para un reel. Propón en qué pilar de la línea editorial va, qué formato le calza y qué alertas necesita antes de escribir el guion. Ella confirma o corrige lo que propongas.
 
 PILARES (usa exactamente estos nombres)
-- pareja: Pareja y conversación
-- deseo: Deseo y sexualidad
-- autoestima: Autoestima y "ser tu propia diosa"
-- limites: Género y límites
-- bienestar: Bienestar emocional
+${listaDePilares(entrada.pilares)}
 
 FORMATOS (elige uno de la línea editorial; si ninguno calza, escribe «otro: » y dos o tres palabras)
 Mito o realidad, Tres señales, Ejercicio de la semana, Pregunta de la audiencia, Idea de sus libros
@@ -450,12 +455,14 @@ export async function clasificarIdea(entrada: {
   guia: string
   gancho: string
   tema: string
+  /** The active pillars: the only ones the answer may name. */
+  pilares: readonly DatosDePilar[]
 }): Promise<{ propuesta: PropuestaDeIdea; uso: UsoClaude }> {
-  const { cliente, guia, gancho, tema } = entrada
+  const { cliente, guia, gancho, tema, pilares } = entrada
   const { salida, uso } = await pedirJson(cliente, "clasificarIdea", {
     guia,
-    usuario: pedidoDeClasificacion({ gancho, tema }),
-    esquema: SalidaIdea,
+    usuario: pedidoDeClasificacion({ gancho, tema, pilares }),
+    esquema: salidaIdea(pilares),
   })
   return { propuesta: salida, uso }
 }

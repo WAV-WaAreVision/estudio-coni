@@ -12,16 +12,17 @@ import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
+import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
-import { type IdeaConfirmada, IdeaPropia, type PropuestaParaConfirmar } from "./idea-propia"
+import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
 
 export interface AccionesDelBanco {
   usar: (ideaId: string) => Promise<Resultado>
   quitar: (ideaId: string) => Promise<Resultado>
   descartar: (ideaId: string, motivo: MotivoDeDescarte) => Promise<Resultado>
-  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaParaConfirmar }>>
+  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
 }
 

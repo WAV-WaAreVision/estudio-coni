@@ -24,7 +24,7 @@ const URL_CLAUDE = "https://api.anthropic.com/v1/messages"
 const LLAVE = "sk-ant-llave-de-coni-de-prueba"
 const USO = { input_tokens: 3000, output_tokens: 200, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
 const PROPUESTA = {
-  pilar: "limites",
+  pilar: "acceso-salud-publica",
   formato: "Mito o realidad",
   alertas: [{ tipo: "líneas de ayuda", texto: "El tema roza la violencia en la pareja." }],
 }
@@ -265,7 +265,7 @@ describe("crearIdeaPropia", () => {
     gancho: "Tu pareja te revisa el celular y lo llama amor.",
     tema: "Control disfrazado de cuidado.",
     formato: "Mito o realidad",
-    pilar: "limites" as const,
+    pilar: "caso-coni",
     alertas: PROPUESTA.alertas,
   }
 
@@ -278,7 +278,7 @@ describe("crearIdeaPropia", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       numero: null,
-      pilar: "limites",
+      pilar: "caso-coni",
       tema: entrada.tema,
       formato: "Mito o realidad",
       fuerza: "alta",
@@ -290,8 +290,17 @@ describe("crearIdeaPropia", () => {
     expect(rows[0].fijada_en).not.toBeNull()
   })
 
+  it("refuses a retired pillar with the input error and inserts nothing", async () => {
+    expect(await crearIdeaPropia(deps(), { ...entrada, pilar: "pareja" })).toEqual({
+      ok: false,
+      error: "Escribe tu idea en una o dos frases (hasta 220 letras).",
+    })
+    const { rows } = await pool.query("select id from public.ideas where gancho = $1", [entrada.gancho])
+    expect(rows).toEqual([])
+  })
+
   it("refuses a pillar or an alert type the app does not know, and an empty idea", async () => {
-    expect(await crearIdeaPropia(deps(), { ...entrada, pilar: "negocios" as never })).toMatchObject({ ok: false })
+    expect(await crearIdeaPropia(deps(), { ...entrada, pilar: "negocios" })).toMatchObject({ ok: false })
     expect(await crearIdeaPropia(deps(), { ...entrada, alertas: [{ tipo: "peligro", texto: "x" }] })).toMatchObject({
       ok: false,
     })

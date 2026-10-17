@@ -12,6 +12,7 @@ import {
   MODELO_POR_TAREA,
   revisarConClaude,
 } from "@/lib/proveedores/anthropic"
+import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
 const URL_MENSAJES = "https://api.anthropic.com/v1/messages"
@@ -92,8 +93,8 @@ describe("a model per task", () => {
   })
 
   it("classifies an idea with Sonnet at low effort", async () => {
-    const cuerpos = capturando({ pilar: "pareja", formato: "Mito o realidad", alertas: [] })
-    await clasificarIdea({ cliente: cliente(), guia: "guia", gancho: "g", tema: "t" })
+    const cuerpos = capturando({ pilar: "caso-coni", formato: "Mito o realidad", alertas: [] })
+    await clasificarIdea({ cliente: cliente(), guia: "guia", gancho: "g", tema: "t", pilares: PILARES_DE_PRUEBA })
     expect(cuerpos[0]?.model).toBe(SONNET)
     expect(cuerpos[0]?.output_config?.effort).toBe("low")
   })

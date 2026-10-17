@@ -37,9 +37,6 @@ const TEXTO_POR_DEFECTO: Record<(typeof TIPOS_DE_ALERTA)[number], string> = {
   nota: "Idea propia de Coni.",
 }
 
-/** The classifier still types its pillar as the old enum; the screen takes any slug of the pillars it offers. */
-export type PropuestaParaConfirmar = Omit<PropuestaDeIdea, "pilar"> & { pilar: string }
-
 export interface IdeaConfirmada {
   gancho: string
   tema: string
@@ -49,7 +46,7 @@ export interface IdeaConfirmada {
 }
 
 interface PropiedadesDeIdeaPropia {
-  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaParaConfirmar }>>
+  proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
   /** The active pillars, in order: the only ones she can file an idea under. */
   pilares: readonly PilarVisible[]
