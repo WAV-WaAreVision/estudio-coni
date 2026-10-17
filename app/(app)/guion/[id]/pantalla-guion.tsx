@@ -201,9 +201,10 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
     <div>
       <header data-pilar={datos.pilar?.slug} className="grid gap-3">
         <Volver href="/">Inicio</Volver>
-        <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-          <span>{datos.pilar?.nombre}</span>
-          <span>
+        {/* The short name keeps pillar, format and length on one line; when the text grows they wrap and stay right. */}
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-4 text-meta text-apagado">
+          <span>{datos.pilar?.nombreCorto}</span>
+          <span className="ml-auto whitespace-nowrap">
             {datos.formato ? `${datos.formato} · ` : ""}
             {datos.segundos} s
           </span>
