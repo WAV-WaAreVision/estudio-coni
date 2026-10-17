@@ -160,8 +160,9 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         </Bloque>
       ) : null}
 
+      {/* With LinkedIn among the destinations its text leads, as it will be published; the caption folds under it. */}
       {conLinkedin ? (
-        <Seccion titulo="Texto para LinkedIn" id="texto-linkedin">
+        <Seccion titulo="Así sale en LinkedIn" id="texto-linkedin">
           <TextoLinkedin
             piezaId={datos.id}
             version={datos.version}
@@ -174,7 +175,16 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         </Seccion>
       ) : null}
 
-      {conInstagram ? (
+      {conInstagram && conLinkedin ? (
+        <MasOpciones className="mt-8" titulo="Así sale en Instagram">
+          <TextoDeInstagram
+            piezaId={datos.id}
+            version={datos.version}
+            texto={datos.texto}
+            alEditar={setEditandoElTexto}
+          />
+        </MasOpciones>
+      ) : conInstagram ? (
         <Seccion titulo="Así sale en Instagram" id="texto">
           <TextoDeInstagram
             piezaId={datos.id}

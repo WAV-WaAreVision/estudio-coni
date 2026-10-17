@@ -71,7 +71,7 @@ test("she approves for Instagram and LinkedIn, the time comes and she uploads ea
   await abrirDesplegable(page, "Más opciones")
   await expect(page.getByRole("checkbox", { name: "Instagram" })).toBeChecked()
   await expect(page.getByRole("checkbox", { name: "LinkedIn" })).toBeChecked()
-  await expect(page.getByRole("heading", { name: "Texto para LinkedIn" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeVisible()
   await capturar(page, "video-puerta-2-destinos", { completa: true })
   await deslizarHastaElFinal(page)
 

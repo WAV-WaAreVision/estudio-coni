@@ -145,14 +145,33 @@ describe("PantallaVideo: dónde y cuándo", () => {
     expect(within(mas).getByText("LinkedIn, regrabar video")).toBeInTheDocument()
     fireEvent.click(within(mas).getByRole("checkbox", { name: "LinkedIn" }))
     expect(screen.getByText("Instagram y LinkedIn · hora de Chile")).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Texto para LinkedIn" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Así sale en LinkedIn" })).toBeInTheDocument()
   })
 
   it("starts with both destinations when Ajustes says so, and shows the LinkedIn text she will publish", () => {
     abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
     expect(destino("LinkedIn")).toBeChecked()
-    const seccion = screen.getByRole("heading", { name: "Texto para LinkedIn" }).closest("section") as HTMLElement
+    const seccion = screen.getByRole("heading", { name: "Así sale en LinkedIn" }).closest("section") as HTMLElement
     expect(within(seccion).getByText(/Llevan diez años juntos/)).toBeInTheDocument()
+  })
+
+  it("leads with the LinkedIn text as it will be published and folds the Instagram caption when both go out", () => {
+    abrir({ destinosPorDefecto: ["instagram", "linkedin"] })
+    const linkedin = screen.getByRole("heading", { name: "Así sale en LinkedIn" })
+    expect(linkedin.closest("details")).toBeNull()
+    const instagram = screen.getByText("Así sale en Instagram").closest("details") as HTMLElement
+    expect(instagram).not.toHaveAttribute("open")
+    expect(linkedin.compareDocumentPosition(instagram) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(instagram).getByText(/Hablemos de límites/)).toBeInTheDocument()
+    expect(within(instagram).getByRole("button", { name: "Editar el texto" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Editar el texto para LinkedIn" })).toBeInTheDocument()
+  })
+
+  it("keeps the Instagram caption as an open section when Instagram goes out alone", () => {
+    abrir()
+    const instagram = screen.getByRole("heading", { name: "Así sale en Instagram" })
+    expect(instagram.closest("details")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Así sale en LinkedIn" })).toBeNull()
   })
 
   it("keeps the LinkedIn findings under the LinkedIn text and out of the review of the caption", () => {
@@ -160,7 +179,7 @@ describe("PantallaVideo: dónde y cuándo", () => {
     const revision = screen.getByRole("heading", { name: "Revisión" }).closest("section") as HTMLElement
     expect(within(revision).getByText("Escribe los números con palabras.")).toBeInTheDocument()
     expect(within(revision).queryByText("Demasiados hashtags en LinkedIn.")).toBeNull()
-    const linkedin = screen.getByRole("heading", { name: "Texto para LinkedIn" }).closest("section") as HTMLElement
+    const linkedin = screen.getByRole("heading", { name: "Así sale en LinkedIn" }).closest("section") as HTMLElement
     expect(within(linkedin).getByText("Demasiados hashtags en LinkedIn.")).toBeInTheDocument()
   })
 })
