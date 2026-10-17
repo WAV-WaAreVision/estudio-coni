@@ -33,6 +33,47 @@ function deps(): DepsGrabarVoz & { almacen: ReturnType<typeof almacenEnMemoria> 
   }
 }
 
+const ELEVENLABS = leerConfigProduccion(coniConfig).elevenlabs
+
+async function filaDe(id: string) {
+  const fila = await leerPieza(clienteDeServicio(), id)
+  if (fila === null) throw new Error(`No se sembró la pieza ${id}`)
+  return fila
+}
+
+function intentar(d: DepsGrabarVoz, fila: Awaited<ReturnType<typeof filaDe>>) {
+  return asegurarVoz(d, {
+    fila,
+    guion: GUION,
+    config: ELEVENLABS,
+    llave: async () => "sk_eleven_de_prueba",
+    nueva: false,
+  })
+}
+
+async function gastosDeVoz(id: string) {
+  const { rows } = await pool.query<{ clave: string; estado: string; sin_cobro: boolean }>(
+    "select clave, estado, sin_cobro from public.gastos where pieza_id = $1 and paso = 'voz' order by creado_en, id",
+    [id],
+  )
+  return rows
+}
+
+function responder(...respuestas: (() => Response)[]) {
+  let vez = 0
+  servidor.use(
+    http.post("https://api.elevenlabs.io/v1/text-to-speech/:voz", () => {
+      llamadas += 1
+      const respuesta = respuestas[Math.min(vez, respuestas.length - 1)]
+      vez += 1
+      if (!respuesta) throw new Error("Sin respuesta preparada")
+      return respuesta()
+    }),
+  )
+}
+
+const audioOk = () => new HttpResponse(VOZ, { headers: { "Content-Type": "audio/mpeg" } })
+
 // sembrarPieza walks the real flow inside a committed transaction, so `asumir` (SET LOCAL) takes effect.
 async function enEstado(estado: "grabando_voz" | "guion_por_aprobar"): Promise<string> {
   const id = await sembrarPieza(estado)
@@ -209,5 +250,40 @@ describe("asegurarVoz with tone marks", () => {
     const { textos } = await pedirVoz("eleven_multilingual_v2")
 
     expect(textos).toEqual(["Hola, soy Coni. Hoy hablamos de límites."])
+  })
+})
+
+describe("asegurarVoz releases by outcome", () => {
+  it.each([401, 403, 422, 429])("releases at once, as not charged, when ElevenLabs refuses with %i", async (estado) => {
+    responder(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
+    const id = await grabando()
+
+    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow(`HTTP ${estado}`)
+
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
+  })
+
+  it("releases at once, as not charged, when ElevenLabs has no characters", async () => {
+    responder(() =>
+      HttpResponse.json({ detail: { code: "insufficient_credits", message: "No credits" } }, { status: 402 }),
+    )
+    const id = await grabando()
+
+    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow(/caracteres suficientes/)
+
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
+  })
+
+  it.each([
+    ["a server error", () => new HttpResponse("x", { status: 503 })],
+    ["a network drop", () => HttpResponse.error()],
+    ["an empty audio", () => new HttpResponse(new Uint8Array(), { headers: { "Content-Type": "audio/mpeg" } })],
+  ])("keeps the reservation for the sweeper after %s", async (_caso, respuesta) => {
+    responder(respuesta)
+    const id = await grabando()
+
+    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow()
+
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado", sin_cobro: false })])
   })
 })

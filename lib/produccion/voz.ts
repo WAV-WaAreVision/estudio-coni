@@ -1,13 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { confirmarGasto, type FilaDePieza, leerSecreto, liberarGasto, reservarGasto } from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
-import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia } from "@/lib/dominio/puertas"
 import { claveDeToma, huellaDeVoz, prefijoDeTomas, ultimaToma, type VozConfigurada } from "@/lib/dominio/voz"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { ConfigCompleta, ConfigElevenlabs } from "@/lib/proveedores/config"
-import { generarVoz } from "@/lib/proveedores/elevenlabs"
+import { generarVoz, rechazoSinCobro } from "@/lib/proveedores/elevenlabs"
 import type { Database } from "@/lib/supabase/database.types"
 
 export function vozDe(config: ConfigElevenlabs): VozConfigurada {
@@ -101,8 +101,9 @@ export async function asegurarVoz(
   try {
     audio = await generarVoz({ clave: llave, config, texto, base: deps.base?.elevenlabs })
   } catch (error) {
-    // A Falla (no characters) charged nothing and will not change on a retry: the money goes back to the cap now.
-    if (error instanceof Falla) await liberarGasto(deps.db, clave)
+    // A refusal (4xx) made no audio and billed nothing: the money goes back to the cap now, and the screen may say so.
+    // Anything else may have been billed: the reservation stays, and the sweeper frees it after an hour with no take.
+    if (rechazoSinCobro(error)) await liberarGasto(deps.db, clave, { sinCobro: true })
     throw error
   }
   await deps.almacen.subir(exacta, audio, "audio/mpeg")
