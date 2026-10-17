@@ -13,6 +13,7 @@ import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import {
   botonDeAlcance,
+  detalleDeAlcance,
   preguntaDeAlcance,
   textoDeDescartadas,
   textoDeEmpezadas,
@@ -151,9 +152,7 @@ export function EleccionDeIdeas({
           {alcanza !== null ? (
             <>
               <p className="text-cuerpo font-semibold">{preguntaDeAlcance(alcanza)}</p>
-              <p className="text-meta text-apagado">
-                Hago los primeros {alcanza} que elegiste. El resto queda en el banco.
-              </p>
+              <p className="text-meta text-apagado">{detalleDeAlcance(alcanza)}</p>
               <Boton cargando={pendiente} onClick={() => hacer(elegidas.slice(0, alcanza))}>
                 {botonDeAlcance(alcanza)}
               </Boton>

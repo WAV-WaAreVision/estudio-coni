@@ -89,6 +89,7 @@ describe("EleccionDeIdeas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (2)" }))
 
     expect(await screen.findByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeInTheDocument()
+    expect(screen.getByText("Hago la primera que elegiste. El resto queda en el banco.")).toBeInTheDocument()
     expect(alSacar).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Sí, hacer 1 guion" }))
 
