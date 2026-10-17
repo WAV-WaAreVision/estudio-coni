@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Grupo } from "@/components/ui/grupo"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { useAccion } from "@/components/use-accion"
+import { useRedibujar } from "@/components/use-redibujar"
 import type { Resultado } from "@/lib/acciones/resultado"
 
 const OPCION =
@@ -22,8 +24,8 @@ export function CambiarPropuesta({
   cambiar: (piezaId: string, instante: string) => Promise<Resultado>
 }) {
   const [abierto, setAbierto] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [pendiente, empezar] = useTransition()
+  const redibujar = useRedibujar()
+  const { pendiente, error, ejecutar } = useAccion()
   const contenedor = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,15 +35,13 @@ export function CambiarPropuesta({
   if (alternativas.length === 0) return null
 
   function elegir(instante: string) {
-    setError(null)
-    empezar(async () => {
-      const resultado = await cambiar(piezaId, instante)
-      if (!resultado.ok) {
-        setError(resultado.error)
-        return
-      }
-      setAbierto(false)
-    })
+    ejecutar(
+      () => cambiar(piezaId, instante),
+      () => {
+        setAbierto(false)
+        redibujar()
+      },
+    )
   }
 
   return (

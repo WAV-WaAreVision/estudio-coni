@@ -1,9 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AgendaDelCalendario } from "@/components/agenda-del-calendario"
 import type { Hueco, Ocupante } from "@/lib/calendario/modelo"
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
+
+// The Agenda redraws by going to its own address with a fresh marker (see components/use-redibujar.ts).
+const REDIBUJO = [expect.stringMatching(/[?&]v=\d+$/), { scroll: false }]
 
 function ocupante(extra: Partial<Ocupante>): Ocupante {
   return {
@@ -48,6 +52,8 @@ function mostrar(huecos: Hueco[], porRepartir = 0) {
 }
 
 describe("AgendaDelCalendario: proposals", () => {
+  beforeEach(() => replace.mockClear())
+
   it("says «propuesta» for a stored proposal and «lugar propuesto» for a place it only shows", () => {
     mostrar([
       hueco("2026-10-15T22:00:00.000Z", "Jueves 15", ocupante({ propuesta: true })),
@@ -70,6 +76,7 @@ describe("AgendaDelCalendario: proposals", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sábado 24 · 19:00" }))
 
     await waitFor(() => expect(acciones.cambiar).toHaveBeenCalledWith("p1", "2026-10-24T22:00:00.000Z"))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(...REDIBUJO))
   })
 
   it("keeps the piece's link whole next to Cambiar", () => {
@@ -83,6 +90,7 @@ describe("AgendaDelCalendario: proposals", () => {
     fireEvent.click(screen.getByRole("button", { name: "Repartir fechas" }))
     await waitFor(() => expect(acciones.repartir).toHaveBeenCalled())
     expect(await screen.findByText("Propuse fecha para 2 piezas. Puedes cambiarlas.")).toBeInTheDocument()
+    expect(replace).toHaveBeenCalledWith(...REDIBUJO)
   })
 
   it("hides Repartir fechas when every unsigned piece already has a proposal", () => {

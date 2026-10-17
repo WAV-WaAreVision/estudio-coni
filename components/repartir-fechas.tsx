@@ -1,9 +1,11 @@
 "use client"
 
-import { useCallback, useState, useTransition } from "react"
+import { useCallback, useState } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { useAccion } from "@/components/use-accion"
+import { useRedibujar } from "@/components/use-redibujar"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { textoDePropuestas, textoPorRepartir } from "@/lib/calendario/propuestas"
 
@@ -19,19 +21,14 @@ export function RepartirFechas({
   repartir: () => Promise<Resultado<{ propuestas: number }>>
 }) {
   const [mensaje, setMensaje] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [pendiente, empezar] = useTransition()
+  const redibujar = useRedibujar()
+  const { pendiente, error, ejecutar } = useAccion()
   const cerrar = useCallback(() => setMensaje(null), [])
 
   function tocar() {
-    setError(null)
-    empezar(async () => {
-      const resultado = await repartir()
-      if (!resultado.ok) {
-        setError(resultado.error)
-        return
-      }
+    ejecutar(repartir, (resultado) => {
       setMensaje(textoDePropuestas(resultado.propuestas))
+      redibujar()
     })
   }
 
