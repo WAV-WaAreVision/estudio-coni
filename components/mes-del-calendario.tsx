@@ -29,7 +29,7 @@ export function MesDelCalendario({ celdas }: { celdas: readonly CeldaDeMes[] }) 
                 aria-hidden="true"
                 className={cn(
                   "grid size-9 place-items-center rounded-full text-meta tabular-nums",
-                  celda.hoy ? "bg-tinta font-semibold text-sobre-tinta" : cn("font-medium", pasado && "text-apagado"),
+                  celda.hoy ? "bg-tinta font-semibold text-luz" : cn("font-medium", pasado && "text-apagado"),
                 )}
               >
                 {celda.dia}

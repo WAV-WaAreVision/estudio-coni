@@ -1,16 +1,18 @@
 import { CaretRight, CheckCircle, Export, PenNib, WarningCircle } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Seccion } from "@/components/seccion"
+import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import type { Hueco, Ocupante, TonoDeEstado } from "@/lib/calendario/modelo"
 import { NOMBRE_DE_PILAR } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 
+// Decision 14: a state is its icon and its words, in ink (The No Yellow Rule).
 const TINTA: Record<TonoDeEstado, string> = {
-  ok: "text-exito",
-  aviso: "text-aviso",
-  error: "text-error",
+  ok: "text-tinta",
+  aviso: "text-tinta",
+  error: "text-tinta",
   neutro: "text-tinta",
 }
 
@@ -31,7 +33,7 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
   return (
     <span className="grid gap-0.5">
       {ocupante.pilar ? <span className="text-meta text-apagado">{NOMBRE_DE_PILAR[ocupante.pilar]}</span> : null}
-      <span className="text-cuerpo font-semibold tracking-[-0.004em]">{ocupante.titulo}</span>
+      <span className="text-cuerpo leading-[1.3] font-semibold">{ocupante.titulo}</span>
       <span data-snapshot="varia" className={cn("flex items-center gap-2 text-meta font-medium", TINTA[ocupante.tono])}>
         <IconoDeEstado ocupante={ocupante} />
         {ocupante.estado}
@@ -42,8 +44,7 @@ function Ocupado({ ocupante }: { ocupante: Ocupante }) {
   )
 }
 
-const FILA =
-  "grid min-h-16 grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-linea py-3 text-left"
+const FILA = "grid min-h-fila grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-x-3 py-3 text-left"
 
 /** Brandkit 9.19: a free slot goes to the idea bank: «Libre · elige una idea». */
 function FilaDeHorario({ hueco }: { hueco: Hueco }) {
@@ -68,7 +69,10 @@ function FilaDeHorario({ hueco }: { hueco: Hueco }) {
   return (
     <li className="list-none">
       {destino ? (
-        <Link href={destino} className={cn(FILA, "active:opacity-70")}>
+        <Link
+          href={destino}
+          className={cn(FILA, "transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda")}
+        >
           {contenido}
         </Link>
       ) : (
@@ -84,11 +88,11 @@ export function AgendaDelCalendario({ semanas }: { semanas: { titulo: string; hu
       {semanas.map((semana) => (
         <Seccion key={semana.titulo} titulo={semana.titulo} varia id={`semana-${semana.titulo.replaceAll(" ", "-")}`}>
           {semana.huecos.length > 0 ? (
-            <ul>
+            <Grupo lista>
               {semana.huecos.map((hueco) => (
                 <FilaDeHorario key={hueco.instante} hueco={hueco} />
               ))}
-            </ul>
+            </Grupo>
           ) : (
             <p className="py-2 text-meta text-apagado">Sin espacios de publicación en lo que queda de esta semana.</p>
           )}

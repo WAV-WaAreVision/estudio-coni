@@ -39,7 +39,7 @@ describe("MesDelCalendario", () => {
     montar([])
     const hoy = screen.getByText("6").closest("[aria-current]")
     expect(hoy).toHaveAttribute("aria-current", "date")
-    expect(screen.getByText("6")).toHaveClass("bg-tinta", "text-sobre-tinta")
+    expect(screen.getByText("6")).toHaveClass("bg-tinta", "text-luz")
   })
 
   it("draws at most two dots in ink, never a pillar colour", () => {
