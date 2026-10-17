@@ -195,6 +195,21 @@ describe("generarVoz sin caracteres", () => {
       "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
     )
   })
+  it("tells Coni to top up when ElevenLabs answers 402 insufficient_credits", async () => {
+    servidor.use(
+      http.post(`${BASE}/v1/text-to-speech/:voz`, () =>
+        HttpResponse.json(
+          { detail: { type: "payment_required", code: "insufficient_credits", message: "Not enough credits." } },
+          { status: 402 },
+        ),
+      ),
+    )
+    const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+
+    expect(rechazado).toBeInstanceOf(SinCaracteres)
+    expect(rechazado).toMatchObject({ http: 402 })
+    expect(rechazoSinCobro(rechazado)).toBe(true)
+  })
 })
 
 describe("generarVoz dice qué respondió ElevenLabs", () => {

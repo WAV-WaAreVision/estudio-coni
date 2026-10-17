@@ -91,8 +91,9 @@ function esErrorDeConfiguracion(estado: number): boolean {
   return estado >= 400 && estado < 500 && estado !== 408 && estado !== 429
 }
 
+// `quota_exceeded` is the older answer; the error catalogue now names 402 `insufficient_credits`.
 function esFaltaDeCaracteres(cuerpo: string): boolean {
-  return /quota_exceeded/i.test(cuerpo)
+  return /quota_exceeded|insufficient_credits/i.test(cuerpo)
 }
 
 async function motivoDelError(respuesta: Response, clave: string): Promise<string> {
