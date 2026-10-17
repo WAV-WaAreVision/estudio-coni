@@ -14,6 +14,7 @@ import {
   editarTexto,
   editarTextoLinkedin,
   elegirIdeas,
+  elegirLote,
   MAXIMO_DEL_TEXTO,
   marcarSubidoAMano,
   pedirCambios,
@@ -60,6 +61,14 @@ export async function elegirIdeasAccion(ideaIds: string[]) {
   return refrescar(
     await comoConi("elegirIdeas", z.object({ ideaIds: z.array(z.uuid()) }), { ideaIds }, (deps, d) =>
       elegirIdeas(deps, d.ideaIds),
+    ),
+  )
+}
+
+export async function elegirLoteAccion(ideaIds: string[]) {
+  return refrescar(
+    await comoConi("elegirLote", z.object({ ideaIds: z.array(z.uuid()).max(20) }), { ideaIds }, (deps, d) =>
+      elegirLote(deps, d.ideaIds),
     ),
   )
 }
