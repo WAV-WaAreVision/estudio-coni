@@ -482,6 +482,68 @@ describe("asegurarVoz keeps a paid audio", () => {
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ clave, estado: "confirmado" })])
   })
 
+  // The database refuses to confirm this piece's spend the first `veces` times, as a dropped connection would. A
+  // sequence counts the refusals because it survives the rollback of the failed update.
+  async function confirmacionQueFalla(piezaId: string, veces: number) {
+    await pool.query("create sequence public.prueba_fallas_confirmar")
+    await pool.query(`
+      create function public.prueba_fallar_confirmar() returns trigger language plpgsql as $$
+      begin
+        if new.pieza_id = '${piezaId}' and nextval('public.prueba_fallas_confirmar') <= ${veces} then
+          raise exception 'confirmación caída';
+        end if;
+        return new;
+      end $$`)
+    await pool.query(`
+      create trigger prueba_fallar_confirmar before update on public.gastos for each row
+      when (new.estado = 'confirmado') execute function public.prueba_fallar_confirmar()`)
+  }
+
+  async function quitarFallaDeConfirmar() {
+    await pool.query("drop trigger if exists prueba_fallar_confirmar on public.gastos")
+    await pool.query("drop function if exists public.prueba_fallar_confirmar()")
+    await pool.query("drop sequence if exists public.prueba_fallas_confirmar")
+  }
+
+  it("retries the confirmation once when it fails after a lost upload", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    await confirmacionQueFalla(id, 1)
+    try {
+      await expect(intentar({ ...deps(), almacen: almacenQueFalla(4).almacen }, await filaDe(id))).rejects.toThrow(
+        "R2 no respondió",
+      )
+    } finally {
+      await quitarFallaDeConfirmar()
+    }
+
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado" })])
+  })
+
+  it("carries both the upload and the confirmation failure when the confirmation fails twice", async () => {
+    responder(audioOk)
+    const id = await grabando()
+    await confirmacionQueFalla(id, 2)
+    let error: unknown
+    try {
+      error = await intentar({ ...deps(), almacen: almacenQueFalla(4).almacen }, await filaDe(id)).catch(
+        (e: unknown) => e,
+      )
+    } finally {
+      await quitarFallaDeConfirmar()
+    }
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/no pude guardar la toma ni confirmar su gasto/i),
+      cause: {
+        subida: expect.objectContaining({ message: "R2 no respondió" }),
+        confirmacion: expect.objectContaining({ message: expect.stringContaining("confirmación caída") }),
+      },
+    })
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "reservado" })])
+  })
+
   it("waits a little longer before each upload retry", async () => {
     responder(audioOk)
     const id = await grabando()

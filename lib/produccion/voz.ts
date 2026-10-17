@@ -87,8 +87,22 @@ async function guardarTomaPagada(
       ultimoError = error
     }
   }
-  await confirmarGasto(deps.db, entrada.clave, entrada.estimado)
+  try {
+    await confirmarUnaVezMas(deps, entrada.clave, entrada.estimado)
+  } catch (confirmacion) {
+    throw new Error("No pude guardar la toma ni confirmar su gasto.", { cause: { subida: ultimoError, confirmacion } })
+  }
   throw ultimoError
+}
+
+/** The confirmation that counts a paid audio is tried twice: losing it would leave paid money as only reserved. */
+async function confirmarUnaVezMas(deps: DepsVoz, clave: string, estimado: number): Promise<void> {
+  try {
+    await confirmarGasto(deps.db, clave, estimado)
+  } catch (primera) {
+    console.error(`No pude confirmar el gasto de la voz ${clave}; lo intento otra vez`, primera)
+    await confirmarGasto(deps.db, clave, estimado)
+  }
 }
 
 /** Paid takes lost on upload before the attempt stops paying (the attempt's own key and three more). */
