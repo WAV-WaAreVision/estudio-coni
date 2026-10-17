@@ -22,9 +22,14 @@ async function postEnLinkedin(instante: string): Promise<string> {
   return id
 }
 
-beforeEach(vaciarPiezasEIdeas)
-afterAll(async () => {
+async function limpiar() {
   await vaciarPiezasEIdeas()
+  await pool.query("delete from public.recordatorios_linkedin")
+}
+
+beforeEach(limpiar)
+afterAll(async () => {
+  await limpiar()
   await pool.end()
 })
 
@@ -38,6 +43,30 @@ describe("recordarNumerosDeLinkedin", () => {
     expect(avisos.aWavEnviados).toEqual([
       { asunto: "Anota los números de LinkedIn (2 posts)", detalle: DETALLE_DEL_RECORDATORIO },
     ])
+  })
+
+  it("tells WAV once per Monday, however many times the run starts", async () => {
+    await postEnLinkedin("2026-10-14T22:00:00.000Z")
+    const avisos = notificadorEnMemoria()
+
+    expect(await recordarNumerosDeLinkedin(deps(LUNES, avisos))).toBe("avisado")
+    expect(await recordarNumerosDeLinkedin(deps(LUNES, avisos))).toBe("ya_avisado")
+    expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+
+  it("leaves the week free to remind again when the email could not go out", async () => {
+    await postEnLinkedin("2026-10-14T22:00:00.000Z")
+    const fallido = {
+      ...notificadorEnMemoria(),
+      aWav: async () => {
+        throw new Error("Resend no respondió")
+      },
+    }
+
+    await expect(recordarNumerosDeLinkedin(deps(LUNES, fallido))).rejects.toThrow("Resend no respondió")
+    const avisos = notificadorEnMemoria()
+    expect(await recordarNumerosDeLinkedin(deps(LUNES, avisos))).toBe("avisado")
+    expect(avisos.aWavEnviados).toHaveLength(1)
   })
 
   it("says nothing on another day", async () => {

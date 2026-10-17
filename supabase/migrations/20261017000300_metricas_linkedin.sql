@@ -72,3 +72,13 @@ create view public.metricas_linkedin_ultima with (security_invoker = true) as
 
 revoke all on public.metricas_linkedin_ultima from anon;
 grant select on public.metricas_linkedin_ultima to authenticated, service_role;
+
+-- The Monday reminder to WAV (decision 20) goes out once per week: the nightly run claims the week here before the
+-- email and gives it back if the email fails. Only the service role touches it.
+create table public.recordatorios_linkedin (
+  semana date primary key check (extract(isodow from semana) = 1),
+  avisado_en timestamptz not null default now()
+);
+
+alter table public.recordatorios_linkedin enable row level security;
+revoke all on public.recordatorios_linkedin from anon, authenticated;
