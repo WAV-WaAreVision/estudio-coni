@@ -277,27 +277,42 @@ export type Database = {
       }
       categorias: {
         Row: {
+          activa: boolean
           creada_en: string
           creada_por: string | null
+          descripcion: string | null
+          es_pilar: boolean
           id: string
           nombre: string
+          nombre_corto: string | null
           nombre_normalizado: string | null
+          orden: number | null
           slug: string
         }
         Insert: {
+          activa?: boolean
           creada_en?: string
           creada_por?: string | null
+          descripcion?: string | null
+          es_pilar?: boolean
           id?: string
           nombre: string
+          nombre_corto?: string | null
           nombre_normalizado?: string | null
+          orden?: number | null
           slug: string
         }
         Update: {
+          activa?: boolean
           creada_en?: string
           creada_por?: string | null
+          descripcion?: string | null
+          es_pilar?: boolean
           id?: string
           nombre?: string
+          nombre_corto?: string | null
           nombre_normalizado?: string | null
+          orden?: number | null
           slug?: string
         }
         Relationships: []
