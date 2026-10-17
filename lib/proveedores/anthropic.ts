@@ -276,6 +276,8 @@ async function pedirJson<S extends z.ZodType>(
     guia: string
     usuario: string | Anthropic.Beta.Messages.BetaContentBlockParam[]
     esquema: S
+    /** False for a guide below the 1024-token cache minimum, where the marker buys nothing. */
+    cachearGuia?: boolean
   },
 ): Promise<{ salida: z.infer<S>; uso: UsoClaude }> {
   const formato = betaZodOutputFormat(pedido.esquema)
@@ -287,7 +289,7 @@ async function pedirJson<S extends z.ZodType>(
       max_tokens: MAX_TOKENS,
       betas: [BETA_FALLBACK],
       fallbacks: "default",
-      system: sistemaCon(pedido.guia),
+      system: pedido.cachearGuia === false ? [{ type: "text", text: pedido.guia }] : sistemaCon(pedido.guia),
       messages: [{ role: "user", content: pedido.usuario }],
       output_config: { effort: config.effort, format: formato },
       ...(config.thinking ? { thinking: config.thinking } : {}),
@@ -469,7 +471,7 @@ export async function clasificarIdea(entrada: {
   return { propuesta: salida, uso }
 }
 
-/** Stable across batches, so every batch after the first reads it from the cache. */
+// A few hundred tokens, below the 1024-token cache minimum: it is sent uncached (`cachearGuia: false`).
 export function guiaDeReclasificacion(pilares: readonly DatosDePilar[]): string {
   return `Ordenas la base de conocimiento de Coni del Rosario, psicóloga clínica y sexóloga chilena, en sus pilares de contenido para LinkedIn. Su audiencia son colegas de salud mental y tecnología; su postura, la adopción responsable de la IA con criterio clínico. La sexología no tiene pilar propio: un elemento de sexualidad va en el pilar que toque su mirada (por ejemplo, la IA y la salud sexual va en IA y salud mental).
 
@@ -495,6 +497,7 @@ export async function clasificarEnPilares(entrada: {
   })
   const { salida, uso } = await pedirJson(entrada.cliente, "clasificarEnPilares", {
     guia: guiaDeReclasificacion(entrada.pilares),
+    cachearGuia: false,
     usuario: `Clasifica estos elementos.\n\n<elementos>\n${sinCierre(JSON.stringify(entrada.elementos))}\n</elementos>`,
     esquema,
   })
