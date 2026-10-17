@@ -113,7 +113,9 @@ test("Repartir fechas proposes the places the Agenda shows and Cambiar moves one
   await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "practica-clinica")
   const programada = await pieza("programado", "Ya programado", "caso-coni")
 
-  await page.goto("/calendario?vista=agenda")
+  // Through the tab link, as she gets there: the prefetched Agenda is what has to redraw after the action.
+  await page.goto("/calendario")
+  await page.getByRole("link", { name: "Agenda" }).click()
   await expect(page.getByText("2 piezas en camino sin fecha propuesta.")).toBeVisible()
   await page.getByRole("button", { name: "Repartir fechas" }).click()
 
@@ -132,7 +134,10 @@ test("Repartir fechas proposes the places the Agenda shows and Cambiar moves one
   }
   const antes = await fechaDelVideo()
   await page.getByRole("button", { name: "Cambiar la fecha de Ser tu propia diosa" }).click()
-  await page.getByRole("group", { name: "¿Qué otro día?" }).getByRole("button").first().click()
+  const otroDia = page.getByRole("group", { name: "¿Qué otro día?" }).getByRole("button").first()
+  const [dia] = (await otroDia.innerText()).split(" · ")
+  await otroDia.click()
   await expect.poll(fechaDelVideo).not.toBe(antes)
+  await expect(page.getByRole("link", { name: new RegExp(`^${dia}.*Ser tu propia diosa`) })).toBeVisible()
   await capturar(page, "calendario-agenda-propuestas")
 })
