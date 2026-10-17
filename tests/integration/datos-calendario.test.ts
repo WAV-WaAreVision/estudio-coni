@@ -5,7 +5,7 @@ import { leerDatosDeInicio } from "@/lib/datos/inicio"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
+import { marcarPublicacion, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "./siembra"
 
 let coni: SupabaseClient<Database>
 
@@ -96,5 +96,16 @@ describe("leerDatosDeCalendario", () => {
       ["Ya subida", "publicado_a_mano"],
     ])
     expect(datos.primeraPublicacion).not.toBeNull()
+  })
+})
+
+describe("primera publicación", () => {
+  it("knows she has published only once a network row went out or was uploaded by her", async () => {
+    await sembrarPieza("programado", { titulo: "Programada" })
+    expect((await leerDatosDeCalendario(coni, Date.now())).yaPublico).toBe(false)
+
+    const subida = await sembrarPieza("para_subir_a_mano", { titulo: "Subida" })
+    await marcarPublicacion(subida, "instagram", "subido_a_mano")
+    expect((await leerDatosDeCalendario(coni, Date.now())).yaPublico).toBe(true)
   })
 })
