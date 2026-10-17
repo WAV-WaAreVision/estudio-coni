@@ -455,6 +455,34 @@ describe("revisarGuion con respaldo", () => {
     expect(revisar({ ajeno: SIN_AJENO })).toEqual([])
   })
 
+  describe("cited sources", () => {
+    // "OMS" is too short to be looked for at all (four letters at least), so the cited source here is Stanford.
+    const AJENO = { citas: [], autores: ["Ana Pérez", "Stanford"], personas: ["Ana Pérez"], citadas: ["Stanford"] }
+
+    it("still warns when the spoken script names a cited source", () => {
+      const h = revisar({ guion: `Según Stanford, hoy hablamos de esto. ${GUION}`, ajeno: AJENO })
+      expect(h.filter((x) => x.regla === "nombra_autor").map((x) => x.frase)).toEqual(["Stanford"])
+    })
+
+    it("accepts the cited source in the caption and warns on another backing author", () => {
+      const texto = `Lo dice Pérez.\n\nFuente: Stanford · Informe\n\n${AVISO_AVATAR}`
+      const nombrados = revisar({ texto, ajeno: AJENO }).filter((x) => x.regla === "nombra_autor")
+      expect(nombrados.map((x) => x.frase)).toEqual(["Pérez"])
+      expect(nombrados[0]?.mensaje).toBe(
+        "Aquí aparece el nombre de una fuente que no citas. Nómbrala solo si es una de las fuentes citadas.",
+      )
+    })
+
+    it("reports a phrase once when the script and the caption both name it", () => {
+      const nombrados = revisar({
+        guion: `Lo dice Pérez. ${GUION}`,
+        texto: `Lo dice Pérez. ${AVISO_AVATAR}`,
+        ajeno: AJENO,
+      }).filter((x) => x.regla === "nombra_autor")
+      expect(nombrados.map((x) => x.frase)).toEqual(["Pérez"])
+    })
+  })
+
   it("reads stored findings of the new rules", () => {
     const guardada = [
       { regla: "copia_de_fuente", tipo: "advierte", mensaje: "m", frase: "f" },
@@ -851,6 +879,12 @@ describe("revisarTextoLinkedin", () => {
   })
 
   describe("what comes from the backing", () => {
+    it("accepts the cited source in the LinkedIn text", () => {
+      const ajeno = { citas: [], autores: ["Ana Pérez", "Stanford"], personas: ["Ana Pérez"], citadas: ["Stanford"] }
+      const h = revisarLinkedin({ texto: `${OK}\nComo muestra Stanford en su informe.`, ajeno })
+      expect(h.some((x) => x.regla === "nombra_autor")).toBe(false)
+    })
+
     it("warns when an author of the backing is named or a quote is copied", () => {
       const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [], citadas: [] }
       const hallazgos = revisarLinkedin({
