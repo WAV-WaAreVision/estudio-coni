@@ -6,7 +6,15 @@ import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "@/app/
 import { TEXTO_ARMADO } from "@/lib/diseno/deslizador"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { pool } from "../integration/db"
-import { ajustarPieza, sembrarIdea, sembrarPieza } from "../integration/siembra"
+import {
+  ajustarPieza,
+  marcarPublicacion,
+  moverHoraAprobada,
+  quitarPublicacion,
+  sembrarIdea,
+  sembrarPieza,
+  vaciarPiezasEIdeas,
+} from "../integration/siembra"
 import {
   abrirDesplegable,
   bloquearRedExterna,
@@ -79,6 +87,11 @@ async function abrirPliegues(page: Page, ruta: string): Promise<void> {
   }
   if (ruta === "/ajustes") {
     // WAV's accounts fold under "Para WAV".
+    await abrirDesplegable(page, "Para WAV")
+    return
+  }
+  if (ruta === "/metricas") {
+    // WAV's LinkedIn numbers fold under "Para WAV".
     await abrirDesplegable(page, "Para WAV")
     return
   }
@@ -361,4 +374,28 @@ test("Cuentas with LinkedIn connected and its folds open passes WCAG 2.x AA", as
     await pool.query("delete from vault.secrets where name = 'heygen'")
     await desconectarLinkedin()
   }
+})
+
+// Part 3: Métricas with a LinkedIn post pending in Para WAV, a manual upload, and Ritmo before the first publication.
+test("Métricas with LinkedIn and Para WAV open, and the empty Ritmo, pass WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await vaciarPiezasEIdeas()
+  const post = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo" })
+  await quitarPublicacion(post, "instagram")
+  await marcarPublicacion(post, "linkedin")
+  // The flow approves for tomorrow; a pending post must already be out.
+  await moverHoraAprobada(post, new Date(Date.now() - 2 * 86_400_000).toISOString())
+  await sembrarPieza("publicado_a_mano", { titulo: "Subido a mano" })
+
+  await page.goto("/metricas")
+  await abrirDesplegable(page, "Para WAV")
+  await expect(page.getByLabel("Impresiones de Lo que firma un modelo")).toBeVisible()
+  const metricas = await hallazgosDeAxe(page, "metricas con linkedin")
+
+  await vaciarPiezasEIdeas()
+  await page.goto("/calendario?vista=ritmo")
+  await expect(page.getByRole("link", { name: "Cambiar días y hora" })).toBeVisible()
+  const ritmo = await hallazgosDeAxe(page, "ritmo vacio")
+
+  expect([...metricas, ...ritmo]).toEqual([])
 })
