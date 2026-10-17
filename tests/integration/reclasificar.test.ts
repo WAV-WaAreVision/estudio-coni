@@ -188,6 +188,28 @@ describe("reclasificación de pilares", () => {
     expect(rows[0]?.estado).toBe("liberado")
   })
 
+  it("skips a row whose category changes between its read and its update", async () => {
+    const a = await materialEn("pareja", "Siembra carrera")
+    servidor.use(
+      http.patch(`${credencialesDeServicio().url}/rest/v1/materiales`, async () => {
+        // Someone moves the item in Studio right after the script read it.
+        await pool.query(
+          "update public.materiales set categoria_id = (select id from public.categorias where slug = 'general') where id = $1",
+          [a],
+        )
+        return passthrough()
+      }),
+    )
+    const resultado = await aplicarReclasificacion(clienteDeServicio(), [
+      { id: a, tipo: "material", antes: "pareja", propuesta: "etica-regulacion", razon: "x" },
+    ])
+    expect(await slugDe(a)).toBe("general")
+    expect(resultado).toEqual({
+      aplicadas: 0,
+      saltadas: [{ id: a, motivo: "su categoría cambió: ahora es general, no pareja" }],
+    })
+  })
+
   it("applies the reviewed rows and skips a row whose category changed since", async () => {
     const a = await materialEn("pareja", "Siembra aplicar")
     const b = await materialEn("general", "Siembra cambiada")

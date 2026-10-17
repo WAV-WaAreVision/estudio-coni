@@ -120,7 +120,25 @@ export async function leerElementosPorReclasificar(
   ]
 }
 
-/** Writes the reviewed rows. A row whose category changed after the CSV was written is skipped and reported. */
+/** Why a row cannot be applied as WAV reviewed it (gone, or moved since the CSV), or null when it still can. */
+async function motivoParaSaltar(
+  db: Db,
+  fila: FilaDeReclasificacion,
+  slugPorId: ReadonlyMap<string, string>,
+): Promise<{ motivo: string | null; categoriaId: string | null }> {
+  const actual = await db.from(TABLA[fila.tipo]).select("categoria_id").eq("id", fila.id).maybeSingle()
+  if (actual.error) throw falla(`No pude leer ${fila.tipo} ${fila.id}`, actual.error)
+  if (!actual.data) return { motivo: "ya no existe", categoriaId: null }
+  const { categoria_id: categoriaId } = actual.data
+  const ahora = categoriaId === null ? "" : (slugPorId.get(categoriaId) ?? "")
+  if (ahora === fila.antes) return { motivo: null, categoriaId }
+  return { motivo: `su categoría cambió: ahora es ${ahora || "ninguna"}, no ${fila.antes || "ninguna"}`, categoriaId }
+}
+
+/**
+ * Writes the reviewed rows. A row whose category changed after the CSV was written is skipped and reported; the update
+ * is guarded on the category it read, so a change between the read and the write is skipped too.
+ */
 export async function aplicarReclasificacion(
   db: Db,
   filas: readonly FilaDeReclasificacion[],
@@ -132,26 +150,24 @@ export async function aplicarReclasificacion(
   let aplicadas = 0
   const saltadas: { id: string; motivo: string }[] = []
   for (const fila of filas) {
-    const tabla = TABLA[fila.tipo]
     const destino = idPorSlug.get(fila.propuesta)
     if (!destino) throw new Error(`No existe la categoría ${fila.propuesta} (fila ${fila.id}).`)
-    const actual = await db.from(tabla).select("categoria_id").eq("id", fila.id).maybeSingle()
-    if (actual.error) throw falla(`No pude leer ${fila.tipo} ${fila.id}`, actual.error)
-    if (!actual.data) {
-      saltadas.push({ id: fila.id, motivo: "ya no existe" })
-      continue
-    }
-    const ahora = actual.data.categoria_id === null ? "" : (slugPorId.get(actual.data.categoria_id) ?? "")
-    if (ahora !== fila.antes) {
-      saltadas.push({
-        id: fila.id,
-        motivo: `su categoría cambió: ahora es ${ahora || "ninguna"}, no ${fila.antes || "ninguna"}`,
-      })
+    const leida = await motivoParaSaltar(db, fila, slugPorId)
+    if (leida.motivo !== null) {
+      saltadas.push({ id: fila.id, motivo: leida.motivo })
       continue
     }
     if (fila.propuesta === fila.antes) continue
-    const { error: errorUpdate } = await db.from(tabla).update({ categoria_id: destino }).eq("id", fila.id)
+    const update = db.from(TABLA[fila.tipo]).update({ categoria_id: destino }).eq("id", fila.id)
+    const guardado =
+      leida.categoriaId === null ? update.is("categoria_id", null) : update.eq("categoria_id", leida.categoriaId)
+    const { data: movidas, error: errorUpdate } = await guardado.select("id")
     if (errorUpdate) throw falla(`No pude mover ${fila.tipo} ${fila.id}`, errorUpdate)
+    if (movidas.length === 0) {
+      const despues = await motivoParaSaltar(db, fila, slugPorId)
+      saltadas.push({ id: fila.id, motivo: despues.motivo ?? "su categoría cambió mientras la movía" })
+      continue
+    }
     aplicadas += 1
   }
   return { aplicadas, saltadas }
