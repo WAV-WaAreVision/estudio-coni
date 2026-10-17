@@ -3124,7 +3124,7 @@ three deploys cannot all happen the same day as Step 3, or a deploy fails and th
 either (the old form only offers old pillars).
 
 - [ ] **Step 1 (OK needed): merge, no push unless asked.** `main` of each repo gets its branch with `--no-ff`
-(estudio-coni `feat/pilares-linkedin`, conidolly-ingesta `feat/pilares-linkedin`, coni-heygen
+(estudio-coni `feat/pilares-linkedin`, conidolly-ingesta `feat/categorias-activas`, coni-heygen
 `contenido/pilares-linkedin`). `git push` only when Federico asks.
 
 - [ ] **Step 2 (OK needed, read-only): pre-checks in the Supabase SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`)**
