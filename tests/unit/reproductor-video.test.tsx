@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ReproductorVideo } from "@/components/reproductor-video"
+import { recordarVisto } from "@/lib/medios/recuerdo"
 
 describe("ReproductorVideo", () => {
   afterEach(() => {
@@ -52,6 +53,30 @@ describe("ReproductorVideo", () => {
     fireEvent.timeUpdate(video)
     const faltan = screen.getByText("faltan 0:24")
     expect(faltan.parentElement).toContainElement(screen.getByText("Avatar IA"))
+  })
+
+  it("does not look ready before she watched it: says so over the frame, and play stays open to start", () => {
+    render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v8" zonas={false} alVerCompleto={vi.fn()} />)
+    const estado = screen.getByText("Míralo completo para poder firmar")
+    expect(screen.getByTestId("reproductor-video")).toContainElement(estado)
+    // The video is finished: watching it is how she opens the signature, so play is never closed here.
+    expect(screen.getByRole("button", { name: "Reproducir el video" })).toBeEnabled()
+  })
+
+  it("drops the state over the frame once it plays", () => {
+    const { container } = render(
+      <ReproductorVideo src="https://almacen.test/v.mp4" clave="v9" zonas={false} alVerCompleto={vi.fn()} />,
+    )
+    const video = container.querySelector("video")
+    if (!video) throw new Error("No hay video")
+    fireEvent.play(video)
+    expect(screen.queryByText("Míralo completo para poder firmar")).toBeNull()
+  })
+
+  it("does not show the state on a video she already watched whole", () => {
+    recordarVisto("v10")
+    render(<ReproductorVideo src="https://almacen.test/v.mp4" clave="v10" zonas={false} alVerCompleto={vi.fn()} />)
+    expect(screen.queryByText("Míralo completo para poder firmar")).toBeNull()
   })
 
   it("says a load failure under the video, not in the middle of the frame", () => {

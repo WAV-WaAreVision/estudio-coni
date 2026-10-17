@@ -11,3 +11,6 @@ export function faltanDelVideo(entrada: {
   if (visto || !reproduciendo || !(duracion > 0)) return null
   return `faltan ${mmss(Math.max(0, duracion - tiempo))}`
 }
+
+/** Over the frame until she starts it (exit critique 2): the video is finished, but not ready to sign until watched. */
+export const TEXTO_SIN_VER = "Míralo completo para poder firmar"

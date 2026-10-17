@@ -4,7 +4,7 @@ import { Pause, Play } from "@phosphor-icons/react"
 import type { CSSProperties } from "react"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
-import { faltanDelVideo } from "@/lib/diseno/video"
+import { faltanDelVideo, TEXTO_SIN_VER } from "@/lib/diseno/video"
 import { mmss } from "@/lib/formato"
 import { useReproduccion } from "./use-reproduccion"
 
@@ -63,6 +63,13 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
             </span>
           ) : null}
         </div>
+        {!visto && !reproduciendo && tiempo === 0 && !falla ? (
+          <p className="pointer-events-none absolute inset-x-4 top-1/2 z-10 grid -translate-y-1/2 place-items-center">
+            <span className="rounded-control bg-velo-video px-4 py-2 text-center text-meta font-semibold">
+              {TEXTO_SIN_VER}
+            </span>
+          </p>
+        ) : null}
         {zonas ? (
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute inset-x-0 bottom-0 grid h-[22%] place-items-center border-t-[1.5px] border-dashed border-luz bg-velo-video px-4 text-center text-insignia font-semibold">
