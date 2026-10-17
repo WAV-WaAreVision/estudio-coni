@@ -36,7 +36,15 @@ import { CONI, comoConi, pool } from "./db"
 import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { ajustarPieza, borrarSembrado, leerFila, publicacionesDe, sembrarIdea, sembrarPieza } from "./siembra"
+import {
+  ajustarPieza,
+  borrarSembrado,
+  leerFila,
+  proponerFecha,
+  publicacionesDe,
+  sembrarIdea,
+  sembrarPieza,
+} from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -708,6 +716,25 @@ describe("aprobarVideo", () => {
 
     expect(resultado).toMatchObject({ ok: false })
     expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("signs the date she chose even when another one was proposed, and leaves the proposal alone", async () => {
+    const id = await paraAprobar()
+    const propuesta = new Date(Date.parse(FUTURO) + 7 * 86_400_000).toISOString()
+    await proponerFecha(id, propuesta)
+    const { deps } = armar()
+    const version = (await fila(id)).version
+
+    const resultado = await aprobarVideo(deps, id, version, FUTURO, ["instagram"])
+
+    expect(resultado.ok).toBe(true)
+    const guardada = await fila(id)
+    expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2099-10-09T22:00:00.000Z")
+    expect(guardada.puerta2_hash_texto).toBe(
+      hashTextoDePuerta2(2, { texto: TEXTO_VALIDO, textoLinkedin: null, destinos: ["instagram"] }),
+    )
+    const { rows } = await pool.query("select publicar_en from public.fechas_propuestas where pieza_id = $1", [id])
+    expect(rows[0].publicar_en.toISOString()).toBe(propuesta)
   })
 })
 
