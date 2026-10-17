@@ -22,8 +22,8 @@ export function BarraSinConexion() {
   )
   if (enLinea) return null
   return (
-    <output className="flex min-h-11 items-center gap-2 border-b border-linea px-5 text-meta font-semibold">
-      <WifiSlash aria-hidden="true" size={ICONO.chico} className="text-aviso" />
+    <output className="flex min-h-objetivo items-center gap-2 border-b border-hilo px-5 text-meta font-semibold">
+      <WifiSlash aria-hidden="true" size={ICONO.chico} className="shrink-0" />
       Sin conexión. Aprueba cuando vuelva.
     </output>
   )

@@ -1,4 +1,5 @@
 import { ArrowUpRight, CheckCircle } from "@phosphor-icons/react/dist/ssr"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 
 /** Brandkit 9.25: a quiet closing moment. A 32 px check in the success ink, the title at 24, the detail at 18. */
@@ -18,7 +19,7 @@ export function MomentoDeCierre({
   const todos = [...(enlace ? [{ etiqueta: "Ver en Instagram", href: enlace }] : []), ...enlaces]
   return (
     <div className="grid justify-items-start gap-3">
-      <CheckCircle aria-hidden="true" size={ICONO.cierre} className="text-exito" />
+      <CheckCircle aria-hidden="true" size={ICONO.cierre} className="text-tinta" />
       <p className="text-pieza">{titulo}</p>
       {detalle ? <p className="text-cuerpo text-apagado">{detalle}</p> : null}
       {todos.map((vinculo) => (
@@ -27,7 +28,7 @@ export function MomentoDeCierre({
           href={vinculo.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-11 items-center gap-2 text-cuerpo font-medium text-tinta underline"
+          className={clasesDeBoton({ variante: "callado", tamano: "chico", className: "gap-2" })}
         >
           {vinculo.etiqueta}
           <ArrowUpRight aria-hidden="true" size={ICONO.medio} />
