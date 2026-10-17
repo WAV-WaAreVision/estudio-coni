@@ -214,6 +214,8 @@ test("the Guion screen shows the LinkedIn text read only, and its findings do no
   ])
 
   await page.goto(`/guion/${id}`)
+  // Gate 1 keeps the LinkedIn text under "Más opciones" (v6 2).
+  await abrirDesplegable(page, "Más opciones")
 
   const seccion = page.getByRole("region", { name: "Texto para LinkedIn" })
   await expect(seccion.getByText(/Llevan diez años juntos y ya casi no se tocan/)).toBeVisible()

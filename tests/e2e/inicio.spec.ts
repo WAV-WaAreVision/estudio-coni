@@ -33,8 +33,12 @@ async function pareja(
   return sembrarPieza(destino, { titulo, idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO, ...extra })
 }
 
+// The seed walks a script to gate 1 without a voice, which carries TEXTO_SIN_VOZ: a failure Inicio raises under
+// attention (v6 8). A script that simply waits for her signature has no explanation.
+const SIN_FALLA = { explicacion: null }
+
 test("Inicio shows what needs her signature, what is on its way and five ideas for the week", async ({ page }) => {
-  const guion = await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde")
+  const guion = await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde", SIN_FALLA)
   const video = await pareja("video_por_aprobar", "Ser tu propia diosa")
   await pareja("en_render", "Puedes decir que no")
   await pareja("programado", "Si van a discutir, siéntense del mismo lado")
@@ -61,7 +65,7 @@ test("Inicio shows what needs her signature, what is on its way and five ideas f
 })
 
 test("the title is the summary and the signature section starts in the first screenful", async ({ page }) => {
-  await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde")
+  await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde", SIN_FALLA)
   await pareja("video_por_aprobar", "Ser tu propia diosa")
   await page.goto("/")
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/esperan? tu firma/)
