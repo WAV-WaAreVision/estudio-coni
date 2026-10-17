@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { sembrarCorrida, sembrarIdea, sembrarIdeaDelMotor, vaciarPiezasEIdeas } from "../integration/siembra"
 import {
@@ -7,6 +7,8 @@ import {
   bloquearRedExterna,
   capturar,
   configurarServicios,
+  disparosRegistrados,
+  limpiarDisparos,
   registroDeServicios,
 } from "./ayudas"
 import { sembrarEscena } from "./escena"
@@ -18,6 +20,7 @@ test.beforeEach(async ({ page }) => {
   await vaciarPiezasEIdeas()
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await configurarServicios()
+  await pool.query("update public.ajustes set tope_mensual_usd = 40")
 })
 
 test.afterAll(async () => {
@@ -211,4 +214,58 @@ test.describe("ideas del motor", () => {
     await expect(page.getByText("El motor propone ideas cada domingo a las 20:00.")).toBeVisible()
     await expect(page.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute("href", /^https?:\/\//)
   })
+})
+
+async function elegirVarias(page: Page, ganchos: string[]) {
+  await page.goto("/ideas")
+  await page.getByRole("button", { name: "Elegir varias" }).click()
+  for (const gancho of ganchos) await page.getByRole("checkbox", { name: gancho }).check()
+}
+
+const DOS = ["Si van a discutir, siéntense del mismo lado.", "El deseo no se apaga: se esconde."]
+
+test("she ticks two ideas and both scripts start, each on its way to its own gate 1", async ({ page }) => {
+  await sembrarBanco()
+  limpiarDisparos()
+  await elegirVarias(page, DOS)
+
+  await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()
+
+  await expect(page.getByText("Escribiendo 2 guiones. Te aviso cuando estén.")).toBeVisible()
+  expect(disparosRegistrados().filter((d) => d.tarea === "producir")).toHaveLength(2)
+  const { rows } = await pool.query("select count(*)::int as n from public.piezas where estado = 'guion_en_proceso'")
+  expect(rows[0].n).toBe(2)
+})
+
+test("when the month covers one, she is asked and nothing starts until she says yes", async ({ page }) => {
+  await sembrarBanco()
+  limpiarDisparos()
+  await pool.query("update public.ajustes set tope_mensual_usd = 1.5")
+  await elegirVarias(page, DOS)
+
+  await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()
+  await expect(page.getByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeVisible()
+  expect(disparosRegistrados()).toEqual([])
+  await capturar(page, "ideas-elegir-varias-alcanza")
+
+  await page.getByRole("button", { name: "Sí, hacer 1 guion" }).click()
+  await expect(page.getByText("Escribiendo 1 guion. Te aviso cuando esté.")).toBeVisible()
+  const { rows } = await pool.query("select titulo from public.piezas")
+  expect(rows).toEqual([{ titulo: DOS[0] }])
+})
+
+test("she discards two with one motive and Deshacer brings them back", async ({ page }) => {
+  await sembrarBanco()
+  await elegirVarias(page, DOS)
+
+  await page.getByRole("button", { name: "Descartar (2)" }).click()
+  await page.getByRole("button", { name: "No me representa" }).click()
+  await expect(page.getByText("Descarté 2 ideas.")).toBeVisible()
+  const descartadas = await pool.query("select motivo_descarte from public.ideas where estado = 'descartada'")
+  expect(descartadas.rows).toEqual([{ motivo_descarte: "no_me_representa" }, { motivo_descarte: "no_me_representa" }])
+
+  await page.getByRole("button", { name: "Deshacer" }).click()
+  await expect(page.getByText("Volvieron al banco.")).toBeVisible()
+  const libres = await pool.query("select count(*)::int as n from public.ideas where estado = 'idea'")
+  expect(libres.rows[0].n).toBe(3)
 })
