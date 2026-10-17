@@ -289,6 +289,38 @@ describe("asegurarVoz releases by outcome", () => {
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "confirmado", sin_cobro: false })])
   })
 
+  it("counts a retry after an unknown outcome under a new key, leaving the old one for the sweeper", async () => {
+    responder(() => new HttpResponse("x", { status: 503 }), audioOk)
+    const id = await grabando()
+    const fila = await filaDe(id)
+    const d = deps()
+
+    await expect(intentar(d, fila)).rejects.toThrow("503")
+    const voz = await intentar(d, fila)
+
+    expect(voz).toEqual({ tipo: "lista", audioId: claveDeToma(id, HUELLA, fila.intento) })
+    expect(llamadas).toBe(2)
+    const base = claveDeGastoDeVoz(id, HUELLA, fila.intento)
+    expect(await gastosDeVoz(id)).toEqual([
+      expect.objectContaining({ clave: base, estado: "reservado" }),
+      expect.objectContaining({ clave: `${base}:r1`, estado: "confirmado" }),
+    ])
+  })
+
+  it("stops without calling ElevenLabs once every counted key of the attempt is taken", async () => {
+    responder(() => new HttpResponse("x", { status: 503 }))
+    const id = await grabando()
+    const fila = await filaDe(id)
+    for (let vez = 0; vez < 4; vez += 1) {
+      await expect(intentar(deps(), fila)).rejects.toThrow("503")
+    }
+
+    await expect(intentar(deps(), fila)).rejects.toThrow(FallaDeConfiguracion)
+
+    expect(llamadas).toBe(4)
+    expect((await gastosDeVoz(id)).map((g) => g.estado)).toEqual(["reservado", "reservado", "reservado", "reservado"])
+  })
+
   it.each([
     ["a server error", () => new HttpResponse("x", { status: 503 })],
     ["a network drop", () => HttpResponse.error()],

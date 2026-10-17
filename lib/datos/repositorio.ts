@@ -200,6 +200,12 @@ export async function reservarGastoGeneral(
   return resultadoDeReserva(error, data)
 }
 
+export async function leerGasto(db: Db, clave: string): Promise<FilaDeGasto | null> {
+  const { data, error } = await db.from("gastos").select("*").eq("clave", clave).maybeSingle()
+  if (error) throw fallo("No pude leer el gasto", error)
+  return data
+}
+
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {
   const { error } = await db.rpc("confirmar_gasto", { p_clave: clave, p_real: realUsd })
   if (error) throw fallo("No pude confirmar el gasto", error)

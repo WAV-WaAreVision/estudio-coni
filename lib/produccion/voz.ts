@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { confirmarGasto, type FilaDePieza, leerSecreto, liberarGasto, reservarGasto } from "@/lib/datos/repositorio"
+import {
+  confirmarGasto,
+  type FilaDePieza,
+  leerGasto,
+  leerSecreto,
+  liberarGasto,
+  reservarGasto,
+} from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia } from "@/lib/dominio/puertas"
@@ -91,16 +98,22 @@ async function guardarTomaPagada(
   throw ultimoError
 }
 
-const COBROS_SIN_TOMA_MAXIMOS = 3
+const COBROS_EXTRA_MAXIMOS = 3
 
-/** The open reservation of this try: the attempt's key, reopened if refused, or the next key after a lost paid take. */
+/**
+ * The reservation this try may call ElevenLabs under, so every call is counted once. The attempt's key, reopened after
+ * a refusal; or the next `:r<n>` key when the previous one is taken: still `reservado` by an earlier try whose call had
+ * an unknown outcome (it stays for the sweeper), released by the sweeper, or confirmed without its take.
+ */
 async function reservarIntento(
   deps: DepsVoz,
   entrada: { fila: FilaDePieza; huella: string; estimado: number },
-): Promise<{ tope: true } | { tope: false; clave: string }> {
+): Promise<{ tipo: "tope" } | { tipo: "reservada"; clave: string }> {
   const { fila, huella, estimado } = entrada
-  for (let cobro = 0; cobro <= COBROS_SIN_TOMA_MAXIMOS; cobro += 1) {
+  for (let cobro = 0; cobro <= COBROS_EXTRA_MAXIMOS; cobro += 1) {
     const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
+    // Another try already called ElevenLabs under this key and its outcome is unknown: calling again would go uncounted.
+    if ((await leerGasto(deps.db, clave))?.estado === "reservado") continue
     const reserva = await reservarGasto(deps.db, {
       piezaId: fila.id,
       proveedor: "elevenlabs",
@@ -111,12 +124,11 @@ async function reservarIntento(
       // Only a key released as a refusal (sin_cobro) reopens; a sweeper release stays closed and comes back `liberado`.
       reabrir: true,
     })
-    if (reserva.tope) return { tope: true }
-    if (reserva.gasto.estado === "reservado") return { tope: false, clave }
-    // Confirmed without the take (checked before reserving): that audio was paid and lost, so the next key pays anew.
+    if (reserva.tope) return { tipo: "tope" }
+    if (reserva.gasto.estado === "reservado") return { tipo: "reservada", clave }
   }
   throw new FallaDeConfiguracion(
-    `La voz de la pieza ${fila.id} se pagó ${COBROS_SIN_TOMA_MAXIMOS + 1} veces sin poder guardar la toma.`,
+    `La voz de la pieza ${fila.id} ya se intentó ${COBROS_EXTRA_MAXIMOS + 1} veces sin guardar la toma.`,
   )
 }
 
@@ -149,7 +161,7 @@ export async function asegurarVoz(
   const texto = textoParaVoz(guion, config.model_id)
   const estimado = estimarCostoVoz(texto)
   const reserva = await reservarIntento(deps, { fila, huella, estimado })
-  if (reserva.tope) return { tipo: "tope" }
+  if (reserva.tipo === "tope") return { tipo: "tope" }
   const { clave } = reserva
   let audio: Uint8Array
   try {

@@ -1455,7 +1455,7 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
     expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs")).toHaveLength(1)
   })
 
-  it("resumes without paying twice when the voice failed on the first run", async () => {
+  it("resumes after a voice server error, counting the second call under its own key", async () => {
     const id = await crearPiezaSinVoz()
     const sim = simular({
       voz: (n) => (n === 0 ? new HttpResponse("upstream", { status: 503 }) : new HttpResponse(VOZ)),
@@ -1471,7 +1471,9 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
 
     expect(resultado.resultado).toBe("grabada")
     expect(sim.voces).toHaveLength(2)
+    // The 503 may have been billed: its reservation stays for the sweeper, and the retry is counted apart.
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
+      ["elevenlabs", "reservado"],
       ["elevenlabs", "confirmado"],
       ["heygen", "confirmado"],
     ])
