@@ -301,17 +301,20 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         </MasOpciones>
       </Seccion>
 
-      <MasOpciones
-        className="mt-8"
-        titulo="Más opciones"
-        resumen={avatar ? `Avatar: ${avatar.nombre}` : "Avatar: falta elegirlo"}
-        abiertaAlInicio={avatarElegido === null}
-      >
-        {sinAvatares ? null : (
-          <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
-        )}
-        {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
-      </MasOpciones>
+      {/* With no looks at all, the bar's block is the only message: nothing here asks her to pick one. */}
+      {sinAvatares && datos.textoLinkedin === null ? null : (
+        <MasOpciones
+          className="mt-8"
+          titulo="Más opciones"
+          resumen={sinAvatares ? undefined : avatar ? `Avatar: ${avatar.nombre}` : "Avatar: falta elegirlo"}
+          abiertaAlInicio={!sinAvatares && avatarElegido === null}
+        >
+          {sinAvatares ? null : (
+            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+          )}
+          {datos.textoLinkedin !== null ? <TextoLinkedinEnLectura texto={datos.textoLinkedin} /> : null}
+        </MasOpciones>
+      )}
 
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
       <BarraDeFirma

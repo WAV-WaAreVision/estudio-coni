@@ -169,6 +169,19 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.getByRole("radio", { name: "Estudio" })).toBeChecked()
   })
 
+  it("leaves 'Más opciones' out when there are no looks and no LinkedIn text: the bar's block is the only message", () => {
+    render(<PantallaGuion datos={datos({ avatares: [] })} />)
+    expect(screen.queryByText("Más opciones")).toBeNull()
+    expect(screen.queryByText(/^Avatar:/)).toBeNull()
+  })
+
+  it("starts 'Más opciones' folded, with no avatar line, when there are no looks but there is a LinkedIn text", () => {
+    render(<PantallaGuion datos={datos({ avatares: [], textoLinkedin: "Un texto para LinkedIn." })} />)
+    expect(screen.getByText("Más opciones").closest("details")).not.toHaveAttribute("open")
+    expect(screen.queryByText(/^Avatar:/)).toBeNull()
+    expect(screen.getByText("Un texto para LinkedIn.")).toBeInTheDocument()
+  })
+
   it("shows a phrase HeyGen refused as a warning block when her voice is there", () => {
     render(<PantallaGuion datos={datos({ explicacion: "HeyGen marcó una frase como sensible." })} />)
     expect(screen.getByText("HeyGen marcó una frase como sensible.").closest("output")).toHaveClass("bg-piedra-honda")
