@@ -267,6 +267,7 @@ test("signing out takes her to the code screen and the app asks for it again", a
   await page.goto("/ajustes")
 
   await page.getByRole("button", { name: "Cerrar sesión" }).click()
+  await page.getByRole("button", { name: "Sí, cerrar sesión" }).click()
 
   await expect(page).toHaveURL(/\/ingreso$/)
   await page.goto("/ajustes")

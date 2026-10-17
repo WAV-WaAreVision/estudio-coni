@@ -38,6 +38,41 @@ describe("ConfirmacionEnLinea", () => {
     expect(screen.getByRole("button", { name: "Volver" })).toHaveClass("bg-piedra", "text-tinta")
   })
 
+  it("draws a destructive question as one honda block with the warning icon, like Desconectar", () => {
+    render(
+      <ConfirmacionEnLinea
+        trato="destructivo"
+        pregunta="Se descarta esta pieza y no sale. ¿Seguro?"
+        confirmar="Sí, descartar"
+        volver="Volver"
+        alConfirmar={vi.fn()}
+        alVolver={vi.fn()}
+      />,
+    )
+    const bloque = screen.getByText("Se descarta esta pieza y no sale. ¿Seguro?").closest("[data-contorno]")
+    expect(bloque).toHaveClass("bg-piedra-honda")
+    expect(bloque?.querySelector("svg[aria-hidden='true']")).not.toBeNull()
+    expect(bloque).toContainElement(screen.getByRole("button", { name: "Sí, descartar" }))
+  })
+
+  it("says a refusal as an error line inside its own block", () => {
+    render(
+      <ConfirmacionEnLinea
+        trato="destructivo"
+        pregunta="¿Seguro?"
+        confirmar="Sí"
+        volver="Volver"
+        error="No pude descartarla."
+        alConfirmar={vi.fn()}
+        alVolver={vi.fn()}
+      />,
+    )
+    const error = screen.getByRole("alert")
+    expect(error).toHaveTextContent("No pude descartarla.")
+    expect(error.closest("[data-contorno]")).toContainElement(screen.getByRole("button", { name: "Sí" }))
+    expect(error.closest("[data-contorno]")?.querySelectorAll("[data-contorno]")).toHaveLength(0)
+  })
+
   it("moves focus to the question so a screen reader hears it", () => {
     render(
       <ConfirmacionEnLinea

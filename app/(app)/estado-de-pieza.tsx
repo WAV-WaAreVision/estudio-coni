@@ -46,8 +46,9 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
   const [descartando, setDescartando] = useState(false)
   return (
     <div className="grid gap-2">
-      {error && enUnError ? <p className="font-semibold text-error">{error}</p> : null}
-      {error && !enUnError ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+      {/* A refused discard is said inside its own confirmation block. */}
+      {error && enUnError && !descartando ? <p className="font-semibold text-error">{error}</p> : null}
+      {error && !enUnError && !descartando ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {acciones.map((que, indice) => {
         if (que === "descartar") {
           return descartando ? (
@@ -58,6 +59,7 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
               confirmar="Sí, descartar"
               volver="Volver"
               cargando={pendiente}
+              error={error}
               alConfirmar={() => ejecutar(() => ACCIONES[que](piezaId, version))}
               alVolver={() => setDescartando(false)}
             />

@@ -8,6 +8,7 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { PildoraDeEstado } from "@/components/ui/estado"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
+import { LineaDeError } from "@/components/ui/linea-de-error"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import type { EstadoDeLlave } from "@/lib/acciones/ajustes"
@@ -161,7 +162,7 @@ function AccionesDeLinkedin({
               Cancelar
             </Boton>
           </div>
-          {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+          {error ? <LineaDeError>{error}</LineaDeError> : null}
         </div>
       </MasOpciones>
     </>

@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-import { Boton } from "@/components/ui/boton"
 import { FilaNavegacion } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
@@ -10,6 +9,7 @@ import { cerrarSesionAccion } from "../acciones"
 import { enviarPruebaAccion, guardarAjusteAccion, guardarSuscripcionAccion, quitarSuscripcionAccion } from "./acciones"
 import { AvisosDelCelular } from "./avisos-del-celular"
 import { BloqueDeEstado } from "./bloque-de-estado"
+import { CerrarSesion } from "./cerrar-sesion"
 import { EditorDeAjustes } from "./editor-de-ajustes"
 
 export default async function Ajustes() {
@@ -66,11 +66,9 @@ export default async function Ajustes() {
         <FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>
       </Grupo>
 
-      <form action={cerrarSesionAccion} className="mt-6">
-        <Boton type="submit" variante="callado">
-          Cerrar sesión
-        </Boton>
-      </form>
+      <div className="mt-6">
+        <CerrarSesion cerrar={cerrarSesionAccion} />
+      </div>
     </div>
   )
 }

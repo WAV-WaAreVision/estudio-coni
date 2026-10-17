@@ -197,6 +197,20 @@ describe("CuentasConectadas, LinkedIn", () => {
     ).toBeInTheDocument()
   })
 
+  it("says a refused disconnect as an error line inside the same block, never a block in a block", async () => {
+    const desconectar = vi.fn(async () => ({ ok: false as const, error: "No pude desconectar LinkedIn." }))
+    render(<CuentasConectadas filas={[LINKEDIN_CONECTADO]} guardarLlave={vi.fn()} desconectarLinkedin={desconectar} />)
+    fireEvent.click(screen.getByText("Desconectar LinkedIn"))
+    fireEvent.click(screen.getByRole("button", { name: "Sí, desconectar" }))
+    const error = await screen.findByRole("alert")
+    expect(error).toHaveTextContent("No pude desconectar LinkedIn.")
+    expect(error.tagName.toLowerCase()).toBe("p")
+    const bloque = error.closest("[data-contorno]") as HTMLElement
+    expect(bloque).toContainElement(screen.getByRole("button", { name: "Sí, desconectar" }))
+    expect(bloque.parentElement?.closest(".bg-piedra-honda")).toBeNull()
+    expect(bloque.querySelectorAll("[data-contorno]")).toHaveLength(0)
+  })
+
   it("makes Renovar LinkedIn the primary when the connection needs her", () => {
     render(
       <CuentasConectadas

@@ -189,6 +189,8 @@ describe("design rules", () => {
       "components/ui/bloque.tsx",
       "components/ui/estado.tsx",
       "components/ui/clases-de-boton.ts",
+      // The error line said inside the honda block of a confirmation or a danger disclosure.
+      "components/ui/linea-de-error.tsx",
       // A refused retry is a plain error line drawn only inside the large error block (`enUnError`).
       "app/(app)/estado-de-pieza.tsx",
     ])

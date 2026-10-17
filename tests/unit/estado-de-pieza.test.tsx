@@ -63,4 +63,15 @@ describe("AccionesDeEstado", () => {
     expect(linea.closest(".bg-piedra-honda")).toBeNull()
     expect(screen.queryByRole("alert")).toBeNull()
   })
+
+  it("says a refused discard inside the confirmation block it came from", async () => {
+    descartarAccion.mockResolvedValueOnce({ ok: false, error: "No pude descartarla." } as never)
+    render(<AccionesDeEstado piezaId="p" version={2} acciones={["descartar"]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Descartar esta pieza" }))
+    fireEvent.click(screen.getByRole("button", { name: "Sí, descartar" }))
+    const error = await screen.findByRole("alert")
+    expect(error).toHaveTextContent("No pude descartarla.")
+    expect(error.closest("[data-contorno]")).toContainElement(screen.getByRole("button", { name: "Sí, descartar" }))
+    expect(screen.getAllByText("No pude descartarla.")).toHaveLength(1)
+  })
 })
