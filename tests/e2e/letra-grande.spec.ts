@@ -53,6 +53,14 @@ test("at large text the sign bar sits at the end of gate 1, round all over, with
   await expect(page.locator("h1")).toHaveCSS("font-size", `${1.5 * raiz}px`)
 })
 
+test("at large text the badges on the video are never smaller than at normal size", async ({ page }) => {
+  const { video } = await sembrarEscena()
+  await page.goto(`/video/${video}`)
+  await conLetraGrande(page)
+  const raiz = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
+  await expect(page.getByText("Avatar IA")).toHaveCSS("font-size", `${0.8125 * raiz}px`)
+})
+
 test("at large text the toast sits at the bottom, where nothing is pinned", async ({ page }) => {
   const { guion } = await sembrarEscena()
   await page.goto(`/guion/${guion}?deshecho=1`)

@@ -465,14 +465,11 @@ html[data-letra="grande"] h1.text-pantalla {
 }
 html[data-letra="grande"] .pildora {
   align-items: flex-start;
-  border-radius: 20px;
+  border-radius: var(--r-bloque);
 }
 /* At large text the frame keeps the whole column: the reserve for the bar grows with the text and would shrink it. */
 html[data-letra="grande"] .video-puerta {
   max-width: none;
-}
-html[data-letra="grande"] .insignia-video {
-  font-size: 0.75rem;
 }
 html[data-letra="grande"] .aviso[data-lugar] {
   top: auto;
