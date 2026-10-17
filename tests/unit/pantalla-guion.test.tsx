@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeGuion, PantallaGuion } from "@/app/(app)/guion/[id]/pantalla-guion"
+import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
@@ -118,6 +119,16 @@ describe("PantallaGuion: el orden de v6", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Lo revisé y está bien" }))
     expect(screen.getByText("Revisado")).toBeInTheDocument()
     expect(screen.getByText("Frase revisada")).toBeInTheDocument()
+  })
+
+  it("reads the tone marks as Spanish chips, with a help about the grey labels instead of the brackets", () => {
+    render(<PantallaGuion datos={datos({ guion: "[warm] Hola, soy Coni. [pause] Soy Coni del Rosario." })} />)
+    const lectura = screen.getByRole("region", { name: "2. Revisa el guion" })
+    expect(within(lectura).getByText("cálido")).toBeInTheDocument()
+    expect(within(lectura).getByText("pausa")).toBeInTheDocument()
+    expect(within(lectura).getByText(AYUDA_DE_MARCAS_EN_LECTURA)).toBeInTheDocument()
+    // Only the folded editor, which keeps the raw marks, talks about brackets.
+    for (const ayuda of within(lectura).queryAllByText(/corchetes/)) expect(editor()).toContainElement(ayuda)
   })
 
   it("says Claude found nothing when the review is empty", () => {

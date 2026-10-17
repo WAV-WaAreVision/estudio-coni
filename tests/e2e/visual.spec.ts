@@ -285,7 +285,7 @@ test("guion preparando voz", async ({ page }) => {
     texto: TEXTO_VALIDO,
   })
   await page.goto(`/guion/${id}`)
-  await expect(page.getByText("[warm]")).toBeVisible()
+  await expect(page.getByText("cálido", { exact: true })).toBeVisible()
   await capturaDe(page, "guion-preparando-voz")
 })
 

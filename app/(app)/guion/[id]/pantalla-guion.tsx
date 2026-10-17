@@ -3,7 +3,7 @@
 import { Info, PencilSimple } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
 import { type Dispatch, type SetStateAction, useCallback, useId, useRef, useState } from "react"
-import { AYUDA_DE_MARCAS } from "@/components/ayuda-de-marcas"
+import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
@@ -214,7 +214,9 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         id="guion"
         cifra={cifraDeRevision([...bloqueos, ...sinConfirmar], revision.length, marcadas) ?? undefined}
       >
-        {etiquetasDe(datos.guion).length > 0 ? <p className="text-meta text-apagado">{AYUDA_DE_MARCAS}</p> : null}
+        {etiquetasDe(datos.guion).length > 0 ? (
+          <p className="text-meta text-apagado">{AYUDA_DE_MARCAS_EN_LECTURA}</p>
+        ) : null}
         <Panel>
           <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
         </Panel>

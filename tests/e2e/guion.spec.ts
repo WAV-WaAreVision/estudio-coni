@@ -24,7 +24,7 @@ const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
 const FIRMASTE = "Firmaste"
 // A literal, so the spec does not import a TSX component.
-const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
+const AYUDA_DE_MARCAS = "Las etiquetas grises marcan el tono de la voz. No se leen ni salen en los subtítulos."
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
 const LOOK_A = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.png" }
 const LOOK_B = { avatar_id: "look-b", nombre: "Terraza", imagen: "avatares/look-b.png" }
@@ -320,7 +320,8 @@ test("while her voice is being made the script is read-only and keeps its tone m
 
   await expect(page.getByText(PREPARANDO).first()).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Guion", exact: true })).toHaveCount(0)
-  await expect(page.getByText("[warm]", { exact: true })).toBeVisible()
+  await expect(page.getByText("cálido", { exact: true })).toBeVisible()
+  await expect(page.getByText("[warm]", { exact: true })).toHaveCount(0)
   await expect(page.getByText(AYUDA_DE_MARCAS)).toBeVisible()
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
 })

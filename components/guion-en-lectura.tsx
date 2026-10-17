@@ -1,5 +1,6 @@
 import { Flag } from "@phosphor-icons/react/dist/ssr"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
+import { nombreDeMarca } from "@/lib/dominio/etiquetas"
 import { ICONO } from "./ui/icono"
 
 interface PropiedadesDeLectura {
@@ -11,7 +12,7 @@ interface PropiedadesDeLectura {
 }
 
 /**
- * Decision 9: the script in reading mode. Tone marks are honda chips; a finding's phrase is marked at its first
+ * Decision 9: the script in reading mode. Tone marks are quiet honda chips with their Spanish name; a finding's phrase is marked at its first
  * occurrence and links to its review panel, with the flag after it. Inline text: exempt from the 44 px target rule.
  */
 export function GuionEnLectura({ guion, frases = [], idDeRevision }: PropiedadesDeLectura) {
@@ -28,7 +29,7 @@ export function GuionEnLectura({ guion, frases = [], idDeRevision }: Propiedades
               key={clave}
               className="mr-0.5 inline-block rounded-control bg-piedra-honda px-2.5 align-[2px] text-meta font-medium whitespace-nowrap text-tinta"
             >
-              {trozo.valor}
+              {nombreDeMarca(trozo.valor)}
             </span>
           )
         if (trozo.tipo === "frase")

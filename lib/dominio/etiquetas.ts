@@ -18,6 +18,25 @@ export const ETIQUETAS_DE_TONO = [
   "pause",
   "sighs",
 ] as const
+export type EtiquetaDeTono = (typeof ETIQUETAS_DE_TONO)[number]
+
+/** How reading mode names each mark for Coni; the editor keeps the bracketed English the voice reads. */
+export const NOMBRE_DE_TONO: Record<EtiquetaDeTono, string> = {
+  warm: "cálido",
+  softly: "suave",
+  gentle: "delicado",
+  reassuring: "tranquilizador",
+  encouraging: "alentador",
+  thoughtful: "reflexivo",
+  empathetic: "empático",
+  calm: "sereno",
+  confident: "seguro",
+  clear: "claro",
+  casual: "casual",
+  "matter-of-fact": "directo",
+  pause: "pausa",
+  sighs: "suspiro",
+}
 export const MINIMO_DE_ETIQUETAS = 3
 export const MAXIMO_DE_ETIQUETAS = 6
 
@@ -36,6 +55,14 @@ const CONOCIDAS: ReadonlySet<string> = new Set(ETIQUETAS_DE_TONO)
 const MODELO_CON_ETIQUETAS = /^eleven_v[34](?:_|$)/
 
 const nombreDe = (marca: string) => marca.slice(1, -1).trim().toLowerCase()
+
+const esConocida = (nombre: string): nombre is EtiquetaDeTono => CONOCIDAS.has(nombre)
+
+/** A mark as reading mode shows it: its Spanish name, or as written when it is not on the list. */
+export function nombreDeMarca(marca: string): string {
+  const nombre = nombreDe(marca)
+  return esConocida(nombre) ? NOMBRE_DE_TONO[nombre] : marca
+}
 
 export function etiquetasDe(texto: string): Etiqueta[] {
   return Array.from(texto.matchAll(ETIQUETA), ([marca]) => {

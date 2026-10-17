@@ -3,6 +3,9 @@ import { ICONO } from "@/components/ui/icono"
 import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 
 export const AYUDA_DE_MARCAS = "Lo que va entre corchetes marca el tono de la voz. No se lee ni sale en los subtítulos."
+/** Reading mode draws the marks as grey labels in Spanish, without their brackets. */
+export const AYUDA_DE_MARCAS_EN_LECTURA =
+  "Las etiquetas grises marcan el tono de la voz. No se leen ni salen en los subtítulos."
 
 /** Under the script: what the brackets do, and (folded) the list the "no la conozco" warning points to. */
 export function AyudaDeMarcas() {

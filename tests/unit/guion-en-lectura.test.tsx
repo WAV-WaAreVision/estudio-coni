@@ -3,10 +3,17 @@ import { describe, expect, it } from "vitest"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
 
 describe("GuionEnLectura", () => {
-  it("draws each tone mark as a honda chip and keeps the text around it", () => {
+  it("draws each tone mark as a quiet honda chip with its Spanish name and keeps the text around it", () => {
     render(<GuionEnLectura guion={"[warm] El deseo no se apaga.\n\n[pause] Soy Coni."} />)
-    expect(screen.getByText("[warm]")).toHaveClass("bg-piedra-honda", "text-tinta", "rounded-control")
+    expect(screen.getByText("cálido")).toHaveClass("bg-piedra-honda", "text-tinta", "rounded-control")
+    expect(screen.getByText("pausa")).toHaveClass("bg-piedra-honda")
+    expect(screen.queryByText("[warm]")).toBeNull()
     expect(document.body.textContent).toContain("El deseo no se apaga.")
+  })
+
+  it("keeps a mark outside the list raw, as the editor shows it", () => {
+    render(<GuionEnLectura guion="[laughs] Hola." />)
+    expect(screen.getByText("[laughs]")).toHaveClass("bg-piedra-honda")
   })
 
   it("reads at the script size and keeps the line breaks", () => {
