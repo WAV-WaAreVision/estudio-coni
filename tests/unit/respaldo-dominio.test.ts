@@ -66,11 +66,12 @@ describe("ajenoDelRespaldo", () => {
       autores: ["Siembra Ana Pérez"],
       personas: ["Siembra Ana Pérez"],
       citadas: [],
+      titulosCitados: [],
     })
   })
 
   it("has nothing to check when there is no backing", () => {
-    expect(ajenoDelRespaldo(null)).toEqual({ citas: [], autores: [], personas: [], citadas: [] })
+    expect(ajenoDelRespaldo(null)).toEqual({ citas: [], autores: [], personas: [], citadas: [], titulosCitados: [] })
   })
 })
 
@@ -154,6 +155,10 @@ describe("respaldo con fuente", () => {
 
   it("lists the cited authors for the revision", () => {
     expect(ajenoDelRespaldo(leerRespaldo(conFuente)).citadas).toEqual(["Ana Pérez", "OMS"])
+  })
+
+  it("lists the cited titles for the revision of the spoken script", () => {
+    expect(ajenoDelRespaldo(leerRespaldo(conFuente)).titulosCitados).toEqual(["Informe"])
   })
 })
 

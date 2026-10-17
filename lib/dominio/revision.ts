@@ -56,6 +56,8 @@ export interface Ajeno {
   personas: readonly string[]
   /** Authors of the cited sources: the caption and the LinkedIn text may name them. */
   citadas: readonly string[]
+  /** Titles of the cited works: the caption and the LinkedIn text may name them, the spoken script never. */
+  titulosCitados: readonly string[]
 }
 
 /** The caption and the LinkedIn text cite their sources; any other backing author is still a finding. */
@@ -295,7 +297,10 @@ export function revisarGuion(entrada: {
     hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
   }
   // The spoken script never names a source; the caption may name the cited ones.
-  const enElGuion = new Set(autoresNombrados(hablado, ajeno.autores, ajeno.personas))
+  const enElGuion = new Set([
+    ...autoresNombrados(hablado, ajeno.autores, ajeno.personas),
+    ...autoresNombrados(hablado, ajeno.titulosCitados),
+  ])
   for (const frase of enElGuion) {
     hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR, frase })
   }

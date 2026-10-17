@@ -62,13 +62,16 @@ export function ajenoDelRespaldo(respaldo: Respaldo | null): {
   autores: string[]
   personas: string[]
   citadas: string[]
+  titulosCitados: string[]
 } {
   const ajenas = respaldo?.afirmaciones.filter((a) => !a.deConi) ?? []
+  const citadas = fuentesCitadas(respaldo?.afirmaciones ?? [])
   return {
     citas: ajenas.map((a) => a.cita),
     autores: [...new Set(ajenas.map((a) => a.autor))],
     personas: [...new Set(ajenas.filter((a) => a.esPersona).map((a) => a.autor))],
-    citadas: fuentesCitadas(respaldo?.afirmaciones ?? []).map((f) => f.autor),
+    citadas: citadas.map((f) => f.autor),
+    titulosCitados: [...new Set(citadas.flatMap((f) => (f.titulo === null ? [] : [f.titulo])))],
   }
 }
 

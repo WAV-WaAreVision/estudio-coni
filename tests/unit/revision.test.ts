@@ -23,7 +23,7 @@ import {
   tramosCopiados,
 } from "@/lib/dominio/revision"
 
-const SIN_AJENO = { citas: [], autores: [], personas: [], citadas: [] }
+const SIN_AJENO = { citas: [], autores: [], personas: [], citadas: [], titulosCitados: [] }
 const CITA = "El deseo no se apaga, se esconde debajo de la rutina y del cansancio de todos los días."
 
 // 91 words: inside the 75 to 150 range, ends with the fixed closing, no digits or symbols.
@@ -422,7 +422,7 @@ describe("revisarGuion con respaldo", () => {
     const hallazgos = revisar({
       guion: `${copia}. ${GUION}`,
       texto: `${copia}. ${TEXTO}`,
-      ajeno: { citas: [CITA], autores: [], personas: [], citadas: [] },
+      ajeno: { citas: [CITA], autores: [], personas: [], citadas: [], titulosCitados: [] },
     })
     const copias = hallazgos.filter((h) => h.regla === "copia_de_fuente")
     expect(copias).toEqual([
@@ -439,7 +439,7 @@ describe("revisarGuion con respaldo", () => {
   it("warns when an author of the backing is named", () => {
     const hallazgos = revisar({
       guion: `Según Esther Perel, ${GUION}`,
-      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"], citadas: [] },
+      ajeno: { citas: [], autores: ["Esther Perel"], personas: ["Esther Perel"], citadas: [], titulosCitados: [] },
     })
     expect(hallazgos.filter((h) => h.regla === "nombra_autor")).toEqual([
       {
@@ -457,7 +457,13 @@ describe("revisarGuion con respaldo", () => {
 
   describe("cited sources", () => {
     // "OMS" is too short to be looked for at all (four letters at least), so the cited source here is Stanford.
-    const AJENO = { citas: [], autores: ["Ana Pérez", "Stanford"], personas: ["Ana Pérez"], citadas: ["Stanford"] }
+    const AJENO = {
+      citas: [],
+      autores: ["Ana Pérez", "Stanford"],
+      personas: ["Ana Pérez"],
+      citadas: ["Stanford"],
+      titulosCitados: [],
+    }
 
     it("still warns when the spoken script names a cited source", () => {
       const h = revisar({ guion: `Según Stanford, hoy hablamos de esto. ${GUION}`, ajeno: AJENO })
@@ -471,6 +477,21 @@ describe("revisarGuion con respaldo", () => {
       expect(nombrados[0]?.mensaje).toBe(
         "Aquí aparece el nombre de una fuente que no citas. Nómbrala solo si es una de las fuentes citadas.",
       )
+    })
+
+    it("warns when the spoken script says a cited work's title, and lets the caption say it", () => {
+      const ajeno = { ...AJENO, titulosCitados: ["AI for Mental Health"] }
+      const enElGuion = revisar({ guion: `Lo muestra AI for Mental Health. ${GUION}`, ajeno })
+      expect(enElGuion.filter((x) => x.regla === "nombra_autor")).toEqual([
+        {
+          regla: "nombra_autor",
+          tipo: "advierte",
+          mensaje: "Aquí aparece el nombre de una fuente. En el reel no se nombran autores: dilo sin nombrarla.",
+          frase: "AI for Mental Health",
+        },
+      ])
+      const enElTexto = revisar({ texto: `Lo muestra AI for Mental Health. ${AVISO_AVATAR}`, ajeno })
+      expect(enElTexto.some((x) => x.regla === "nombra_autor")).toBe(false)
     })
 
     it("reports a phrase once when the script and the caption both name it", () => {
@@ -880,13 +901,19 @@ describe("revisarTextoLinkedin", () => {
 
   describe("what comes from the backing", () => {
     it("accepts the cited source in the LinkedIn text", () => {
-      const ajeno = { citas: [], autores: ["Ana Pérez", "Stanford"], personas: ["Ana Pérez"], citadas: ["Stanford"] }
+      const ajeno = {
+        citas: [],
+        autores: ["Ana Pérez", "Stanford"],
+        personas: ["Ana Pérez"],
+        citadas: ["Stanford"],
+        titulosCitados: [],
+      }
       const h = revisarLinkedin({ texto: `${OK}\nComo muestra Stanford en su informe.`, ajeno })
       expect(h.some((x) => x.regla === "nombra_autor")).toBe(false)
     })
 
     it("warns when an author of the backing is named or a quote is copied", () => {
-      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [], citadas: [] }
+      const ajeno = { citas: [CITA], autores: ["Esther Perel"], personas: [], citadas: [], titulosCitados: [] }
       const hallazgos = revisarLinkedin({
         texto: textoLinkedin({
           gancho: "Como dice Esther Perel: el deseo no se apaga, se esconde debajo de la rutina.",
