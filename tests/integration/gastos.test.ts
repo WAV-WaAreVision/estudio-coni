@@ -351,6 +351,21 @@ describe("reabrir una reserva liberada", () => {
     })
   })
 
+  it("never reopens a key the sweeper released, because its outcome is unknown", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-barrida-voz", 1)
+      await c.query("select public.liberar_gasto('clave-barrida-voz')")
+
+      const { rows } = await reabrir(c, "clave-barrida-voz", 2)
+
+      expect(rows[0]).toMatchObject({ clave: "clave-barrida-voz", estado: "liberado", estimado: 1 })
+      const { rows: abiertas } = await c.query(
+        "select count(*)::int as n from public.gastos where clave = 'clave-barrida-voz' and estado = 'reservado'",
+      )
+      expect(abiertas).toEqual([{ n: 0 }])
+    })
+  })
+
   it("never reopens a confirmed key", async () => {
     await como(comoServicio, async (c) => {
       await reservar(c, "clave-confirmada", 1)

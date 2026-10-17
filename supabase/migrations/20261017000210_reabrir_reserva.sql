@@ -1,6 +1,8 @@
 -- Spec 2026-10-17, decision 12 (amendment A2 of its plan): a voice attempt whose reservation was released (ElevenLabs
--- refused it) is tried again under the same key. Opt-in: the script writer reads a released Claude key as "Claude
--- refused, do not ask again" (lib/produccion/producir.ts) and must keep getting it back as it is.
+-- refused it) is tried again under the same key. Only a release proven not charged (sin_cobro) reopens: the sweeper
+-- also releases voice keys, after an unknown outcome that may have been billed, and those stay closed. Opt-in: the
+-- script writer reads a released Claude key as "Claude refused, do not ask again" (lib/produccion/producir.ts) and must
+-- keep getting it back as it is.
 drop function public.reservar_gasto(uuid, text, text, numeric, text, timestamptz);
 
 create function public.reservar_gasto(
@@ -24,7 +26,7 @@ begin
   perform pg_advisory_xact_lock(hashtext('gastos:' || v_mes::text));
 
   select * into v_existente from public.gastos where clave = p_clave;
-  if found and not (p_reabrir and v_existente.estado = 'liberado') then
+  if found and not (p_reabrir and v_existente.estado = 'liberado' and v_existente.sin_cobro) then
     return v_existente;
   end if;
 

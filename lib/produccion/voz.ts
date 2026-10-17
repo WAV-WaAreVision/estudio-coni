@@ -108,7 +108,7 @@ async function reservarIntento(
       estimadoUsd: estimado,
       clave,
       ahora: deps.ahora(),
-      // A released key was a refusal that billed nothing: trying the same attempt again reopens it.
+      // Only a key released as a refusal (sin_cobro) reopens; a sweeper release stays closed and comes back `liberado`.
       reabrir: true,
     })
     if (reserva.tope) return { tope: true }
