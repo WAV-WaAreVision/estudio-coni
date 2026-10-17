@@ -55,6 +55,9 @@ function pasoRealizado(gasto: FilaDeGasto, pieza: FilaDePieza): boolean {
     // The voice is made before gate 1 (by the writer, or by "Preparar mi voz") and signing keeps it, so a stored voice
     // may belong to another reservation: only the take of this one says it was paid. An older key cannot tell, so it
     // waits for the day-old release; a reservation with no take of its own is released after an hour (`vozSinToma`).
+    // Every try of an attempt shares its take, so a key left open by an unknown outcome (a 5xx, a dropped call) is
+    // confirmed once a later `:r<n>` stored that take. Intentionally conservative: that call may have been billed, and
+    // counting it too is safer for the cap than releasing money that was spent.
     return tomaDeLaReserva(gasto, pieza) ?? false
   }
   return !ANTES_DEL_GUION.includes(pieza.estado)
