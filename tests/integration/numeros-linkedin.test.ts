@@ -69,12 +69,29 @@ describe("recordarNumerosDeLinkedin", () => {
     expect(avisos.aWavEnviados).toHaveLength(1)
   })
 
-  it("says nothing on another day", async () => {
+  it("retries on Tuesday when Monday's email failed, once", async () => {
+    await postEnLinkedin("2026-10-14T22:00:00.000Z")
+    const fallido = {
+      ...notificadorEnMemoria(),
+      aWav: async () => {
+        throw new Error("Resend no respondió")
+      },
+    }
+    await expect(recordarNumerosDeLinkedin(deps(LUNES, fallido))).rejects.toThrow("Resend no respondió")
+    const avisos = notificadorEnMemoria()
+
+    expect(await recordarNumerosDeLinkedin(deps(MARTES, avisos))).toBe("avisado")
+    expect(await recordarNumerosDeLinkedin(deps(MARTES, avisos))).toBe("ya_avisado")
+    expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+
+  it("says nothing on Tuesday when Monday's email went out", async () => {
     await postEnLinkedin("2026-10-14T22:00:00.000Z")
     const avisos = notificadorEnMemoria()
 
-    expect(await recordarNumerosDeLinkedin(deps(MARTES, avisos))).toBe("no_es_lunes")
-    expect(avisos.aWavEnviados).toEqual([])
+    expect(await recordarNumerosDeLinkedin(deps(LUNES, avisos))).toBe("avisado")
+    expect(await recordarNumerosDeLinkedin(deps(MARTES, avisos))).toBe("ya_avisado")
+    expect(avisos.aWavEnviados).toHaveLength(1)
   })
 
   it("says nothing on Monday when no post is pending", async () => {

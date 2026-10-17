@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerZona } from "@/lib/datos/metricas"
 import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
-import { diaLocal } from "@/lib/dominio/fechas"
-import { lunesDeLaSemana } from "@/lib/dominio/metricas"
 import { asuntoDelRecordatorio, sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
@@ -13,24 +10,22 @@ export interface DepsNumerosLinkedin {
   ahora: () => string
 }
 
-export type ResultadoRecordatorio = "no_es_lunes" | "al_dia" | "ya_avisado" | "avisado"
+export type ResultadoRecordatorio = "al_dia" | "ya_avisado" | "avisado"
 
 export const DETALLE_DEL_RECORDATORIO =
   "Entra a Métricas con la sesión de Coni, abre «Para WAV» y anota impresiones, reacciones, comentarios y compartidos de cada post (están en las estadísticas de cada publicación de LinkedIn), y los seguidores de la semana."
 
 /**
- * Decision 20: on Mondays only, and only with posts pending. The nightly run starts once a day with no retries, so this
- * goes out at most once a week (`recordatorios_linkedin` holds the week); the API or Metricool (decision 21) will turn it
- * off by filling the rows.
+ * Decision 20: once a week, from Monday, and only with posts pending. Every nightly run of the week checks: the first one
+ * with posts pending claims the week in `recordatorios_linkedin`, so a Monday whose email failed is retried on Tuesday
+ * and a sent week says nothing more. The API or Metricool (decision 21) will turn it off by filling the rows.
  */
 export async function recordarNumerosDeLinkedin(deps: DepsNumerosLinkedin): Promise<ResultadoRecordatorio> {
   const ahora = Date.parse(deps.ahora())
-  const zona = await leerZona(deps.db)
-  if (lunesDeLaSemana(ahora, zona) !== diaLocal(ahora, zona)) return "no_es_lunes"
   const { semana, posts } = await leerLinkedinParaAnotar(deps.db, ahora)
   const pendientes = sinNumerosEstaSemana(posts)
   if (pendientes.length === 0) return "al_dia"
-  // Claimed before the email, so a second start of the run on the same Monday says nothing.
+  // Claimed before the email, so a second run of the same week says nothing.
   const reclamo = await deps.db
     .from("recordatorios_linkedin")
     .upsert({ semana }, { onConflict: "semana", ignoreDuplicates: true })
