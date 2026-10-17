@@ -36,6 +36,7 @@ export const MODELO_POR_TAREA = {
   revisarConClaude: { modelo: "claude-opus-5-5", effort: "low" },
   escribirFicha: { modelo: "claude-opus-5-5", effort: "low" },
   clasificarIdea: { modelo: "claude-sonnet-5-5", effort: "low" },
+  clasificarEnPilares: { modelo: "claude-sonnet-5-5", effort: "low" },
   extraerAfirmaciones: { modelo: "claude-sonnet-5-5", effort: "low" },
   nombrarTemas: { modelo: "claude-sonnet-5-5", effort: "low" },
   escribirTeorias: { modelo: "claude-opus-5-5", effort: "medium" },
