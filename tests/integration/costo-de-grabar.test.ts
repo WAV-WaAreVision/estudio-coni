@@ -66,3 +66,19 @@ describe("leerCostoDeGrabar", () => {
     )
   })
 })
+
+describe("leerPresupuesto", () => {
+  it("does not count a released voice reservation, refused or swept", async () => {
+    const antes = (await leerPresupuesto(coni, AHORA, ZONA)).usado
+    const claves = [`presupuesto-${crypto.randomUUID()}`, `presupuesto-${crypto.randomUUID()}`]
+    await pool.query("select public.reservar_gasto(null, 'elevenlabs', 'voz', 0.5, $1, now())", [claves[0]])
+    await pool.query("select public.reservar_gasto(null, 'elevenlabs', 'voz', 0.5, $1, now())", [claves[1]])
+    expect((await leerPresupuesto(coni, AHORA, ZONA)).usado).toBeCloseTo(antes + 1, 4)
+
+    await pool.query("select public.liberar_gasto($1, true)", [claves[0]])
+    await pool.query("select public.liberar_gasto($1)", [claves[1]])
+
+    expect((await leerPresupuesto(coni, AHORA, ZONA)).usado).toBeCloseTo(antes, 4)
+    await pool.query("delete from public.gastos where clave = any($1)", [claves])
+  })
+})

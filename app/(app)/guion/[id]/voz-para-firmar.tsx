@@ -20,6 +20,7 @@ import {
   TEXTO_AVISA_Y_REINTENTA_VOZ,
   TEXTO_FALTA_VOZ,
   TEXTO_GUARDA_ANTES_DE_VOZ,
+  TEXTO_INTENTO_SIN_COBRO,
   TEXTO_PREPARANDO_VOZ,
   TEXTO_REINTENTA_VOZ,
   TEXTO_SIN_SALDO_VOZ,
@@ -105,6 +106,14 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
   const detalleDeFalla = falla?.detalle ? fallaEnSusPalabras(falla.detalle, razon) : null
   // A failure only Federico can fix: the paid try is not the main action next to "Avísale a Federico".
   const necesitaFederico = falla?.detalle ? esFallaDeLlave(falla.detalle) : false
+  const sinCobro = falla !== null && datos.vozSinCobro
+  const cuerpoDeFalla =
+    detalleDeFalla?.texto || sinCobro ? (
+      <>
+        {detalleDeFalla?.texto ? <p>{detalleDeFalla.texto}</p> : null}
+        {sinCobro ? <p>{TEXTO_INTENTO_SIN_COBRO}</p> : null}
+      </>
+    ) : undefined
 
   return (
     <Seccion titulo="1. Escucha tu voz" id="voz">
@@ -139,7 +148,7 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
             </div>
           }
         >
-          {detalleDeFalla?.texto}
+          {cuerpoDeFalla}
         </Bloque>
       )}
       {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}

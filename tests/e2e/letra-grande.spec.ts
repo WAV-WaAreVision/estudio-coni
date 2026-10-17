@@ -1,4 +1,8 @@
 import { expect, test } from "@playwright/test"
+import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
+import coniConfig from "../fixtures/coni.config.json"
+import { pool } from "../integration/db"
+import { ajustarPieza } from "../integration/siembra"
 import { bloquearRedExterna, configurarServicios, conLetraGrande, simularMedios } from "./ayudas"
 import { sembrarEscena } from "./escena"
 
@@ -51,6 +55,40 @@ test("at large text the sign bar sits at the end of gate 1, round all over, with
   })
   expect(lineas).toBe(1)
   await expect(page.locator("h1")).toHaveCSS("font-size", `${1.5 * raiz}px`)
+})
+
+test("at large text a priced button keeps every word of its label whole", async ({ page }) => {
+  const { guion } = await sembrarEscena()
+  await ajustarPieza(guion, { audio_id: null, explicacion: TEXTO_SIN_VOZ })
+  // The price shows only when the production setup reads.
+  await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(coniConfig)])
+  try {
+    await page.goto(`/guion/${guion}`)
+    await conLetraGrande(page)
+    await expect(page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })).toBeVisible()
+  } finally {
+    await pool.query("update public.ajustes set produccion = '{}'::jsonb")
+  }
+
+  const boton = page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })
+  // One line box per word: a word cut in two ("Prepar" / "ar") draws two.
+  const lineasPorPalabra = await boton.evaluate((nodo) => {
+    const etiqueta = nodo.firstElementChild
+    const texto = etiqueta?.firstChild
+    if (!texto || texto.nodeType !== Node.TEXT_NODE) throw new Error("El botón no tiene la etiqueta como texto")
+    const contenido = texto.textContent ?? ""
+    const cuentas: Record<string, number> = {}
+    let desde = 0
+    for (const palabra of contenido.split(" ")) {
+      const rango = document.createRange()
+      rango.setStart(texto, desde)
+      rango.setEnd(texto, desde + palabra.length)
+      cuentas[palabra] = new Set([...rango.getClientRects()].map((r) => Math.round(r.top))).size
+      desde += palabra.length + 1
+    }
+    return cuentas
+  })
+  expect(lineasPorPalabra).toEqual({ Preparar: 1, mi: 1, voz: 1 })
 })
 
 test("at large text the badges on the video are never smaller than at normal size", async ({ page }) => {

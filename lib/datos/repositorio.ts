@@ -163,6 +163,10 @@ export async function reservarGasto(
     estimadoUsd: number
     clave: string
     ahora: string
+    /** Reopen a released key (only the voice, whose release means "refused, not charged"). */
+    reabrir?: boolean
+    /** The caller's token: the reservation it gets back is its own only when `reservado_por` matches. */
+    reservadoPor?: string
   },
 ): Promise<Reserva> {
   const { data, error } = await db.rpc("reservar_gasto", {
@@ -172,6 +176,8 @@ export async function reservarGasto(
     p_estimado: reserva.estimadoUsd,
     p_clave: reserva.clave,
     p_ahora: reserva.ahora,
+    p_reabrir: reserva.reabrir ?? false,
+    p_reservado_por: reserva.reservadoPor,
   })
   return resultadoDeReserva(error, data)
 }
@@ -197,14 +203,34 @@ export async function reservarGastoGeneral(
   return resultadoDeReserva(error, data)
 }
 
+/** The still open reservations of one voice attempt: its own key and every `:r<n>` try of it. */
+export async function leerReservasAbiertasDeVoz(
+  db: Db,
+  entrada: { piezaId: string; claveDelIntento: string },
+): Promise<FilaDeGasto[]> {
+  const { claveDelIntento } = entrada
+  const { data, error } = await db
+    .from("gastos")
+    .select("*")
+    .eq("pieza_id", entrada.piezaId)
+    .eq("paso", "voz")
+    .eq("estado", "reservado")
+    .or(`clave.eq."${claveDelIntento}",clave.like."${claveDelIntento}:r%"`)
+  if (error) throw fallo("No pude leer las reservas abiertas de la voz", error)
+  return data
+}
+
 export async function confirmarGasto(db: Db, clave: string, realUsd: number): Promise<void> {
   const { error } = await db.rpc("confirmar_gasto", { p_clave: clave, p_real: realUsd })
   if (error) throw fallo("No pude confirmar el gasto", error)
 }
 
-/** Releasing a reservation that is no longer `reservado` changes nothing, so it is safe to repeat. */
-export async function liberarGasto(db: Db, clave: string): Promise<void> {
-  const { error } = await db.rpc("liberar_gasto", { p_clave: clave })
+/**
+ * Releasing a reservation that is no longer `reservado` changes nothing, so it is safe to repeat. `sinCobro` only when
+ * the provider refused the request: it is what lets the screen say the attempt was not charged.
+ */
+export async function liberarGasto(db: Db, clave: string, opciones: { sinCobro?: boolean } = {}): Promise<void> {
+  const { error } = await db.rpc("liberar_gasto", { p_clave: clave, p_sin_cobro: opciones.sinCobro ?? false })
   if (error) throw fallo("No pude liberar el gasto", error)
 }
 

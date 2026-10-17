@@ -167,7 +167,113 @@ describe("leerDatosDeGrabacion", () => {
       voz: null,
       botones: null,
       lineaDeFirma: "Graba el video · 8 s para deshacer",
+      vozSinCobro: false,
     })
+  })
+
+  async function gastoDeVoz(
+    piezaId: string,
+    clave: string,
+    cierre: "sin_cobro" | "barrido" | "abierto" | "confirmado",
+  ) {
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.2, $2, now())", [piezaId, clave])
+    if (cierre === "sin_cobro") await pool.query("select public.liberar_gasto($1, true)", [clave])
+    if (cierre === "barrido") await pool.query("select public.liberar_gasto($1)", [clave])
+    if (cierre === "confirmado") await pool.query("select public.confirmar_gasto($1, 0.2)", [clave])
+  }
+
+  const claveDelIntento = (id: string, intento: number) => `${id}:voz:${"ab".repeat(8)}:${intento}`
+
+  it.each([
+    ["an earlier try of the attempt is still open after a 5xx", "abierto"],
+    ["an earlier try of the attempt was paid and its upload failed", "confirmado"],
+  ] as const)("does not say the attempt was not charged when %s", async (_caso, primera) => {
+    const id = await piezaPorFirmar()
+    const base = claveDelIntento(id, 0)
+    await gastoDeVoz(id, base, primera)
+    await gastoDeVoz(id, `${base}:r1`, "sin_cobro")
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+  })
+
+  it("keeps gate 1 open, without the line and with a log, when the voice spend cannot be read", async () => {
+    const id = await piezaPorFirmar()
+    const registro = vi.spyOn(console, "error").mockImplementation(() => {})
+    // A piece id that is not a UUID makes only the spend read fail: the rest of gate 1 does not filter by it.
+    const fila = { ...(await leerFila(id)), id: "no-es-un-uuid" }
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+    expect(datos.botones).not.toBeNull()
+    expect(registro).toHaveBeenCalledWith(expect.stringContaining("no-es-un-uuid"), expect.any(Error))
+  })
+
+  it.each(["abierto", "confirmado"] as const)(
+    "does not say it when an earlier script of the same attempt left a %s reservation",
+    async (primera) => {
+      const id = await piezaPorFirmar()
+      await gastoDeVoz(id, `${id}:voz:${"cd".repeat(8)}:0`, primera)
+      await gastoDeVoz(id, claveDelIntento(id, 0), "sin_cobro")
+      const fila = await leerFila(id)
+
+      const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+      expect(datos.vozSinCobro).toBe(false)
+    },
+  )
+
+  it("says it for an attempt whose every try was refused", async () => {
+    const id = await piezaPorFirmar()
+    const base = claveDelIntento(id, 0)
+    await gastoDeVoz(id, base, "sin_cobro")
+    await gastoDeVoz(id, `${base}:r1`, "sin_cobro")
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(true)
+  })
+
+  it("does not carry an older attempt's refusal over a newer failure that reserved nothing, like the cap", async () => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, claveDelIntento(id, 0), "sin_cobro")
+    await ajustarPieza(id, { intento: 1 })
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
+  })
+
+  it.each([
+    ["a refusal released it", "sin_cobro", true],
+    ["the sweeper released it", "barrido", false],
+    ["it is still open", "abierto", false],
+  ] as const)("says the last voice attempt was not charged only when %s", async (_caso, cierre, esperado) => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:0`, cierre)
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(esperado)
+  })
+
+  it("reads the latest voice attempt, not an older refused one", async () => {
+    const id = await piezaPorFirmar()
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:0`, "sin_cobro")
+    await gastoDeVoz(id, `${id}:voz:${"ab".repeat(8)}:1`, "abierto")
+    // The open key belongs to the piece's current attempt; the refused one to the attempt before it.
+    await ajustarPieza(id, { intento: 1 })
+    const fila = await leerFila(id)
+
+    const datos = await leerDatosDeGrabacion(coni, { fila, estado: "guion_por_aprobar", guion: GUION, zona: ZONA })
+
+    expect(datos.vozSinCobro).toBe(false)
   })
 })
 

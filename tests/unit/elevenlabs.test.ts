@@ -3,7 +3,16 @@ import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
-import { estimarCostoTranscripcion, generarVoz, transcribir, verificarVoz } from "@/lib/proveedores/elevenlabs"
+import {
+  estimarCostoTranscripcion,
+  FallaPasajeraDeElevenlabs,
+  generarVoz,
+  RechazoDeElevenlabs,
+  rechazoSinCobro,
+  SinCaracteres,
+  transcribir,
+  verificarVoz,
+} from "@/lib/proveedores/elevenlabs"
 import { servidor } from "../msw"
 
 const CLAVE = "sk_secreta_de_prueba"
@@ -180,9 +189,95 @@ describe("generarVoz sin caracteres", () => {
     const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
 
     expect(rechazado).toBeInstanceOf(Falla)
+    expect(rechazado).toBeInstanceOf(SinCaracteres)
+    expect(rechazado).toMatchObject({ respondio: true, http: 401 })
     expect(rechazado.message).toBe(
       "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
     )
+  })
+  it("tells Coni to top up when ElevenLabs answers 402 insufficient_credits", async () => {
+    servidor.use(
+      http.post(`${BASE}/v1/text-to-speech/:voz`, () =>
+        HttpResponse.json(
+          { detail: { type: "payment_required", code: "insufficient_credits", message: "Not enough credits." } },
+          { status: 402 },
+        ),
+      ),
+    )
+    const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+
+    expect(rechazado).toBeInstanceOf(SinCaracteres)
+    expect(rechazado).toMatchObject({ http: 402 })
+    expect(rechazoSinCobro(rechazado)).toBe(true)
+  })
+})
+
+describe("generarVoz dice qué respondió ElevenLabs", () => {
+  it.each([400, 401, 402, 403, 404, 409, 422])(
+    "marks HTTP %i as answered and refused without charge",
+    async (estado) => {
+      capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
+      const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+      expect(error).toBeInstanceOf(RechazoDeElevenlabs)
+      expect(error).toBeInstanceOf(FallaDeConfiguracion)
+      expect(error).toMatchObject({ respondio: true, http: estado })
+      expect(rechazoSinCobro(error)).toBe(true)
+    },
+  )
+
+  it("marks a 429 as answered, refused without charge and still retryable", async () => {
+    capturando(() => new HttpResponse("slow down", { status: 429 }))
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toBeInstanceOf(FallaPasajeraDeElevenlabs)
+    expect(esReintentable(error)).toBe(true)
+    expect(error).toMatchObject({ respondio: true, http: 429 })
+    expect(rechazoSinCobro(error)).toBe(true)
+  })
+
+  it.each([500, 503, 529])("marks HTTP %i as answered with an unknown charge", async (estado) => {
+    capturando(() => new HttpResponse("upstream error", { status: estado }))
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toMatchObject({ respondio: true, http: estado })
+    expect(rechazoSinCobro(error)).toBe(false)
+  })
+
+  it("marks a network drop as not answered", async () => {
+    capturando(() => HttpResponse.error())
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toMatchObject({ respondio: false, http: null })
+    expect(rechazoSinCobro(error)).toBe(false)
+  })
+
+  it("marks an empty audio as answered with an unknown charge", async () => {
+    capturando(() => new HttpResponse(new Uint8Array(), { headers: { "Content-Type": "audio/mpeg" } }))
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toMatchObject({ respondio: true, http: 200 })
+    expect(rechazoSinCobro(error)).toBe(false)
+  })
+
+  it("marks an audio cut while reading as answered with an unknown charge, still retryable", async () => {
+    capturando(
+      () =>
+        new HttpResponse(
+          new ReadableStream({
+            start(control) {
+              control.enqueue(new Uint8Array([73, 68]))
+              control.error(new Error("cortado"))
+            },
+          }),
+          { headers: { "Content-Type": "audio/mpeg" } },
+        ),
+    )
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toBeInstanceOf(FallaPasajeraDeElevenlabs)
+    expect(esReintentable(error)).toBe(true)
+    expect(error).toMatchObject({ respondio: true, http: 200 })
+    expect(rechazoSinCobro(error)).toBe(false)
+  })
+
+  it("does not call an error from elsewhere a refusal", () => {
+    expect(rechazoSinCobro(new Error("HTTP 401"))).toBe(false)
+    expect(rechazoSinCobro(new FallaDeConfiguracion("ElevenLabs respondió HTTP 401"))).toBe(false)
   })
 })
 

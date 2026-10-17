@@ -69,7 +69,14 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     avatares: [{ id: "look-a", nombre: "Estudio", imagenUrl: null }],
     avisoInicial: null,
     avatarGuardado: null,
-    grabacion: { estado: "guion_por_aprobar", voz: VOZ, botones: BOTONES, lineaDeFirma: LINEA, ...grabacion },
+    grabacion: {
+      estado: "guion_por_aprobar",
+      voz: VOZ,
+      botones: BOTONES,
+      lineaDeFirma: LINEA,
+      vozSinCobro: false,
+      ...grabacion,
+    },
     ...sobre,
   }
 }

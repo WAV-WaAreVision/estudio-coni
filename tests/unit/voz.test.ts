@@ -8,6 +8,7 @@ import {
   type VozConfigurada,
   vozDelGuion,
 } from "@/lib/dominio/voz"
+import { claveDeGastoDeVoz } from "@/lib/produccion/voz"
 
 const PIEZA = "11111111-2222-4333-8444-555555555555"
 const VOZ: VozConfigurada = {
@@ -94,5 +95,19 @@ describe("vozDelGuion", () => {
     expect(vozDelGuion({ audioId: null, piezaId: PIEZA, huella })).toBeNull()
     expect(vozDelGuion({ audioId: claveDeToma(PIEZA, otra, 0), piezaId: PIEZA, huella })).toBeNull()
     expect(vozDelGuion({ audioId: legada, piezaId: PIEZA, huella })).toBeNull()
+  })
+})
+
+describe("claveDeGastoDeVoz", () => {
+  const HUELLA = "ab".repeat(32)
+
+  it("keeps the attempt's own key for the first paid try and suffixes the next ones", () => {
+    expect(claveDeGastoDeVoz("p1", HUELLA, 2)).toBe(`p1:voz:${"ab".repeat(8)}:2`)
+    expect(claveDeGastoDeVoz("p1", HUELLA, 2, 1)).toBe(`p1:voz:${"ab".repeat(8)}:2:r1`)
+  })
+
+  it("rejects a negative or fractional paid try", () => {
+    expect(() => claveDeGastoDeVoz("p1", HUELLA, 2, -1)).toThrow()
+    expect(() => claveDeGastoDeVoz("p1", HUELLA, 2, 1.5)).toThrow()
   })
 })

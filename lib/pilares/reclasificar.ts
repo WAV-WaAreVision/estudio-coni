@@ -1,4 +1,4 @@
-import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
+import { costoClaude, MODELO_POR_TAREA, pedidoDeReclasificacion } from "@/lib/proveedores/anthropic"
 
 export const TIPOS = ["material", "tema", "teoria"] as const
 export type TipoDeElemento = (typeof TIPOS)[number]
@@ -21,7 +21,9 @@ export interface FilaDeReclasificacion {
 
 export const POR_TANDA = 40
 const CARACTERES_POR_TOKEN = 4
-const TOKENS_DE_SALIDA_POR_ELEMENTO = 60
+// A UUID, a slug, a one-sentence Spanish reason and the JSON keys: about 105 tokens per item in the production run of
+// 2026-10-17 (60 under-shot the real cost by 1.6x).
+const TOKENS_DE_SALIDA_POR_ELEMENTO = 110
 const COLUMNAS = ["id", "tipo", "antes", "propuesta", "razon"] as const
 
 const comillas = (campo: string) => `"${campo.replaceAll('"', '""')}"`
@@ -100,13 +102,18 @@ export function validarFilas(filas: readonly FilaDeReclasificacion[], permitidas
   if (repetidos.size > 0) throw new Error(`Ids repetidos: ${[...repetidos].join(", ")}.`)
 }
 
-/** Printed before any call: batches, and US$ from list prices (the system prompt is sent, and cached, per batch). */
+/** Printed before any call: batches, and US$ from list prices (the system prompt and the user message, per batch). */
 export function estimarClasificacion(entrada: { elementos: readonly ElementoPorClasificar[]; sistema: string }): {
   tandas: number
   usd: number
 } {
-  const tandas = Math.ceil(entrada.elementos.length / POR_TANDA)
-  const caracteres = entrada.sistema.length * tandas + JSON.stringify(entrada.elementos).length
+  let caracteres = 0
+  let tandas = 0
+  for (let desde = 0; desde < entrada.elementos.length; desde += POR_TANDA) {
+    tandas += 1
+    caracteres +=
+      entrada.sistema.length + pedidoDeReclasificacion(entrada.elementos.slice(desde, desde + POR_TANDA)).length
+  }
   const usd = costoClaude(
     {
       input_tokens: Math.ceil(caracteres / CARACTERES_POR_TOKEN),

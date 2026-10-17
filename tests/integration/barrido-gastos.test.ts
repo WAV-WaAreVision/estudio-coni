@@ -170,13 +170,16 @@ describe("barrerGastos con la voz aparte", () => {
     expect((await gasto(clave)).estado).toBe("liberado")
   })
 
-  it("confirms a voice reservation once the piece has a voice", async () => {
+  it("does not confirm an older-key voice reservation because the piece has some voice; it waits a day", async () => {
     const id = await pieza("guion_por_aprobar")
     await pool.query("update public.piezas set audio_id = 'voces/x.mp3', version = version + 1 where id = $1", [id])
     const clave = await reservar(id, "elevenlabs", "voz")
 
-    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
-    expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.25 })
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 0 })
+    expect((await gasto(clave)).estado).toBe("reservado")
+
+    expect(await barrerGastos(deps(dentroDe(25)))).toEqual({ confirmados: 0, liberados: 1 })
+    expect(await gasto(clave)).toEqual({ estado: "liberado", real: null })
   })
 })
 
@@ -231,5 +234,39 @@ describe("barrerGastos con la clave de la voz por texto", () => {
     expect((await gasto(clave)).estado).toBe("reservado")
 
     expect(await barrerGastos(deps(dentroDe(25)))).toEqual({ confirmados: 0, liberados: 1 })
+  })
+
+  async function reservarVozCobro(piezaId: string, intento: number, cobro: number): Promise<string> {
+    const clave = claveDeGastoDeVoz(piezaId, HUELLA, intento, cobro)
+    await pool.query("select public.reservar_gasto($1, 'elevenlabs', 'voz', 0.25, $2, now())", [piezaId, clave])
+    return clave
+  }
+
+  it("reads a suffixed key as a voice key: released after an hour without its take", async () => {
+    const id = await pieza("guion_por_aprobar")
+    const clave = await reservarVozCobro(id, 1, 1)
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 0, liberados: 1 })
+
+    expect(await gasto(clave)).toEqual({ estado: "liberado", real: null })
+  })
+
+  it("confirms a suffixed key whose take is the piece's voice", async () => {
+    const id = await pieza("guion_por_aprobar")
+    await conVoz(id, claveDeToma(id, HUELLA, 1))
+    const clave = await reservarVozCobro(id, 1, 2)
+
+    expect(await barrerGastos(deps(dentroDe(2)))).toEqual({ confirmados: 1, liberados: 0 })
+    expect(await gasto(clave)).toEqual({ estado: "confirmado", real: 0.25 })
+  })
+
+  it("never marks a release of its own as not charged", async () => {
+    const id = await pieza("guion_por_aprobar")
+    const clave = await reservarVoz(id, 3)
+
+    await barrerGastos(deps(dentroDe(2)))
+
+    const { rows } = await pool.query("select sin_cobro from public.gastos where clave = $1", [clave])
+    expect(rows).toEqual([{ sin_cobro: false }])
   })
 })

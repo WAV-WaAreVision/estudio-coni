@@ -59,7 +59,7 @@ export function Boton({
       onClick={alTocar}
       className={cn(clasesDeBoton({ variante, tamano }), className)}
     >
-      <span className="inline-flex items-center gap-2">{children}</span>
+      <span className="etiqueta-de-boton inline-flex items-center gap-2">{children}</span>
       {/* A space, so a price joins the accessible name as "Preparar mi voz US$ 0,33"; a flex row does not draw it. */}{" "}
       {derecha}
     </button>
