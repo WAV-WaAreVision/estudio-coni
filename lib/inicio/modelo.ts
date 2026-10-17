@@ -26,6 +26,16 @@ export interface FilaDeFirma {
   pilar: Pilar | null
   meta: string
   href: string
+  /** What signing it takes, for the card of the first one (decision 8, step 6). */
+  instruccion: string
+}
+
+/** A piece whose voice is being made: it cannot be signed yet (decision 8, step 6). */
+export interface FilaEnPreparacion {
+  id: string
+  titulo: string
+  pilar: Pilar | null
+  meta: string
 }
 
 export interface FilaEnCamino {
@@ -33,10 +43,10 @@ export interface FilaEnCamino {
   titulo: string
   pilar: Pilar | null
   estado: string
-  /** Being worked on right now: the row is not a link and shows a quiet progress bar. */
+  /** Being worked on right now: the row shows the working dot. */
   ocupada: boolean
-  /** Set when Coni has something to do on its screen. */
-  href?: string
+  /** The piece's screen: the work in progress and the undo window, or the scheduled date. */
+  href: string
 }
 
 export interface FilaPorSubir {
@@ -49,74 +59,112 @@ export interface FilaPorSubir {
 
 export interface AvisoDeInicio {
   tipo: "error" | "ok"
+  /** Error: the piece's title. Ok: the sentence of the news. */
   titulo: string
   texto: string
+  /** Error notices: the cause in one sentence, the large block's title (decision 8, step 3). */
+  causa?: string
+  /** Error notices: the piece's pillar, for its row when it is not the first one. */
+  pilar?: Pilar | null
   accion?: { etiqueta: string; href: string; externo?: boolean }
 }
 
 export interface Inicio {
   semana: string
-  resumen: string
-  /** The answer of the screen («2 cosas esperan tu firma») and, apart, how long it takes («unos 6 min»). */
+  /** The answer of the screen: what needs her attention, or what waits for her signature. */
   titulo: string
-  tiempo: string | null
+  /** One line under the title: "Después, 2 esperan tu firma." or "1 en preparación · unos 6 min". */
+  linea: string | null
+  /** Failures, the most urgent first: the first is the large block, the rest are rows. */
+  atencion: AvisoDeInicio[]
+  /** Good news: a recent publication or a manual upload. */
+  avisos: AvisoDeInicio[]
   firma: FilaDeFirma[]
+  enPreparacion: FilaEnPreparacion[]
   /** Reels whose time came and have a destination she uploads herself. */
   porSubir: FilaPorSubir[]
   /** "Para subir a Instagram y LinkedIn": every network that waits, or just "Para subir". */
   porSubirTitulo: string
   camino: FilaEnCamino[]
-  avisos: AvisoDeInicio[]
 }
 
 const MINUTOS_POR_FIRMA = 3
 const DIAS_DE_CELEBRACION_MS = 2 * 24 * 60 * 60 * 1000
 const EXPLICACION_GENERICA = "Algo no salió como esperábamos con esta pieza."
 
-function tituloDeFirmas(cantidad: number): string {
-  if (cantidad === 0) return "Esta semana está al día"
-  return cantidad === 1 ? "Una cosa espera tu firma" : `${cantidad} cosas esperan tu firma`
+/** Only what she can sign now counts: a voice being made waits apart (critique v3, P2). */
+const ESPERAN_FIRMA: readonly Estado[] = ["guion_por_aprobar", "video_por_aprobar"]
+
+/** The order of the failures (decision 8, step 3): what is already late first. */
+const ORDEN_DE_ATENCION: readonly Estado[] = [
+  "error_publicacion",
+  "error_produccion",
+  "guion_por_aprobar",
+  "guion_en_proceso",
+  "video_por_aprobar",
+]
+
+function tituloDeInicio(atencion: number, firmas: number): string {
+  if (atencion > 0) return atencion === 1 ? "Una cosa necesita tu atención" : `${atencion} cosas necesitan tu atención`
+  if (firmas === 0) return "Esta semana está al día"
+  return firmas === 1 ? "Una espera tu firma" : `${firmas} esperan tu firma`
 }
 
-function tiempoDeFirmas(cantidad: number): string | null {
-  return cantidad === 0 ? null : `unos ${cantidad * MINUTOS_POR_FIRMA} min`
-}
-
-function resumenDeFirmas(cantidad: number): string {
-  const tiempo = tiempoDeFirmas(cantidad)
-  return tiempo === null ? tituloDeFirmas(cantidad) : `${tituloDeFirmas(cantidad)} · ${tiempo}`
+function lineaDeInicio(atencion: number, firmas: number, enPreparacion: number): string | null {
+  if (atencion > 0) {
+    if (firmas === 0) return null
+    return firmas === 1 ? "Después, una espera tu firma." : `Después, ${firmas} esperan tu firma.`
+  }
+  const partes = [
+    enPreparacion > 0 ? `${enPreparacion} en preparación` : null,
+    firmas > 0 ? `unos ${firmas * MINUTOS_POR_FIRMA} min` : null,
+  ].filter((parte): parte is string => parte !== null)
+  return partes.length > 0 ? partes.join(" · ") : null
 }
 
 function segundosDe(pieza: PiezaDeInicio): number {
   return Math.round(estimarSegundos(pieza.guion ?? ""))
 }
 
-/** Gate 1 includes a voice being made: the piece is still hers to sign (design 2026-10-15, section 6). */
-const ESPERAN_FIRMA: readonly Estado[] = ["guion_por_aprobar", "grabando_voz", "video_por_aprobar"]
-
 function filaDeFirma(pieza: PiezaDeInicio): FilaDeFirma {
   const base = { id: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar }
   if (pieza.estado === "video_por_aprobar") {
-    return { ...base, meta: `Video · ${segundosDe(pieza)} s`, href: `/video/${pieza.id}` }
+    return {
+      ...base,
+      meta: `Video · ${segundosDe(pieza)} s`,
+      href: `/video/${pieza.id}`,
+      instruccion: "Mira el video, revisa el texto y elige la fecha.",
+    }
   }
-  const meta = pieza.estado === "grabando_voz" ? "Preparando la voz" : `Guion · ${segundosDe(pieza)} s`
-  return { ...base, meta, href: `/guion/${pieza.id}` }
+  return {
+    ...base,
+    meta: `Guion · ${segundosDe(pieza)} s`,
+    href: `/guion/${pieza.id}`,
+    instruccion: "Escucha tu voz y revisa el guion.",
+  }
+}
+
+function filaEnPreparacion(pieza: PiezaDeInicio): FilaEnPreparacion {
+  return { id: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar, meta: "Preparando la voz" }
 }
 
 function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
   const base = { id: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar }
   switch (pieza.estado) {
     case "guion_en_proceso":
-      // With a reason on it, the piece is a notice (it is not being written), not "on its way".
-      return pieza.explicacion === null ? { ...base, estado: "Escribiendo el guion · te aviso", ocupada: true } : null
+      // With a reason on it, the piece is a failure (it is not being written), not "on its way".
+      return pieza.explicacion === null
+        ? { ...base, estado: "Escribiendo el guion · te aviso", ocupada: true, href: `/guion/${pieza.id}` }
+        : null
     case "en_render":
     case "subtitulando":
-      return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true }
+      return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true, href: `/guion/${pieza.id}` }
     case "programado":
       return {
         ...base,
         estado: pieza.publicarEn ? `Programado · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : "Programado",
         ocupada: false,
+        href: `/video/${pieza.id}`,
       }
     default:
       return null
@@ -124,29 +172,31 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
 }
 
 function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
-  const texto = pieza.explicacion ?? EXPLICACION_GENERICA
+  const base = {
+    tipo: "error" as const,
+    titulo: pieza.titulo,
+    texto: pieza.explicacion ?? EXPLICACION_GENERICA,
+    pilar: pieza.pilar,
+  }
+  const revisar = (ruta: "guion" | "video") => ({ etiqueta: "Revisar", href: `/${ruta}/${pieza.id}` })
   switch (pieza.estado) {
-    case "error_produccion":
-    case "guion_en_proceso":
-      return pieza.estado !== "error_produccion" && pieza.explicacion === null
-        ? null
-        : { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/guion/${pieza.id}` } }
     case "error_publicacion":
-      return { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/video/${pieza.id}` } }
+      return { ...base, causa: "No pude publicar.", accion: revisar("video") }
+    case "error_produccion":
+      return { ...base, causa: "No pude terminar el video.", accion: revisar("guion") }
     case "guion_por_aprobar":
       // A phrase HeyGen refused or a voice that could not be made: the text says which, the screen has the way out.
       return pieza.explicacion === null
         ? null
-        : { tipo: "error", titulo: pieza.titulo, texto, accion: { etiqueta: "Revisar", href: `/guion/${pieza.id}` } }
+        : { ...base, causa: "Tu guion necesita atención.", accion: revisar("guion") }
+    case "guion_en_proceso":
+      return pieza.explicacion === null
+        ? null
+        : { ...base, causa: "No pude escribir el guion.", accion: revisar("guion") }
     case "video_por_aprobar":
       return pieza.explicacion === null
         ? null
-        : {
-            tipo: "error",
-            titulo: pieza.titulo,
-            texto,
-            accion: { etiqueta: "Elegir otra fecha", href: `/video/${pieza.id}` },
-          }
+        : { ...base, causa: "Elige otra fecha.", accion: { etiqueta: "Elegir otra fecha", href: `/video/${pieza.id}` } }
     default:
       return null
   }
@@ -214,30 +264,34 @@ function porHoraDePublicacion(a: PiezaDeInicio, b: PiezaDeInicio): number {
   return Date.parse(a.publicarEn) - Date.parse(b.publicarEn)
 }
 
-/** What Inicio shows, from the pieces and the clock: no database, no rendering. */
+function reciente(piezas: readonly PiezaDeInicio[], estado: Estado, ahora: number): PiezaDeInicio | undefined {
+  return piezas
+    .filter((pieza) => pieza.estado === estado && ahora - Date.parse(pieza.actualizadaEn) <= DIAS_DE_CELEBRACION_MS)
+    .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
+}
+
+/** What Inicio shows, from the pieces and the clock: no database, no rendering (decision 8). */
 export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; ahora: number; zona: string }): Inicio {
   const { piezas, ahora, zona } = entrada
   const firma = piezas.filter((pieza) => ESPERAN_FIRMA.includes(pieza.estado)).map(filaDeFirma)
+  const enPreparacion = piezas.filter((pieza) => pieza.estado === "grabando_voz").map(filaEnPreparacion)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))
     .filter((par): par is { pieza: PiezaDeInicio; fila: FilaEnCamino } => par.fila !== null)
     .sort((a, b) => porHoraDePublicacion(a.pieza, b.pieza))
     .map((par) => par.fila)
+  const atencion = piezas
+    .map((pieza) => ({ pieza, aviso: avisoDeError(pieza) }))
+    .filter((par): par is { pieza: PiezaDeInicio; aviso: AvisoDeInicio } => par.aviso !== null)
+    .sort((a, b) => ORDEN_DE_ATENCION.indexOf(a.pieza.estado) - ORDEN_DE_ATENCION.indexOf(b.pieza.estado))
+    .map((par) => par.aviso)
 
-  const avisos: AvisoDeInicio[] = piezas.flatMap((pieza) => avisoDeError(pieza) ?? [])
-  const reciente = piezas
-    .filter(
-      (pieza) => pieza.estado === "publicado" && ahora - Date.parse(pieza.actualizadaEn) <= DIAS_DE_CELEBRACION_MS,
-    )
-    .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
-  if (reciente) avisos.push(avisoDePublicacion(reciente, ahora, zona))
-  const recienteAMano = piezas
-    .filter(
-      (pieza) =>
-        pieza.estado === "publicado_a_mano" && ahora - Date.parse(pieza.actualizadaEn) <= DIAS_DE_CELEBRACION_MS,
-    )
-    .sort((a, b) => Date.parse(b.actualizadaEn) - Date.parse(a.actualizadaEn))[0]
-  if (recienteAMano) avisos.push(avisoDeSubidaAMano(recienteAMano, ahora, zona))
+  const avisos: AvisoDeInicio[] = []
+  const publicada = reciente(piezas, "publicado", ahora)
+  if (publicada) avisos.push(avisoDePublicacion(publicada, ahora, zona))
+  const subida = reciente(piezas, "publicado_a_mano", ahora)
+  if (subida) avisos.push(avisoDeSubidaAMano(subida, ahora, zona))
+
   const paraSubir = piezas.filter((pieza) => pieza.estado === "para_subir_a_mano")
   const redes = canonicos(paraSubir.flatMap(esperando))
   const porSubir = paraSubir
@@ -246,13 +300,14 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
 
   return {
     semana: `Semana del ${semanaDe(ahora, zona)}`,
-    resumen: resumenDeFirmas(firma.length),
-    titulo: tituloDeFirmas(firma.length),
-    tiempo: tiempoDeFirmas(firma.length),
+    titulo: tituloDeInicio(atencion.length, firma.length),
+    linea: lineaDeInicio(atencion.length, firma.length, enPreparacion.length),
+    atencion,
+    avisos,
     firma,
+    enPreparacion,
     porSubir,
     porSubirTitulo: redes.length > 0 ? `Para subir a ${nombreDeDestinos(redes)}` : "Para subir",
     camino,
-    avisos,
   }
 }
