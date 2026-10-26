@@ -8,6 +8,7 @@ import {
   vaciarPiezasEIdeas,
 } from "../integration/siembra"
 import { abrirDesplegable, capturar } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 const HOY_EN_SANTIAGO = "(now() at time zone 'America/Santiago')::date"
 
@@ -70,7 +71,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
   page,
 }) => {
   await reelPublicado({
-    titulo: "Ser tu propia diosa",
+    titulo: PIEZAS.video.titulo,
     pilar: "etica-regulacion",
     haceDias: 20,
     alcance: 2000,
@@ -84,7 +85,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
     guardados: 121,
   })
   await reelPublicado({
-    titulo: "El deseo no se apaga, se esconde",
+    titulo: PIEZAS.guion.titulo,
     pilar: "practica-clinica",
     haceDias: 8,
     alcance: 1000,
@@ -105,8 +106,8 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(barras.nth(0)).toContainText("cada 1.000")
   await expect(barras.nth(0)).toContainText("121 guardados de 2.400 personas")
   await expect(barras.nth(0)).toContainText("IA y salud mental · 1 reel de este tema")
-  await expect(barras.nth(1)).toContainText("El deseo no se apaga, se esconde")
-  await expect(barras.nth(2)).toContainText("Ser tu propia diosa")
+  await expect(barras.nth(1)).toContainText(PIEZAS.guion.titulo)
+  await expect(barras.nth(2)).toContainText(PIEZAS.video.titulo)
   await expect(page.getByRole("heading", { name: "Instagram" })).toBeVisible()
   await expect(page.getByText("Guardados cada 1.000 personas que lo vieron.")).toBeVisible()
   await expect(page.getByText("Últimas 12 semanas").first()).toBeVisible()

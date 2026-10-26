@@ -45,9 +45,9 @@ const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
 const tomaDe = (id: string, guion: string, toma: number) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
 
 async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO, { conVoz = true } = {}) {
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: PIEZAS.guion.titulo })
   const id = await sembrarPieza("guion_por_aprobar", {
-    titulo: "El deseo no se apaga, se esconde",
+    titulo: PIEZAS.guion.titulo,
     idea_id: idea,
     guion: GUION_VALIDO,
     texto,
@@ -116,7 +116,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
 
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   const barra = page.getByRole("region", { name: "Firma" })
-  await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: PIEZAS.guion.titulo })).toBeVisible()
   await expect(page.getByText(/^Si lo firmas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
@@ -352,9 +352,9 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 test("while her voice is being made the script is read-only and keeps its tone marks with the help", async ({
   page,
 }) => {
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: PIEZAS.guion.titulo })
   const id = await sembrarPieza("grabando_voz", {
-    titulo: "El deseo no se apaga, se esconde",
+    titulo: PIEZAS.guion.titulo,
     idea_id: idea,
     guion: `[warm] ${GUION_VALIDO}`,
     texto: TEXTO_CON_AYUDA,

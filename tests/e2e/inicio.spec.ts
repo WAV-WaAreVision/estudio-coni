@@ -10,6 +10,7 @@ import {
   limpiarDisparos,
   TEXTO_VALIDO,
 } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 const IDEAS = [
   { pilar: "etica-regulacion", gancho: "¿Te achicas para que nadie se incomode?" },
@@ -38,8 +39,8 @@ async function pareja(
 const SIN_FALLA = { explicacion: null }
 
 test("Inicio shows what needs her signature, what is on its way and five ideas for the week", async ({ page }) => {
-  const guion = await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde", SIN_FALLA)
-  const video = await pareja("video_por_aprobar", "Ser tu propia diosa")
+  const guion = await pareja("guion_por_aprobar", PIEZAS.guion.titulo, SIN_FALLA)
+  const video = await pareja("video_por_aprobar", PIEZAS.video.titulo)
   await pareja("en_render", "Puedes decir que no")
   await pareja("programado", "Si van a discutir, siéntense del mismo lado")
   for (const idea of IDEAS) await sembrarIdea(idea)
@@ -65,8 +66,8 @@ test("Inicio shows what needs her signature, what is on its way and five ideas f
 })
 
 test("the title is the summary and the signature section starts in the first screenful", async ({ page }) => {
-  await pareja("guion_por_aprobar", "El deseo no se apaga, se esconde", SIN_FALLA)
-  await pareja("video_por_aprobar", "Ser tu propia diosa")
+  await pareja("guion_por_aprobar", PIEZAS.guion.titulo, SIN_FALLA)
+  await pareja("video_por_aprobar", PIEZAS.video.titulo)
   await page.goto("/")
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/esperan? tu firma/)
   const caja = await page.getByRole("region", { name: "Necesita tu firma" }).boundingBox()
@@ -84,7 +85,7 @@ test("Inicio with nothing to sign says so and offers the ideas", async ({ page }
 })
 
 test("a failed piece raises its reason on top, with the way to it", async ({ page }) => {
-  await pareja("video_por_aprobar", "Ser tu propia diosa", {
+  await pareja("video_por_aprobar", PIEZAS.video.titulo, {
     explicacion: "La hora aprobada pasó sin publicarse. Elige una nueva fecha.",
   })
 
