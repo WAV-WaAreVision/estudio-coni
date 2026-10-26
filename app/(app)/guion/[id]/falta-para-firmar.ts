@@ -44,3 +44,17 @@ export function faltaParaFirmar(estado: EstadoDeLaFirma): FaltaParaFirmar {
   ].filter((cosa): cosa is string => cosa !== null)
   return cosas.length === 0 ? { tipo: "nada" } : { tipo: "falta", cosas }
 }
+
+/**
+ * What keeps a carousel's signature closed: she does not edit on the phone (C8), so a blocking finding asks for a
+ * change, and every warning has to be looked at.
+ */
+export function faltaParaFirmarCarrusel(estado: {
+  bloqueos: number
+  sinRevisar: readonly Hallazgo[]
+}): FaltaParaFirmar {
+  const cosas = [estado.bloqueos > 0 ? "pedir un cambio" : null, revisarPendientes(estado.sinRevisar)].filter(
+    (cosa): cosa is string => cosa !== null,
+  )
+  return cosas.length === 0 ? { tipo: "nada" } : { tipo: "falta", cosas }
+}

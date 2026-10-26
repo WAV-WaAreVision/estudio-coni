@@ -49,3 +49,21 @@ export function separarFallaDeVoz(explicacion: string): { titulo: string; detall
   const resto = explicacion.slice(TEXTO_NO_PUDE_PREPARAR_VOZ.length).trim()
   return { titulo: TEXTO_NO_PUDE_PREPARAR_VOZ, detalle: resto === "" ? null : resto }
 }
+
+// LinkedIn carousels (design 2026-10-26, plan D4).
+export const TEXTO_CARRUSEL_DE_LINKEDIN = "Carrusel de LinkedIn"
+export const TEXTO_ESCRIBIENDO_CARRUSEL = "Estoy escribiendo el carrusel"
+export const TEXTO_NO_ESCRIBI_CARRUSEL = "No pude escribir el carrusel"
+export const TEXTO_REVISA_LAMINAS = "1. Revisa las láminas"
+export const TEXTO_REVISA_POST = "2. Revisa el texto de la publicación"
+export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Revisé el carrusel y no encontré observaciones. Tú decides."
+export const TEXTO_AYUDA_DEL_PEDIDO = "Escríbelo en una frase. Escribo el carrusel de nuevo y este se descarta."
+export const TEXTO_SIN_CAMBIOS_CARRUSEL = "Ya pediste 3 cambios. Puedes firmarlo como está."
+export const TEXTO_CONSECUENCIA_CARRUSEL = "Firmas las láminas y el texto. Todavía no se publica nada."
+export const TEXTO_CARRUSEL_FIRMADO = "Firmaste el texto del carrusel"
+export const TEXTO_CARRUSEL_ESPERA =
+  "El diseño de las láminas llega en la próxima versión de la app. Cuando esté, te aviso para que lo veas y elijas la fecha. Nada se publica sin que lo apruebes."
+export const TEXTO_ASI_QUEDO_FIRMADO = "Así quedó firmado"
+
+export const textoCambiosQuedan = (quedan: number) =>
+  quedan === 1 ? "Te queda 1 cambio." : `Te quedan ${quedan} cambios.`

@@ -1,6 +1,10 @@
 // tests/unit/falta-para-firmar-guion.test.ts
 import { describe, expect, it } from "vitest"
-import { type EstadoDeLaFirma, faltaParaFirmar } from "@/app/(app)/guion/[id]/falta-para-firmar"
+import {
+  type EstadoDeLaFirma,
+  faltaParaFirmar,
+  faltaParaFirmarCarrusel,
+} from "@/app/(app)/guion/[id]/falta-para-firmar"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
 const LISTA: EstadoDeLaFirma = {
@@ -71,6 +75,19 @@ describe("faltaParaFirmar", () => {
     expect(faltaParaFirmar({ ...LISTA, sinAvatares: true, avatarElegido: false })).toEqual({
       tipo: "bloqueo",
       texto: "Todavía no hay avatares para elegir: avísale a Federico.",
+    })
+  })
+})
+
+describe("faltaParaFirmarCarrusel", () => {
+  const aviso = { regla: "largo_lamina" as const, tipo: "advierte" as const, mensaje: "La lámina 1 es larga." }
+  it("opens with nothing blocking and every warning ticked", () => {
+    expect(faltaParaFirmarCarrusel({ bloqueos: 0, sinRevisar: [] })).toEqual({ tipo: "nada" })
+  })
+  it("asks for a change when the review blocks (she cannot edit), and to look at what is left", () => {
+    expect(faltaParaFirmarCarrusel({ bloqueos: 1, sinRevisar: [aviso] })).toEqual({
+      tipo: "falta",
+      cosas: ["pedir un cambio", "revisar 1 aviso"],
     })
   })
 })
