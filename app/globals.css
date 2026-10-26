@@ -480,21 +480,19 @@ html[data-letra="grande"] .nav-inferior {
   border-radius: var(--r-panel);
   box-shadow: var(--relieve);
 }
-/* One tab per row, the label beside its icon: three words that never fit side by side at this size stay readable. */
-html[data-letra="grande"] .nav-inferior {
-  grid-template-columns: minmax(0, 1fr);
-}
+/* One compact row, the icon above its label, as at normal size: the label shrinks to the normal body size so three
+   words fit side by side, and each tab keeps a target well over 44 px. */
 html[data-letra="grande"] .nav-inferior a {
-  min-height: 2.75rem;
-  grid-auto-flow: column;
-  justify-content: start;
-  align-items: center;
-  gap: var(--e-3);
-  padding-inline: var(--e-4);
+  min-height: 0;
+  padding: var(--e-2) var(--e-1);
 }
 html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
+}
+html[data-letra="grande"] .nav-etiqueta {
+  font-size: 0.5rem;
+  white-space: nowrap;
 }
 /* A word may break anywhere at this size, so an account's name would shrink to nothing beside its pill: it takes
    its own width and the pill wraps under it. */

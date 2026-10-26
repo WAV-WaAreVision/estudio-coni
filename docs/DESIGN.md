@@ -272,8 +272,8 @@ va arriba para no taparla.
 ### Navigation
 Barra inferior de tres pestañas sobre piedra con relieve alto hacia arriba. La activa va en una
 píldora hundida en piedra honda, en texto tinta 600; las demás, en apagado. En computador sube al borde
-superior. Con letra grande queda al final del contenido, una pestaña por fila, con su etiqueta visible
-al lado del ícono y 44 px o más de alto.
+superior. Con letra grande queda al final del contenido en una sola fila compacta: ícono arriba y etiqueta
+corta debajo, achicada al tamaño de cuerpo normal para que las tres quepan, cada pestaña de 44 px o más.
 
 ### Avisos y estados
 Planos, sin sombra: píldoras de 32 px en piedra honda, ícono a la izquierda y

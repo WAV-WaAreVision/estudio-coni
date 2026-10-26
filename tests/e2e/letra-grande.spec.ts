@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await simularMedios(page)
 })
 
-test("at large text the nav sits after the content with three tabs that keep their labels, 44 px or more", async ({
+test("at large text the nav sits after the content in one compact row of three tabs that keep their labels, 44 px or more", async ({
   page,
 }) => {
   await sembrarEscena()
@@ -31,6 +31,20 @@ test("at large text the nav sits after the content with three tabs that keep the
     const etiqueta = nav.getByText(nombre, { exact: true })
     await expect(etiqueta).toBeVisible()
     expect((await etiqueta.boundingBox())?.width ?? 0, nombre).toBeGreaterThan(20)
+  }
+  // One row, the icon above its label: the three tabs share a top and the bar stays under an eighth of the screen.
+  const arribas = await nav
+    .getByRole("link")
+    .evaluateAll((pestanas) => pestanas.map((pestana) => Math.round(pestana.getBoundingClientRect().top)))
+  expect(new Set(arribas).size).toBe(1)
+  expect((await nav.boundingBox())?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) / 8)
+  // Each label stays on one line, whole.
+  for (const nombre of ["Inicio", "Métricas", "Ajustes"]) {
+    const etiqueta = nav.getByText(nombre, { exact: true })
+    const lineas = await etiqueta.evaluate((nodo) =>
+      Math.round(nodo.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(nodo).lineHeight)),
+    )
+    expect(lineas, nombre).toBe(1)
   }
 })
 
