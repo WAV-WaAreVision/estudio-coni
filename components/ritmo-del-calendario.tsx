@@ -94,6 +94,7 @@ function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; act
             title={celda.titulo}
             className={cn(CELDA, "bg-tinta font-semibold text-luz")}
           >
+            <span className="sr-only">{celda.dia}: </span>
             {celda.pilar ? celda.pilar.nombreCorto : "Reel"}
           </span>
         ) : (

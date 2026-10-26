@@ -381,6 +381,12 @@ describe("Ritmo", () => {
     expect(ritmo.semanas.map((s) => s.etiqueta)).toEqual(["21 sep", "28 sep", "5 oct", "12 oct"])
     expect(ritmo.semanas[1]?.celdas.map((c) => c.tipo)).toEqual(["llena", "llena", "libre"])
     expect(ritmo.semanas[3]?.celdas.map((c) => c.tipo)).toEqual(["llena", "llena", "llena"])
+    // A filled cell carries its day: free cells are silent, so the column alone would not tell a screen reader which.
+    expect(ritmo.semanas[3]?.celdas.map((c) => (c.tipo === "llena" ? c.dia : null))).toEqual([
+      "martes 13 oct",
+      "jueves 15 oct",
+      "sábado 17 oct",
+    ])
     expect(ritmo.resumen).toBe("Tu horario tiene 3 espacios por semana. En estas 4 semanas van 6 de 9.")
   })
 

@@ -76,7 +76,8 @@ export interface ProximaPublicacion {
 }
 
 export type CeldaDeRitmo =
-  | { tipo: "llena"; pilar: PilarVisible | null; titulo: string }
+  /** `dia`: "martes 13 oct", what a screen reader says before the theme (the free cells around it are silent). */
+  | { tipo: "llena"; pilar: PilarVisible | null; titulo: string; dia: string }
   /** `falta`: the slot was expected to have a reel (it is past and came after her first one) and has none. */
   | { tipo: "libre"; falta: boolean }
 
@@ -405,7 +406,11 @@ function construirRitmo(
     celdas: dias.map((diaIso): CeldaDeRitmo => {
       const dia = sumarDias(inicio, diaIso - 1)
       const pieza = fechadas.find((candidata) => diaLocal(Date.parse(candidata.publicarEn), zona) === dia)
-      if (pieza) return { tipo: "llena", pilar: pieza.visible, titulo: pieza.titulo }
+      if (pieza) {
+        const { dia: delMes, mes } = partesDeDia(dia)
+        const nombre = `${DIA_LARGO[diaIso - 1]} ${delMes} ${MES_CORTO[mes - 1]}`
+        return { tipo: "llena", pilar: pieza.visible, titulo: pieza.titulo, dia: nombre }
+      }
       const instante = instanteDeHueco(dia, horario.hora, zona)
       return { tipo: "libre", falta: instante < ahora && primera !== undefined && instante >= primera }
     }),

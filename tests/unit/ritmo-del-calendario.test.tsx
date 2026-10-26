@@ -22,6 +22,7 @@ describe("RitmoDelCalendario", () => {
                   tipo: "llena",
                   pilar: { slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" },
                   titulo: "Uno",
+                  dia: "martes 13 oct",
                 },
               ],
             },
@@ -30,6 +31,31 @@ describe("RitmoDelCalendario", () => {
       />,
     )
     expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+  })
+
+  it("names each filled cell by its day for a screen reader, since the free cells beside it are silent", () => {
+    render(
+      <RitmoDelCalendario
+        ritmo={{
+          ...BASE,
+          vacio: false,
+          antesDeEmpezar: null,
+          semanas: [
+            {
+              etiqueta: "12 oct",
+              celdas: [
+                { tipo: "libre", falta: false },
+                { tipo: "llena", pilar: null, titulo: "Uno", dia: "jueves 15 oct" },
+                { tipo: "libre", falta: false },
+              ],
+            },
+          ],
+        }}
+      />,
+    )
+    const celda = screen.getByText("Reel", { exact: false })
+    expect(celda).toHaveTextContent("jueves 15 oct: Reel")
+    expect(celda.querySelector(".sr-only")).toHaveTextContent("jueves 15 oct:")
   })
 
   it("teaches the schedule with a link to Ajustes before the first publication, never «0 de 0»", () => {
@@ -52,7 +78,7 @@ describe("RitmoDelCalendario", () => {
               etiqueta: "12 oct",
               celdas: [
                 { tipo: "libre", falta: false },
-                { tipo: "llena", pilar: null, titulo: "Uno" },
+                { tipo: "llena", pilar: null, titulo: "Uno", dia: "martes 13 oct" },
                 { tipo: "libre", falta: false },
               ],
             },
@@ -99,7 +125,7 @@ describe("RitmoDelCalendario", () => {
               etiqueta: "12 oct",
               celdas: [
                 { tipo: "libre", falta: false },
-                { tipo: "llena", pilar: null, titulo: "Uno" },
+                { tipo: "llena", pilar: null, titulo: "Uno", dia: "martes 13 oct" },
                 { tipo: "libre", falta: true },
               ],
             },
@@ -127,9 +153,9 @@ describe("RitmoDelCalendario", () => {
             {
               etiqueta: "12 oct",
               celdas: [
-                { tipo: "llena", pilar: null, titulo: "Uno" },
+                { tipo: "llena", pilar: null, titulo: "Uno", dia: "martes 13 oct" },
                 { tipo: "libre", falta: false },
-                { tipo: "llena", pilar: null, titulo: "Dos" },
+                { tipo: "llena", pilar: null, titulo: "Dos", dia: "jueves 15 oct" },
               ],
             },
           ],
