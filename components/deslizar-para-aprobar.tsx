@@ -287,7 +287,10 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
         <p
           data-ayuda-de-firma
           aria-hidden="true"
-          className={cn("ayuda-de-firma -mt-1 text-center text-meta text-apagado", (armado || firmado) && "invisible")}
+          className={cn(
+            "ayuda-de-firma -mt-1 text-center text-meta text-apagado",
+            (armado || firmado || !activo) && "invisible",
+          )}
         >
           <span className="ayuda-de-toque">{AYUDA_DE_TOQUE}</span>
           <span className="ayuda-de-teclado">{AYUDA_DE_TECLADO}</span>

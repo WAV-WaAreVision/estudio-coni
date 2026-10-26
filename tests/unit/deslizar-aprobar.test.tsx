@@ -273,6 +273,11 @@ describe("DeslizarParaAprobar: the visible way to sign without dragging", () => 
     expect(ayuda()).toHaveClass("invisible")
   })
 
+  it("hides the hint while the signature is being sent, keeping its line: tapping does nothing then", () => {
+    render(<DeslizarParaAprobar habilitado enviando alFirmar={vi.fn()} />)
+    expect(ayuda()).toHaveClass("invisible")
+  })
+
   it("hides the hint while the signature is closed", () => {
     render(<DeslizarParaAprobar habilitado={false} alFirmar={vi.fn()} />)
     expect(ayuda()).toBeNull()
