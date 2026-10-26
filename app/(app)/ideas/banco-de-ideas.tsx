@@ -18,6 +18,7 @@ import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
 import { type AccionesDeEleccion, EleccionDeIdeas } from "./eleccion-de-ideas"
+import { FormatoDeIdea, type FormatoDePieza } from "./formato-de-idea"
 import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
 
 export interface AccionesDelBanco extends AccionesDeEleccion {
@@ -26,6 +27,8 @@ export interface AccionesDelBanco extends AccionesDeEleccion {
   descartar: (ideaId: string, motivo: MotivoDeDescarte) => Promise<Resultado>
   proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
+  /** "Hacer el carrusel": the idea becomes a LinkedIn carousel at once (design 2026-10-26). */
+  hacerCarrusel: (ideaId: string) => Promise<Resultado<{ piezaId: string }>>
 }
 
 const URL_DE_INGESTA = "https://conidolly-ingesta.vercel.app"
@@ -65,6 +68,8 @@ export function BancoDeIdeas({
   // Started or discarded from Elegir varias; Deshacer takes them off this list.
   const [fuera, setFuera] = useState<string[]>([])
   const [enfocarCarta, setEnfocarCarta] = useState(false)
+  // The format she chose on each card; an idea she has not touched is a reel, as before.
+  const [formatos, setFormatos] = useState<Readonly<Record<string, FormatoDePieza>>>({})
   const carta = useRef<HTMLDivElement>(null)
   const titulo = useRef<HTMLHeadingElement>(null)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
@@ -90,6 +95,7 @@ export function BancoDeIdeas({
   const alFinal = aplazadas.flatMap((id) => libres.find((idea) => idea.id === id) ?? [])
   const actual = libres.find((idea) => idea.id === frente) ?? [...seguidas, ...alFinal][0]
   const posicion = actual ? libres.indexOf(actual) + 1 : 0
+  const formato: FormatoDePieza = actual ? (formatos[actual.id] ?? "reel") : "reel"
 
   function despues(idea: IdeaDeBanco) {
     setError(null)
@@ -108,6 +114,21 @@ export function BancoDeIdeas({
       setSumadas((previas) => [...previas, idea.id])
       setFrente(null)
       setMensaje({ texto: "La sumé a las ideas de la semana.", deshacer: () => deshacer(idea.id) })
+    })
+  }
+
+  function hacerCarrusel(idea: IdeaDeBanco) {
+    setError(null)
+    empezar(async () => {
+      const resultado = await acciones.hacerCarrusel(idea.id)
+      if (!resultado.ok) {
+        setError(resultado.error)
+        return
+      }
+      setFuera((previas) => [...previas, idea.id])
+      setFrente(null)
+      setEnfocarCarta(true)
+      setMensaje({ texto: "Escribiendo el carrusel. Te aviso cuando esté." })
     })
   }
 
@@ -233,8 +254,19 @@ export function BancoDeIdeas({
           <div ref={carta} tabIndex={-1} className="outline-none">
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
-              {/* Side by side at 390 px, one per row at large text; neither label wraps inside its pill. */}
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-2">
+              <FormatoDeIdea
+                elegido={formato}
+                alElegir={(elegido) => setFormatos((previos) => ({ ...previos, [actual.id]: elegido }))}
+              />
+              {/* Side by side at 390 px, one per row at large text; neither label wraps inside its pill. "Hacer el
+                  carrusel" is too long to sit beside "Después" at 390 px: one per row then. */}
+              <div
+                className={
+                  formato === "carrusel"
+                    ? "grid gap-2"
+                    : "grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-2"
+                }
+              >
                 <Boton variante="secundario" className={PAR_DE_BOTONES} onClick={() => despues(actual)}>
                   Después
                 </Boton>
@@ -242,9 +274,9 @@ export function BancoDeIdeas({
                   className={PAR_DE_BOTONES}
                   cargando={pendiente}
                   icono={<ArrowRight aria-hidden="true" size={ICONO.medio} />}
-                  onClick={() => usar(actual)}
+                  onClick={() => (formato === "carrusel" ? hacerCarrusel(actual) : usar(actual))}
                 >
-                  Usar esta
+                  {formato === "carrusel" ? "Hacer el carrusel" : "Usar esta"}
                 </Boton>
               </div>
             </CartaDeIdea>
