@@ -23,6 +23,7 @@ import {
   MARGEN_DE_RELOJ_MS,
   restoDeVentana,
   TEXTO_DESHACER_TARDE,
+  type TipoDePieza,
   TransicionInvalida,
   transicionar,
   VENTANA_DESHACER_MS,
@@ -240,7 +241,32 @@ export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Prom
   })
 }
 
-async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: string }): Promise<InicioDeIdea> {
+/**
+ * "Hacer el carrusel" on an idea of the bank (design 2026-10-26, D1 step 1; plan amendment 10): its own piece,
+ * LinkedIn only, written at once. The reservation inside the writer is the guard of the month's cap, as for a script.
+ */
+export function hacerCarrusel(deps: DepsAcciones, ideaId: string): Promise<Resultado<{ piezaId: string }>> {
+  return aResultado("hacerCarrusel", async () => {
+    const { data: idea, error } = await deps.db
+      .from("ideas")
+      .select("id, gancho, estado")
+      .eq("id", ideaId)
+      .maybeSingle()
+    if (error) throw new Error(`No pude leer la idea: ${error.message}`, { cause: error })
+    if (!idea || idea.estado !== "idea") throw new Falla(TEXTO_NO_DISPONIBLE)
+    const inicio = await empezarPieza(deps, idea, "carrusel")
+    if (inicio.tipo === "empezada") return { piezaId: inicio.piezaId }
+    // The piece exists with its reason: Inicio shows it with "Reintentar".
+    if (inicio.tipo === "con_aviso") throw new Falla(TEXTO_SIN_CARRUSEL)
+    throw new Falla(TEXTO_NO_DISPONIBLE)
+  })
+}
+
+async function empezarPieza(
+  deps: DepsAcciones,
+  idea: { id: string; gancho: string },
+  tipo: TipoDePieza = "reel",
+): Promise<InicioDeIdea> {
   // The claim is atomic (`estado = 'idea'` in the update): a second tap or a second device finds it taken.
   const { data: reclamada, error } = await deps.db
     .from("ideas")
@@ -257,7 +283,16 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
 
   let nueva: FilaDePieza
   try {
-    const creada = await deps.db.from("piezas").insert({ idea_id: idea.id, titulo: idea.gancho }).select().single()
+    const creada = await deps.db
+      .from("piezas")
+      .insert({
+        idea_id: idea.id,
+        titulo: idea.gancho,
+        // A carousel is LinkedIn only from its first row (the carrusel_solo_linkedin check).
+        ...(tipo === "carrusel" ? { tipo, destinos: ["linkedin"] } : {}),
+      })
+      .select()
+      .single()
     if (creada.error) throw new Error(`No pude crear la pieza: ${creada.error.message}`, { cause: creada.error })
     nueva = await guardarEvento(deps.db, creada.data, { tipo: "elegir" })
   } catch (error) {
@@ -271,7 +306,7 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
     await deps.disparar.producir(nueva.id, claveProducir(nueva))
   } catch (error) {
     console.error("No pude iniciar producir-pieza", error)
-    await explicarSinGuion(deps.db, nueva)
+    await explicarSinGuion(deps.db, nueva, tipo === "carrusel" ? EXPLICACION_SIN_CARRUSEL : EXPLICACION_SIN_GUION)
     return { ideaId: idea.id, tipo: "con_aviso", piezaId: nueva.id }
   }
   return { ideaId: idea.id, tipo: "empezada", piezaId: nueva.id }
@@ -284,11 +319,13 @@ async function liberarIdea(db: Db, ideaId: string): Promise<boolean> {
 }
 
 const EXPLICACION_SIN_GUION = "No pude empezar a escribir el guion. Inténtalo de nuevo."
+const EXPLICACION_SIN_CARRUSEL = "No pude empezar a escribir el carrusel. Inténtalo de nuevo."
+const TEXTO_SIN_CARRUSEL = "No pude empezar a escribir el carrusel. Inténtalo de nuevo en unos minutos."
 
-async function explicarSinGuion(db: Db, fila: FilaDePieza): Promise<void> {
+async function explicarSinGuion(db: Db, fila: FilaDePieza, explicacion: string): Promise<void> {
   const { error } = await db
     .from("piezas")
-    .update({ version: fila.version + 1, explicacion: EXPLICACION_SIN_GUION })
+    .update({ version: fila.version + 1, explicacion })
     .eq("id", fila.id)
     .eq("version", fila.version)
   if (error) console.error(`No pude dejar la explicación en la pieza ${fila.id}`, error)
