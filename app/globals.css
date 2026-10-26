@@ -21,7 +21,7 @@
   --apagado: #5a5a59; /* meta, help, disabled labels. 5.79, 6.27 and 5.03:1 on piedra, alta and honda */
   --campo: #727271; /* empty checkbox and radio rings, high-contrast outlines. 3.51:1 on honda */
   --hilo: var(--piedra-honda); /* 1 px dividers between rows, decorative */
-  --error: #b5137a; /* magenta fresa: error titles and the destructive confirm, always after an icon. 4.58:1 on honda */
+  --error: #a8200d; /* rojo ladrillo: error titles and the destructive confirm, always after an icon. 5.32:1 on honda, 6.12:1 on piedra; hue 7, far from the raspberry */
   --firma: #a8285a; /* raspberry: the thumb, its trail, the wordmark dot, /l. 4.91:1 against its honda track */
   --sobre-firma: var(--luz);
   --firma-rastro: rgb(168 40 90 / 0.14); /* trail while dragging or armed */

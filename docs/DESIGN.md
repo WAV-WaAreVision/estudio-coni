@@ -9,7 +9,7 @@ colors:
   tinta: "#262626"
   apagado: "#5a5a59"
   campo: "#727271"
-  error-tinta: "#b5137a"
+  error-tinta: "#a8200d"
   firma: "#a8285a"
   sobre-firma: "#fbfbfa"
 typography:
@@ -158,7 +158,7 @@ es instantáneo. Columna de lectura de 560 px como máximo en tablet y computado
 **Key Characteristics:**
 - Fondo y superficies del mismo color piedra; la profundidad sale de la doble sombra, no de bordes.
 - Formas de píldora para todo lo que se toca; paneles de 24 px para lo que se lee.
-- Tinta para la acción principal; magenta solo para errores; frambuesa solo para firmar.
+- Tinta para la acción principal; rojo ladrillo solo para errores, siempre con ícono; frambuesa solo para firmar.
 - Estados con fondo de color y su texto, siempre con ícono.
 - Una sola familia (Geist), cinco tamaños en `rem`.
 
@@ -179,7 +179,7 @@ Gris neutro casi monocromo, con una sola nota de color: la frambuesa que firma.
 - **Luz** (#fbfbfa): el lado iluminado de la doble sombra y el texto sobre tinta o frambuesa.
 - **Apagado** (#5a5a59): meta, ayuda, pilares (5,79:1 sobre piedra; 5,03:1 sobre honda).
 - **Campo** (#727271): anillo de casillas vacías y contornos de alto contraste (4,04:1 sobre piedra; 3,51:1 sobre honda).
-- **Magenta fresa de error** (#b5137a): mensajes de error y acciones destructivas, siempre con ícono (5,27:1 sobre piedra; 4,58:1 sobre honda). Es distinta de la frambuesa de firma a propósito.
+- **Rojo ladrillo de error** (#a8200d): mensajes de error, siempre después de su ícono y nunca solo color, y el botón que confirma una acción destructiva (6,12:1 sobre piedra; 5,32:1 sobre honda; 6,63:1 sobre piedra alta). Tono 7°, lejos de la frambuesa de firma (337°): el magenta anterior (#b5137a, 322°) se leía igual que la firma y se reemplazó.
 
 ### Named Rules
 **The One Signature Rule.** La frambuesa aparece solo donde Coni firma. Si un elemento frambuesa no aprueba nada, está mal.

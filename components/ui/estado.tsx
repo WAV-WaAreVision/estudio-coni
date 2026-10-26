@@ -9,7 +9,7 @@ const ICONOS = { ok: Check, aviso: Warning, error: WarningCircle } as const
 
 /**
  * Decision 4: a state is a flat pill, icon and meta 600, never a shadow (The Relief Means Touch Rule). Success and
- * warning are no colours: ink on honda with their icon (The No Yellow Rule). An error is magenta on honda.
+ * warning are no colours: ink on honda with their icon (The No Yellow Rule). An error is brick red on honda, after its icon.
  */
 export function PildoraDeEstado({
   tipo,

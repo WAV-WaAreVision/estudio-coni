@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowCounterClockwise } from "@phosphor-icons/react"
+import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
@@ -47,7 +47,12 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
   return (
     <div className="grid gap-2">
       {/* A refused discard is said inside its own confirmation block. */}
-      {error && enUnError && !descartando ? <p className="font-semibold text-error">{error}</p> : null}
+      {error && enUnError && !descartando ? (
+        <p className="flex items-start gap-2 font-semibold text-error">
+          <WarningCircle aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+          {error}
+        </p>
+      ) : null}
       {error && !enUnError && !descartando ? <LineaDeEstado tipo="error" titulo={error} /> : null}
       {acciones.map((que, indice) => {
         if (que === "descartar") {
