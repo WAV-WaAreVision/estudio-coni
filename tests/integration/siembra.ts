@@ -1,5 +1,11 @@
 import { CONI, pool } from "./db"
-import { crearPiezaEn, type OpcionesDePieza } from "./flujo"
+import {
+  crearCarruselEn,
+  crearPiezaEn,
+  type EstadoDeCarruselDePrueba,
+  type OpcionesDeCarrusel,
+  type OpcionesDePieza,
+} from "./flujo"
 import { clienteDeServicio } from "./servicio"
 
 /** Walks a new piece to `destino` with the real flow and commits it, so a separate client (the app) can see it. */
@@ -28,6 +34,25 @@ export async function sembrarPieza(
  * Writes columns as the database owner, the way a repair would. Every update must bump the version (a trigger
  * enforces it), so this does it; pass the other columns to change.
  */
+/** Like `sembrarPieza`, for a carousel: walked through the real flow and committed. */
+export async function sembrarCarrusel(
+  destino: EstadoDeCarruselDePrueba,
+  opciones: OpcionesDeCarrusel = {},
+): Promise<string> {
+  const cliente = await pool.connect()
+  try {
+    await cliente.query("begin")
+    const id = await crearCarruselEn(cliente, destino, opciones)
+    await cliente.query("commit")
+    return id
+  } catch (error) {
+    await cliente.query("rollback")
+    throw error
+  } finally {
+    cliente.release()
+  }
+}
+
 export async function ajustarPieza(id: string, columnas: Record<string, unknown>): Promise<void> {
   const nombres = Object.keys(columnas)
   const asignaciones = ["version = version + 1", ...nombres.map((nombre, i) => `${nombre} = $${i + 2}`)].join(", ")

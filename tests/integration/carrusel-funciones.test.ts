@@ -1,6 +1,9 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
+import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
+import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import { borrarSembrado, leerFila, sembrarCarrusel } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -344,5 +347,28 @@ describe("guardar_carrusel", () => {
         code: "42501",
       })
     })
+  })
+})
+
+describe("sembrarCarrusel", () => {
+  const sembradas: string[] = []
+  afterAll(() => borrarSembrado(sembradas, []))
+
+  it("walks a carousel to gate 1 and to its signature with the real transitions", async () => {
+    const porAprobar = await sembrarCarrusel("guion_por_aprobar")
+    const firmado = await sembrarCarrusel("armando_carrusel")
+    sembradas.push(porAprobar, firmado)
+    const hash = hashTextoDeCarrusel({ laminas: LAMINAS_DE_PRUEBA, textoPost: TEXTO_POST_DE_PRUEBA })
+    expect(await leerFila(porAprobar)).toMatchObject({
+      tipo: "carrusel",
+      estado: "guion_por_aprobar",
+      destinos: ["linkedin"],
+    })
+    expect(await leerFila(firmado)).toMatchObject({ estado: "armando_carrusel", puerta1_hash: hash, puerta1_por: CONI })
+    const { rows } = await pool.query(
+      "select version, hash_texto, origen, estado from public.carruseles where pieza_id = $1",
+      [firmado],
+    )
+    expect(rows).toEqual([{ version: 1, hash_texto: hash, origen: "inicial", estado: "escrito" }])
   })
 })

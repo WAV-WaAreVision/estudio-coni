@@ -1,9 +1,11 @@
 import type pg from "pg"
 import { cambiosDesdePieza, type FilaPieza, piezaDesdeFila } from "@/lib/datos/piezas"
+import type { Lamina } from "@/lib/dominio/carrusel"
 import type { Destino } from "@/lib/dominio/destinos"
 import { type Estado, type Evento, transicionar } from "@/lib/dominio/estados"
-import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
+import { hashPuerta1, hashTexto, hashTextoDeCarrusel, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
+import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { asumir, comoConi, comoPostgres, comoServicio, type Sesion } from "./db"
 
 export const GUION = "Hola, soy Coni. Hoy hablamos de límites."
@@ -194,5 +196,56 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado, opciones: 
       destino: "instagram",
       quedanPendientes: false,
     })
+  return id
+}
+
+export type EstadoDeCarruselDePrueba = "guion_en_proceso" | "guion_por_aprobar" | "armando_carrusel"
+
+export interface OpcionesDeCarrusel {
+  titulo?: string
+  ideaId?: string | null
+  laminas?: readonly Lamina[]
+  textoPost?: string
+  /** The stored review of the delivered version; none by default. */
+  revision?: unknown
+}
+
+/** A carousel walked to `destino` with the real transitions, each written by the actor the design gives it. */
+export async function crearCarruselEn(
+  c: pg.PoolClient,
+  destino: EstadoDeCarruselDePrueba,
+  opciones: OpcionesDeCarrusel = {},
+): Promise<string> {
+  await asumir(c, comoPostgres)
+  const { rows } = await c.query<{ id: string }>(
+    "insert into public.piezas (titulo, idea_id, tipo, destinos) values ($1, $2, 'carrusel', '{linkedin}') returning id",
+    [opciones.titulo ?? "Lo que un chatbot no ve de ti", opciones.ideaId ?? null],
+  )
+  const id = rows[0]?.id
+  if (!id) throw new Error("No se creó el carrusel")
+  await aplicar(c, id, comoConi, { tipo: "elegir" })
+  if (destino === "guion_en_proceso") return id
+
+  const texto = {
+    laminas: opciones.laminas ?? LAMINAS_DE_PRUEBA,
+    textoPost: opciones.textoPost ?? TEXTO_POST_DE_PRUEBA,
+  }
+  const hash = hashTextoDeCarrusel(texto)
+  await asumir(c, comoServicio)
+  await c.query(
+    `insert into public.carruseles (pieza_id, version, laminas, texto_post, hash_texto, origen)
+     values ($1, 1, $2::jsonb, $3, $4, 'inicial')`,
+    [id, JSON.stringify(texto.laminas), texto.textoPost, hash],
+  )
+  await aplicar(c, id, comoServicio, { tipo: "carrusel_listo" }, { revision: JSON.stringify(opciones.revision ?? []) })
+  if (destino === "guion_por_aprobar") return id
+
+  await aplicar(c, id, comoConi, {
+    tipo: "firmar_carrusel",
+    actor: "coni",
+    hashVisto: hash,
+    hashActual: hash,
+    en: haceUnMinuto(),
+  })
   return id
 }
