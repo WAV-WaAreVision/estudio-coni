@@ -122,7 +122,7 @@ test("the installed app turns notices on after her tap, saves the device and sen
   await simularNavegador(page, { instalada: true, permiso: "default", respuesta: "granted" })
   await page.goto("/ajustes")
 
-  await expect(page.getByRole("heading", { name: /Configuración: \d de 5 listos/ })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Configuración: \d de 4 listos/ })).toBeVisible()
   await expect(page.getByRole("listitem").filter({ hasText: "Avisos en tu celular" })).toContainText("Falta")
   await capturar(page, "avisos-listo")
   expect(await suscripciones()).toEqual([])

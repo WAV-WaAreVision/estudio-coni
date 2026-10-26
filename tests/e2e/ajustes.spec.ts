@@ -50,7 +50,7 @@ test("while nothing is set up the block counts the steps and offers the first on
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "Ajustes", level: 1 })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Configuración: 0 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 0 de 4 listos" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Conectar Instagram" }).first()).toHaveAttribute(
     "href",
     "/api/meta/conectar",
@@ -174,7 +174,7 @@ test("she enters a key: it is checked with the provider, saved only if it works,
   const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'heygen'")
   expect(rows[0].decrypted_secret).toBe("hg-la-llave-buena-de-prueba")
   await page.goto("/ajustes")
-  await expect(page.getByRole("heading", { name: "Configuración: 1 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 1 de 4 listos" })).toBeVisible()
   // The key is never written back into the page.
   expect(await page.content()).not.toContain("hg-la-llave-buena-de-prueba")
 })
@@ -320,5 +320,24 @@ test("each account's name keeps a usable width beside its state pill at large te
     const cabecera = await fila.locator("span.text-guion").locator("..").boundingBox()
     const nombre = await fila.locator("span.text-guion").boundingBox()
     expect(nombre?.width ?? 0, cuenta).toBeGreaterThanOrEqual((cabecera?.width ?? 0) / 2)
+  }
+})
+
+test("her checklist names only what she acts on, and each state pill stays whole beside its step at large text", async ({
+  page,
+}) => {
+  await page.goto("/ajustes")
+  const pasos = page.getByRole("region", { name: /Configuración/ }).getByRole("listitem")
+  await expect(pasos).toHaveText([/^Tu voz/, /^Tu avatar/, /^Instagram/, /^LinkedIn/, /^Avisos en tu celular/])
+  await expect(pasos.filter({ hasText: "LinkedIn" })).toContainText("A mano")
+  await expect(page.getByRole("region", { name: /Configuración/ })).not.toContainText(/HeyGen|ElevenLabs|Claude/)
+
+  await conLetraGrande(page)
+  for (const pildora of await pasos.locator(".pildora").all()) {
+    const lineas = await pildora.evaluate((nodo) => {
+      const texto = nodo.lastElementChild ?? nodo
+      return Math.round(texto.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(texto).lineHeight))
+    })
+    expect(lineas, (await pildora.textContent()) ?? "").toBe(1)
   }
 })

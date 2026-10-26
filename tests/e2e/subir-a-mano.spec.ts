@@ -164,7 +164,7 @@ test("Ajustes says Instagram is not connected, offers to connect it and tells wh
 
   await page.goto("/ajustes")
 
-  await expect(page.getByRole("heading", { name: "Configuración: 3 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 2 de 4 listos" })).toBeVisible()
   await expect(
     page.getByText("Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano."),
   ).toBeVisible()

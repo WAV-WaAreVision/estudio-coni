@@ -40,10 +40,14 @@ export async function BloqueDeEstado({
       {bloque.tipo === "configurando" ? (
         <ul className="grid divide-y divide-campo/30">
           {bloque.pasos.map((paso) => (
+            // The pill keeps its word whole and the step takes what is left, so at large text the step wraps instead.
             <li key={paso.etiqueta} className="flex min-h-boton items-center justify-between gap-3 text-meta">
-              {paso.etiqueta}
-              <PildoraDeEstado tipo={paso.listo ? "ok" : "aviso"} className="bg-piedra">
-                {paso.listo ? "Listo" : "Falta"}
+              <span className="min-w-0 flex-1">{paso.etiqueta}</span>
+              <PildoraDeEstado
+                tipo={paso.listo ? "ok" : paso.opcional ? "neutro" : "aviso"}
+                className="shrink-0 bg-piedra whitespace-nowrap [overflow-wrap:normal]"
+              >
+                {paso.listo ? "Listo" : paso.opcional ? "A mano" : "Falta"}
               </PildoraDeEstado>
             </li>
           ))}
