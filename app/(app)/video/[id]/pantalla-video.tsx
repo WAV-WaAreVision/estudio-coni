@@ -299,6 +299,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
       <BarraDeFirma
         idConsecuencia={idConsecuencia}
         consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
+        consecuenciaVaria
         arriba={
           <>
             {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}

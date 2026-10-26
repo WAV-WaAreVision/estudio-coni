@@ -124,6 +124,11 @@ describe("PantallaVideo: todo a la vista antes de terminar", () => {
     expect(within(barra()).getByText("Video visto")).toBeInTheDocument()
     expect(within(barra()).getByText("Texto")).toBeInTheDocument()
     expect(within(barra()).getByText(consecuencia("Sale el viernes 9 · 19:00"))).toBeInTheDocument()
+    // The date moves with the run's clock: the visual baselines mask it.
+    expect(within(barra()).getByText(consecuencia("Sale el viernes 9 · 19:00"))).toHaveAttribute(
+      "data-snapshot",
+      "varia",
+    )
   })
 
   it("blocks with today's text when there is no free slot", () => {

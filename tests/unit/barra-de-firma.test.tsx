@@ -44,6 +44,23 @@ describe("BarraDeFirma", () => {
   })
 })
 
+describe("BarraDeFirma: a consequence that moves with the clock", () => {
+  it("marks it for the visual baselines to mask, and only when asked", () => {
+    const { rerender } = render(
+      <BarraDeFirma consecuencia="Sale el sábado 17 · 19:00" idConsecuencia="c" consecuenciaVaria>
+        <button type="button">x</button>
+      </BarraDeFirma>,
+    )
+    expect(document.getElementById("c")).toHaveAttribute("data-snapshot", "varia")
+    rerender(
+      <BarraDeFirma consecuencia="Graba el video" idConsecuencia="c">
+        <button type="button">x</button>
+      </BarraDeFirma>,
+    )
+    expect(document.getElementById("c")).not.toHaveAttribute("data-snapshot")
+  })
+})
+
 describe("LineaDeFalta", () => {
   it("says what is missing after 'Falta:', joined with a middle dot, with the info icon", () => {
     render(<LineaDeFalta id="f" cosas={["guardar tus cambios", "escuchar tu voz"]} />)
