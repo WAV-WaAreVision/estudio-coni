@@ -294,8 +294,10 @@ sesión): la pregunta, la acción y «Volver». Nunca un diálogo.
 
 ### Detalle para WAV
 Lo que Coni lee va en sus palabras. El proveedor, los saldos, las llaves y el enlace al proveedor van
-plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, cuentas, llaves, saldos y Claude viven
-en la sección plegada «Para WAV».
+plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, el tope de gasto, las cuentas, las llaves,
+los saldos y Claude viven solo en la sección plegada «Para WAV». La lista de configuración de Coni nombra
+solo lo que ella hace: tu voz, tu avatar, Instagram, LinkedIn (opcional, «A mano», fuera de la cuenta) y
+los avisos del celular; nunca un proveedor.
 
 ### Puertas
 - **Puerta 1:** tres pasos en orden: «1. Escucha tu voz», «2. Revisa el guion», «3. Elige tu avatar»

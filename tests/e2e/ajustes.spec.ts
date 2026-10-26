@@ -121,6 +121,8 @@ test("settings save by themselves, can be undone, and are logged with her as the
   await hora.fill("20:30")
   await expect.poll(async () => (await ajustes()).hora_publicacion).toBe("20:30:00")
 
+  // The cap is WAV's: it folds under "Para WAV".
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("button", { name: "Subir el tope" }).click()
   await page.getByRole("button", { name: "Subir el tope" }).click()
   await expect(page.getByText("US$ 50")).toBeVisible()
@@ -136,6 +138,7 @@ test("settings save by themselves, can be undone, and are logged with her as the
 
   await page.reload()
   await expect(page.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "true")
+  await abrirDesplegable(page, "Para WAV")
   await expect(page.getByText("US$ 50")).toBeVisible()
   await capturar(page, "ajustes-editar")
 })
@@ -145,6 +148,7 @@ test("a cap under what was spent is saved with a warning", async ({ page }) => {
     "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'e2e', date_trunc('month', now() at time zone 'America/Santiago')::date, 20, 22, 'confirmado', 'e2e-ajustes-gasto')",
   )
   await page.goto("/ajustes")
+  await abrirDesplegable(page, "Para WAV")
   await expect(page.getByText("Llevas US$ 22,00 este mes")).toBeVisible()
 
   for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Bajar el tope" }).click()

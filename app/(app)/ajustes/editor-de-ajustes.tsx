@@ -10,6 +10,7 @@ import { FilaConInterruptor, FilaConValor } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -102,6 +103,7 @@ export function EditorDeAjustes({
   acciones,
   linkedinConectado,
   avisosDelCelular,
+  paraWav,
 }: {
   inicial: AjustesEditables
   acciones: AccionesDelEditor
@@ -109,6 +111,8 @@ export function EditorDeAjustes({
   linkedinConectado: boolean
   /** The phone block (install, turn on, test): it belongs to the same «Avisos» section as the switches. */
   avisosDelCelular?: ReactNode
+  /** What the page adds to the Para WAV fold, after the cap (the link to the accounts). */
+  paraWav?: ReactNode
 }) {
   const [valores, setValores] = useState(inicial)
   const [mensaje, setMensaje] = useState<Mensaje | null>(null)
@@ -246,36 +250,6 @@ export function EditorDeAjustes({
         </p>
       </Seccion>
 
-      <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">
-        <div className="flex min-h-fila-baja items-center justify-between gap-3">
-          <span className="text-cuerpo">Tope</span>
-          <div className="flex items-center gap-3">
-            <Boton
-              variante="secundario"
-              tamano="chico"
-              aria-label="Bajar el tope"
-              deshabilitado={valores.tope <= 0}
-              className="w-objetivo justify-center px-0"
-              onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
-            >
-              <Minus aria-hidden="true" size={ICONO.medio} />
-            </Boton>
-            <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
-            <Boton
-              variante="secundario"
-              tamano="chico"
-              aria-label="Subir el tope"
-              deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
-              className="w-objetivo justify-center px-0"
-              onClick={() => moverTope(PASO_DEL_TOPE_USD)}
-            >
-              <Plus aria-hidden="true" size={ICONO.medio} />
-            </Boton>
-          </div>
-        </div>
-        <Medidor gastado={valores.usado} tope={valores.tope} texto={`Llevas ${dolares(valores.usado)} este mes`} />
-      </Seccion>
-
       <Seccion titulo="Avisos" id="ajuste-avisos">
         <Grupo>
           <FilaConInterruptor
@@ -292,6 +266,40 @@ export function EditorDeAjustes({
         <p className="text-meta text-apagado">Los cambios se guardan solos. Lo que ya aprobaste mantiene su fecha.</p>
         {avisosDelCelular ? <div className="mt-4">{avisosDelCelular}</div> : null}
       </Seccion>
+
+      {/* Exit critique 3: the cap, accounts, keys, balances and Claude are WAV's operation, folded out of her way. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Tope de gasto, cuentas, llaves, saldos y Claude">
+        <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">
+          <div className="flex min-h-fila-baja items-center justify-between gap-3">
+            <span className="text-cuerpo">Tope</span>
+            <div className="flex items-center gap-3">
+              <Boton
+                variante="secundario"
+                tamano="chico"
+                aria-label="Bajar el tope"
+                deshabilitado={valores.tope <= 0}
+                className="w-objetivo justify-center px-0"
+                onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
+              >
+                <Minus aria-hidden="true" size={ICONO.medio} />
+              </Boton>
+              <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
+              <Boton
+                variante="secundario"
+                tamano="chico"
+                aria-label="Subir el tope"
+                deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
+                className="w-objetivo justify-center px-0"
+                onClick={() => moverTope(PASO_DEL_TOPE_USD)}
+              >
+                <Plus aria-hidden="true" size={ICONO.medio} />
+              </Boton>
+            </div>
+          </div>
+          <Medidor gastado={valores.usado} tope={valores.tope} texto={`Llevas ${dolares(valores.usado)} este mes`} />
+        </Seccion>
+        {paraWav}
+      </MasOpciones>
 
       {error ? (
         <div className="mt-6">
