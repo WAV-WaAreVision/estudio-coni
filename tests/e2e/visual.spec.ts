@@ -77,6 +77,17 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   await page.addStyleTag({
     content: "nav[aria-label='Secciones'], [data-barra-de-firma], [data-barra-de-lote] { position: static !important }",
   })
+  if (!PARA_LA_HOJA && !CARPETA_FINALES) {
+    // Inicio's week is masked, but a week across two months ("26 de octubre al 1 de noviembre") wraps under the
+    // greeting and moves the whole screen: a fixed one-month week keeps the line the baseline was taken with.
+    await page.evaluate(() => {
+      for (const nodo of document.querySelectorAll('[data-snapshot="varia"]')) {
+        if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Semana del ")) {
+          nodo.textContent = "Semana del 5 al 11 de octubre"
+        }
+      }
+    })
+  }
   if (CARPETA_FINALES) {
     mkdirSync(CARPETA_FINALES, { recursive: true })
     await page.screenshot({ path: join(CARPETA_FINALES, `${nombre}.png`), fullPage: true, scale: "css" })
