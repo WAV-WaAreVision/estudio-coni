@@ -15,9 +15,11 @@ import {
   editarTextoLinkedin,
   elegirIdeas,
   elegirLote,
+  firmarCarrusel,
   hacerCarrusel,
   MAXIMO_DEL_TEXTO,
   marcarSubidoAMano,
+  pedirCambioDeCarrusel,
   pedirCambios,
   pedirDescargaDelVideo,
   pedirVoz,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/acciones/piezas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, comoConi, conSesionDeConi, disparosDeLaApp } from "@/lib/acciones/servidor"
+import { MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
 import { DESTINOS } from "@/lib/dominio/destinos"
 import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
@@ -82,6 +85,26 @@ export async function hacerCarruselAccion(ideaId: string) {
   return refrescar(
     await comoConi("hacerCarrusel", z.object({ ideaId: z.uuid() }), { ideaId }, (deps, d) =>
       hacerCarrusel(deps, d.ideaId),
+    ),
+  )
+}
+
+export async function firmarCarruselAccion(piezaId: string, version: number) {
+  return refrescar(
+    await comoConi("firmarCarrusel", sobrePieza, { piezaId, version }, (deps, d) =>
+      firmarCarrusel(deps, d.piezaId, d.version),
+    ),
+  )
+}
+
+export async function pedirCambioDeCarruselAccion(piezaId: string, version: number, pedido: string) {
+  return refrescar(
+    await comoConi(
+      "pedirCambioDeCarrusel",
+      // A little over the limit: the action answers with the message for Coni instead of a validation error.
+      sobrePieza.extend({ pedido: z.string().max(MAXIMO_DEL_PEDIDO + 200) }),
+      { piezaId, version, pedido },
+      (deps, d) => pedirCambioDeCarrusel(deps, d.piezaId, d.version, d.pedido),
     ),
   )
 }
