@@ -490,8 +490,10 @@ html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
 }
+/* Large text starts at a ~21.7 px root, where half a rem is 11 px: the floor is the normal label (--t-meta at the 17 px
+   root, 15.9375 px), so the label never gets smaller than it was before she raised the text size. */
 html[data-letra="grande"] .nav-etiqueta {
-  font-size: 0.5rem;
+  font-size: max(0.5rem, 15.9375px);
   white-space: nowrap;
 }
 /* The meta row over a gate's title stacks flush left: pillar, then format and length. */

@@ -48,6 +48,28 @@ test("at large text the nav sits after the content in one compact row of three t
   }
 })
 
+test("from the first size that turns large text on, the nav labels never shrink below their normal size", async ({
+  page,
+}) => {
+  await sembrarEscena()
+  await page.goto("/")
+  await expect(page.getByRole("status", { name: "Cargando" })).toHaveCount(0)
+  const etiqueta = page.getByRole("navigation", { name: "Secciones" }).getByText("Métricas", { exact: true })
+  const tamano = () => etiqueta.evaluate((nodo) => Number.parseFloat(getComputedStyle(nodo).fontSize))
+  const normal = await tamano()
+
+  // 22 px of root on a 390 px screen: under 18 rem across, so large text is on, yet half a rem is only 11 px.
+  await page.addStyleTag({ content: "html { font-size: 137.5% !important }" })
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")))
+  await expect(page.locator("html")).toHaveAttribute("data-letra", "grande")
+
+  expect(await tamano()).toBeGreaterThanOrEqual(normal)
+  const lineas = await etiqueta.evaluate((nodo) =>
+    Math.round(nodo.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(nodo).lineHeight)),
+  )
+  expect(lineas).toBe(1)
+})
+
 test("at large text the sign bar sits at the end of gate 1, round all over, with the full thumb and a one-line label", async ({
   page,
 }) => {
