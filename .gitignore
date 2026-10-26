@@ -46,3 +46,6 @@ next-env.d.ts
 /playwright-report/
 /tests/e2e/.auth/
 
+
+# Brainstorming mockups
+.superpowers/
