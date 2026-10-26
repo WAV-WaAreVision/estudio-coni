@@ -331,9 +331,16 @@ test("her checklist names only what she acts on, and each state pill stays whole
   page,
 }) => {
   await page.goto("/ajustes")
-  const pasos = page.getByRole("region", { name: /Configuración/ }).getByRole("listitem")
-  await expect(pasos).toHaveText([/^Tu voz/, /^Tu avatar/, /^Instagram/, /^LinkedIn/, /^Avisos en tu celular/])
-  await expect(pasos.filter({ hasText: "LinkedIn" })).toContainText("A mano")
+  const bloque = page.getByRole("region", { name: /Configuración/ })
+  const pasos = bloque.getByRole("listitem")
+  // The count of the title runs over the rows under it, and nothing else: LinkedIn sits apart, under «Opcional».
+  const contados = bloque.getByRole("list", { name: "Pasos" }).getByRole("listitem")
+  await expect(contados).toHaveText([/^Tu voz/, /^Tu avatar/, /^Instagram/, /^Avisos en tu celular/])
+  const denominador = (await bloque.getByRole("heading").textContent())?.match(/de (\d+) listos/)?.[1]
+  expect(Number(denominador)).toBe(await contados.count())
+  const opcionales = bloque.getByRole("list", { name: "Opcional" }).getByRole("listitem")
+  await expect(opcionales).toHaveText([/^LinkedIn/])
+  await expect(opcionales).toContainText("A mano")
   await expect(page.getByRole("region", { name: /Configuración/ })).not.toContainText(/HeyGen|ElevenLabs|Claude/)
 
   await conLetraGrande(page)
