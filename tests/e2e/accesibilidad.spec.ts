@@ -83,6 +83,11 @@ async function abrirPliegues(page: Page, ruta: string): Promise<void> {
     await abrirPlieguesDeInicio(page)
     return
   }
+  if (ruta === "/ideas") {
+    // Descartar and "Escribir una idea mía" fold under "Más", beside the card.
+    await abrirDesplegable(page, "Más")
+    return
+  }
   if (ruta === "/ajustes") {
     // WAV's accounts fold under "Para WAV".
     await abrirDesplegable(page, "Para WAV")

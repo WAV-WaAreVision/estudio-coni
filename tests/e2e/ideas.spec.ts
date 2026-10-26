@@ -118,6 +118,7 @@ test("she writes an idea of her own, Claude proposes the pillar and alerts, and 
   await pool.query("select vault.create_secret('sk-ant-de-prueba-de-coni', 'anthropic')")
   await page.goto("/ideas")
 
+  await abrirDesplegable(page, "Más")
   await page.getByRole("button", { name: "Escribir una idea mía" }).click()
   await page.getByLabel("Tu idea").fill("Tu pareja te revisa el celular y lo llama amor.")
   await page.getByRole("button", { name: "Proponer pilar y alertas" }).click()
@@ -144,6 +145,7 @@ test("without her Anthropic key the proposal explains it and she can still choos
   await sembrarBanco()
   await page.goto("/ideas")
 
+  await abrirDesplegable(page, "Más")
   await page.getByRole("button", { name: "Escribir una idea mía" }).click()
   await page.getByLabel("Tu idea").fill("Tu pareja te revisa el celular y lo llama amor.")
   await page.getByRole("button", { name: "Proponer pilar y alertas" }).click()
@@ -196,6 +198,7 @@ test.describe("ideas del motor", () => {
     await expect(page.getByText("Siembra Autora Uno: El cansancio es una forma de decir que no.")).toBeVisible()
     await capturar(page, "banco-semana")
 
+    await abrirDesplegable(page, "Más")
     await page.getByRole("button", { name: "Descartar" }).click()
     await expect(page.getByRole("group", { name: "¿Por qué la descartas?" })).toBeVisible()
     await page.getByRole("button", { name: "Repetida" }).click()

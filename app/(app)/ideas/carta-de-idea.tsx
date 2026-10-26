@@ -24,17 +24,14 @@ export function CartaDeIdea({ idea, children }: { idea: IdeaDeBanco; children?: 
       <div className="grid gap-3">
         <p className="text-meta text-apagado">{idea.nombreCortoPilar}</p>
         <h2 className="text-pieza text-balance">{idea.gancho}</h2>
-        {idea.tema ? <p className="text-cuerpo text-apagado">{idea.tema}</p> : null}
-        <p className="text-meta font-medium text-tinta">
-          Fuerza {idea.fuerza}
-          {idea.formato ? ` · ${idea.formato}` : ""}
-          {respaldoDebil ? (
-            <>
-              {" · "}
-              <span>Respaldo débil</span>
-            </>
-          ) : null}
-        </p>
+        {/* Plain words only: the format and a weak backing. The engine's strength and topic stay for the search. */}
+        {idea.formato || respaldoDebil ? (
+          <p className="text-meta font-medium text-tinta">
+            {idea.formato}
+            {idea.formato && respaldoDebil ? " · " : null}
+            {respaldoDebil ? <span>Respaldo débil</span> : null}
+          </p>
+        ) : null}
         {idea.porQue?.fuente ? (
           <LineaDeFuente texto={idea.porQue.fuente} className="border-t border-hilo pt-3" />
         ) : null}

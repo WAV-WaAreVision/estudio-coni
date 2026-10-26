@@ -65,7 +65,7 @@ export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPr
       <fieldset className="flex min-w-0 gap-2 overflow-x-auto">
         <legend className="sr-only">Filtros</legend>
         <Chip presionado={soloFuerzaAlta} onClick={() => setSoloFuerzaAlta(!soloFuerzaAlta)}>
-          Fuerza alta
+          Ideas fuertes
         </Chip>
         <Chip presionado={soloSinAlertas} onClick={() => setSoloSinAlertas(!soloSinAlertas)}>
           Sin alertas
@@ -119,7 +119,6 @@ function FilaDeResultado({
       <span className="text-meta text-apagado">{idea.nombreCortoPilar}</span>
       <span className="text-cuerpo leading-[1.3] font-semibold">{idea.gancho}</span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-apagado">
-        <span>Fuerza {idea.fuerza}</span>
         {idea.estado === "usada" ? (
           <span className="inline-flex items-center gap-1 font-semibold text-tinta">
             <Check aria-hidden="true" size={ICONO.chico} />

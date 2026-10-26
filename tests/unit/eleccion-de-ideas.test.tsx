@@ -61,6 +61,7 @@ describe("EleccionDeIdeas", () => {
     mostrar()
     expect(screen.getAllByText(/^Práctica clínica\b/)).toHaveLength(IDEAS.length)
     expect(screen.queryByText(/aumentada/)).toBeNull()
+    expect(screen.queryByText(/Fuerza/)).toBeNull()
   })
 
   it("shows the bar only once something is ticked, counting what she ticked", () => {

@@ -7,6 +7,7 @@ import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -248,8 +249,11 @@ export function BancoDeIdeas({
               </div>
             </CartaDeIdea>
           </div>
-          <DescartarIdea key={actual.id} ocupada={pendiente} alElegir={(motivo) => descartar(actual, motivo)} />
-          <BotonIdeaPropia alTocar={abrirPropia} />
+          {/* Two actions with the card; the rest folds under «Más». */}
+          <MasOpciones forma="linea" titulo="Más">
+            <DescartarIdea key={actual.id} ocupada={pendiente} alElegir={(motivo) => descartar(actual, motivo)} />
+            <BotonIdeaPropia alTocar={abrirPropia} />
+          </MasOpciones>
         </div>
       ) : bancoVacio ? (
         <div className="grid justify-items-start gap-3 py-1">

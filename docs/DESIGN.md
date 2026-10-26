@@ -261,6 +261,11 @@ va arriba para no taparla.
   relieve solo si el panel entero se toca (lista de piezas) y en relieve alto la carta de idea.
 - **Border:** ninguno.
 - **Internal Padding:** 20 px. Nunca una caja dentro de otra.
+- **Carta de idea:** pilar con su nombre corto, gancho, formato y «Respaldo débil» si aplica; nunca la
+  «fuerza» del motor ni el tema suelto. A lo más dos acciones a la vista («Usar esta» y «Después»); el
+  resto («Descartar», «Escribir una idea mía») va plegado bajo «Más».
+- **Nombre del pilar:** el corto en lo compacto (chips, filas, cabeceras de carta y de puerta, celdas);
+  el completo solo en títulos a todo el ancho y en frases.
 
 ### Inputs / Fields
 - **Style:** píldora hundida en piedra honda, 52 px; las áreas de texto usan 24 px de radio y crecen
