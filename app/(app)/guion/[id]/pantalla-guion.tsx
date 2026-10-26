@@ -214,7 +214,10 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
             tipo="fecha"
             titulo={
               <>
-                Si lo firmas hoy, sale el <b className="font-semibold text-tinta tabular-nums">{datos.salida}</b>
+                Si lo firmas hoy, sale el{" "}
+                <b data-snapshot="varia" className="font-semibold text-tinta tabular-nums">
+                  {datos.salida}
+                </b>
               </>
             }
           />

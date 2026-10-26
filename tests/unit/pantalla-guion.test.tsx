@@ -122,6 +122,8 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
     expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
     expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
+    // The date moves with the run's clock: the visual baselines mask it.
+    expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveAttribute("data-snapshot", "varia")
   })
 
   it("shows the backing's source under the script, inside 2. Revisa el guion", () => {
