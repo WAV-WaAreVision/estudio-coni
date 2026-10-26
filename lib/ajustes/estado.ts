@@ -155,7 +155,11 @@ export function estadoDeAjustes(entrada: {
     const contados = pasos.filter((p) => !p.opcional)
     return {
       tipo: "configurando",
-      titulo: `Configuración: ${contados.filter((p) => p.listo).length} de ${contados.length} listos`,
+      // Claude is checked last, so it comes first only when her accounts are all there: a count would read "4 de 4".
+      titulo:
+        primeraQueFalta === "anthropic"
+          ? "Falta una conexión de WAV"
+          : `Configuración: ${contados.filter((p) => p.listo).length} de ${contados.length} listos`,
       texto: textoDeFalta(primeraQueFalta, faltan.length > 1),
       pasos,
       accion: accionDeFalta(primeraQueFalta),

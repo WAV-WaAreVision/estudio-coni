@@ -57,6 +57,7 @@ describe("estadoDeAjustes", () => {
     })
 
     expect(estado.tipo).toBe("configurando")
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
     expect(estado.texto).toBe("Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano.")
     expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
   })
@@ -82,6 +83,7 @@ describe("estadoDeAjustes", () => {
       zona: "America/Santiago",
     })
 
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
     expect(estado.texto).toBe("Falta lo que sigue; el resto ya está.")
   })
 
@@ -105,9 +107,23 @@ describe("estadoDeAjustes", () => {
     })
 
     expect(estado.tipo).toBe("configurando")
+    // Her four steps are all ready: a count of "4 de 4 listos" over a block that is still setting up reads as a lie.
+    expect(estado.titulo).toBe("Falta una conexión de WAV")
     expect(estado.texto).toBe("Falta una conexión que arregla WAV; lo tuyo ya está.")
     expect(estado.accion).toEqual({ etiqueta: "Ver en Para WAV", href: "/ajustes/cuentas#cuenta-anthropic" })
     expect(estado.pasos.map((p) => p.etiqueta).join(" ")).not.toMatch(/Claude|HeyGen|ElevenLabs|Anthropic/)
+  })
+
+  it("keeps counting her steps when Claude is missing and one of hers is too", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }, { cuenta: "anthropic", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
+    expect(estado.accion).toEqual({ etiqueta: "Revisar tu avatar", href: "/ajustes/cuentas#cuenta-heygen" })
   })
 
   it("warns when Instagram expires within a week, with days, and offers to renew it", () => {
