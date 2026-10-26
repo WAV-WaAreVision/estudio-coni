@@ -241,7 +241,7 @@ sobra un elemento.
   falta.
 
 ### Deslizar para aprobar (signature)
-Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Desliza» para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
+Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Firmar», un verbo entero, para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
 
 ### Barra de lote
 Barra en piedra con relieve alto y radio `panel`, que flota 8 px sobre la barra inferior mientras la lista se mueve

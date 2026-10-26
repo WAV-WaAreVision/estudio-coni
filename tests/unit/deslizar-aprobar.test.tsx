@@ -43,6 +43,11 @@ describe("DeslizarParaAprobar: drag", () => {
     expect(pista()).toHaveTextContent("Desliza para firmar")
   })
 
+  it("keeps a whole verb as the short label of large text, never a cut 'Desliza'", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pista().querySelector(".etiqueta-de-firma-corta")).toHaveTextContent(/^Firmar$/)
+  })
+
   it("signs on release after a drag of the thumb past 96 percent, once", () => {
     const alFirmar = vi.fn()
     render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
