@@ -34,6 +34,13 @@ const lugares = (piezas: PiezaConFechas[]) =>
   repartir({ piezas, horario: HORARIO, ahora: AHORA }).map((l) => [l.piezaId, l.instante, l.guardada])
 
 describe("repartir", () => {
+  it("keeps a signed carousel among the pieces without a signed date, after the videos to approve", () => {
+    const video = pieza({ id: "v", estado: "video_por_aprobar", creadaEn: "2026-10-14T12:00:00.000Z" })
+    const carrusel = pieza({ id: "c", estado: "armando_carrusel", creadaEn: "2026-10-13T12:00:00.000Z" })
+    const guion = pieza({ id: "g", estado: "guion_por_aprobar", creadaEn: "2026-10-12T12:00:00.000Z" })
+    expect(lugares([guion, carrusel, video]).map(([id]) => id)).toEqual(["v", "c", "g"])
+  })
+
   it("gives the next free slots to the unsigned pieces, the closest to publishing first, then the oldest", () => {
     const escribiendose = pieza({ id: "e", estado: "guion_en_proceso", creadaEn: "2026-10-12T12:00:00.000Z" })
     const video = pieza({ id: "v", estado: "video_por_aprobar", creadaEn: "2026-10-14T12:00:00.000Z" })

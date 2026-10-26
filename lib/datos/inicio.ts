@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
+import { tipoDePieza } from "@/lib/dominio/estados"
 import type { IdeaDelBanco } from "@/lib/dominio/ideas"
 import type { PiezaDeInicio } from "@/lib/inicio/modelo"
 import type { Database } from "@/lib/supabase/database.types"
@@ -37,7 +38,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
     db
       .from("piezas")
       .select(
-        "id, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado)",
+        "id, tipo, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado)",
       )
       .not("estado", "in", "(idea,descartado)")
       .order("actualizada_en", { ascending: false })
@@ -52,6 +53,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
   const desde = ahora - DIAS_RECIENTES_MS
   return {
     piezas: piezas.data.map((fila) => ({
+      tipo: tipoDePieza(fila.tipo),
       id: fila.id,
       titulo: fila.titulo,
       estado: fila.estado,
