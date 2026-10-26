@@ -590,6 +590,9 @@ describe("tabla del diseño", () => {
     ],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
+    // Only a carousel lives here (Task 5 makes these carousel pieces); part 1 gives them no event but the discard.
+    armando_carrusel: ["descartar"],
+    carrusel_por_aprobar: ["descartar"],
     programado: [
       "publicado",
       "cambiar_fecha",
@@ -647,6 +650,8 @@ describe("tabla del diseño", () => {
     en_render: en("en_render", { ...avance, audioId: "audio_1", puerta1 }),
     subtitulando: en("subtitulando", { ...avance, audioId: "audio_1", puerta1 }),
     video_por_aprobar: en("video_por_aprobar", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1 }),
+    armando_carrusel: en("armando_carrusel", { ...avance, puerta1 }),
+    carrusel_por_aprobar: en("carrusel_por_aprobar", { ...avance, puerta1 }),
     programado: en("programado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     para_subir_a_mano: en("para_subir_a_mano", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     publicado: en("publicado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),

@@ -10,6 +10,9 @@ export const ESTADOS = [
   "en_render",
   "subtitulando",
   "video_por_aprobar",
+  // A LinkedIn carousel (design 2026-10-26): signed text waiting for its slides, then its slides waiting for gate 2.
+  "armando_carrusel",
+  "carrusel_por_aprobar",
   "programado",
   "para_subir_a_mano",
   "publicado",

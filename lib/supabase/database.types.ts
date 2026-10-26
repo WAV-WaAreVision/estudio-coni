@@ -2228,6 +2228,8 @@ export type Database = {
         | "en_render"
         | "subtitulando"
         | "video_por_aprobar"
+        | "armando_carrusel"
+        | "carrusel_por_aprobar"
         | "programado"
         | "publicado"
         | "error_produccion"
@@ -2374,6 +2376,8 @@ export const Constants = {
         "en_render",
         "subtitulando",
         "video_por_aprobar",
+        "armando_carrusel",
+        "carrusel_por_aprobar",
         "programado",
         "publicado",
         "error_produccion",
