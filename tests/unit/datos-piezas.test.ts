@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 import { cambiosDesdePieza, type FilaPieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { type Pieza, piezaNueva } from "@/lib/dominio/estados"
 
+/** What a write reads back as: the row also carries the type, which the server never writes. */
+const releida = (pieza: Pieza): FilaPieza => ({ ...cambiosDesdePieza(pieza), tipo: pieza.tipo })
+
 const filaNueva: FilaPieza = {
+  tipo: "reel",
   estado: "idea",
   version: 0,
   intento: 0,
@@ -20,6 +24,7 @@ const filaNueva: FilaPieza = {
 }
 
 const filaProgramada: FilaPieza = {
+  tipo: "reel",
   estado: "programado",
   version: 7,
   intento: 2,
@@ -37,6 +42,7 @@ const filaProgramada: FilaPieza = {
 }
 
 const piezaProgramada: Pieza = {
+  tipo: "reel",
   estado: "programado",
   version: 7,
   intento: 2,
@@ -190,11 +196,11 @@ describe("cambiosDesdePieza", () => {
   })
 
   it("devuelve las puertas en null cuando la pieza no tiene aprobaciones", () => {
-    expect(cambiosDesdePieza(piezaNueva())).toEqual(filaNueva)
+    expect(releida(piezaNueva())).toEqual(filaNueva)
   })
 
   it("devuelve los valores de la pieza cuando tiene las dos puertas", () => {
-    expect(cambiosDesdePieza(piezaProgramada)).toEqual(filaProgramada)
+    expect(releida(piezaProgramada)).toEqual(filaProgramada)
   })
 
   it("writes formula 2 as 2 and formula 1 as null, so an old approval stays byte for byte as it was", () => {
@@ -204,21 +210,34 @@ describe("cambiosDesdePieza", () => {
     }
     expect(cambiosDesdePieza(con2).puerta2_formula).toBe(2)
     expect(cambiosDesdePieza(piezaProgramada).puerta2_formula).toBeNull()
-    expect(piezaDesdeFila(cambiosDesdePieza(con2))).toEqual(con2)
+    expect(piezaDesdeFila(releida(con2))).toEqual(con2)
   })
 
   it("recupera la misma pieza cuando se vuelve a leer lo que se escribió", () => {
-    expect(piezaDesdeFila(cambiosDesdePieza(piezaProgramada))).toEqual(piezaProgramada)
+    expect(piezaDesdeFila(releida(piezaProgramada))).toEqual(piezaProgramada)
   })
 
   it("recupera la misma pieza cuando falló en un paso reintentable", () => {
     const fallida: Pieza = {
       ...piezaProgramada,
+      tipo: "reel",
       estado: "error_produccion",
       estadoAntesDelError: "subtitulando",
       puerta2: null,
       explicacion: "HeyGen falló",
     }
-    expect(piezaDesdeFila(cambiosDesdePieza(fallida))).toEqual(fallida)
+    expect(piezaDesdeFila(releida(fallida))).toEqual(fallida)
+  })
+})
+
+describe("the piece type", () => {
+  it("reads the type of the row and never writes it", () => {
+    const pieza = piezaDesdeFila({ ...filaNueva, tipo: "carrusel" })
+    expect(pieza.tipo).toBe("carrusel")
+    expect(cambiosDesdePieza(pieza)).not.toHaveProperty("tipo")
+  })
+
+  it("refuses a type the domain does not know", () => {
+    expect(() => piezaDesdeFila({ ...filaNueva, tipo: "video" })).toThrow("Tipo de pieza desconocido")
   })
 })

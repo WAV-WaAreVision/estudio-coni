@@ -5,6 +5,7 @@ import {
   AprobacionNoAutorizada,
   ArtefactoCambio,
   ESTADOS,
+  EVENTOS_DE_CARRUSEL,
   type Estado,
   type Evento,
   esperaDeVentana,
@@ -17,6 +18,7 @@ import {
   TEXTO_DESHACER_TARDE,
   type Transicion,
   TransicionInvalida,
+  tipoDePieza,
   transicionar,
   VENTANA_DESHACER_MS,
 } from "@/lib/dominio/estados"
@@ -573,6 +575,44 @@ describe("instanteEstricto", () => {
 
 // Expected from the design doc's "Estados y transiciones" table (+ hora_vencida and the caption-only edits),
 // not derived from the implementation.
+const eventos: Record<Evento["tipo"], Evento> = {
+  elegir: { tipo: "elegir" },
+  guion_listo: { tipo: "guion_listo", audioId: "audio_2" },
+  voz_lista: { tipo: "voz_lista", audioId: "audio_2" },
+  pedir_cambios: { tipo: "pedir_cambios" },
+  editar_texto: { tipo: "editar_texto" },
+  aprobar_guion: aprobarGuion(),
+  pedir_voz: { tipo: "pedir_voz" },
+  falla_voz: { tipo: "falla_voz", explicacion: "ElevenLabs falló" },
+  render_entregado: { tipo: "render_entregado" },
+  politica_contenido: { tipo: "politica_contenido", explicacion: "HeyGen marcó una frase." },
+  falla_produccion: { tipo: "falla_produccion", explicacion: "HeyGen falló" },
+  video_listo: { tipo: "video_listo", videoId: "video_2" },
+  aprobar_video: aprobarVideo(),
+  regrabar: { tipo: "regrabar" },
+  cambiar_guion: { tipo: "cambiar_guion" },
+  cambiar_fecha: { tipo: "cambiar_fecha" },
+  publicado: { tipo: "publicado" },
+  falla_publicacion: { tipo: "falla_publicacion", explicacion: "Metricool no respondió" },
+  hora_vencida: { tipo: "hora_vencida" },
+  entregar_para_subir: { tipo: "entregar_para_subir" },
+  subido_a_mano: { tipo: "subido_a_mano", actor: "coni", destino: "instagram", quedanPendientes: false },
+  reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
+  deshacer_aprobacion: { tipo: "deshacer_aprobacion", actor: "coni", ahora: "2026-10-06T15:00:03.000Z" },
+  carrusel_listo: { tipo: "carrusel_listo" },
+  firmar_carrusel: { tipo: "firmar_carrusel", actor: "coni", hashVisto: "h1", hashActual: "h1", en: ANTES },
+  descartar: { tipo: "descartar" },
+}
+
+function intentar(pieza: Pieza, evento: Evento): Transicion | null {
+  try {
+    return transicionar(pieza, evento)
+  } catch (error) {
+    if (error instanceof TransicionInvalida) return null
+    throw error
+  }
+}
+
 describe("tabla del diseño", () => {
   const permitidos: Record<Estado, readonly Evento["tipo"][]> = {
     idea: ["elegir", "descartar"],
@@ -611,32 +651,6 @@ describe("tabla del diseño", () => {
     descartado: [],
   }
 
-  const eventos: Record<Evento["tipo"], Evento> = {
-    elegir: { tipo: "elegir" },
-    guion_listo: { tipo: "guion_listo", audioId: "audio_2" },
-    voz_lista: { tipo: "voz_lista", audioId: "audio_2" },
-    pedir_cambios: { tipo: "pedir_cambios" },
-    editar_texto: { tipo: "editar_texto" },
-    aprobar_guion: aprobarGuion(),
-    pedir_voz: { tipo: "pedir_voz" },
-    falla_voz: { tipo: "falla_voz", explicacion: "ElevenLabs falló" },
-    render_entregado: { tipo: "render_entregado" },
-    politica_contenido: { tipo: "politica_contenido", explicacion: "HeyGen marcó una frase." },
-    falla_produccion: { tipo: "falla_produccion", explicacion: "HeyGen falló" },
-    video_listo: { tipo: "video_listo", videoId: "video_2" },
-    aprobar_video: aprobarVideo(),
-    regrabar: { tipo: "regrabar" },
-    cambiar_guion: { tipo: "cambiar_guion" },
-    cambiar_fecha: { tipo: "cambiar_fecha" },
-    publicado: { tipo: "publicado" },
-    falla_publicacion: { tipo: "falla_publicacion", explicacion: "Metricool no respondió" },
-    hora_vencida: { tipo: "hora_vencida" },
-    entregar_para_subir: { tipo: "entregar_para_subir" },
-    subido_a_mano: { tipo: "subido_a_mano", actor: "coni", destino: "instagram", quedanPendientes: false },
-    reintentar: { tipo: "reintentar", ahora: "2026-10-08T22:10:00.000Z" },
-    deshacer_aprobacion: { tipo: "deshacer_aprobacion", actor: "coni", ahora: "2026-10-06T15:00:03.000Z" },
-    descartar: { tipo: "descartar" },
-  }
 
   const puerta1 = { hash: "h1", en: ANTES }
   const puerta2 = { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES, formula: 1 as const }
@@ -650,8 +664,8 @@ describe("tabla del diseño", () => {
     en_render: en("en_render", { ...avance, audioId: "audio_1", puerta1 }),
     subtitulando: en("subtitulando", { ...avance, audioId: "audio_1", puerta1 }),
     video_por_aprobar: en("video_por_aprobar", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1 }),
-    armando_carrusel: en("armando_carrusel", { ...avance, puerta1 }),
-    carrusel_por_aprobar: en("carrusel_por_aprobar", { ...avance, puerta1 }),
+    armando_carrusel: en("armando_carrusel", { ...avance, tipo: "carrusel", puerta1 }),
+    carrusel_por_aprobar: en("carrusel_por_aprobar", { ...avance, tipo: "carrusel", puerta1 }),
     programado: en("programado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     para_subir_a_mano: en("para_subir_a_mano", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
     publicado: en("publicado", { ...avance, audioId: "audio_1", videoId: "video_1", puerta1, puerta2 }),
@@ -671,15 +685,6 @@ describe("tabla del diseño", () => {
       estadoAntesDelError: "programado",
     }),
     descartado: en("descartado", avance),
-  }
-
-  function intentar(pieza: Pieza, evento: Evento): Transicion | null {
-    try {
-      return transicionar(pieza, evento)
-    } catch (error) {
-      if (error instanceof TransicionInvalida) return null
-      throw error
-    }
   }
 
   it("acepta solo los eventos de la tabla del diseño", () => {
@@ -895,5 +900,104 @@ describe("deshacer la firma", () => {
     expect(() => transicionar(en("guion_por_aprobar"), deshacer(1000))).toThrow(TransicionInvalida)
     expect(() => transicionar(en("subtitulando", { puerta1: FIRMA }), deshacer(1000))).toThrow(TransicionInvalida)
     expect(() => transicionar(en("en_render"), deshacer(1000))).toThrow(TransicionInvalida)
+  })
+})
+
+describe("tabla del carrusel", () => {
+  // Design 2026-10-26, part 1: written, signed, changed by request or discarded. Nothing else, in any state.
+  const permitidos: Partial<Record<Estado, readonly Evento["tipo"][]>> = {
+    idea: ["elegir", "descartar"],
+    guion_en_proceso: ["carrusel_listo", "descartar"],
+    guion_por_aprobar: ["pedir_cambios", "firmar_carrusel", "descartar"],
+    armando_carrusel: ["descartar"],
+    carrusel_por_aprobar: ["descartar"],
+  }
+  const firmado = { hash: "h1", en: ANTES }
+
+  it("accepts only the carousel events, in the states the design gives them", () => {
+    for (const [estado, esperados] of Object.entries(permitidos)) {
+      const firmadoYa = estado === "armando_carrusel" || estado === "carrusel_por_aprobar"
+      const pieza = en(estado as Estado, { version: 4, intento: 2, tipo: "carrusel", puerta1: firmadoYa ? firmado : null })
+      const aceptados = Object.values(eventos)
+        .filter((evento) => intentar(pieza, evento) !== null)
+        .map((evento) => evento.tipo)
+      expect(aceptados.sort(), estado).toEqual([...(esperados ?? [])].sort())
+    }
+  })
+
+  it("never takes a voice, an avatar, a video or Instagram event", () => {
+    const fuera = Object.keys(eventos).filter((tipo) => !EVENTOS_DE_CARRUSEL.includes(tipo as Evento["tipo"]))
+    expect(fuera.sort()).toEqual(
+      [
+        "aprobar_guion",
+        "aprobar_video",
+        "cambiar_fecha",
+        "cambiar_guion",
+        "deshacer_aprobacion",
+        "editar_texto",
+        "entregar_para_subir",
+        "falla_produccion",
+        "falla_publicacion",
+        "falla_voz",
+        "guion_listo",
+        "hora_vencida",
+        "pedir_voz",
+        "politica_contenido",
+        "publicado",
+        "regrabar",
+        "reintentar",
+        "render_entregado",
+        "subido_a_mano",
+        "video_listo",
+        "voz_lista",
+      ].sort(),
+    )
+  })
+
+  it("hands the written text to gate 1 without a voice", () => {
+    const { pieza } = transicionar(en("guion_en_proceso", { tipo: "carrusel", version: 1 }), { tipo: "carrusel_listo" })
+    expect(pieza).toMatchObject({ estado: "guion_por_aprobar", audioId: null, explicacion: null, version: 2 })
+  })
+
+  it("signs the text into armando_carrusel, where part 1 leaves it", () => {
+    const { pieza, efectos } = transicionar(en("guion_por_aprobar", { tipo: "carrusel", version: 3 }), {
+      tipo: "firmar_carrusel",
+      actor: "coni",
+      hashVisto: "h1",
+      hashActual: "h1",
+      en: ANTES,
+    })
+    expect(pieza).toMatchObject({ estado: "armando_carrusel", puerta1: { hash: "h1", en: ANTES }, version: 4 })
+    expect(efectos).toEqual([])
+  })
+
+  it("signs only as Coni and only what she saw", () => {
+    const porAprobar = en("guion_por_aprobar", { tipo: "carrusel" })
+    const firma = { tipo: "firmar_carrusel" as const, hashVisto: "h1", hashActual: "h1", en: ANTES }
+    expect(capturar(() => transicionar(porAprobar, { ...firma, actor: "admin" }))).toBeInstanceOf(AprobacionNoAutorizada)
+    expect(capturar(() => transicionar(porAprobar, { ...firma, actor: "coni", hashActual: "h2" }))).toBeInstanceOf(
+      ArtefactoCambio,
+    )
+  })
+
+  it("sends a requested change back to be written as a new attempt", () => {
+    const { pieza } = transicionar(en("guion_por_aprobar", { tipo: "carrusel", intento: 1 }), { tipo: "pedir_cambios" })
+    expect(pieza).toMatchObject({ estado: "guion_en_proceso", intento: 2 })
+  })
+
+  it("refuses the carousel events on a reel", () => {
+    expect(intentar(en("guion_en_proceso"), eventos.carrusel_listo)).toBeNull()
+    expect(intentar(en("guion_por_aprobar"), eventos.firmar_carrusel)).toBeNull()
+  })
+
+  it("leaves a signed carousel quiet: nothing polls it in part 1", () => {
+    expect(piezaTrabajando({ estado: "armando_carrusel", explicacion: null })).toBe(false)
+  })
+
+  it("makes a reel unless told otherwise, and reads only the two types", () => {
+    expect(piezaNueva().tipo).toBe("reel")
+    expect(piezaNueva("carrusel").tipo).toBe("carrusel")
+    expect(tipoDePieza("carrusel")).toBe("carrusel")
+    expect(() => tipoDePieza("video")).toThrow("Tipo de pieza desconocido en la base: video")
   })
 })
