@@ -425,6 +425,17 @@ html[data-letra="grande"] .barra-de-lote {
   }
 }
 
+/* The hint under the sign track: the tap form for a finger, the key form while the track has keyboard focus. */
+.ayuda-de-teclado {
+  display: none;
+}
+.pista-de-firma:focus-visible + .ayuda-de-firma .ayuda-de-toque {
+  display: none;
+}
+.pista-de-firma:focus-visible + .ayuda-de-firma .ayuda-de-teclado {
+  display: inline;
+}
+
 /* ---------- Large text (decision 6): the head script sets data-letra="grande" when fewer than 18 rem fit across.
    Unlayered, so these beat the sticky and size utilities. ---------- */
 html[data-letra="grande"] {

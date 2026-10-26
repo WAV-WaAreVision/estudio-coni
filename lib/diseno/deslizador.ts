@@ -27,6 +27,9 @@ export const TEXTO_ARMADO = "Toca otra vez para firmar"
 export const TEXTO_FIRMADO = "Firmado"
 /** What the slider's value reads at rest (v6 `aria-valuetext`). */
 export const TEXTO_SIN_FIRMAR = "Sin firmar"
+/** The visible hint under the track at rest; the keyboard one replaces it while the track has keyboard focus. */
+export const AYUDA_DE_TOQUE = "o toca dos veces"
+export const AYUDA_DE_TECLADO = "o pulsa Enter"
 export const PISTA_DE_FIRMA = "Enter o Espacio firman. También puedes tocar dos veces: la primera prepara la firma."
 
 /** A pointer that moved more than this is a drag or a scroll, never a tap. */

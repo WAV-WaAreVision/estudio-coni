@@ -271,6 +271,29 @@ test("without dragging: a tap arms the signature and a second tap signs (WCAG 2.
   expect((await leerFila(id)).estado).toBe("en_render")
 })
 
+test("the open track says 'o toca dos veces' under it, and 'o pulsa Enter' with an ink ring under keyboard focus", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const pista = page.getByRole("slider", { name: ETIQUETA })
+  const ayuda = page.locator("[data-ayuda-de-firma]")
+  await expect(ayuda).toHaveCount(0)
+
+  await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
+  await expect(ayuda).toHaveText("o toca dos veces", { useInnerText: true })
+
+  // From the keyboard: Tab leaves the avatar group for the track.
+  await page.getByRole("radio", { name: "Estudio" }).focus()
+  await page.keyboard.press("Tab")
+  await expect(pista).toBeFocused()
+  await expect(ayuda).toHaveText("o pulsa Enter", { useInnerText: true })
+  await expect(pista).toHaveCSS("outline-style", "solid")
+  await expect(pista).toHaveCSS("outline-width", "3px")
+})
+
 test("a drag of the thumb to the end signs", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)

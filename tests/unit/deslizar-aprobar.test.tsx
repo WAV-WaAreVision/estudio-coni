@@ -254,3 +254,27 @@ describe("DeslizarParaAprobar: closed, sending, described", () => {
     expect(pista().className).not.toMatch(/\bbg-firma\b/)
   })
 })
+
+describe("DeslizarParaAprobar: the visible way to sign without dragging", () => {
+  const ayuda = () => document.querySelector("[data-ayuda-de-firma]")
+
+  it("shows 'o toca dos veces' under the track at rest, and 'o pulsa Enter' for the keyboard", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(ayuda()).toHaveTextContent("o toca dos veces")
+    expect(ayuda()?.querySelector(".ayuda-de-teclado")).toHaveTextContent(/^o pulsa Enter$/)
+    // The track's own description already says it to a screen reader.
+    expect(ayuda()).toHaveAttribute("aria-hidden", "true")
+    expect(pista().nextElementSibling).toBe(ayuda())
+  })
+
+  it("hides the hint once armed, where the track itself says to tap again, keeping its line so the track stays put", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    tocar()
+    expect(ayuda()).toHaveClass("invisible")
+  })
+
+  it("hides the hint while the signature is closed", () => {
+    render(<DeslizarParaAprobar habilitado={false} alFirmar={vi.fn()} />)
+    expect(ayuda()).toBeNull()
+  })
+})
