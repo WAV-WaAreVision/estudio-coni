@@ -11,7 +11,7 @@ import {
   limpiarDisparos,
   registroDeServicios,
 } from "./ayudas"
-import { sembrarEscena } from "./escena"
+import { IDEA_DEL_MOTOR, lineaDeFuenteDe, sembrarEscena } from "./escena"
 
 const ALERTA = [{ tipo: "verificar dato", texto: "La fuente cita proxémica sin estudio." }]
 
@@ -60,7 +60,7 @@ test("the bank shows one idea at a time with its pillar, strength and alerts", a
 test("the idea card shows its source under the hook", async ({ page }) => {
   await sembrarEscena()
   await page.goto("/ideas")
-  await expect(page.getByText("Fuente: Siembra Stanford · AI for Mental Health (2026)")).toBeVisible()
+  await expect(page.getByText(lineaDeFuenteDe(IDEA_DEL_MOTOR.fuente), { exact: true })).toBeVisible()
 })
 
 test("Usar esta puts the idea first among the week's ideas on Inicio, and Deshacer takes it out", async ({ page }) => {

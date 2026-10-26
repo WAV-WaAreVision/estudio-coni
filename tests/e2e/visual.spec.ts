@@ -12,7 +12,6 @@ import {
   moverHoraAprobada,
   quitarPublicacion,
   sembrarIdea,
-  sembrarPieza,
   vaciarPiezasEIdeas,
 } from "../integration/siembra"
 import {
@@ -21,12 +20,10 @@ import {
   configurarServicios,
   conLetraGrande,
   desconectarLinkedin,
-  GUION_VALIDO,
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
-  TEXTO_VALIDO,
 } from "./ayudas"
-import { sembrarEscena } from "./escena"
+import { IDEAS, PIEZAS, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
@@ -140,28 +137,14 @@ test("calendario agenda con propuestas", async ({ page }) => {
 
 test("inicio vacio", async ({ page }) => {
   await vaciarPiezasEIdeas()
-  for (const gancho of [
-    "Un visto sin respuesta y ya imaginas lo peor. ¿Te pasa?",
-    "¿Por qué sientes culpa al descansar?",
-  ])
-    await sembrarIdea({ pilar: "caso-coni", gancho })
+  for (const idea of IDEAS.slice(1, 3)) await sembrarIdea(idea)
   await page.goto("/")
   await capturaDe(page, "inicio-vacio")
 })
 
 test("inicio con fallas", async ({ page }) => {
   const { video } = await sembrarEscena()
-  const idea = await sembrarIdea({
-    pilar: "acceso-salud-publica",
-    gancho: "Decir que no también es cuidarte",
-    estado: "usada",
-  })
-  const fallida = await sembrarPieza("en_render", {
-    titulo: "Decir que no también es cuidarte",
-    idea_id: idea,
-    guion: GUION_VALIDO,
-    texto: TEXTO_VALIDO,
-  })
+  const fallida = await sembrarPiezaDeEscena("en_render", PIEZAS.conFalla)
   await ajustarPieza(fallida, {
     estado: "error_produccion",
     estado_antes_del_error: "en_render",
@@ -248,15 +231,10 @@ test("video sin terminar letra grande", async ({ page }) => {
   await capturaDe(page, "video-sin-terminar-letra-grande")
 })
 
+/** The scene's script in any state of gate 1, always with its backing, so every state can show its source line. */
 async function guionSembrado(estado: "guion_por_aprobar" | "grabando_voz" | "en_render") {
   await vaciarPiezasEIdeas()
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
-  return sembrarPieza(estado, {
-    titulo: "El deseo no se apaga, se esconde",
-    idea_id: idea,
-    guion: GUION_VALIDO,
-    texto: TEXTO_VALIDO,
-  })
+  return sembrarPiezaDeEscena(estado, PIEZAS.guion)
 }
 
 test("guion sin voz", async ({ page }) => {
@@ -335,13 +313,10 @@ test("guion sin escuchar", async ({ page }) => {
 
 test("guion preparando voz", async ({ page }) => {
   await vaciarPiezasEIdeas()
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
   // With tone marks, as v6 3 draws them in the script she reads while the voice is made.
-  const id = await sembrarPieza("grabando_voz", {
-    titulo: "El deseo no se apaga, se esconde",
-    idea_id: idea,
-    guion: `[warm] ${GUION_VALIDO.replace(". ", ". [pause] ")}`,
-    texto: TEXTO_VALIDO,
+  const id = await sembrarPiezaDeEscena("grabando_voz", {
+    ...PIEZAS.guion,
+    guion: `[warm] ${PIEZAS.guion.guion.replace(". ", ". [pause] ")}`,
   })
   await page.goto(`/guion/${id}`)
   await expect(page.getByText("cálido", { exact: true })).toBeVisible()
@@ -419,13 +394,12 @@ test("metricas", async ({ page }) => {
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
   const reels = [
-    ["Ser tu propia diosa", "etica-regulacion", 7, 2000, 10],
-    ["Si van a discutir, siéntense del mismo lado", "ia-salud-mental", 14, 2400, 121],
-    ["El deseo no se apaga, se esconde", "practica-clinica", 21, 1000, 12],
+    [PIEZAS.video, 7, 2000, 10],
+    [PIEZAS.programado, 14, 2400, 121],
+    [PIEZAS.guion, 21, 1000, 12],
   ] as const
-  for (const [titulo, pilar, diaDelMesPasado, alcance, guardados] of reels) {
-    const idea = await sembrarIdea({ pilar, gancho: titulo })
-    const id = await sembrarPieza("publicado", { titulo, idea_id: idea, media_id: `media_${titulo}` })
+  for (const [pieza, diaDelMesPasado, alcance, guardados] of reels) {
+    const id = await sembrarPiezaDeEscena("publicado", pieza, { media_id: `media_${pieza.titulo}` })
     const cliente = await pool.connect()
     try {
       await cliente.query("begin")
@@ -455,15 +429,12 @@ test("metricas con linkedin", async ({ page }) => {
   await pool.query("delete from public.consultas")
   await pool.query("delete from public.clics_enlace_dia")
   await pool.query("delete from public.metricas_linkedin_cuenta")
-  const ambas = await sembrarPieza("publicado", {
-    titulo: "Si van a discutir, siéntense del mismo lado",
-    media_id: "media_v1",
-  })
+  const ambas = await sembrarPiezaDeEscena("publicado", PIEZAS.video, { media_id: "media_v1" })
   await marcarPublicacion(ambas, "linkedin")
-  const soloLinkedin = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo" })
+  const soloLinkedin = await sembrarPiezaDeEscena("publicado", PIEZAS.programado)
   await quitarPublicacion(soloLinkedin, "instagram")
   await marcarPublicacion(soloLinkedin, "linkedin")
-  const aMano = await sembrarPieza("publicado_a_mano", { titulo: "Subido a mano" })
+  const aMano = await sembrarPiezaDeEscena("publicado_a_mano", PIEZAS.enRender)
   // The flow approves for tomorrow: an hour ago keeps them in this month and in the window every day but the first hour
   // of a month.
   const haceUnaHora = new Date(Date.now() - 3_600_000).toISOString()

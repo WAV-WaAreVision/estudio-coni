@@ -11,11 +11,10 @@ import {
   capturar,
   configurarServicios,
   deslizarHastaElFinal,
-  GUION_VALIDO,
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
-  TEXTO_VALIDO,
 } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 const ETIQUETA = "Desliza para firmar"
 const ENLACE_LINKEDIN = "https://www.linkedin.com/posts/coni_abc-123"
@@ -28,14 +27,14 @@ async function sinInstagram() {
 }
 
 async function videoPorAprobar(textoLinkedin: string | null) {
-  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Tus datos en una app de bienestar" })
   return sembrarPieza(
     "video_por_aprobar",
     {
-      titulo: "Llevan diez años juntos",
+      titulo: "Tus datos en una app de bienestar",
       idea_id: idea,
-      guion: GUION_VALIDO,
-      texto: TEXTO_VALIDO,
+      guion: PIEZAS.video.guion,
+      texto: PIEZAS.video.texto,
       video_id: "videos/e2e.webm",
     },
     textoLinkedin === null ? {} : { textoLinkedin },
@@ -200,10 +199,15 @@ test("Ajustes chooses where reels are published by default and keeps at least on
 })
 
 test("the Guion screen shows the LinkedIn text read only, and its findings do not stop gate 1", async ({ page }) => {
-  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Tus datos en una app de bienestar" })
   const id = await sembrarPieza(
     "guion_por_aprobar",
-    { titulo: "Llevan diez años juntos", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    {
+      titulo: "Tus datos en una app de bienestar",
+      idea_id: idea,
+      guion: PIEZAS.video.guion,
+      texto: PIEZAS.video.texto,
+    },
     { textoLinkedin: TEXTO_LINKEDIN_VALIDO },
   )
   await pool.query("update public.piezas set revision = $2::jsonb, version = version + 1 where id = $1", [
@@ -218,7 +222,7 @@ test("the Guion screen shows the LinkedIn text read only, and its findings do no
   await abrirDesplegable(page, "Más opciones")
 
   const seccion = page.getByRole("region", { name: "Texto para LinkedIn" })
-  await expect(seccion.getByText(/Llevan diez años juntos y ya casi no se tocan/)).toBeVisible()
+  await expect(seccion.getByText(/Una app de bienestar puede saber cómo duermes/)).toBeVisible()
   await expect(seccion.getByText("Lo revisas y editas al aprobar el video.")).toBeVisible()
   await expect(seccion.getByRole("button")).toHaveCount(0)
   await expect(page.getByText("Falta el aviso de LinkedIn.")).toHaveCount(0)
@@ -228,13 +232,13 @@ test("Inicio says which network a reel waits for, with a LinkedIn item pending",
   const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Solo en LinkedIn" })
   await sembrarPieza(
     "para_subir_a_mano",
-    { titulo: "Solo en LinkedIn", idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    { titulo: "Solo en LinkedIn", idea_id: idea, guion: PIEZAS.video.guion, texto: PIEZAS.video.texto },
     { destinos: ["linkedin"], textoLinkedin: TEXTO_LINKEDIN_VALIDO },
   )
   const otraIdea = await sembrarIdea({ pilar: "practica-clinica", gancho: "En las dos redes" })
   await sembrarPieza(
     "para_subir_a_mano",
-    { titulo: "En las dos redes", idea_id: otraIdea, guion: GUION_VALIDO, texto: TEXTO_VALIDO },
+    { titulo: "En las dos redes", idea_id: otraIdea, guion: PIEZAS.video.guion, texto: PIEZAS.video.texto },
     { destinos: ["instagram", "linkedin"], textoLinkedin: TEXTO_LINKEDIN_VALIDO },
   )
   await pool.query("delete from public.avisos")

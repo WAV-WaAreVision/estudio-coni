@@ -122,19 +122,24 @@ export const GUION_VALIDO = readFileSync(
 export const TEXTO_VALIDO =
   "El deseo no se apaga: se esconde detrás del cansancio y la rutina.\n\nVideo hecho con mi avatar digital."
 
-/** A LinkedIn text that follows every rule of the review: the screens show it without a finding. */
+/**
+ * A LinkedIn text that follows every rule of the review, so the screens show it without a finding: a short hook, plain
+ * numbers for the list, one closing question, the cited source and the fixed avatar notice. It goes with the scene's
+ * video ("Tus datos en una app de bienestar", ética y regulación).
+ */
 export const TEXTO_LINKEDIN_VALIDO = [
-  "Llevan diez años juntos y ya casi no se tocan.",
-  "Pasa más de lo que se cuenta. Nadie decidió alejarse: el trabajo, los hijos y el cansancio fueron ocupando el espacio que antes era de los dos.",
-  "Desde la psicología clínica y la sexología vemos que el deseo responde a las condiciones en que vivimos. Cuando falta descanso, falta tiempo a solas y falta conversación, el cuerpo baja la guardia del deseo sin avisar.",
-  "Eso no habla de falta de amor. Habla de una rutina que se quedó sin pausas.",
-  "Tres cosas que ayudan a muchas parejas:",
-  "1️⃣ Poner un momento fijo para conversar sin pantallas.\n2️⃣ Hablar de lo que cada uno necesita antes de hablar de lo que falta.\n3️⃣ Cuidar el contacto cotidiano que no busca nada más: un abrazo largo, una mano en la espalda.",
-  "Ninguna de las tres exige tiempo extra. Piden intención y un poco de repetición.",
-  "Si trabajas con personas, en una consulta, en un colegio o en una empresa, esta mirada sirve igual: las conductas cambian cuando cambian las condiciones.",
-  "¿En qué momento del día te cuesta más desconectarte del trabajo?",
+  "Una app de bienestar puede saber cómo duermes, qué te angustia y con quién discutes.",
+  "Muchas personas le cuentan a una aplicación cosas que todavía no le han dicho a nadie. Lo hacen de noche, desde el celular, sin pensar mucho en quién más va a leer esos datos.",
+  "La Mozilla Foundation revisó las políticas de privacidad de las apps de salud mental más descargadas y encontró que muchas protegían poco la información de quienes las usan. En Chile, además, la regulación de estas herramientas avanza más lento que su uso.",
+  "Desde la psicología clínica, lo que se comparte en un espacio terapéutico está protegido por el secreto profesional. Esa protección todavía no existe de la misma forma cuando quien escucha es un software.",
+  "Tres revisiones antes de instalar una app de este tipo:",
+  "1. Mira quién guarda lo que escribes y por cuánto tiempo.\n2. Busca si la app vende o comparte datos con otras empresas.\n3. Fíjate si puedes borrar tu historial completo cuando quieras.",
+  "Ninguna toma más de cinco minutos, y cuidan algo que cuesta mucho recuperar.",
+  "Si trabajas en salud, en educación o en recursos humanos y recomiendas estas herramientas, vale la pena hacer la misma revisión antes de sugerirlas.",
+  "¿Qué te gustaría saber de una app antes de contarle cómo te sientes?",
+  "Fuente: Mozilla Foundation · Privacy Not Included: Mental Health Apps (2023)",
   "Este video lo narra mi avatar digital, creado con IA a partir de mi imagen y mi voz. El contenido lo revisé y aprobé yo.",
-  "#sexualidad #psicologia",
+  "#saludmental #privacidad #psicologia",
 ].join("\n\n")
 
 interface EstadoDeServicios {

@@ -8,11 +8,10 @@ import {
   conectarLinkedin,
   configurarServicios,
   desconectarLinkedin,
-  GUION_VALIDO,
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
-  TEXTO_VALIDO,
 } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 const ENLACE = "https://www.linkedin.com/feed/update/urn:li:share:7123456789/"
 const SOLO_LINKEDIN = { destinos: ["linkedin"] as const, textoLinkedin: TEXTO_LINKEDIN_VALIDO }
@@ -26,14 +25,14 @@ async function capturarCuentas(page: import("@playwright/test").Page, nombre: st
 }
 
 async function piezaDeLinkedin(estado: "programado" | "para_subir_a_mano" | "publicado") {
-  const idea = await sembrarIdea({ pilar: "ia-salud-mental", gancho: "Llevan diez años juntos" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Tus datos en una app de bienestar" })
   return sembrarPieza(
     estado,
     {
-      titulo: "Llevan diez años juntos",
+      titulo: "Tus datos en una app de bienestar",
       idea_id: idea,
-      guion: GUION_VALIDO,
-      texto: TEXTO_VALIDO,
+      guion: PIEZAS.video.guion,
+      texto: PIEZAS.video.texto,
       video_id: "videos/e2e.webm",
     },
     SOLO_LINKEDIN,

@@ -27,7 +27,7 @@ import {
   simularMedios,
   TEXTO_VALIDO,
 } from "./ayudas"
-import { sembrarEscena } from "./escena"
+import { lineaDeFuenteDe, PIEZAS, sembrarEscena } from "./escena"
 
 const ETIQUETA = "Desliza para firmar"
 const PREPARANDO = "Estoy preparando tu voz. Tarda unos segundos."
@@ -179,7 +179,7 @@ test("a script without its voice asks to prepare it, and the voice arrives by it
   await expect(page.getByText("No pude preparar tu voz.", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /^Preparar mi voz US\$ \d+,\d\d$/ })).toBeVisible()
   // The ElevenLabs balance is WAV's: folded under the button.
-  const saldo = page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de octubre.")
+  const saldo = page.getByText("ElevenLabs: te quedan 99.000 de 100.000 caracteres. Se renuevan el 12 de noviembre.")
   await expect(saldo).toBeHidden()
   await abrirDesplegable(page.getByRole("region", { name: "1. Escucha tu voz" }), "Detalle para WAV")
   await expect(saldo).toBeVisible()
@@ -228,7 +228,7 @@ test("a piece that failed is discarded only after she confirms, and it leaves In
 test("gate 1 shows the source of its backing after the script", async ({ page }) => {
   const { guion } = await sembrarEscena()
   await page.goto(`/guion/${guion}`)
-  await expect(page.getByText("Fuente: Stanford · AI for Mental Health (2026)")).toBeVisible()
+  await expect(page.getByText(lineaDeFuenteDe(PIEZAS.guion.fuente), { exact: true })).toBeVisible()
 })
 
 test("gate 1 shows the date in ink and bold, and the editor without inner scroll", async ({ page }) => {
