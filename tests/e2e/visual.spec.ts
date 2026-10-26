@@ -23,7 +23,7 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
-import { IDEAS, PIEZAS, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
+import { IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
@@ -500,4 +500,18 @@ test("ingreso con codigo equivocado", async ({ browser }) => {
   await expect(page.getByRole("alert").filter({ hasText: "Ese código no sirve" })).toBeVisible()
   await capturaDe(page, "ingreso-codigo-error")
   await contexto.close()
+})
+
+test("carrusel por aprobar", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("guion_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-por-aprobar")
+})
+
+test("carrusel firmado", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("armando_carrusel")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-firmado")
 })

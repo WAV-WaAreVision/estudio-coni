@@ -24,7 +24,14 @@ import {
   desconectarLinkedin,
   simularMedios,
 } from "./ayudas"
-import { FUENTES, lineaDeFuenteDe, PIEZAS, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
+import {
+  FUENTES,
+  lineaDeFuenteDe,
+  PIEZAS,
+  sembrarCarruselDeEscena,
+  sembrarEscena,
+  sembrarPiezaDeEscena,
+} from "./escena"
 
 test("the app text is set in Geist, one family", async ({ page }) => {
   await page.goto("/")
@@ -435,4 +442,31 @@ test("the batch mode, its undo, the cap question and the Agenda with proposals p
   const agenda = await hallazgosDeAxe(page, "agenda con propuestas")
 
   expect([...motivos, ...deshacer, ...tope, ...agenda]).toEqual([])
+})
+
+test("the carousel screens and the format choice pass WCAG 2.x AA, also at large text", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await sembrarEscena()
+  const porAprobar = await sembrarCarruselDeEscena("guion_por_aprobar")
+  const firmado = await sembrarCarruselDeEscena("armando_carrusel")
+  // `auditar` opens a reel's folds on every /guion/ address; a carousel has none of them, so its screens go as they are.
+  const hallazgos: string[] = []
+  for (const antes of [async () => {}, conLetraGrande]) {
+    for (const ruta of [`/guion/${porAprobar}`, `/guion/${firmado}`]) {
+      await page.goto(ruta)
+      await antes(page)
+      hallazgos.push(...(await hallazgosDeAxe(page, ruta)))
+    }
+  }
+  expect(hallazgos).toEqual([])
+  expect(await auditar(page, ["/ideas"])).toEqual([])
+  expect(await auditar(page, ["/ideas"], conLetraGrande)).toEqual([])
+
+  // The open folds, audited as they are (`auditar` goes to each address first).
+  await page.goto(`/guion/${porAprobar}`)
+  await abrirDesplegable(page, "Pedir cambio")
+  expect(await hallazgosDeAxe(page, "carrusel con Pedir cambio abierto")).toEqual([])
+  await page.goto("/ideas")
+  await page.getByRole("radio", { name: "Carrusel de LinkedIn" }).check()
+  expect(await hallazgosDeAxe(page, "idea con Carrusel de LinkedIn elegido")).toEqual([])
 })
