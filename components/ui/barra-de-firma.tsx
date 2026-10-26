@@ -1,5 +1,5 @@
 import { Check, Info } from "@phosphor-icons/react/dist/ssr"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 import { ICONO } from "./icono"
 
 interface PropiedadesDeBarra {
@@ -27,7 +27,15 @@ export function BarraDeFirma({ arriba, consecuencia, idConsecuencia, children }:
       {children}
       {consecuencia ? (
         <p id={idConsecuencia} className="text-center text-meta text-apagado">
-          {consecuencia}
+          {consecuencia.split(" · ").map((parte, indice) => (
+            // Each part moves whole to the next line: a narrow line breaks between parts, never inside a price.
+            <Fragment key={parte}>
+              {indice > 0 ? " · " : null}
+              <span data-parte className="inline-block">
+                {parte}
+              </span>
+            </Fragment>
+          ))}
         </p>
       ) : null}
     </section>

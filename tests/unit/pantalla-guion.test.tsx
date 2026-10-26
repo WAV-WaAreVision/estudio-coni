@@ -6,6 +6,10 @@ import { TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
+/** The consequence line under the track: its parts are separate spans, so it is matched by its whole text. */
+const consecuencia = (texto: string) => (_: string, nodo: Element | null) =>
+  nodo?.tagName === "P" && nodo.textContent === texto
+
 const { aprobarGuionAccion, editarGuionAccion, pedirCambiosAccion, pedirVozAccion, replace } = vi.hoisted(() => ({
   aprobarGuionAccion: vi.fn(),
   editarGuionAccion: vi.fn(),
@@ -373,7 +377,7 @@ describe("PantallaGuion: la firma", () => {
 
   it("says what the signature does under the track, and describes the track with it", () => {
     render(<PantallaGuion datos={datos()} />)
-    expect(within(barra()).getByText(LINEA)).toHaveClass("text-center")
+    expect(within(barra()).getByText(consecuencia(LINEA))).toHaveClass("text-center")
     expect(firma()).toHaveAccessibleDescription(contiene(LINEA))
   })
 

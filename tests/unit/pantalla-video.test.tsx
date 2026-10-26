@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeVideo, PantallaVideo } from "@/app/(app)/video/[id]/pantalla-video"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, type Hallazgo } from "@/lib/dominio/revision"
 
+/** The consequence line under the track: its parts are separate spans, so it is matched by its whole text. */
+const consecuencia = (texto: string) => (_: string, nodo: Element | null) =>
+  nodo?.tagName === "P" && nodo.textContent === texto
+
 const { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } = vi.hoisted(() => ({
   aprobarVideoAccion: vi.fn(),
   editarTextoLinkedinAccion: vi.fn(),
@@ -113,7 +117,7 @@ describe("PantallaVideo: todo a la vista antes de terminar", () => {
     revisar()
     expect(within(barra()).getByText("Video visto")).toBeInTheDocument()
     expect(within(barra()).getByText("Texto")).toBeInTheDocument()
-    expect(within(barra()).getByText("Sale el viernes 9 · 19:00")).toBeInTheDocument()
+    expect(within(barra()).getByText(consecuencia("Sale el viernes 9 · 19:00"))).toBeInTheDocument()
   })
 
   it("blocks with today's text when there is no free slot", () => {
@@ -135,7 +139,7 @@ describe("PantallaVideo: dónde y cuándo", () => {
     fireEvent.click(screen.getByRole("radio", { name: "lunes 12 de octubre · 19:00" }))
     fireEvent.click(screen.getByRole("button", { name: "Listo" }))
     revisar()
-    expect(within(barra()).getByText("Sale el lunes 12 · 19:00")).toBeInTheDocument()
+    expect(within(barra()).getByText(consecuencia("Sale el lunes 12 · 19:00"))).toBeInTheDocument()
   })
 
   it("keeps the destinations folded under Más opciones, and names them under the date", () => {

@@ -27,8 +27,20 @@ describe("BarraDeFirma", () => {
       "pista",
       "Graba el video",
     ])
-    expect(screen.getByText("Graba el video")).toHaveAttribute("id", "consecuencia")
-    expect(screen.getByText("Graba el video")).toHaveClass("text-center", "text-apagado")
+    expect(screen.getByText("Graba el video").closest("p")).toHaveAttribute("id", "consecuencia")
+    expect(screen.getByText("Graba el video").closest("p")).toHaveClass("text-center", "text-apagado")
+  })
+  it("keeps each part of the consequence whole, so a narrow line breaks between parts, never inside a price", () => {
+    render(
+      <BarraDeFirma consecuencia="Graba el video · US$ 3,36 · 8 s para deshacer" idConsecuencia="c">
+        <button type="button">x</button>
+      </BarraDeFirma>,
+    )
+    const linea = document.getElementById("c")
+    expect(linea).toHaveTextContent("Graba el video · US$ 3,36 · 8 s para deshacer")
+    const partes = Array.from(linea?.querySelectorAll("[data-parte]") ?? [])
+    expect(partes.map((parte) => parte.textContent)).toEqual(["Graba el video", "US$ 3,36", "8 s para deshacer"])
+    for (const parte of partes) expect(parte).toHaveClass("inline-block")
   })
 })
 
