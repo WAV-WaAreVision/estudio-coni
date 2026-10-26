@@ -41,7 +41,8 @@ export function BarraDeFirma({
         >
           {consecuencia.split(" · ").map((parte, indice) => (
             // Each part moves whole to the next line: a narrow line breaks between parts, never inside a price.
-            <Fragment key={parte}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: two parts may read the same; their order is the identity
+            <Fragment key={indice}>
               {indice > 0 ? " · " : null}
               <span data-parte className="inline-block">
                 {parte}

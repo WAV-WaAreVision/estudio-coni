@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { BarraDeFirma, LineaDeFalta, ResumenListo } from "@/components/ui/barra-de-firma"
 
 describe("BarraDeFirma", () => {
@@ -30,6 +30,21 @@ describe("BarraDeFirma", () => {
     expect(screen.getByText("Graba el video").closest("p")).toHaveAttribute("id", "consecuencia")
     expect(screen.getByText("Graba el video").closest("p")).toHaveClass("text-center", "text-apagado")
   })
+  it("renders two equal parts of the consequence without React losing track of either", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      render(
+        <BarraDeFirma consecuencia="Sale mañana · US$ 3,36 · US$ 3,36" idConsecuencia="c">
+          <button type="button">x</button>
+        </BarraDeFirma>,
+      )
+      expect(document.querySelectorAll("#c [data-parte]")).toHaveLength(3)
+      expect(error).not.toHaveBeenCalled()
+    } finally {
+      error.mockRestore()
+    }
+  })
+
   it("keeps each part of the consequence whole, so a narrow line breaks between parts, never inside a price", () => {
     render(
       <BarraDeFirma consecuencia="Graba el video · US$ 3,36 · 8 s para deshacer" idConsecuencia="c">
