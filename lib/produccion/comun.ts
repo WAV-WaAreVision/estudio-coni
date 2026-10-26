@@ -55,6 +55,8 @@ export function estimarCostoVoz(texto: string): number {
 
 /** What writing and reviewing one script reserves with Claude; the real cost is confirmed afterwards. */
 export const ESTIMADO_GUION_CLAUDE_USD = 0.5
+/** What writing and reviewing one carousel reserves with Claude (no voice); the real cost is confirmed afterwards. */
+export const ESTIMADO_CARRUSEL_CLAUDE_USD = 0.5
 
 /**
  * The most one script can hold against the cap: Claude's draft and review, then her voice of the longest script

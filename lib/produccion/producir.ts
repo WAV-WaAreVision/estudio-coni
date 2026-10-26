@@ -23,6 +23,7 @@ import {
   revisarGuion,
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
+import { producirCarrusel } from "@/lib/produccion/carrusel"
 import {
   aCuatroDecimales,
   avisarTope,
@@ -207,6 +208,8 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
   if (fila.estado !== "guion_en_proceso") {
     return { resultado: "nada_que_hacer" }
   }
+  // A carousel has its own writer: no script, no caption, no voice (design 2026-10-26, C3).
+  if (fila.tipo === "carrusel") return producirCarrusel(deps, fila)
   const contexto = await cargarContexto(deps, fila)
 
   const claveClaude = claveDeGasto(fila, `claude:${fila.id}:${contexto.idea.id}`)
