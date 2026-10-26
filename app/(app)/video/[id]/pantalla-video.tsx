@@ -13,6 +13,7 @@ import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
+import { FilaMeta } from "@/components/ui/fila-meta"
 import { Eleccion } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
@@ -141,10 +142,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         />
       </div>
 
-      <p className="mt-[18px] flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-        <span>{datos.pilar?.nombre}</span>
-        <span>{datos.segundos} s</span>
-      </p>
+      <FilaMeta className="mt-[18px]" pilar={datos.pilar?.nombre} largo={`${datos.segundos} s`} />
       <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
       {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
       <div className="mt-3">

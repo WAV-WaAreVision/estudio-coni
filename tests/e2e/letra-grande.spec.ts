@@ -71,6 +71,26 @@ test("at large text the sign bar sits at the end of gate 1, round all over, with
   await expect(page.locator("h1")).toHaveCSS("font-size", `${1.5 * raiz}px`)
 })
 
+test("at large text the meta row of both gates stacks flush left, the pillar above the format and length", async ({
+  page,
+}) => {
+  const { guion, video } = await sembrarEscena()
+  for (const ruta of [`/guion/${guion}`, `/video/${video}`]) {
+    await page.goto(ruta)
+    await conLetraGrande(page)
+    const partes = page.locator("[data-fila-meta] > *")
+    await expect(partes).toHaveCount(2)
+    const [pilar, largo] = await partes.evaluateAll((nodos) =>
+      nodos.map((nodo) => {
+        const caja = nodo.getBoundingClientRect()
+        return { izquierda: Math.round(caja.left), arriba: Math.round(caja.top), abajo: Math.round(caja.bottom) }
+      }),
+    )
+    expect(largo?.izquierda, ruta).toBe(pilar?.izquierda)
+    expect(largo?.arriba ?? 0, ruta).toBeGreaterThanOrEqual(pilar?.abajo ?? 0)
+  }
+})
+
 test("at large text a priced button keeps every word of its label whole", async ({ page }) => {
   const { guion } = await sembrarEscena()
   await ajustarPieza(guion, { audio_id: null, explicacion: TEXTO_SIN_VOZ })

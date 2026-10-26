@@ -132,7 +132,7 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(guion.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("names the pillar by its short name at gate 1 and keeps format and length whole on the right when they wrap", () => {
+  it("names the pillar by its short name at gate 1 and keeps format and length whole in the meta row", () => {
     render(
       <PantallaGuion
         datos={datos({
@@ -145,8 +145,9 @@ describe("PantallaGuion: el orden de v6", () => {
     const duracion = screen.getByText("Mito o realidad · 52 s")
     expect(screen.queryByText("Práctica clínica aumentada")).not.toBeInTheDocument()
     expect(pilar.parentElement).toBe(duracion.parentElement)
-    expect(pilar.parentElement).toHaveClass("flex", "flex-wrap")
-    expect(duracion).toHaveClass("ml-auto", "whitespace-nowrap")
+    expect(pilar.parentElement).toHaveAttribute("data-fila-meta")
+    expect(pilar.parentElement).toHaveClass("fila-meta", "justify-between")
+    expect(duracion).toHaveClass("whitespace-nowrap")
   })
 
   it("keeps the source inside the script's reading panel, apart from Claude's note, as the idea card's row", () => {
