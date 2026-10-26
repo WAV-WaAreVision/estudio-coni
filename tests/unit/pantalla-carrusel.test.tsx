@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeCarrusel, PantallaCarrusel } from "@/app/(app)/guion/[id]/pantalla-carrusel"
 import { FUENTE_DEL_CARRUSEL, LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 
-const { firmar, pedir, refrescar } = vi.hoisted(() => ({ firmar: vi.fn(), pedir: vi.fn(), refrescar: vi.fn() }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: refrescar, replace: vi.fn() }) }))
+const { firmar, pedir, redibujar } = vi.hoisted(() => ({ firmar: vi.fn(), pedir: vi.fn(), redibujar: vi.fn() }))
+// A `router.refresh()` loses the race with the address's prefetches (`useRedibujar`): the screen redraws by its address.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: redibujar }) }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({ firmarCarruselAccion: firmar, pedirCambioDeCarruselAccion: pedir }))
 
 const DATOS: DatosDeCarrusel = {
@@ -35,7 +36,7 @@ const deslizador = () => screen.getByRole("slider", { name: "Desliza para firmar
 beforeEach(() => {
   firmar.mockReset().mockResolvedValue({ ok: true, version: 5 })
   pedir.mockReset().mockResolvedValue({ ok: true })
-  refrescar.mockReset()
+  redibujar.mockReset()
 })
 
 describe("PantallaCarrusel", () => {
@@ -58,7 +59,7 @@ describe("PantallaCarrusel", () => {
     montar()
     fireEvent.keyDown(deslizador(), { key: "Enter" })
     await waitFor(() => expect(firmar).toHaveBeenCalledWith("p1", 4))
-    await waitFor(() => expect(refrescar).toHaveBeenCalled())
+    await waitFor(() => expect(redibujar).toHaveBeenCalledWith(expect.stringMatching(/\?v=\d+$/), { scroll: false }))
   })
 
   it("keeps the signature closed until each warning is ticked", () => {
@@ -86,6 +87,7 @@ describe("PantallaCarrusel", () => {
     fireEvent.change(screen.getByLabelText("¿Qué quieres cambiar?"), { target: { value: "Más corto" } })
     fireEvent.click(boton)
     await waitFor(() => expect(pedir).toHaveBeenCalledWith("p1", 4, "Más corto"))
+    await waitFor(() => expect(redibujar).toHaveBeenCalled())
   })
 
   it("offers no more changes after three", () => {

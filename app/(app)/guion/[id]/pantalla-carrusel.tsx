@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { Seccion } from "@/components/seccion"
@@ -13,6 +12,7 @@ import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Panel } from "@/components/ui/panel"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
+import { useRedibujar } from "@/components/use-redibujar"
 import { type Lamina, MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
@@ -50,7 +50,8 @@ const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? "
  * cambio" with one sentence (no editing on the phone, C8) and "Desliza para firmar". No voice, no avatar, no cost.
  */
 export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
-  const router = useRouter()
+  // Not `router.refresh()`: it loses the race with this address's prefetches (see `useRedibujar`).
+  const redibujar = useRedibujar()
   const firma = useAccion()
   const cambio = useAccion()
   const [confirmadas, setConfirmadas] = useState<ReadonlySet<string>>(new Set())
@@ -133,10 +134,7 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
                 deshabilitado={pedido.trim() === ""}
                 cargando={cambio.pendiente}
                 onClick={() =>
-                  cambio.ejecutar(
-                    () => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido),
-                    () => router.refresh(),
-                  )
+                  cambio.ejecutar(() => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido), redibujar)
                 }
               >
                 Pedir este cambio
@@ -160,12 +158,7 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
           habilitado={falta.tipo === "nada"}
           enviando={firma.pendiente}
           describidoPor={falta.tipo === "nada" ? idConsecuencia : `${idFalta} ${idConsecuencia}`}
-          alFirmar={() =>
-            firma.ejecutar(
-              () => firmarCarruselAccion(datos.id, datos.version),
-              () => router.refresh(),
-            )
-          }
+          alFirmar={() => firma.ejecutar(() => firmarCarruselAccion(datos.id, datos.version), redibujar)}
         />
       </BarraDeFirma>
     </div>
