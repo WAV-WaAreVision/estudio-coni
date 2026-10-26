@@ -9,8 +9,8 @@ type Ritmo = ModeloDeCalendario["ritmo"]
 const CELDA = "flex min-h-objetivo min-w-0 items-center rounded-bloque px-2.5 text-meta break-words"
 
 /**
- * Brandkit 9.19: weeks against the days of the schedule. A free slot is a sunken honda tile, as fields and tracks are; a
- * filled one is an ink tile with the theme in light. Read only: neither is raised.
+ * Brandkit 9.19: weeks against the days of the schedule. A filled slot is an ink tile with the theme in light; a free one
+ * is a flat hairline, counted in one line under the grid. Read only: nothing is raised.
  */
 export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
   const ensenanza = ritmo.antesDeEmpezar ? (
@@ -30,23 +30,40 @@ export function RitmoDelCalendario({ ritmo }: { ritmo: Ritmo }) {
       )
     )
   }
+  const libres = ritmo.semanas.reduce(
+    (suma, semana) => suma + semana.celdas.filter((c) => c.tipo === "libre").length,
+    0,
+  )
+  const hayLlenas = ritmo.semanas.some((semana) => semana.celdas.some((celda) => celda.tipo === "llena"))
+  const lineaDeLibres =
+    libres > 0 ? (
+      <p className="text-meta text-apagado">{libres === 1 ? "1 espacio libre" : `${libres} espacios libres`}</p>
+    ) : null
   return (
     <div className="grid gap-6">
       {ensenanza ?? <p className="text-cuerpo">{ritmo.resumen}</p>}
-      <div
-        className="grid items-end gap-x-3 gap-y-4"
-        style={{ gridTemplateColumns: `56px repeat(${ritmo.columnas.length}, minmax(0, 1fr))` }}
-      >
-        <span />
-        {ritmo.columnas.map((columna) => (
-          <span key={columna} className="text-meta font-semibold">
-            {columna}
-          </span>
-        ))}
-        {ritmo.semanas.map((semana, i) => (
-          <RitmoSemana key={semana.etiqueta} semana={semana} actual={i === ritmo.semanas.length - 1} />
-        ))}
-      </div>
+      {/* Free slots are counted in one line, never a wall of «libre» pills; with nothing filled there is no grid. */}
+      {hayLlenas ? (
+        <div className="grid gap-3">
+          <div
+            className="grid items-end gap-x-3 gap-y-4"
+            style={{ gridTemplateColumns: `56px repeat(${ritmo.columnas.length}, minmax(0, 1fr))` }}
+          >
+            <span />
+            {ritmo.columnas.map((columna) => (
+              <span key={columna} className="text-meta font-semibold">
+                {columna}
+              </span>
+            ))}
+            {ritmo.semanas.map((semana, i) => (
+              <RitmoSemana key={semana.etiqueta} semana={semana} actual={i === ritmo.semanas.length - 1} />
+            ))}
+          </div>
+          {lineaDeLibres}
+        </div>
+      ) : (
+        lineaDeLibres
+      )}
       {ritmo.sugerencia ? (
         <LineaDeEstado
           tipo="aviso"
@@ -80,13 +97,14 @@ function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; act
             {celda.pilar ? celda.pilar.nombreCorto : "Reel"}
           </span>
         ) : (
+          // A free cell is flat and silent: nothing to tap, the line under the grid counts them.
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: one cell per day of the schedule, in order
             key={i}
-            className={cn(CELDA, "bg-piedra-honda text-apagado shadow-hundido")}
-          >
-            libre
-          </span>
+            data-libre
+            aria-hidden="true"
+            className="min-h-objetivo border-b border-hilo"
+          />
         ),
       )}
     </>

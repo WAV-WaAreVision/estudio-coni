@@ -264,6 +264,10 @@ va arriba para no taparla.
 - **Carta de idea:** pilar con su nombre corto, gancho, formato y «Respaldo débil» si aplica; nunca la
   «fuerza» del motor ni el tema suelto. A lo más dos acciones a la vista («Usar esta» y «Después»); el
   resto («Descartar», «Escribir una idea mía») va plegado bajo «Más».
+- **Espacios libres (Agenda y Ritmo):** nunca un muro de «libre». La Agenda muestra como fila solo el
+  próximo espacio libre («Libre · elige una idea») y cuenta el resto de cada semana en una línea («3
+  espacios libres»). En Ritmo la celda libre es plana y muda, sin relleno ni relieve (no parece botón);
+  una línea bajo la grilla las cuenta, y sin nada lleno no hay grilla.
 - **Nombre del pilar:** el corto en lo compacto (chips, filas, cabeceras de carta y de puerta, celdas);
   el completo solo en títulos a todo el ancho y en frases.
 

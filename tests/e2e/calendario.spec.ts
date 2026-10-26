@@ -59,8 +59,9 @@ test("the agenda places what is on its way in the next slots and leaves the rest
   await expect(page.getByText("Guion en preparación")).toBeVisible()
   const libres = page.getByRole("link", { name: "Libre · elige una idea" })
   await expect(libres.first()).toHaveAttribute("href", "/ideas")
-  expect(await libres.count()).toBeLessThanOrEqual(3)
-  await expect(page.getByText(/^y \d+ libres? más$/).first()).toBeVisible()
+  // One free slot as a row; the rest of each week is counted in one line.
+  expect(await libres.count()).toBeLessThanOrEqual(1)
+  await expect(page.getByText(/^(y )?\d+ espacios? libres?( más)?$/).first()).toBeVisible()
   await capturar(page, "calendario-agenda")
 })
 
@@ -77,11 +78,12 @@ test("the rhythm shows the last four weeks by the days of the schedule and has n
   ).toBeVisible()
   await expect(page.getByText("Mar", { exact: true })).toBeVisible()
   await expect(page.getByText("casi siempre quedan libres")).toHaveCount(0)
-  // A free slot is a sunken honda tile, as fields and tracks are, never an underline.
-  const libre = page.getByText("libre", { exact: true }).first()
-  await expect(libre).toHaveCSS("background-color", "rgb(220, 220, 219)")
-  await expect(libre).toHaveCSS("box-shadow", /inset/)
-  await expect(libre).toHaveCSS("border-bottom-width", "0px")
+  // A free slot is flat and silent, never a tile that reads as a button: one line counts them.
+  await expect(page.getByText("libre", { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/^\d+ espacios? libres?$/)).toBeVisible()
+  const libre = page.locator("[data-libre]").first()
+  await expect(libre).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
+  await expect(libre).toHaveCSS("box-shadow", "none")
   await capturar(page, "calendario-ritmo")
 })
 

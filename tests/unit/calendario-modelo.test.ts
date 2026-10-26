@@ -100,15 +100,20 @@ describe("Mes", () => {
 })
 
 describe("Agenda", () => {
-  it("lists only the next three free slots and says how many more each week has", () => {
+  it("lists only the next free slot as a row and counts the rest of each week in one line", () => {
     const { agenda } = calendario([])
 
     const libres = agenda.semanas.flatMap((s) => s.huecos).filter((h) => h.ocupante === null)
-    expect(libres.map((h) => h.dia)).toEqual(["Jueves 15", "Sábado 17", "Martes 20"])
-    expect(agenda.semanas.map((s) => s.libresMas)).toEqual([null, "y 2 libres más", "y 3 libres más", "y 3 libres más"])
+    expect(libres.map((h) => h.dia)).toEqual(["Jueves 15"])
+    expect(agenda.semanas.map((s) => s.libresMas)).toEqual([
+      "y 1 espacio libre más",
+      "3 espacios libres",
+      "3 espacios libres",
+      "3 espacios libres",
+    ])
   })
 
-  it("never hides a slot that has a piece, and says «1 libre» in the singular", () => {
+  it("never hides a slot that has a piece, and says «1 espacio libre» in the singular", () => {
     const { agenda } = calendario([
       pieza({ estado: "programado", publicarEn: alas19(15) }),
       pieza({ estado: "programado", publicarEn: alas19(17) }),
@@ -122,7 +127,8 @@ describe("Agenda", () => {
       ["Jueves 22", true],
       ["Sábado 24", false],
     ])
-    expect(agenda.semanas[2]?.libresMas).toBe("y 1 libre más")
+    expect(agenda.semanas[2]?.libresMas).toBe("3 espacios libres")
+    expect(agenda.semanas[3]?.libresMas).toBe("3 espacios libres")
   })
 
   it("shows four weeks from this one, with the slots of the schedule that have not passed", () => {
@@ -135,7 +141,8 @@ describe("Agenda", () => {
       "Semana del 2 al 8 de noviembre",
     ])
     // Tuesday 13 is past; Thursday 15 at 19:00 is still ahead of 12:00.
-    expect(agenda.semanas[0]?.huecos.map((h) => h.dia)).toEqual(["Jueves 15", "Sábado 17"])
+    // Only the next free slot is a row; Saturday 17 is counted under it.
+    expect(agenda.semanas[0]?.huecos.map((h) => h.dia)).toEqual(["Jueves 15"])
     expect(agenda.semanas[0]?.huecos.every((h) => h.hora === "19:00")).toBe(true)
   })
 
@@ -175,7 +182,6 @@ describe("Agenda", () => {
     expect(huecos.map((h) => [h.dia, h.hora])).toEqual([
       ["Jueves 15", "19:00"],
       ["Viernes 16", "18:30"],
-      ["Sábado 17", "19:00"],
     ])
     expect(huecos[1]?.ocupante?.titulo).toBe("Fuera de horario")
   })
@@ -325,7 +331,6 @@ describe("Agenda", () => {
     expect(agenda.semanas[0]?.huecos.map((h) => [h.dia, h.ocupante?.titulo ?? null])).toEqual([
       ["Jueves 15", null],
       ["Viernes 16", "Viernes"],
-      ["Sábado 17", null],
     ])
   })
 })

@@ -65,4 +65,77 @@ describe("RitmoDelCalendario", () => {
     expect(screen.getByText("Reel")).toBeInTheDocument()
     expect(screen.queryByText("van 0 de 0")).toBeNull()
   })
+
+  it("summarizes a schedule with nothing in it as N espacios libres, never a wall of «libre» pills", () => {
+    const libres = [
+      { tipo: "libre" as const, falta: false },
+      { tipo: "libre" as const, falta: false },
+      { tipo: "libre" as const, falta: false },
+    ]
+    render(
+      <RitmoDelCalendario
+        ritmo={{
+          ...BASE,
+          vacio: false,
+          antesDeEmpezar: null,
+          semanas: ["5 oct", "12 oct", "19 oct", "26 oct"].map((etiqueta) => ({ etiqueta, celdas: libres })),
+        }}
+      />,
+    )
+    expect(screen.getByText("12 espacios libres")).toBeInTheDocument()
+    expect(screen.queryAllByText("libre")).toHaveLength(0)
+    expect(screen.queryByText("Mar")).toBeNull()
+  })
+
+  it("keeps the filled tiles in the grid, leaves the free cells flat and counts them in one line", () => {
+    render(
+      <RitmoDelCalendario
+        ritmo={{
+          ...BASE,
+          vacio: false,
+          antesDeEmpezar: null,
+          semanas: [
+            {
+              etiqueta: "12 oct",
+              celdas: [
+                { tipo: "libre", falta: false },
+                { tipo: "llena", pilar: null, titulo: "Uno" },
+                { tipo: "libre", falta: true },
+              ],
+            },
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByText("Reel")).toBeInTheDocument()
+    expect(screen.getByText("2 espacios libres")).toBeInTheDocument()
+    expect(screen.queryAllByText("libre")).toHaveLength(0)
+    const vacias = document.querySelectorAll("[data-libre]")
+    expect(vacias).toHaveLength(2)
+    // A free cell is not a button: no relief, no sunken pill, no fill.
+    for (const vacia of vacias) expect(vacia.className).not.toMatch(/shadow-|bg-|rounded-/)
+  })
+
+  it("says one free slot in the singular", () => {
+    render(
+      <RitmoDelCalendario
+        ritmo={{
+          ...BASE,
+          vacio: false,
+          antesDeEmpezar: null,
+          semanas: [
+            {
+              etiqueta: "12 oct",
+              celdas: [
+                { tipo: "llena", pilar: null, titulo: "Uno" },
+                { tipo: "libre", falta: false },
+                { tipo: "llena", pilar: null, titulo: "Dos" },
+              ],
+            },
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByText("1 espacio libre")).toBeInTheDocument()
+  })
 })
