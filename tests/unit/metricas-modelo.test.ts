@@ -313,6 +313,30 @@ describe("construirMetricas", () => {
     expect(modelo.comparacion?.tipo).toBe("temprano")
   })
 
+  it("does not wait for numbers that already came when every measured reel is under a week old", () => {
+    const reciente = publicada("r0", "etica-regulacion", "2026-10-13T22:00:00.000Z")
+
+    const modelo = construirMetricas(entrada({ publicaciones: [reciente], lecturas: [lectura("r0")] }))
+
+    expect(modelo.comparacion).toEqual({
+      tipo: "sin_numeros",
+      titulo: "Todavía no hay con qué comparar",
+      texto:
+        "Tus reels ya tienen números, pero cuento cada uno desde que cumple una semana. Comparo temas cuando haya 8 reels de cada uno.",
+    })
+  })
+
+  it("still waits for the numbers when no reel has one", () => {
+    const modelo = construirMetricas(
+      entrada({ publicaciones: [publicada("r0", "etica-regulacion", "2026-10-01T22:00:00.000Z")] }),
+    )
+
+    expect(modelo.comparacion).toMatchObject({
+      tipo: "sin_numeros",
+      texto: expect.stringMatching(/^Cuando lleguen los números/),
+    })
+  })
+
   it("groups the last weeks, newest first, with their reels' raw numbers", () => {
     const modelo = construirMetricas(
       entrada({

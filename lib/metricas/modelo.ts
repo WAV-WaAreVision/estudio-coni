@@ -253,14 +253,21 @@ function pilarActivo(catalogo: CatalogoDePilares, slug: string | null): PilarVis
   return visible && catalogo.some((pilar) => pilar.slug === visible.slug && pilar.activa) ? visible : null
 }
 
-function panelDeComparacion(comparacion: Comparacion, pilares: CatalogoDePilares): PanelDeComparacion {
+function panelDeComparacion(
+  comparacion: Comparacion,
+  pilares: CatalogoDePilares,
+  /** Some reel already has numbers but is under a week old: the panel must not say it waits for them. */
+  esperanLaSemana: boolean,
+): PanelDeComparacion {
   const enLista = (temas: readonly { pilar: string; n: number }[]): TemaEnLista[] =>
     temas.map(({ pilar, n }) => ({ pilar: pilarVisible(pilares, pilar), n }))
   if (comparacion.estado === "sin_reels") {
     return {
       tipo: "sin_numeros",
       titulo: "Todavía no hay con qué comparar",
-      texto: `Cuando lleguen los números de tus reels, aquí verás cuántos hay de cada tema. Comparo temas cuando haya ${UMBRAL_DE_REELS} reels de cada uno.`,
+      texto: esperanLaSemana
+        ? `Tus reels ya tienen números, pero cuento cada uno desde que cumple una semana. Comparo temas cuando haya ${UMBRAL_DE_REELS} reels de cada uno.`
+        : `Cuando lleguen los números de tus reels, aquí verás cuántos hay de cada tema. Comparo temas cuando haya ${UMBRAL_DE_REELS} reels de cada uno.`,
     }
   }
   if (comparacion.estado === "temprano") {
@@ -447,7 +454,14 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
         ? null
         : `No pude traer las métricas de hoy; muestro las del ${etiquetaDelDia(ultimoDia)}.`,
     grupos,
-    comparacion: reels.length === 0 ? null : panelDeComparacion(comparacion, entrada.pilares),
+    comparacion:
+      reels.length === 0
+        ? null
+        : panelDeComparacion(
+            comparacion,
+            entrada.pilares,
+            medidos.some((reel) => Date.parse(reel.publicadoEn) > corte),
+          ),
     semanas: semanas.map((semana) => ({
       titulo: `Semana del ${semanaDe(instanteLocal({ ...partesDe(semana.lunes), hora: 12, minuto: 0 }, zona), zona)}`,
       publicaciones: [...semana.publicaciones]
