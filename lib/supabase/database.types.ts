@@ -275,6 +275,62 @@ export type Database = {
           },
         ]
       }
+      carruseles: {
+        Row: {
+          creado_en: string
+          diseno: Json
+          estado: string
+          hash_texto: string
+          id: string
+          laminas: Json
+          origen: string
+          pdf_clave: string | null
+          pedido: string | null
+          pieza_id: string
+          png_claves: string[]
+          texto_post: string
+          version: number
+        }
+        Insert: {
+          creado_en?: string
+          diseno?: Json
+          estado?: string
+          hash_texto: string
+          id?: string
+          laminas: Json
+          origen: string
+          pdf_clave?: string | null
+          pedido?: string | null
+          pieza_id: string
+          png_claves?: string[]
+          texto_post: string
+          version: number
+        }
+        Update: {
+          creado_en?: string
+          diseno?: Json
+          estado?: string
+          hash_texto?: string
+          id?: string
+          laminas?: Json
+          origen?: string
+          pdf_clave?: string | null
+          pedido?: string | null
+          pieza_id?: string
+          png_claves?: string[]
+          texto_post?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carruseles_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorias: {
         Row: {
           activa: boolean
@@ -1021,6 +1077,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -1028,6 +1085,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -1039,6 +1097,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -1062,6 +1121,7 @@ export type Database = {
           idea_id?: string | null
           intento?: number
           media_id?: string | null
+          pedido_de_cambio?: string | null
           permalink?: string | null
           publicacion_enviada_en?: string | null
           publicacion_reclamada_hasta?: string | null
@@ -1069,6 +1129,7 @@ export type Database = {
           puerta1_formula?: number | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
+          puerta2_carrusel_id?: string | null
           puerta2_en?: string | null
           puerta2_formula?: number | null
           puerta2_hash_texto?: string | null
@@ -1080,6 +1141,7 @@ export type Database = {
           revision?: Json
           texto?: string | null
           texto_linkedin?: string | null
+          tipo?: string
           titulo: string
           version?: number
           video_id?: string | null
@@ -1103,6 +1165,7 @@ export type Database = {
           idea_id?: string | null
           intento?: number
           media_id?: string | null
+          pedido_de_cambio?: string | null
           permalink?: string | null
           publicacion_enviada_en?: string | null
           publicacion_reclamada_hasta?: string | null
@@ -1110,6 +1173,7 @@ export type Database = {
           puerta1_formula?: number | null
           puerta1_hash?: string | null
           puerta1_por?: string | null
+          puerta2_carrusel_id?: string | null
           puerta2_en?: string | null
           puerta2_formula?: number | null
           puerta2_hash_texto?: string | null
@@ -1121,6 +1185,7 @@ export type Database = {
           revision?: Json
           texto?: string | null
           texto_linkedin?: string | null
+          tipo?: string
           titulo?: string
           version?: number
           video_id?: string | null
@@ -1133,11 +1198,19 @@ export type Database = {
             referencedRelation: "ideas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "puerta2_carrusel_de_la_pieza"
+            columns: ["puerta2_carrusel_id", "id"]
+            isOneToOne: false
+            referencedRelation: "carruseles"
+            referencedColumns: ["id", "pieza_id"]
+          },
         ]
       }
       publicaciones: {
         Row: {
           destino: string
+          documento_urn: string | null
           enlace: string | null
           enviado_en: string | null
           estado: string
@@ -1153,6 +1226,7 @@ export type Database = {
         }
         Insert: {
           destino: string
+          documento_urn?: string | null
           enlace?: string | null
           enviado_en?: string | null
           estado: string
@@ -1168,6 +1242,7 @@ export type Database = {
         }
         Update: {
           destino?: string
+          documento_urn?: string | null
           enlace?: string | null
           enviado_en?: string | null
           estado?: string
@@ -1727,6 +1802,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -1734,6 +1810,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -1745,6 +1822,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -1782,6 +1860,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -1789,6 +1868,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -1800,6 +1880,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -1837,6 +1918,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -1844,6 +1926,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -1855,6 +1938,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -1911,6 +1995,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -1918,6 +2003,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -1929,6 +2015,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -2000,6 +2087,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -2007,6 +2095,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -2018,6 +2107,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
@@ -2187,6 +2277,7 @@ export type Database = {
           idea_id: string | null
           intento: number
           media_id: string | null
+          pedido_de_cambio: string | null
           permalink: string | null
           publicacion_enviada_en: string | null
           publicacion_reclamada_hasta: string | null
@@ -2194,6 +2285,7 @@ export type Database = {
           puerta1_formula: number | null
           puerta1_hash: string | null
           puerta1_por: string | null
+          puerta2_carrusel_id: string | null
           puerta2_en: string | null
           puerta2_formula: number | null
           puerta2_hash_texto: string | null
@@ -2205,6 +2297,7 @@ export type Database = {
           revision: Json
           texto: string | null
           texto_linkedin: string | null
+          tipo: string
           titulo: string
           version: number
           video_id: string | null
