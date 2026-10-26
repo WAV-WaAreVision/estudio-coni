@@ -94,6 +94,12 @@ afterEach(() => {
 })
 
 describe("PantallaVideo: todo a la vista antes de terminar", () => {
+  it("names the pillar by its short name in the gate header", () => {
+    abrir({ pilar: { slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" } })
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+    expect(screen.queryByText("Caso Coni: humana + avatar")).toBeNull()
+  })
+
   it("shows the checkbox, the texts and the date before the video ends, and waits for the full watch to sign", () => {
     render(<PantallaVideo datos={datos()} />)
     expect(screen.getByRole("checkbox", { name: /Revisé labios/ })).toBeInTheDocument()

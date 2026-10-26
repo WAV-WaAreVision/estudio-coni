@@ -16,10 +16,10 @@ describe("FilaPieza", () => {
         />
       </ul>,
     )
-    expect(screen.getByRole("link")).toHaveAccessibleName(/Deseo y sexualidad.*El deseo no se apaga.*Guion · 52 s/)
+    expect(screen.getByRole("link")).toHaveAccessibleName(/Deseo.*El deseo no se apaga.*Guion · 52 s/)
   })
 
-  it("shows the pillar it is given by name and keeps its slug for data-pilar", () => {
+  it("shows the pillar by its short name in the compact row and keeps its slug for data-pilar", () => {
     render(
       <ul>
         <FilaPieza
@@ -30,7 +30,8 @@ describe("FilaPieza", () => {
         />
       </ul>,
     )
-    expect(screen.getByText("Caso Coni: humana + avatar")).toBeInTheDocument()
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+    expect(screen.queryByText("Caso Coni: humana + avatar")).toBeNull()
     expect(screen.getByRole("listitem")).toHaveAttribute("data-pilar", "caso-coni")
   })
 

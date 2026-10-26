@@ -8,11 +8,6 @@ type Ritmo = ModeloDeCalendario["ritmo"]
 
 const CELDA = "flex min-h-objetivo min-w-0 items-center rounded-bloque px-2.5 text-meta break-words"
 
-/** The first word of the theme is enough inside a small cell; the full name is in the cell's accessible name. */
-function nombreCorto(nombre: string): string {
-  return nombre.split(" ")[0] ?? nombre
-}
-
 /**
  * Brandkit 9.19: weeks against the days of the schedule. A free slot is a sunken honda tile, as fields and tracks are; a
  * filled one is an ink tile with the theme in light. Read only: neither is raised.
@@ -82,7 +77,7 @@ function RitmoSemana({ semana, actual }: { semana: Ritmo["semanas"][number]; act
             title={celda.titulo}
             className={cn(CELDA, "bg-tinta font-semibold text-luz")}
           >
-            {celda.pilar ? nombreCorto(celda.pilar.nombre) : "Reel"}
+            {celda.pilar ? celda.pilar.nombreCorto : "Reel"}
           </span>
         ) : (
           <span

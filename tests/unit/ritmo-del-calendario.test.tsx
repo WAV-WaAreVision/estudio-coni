@@ -7,6 +7,31 @@ const TEXTO =
 const BASE = { columnas: ["Mar", "Jue", "Sáb"], semanas: [], resumen: "van 0 de 0", sugerencia: null }
 
 describe("RitmoDelCalendario", () => {
+  it("names a filled cell by the pillar's short name", () => {
+    render(
+      <RitmoDelCalendario
+        ritmo={{
+          ...BASE,
+          vacio: false,
+          antesDeEmpezar: null,
+          semanas: [
+            {
+              etiqueta: "12 oct",
+              celdas: [
+                {
+                  tipo: "llena",
+                  pilar: { slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" },
+                  titulo: "Uno",
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+  })
+
   it("teaches the schedule with a link to Ajustes before the first publication, never «0 de 0»", () => {
     render(<RitmoDelCalendario ritmo={{ ...BASE, vacio: true, antesDeEmpezar: TEXTO }} />)
 

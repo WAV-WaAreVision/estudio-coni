@@ -41,7 +41,7 @@ export function BarraDeMetrica({
       <span className="text-meta">{muestra ?? texto}</span>
       {pilar ? (
         <span className="text-meta text-apagado">
-          <span>{pilar.nombre}</span>
+          <span>{pilar.nombreCorto}</span>
           {reelsDelTema > 0 ? (
             // The sample moves as a whole, so a long pillar name never leaves «tema» alone on a line.
             <>

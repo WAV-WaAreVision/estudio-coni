@@ -142,7 +142,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         />
       </div>
 
-      <FilaMeta className="mt-[18px]" pilar={datos.pilar?.nombre} largo={`${datos.segundos} s`} />
+      <FilaMeta className="mt-[18px]" pilar={datos.pilar?.nombreCorto} largo={`${datos.segundos} s`} />
       <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
       {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
       <div className="mt-3">

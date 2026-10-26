@@ -68,7 +68,8 @@ describe("IdeasSemana", () => {
     render(<IdeasSemana ideas={IDEAS} alElegir={vi.fn()} />)
 
     expect(screen.getAllByRole("checkbox")).toHaveLength(5)
-    expect(screen.getByText("Pareja y conversación")).toBeInTheDocument()
+    expect(screen.getByText("Pareja")).toBeInTheDocument()
+    expect(screen.queryByText("Pareja y conversación")).toBeNull()
     expect(screen.getByRole("button", { name: "Escribir guiones" })).toHaveAttribute("aria-disabled", "true")
     expect(screen.getByText("Elige al menos una idea. Puedes elegir hasta 5.")).toBeInTheDocument()
   })
