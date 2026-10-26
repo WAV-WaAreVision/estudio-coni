@@ -5,8 +5,8 @@ import {
   AprobacionNoAutorizada,
   ArtefactoCambio,
   ESTADOS,
-  EVENTOS_DE_CARRUSEL,
   type Estado,
+  EVENTOS_DE_CARRUSEL,
   type Evento,
   esperaDeVentana,
   instanteEstricto,
@@ -651,7 +651,6 @@ describe("tabla del diseño", () => {
     descartado: [],
   }
 
-
   const puerta1 = { hash: "h1", en: ANTES }
   const puerta2 = { videoId: "video_1", hashTexto: "t1", publicarEn: HORA, en: ANTES, formula: 1 as const }
   const avance = { version: 4, intento: 2 }
@@ -917,7 +916,12 @@ describe("tabla del carrusel", () => {
   it("accepts only the carousel events, in the states the design gives them", () => {
     for (const [estado, esperados] of Object.entries(permitidos)) {
       const firmadoYa = estado === "armando_carrusel" || estado === "carrusel_por_aprobar"
-      const pieza = en(estado as Estado, { version: 4, intento: 2, tipo: "carrusel", puerta1: firmadoYa ? firmado : null })
+      const pieza = en(estado as Estado, {
+        version: 4,
+        intento: 2,
+        tipo: "carrusel",
+        puerta1: firmadoYa ? firmado : null,
+      })
       const aceptados = Object.values(eventos)
         .filter((evento) => intentar(pieza, evento) !== null)
         .map((evento) => evento.tipo)
@@ -974,7 +978,9 @@ describe("tabla del carrusel", () => {
   it("signs only as Coni and only what she saw", () => {
     const porAprobar = en("guion_por_aprobar", { tipo: "carrusel" })
     const firma = { tipo: "firmar_carrusel" as const, hashVisto: "h1", hashActual: "h1", en: ANTES }
-    expect(capturar(() => transicionar(porAprobar, { ...firma, actor: "admin" }))).toBeInstanceOf(AprobacionNoAutorizada)
+    expect(capturar(() => transicionar(porAprobar, { ...firma, actor: "admin" }))).toBeInstanceOf(
+      AprobacionNoAutorizada,
+    )
     expect(capturar(() => transicionar(porAprobar, { ...firma, actor: "coni", hashActual: "h2" }))).toBeInstanceOf(
       ArtefactoCambio,
     )
