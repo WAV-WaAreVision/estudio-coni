@@ -4269,7 +4269,7 @@ describe("PantallaCarrusel", () => {
     expect(screen.getByText(FUENTE_DEL_CARRUSEL)).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "2. Revisa el texto de la publicación" })).toBeInTheDocument()
     expect(screen.getByText(/Constanza del Rosario$/)).toBeInTheDocument()
-    expect(screen.getByText("Claude revisó el carrusel y no encontró observaciones. Tú decides.")).toBeInTheDocument()
+    expect(screen.getByText("Revisé el carrusel y no encontré observaciones. Tú decides.")).toBeInTheDocument()
     expect(screen.getByText("Firmas las láminas y el texto. Todavía no se publica nada.")).toBeInTheDocument()
   })
 
@@ -4339,7 +4339,7 @@ export const TEXTO_ESCRIBIENDO_CARRUSEL = "Estoy escribiendo el carrusel"
 export const TEXTO_NO_ESCRIBI_CARRUSEL = "No pude escribir el carrusel"
 export const TEXTO_REVISA_LAMINAS = "1. Revisa las láminas"
 export const TEXTO_REVISA_POST = "2. Revisa el texto de la publicación"
-export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Claude revisó el carrusel y no encontró observaciones. Tú decides."
+export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Revisé el carrusel y no encontré observaciones. Tú decides."
 export const TEXTO_AYUDA_DEL_PEDIDO = "Escríbelo en una frase. Escribo el carrusel de nuevo y este se descarta."
 export const TEXTO_SIN_CAMBIOS_CARRUSEL = "Ya pediste 3 cambios. Puedes firmarlo como está."
 export const TEXTO_CONSECUENCIA_CARRUSEL = "Firmas las láminas y el texto. Todavía no se publica nada."
