@@ -88,7 +88,7 @@ coni-heygen gets its own worktree for one file (Task 21).
 - D4. Copy (es-CL, tú, no long dashes): `Formato`, `Reel`, `Con tu voz y tu avatar.`, `Carrusel de LinkedIn`, `Láminas
   de texto firmadas por ti, solo para LinkedIn.`, `Hacer el carrusel`, `Escribiendo el carrusel. Te aviso cuando
   esté.`, `Estoy escribiendo el carrusel`, `No pude escribir el carrusel`, `1. Revisa las láminas`, `Lámina N ·
-  Portada | Idea | Cierre`, `2. Revisa el texto de la publicación`, `Claude revisó el carrusel y no encontró
+  Portada | Idea | Cierre`, `2. Revisa el texto de la publicación`, `Revisé el carrusel y no encontré
   observaciones. Tú decides.`, `Pedir cambio`, `¿Qué quieres cambiar?`, `Escríbelo en una frase. Escribo el carrusel de
   nuevo y este se descarta.`, `Te quedan N cambios.` (`Te queda 1 cambio.`), `Pedir este cambio`, `Ya pediste 3
   cambios. Puedes firmarlo como está.`, `Firmas las láminas y el texto. Todavía no se publica nada.`, `Firmaste el texto
