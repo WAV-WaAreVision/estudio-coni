@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
 import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
-import { nombreDePilar, soloActivos } from "@/lib/dominio/pilares"
+import { nombreDePilar, pilarVisible, soloActivos } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
@@ -29,6 +29,7 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     porQue: null,
     ...parcial,
     nombrePilar: nombreDePilar(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja"),
+    nombreCortoPilar: pilarVisible(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja").nombreCorto,
   }
 }
 
@@ -122,7 +123,9 @@ describe("BancoDeIdeas: una idea a la vez", () => {
 
     expect(screen.getByText("Idea 1 de 3")).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
-    expect(screen.getByText("Pareja y conversación")).toBeInTheDocument()
+    // The card's header names the pillar by its short name.
+    expect(screen.getByText("Pareja")).toBeInTheDocument()
+    expect(screen.queryByText("Pareja y conversación")).toBeNull()
     expect(screen.getByText(/Fuerza alta/)).toBeInTheDocument()
     expect(screen.getByText("Verificar dato")).toBeInTheDocument()
     expect(screen.queryByText("Ya la usé hace poco.")).not.toBeInTheDocument()

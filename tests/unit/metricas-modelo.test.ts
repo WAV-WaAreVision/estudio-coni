@@ -275,7 +275,7 @@ describe("construirMetricas", () => {
     const comparacion = modelo.comparacion
     if (comparacion?.tipo !== "comparable") throw new Error(`Se esperaba comparable y fue ${comparacion?.tipo}`)
     expect(comparacion.temas.map((t) => t.texto)).toEqual([
-      "Ética y regulación · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)",
+      "Ética · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)",
       "IA y salud mental · 8 reels · promedio 11 cada 1.000 (entre 9,9 y 12,1)",
     ])
     expect(comparacion.frase).toContain("Ética y regulación va por delante de IA y salud mental por 10 cada 1.000")

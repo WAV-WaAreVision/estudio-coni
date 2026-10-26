@@ -35,9 +35,7 @@ describe("BarraDeMetrica", () => {
         <BarraDeMetrica {...BASE} />
       </ul>,
     )
-    expect(screen.getByText("Pareja").parentElement).toHaveTextContent(
-      "Pareja · 1 reel de este tema",
-    )
+    expect(screen.getByText("Pareja").parentElement).toHaveTextContent("Pareja · 1 reel de este tema")
     expect(container.innerHTML).not.toMatch(/pilar-/)
   })
 

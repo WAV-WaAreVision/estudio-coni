@@ -7,6 +7,8 @@ export interface IdeaDeBanco {
   pilar: string
   /** The pillar's name from the catalog: the search finds an idea by it. */
   nombrePilar: string
+  /** What the compact places (the card's header, the rows) show. */
+  nombreCortoPilar: string
   gancho: string
   tema: string
   formato: string

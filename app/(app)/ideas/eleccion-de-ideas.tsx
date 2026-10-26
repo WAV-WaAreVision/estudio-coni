@@ -148,7 +148,7 @@ export function EleccionDeIdeas({
               <li key={idea.id}>
                 <Casilla
                   etiqueta={idea.gancho}
-                  detalle={`${idea.nombrePilar} · Fuerza ${idea.fuerza}`}
+                  detalle={`${idea.nombreCortoPilar} · Fuerza ${idea.fuerza}`}
                   marcada={marcada}
                   deshabilitada={!marcada && enElMaximo}
                   alCambiar={(valor) => cambiar(idea.id, valor)}

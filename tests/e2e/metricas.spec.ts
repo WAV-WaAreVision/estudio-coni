@@ -116,7 +116,7 @@ test("with few reels it orders by what served, shows the sample size and refuses
   await expect(panel).toContainText(
     "El tema con más reels lleva 1 de 8. Cuento los reels desde que cumplen una semana.",
   )
-  await expect(panel).toContainText("Ética y regulación · 1")
+  await expect(panel).toContainText("Ética · 1")
   await expect(page.getByText("Comparación de temas")).toHaveCount(0)
 
   await expect(page.getByRole("heading", { name: "Semana a semana" })).toBeVisible()
@@ -159,7 +159,7 @@ test("compares themes only once two of them have eight reels, with the interval"
   await page.goto("/metricas")
 
   const panel = page.getByRole("region", { name: "Comparación de temas" })
-  await expect(panel).toContainText("Ética y regulación · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)")
+  await expect(panel).toContainText("Ética · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)")
   await expect(panel).toContainText("Ética y regulación va por delante de IA y salud mental por 10 cada 1.000")
   await expect(panel).toContainText("La diferencia es mayor que lo que varían tus reels entre sí.")
   await expect(page.getByText("Todavía es temprano para concluir")).toHaveCount(0)

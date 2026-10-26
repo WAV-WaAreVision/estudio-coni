@@ -289,7 +289,7 @@ function panelDeComparacion(comparacion: Comparacion, pilares: CatalogoDePilares
     titulo: "Comparación de temas",
     temas: comparacion.temas.map((tema) => ({
       pilar: pilarVisible(pilares, tema.pilar),
-      texto: `${nombreDePilar(pilares, tema.pilar)} · ${plural(tema.n, "reel", "reels")} · promedio ${numero(tema.media)} cada 1.000 (entre ${numero(tema.desde)} y ${numero(tema.hasta)})`,
+      texto: `${pilarVisible(pilares, tema.pilar).nombreCorto} · ${plural(tema.n, "reel", "reels")} · promedio ${numero(tema.media)} cada 1.000 (entre ${numero(tema.desde)} y ${numero(tema.hasta)})`,
     })),
     frase: diferencia.distinguible
       ? `${mayor} va por delante de ${menor} por ${gap}. La diferencia es mayor que lo que varían tus reels entre sí.`

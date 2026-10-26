@@ -18,6 +18,7 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     porQue: null,
     ...parcial,
     nombrePilar: nombreDePilar(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja"),
+    nombreCortoPilar: "Pareja",
   }
 }
 

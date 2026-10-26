@@ -3,7 +3,7 @@ import { z } from "zod"
 import { leerPilares } from "@/lib/datos/pilares"
 import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
-import { nombreDePilar } from "@/lib/dominio/pilares"
+import { nombreDePilar, pilarVisible } from "@/lib/dominio/pilares"
 import { afirmacionesDelRespaldo } from "@/lib/dominio/respaldo"
 import type { IdeaDeBanco, NivelDeEvidencia, PorQueDeIdea } from "@/lib/ideas/mazo"
 import type { Database } from "@/lib/supabase/database.types"
@@ -110,6 +110,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
         numero: fila.numero,
         pilar: fila.pilar,
         nombrePilar: nombreDePilar(pilares, fila.pilar),
+        nombreCortoPilar: pilarVisible(pilares, fila.pilar).nombreCorto,
         gancho: fila.gancho,
         tema: fila.tema,
         formato: fila.formato,
