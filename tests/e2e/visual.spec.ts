@@ -77,6 +77,17 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   await page.addStyleTag({
     content: "nav[aria-label='Secciones'], [data-barra-de-firma], [data-barra-de-lote] { position: static !important }",
   })
+  if (!PARA_LA_HOJA && !CARPETA_FINALES) {
+    // Inicio's week is masked, but a week across two months ("26 de octubre al 1 de noviembre") wraps under the
+    // greeting and moves the whole screen: a fixed one-month week keeps the line the baseline was taken with.
+    await page.evaluate(() => {
+      for (const nodo of document.querySelectorAll('[data-snapshot="varia"]')) {
+        if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Semana del ")) {
+          nodo.textContent = "Semana del 5 al 11 de octubre"
+        }
+      }
+    })
+  }
   if (CARPETA_FINALES) {
     mkdirSync(CARPETA_FINALES, { recursive: true })
     await page.screenshot({ path: join(CARPETA_FINALES, `${nombre}.png`), fullPage: true, scale: "css" })
@@ -385,9 +396,10 @@ test("guion error", async ({ page }) => {
 
 /**
  * The server reads the real clock, which a test cannot stop: the reels go out on the 7th, 14th and 21st of last month
- * (Santiago noon), so on any run date they are more than a week old, inside the 12 weeks shown, outside this month and
- * in three weeks that never cross a month (their titles keep one line). The page then draws the same screen whatever
- * day it runs; only masked labels (month, weeks) move.
+ * (Santiago noon), so on any run date they are more than a week old, inside the 12 weeks shown and in three weeks that
+ * never cross a month (their titles keep one line). A fourth went out an hour ago, without numbers yet: this month is
+ * never an empty «0 reels» over a list of measured ones (every day but the first hour of a month). The page then draws
+ * the same screen whatever day it runs; only masked labels (month, weeks) move.
  */
 test("metricas", async ({ page }) => {
   await vaciarPiezasEIdeas()
@@ -420,7 +432,10 @@ test("metricas", async ({ page }) => {
       [id, alcance, guardados],
     )
   }
+  const deEsteMes = await sembrarPiezaDeEscena("publicado", PIEZAS.enRender, { media_id: "media_de_este_mes" })
+  await moverHoraAprobada(deEsteMes, new Date(Date.now() - 3_600_000).toISOString())
   await page.goto("/metricas")
+  await expect(page.getByText(/^Este mes: 1 reel en Instagram/)).toBeVisible()
   await capturaDe(page, "metricas")
 })
 
@@ -448,6 +463,8 @@ test("metricas con linkedin", async ({ page }) => {
     [ambas],
   )
   await page.goto("/metricas")
+  // Its reel has numbers, still under a week old: the comparison does not say it waits for them.
+  await expect(page.getByText(/^Tus reels ya tienen números/)).toBeVisible()
   await capturaDe(page, "metricas-con-linkedin")
 })
 

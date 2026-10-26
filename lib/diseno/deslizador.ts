@@ -21,12 +21,15 @@ export function apruebaAlSoltar(progreso: number): boolean {
 
 /** Decision 5: one label on both gates, the armed and the sent states, and how to sign without dragging. */
 export const ETIQUETA_DE_FIRMA = "Desliza para firmar"
-/** The same label at large text, where the whole one would break in two lines next to the thumb (decision 6). */
-export const ETIQUETA_CORTA_DE_FIRMA = "Desliza"
+/** The same act at large text, where the whole label would break in two lines next to the thumb (decision 6): a whole verb, never a cut sentence. */
+export const ETIQUETA_CORTA_DE_FIRMA = "Firmar"
 export const TEXTO_ARMADO = "Toca otra vez para firmar"
 export const TEXTO_FIRMADO = "Firmado"
 /** What the slider's value reads at rest (v6 `aria-valuetext`). */
 export const TEXTO_SIN_FIRMAR = "Sin firmar"
+/** The visible hint under the track at rest; the keyboard one replaces it while the track has keyboard focus. */
+export const AYUDA_DE_TOQUE = "o toca dos veces"
+export const AYUDA_DE_TECLADO = "o pulsa Enter"
 export const PISTA_DE_FIRMA = "Enter o Espacio firman. También puedes tocar dos veces: la primera prepara la firma."
 
 /** A pointer that moved more than this is a drag or a scroll, never a tap. */

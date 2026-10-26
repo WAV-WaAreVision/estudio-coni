@@ -21,7 +21,7 @@
   --apagado: #5a5a59; /* meta, help, disabled labels. 5.79, 6.27 and 5.03:1 on piedra, alta and honda */
   --campo: #727271; /* empty checkbox and radio rings, high-contrast outlines. 3.51:1 on honda */
   --hilo: var(--piedra-honda); /* 1 px dividers between rows, decorative */
-  --error: #b5137a; /* magenta fresa: error titles and the destructive confirm, always after an icon. 4.58:1 on honda */
+  --error: #a8200d; /* rojo ladrillo: error titles and the destructive confirm, always after an icon. 5.32:1 on honda, 6.12:1 on piedra; hue 7, far from the raspberry */
   --firma: #a8285a; /* raspberry: the thumb, its trail, the wordmark dot, /l. 4.91:1 against its honda track */
   --sobre-firma: var(--luz);
   --firma-rastro: rgb(168 40 90 / 0.14); /* trail while dragging or armed */
@@ -425,6 +425,17 @@ html[data-letra="grande"] .barra-de-lote {
   }
 }
 
+/* The hint under the sign track: the tap form for a finger, the key form while the track has keyboard focus. */
+.ayuda-de-teclado {
+  display: none;
+}
+.pista-de-firma:focus-visible + .ayuda-de-firma .ayuda-de-toque {
+  display: none;
+}
+.pista-de-firma:focus-visible + .ayuda-de-firma .ayuda-de-teclado {
+  display: inline;
+}
+
 /* ---------- Large text (decision 6): the head script sets data-letra="grande" when fewer than 18 rem fit across.
    Unlayered, so these beat the sticky and size utilities. ---------- */
 html[data-letra="grande"] {
@@ -469,21 +480,26 @@ html[data-letra="grande"] .nav-inferior {
   border-radius: var(--r-panel);
   box-shadow: var(--relieve);
 }
-/* One tab per row, the label beside its icon: three words that never fit side by side at this size stay readable. */
-html[data-letra="grande"] .nav-inferior {
-  grid-template-columns: minmax(0, 1fr);
-}
+/* One compact row, the icon above its label, as at normal size: the label shrinks to the normal body size so three
+   words fit side by side, and each tab keeps a target well over 44 px. */
 html[data-letra="grande"] .nav-inferior a {
-  min-height: 2.75rem;
-  grid-auto-flow: column;
-  justify-content: start;
-  align-items: center;
-  gap: var(--e-3);
-  padding-inline: var(--e-4);
+  min-height: 0;
+  padding: var(--e-2) var(--e-1);
 }
 html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
+}
+/* Large text starts at a ~21.7 px root, where half a rem is 11 px: the floor is the normal label (--t-meta at the 17 px
+   root, 15.9375 px), so the label never gets smaller than it was before she raised the text size. */
+html[data-letra="grande"] .nav-etiqueta {
+  font-size: max(0.5rem, 15.9375px);
+  white-space: nowrap;
+}
+/* The meta row over a gate's title stacks flush left: pillar, then format and length. */
+html[data-letra="grande"] .fila-meta {
+  flex-direction: column;
+  align-items: flex-start;
 }
 /* A word may break anywhere at this size, so an account's name would shrink to nothing beside its pill: it takes
    its own width and the pill wraps under it. */

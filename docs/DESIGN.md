@@ -9,7 +9,7 @@ colors:
   tinta: "#262626"
   apagado: "#5a5a59"
   campo: "#727271"
-  error-tinta: "#b5137a"
+  error-tinta: "#a8200d"
   firma: "#a8285a"
   sobre-firma: "#fbfbfa"
 typography:
@@ -158,7 +158,7 @@ es instantáneo. Columna de lectura de 560 px como máximo en tablet y computado
 **Key Characteristics:**
 - Fondo y superficies del mismo color piedra; la profundidad sale de la doble sombra, no de bordes.
 - Formas de píldora para todo lo que se toca; paneles de 24 px para lo que se lee.
-- Tinta para la acción principal; magenta solo para errores; frambuesa solo para firmar.
+- Tinta para la acción principal; rojo ladrillo solo para errores, siempre con ícono; frambuesa solo para firmar.
 - Estados con fondo de color y su texto, siempre con ícono.
 - Una sola familia (Geist), cinco tamaños en `rem`.
 
@@ -179,7 +179,7 @@ Gris neutro casi monocromo, con una sola nota de color: la frambuesa que firma.
 - **Luz** (#fbfbfa): el lado iluminado de la doble sombra y el texto sobre tinta o frambuesa.
 - **Apagado** (#5a5a59): meta, ayuda, pilares (5,79:1 sobre piedra; 5,03:1 sobre honda).
 - **Campo** (#727271): anillo de casillas vacías y contornos de alto contraste (4,04:1 sobre piedra; 3,51:1 sobre honda).
-- **Magenta fresa de error** (#b5137a): mensajes de error y acciones destructivas, siempre con ícono (5,27:1 sobre piedra; 4,58:1 sobre honda). Es distinta de la frambuesa de firma a propósito.
+- **Rojo ladrillo de error** (#a8200d): mensajes de error, siempre después de su ícono y nunca solo color, y el botón que confirma una acción destructiva (6,12:1 sobre piedra; 5,32:1 sobre honda; 6,63:1 sobre piedra alta). Tono 7°, lejos de la frambuesa de firma (337°): el magenta anterior (#b5137a, 322°) se leía igual que la firma y se reemplazó.
 
 ### Named Rules
 **The One Signature Rule.** La frambuesa aparece solo donde Coni firma. Si un elemento frambuesa no aprueba nada, está mal.
@@ -241,7 +241,7 @@ sobra un elemento.
   falta.
 
 ### Deslizar para aprobar (signature)
-Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Desliza» para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
+Pista hundida de 3,5rem en piedra honda; pulgar de 3rem en frambuesa con relieve. Al arrastrar deja un rastro frambuesa al 14 %; firma al 96 % y vuelve a cero si se suelta antes. Un toque arma la pista («Toca otra vez para firmar») y otro toque, entre 400 ms y 4 s después, firma; con teclado firman Enter, Espacio y Fin (WCAG 2.5.7, sin botón aparte). Bajo la pista abierta, en reposo, una línea meta apagada lo dice a la vista: «o toca dos veces», y «o pulsa Enter» mientras la pista tiene el foco del teclado (anillo de tinta de 3 px); armada, la línea se vuelve invisible sin perder su alto para que la pista no se mueva entre los dos toques. Con letra grande el pulgar y la pista mantienen su tamaño, la etiqueta en reposo se acorta a «Firmar», un verbo entero, para quedar en una línea (el nombre accesible sigue siendo «Desliza para firmar») y la barra pasa al final de la página.
 
 ### Barra de lote
 Barra en piedra con relieve alto y radio `panel`, que flota 8 px sobre la barra inferior mientras la lista se mueve
@@ -261,6 +261,15 @@ va arriba para no taparla.
   relieve solo si el panel entero se toca (lista de piezas) y en relieve alto la carta de idea.
 - **Border:** ninguno.
 - **Internal Padding:** 20 px. Nunca una caja dentro de otra.
+- **Carta de idea:** pilar con su nombre corto, gancho, formato y «Respaldo débil» si aplica; nunca la
+  «fuerza» del motor ni el tema suelto. A lo más dos acciones a la vista («Usar esta» y «Después»); el
+  resto («Descartar», «Escribir una idea mía») va plegado bajo «Más».
+- **Espacios libres (Agenda y Ritmo):** nunca un muro de «libre». La Agenda muestra como fila solo el
+  próximo espacio libre («Libre · elige una idea») y cuenta el resto de cada semana en una línea («3
+  espacios libres»). En Ritmo la celda libre es plana y muda, sin relleno ni relieve (no parece botón);
+  una línea bajo la grilla las cuenta, y sin nada lleno no hay grilla.
+- **Nombre del pilar:** el corto en lo compacto (chips, filas, cabeceras de carta y de puerta, celdas);
+  el completo solo en títulos a todo el ancho y en frases.
 
 ### Inputs / Fields
 - **Style:** píldora hundida en piedra honda, 52 px; las áreas de texto usan 24 px de radio y crecen
@@ -272,8 +281,8 @@ va arriba para no taparla.
 ### Navigation
 Barra inferior de tres pestañas sobre piedra con relieve alto hacia arriba. La activa va en una
 píldora hundida en piedra honda, en texto tinta 600; las demás, en apagado. En computador sube al borde
-superior. Con letra grande queda al final del contenido, una pestaña por fila, con su etiqueta visible
-al lado del ícono y 44 px o más de alto.
+superior. Con letra grande queda al final del contenido en una sola fila compacta: ícono arriba y etiqueta
+corta debajo, achicada al tamaño de cuerpo normal para que las tres quepan, cada pestaña de 44 px o más.
 
 ### Avisos y estados
 Planos, sin sombra: píldoras de 32 px en piedra honda, ícono a la izquierda y
@@ -294,8 +303,10 @@ sesión): la pregunta, la acción y «Volver». Nunca un diálogo.
 
 ### Detalle para WAV
 Lo que Coni lee va en sus palabras. El proveedor, los saldos, las llaves y el enlace al proveedor van
-plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, cuentas, llaves, saldos y Claude viven
-en la sección plegada «Para WAV».
+plegados bajo «Detalle para WAV», uno por bloque. En Ajustes, el tope de gasto, las cuentas, las llaves,
+los saldos y Claude viven solo en la sección plegada «Para WAV». La lista de configuración de Coni nombra
+solo lo que ella hace: tu voz, tu avatar, Instagram, LinkedIn (opcional, «A mano», fuera de la cuenta) y
+los avisos del celular; nunca un proveedor.
 
 ### Puertas
 - **Puerta 1:** tres pasos en orden: «1. Escucha tu voz», «2. Revisa el guion», «3. Elige tu avatar»

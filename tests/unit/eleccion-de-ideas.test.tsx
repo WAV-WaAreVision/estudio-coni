@@ -17,6 +17,7 @@ function idea(id: string, gancho: string): IdeaDeBanco {
     numero: null,
     pilar: "practica-clinica",
     nombrePilar: nombreDePilar(PILARES_DE_PRUEBA, "practica-clinica"),
+    nombreCortoPilar: "Práctica clínica",
     gancho,
     tema: "",
     formato: "",
@@ -56,6 +57,13 @@ function mostrar(cambios: Partial<AccionesDeEleccion> = {}) {
 const marcar = (gancho: string) => fireEvent.click(screen.getByRole("checkbox", { name: gancho }))
 
 describe("EleccionDeIdeas", () => {
+  it("names each row's pillar by its short name", () => {
+    mostrar()
+    expect(screen.getAllByText(/^Práctica clínica\b/)).toHaveLength(IDEAS.length)
+    expect(screen.queryByText(/aumentada/)).toBeNull()
+    expect(screen.queryByText(/Fuerza/)).toBeNull()
+  })
+
   it("shows the bar only once something is ticked, counting what she ticked", () => {
     mostrar()
     expect(screen.queryByRole("region", { name: "Ideas elegidas" })).toBeNull()

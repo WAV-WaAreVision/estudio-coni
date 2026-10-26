@@ -226,7 +226,7 @@ function CartaDeFirma({
     <article data-pilar={pilar?.slug} className="grid gap-2 rounded-panel bg-piedra p-5 shadow-relieve-alto">
       <p className="flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
         <span>{fila.meta}</span>
-        <span>{pilar?.nombre}</span>
+        <span>{pilar?.nombreCorto}</span>
       </p>
       <h3 className="text-pieza text-balance">{fila.titulo}</h3>
       <p className="text-meta text-apagado">{fila.instruccion}</p>

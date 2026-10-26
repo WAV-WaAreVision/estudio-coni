@@ -4,6 +4,7 @@ import { CONI, pool } from "../integration/db"
 import { leerFila, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { bloquearRedExterna, capturar, configurarServicios, entrarComo, GUION_VALIDO, TEXTO_VALIDO } from "./ayudas"
 import { CORREO_DEL_MANTENEDOR } from "./entorno"
+import { PIEZAS } from "./escena"
 
 const ENLACE = "https://www.instagram.com/reel/DAbc123xyz/"
 
@@ -16,7 +17,7 @@ async function sinInstagram() {
 /** A piece whose approved time passed 20 minutes ago: the database only lets Coni write an approval, so the time is moved as the owner. */
 async function paraSubir(
   estado: "para_subir_a_mano" | "publicado_a_mano" = "para_subir_a_mano",
-  titulo = "Ser tu propia diosa",
+  titulo: string = PIEZAS.video.titulo,
 ) {
   const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: titulo })
   const id = await sembrarPieza(estado, { titulo, idea_id: idea, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
@@ -164,7 +165,7 @@ test("Ajustes says Instagram is not connected, offers to connect it and tells wh
 
   await page.goto("/ajustes")
 
-  await expect(page.getByRole("heading", { name: "Configuración: 3 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 2 de 4 listos" })).toBeVisible()
   await expect(
     page.getByText("Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano."),
   ).toBeVisible()

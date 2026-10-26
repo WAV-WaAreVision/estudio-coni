@@ -45,9 +45,9 @@ const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
 const tomaDe = (id: string, guion: string, toma: number) => claveDeToma(id, huellaDelGuion(guion, ELEVENLABS), toma)
 
 async function guionPorAprobar(revision: object[] = [], texto = TEXTO_VALIDO, { conVoz = true } = {}) {
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: PIEZAS.guion.titulo })
   const id = await sembrarPieza("guion_por_aprobar", {
-    titulo: "El deseo no se apaga, se esconde",
+    titulo: PIEZAS.guion.titulo,
     idea_id: idea,
     guion: GUION_VALIDO,
     texto,
@@ -116,7 +116,7 @@ test("she edits a sentence and her voice is remade by itself; she listens, picks
 
   const deslizador = page.getByRole("slider", { name: ETIQUETA })
   const barra = page.getByRole("region", { name: "Firma" })
-  await expect(page.getByRole("heading", { name: "El deseo no se apaga, se esconde" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: PIEZAS.guion.titulo })).toBeVisible()
   await expect(page.getByText(/^Si lo firmas hoy, sale el /)).toBeVisible()
   await expect(page.getByRole("button", { name: "Escuchar la voz" })).toBeVisible()
   await expect(deslizador).toHaveAttribute("aria-disabled", "true")
@@ -271,6 +271,29 @@ test("without dragging: a tap arms the signature and a second tap signs (WCAG 2.
   expect((await leerFila(id)).estado).toBe("en_render")
 })
 
+test("the open track says 'o toca dos veces' under it, and 'o pulsa Enter' with an ink ring under keyboard focus", async ({
+  page,
+}) => {
+  const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
+  await simularMedios(page)
+  await page.goto(`/guion/${id}`)
+  const pista = page.getByRole("slider", { name: ETIQUETA })
+  const ayuda = page.locator("[data-ayuda-de-firma]")
+  await expect(ayuda).toHaveCount(0)
+
+  await elegirAvatar(page, "Estudio")
+  await escucharLaVoz(page)
+  await expect(ayuda).toHaveText("o toca dos veces", { useInnerText: true })
+
+  // From the keyboard: Tab leaves the avatar group for the track.
+  await page.getByRole("radio", { name: "Estudio" }).focus()
+  await page.keyboard.press("Tab")
+  await expect(pista).toBeFocused()
+  await expect(ayuda).toHaveText("o pulsa Enter", { useInnerText: true })
+  await expect(pista).toHaveCSS("outline-style", "solid")
+  await expect(pista).toHaveCSS("outline-width", "3px")
+})
+
 test("a drag of the thumb to the end signs", async ({ page }) => {
   const id = await guionPorAprobar([], TEXTO_CON_AYUDA)
   await simularMedios(page)
@@ -329,9 +352,9 @@ test("she listens to her voice, signs, undoes inside the window and signs again:
 test("while her voice is being made the script is read-only and keeps its tone marks with the help", async ({
   page,
 }) => {
-  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: "El deseo no se apaga, se esconde" })
+  const idea = await sembrarIdea({ pilar: "practica-clinica", gancho: PIEZAS.guion.titulo })
   const id = await sembrarPieza("grabando_voz", {
-    titulo: "El deseo no se apaga, se esconde",
+    titulo: PIEZAS.guion.titulo,
     idea_id: idea,
     guion: `[warm] ${GUION_VALIDO}`,
     texto: TEXTO_CON_AYUDA,

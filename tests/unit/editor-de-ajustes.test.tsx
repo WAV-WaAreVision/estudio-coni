@@ -37,6 +37,23 @@ beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
 afterEach(() => vi.useRealTimers())
 
 describe("EditorDeAjustes", () => {
+  it("folds the spending cap under Para WAV, with what the page adds there, out of her way", () => {
+    render(
+      <EditorDeAjustes
+        inicial={INICIAL}
+        acciones={acciones()}
+        linkedinConectado={false}
+        paraWav={<a href="/ajustes/cuentas">Cuentas conectadas</a>}
+      />,
+    )
+    const pliegue = screen.getByText("Para WAV").closest("details")
+    expect(pliegue).not.toBeNull()
+    expect(pliegue).not.toHaveAttribute("open")
+    expect(pliegue).toContainElement(screen.getByRole("button", { name: "Subir el tope" }))
+    expect(pliegue).toContainElement(screen.getByText("Llevas US$ 12,80 este mes"))
+    expect(pliegue).toContainElement(screen.getByRole("link", { name: "Cuentas conectadas" }))
+  })
+
   it("shows the current settings", () => {
     mostrar()
 

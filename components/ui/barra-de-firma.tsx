@@ -1,5 +1,5 @@
 import { Check, Info } from "@phosphor-icons/react/dist/ssr"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 import { ICONO } from "./icono"
 
 interface PropiedadesDeBarra {
@@ -8,6 +8,8 @@ interface PropiedadesDeBarra {
   /** Under the track, centred: what the signature does. Its id describes the track. */
   consecuencia?: string
   idConsecuencia?: string
+  /** The consequence says a date that moves with the clock: the visual baselines mask it. */
+  consecuenciaVaria?: boolean
   /** The track. */
   children: ReactNode
 }
@@ -16,7 +18,13 @@ interface PropiedadesDeBarra {
  * Decisions 5 and 6: the one high bar of a signing screen. Sticky at the bottom, as the screen's last element: it sits
  * in the flow at the end of the page, so the page keeps no padding for it. Static at large text (Task 45).
  */
-export function BarraDeFirma({ arriba, consecuencia, idConsecuencia, children }: PropiedadesDeBarra) {
+export function BarraDeFirma({
+  arriba,
+  consecuencia,
+  idConsecuencia,
+  consecuenciaVaria = false,
+  children,
+}: PropiedadesDeBarra) {
   return (
     <section
       aria-label="Firma"
@@ -26,8 +34,21 @@ export function BarraDeFirma({ arriba, consecuencia, idConsecuencia, children }:
       {arriba}
       {children}
       {consecuencia ? (
-        <p id={idConsecuencia} className="text-center text-meta text-apagado">
-          {consecuencia}
+        <p
+          id={idConsecuencia}
+          data-snapshot={consecuenciaVaria ? "varia" : undefined}
+          className="text-center text-meta text-apagado"
+        >
+          {consecuencia.split(" · ").map((parte, indice) => (
+            // Each part moves whole to the next line: a narrow line breaks between parts, never inside a price.
+            // biome-ignore lint/suspicious/noArrayIndexKey: two parts may read the same; their order is the identity
+            <Fragment key={indice}>
+              {indice > 0 ? " · " : null}
+              <span data-parte className="inline-block">
+                {parte}
+              </span>
+            </Fragment>
+          ))}
         </p>
       ) : null}
     </section>

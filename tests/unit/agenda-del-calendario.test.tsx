@@ -32,6 +32,8 @@ const ALTERNATIVAS = [
   { instante: "2026-10-24T22:00:00.000Z", etiqueta: "Sábado 24 · 19:00" },
 ]
 
+const CASO_CONI = { slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" }
+
 function mostrar(huecos: Hueco[], porRepartir = 0) {
   const acciones = {
     repartir: vi.fn(async () => ({ ok: true as const, propuestas: porRepartir })),
@@ -49,6 +51,12 @@ function mostrar(huecos: Hueco[], porRepartir = 0) {
 }
 
 describe("AgendaDelCalendario: proposals", () => {
+  it("names the pillar of a row by its short name", () => {
+    mostrar([hueco("2026-10-15T22:00:00.000Z", "Jueves 15", ocupante({ pilar: CASO_CONI }))])
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+    expect(screen.queryByText("Caso Coni: humana + avatar")).toBeNull()
+  })
+
   it("says «propuesta» for a stored proposal and «lugar propuesto» for a place it only shows", () => {
     mostrar([
       hueco("2026-10-15T22:00:00.000Z", "Jueves 15", ocupante({ propuesta: true })),

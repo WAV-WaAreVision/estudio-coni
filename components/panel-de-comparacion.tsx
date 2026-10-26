@@ -7,7 +7,7 @@ function Temas({ temas }: { temas: TemaEnLista[] }) {
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-apagado">
       {temas.map((tema) => (
         <li key={tema.pilar.slug}>
-          {tema.pilar.nombre} · {tema.n}
+          {tema.pilar.nombreCorto} · {tema.n}
         </li>
       ))}
     </ul>

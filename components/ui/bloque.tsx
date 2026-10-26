@@ -24,7 +24,7 @@ interface PropiedadesDeBloque {
   className?: string
 }
 
-/** Decision 4: a flat honda block with its icon, never a shadow. Magenta only for an error title, after the icon. */
+/** Decision 4: a flat honda block with its icon, never a shadow. Brick red only for an error title, after the icon. */
 export function Bloque({
   tipo,
   titulo,
@@ -38,7 +38,7 @@ export function Bloque({
   className,
 }: PropiedadesDeBloque) {
   const Icono = ICONOS[tipo]
-  const enMagenta = tipo === "error" && !tituloEnTinta
+  const enRojo = tipo === "error" && !tituloEnTinta
   const clases = cn(
     "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 bg-piedra-honda text-tinta",
     grande ? "rounded-panel p-[18px] text-cuerpo" : "rounded-bloque px-[14px] py-3 text-meta",
@@ -49,10 +49,10 @@ export function Bloque({
       <Icono
         aria-hidden="true"
         size={grande ? ICONO.medio : ICONO.chico}
-        className={cn("mt-0.5", enMagenta ? "text-error" : "text-tinta")}
+        className={cn("mt-0.5", enRojo ? "text-error" : "text-tinta")}
       />
       <div className="grid gap-1">
-        {titulo ? <p className={cn("font-semibold", enMagenta ? "text-error" : "text-tinta")}>{titulo}</p> : null}
+        {titulo ? <p className={cn("font-semibold", enRojo ? "text-error" : "text-tinta")}>{titulo}</p> : null}
         {pieza ? <p className="font-semibold">{pieza}</p> : null}
         {children ? <div className={grande ? "text-meta" : undefined}>{children}</div> : null}
         {accion ? <div className="mt-2">{accion}</div> : null}

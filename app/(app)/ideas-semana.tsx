@@ -78,7 +78,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
             <li key={idea.id} data-pilar={idea.pilar.slug} className="list-none">
               <Casilla
                 etiqueta={idea.gancho}
-                detalle={idea.pilar.nombre}
+                detalle={idea.pilar.nombreCorto}
                 marcada={marcada}
                 deshabilitada={(!marcada && enElMaximo) || pendiente}
                 alCambiar={(valor) => alternar(idea.id, valor)}

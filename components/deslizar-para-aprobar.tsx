@@ -5,6 +5,8 @@ import { type KeyboardEvent, type MouseEvent, type PointerEvent, useEffect, useI
 import { ICONO } from "@/components/ui/icono"
 import {
   ARMADO_MAXIMO_MS,
+  AYUDA_DE_TECLADO,
+  AYUDA_DE_TOQUE,
   apruebaAlSoltar,
   ETIQUETA_CORTA_DE_FIRMA,
   ETIQUETA_DE_FIRMA,
@@ -198,85 +200,102 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
   const posicion = `calc(${MARGEN}px + (100% - var(--pulgar-firma) - ${2 * MARGEN}px) * ${valor / 100})`
 
   return (
-    <div
-      ref={pista}
-      role="slider"
-      tabIndex={0}
-      aria-label={ETIQUETA_DE_FIRMA}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(valor)}
-      aria-valuetext={firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : TEXTO_SIN_FIRMAR}
-      aria-disabled={!activo}
-      aria-describedby={describidoPor ? `${describidoPor} ${idPista}` : idPista}
-      data-testid="pista-de-firma"
-      onPointerDown={alBajar}
-      onPointerMove={alMover}
-      onPointerUp={alSoltar}
-      onPointerCancel={alCancelar}
-      onClick={alActivar}
-      onKeyDown={alTeclear}
-      className={cn(
-        "pista-de-firma relative flex min-h-[var(--pista-firma)] touch-pan-y items-center rounded-control bg-piedra-honda shadow-hundido select-none focus-visible:outline-3 focus-visible:outline-offset-3",
-        activo ? "cursor-grab" : "cursor-not-allowed",
-      )}
-    >
-      <span
-        aria-hidden="true"
+    <>
+      <div
+        ref={pista}
+        role="slider"
+        tabIndex={0}
+        aria-label={ETIQUETA_DE_FIRMA}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(valor)}
+        aria-valuetext={firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : TEXTO_SIN_FIRMAR}
+        aria-disabled={!activo}
+        aria-describedby={describidoPor ? `${describidoPor} ${idPista}` : idPista}
+        data-testid="pista-de-firma"
+        onPointerDown={alBajar}
+        onPointerMove={alMover}
+        onPointerUp={alSoltar}
+        onPointerCancel={alCancelar}
+        onClick={alActivar}
+        onKeyDown={alTeclear}
         className={cn(
-          "absolute inset-y-0 left-0 rounded-control",
-          firmado ? "bg-firma" : "bg-firma-rastro",
-          !arrastrando && "transition-[width] duration-[var(--dur-larga)] ease-vuelta",
-        )}
-        style={{ width: valor === 0 ? 0 : `calc(${posicion} + var(--pulgar-firma) / 2)` }}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "relative z-10 flex-1 py-2 pr-4 pl-[calc(var(--pulgar-firma)+var(--hueco-etiqueta))] text-center text-cuerpo leading-tight font-semibold text-balance",
-          firmado ? "text-luz" : activo ? "text-tinta" : "text-apagado",
+          "pista-de-firma relative flex min-h-[var(--pista-firma)] touch-pan-y items-center rounded-control bg-piedra-honda shadow-hundido select-none focus-visible:outline-3 focus-visible:outline-offset-3",
+          activo ? "cursor-grab" : "cursor-not-allowed",
         )}
       >
-        {texto ? (
-          <span data-etiqueta-de-firma>{texto}</span>
-        ) : (
-          <>
-            <span data-etiqueta-de-firma className="etiqueta-de-firma-larga">
-              {ETIQUETA_DE_FIRMA}
-            </span>
-            <span data-etiqueta-de-firma className="etiqueta-de-firma-corta">
-              {ETIQUETA_CORTA_DE_FIRMA}
-            </span>
-          </>
-        )}
-      </span>
-      <span
-        ref={pulgar}
-        aria-hidden="true"
-        data-testid="pulgar-firma"
-        className={cn(
-          "absolute top-1/2 z-20 grid size-[var(--pulgar-firma)] -translate-y-1/2 touch-none place-items-center rounded-full",
-          !arrastrando && "transition-[left] duration-[var(--dur-larga)] ease-vuelta",
-          firmado
-            ? "bg-luz text-firma"
-            : activo
-              ? "bg-firma text-luz shadow-relieve-pulgar"
-              : "bg-piedra text-apagado outline-2 -outline-offset-2 outline-campo",
-        )}
-        style={{ left: posicion }}
-      >
-        {firmado ? (
-          <Check aria-hidden="true" weight="bold" size={ICONO.grande} />
-        ) : habilitado ? (
-          <ArrowRight aria-hidden="true" data-icono="flecha" size={ICONO.grande} />
-        ) : (
-          // v6 2b and 3: a closed signature is a lock on a flat thumb; the "Falta:" line says why.
-          <Lock aria-hidden="true" data-icono="candado" size={ICONO.grande} />
-        )}
-      </span>
-      <span id={idPista} className="sr-only">
-        {PISTA_DE_FIRMA}
-      </span>
-    </div>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-y-0 left-0 rounded-control",
+            firmado ? "bg-firma" : "bg-firma-rastro",
+            !arrastrando && "transition-[width] duration-[var(--dur-larga)] ease-vuelta",
+          )}
+          style={{ width: valor === 0 ? 0 : `calc(${posicion} + var(--pulgar-firma) / 2)` }}
+        />
+        <span
+          aria-hidden="true"
+          className={cn(
+            "relative z-10 flex-1 py-2 pr-4 pl-[calc(var(--pulgar-firma)+var(--hueco-etiqueta))] text-center text-cuerpo leading-tight font-semibold text-balance",
+            firmado ? "text-luz" : activo ? "text-tinta" : "text-apagado",
+          )}
+        >
+          {texto ? (
+            <span data-etiqueta-de-firma>{texto}</span>
+          ) : (
+            <>
+              <span data-etiqueta-de-firma className="etiqueta-de-firma-larga">
+                {ETIQUETA_DE_FIRMA}
+              </span>
+              <span data-etiqueta-de-firma className="etiqueta-de-firma-corta">
+                {ETIQUETA_CORTA_DE_FIRMA}
+              </span>
+            </>
+          )}
+        </span>
+        <span
+          ref={pulgar}
+          aria-hidden="true"
+          data-testid="pulgar-firma"
+          className={cn(
+            "absolute top-1/2 z-20 grid size-[var(--pulgar-firma)] -translate-y-1/2 touch-none place-items-center rounded-full",
+            !arrastrando && "transition-[left] duration-[var(--dur-larga)] ease-vuelta",
+            firmado
+              ? "bg-luz text-firma"
+              : activo
+                ? "bg-firma text-luz shadow-relieve-pulgar"
+                : "bg-piedra text-apagado outline-2 -outline-offset-2 outline-campo",
+          )}
+          style={{ left: posicion }}
+        >
+          {firmado ? (
+            <Check aria-hidden="true" weight="bold" size={ICONO.grande} />
+          ) : habilitado ? (
+            <ArrowRight aria-hidden="true" data-icono="flecha" size={ICONO.grande} />
+          ) : (
+            // v6 2b and 3: a closed signature is a lock on a flat thumb; the "Falta:" line says why.
+            <Lock aria-hidden="true" data-icono="candado" size={ICONO.grande} />
+          )}
+        </span>
+        <span id={idPista} className="sr-only">
+          {PISTA_DE_FIRMA}
+        </span>
+      </div>
+      {habilitado ? (
+        // The visible way to sign without dragging (WCAG 2.5.7). The track's description says it to a screen reader;
+        // armed, the line keeps its height so the track does not move under the finger between the two taps.
+        <p
+          data-ayuda-de-firma
+          aria-hidden="true"
+          className={cn(
+            "ayuda-de-firma -mt-1 text-center text-meta text-apagado",
+            (armado || firmado || !activo) && "invisible",
+          )}
+        >
+          <span className="ayuda-de-toque">{AYUDA_DE_TOQUE}</span>
+          <span className="ayuda-de-teclado">{AYUDA_DE_TECLADO}</span>
+        </p>
+      ) : null}
+    </>
   )
 }

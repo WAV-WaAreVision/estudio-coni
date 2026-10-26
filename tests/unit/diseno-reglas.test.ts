@@ -81,7 +81,7 @@ describe("design rules", () => {
       ["apagado", "#5a5a59"],
       ["campo", "#727271"],
       ["hilo", "#dcdcdb"],
-      ["error", "#b5137a"],
+      ["error", "#a8200d"],
       ["firma", "#a8285a"],
       ["sobre-firma", "#fbfbfa"],
     ] as const
@@ -107,6 +107,9 @@ describe("design rules", () => {
     expect(contraste(valor("firma"), valor("piedra-honda"))).toBeGreaterThanOrEqual(3)
     expect(tono(valor("firma"))).toBeGreaterThanOrEqual(320)
     expect(tono(valor("firma"))).toBeLessThanOrEqual(350)
+    // Error is a brick red, a hue of its own: never the pink of the signature (the old magenta sat at 322, beside it).
+    expect(tono(valor("error"))).toBeGreaterThanOrEqual(0)
+    expect(tono(valor("error"))).toBeLessThanOrEqual(15)
   })
 
   it("draws the focus ring in ink, never in the signature", () => {

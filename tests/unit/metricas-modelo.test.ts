@@ -275,7 +275,7 @@ describe("construirMetricas", () => {
     const comparacion = modelo.comparacion
     if (comparacion?.tipo !== "comparable") throw new Error(`Se esperaba comparable y fue ${comparacion?.tipo}`)
     expect(comparacion.temas.map((t) => t.texto)).toEqual([
-      "Ética y regulación · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)",
+      "Ética · 8 reels · promedio 21 cada 1.000 (entre 19,9 y 22,1)",
       "IA y salud mental · 8 reels · promedio 11 cada 1.000 (entre 9,9 y 12,1)",
     ])
     expect(comparacion.frase).toContain("Ética y regulación va por delante de IA y salud mental por 10 cada 1.000")
@@ -311,6 +311,30 @@ describe("construirMetricas", () => {
     const modelo = construirMetricas(entrada({ publicaciones: todas, lecturas: todas.map((p) => lectura(p.piezaId)) }))
 
     expect(modelo.comparacion?.tipo).toBe("temprano")
+  })
+
+  it("does not wait for numbers that already came when every measured reel is under a week old", () => {
+    const reciente = publicada("r0", "etica-regulacion", "2026-10-13T22:00:00.000Z")
+
+    const modelo = construirMetricas(entrada({ publicaciones: [reciente], lecturas: [lectura("r0")] }))
+
+    expect(modelo.comparacion).toEqual({
+      tipo: "sin_numeros",
+      titulo: "Todavía no hay con qué comparar",
+      texto:
+        "Tus reels ya tienen números, pero cuento cada uno desde que cumple una semana. Comparo temas cuando haya 8 reels de cada uno.",
+    })
+  })
+
+  it("still waits for the numbers when no reel has one", () => {
+    const modelo = construirMetricas(
+      entrada({ publicaciones: [publicada("r0", "etica-regulacion", "2026-10-01T22:00:00.000Z")] }),
+    )
+
+    expect(modelo.comparacion).toMatchObject({
+      tipo: "sin_numeros",
+      texto: expect.stringMatching(/^Cuando lleguen los números/),
+    })
   })
 
   it("groups the last weeks, newest first, with their reels' raw numbers", () => {

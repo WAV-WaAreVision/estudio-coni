@@ -19,26 +19,44 @@ export const NOMBRE_DE_CUENTA: Record<NombreDeCuenta, string> = {
   linkedin: "LinkedIn",
 }
 
-/** LinkedIn is optional: a piece just goes by hand without it, so it is not a step of the setup (design L4). */
-const PASO_DE_CUENTA: Record<Exclude<NombreDeCuenta, "linkedin">, string> = {
-  instagram: "Instagram conectado",
-  heygen: "HeyGen con tu avatar",
-  elevenlabs: "ElevenLabs con tu voz",
-  anthropic: "Claude (Anthropic)",
+/**
+ * Her checklist names only what she acts on (her voice, her avatar, Instagram, LinkedIn, the notices), never a provider:
+ * those live under Para WAV. LinkedIn is optional, a piece just goes by hand without it (design L4): listed, never
+ * counted. Claude is WAV's alone and is no step of hers.
+ */
+const PASOS_DE_CONI: readonly { cuenta: Exclude<NombreDeCuenta, "anthropic">; etiqueta: string }[] = [
+  { cuenta: "elevenlabs", etiqueta: "Tu voz" },
+  { cuenta: "heygen", etiqueta: "Tu avatar" },
+  { cuenta: "instagram", etiqueta: "Instagram" },
+  { cuenta: "linkedin", etiqueta: "LinkedIn" },
+]
+/** What the action of a missing account says, in her words. */
+const ACCION_DE_FALTA: Record<Exclude<NombreDeCuenta, "instagram" | "linkedin">, string> = {
+  heygen: "Revisar tu avatar",
+  elevenlabs: "Revisar tu voz",
+  anthropic: "Ver en Para WAV",
 }
 
+/** The accounts the app cannot work without, in the order their missing step is offered. */
 const ORDEN: readonly Exclude<NombreDeCuenta, "linkedin">[] = ["instagram", "heygen", "elevenlabs", "anthropic"]
 const PASO_DE_AVISOS = "Avisos en tu celular"
 const DIA_MS = 24 * 60 * 60 * 1000
 export const DIAS_DE_AVISO_DE_INSTAGRAM = 7
 export const DIAS_DE_AVISO_DE_LINKEDIN = 14
 
+export interface PasoDeConfiguracion {
+  etiqueta: string
+  listo: boolean
+  /** Listed, never counted, never "Falta" (LinkedIn). */
+  opcional?: true
+}
+
 export interface BloqueDeEstado {
   /** The three states of the block (docs/DESIGN.md, status-block), plus the one that admits the check did not run. */
   tipo: "configurando" | "todo_bien" | "atencion" | "sin_revision"
   titulo: string
   texto?: string
-  pasos: { etiqueta: string; listo: boolean }[]
+  pasos: PasoDeConfiguracion[]
   accion?: { etiqueta: string; href: string }
 }
 
@@ -59,10 +77,16 @@ function textoSinInstagram(faltaMas: boolean): string {
   return faltaMas ? `${base} También falta lo que sigue.` : base
 }
 
-function accionDeFalta(cuenta: NombreDeCuenta): NonNullable<BloqueDeEstado["accion"]> {
+function accionDeFalta(cuenta: Exclude<NombreDeCuenta, "linkedin">): NonNullable<BloqueDeEstado["accion"]> {
   return cuenta === "instagram"
     ? { etiqueta: "Conectar Instagram", href: CONECTAR }
-    : { etiqueta: `Agregar la llave de ${NOMBRE_DE_CUENTA[cuenta]}`, href: `${RUTA_DE_CUENTAS}#cuenta-${cuenta}` }
+    : { etiqueta: ACCION_DE_FALTA[cuenta], href: `${RUTA_DE_CUENTAS}#cuenta-${cuenta}` }
+}
+
+function textoDeFalta(primera: Exclude<NombreDeCuenta, "linkedin">, faltanMas: boolean): string {
+  if (primera === "instagram") return textoSinInstagram(faltanMas)
+  if (primera === "anthropic") return "Falta una conexión que arregla WAV; lo tuyo ya está."
+  return "Falta lo que sigue; el resto ya está."
 }
 
 function bloqueDeAtencion(cuenta: EstadoDeCuenta, ahora: number): Omit<BloqueDeEstado, "pasos"> {
@@ -114,25 +138,31 @@ export function estadoDeAjustes(entrada: {
 }): BloqueDeEstado {
   const { cuentas, avisosActivos, ahora, zona } = entrada
   const ordenadas = ORDEN.flatMap((nombre) => cuentas.find((c) => c.cuenta === nombre) ?? [])
-  const faltan = ordenadas.filter((c) => c.estado === "falta")
-  const pasos = [
-    ...ORDEN.map((nombre) => ({
-      etiqueta: PASO_DE_CUENTA[nombre],
-      listo: ordenadas.find((c) => c.cuenta === nombre)?.estado !== "falta",
-    })),
+  const faltan = ORDEN.filter((nombre) => cuentas.find((c) => c.cuenta === nombre)?.estado === "falta")
+  const pasos: PasoDeConfiguracion[] = [
+    ...PASOS_DE_CONI.map(({ cuenta, etiqueta }): PasoDeConfiguracion => {
+      const estado = cuentas.find((c) => c.cuenta === cuenta)?.estado
+      return cuenta === "linkedin"
+        ? { etiqueta, listo: estado === "lista" || estado === "vence", opcional: true }
+        : { etiqueta, listo: estado !== "falta" }
+    }),
     // The email reaches her without it, so a missing device does not make the block "setting up" or take the action.
     { etiqueta: PASO_DE_AVISOS, listo: avisosActivos },
   ]
 
   const primeraQueFalta = faltan[0]
   if (primeraQueFalta) {
-    const sinInstagram = primeraQueFalta.cuenta === "instagram"
+    const contados = pasos.filter((p) => !p.opcional)
     return {
       tipo: "configurando",
-      titulo: `Configuración: ${pasos.filter((p) => p.listo).length} de ${pasos.length} listos`,
-      texto: sinInstagram ? textoSinInstagram(faltan.length > 1) : "Falta lo que sigue; el resto ya está.",
+      // Claude is checked last, so it comes first only when her accounts are all there: a count would read "4 de 4".
+      titulo:
+        primeraQueFalta === "anthropic"
+          ? "Falta una conexión de WAV"
+          : `Configuración: ${contados.filter((p) => p.listo).length} de ${contados.length} listos`,
+      texto: textoDeFalta(primeraQueFalta, faltan.length > 1),
       pasos,
-      accion: accionDeFalta(primeraQueFalta.cuenta),
+      accion: accionDeFalta(primeraQueFalta),
     }
   }
 

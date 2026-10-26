@@ -43,6 +43,11 @@ describe("DeslizarParaAprobar: drag", () => {
     expect(pista()).toHaveTextContent("Desliza para firmar")
   })
 
+  it("keeps a whole verb as the short label of large text, never a cut 'Desliza'", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(pista().querySelector(".etiqueta-de-firma-corta")).toHaveTextContent(/^Firmar$/)
+  })
+
   it("signs on release after a drag of the thumb past 96 percent, once", () => {
     const alFirmar = vi.fn()
     render(<DeslizarParaAprobar habilitado alFirmar={alFirmar} />)
@@ -247,5 +252,34 @@ describe("DeslizarParaAprobar: closed, sending, described", () => {
     expect(pulgar()).toHaveClass("bg-firma")
     expect(pista()).toHaveClass("bg-piedra-honda", "shadow-hundido")
     expect(pista().className).not.toMatch(/\bbg-firma\b/)
+  })
+})
+
+describe("DeslizarParaAprobar: the visible way to sign without dragging", () => {
+  const ayuda = () => document.querySelector("[data-ayuda-de-firma]")
+
+  it("shows 'o toca dos veces' under the track at rest, and 'o pulsa Enter' for the keyboard", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    expect(ayuda()).toHaveTextContent("o toca dos veces")
+    expect(ayuda()?.querySelector(".ayuda-de-teclado")).toHaveTextContent(/^o pulsa Enter$/)
+    // The track's own description already says it to a screen reader.
+    expect(ayuda()).toHaveAttribute("aria-hidden", "true")
+    expect(pista().nextElementSibling).toBe(ayuda())
+  })
+
+  it("hides the hint once armed, where the track itself says to tap again, keeping its line so the track stays put", () => {
+    render(<DeslizarParaAprobar habilitado alFirmar={vi.fn()} />)
+    tocar()
+    expect(ayuda()).toHaveClass("invisible")
+  })
+
+  it("hides the hint while the signature is being sent, keeping its line: tapping does nothing then", () => {
+    render(<DeslizarParaAprobar habilitado enviando alFirmar={vi.fn()} />)
+    expect(ayuda()).toHaveClass("invisible")
+  })
+
+  it("hides the hint while the signature is closed", () => {
+    render(<DeslizarParaAprobar habilitado={false} alFirmar={vi.fn()} />)
+    expect(ayuda()).toBeNull()
   })
 })

@@ -19,6 +19,7 @@ import {
   simularMedios,
   TEXTO_VALIDO,
 } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 const ETIQUETA = "Desliza para firmar"
 
@@ -28,9 +29,9 @@ test.beforeEach(async () => {
 })
 
 async function videoPorAprobar() {
-  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Ser tu propia diosa" })
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: PIEZAS.video.titulo })
   return sembrarPieza("video_por_aprobar", {
-    titulo: "Ser tu propia diosa",
+    titulo: PIEZAS.video.titulo,
     idea_id: idea,
     guion: GUION_VALIDO,
     texto: TEXTO_VALIDO,

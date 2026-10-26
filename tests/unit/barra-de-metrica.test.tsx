@@ -35,9 +35,7 @@ describe("BarraDeMetrica", () => {
         <BarraDeMetrica {...BASE} />
       </ul>,
     )
-    expect(screen.getByText("Pareja y conversación").parentElement).toHaveTextContent(
-      "Pareja y conversación · 1 reel de este tema",
-    )
+    expect(screen.getByText("Pareja").parentElement).toHaveTextContent("Pareja · 1 reel de este tema")
     expect(container.innerHTML).not.toMatch(/pilar-/)
   })
 
@@ -52,6 +50,9 @@ describe("BarraDeMetrica", () => {
       </ul>,
     )
     expect(screen.getByText("3 reels de este tema")).toHaveClass("whitespace-nowrap")
+    // A compact row: the pillar by its short name.
+    expect(screen.getByText("Práctica clínica")).toBeInTheDocument()
+    expect(screen.queryByText("Práctica clínica aumentada")).toBeNull()
   })
 
   it("says it has no numbers yet, with no bar and no figure", () => {

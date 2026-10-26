@@ -50,7 +50,7 @@ test("while nothing is set up the block counts the steps and offers the first on
   await page.goto("/ajustes")
 
   await expect(page.getByRole("heading", { name: "Ajustes", level: 1 })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Configuración: 0 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 0 de 4 listos" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Conectar Instagram" }).first()).toHaveAttribute(
     "href",
     "/api/meta/conectar",
@@ -121,6 +121,8 @@ test("settings save by themselves, can be undone, and are logged with her as the
   await hora.fill("20:30")
   await expect.poll(async () => (await ajustes()).hora_publicacion).toBe("20:30:00")
 
+  // The cap is WAV's: it folds under "Para WAV".
+  await abrirDesplegable(page, "Para WAV")
   await page.getByRole("button", { name: "Subir el tope" }).click()
   await page.getByRole("button", { name: "Subir el tope" }).click()
   await expect(page.getByText("US$ 50")).toBeVisible()
@@ -136,6 +138,7 @@ test("settings save by themselves, can be undone, and are logged with her as the
 
   await page.reload()
   await expect(page.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "true")
+  await abrirDesplegable(page, "Para WAV")
   await expect(page.getByText("US$ 50")).toBeVisible()
   await capturar(page, "ajustes-editar")
 })
@@ -145,6 +148,7 @@ test("a cap under what was spent is saved with a warning", async ({ page }) => {
     "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'e2e', date_trunc('month', now() at time zone 'America/Santiago')::date, 20, 22, 'confirmado', 'e2e-ajustes-gasto')",
   )
   await page.goto("/ajustes")
+  await abrirDesplegable(page, "Para WAV")
   await expect(page.getByText("Llevas US$ 22,00 este mes")).toBeVisible()
 
   for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Bajar el tope" }).click()
@@ -174,7 +178,7 @@ test("she enters a key: it is checked with the provider, saved only if it works,
   const { rows } = await pool.query("select decrypted_secret from vault.decrypted_secrets where name = 'heygen'")
   expect(rows[0].decrypted_secret).toBe("hg-la-llave-buena-de-prueba")
   await page.goto("/ajustes")
-  await expect(page.getByRole("heading", { name: "Configuración: 1 de 5 listos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configuración: 1 de 4 listos" })).toBeVisible()
   // The key is never written back into the page.
   expect(await page.content()).not.toContain("hg-la-llave-buena-de-prueba")
 })
@@ -320,5 +324,31 @@ test("each account's name keeps a usable width beside its state pill at large te
     const cabecera = await fila.locator("span.text-guion").locator("..").boundingBox()
     const nombre = await fila.locator("span.text-guion").boundingBox()
     expect(nombre?.width ?? 0, cuenta).toBeGreaterThanOrEqual((cabecera?.width ?? 0) / 2)
+  }
+})
+
+test("her checklist names only what she acts on, and each state pill stays whole beside its step at large text", async ({
+  page,
+}) => {
+  await page.goto("/ajustes")
+  const bloque = page.getByRole("region", { name: /Configuración/ })
+  const pasos = bloque.getByRole("listitem")
+  // The count of the title runs over the rows under it, and nothing else: LinkedIn sits apart, under «Opcional».
+  const contados = bloque.getByRole("list", { name: "Pasos" }).getByRole("listitem")
+  await expect(contados).toHaveText([/^Tu voz/, /^Tu avatar/, /^Instagram/, /^Avisos en tu celular/])
+  const denominador = (await bloque.getByRole("heading").textContent())?.match(/de (\d+) listos/)?.[1]
+  expect(Number(denominador)).toBe(await contados.count())
+  const opcionales = bloque.getByRole("list", { name: "Opcional" }).getByRole("listitem")
+  await expect(opcionales).toHaveText([/^LinkedIn/])
+  await expect(opcionales).toContainText("A mano")
+  await expect(page.getByRole("region", { name: /Configuración/ })).not.toContainText(/HeyGen|ElevenLabs|Claude/)
+
+  await conLetraGrande(page)
+  for (const pildora of await pasos.locator(".pildora").all()) {
+    const lineas = await pildora.evaluate((nodo) => {
+      const texto = nodo.lastElementChild ?? nodo
+      return Math.round(texto.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(texto).lineHeight))
+    })
+    expect(lineas, (await pildora.textContent()) ?? "").toBe(1)
   }
 })

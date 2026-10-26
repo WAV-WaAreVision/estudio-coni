@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await simularMedios(page)
 })
 
-test("at large text the nav sits after the content with three tabs that keep their labels, 44 px or more", async ({
+test("at large text the nav sits after the content in one compact row of three tabs that keep their labels, 44 px or more", async ({
   page,
 }) => {
   await sembrarEscena()
@@ -32,6 +32,42 @@ test("at large text the nav sits after the content with three tabs that keep the
     await expect(etiqueta).toBeVisible()
     expect((await etiqueta.boundingBox())?.width ?? 0, nombre).toBeGreaterThan(20)
   }
+  // One row, the icon above its label: the three tabs share a top and the bar stays under an eighth of the screen.
+  const arribas = await nav
+    .getByRole("link")
+    .evaluateAll((pestanas) => pestanas.map((pestana) => Math.round(pestana.getBoundingClientRect().top)))
+  expect(new Set(arribas).size).toBe(1)
+  expect((await nav.boundingBox())?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) / 8)
+  // Each label stays on one line, whole.
+  for (const nombre of ["Inicio", "Métricas", "Ajustes"]) {
+    const etiqueta = nav.getByText(nombre, { exact: true })
+    const lineas = await etiqueta.evaluate((nodo) =>
+      Math.round(nodo.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(nodo).lineHeight)),
+    )
+    expect(lineas, nombre).toBe(1)
+  }
+})
+
+test("from the first size that turns large text on, the nav labels never shrink below their normal size", async ({
+  page,
+}) => {
+  await sembrarEscena()
+  await page.goto("/")
+  await expect(page.getByRole("status", { name: "Cargando" })).toHaveCount(0)
+  const etiqueta = page.getByRole("navigation", { name: "Secciones" }).getByText("Métricas", { exact: true })
+  const tamano = () => etiqueta.evaluate((nodo) => Number.parseFloat(getComputedStyle(nodo).fontSize))
+  const normal = await tamano()
+
+  // 22 px of root on a 390 px screen: under 18 rem across, so large text is on, yet half a rem is only 11 px.
+  await page.addStyleTag({ content: "html { font-size: 137.5% !important }" })
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")))
+  await expect(page.locator("html")).toHaveAttribute("data-letra", "grande")
+
+  expect(await tamano()).toBeGreaterThanOrEqual(normal)
+  const lineas = await etiqueta.evaluate((nodo) =>
+    Math.round(nodo.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(nodo).lineHeight)),
+  )
+  expect(lineas).toBe(1)
 })
 
 test("at large text the sign bar sits at the end of gate 1, round all over, with the full thumb and a one-line label", async ({
@@ -55,6 +91,26 @@ test("at large text the sign bar sits at the end of gate 1, round all over, with
   })
   expect(lineas).toBe(1)
   await expect(page.locator("h1")).toHaveCSS("font-size", `${1.5 * raiz}px`)
+})
+
+test("at large text the meta row of both gates stacks flush left, the pillar above the format and length", async ({
+  page,
+}) => {
+  const { guion, video } = await sembrarEscena()
+  for (const ruta of [`/guion/${guion}`, `/video/${video}`]) {
+    await page.goto(ruta)
+    await conLetraGrande(page)
+    const partes = page.locator("[data-fila-meta] > *")
+    await expect(partes).toHaveCount(2)
+    const [pilar, largo] = await partes.evaluateAll((nodos) =>
+      nodos.map((nodo) => {
+        const caja = nodo.getBoundingClientRect()
+        return { izquierda: Math.round(caja.left), arriba: Math.round(caja.top), abajo: Math.round(caja.bottom) }
+      }),
+    )
+    expect(largo?.izquierda, ruta).toBe(pilar?.izquierda)
+    expect(largo?.arriba ?? 0, ruta).toBeGreaterThanOrEqual(pilar?.abajo ?? 0)
+  }
 })
 
 test("at large text a priced button keeps every word of its label whole", async ({ page }) => {

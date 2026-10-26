@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DatosDeVideo, PantallaVideo } from "@/app/(app)/video/[id]/pantalla-video"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, type Hallazgo } from "@/lib/dominio/revision"
 
+/** The consequence line under the track: its parts are separate spans, so it is matched by its whole text. */
+const consecuencia = (texto: string) => (_: string, nodo: Element | null) =>
+  nodo?.tagName === "P" && nodo.textContent === texto
+
 const { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } = vi.hoisted(() => ({
   aprobarVideoAccion: vi.fn(),
   editarTextoLinkedinAccion: vi.fn(),
@@ -90,6 +94,12 @@ afterEach(() => {
 })
 
 describe("PantallaVideo: todo a la vista antes de terminar", () => {
+  it("names the pillar by its short name in the gate header", () => {
+    abrir({ pilar: { slug: "caso-coni", nombre: "Caso Coni: humana + avatar", nombreCorto: "Caso Coni" } })
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
+    expect(screen.queryByText("Caso Coni: humana + avatar")).toBeNull()
+  })
+
   it("shows the checkbox, the texts and the date before the video ends, and waits for the full watch to sign", () => {
     render(<PantallaVideo datos={datos()} />)
     expect(screen.getByRole("checkbox", { name: /Revisé labios/ })).toBeInTheDocument()
@@ -113,7 +123,12 @@ describe("PantallaVideo: todo a la vista antes de terminar", () => {
     revisar()
     expect(within(barra()).getByText("Video visto")).toBeInTheDocument()
     expect(within(barra()).getByText("Texto")).toBeInTheDocument()
-    expect(within(barra()).getByText("Sale el viernes 9 · 19:00")).toBeInTheDocument()
+    expect(within(barra()).getByText(consecuencia("Sale el viernes 9 · 19:00"))).toBeInTheDocument()
+    // The date moves with the run's clock: the visual baselines mask it.
+    expect(within(barra()).getByText(consecuencia("Sale el viernes 9 · 19:00"))).toHaveAttribute(
+      "data-snapshot",
+      "varia",
+    )
   })
 
   it("blocks with today's text when there is no free slot", () => {
@@ -135,7 +150,7 @@ describe("PantallaVideo: dónde y cuándo", () => {
     fireEvent.click(screen.getByRole("radio", { name: "lunes 12 de octubre · 19:00" }))
     fireEvent.click(screen.getByRole("button", { name: "Listo" }))
     revisar()
-    expect(within(barra()).getByText("Sale el lunes 12 · 19:00")).toBeInTheDocument()
+    expect(within(barra()).getByText(consecuencia("Sale el lunes 12 · 19:00"))).toBeInTheDocument()
   })
 
   it("keeps the destinations folded under Más opciones, and names them under the date", () => {

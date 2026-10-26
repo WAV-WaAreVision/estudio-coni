@@ -76,7 +76,8 @@ export interface ProximaPublicacion {
 }
 
 export type CeldaDeRitmo =
-  | { tipo: "llena"; pilar: PilarVisible | null; titulo: string }
+  /** `dia`: "martes 13 oct", what a screen reader says before the theme (the free cells around it are silent). */
+  | { tipo: "llena"; pilar: PilarVisible | null; titulo: string; dia: string }
   /** `falta`: the slot was expected to have a reel (it is past and came after her first one) and has none. */
   | { tipo: "libre"; falta: boolean }
 
@@ -108,8 +109,10 @@ export interface ModeloDeCalendario {
 }
 
 const SEMANAS_DE_AGENDA = 4
-/** Decision 22 (amendment A4): the Agenda lists the next three free slots; the rest are counted per week. */
+/** Decision 22 (amendment A4): «Cambiar» offers the next three free slots. */
 const LIBRES_A_LA_VISTA = 3
+/** The Agenda shows the next free slot as a row («Libre · elige una idea»); the rest are counted per week, one line. */
+const LIBRES_EN_FILA = 1
 const SEMANAS_DE_RITMO = 4
 /** A scheduled piece whose time just passed is about to go out: it stays on the agenda for this long. */
 const MARGEN_DE_PUBLICACION_MS = 60 * 60 * 1000
@@ -351,7 +354,7 @@ function construirAgenda(
     huecos.filter((hueco) => {
       if (hueco.ocupante !== null) return true
       libresVistos += 1
-      return libresVistos <= LIBRES_A_LA_VISTA
+      return libresVistos <= LIBRES_EN_FILA
     }),
   )
 
@@ -360,10 +363,12 @@ function construirAgenda(
       const inicio = sumarDias(lunes, 7 * i)
       const deLaSemana = huecos.filter((hueco) => lunesDeLaSemana(Date.parse(hueco.instante), zona) === inicio)
       const ocultos = deLaSemana.filter((hueco) => !visible.has(hueco)).length
+      const filas = deLaSemana.filter((hueco) => visible.has(hueco))
+      const espacios = ocultos === 1 ? "1 espacio libre" : `${ocultos} espacios libres`
       return {
         titulo: `Semana del ${semanaDe(instanteDeHueco(inicio, "12:00", zona), zona)}`,
-        huecos: deLaSemana.filter((hueco) => visible.has(hueco)),
-        libresMas: ocultos === 0 ? null : ocultos === 1 ? "y 1 libre más" : `y ${ocultos} libres más`,
+        huecos: filas,
+        libresMas: ocultos === 0 ? null : filas.length > 0 ? `y ${espacios} más` : espacios,
       }
     }),
     porRepartir: lugares.filter((lugar) => !lugar.guardada).length,
@@ -401,7 +406,11 @@ function construirRitmo(
     celdas: dias.map((diaIso): CeldaDeRitmo => {
       const dia = sumarDias(inicio, diaIso - 1)
       const pieza = fechadas.find((candidata) => diaLocal(Date.parse(candidata.publicarEn), zona) === dia)
-      if (pieza) return { tipo: "llena", pilar: pieza.visible, titulo: pieza.titulo }
+      if (pieza) {
+        const { dia: delMes, mes } = partesDeDia(dia)
+        const nombre = `${DIA_LARGO[diaIso - 1]} ${delMes} ${MES_CORTO[mes - 1]}`
+        return { tipo: "llena", pilar: pieza.visible, titulo: pieza.titulo, dia: nombre }
+      }
       const instante = instanteDeHueco(dia, horario.hora, zona)
       return { tipo: "libre", falta: instante < ahora && primera !== undefined && instante >= primera }
     }),

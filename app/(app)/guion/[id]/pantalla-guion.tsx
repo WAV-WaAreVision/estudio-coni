@@ -17,6 +17,7 @@ import { Bloque } from "@/components/ui/bloque"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
+import { FilaMeta } from "@/components/ui/fila-meta"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
@@ -201,21 +202,22 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
     <div>
       <header data-pilar={datos.pilar?.slug} className="grid gap-3">
         <Volver href="/">Inicio</Volver>
-        {/* The short name keeps pillar, format and length on one line; when the text grows they wrap and stay right. */}
-        <p className="mt-2 flex flex-wrap items-baseline gap-x-4 text-meta text-apagado">
-          <span>{datos.pilar?.nombreCorto}</span>
-          <span className="ml-auto whitespace-nowrap">
-            {datos.formato ? `${datos.formato} · ` : ""}
-            {datos.segundos} s
-          </span>
-        </p>
+        {/* The short name keeps pillar, format and length on one line. */}
+        <FilaMeta
+          className="mt-2"
+          pilar={datos.pilar?.nombreCorto}
+          largo={`${datos.formato ? `${datos.formato} · ` : ""}${datos.segundos} s`}
+        />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>
         {datos.salida ? (
           <LineaDeEstado
             tipo="fecha"
             titulo={
               <>
-                Si lo firmas hoy, sale el <b className="font-semibold text-tinta tabular-nums">{datos.salida}</b>
+                Si lo firmas hoy, sale el{" "}
+                <b data-snapshot="varia" className="font-semibold text-tinta tabular-nums">
+                  {datos.salida}
+                </b>
               </>
             }
           />

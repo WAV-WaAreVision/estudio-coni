@@ -60,6 +60,8 @@ describe("AccionesDeEstado", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
     const linea = await screen.findByText("No pude reintentar.")
     expect(linea).toHaveClass("text-error", "font-semibold")
+    // An error is never colour alone: its icon comes first.
+    expect(linea.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
     expect(linea.closest(".bg-piedra-honda")).toBeNull()
     expect(screen.queryByRole("alert")).toBeNull()
   })

@@ -15,6 +15,7 @@ describe("EstadoSencillo", () => {
     expect(screen.getByText("52 s").parentElement).toHaveClass("flex-wrap", "text-apagado")
     expect(screen.getByRole("heading", { level: 1, name: "El deseo no se apaga" })).toHaveClass("text-pieza")
     expect(screen.getByText("Estoy grabando tu video.")).toBeInTheDocument()
-    expect(screen.getByText("Caso Coni: humana + avatar")).toBeInTheDocument()
+    // The gate header names the pillar by its short name.
+    expect(screen.getByText("Caso Coni")).toBeInTheDocument()
   })
 })

@@ -2,7 +2,7 @@ import { ArrowRight, CheckCircle, Info, Warning } from "@phosphor-icons/react/di
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { PildoraDeEstado } from "@/components/ui/estado"
 import { ICONO } from "@/components/ui/icono"
-import { estadoDeAjustes } from "@/lib/ajustes/estado"
+import { estadoDeAjustes, type PasoDeConfiguracion } from "@/lib/ajustes/estado"
 import { revisionDeCuentas } from "./revision"
 
 const ICONOS = { configurando: Info, todo_bien: CheckCircle, atencion: Warning, sin_revision: Info } as const
@@ -38,16 +38,18 @@ export async function BloqueDeEstado({
         {bloque.texto ? <p className="col-start-2 text-meta">{bloque.texto}</p> : null}
       </div>
       {bloque.tipo === "configurando" ? (
-        <ul className="grid divide-y divide-campo/30">
-          {bloque.pasos.map((paso) => (
-            <li key={paso.etiqueta} className="flex min-h-boton items-center justify-between gap-3 text-meta">
-              {paso.etiqueta}
-              <PildoraDeEstado tipo={paso.listo ? "ok" : "aviso"} className="bg-piedra">
-                {paso.listo ? "Listo" : "Falta"}
-              </PildoraDeEstado>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* The title counts these rows and no others: the optional ones sit apart, under their own label. */}
+          <ListaDePasos etiqueta="Pasos" pasos={bloque.pasos.filter((paso) => !paso.opcional)} />
+          {bloque.pasos.some((paso) => paso.opcional) ? (
+            <div className="grid gap-1">
+              <p id="pasos-opcionales" className="text-meta font-semibold text-apagado">
+                Opcional
+              </p>
+              <ListaDePasos idDelRotulo="pasos-opcionales" pasos={bloque.pasos.filter((paso) => paso.opcional)} />
+            </div>
+          ) : null}
+        </>
       ) : null}
       {bloque.accion ? (
         <a href={bloque.accion.href} className={clasesDeBoton({ variante: "primario", className: "mt-1" })}>
@@ -56,5 +58,32 @@ export async function BloqueDeEstado({
         </a>
       ) : null}
     </section>
+  )
+}
+
+function ListaDePasos({
+  pasos,
+  etiqueta,
+  idDelRotulo,
+}: {
+  pasos: readonly PasoDeConfiguracion[]
+  etiqueta?: string
+  idDelRotulo?: string
+}) {
+  return (
+    <ul aria-label={etiqueta} aria-labelledby={idDelRotulo} className="grid divide-y divide-campo/30">
+      {pasos.map((paso) => (
+        // The pill keeps its word whole and the step takes what is left, so at large text the step wraps instead.
+        <li key={paso.etiqueta} className="flex min-h-boton items-center justify-between gap-3 text-meta">
+          <span className="min-w-0 flex-1">{paso.etiqueta}</span>
+          <PildoraDeEstado
+            tipo={paso.listo ? "ok" : paso.opcional ? "neutro" : "aviso"}
+            className="shrink-0 bg-piedra whitespace-nowrap [overflow-wrap:normal]"
+          >
+            {paso.listo ? "Listo" : paso.opcional ? "A mano" : "Falta"}
+          </PildoraDeEstado>
+        </li>
+      ))}
+    </ul>
   )
 }

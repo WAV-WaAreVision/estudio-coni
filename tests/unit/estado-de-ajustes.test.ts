@@ -36,12 +36,13 @@ describe("estadoDeAjustes", () => {
     })
 
     expect(estado.tipo).toBe("configurando")
-    expect(estado.titulo).toBe("Configuración: 3 de 5 listos")
+    // Only what she acts on: no provider names; LinkedIn is listed but optional, outside the count.
+    expect(estado.titulo).toBe("Configuración: 2 de 4 listos")
     expect(estado.pasos).toEqual([
-      { etiqueta: "Instagram conectado", listo: false },
-      { etiqueta: "HeyGen con tu avatar", listo: true },
-      { etiqueta: "ElevenLabs con tu voz", listo: false },
-      { etiqueta: "Claude (Anthropic)", listo: true },
+      { etiqueta: "Tu voz", listo: false },
+      { etiqueta: "Tu avatar", listo: true },
+      { etiqueta: "Instagram", listo: false },
+      { etiqueta: "LinkedIn", listo: false, opcional: true },
       { etiqueta: "Avisos en tu celular", listo: true },
     ])
     expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
@@ -56,6 +57,7 @@ describe("estadoDeAjustes", () => {
     })
 
     expect(estado.tipo).toBe("configurando")
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
     expect(estado.texto).toBe("Instagram no está conectado. Mientras tanto, cada reel espera a que lo subas tú a mano.")
     expect(estado.accion).toEqual({ etiqueta: "Conectar Instagram", href: "/api/meta/conectar" })
   })
@@ -81,10 +83,11 @@ describe("estadoDeAjustes", () => {
       zona: "America/Santiago",
     })
 
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
     expect(estado.texto).toBe("Falta lo que sigue; el resto ya está.")
   })
 
-  it("offers the key field of the first missing account when it is not Instagram", () => {
+  it("offers the account of the first missing step in her words when it is not Instagram", () => {
     const estado = estadoDeAjustes({
       cuentas: con({ cuenta: "heygen", estado: "falta" }),
       avisosActivos: true,
@@ -92,7 +95,35 @@ describe("estadoDeAjustes", () => {
       zona: "America/Santiago",
     })
 
-    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "/ajustes/cuentas#cuenta-heygen" })
+    expect(estado.accion).toEqual({ etiqueta: "Revisar tu avatar", href: "/ajustes/cuentas#cuenta-heygen" })
+  })
+
+  it("says a missing Claude key is WAV's to fix, without naming the provider in her list", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "anthropic", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.tipo).toBe("configurando")
+    // Her four steps are all ready: a count of "4 de 4 listos" over a block that is still setting up reads as a lie.
+    expect(estado.titulo).toBe("Falta una conexión de WAV")
+    expect(estado.texto).toBe("Falta una conexión que arregla WAV; lo tuyo ya está.")
+    expect(estado.accion).toEqual({ etiqueta: "Ver en Para WAV", href: "/ajustes/cuentas#cuenta-anthropic" })
+    expect(estado.pasos.map((p) => p.etiqueta).join(" ")).not.toMatch(/Claude|HeyGen|ElevenLabs|Anthropic/)
+  })
+
+  it("keeps counting her steps when Claude is missing and one of hers is too", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }, { cuenta: "anthropic", estado: "falta" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
+    expect(estado.accion).toEqual({ etiqueta: "Revisar tu avatar", href: "/ajustes/cuentas#cuenta-heygen" })
   })
 
   it("warns when Instagram expires within a week, with days, and offers to renew it", () => {
@@ -195,9 +226,9 @@ describe("estadoDeAjustes", () => {
       zona: "America/Santiago",
     })
 
-    expect(estado.titulo).toBe("Configuración: 3 de 5 listos")
+    expect(estado.titulo).toBe("Configuración: 2 de 4 listos")
     expect(estado.pasos.at(-1)).toEqual({ etiqueta: "Avisos en tu celular", listo: false })
-    expect(estado.accion).toEqual({ etiqueta: "Agregar la llave de HeyGen", href: "/ajustes/cuentas#cuenta-heygen" })
+    expect(estado.accion).toEqual({ etiqueta: "Revisar tu avatar", href: "/ajustes/cuentas#cuenta-heygen" })
   })
 
   it("does not call it setting up when only the notices are missing: the email reaches her anyway", () => {
@@ -213,7 +244,7 @@ describe("estadoDeAjustes", () => {
 })
 
 describe("estadoDeAjustes with LinkedIn", () => {
-  it("handles a missing LinkedIn when everything else is ready: still todo_bien, not a step", () => {
+  it("handles a missing LinkedIn when everything else is ready: still todo_bien, an optional step", () => {
     const estado = estadoDeAjustes({
       cuentas: [...TODAS_LISTAS, { cuenta: "linkedin", estado: "falta" }],
       avisosActivos: true,
@@ -221,7 +252,26 @@ describe("estadoDeAjustes with LinkedIn", () => {
       zona: "America/Santiago",
     })
     expect(estado.tipo).toBe("todo_bien")
-    expect(estado.pasos.map((p) => p.etiqueta)).not.toContain("LinkedIn conectado")
+    expect(estado.pasos.find((p) => p.etiqueta === "LinkedIn")).toEqual({
+      etiqueta: "LinkedIn",
+      listo: false,
+      opcional: true,
+    })
+  })
+
+  it("counts a connected LinkedIn as a ready step", () => {
+    const estado = estadoDeAjustes({
+      cuentas: con({ cuenta: "heygen", estado: "falta" }).concat({ cuenta: "linkedin", estado: "lista" }),
+      avisosActivos: true,
+      ahora: AHORA,
+      zona: "America/Santiago",
+    })
+    expect(estado.pasos.find((p) => p.etiqueta === "LinkedIn")).toEqual({
+      etiqueta: "LinkedIn",
+      listo: true,
+      opcional: true,
+    })
+    expect(estado.titulo).toBe("Configuración: 3 de 4 listos")
   })
 
   it("asks to renew LinkedIn when it expires within 14 days", () => {

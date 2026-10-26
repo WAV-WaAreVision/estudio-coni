@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
 import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
-import { nombreDePilar, soloActivos } from "@/lib/dominio/pilares"
+import { nombreDePilar, pilarVisible, soloActivos } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
@@ -29,6 +29,7 @@ function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
     porQue: null,
     ...parcial,
     nombrePilar: nombreDePilar(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja"),
+    nombreCortoPilar: pilarVisible(PILARES_DE_PRUEBA, parcial.pilar ?? "pareja").nombreCorto,
   }
 }
 
@@ -103,6 +104,17 @@ describe("BancoDeIdeas: composition", () => {
     expect(usar.parentElement?.className).toMatch(/auto-fit/)
   })
 
+  it("offers two actions with the card and folds the rest under Más", () => {
+    mostrar()
+    const carta = screen.getByRole("article")
+    const acciones = Array.from(carta.parentElement?.querySelectorAll("button") ?? []).map((b) => b.textContent?.trim())
+    expect(acciones).toEqual(["Después", "Usar esta"])
+    const mas = screen.getByText("Más", { selector: "summary *" }).closest("details")
+    expect(mas).not.toBeNull()
+    expect(mas).toContainElement(screen.getByRole("button", { name: "Descartar" }))
+    expect(mas).toContainElement(screen.getByRole("button", { name: "Escribir una idea mía" }))
+  })
+
   it("draws discard as a quiet action, never filled and never magenta", () => {
     mostrar()
     const descartar = screen.getByRole("button", { name: "Descartar" })
@@ -122,8 +134,13 @@ describe("BancoDeIdeas: una idea a la vez", () => {
 
     expect(screen.getByText("Idea 1 de 3")).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
-    expect(screen.getByText("Pareja y conversación")).toBeInTheDocument()
-    expect(screen.getByText(/Fuerza alta/)).toBeInTheDocument()
+    // The card's header names the pillar by its short name.
+    expect(screen.getByText("Pareja")).toBeInTheDocument()
+    expect(screen.queryByText("Pareja y conversación")).toBeNull()
+    // No jargon strength and no stray topic line: the hook, its format and the alerts.
+    expect(screen.queryByText(/Fuerza/)).toBeNull()
+    expect(screen.queryByText("Sentarse al lado cambia el tono.")).toBeNull()
+    expect(screen.getByText("Mito o realidad")).toBeInTheDocument()
     expect(screen.getByText("Verificar dato")).toBeInTheDocument()
     expect(screen.queryByText("Ya la usé hace poco.")).not.toBeInTheDocument()
   })
@@ -208,6 +225,9 @@ describe("BancoDeIdeas: buscar", () => {
     await abrirBusqueda()
 
     expect(screen.getByText("3 resultados")).toBeInTheDocument()
+    // Plain words: the strength filter and the rows never say "Fuerza".
+    expect(screen.queryByText(/Fuerza/)).toBeNull()
+    expect(screen.getByRole("button", { name: "Ideas fuertes" })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText("Buscar por palabra o tema"), { target: { value: "culpa" } })
     expect(screen.getByText("1 resultado")).toBeInTheDocument()
@@ -404,7 +424,7 @@ describe("CartaDeIdea: fuente", () => {
     expect(gancho.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("gives the source its own row after the topic and the strength, with a decorative icon beside the text", () => {
+  it("gives the source its own row after the format, with a decorative icon beside the text", () => {
     render(
       <CartaDeIdea
         idea={{ ...NUEVA, tema: "Un tema", porQue: { ...TEORIA, fuente: "Fuente: OMS · Informe (2025)" } }}
@@ -414,9 +434,8 @@ describe("CartaDeIdea: fuente", () => {
     expect(fila).not.toBeNull()
     expect(fila).toHaveClass("text-meta", "text-apagado")
     expect(fila?.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
-    const fuerza = screen.getByText(/^Fuerza/)
-    expect(screen.getByText("Un tema").compareDocumentPosition(fuerza) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(fuerza.compareDocumentPosition(fila as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const formato = screen.getByText(NUEVA.formato)
+    expect(formato.compareDocumentPosition(fila as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("shows no source line for an idea without backing", () => {

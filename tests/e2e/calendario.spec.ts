@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { capturar } from "./ayudas"
+import { PIEZAS } from "./escena"
 
 test.beforeEach(vaciarPiezasEIdeas)
 test.afterAll(vaciarPiezasEIdeas)
@@ -40,8 +41,8 @@ test("a scheduled piece shows up among the next ones of the month", async ({ pag
 test("the agenda places what is on its way in the next slots and leaves the rest free, linking to the ideas", async ({
   page,
 }) => {
-  const video = await pieza("video_por_aprobar", "Ser tu propia diosa", "etica-regulacion")
-  const guion = await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "practica-clinica")
+  const video = await pieza("video_por_aprobar", PIEZAS.video.titulo, "etica-regulacion")
+  const guion = await pieza("guion_por_aprobar", PIEZAS.guion.titulo, "practica-clinica")
   await pieza("guion_en_proceso", "Cuando tu mente inventa lo peor", "caso-coni")
 
   await page.goto("/calendario")
@@ -49,8 +50,11 @@ test("the agenda places what is on its way in the next slots and leaves the rest
 
   await expect(page).toHaveURL(/vista=agenda$/)
   await expect(page.getByRole("link", { name: "Agenda" })).toHaveAttribute("aria-current", "page")
-  await expect(page.getByRole("link", { name: /Ser tu propia diosa/ })).toHaveAttribute("href", `/video/${video}`)
-  await expect(page.getByRole("link", { name: /El deseo no se apaga, se esconde/ })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: new RegExp(PIEZAS.video.titulo) })).toHaveAttribute(
+    "href",
+    `/video/${video}`,
+  )
+  await expect(page.getByRole("link", { name: new RegExp(PIEZAS.guion.titulo) })).toHaveAttribute(
     "href",
     `/guion/${guion}`,
   )
@@ -59,8 +63,9 @@ test("the agenda places what is on its way in the next slots and leaves the rest
   await expect(page.getByText("Guion en preparación")).toBeVisible()
   const libres = page.getByRole("link", { name: "Libre · elige una idea" })
   await expect(libres.first()).toHaveAttribute("href", "/ideas")
-  expect(await libres.count()).toBeLessThanOrEqual(3)
-  await expect(page.getByText(/^y \d+ libres? más$/).first()).toBeVisible()
+  // One free slot as a row; the rest of each week is counted in one line.
+  expect(await libres.count()).toBeLessThanOrEqual(1)
+  await expect(page.getByText(/^(y )?\d+ espacios? libres?( más)?$/).first()).toBeVisible()
   await capturar(page, "calendario-agenda")
 })
 
@@ -77,11 +82,12 @@ test("the rhythm shows the last four weeks by the days of the schedule and has n
   ).toBeVisible()
   await expect(page.getByText("Mar", { exact: true })).toBeVisible()
   await expect(page.getByText("casi siempre quedan libres")).toHaveCount(0)
-  // A free slot is a sunken honda tile, as fields and tracks are, never an underline.
-  const libre = page.getByText("libre", { exact: true }).first()
-  await expect(libre).toHaveCSS("background-color", "rgb(220, 220, 219)")
-  await expect(libre).toHaveCSS("box-shadow", /inset/)
-  await expect(libre).toHaveCSS("border-bottom-width", "0px")
+  // A free slot is flat and silent, never a tile that reads as a button: one line counts them.
+  await expect(page.getByText("libre", { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/^\d+ espacios? libres?$/)).toBeVisible()
+  const libre = page.locator("[data-libre]").first()
+  await expect(libre).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
+  await expect(libre).toHaveCSS("box-shadow", "none")
   await capturar(page, "calendario-ritmo")
 })
 
@@ -109,8 +115,8 @@ test("an unknown view falls back to the month instead of an error", async ({ pag
 test("Repartir fechas proposes the places the Agenda shows and Cambiar moves one; nothing scheduled moves", async ({
   page,
 }) => {
-  const video = await pieza("video_por_aprobar", "Ser tu propia diosa", "etica-regulacion")
-  await pieza("guion_por_aprobar", "El deseo no se apaga, se esconde", "practica-clinica")
+  const video = await pieza("video_por_aprobar", PIEZAS.video.titulo, "etica-regulacion")
+  await pieza("guion_por_aprobar", PIEZAS.guion.titulo, "practica-clinica")
   const programada = await pieza("programado", "Ya programado", "caso-coni")
 
   // Through the tab link, as she gets there: the prefetched Agenda is what has to redraw after the action.
@@ -133,11 +139,11 @@ test("Repartir fechas proposes the places the Agenda shows and Cambiar moves one
     return rows[0]?.publicar_en.getTime()
   }
   const antes = await fechaDelVideo()
-  await page.getByRole("button", { name: "Cambiar la fecha de Ser tu propia diosa" }).click()
+  await page.getByRole("button", { name: `Cambiar la fecha de ${PIEZAS.video.titulo}` }).click()
   const otroDia = page.getByRole("group", { name: "¿Qué otro día?" }).getByRole("button").first()
   const [dia] = (await otroDia.innerText()).split(" · ")
   await otroDia.click()
   await expect.poll(fechaDelVideo).not.toBe(antes)
-  await expect(page.getByRole("link", { name: new RegExp(`^${dia}.*Ser tu propia diosa`) })).toBeVisible()
+  await expect(page.getByRole("link", { name: new RegExp(`^${dia}.*${PIEZAS.video.titulo}`) })).toBeVisible()
   await capturar(page, "calendario-agenda-propuestas")
 })

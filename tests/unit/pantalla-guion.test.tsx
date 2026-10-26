@@ -6,6 +6,10 @@ import { TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import type { Hallazgo } from "@/lib/dominio/revision"
 
+/** The consequence line under the track: its parts are separate spans, so it is matched by its whole text. */
+const consecuencia = (texto: string) => (_: string, nodo: Element | null) =>
+  nodo?.tagName === "P" && nodo.textContent === texto
+
 const { aprobarGuionAccion, editarGuionAccion, pedirCambiosAccion, pedirVozAccion, replace } = vi.hoisted(() => ({
   aprobarGuionAccion: vi.fn(),
   editarGuionAccion: vi.fn(),
@@ -118,6 +122,8 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(screen.getByText("Si lo firmas hoy, sale el", { exact: false })).toBeInTheDocument()
     expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveClass("font-semibold", "text-tinta")
     expect(screen.getByText("jueves 22 de octubre · 09:00").className).not.toMatch(/firma/)
+    // The date moves with the run's clock: the visual baselines mask it.
+    expect(screen.getByText("jueves 22 de octubre · 09:00")).toHaveAttribute("data-snapshot", "varia")
   })
 
   it("shows the backing's source under the script, inside 2. Revisa el guion", () => {
@@ -128,7 +134,7 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(guion.compareDocumentPosition(fuente) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("names the pillar by its short name at gate 1 and keeps format and length whole on the right when they wrap", () => {
+  it("names the pillar by its short name at gate 1 and keeps format and length whole in the meta row", () => {
     render(
       <PantallaGuion
         datos={datos({
@@ -141,8 +147,9 @@ describe("PantallaGuion: el orden de v6", () => {
     const duracion = screen.getByText("Mito o realidad · 52 s")
     expect(screen.queryByText("Práctica clínica aumentada")).not.toBeInTheDocument()
     expect(pilar.parentElement).toBe(duracion.parentElement)
-    expect(pilar.parentElement).toHaveClass("flex", "flex-wrap")
-    expect(duracion).toHaveClass("ml-auto", "whitespace-nowrap")
+    expect(pilar.parentElement).toHaveAttribute("data-fila-meta")
+    expect(pilar.parentElement).toHaveClass("fila-meta", "justify-between")
+    expect(duracion).toHaveClass("whitespace-nowrap")
   })
 
   it("keeps the source inside the script's reading panel, apart from Claude's note, as the idea card's row", () => {
@@ -373,7 +380,7 @@ describe("PantallaGuion: la firma", () => {
 
   it("says what the signature does under the track, and describes the track with it", () => {
     render(<PantallaGuion datos={datos()} />)
-    expect(within(barra()).getByText(LINEA)).toHaveClass("text-center")
+    expect(within(barra()).getByText(consecuencia(LINEA))).toHaveClass("text-center")
     expect(firma()).toHaveAccessibleDescription(contiene(LINEA))
   })
 

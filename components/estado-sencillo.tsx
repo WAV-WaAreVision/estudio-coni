@@ -19,7 +19,7 @@ export function EstadoSencillo({
       <Volver href="/">Inicio</Volver>
       {pilar || segundos ? (
         <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
-          <span>{pilar ? pilar.nombre : null}</span>
+          <span>{pilar ? pilar.nombreCorto : null}</span>
           <span>{segundos ? `${segundos} s` : null}</span>
         </p>
       ) : null}
