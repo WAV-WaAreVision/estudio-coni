@@ -124,9 +124,9 @@ describe("a carousel after gate 1", () => {
     expect(subido.pieza.estado).toBe("publicado_a_mano")
   })
 
-  it("never publishes by itself or expires in part 2, and a reel never takes a carousel event", () => {
+  it("closes as publicado when LinkedIn posted it (part 3), never expires, and a reel never takes a carousel event", () => {
     const programado = transicionar(carrusel("carrusel_por_aprobar"), aprobar()).pieza
-    expect(() => transicionar(programado, { tipo: "publicado" })).toThrow(TransicionInvalida)
+    expect(transicionar(programado, { tipo: "publicado" }).pieza).toMatchObject({ estado: "publicado" })
     expect(() => transicionar(programado, { tipo: "hora_vencida" })).toThrow(TransicionInvalida)
     const reel = { ...piezaNueva("reel"), estado: "video_por_aprobar" as const }
     expect(() => transicionar(reel, aprobar())).toThrow(TransicionInvalida)
