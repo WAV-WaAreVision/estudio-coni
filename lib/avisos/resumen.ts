@@ -62,7 +62,7 @@ async function recordarEsperas(deps: DepsResumen): Promise<void> {
   const { db } = deps
   const { data: piezas, error } = await db
     .from("piezas")
-    .select("id, titulo, estado")
+    .select("id, titulo, estado, tipo")
     .in("estado", ["guion_por_aprobar", "video_por_aprobar"])
   if (error) throw fallo("leer las piezas que esperan a Coni", error)
   if (piezas.length === 0) return
@@ -86,7 +86,7 @@ async function recordarEsperas(deps: DepsResumen): Promise<void> {
     await registrarAviso(
       db,
       { tipo: "recordatorio_48h", clave: `recordatorio_48h:${pieza.id}`, piezaId: pieza.id },
-      `Tu ${esperando.que} «${pieza.titulo}» espera tu firma desde hace más de 48 horas.`,
+      `Tu ${pieza.tipo === "carrusel" ? "carrusel" : esperando.que} «${pieza.titulo}» espera tu firma desde hace más de 48 horas.`,
     )
   }
 }

@@ -3,7 +3,7 @@ import { enviarResumenDelDia } from "@/lib/avisos/resumen"
 import { type Notificador, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
-import { ajustarPieza, borrarSembrado, sembrarIdea, sembrarPieza } from "./siembra"
+import { ajustarPieza, borrarSembrado, sembrarCarrusel, sembrarIdea, sembrarPieza } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -182,6 +182,22 @@ describe("enviarResumenDelDia", () => {
       // The next days never repeat it.
       const siguiente = armar(new Date(Date.parse(MARTES_0830) + 3 * DIA_MS).toISOString(), memoria)
       expect(await enviarResumenDelDia(siguiente.deps)).toEqual({ enviado: false })
+    })
+
+    it("words the reminder of a carousel as a carousel", async () => {
+      const id = await sembrarCarrusel("guion_por_aprobar")
+      piezas.push(id)
+      const desde = new Date(Date.parse(MARTES_0830) - 49 * 3_600_000).toISOString()
+      await pool.query("update public.avisos set creado_en = $2, enviado_en = $2, canal = 'push' where pieza_id = $1", [
+        id,
+        desde,
+      ])
+      const { rows } = await pool.query<{ titulo: string }>("select titulo from public.piezas where id = $1", [id])
+      const memoria = notificadorEnMemoria()
+      await enviarResumenDelDia(armar(MARTES_0830, memoria).deps)
+      expect(memoria.resumenesEnviados[0]?.texto).toContain(
+        `Tu carrusel «${rows[0]?.titulo}» espera tu firma desde hace más de 48 horas.`,
+      )
     })
 
     it("does not remind her of a piece that has waited less than 48 hours", async () => {
