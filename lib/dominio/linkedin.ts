@@ -90,6 +90,22 @@ export function siguientePasoLinkedin(fila: FilaDeLinkedin, medio: "video" | "do
   return { tipo: "esperar_video" }
 }
 
+const LARGO_MAXIMO_DEL_TITULO = 100
+
+/**
+ * A carousel's `content.media.title` (coordinator amendment to P5): the cover trimmed and, past 100 characters, cut
+ * after the last whole word that fits. LinkedIn documents no limit, so this keeps the title short without guessing.
+ */
+export function tituloDelDocumento(portada: string): string {
+  const titulo = portada.trim()
+  if (titulo.length <= LARGO_MAXIMO_DEL_TITULO) return titulo
+  const cabe = titulo.slice(0, LARGO_MAXIMO_DEL_TITULO + 1)
+  const corte = Math.max(cabe.lastIndexOf(" "), cabe.lastIndexOf("\n"), cabe.lastIndexOf("\t"))
+  // A single word longer than the limit has no boundary to cut at.
+  if (corte <= 0) return titulo.slice(0, LARGO_MAXIMO_DEL_TITULO)
+  return titulo.slice(0, corte).trimEnd()
+}
+
 const DIA_MS = 86_400_000
 
 /** The thresholds of L4: 14 days, 3 days, expired (0). `dias` rounds up, as Coni reads it. */

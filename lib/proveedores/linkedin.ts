@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { esUrnDePost } from "@/lib/dominio/linkedin"
+import { esUrnDePost, tituloDelDocumento } from "@/lib/dominio/linkedin"
 import { baseDe } from "./bases"
 
 // Versioned REST APIs for a member (F2, F3, F4):
@@ -236,13 +236,17 @@ export async function estadoDelDocumento(entrada: { token: string; documento: st
   }
 }
 
-/** F7: the 201 carries the post URN in `x-restli-id`. No title: it is not part of gate 2. */
-export async function crearPost(entrada: {
-  token: string
-  miembro: string
-  video: string
-  commentary: string
-}): Promise<string> {
+/** One medium per post: a reel's video (no title: it is not part of gate 2) or a carousel's document with its title. */
+export type MedioDelPost = { video: string } | { documento: string; titulo: string }
+
+/** F7: the 201 carries the post URN in `x-restli-id`. The Documents API requires `content.media.title`. */
+export async function crearPost(
+  entrada: { token: string; miembro: string; commentary: string } & MedioDelPost,
+): Promise<string> {
+  const media =
+    "documento" in entrada
+      ? { id: entrada.documento, title: tituloDelDocumento(entrada.titulo) }
+      : { id: entrada.video }
   const respuesta = await llamar(
     `${base()}/rest/posts`,
     {
@@ -253,7 +257,7 @@ export async function crearPost(entrada: {
         commentary: entrada.commentary,
         visibility: "PUBLIC",
         distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-        content: { media: { id: entrada.video } },
+        content: { media },
         lifecycleState: "PUBLISHED",
         isReshareDisabledByAuthor: false,
       }),

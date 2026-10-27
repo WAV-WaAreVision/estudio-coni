@@ -8,6 +8,7 @@ import {
   linkedinConectadoEn,
   MAXIMO_DE_INTENTOS_LINKEDIN,
   siguientePasoLinkedin,
+  tituloDelDocumento,
   versionDeLinkedinPorVencer,
 } from "@/lib/dominio/linkedin"
 
@@ -145,5 +146,11 @@ describe("linkedinConectadoEn", () => {
         AHORA,
       ),
     ).toBe(false)
+  })
+})
+
+describe("tituloDelDocumento", () => {
+  it("cuts a single word longer than 100 characters at 100, since no word boundary exists", () => {
+    expect(tituloDelDocumento("a".repeat(130))).toBe("a".repeat(100))
   })
 })
