@@ -355,7 +355,7 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
     return iniciar(
       "producir-pieza",
       () => deps.disparar.producir(guardada.id, claveProducir(guardada)),
-      "Lo intenté otra vez, pero el guion tarda en partir. Si no avanza, vuelve a intentarlo.",
+      `Lo intenté otra vez, pero el ${fila.tipo === "carrusel" ? "carrusel" : "guion"} tarda en partir. Si no avanza, vuelve a intentarlo.`,
     )
   })
 }

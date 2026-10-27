@@ -9,6 +9,7 @@ import {
   pedirCambioDeCarrusel,
   pedirCambios,
   pedirVoz,
+  reintentarGuion,
 } from "@/lib/acciones/piezas"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
 import type { Database } from "@/lib/supabase/database.types"
@@ -227,5 +228,20 @@ describe("the reel's gate 1 actions on a carousel", () => {
     }
     expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", version: vista })
     expect(disparos).toEqual([])
+  })
+})
+
+describe("reintentarGuion on a carousel", () => {
+  it("words a run slow to start as the carousel's", async () => {
+    const id = await sembrarCarrusel("guion_en_proceso")
+    piezasCreadas.push(id)
+    await pool.query("update public.piezas set explicacion = 'No pude.', version = version + 1 where id = $1", [id])
+    const { deps } = armar({ producir: new Error("Trigger caído") })
+    const { version } = await leerFila(id)
+
+    expect(await reintentarGuion(deps, id, version)).toMatchObject({
+      ok: true,
+      advertencia: "Lo intenté otra vez, pero el carrusel tarda en partir. Si no avanza, vuelve a intentarlo.",
+    })
   })
 })
