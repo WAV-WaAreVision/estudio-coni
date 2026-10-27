@@ -224,7 +224,9 @@ async function fallar(
   await escribirTransicion(contexto, { tipo: "falla_publicacion", explicacion }, extra)
   const { avisos } = contexto.deps
   await avisar(contexto, () => avisos.aConi(explicacion, true, avisoDe(contexto, "error_definitivo", "falla")))
-  await avisar(contexto, () => avisos.aWav("Falló una publicación en Instagram", detalleParaWav(contexto, detalle)))
+  const asunto =
+    contexto.fila.tipo === "carrusel" ? "Falló la publicación de un carrusel" : "Falló una publicación en Instagram"
+  await avisar(contexto, () => avisos.aWav(asunto, detalleParaWav(contexto, detalle)))
   return { piezaId: contexto.fila.id, resultado: "falla_publicacion" }
 }
 

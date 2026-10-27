@@ -308,6 +308,7 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
       explicacion:
         "El carrusel o su texto cambiaron después de que los aprobaste, así que no te lo dejé para subir. WAV ya está revisando.",
     })
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Falló la publicación de un carrusel"])
   })
 
   it("refuses a version that changed while LinkedIn processed it, before sending", async () => {
