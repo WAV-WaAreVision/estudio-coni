@@ -40,7 +40,7 @@ export async function leerCodigo(correo: string): Promise<string> {
 }
 
 const Disparo = z.object({
-  tarea: z.enum(["producir", "grabar", "voz"]),
+  tarea: z.enum(["producir", "grabar", "voz", "armar"]),
   piezaId: z.string(),
   clave: z.string(),
   nueva: z.boolean().optional(),

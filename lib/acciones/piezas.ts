@@ -50,7 +50,7 @@ import { ESTIMADO_POR_GUION_USD, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { type AvatarElegible, type ConfigElevenlabs, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
-import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
+import { claveArmar, claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
@@ -160,6 +160,19 @@ async function iniciar(
 }
 
 const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
+
+const AVISO_ARMADO = "Quedó firmado, pero las láminas tardan en armarse. Si no avanzan, te aviso."
+
+/** Starts the render of the carousel's latest version; a failure to start is a warning, the sweep is the net. */
+async function iniciarArmado(deps: DepsAcciones, fila: FilaDePieza, aviso: string) {
+  const carrusel = await leerCarruselVigente(deps.db, fila.id)
+  if (!carrusel) throw new Error(`La pieza ${fila.id} va a armarse sin carrusel.`)
+  return iniciar(
+    "armar-carrusel",
+    () => deps.disparar.armar(fila.id, claveArmar(fila.id, carrusel.id, fila.intento)),
+    aviso,
+  )
+}
 
 /** The undo window plus the clock margin: the render starts once Coni can no longer take the signature back. */
 const RETRASO_DE_GRABACION = `${(VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS) / 1000}s` as const
@@ -435,7 +448,7 @@ export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionV
 /**
  * Gate 1 of a carousel (design 2026-10-26, D1 step 3): she signs the slides and the post text of the latest version,
  * as `hash_texto`; the database checks it is still the latest (`carrusel_no_coincide`). No avatar, no voice, no cost.
- * Part 1 ends here: nothing starts, and the carousel waits in `armando_carrusel` (plan amendment 1).
+ * The render starts at once (part 2); a run that fails to start is resumed by `reanudarArranques`.
  */
 export function firmarCarrusel(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("firmarCarrusel", async () => {
@@ -460,7 +473,8 @@ export function firmarCarrusel(deps: DepsAcciones, piezaId: string, versionVista
       hashActual: hash,
       en: deps.ahora(),
     })
-    return { version: firmada.version }
+    const inicio = await iniciarArmado(deps, firmada, AVISO_ARMADO)
+    return { version: firmada.version, ...inicio }
   })
 }
 
@@ -760,6 +774,13 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
     const guardada = await guardarEvento(deps.db, fila, { tipo: "reintentar", ahora: deps.ahora() })
+    if (guardada.estado === "armando_carrusel") {
+      return iniciarArmado(
+        deps,
+        guardada,
+        "Lo intenté otra vez, pero las láminas tardan en armarse. Si no avanzan, te aviso.",
+      )
+    }
     // Back in the render steps a run has to start again; back on the schedule, the cron takes it at its time.
     if (guardada.estado !== "en_render" && guardada.estado !== "subtitulando") return {}
     return iniciar(

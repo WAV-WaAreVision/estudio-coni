@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { claveProducir } from "@/lib/acciones/disparos"
+import { claveArmar, claveProducir } from "@/lib/acciones/disparos"
 import {
   aprobarGuion,
   type DepsAcciones,
@@ -10,6 +10,7 @@ import {
   pedirCambioDeCarrusel,
   pedirCambios,
   pedirVoz,
+  reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
@@ -25,12 +26,12 @@ const piezasCreadas: string[] = []
 const ideasCreadas: string[] = []
 
 interface Disparo {
-  tarea: "producir" | "grabar" | "voz"
+  tarea: "producir" | "grabar" | "voz" | "armar"
   piezaId: string
   clave: string
 }
 
-function armar(fallos: { producir?: Error } = {}) {
+function armar(fallos: { producir?: Error; armar?: Error } = {}) {
   const disparos: Disparo[] = []
   const deps: DepsAcciones = {
     db: coni,
@@ -44,6 +45,10 @@ function armar(fallos: { producir?: Error } = {}) {
       },
       async voz(piezaId, clave) {
         disparos.push({ tarea: "voz", piezaId, clave })
+      },
+      async armar(piezaId, clave) {
+        if (fallos.armar) throw fallos.armar
+        disparos.push({ tarea: "armar", piezaId, clave })
       },
     },
     ahora: () => new Date().toISOString(),
@@ -136,21 +141,46 @@ async function carrusel(destino: Parameters<typeof sembrarCarrusel>[0] = "guion_
 const versionDe = async (id: string) => (await leerFila(id)).version
 
 describe("firmarCarrusel", () => {
-  it("signs the latest version's text without an avatar and starts nothing (part 1 stops here)", async () => {
+  it("signs the latest version's text without an avatar and starts its render", async () => {
     const id = await carrusel()
     const { deps, disparos } = armar()
     const vista = await versionDe(id)
 
     expect(await firmarCarrusel(deps, id, vista)).toEqual({ ok: true, version: vista + 1 })
 
-    expect(await leerFila(id)).toMatchObject({
+    const fila = await leerFila(id)
+    expect(fila).toMatchObject({
       estado: "armando_carrusel",
       puerta1_hash: HASH,
       puerta1_por: CONI,
       avatar_id: null,
       puerta1_formula: null,
     })
-    expect(disparos).toEqual([])
+    const { rows } = await pool.query("select id from public.carruseles where pieza_id = $1", [id])
+    expect(disparos).toEqual([{ tarea: "armar", piezaId: id, clave: claveArmar(id, rows[0].id, fila.intento) }])
+  })
+
+  it("keeps the signature with a warning when the render does not start", async () => {
+    const id = await carrusel()
+    const { deps } = armar({ armar: new Error("Trigger.dev no responde") })
+    const resultado = await firmarCarrusel(deps, id, await versionDe(id))
+    expect(resultado).toMatchObject({
+      ok: true,
+      advertencia: "Quedó firmado, pero las láminas tardan en armarse. Si no avanzan, te aviso.",
+    })
+    expect((await leerFila(id)).estado).toBe("armando_carrusel")
+  })
+
+  it("retries a failed render as a new attempt and starts it again", async () => {
+    const id = await sembrarCarrusel("error_produccion")
+    piezasCreadas.push(id)
+    const { deps, disparos } = armar()
+
+    expect((await reintentar(deps, id, await versionDe(id))).ok).toBe(true)
+
+    const fila = await leerFila(id)
+    expect(fila).toMatchObject({ estado: "armando_carrusel", estado_antes_del_error: null, explicacion: null })
+    expect(disparos).toMatchObject([{ tarea: "armar", piezaId: id }])
   })
 
   it("refuses a screen that is out of date", async () => {

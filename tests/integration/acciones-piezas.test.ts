@@ -84,7 +84,7 @@ const piezasCreadas: string[] = []
 const ideasCreadas: string[] = []
 
 interface Disparo {
-  tarea: "producir" | "grabar" | "voz"
+  tarea: "producir" | "grabar" | "voz" | "armar"
   piezaId: string
   clave: string
   nueva?: boolean
@@ -92,7 +92,7 @@ interface Disparo {
   retraso?: string
 }
 
-function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: Error } = {}) {
+function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: Error; armar?: Error } = {}) {
   const disparos: Disparo[] = []
   const deps: DepsAcciones = {
     db,
@@ -108,6 +108,10 @@ function armar(db: Db = coni, fallos: { grabar?: Error; producir?: Error; voz?: 
       async voz(piezaId, clave, nueva) {
         if (fallos.voz) throw fallos.voz
         disparos.push({ tarea: "voz", piezaId, clave, nueva })
+      },
+      async armar(piezaId, clave) {
+        if (fallos.armar) throw fallos.armar
+        disparos.push({ tarea: "armar", piezaId, clave })
       },
     },
     ahora: () => new Date().toISOString(),

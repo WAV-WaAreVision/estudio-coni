@@ -352,9 +352,9 @@ export async function guardarTokenMeta(db: Db, token: string, expiraEn: string):
  */
 export async function leerPiezasSinArrancar(
   db: Db,
-  corte: { grabarAntesDe: string; producirAntesDe: string },
-): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[] }> {
-  const [aGrabar, aProducir] = await Promise.all([
+  corte: { grabarAntesDe: string; producirAntesDe: string; armarAntesDe: string },
+): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[]; aArmar: FilaDePieza[] }> {
+  const [aGrabar, aProducir, aArmar] = await Promise.all([
     db
       .from("piezas")
       .select("*")
@@ -370,10 +370,18 @@ export async function leerPiezasSinArrancar(
       .is("explicacion", null)
       .lt("actualizada_en", corte.producirAntesDe)
       .order("actualizada_en"),
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "armando_carrusel")
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.armarAntesDe)
+      .order("actualizada_en"),
   ])
   if (aGrabar.error) throw fallo("No pude leer las piezas sin grabar", aGrabar.error)
   if (aProducir.error) throw fallo("No pude leer las piezas sin guion", aProducir.error)
-  return { aGrabar: aGrabar.data, aProducir: aProducir.data }
+  if (aArmar.error) throw fallo("No pude leer los carruseles sin armar", aArmar.error)
+  return { aGrabar: aGrabar.data, aProducir: aProducir.data, aArmar: aArmar.data }
 }
 
 export interface ConexionLinkedin {

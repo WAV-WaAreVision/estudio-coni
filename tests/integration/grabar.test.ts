@@ -1263,6 +1263,9 @@ describe("grabarPieza y la ventana para deshacer", () => {
       voz: async () => {
         throw new Error("Deshacer no inicia nada")
       },
+      armar: async () => {
+        throw new Error("Deshacer no inicia nada")
+      },
     }
     // Her screen still has the version she signed, and the app's clock is behind the task's: the window looks open.
     const deConi = {

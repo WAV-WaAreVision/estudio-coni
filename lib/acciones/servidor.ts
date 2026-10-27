@@ -59,6 +59,7 @@ export function disparosDeLaApp(): Disparos {
     producir: (piezaId, clave) => disparosDeEntorno().producir(piezaId, clave),
     grabar: (piezaId, clave, intento, retraso) => disparosDeEntorno().grabar(piezaId, clave, intento, retraso),
     voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
+    armar: (piezaId, clave) => disparosDeEntorno().armar(piezaId, clave),
   }
 }
 
