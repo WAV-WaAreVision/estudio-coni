@@ -5,7 +5,9 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import {
   almacenEnMemoria,
   claveAudio,
+  claveLaminaDeCarrusel,
   claveMaterial,
+  clavePdfDeCarrusel,
   claveVideo,
   claveVozAprobada,
   EXTENSIONES_DE_MATERIAL,
@@ -207,5 +209,22 @@ describe("claveMaterial", () => {
 
   it("refuses an id that is not a UUID", () => {
     expect(() => claveMaterial("../x", "pdf")).toThrow(FallaDeConfiguracion)
+  })
+})
+
+describe("carousel keys", () => {
+  const PIEZA = "c0000000-0000-4000-8000-0000000000aa"
+  const CARRUSEL = "11111111-1111-4111-8111-111111111111"
+
+  it("puts every version's files under its own folder", () => {
+    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, 0)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/lamina-01.png`)
+    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, 7)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/lamina-08.png`)
+    expect(clavePdfDeCarrusel(PIEZA, CARRUSEL)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/carrusel.pdf`)
+  })
+
+  it("refuses ids that are not UUIDs and a slide past the eighth", () => {
+    expect(() => claveLaminaDeCarrusel("x", CARRUSEL, 0)).toThrow(Error)
+    expect(() => clavePdfDeCarrusel(PIEZA, "../otro")).toThrow(Error)
+    expect(() => claveLaminaDeCarrusel(PIEZA, CARRUSEL, 8)).toThrow(Error)
   })
 })

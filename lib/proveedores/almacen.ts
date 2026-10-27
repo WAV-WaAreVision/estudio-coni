@@ -197,6 +197,28 @@ export function claveVideo(piezaId: string, mp4: Uint8Array): string {
   return `videos/${piezaId}/${sha256(mp4)}.mp4`
 }
 
+/** A version's slides are at most eight (`carrusel_hasta_ocho_laminas`). */
+const LAMINAS_MAXIMAS = 8
+
+/**
+ * A carousel version's files (plan amendment 7): one folder per version, so a retried render overwrites its own files
+ * and a design change (a new version) never touches what an earlier gate 2 saw.
+ */
+export function claveLaminaDeCarrusel(piezaId: string, carruselId: string, indice: number): string {
+  exigirUuid(piezaId)
+  exigirUuid(carruselId)
+  if (!Number.isInteger(indice) || indice < 0 || indice >= LAMINAS_MAXIMAS) {
+    throw new Error(`Lámina fuera de rango: ${indice}`)
+  }
+  return `carruseles/${piezaId}/${carruselId}/lamina-${String(indice + 1).padStart(2, "0")}.png`
+}
+
+export function clavePdfDeCarrusel(piezaId: string, carruselId: string): string {
+  exigirUuid(piezaId)
+  exigirUuid(carruselId)
+  return `carruseles/${piezaId}/${carruselId}/carrusel.pdf`
+}
+
 /** The original of a material; the images of a multi-image material carry their order (1..20) as two digits. */
 export function claveMaterial(materialId: string, extension: string, orden?: number): string {
   if (!UUID.test(materialId)) throw new FallaDeConfiguracion(`El id del material no es un UUID: ${materialId}`)
