@@ -346,6 +346,25 @@ describe("armarCarrusel", () => {
     }
   })
 
+  it("tells her the monthly cap stopped the shortening, not that the slide is simply long, and tells WAV", async () => {
+    const id = await carrusel()
+    const { rows } = await pool.query<{ tope: string }>("select tope_mensual_usd as tope from public.ajustes")
+    await pool.query("update public.ajustes set tope_mensual_usd = 0")
+    try {
+      const d = doble([{ tipo: "desborda", laminas: [3] }])
+      expect(await armarCarrusel(d.deps, id)).toEqual({ resultado: "muy_largo" })
+
+      expect(await leerFila(id)).toMatchObject({
+        estado: "guion_por_aprobar",
+        explicacion:
+          "No pude acortar la lámina 4 porque llegaste al tope de gasto de este mes. Acórtala con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.",
+      })
+      expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Un carrusel no se acortó por el tope de gasto"])
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.tope])
+    }
+  })
+
   it("leaves a piece that is not waiting for its slides alone", async () => {
     const id = await carrusel("carrusel_por_aprobar")
     const d = doble([])

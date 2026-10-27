@@ -81,6 +81,13 @@ export function textoMuyLarga(indices: readonly number[]): string {
     : `Las láminas ${numeros(indices)} quedaron muy largas. Pide un cambio para acortarlas.`
 }
 
+/** The cap, not the slide, is why it was not shortened: she can shorten it herself or raise the cap and sign again. */
+export function textoTopeAlAcortar(indices: readonly number[]): string {
+  return indices.length === 1
+    ? `No pude acortar la lámina ${numeros(indices)} porque llegaste al tope de gasto de este mes. Acórtala con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.`
+    : `No pude acortar las láminas ${numeros(indices)} porque llegaste al tope de gasto de este mes. Acórtalas con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.`
+}
+
 async function pilarCortoDe(db: DepsArmado["db"], fila: FilaDePieza): Promise<string | null> {
   if (!fila.idea_id) return null
   const idea = await leerIdea(db, fila.idea_id)
@@ -154,7 +161,11 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
   })
   if (reserva.tope) {
     await avisarTope(deps, fila)
-    return devolver(deps, fila, version, textoMuyLarga(largas))
+    await deps.avisos.aWav(
+      "Un carrusel no se acortó por el tope de gasto",
+      `pieza ${fila.id} («${fila.titulo}»): las láminas ${numeros(largas)} no caben y el tope del mes no deja pagar el acortado.`,
+    )
+    return devolver(deps, fila, version, textoTopeAlAcortar(largas))
   }
   // A refusal released it before: asking again would only be refused again, and cost money. A confirmed one means
   // Claude already answered and the save failed: asking again would pay twice for the one shortening.
