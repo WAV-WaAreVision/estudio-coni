@@ -212,6 +212,23 @@ describe("carruseles", () => {
     })
   })
 
+  it("takes at most eight slides: a cover, six ideas and a closing one", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await carrusel(c)
+      const laminas = (ideas: number) =>
+        JSON.stringify([
+          { tipo: "portada", texto: "Portada" },
+          ...Array.from({ length: ideas }, (_, i) => ({ tipo: "idea", texto: `Idea ${i + 1}` })),
+          { tipo: "cierre", texto: "¿Pregunta?" },
+        ])
+      const insertar =
+        "insert into public.carruseles (pieza_id, version, laminas, texto_post, hash_texto, origen) values ($1, $2, $3::jsonb, 'T', $4, 'inicial')"
+      const largo = await fallaCon(c, insertar, [id, 1, laminas(7), HASH])
+      expect(largo).toMatchObject({ code: "23514", constraint: "carrusel_hasta_ocho_laminas" })
+      await c.query(insertar, [id, 1, laminas(6), HASH])
+    })
+  })
+
   it("never changes the words of a version, but lets its rendering state move", async () => {
     await como(comoPostgres, async (c) => {
       const id = await carrusel(c)

@@ -178,3 +178,8 @@ begin
   returning * into v_pieza;
   return v_pieza;
 end $$;
+
+-- A cover, at most six ideas and a closing slide (MAXIMO_DE_IDEAS_DEL_CARRUSEL in lib/dominio/carrusel.ts): the
+-- database refuses a longer one too, not only the writer's schema (review of part 1, finding 3).
+alter table public.carruseles
+  add constraint carrusel_hasta_ocho_laminas check (jsonb_array_length(laminas) <= 8);
