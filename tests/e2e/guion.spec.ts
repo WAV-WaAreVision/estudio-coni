@@ -285,8 +285,8 @@ test("the open track says 'o toca dos veces' under it, and 'o pulsa Enter' with 
   await escucharLaVoz(page)
   await expect(ayuda).toHaveText("o toca dos veces", { useInnerText: true })
 
-  // From the keyboard: Tab leaves the avatar group for the track.
-  await page.getByRole("radio", { name: "Estudio" }).focus()
+  // From the keyboard: Tab leaves the last control above the bar (the discard row, since gate 1 offers it) for the track.
+  await page.getByRole("button", { name: "Descartar esta pieza" }).focus()
   await page.keyboard.press("Tab")
   await expect(pista).toBeFocused()
   await expect(ayuda).toHaveText("o pulsa Enter", { useInnerText: true })
