@@ -6,7 +6,11 @@ import { FUENTE_DEL_CARRUSEL, LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "..
 const { firmar, pedir, redibujar } = vi.hoisted(() => ({ firmar: vi.fn(), pedir: vi.fn(), redibujar: vi.fn() }))
 // A `router.refresh()` loses the race with the address's prefetches (`useRedibujar`): the screen redraws by its address.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: redibujar }) }))
-vi.mock("@/app/(app)/piezas/acciones", () => ({ firmarCarruselAccion: firmar, pedirCambioDeCarruselAccion: pedir }))
+vi.mock("@/app/(app)/piezas/acciones", () => ({
+  firmarCarruselAccion: firmar,
+  pedirCambioDeCarruselAccion: pedir,
+  descartarAccion: vi.fn(),
+}))
 
 const DATOS: DatosDeCarrusel = {
   id: "p1",
