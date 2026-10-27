@@ -183,7 +183,8 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
           }
         : null
     case "armando_carrusel":
-      // With a reason on it (the spending cap), nothing works on it: no working dot.
+      // Nothing leaves a reason here today (a shortening the cap stops goes back to gate 1); a piece with one is left
+      // alone by every task (piezaTrabajando), so it gets no working dot.
       return {
         ...base,
         estado: pieza.explicacion === null ? "Armando las láminas · te aviso" : "Armando las láminas",

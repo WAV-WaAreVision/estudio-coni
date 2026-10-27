@@ -263,7 +263,8 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
       // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
       return pieza.explicacion === null
     case "armando_carrusel":
-      // The render runs; with a reason on it (the cap stopped a shortening) it waits for Coni.
+      // The render runs. Nothing leaves a reason here today (a shortening the cap stops goes back to gate 1), but a
+      // piece with one is left alone, as armarCarrusel and the maintenance leave it: no task would work on it.
       return pieza.explicacion === null
     default:
       return false
