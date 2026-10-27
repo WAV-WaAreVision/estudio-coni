@@ -5,6 +5,7 @@ import {
   laminasDelEscrito,
   MAXIMO_CAMBIOS_DE_TEXTO,
   nombreDeLamina,
+  palabrasDe,
   palabrasDelCarrusel,
   TEXTO_SIN_CAMBIOS_DE_TEXTO,
   textoDeLaPublicacion,
@@ -116,5 +117,15 @@ describe("names and counts for the screen", () => {
 describe("TEXTO_SIN_CAMBIOS_DE_TEXTO", () => {
   it("says the limit the database enforces, from the one constant both the screen and the action read", () => {
     expect(TEXTO_SIN_CAMBIOS_DE_TEXTO).toBe(`Ya pediste ${MAXIMO_CAMBIOS_DE_TEXTO} cambios. Puedes firmarlo como está.`)
+  })
+})
+
+describe("palabrasDe", () => {
+  it("splits words as the database's palabras_de does: letters and decimal digits only", () => {
+    expect(palabrasDe("Mide 30 m² y ½ de alto")).toEqual(["Mide", "30", "m", "y", "de", "alto"])
+  })
+
+  it("keeps decimal digits of any script, as [[:digit:]] does", () => {
+    expect(palabrasDe("abc٣")).toEqual(["abc٣"])
   })
 })
