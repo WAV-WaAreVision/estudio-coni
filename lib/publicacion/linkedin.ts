@@ -53,14 +53,12 @@ export type ResultadoLinkedin =
   /** The gate refused for the whole piece: `publicar.ts` settles it as for Instagram. */
   | { tipo: "guardia"; veredicto: Exclude<Veredicto, { ok: true }> }
 
-async function aMano(contexto: Contexto, explicacion: string, detalle: string): Promise<ResultadoLinkedin> {
+export async function aMano(contexto: Contexto, explicacion: string, detalle: string): Promise<ResultadoLinkedin> {
   const { db, avisos } = contexto.deps
   await pasarLinkedinAMano(db, contexto.fila.id, { explicacion, error: detalle })
+  const que = contexto.fila.tipo === "carrusel" ? "un carrusel" : "un reel"
   try {
-    await avisos.aWav(
-      "LinkedIn no publicó un reel",
-      `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`,
-    )
+    await avisos.aWav(`LinkedIn no publicó ${que}`, `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`)
   } catch (error) {
     if (!(error instanceof Error)) throw error
     contexto.avisosFallidos.push(error)
@@ -68,10 +66,18 @@ async function aMano(contexto: Contexto, explicacion: string, detalle: string): 
   return { tipo: "a_mano" }
 }
 
-/** A provider error before the send: definitive ones go by hand at once, temporary ones count a try. */
-async function antesDeEnviar(contexto: Contexto, error: unknown, borrarVideo: boolean): Promise<ResultadoLinkedin> {
+/**
+ * A provider error before the send: definitive ones go by hand at once, temporary ones count a try. `rechazo` is the
+ * text for a definitive "no" (a carousel names itself; the reel keeps the generic one).
+ */
+export async function antesDeEnviar(
+  contexto: Contexto,
+  error: unknown,
+  borrarVideo: boolean,
+  rechazo = EXPLICACION_LINKEDIN_GENERICA,
+): Promise<ResultadoLinkedin> {
   if (error instanceof TokenDeLinkedinVencido) return aMano(contexto, EXPLICACION_LINKEDIN_RECONECTAR, error.message)
-  if (error instanceof RechazoDeLinkedin) return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, error.message)
+  if (error instanceof RechazoDeLinkedin) return aMano(contexto, rechazo, error.message)
   if (!(error instanceof Error)) throw error
   await sumarIntentoLinkedin(contexto.deps.db, contexto.fila.id, { error: error.message, borrarVideo })
   return { tipo: "en_curso" }
@@ -84,7 +90,7 @@ function vigente(contexto: Contexto, texto: string): Veredicto {
   })
 }
 
-function plazoVencido(contexto: Contexto): boolean {
+export function plazoVencido(contexto: Contexto): boolean {
   const publicarEn = piezaDesdeFila(contexto.fila).puerta2?.publicarEn
   return publicarEn !== undefined && Date.parse(publicarEn) + PLAZO_DE_LINKEDIN_MS <= Date.parse(contexto.deps.ahora())
 }
@@ -220,7 +226,7 @@ async function enviar(
 }
 
 /** Saves the URN of the live post, retrying: a lost write must reach WAV with the URN, never become a second post. */
-async function guardarPost(contexto: Contexto, postUrn: string, hashEnviado: string): Promise<void> {
+export async function guardarPost(contexto: Contexto, postUrn: string, hashEnviado: string): Promise<void> {
   let ultimo: unknown
   for (let intento = 0; intento < 3; intento += 1) {
     try {
