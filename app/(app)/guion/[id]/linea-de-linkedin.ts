@@ -2,7 +2,10 @@ import { TEXTO_PROGRAMADO_CARRUSEL } from "./textos"
 
 export const TEXTO_SALE_SOLO_EN_LINKEDIN = "Se publica solo en LinkedIn a esa hora."
 export const TEXTO_LINKEDIN_A_MANO = "LinkedIn no está conectado: te lo dejo para subir a mano."
+export const TEXTO_LINKEDIN_VENCE_ANTES =
+  "Tu conexión con LinkedIn vence antes de esa fecha: te lo dejo para subir a mano."
 export const TEXTO_PROGRAMADO_SOLO = "A esa hora se publica solo en LinkedIn."
+export const TEXTO_PROGRAMADO_VENCE_ANTES = `Tu conexión con LinkedIn vence antes de esa fecha. ${TEXTO_PROGRAMADO_CARRUSEL}`
 
 /**
  * Whether her LinkedIn connection will still be alive at `instante` (design P3-3: the expiry is known, so a token that
@@ -14,10 +17,12 @@ export function saleSoloEnLinkedin(expiraEn: string | null, instante: string): b
 
 /** The line under the date at a carousel's gate 2. */
 export function lineaDeLinkedin(expiraEn: string | null, publicarEn: string): string {
-  return saleSoloEnLinkedin(expiraEn, publicarEn) ? TEXTO_SALE_SOLO_EN_LINKEDIN : TEXTO_LINKEDIN_A_MANO
+  if (expiraEn === null) return TEXTO_LINKEDIN_A_MANO
+  return saleSoloEnLinkedin(expiraEn, publicarEn) ? TEXTO_SALE_SOLO_EN_LINKEDIN : TEXTO_LINKEDIN_VENCE_ANTES
 }
 
 /** What a scheduled carousel's screen says will happen at its time (decision P9). */
 export function detalleDeProgramado(expiraEn: string | null, publicarEn: string): string {
-  return saleSoloEnLinkedin(expiraEn, publicarEn) ? TEXTO_PROGRAMADO_SOLO : TEXTO_PROGRAMADO_CARRUSEL
+  if (expiraEn === null) return TEXTO_PROGRAMADO_CARRUSEL
+  return saleSoloEnLinkedin(expiraEn, publicarEn) ? TEXTO_PROGRAMADO_SOLO : TEXTO_PROGRAMADO_VENCE_ANTES
 }
