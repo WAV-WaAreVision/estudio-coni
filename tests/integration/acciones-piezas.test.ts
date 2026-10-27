@@ -928,6 +928,46 @@ const aplicarComoServicio = (id: string, evento: Parameters<typeof aplicar>[3]) 
 const aplicarComoConi = (id: string, evento: Parameters<typeof aplicar>[3]) => aplicarComo(id, comoConi, evento)
 
 describe("descartar", () => {
+  it("discards a reel at gate 1 and leaves its confirmed voice spend as it was", async () => {
+    const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    await pool.query(
+      `insert into public.gastos (pieza_id, proveedor, paso, mes, estimado_usd, real_usd, clave, estado)
+       values ($1, 'elevenlabs', 'voz', date_trunc('month', now())::date, 0.2, 0.2, $2, 'confirmado')`,
+      [id, `voz-de-prueba:${id}`],
+    )
+    const { deps } = armar()
+
+    const resultado = await descartar(deps, id, await versionDe(id))
+
+    expect(resultado.ok).toBe(true)
+    expect(await fila(id)).toMatchObject({ estado: "descartado", puerta1_hash: null })
+    const { rows } = await pool.query("select estado, real_usd from public.gastos where pieza_id = $1", [id])
+    expect(rows).toEqual([{ estado: "confirmado", real_usd: "0.2000" }])
+  })
+
+  it("refuses a piece whose voice is being made: the run holds a reservation", async () => {
+    const id = await pieza("grabando_voz")
+    const { deps } = armar()
+
+    const resultado = await descartar(deps, id, await versionDe(id))
+
+    expect(resultado).toEqual({ ok: false, error: "Espera a que termine lo que estoy haciendo con esta pieza." })
+    expect((await fila(id)).estado).toBe("grabando_voz")
+  })
+
+  it("refuses a script being written, and still discards one that failed to be written", async () => {
+    const escribiendo = await pieza("guion_en_proceso")
+    expect((await descartar(armar().deps, escribiendo, await versionDe(escribiendo))).ok).toBe(false)
+
+    const fallida = await pieza("guion_en_proceso")
+    await pool.query(
+      "update public.piezas set explicacion = 'Claude no respondió.', version = version + 1 where id = $1",
+      [fallida],
+    )
+    expect((await descartar(armar().deps, fallida, await versionDe(fallida))).ok).toBe(true)
+    expect((await fila(fallida)).estado).toBe("descartado")
+  })
+
   it("discards a piece in progress", async () => {
     const id = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
     const { deps } = armar()

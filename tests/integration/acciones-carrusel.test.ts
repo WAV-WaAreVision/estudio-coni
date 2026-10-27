@@ -4,6 +4,7 @@ import { claveProducir } from "@/lib/acciones/disparos"
 import {
   aprobarGuion,
   type DepsAcciones,
+  descartar,
   firmarCarrusel,
   hacerCarrusel,
   pedirCambioDeCarrusel,
@@ -253,5 +254,18 @@ describe("reintentarGuion on a carousel", () => {
       ok: true,
       advertencia: "Lo intenté otra vez, pero el carrusel tarda en partir. Si no avanza, vuelve a intentarlo.",
     })
+  })
+})
+
+describe("descartar a carousel", () => {
+  it("discards a carousel at gate 1", async () => {
+    const id = await sembrarCarrusel("guion_por_aprobar")
+    piezasCreadas.push(id)
+    const { deps } = armar()
+
+    const resultado = await descartar(deps, id, (await leerFila(id)).version)
+
+    expect(resultado.ok).toBe(true)
+    expect(await leerFila(id)).toMatchObject({ estado: "descartado", tipo: "carrusel" })
   })
 })

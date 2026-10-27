@@ -23,6 +23,7 @@ import {
   type Evento,
   instanteEstricto,
   MARGEN_DE_RELOJ_MS,
+  piezaTrabajando,
   restoDeVentana,
   TEXTO_DESHACER_TARDE,
   type TipoDePieza,
@@ -737,11 +738,18 @@ export function cambiarFecha(deps: DepsAcciones, piezaId: string, versionVista: 
   })
 }
 
-/** Discarding a scheduled piece needs no remote cancel either: the state change is what stops `publicar-pendientes`. */
+const TEXTO_PIEZA_TRABAJANDO = "Espera a que termine lo que estoy haciendo con esta pieza."
+
+/**
+ * Discarding needs no remote cancel (publishing is our own task: the state change is what stops `publicar-pendientes`)
+ * and touches no spend: a confirmed voice stays confirmed. A piece a run is working on is refused (decision P2 of the
+ * carousels part 2 plan): the run holds a reservation and may still pay a provider after the discard.
+ */
 export function descartar(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("descartar", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    if (piezaTrabajando(fila)) throw new Falla(TEXTO_PIEZA_TRABAJANDO)
     await guardarEvento(deps.db, fila, { tipo: "descartar" })
     return {}
   })
