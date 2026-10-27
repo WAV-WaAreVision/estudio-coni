@@ -424,28 +424,36 @@ describe("Inicio con carruseles", () => {
     ])
   })
 
-  it("shows a carousel being written and a signed one waiting for its design, on their way", () => {
+  it("shows a carousel being written and one whose slides are being made, both working", () => {
     const escribiendose = carrusel("guion_en_proceso")
-    const firmado = carrusel("armando_carrusel")
-    const { camino } = construirInicio({ piezas: [escribiendose, firmado], ahora: AHORA, zona: ZONA })
-    expect(camino).toEqual([
+    const armandose = carrusel("armando_carrusel")
+    const { camino } = construirInicio({ piezas: [escribiendose, armandose], ahora: AHORA, zona: ZONA })
+    expect(camino.map((fila) => [fila.estado, fila.ocupada, fila.href])).toEqual([
+      ["Escribiendo el carrusel · te aviso", true, `/guion/${escribiendose.id}`],
+      ["Armando las láminas · te aviso", true, `/guion/${armandose.id}`],
+    ])
+  })
+
+  it("asks her to look at the slides and choose a date", () => {
+    const listo = carrusel("carrusel_por_aprobar")
+    expect(construirInicio({ piezas: [listo], ahora: AHORA, zona: ZONA }).firma).toEqual([
       {
-        id: escribiendose.id,
-        titulo: escribiendose.titulo,
-        pilar: "deseo",
-        estado: "Escribiendo el carrusel · te aviso",
-        ocupada: true,
-        href: `/guion/${escribiendose.id}`,
-      },
-      {
-        id: firmado.id,
-        titulo: firmado.titulo,
-        pilar: "deseo",
-        estado: "Texto firmado · falta el diseño",
-        ocupada: false,
-        href: `/guion/${firmado.id}`,
+        id: listo.id,
+        titulo: listo.titulo,
+        pilar: listo.pilar,
+        meta: "Carrusel de LinkedIn",
+        href: `/guion/${listo.id}`,
+        instruccion: "Mira las láminas y elige la fecha.",
       },
     ])
+  })
+
+  it("names a failed render in a carousel's words, and opens its screen when it waits to be uploaded", () => {
+    const fallido = carrusel("error_produccion", { explicacion: "No pude armar el carrusel. WAV ya está revisando." })
+    const porSubir = carrusel("para_subir_a_mano", { pendientes: ["linkedin"] })
+    const inicio = construirInicio({ piezas: [fallido, porSubir], ahora: AHORA, zona: ZONA })
+    expect(inicio.atencion[0]?.causa).toBe("No pude armar el carrusel.")
+    expect(inicio.porSubir[0]?.href).toBe(`/guion/${porSubir.id}`)
   })
 
   it("names a carousel's failures in its own words", () => {
