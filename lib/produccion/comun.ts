@@ -57,6 +57,8 @@ export function estimarCostoVoz(texto: string): number {
 export const ESTIMADO_GUION_CLAUDE_USD = 0.5
 /** What writing and reviewing one carousel reserves with Claude (no voice); the real cost is confirmed afterwards. */
 export const ESTIMADO_CARRUSEL_CLAUDE_USD = 0.5
+/** What one automatic shortening of a carousel's slides reserves with Claude (plan 2026-10-27, amendment 3). */
+export const ESTIMADO_ACORTAR_CLAUDE_USD = 0.2
 
 /**
  * The most one script can hold against the cap: Claude's draft and review, then her voice of the longest script
