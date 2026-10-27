@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { TEXTO_DESLIZA_RIEL } from "./textos"
 
@@ -30,8 +30,22 @@ export function RielDeLaminas({ laminas, alVerTodas }: { laminas: readonly Lamin
     }
   }
 
-  function ir(indice: number) {
-    const destino = Math.max(0, Math.min(total - 1, indice))
+  // The slide a button asked for while the smooth scroll travels to it: the slides it passes on the way are not where
+  // she is, and a second tap counts from the slide asked, not from one passed.
+  const objetivo = useRef<number | null>(null)
+
+  useEffect(() => {
+    const elemento = riel.current
+    const soltar = () => {
+      objetivo.current = null
+    }
+    elemento?.addEventListener("scrollend", soltar)
+    return () => elemento?.removeEventListener("scrollend", soltar)
+  }, [])
+
+  function mover(paso: number) {
+    const destino = Math.max(0, Math.min(total - 1, (objetivo.current ?? actual) + paso))
+    objetivo.current = destino
     // jsdom has no scrollIntoView: the optional call keeps the unit tests honest about the index alone.
     riel.current?.children[destino]?.scrollIntoView?.({ behavior: "smooth", inline: "start", block: "nearest" })
     llegar(destino)
@@ -40,7 +54,11 @@ export function RielDeLaminas({ laminas, alVerTodas }: { laminas: readonly Lamin
   function alDesplazar() {
     const elemento = riel.current
     const ancho = elemento?.firstElementChild?.clientWidth ?? 0
-    if (elemento && ancho > 0) llegar(Math.round(elemento.scrollLeft / (ancho + SEPARACION_PX)))
+    if (!elemento || ancho <= 0) return
+    const indice = Math.round(elemento.scrollLeft / (ancho + SEPARACION_PX))
+    if (objetivo.current !== null && indice !== objetivo.current) return
+    objetivo.current = null
+    llegar(indice)
   }
 
   return (
@@ -82,13 +100,13 @@ export function RielDeLaminas({ laminas, alVerTodas }: { laminas: readonly Lamin
         })}
       </ol>
       <div className="flex items-center justify-between gap-3">
-        <Boton variante="callado" tamano="chico" deshabilitado={actual === 0} onClick={() => ir(actual - 1)}>
+        <Boton variante="callado" tamano="chico" deshabilitado={actual === 0} onClick={() => mover(-1)}>
           Lámina anterior
         </Boton>
         <p aria-live="polite" className="text-meta tabular-nums">
           Lámina {actual + 1} de {total}
         </p>
-        <Boton variante="callado" tamano="chico" deshabilitado={actual === total - 1} onClick={() => ir(actual + 1)}>
+        <Boton variante="callado" tamano="chico" deshabilitado={actual === total - 1} onClick={() => mover(1)}>
           Lámina siguiente
         </Boton>
       </div>

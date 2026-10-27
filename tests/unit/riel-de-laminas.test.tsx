@@ -31,4 +31,20 @@ describe("RielDeLaminas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lámina siguiente" }))
     expect(alVerTodas).toHaveBeenCalledTimes(1)
   })
+
+  it("keeps counting taps while the rail is still scrolling to the slide asked before", () => {
+    const ancho = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100)
+    render(<RielDeLaminas laminas={LAMINAS} alVerTodas={() => {}} />)
+    fireEvent.click(screen.getByRole("button", { name: "Lámina siguiente" }))
+    // The smooth scroll towards slide 2 passes through slide 1 first.
+    const riel = screen.getByRole("list", { name: "Láminas" })
+    riel.scrollLeft = 20
+    fireEvent.scroll(riel)
+    fireEvent.click(screen.getByRole("button", { name: "Lámina siguiente" }))
+    expect(screen.getByText("Lámina 3 de 3")).toBeInTheDocument()
+    riel.scrollLeft = 224
+    fireEvent.scroll(riel)
+    expect(screen.getByText("Lámina 3 de 3")).toBeInTheDocument()
+    ancho.mockRestore()
+  })
 })
