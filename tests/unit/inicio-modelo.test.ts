@@ -456,6 +456,12 @@ describe("Inicio con carruseles", () => {
     expect(inicio.porSubir[0]?.href).toBe(`/guion/${porSubir.id}`)
   })
 
+  it("says a carousel that could not be left to upload in the same words as its screen", () => {
+    const fallido = carrusel("error_publicacion", { explicacion: "LinkedIn no respondió." })
+    const { atencion } = construirInicio({ piezas: [fallido], ahora: AHORA, zona: ZONA })
+    expect(atencion[0]?.causa).toBe("No te lo pude dejar para subir.")
+  })
+
   it("names a carousel's failures in its own words", () => {
     const noEscrito = carrusel("guion_en_proceso", {
       explicacion: "Claude no quiso escribir este carrusel. Prueba con otra idea.",

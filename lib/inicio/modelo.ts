@@ -218,7 +218,12 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   const revisar = (ruta: "guion" | "video") => ({ etiqueta: "Revisar", href: `/${ruta}/${pieza.id}` })
   switch (pieza.estado) {
     case "error_publicacion":
-      return { ...base, causa: "No pude publicar.", accion: { etiqueta: "Revisar", href: rutaDe(pieza, "video") } }
+      return {
+        ...base,
+        // In the words of the carousel's own screen (app/(app)/guion/[id]/carrusel.tsx).
+        causa: pieza.tipo === "carrusel" ? "No te lo pude dejar para subir." : "No pude publicar.",
+        accion: { etiqueta: "Revisar", href: rutaDe(pieza, "video") },
+      }
     case "error_produccion":
       return {
         ...base,
