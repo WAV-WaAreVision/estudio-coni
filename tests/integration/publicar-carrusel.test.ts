@@ -237,6 +237,7 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     const [fila] = await publicacionesConDetalle(id)
     expect(fila).toMatchObject({ estado: "para_subir", explicacion: EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL })
     expect(fila?.enviado_en).not.toBeNull()
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn quizá publicó un carrusel: revisa el perfil"])
 
     const sim2 = simularLinkedin()
     expect(await publicarPendientes(doble(() => despues(2)).deps)).toEqual([])
@@ -256,6 +257,7 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     expect(sim.posts).toHaveLength(0)
     expect(sim.consultasDeDocumento).toHaveLength(0)
     expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL)
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn quizá publicó un carrusel: revisa el perfil"])
   })
 
   it("settles a doubtful send even when the connection is gone", async () => {
@@ -268,6 +270,7 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     ])
     expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
     expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL)
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn quizá publicó un carrusel: revisa el perfil"])
   })
 
   it("never uploads again when the row already has its document", async () => {

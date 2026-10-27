@@ -60,7 +60,12 @@ export async function resolverLinkedinCarrusel(contexto: Contexto): Promise<Resu
   const paso = siguientePasoLinkedin(filaLinkedin, "documento")
   if (paso.tipo === "nada") return { tipo: "nada" }
   if (paso.tipo === "dudosa") {
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL, "un envío anterior no devolvió el post")
+    return aMano(
+      contexto,
+      EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL,
+      "un envío anterior no devolvió el post",
+      "quiza_publico",
+    )
   }
   if (paso.tipo === "a_mano") return aMano(contexto, EXPLICACION_LINKEDIN_CARRUSEL, "se agotaron los intentos")
 
@@ -181,7 +186,7 @@ async function enviar(
     })
   } catch (error) {
     if (!(error instanceof Error)) throw error
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL, `después de enviar: ${error.message}`)
+    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL, `después de enviar: ${error.message}`, "quiza_publico")
   }
   await guardarPost(contexto, postUrn, hashTexto(releida.textoPost))
   return { tipo: "listo" }

@@ -53,12 +53,22 @@ export type ResultadoLinkedin =
   /** The gate refused for the whole piece: `publicar.ts` settles it as for Instagram. */
   | { tipo: "guardia"; veredicto: Exclude<Veredicto, { ok: true }> }
 
-export async function aMano(contexto: Contexto, explicacion: string, detalle: string): Promise<ResultadoLinkedin> {
+/** What WAV reads in the subject: a doubtful send may well be live, so it does not say LinkedIn did not post. */
+export type AsuntoParaWav = "no_publico" | "quiza_publico"
+
+export async function aMano(
+  contexto: Contexto,
+  explicacion: string,
+  detalle: string,
+  asunto: AsuntoParaWav = "no_publico",
+): Promise<ResultadoLinkedin> {
   const { db, avisos } = contexto.deps
   await pasarLinkedinAMano(db, contexto.fila.id, { explicacion, error: detalle })
   const que = contexto.fila.tipo === "carrusel" ? "un carrusel" : "un reel"
+  const titulo =
+    asunto === "quiza_publico" ? `LinkedIn quizá publicó ${que}: revisa el perfil` : `LinkedIn no publicó ${que}`
   try {
-    await avisos.aWav(`LinkedIn no publicó ${que}`, `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`)
+    await avisos.aWav(titulo, `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`)
   } catch (error) {
     if (!(error instanceof Error)) throw error
     contexto.avisosFallidos.push(error)
@@ -108,7 +118,7 @@ export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLin
   const paso = siguientePasoLinkedin(filaLinkedin)
   if (paso.tipo === "nada") return { tipo: "nada" }
   if (paso.tipo === "dudosa")
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, "un envío anterior no devolvió el post")
+    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, "un envío anterior no devolvió el post", "quiza_publico")
   if (paso.tipo === "a_mano") return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, "se agotaron los intentos")
 
   const conexion = await leerConexionLinkedin(db)
@@ -219,7 +229,7 @@ async function enviar(
     })
   } catch (error) {
     if (!(error instanceof Error)) throw error
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, `después de enviar: ${error.message}`)
+    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, `después de enviar: ${error.message}`, "quiza_publico")
   }
   await guardarPost(contexto, postUrn, hashTexto(aprobado.textoLinkedin))
   return { tipo: "listo" }
