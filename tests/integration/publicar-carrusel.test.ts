@@ -5,7 +5,10 @@ import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { EXPLICACION_LINKEDIN_TARDE, LINKEDIN_SIN_CONEXION } from "@/lib/publicacion/linkedin"
-import { EXPLICACION_LINKEDIN_CARRUSEL } from "@/lib/publicacion/linkedin-carrusel"
+import {
+  EXPLICACION_LINKEDIN_CARRUSEL,
+  EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL,
+} from "@/lib/publicacion/linkedin-carrusel"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { DOCUMENTO, simularLinkedin } from "../linkedin-msw"
@@ -181,6 +184,77 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
 
     expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
     expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_CARRUSEL)
+  })
+
+  it("goes by hand with the doubt text when the post fails after the reservation, and never posts again", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({ post: () => new HttpResponse("caído", { status: 500 }) })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.posts).toHaveLength(1)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila).toMatchObject({ estado: "para_subir", explicacion: EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL })
+    expect(fila?.enviado_en).not.toBeNull()
+
+    const sim2 = simularLinkedin()
+    expect(await publicarPendientes(doble(() => despues(2)).deps)).toEqual([])
+    expect(sim2.posts).toHaveLength(0)
+  })
+
+  it("never posts again when an earlier run reserved the send and lost the answer", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    await pool.query("update public.publicaciones set documento_urn = $2, enviado_en = now() where pieza_id = $1", [
+      id,
+      DOCUMENTO,
+    ])
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.posts).toHaveLength(0)
+    expect(sim.consultasDeDocumento).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL)
+  })
+
+  it("settles a doubtful send even when the connection is gone", async () => {
+    await desconectar()
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    await pool.query("update public.publicaciones set documento_urn = $2, enviado_en = now() where pieza_id = $1", [
+      id,
+      DOCUMENTO,
+    ])
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL)
+  })
+
+  it("never uploads again when the row already has its document", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    await pool.query("update public.publicaciones set documento_urn = $2 where pieza_id = $1", [id, DOCUMENTO])
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect(sim.documentosIniciados).toHaveLength(0)
+    expect(sim.subidasDeDocumento).toHaveLength(0)
+    expect(sim.posts).toHaveLength(1)
+  })
+
+  it("closes a carousel whose post was saved by a run that stopped before closing it", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    await pool.query(
+      `update public.publicaciones set documento_urn = $2, enviado_en = now(), estado = 'publicado',
+         post_urn = 'urn:li:share:71', enlace = 'https://www.linkedin.com/feed/update/urn:li:share:71/', marcado_en = now()
+       where pieza_id = $1`,
+      [id, DOCUMENTO],
+    )
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect(sim.posts).toHaveLength(0)
+    expect((await leerFila(id)).estado).toBe("publicado")
   })
 })
 
