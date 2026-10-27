@@ -3,7 +3,6 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
 import type { DepsResumen } from "@/lib/avisos/resumen"
 import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
-import { abrirPaginaDeChromium } from "@/lib/carrusel/navegador"
 import { renderizarCarrusel } from "@/lib/carrusel/render"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -178,7 +177,11 @@ export async function depsArmado(): Promise<DepsArmado> {
     almacen: almacenReal(),
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
-    renderizar: (entrada) => renderizarCarrusel(abrirPaginaDeChromium, entrada),
+    // Loaded only when a render runs: every other task imports this file and must not load playwright.
+    renderizar: async (entrada) => {
+      const { abrirPaginaDeChromium } = await import("@/lib/carrusel/navegador")
+      return renderizarCarrusel(abrirPaginaDeChromium, entrada)
+    },
     fuente: () => fuenteDelCarrusel(carpetaDeFuentes()),
     claude: async () => {
       const llave = await leerSecreto(db, "anthropic")
