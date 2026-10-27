@@ -1987,6 +1987,7 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      espacios_simples: { Args: { p_texto: string }; Returns: string }
       excluir_afirmacion: {
         Args: { p_excluida: boolean; p_id: string }
         Returns: undefined
@@ -2378,6 +2379,7 @@ export type Database = {
         }[]
       }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      palabras_de: { Args: { p_texto: string }; Returns: string[] }
       palabras_de_laminas: { Args: { p_laminas: Json }; Returns: string }
       pedir_cambio_de_carrusel: {
         Args: { p_pedido: string; p_pieza: string; p_version: number }

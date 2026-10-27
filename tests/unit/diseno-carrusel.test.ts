@@ -44,6 +44,23 @@ describe("aplicarCambioDeDiseno", () => {
     expect(hash(laminas)).toBe(original)
   })
 
+  // cambiar_diseno_de_carrusel sees these as spaces too (espacios_simples, 20261027000120).
+  it.each([
+    ["a no-break space", "\u00A0"],
+    ["a zero-width no-break space", "\uFEFF"],
+  ])("splits after a period followed by %s, keeping the hash", (_caso, espacio) => {
+    const conEspacio = LAMINAS_DE_PRUEBA.map(
+      (l, i): Lamina =>
+        i === 1
+          ? { tipo: "idea", texto: `Un chatbot te responde a cualquier hora.${espacio}Eso ayuda, pero no te conoce.` }
+          : l,
+    )
+    const { laminas } = aplicarCambioDeDiseno(conEspacio, DISENO_INICIAL, { tipo: "dividir", lamina: 1 })
+    expect(laminas[1]).toEqual({ tipo: "idea", texto: "Un chatbot te responde a cualquier hora." })
+    expect(laminas[2]).toEqual({ tipo: "idea", texto: "Eso ayuda, pero no te conoce." })
+    expect(hash(laminas)).toBe(hash(conEspacio))
+  })
+
   it("merges two adjacent ideas keeping the first highlight, words, order and the hash", () => {
     // The fixture has four ideas, the minimum: split one first so a merge is allowed.
     const cinco = aplicarCambioDeDiseno(LAMINAS_DE_PRUEBA, DISENO_INICIAL, { tipo: "dividir", lamina: 1 }).laminas

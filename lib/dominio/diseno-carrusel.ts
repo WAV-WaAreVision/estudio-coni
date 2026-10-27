@@ -8,7 +8,9 @@ import {
 import { Falla } from "@/lib/dominio/falla"
 
 // Design changes at gate 2 (design 2026-10-26, D5; plan amendment 5): bounded, and none of them changes a word, so
-// `hash_texto` and gate 1 stand. `cambiar_diseno_de_carrusel` checks the same in SQL.
+// `hash_texto` and gate 1 stand. `cambiar_diseno_de_carrusel` (20261027000120) checks the same in SQL: the same words
+// (spaces as JavaScript's \s sees them), each slide's keys, the source line only on the closing slide, and a highlight
+// only one of its own slide's words as `palabrasDe` reads them.
 
 export const VARIANTES = ["crema", "piedra", "oscura"] as const
 export type Variante = (typeof VARIANTES)[number]
