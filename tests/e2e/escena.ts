@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { leerVersionVigente } from "@/lib/datos/carrusel"
+import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
 import { claveDeToma } from "@/lib/dominio/voz"
+import { armarCarrusel } from "@/lib/produccion/armar-carrusel"
 import { huellaDelGuion } from "@/lib/produccion/voz"
+import { almacenEnMemoria } from "@/lib/proveedores/almacen"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
+import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { pool } from "../integration/db"
+import { clienteDeServicio } from "../integration/servicio"
 import {
   ajustarPieza,
+  leerFila,
   sembrarCarrusel,
   sembrarCorrida,
   sembrarIdea,
@@ -285,4 +293,47 @@ export async function sembrarCarruselDeEscena(
     estado: "usada",
   })
   return sembrarCarrusel(destino, { ideaId: idea, titulo: CARRUSEL.titulo, ...opciones })
+}
+
+const PNG_DE_LAMINA = new Uint8Array(readFileSync(join(__dirname, "fixtures", "avatar-a.png")))
+
+/** What `producir-pieza` leaves for a carousel: version 1 and the piece at gate 1, written as the service. */
+export async function escribirCarruselComoLaTarea(id: string): Promise<void> {
+  const db = clienteDeServicio()
+  const hash = hashTextoDeCarrusel({ laminas: LAMINAS_DE_PRUEBA, textoPost: TEXTO_POST_DE_PRUEBA })
+  await pool.query(
+    `insert into public.carruseles (pieza_id, version, laminas, texto_post, hash_texto, origen)
+     values ($1, 1, $2::jsonb, $3, $4, 'inicial')`,
+    [id, JSON.stringify(LAMINAS_DE_PRUEBA), TEXTO_POST_DE_PRUEBA, hash],
+  )
+  const { error } = await db
+    .from("piezas")
+    .update({ estado: "guion_por_aprobar", revision: [], version: (await leerFila(id)).version + 1 })
+    .eq("id", id)
+  if (error) throw new Error(`No pude dejar el carrusel en la puerta 1: ${error.message}`)
+}
+
+/** `armar-carrusel` for real, with Chromium replaced by fixed PNGs at its boundary. */
+export async function armarCarruselComoLaTarea(id: string): Promise<void> {
+  const resultado = await armarCarrusel(
+    {
+      db: clienteDeServicio(),
+      almacen: almacenEnMemoria(),
+      avisos: notificadorEnMemoria(),
+      ahora: () => new Date().toISOString(),
+      renderizar: async ({ laminas }) => ({
+        tipo: "listo",
+        pngs: laminas.map(() => PNG_DE_LAMINA),
+        pdf: new TextEncoder().encode("%PDF-1.7"),
+      }),
+      fuente: async () => "data:font/ttf;base64,AAAA",
+      claude: async () => {
+        throw new Error("El E2E no llama a Claude.")
+      },
+    },
+    id,
+  )
+  if (resultado.resultado !== "armado") throw new Error(`El carrusel ${id} no quedó armado: ${resultado.resultado}`)
+  // The version is read back so a failing write shows here, not as an empty rail.
+  if ((await leerVersionVigente(clienteDeServicio(), id))?.estado !== "listo") throw new Error("Versión sin armar")
 }
