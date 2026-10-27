@@ -449,7 +449,7 @@ export async function leerVencimientoLinkedin(db: Db): Promise<string | null> {
 export async function leerFilaLinkedin(db: Db, piezaId: string): Promise<FilaDeLinkedin | null> {
   const { data, error } = await db
     .from("publicaciones")
-    .select("estado, video_urn, enviado_en, post_urn, intentos")
+    .select("estado, video_urn, documento_urn, enviado_en, post_urn, intentos")
     .eq("pieza_id", piezaId)
     .eq("destino", "linkedin")
     .maybeSingle()
@@ -459,6 +459,7 @@ export async function leerFilaLinkedin(db: Db, piezaId: string): Promise<FilaDeL
   return {
     estado: data.estado,
     videoUrn: data.video_urn,
+    documentoUrn: data.documento_urn,
     enviadoEn: data.enviado_en,
     postUrn: data.post_urn,
     intentos: data.intentos,

@@ -62,6 +62,8 @@ export const MAXIMO_DE_INTENTOS_LINKEDIN = 3
 export interface FilaDeLinkedin {
   estado: EstadoDePublicacion
   videoUrn: string | null
+  /** A carousel's document (part 3); a row never has both (`un_solo_medio`). */
+  documentoUrn: string | null
   enviadoEn: string | null
   postUrn: string | null
   intentos: number
@@ -73,12 +75,17 @@ export type PasoLinkedin =
   | { tipo: "a_mano" }
   | { tipo: "subir_video" }
   | { tipo: "esperar_video" }
+  | { tipo: "subir_documento" }
+  | { tipo: "esperar_documento" }
 
 /** Where a LinkedIn row is, read from its columns alone (L6, L10). A sent row without a post is never sent again. */
-export function siguientePasoLinkedin(fila: FilaDeLinkedin): PasoLinkedin {
+export function siguientePasoLinkedin(fila: FilaDeLinkedin, medio: "video" | "documento" = "video"): PasoLinkedin {
   if (fila.estado !== "esperando" || fila.postUrn !== null) return { tipo: "nada" }
   if (fila.enviadoEn !== null) return { tipo: "dudosa" }
   if (fila.intentos >= MAXIMO_DE_INTENTOS_LINKEDIN) return { tipo: "a_mano" }
+  if (medio === "documento") {
+    return fila.documentoUrn === null ? { tipo: "subir_documento" } : { tipo: "esperar_documento" }
+  }
   if (fila.videoUrn === null) return { tipo: "subir_video" }
   return { tipo: "esperar_video" }
 }
