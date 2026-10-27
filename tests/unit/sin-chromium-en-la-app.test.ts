@@ -25,6 +25,20 @@ describe("the app never bundles Chromium", () => {
     expect(depsReales).toMatch(/await import\(["']@\/lib\/carrusel\/navegador["']\)/)
   })
 
+  it("only the launcher loads playwright: anywhere else under lib/, app/ or components/ it is a type at most", () => {
+    const candidatos = grep("['\\\"]playwright(-core)?['\\\"]", "lib app components")
+    const cargan = candidatos.filter((ruta) =>
+      readFileSync(ruta, "utf8")
+        .split("\n")
+        .some(
+          (linea) =>
+            /(from|import\(|require\()\s*["']playwright(-core)?["']/.test(linea) &&
+            !/^\s*(import|export)\s+type\b/.test(linea),
+        ),
+    )
+    expect(cargan).toEqual(["lib/carrusel/navegador.ts"])
+  })
+
   it("keeps playwright out of the server bundle even if something reached it", () => {
     expect(nextConfig.serverExternalPackages).toContain("playwright")
   })
