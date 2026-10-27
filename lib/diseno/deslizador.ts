@@ -35,6 +35,16 @@ export const AYUDA_DE_TOQUE = "o toca dos veces"
 export const AYUDA_DE_TECLADO = "o pulsa Enter"
 export const PISTA_DE_FIRMA = "Enter o Espacio firman. También puedes tocar dos veces: la primera prepara la firma."
 
+/** Every word the track says on a gate that schedules instead of signing, spread onto `DeslizarParaAprobar`. */
+export const TEXTOS_DE_PROGRAMAR = {
+  etiqueta: ETIQUETA_DE_PROGRAMAR,
+  etiquetaCorta: ETIQUETA_CORTA_DE_PROGRAMAR,
+  textoArmado: "Toca otra vez para programar",
+  textoHecho: "Programado",
+  textoEnReposo: "Sin programar",
+  pista: "Enter o Espacio programan. También puedes tocar dos veces: la primera lo prepara.",
+} as const
+
 /** A pointer that moved more than this is a drag or a scroll, never a tap. */
 export const TOQUE_MAXIMO_PX = 8
 /** A second tap sooner than this is an accidental double tap, or VoiceOver's double tap delivered as two events. */

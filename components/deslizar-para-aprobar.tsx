@@ -37,6 +37,11 @@ interface PropiedadesDeDeslizar {
   etiqueta?: string
   /** The short label shown at large text sizes. */
   etiquetaCorta?: string
+  /** What the track says armed, done and at rest, and how to act without dragging; signing words unless overridden. */
+  textoArmado?: string
+  textoHecho?: string
+  textoEnReposo?: string
+  pista?: string
   alFirmar: () => void
 }
 
@@ -61,6 +66,10 @@ export function DeslizarParaAprobar({
   describidoPor,
   etiqueta = ETIQUETA_DE_FIRMA,
   etiquetaCorta = ETIQUETA_CORTA_DE_FIRMA,
+  textoArmado = TEXTO_ARMADO,
+  textoHecho = TEXTO_FIRMADO,
+  textoEnReposo = TEXTO_SIN_FIRMAR,
+  pista: textoDePista = PISTA_DE_FIRMA,
   alFirmar,
 }: PropiedadesDeDeslizar) {
   const [valor, setValor] = useState(0)
@@ -207,7 +216,7 @@ export function DeslizarParaAprobar({
     }
   }
 
-  const texto = firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : null
+  const texto = firmado ? textoHecho : armado ? textoArmado : null
   const posicion = `calc(${MARGEN}px + (100% - var(--pulgar-firma) - ${2 * MARGEN}px) * ${valor / 100})`
 
   return (
@@ -220,7 +229,7 @@ export function DeslizarParaAprobar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(valor)}
-        aria-valuetext={firmado ? TEXTO_FIRMADO : armado ? TEXTO_ARMADO : TEXTO_SIN_FIRMAR}
+        aria-valuetext={texto ?? textoEnReposo}
         aria-disabled={!activo}
         aria-describedby={describidoPor ? `${describidoPor} ${idPista}` : idPista}
         data-testid="pista-de-firma"
@@ -289,7 +298,7 @@ export function DeslizarParaAprobar({
           )}
         </span>
         <span id={idPista} className="sr-only">
-          {PISTA_DE_FIRMA}
+          {textoDePista}
         </span>
       </div>
       {habilitado ? (

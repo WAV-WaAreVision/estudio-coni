@@ -12,7 +12,7 @@ import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
-import { ETIQUETA_CORTA_DE_PROGRAMAR, ETIQUETA_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
+import { TEXTOS_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import type { DisenoDeCarrusel } from "@/lib/dominio/diseno-carrusel"
 import type { PilarVisible } from "@/lib/dominio/pilares"
@@ -229,8 +229,7 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
         <DeslizarParaAprobar
           habilitado={falta.tipo === "nada"}
           enviando={firma.pendiente}
-          etiqueta={ETIQUETA_DE_PROGRAMAR}
-          etiquetaCorta={ETIQUETA_CORTA_DE_PROGRAMAR}
+          {...TEXTOS_DE_PROGRAMAR}
           describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
           alFirmar={() => {
             if (fecha) {

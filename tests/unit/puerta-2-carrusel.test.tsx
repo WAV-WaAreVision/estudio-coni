@@ -42,6 +42,13 @@ describe("PantallaPuerta2Carrusel", () => {
     ).toBeInTheDocument()
   })
 
+  it("speaks of programming, not signing, on the track and in how to use it without dragging", () => {
+    render(<PantallaPuerta2Carrusel datos={DATOS} />)
+    const pista = screen.getByRole("slider", { name: "Desliza para programar" })
+    expect(pista).toHaveAttribute("aria-valuetext", "Sin programar")
+    expect(pista).toHaveAccessibleDescription(/Enter o Espacio programan\./)
+  })
+
   it("folds the post text and offers both kinds of change and the discard", () => {
     render(<PantallaPuerta2Carrusel datos={DATOS} />)
     expect(screen.getByRole("button", { name: "Ver texto completo" })).toHaveAttribute("aria-expanded", "false")
