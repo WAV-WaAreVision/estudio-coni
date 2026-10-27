@@ -14,3 +14,10 @@ At runtime the folder is `CONI_FONTSDIR` when set, otherwise `assets/fuentes` un
 
 Do not rename the file or swap the weight: the style in the ASS asks for Bold, and the check expects the PostScript
 name `Montserrat-Bold`.
+
+# Carousel font
+
+`carrusel/Newsreader.ttf` (the variable `Newsreader[opsz,wght].ttf`) and its license `carrusel/OFL.txt` (SIL Open Font
+License 1.1), from https://github.com/google/fonts/tree/main/ofl/newsreader. Committed on purpose: the LinkedIn carousel
+template (`lib/carrusel/plantilla`) embeds it as a data URL, so Chromium fetches nothing while it renders (design
+2026-10-26, D4). It reaches the Trigger.dev image through the same `additionalFiles` as Montserrat.
