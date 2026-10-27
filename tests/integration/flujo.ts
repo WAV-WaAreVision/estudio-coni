@@ -199,7 +199,14 @@ export async function crearPiezaEn(c: pg.PoolClient, destino: Estado, opciones: 
   return id
 }
 
-export type EstadoDeCarruselDePrueba = "guion_en_proceso" | "guion_por_aprobar" | "armando_carrusel"
+export type EstadoDeCarruselDePrueba =
+  | "guion_en_proceso"
+  | "guion_por_aprobar"
+  | "armando_carrusel"
+  | "carrusel_por_aprobar"
+  | "programado"
+  | "para_subir_a_mano"
+  | "error_produccion"
 
 export interface OpcionesDeCarrusel {
   titulo?: string
@@ -208,6 +215,8 @@ export interface OpcionesDeCarrusel {
   textoPost?: string
   /** The stored review of the delivered version; none by default. */
   revision?: unknown
+  /** The signed time at gate 2; tomorrow by default. */
+  publicarEn?: string
 }
 
 /** A carousel walked to `destino` with the real transitions, each written by the actor the design gives it. */
@@ -247,5 +256,45 @@ export async function crearCarruselEn(
     hashActual: hash,
     en: haceUnMinuto(),
   })
+  if (destino === "armando_carrusel") return id
+
+  const { rows: versiones } = await c.query<{ id: string; laminas: unknown[] }>(
+    "select id, laminas from public.carruseles where pieza_id = $1 order by version desc limit 1",
+    [id],
+  )
+  const version = versiones[0]
+  if (!version) throw new Error("El carrusel no tiene versión")
+  if (destino === "error_produccion") {
+    await asumir(c, comoServicio)
+    await c.query("update public.carruseles set estado = 'fallo' where id = $1", [version.id])
+    await aplicar(c, id, comoServicio, {
+      tipo: "falla_produccion",
+      explicacion: "No pude armar el carrusel. WAV ya está revisando.",
+    })
+    return id
+  }
+  await asumir(c, comoServicio)
+  const { rows: piezas } = await c.query<{ version: number }>("select version from public.piezas where id = $1", [id])
+  await c.query("select public.guardar_armado($1, $2, $3, $4)", [
+    version.id,
+    piezas[0]?.version,
+    `carruseles/${id}/${version.id}/carrusel.pdf`,
+    version.laminas.map((_, i) => `carruseles/${id}/${version.id}/lamina-${String(i + 1).padStart(2, "0")}.png`),
+  ])
+  if (destino === "carrusel_por_aprobar") return id
+
+  await aplicar(c, id, comoConi, {
+    tipo: "aprobar_carrusel",
+    actor: "coni",
+    carruselVisto: version.id,
+    carruselActual: version.id,
+    hashTextoVisto: hash,
+    hashTextoActual: hash,
+    publicarEn: opciones.publicarEn ?? maniana(),
+    en: ahora(),
+  })
+  if (destino === "programado") return id
+
+  await aplicar(c, id, comoServicio, { tipo: "entregar_para_subir" })
   return id
 }
