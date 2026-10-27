@@ -23,6 +23,7 @@ import {
   marcarSubidoAMano,
   pedirCambioDeCarrusel,
   pedirCambios,
+  pedirDescargaDelCarrusel,
   pedirDescargaDelVideo,
   pedirVoz,
   regrabar,
@@ -287,4 +288,11 @@ export async function pedirVozAccion(piezaId: string, version: number, nueva: bo
   // Refreshed either way: a voice that failed to start still moved the piece (asked, then failed) to a new version.
   revalidatePath("/", "layout")
   return resultado
+}
+
+/** Not revalidated: it only hands out a link and changes nothing on the piece. */
+export async function descargarCarruselAccion(piezaId: string) {
+  return comoConi("pedirDescargaDelCarrusel", z.object({ piezaId: z.uuid() }), { piezaId }, (deps, d) =>
+    pedirDescargaDelCarrusel(deps, d.piezaId, urlParaDescargar),
+  )
 }

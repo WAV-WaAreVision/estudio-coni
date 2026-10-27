@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { laminasAJson, leerCarruselVigente, leerVersionVigente } from "@/lib/datos/carrusel"
+import { laminasAJson, leerCarruselVigente, leerVersion, leerVersionVigente } from "@/lib/datos/carrusel"
 import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
@@ -932,6 +932,34 @@ export function marcarSubidoAMano(
 }
 
 const TEXTO_SIN_DESCARGA = "No pude preparar el video para descargarlo. Inténtalo de nuevo en unos minutos."
+
+const TEXTO_SIN_DESCARGA_PDF = "No pude preparar el PDF para descargarlo. Inténtalo de nuevo en unos minutos."
+
+/**
+ * The signed address of the approved carousel's PDF (decision P1), for ten minutes and with a name she recognises. It
+ * goes from R2 to her phone; nothing passes through the server. Only once it waits to be uploaded (decision P7).
+ */
+export function pedirDescargaDelCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  firmar: (clave: string, nombreDeArchivo: string) => Promise<string | null>,
+) {
+  return aResultado("pedirDescargaDelCarrusel", async () => {
+    const { data: esConi, error } = await deps.db.rpc("es_coni")
+    if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
+    if (!esConi) throw new Falla("Esta app es solo para Coni.")
+    const fila = await leerObligatoria(deps.db, piezaId)
+    if (fila.tipo !== "carrusel" || fila.estado !== "para_subir_a_mano") {
+      throw new Falla("Este carrusel ya no está esperando que lo subas.")
+    }
+    // The version she approved, not the latest one.
+    const version = fila.puerta2_carrusel_id ? await leerVersion(deps.db, fila.puerta2_carrusel_id) : null
+    if (!version?.pdfClave) throw new Error(`La pieza ${fila.id} espera subirse sin el PDF aprobado.`)
+    const url = await firmar(version.pdfClave, `carrusel-${fila.id.slice(0, 8)}.pdf`)
+    if (url === null) throw new Falla(TEXTO_SIN_DESCARGA_PDF)
+    return { url }
+  })
+}
 
 /**
  * The signed address she downloads the approved video from. The file goes from R2 to her phone: nothing of it passes

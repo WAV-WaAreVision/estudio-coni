@@ -11,8 +11,10 @@ import {
   editarTextoLinkedin,
   firmarCarrusel,
   hacerCarrusel,
+  marcarSubidoAMano,
   pedirCambioDeCarrusel,
   pedirCambios,
+  pedirDescargaDelCarrusel,
   pedirVoz,
   reintentar,
   reintentarGuion,
@@ -428,5 +430,39 @@ describe("gate 2's other ways out", () => {
     const resultado = await editarTextoLinkedin(armar().deps, id, await versionDe(id), "Otro texto")
     expect(resultado.ok).toBe(false)
     expect((await leerFila(id)).texto_linkedin).toBeNull()
+  })
+})
+
+describe("the manual upload of a carousel", () => {
+  const firmar = async (clave: string, nombre: string) => `https://almacen.test/${clave}?descarga=${nombre}`
+
+  it("signs a short download of the approved PDF once it waits to be uploaded", async () => {
+    const id = await sembrarCarrusel("para_subir_a_mano")
+    piezasCreadas.push(id)
+    const fila = await leerFila(id)
+    const resultado = await pedirDescargaDelCarrusel(armar().deps, id, firmar)
+    expect(resultado).toEqual({
+      ok: true,
+      url: `https://almacen.test/carruseles/${id}/${fila.puerta2_carrusel_id}/carrusel.pdf?descarga=carrusel-${id.slice(0, 8)}.pdf`,
+    })
+  })
+
+  it("refuses before its time", async () => {
+    const id = await sembrarCarrusel("programado")
+    piezasCreadas.push(id)
+    expect(await pedirDescargaDelCarrusel(armar().deps, id, firmar)).toEqual({
+      ok: false,
+      error: "Este carrusel ya no está esperando que lo subas.",
+    })
+  })
+
+  it("Ya lo subí closes it with the link, as a reel's LinkedIn", async () => {
+    const id = await sembrarCarrusel("para_subir_a_mano")
+    piezasCreadas.push(id)
+    const enlace = "https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000000/"
+    expect((await marcarSubidoAMano(armar().deps, id, await versionDe(id), "linkedin", enlace)).ok).toBe(true)
+    expect((await leerFila(id)).estado).toBe("publicado_a_mano")
+    const { rows } = await pool.query("select estado, enlace from public.publicaciones where pieza_id = $1", [id])
+    expect(rows).toEqual([{ estado: "subido_a_mano", enlace }])
   })
 })
