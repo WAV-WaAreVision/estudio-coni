@@ -1,5 +1,15 @@
 import { afterAll, describe, expect, it } from "vitest"
-import { contarCambiosDeTexto, guardarCarrusel, laminasAJson, leerCarruselVigente } from "@/lib/datos/carrusel"
+import {
+  contarCambiosDeTexto,
+  guardarArmado,
+  guardarCarrusel,
+  laminasAJson,
+  leerCarruselVigente,
+  leerVersion,
+  leerVersionVigente,
+  marcarArmadoFallido,
+  marcarVersion,
+} from "@/lib/datos/carrusel"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { pool } from "./db"
@@ -93,5 +103,51 @@ describe("guardarCarrusel", () => {
     expect(await guardarCarrusel(servicio, { ...entrada, versionLeida: version - 1 })).toBeNull()
     const guardada = await guardarCarrusel(servicio, { ...entrada, versionLeida: version })
     expect(guardada).toMatchObject({ id, version: version + 1, estado: "guion_en_proceso" })
+  })
+})
+
+describe("a version's render", () => {
+  it("reads the latest version with its design, state and files", async () => {
+    const id = await sembrarCarrusel("carrusel_por_aprobar")
+    sembradas.push(id)
+    const version = await leerVersionVigente(clienteDeServicio(), id)
+    expect(version).toMatchObject({ diseno: { variante: "crema" }, estado: "listo", origen: "inicial" })
+    expect(version?.pngClaves).toHaveLength(6)
+    expect(version?.pdfClave).toMatch(/carrusel\.pdf$/)
+    expect(await leerVersion(clienteDeServicio(), version?.id ?? "")).toEqual(version)
+  })
+
+  it("saves a render and moves the piece to gate 2, and answers null on a stale piece", async () => {
+    const id = await sembrarCarrusel("armando_carrusel")
+    sembradas.push(id)
+    const db = clienteDeServicio()
+    const version = await leerVersionVigente(db, id)
+    if (!version) throw new Error("sin versión")
+    const pngs = version.laminas.map((_, i) => `carruseles/${id}/${version.id}/lamina-0${i + 1}.png`)
+    const vieja = (await leerFila(id)).version - 1
+    expect(await guardarArmado(db, { carruselId: version.id, versionLeida: vieja, pdf: "x.pdf", pngs })).toBeNull()
+
+    const guardada = await guardarArmado(db, {
+      carruselId: version.id,
+      versionLeida: (await leerFila(id)).version,
+      pdf: `carruseles/${id}/${version.id}/carrusel.pdf`,
+      pngs,
+    })
+    expect(guardada?.estado).toBe("carrusel_por_aprobar")
+  })
+
+  it("marks the latest version fallo after a failed render, and leaves a rendered one alone", async () => {
+    const id = await sembrarCarrusel("armando_carrusel")
+    sembradas.push(id)
+    const db = clienteDeServicio()
+    const version = await leerVersionVigente(db, id)
+    await marcarVersion(db, version?.id ?? "", "armando")
+    await marcarArmadoFallido(db, id)
+    expect((await leerVersionVigente(db, id))?.estado).toBe("fallo")
+
+    const lista = await sembrarCarrusel("carrusel_por_aprobar")
+    sembradas.push(lista)
+    await marcarArmadoFallido(db, lista)
+    expect((await leerVersionVigente(db, lista))?.estado).toBe("listo")
   })
 })
