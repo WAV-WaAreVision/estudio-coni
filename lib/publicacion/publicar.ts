@@ -342,7 +342,7 @@ async function publicarPieza(contexto: Contexto, credenciales: Credenciales): Pr
   const pieza = piezaDesdeFila(contexto.fila)
   const { puerta2 } = pieza
   const texto = contexto.fila.texto
-  if (puerta2 === null || texto === null) {
+  if (puerta2 === null || puerta2.videoId === undefined || texto === null) {
     return fallar(contexto, EXPLICACION_CAMBIO, "la pieza programada no tiene aprobación o texto guardados")
   }
   if (contexto.fila.media_id !== null) {

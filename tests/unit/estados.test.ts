@@ -417,7 +417,9 @@ describe("mensajes y tipos", () => {
   })
 
   it("limita el estado anterior al error a los pasos que se pueden reintentar", () => {
-    expectTypeOf<Pieza["estadoAntesDelError"]>().toEqualTypeOf<"en_render" | "subtitulando" | "programado" | null>()
+    expectTypeOf<Pieza["estadoAntesDelError"]>().toEqualTypeOf<
+      "en_render" | "subtitulando" | "programado" | "armando_carrusel" | null
+    >()
   })
 })
 
@@ -601,6 +603,19 @@ const eventos: Record<Evento["tipo"], Evento> = {
   deshacer_aprobacion: { tipo: "deshacer_aprobacion", actor: "coni", ahora: "2026-10-06T15:00:03.000Z" },
   carrusel_listo: { tipo: "carrusel_listo" },
   firmar_carrusel: { tipo: "firmar_carrusel", actor: "coni", hashVisto: "h1", hashActual: "h1", en: ANTES },
+  carrusel_armado: { tipo: "carrusel_armado" },
+  volver_a_firmar: { tipo: "volver_a_firmar", explicacion: "Larga." },
+  cambiar_diseno: { tipo: "cambiar_diseno" },
+  aprobar_carrusel: {
+    tipo: "aprobar_carrusel",
+    actor: "coni",
+    carruselVisto: "c1",
+    carruselActual: "c1",
+    hashTextoVisto: "h1",
+    hashTextoActual: "h1",
+    publicarEn: HORA,
+    en: ANTES,
+  },
   descartar: { tipo: "descartar" },
 }
 
@@ -630,9 +645,9 @@ describe("tabla del diseño", () => {
     ],
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
-    // Only a carousel lives here (Task 5 makes these carousel pieces); part 1 gives them no event but the discard.
-    armando_carrusel: ["descartar"],
-    carrusel_por_aprobar: ["descartar"],
+    // Only a carousel lives here (the sample pieces are carousels signed with h1).
+    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "falla_produccion", "descartar"],
+    carrusel_por_aprobar: ["pedir_cambios", "cambiar_diseno", "aprobar_carrusel", "descartar"],
     programado: [
       "publicado",
       "cambiar_fecha",
@@ -903,13 +918,13 @@ describe("deshacer la firma", () => {
 })
 
 describe("tabla del carrusel", () => {
-  // Design 2026-10-26, part 1: written, signed, changed by request or discarded. Nothing else, in any state.
+  // Design 2026-10-26: written, signed, rendered, changed, scheduled, uploaded by hand or discarded (parts 1 and 2).
   const permitidos: Partial<Record<Estado, readonly Evento["tipo"][]>> = {
     idea: ["elegir", "descartar"],
     guion_en_proceso: ["carrusel_listo", "descartar"],
     guion_por_aprobar: ["pedir_cambios", "firmar_carrusel", "descartar"],
-    armando_carrusel: ["descartar"],
-    carrusel_por_aprobar: ["descartar"],
+    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "falla_produccion", "descartar"],
+    carrusel_por_aprobar: ["pedir_cambios", "cambiar_diseno", "aprobar_carrusel", "descartar"],
   }
   const firmado = { hash: "h1", en: ANTES }
 
@@ -935,13 +950,9 @@ describe("tabla del carrusel", () => {
       [
         "aprobar_guion",
         "aprobar_video",
-        "cambiar_fecha",
         "cambiar_guion",
         "deshacer_aprobacion",
         "editar_texto",
-        "entregar_para_subir",
-        "falla_produccion",
-        "falla_publicacion",
         "falla_voz",
         "guion_listo",
         "hora_vencida",
@@ -949,9 +960,7 @@ describe("tabla del carrusel", () => {
         "politica_contenido",
         "publicado",
         "regrabar",
-        "reintentar",
         "render_entregado",
-        "subido_a_mano",
         "video_listo",
         "voz_lista",
       ].sort(),
@@ -994,10 +1003,6 @@ describe("tabla del carrusel", () => {
   it("refuses the carousel events on a reel", () => {
     expect(intentar(en("guion_en_proceso"), eventos.carrusel_listo)).toBeNull()
     expect(intentar(en("guion_por_aprobar"), eventos.firmar_carrusel)).toBeNull()
-  })
-
-  it("leaves a signed carousel quiet: nothing polls it in part 1", () => {
-    expect(piezaTrabajando({ estado: "armando_carrusel", explicacion: null })).toBe(false)
   })
 
   it("makes a reel unless told otherwise, and reads only the two types", () => {
