@@ -53,14 +53,22 @@ export type ResultadoLinkedin =
   /** The gate refused for the whole piece: `publicar.ts` settles it as for Instagram. */
   | { tipo: "guardia"; veredicto: Exclude<Veredicto, { ok: true }> }
 
-async function aMano(contexto: Contexto, explicacion: string, detalle: string): Promise<ResultadoLinkedin> {
+/** What WAV reads in the subject: a doubtful send may well be live, so it does not say LinkedIn did not post. */
+export type AsuntoParaWav = "no_publico" | "quiza_publico"
+
+export async function aMano(
+  contexto: Contexto,
+  explicacion: string,
+  detalle: string,
+  asunto: AsuntoParaWav = "no_publico",
+): Promise<ResultadoLinkedin> {
   const { db, avisos } = contexto.deps
   await pasarLinkedinAMano(db, contexto.fila.id, { explicacion, error: detalle })
+  const que = contexto.fila.tipo === "carrusel" ? "un carrusel" : "un reel"
+  const titulo =
+    asunto === "quiza_publico" ? `LinkedIn quizá publicó ${que}: revisa el perfil` : `LinkedIn no publicó ${que}`
   try {
-    await avisos.aWav(
-      "LinkedIn no publicó un reel",
-      `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`,
-    )
+    await avisos.aWav(titulo, `pieza ${contexto.fila.id} («${contexto.fila.titulo}»): ${detalle}`)
   } catch (error) {
     if (!(error instanceof Error)) throw error
     contexto.avisosFallidos.push(error)
@@ -68,10 +76,18 @@ async function aMano(contexto: Contexto, explicacion: string, detalle: string): 
   return { tipo: "a_mano" }
 }
 
-/** A provider error before the send: definitive ones go by hand at once, temporary ones count a try. */
-async function antesDeEnviar(contexto: Contexto, error: unknown, borrarVideo: boolean): Promise<ResultadoLinkedin> {
+/**
+ * A provider error before the send: definitive ones go by hand at once, temporary ones count a try. `rechazo` is the
+ * text for a definitive "no" (a carousel names itself; the reel keeps the generic one).
+ */
+export async function antesDeEnviar(
+  contexto: Contexto,
+  error: unknown,
+  borrarVideo: boolean,
+  rechazo = EXPLICACION_LINKEDIN_GENERICA,
+): Promise<ResultadoLinkedin> {
   if (error instanceof TokenDeLinkedinVencido) return aMano(contexto, EXPLICACION_LINKEDIN_RECONECTAR, error.message)
-  if (error instanceof RechazoDeLinkedin) return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, error.message)
+  if (error instanceof RechazoDeLinkedin) return aMano(contexto, rechazo, error.message)
   if (!(error instanceof Error)) throw error
   await sumarIntentoLinkedin(contexto.deps.db, contexto.fila.id, { error: error.message, borrarVideo })
   return { tipo: "en_curso" }
@@ -84,7 +100,7 @@ function vigente(contexto: Contexto, texto: string): Veredicto {
   })
 }
 
-function plazoVencido(contexto: Contexto): boolean {
+export function plazoVencido(contexto: Contexto): boolean {
   const publicarEn = piezaDesdeFila(contexto.fila).puerta2?.publicarEn
   return publicarEn !== undefined && Date.parse(publicarEn) + PLAZO_DE_LINKEDIN_MS <= Date.parse(contexto.deps.ahora())
 }
@@ -102,7 +118,7 @@ export async function resolverLinkedin(contexto: Contexto): Promise<ResultadoLin
   const paso = siguientePasoLinkedin(filaLinkedin)
   if (paso.tipo === "nada") return { tipo: "nada" }
   if (paso.tipo === "dudosa")
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, "un envío anterior no devolvió el post")
+    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, "un envío anterior no devolvió el post", "quiza_publico")
   if (paso.tipo === "a_mano") return aMano(contexto, EXPLICACION_LINKEDIN_GENERICA, "se agotaron los intentos")
 
   const conexion = await leerConexionLinkedin(db)
@@ -213,14 +229,14 @@ async function enviar(
     })
   } catch (error) {
     if (!(error instanceof Error)) throw error
-    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, `después de enviar: ${error.message}`)
+    return aMano(contexto, EXPLICACION_LINKEDIN_DUDOSA, `después de enviar: ${error.message}`, "quiza_publico")
   }
   await guardarPost(contexto, postUrn, hashTexto(aprobado.textoLinkedin))
   return { tipo: "listo" }
 }
 
 /** Saves the URN of the live post, retrying: a lost write must reach WAV with the URN, never become a second post. */
-async function guardarPost(contexto: Contexto, postUrn: string, hashEnviado: string): Promise<void> {
+export async function guardarPost(contexto: Contexto, postUrn: string, hashEnviado: string): Promise<void> {
   let ultimo: unknown
   for (let intento = 0; intento < 3; intento += 1) {
     try {

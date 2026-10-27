@@ -8,7 +8,7 @@ import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { contarCambiosDeTexto, leerCarruselVigente, leerVersion, leerVersionVigente } from "@/lib/datos/carrusel"
-import { type FilaDePieza, leerPublicaciones } from "@/lib/datos/repositorio"
+import { type FilaDePieza, leerPublicaciones, leerVencimientoLinkedin } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import { cambiosQuedan } from "@/lib/dominio/carrusel"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
@@ -18,6 +18,7 @@ import { AccionesDeEstado } from "../../estado-de-pieza"
 import { fechasDePuerta2 } from "../../fechas-de-puerta-2"
 import { descargarCarruselAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { LaminasEnLectura } from "./laminas-en-lectura"
+import { detalleDeProgramado } from "./linea-de-linkedin"
 import { PantallaCarrusel } from "./pantalla-carrusel"
 import { PantallaPuerta2Carrusel } from "./puerta-2-carrusel"
 import { SubirCarruselAMano } from "./subir-carrusel"
@@ -112,9 +113,10 @@ export async function VistaDeCarrusel({
       const version = await leerVersionVigente(db, fila.id)
       if (!version || version.estado !== "listo")
         throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
-      const [imagenes, { fechas }] = await Promise.all([
+      const [imagenes, { fechas }, linkedinExpiraEn] = await Promise.all([
         Promise.all(version.pngClaves.map((clave) => urlParaVer(clave))),
         fechasDePuerta2(db, fila.id, Date.now()),
+        leerVencimientoLinkedin(db),
       ])
       return (
         <PantallaPuerta2Carrusel
@@ -132,28 +134,39 @@ export async function VistaDeCarrusel({
             fechas,
             cambiosQuedan: cambiosQuedan(fila.cambios_de_texto),
             explicacion: fila.explicacion,
+            linkedinExpiraEn,
           }}
         />
       )
     }
     case "programado": {
-      const { zona } = await fechasDePuerta2(db, fila.id, Date.now())
+      const [{ zona }, linkedinExpiraEn] = await Promise.all([
+        fechasDePuerta2(db, fila.id, Date.now()),
+        leerVencimientoLinkedin(db),
+      ])
       const cuando = fila.puerta2_publicar_en
         ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga")
         : "día aprobado"
+      const detalle = fila.puerta2_publicar_en
+        ? detalleDeProgramado(linkedinExpiraEn, fila.puerta2_publicar_en)
+        : TEXTO_PROGRAMADO_CARRUSEL
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
-          <LineaDeEstado tipo="exito" titulo={`Programado para el ${cuando}`} detalle={TEXTO_PROGRAMADO_CARRUSEL} />
+          <LineaDeEstado tipo="exito" titulo={`Programado para el ${cuando}`} detalle={detalle} />
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
         </EstadoSencillo>
       )
     }
     case "para_subir_a_mano": {
-      const version = fila.puerta2_carrusel_id ? await leerVersion(db, fila.puerta2_carrusel_id) : null
+      const [version, publicaciones] = await Promise.all([
+        fila.puerta2_carrusel_id ? leerVersion(db, fila.puerta2_carrusel_id) : Promise.resolve(null),
+        leerPublicaciones(db, fila.id),
+      ])
       if (!version) throw new Error(`La pieza ${fila.id} espera subirse sin el carrusel aprobado.`)
+      const razon = publicaciones.find((p) => p.destino === "linkedin" && p.estado === "para_subir")?.explicacion
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
-          <LineaDeEstado tipo="aviso" titulo="Listo para que lo subas a LinkedIn" />
+          <LineaDeEstado tipo="aviso" titulo="Listo para que lo subas a LinkedIn" detalle={razon ?? undefined} />
           <SubirCarruselAMano
             piezaId={fila.id}
             version={fila.version}
@@ -162,6 +175,18 @@ export async function VistaDeCarrusel({
             alMarcar={marcarSubidoAManoAccion}
           />
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
+        </EstadoSencillo>
+      )
+    }
+    case "publicado": {
+      const enlace = (await leerPublicaciones(db, fila.id)).find((p) => p.destino === "linkedin")?.enlace
+      return (
+        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
+          <MomentoDeCierre
+            titulo="Publicado en LinkedIn"
+            detalle="Salió solo a la hora que elegiste."
+            enlaces={enlace ? [{ etiqueta: "Ver en LinkedIn", href: enlace }] : []}
+          />
         </EstadoSencillo>
       )
     }

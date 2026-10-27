@@ -121,7 +121,7 @@ describe("publicarPendientes with LinkedIn connected", () => {
     expect(fila.explicacion).toBe(
       "No pude confirmar si LinkedIn publicó tu video. Revisa tu perfil de LinkedIn: si no está, súbelo a mano desde aquí.",
     )
-    expect(d.avisos.aWavEnviados).toHaveLength(1)
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn quizá publicó un reel: revisa el perfil"])
   })
 
   it("posts nothing when the LinkedIn text changed after gate 2", async () => {
@@ -294,6 +294,7 @@ describe("publicarPendientes with LinkedIn connected", () => {
     const [fila] = await publicacionesConDetalle(id)
     expect(fila.enviado_en).not.toBeNull()
     expect(fila.explicacion).toContain("No pude confirmar si LinkedIn publicó tu video")
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn quizá publicó un reel: revisa el perfil"])
   })
 })
 

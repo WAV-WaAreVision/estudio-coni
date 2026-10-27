@@ -1,11 +1,13 @@
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { esUrnDePost } from "@/lib/dominio/linkedin"
+import { esUrnDePost, tituloDelDocumento } from "@/lib/dominio/linkedin"
 import { baseDe } from "./bases"
 
 // Versioned REST APIs for a member (F2, F3, F4):
 // https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/videos-api
 // https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api
+// https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/documents-api (carousels, part 3;
+// verified 2026-10-27 for 202609)
 // https://learn.microsoft.com/en-us/linkedin/marketing/versioning (each version lives at least one year; there is no
 // default, so every call carries one). Bump it with a reviewed commit when the nightly alert says so.
 export const VERSION_DE_LINKEDIN = "202609"
@@ -171,13 +173,98 @@ export async function estadoDelVideo(entrada: { token: string; video: string }):
   }
 }
 
-/** F7: the 201 carries the post URN in `x-restli-id`. No title: it is not part of gate 2. */
-export async function crearPost(entrada: {
-  token: string
-  miembro: string
-  video: string
-  commentary: string
-}): Promise<string> {
+const DOMINIOS_DE_LINKEDIN = ["linkedin.com", "licdn.com"]
+
+/** https on LinkedIn's own domains, or the API base the tests point at. */
+function esDireccionDeLinkedin(direccion: string): boolean {
+  const url = new URL(direccion)
+  if (url.origin === new URL(base()).origin) return true
+  if (url.protocol !== "https:") return false
+  return DOMINIOS_DE_LINKEDIN.some((dominio) => url.hostname === dominio || url.hostname.endsWith(`.${dominio}`))
+}
+
+const DocumentoIniciado = z.object({
+  value: z.object({
+    uploadUrl: z.string().url(),
+    document: z.string().regex(/^urn:li:document:[A-Za-z0-9_-]+$/),
+  }),
+})
+
+/** A carousel's PDF (part 3): initializeUpload for the member, then one PUT of the whole file. Returns the URN. */
+export async function subirDocumento(entrada: { token: string; miembro: string; datos: Uint8Array }): Promise<string> {
+  const { token, miembro, datos } = entrada
+  const inicio = await llamar(
+    `${base()}/rest/documents?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: cabeceras(token),
+      body: JSON.stringify({ initializeUploadRequest: { owner: miembro } }),
+    },
+    "initializeUpload del documento",
+    token,
+  )
+  const leida = DocumentoIniciado.safeParse(await inicio.json())
+  if (!leida.success) throw new Error("LinkedIn devolvió una respuesta inesperada en initializeUpload del documento.")
+  const { uploadUrl, document } = leida.data.value
+  // The PUT carries her token: it goes only to LinkedIn over https. A definitive "no" (it goes by hand), and the error
+  // never names the address.
+  if (!esDireccionDeLinkedin(uploadUrl)) {
+    throw new RechazoDeLinkedin(
+      inicio.status,
+      "LinkedIn devolvió una dirección de subida del documento que no es suya.",
+    )
+  }
+  // The documented upload carries the member's token (a video part does not). LinkedIn names no content type.
+  await llamar(
+    uploadUrl,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: datos.slice(),
+    },
+    "la subida del documento",
+    token,
+    ESPERA_PARTE_MS,
+  )
+  return document
+}
+
+const Documento = z.object({ status: z.string() })
+
+/** The docs name no failure reason for a document, so a failure carries none. */
+export type EstadoDeDocumento = { estado: "listo" } | { estado: "procesando" } | { estado: "fallido" }
+
+/** Post only when AVAILABLE (as a video, F6). */
+export async function estadoDelDocumento(entrada: { token: string; documento: string }): Promise<EstadoDeDocumento> {
+  const respuesta = await llamar(
+    `${base()}/rest/documents/${encodeURIComponent(entrada.documento)}`,
+    { method: "GET", headers: cabeceras(entrada.token) },
+    "el estado del documento",
+    entrada.token,
+  )
+  const leido = Documento.safeParse(await respuesta.json())
+  if (!leido.success) throw new Error("LinkedIn devolvió una respuesta inesperada al leer el documento.")
+  switch (leido.data.status) {
+    case "AVAILABLE":
+      return { estado: "listo" }
+    case "PROCESSING_FAILED":
+      return { estado: "fallido" }
+    default:
+      return { estado: "procesando" }
+  }
+}
+
+/** One medium per post: a reel's video (no title: it is not part of gate 2) or a carousel's document with its title. */
+export type MedioDelPost = { video: string } | { documento: string; titulo: string }
+
+/** F7: the 201 carries the post URN in `x-restli-id`. The Documents API requires `content.media.title`. */
+export async function crearPost(
+  entrada: { token: string; miembro: string; commentary: string } & MedioDelPost,
+): Promise<string> {
+  const media =
+    "documento" in entrada
+      ? { id: entrada.documento, title: tituloDelDocumento(entrada.titulo) }
+      : { id: entrada.video }
   const respuesta = await llamar(
     `${base()}/rest/posts`,
     {
@@ -188,7 +275,7 @@ export async function crearPost(entrada: {
         commentary: entrada.commentary,
         visibility: "PUBLIC",
         distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-        content: { media: { id: entrada.video } },
+        content: { media },
         lifecycleState: "PUBLISHED",
         isReshareDisabledByAuthor: false,
       }),

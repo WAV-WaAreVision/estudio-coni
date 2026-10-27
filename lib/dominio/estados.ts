@@ -273,7 +273,8 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
 
 /**
  * What a carousel goes through (design 2026-10-26, C3): written, signed, rendered, changed, scheduled and uploaded by
- * hand (part 2). Never a voice, an avatar, a video, Instagram, nor (until part 3) a post of its own.
+ * hand (part 2). Never a voice, an avatar, a video or Instagram; since part 3 LinkedIn posts it by itself ("publicado")
+ * or it goes by hand.
  */
 export const EVENTOS_DE_CARRUSEL: readonly Evento["tipo"][] = [
   "elegir",
@@ -289,6 +290,7 @@ export const EVENTOS_DE_CARRUSEL: readonly Evento["tipo"][] = [
   "aprobar_carrusel",
   "cambiar_fecha",
   "entregar_para_subir",
+  "publicado",
   "subido_a_mano",
   "falla_publicacion",
   "descartar",

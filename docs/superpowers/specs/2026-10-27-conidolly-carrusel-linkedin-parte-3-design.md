@@ -86,10 +86,14 @@ Copy rules: tú, Chile, no em dashes, no jargon; carousel wording ("carrusel", n
 Under the date at a carousel's gate 2, one line from the connection state read on the server:
 
 - connected and not expired at the chosen time: "Se publica solo en LinkedIn a esa hora."
-- otherwise: "LinkedIn no está conectado: te lo dejo para subir a mano."
+- not connected: "LinkedIn no está conectado: te lo dejo para subir a mano."
+- connected but the token expires at or before the chosen time: "Tu conexión con LinkedIn vence antes de esa fecha: te
+  lo dejo para subir a mano."
 
-No choice to make: automatic is the default, manual is the net. If the token will have expired by the chosen date,
-the second line shows (the expiry is known).
+No choice to make: automatic is the default, manual is the net. The expiry is known, so a token that will have expired
+by the chosen date says so instead of claiming LinkedIn is not connected. The scheduled screen makes the same
+distinction: with an expiring token it says "Tu conexión con LinkedIn vence antes de esa fecha." before the usual
+"A esa hora te dejo el PDF y el texto para que lo subas a LinkedIn."
 
 ### P3-4. Data
 

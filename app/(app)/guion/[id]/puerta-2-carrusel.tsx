@@ -21,6 +21,7 @@ import { aprobarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas
 import type { FechaPropuesta } from "../../video/[id]/pantalla-video"
 import { CambioDeDiseno } from "./cambio-de-diseno"
 import { faltaParaProgramarCarrusel } from "./falta-para-programar"
+import { lineaDeLinkedin } from "./linea-de-linkedin"
 import { RielDeLaminas } from "./riel-de-laminas"
 import { TextoDelPost } from "./texto-del-post"
 import {
@@ -49,6 +50,8 @@ export interface DatosDePuerta2Carrusel {
   cambiosQuedan: number
   /** Why the piece is back here without the change she asked for (a design change that did not fit). */
   explicacion: string | null
+  /** When her LinkedIn connection ends (null when not connected), read on the server: it decides the date's line. */
+  linkedinExpiraEn: string | null
 }
 
 /**
@@ -184,6 +187,7 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
                 {cambiandoFecha ? "Listo" : "Cambiar"}
               </Boton>
             </div>
+            <p className="text-meta text-apagado">{lineaDeLinkedin(datos.linkedinExpiraEn, fechaElegida.iso)}</p>
             {cambiandoFecha ? (
               <fieldset className="elecciones grid border-0 p-0">
                 <legend className="sr-only">Elige cuándo sale</legend>

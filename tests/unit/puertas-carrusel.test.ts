@@ -41,11 +41,24 @@ describe("a scheduled carousel", () => {
     })
   })
 
-  it("is never published by the API path in part 2", () => {
-    expect(puedePublicar(programado, { hashTexto: HASH, ahora: "2026-10-29T22:01:00.000Z" })).toEqual({
+  it("is published by the API path only with its bound version, inside the half hour (part 3)", () => {
+    const ahora = "2026-10-29T22:01:00.000Z"
+    expect(puedePublicar(programado, { hashTexto: HASH, carruselId: CARRUSEL, ahora })).toEqual({ ok: true })
+    expect(puedePublicar(programado, { hashTexto: HASH, ahora })).toEqual({ ok: false, motivo: "artefacto_cambio" })
+    expect(puedePublicar(programado, { hashTexto: HASH, carruselId: "otro", ahora })).toEqual({
       ok: false,
       motivo: "artefacto_cambio",
     })
+    expect(puedePublicar(programado, { hashTexto: "b".repeat(64), carruselId: CARRUSEL, ahora })).toEqual({
+      ok: false,
+      motivo: "artefacto_cambio",
+    })
+    expect(
+      puedePublicar(programado, { hashTexto: HASH, carruselId: CARRUSEL, ahora: "2026-10-29T22:31:00.000Z" }),
+    ).toEqual({ ok: false, motivo: "hora_vencida" })
+    expect(
+      puedePublicar(programado, { hashTexto: HASH, carruselId: CARRUSEL, ahora: "2026-10-29T21:59:00.000Z" }),
+    ).toEqual({ ok: false, motivo: "antes_de_hora" })
   })
 
   it("has its own idempotency step", () => {

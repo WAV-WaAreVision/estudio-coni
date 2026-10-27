@@ -945,7 +945,7 @@ describe("tabla del carrusel", () => {
     }
   })
 
-  it("never takes a voice, an avatar, a video or Instagram event", () => {
+  it("never takes a voice, an avatar, a video or Instagram event (since part 3 it may close as publicado)", () => {
     const fuera = Object.keys(eventos).filter((tipo) => !EVENTOS_DE_CARRUSEL.includes(tipo as Evento["tipo"]))
     expect(fuera.sort()).toEqual(
       [
@@ -959,7 +959,6 @@ describe("tabla del carrusel", () => {
         "hora_vencida",
         "pedir_voz",
         "politica_contenido",
-        "publicado",
         "regrabar",
         "render_entregado",
         "video_listo",

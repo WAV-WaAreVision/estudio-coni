@@ -490,6 +490,7 @@ test("the carousel's render, gate 2, design change, upload and failure pass WCAG
     "carrusel_por_aprobar",
     "programado",
     "para_subir_a_mano",
+    "publicado",
     "error_produccion",
   ] as const
   const rutas: string[] = []

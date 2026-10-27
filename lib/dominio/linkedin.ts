@@ -62,6 +62,8 @@ export const MAXIMO_DE_INTENTOS_LINKEDIN = 3
 export interface FilaDeLinkedin {
   estado: EstadoDePublicacion
   videoUrn: string | null
+  /** A carousel's document (part 3); a row never has both (`un_solo_medio`). */
+  documentoUrn: string | null
   enviadoEn: string | null
   postUrn: string | null
   intentos: number
@@ -73,14 +75,35 @@ export type PasoLinkedin =
   | { tipo: "a_mano" }
   | { tipo: "subir_video" }
   | { tipo: "esperar_video" }
+  | { tipo: "subir_documento" }
+  | { tipo: "esperar_documento" }
 
 /** Where a LinkedIn row is, read from its columns alone (L6, L10). A sent row without a post is never sent again. */
-export function siguientePasoLinkedin(fila: FilaDeLinkedin): PasoLinkedin {
+export function siguientePasoLinkedin(fila: FilaDeLinkedin, medio: "video" | "documento" = "video"): PasoLinkedin {
   if (fila.estado !== "esperando" || fila.postUrn !== null) return { tipo: "nada" }
   if (fila.enviadoEn !== null) return { tipo: "dudosa" }
   if (fila.intentos >= MAXIMO_DE_INTENTOS_LINKEDIN) return { tipo: "a_mano" }
+  if (medio === "documento") {
+    return fila.documentoUrn === null ? { tipo: "subir_documento" } : { tipo: "esperar_documento" }
+  }
   if (fila.videoUrn === null) return { tipo: "subir_video" }
   return { tipo: "esperar_video" }
+}
+
+const LARGO_MAXIMO_DEL_TITULO = 100
+
+/**
+ * A carousel's `content.media.title` (coordinator amendment to P5): the cover trimmed and, past 100 characters, cut
+ * after the last whole word that fits. LinkedIn documents no limit, so this keeps the title short without guessing.
+ */
+export function tituloDelDocumento(portada: string): string {
+  // The cover's line breaks are layout on the slide; a title is one line.
+  const titulo = portada.replace(/\s+/g, " ").trim()
+  if (titulo.length <= LARGO_MAXIMO_DEL_TITULO) return titulo
+  const corte = titulo.slice(0, LARGO_MAXIMO_DEL_TITULO + 1).lastIndexOf(" ")
+  // A single word longer than the limit has no boundary to cut at: cut by code points, so no emoji is split in half.
+  if (corte <= 0) return Array.from(titulo).slice(0, LARGO_MAXIMO_DEL_TITULO).join("")
+  return titulo.slice(0, corte)
 }
 
 const DIA_MS = 86_400_000

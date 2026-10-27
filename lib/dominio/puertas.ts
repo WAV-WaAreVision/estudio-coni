@@ -145,8 +145,11 @@ function aprobacionVigente(pieza: Pieza, actual: { hashTexto: string; carruselId
 }
 
 /** The publish task calls this right before publishing; it never publishes at an unapproved time. */
-export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
-  // A carousel is never published by this path in part 2: without a `carruselId` it is refused.
+export function puedePublicar(
+  pieza: Pieza,
+  actual: { hashTexto: string; carruselId?: string; ahora: string },
+): Veredicto {
+  // A carousel is bound by its version (`carruselId`, part 3): without it, it is refused.
   const vigente = aprobacionVigente(pieza, actual)
   if (!vigente.ok || !pieza.puerta2) return vigente
   const ahora = instanteEstricto(actual.ahora)

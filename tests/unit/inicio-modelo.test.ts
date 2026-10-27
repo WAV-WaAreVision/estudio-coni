@@ -174,6 +174,18 @@ describe("construirInicio", () => {
     expect(camino).toEqual([])
   })
 
+  it("celebrates a carousel LinkedIn posted without the Instagram line", () => {
+    const carrusel = pieza("publicado", {
+      tipo: "carrusel",
+      actualizadaEn: "2026-10-07T14:00:00Z",
+      destinos: ["linkedin"] as const,
+    })
+    const { avisos } = construirInicio({ piezas: [carrusel], ahora: AHORA, zona: ZONA })
+    expect(avisos).toEqual([
+      { tipo: "ok", titulo: `${carrusel.titulo} se publicó hoy a las 11:00`, texto: "Salió solo en LinkedIn." },
+    ])
+  })
+
   it("celebrates the last piece published in the last two days, with the way to Instagram", () => {
     const vieja = pieza("publicado", { actualizadaEn: "2026-10-01T22:00:00Z" })
     const reciente = pieza("publicado", {

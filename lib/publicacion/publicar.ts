@@ -39,6 +39,7 @@ import {
 } from "@/lib/proveedores/instagram"
 import type { Database } from "@/lib/supabase/database.types"
 import { LINKEDIN_SIN_CONEXION, resolverLinkedin } from "./linkedin"
+import { resolverLinkedinCarrusel } from "./linkedin-carrusel"
 
 export interface DepsPublicacion {
   /** A `service_role` client: the database triggers keep enforcing the gates on everything it writes. */
@@ -223,7 +224,9 @@ async function fallar(
   await escribirTransicion(contexto, { tipo: "falla_publicacion", explicacion }, extra)
   const { avisos } = contexto.deps
   await avisar(contexto, () => avisos.aConi(explicacion, true, avisoDe(contexto, "error_definitivo", "falla")))
-  await avisar(contexto, () => avisos.aWav("Falló una publicación en Instagram", detalleParaWav(contexto, detalle)))
+  const asunto =
+    contexto.fila.tipo === "carrusel" ? "Falló la publicación de un carrusel" : "Falló una publicación en Instagram"
+  await avisar(contexto, () => avisos.aWav(asunto, detalleParaWav(contexto, detalle)))
   return { piezaId: contexto.fila.id, resultado: "falla_publicacion" }
 }
 
@@ -502,10 +505,33 @@ async function cerrarPublicada(contexto: Contexto): Promise<ResultadoPublicacion
 const EXPLICACION_CAMBIO_CARRUSEL =
   "El carrusel o su texto cambiaron después de que los aprobaste, así que no te lo dejé para subir. WAV ya está revisando."
 
+/** What the carousel's own guard refuses (spec P3-2, last row): nothing is posted and WAV reviews it. */
+async function rechazarCarrusel(
+  contexto: Contexto,
+  veredicto: Exclude<Veredicto, { ok: true }>,
+): Promise<ResultadoPublicacion> {
+  const { fila } = contexto
+  switch (veredicto.motivo) {
+    case "antes_de_hora":
+      return { piezaId: fila.id, resultado: "esperando" }
+    case "estado":
+      throw new Error(`La pieza ${fila.id} dejó de estar programada mientras se publicaba.`)
+    case "hora_vencida":
+      // Late is not a change: it goes by hand (entregarCarrusel has no window, so this does not loop).
+      return entregarCarrusel(contexto)
+    case "sin_aprobacion":
+    case "artefacto_cambio":
+      return fallar(
+        contexto,
+        EXPLICACION_CAMBIO_CARRUSEL,
+        `el carrusel aprobado y el guardado no coinciden (${veredicto.motivo})`,
+      )
+  }
+}
+
 /**
- * A carousel at its time (decision P1): handed to Coni to upload herself, with the PDF and the text. Part 2 never calls
- * LinkedIn for a carousel; part 3 adds the Documents API in front of this. It still has to be the version and words she
- * approved, and never before its time.
+ * A carousel goes by hand (part 2's path, the net of part 3): the PDF, the text and "Ya lo subí", with the reason the
+ * LinkedIn row gives. It still has to be the version and words she approved, and never before its time.
  */
 async function entregarCarrusel(contexto: Contexto): Promise<ResultadoPublicacion> {
   const { fila } = contexto
@@ -516,26 +542,56 @@ async function entregarCarrusel(contexto: Contexto): Promise<ResultadoPublicacio
     carruselId: version?.id,
     ahora: contexto.deps.ahora(),
   })
-  if (!veredicto.ok) {
-    if (veredicto.motivo === "antes_de_hora") return { piezaId: fila.id, resultado: "esperando" }
-    if (veredicto.motivo === "estado")
-      throw new Error(`La pieza ${fila.id} dejó de estar programada mientras se entregaba.`)
-    return fallar(
-      contexto,
-      EXPLICACION_CAMBIO_CARRUSEL,
-      `el carrusel aprobado y el guardado no coinciden (${veredicto.motivo})`,
-    )
-  }
+  if (!veredicto.ok) return rechazarCarrusel(contexto, veredicto)
   await escribirTransicion(contexto, { tipo: "entregar_para_subir" })
-  const mensaje = `Tu carrusel «${fila.titulo}» está listo para que lo subas a LinkedIn. Entra a la app para descargar el PDF y copiar el texto.`
+  const filas = await leerPublicaciones(contexto.deps.db, fila.id)
+  const razon = filas.find((p) => p.destino === "linkedin" && p.estado === "para_subir")?.explicacion
+  const mensaje = [
+    `Tu carrusel «${fila.titulo}» está listo para que lo subas a LinkedIn. Entra a la app para descargar el PDF y copiar el texto.`,
+    ...(razon ? [razon] : []),
+  ].join(" ")
   await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, true, avisoDe(contexto, "listo_para_subir")))
   return { piezaId: fila.id, resultado: "para_subir_a_mano" }
 }
 
+async function avisarCarruselPublicado(contexto: Contexto): Promise<void> {
+  const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+  const enlace = filas.find((p) => p.destino === "linkedin")?.enlace
+  const mensaje = `Tu carrusel «${contexto.fila.titulo}» se publicó en LinkedIn.${enlace ? ` Míralo aquí: ${enlace}` : ""}`
+  await avisar(contexto, () => contexto.deps.avisos.aConi(mensaje, false, avisoDe(contexto, "publicado", "linkedin")))
+}
+
+/** Part 3: LinkedIn first; whatever cannot post goes by hand with its reason. Never Instagram, never a video. */
+async function publicarCarrusel(contexto: Contexto): Promise<ResultadoPublicacion> {
+  const linkedin = await resolverLinkedinCarrusel(contexto)
+  switch (linkedin.tipo) {
+    case "en_curso":
+      // As for a reel: released at the end of the run, so the next tick resumes it within minutes.
+      contexto.liberarAlFinal = true
+      return { piezaId: contexto.fila.id, resultado: "esperando" }
+    case "guardia":
+      return rechazarCarrusel(contexto, linkedin.veredicto)
+    case "listo":
+      await avisarCarruselPublicado(contexto)
+      return cerrarPublicada(contexto)
+    case "nada": {
+      // A run that saved the post and stopped before closing the piece (decision P7): it is live, so it is closed.
+      const filas = await leerPublicaciones(contexto.deps.db, contexto.fila.id)
+      if (filas.some((p) => p.destino === "linkedin" && p.estado === "publicado")) {
+        await avisarCarruselPublicado(contexto)
+        return cerrarPublicada(contexto)
+      }
+      return entregarCarrusel(contexto)
+    }
+    case "a_mano":
+      return entregarCarrusel(contexto)
+  }
+}
+
 async function procesar(contexto: Contexto): Promise<ResultadoPublicacion> {
   try {
-    // A carousel never reaches the reel's LinkedIn or Instagram paths (part 2: by hand only).
-    if (contexto.fila.tipo === "carrusel") return await entregarCarrusel(contexto)
+    // A carousel never reaches the reel's LinkedIn or Instagram paths: it has its own (part 3).
+    if (contexto.fila.tipo === "carrusel") return await publicarCarrusel(contexto)
     // LinkedIn goes first and settles its own row; what it leaves pending decides the rest (L6, L7).
     const linkedin = await resolverLinkedin(contexto)
     if (linkedin.tipo === "en_curso") {

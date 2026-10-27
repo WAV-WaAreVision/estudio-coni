@@ -8,6 +8,7 @@ import {
   linkedinConectadoEn,
   MAXIMO_DE_INTENTOS_LINKEDIN,
   siguientePasoLinkedin,
+  tituloDelDocumento,
   versionDeLinkedinPorVencer,
 } from "@/lib/dominio/linkedin"
 
@@ -58,7 +59,14 @@ describe("enlaceDePost and esUrnDePost", () => {
 })
 
 describe("siguientePasoLinkedin", () => {
-  const base = { estado: "esperando" as const, videoUrn: null, enviadoEn: null, postUrn: null, intentos: 0 }
+  const base = {
+    estado: "esperando" as const,
+    videoUrn: null,
+    documentoUrn: null,
+    enviadoEn: null,
+    postUrn: null,
+    intentos: 0,
+  }
 
   it("does nothing for a row that is not waiting or already has its post", () => {
     expect(siguientePasoLinkedin({ ...base, estado: "para_subir" })).toEqual({ tipo: "nada" })
@@ -73,6 +81,22 @@ describe("siguientePasoLinkedin", () => {
 
   it("gives up to manual after the maximum of tries", () => {
     expect(siguientePasoLinkedin({ ...base, intentos: MAXIMO_DE_INTENTOS_LINKEDIN })).toEqual({ tipo: "a_mano" })
+  })
+
+  it("uploads the document first, then waits for it, for a carousel", () => {
+    expect(siguientePasoLinkedin(base, "documento")).toEqual({ tipo: "subir_documento" })
+    expect(siguientePasoLinkedin({ ...base, documentoUrn: "urn:li:document:D1" }, "documento")).toEqual({
+      tipo: "esperar_documento",
+    })
+  })
+
+  it("settles doubt and exhausted tries first for a carousel too", () => {
+    const enviado = { ...base, documentoUrn: "urn:li:document:D1", enviadoEn: "2031-01-01T00:00:00Z" }
+    expect(siguientePasoLinkedin(enviado, "documento")).toEqual({ tipo: "dudosa" })
+    expect(siguientePasoLinkedin({ ...base, intentos: MAXIMO_DE_INTENTOS_LINKEDIN }, "documento")).toEqual({
+      tipo: "a_mano",
+    })
+    expect(siguientePasoLinkedin({ ...base, postUrn: "urn:li:share:1" }, "documento")).toEqual({ tipo: "nada" })
   })
 
   it("uploads first, then waits for the video", () => {
@@ -122,5 +146,21 @@ describe("linkedinConectadoEn", () => {
         AHORA,
       ),
     ).toBe(false)
+  })
+})
+
+describe("tituloDelDocumento", () => {
+  it("cuts a single word longer than 100 characters at 100, since no word boundary exists", () => {
+    expect(tituloDelDocumento("a".repeat(130))).toBe("a".repeat(100))
+  })
+
+  it("joins a cover's line breaks and repeated spaces into single spaces", () => {
+    expect(tituloDelDocumento("  Lo que un chatbot\n\nno ve   de\tti \n")).toBe("Lo que un chatbot no ve de ti")
+  })
+
+  it("never splits an emoji when a single long word is cut at 100", () => {
+    const titulo = tituloDelDocumento(`${"a".repeat(99)}😀${"b".repeat(10)}`)
+    expect(titulo).toBe(`${"a".repeat(99)}😀`)
+    expect(titulo.isWellFormed()).toBe(true)
   })
 })
