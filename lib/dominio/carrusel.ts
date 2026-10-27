@@ -45,7 +45,8 @@ function limpio(texto: string): string {
   return texto.replace(/\r\n?/g, "\n").normalize("NFC").trim()
 }
 
-const palabrasDe = (texto: string): string[] => texto.match(/[\p{L}\p{N}]+/gu) ?? []
+/** The words of a text as the hash and the highlight see them. */
+export const palabrasDe = (texto: string): string[] => texto.match(/[\p{L}\p{N}]+/gu) ?? []
 
 /** A source line worth printing: Coni's own backing is not cited (`conLineaDeFuente` does the same). */
 function lineaCitable(linea: string | null): string | null {
