@@ -58,7 +58,6 @@ export const TEXTO_REVISA_LAMINAS = "1. Revisa las láminas"
 export const TEXTO_REVISA_POST = "2. Revisa el texto de la publicación"
 export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Revisé el carrusel y no encontré observaciones. Tú decides."
 export const TEXTO_AYUDA_DEL_PEDIDO = "Escríbelo en una frase. Escribo el carrusel de nuevo y este se descarta."
-export const TEXTO_SIN_CAMBIOS_CARRUSEL = "Ya pediste 3 cambios. Puedes firmarlo como está."
 export const TEXTO_CONSECUENCIA_CARRUSEL = "Firmas las láminas y el texto. Todavía no se publica nada."
 export const TEXTO_CARRUSEL_FIRMADO = "Firmaste el texto del carrusel"
 export const TEXTO_CARRUSEL_ESPERA =

@@ -3,8 +3,10 @@ import {
   cambiosQuedan,
   FIRMA_DEL_CARRUSEL,
   laminasDelEscrito,
+  MAXIMO_CAMBIOS_DE_TEXTO,
   nombreDeLamina,
   palabrasDelCarrusel,
+  TEXTO_SIN_CAMBIOS_DE_TEXTO,
   textoDeLaPublicacion,
 } from "@/lib/dominio/carrusel"
 import { DE_CONI } from "@/lib/dominio/fuente"
@@ -108,5 +110,11 @@ describe("names and counts for the screen", () => {
 
   it("counts the text changes left, never below zero", () => {
     expect([0, 1, 2, 3, 4].map(cambiosQuedan)).toEqual([3, 2, 1, 0, 0])
+  })
+})
+
+describe("TEXTO_SIN_CAMBIOS_DE_TEXTO", () => {
+  it("says the limit the database enforces, from the one constant both the screen and the action read", () => {
+    expect(TEXTO_SIN_CAMBIOS_DE_TEXTO).toBe(`Ya pediste ${MAXIMO_CAMBIOS_DE_TEXTO} cambios. Puedes firmarlo como está.`)
   })
 })

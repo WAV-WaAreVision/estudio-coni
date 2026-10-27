@@ -13,7 +13,7 @@ import { Panel } from "@/components/ui/panel"
 import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
-import { type Lamina, MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
+import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { firmarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
@@ -25,7 +25,6 @@ import {
   TEXTO_CONSECUENCIA_CARRUSEL,
   TEXTO_REVISA_LAMINAS,
   TEXTO_REVISA_POST,
-  TEXTO_SIN_CAMBIOS_CARRUSEL,
   TEXTO_SIN_OBSERVACIONES_CARRUSEL,
   textoCambiosQuedan,
 } from "./textos"
@@ -116,7 +115,7 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
         )}
         <MasOpciones forma="boton" titulo="Pedir cambio" abiertaAlInicio={bloqueos.length > 0}>
           {datos.cambiosQuedan === 0 ? (
-            <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_CARRUSEL}</p>
+            <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_DE_TEXTO}</p>
           ) : (
             <div className="grid gap-2">
               <label htmlFor={idPedido} className="text-meta font-semibold">

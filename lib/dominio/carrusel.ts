@@ -29,8 +29,10 @@ export interface EscritoDeCarrusel {
 
 export const MINIMO_DE_IDEAS_DEL_CARRUSEL = 4
 export const MAXIMO_DE_IDEAS_DEL_CARRUSEL = 6
-/** C8. Mirrors pedir_cambio_de_carrusel (supabase/migrations/20261026000120_carrusel_funciones.sql). */
+/** C8. Mirrors pedir_cambio_de_carrusel (supabase/migrations/20261026000130_carrusel_firma_vigente.sql). */
 export const MAXIMO_CAMBIOS_DE_TEXTO = 3
+/** Said on the gate and by the action when the three are spent: one text, so both say the same number. */
+export const TEXTO_SIN_CAMBIOS_DE_TEXTO = `Ya pediste ${MAXIMO_CAMBIOS_DE_TEXTO} cambios. Puedes firmarlo como está.`
 /** Mirrors the same function's bound on her sentence. */
 export const MAXIMO_DEL_PEDIDO = 500
 /** C11: the carousel is hers, under her full name. */

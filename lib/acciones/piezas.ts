@@ -14,7 +14,7 @@ import {
 } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
-import { MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
+import { MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
@@ -100,7 +100,6 @@ const LINKEDIN_EN_DUDA =
 const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
 const TEXTO_PEDIDO_VACIO = "Escribe en una frase qué quieres cambiar."
 const TEXTO_PEDIDO_LARGO = `Escríbelo en menos de ${MAXIMO_DEL_PEDIDO} caracteres.`
-const TEXTO_SIN_CAMBIOS = "Ya pediste 3 cambios. Puedes firmarlo como está."
 const AVISO_CAMBIO_DE_CARRUSEL =
   "Pedí el cambio, pero el carrusel nuevo tarda en partir. Si no avanza, vuelve a intentarlo."
 
@@ -119,7 +118,7 @@ function traducir(error: unknown): unknown {
   if (error.message.includes("linkedin_envio_en_duda")) return new Falla(LINKEDIN_EN_DUDA)
   // A version written while she read (amendment 4), the fourth request, or a sentence the database refused.
   if (error.message.includes("carrusel_no_coincide")) return new ArtefactoCambio()
-  if (error.message.includes("sin_cambios_de_texto")) return new Falla(TEXTO_SIN_CAMBIOS)
+  if (error.message.includes("sin_cambios_de_texto")) return new Falla(TEXTO_SIN_CAMBIOS_DE_TEXTO)
   if (error.message.includes("pedido_invalido")) return new Falla(TEXTO_PEDIDO_VACIO)
   if (error.message.includes("estado_no_cambiable")) return new PantallaVencida()
   return error
