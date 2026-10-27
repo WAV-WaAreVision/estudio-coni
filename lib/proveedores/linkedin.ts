@@ -6,6 +6,8 @@ import { baseDe } from "./bases"
 // Versioned REST APIs for a member (F2, F3, F4):
 // https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/videos-api
 // https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api
+// https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/documents-api (carousels, part 3;
+// verified 2026-10-27 for 202609)
 // https://learn.microsoft.com/en-us/linkedin/marketing/versioning (each version lives at least one year; there is no
 // default, so every call carries one). Bump it with a reviewed commit when the nightly alert says so.
 export const VERSION_DE_LINKEDIN = "202609"
@@ -169,6 +171,44 @@ export async function estadoDelVideo(entrada: { token: string; video: string }):
     default:
       return { estado: "procesando" }
   }
+}
+
+const DocumentoIniciado = z.object({
+  value: z.object({
+    uploadUrl: z.string().url(),
+    document: z.string().regex(/^urn:li:document:[A-Za-z0-9_-]+$/),
+  }),
+})
+
+/** A carousel's PDF (part 3): initializeUpload for the member, then one PUT of the whole file. Returns the URN. */
+export async function subirDocumento(entrada: { token: string; miembro: string; datos: Uint8Array }): Promise<string> {
+  const { token, miembro, datos } = entrada
+  const inicio = await llamar(
+    `${base()}/rest/documents?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: cabeceras(token),
+      body: JSON.stringify({ initializeUploadRequest: { owner: miembro } }),
+    },
+    "initializeUpload del documento",
+    token,
+  )
+  const leida = DocumentoIniciado.safeParse(await inicio.json())
+  if (!leida.success) throw new Error("LinkedIn devolvió una respuesta inesperada en initializeUpload del documento.")
+  const { uploadUrl, document } = leida.data.value
+  // The documented upload carries the member's token (a video part does not). LinkedIn names no content type.
+  await llamar(
+    uploadUrl,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: datos.slice(),
+    },
+    "la subida del documento",
+    token,
+    ESPERA_PARTE_MS,
+  )
+  return document
 }
 
 /** F7: the 201 carries the post URN in `x-restli-id`. No title: it is not part of gate 2. */

@@ -5,6 +5,8 @@ export const OAUTH = "https://www.linkedin.com"
 export const API = "https://api.linkedin.com"
 export const SUBIDAS = "https://www.linkedin.com/dms-uploads"
 export const PARTE = 4_194_304
+export const DOCUMENTO = "urn:li:document:D5510AQprueba"
+const SUBIDA_DOCUMENTO = `${SUBIDAS}/D5510AQprueba/ads-uploadedDocument/0`
 
 export interface OpcionesLinkedin {
   /** Answers of GET /rest/videos/{urn}, in order; the last one repeats. */
@@ -16,6 +18,12 @@ export interface OpcionesLinkedin {
   finalizar?: () => Response
   video?: () => Response
   post?: () => Response
+  /** Answers of GET /rest/documents/{urn}, in order; the last one repeats. */
+  documentos?: string[]
+  iniciarDocumento?: () => Response
+  subidaDeDocumento?: () => Response
+  /** Replaces the document read; may do work first (a test changes the database while LinkedIn processes). */
+  documento?: () => Response | Promise<Response>
 }
 
 export interface SimulacionLinkedin {
@@ -26,6 +34,9 @@ export interface SimulacionLinkedin {
   consultasDeVideo: string[]
   posts: Record<string, unknown>[]
   cabeceras: Record<string, string | null>[]
+  documentosIniciados: unknown[]
+  subidasDeDocumento: { datos: Uint8Array; autorizacion: string | null }[]
+  consultasDeDocumento: string[]
 }
 
 /** LinkedIn for the tests: records what it was asked and never leaves the machine. */
@@ -38,10 +49,15 @@ export function simularLinkedin(opciones: OpcionesLinkedin = {}): SimulacionLink
     consultasDeVideo: [],
     posts: [],
     cabeceras: [],
+    documentosIniciados: [],
+    subidasDeDocumento: [],
+    consultasDeDocumento: [],
   }
   const estados = opciones.estados ?? ["AVAILABLE"]
   let consultas = 0
   let bytesDelVideo = 0
+  const estadosDeDocumento = opciones.documentos ?? ["AVAILABLE"]
+  let consultasDoc = 0
   const guardarCabeceras = (request: Request) =>
     sim.cabeceras.push({
       autorizacion: request.headers.get("authorization"),
@@ -106,6 +122,31 @@ export function simularLinkedin(opciones: OpcionesLinkedin = {}): SimulacionLink
         status: estado,
         ...(estado === "PROCESSING_FAILED" ? { processingFailureReason: "Formato no soportado" } : {}),
       })
+    }),
+    http.post(`${API}/rest/documents`, async ({ request }) => {
+      guardarCabeceras(request)
+      sim.documentosIniciados.push(await request.json())
+      return (
+        opciones.iniciarDocumento?.() ??
+        HttpResponse.json({
+          value: { uploadUrlExpiresAt: 4_102_444_800_000, uploadUrl: SUBIDA_DOCUMENTO, document: DOCUMENTO },
+        })
+      )
+    }),
+    http.put(SUBIDA_DOCUMENTO, async ({ request }) => {
+      sim.subidasDeDocumento.push({
+        datos: new Uint8Array(await request.arrayBuffer()),
+        autorizacion: request.headers.get("authorization"),
+      })
+      return opciones.subidaDeDocumento?.() ?? new HttpResponse(null, { status: 201 })
+    }),
+    http.get(`${API}/rest/documents/:urn`, async ({ request, params }) => {
+      guardarCabeceras(request)
+      sim.consultasDeDocumento.push(String(params.urn))
+      if (opciones.documento) return opciones.documento()
+      const estado = estadosDeDocumento[Math.min(consultasDoc, estadosDeDocumento.length - 1)]
+      consultasDoc += 1
+      return HttpResponse.json({ id: DOCUMENTO, owner: "urn:li:person:abc123XYZ", status: estado })
     }),
     http.post(`${API}/rest/posts`, async ({ request }) => {
       guardarCabeceras(request)
