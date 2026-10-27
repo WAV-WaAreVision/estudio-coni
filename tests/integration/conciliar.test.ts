@@ -4,7 +4,7 @@ import { conciliarRenders, type DepsConciliacion } from "@/lib/mantenimiento/con
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 import { pool } from "./db"
-import { crearPiezaEn } from "./flujo"
+import { crearCarruselEn, crearPiezaEn } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
@@ -91,6 +91,25 @@ afterEach(async () => {
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
   piezasCreadas.length = 0
 })
+
+async function carruselArmando(explicacion?: string) {
+  const c = await pool.connect()
+  try {
+    await c.query("begin")
+    const id = await crearCarruselEn(c, "armando_carrusel")
+    if (explicacion) {
+      await c.query("update public.piezas set explicacion = $2, version = version + 1 where id = $1", [id, explicacion])
+    }
+    await c.query("commit")
+    piezasCreadas.push(id)
+    return id
+  } catch (error) {
+    await c.query("rollback")
+    throw error
+  } finally {
+    c.release()
+  }
+}
 
 describe("conciliarRenders", () => {
   it("does not even look at a render that has been going for less than 15 minutes", async () => {
@@ -212,5 +231,32 @@ describe("conciliarRenders", () => {
     const { deps } = doble(dentroDe(20))
 
     await expect(conciliarRenders(deps)).rejects.toThrow(/llave de HeyGen/)
+  })
+  it("hands a carousel stuck in armando_carrusel for an hour back to Coni, ready for Reintentar", async () => {
+    const id = await carruselArmando()
+    const temprano = doble(dentroDe(30))
+    expect(await conciliarRenders(temprano.deps)).toEqual([])
+    expect((await leer(id)).estado).toBe("armando_carrusel")
+
+    const { deps, avisos } = doble(dentroDe(61))
+    expect(await conciliarRenders(deps)).toEqual([{ piezaId: id, resultado: "falla_produccion" }])
+    expect(await leer(id)).toMatchObject({
+      estado: "error_produccion",
+      estado_antes_del_error: "armando_carrusel",
+      explicacion: "No pude armar el carrusel. WAV ya está revisando.",
+    })
+    const { rows } = await pool.query(
+      "select estado from public.carruseles where pieza_id = $1 order by version desc limit 1",
+      [id],
+    )
+    expect(rows[0].estado).toBe("fallo")
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Un carrusel se quedó sin armar"])
+  })
+
+  it("leaves alone a carousel that waits with a reason (the spending cap)", async () => {
+    const id = await carruselArmando("Llegaste al tope de gasto del mes.")
+    const { deps } = doble(dentroDe(120))
+    expect(await conciliarRenders(deps)).toEqual([])
+    expect((await leer(id)).estado).toBe("armando_carrusel")
   })
 })

@@ -285,6 +285,19 @@ export async function leerPiezasAtascadas(db: Db, antesDe: string): Promise<Fila
   return data
 }
 
+/** Carousels waiting for their slides, without a reason, whose last write is older than `antesDe`. */
+export async function leerCarruselesAtascados(db: Db, antesDe: string): Promise<FilaDePieza[]> {
+  const { data, error } = await db
+    .from("piezas")
+    .select("*")
+    .eq("estado", "armando_carrusel")
+    .is("explicacion", null)
+    .lt("actualizada_en", antesDe)
+    .order("actualizada_en")
+  if (error) throw fallo("No pude leer los carruseles atascados", error)
+  return data
+}
+
 /** Pieces recording their voice whose last write is older than `antesDe`: their run died or never started. */
 export async function leerVocesTrabadas(db: Db, antesDe: string): Promise<FilaDePieza[]> {
   const { data, error } = await db
