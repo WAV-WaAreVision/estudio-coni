@@ -259,3 +259,32 @@ export async function guardarAcortado(
   }
   return data
 }
+
+/** Whether this text was already shortened once (amendment 3): a design change keeps the shortened text's hash. */
+export async function seAcortoEsteTexto(db: Db, piezaId: string, hashTexto: string): Promise<boolean> {
+  const { count, error } = await db
+    .from("carruseles")
+    .select("id", { count: "exact", head: true })
+    .eq("pieza_id", piezaId)
+    .eq("hash_texto", hashTexto)
+    .eq("origen", "acortado")
+  if (error) throw fallo("No pude leer si el texto ya se acortó", error)
+  return (count ?? 0) > 0
+}
+
+/** `rechazar_diseno_que_no_cabe` (20261027000130). Null means the piece changed meanwhile. */
+export async function rechazarDisenoQueNoCabe(
+  db: Db,
+  entrada: { carruselId: string; versionLeida: number; explicacion: string },
+): Promise<FilaDePieza | null> {
+  const { data, error } = await db.rpc("rechazar_diseno_que_no_cabe", {
+    p_carrusel: entrada.carruselId,
+    p_version: entrada.versionLeida,
+    p_explicacion: entrada.explicacion,
+  })
+  if (error) {
+    if (error.message === ERROR_VERSION_DESFASADA) return null
+    throw fallo("No pude dejar el diseño anterior", error)
+  }
+  return data
+}

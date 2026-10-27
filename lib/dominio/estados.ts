@@ -108,6 +108,8 @@ export type Evento =
   | { tipo: "carrusel_armado" }
   /** A version that does not fit goes back to gate 1: shortened (a new text) or too long even shortened. */
   | { tipo: "volver_a_firmar"; explicacion: string }
+  /** A design change that does not fit is dropped: back to gate 2 on the version she saw, with why. */
+  | { tipo: "diseno_no_cabe"; explicacion: string }
   /** "El diseño" at gate 2 (D5): a new version with the same words, rendered again. */
   | { tipo: "cambiar_diseno" }
   /** Gate 2 of a carousel: the version she saw, its words and the time. */
@@ -279,6 +281,7 @@ export const EVENTOS_DE_CARRUSEL: readonly Evento["tipo"][] = [
   "firmar_carrusel",
   "carrusel_armado",
   "volver_a_firmar",
+  "diseno_no_cabe",
   "falla_produccion",
   "reintentar",
   "cambiar_diseno",
@@ -294,6 +297,7 @@ const SOLO_DE_CARRUSEL: readonly Evento["tipo"][] = [
   "firmar_carrusel",
   "carrusel_armado",
   "volver_a_firmar",
+  "diseno_no_cabe",
   "cambiar_diseno",
   "aprobar_carrusel",
 ]
@@ -522,6 +526,10 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
     case "volver_a_firmar":
       if (estado !== "armando_carrusel") throw invalida()
       return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1, explicacion: evento.explicacion })
+
+    case "diseno_no_cabe":
+      if (estado !== "armando_carrusel") throw invalida()
+      return a("carrusel_por_aprobar", { explicacion: evento.explicacion })
 
     case "cambiar_diseno":
       if (estado !== "carrusel_por_aprobar") throw invalida()

@@ -51,6 +51,13 @@ describe("a carousel after gate 1", () => {
     expect(pieza).toMatchObject({ estado: "guion_por_aprobar", puerta1: null, intento: 2, explicacion: "Larga." })
   })
 
+  it("goes back to gate 2 with why when a design change does not fit, keeping her signature", () => {
+    const antes = carrusel("armando_carrusel")
+    const { pieza } = transicionar(antes, { tipo: "diseno_no_cabe", explicacion: "No cabe." })
+    expect(pieza).toMatchObject({ estado: "carrusel_por_aprobar", puerta1: antes.puerta1, explicacion: "No cabe." })
+    expect(() => transicionar(carrusel("guion_por_aprobar"), { tipo: "diseno_no_cabe", explicacion: "No." })).toThrow()
+  })
+
   it("fails its render into error_produccion and Reintentar takes it back to armando_carrusel", () => {
     const fallida = transicionar(carrusel("armando_carrusel"), {
       tipo: "falla_produccion",

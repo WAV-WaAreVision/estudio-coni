@@ -2440,6 +2440,60 @@ export type Database = {
         Returns: undefined
       }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
+      rechazar_diseno_que_no_cabe: {
+        Args: { p_carrusel: string; p_explicacion: string; p_version: number }
+        Returns: {
+          actualizada_en: string
+          archivos_borrados_en: string | null
+          audio_id: string | null
+          avatar_id: string | null
+          cambios_de_texto: number
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          destinos: string[]
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          pedido_de_cambio: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_formula: number | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_carrusel_id: string | null
+          puerta2_en: string | null
+          puerta2_formula: number | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          respaldo: Json | null
+          revision: Json
+          texto: string | null
+          texto_linkedin: string | null
+          tipo: string
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean

@@ -8,6 +8,8 @@ import {
   laminasAJson,
   leerVersionVigente,
   marcarVersion,
+  rechazarDisenoQueNoCabe,
+  seAcortoEsteTexto,
   type VersionDeCarrusel,
 } from "@/lib/datos/carrusel"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
@@ -51,7 +53,11 @@ export interface DepsArmado {
   claude: () => Promise<Anthropic>
 }
 
-export type ResultadoArmado = { resultado: "armado" | "acortado" | "muy_largo" | "nada_que_hacer" }
+export type ResultadoArmado = {
+  resultado: "armado" | "acortado" | "muy_largo" | "diseno_no_cabe" | "nada_que_hacer"
+}
+
+export const TEXTO_DISENO_NO_CABE = "Ese cambio no cabe en la lámina. Prueba otro."
 
 const NADA: ResultadoArmado = { resultado: "nada_que_hacer" }
 
@@ -93,6 +99,19 @@ async function devolver(deps: DepsArmado, fila: FilaDePieza, version: VersionDeC
     )
   }
   return { resultado: "muy_largo" } as const
+}
+
+/** A design change never touches the words, so it is never shortened: it is dropped and gate 2 shows what she saw. */
+async function rechazarDiseno(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCarrusel) {
+  // Validated here and applied by rechazar_diseno_que_no_cabe, which repeats it in SQL.
+  transicionar(piezaDesdeFila(fila), { tipo: "diseno_no_cabe", explicacion: TEXTO_DISENO_NO_CABE })
+  const guardada = await rechazarDisenoQueNoCabe(deps.db, {
+    carruselId: version.id,
+    versionLeida: fila.version,
+    explicacion: TEXTO_DISENO_NO_CABE,
+  })
+  if (!guardada) throw piezaCambio()
+  return { resultado: "diseno_no_cabe" } as const
 }
 
 /** The new slides with Claude's shorter texts; a highlight survives only if its word is still there. */
@@ -209,7 +228,8 @@ export async function armarCarrusel(deps: DepsArmado, piezaId: string): Promise<
     fuente: await deps.fuente(),
   })
   if (render.tipo === "desborda") {
-    return version.origen === "acortado"
+    if (version.origen === "cambio_diseno") return rechazarDiseno(deps, fila, version)
+    return (await seAcortoEsteTexto(db, fila.id, version.hashTexto))
       ? devolver(deps, fila, version, textoMuyLarga(render.laminas))
       : acortar(deps, fila, version, render.laminas)
   }

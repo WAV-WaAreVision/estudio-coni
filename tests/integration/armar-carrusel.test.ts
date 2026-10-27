@@ -8,7 +8,7 @@ import { armarCarrusel, type DepsArmado } from "@/lib/produccion/armar-carrusel"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { comoConi, pool } from "./db"
+import { asumir, comoConi, pool } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { borrarSembrado, leerFila, sembrarCarrusel } from "./siembra"
@@ -176,6 +176,36 @@ describe("armarCarrusel", () => {
       explicacion: "Las láminas 4 y 5 quedaron muy largas. Pide un cambio para acortarlas.",
     })
     expect((await leerVersionVigente(clienteDeServicio(), id))?.estado).toBe("fallo")
+  })
+
+  it("drops a design change that does not fit and shows her the version she saw, without Claude", async () => {
+    const id = await carrusel("carrusel_por_aprobar")
+    const vista = await leerVersionVigente(clienteDeServicio(), id)
+    const c = await pool.connect()
+    try {
+      await c.query("begin")
+      await asumir(c, comoConi)
+      const { rows } = await c.query("select version from public.piezas where id = $1", [id])
+      await c.query('select public.cambiar_diseno_de_carrusel($1, $2, $3::jsonb, \'{"variante": "oscura"}\'::jsonb)', [
+        id,
+        rows[0].version,
+        JSON.stringify(vista?.laminas),
+      ])
+      await c.query("commit")
+    } finally {
+      c.release()
+    }
+    const d = doble([{ tipo: "desborda", laminas: [2] }])
+
+    expect(await armarCarrusel(d.deps, id)).toEqual({ resultado: "diseno_no_cabe" })
+
+    expect(await leerVersionVigente(clienteDeServicio(), id)).toEqual(vista)
+    expect(await leerFila(id)).toMatchObject({
+      estado: "carrusel_por_aprobar",
+      explicacion: "Ese cambio no cabe en la lámina. Prueba otro.",
+      cambios_de_texto: 0,
+    })
+    expect(d.almacen.claves()).toEqual([])
   })
 
   it("leaves a piece that is not waiting for its slides alone", async () => {

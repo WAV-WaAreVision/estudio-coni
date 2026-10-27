@@ -605,6 +605,7 @@ const eventos: Record<Evento["tipo"], Evento> = {
   firmar_carrusel: { tipo: "firmar_carrusel", actor: "coni", hashVisto: "h1", hashActual: "h1", en: ANTES },
   carrusel_armado: { tipo: "carrusel_armado" },
   volver_a_firmar: { tipo: "volver_a_firmar", explicacion: "Larga." },
+  diseno_no_cabe: { tipo: "diseno_no_cabe", explicacion: "No cabe." },
   cambiar_diseno: { tipo: "cambiar_diseno" },
   aprobar_carrusel: {
     tipo: "aprobar_carrusel",
@@ -646,7 +647,7 @@ describe("tabla del diseño", () => {
     subtitulando: ["video_listo", "falla_produccion", "descartar"],
     video_por_aprobar: ["aprobar_video", "regrabar", "cambiar_guion", "editar_texto", "descartar"],
     // Only a carousel lives here (the sample pieces are carousels signed with h1).
-    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "falla_produccion", "descartar"],
+    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "diseno_no_cabe", "falla_produccion", "descartar"],
     carrusel_por_aprobar: ["pedir_cambios", "cambiar_diseno", "aprobar_carrusel", "descartar"],
     programado: [
       "publicado",
@@ -923,7 +924,7 @@ describe("tabla del carrusel", () => {
     idea: ["elegir", "descartar"],
     guion_en_proceso: ["carrusel_listo", "descartar"],
     guion_por_aprobar: ["pedir_cambios", "firmar_carrusel", "descartar"],
-    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "falla_produccion", "descartar"],
+    armando_carrusel: ["carrusel_armado", "volver_a_firmar", "diseno_no_cabe", "falla_produccion", "descartar"],
     carrusel_por_aprobar: ["pedir_cambios", "cambiar_diseno", "aprobar_carrusel", "descartar"],
   }
   const firmado = { hash: "h1", en: ANTES }
