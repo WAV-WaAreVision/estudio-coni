@@ -1,3 +1,4 @@
+import type { Lamina } from "@/lib/dominio/carrusel"
 import { palabras } from "@/lib/dominio/estimaciones"
 import { etiquetasDe, MAXIMO_DE_ETIQUETAS, MINIMO_DE_ETIQUETAS, sinEtiquetas } from "@/lib/dominio/etiquetas"
 
@@ -25,6 +26,9 @@ export const REGLAS_DETERMINISTAS = [
   "bait_linkedin",
   "formato_linkedin",
   "trato_linkedin",
+  "mencion_avatar",
+  "largo_lamina",
+  "largo_post_carrusel",
 ] as const
 export type Regla = (typeof REGLAS_DETERMINISTAS)[number]
 /** Rules only Claude can judge; they warn and never block (design table "Revisión automática"). */
@@ -589,4 +593,106 @@ export function bloquea(hallazgos: readonly Hallazgo[]): boolean {
 /** An alert type as the bank writes it («verificar dato») shown as a sentence-case label. */
 export function etiquetaDeAlerta(tipo: string): string {
   return tipo.charAt(0).toUpperCase() + tipo.slice(1)
+}
+
+/** The carousel's post (design 2026-10-26, D3): shorter than a reel's LinkedIn text. */
+export const MINIMO_TEXTO_POST_CARRUSEL = 600
+export const MAXIMO_TEXTO_POST_CARRUSEL = 1300
+/** What fits a 1080 x 1350 slide at a readable size (plan D1); part 2 measures the real overflow. */
+export const LARGO_DE_LAMINA = { portada: 90, idea: 220, cierre: 140 } as const
+
+const AVATAR = patron(`${ANTES}avatar(?:es)?${DESPUES}`)
+// The template's serif has no emoji glyphs, and a handle or a hashtag on a slide links nowhere.
+const SIMBOLO_DE_LAMINA = /[\p{Extended_Pictographic}#@]/gu
+const MENSAJE_AUTOR_EN_LAMINA =
+  "Aquí aparece el nombre de una fuente. En las láminas no se nombran autores: la fuente va sola al final."
+
+/**
+ * A LinkedIn carousel (design 2026-10-26, D3; plan amendment 7): designed text Coni signs with her name, no avatar
+ * anywhere (C11). The post follows LinkedIn's rules without the avatar notice and with the carousel's own length; the
+ * slides carry no avatar, symbols or tone marks, stay short for the template, and never copy, name or imply a source.
+ */
+export function revisarCarrusel(entrada: {
+  laminas: readonly Lamina[]
+  textoPost: string
+  requiereLineasAyuda: boolean
+  ajeno: Ajeno
+}): Hallazgo[] {
+  const { laminas, textoPost, requiereLineasAyuda, ajeno } = entrada
+  const textos = laminas.map((lamina) => lamina.texto)
+  const enTodas = (buscar: (texto: string) => readonly string[]) => [...new Set(textos.flatMap(buscar))]
+  const hallazgos: Hallazgo[] = []
+
+  laminas.forEach((lamina, indice) => {
+    const maximo = LARGO_DE_LAMINA[lamina.tipo]
+    const largo = [...lamina.texto].length
+    if (largo > maximo) {
+      hallazgos.push({
+        regla: "largo_lamina",
+        tipo: "advierte",
+        mensaje: `La lámina ${indice + 1} tiene ${largo} caracteres. Cabe bien hasta ${maximo}.`,
+      })
+    }
+  })
+  for (const frase of enTodas((texto) => distintos(texto, [AVATAR]))) {
+    hallazgos.push({
+      regla: "mencion_avatar",
+      tipo: "bloquea",
+      mensaje: "El carrusel lo firmas tú y no lleva avatar: quita la mención de la lámina.",
+      frase,
+    })
+  }
+  for (const frase of enTodas((texto) => distintos(texto, [SIMBOLO_DE_LAMINA]))) {
+    hallazgos.push({
+      regla: "simbolos",
+      tipo: "bloquea",
+      mensaje: "Sin emojis, hashtags ni arrobas en las láminas: van solo en el texto de la publicación.",
+      frase,
+    })
+  }
+  for (const frase of enTodas((texto) =>
+    etiquetasDe(texto)
+      .filter((marca) => marca.conocida)
+      .map((marca) => marca.escrita),
+  )) {
+    hallazgos.push({
+      regla: "etiqueta_en_texto",
+      tipo: "bloquea",
+      mensaje: "Las marcas de tono no van en las láminas. Bórrala.",
+      frase,
+    })
+  }
+  for (const frase of enTodas((texto) => tramosCopiados(texto, ajeno.citas))) {
+    hallazgos.push({ regla: "copia_de_fuente", tipo: "advierte", mensaje: MENSAJE_COPIA, frase })
+  }
+  for (const frase of enTodas((texto) => autoresNombrados(texto, ajeno.autores, ajeno.personas))) {
+    hallazgos.push({ regla: "nombra_autor", tipo: "advierte", mensaje: MENSAJE_AUTOR_EN_LAMINA, frase })
+  }
+  for (const frase of enTodas((texto) => distintos(texto, [SUGIERE_CONSULTA]))) {
+    hallazgos.push({ regla: "sugiere_consulta", tipo: "advierte", mensaje: MENSAJE_CONSULTA, frase })
+  }
+
+  // The post: LinkedIn's rules without the avatar notice, and the carousel's length instead of the reel text's.
+  const delPost = revisarTextoLinkedin({ texto: textoPost, esAvatar: false, requiereLineasAyuda, ajeno }).filter(
+    (hallazgo) => hallazgo.regla !== "largo_corto_linkedin",
+  )
+  const largo = [...textoPost].length
+  if (largo < MINIMO_TEXTO_POST_CARRUSEL || largo > MAXIMO_TEXTO_POST_CARRUSEL) {
+    delPost.push({
+      regla: "largo_post_carrusel",
+      tipo: "advierte",
+      mensaje: `El texto tiene ${largo.toLocaleString("es-CL")} caracteres. Para un carrusel lo ideal es de 600 a 1.300.`,
+      campo: "linkedin",
+    })
+  }
+  for (const frase of distintos(textoPost, [AVATAR])) {
+    delPost.push({
+      regla: "mencion_avatar",
+      tipo: "bloquea",
+      mensaje: "El carrusel lo firmas tú y no lleva avatar: quita la mención del texto.",
+      frase,
+      campo: "linkedin",
+    })
+  }
+  return [...hallazgos, ...delPost]
 }

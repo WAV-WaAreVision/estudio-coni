@@ -1,9 +1,10 @@
 import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
-import type { Estado } from "@/lib/dominio/estados"
+import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
 
 export interface PiezaDeInicio {
+  tipo: TipoDePieza
   id: string
   titulo: string
   estado: Estado
@@ -135,6 +136,14 @@ function filaDeFirma(pieza: PiezaDeInicio): FilaDeFirma {
       instruccion: "Mira el video, revisa el texto y elige la fecha.",
     }
   }
+  if (pieza.tipo === "carrusel") {
+    return {
+      ...base,
+      meta: "Carrusel de LinkedIn",
+      href: `/guion/${pieza.id}`,
+      instruccion: "Lee las láminas y el texto, y fírmalo.",
+    }
+  }
   return {
     ...base,
     meta: `Guion · ${segundosDe(pieza)} s`,
@@ -153,8 +162,17 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
     case "guion_en_proceso":
       // With a reason on it, the piece is a failure (it is not being written), not "on its way".
       return pieza.explicacion === null
-        ? { ...base, estado: "Escribiendo el guion · te aviso", ocupada: true, href: `/guion/${pieza.id}` }
+        ? {
+            ...base,
+            estado:
+              pieza.tipo === "carrusel" ? "Escribiendo el carrusel · te aviso" : "Escribiendo el guion · te aviso",
+            ocupada: true,
+            href: `/guion/${pieza.id}`,
+          }
         : null
+    case "armando_carrusel":
+      // Part 1: signed and waiting for part 2's design (plan amendment 1). Nothing works on it, so no working dot.
+      return { ...base, estado: "Texto firmado · falta el diseño", ocupada: false, href: `/guion/${pieza.id}` }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true, href: `/guion/${pieza.id}` }
@@ -190,11 +208,19 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
       // A phrase HeyGen refused or a voice that could not be made: the text says which, the screen has the way out.
       return pieza.explicacion === null
         ? null
-        : { ...base, causa: "Tu guion necesita atención.", accion: revisar("guion") }
+        : {
+            ...base,
+            causa: pieza.tipo === "carrusel" ? "Tu carrusel necesita atención." : "Tu guion necesita atención.",
+            accion: revisar("guion"),
+          }
     case "guion_en_proceso":
       return pieza.explicacion === null
         ? null
-        : { ...base, causa: "No pude escribir el guion.", accion: revisar("guion") }
+        : {
+            ...base,
+            causa: pieza.tipo === "carrusel" ? "No pude escribir el carrusel." : "No pude escribir el guion.",
+            accion: revisar("guion"),
+          }
     case "video_por_aprobar":
       return pieza.explicacion === null
         ? null

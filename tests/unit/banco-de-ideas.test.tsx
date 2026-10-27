@@ -76,6 +76,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
     elegirVarias: vi.fn(async (ids: string[]) => todasEmpezadas(ids)),
     descartarVarias: vi.fn(async () => ({ ok: true as const })),
     restaurar: vi.fn(async (ids: string[]) => ({ ok: true as const, restauradas: ids })),
+    hacerCarrusel: vi.fn(async () => ({ ok: true as const, piezaId: "p-carrusel" })),
     ...cambios,
   }
 }
@@ -600,5 +601,44 @@ describe("BancoDeIdeas: elegir varias", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Si van a discutir, siéntense del mismo lado." }))
     fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (1)" }))
     await waitFor(() => expect(screen.getByRole("heading", { name: "Elegir varias", level: 1 })).toHaveFocus())
+  })
+})
+
+describe("the format of the idea (design 2026-10-26, D1 step 1)", () => {
+  it("offers Reel and Carrusel de LinkedIn on the card, with Reel chosen", () => {
+    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={acciones()} />)
+    expect(screen.getByRole("group", { name: "Formato" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "Reel" })).toBeChecked()
+    expect(screen.getByRole("radio", { name: "Carrusel de LinkedIn" })).not.toBeChecked()
+    expect(screen.getByRole("button", { name: "Usar esta" })).toBeInTheDocument()
+  })
+
+  it("makes the carousel at once and takes the idea out of the deck", async () => {
+    const todas = acciones()
+    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={todas} />)
+
+    fireEvent.click(screen.getByRole("radio", { name: "Carrusel de LinkedIn" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hacer el carrusel" }))
+
+    await waitFor(() => expect(todas.hacerCarrusel).toHaveBeenCalledWith("a"))
+    expect(todas.usar).not.toHaveBeenCalled()
+    expect(await screen.findByText("Escribiendo el carrusel. Te aviso cuando esté.")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "El deseo no se apaga: se esconde." })).toBeInTheDocument()
+    // The next card starts on Reel again: the choice belongs to the idea it was made on.
+    expect(screen.getByRole("radio", { name: "Reel" })).toBeChecked()
+  })
+
+  it("keeps the idea and says why when the carousel cannot start", async () => {
+    const todas = acciones({
+      hacerCarrusel: vi.fn(async () => ({
+        ok: false as const,
+        error: "Una de esas ideas ya no está disponible. Vuelve a elegir.",
+      })),
+    })
+    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={todas} />)
+    fireEvent.click(screen.getByRole("radio", { name: "Carrusel de LinkedIn" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hacer el carrusel" }))
+    expect(await screen.findByText("Una de esas ideas ya no está disponible. Vuelve a elegir.")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
   })
 })

@@ -9,7 +9,6 @@ import { Bloque } from "@/components/ui/bloque"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
-import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
@@ -32,6 +31,7 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
+import { VistaDeCarrusel } from "./carrusel"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
 import {
@@ -41,6 +41,7 @@ import {
   TEXTO_REINTENTA,
   TEXTO_VIDEO_DETENIDO,
 } from "./textos"
+import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
 import { VozSuelta } from "./voz-suelta"
 
@@ -62,6 +63,8 @@ export default async function PaginaDeGuion({
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
   const pilar = pilarVisible(pilares, idea?.pilar)
+  // A carousel has its own gate 1 (design 2026-10-26): no script, voice or avatar.
+  if (fila.tipo === "carrusel") return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} />
 
   switch (fila.estado) {
     case "guion_por_aprobar":
@@ -244,18 +247,5 @@ async function avataresParaElegir(db: Parameters<typeof leerAvataresElegibles>[0
       nombre: avatar.nombre,
       imagenUrl: await urlParaVer(avatar.imagen),
     })),
-  )
-}
-
-/** A piece being worked on (v6 `.trabajando`): the working dot, what is happening, and when she will hear about it. */
-function Trabajando({ titulo, detalle }: { titulo: string; detalle: string }) {
-  return (
-    <div className="grid gap-1.5">
-      <output className="flex items-center gap-3 text-boton font-semibold">
-        <PuntoTrabajando />
-        {titulo}
-      </output>
-      <p className="text-meta text-apagado">{detalle}</p>
-    </div>
   )
 }

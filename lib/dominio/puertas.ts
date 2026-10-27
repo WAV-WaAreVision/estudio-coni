@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { palabrasDelCarrusel, type TextoDeCarrusel } from "@/lib/dominio/carrusel"
 import { canonicos, type Destino } from "@/lib/dominio/destinos"
 import { instanteEstricto, MARGEN_HORA_APROBADA_MS, type Pieza } from "@/lib/dominio/estados"
 
@@ -35,6 +36,14 @@ export function formulaDePuerta1(guardada: 1 | 2 | 3 | null): 1 | 2 | 3 {
 
 export function hashTexto(texto: string): string {
   return sha256(["texto", texto])
+}
+
+/**
+ * What gate 1 of a carousel signs (design 2026-10-26, D2; plan amendment 5): its words in order and its post text,
+ * never its design. Stored as `carruseles.hash_texto`; `proteger_pieza` checks the signature against it.
+ */
+export function hashTextoDeCarrusel(texto: TextoDeCarrusel): string {
+  return sha256(["carrusel/1", palabrasDelCarrusel(texto.laminas), texto.textoPost.normalize("NFC")])
 }
 
 export type FormulaPuerta2 = 1 | 2

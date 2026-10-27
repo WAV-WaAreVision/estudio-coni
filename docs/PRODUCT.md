@@ -42,6 +42,11 @@ y su material se conservan). La sexología aparece como mirada dentro de los pil
 puerta 1 muestran «Fuente: autor · obra (año)»; LinkedIn cita la fuente en el texto, Instagram lleva la línea antes
 del aviso de avatar y el guion hablado nunca nombra autores.
 
+Formatos: el reel (video con su avatar, Instagram y LinkedIn) y el carrusel de LinkedIn. El carrusel es texto
+diseñado solo para LinkedIn, firmado «Constanza del Rosario»: sin voz, sin avatar y sin mencionar ningún avatar. Pasa
+por las mismas dos puertas que un reel: en la primera Coni lee las láminas numeradas y el texto del post y lo firma,
+o pide hasta tres cambios con una frase; en la segunda ve el diseño terminado.
+
 ## Brand Personality
 
 Experta, clara, cálida. Una psicóloga que piensa en público: rigor de revista de ideas, con la

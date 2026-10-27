@@ -23,7 +23,7 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
-import { IDEAS, PIEZAS, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
+import { IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
@@ -84,6 +84,11 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
       for (const nodo of document.querySelectorAll('[data-snapshot="varia"]')) {
         if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Semana del ")) {
           nodo.textContent = "Semana del 5 al 11 de octubre"
+        }
+        // The scheduled reel publishes tomorrow: with large text a long weekday ("miércoles 28 · 10:00") wraps the
+        // masked row to a second line. A fixed short date keeps the one line the baselines were taken with.
+        if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Programado · ")) {
+          nodo.textContent = "Programado · martes 6 · 10:00"
         }
       }
     })
@@ -500,4 +505,18 @@ test("ingreso con codigo equivocado", async ({ browser }) => {
   await expect(page.getByRole("alert").filter({ hasText: "Ese código no sirve" })).toBeVisible()
   await capturaDe(page, "ingreso-codigo-error")
   await contexto.close()
+})
+
+test("carrusel por aprobar", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("guion_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-por-aprobar")
+})
+
+test("carrusel firmado", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("armando_carrusel")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-firmado")
 })

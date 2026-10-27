@@ -8,6 +8,9 @@ import { type Horario, proponerFechas } from "@/lib/dominio/fechas"
 /** Before gate 2, the closest to publishing first: the order the Agenda places them in and Repartir stores them. */
 export const ORDEN_SIN_FECHA: Partial<Record<Estado, number>> = {
   video_por_aprobar: 0,
+  // A carousel (design 2026-10-26): at gate 2 like a video to approve, signed and being made like a video in render.
+  carrusel_por_aprobar: 0,
+  armando_carrusel: 1,
   subtitulando: 1,
   en_render: 1,
   grabando_voz: 1,

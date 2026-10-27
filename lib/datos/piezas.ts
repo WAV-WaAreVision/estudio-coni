@@ -4,6 +4,7 @@ import {
   type EstadoAntesDelError,
   instanteEstricto,
   type Pieza,
+  tipoDePieza,
 } from "@/lib/dominio/estados"
 import { formulaDePuerta2 } from "@/lib/dominio/puertas"
 import type { Database } from "@/lib/supabase/database.types"
@@ -32,7 +33,8 @@ export type CambiosPieza = Pick<
 >
 
 /** What the domain reads from a row: supabase-js gives strings, node-postgres gives `Date`s. */
-export type FilaPieza = Omit<CambiosPieza, ColumnaDeInstante> & Record<ColumnaDeInstante, string | Date | null>
+export type FilaPieza = Omit<CambiosPieza, ColumnaDeInstante> &
+  Record<ColumnaDeInstante, string | Date | null> & { tipo: FilaBase["tipo"] }
 
 const REINTENTABLES: readonly EstadoAntesDelError[] = ["en_render", "subtitulando", "programado"]
 
@@ -90,6 +92,7 @@ function puerta2(fila: FilaPieza): AprobacionVideo | null {
 
 export function piezaDesdeFila(fila: FilaPieza): Pieza {
   return {
+    tipo: tipoDePieza(fila.tipo),
     estado: fila.estado,
     version: fila.version,
     intento: fila.intento,

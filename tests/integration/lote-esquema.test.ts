@@ -16,7 +16,7 @@ import {
   MANTENEDOR,
   pool,
 } from "./db"
-import { crearPiezaEn } from "./flujo"
+import { crearCarruselEn, crearPiezaEn } from "./flujo"
 import { borrarSembrado, moverHoraAprobada, sembrarPieza } from "./siembra"
 
 afterAll(() => pool.end())
@@ -399,6 +399,25 @@ describe("proponer_fechas and the slots already held (A8)", () => {
       await asumir(c, comoConi)
       await c.query(sql, [[b], [hora]])
       expect(await propuestaDe(c, b)).toBe(new Date(hora).toISOString())
+    })
+  })
+
+  it("takes a signed carousel in Repartir and Cambiar, and lets its live proposal hold its time", async () => {
+    await como(comoPostgres, async (c) => {
+      const reel = await crearPiezaEn(c, "guion_por_aprobar")
+      const carrusel = await crearCarruselEn(c, "armando_carrusel")
+      const otro = await crearPiezaEn(c, "guion_por_aprobar")
+      const [hora, otra] = [EN_UN_MES(), EN_DOS_MESES()]
+      const cambiada = new Date(Date.now() + 45 * 86_400_000).toISOString()
+      await asumir(c, comoConi)
+      await c.query(sql, [
+        [reel, carrusel],
+        [hora, otra],
+      ])
+      await c.query(sql, [[carrusel], [cambiada]])
+      expect(await propuestaDe(c, carrusel)).toBe(new Date(cambiada).toISOString())
+      const error = await fallaCon(c, sql, [[otro], [cambiada]])
+      expect(error).toMatchObject({ code: "22023", message: "propuesta_invalida" })
     })
   })
 

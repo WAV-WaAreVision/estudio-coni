@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PiezaDeCalendario } from "@/lib/calendario/modelo"
 import { leerPilares } from "@/lib/datos/pilares"
 import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
-import type { Estado } from "@/lib/dominio/estados"
+import { type Estado, tipoDePieza } from "@/lib/dominio/estados"
 import type { Horario } from "@/lib/dominio/fechas"
 import type { CatalogoDePilares } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
@@ -32,7 +32,7 @@ export async function leerDatosDeCalendario(
     db
       .from("piezas")
       .select(
-        "id, titulo, estado, puerta2_publicar_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado), fechas_propuestas(publicar_en)",
+        "id, titulo, estado, tipo, puerta2_publicar_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado), fechas_propuestas(publicar_en)",
       )
       .not("estado", "in", "(idea,descartado)")
       .or(`puerta2_publicar_en.is.null,puerta2_publicar_en.gte.${desde}`)
@@ -66,6 +66,7 @@ export async function leerDatosDeCalendario(
       titulo: fila.titulo,
       // The column is an enum of the same states; the database types it as that union.
       estado: fila.estado satisfies Estado,
+      tipo: tipoDePieza(fila.tipo),
       pilar: fila.ideas?.pilar ?? null,
       publicarEn: fila.puerta2_publicar_en,
       fechaPropuesta: fila.fechas_propuestas?.publicar_en ?? null,

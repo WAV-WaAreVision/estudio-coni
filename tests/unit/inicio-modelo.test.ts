@@ -10,6 +10,7 @@ let contador = 0
 function pieza(estado: PiezaDeInicio["estado"], extra: Partial<PiezaDeInicio> = {}): PiezaDeInicio {
   contador += 1
   return {
+    tipo: "reel" as const,
     id: `pieza-${contador}`,
     titulo: `Título ${contador}`,
     estado,
@@ -336,6 +337,7 @@ describe("construirInicio: destinos", () => {
 
 describe("Inicio con la voz en la puerta 1", () => {
   const base = {
+    tipo: "reel" as const,
     titulo: "El deseo",
     explicacion: null,
     guion: "Hola.",
@@ -401,5 +403,57 @@ describe("TEXTO_ENTRA_A_LA_PIEZA", () => {
     const etiquetas = new Set(inicio.atencion.flatMap((aviso) => (aviso.accion ? [aviso.accion.etiqueta] : [])))
     expect(etiquetas).toEqual(new Set(["Revisar", "Elegir otra fecha"]))
     for (const etiqueta of etiquetas) expect(TEXTO_ENTRA_A_LA_PIEZA).not.toContain(etiqueta)
+  })
+})
+
+describe("Inicio con carruseles", () => {
+  const carrusel = (estado: PiezaDeInicio["estado"], extra: Partial<PiezaDeInicio> = {}) =>
+    pieza(estado, { tipo: "carrusel", guion: null, destinos: ["linkedin"] as const, ...extra })
+
+  it("lists a carousel to sign as a LinkedIn carousel, with what signing it takes", () => {
+    const porFirmar = carrusel("guion_por_aprobar")
+    expect(construirInicio({ piezas: [porFirmar], ahora: AHORA, zona: ZONA }).firma).toEqual([
+      {
+        id: porFirmar.id,
+        titulo: porFirmar.titulo,
+        pilar: porFirmar.pilar,
+        meta: "Carrusel de LinkedIn",
+        href: `/guion/${porFirmar.id}`,
+        instruccion: "Lee las láminas y el texto, y fírmalo.",
+      },
+    ])
+  })
+
+  it("shows a carousel being written and a signed one waiting for its design, on their way", () => {
+    const escribiendose = carrusel("guion_en_proceso")
+    const firmado = carrusel("armando_carrusel")
+    const { camino } = construirInicio({ piezas: [escribiendose, firmado], ahora: AHORA, zona: ZONA })
+    expect(camino).toEqual([
+      {
+        id: escribiendose.id,
+        titulo: escribiendose.titulo,
+        pilar: "deseo",
+        estado: "Escribiendo el carrusel · te aviso",
+        ocupada: true,
+        href: `/guion/${escribiendose.id}`,
+      },
+      {
+        id: firmado.id,
+        titulo: firmado.titulo,
+        pilar: "deseo",
+        estado: "Texto firmado · falta el diseño",
+        ocupada: false,
+        href: `/guion/${firmado.id}`,
+      },
+    ])
+  })
+
+  it("names a carousel's failures in its own words", () => {
+    const noEscrito = carrusel("guion_en_proceso", {
+      explicacion: "Claude no quiso escribir este carrusel. Prueba con otra idea.",
+    })
+    const conNota = carrusel("guion_por_aprobar", { explicacion: "Algo." })
+    const { atencion } = construirInicio({ piezas: [noEscrito, conNota], ahora: AHORA, zona: ZONA })
+    expect(atencion.map((a) => a.causa)).toEqual(["Tu carrusel necesita atención.", "No pude escribir el carrusel."])
   })
 })

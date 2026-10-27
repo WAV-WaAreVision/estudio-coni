@@ -1,7 +1,7 @@
 import { leerBanco } from "@/lib/datos/banco"
 import { pilaresActivos } from "@/lib/datos/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
-import { elegirLoteAccion } from "../piezas/acciones"
+import { elegirLoteAccion, hacerCarruselAccion } from "../piezas/acciones"
 import {
   crearIdeaPropiaAccion,
   descartarIdeaAccion,
@@ -30,6 +30,7 @@ export default async function Ideas() {
         elegirVarias: elegirLoteAccion,
         descartarVarias: descartarIdeasAccion,
         restaurar: restaurarIdeasAccion,
+        hacerCarrusel: hacerCarruselAccion,
       }}
     />
   )

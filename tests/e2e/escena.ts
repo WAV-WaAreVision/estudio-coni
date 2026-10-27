@@ -6,6 +6,7 @@ import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { pool } from "../integration/db"
 import {
   ajustarPieza,
+  sembrarCarrusel,
   sembrarCorrida,
   sembrarIdea,
   sembrarIdeaDelMotor,
@@ -268,4 +269,20 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   // shows none, so every run draws the same Inicio.
   await pool.query("delete from public.avisos")
   return { guion, video }
+}
+
+/** The scene's carousel: its own idea (used) on an active pillar, walked to `destino`. Not part of `sembrarEscena`. */
+export const CARRUSEL = { pilar: "ia-salud-mental", titulo: "Lo que un chatbot no ve de ti" } as const
+
+export async function sembrarCarruselDeEscena(
+  destino: Parameters<typeof sembrarCarrusel>[0],
+  opciones: Parameters<typeof sembrarCarrusel>[1] = {},
+): Promise<string> {
+  const idea = await sembrarIdea({
+    pilar: CARRUSEL.pilar,
+    gancho: CARRUSEL.titulo,
+    tema: CARRUSEL.titulo,
+    estado: "usada",
+  })
+  return sembrarCarrusel(destino, { ideaId: idea, titulo: CARRUSEL.titulo, ...opciones })
 }

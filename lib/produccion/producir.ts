@@ -1,25 +1,20 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
-import { leerPilares } from "@/lib/datos/pilares"
 import {
   actualizarPieza,
   type FilaDePieza,
   guardarBorrador,
-  type IdeaLeida,
-  leerGuiaVigente,
-  leerIdea,
   leerPieza,
   leerProduccion,
   liberarGasto,
   reservarGasto,
   revisionAJson,
 } from "@/lib/datos/repositorio"
-import { cargarRespaldoDeIdea, respaldoAJson } from "@/lib/datos/respaldo"
+import { respaldoAJson } from "@/lib/datos/respaldo"
 import { transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { conLineaDeFuente, fuentesCitadas, lineaDeFuente } from "@/lib/dominio/fuente"
-import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
-import { ajenoDelRespaldo, paraElGuion, type Respaldo } from "@/lib/dominio/respaldo"
+import { ajenoDelRespaldo, paraElGuion } from "@/lib/dominio/respaldo"
 import {
   bloquea,
   etiquetarJuiciosDeClaude,
@@ -28,6 +23,7 @@ import {
   revisarGuion,
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
+import { producirCarrusel } from "@/lib/produccion/carrusel"
 import {
   aCuatroDecimales,
   avisarTope,
@@ -36,6 +32,7 @@ import {
   piezaCambio,
   TEXTO_TOPE,
 } from "@/lib/produccion/comun"
+import { type Contexto, cargarContexto, claveDeGasto } from "@/lib/produccion/contexto"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import {
   costoClaude,
@@ -62,52 +59,6 @@ export type ResultadoProduccion =
   | { resultado: "nada_que_hacer" }
   | { resultado: "tope" }
   | { resultado: "rechazado" }
-
-/**
- * One key per piece, step and script round (`intento` goes up when Coni asks for changes), so a Trigger.dev retry
- * of the same round finds its own reservation and a new round gets a new one.
- */
-function claveDeGasto(fila: FilaDePieza, que: string): string {
-  return claveIdempotencia({
-    piezaId: fila.id,
-    paso: "producir",
-    hash: hashTexto(que),
-    intento: fila.intento,
-  })
-}
-
-interface Contexto {
-  idea: IdeaLeida
-  /** The idea's pillar as the writer reads it. */
-  pilar: { nombre: string; descripcion: string | null }
-  guia: string
-  respaldo: Respaldo | null
-}
-
-// Everything that can be wrong with the setup is checked before any money is reserved.
-async function cargarContexto(deps: DepsProduccion, fila: FilaDePieza): Promise<Contexto> {
-  const { db } = deps
-  if (!fila.idea_id) {
-    throw new FallaDeConfiguracion(`La pieza ${fila.id} no tiene idea: no hay de qué escribir el guion.`)
-  }
-  const idea = await leerIdea(db, fila.idea_id)
-  if (!idea) {
-    throw new FallaDeConfiguracion(`No existe la idea ${fila.idea_id} de la pieza ${fila.id}.`)
-  }
-  const pilares = await leerPilares(db)
-  const datosDelPilar = pilares.find((candidato) => candidato.slug === idea.pilar)
-  if (!datosDelPilar) {
-    throw new FallaDeConfiguracion(`La idea ${idea.id} apunta a un pilar que no existe: ${idea.pilar}.`)
-  }
-  // A retired pillar keeps its name for the idea, but its description no longer guides what gets written.
-  const pilar = { nombre: datosDelPilar.nombre, descripcion: datosDelPilar.activa ? datosDelPilar.descripcion : null }
-  const respaldo = await cargarRespaldoDeIdea(db, idea.id)
-  const guia = await leerGuiaVigente(db)
-  if (!guia) {
-    throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
-  }
-  return { idea, pilar, guia: guia.texto, respaldo }
-}
 
 interface Borrador {
   guion: string
@@ -257,6 +208,8 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
   if (fila.estado !== "guion_en_proceso") {
     return { resultado: "nada_que_hacer" }
   }
+  // A carousel has its own writer: no script, no caption, no voice (design 2026-10-26, C3).
+  if (fila.tipo === "carrusel") return producirCarrusel(deps, fila)
   const contexto = await cargarContexto(deps, fila)
 
   const claveClaude = claveDeGasto(fila, `claude:${fila.id}:${contexto.idea.id}`)

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerCarruselVigente } from "@/lib/datos/carrusel"
 import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
+import { MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
@@ -23,6 +25,7 @@ import {
   MARGEN_DE_RELOJ_MS,
   restoDeVentana,
   TEXTO_DESHACER_TARDE,
+  type TipoDePieza,
   TransicionInvalida,
   transicionar,
   VENTANA_DESHACER_MS,
@@ -30,7 +33,7 @@ import {
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { cuantasAlcanzan } from "@/lib/dominio/lote"
-import { hashPuerta1, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
+import { hashPuerta1, hashTextoDeCarrusel, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import {
   type Hallazgo,
@@ -95,6 +98,10 @@ const LINKEDIN_SALE_SOLO = "LinkedIn está conectado: este reel sale solo a la h
 const LINKEDIN_EN_DUDA =
   "LinkedIn puede haber publicado este video. Espera mi aviso para revisarlo en tu perfil antes de subirlo."
 const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
+const TEXTO_PEDIDO_VACIO = "Escribe en una frase qué quieres cambiar."
+const TEXTO_PEDIDO_LARGO = `Escríbelo en ${MAXIMO_DEL_PEDIDO} caracteres o menos.`
+const AVISO_CAMBIO_DE_CARRUSEL =
+  "Pedí el cambio, pero el carrusel nuevo tarda en partir. Si no avanza, vuelve a intentarlo."
 
 function traducir(error: unknown): unknown {
   if (error instanceof Falla || !(error instanceof Error)) return error
@@ -109,6 +116,11 @@ function traducir(error: unknown): unknown {
   if (error.message.includes("instagram_se_publica_solo")) return new Falla(INSTAGRAM_SALE_SOLO)
   if (error.message.includes("linkedin_se_publica_solo")) return new Falla(LINKEDIN_SALE_SOLO)
   if (error.message.includes("linkedin_envio_en_duda")) return new Falla(LINKEDIN_EN_DUDA)
+  // A version written while she read (amendment 4), the fourth request, or a sentence the database refused.
+  if (error.message.includes("carrusel_no_coincide")) return new ArtefactoCambio()
+  if (error.message.includes("sin_cambios_de_texto")) return new Falla(TEXTO_SIN_CAMBIOS_DE_TEXTO)
+  if (error.message.includes("pedido_invalido")) return new Falla(TEXTO_PEDIDO_VACIO)
+  if (error.message.includes("estado_no_cambiable")) return new PantallaVencida()
   return error
 }
 
@@ -240,7 +252,32 @@ export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Prom
   })
 }
 
-async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: string }): Promise<InicioDeIdea> {
+/**
+ * "Hacer el carrusel" on an idea of the bank (design 2026-10-26, D1 step 1; plan amendment 10): its own piece,
+ * LinkedIn only, written at once. The reservation inside the writer is the guard of the month's cap, as for a script.
+ */
+export function hacerCarrusel(deps: DepsAcciones, ideaId: string): Promise<Resultado<{ piezaId: string }>> {
+  return aResultado("hacerCarrusel", async () => {
+    const { data: idea, error } = await deps.db
+      .from("ideas")
+      .select("id, gancho, estado")
+      .eq("id", ideaId)
+      .maybeSingle()
+    if (error) throw new Error(`No pude leer la idea: ${error.message}`, { cause: error })
+    if (!idea || idea.estado !== "idea") throw new Falla(TEXTO_NO_DISPONIBLE)
+    const inicio = await empezarPieza(deps, idea, "carrusel")
+    if (inicio.tipo === "empezada") return { piezaId: inicio.piezaId }
+    // The piece exists with its reason: Inicio shows it with "Reintentar".
+    if (inicio.tipo === "con_aviso") throw new Falla(TEXTO_SIN_CARRUSEL)
+    throw new Falla(TEXTO_NO_DISPONIBLE)
+  })
+}
+
+async function empezarPieza(
+  deps: DepsAcciones,
+  idea: { id: string; gancho: string },
+  tipo: TipoDePieza = "reel",
+): Promise<InicioDeIdea> {
   // The claim is atomic (`estado = 'idea'` in the update): a second tap or a second device finds it taken.
   const { data: reclamada, error } = await deps.db
     .from("ideas")
@@ -257,7 +294,16 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
 
   let nueva: FilaDePieza
   try {
-    const creada = await deps.db.from("piezas").insert({ idea_id: idea.id, titulo: idea.gancho }).select().single()
+    const creada = await deps.db
+      .from("piezas")
+      .insert({
+        idea_id: idea.id,
+        titulo: idea.gancho,
+        // A carousel is LinkedIn only from its first row (the carrusel_solo_linkedin check).
+        ...(tipo === "carrusel" ? { tipo, destinos: ["linkedin"] } : {}),
+      })
+      .select()
+      .single()
     if (creada.error) throw new Error(`No pude crear la pieza: ${creada.error.message}`, { cause: creada.error })
     nueva = await guardarEvento(deps.db, creada.data, { tipo: "elegir" })
   } catch (error) {
@@ -271,7 +317,7 @@ async function empezarPieza(deps: DepsAcciones, idea: { id: string; gancho: stri
     await deps.disparar.producir(nueva.id, claveProducir(nueva))
   } catch (error) {
     console.error("No pude iniciar producir-pieza", error)
-    await explicarSinGuion(deps.db, nueva)
+    await explicarSinGuion(deps.db, nueva, tipo === "carrusel" ? EXPLICACION_SIN_CARRUSEL : EXPLICACION_SIN_GUION)
     return { ideaId: idea.id, tipo: "con_aviso", piezaId: nueva.id }
   }
   return { ideaId: idea.id, tipo: "empezada", piezaId: nueva.id }
@@ -284,11 +330,13 @@ async function liberarIdea(db: Db, ideaId: string): Promise<boolean> {
 }
 
 const EXPLICACION_SIN_GUION = "No pude empezar a escribir el guion. Inténtalo de nuevo."
+const EXPLICACION_SIN_CARRUSEL = "No pude empezar a escribir el carrusel. Inténtalo de nuevo."
+const TEXTO_SIN_CARRUSEL = "No pude empezar a escribir el carrusel. Inténtalo de nuevo en unos minutos."
 
-async function explicarSinGuion(db: Db, fila: FilaDePieza): Promise<void> {
+async function explicarSinGuion(db: Db, fila: FilaDePieza, explicacion: string): Promise<void> {
   const { error } = await db
     .from("piezas")
-    .update({ version: fila.version + 1, explicacion: EXPLICACION_SIN_GUION })
+    .update({ version: fila.version + 1, explicacion })
     .eq("id", fila.id)
     .eq("version", fila.version)
   if (error) console.error(`No pude dejar la explicación en la pieza ${fila.id}`, error)
@@ -306,7 +354,7 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
     return iniciar(
       "producir-pieza",
       () => deps.disparar.producir(guardada.id, claveProducir(guardada)),
-      "Lo intenté otra vez, pero el guion tarda en partir. Si no avanza, vuelve a intentarlo.",
+      `Lo intenté otra vez, pero el ${fila.tipo === "carrusel" ? "carrusel" : "guion"} tarda en partir. Si no avanza, vuelve a intentarlo.`,
     )
   })
 }
@@ -331,6 +379,8 @@ function exigirAvatarElegible(elegibles: readonly AvatarElegible[], avatarId: st
 export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: number, avatarId: string | null) {
   return aResultado("aprobarGuion", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
+    // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
+    if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "aprobar_guion")
     exigirVersion(fila, versionVista, new ArtefactoCambio())
     // `versionVista` is the version of the screen she signed, and the write below only matches that version, so the
     // hash recomputed from this row is the hash of exactly what she saw.
@@ -382,6 +432,71 @@ export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionV
 }
 
 /**
+ * Gate 1 of a carousel (design 2026-10-26, D1 step 3): she signs the slides and the post text of the latest version,
+ * as `hash_texto`; the database checks it is still the latest (`carrusel_no_coincide`). No avatar, no voice, no cost.
+ * Part 1 ends here: nothing starts, and the carousel waits in `armando_carrusel` (plan amendment 1).
+ */
+export function firmarCarrusel(deps: DepsAcciones, piezaId: string, versionVista: number) {
+  return aResultado("firmarCarrusel", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista, new ArtefactoCambio())
+    if (fila.tipo !== "carrusel" || fila.estado !== "guion_por_aprobar") {
+      throw new TransicionInvalida(fila.estado, "firmar_carrusel")
+    }
+    // Its only destination is LinkedIn, so the post's findings count too.
+    exigirRevisionLimpia(fila, { linkedin: true })
+    const carrusel = await leerCarruselVigente(deps.db, fila.id)
+    if (!carrusel) throw new Error(`La pieza ${fila.id} está por aprobar sin carrusel.`)
+    const hash = hashTextoDeCarrusel(carrusel)
+    // The stored hash is what the database checks the signature against; one that is not its own words' is a bug.
+    if (hash !== carrusel.hashTexto) {
+      throw new Error(`El hash guardado del carrusel ${carrusel.id} no es el de sus palabras.`)
+    }
+    const firmada = await guardarEvento(deps.db, fila, {
+      tipo: "firmar_carrusel",
+      actor: "coni",
+      hashVisto: hash,
+      hashActual: hash,
+      en: deps.ahora(),
+    })
+    return { version: firmada.version }
+  })
+}
+
+/**
+ * "Pedir cambio" on a carousel (C8): her one sentence goes to the writer and the text is written again. The database
+ * function counts the three requests and writes the sentence; the run starts after it, like `pedirCambios`.
+ */
+export function pedirCambioDeCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  pedidoEscrito: string,
+) {
+  return aResultado("pedirCambioDeCarrusel", async () => {
+    const pedido = normalizarTexto(pedidoEscrito)
+    if (pedido === "") throw new Falla(TEXTO_PEDIDO_VACIO)
+    if ([...pedido].length > MAXIMO_DEL_PEDIDO) throw new Falla(TEXTO_PEDIDO_LARGO)
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    if (fila.tipo !== "carrusel") throw new TransicionInvalida(fila.estado, "pedir_cambios")
+    // Validated here and applied by the function below, which repeats it in SQL.
+    transicionar(piezaDesdeFila(fila), { tipo: "pedir_cambios" })
+    const { data, error } = await deps.db.rpc("pedir_cambio_de_carrusel", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_pedido: pedido,
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
+    return iniciar(
+      "producir-pieza",
+      () => deps.disparar.producir(data.id, claveProducir(data)),
+      AVISO_CAMBIO_DE_CARRUSEL,
+    )
+  })
+}
+
+/**
  * Moves a script waiting for her signature to `grabando_voz` and starts `grabar-voz`. Nothing else would start this
  * run, so a failure to start hands the piece back with the reason. Returns the row as it was left.
  */
@@ -400,6 +515,8 @@ export async function pedirVozDeFila(deps: DepsAcciones, fila: FilaDePieza, nuev
 export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: number, nueva: boolean) {
   return aResultado("pedirVoz", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
+    // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
+    if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "pedir_voz")
     exigirVersion(fila, versionVista)
     const dejada = await pedirVozDeFila(deps, fila, nueva)
     if (dejada.estado !== "grabando_voz") throw new Falla(TEXTO_SIN_VOZ)
@@ -410,6 +527,8 @@ export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: numb
 export function pedirCambios(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("pedirCambios", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
+    // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
+    if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "pedir_cambios")
     exigirVersion(fila, versionVista)
     const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_cambios" })
     return iniciar(

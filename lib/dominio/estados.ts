@@ -10,6 +10,9 @@ export const ESTADOS = [
   "en_render",
   "subtitulando",
   "video_por_aprobar",
+  // A LinkedIn carousel (design 2026-10-26): signed text waiting for its slides, then its slides waiting for gate 2.
+  "armando_carrusel",
+  "carrusel_por_aprobar",
   "programado",
   "para_subir_a_mano",
   "publicado",
@@ -22,6 +25,17 @@ export type Estado = (typeof ESTADOS)[number]
 export type Actor = "coni" | "sistema" | "admin"
 /** Steps a failed piece can be retried from. */
 export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado"
+
+/** A reel (voice, avatar, video) or a LinkedIn carousel (design 2026-10-26, C3). It never changes. */
+export const TIPOS_DE_PIEZA = ["reel", "carrusel"] as const
+export type TipoDePieza = (typeof TIPOS_DE_PIEZA)[number]
+
+/** The type as the database stores it (a text column with a check): anything else is a bug, never shown to Coni. */
+export function tipoDePieza(valor: string): TipoDePieza {
+  const tipo = TIPOS_DE_PIEZA.find((candidato) => candidato === valor)
+  if (!tipo) throw new Error(`Tipo de pieza desconocido en la base: ${valor}`)
+  return tipo
+}
 
 /** An approved time this late goes back to Coni instead of being published (accepted change A3). */
 export const MARGEN_HORA_APROBADA_MS = 30 * 60 * 1000
@@ -48,6 +62,8 @@ export interface AprobacionVideo {
 }
 
 export interface Pieza {
+  /** Which pipeline the piece goes through: the state machine refuses the other type's events. */
+  tipo: TipoDePieza
   estado: Estado
   /** Optimistic lock: every transition bumps it; the database update requires the old value. */
   version: number
@@ -70,6 +86,10 @@ export type Evento =
   /** The writer hands the script over with her voice of it; without a voice, only together with the reason. */
   | { tipo: "guion_listo"; audioId: string }
   | { tipo: "guion_listo"; audioId: null; explicacion: string }
+  /** The writer hands a carousel's slides and post text over: no voice, nothing else to make. */
+  | { tipo: "carrusel_listo" }
+  /** Coni signs a carousel's text (its `hash_texto`). Part 1 stops here: nothing renders it yet. */
+  | { tipo: "firmar_carrusel"; actor: Actor; hashVisto: string; hashActual: string; en: string }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
   /** Coni signs the script, her voice and the video spend in one gesture; the video starts after the undo window. */
@@ -170,8 +190,9 @@ function instanteDelServidor(texto: string): string {
   return instante
 }
 
-export function piezaNueva(): Pieza {
+export function piezaNueva(tipo: TipoDePieza = "reel"): Pieza {
   return {
+    tipo,
     estado: "idea",
     version: 0,
     intento: 0,
@@ -208,10 +229,26 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
     case "subtitulando":
       // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
       return pieza.explicacion === null
+    case "armando_carrusel":
+      // Part 1: nothing renders a carousel yet, so there is nothing to poll for. Part 2 turns this on.
+      return false
     default:
       return false
   }
 }
+
+/**
+ * What a carousel goes through (design 2026-10-26, C3): written, signed, changed by request or discarded. Never a
+ * voice, an avatar, a video or Instagram. Part 2 adds its rendering and gate 2 here.
+ */
+export const EVENTOS_DE_CARRUSEL: readonly Evento["tipo"][] = [
+  "elegir",
+  "carrusel_listo",
+  "pedir_cambios",
+  "firmar_carrusel",
+  "descartar",
+]
+const SOLO_DE_CARRUSEL: readonly Evento["tipo"][] = ["carrusel_listo", "firmar_carrusel"]
 
 function soloConi(actor: Actor): void {
   if (actor !== "coni") {
@@ -226,6 +263,10 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
     efectos,
   })
   const invalida = () => new TransicionInvalida(estado, evento.tipo)
+  // The first guard of the type (plan amendment 2): a carousel never reaches a voice, render or Instagram step.
+  const delTipo =
+    pieza.tipo === "carrusel" ? EVENTOS_DE_CARRUSEL.includes(evento.tipo) : !SOLO_DE_CARRUSEL.includes(evento.tipo)
+  if (!delTipo) throw invalida()
 
   switch (evento.tipo) {
     case "elegir":
@@ -404,6 +445,16 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       }
       throw invalida()
     }
+
+    case "carrusel_listo":
+      if (estado !== "guion_en_proceso") throw invalida()
+      return a("guion_por_aprobar")
+
+    case "firmar_carrusel":
+      soloConi(evento.actor)
+      if (estado !== "guion_por_aprobar") throw invalida()
+      if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
+      return a("armando_carrusel", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
 
     case "descartar":
       if (estado === "publicado" || estado === "publicado_a_mano" || estado === "descartado") throw invalida()
