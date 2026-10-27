@@ -17,7 +17,7 @@ import {
   type Variante,
 } from "@/lib/dominio/diseno-carrusel"
 import { cambiarDisenoAccion } from "../../piezas/acciones"
-import { TEXTO_CAMBIO_DISENO, TEXTO_SIN_LAMINA_PARA_CAMBIO } from "./textos"
+import { TEXTO_SIN_LAMINA_PARA_CAMBIO } from "./textos"
 
 const QUE = [
   { valor: "variante", etiqueta: "Colores" },
@@ -27,7 +27,8 @@ const QUE = [
 ] as const
 type Que = (typeof QUE)[number]["valor"]
 
-/** "El diseño" at gate 2 (D5): one bounded change at a time, never a free-text request. */
+/** "El diseño" at gate 2 (D5): one bounded change at a time, never a free-text request. Its consequence is said by
+ * the "El diseño" choice above it. */
 export function CambioDeDiseno({
   piezaId,
   version,
@@ -67,7 +68,6 @@ export function CambioDeDiseno({
 
   return (
     <div className="grid gap-4">
-      <p className="text-meta text-apagado">{TEXTO_CAMBIO_DISENO}</p>
       <fieldset className="elecciones grid border-0 p-0">
         <legend className="sr-only">Qué cambias</legend>
         {QUE.map((opcion) => (

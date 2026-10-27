@@ -1,7 +1,9 @@
 "use client"
 
+import { CaretLeft, CaretRight } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { ICONO } from "@/components/ui/icono"
 import { TEXTO_DESLIZA_RIEL } from "./textos"
 
 export interface LaminaDelRiel {
@@ -100,14 +102,29 @@ export function RielDeLaminas({ laminas, alVerTodas }: { laminas: readonly Lamin
         })}
       </ol>
       <div className="flex items-center justify-between gap-3">
-        <Boton variante="callado" tamano="chico" deshabilitado={actual === 0} onClick={() => mover(-1)}>
-          Lámina anterior
+        {/* Arrows with their names, so the counter keeps its one line beside them at 390 px. */}
+        <Boton
+          variante="callado"
+          tamano="chico"
+          aria-label="Lámina anterior"
+          className="min-w-11"
+          deshabilitado={actual === 0}
+          onClick={() => mover(-1)}
+        >
+          <CaretLeft aria-hidden="true" size={ICONO.medio} />
         </Boton>
-        <p aria-live="polite" className="text-meta tabular-nums">
+        <p aria-live="polite" className="whitespace-nowrap text-meta tabular-nums">
           Lámina {actual + 1} de {total}
         </p>
-        <Boton variante="callado" tamano="chico" deshabilitado={actual === total - 1} onClick={() => mover(1)}>
-          Lámina siguiente
+        <Boton
+          variante="callado"
+          tamano="chico"
+          aria-label="Lámina siguiente"
+          className="min-w-11"
+          deshabilitado={actual === total - 1}
+          onClick={() => mover(1)}
+        >
+          <CaretRight aria-hidden="true" size={ICONO.medio} />
         </Boton>
       </div>
       <p aria-hidden="true" className="text-center text-meta tracking-[3px] text-apagado">
