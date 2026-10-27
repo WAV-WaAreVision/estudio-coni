@@ -14,7 +14,7 @@
 "Order" only: D2 (data), D3 (writing), gate 1 for carousels, the Ideas format choice and the coni-heygen rule change.
 Out of scope: the `armar-carrusel` task, gate 2, design changes (D5), publishing (D6). Parts 2 and 3 get their own plans.
 
-**Branch and worktree:** `feat/carrusel-parte-1` in `.worktrees/carrusel-parte-1`, from `main` at this plan's commit.
+**Branch and worktree:** `feat/carrusel-1` in `.worktrees/carrusel-1`, from `main` at this plan's commit.
 coni-heygen gets its own worktree for one file (Task 21).
 
 ## Amendments to the spec (verified against `main` at `e72d29e`; where the spec and this block disagree, this block wins)
@@ -197,8 +197,8 @@ implementer stages only its own paths (`git add <paths>`, never `git add -A`) an
 cd /Users/fede/Projects/estudio-coni
 git status --short   # only the untracked .impeccable/ folders; nothing staged
 git log --oneline -1 # this plan's commit, after e72d29e
-git worktree add .worktrees/carrusel-parte-1 -b feat/carrusel-parte-1 main
-cd .worktrees/carrusel-parte-1
+git worktree add .worktrees/carrusel-1 -b feat/carrusel-1 main
+cd .worktrees/carrusel-1
 pnpm install --frozen-lockfile
 ```
 
@@ -5155,7 +5155,7 @@ Not merged here: Task 23 Step 6 merges it into coni-heygen's `main` when part 1 
   la voz, el avatar, el video e Instagram. En Ideas: "Formato" y "Hacer el carrusel". Claude escribe láminas y texto
   (zod, revisión automática, caché del sistema); puerta 1 con láminas numeradas, "Pedir cambio" (máximo 3, con una
   frase) y "Desliza para firmar". **Un carrusel firmado queda en `armando_carrusel`** ("Texto firmado · falta el
-  diseño") hasta la parte 2 (armado con Playwright y puerta 2). Migraciones `20261026000100` a `20261026000120`.
+  diseño") hasta la parte 2 (armado con Playwright y puerta 2). Migraciones `20261026000100` a `20261026000140`.
 ```
 
 In `docs/PRODUCT.md`, where the formats or the gates are described, one paragraph: a carousel is a LinkedIn-only piece
@@ -5213,7 +5213,7 @@ select conname from pg_constraint where conrelid = 'public.piezas'::regclass
 
 Expected: five constraints; no carousel in a reel state.
 
-- [ ] **Step 4: Code review** with `superpowers:requesting-code-review` on `main..feat/carrusel-parte-1`, giving the
+- [ ] **Step 4: Code review** with `superpowers:requesting-code-review` on `main..feat/carrusel-1`, giving the
 reviewer amendments 1 to 13 and decisions D1 to D4. Focus: `proteger_pieza` against `20261007000110` (only the named
 blocks differ); RLS and immutability of `carruseles`; the three-request limit under concurrency; the prompt keeps
 her sentence and the old version as data; `firmarCarrusel` binds exactly what the screen showed (version lock plus the
@@ -5241,13 +5241,14 @@ then Trigger.dev, then the app** (amendment 13).
   still pay Claude. Hence Trigger.dev before Vercel.
 
 - [ ] **Step 1 (OK needed): merge, no push unless asked.**
-`git checkout main && git merge --no-ff feat/carrusel-parte-1`. `git push` only when Federico asks.
+`git checkout main && git merge --no-ff feat/carrusel-1`. `git push` only when Federico asks.
 
-- [ ] **Step 2 (OK needed): database.** `supabase db push` from the repo (Federico). It applies the four carousel migrations in
+- [ ] **Step 2 (OK needed): database.** `supabase db push` from the repo (Federico). It applies the five carousel migrations in
 order: `20261026000100` (states), `20261026000110` (type, checks, `carruseles`), `20261026000120` (gate and writer
-functions) and `20261026000130` (gate 1 signs the latest version past gate 1, a change request clears `puerta1_*`, at
-most 8 slides, `piezas.cambios_de_texto` is the base of the three-change limit). Before pushing,
-`supabase migration list` shows exactly those four as local-only. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
+functions), `20261026000130` (gate 1 signs the hash of the latest version written, a change request clears
+`puerta1_*`, at most 8 slides, `piezas.cambios_de_texto` is the base of the three-change limit) and `20261026000140`
+(`proponer_fechas` takes the two carousel states before gate 2; a carousel enters `armando_carrusel` only from
+`guion_por_aprobar`). Before pushing, `supabase migration list` shows exactly those five as local-only. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
 
 ```sql
 select unnest(enum_range(null::public.estado_pieza))::text;
@@ -5305,7 +5306,7 @@ evidence. The carousel stays in `armando_carrusel` until part 2 ships.
 was removed afterwards; Federico's `contenido/banco-ideas` checkout was not touched. `git push` of coni-heygen `main`
 only if Federico asks.
 
-- [ ] **Step 7: Handoff.** Update `docs/TRASPASO.md` "Producción" (migrations up to `20261026000130`, the new Trigger
+- [ ] **Step 7: Handoff.** Update `docs/TRASPASO.md` "Producción" (migrations up to `20261026000140`, the new Trigger
 version, the Vercel deploy) and the part 1 bullet ("en producción desde ..."), in a commit on `main`, pushed only if Federico asks.
 
 ---
