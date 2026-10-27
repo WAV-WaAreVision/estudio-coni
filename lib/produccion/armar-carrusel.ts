@@ -212,9 +212,9 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
 
 /**
  * The `armar-carrusel` run (design 2026-10-26, D4): renders the latest version of a carousel in `armando_carrusel`,
- * uploads one PNG per slide and the PDF to R2 under the version's own keys, and puts the piece at gate 2. A version that
- * does not fit is shortened once or sent back to gate 1 (amendment 3). Safe to run again: the keys are per version and
- * `guardar_armado` refuses a version that is no longer waiting.
+ * uploads one PNG per slide and the PDF to R2 under the version's folder, and puts the piece at gate 2. A version that
+ * does not fit is shortened once or sent back to gate 1 (amendment 3). Safe to run again: each run writes its own keys
+ * and `guardar_armado` refuses a version that is no longer waiting.
  */
 export async function armarCarrusel(deps: DepsArmado, piezaId: string): Promise<ResultadoArmado> {
   const { db } = deps
@@ -241,13 +241,15 @@ export async function armarCarrusel(deps: DepsArmado, piezaId: string): Promise<
       : acortar(deps, fila, version, render.laminas)
   }
 
-  const pngs = version.laminas.map((_, indice) => claveLaminaDeCarrusel(fila.id, version.id, indice))
+  // Fresh per run: only the keys guardar_armado saves are ever referenced, whatever a concurrent run uploads.
+  const corrida = crypto.randomUUID()
+  const pngs = version.laminas.map((_, indice) => claveLaminaDeCarrusel(fila.id, version.id, corrida, indice))
   for (const [indice, clave] of pngs.entries()) {
     const bytes = render.pngs[indice]
     if (!bytes) throw new Error(`El render del carrusel ${fila.id} trajo menos láminas que la versión.`)
     await deps.almacen.subir(clave, bytes, "image/png")
   }
-  const pdf = clavePdfDeCarrusel(fila.id, version.id)
+  const pdf = clavePdfDeCarrusel(fila.id, version.id, corrida)
   await deps.almacen.subir(pdf, render.pdf, "application/pdf")
   // Validated here and applied by guardar_armado, which repeats it in SQL.
   transicionar(piezaDesdeFila(fila), { tipo: "carrusel_armado" })

@@ -303,6 +303,49 @@ describe("armarCarrusel", () => {
     })
   })
 
+  it("keeps the files gate 2 shows when a losing render of the same version finishes after the saved one", async () => {
+    const id = await carrusel()
+    const compartido = almacenEnMemoria()
+    const PNG_GANADOR = new Uint8Array([137, 80, 78, 71, 1])
+    const PNG_PERDEDOR = new Uint8Array([137, 80, 78, 71, 2])
+    function corrida(png: Uint8Array) {
+      let soltar: () => void = () => {}
+      const suelto = new Promise<void>((resolver) => {
+        soltar = resolver
+      })
+      let entrar: () => void = () => {}
+      const adentro = new Promise<void>((resolver) => {
+        entrar = resolver
+      })
+      const deps: DepsArmado = {
+        ...doble([]).deps,
+        almacen: compartido,
+        renderizar: async () => {
+          entrar()
+          await suelto
+          return { tipo: "listo", pngs: Array.from({ length: 6 }, () => png), pdf: PDF }
+        },
+      }
+      return { deps, soltar, adentro }
+    }
+    const ganadora = corrida(PNG_GANADOR)
+    const perdedora = corrida(PNG_PERDEDOR)
+
+    const primera = armarCarrusel(ganadora.deps, id)
+    const segunda = armarCarrusel(perdedora.deps, id)
+    await Promise.all([ganadora.adentro, perdedora.adentro])
+    ganadora.soltar()
+    expect(await primera).toEqual({ resultado: "armado" })
+    perdedora.soltar()
+    await expect(segunda).rejects.toThrow()
+
+    const version = await leerVersionVigente(clienteDeServicio(), id)
+    expect(version?.estado).toBe("listo")
+    for (const clave of version?.pngClaves ?? []) {
+      expect(compartido.obtener(clave)?.datos).toEqual(PNG_GANADOR)
+    }
+  })
+
   it("leaves a piece that is not waiting for its slides alone", async () => {
     const id = await carrusel("carrusel_por_aprobar")
     const d = doble([])

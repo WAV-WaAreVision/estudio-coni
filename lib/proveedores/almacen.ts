@@ -201,22 +201,27 @@ export function claveVideo(piezaId: string, mp4: Uint8Array): string {
 const LAMINAS_MAXIMAS = 8
 
 /**
- * A carousel version's files (plan amendment 7): one folder per version, so a retried render overwrites its own files
- * and a design change (a new version) never touches what an earlier gate 2 saw.
+ * A carousel version's files (plan amendment 7): one folder per version, so a design change (a new version) never
+ * touches what an earlier gate 2 saw, and inside it one folder per render, so a losing concurrent render never
+ * overwrites the files `guardar_armado` saved for the winner.
  */
-export function claveLaminaDeCarrusel(piezaId: string, carruselId: string, indice: number): string {
+function carpetaDeCarrusel(piezaId: string, carruselId: string, corridaId: string): string {
   exigirUuid(piezaId)
   exigirUuid(carruselId)
+  exigirUuid(corridaId)
+  return `carruseles/${piezaId}/${carruselId}/${corridaId}`
+}
+
+export function claveLaminaDeCarrusel(piezaId: string, carruselId: string, corridaId: string, indice: number): string {
+  const carpeta = carpetaDeCarrusel(piezaId, carruselId, corridaId)
   if (!Number.isInteger(indice) || indice < 0 || indice >= LAMINAS_MAXIMAS) {
     throw new Error(`Lámina fuera de rango: ${indice}`)
   }
-  return `carruseles/${piezaId}/${carruselId}/lamina-${String(indice + 1).padStart(2, "0")}.png`
+  return `${carpeta}/lamina-${String(indice + 1).padStart(2, "0")}.png`
 }
 
-export function clavePdfDeCarrusel(piezaId: string, carruselId: string): string {
-  exigirUuid(piezaId)
-  exigirUuid(carruselId)
-  return `carruseles/${piezaId}/${carruselId}/carrusel.pdf`
+export function clavePdfDeCarrusel(piezaId: string, carruselId: string, corridaId: string): string {
+  return `${carpetaDeCarrusel(piezaId, carruselId, corridaId)}/carrusel.pdf`
 }
 
 /** The original of a material; the images of a multi-image material carry their order (1..20) as two digits. */

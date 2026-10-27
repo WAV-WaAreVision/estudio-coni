@@ -215,16 +215,19 @@ describe("claveMaterial", () => {
 describe("carousel keys", () => {
   const PIEZA = "c0000000-0000-4000-8000-0000000000aa"
   const CARRUSEL = "11111111-1111-4111-8111-111111111111"
+  const CORRIDA = "22222222-2222-4222-8222-222222222222"
 
-  it("puts every version's files under its own folder", () => {
-    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, 0)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/lamina-01.png`)
-    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, 7)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/lamina-08.png`)
-    expect(clavePdfDeCarrusel(PIEZA, CARRUSEL)).toBe(`carruseles/${PIEZA}/${CARRUSEL}/carrusel.pdf`)
+  it("puts every render of a version under its own folder inside the version's", () => {
+    const carpeta = `carruseles/${PIEZA}/${CARRUSEL}/${CORRIDA}`
+    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, CORRIDA, 0)).toBe(`${carpeta}/lamina-01.png`)
+    expect(claveLaminaDeCarrusel(PIEZA, CARRUSEL, CORRIDA, 7)).toBe(`${carpeta}/lamina-08.png`)
+    expect(clavePdfDeCarrusel(PIEZA, CARRUSEL, CORRIDA)).toBe(`${carpeta}/carrusel.pdf`)
   })
 
   it("refuses ids that are not UUIDs and a slide past the eighth", () => {
-    expect(() => claveLaminaDeCarrusel("x", CARRUSEL, 0)).toThrow(Error)
-    expect(() => clavePdfDeCarrusel(PIEZA, "../otro")).toThrow(Error)
-    expect(() => claveLaminaDeCarrusel(PIEZA, CARRUSEL, 8)).toThrow(Error)
+    expect(() => claveLaminaDeCarrusel("x", CARRUSEL, CORRIDA, 0)).toThrow(Error)
+    expect(() => clavePdfDeCarrusel(PIEZA, "../otro", CORRIDA)).toThrow(Error)
+    expect(() => clavePdfDeCarrusel(PIEZA, CARRUSEL, "../otra")).toThrow(Error)
+    expect(() => claveLaminaDeCarrusel(PIEZA, CARRUSEL, CORRIDA, 8)).toThrow(Error)
   })
 })
