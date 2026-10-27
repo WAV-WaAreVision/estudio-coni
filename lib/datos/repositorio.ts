@@ -488,10 +488,15 @@ export function guardarVideoLinkedin(db: Db, piezaId: string, videoUrn: string):
   return escribirFilaLinkedin(db, piezaId, { video_urn: videoUrn }, "guardar el video")
 }
 
+/** A carousel's uploaded PDF (part 3): stored before polling, so a later run never uploads it again. */
+export function guardarDocumentoLinkedin(db: Db, piezaId: string, documentoUrn: string): Promise<void> {
+  return escribirFilaLinkedin(db, piezaId, { documento_urn: documentoUrn }, "guardar el documento")
+}
+
 export async function sumarIntentoLinkedin(
   db: Db,
   piezaId: string,
-  entrada: { error: string; borrarVideo: boolean },
+  entrada: { error: string; borrarVideo: boolean; borrarDocumento?: boolean },
 ): Promise<void> {
   const fila = await leerFilaLinkedin(db, piezaId)
   if (!fila) throw new Error(`La pieza ${piezaId} no tiene fila de LinkedIn.`)
@@ -502,6 +507,7 @@ export async function sumarIntentoLinkedin(
       intentos: fila.intentos + 1,
       ultimo_error: entrada.error.slice(0, 500),
       ...(entrada.borrarVideo ? { video_urn: null } : {}),
+      ...(entrada.borrarDocumento ? { documento_urn: null } : {}),
     },
     "contar el intento",
   )
