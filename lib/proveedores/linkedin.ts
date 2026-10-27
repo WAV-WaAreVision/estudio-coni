@@ -173,6 +173,16 @@ export async function estadoDelVideo(entrada: { token: string; video: string }):
   }
 }
 
+const DOMINIOS_DE_LINKEDIN = ["linkedin.com", "licdn.com"]
+
+/** https on LinkedIn's own domains, or the API base the tests point at. */
+function esDireccionDeLinkedin(direccion: string): boolean {
+  const url = new URL(direccion)
+  if (url.origin === new URL(base()).origin) return true
+  if (url.protocol !== "https:") return false
+  return DOMINIOS_DE_LINKEDIN.some((dominio) => url.hostname === dominio || url.hostname.endsWith(`.${dominio}`))
+}
+
 const DocumentoIniciado = z.object({
   value: z.object({
     uploadUrl: z.string().url(),
@@ -196,6 +206,14 @@ export async function subirDocumento(entrada: { token: string; miembro: string; 
   const leida = DocumentoIniciado.safeParse(await inicio.json())
   if (!leida.success) throw new Error("LinkedIn devolvió una respuesta inesperada en initializeUpload del documento.")
   const { uploadUrl, document } = leida.data.value
+  // The PUT carries her token: it goes only to LinkedIn over https. A definitive "no" (it goes by hand), and the error
+  // never names the address.
+  if (!esDireccionDeLinkedin(uploadUrl)) {
+    throw new RechazoDeLinkedin(
+      inicio.status,
+      "LinkedIn devolvió una dirección de subida del documento que no es suya.",
+    )
+  }
   // The documented upload carries the member's token (a video part does not). LinkedIn names no content type.
   await llamar(
     uploadUrl,

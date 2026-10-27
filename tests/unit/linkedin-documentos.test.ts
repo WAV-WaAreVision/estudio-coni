@@ -46,6 +46,36 @@ describe("subirDocumento", () => {
     expect(String(error)).not.toContain(TOKEN)
     expect(String(error)).not.toContain("dms-uploads")
   })
+
+  it.each([
+    "https://subidas.atacante.test/u",
+    "http://www.linkedin.com/dms-uploads/u",
+    "https://linkedin.com.atacante.test/u",
+    "https://www.licdn.com.atacante.test/u",
+  ])("never sends her token to an upload address that is not LinkedIn's (%s)", async (uploadUrl) => {
+    const sim = simularLinkedin({
+      iniciarDocumento: () =>
+        HttpResponse.json({ value: { uploadUrlExpiresAt: 4_102_444_800_000, uploadUrl, document: DOCUMENTO } }),
+    })
+    const error = await subirDocumento({ token: TOKEN, miembro: MIEMBRO, datos: PDF }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(RechazoDeLinkedin)
+    expect(String(error)).not.toContain(TOKEN)
+    expect(String(error)).not.toContain(uploadUrl)
+    expect(sim.subidasDeDocumento).toHaveLength(0)
+  })
+
+  it.each(["https://www.linkedin.com/dms-uploads/u", "https://api.linkedin.com/u", "https://media.licdn.com/u"])(
+    "uploads to LinkedIn's own addresses (%s)",
+    async (uploadUrl) => {
+      const sim = simularLinkedin({
+        iniciarDocumento: () =>
+          HttpResponse.json({ value: { uploadUrlExpiresAt: 4_102_444_800_000, uploadUrl, document: DOCUMENTO } }),
+        subidaDeDocumentoEn: uploadUrl,
+      })
+      expect(await subirDocumento({ token: TOKEN, miembro: MIEMBRO, datos: PDF })).toBe(DOCUMENTO)
+      expect(sim.subidasDeDocumento).toHaveLength(1)
+    },
+  )
 })
 
 describe("estadoDelDocumento", () => {

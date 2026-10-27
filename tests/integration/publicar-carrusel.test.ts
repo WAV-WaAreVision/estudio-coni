@@ -206,6 +206,27 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_CARRUSEL)
   })
 
+  it("goes by hand without sending her token when LinkedIn hands out an upload address that is not its own", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({
+      iniciarDocumento: () =>
+        HttpResponse.json({
+          value: {
+            uploadUrlExpiresAt: 4_102_444_800_000,
+            uploadUrl: "https://subidas.atacante.test/u",
+            document: DOCUMENTO,
+          },
+        }),
+    })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.subidasDeDocumento).toHaveLength(0)
+    expect(sim.posts).toHaveLength(0)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila).toMatchObject({ estado: "para_subir", explicacion: EXPLICACION_LINKEDIN_CARRUSEL, enviado_en: null })
+  })
+
   it("goes by hand with the doubt text when the post fails after the reservation, and never posts again", async () => {
     const d = doble(() => despues(1))
     const id = await programado(d)

@@ -22,6 +22,8 @@ export interface OpcionesLinkedin {
   documentos?: string[]
   iniciarDocumento?: () => Response
   subidaDeDocumento?: () => Response
+  /** Where the document PUT is answered, when a test hands out another LinkedIn upload address. */
+  subidaDeDocumentoEn?: string
   /** Replaces the document read; may do work first (a test changes the database while LinkedIn processes). */
   documento?: () => Response | Promise<Response>
 }
@@ -133,7 +135,7 @@ export function simularLinkedin(opciones: OpcionesLinkedin = {}): SimulacionLink
         })
       )
     }),
-    http.put(SUBIDA_DOCUMENTO, async ({ request }) => {
+    http.put(opciones.subidaDeDocumentoEn ?? SUBIDA_DOCUMENTO, async ({ request }) => {
       sim.subidasDeDocumento.push({
         datos: new Uint8Array(await request.arrayBuffer()),
         autorizacion: request.headers.get("authorization"),
