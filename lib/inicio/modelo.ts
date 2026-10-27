@@ -265,9 +265,12 @@ function cuandoSePublico(pieza: PiezaDeInicio, ahora: number, zona: string): str
 }
 
 function avisoDePublicacion(pieza: PiezaDeInicio, ahora: number, zona: string): AvisoDeInicio {
+  const titulo = `${pieza.titulo} se publicó ${cuandoSePublico(pieza, ahora, zona)}`
+  // A carousel is a LinkedIn document signed with her name (C11): no Instagram, no AI label. Its link is on its screen.
+  if (pieza.tipo === "carrusel") return { tipo: "ok", titulo, texto: "Salió solo en LinkedIn." }
   return {
     tipo: "ok",
-    titulo: `${pieza.titulo} se publicó ${cuandoSePublico(pieza, ahora, zona)}`,
+    titulo,
     texto: "La etiqueta de IA quedó puesta en Instagram.",
     ...(pieza.permalink ? { accion: { etiqueta: "Ver en Instagram", href: pieza.permalink, externo: true } } : {}),
   }
