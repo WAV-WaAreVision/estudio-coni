@@ -82,6 +82,52 @@ describe("proteger_pieza with carousels", () => {
     })
   })
 
+  it("refuses armando_carrusel when the signature is of a version a change request replaced", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await porAprobar(c)
+      const version = async () =>
+        (await c.query<{ version: number }>("select version from public.piezas where id = $1", [id])).rows[0]?.version
+      await asumir(c, comoConi)
+      await c.query(
+        "update public.piezas set puerta1_hash = $2, puerta1_en = now(), version = version + 1 where id = $1",
+        [id, HASH],
+      )
+      const { rows: pedido } = await c.query(
+        "select puerta1_hash, puerta1_en, puerta1_por from public.pedir_cambio_de_carrusel($1, $2, 'Más corto')",
+        [id, await version()],
+      )
+      expect(pedido[0]).toEqual({ puerta1_hash: null, puerta1_en: null, puerta1_por: null })
+      await nuevaVersion(c, id, OTRO_HASH, "cambio_texto", "Más corto")
+      await asumir(c, comoServicio)
+      await c.query("update public.piezas set estado = 'guion_por_aprobar', version = version + 1 where id = $1", [id])
+      await asumir(c, comoConi)
+      const error = await fallaCon(
+        c,
+        "update public.piezas set estado = 'armando_carrusel', version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error).toMatchObject({ code: "42501", message: "carrusel_no_coincide" })
+      const { rows } = await firmar(c, id, OTRO_HASH)
+      expect(rows[0]).toMatchObject({ estado: "armando_carrusel", puerta1_por: CONI })
+    })
+  })
+
+  it("refuses a carousel past gate 1 whose signature is not the latest version's, even moved by the service", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await porAprobar(c)
+      await asumir(c, comoConi)
+      await firmar(c, id)
+      await nuevaVersion(c, id, OTRO_HASH, "cambio_texto", "Más corto")
+      await asumir(c, comoServicio)
+      const error = await fallaCon(
+        c,
+        "update public.piezas set estado = 'carrusel_por_aprobar', version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error).toMatchObject({ code: "42501", message: "carrusel_no_coincide" })
+    })
+  })
+
   it("lets only Coni sign or enter armando_carrusel", async () => {
     await como(comoPostgres, async (c) => {
       const id = await porAprobar(c)
