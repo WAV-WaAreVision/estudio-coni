@@ -185,7 +185,10 @@ bundle check (no deploy, no login needed for the type side): `pnpm exec tsc --no
 and "signing the text leaves the carousel waiting, starts nothing") go red from Task 17 (signing now starts the render)
 and Task 24 (the waiting screen becomes "Estoy armando las láminas") until Task 26 rewrites them; that is planned.
 Visual baselines change for `guion-por-aprobar` and `carrusel-por-aprobar` (the discard row, Task 3) and
-`carrusel-firmado` (renamed `carrusel-armando`, Task 27), plus the new ones of Tasks 3, 12 and 27.
+`carrusel-firmado` (renamed `carrusel-armando`, Task 27), plus the new ones of Tasks 3, 12 and 27. Commit `3f8c577` also
+changed seven more gate 1 baselines (`guion-con-voz`, `guion-escuchada`, `guion-escuchada-letra-grande`,
+`guion-falla-voz`, `guion-sin-escuchar`, `guion-sin-saldo`, `guion-sin-voz`): the discard row shows on every gate 1
+script except while it is `preparando`, so those changes are expected.
 
 ## Lotes (batches for subagent-driven execution, one reviewer per lote)
 
@@ -6542,7 +6545,9 @@ pnpm test:e2e
 ```
 
 Expected: all green; counts grow by this plan's tests (compare with Task 0); empty lint diff; only the baselines named
-in Tasks 3 and 27 changed.
+in Tasks 3 and 27 changed, plus the seven gate 1 baselines of `3f8c577` (`guion-con-voz`, `guion-escuchada`,
+`guion-escuchada-letra-grande`, `guion-falla-voz`, `guion-sin-escuchar`, `guion-sin-saldo`, `guion-sin-voz`), which
+show the discard row.
 
 - [ ] **Step 2: Banned patterns in my own diff**
 
@@ -6579,10 +6584,11 @@ Fix findings test-first.
 Federico runs every production command from the **macOS Terminal** (not the app's terminal). **Order: database, then
 Trigger.dev, then the app** (amendment 14). Why:
 
-- **Old code on the new database is safe:** the two migrations only widen what is allowed (a new origin of an error, new
+- **Old code on the new database is safe:** the migrations only widen what is allowed (a new origin of an error, new
   ways into `armando_carrusel` that the old app never takes, a gate 2 that only carousels use) and add functions old
   code does not call; `proteger_pieza` is byte for byte the old one for reels; the new `listo_con_archivos` check holds
-  for every existing version (none is `listo`); the notice trigger only adds a state.
+  for every existing version (none is `listo`); the notice trigger only adds a state; `20261027000150` adds two
+  timestamps to `carruseles` that old code never reads, and stamps `armado_pedido_en` on the carousels already waiting.
 - **The new worker on the old app is safe and wanted:** the new `mantenimiento-frecuente` renders the carousels already
   in `armando_carrusel` (signed under part 1) within ten minutes; their gate 2 screen arrives with the app, and until
   then Inicio shows them as before. The new publisher only changes what happens to a scheduled carousel, and none
@@ -6595,23 +6601,28 @@ Trigger.dev, then the app** (amendment 14). Why:
 - [ ] **Step 1 (OK needed): merge, no push unless asked.**
 `git checkout main && git merge --no-ff feat/carrusel-2`. `git push` only when Federico asks.
 
-- [ ] **Step 2 (OK needed): database.** `supabase migration list` shows exactly `20261027000100` and `20261027000110` as
-local-only; then `supabase db push`. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
+- [ ] **Step 2 (OK needed): database.** `supabase migration list` shows exactly `20261027000100`, `20261027000110`,
+`20261027000120`, `20261027000130`, `20261027000140` and `20261027000150` as local-only; then `supabase db push`. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
 
 ```sql
 select pg_get_constraintdef(oid) from pg_constraint where conname = 'piezas_estado_antes_del_error_check';
-select p.proname, has_function_privilege('authenticated', p.oid, 'execute') as autenticado
+select p.proname, has_function_privilege('authenticated', p.oid, 'execute') as autenticado,
+       has_function_privilege('anon', p.oid, 'execute') as anonimo
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
  where n.nspname = 'public'
-   and p.proname in ('guardar_armado', 'guardar_acortado', 'cambiar_diseno_de_carrusel', 'pedir_cambio_de_carrusel', 'palabras_de_laminas');
+   and p.proname in ('guardar_armado', 'guardar_acortado', 'rechazar_diseno_que_no_cabe', 'pedir_armado_de_carrusel',
+                     'cambiar_diseno_de_carrusel', 'pedir_cambio_de_carrusel', 'palabras_de_laminas');
 select p.id, p.titulo, p.estado, c.version, c.estado as version_estado
   from public.piezas p join public.carruseles c on c.pieza_id = p.id
  where p.tipo = 'carrusel' and p.estado = 'armando_carrusel' order by c.version desc;
 ```
 
-Expected: the check names `armando_carrusel`; `guardar_armado` and `guardar_acortado` false, `cambiar_diseno_de_carrusel`
-and `pedir_cambio_de_carrusel` true (`palabras_de_laminas` may be true: it reads only its argument); the list of part 1
-carousels waiting (write their ids down for Step 4).
+Expected: the check names `armando_carrusel`; `guardar_armado`, `guardar_acortado`, `rechazar_diseno_que_no_cabe` and
+`pedir_armado_de_carrusel` false for both `autenticado` and `anonimo`; `cambiar_diseno_de_carrusel` and
+`pedir_cambio_de_carrusel` true for `autenticado` and false for `anonimo` (`palabras_de_laminas` may be true: it reads only
+its argument); the list of part 1 carousels waiting (write their ids down for Step 4), each latest version with
+`armado_pedido_en` set by the push (the maintenance gives a render that never starts a day from then, and one that started
+an hour from its start).
 
 - [ ] **Step 3 (OK needed): Trigger.dev.** The image now builds Chromium (the `playwright()` layer: Debian libraries
 plus `chromium-headless-shell` for `playwright@1.59.1`), so the first build is several minutes longer and the image
