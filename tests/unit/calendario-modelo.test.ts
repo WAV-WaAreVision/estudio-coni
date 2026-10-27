@@ -16,6 +16,7 @@ function pieza(extra: Partial<PiezaDeCalendario>): PiezaDeCalendario {
     id: `p${contador}`,
     titulo: `Pieza ${contador}`,
     estado: "programado",
+    tipo: "reel",
     pilar: "pareja",
     publicarEn: null,
     fechaPropuesta: null,
@@ -455,6 +456,25 @@ describe("Ritmo", () => {
     const { ritmo } = calendario([])
 
     expect(ritmo.vacio).toBe(true)
+  })
+})
+
+describe("carousels in the Agenda", () => {
+  const ocupanteDe = (extra: Partial<PiezaDeCalendario>) => {
+    const carrusel = pieza({ tipo: "carrusel", destinos: ["linkedin"], ...extra })
+    return calendario([carrusel])
+      .agenda.semanas.flatMap((s) => s.huecos)
+      .find((h) => h.ocupante?.titulo === carrusel.titulo)?.ocupante
+  }
+
+  it("asks for her signature on a carousel at gate 1 and opens it", () => {
+    const ocupante = ocupanteDe({ id: "c1", estado: "guion_por_aprobar" })
+    expect(ocupante).toMatchObject({ estado: "Falta tu firma: carrusel", tono: "aviso", href: "/guion/c1" })
+  })
+
+  it("says a signed carousel waits for its design and opens it", () => {
+    const ocupante = ocupanteDe({ id: "c2", estado: "armando_carrusel" })
+    expect(ocupante).toMatchObject({ estado: "Texto firmado · falta el diseño", href: "/guion/c2" })
   })
 })
 

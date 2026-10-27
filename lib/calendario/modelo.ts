@@ -1,5 +1,5 @@
 import { canonicos, type Destino, nombreDeDestino, nombreDeDestinos } from "@/lib/dominio/destinos"
-import type { Estado } from "@/lib/dominio/estados"
+import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { diaLocal, etiquetaDeFecha, type Horario, instanteLocal, proponerFechas, semanaDe } from "@/lib/dominio/fechas"
 import { limitesDelMes, lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 import { type CatalogoDePilares, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
@@ -11,6 +11,7 @@ export interface PiezaDeCalendario {
   id: string
   titulo: string
   estado: Estado
+  tipo: TipoDePieza
   /** The slug of its idea's pillar. */
   pilar: string | null
   /** The approved publishing time; null until the video is approved. */
@@ -267,7 +268,15 @@ function ocupanteDe(pieza: PiezaConPilar, provisional: boolean, propuesta = fals
     case "video_por_aprobar":
       return { ...base, estado: "Falta tu firma: video y fecha", tono: "aviso", href: `/video/${pieza.id}` }
     case "guion_por_aprobar":
-      return { ...base, estado: "Falta tu firma: guion", tono: "aviso", href: `/guion/${pieza.id}` }
+      return {
+        ...base,
+        estado: pieza.tipo === "carrusel" ? "Falta tu firma: carrusel" : "Falta tu firma: guion",
+        tono: "aviso",
+        href: `/guion/${pieza.id}`,
+      }
+    // Part 1 of the carousel ends at its signed text (design 2026-10-26, amendment 1).
+    case "armando_carrusel":
+      return { ...base, estado: "Texto firmado · falta el diseño", tono: "neutro", href: `/guion/${pieza.id}` }
     // Only a piece the old app left there (design 2026-10-15): the deploy moves those back to gate 1.
     case "guion_aprobado":
       return { ...base, estado: "Guion aprobado · falta grabar", tono: "aviso", href: `/guion/${pieza.id}` }

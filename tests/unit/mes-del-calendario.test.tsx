@@ -12,6 +12,7 @@ const publicada: PiezaDeCalendario = {
   id: "p1",
   titulo: "Si van a discutir",
   estado: "programado",
+  tipo: "reel",
   pilar: "pareja",
   publicarEn: "2026-10-08T22:00:00.000Z",
   fechaPropuesta: null,
