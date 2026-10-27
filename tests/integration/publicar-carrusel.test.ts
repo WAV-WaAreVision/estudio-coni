@@ -1,9 +1,11 @@
+import { HttpResponse } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { aLittleText } from "@/lib/dominio/linkedin"
 import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { EXPLICACION_LINKEDIN_TARDE, LINKEDIN_SIN_CONEXION } from "@/lib/publicacion/linkedin"
+import { EXPLICACION_LINKEDIN_CARRUSEL } from "@/lib/publicacion/linkedin-carrusel"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { DOCUMENTO, simularLinkedin } from "../linkedin-msw"
@@ -115,6 +117,70 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     expect(await publicarPendientes(d.deps)).toEqual([])
     expect((await leerFila(id)).estado).toBe("programado")
     expect(sim.documentosIniciados).toHaveLength(0)
+  })
+
+  it("keeps the piece while the document processes and resumes without uploading again", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    simularLinkedin({ documentos: ["PROCESSING"] })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    expect((await leerFila(id)).estado).toBe("programado")
+    expect((await publicacionesConDetalle(id))[0]).toMatchObject({ documento_urn: DOCUMENTO, estado: "esperando" })
+
+    const sim2 = simularLinkedin({ documentos: ["AVAILABLE"] })
+    const d2 = doble(() => despues(6))
+    expect(await publicarPendientes(d2.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect(sim2.documentosIniciados).toHaveLength(0)
+    expect(sim2.posts).toHaveLength(1)
+  })
+
+  it("counts a temporary failure as one try and keeps the piece for the next tick", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    simularLinkedin({ iniciarDocumento: () => new HttpResponse("ocupado", { status: 503 }) })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    expect((await publicacionesConDetalle(id))[0]).toMatchObject({ estado: "esperando", intentos: 1 })
+    expect((await leerFila(id)).estado).toBe("programado")
+  })
+
+  it("counts a store that does not answer as a try", async () => {
+    const d = doble(() => despues(1))
+    const id = await sembrarCarrusel("programado", { publicarEn: PUBLICAR_EN })
+    creadas.push(id)
+    simularLinkedin()
+    // No PDF in the store: `bajar` throws as R2 not answering would.
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+    expect((await publicacionesConDetalle(id))[0]?.intentos).toBe(1)
+  })
+
+  it("drops a document that failed processing, uploads again, and goes by hand after the maximum", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({ documentos: ["PROCESSING_FAILED"] })
+
+    for (const minuto of [1, 2, 3]) {
+      const corrida = doble(() => despues(minuto))
+      await corrida.almacen.subir(await pdfAprobado(id), PDF, "application/pdf")
+      expect(await publicarPendientes(corrida.deps)).toEqual([{ piezaId: id, resultado: "esperando" }])
+      expect((await publicacionesConDetalle(id))[0]).toMatchObject({ documento_urn: null, intentos: minuto })
+    }
+    expect(sim.documentosIniciados).toHaveLength(3)
+
+    const ultima = doble(() => despues(4))
+    expect(await publicarPendientes(ultima.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.posts).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_CARRUSEL)
+  })
+
+  it("goes by hand at once when LinkedIn rejects the PDF", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    simularLinkedin({ iniciarDocumento: () => HttpResponse.json({ status: 422 }, { status: 422 }) })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_CARRUSEL)
   })
 })
 
