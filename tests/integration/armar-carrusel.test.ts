@@ -242,10 +242,10 @@ describe("armarCarrusel", () => {
     )
     expect(gastos.rows).toEqual([{ estado: "confirmado", pagado: true }])
 
-    expect(await armarCarrusel(doble([{ tipo: "desborda", laminas: [3] }]).deps, id)).toEqual({
-      resultado: "muy_largo",
-    })
+    const reintento = doble([{ tipo: "desborda", laminas: [3] }])
+    expect(await armarCarrusel(reintento.deps, id)).toEqual({ resultado: "muy_largo" })
     expect(cuerpos).toHaveLength(1)
+    expect(reintento.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Se perdió un acortado pagado de un carrusel"])
   })
 
   it("never pays Claude twice for one version when Reintentar starts a new attempt after a failed save", async () => {

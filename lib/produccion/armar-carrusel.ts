@@ -169,7 +169,15 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
   }
   // A refusal released it before: asking again would only be refused again, and cost money. A confirmed one means
   // Claude already answered and the save failed: asking again would pay twice for the one shortening.
-  if (reserva.gasto.estado !== "reservado") return devolver(deps, fila, version, textoMuyLarga(largas))
+  if (reserva.gasto.estado !== "reservado") {
+    if (reserva.gasto.estado === "confirmado") {
+      await deps.avisos.aWav(
+        "Se perdió un acortado pagado de un carrusel",
+        `pieza ${fila.id} («${fila.titulo}»): Claude ya cobró el acortado de las láminas ${numeros(largas)}, no se guardó y no se vuelve a pedir.`,
+      )
+    }
+    return devolver(deps, fila, version, textoMuyLarga(largas))
+  }
 
   const guia = await leerGuiaVigente(db)
   if (!guia) throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
