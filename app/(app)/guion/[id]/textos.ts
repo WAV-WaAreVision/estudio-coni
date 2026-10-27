@@ -66,3 +66,14 @@ export const TEXTO_ASI_QUEDO_FIRMADO = "Así quedó firmado"
 
 export const textoCambiosQuedan = (quedan: number) =>
   quedan === 1 ? "Te queda 1 cambio." : `Te quedan ${quedan} cambios.`
+
+export const TEXTO_ARMANDO = "Estoy armando las láminas"
+export const TEXTO_ARMANDO_DETALLE = "Tarda un par de minutos. Te aviso cuando estén para que elijas la fecha."
+export const TEXTO_NO_ARME = "No pude armar el carrusel"
+export const TEXTO_DESLIZA_RIEL = "Desliza para leerlo completo"
+export const TEXTO_ASI_SALE = "Así sale en LinkedIn"
+export const TEXTO_CUANDO_SALE = "Cuándo sale"
+export const TEXTO_CAMBIO_TEXTO = "Vuelve a la firma del texto y cuenta como uno de tus 3 cambios."
+export const TEXTO_CAMBIO_DISENO = "Rehago las láminas con el mismo texto. No cuenta como cambio."
+export const TEXTO_SIN_LAMINA_PARA_CAMBIO = "Ninguna lámina permite este cambio ahora."
+export const TEXTO_PROGRAMADO_CARRUSEL = "A esa hora te dejo el PDF y el texto para que lo subas a LinkedIn."

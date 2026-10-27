@@ -5,7 +5,6 @@ import { MomentoDeCierre } from "@/components/momento-de-cierre"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { conLaPropuestaPrimero, ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
 import {
   leerContextoDeFechas,
   leerCostoDeGrabar,
@@ -18,20 +17,18 @@ import { leerPublicaciones } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import { type Destino, destinosDe, destinosPorDefecto, nombreDeDestino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
-import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
+import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { pilarVisible } from "@/lib/dominio/pilares"
 import { dolares } from "@/lib/formato"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
+import { fechasDePuerta2 } from "../../fechas-de-puerta-2"
 import { descargarVideoAccion, marcarSubidoAManoAccion } from "../../piezas/acciones"
 import { detalleDeProgramado, detalleDePublicado } from "./detalle-programado"
 import { PantallaVideo } from "./pantalla-video"
 import { PorSubir } from "./por-subir"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
-
-const UNA_HORA_MS = 60 * 60 * 1000
-const FECHAS_A_OFRECER = 4
 
 export default async function PaginaDeVideo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -186,28 +183,10 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
   }
 
   const ahora = Date.now()
-  const contexto = await leerContextoDeFechas(db, fila.id)
-  const ocupadas = ocupadasEnLaPuerta(contexto, ahora)
-  const tomadas = new Set(ocupadas.map((iso) => Date.parse(iso)))
-  const propuesta = propuestaVigente(contexto.propuesta, { ahora, tomadas, antelacionMs: UNA_HORA_MS })
-  const fechas = conLaPropuestaPrimero(
-    proponerFechas({
-      ahora,
-      horario: contexto.horario,
-      ocupadas,
-      cuantas: FECHAS_A_OFRECER,
-      antelacionMs: UNA_HORA_MS,
-    }),
-    propuesta,
-    FECHAS_A_OFRECER,
-  ).map((iso) => ({
-    iso,
-    etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga"),
-    corta: etiquetaDeFecha(iso, contexto.horario.zona, "corta"),
-  }))
+  const { fechas, zona } = await fechasDePuerta2(db, fila.id, ahora)
   const [videoUrl, costo, ajustes, instagramConectado, linkedinConectado] = await Promise.all([
     urlParaVer(fila.video_id),
-    leerCostoDeGrabar(db, fila.guion, ahora, contexto.horario.zona, fila.audio_id),
+    leerCostoDeGrabar(db, fila.guion, ahora, zona, fila.audio_id),
     leerAjustesDelVideo(db),
     leerInstagramConectado(db),
     leerLinkedinConectado(db, ahora),
