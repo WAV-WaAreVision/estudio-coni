@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { ETIQUETA_CORTA_DE_PROGRAMAR, ETIQUETA_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
 
 const pista = () => screen.getByRole("slider", { name: "Desliza para firmar" })
 const pulgar = () => screen.getByTestId("pulgar-firma")
@@ -281,5 +282,19 @@ describe("DeslizarParaAprobar: the visible way to sign without dragging", () => 
   it("hides the hint while the signature is closed", () => {
     render(<DeslizarParaAprobar habilitado={false} alFirmar={vi.fn()} />)
     expect(ayuda()).toBeNull()
+  })
+
+  it("takes another label for a gate that schedules, and keeps 'Desliza para firmar' by default", () => {
+    const { rerender } = render(<DeslizarParaAprobar habilitado alFirmar={() => {}} />)
+    expect(screen.getByRole("slider", { name: "Desliza para firmar" })).toBeInTheDocument()
+    rerender(
+      <DeslizarParaAprobar
+        habilitado
+        etiqueta={ETIQUETA_DE_PROGRAMAR}
+        etiquetaCorta={ETIQUETA_CORTA_DE_PROGRAMAR}
+        alFirmar={() => {}}
+      />,
+    )
+    expect(screen.getByRole("slider", { name: "Desliza para programar" })).toBeInTheDocument()
   })
 })

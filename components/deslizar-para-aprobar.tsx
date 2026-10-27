@@ -33,6 +33,10 @@ interface PropiedadesDeDeslizar {
   enviando?: boolean
   /** Ids of what describes the track (the "Falta:" line, the consequence), space separated. */
   describidoPor?: string
+  /** The track's name; "Desliza para firmar" unless the gate says otherwise. */
+  etiqueta?: string
+  /** The short label shown at large text sizes. */
+  etiquetaCorta?: string
   alFirmar: () => void
 }
 
@@ -51,7 +55,14 @@ interface Gesto {
  * on the up event). Enter, Space and End sign; ArrowUp and ArrowRight arm, then sign; ArrowDown, ArrowLeft, Home and
  * Escape disarm.
  */
-export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPor, alFirmar }: PropiedadesDeDeslizar) {
+export function DeslizarParaAprobar({
+  habilitado,
+  enviando = false,
+  describidoPor,
+  etiqueta = ETIQUETA_DE_FIRMA,
+  etiquetaCorta = ETIQUETA_CORTA_DE_FIRMA,
+  alFirmar,
+}: PropiedadesDeDeslizar) {
   const [valor, setValor] = useState(0)
   const [armado, setArmado] = useState(false)
   const [firmado, setFirmado] = useState(false)
@@ -205,7 +216,7 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
         ref={pista}
         role="slider"
         tabIndex={0}
-        aria-label={ETIQUETA_DE_FIRMA}
+        aria-label={etiqueta}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(valor)}
@@ -245,10 +256,10 @@ export function DeslizarParaAprobar({ habilitado, enviando = false, describidoPo
           ) : (
             <>
               <span data-etiqueta-de-firma className="etiqueta-de-firma-larga">
-                {ETIQUETA_DE_FIRMA}
+                {etiqueta}
               </span>
               <span data-etiqueta-de-firma className="etiqueta-de-firma-corta">
-                {ETIQUETA_CORTA_DE_FIRMA}
+                {etiquetaCorta}
               </span>
             </>
           )}
