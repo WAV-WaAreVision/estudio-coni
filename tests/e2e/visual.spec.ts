@@ -26,7 +26,7 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
-import { IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
+import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
@@ -57,6 +57,7 @@ test.beforeEach(async ({ page }) => {
   await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(CONFIG)])
   await configurarServicios()
   await simularMedios(page)
+  await avatarYaVisto()
 })
 
 test.afterAll(async () => {

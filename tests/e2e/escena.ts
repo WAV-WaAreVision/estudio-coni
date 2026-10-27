@@ -279,6 +279,14 @@ export async function sembrarEscena(): Promise<{ guion: string; video: string }>
   return { guion, video }
 }
 
+/**
+ * She already read "Así se ve tu avatar" once: a ready video draws without the one-time note, whichever spec ran
+ * before (video.spec is the one that clears and then marks it).
+ */
+export async function avatarYaVisto(): Promise<void> {
+  await pool.query("update public.ajustes set avatar_visto_en = coalesce(avatar_visto_en, '2026-10-01T12:00:00Z')")
+}
+
 /** The scene's carousel: its own idea (used) on an active pillar, walked to `destino`. Not part of `sembrarEscena`. */
 export const CARRUSEL = { pilar: "ia-salud-mental", titulo: "Lo que un chatbot no ve de ti" } as const
 
