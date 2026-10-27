@@ -17,6 +17,7 @@ const DATOS: DatosDeCarrusel = {
   textoPost: TEXTO_POST_DE_PRUEBA,
   revision: [],
   cambiosQuedan: 3,
+  explicacion: null,
 }
 const AVISO = {
   regla: "largo_lamina" as const,
@@ -60,6 +61,12 @@ describe("PantallaCarrusel", () => {
     fireEvent.keyDown(deslizador(), { key: "Enter" })
     await waitFor(() => expect(firmar).toHaveBeenCalledWith("p1", 4))
     await waitFor(() => expect(redibujar).toHaveBeenCalledWith(expect.stringMatching(/\?v=\d+$/), { scroll: false }))
+  })
+
+  it("says so when the change she asked for could not be made, and still lets her sign", () => {
+    montar({ explicacion: "No pude hacer ese cambio. Puedes pedir otro o firmarlo como está." })
+    expect(screen.getByText("No pude hacer ese cambio. Puedes pedir otro o firmarlo como está.")).toBeInTheDocument()
+    expect(deslizador()).toHaveAttribute("aria-disabled", "false")
   })
 
   it("keeps the signature closed until each warning is ticked", () => {

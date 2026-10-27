@@ -177,6 +177,32 @@ describe("producirPieza with a carousel", () => {
     expect(await gastos(id)).toEqual([{ paso: "carrusel", estado: "liberado", real: null }])
   })
 
+  it("returns the version she read to gate 1 when Claude declines her change, and the attempt still counts", async () => {
+    const id = await carruselEnEscritura()
+    simular()
+    await producirPieza(deps(), id)
+    const { version } = await leerFila(id)
+    const coni = await clienteDeConi()
+    const pedido = await coni.rpc("pedir_cambio_de_carrusel", {
+      p_pieza: id,
+      p_version: version,
+      p_pedido: "Más corto",
+    })
+    expect(pedido.error).toBeNull()
+    simular({ rechaza: true })
+
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "rechazado" })
+
+    expect(await leerFila(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      pedido_de_cambio: null,
+      cambios_de_texto: 1,
+      explicacion: "No pude hacer ese cambio. Puedes pedir otro o firmarlo como está.",
+    })
+    expect((await versiones(id)).map((v) => [v.version, v.origen])).toEqual([[1, "inicial"]])
+    expect((await gastos(id)).map((g) => g.estado)).toEqual(["confirmado", "liberado"])
+  })
+
   it("spends nothing over the monthly cap and says why", async () => {
     const id = await carruselEnEscritura()
     const sim = simular()

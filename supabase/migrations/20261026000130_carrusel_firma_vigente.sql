@@ -3,7 +3,22 @@
 -- getting v2 let the piece reach armando_carrusel with v1's signature. Now a change request takes the signature back,
 -- and entering any state past gate 1 requires the signature to match the latest version.
 
--- proteger_pieza as of 20261026000120, plus: entering a state past gate 1 needs the latest version's hash_texto.
+-- Every "Pedir cambio" she made, counted when she asks (review of part 1, finding 2): a change Claude declined writes no
+-- version but still counts toward the three, so the count cannot be the versions written.
+alter table public.piezas
+  add column cambios_de_texto smallint not null default 0,
+  add constraint cambios_de_texto_validos check (cambios_de_texto between 0 and 3),
+  add constraint cambios_solo_de_carrusel check (tipo = 'carrusel' or cambios_de_texto = 0);
+
+update public.piezas p
+   set cambios_de_texto = least(3, (select count(*) from public.carruseles c
+                                     where c.pieza_id = p.id and c.origen = 'cambio_texto')
+                                  + case when p.pedido_de_cambio is null then 0 else 1 end),
+       version = version + 1
+ where p.tipo = 'carrusel';
+
+-- proteger_pieza as of 20261026000120, plus: entering a state past gate 1 needs the latest version's hash_texto, and
+-- the count of her changes moves only through pedir_cambio_de_carrusel.
 create or replace function public.proteger_pieza()
  returns trigger
  language plpgsql
@@ -62,6 +77,9 @@ begin
   end if;
   if new.pedido_de_cambio is distinct from old.pedido_de_cambio and current_user in ('authenticated', 'anon') then
     raise exception using errcode = '42501', message = 'pedido_solo_por_funcion';
+  end if;
+  if new.cambios_de_texto is distinct from old.cambios_de_texto and current_user in ('authenticated', 'anon') then
+    raise exception using errcode = '42501', message = 'cambios_solo_por_funcion';
   end if;
 
   if new.avatar_id is distinct from old.avatar_id then
@@ -123,14 +141,14 @@ begin
   return new;
 end $function$;
 
--- pedir_cambio_de_carrusel as of 20261026000120, plus: her request takes back any signature on the version it replaces.
+-- pedir_cambio_de_carrusel as of 20261026000120, plus: her request takes back any signature on the version it replaces,
+-- and the three are counted on the piece (cambios_de_texto).
 create or replace function public.pedir_cambio_de_carrusel(p_pieza uuid, p_version integer, p_pedido text)
 returns public.piezas
 language plpgsql security definer set search_path = '' as $$
 declare
   v_pieza public.piezas;
   v_pedido text := btrim(coalesce(p_pedido, ''));
-  v_cambios integer;
 begin
   if not public.es_coni() then
     raise exception using errcode = '42501', message = 'solo_coni_pide_cambios';
@@ -148,14 +166,14 @@ begin
   if v_pieza.tipo <> 'carrusel' or v_pieza.estado <> 'guion_por_aprobar' then
     raise exception using errcode = 'P0001', message = 'estado_no_cambiable';
   end if;
-  select count(*) into v_cambios from public.carruseles where pieza_id = p_pieza and origen = 'cambio_texto';
-  if v_cambios >= 3 then
+  if v_pieza.cambios_de_texto >= 3 then
     raise exception using errcode = 'P0001', message = 'sin_cambios_de_texto';
   end if;
 
   update public.piezas
      set estado = 'guion_en_proceso', intento = intento + 1, pedido_de_cambio = v_pedido, explicacion = null,
-         puerta1_hash = null, puerta1_en = null, puerta1_por = null, version = version + 1
+         cambios_de_texto = cambios_de_texto + 1, puerta1_hash = null, puerta1_en = null, puerta1_por = null,
+         version = version + 1
    where id = p_pieza
   returning * into v_pieza;
   return v_pieza;

@@ -41,6 +41,8 @@ export interface DatosDeCarrusel {
   revision: Hallazgo[]
   /** "Pedir cambio" left (C8). */
   cambiosQuedan: number
+  /** Why the change she asked for is not here (TEXTO_CAMBIO_NO_HECHO), or null. */
+  explicacion: string | null
 }
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
@@ -88,6 +90,8 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>
       </header>
+
+      {datos.explicacion ? <Bloque tipo="aviso" titulo={datos.explicacion} className="mt-6" /> : null}
 
       <Seccion titulo={TEXTO_REVISA_LAMINAS} id="laminas" cifra={`${datos.laminas.length} láminas`}>
         <LaminasEnLectura laminas={datos.laminas} />

@@ -35,6 +35,7 @@ import {
 import type { Json } from "@/lib/supabase/database.types"
 
 export const TEXTO_RECHAZO_CARRUSEL = "Claude no quiso escribir este carrusel. Prueba con otra idea."
+export const TEXTO_CAMBIO_NO_HECHO = "No pude hacer ese cambio. Puedes pedir otro o firmarlo como está."
 
 interface Redactado {
   texto: TextoDeCarrusel
@@ -127,11 +128,27 @@ export async function producirCarrusel(deps: DepsProduccion, leida: FilaDePieza)
     return { resultado: "tope" }
   }
 
+  // A declined change leaves the version she read: it goes back to gate 1 to sign as it is or ask again. Her request
+  // was already counted (cambios_de_texto), so a refused change still spends one of the three.
+  const rechazado = async (): Promise<ResultadoProduccion> => {
+    if (cambio === null) {
+      await explicar(deps, fila, TEXTO_RECHAZO_CARRUSEL)
+    } else {
+      const devuelta = await actualizarPieza(db, fila.id, fila.version, {
+        estado: "guion_por_aprobar",
+        pedido_de_cambio: null,
+        explicacion: TEXTO_CAMBIO_NO_HECHO,
+        version: fila.version + 1,
+      })
+      if (!devuelta) throw piezaCambio()
+    }
+    return { resultado: "rechazado" }
+  }
+
   switch (reserva.gasto.estado) {
     case "liberado":
       // A refusal released it earlier: asking again would only be refused again, and cost money.
-      await explicar(deps, fila, TEXTO_RECHAZO_CARRUSEL)
-      return { resultado: "rechazado" }
+      return rechazado()
     case "confirmado":
       // The version is saved in the same transaction that confirms its spend (guardar_carrusel): it is there.
       break
@@ -142,8 +159,7 @@ export async function producirCarrusel(deps: DepsProduccion, leida: FilaDePieza)
       } catch (error) {
         if (!(error instanceof RechazoDeClaude)) throw error
         await liberarGasto(db, clave)
-        await explicar(deps, fila, TEXTO_RECHAZO_CARRUSEL)
-        return { resultado: "rechazado" }
+        return rechazado()
       }
       const guardada = await guardarCarrusel(db, {
         piezaId: fila.id,

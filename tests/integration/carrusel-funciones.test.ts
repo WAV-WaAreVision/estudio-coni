@@ -271,16 +271,59 @@ describe("pedir_cambio_de_carrusel", () => {
     })
   })
 
+  /** Her request, then the writer back at gate 1: with a new version, or none when Claude declined the change. */
+  async function ronda(c: Cliente, id: string, conVersion: boolean, n: number) {
+    await asumir(c, comoConi)
+    await pedir(c, id, await versionDe(c, id), `Cambio ${n}`)
+    if (conVersion) await nuevaVersion(c, id, HASH, "cambio_texto", `Cambio ${n}`)
+    await asumir(c, comoServicio)
+    await c.query(
+      "update public.piezas set estado = 'guion_por_aprobar', pedido_de_cambio = null, version = version + 1 where id = $1",
+      [id],
+    )
+  }
+
   it("stops at three text changes", async () => {
     await como(comoPostgres, async (c) => {
       const id = await porAprobar(c)
-      for (let i = 0; i < 3; i++) await nuevaVersion(c, id, HASH, "cambio_texto", `Cambio ${i + 1}`)
+      for (let i = 0; i < 3; i++) await ronda(c, id, true, i + 1)
       await asumir(c, comoConi)
       const error = await fallaCon(c, "select public.pedir_cambio_de_carrusel($1, $2, 'Uno más')", [
         id,
         await versionDe(c, id),
       ])
       expect(error).toMatchObject({ code: "P0001", message: "sin_cambios_de_texto" })
+    })
+  })
+
+  it("counts a request the writer could not carry out toward the three", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await porAprobar(c)
+      await ronda(c, id, false, 1)
+      await ronda(c, id, true, 2)
+      await ronda(c, id, false, 3)
+      const { rows } = await c.query("select cambios_de_texto from public.piezas where id = $1", [id])
+      expect(rows[0]).toEqual({ cambios_de_texto: 3 })
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, "select public.pedir_cambio_de_carrusel($1, $2, 'Uno más')", [
+        id,
+        await versionDe(c, id),
+      ])
+      expect(error).toMatchObject({ code: "P0001", message: "sin_cambios_de_texto" })
+    })
+  })
+
+  it("keeps Coni's session from resetting the count", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await porAprobar(c)
+      await ronda(c, id, false, 1)
+      await asumir(c, comoConi)
+      const error = await fallaCon(
+        c,
+        "update public.piezas set cambios_de_texto = 0, version = version + 1 where id = $1",
+        [id],
+      )
+      expect(error).toMatchObject({ code: "42501", message: "cambios_solo_por_funcion" })
     })
   })
 })

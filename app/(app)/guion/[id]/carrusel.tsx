@@ -84,6 +84,7 @@ export async function VistaDeCarrusel({
             textoPost: carrusel.textoPost,
             revision: leerRevision(fila.revision),
             cambiosQuedan: cambiosQuedan(cambios),
+            explicacion: fila.explicacion,
           }}
         />
       )

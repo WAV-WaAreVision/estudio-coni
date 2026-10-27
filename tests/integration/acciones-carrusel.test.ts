@@ -201,6 +201,8 @@ describe("pedirCambioDeCarrusel", () => {
         [id, v, JSON.stringify(LAMINAS_DE_PRUEBA), HASH],
       )
     }
+    // Her three requests, as pedir_cambio_de_carrusel counts them.
+    await pool.query("update public.piezas set cambios_de_texto = 3, version = version + 1 where id = $1", [id])
     const { deps, disparos } = armar()
     expect(await pedirCambioDeCarrusel(deps, id, await versionDe(id), "Uno más")).toEqual({
       ok: false,
