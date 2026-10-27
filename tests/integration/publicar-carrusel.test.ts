@@ -3,6 +3,7 @@ import { aLittleText } from "@/lib/dominio/linkedin"
 import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
+import { EXPLICACION_LINKEDIN_TARDE, LINKEDIN_SIN_CONEXION } from "@/lib/publicacion/linkedin"
 import { type DepsPublicacion, publicarPendientes } from "@/lib/publicacion/publicar"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { DOCUMENTO, simularLinkedin } from "../linkedin-msw"
@@ -114,5 +115,59 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     expect(await publicarPendientes(d.deps)).toEqual([])
     expect((await leerFila(id)).estado).toBe("programado")
     expect(sim.documentosIniciados).toHaveLength(0)
+  })
+})
+
+describe("a scheduled carousel that cannot post by itself", () => {
+  const AVISO = `Tu carrusel «${TITULO}» está listo para que lo subas a LinkedIn. Entra a la app para descargar el PDF y copiar el texto.`
+
+  it("goes by hand with the reason and no call to LinkedIn when LinkedIn is not connected", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+
+    expect(sim.documentosIniciados).toHaveLength(0)
+    expect(sim.posts).toHaveLength(0)
+    expect(await publicacionesConDetalle(id)).toMatchObject([
+      { destino: "linkedin", estado: "para_subir", explicacion: LINKEDIN_SIN_CONEXION },
+    ])
+    expect(d.avisos.aConiEnviados.map((a) => a.mensaje)).toEqual([`${AVISO} ${LINKEDIN_SIN_CONEXION}`])
+    expect(d.avisos.aWavEnviados).toEqual([])
+  })
+
+  it("goes by hand the same way when the connection expired before its time", async () => {
+    await conectar("2031-03-01T00:00:00Z")
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.documentosIniciados).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(LINKEDIN_SIN_CONEXION)
+  })
+
+  it("goes by hand, never late, when the approved half hour passed", async () => {
+    await conectar()
+    const d = doble(() => despues(31))
+    const id = await programado(d)
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.documentosIniciados).toHaveLength(0)
+    expect(sim.posts).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_TARDE)
+    expect(d.avisos.aConiEnviados.map((a) => a.mensaje)).toEqual([`${AVISO} ${EXPLICACION_LINKEDIN_TARDE}`])
+    expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["LinkedIn no publicó un carrusel"])
+  })
+
+  it("goes by hand when LinkedIn's own deadline passed while the document processed", async () => {
+    await conectar()
+    const d = doble(() => despues(13))
+    const id = await programado(d)
+    simularLinkedin()
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_TARDE)
   })
 })
