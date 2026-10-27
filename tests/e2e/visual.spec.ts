@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Locator, type Page, test } from "@playwright/test"
+import { instanteLocal } from "@/lib/dominio/fechas"
+import { lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -15,6 +17,7 @@ import {
   vaciarPiezasEIdeas,
 } from "../integration/siembra"
 import {
+  abrirDesplegable,
   bloquearRedExterna,
   conectarLinkedin,
   configurarServicios,
@@ -111,7 +114,6 @@ const PANTALLAS = [
   ["ideas", "/ideas"],
   ["calendario-mes", "/calendario"],
   ["calendario-agenda", "/calendario?vista=agenda"],
-  ["calendario-ritmo", "/calendario?vista=ritmo"],
   ["ajustes", "/ajustes"],
   ["ajustes-cuentas", "/ajustes/cuentas"],
   ["l", "/l"],
@@ -124,6 +126,21 @@ for (const [nombre, ruta] of PANTALLAS) {
     await capturaDe(page, nombre)
   })
 }
+
+test("calendario-ritmo", async ({ page }) => {
+  await sembrarEscena()
+  // The server reads the real clock and the scene's reel goes out tomorrow, which is or is not one of her days (Tuesday,
+  // Thursday, Saturday) and is or is not in this week, so the grid came and went with the date. The reel is put on this
+  // week's Saturday at 19:00 instead: always in the last row, and the week's last slot, so no slot after it is ever
+  // counted as missed whatever today is.
+  const zona = "America/Santiago"
+  const [anio, mes, dia] = sumarDias(lunesDeLaSemana(Date.now(), zona), 5).split("-").map(Number)
+  const sabado = instanteLocal({ anio: anio ?? 0, mes: mes ?? 0, dia: dia ?? 0, hora: 19, minuto: 0 }, zona)
+  const { rows } = await pool.query<{ id: string }>("select id from public.piezas where estado = 'programado'")
+  for (const { id } of rows) await moverHoraAprobada(id, new Date(sabado).toISOString())
+  await page.goto("/calendario?vista=ritmo")
+  await capturaDe(page, "calendario-ritmo")
+})
 
 test("ideas elegir varias", async ({ page }) => {
   await sembrarEscena()
@@ -522,9 +539,42 @@ test("carrusel por aprobar", async ({ page }) => {
   await capturaDe(page, "carrusel-por-aprobar")
 })
 
-test("carrusel firmado", async ({ page }) => {
+test("carrusel armando", async ({ page }) => {
   await sembrarEscena()
   const id = await sembrarCarruselDeEscena("armando_carrusel")
   await page.goto(`/guion/${id}`)
-  await capturaDe(page, "carrusel-firmado")
+  await capturaDe(page, "carrusel-armando")
+})
+
+test("carrusel puerta 2", async ({ page }) => {
+  await sembrarEscena()
+  await simularMedios(page)
+  const id = await sembrarCarruselDeEscena("carrusel_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByRole("img", { name: /^Lámina 1 de 6/ })).toBeVisible()
+  await capturaDe(page, "carrusel-puerta-2")
+})
+
+test("carrusel puerta 2 diseno", async ({ page }) => {
+  await sembrarEscena()
+  await simularMedios(page)
+  const id = await sembrarCarruselDeEscena("carrusel_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await abrirDesplegable(page, "Pedir cambio")
+  await page.getByRole("radio", { name: /El diseño/ }).check()
+  await capturaDe(page, "carrusel-puerta-2-diseno")
+})
+
+test("carrusel para subir", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("para_subir_a_mano")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-para-subir")
+})
+
+test("carrusel error", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("error_produccion")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-error")
 })
