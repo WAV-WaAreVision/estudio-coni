@@ -5243,8 +5243,11 @@ then Trigger.dev, then the app** (amendment 13).
 - [ ] **Step 1 (OK needed): merge, no push unless asked.**
 `git checkout main && git merge --no-ff feat/carrusel-parte-1`. `git push` only when Federico asks.
 
-- [ ] **Step 2 (OK needed): database.** `supabase db push` from the repo (Federico). It applies `20261026000100`,
-`20261026000110`, `20261026000120`. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
+- [ ] **Step 2 (OK needed): database.** `supabase db push` from the repo (Federico). It applies the four carousel migrations in
+order: `20261026000100` (states), `20261026000110` (type, checks, `carruseles`), `20261026000120` (gate and writer
+functions) and `20261026000130` (gate 1 signs the latest version past gate 1, a change request clears `puerta1_*`, at
+most 8 slides, `piezas.cambios_de_texto` is the base of the three-change limit). Before pushing,
+`supabase migration list` shows exactly those four as local-only. Check in the SQL editor of `estudio-coni` (`mvfytttfxmzzjajecsch`):
 
 ```sql
 select unnest(enum_range(null::public.estado_pieza))::text;
@@ -5260,7 +5263,8 @@ select p.proname, has_function_privilege('authenticated', p.oid, 'execute') as a
 Expected: the two new states listed; every piece `reel`; one SELECT policy; `authenticated` only SELECT and `anon`
 nothing; `guardar_carrusel` false and `pedir_cambio_de_carrusel` true.
 
-- [ ] **Step 3 (OK needed): Trigger.dev** (the writer changed; no new task, no new build extension):
+- [ ] **Step 3 (OK needed): Trigger.dev**, only after Step 2 (the writer changed; no new task, no new build extension;
+`pnpm install` first so the deploy bundles the lockfile's versions):
 
 ```bash
 cd /Users/fede/Projects/estudio-coni && pnpm install
@@ -5269,7 +5273,8 @@ TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy 
 
 Note the new version for TRASPASO.
 
-- [ ] **Step 4 (OK needed): app** (Federico), from a clean export so `.worktrees/` is not uploaded:
+- [ ] **Step 4 (OK needed): app** (Federico), only after Step 3, from a clean `git archive` export of `main` so
+`.worktrees/` and untracked files are not uploaded:
 
 ```bash
 cd /Users/fede/Projects/estudio-coni
@@ -5295,12 +5300,13 @@ Expected: `armando_carrusel`, version 1 `inicial` `escrito`, the post between 60
 otherwise, not an error), one confirmed `carrusel` spend. Without the smoke, the integration and E2E suites are the
 evidence. The carousel stays in `armando_carrusel` until part 2 ships.
 
-- [ ] **Step 6 (OK needed): coni-heygen.** Merge `docs/transparencia-carrusel` into its `main`
-(`git -C /Users/fede/Projects/coni-heygen merge --no-ff docs/transparencia-carrusel` from a checkout of `main`, or
-however Federico prefers given his open branch there), then `git worktree remove ../coni-heygen-transparencia`.
+- [ ] **Step 6: coni-heygen.** Nothing to merge: the "Transparencia" rule (CLAUDE.md and
+`contenido/linea-editorial.md`) was committed straight on its `main` as `8c880e7` through a temporary worktree that
+was removed afterwards; Federico's `contenido/banco-ideas` checkout was not touched. `git push` of coni-heygen `main`
+only if Federico asks.
 
-- [ ] **Step 7: Handoff.** Update `docs/TRASPASO.md` "Producción" (migrations up to `20261026000120`, the new Trigger
-version) and the part 1 bullet ("en producción desde ..."), in a commit on `main`, pushed only if Federico asks.
+- [ ] **Step 7: Handoff.** Update `docs/TRASPASO.md` "Producción" (migrations up to `20261026000130`, the new Trigger
+version, the Vercel deploy) and the part 1 bullet ("en producción desde ..."), in a commit on `main`, pushed only if Federico asks.
 
 ---
 
