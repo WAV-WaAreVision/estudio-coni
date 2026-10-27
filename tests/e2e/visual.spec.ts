@@ -573,6 +573,13 @@ test("carrusel para subir", async ({ page }) => {
   await capturaDe(page, "carrusel-para-subir")
 })
 
+test("carrusel publicado", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarCarruselDeEscena("publicado")
+  await page.goto(`/guion/${id}`)
+  await capturaDe(page, "carrusel-publicado")
+})
+
 test("carrusel error", async ({ page }) => {
   await sembrarEscena()
   const id = await sembrarCarruselDeEscena("error_produccion")
