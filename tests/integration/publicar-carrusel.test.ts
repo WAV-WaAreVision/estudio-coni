@@ -68,6 +68,26 @@ async function pdfAprobado(id: string): Promise<string> {
   return clave
 }
 
+/** Changes the words of the bound version behind the database's back (its trigger forbids it), as a bug would. */
+async function cambiarElTextoAprobado(id: string): Promise<void> {
+  const c = await pool.connect()
+  try {
+    await c.query("begin")
+    await c.query("alter table public.carruseles disable trigger proteger_carrusel")
+    await c.query(
+      "update public.carruseles set texto_post = texto_post || ' (cambiado)' where id = (select puerta2_carrusel_id from public.piezas where id = $1)",
+      [id],
+    )
+    await c.query("alter table public.carruseles enable trigger proteger_carrusel")
+    await c.query("commit")
+  } catch (error) {
+    await c.query("rollback")
+    throw error
+  } finally {
+    c.release()
+  }
+}
+
 /** Signed for a far future time (the real flow refuses a past one); the run's clock is moved to it. */
 async function programado(d: ReturnType<typeof doble>) {
   const id = await sembrarCarrusel("programado", { publicarEn: PUBLICAR_EN })
@@ -255,6 +275,55 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
     expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
     expect(sim.posts).toHaveLength(0)
     expect((await leerFila(id)).estado).toBe("publicado")
+  })
+
+  it("uploads the PDF gate 2 bound, never a newer version's", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    // A newer version with the same words (as a design change would make), and its own PDF in the store.
+    await pool.query(
+      `insert into public.carruseles (pieza_id, version, laminas, texto_post, hash_texto, origen, diseno, pdf_clave)
+       select pieza_id, version + 1, laminas, texto_post, hash_texto, 'cambio_diseno', '{"variante": "oscura"}', 'otro.pdf'
+         from public.carruseles where id = (select puerta2_carrusel_id from public.piezas where id = $1)`,
+      [id],
+    )
+    await d.almacen.subir("otro.pdf", new TextEncoder().encode("%PDF-1.7 otro"), "application/pdf")
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "publicada" }])
+    expect(sim.subidasDeDocumento.map((s) => s.datos)).toEqual([PDF])
+  })
+
+  it("refuses a changed version before uploading anything", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    await cambiarElTextoAprobado(id)
+    const sim = simularLinkedin()
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "falla_publicacion" }])
+    expect(sim.documentosIniciados).toHaveLength(0)
+    expect(sim.posts).toHaveLength(0)
+    expect(await leerFila(id)).toMatchObject({
+      estado: "error_publicacion",
+      explicacion:
+        "El carrusel o su texto cambiaron después de que los aprobaste, así que no te lo dejé para subir. WAV ya está revisando.",
+    })
+  })
+
+  it("refuses a version that changed while LinkedIn processed it, before sending", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({
+      documento: async () => {
+        await cambiarElTextoAprobado(id)
+        return HttpResponse.json({ id: DOCUMENTO, status: "AVAILABLE" })
+      },
+    })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "falla_publicacion" }])
+    expect(sim.documentosIniciados).toHaveLength(1)
+    expect(sim.posts).toHaveLength(0)
+    expect((await publicacionesConDetalle(id))[0]?.enviado_en).toBeNull()
   })
 })
 
