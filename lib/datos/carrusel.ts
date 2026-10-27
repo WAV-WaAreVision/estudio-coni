@@ -81,15 +81,14 @@ export async function leerCarruselVigente(db: Db, piezaId: string): Promise<Carr
   }
 }
 
-/** How many times she asked for a new text (C8): the versions written from a request. */
+/**
+ * How many times she asked for a new text (C8): counted on the piece when she asks (`pedir_cambio_de_carrusel`), so a
+ * request still pending, or one Claude declined, counts as the database counts it for the limit.
+ */
 export async function contarCambiosDeTexto(db: Db, piezaId: string): Promise<number> {
-  const { count, error } = await db
-    .from("carruseles")
-    .select("id", { count: "exact", head: true })
-    .eq("pieza_id", piezaId)
-    .eq("origen", "cambio_texto")
+  const { data, error } = await db.from("piezas").select("cambios_de_texto").eq("id", piezaId).single()
   if (error) throw fallo("No pude contar los cambios del carrusel", error)
-  return count ?? 0
+  return data.cambios_de_texto
 }
 
 /** The errors of `guardar_carrusel` are its contract (supabase/migrations/20261026000120_carrusel_funciones.sql). */
