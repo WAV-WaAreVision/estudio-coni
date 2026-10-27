@@ -112,6 +112,22 @@ describe("proteger_pieza with carousels", () => {
     })
   })
 
+  it("refuses signing a carousel from anywhere but guion_por_aprobar, so a pending change cannot skip the review", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await porAprobar(c)
+      await c.query("update public.piezas set revision = $2::jsonb, version = version + 1 where id = $1", [id, BLOQUEA])
+      const { rows: leida } = await c.query<{ version: number }>("select version from public.piezas where id = $1", [id])
+      await asumir(c, comoConi)
+      await c.query("select public.pedir_cambio_de_carrusel($1, $2, 'Más corto')", [id, leida[0]?.version])
+      const error = await fallaCon(
+        c,
+        "update public.piezas set estado = 'armando_carrusel', version = version + 1, puerta1_hash = $2, puerta1_en = now() where id = $1",
+        [id, HASH],
+      )
+      expect(error).toMatchObject({ code: "42501", message: "firma_fuera_de_puerta1" })
+    })
+  })
+
   it("refuses a carousel past gate 1 whose signature is not the latest version's, even moved by the service", async () => {
     await como(comoPostgres, async (c) => {
       const id = await porAprobar(c)
