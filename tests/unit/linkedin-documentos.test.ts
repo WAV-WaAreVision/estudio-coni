@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { HttpResponse } from "msw"
 import { describe, expect, it } from "vitest"
-import { RechazoDeLinkedin, subirDocumento, VERSION_DE_LINKEDIN } from "@/lib/proveedores/linkedin"
+import { estadoDelDocumento, RechazoDeLinkedin, subirDocumento, VERSION_DE_LINKEDIN } from "@/lib/proveedores/linkedin"
 import { DOCUMENTO, simularLinkedin } from "../linkedin-msw"
 
 const TOKEN = "AQV_token_de_prueba"
@@ -39,5 +39,28 @@ describe("subirDocumento", () => {
     const error = await subirDocumento({ token: TOKEN, miembro: MIEMBRO, datos: PDF }).catch((e: unknown) => e)
     expect(String(error)).not.toContain(TOKEN)
     expect(String(error)).not.toContain("dms-uploads")
+  })
+})
+
+describe("estadoDelDocumento", () => {
+  it.each([
+    ["AVAILABLE", "listo"],
+    ["PROCESSING", "procesando"],
+    ["WAITING_UPLOAD", "procesando"],
+    ["PROCESSING_FAILED", "fallido"],
+  ])("handles %s when LinkedIn answers it: %s", async (status, esperado) => {
+    simularLinkedin({ documentos: [status] })
+    expect((await estadoDelDocumento({ token: TOKEN, documento: DOCUMENTO })).estado).toBe(esperado)
+  })
+
+  it("asks for the document by its URN", async () => {
+    const sim = simularLinkedin()
+    await estadoDelDocumento({ token: TOKEN, documento: DOCUMENTO })
+    expect(sim.consultasDeDocumento).toEqual([DOCUMENTO])
+  })
+
+  it("refuses an answer without a status", async () => {
+    simularLinkedin({ documento: () => HttpResponse.json({ id: DOCUMENTO }) })
+    await expect(estadoDelDocumento({ token: TOKEN, documento: DOCUMENTO })).rejects.toThrow(/inesperada/)
   })
 })

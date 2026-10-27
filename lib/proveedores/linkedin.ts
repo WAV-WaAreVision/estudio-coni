@@ -211,6 +211,31 @@ export async function subirDocumento(entrada: { token: string; miembro: string; 
   return document
 }
 
+const Documento = z.object({ status: z.string() })
+
+/** The docs name no failure reason for a document, so a failure carries none. */
+export type EstadoDeDocumento = { estado: "listo" } | { estado: "procesando" } | { estado: "fallido" }
+
+/** Post only when AVAILABLE (as a video, F6). */
+export async function estadoDelDocumento(entrada: { token: string; documento: string }): Promise<EstadoDeDocumento> {
+  const respuesta = await llamar(
+    `${base()}/rest/documents/${encodeURIComponent(entrada.documento)}`,
+    { method: "GET", headers: cabeceras(entrada.token) },
+    "el estado del documento",
+    entrada.token,
+  )
+  const leido = Documento.safeParse(await respuesta.json())
+  if (!leido.success) throw new Error("LinkedIn devolvió una respuesta inesperada al leer el documento.")
+  switch (leido.data.status) {
+    case "AVAILABLE":
+      return { estado: "listo" }
+    case "PROCESSING_FAILED":
+      return { estado: "fallido" }
+    default:
+      return { estado: "procesando" }
+  }
+}
+
 /** F7: the 201 carries the post URN in `x-restli-id`. No title: it is not part of gate 2. */
 export async function crearPost(entrada: {
   token: string
