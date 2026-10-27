@@ -169,6 +169,16 @@ describe("firmarCarrusel", () => {
 })
 
 describe("pedirCambioDeCarrusel", () => {
+  it("takes a sentence of exactly 500 characters and says the bound as it is when she goes over", async () => {
+    const id = await carrusel()
+    const { deps } = armar()
+    expect(await pedirCambioDeCarrusel(deps, id, await versionDe(id), "x".repeat(501))).toEqual({
+      ok: false,
+      error: "Escríbelo en 500 caracteres o menos.",
+    })
+    expect((await pedirCambioDeCarrusel(deps, id, await versionDe(id), "x".repeat(500))).ok).toBe(true)
+  })
+
   it("sends it back with her sentence and starts the new text as a new round", async () => {
     const id = await carrusel()
     const { deps, disparos } = armar()

@@ -99,7 +99,7 @@ const LINKEDIN_EN_DUDA =
   "LinkedIn puede haber publicado este video. Espera mi aviso para revisarlo en tu perfil antes de subirlo."
 const DESTINO_YA_NO_ESPERA = "Ese destino ya no está esperando que lo subas."
 const TEXTO_PEDIDO_VACIO = "Escribe en una frase qué quieres cambiar."
-const TEXTO_PEDIDO_LARGO = `Escríbelo en menos de ${MAXIMO_DEL_PEDIDO} caracteres.`
+const TEXTO_PEDIDO_LARGO = `Escríbelo en ${MAXIMO_DEL_PEDIDO} caracteres o menos.`
 const AVISO_CAMBIO_DE_CARRUSEL =
   "Pedí el cambio, pero el carrusel nuevo tarda en partir. Si no avanza, vuelve a intentarlo."
 
