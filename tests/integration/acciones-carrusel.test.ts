@@ -2,9 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { claveArmar, claveProducir } from "@/lib/acciones/disparos"
 import {
+  aprobarCarrusel,
   aprobarGuion,
+  cambiarDisenoDeCarrusel,
+  cambiarFecha,
   type DepsAcciones,
   descartar,
+  editarTextoLinkedin,
   firmarCarrusel,
   hacerCarrusel,
   pedirCambioDeCarrusel,
@@ -13,10 +17,12 @@ import {
   reintentar,
   reintentarGuion,
 } from "@/lib/acciones/piezas"
+import { leerVersionVigente } from "@/lib/datos/carrusel"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
 import type { Database } from "@/lib/supabase/database.types"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 import { CONI, pool } from "./db"
+import { clienteDeServicio } from "./servicio"
 import { clienteDeConi } from "./sesion-coni"
 import { borrarSembrado, leerFila, sembrarCarrusel, sembrarIdea } from "./siembra"
 
@@ -297,5 +303,130 @@ describe("descartar a carousel", () => {
 
     expect(resultado.ok).toBe(true)
     expect(await leerFila(id)).toMatchObject({ estado: "descartado", tipo: "carrusel" })
+  })
+})
+
+const MANIANA = () => new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString()
+
+async function enPuerta2() {
+  const id = await sembrarCarrusel("carrusel_por_aprobar")
+  piezasCreadas.push(id)
+  const version = await leerVersionVigente(clienteDeServicio(), id)
+  if (!version) throw new Error("sin versión")
+  return { id, version }
+}
+
+describe("aprobarCarrusel", () => {
+  it("schedules the version she saw at the time she chose, and its LinkedIn row waits", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps, disparos } = armar()
+    const publicarEn = MANIANA()
+
+    expect(await aprobarCarrusel(deps, id, await versionDe(id), version.id, publicarEn)).toEqual({ ok: true })
+
+    const fila = await leerFila(id)
+    expect(fila).toMatchObject({
+      estado: "programado",
+      puerta2_carrusel_id: version.id,
+      puerta2_hash_texto: version.hashTexto,
+      puerta2_video_id: null,
+      puerta2_por: CONI,
+    })
+    expect(new Date(fila.puerta2_publicar_en).toISOString()).toBe(new Date(publicarEn).toISOString())
+    expect(disparos).toEqual([])
+  })
+
+  it("refuses a version that is not the one on screen", async () => {
+    const { id } = await enPuerta2()
+    const resultado = await aprobarCarrusel(
+      armar().deps,
+      id,
+      await versionDe(id),
+      "11111111-1111-4111-8111-111111111111",
+      MANIANA(),
+    )
+    expect(resultado).toEqual({
+      ok: false,
+      error: "Esto cambió mientras lo revisabas y no quedó aprobado. Vuelve a revisarlo.",
+    })
+    expect((await leerFila(id)).estado).toBe("carrusel_por_aprobar")
+  })
+
+  it("refuses a time another piece already has", async () => {
+    const otra = await enPuerta2()
+    const publicarEn = MANIANA()
+    await aprobarCarrusel(armar().deps, otra.id, await versionDe(otra.id), otra.version.id, publicarEn)
+    const { id, version } = await enPuerta2()
+    expect(await aprobarCarrusel(armar().deps, id, await versionDe(id), version.id, publicarEn)).toEqual({
+      ok: false,
+      error: "Ese horario ya lo tiene otra pieza. Elige otro.",
+    })
+  })
+})
+
+describe("cambiarDisenoDeCarrusel", () => {
+  it("writes a new version with the same words, keeps gate 1, does not count as a change and starts the render", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps, disparos } = armar()
+
+    const resultado = await cambiarDisenoDeCarrusel(deps, id, await versionDe(id), {
+      tipo: "variante",
+      variante: "oscura",
+    })
+
+    expect(resultado.ok).toBe(true)
+    const nueva = await leerVersionVigente(clienteDeServicio(), id)
+    expect(nueva).toMatchObject({
+      origen: "cambio_diseno",
+      hashTexto: version.hashTexto,
+      diseno: { variante: "oscura" },
+    })
+    const fila = await leerFila(id)
+    expect(fila).toMatchObject({ estado: "armando_carrusel", puerta1_hash: version.hashTexto, cambios_de_texto: 0 })
+    expect(disparos).toEqual([{ tarea: "armar", piezaId: id, clave: claveArmar(id, nueva?.id ?? "", fila.intento) }])
+  })
+
+  it("splits a slide and merges it back, keeping the hash each time", async () => {
+    const { id, version } = await enPuerta2()
+    expect(
+      (await cambiarDisenoDeCarrusel(armar().deps, id, await versionDe(id), { tipo: "dividir", lamina: 1 })).ok,
+    ).toBe(true)
+    expect((await leerVersionVigente(clienteDeServicio(), id))?.laminas).toHaveLength(version.laminas.length + 1)
+    expect((await leerVersionVigente(clienteDeServicio(), id))?.hashTexto).toBe(version.hashTexto)
+  })
+
+  it("says why a change does not apply", async () => {
+    const { id } = await enPuerta2()
+    expect(await cambiarDisenoDeCarrusel(armar().deps, id, await versionDe(id), { tipo: "unir", lamina: 1 })).toEqual({
+      ok: false,
+      error: "Ese cambio de diseño no se puede hacer en esta lámina.",
+    })
+    expect(
+      await cambiarDisenoDeCarrusel(armar().deps, id, await versionDe(id), { tipo: "variante", variante: "crema" }),
+    ).toEqual({ ok: false, error: "Eso ya está así." })
+  })
+})
+
+describe("gate 2's other ways out", () => {
+  it("El texto: back to be rewritten, counting one of the three", async () => {
+    const { id } = await enPuerta2()
+    const { deps, disparos } = armar()
+    expect((await pedirCambioDeCarrusel(deps, id, await versionDe(id), "Más cercano")).ok).toBe(true)
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_en_proceso", cambios_de_texto: 1, puerta1_hash: null })
+    expect(disparos).toMatchObject([{ tarea: "producir", piezaId: id }])
+  })
+
+  it("Cambiar la fecha: a scheduled carousel goes back to its gate 2", async () => {
+    const id = await sembrarCarrusel("programado")
+    piezasCreadas.push(id)
+    expect((await cambiarFecha(armar().deps, id, await versionDe(id))).ok).toBe(true)
+    expect(await leerFila(id)).toMatchObject({ estado: "carrusel_por_aprobar", puerta2_carrusel_id: null })
+  })
+
+  it("never edits piezas.texto_linkedin on a carousel (its post is signed at gate 1)", async () => {
+    const id = await carrusel()
+    const resultado = await editarTextoLinkedin(armar().deps, id, await versionDe(id), "Otro texto")
+    expect(resultado.ok).toBe(false)
+    expect((await leerFila(id)).texto_linkedin).toBeNull()
   })
 })

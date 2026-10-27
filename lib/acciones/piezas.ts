@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerCarruselVigente } from "@/lib/datos/carrusel"
+import { laminasAJson, leerCarruselVigente, leerVersionVigente } from "@/lib/datos/carrusel"
 import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
@@ -16,6 +16,7 @@ import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
+import { aplicarCambioDeDiseno, type CambioDeDiseno, DisenoInvalido } from "@/lib/dominio/diseno-carrusel"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
 import {
@@ -104,6 +105,8 @@ const TEXTO_PEDIDO_LARGO = `Escríbelo en ${MAXIMO_DEL_PEDIDO} caracteres o meno
 const AVISO_CAMBIO_DE_CARRUSEL =
   "Pedí el cambio, pero el carrusel nuevo tarda en partir. Si no avanza, vuelve a intentarlo."
 
+const TEXTO_DISENO_SIN_CAMBIO = "Eso ya está así."
+
 function traducir(error: unknown): unknown {
   if (error instanceof Falla || !(error instanceof Error)) return error
   // The database enforces the same rules as the screen; these are the two a race can reach.
@@ -122,6 +125,8 @@ function traducir(error: unknown): unknown {
   if (error.message.includes("sin_cambios_de_texto")) return new Falla(TEXTO_SIN_CAMBIOS_DE_TEXTO)
   if (error.message.includes("pedido_invalido")) return new Falla(TEXTO_PEDIDO_VACIO)
   if (error.message.includes("estado_no_cambiable")) return new PantallaVencida()
+  if (error.message.includes("diseno_invalido")) return new DisenoInvalido()
+  if (error.message.includes("diseno_sin_cambio")) return new Falla(TEXTO_DISENO_SIN_CAMBIO)
   return error
 }
 
@@ -512,6 +517,83 @@ export function pedirCambioDeCarrusel(
 }
 
 /**
+ * Gate 2 of a carousel (design 2026-10-26, D1 step 5): the rendered version she saw, its words (the same gate 1
+ * signed) and the time. The database binds it again (plan amendment 2). Nothing starts: at the time the publisher hands
+ * it to her to upload (decision P1).
+ */
+export function aprobarCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  carruselVisto: string,
+  publicarEn: string,
+) {
+  return aResultado("aprobarCarrusel", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista, new ArtefactoCambio())
+    if (fila.tipo !== "carrusel" || fila.estado !== "carrusel_por_aprobar") {
+      throw new TransicionInvalida(fila.estado, "aprobar_carrusel")
+    }
+    const version = await leerVersionVigente(deps.db, fila.id)
+    if (!version || version.estado !== "listo") throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
+    const hash = hashTextoDeCarrusel(version)
+    if (hash !== version.hashTexto)
+      throw new Error(`El hash guardado del carrusel ${version.id} no es el de sus palabras.`)
+    await exigirHorarioLibre(deps.db, fila.id, publicarEn, "carrusel")
+    await guardarEvento(deps.db, fila, {
+      tipo: "aprobar_carrusel",
+      actor: "coni",
+      carruselVisto,
+      carruselActual: version.id,
+      hashTextoVisto: hash,
+      hashTextoActual: hash,
+      publicarEn,
+      en: deps.ahora(),
+    })
+    return {}
+  })
+}
+
+const AVISO_DISENO = "Pedí el diseño nuevo, pero las láminas tardan en armarse. Si no avanzan, te aviso."
+
+/**
+ * "El diseño" at gate 2 (D5, plan amendment 5): one bounded change on the latest rendered version, as a new version with
+ * the same words (so gate 1 stands and it is not one of her three changes), rendered again at once.
+ */
+export function cambiarDisenoDeCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  cambio: CambioDeDiseno,
+) {
+  return aResultado("cambiarDisenoDeCarrusel", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    if (fila.tipo !== "carrusel") throw new TransicionInvalida(fila.estado, "cambiar_diseno")
+    // Validated here and applied by the function below, which repeats it in SQL.
+    transicionar(piezaDesdeFila(fila), { tipo: "cambiar_diseno" })
+    const version = await leerVersionVigente(deps.db, fila.id)
+    if (!version || version.estado !== "listo") throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
+    const nuevo = aplicarCambioDeDiseno(version.laminas, version.diseno, cambio)
+    if (hashTextoDeCarrusel({ laminas: nuevo.laminas, textoPost: version.textoPost }) !== version.hashTexto) {
+      throw new Error(`Un cambio de diseño cambió las palabras del carrusel ${version.id}.`)
+    }
+    const { data, error } = await deps.db.rpc("cambiar_diseno_de_carrusel", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_laminas: laminasAJson(nuevo.laminas),
+      p_diseno: { variante: nuevo.diseno.variante },
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
+    return iniciar(
+      "armar-carrusel",
+      () => deps.disparar.armar(fila.id, claveArmar(fila.id, data.id, fila.intento + 1)),
+      AVISO_DISENO,
+    )
+  })
+}
+
+/**
  * Moves a script waiting for her signature to `grabando_voz` and starts `grabar-voz`. Nothing else would start this
  * run, so a failure to start hands the piece back with the reason. Returns the row as it was left.
  */
@@ -608,7 +690,11 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
   })
 }
 
-/** The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back). */
+/**
+ * The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back).
+ * Reels only: `carrusel_por_aprobar` is left out on purpose (a carousel's post is part of `hash_texto`, changed only
+ * through Pedir cambio).
+ */
 const ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE: readonly Database["public"]["Enums"]["estado_pieza"][] = [
   "guion_por_aprobar",
   "video_por_aprobar",
@@ -630,6 +716,8 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
 
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    // A carousel's post is carruseles.texto_post, signed at gate 1 (plan amendment 11): never this reel column.
+    if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "editar_texto")
     if (!ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE.includes(fila.estado)) {
       throw new TransicionInvalida(fila.estado, "editar_texto")
     }
@@ -660,7 +748,12 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
 }
 
 /** Two reels at the same minute would go out together: the slot has to be free. An unreadable time is the domain's to refuse. */
-async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): Promise<void> {
+async function exigirHorarioLibre(
+  db: Db,
+  piezaId: string,
+  publicarEn: string,
+  tipo: "reel" | "carrusel" = "reel",
+): Promise<void> {
   const instante = instanteEstricto(publicarEn)
   if (instante === null) return
   const { data, error } = await db
@@ -671,7 +764,13 @@ async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): 
     .neq("id", piezaId)
     .limit(1)
   if (error) throw new Error(`No pude revisar si el horario está libre: ${error.message}`, { cause: error })
-  if (data.length > 0) throw new Falla("Ese horario ya lo tiene otro reel. Elige otro.")
+  if (data.length > 0) {
+    throw new Falla(
+      tipo === "reel"
+        ? "Ese horario ya lo tiene otro reel. Elige otro."
+        : "Ese horario ya lo tiene otra pieza. Elige otro.",
+    )
+  }
 }
 
 /**
