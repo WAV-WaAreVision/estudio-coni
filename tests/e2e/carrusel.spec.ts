@@ -234,3 +234,17 @@ test("a carousel left to upload by hand says why", async ({ page }) => {
   await expect(page.getByText("Listo para que lo subas a LinkedIn")).toBeVisible()
   await expect(page.getByText("LinkedIn no está conectado, así que te lo dejé para subir a mano.")).toBeVisible()
 })
+
+test("gate 2 of a carousel says it posts by itself while LinkedIn is connected, and by hand when not", async ({
+  page,
+}) => {
+  await simularMedios(page)
+  await conectarLinkedin()
+  const id = await sembrarCarruselDeEscena("carrusel_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("Se publica solo en LinkedIn a esa hora.")).toBeVisible()
+
+  await desconectarLinkedin()
+  await page.reload()
+  await expect(page.getByText("LinkedIn no está conectado: te lo dejo para subir a mano.")).toBeVisible()
+})
