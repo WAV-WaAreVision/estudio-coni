@@ -208,6 +208,46 @@ describe("armarCarrusel", () => {
     expect(d.almacen.claves()).toEqual([])
   })
 
+  it("confirms Claude's spend as soon as she answers, and a retry never asks her again", async () => {
+    const id = await carrusel()
+    const cuerpos: string[] = []
+    servidor.use(
+      http.post("https://api.anthropic.com/v1/messages", () => {
+        cuerpos.push("pedido")
+        // The same text as before: guardar_acortado refuses it (acortado_invalido) after Claude was paid.
+        return HttpResponse.json({
+          id: "msg_prueba",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                laminas: [{ numero: 4, texto: "No ve cómo cambia tu voz cuando hablas de tu familia." }],
+              }),
+            },
+          ],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 900, output_tokens: 60, cache_creation_input_tokens: 0, cache_read_input_tokens: 800 },
+        })
+      }),
+    )
+
+    await expect(armarCarrusel(doble([{ tipo: "desborda", laminas: [3] }]).deps, id)).rejects.toThrow()
+    const gastos = await pool.query(
+      "select estado, real_usd > 0 as pagado from public.gastos where pieza_id = $1 and paso = 'carrusel'",
+      [id],
+    )
+    expect(gastos.rows).toEqual([{ estado: "confirmado", pagado: true }])
+
+    expect(await armarCarrusel(doble([{ tipo: "desborda", laminas: [3] }]).deps, id)).toEqual({
+      resultado: "muy_largo",
+    })
+    expect(cuerpos).toHaveLength(1)
+  })
+
   it("leaves a piece that is not waiting for its slides alone", async () => {
     const id = await carrusel("carrusel_por_aprobar")
     const d = doble([])

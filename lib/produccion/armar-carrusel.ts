@@ -16,6 +16,7 @@ import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerPilares } from "@/lib/datos/pilares"
 import {
   actualizarPieza,
+  confirmarGasto,
   type FilaDePieza,
   leerGuiaVigente,
   leerIdea,
@@ -152,8 +153,9 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     await avisarTope(deps, fila)
     return devolver(deps, fila, version, textoMuyLarga(largas))
   }
-  // A refusal released it before: asking again would only be refused again, and cost money.
-  if (reserva.gasto.estado === "liberado") return devolver(deps, fila, version, textoMuyLarga(largas))
+  // A refusal released it before: asking again would only be refused again, and cost money. A confirmed one means
+  // Claude already answered and the save failed: asking again would pay twice for the one shortening.
+  if (reserva.gasto.estado !== "reservado") return devolver(deps, fila, version, textoMuyLarga(largas))
 
   const guia = await leerGuiaVigente(db)
   if (!guia) throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
@@ -170,6 +172,9 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     await liberarGasto(db, clave)
     return devolver(deps, fila, version, textoMuyLarga(largas))
   }
+  const realUsd = aCuatroDecimales(costoClaude(respuesta.uso, MODELO_POR_TAREA.acortarLaminas.modelo))
+  // Paid now, whatever happens to the save below.
+  await confirmarGasto(db, clave, realUsd)
 
   const laminas = conTextosNuevos(version.laminas, respuesta.textos)
   const actual = leerRevision(fila.revision)
@@ -197,7 +202,7 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     revision: revisionAJson(revision),
     explicacion,
     clave,
-    realUsd: aCuatroDecimales(costoClaude(respuesta.uso, MODELO_POR_TAREA.acortarLaminas.modelo)),
+    realUsd,
   })
   if (!guardada) throw piezaCambio()
   return { resultado: "acortado" } as const
