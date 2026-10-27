@@ -1727,6 +1727,35 @@ export type Database = {
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
+      cambiar_diseno_de_carrusel: {
+        Args: {
+          p_diseno: Json
+          p_laminas: Json
+          p_pieza: string
+          p_version: number
+        }
+        Returns: {
+          creado_en: string
+          diseno: Json
+          estado: string
+          hash_texto: string
+          id: string
+          laminas: Json
+          origen: string
+          pdf_clave: string | null
+          pedido: string | null
+          pieza_id: string
+          png_claves: string[]
+          texto_post: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "carruseles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
@@ -1969,6 +1998,128 @@ export type Database = {
       fusionar_par_de_temas: {
         Args: { p_ganador: string; p_perdedor: string }
         Returns: undefined
+      }
+      guardar_acortado: {
+        Args: {
+          p_carrusel: string
+          p_clave: string
+          p_explicacion: string
+          p_hash_texto: string
+          p_laminas: Json
+          p_real: number
+          p_revision: Json
+          p_version: number
+        }
+        Returns: {
+          actualizada_en: string
+          archivos_borrados_en: string | null
+          audio_id: string | null
+          avatar_id: string | null
+          cambios_de_texto: number
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          destinos: string[]
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          pedido_de_cambio: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_formula: number | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_carrusel_id: string | null
+          puerta2_en: string | null
+          puerta2_formula: number | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          respaldo: Json | null
+          revision: Json
+          texto: string | null
+          texto_linkedin: string | null
+          tipo: string
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      guardar_armado: {
+        Args: {
+          p_carrusel: string
+          p_pdf: string
+          p_pngs: string[]
+          p_version: number
+        }
+        Returns: {
+          actualizada_en: string
+          archivos_borrados_en: string | null
+          audio_id: string | null
+          avatar_id: string | null
+          cambios_de_texto: number
+          contenedor_clave: string | null
+          contenedor_id: string | null
+          creada_en: string
+          destinos: string[]
+          estado: Database["public"]["Enums"]["estado_pieza"]
+          estado_antes_del_error:
+            | Database["public"]["Enums"]["estado_pieza"]
+            | null
+          explicacion: string | null
+          guion: string | null
+          id: string
+          idea_id: string | null
+          intento: number
+          media_id: string | null
+          pedido_de_cambio: string | null
+          permalink: string | null
+          publicacion_enviada_en: string | null
+          publicacion_reclamada_hasta: string | null
+          puerta1_en: string | null
+          puerta1_formula: number | null
+          puerta1_hash: string | null
+          puerta1_por: string | null
+          puerta2_carrusel_id: string | null
+          puerta2_en: string | null
+          puerta2_formula: number | null
+          puerta2_hash_texto: string | null
+          puerta2_por: string | null
+          puerta2_publicar_en: string | null
+          puerta2_video_id: string | null
+          render_id: string | null
+          respaldo: Json | null
+          revision: Json
+          texto: string | null
+          texto_linkedin: string | null
+          tipo: string
+          titulo: string
+          version: number
+          video_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "piezas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       guardar_borrador: {
         Args: {
@@ -2227,6 +2378,7 @@ export type Database = {
         }[]
       }
       olvidar_visitas_clic: { Args: { p_antes_de: string }; Returns: number }
+      palabras_de_laminas: { Args: { p_laminas: Json }; Returns: string }
       pedir_cambio_de_carrusel: {
         Args: { p_pedido: string; p_pieza: string; p_version: number }
         Returns: {
