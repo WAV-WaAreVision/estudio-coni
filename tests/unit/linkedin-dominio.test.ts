@@ -153,4 +153,14 @@ describe("tituloDelDocumento", () => {
   it("cuts a single word longer than 100 characters at 100, since no word boundary exists", () => {
     expect(tituloDelDocumento("a".repeat(130))).toBe("a".repeat(100))
   })
+
+  it("joins a cover's line breaks and repeated spaces into single spaces", () => {
+    expect(tituloDelDocumento("  Lo que un chatbot\n\nno ve   de\tti \n")).toBe("Lo que un chatbot no ve de ti")
+  })
+
+  it("never splits an emoji when a single long word is cut at 100", () => {
+    const titulo = tituloDelDocumento(`${"a".repeat(99)}😀${"b".repeat(10)}`)
+    expect(titulo).toBe(`${"a".repeat(99)}😀`)
+    expect(titulo.isWellFormed()).toBe(true)
+  })
 })
