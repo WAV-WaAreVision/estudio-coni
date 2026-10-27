@@ -135,11 +135,13 @@ function conTextosNuevos(laminas: readonly Lamina[], textos: ReadonlyMap<number,
 /** The one automatic shortening (amendment 3): reserve, ask Claude, review, save as a new text back at gate 1. */
 async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCarrusel, largas: number[]) {
   const { db } = deps
+  // One shortening per version, ever: the attempt stays out of the key, so after Reintentar the reservation finds the
+  // spend Claude was already paid for (and the check below sends it back) instead of opening a new one.
   const clave = claveIdempotencia({
     piezaId: fila.id,
     paso: "armar",
     hash: hashTexto(`acortar:${version.id}`),
-    intento: fila.intento,
+    intento: 0,
   })
   const reserva = await reservarGasto(db, {
     piezaId: fila.id,

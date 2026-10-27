@@ -8,7 +8,7 @@ import { armarCarrusel, type DepsArmado } from "@/lib/produccion/armar-carrusel"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { asumir, comoConi, pool } from "./db"
+import { asumir, comoConi, comoServicio, pool } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { borrarSembrado, leerFila, sembrarCarrusel } from "./siembra"
@@ -246,6 +246,61 @@ describe("armarCarrusel", () => {
       resultado: "muy_largo",
     })
     expect(cuerpos).toHaveLength(1)
+  })
+
+  it("never pays Claude twice for one version when Reintentar starts a new attempt after a failed save", async () => {
+    const id = await carrusel()
+    const cuerpos: string[] = []
+    servidor.use(
+      http.post("https://api.anthropic.com/v1/messages", () => {
+        cuerpos.push("pedido")
+        // The same text as before: guardar_acortado refuses it after Claude was paid.
+        return HttpResponse.json({
+          id: "msg_prueba",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                laminas: [{ numero: 4, texto: "No ve cómo cambia tu voz cuando hablas de tu familia." }],
+              }),
+            },
+          ],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 900, output_tokens: 60, cache_creation_input_tokens: 0, cache_read_input_tokens: 800 },
+        })
+      }),
+    )
+    await expect(armarCarrusel(doble([{ tipo: "desborda", laminas: [3] }]).deps, id)).rejects.toThrow()
+
+    // The failed run lands in error_produccion and Coni presses Reintentar: a new attempt of the same version.
+    const c = await pool.connect()
+    try {
+      await c.query("begin")
+      await aplicar(c, id, comoServicio, { tipo: "falla_produccion", explicacion: "No pude guardar el acortado." })
+      await aplicar(c, id, comoConi, { tipo: "reintentar", ahora: new Date().toISOString() })
+      await c.query("commit")
+    } catch (error) {
+      await c.query("rollback")
+      throw error
+    } finally {
+      c.release()
+    }
+    expect((await leerFila(id)).estado).toBe("armando_carrusel")
+
+    expect(await armarCarrusel(doble([{ tipo: "desborda", laminas: [3] }]).deps, id)).toEqual({
+      resultado: "muy_largo",
+    })
+    expect(cuerpos).toHaveLength(1)
+    const gastos = await pool.query("select estado from public.gastos where pieza_id = $1 and paso = 'carrusel'", [id])
+    expect(gastos.rows).toEqual([{ estado: "confirmado" }])
+    expect(await leerFila(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      explicacion: "La lámina 4 quedó muy larga. Pide un cambio para acortarla.",
+    })
   })
 
   it("leaves a piece that is not waiting for its slides alone", async () => {
