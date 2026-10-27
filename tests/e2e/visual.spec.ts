@@ -95,6 +95,13 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
           nodo.textContent = "Programado · martes 6 · 10:00"
         }
       }
+      // Gate 2 (reel or carousel) proposes her next free slot after the real clock: "martes 27 de octubre · 19:00" in
+      // the morning, "jueves 29 de octubre · 19:00" that evening, "sábado 7 de noviembre · 19:00" later on. The masked
+      // date is as wide as its text, so the "Cambiar" beside it dropped to a line of its own or came back with the time
+      // of day. No seeded date can hold the width (the month name changes it), so the label is one fixed short date.
+      for (const nodo of document.querySelectorAll('section[aria-labelledby="fecha"] [data-snapshot="varia"]')) {
+        if (nodo.childElementCount === 0) nodo.textContent = "jueves 8 de octubre · 19:00"
+      }
     })
   }
   if (CARPETA_FINALES) {
