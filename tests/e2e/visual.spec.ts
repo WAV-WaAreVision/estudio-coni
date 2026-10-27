@@ -85,6 +85,11 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
         if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Semana del ")) {
           nodo.textContent = "Semana del 5 al 11 de octubre"
         }
+        // The scheduled reel publishes tomorrow: with large text a long weekday ("miércoles 28 · 10:00") wraps the
+        // masked row to a second line. A fixed short date keeps the one line the baselines were taken with.
+        if (nodo.childElementCount === 0 && nodo.textContent?.startsWith("Programado · ")) {
+          nodo.textContent = "Programado · martes 6 · 10:00"
+        }
       }
     })
   }
