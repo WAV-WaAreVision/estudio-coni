@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { marcarArmadoFallido } from "@/lib/datos/carrusel"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { actualizarPieza, type FilaDePieza, leerPieza } from "@/lib/datos/repositorio"
 import { type Evento, transicionar } from "@/lib/dominio/estados"
@@ -26,6 +27,7 @@ export interface EntradaDeFalla {
 const GENERICO_GUION = "Algo falló al preparar tu guion. WAV ya está revisando."
 const GENERICO_VIDEO = "Algo falló al preparar tu video. WAV ya está revisando."
 const GENERICO_VOZ = "Algo falló al grabar la voz. WAV ya está revisando. Puedes volver a intentarlo."
+const GENERICO_CARRUSEL = "No pude armar el carrusel. WAV ya está revisando."
 const LARGO_MAXIMO = 1000
 const CAUSAS_MAXIMAS = 3
 
@@ -60,8 +62,14 @@ async function dejarConstancia(deps: DepsFalla, fila: FilaDePieza, entrada: Entr
   const guion = entrada.tarea === "producir-pieza" && fila.estado === "guion_en_proceso"
   const video = entrada.tarea === "grabar-pieza" && (fila.estado === "en_render" || fila.estado === "subtitulando")
   const voz = entrada.tarea === "grabar-voz" && fila.estado === "grabando_voz"
-  if (!guion && !video && !voz) return null
-  const explicacion = paraConi(entrada.error, guion ? GENERICO_GUION : voz ? GENERICO_VOZ : GENERICO_VIDEO)
+  const armado = entrada.tarea === "armar-carrusel" && fila.estado === "armando_carrusel"
+  if (!guion && !video && !voz && !armado) return null
+  const explicacion = paraConi(
+    entrada.error,
+    guion ? GENERICO_GUION : voz ? GENERICO_VOZ : armado ? GENERICO_CARRUSEL : GENERICO_VIDEO,
+  )
+  // The version that was being rendered failed (plan amendment 8); a retry renders it again.
+  if (armado) await marcarArmadoFallido(deps.db, fila.id)
   const evento: Evento = voz ? { tipo: "falla_voz", explicacion } : { tipo: "falla_produccion", explicacion }
   const cambios = guion
     ? { version: fila.version + 1, explicacion }
