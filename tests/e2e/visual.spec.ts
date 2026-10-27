@@ -205,6 +205,14 @@ test("guion por aprobar", async ({ page }) => {
   await capturaDe(page, "guion-por-aprobar")
 })
 
+test("guion descartar", async ({ page }) => {
+  await sembrarEscena()
+  const id = await sembrarPiezaDeEscena("guion_por_aprobar", PIEZAS.guion)
+  await page.goto(`/guion/${id}`)
+  await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+  await capturaDe(page, "guion-descartar")
+})
+
 /** The video she already watched to the end: the player reads it from the browser, as on her phone. */
 async function videoVisto(page: Page, id: string) {
   const { video_id } = await leerFila(id)

@@ -281,6 +281,12 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
     hallazgos.push(...(await hallazgosDeAxe(page, "pedir cambios")))
     await page.getByRole("button", { name: "Volver", exact: true }).click()
 
+    // Gate 1 with the discard question open (decision P2 of the carousels part 2 plan), then closed again.
+    await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+    await expect(page.getByRole("button", { name: "Sí, descartar" })).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "descartar en la puerta 1")))
+    await page.getByRole("button", { name: "Cancelar" }).click()
+
     const pista = page.getByRole("slider", { name: "Desliza para firmar" })
     await expect(pista).toHaveAttribute("aria-disabled", "false")
     await pista.click()
