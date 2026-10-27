@@ -59,9 +59,6 @@ export const TEXTO_REVISA_POST = "2. Revisa el texto de la publicación"
 export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Revisé el carrusel y no encontré observaciones. Tú decides."
 export const TEXTO_AYUDA_DEL_PEDIDO = "Escríbelo en una frase. Escribo el carrusel de nuevo y este se descarta."
 export const TEXTO_CONSECUENCIA_CARRUSEL = "Firmas las láminas y el texto. Todavía no se publica nada."
-export const TEXTO_CARRUSEL_FIRMADO = "Firmaste el texto del carrusel"
-export const TEXTO_CARRUSEL_ESPERA =
-  "El diseño de las láminas llega en la próxima versión de la app. Cuando esté, te aviso para que lo veas y elijas la fecha. Nada se publica sin que lo apruebes."
 export const TEXTO_ASI_QUEDO_FIRMADO = "Así quedó firmado"
 
 export const textoCambiosQuedan = (quedan: number) =>

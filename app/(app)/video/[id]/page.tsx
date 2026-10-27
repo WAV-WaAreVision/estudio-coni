@@ -37,6 +37,8 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
   const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
+  // Every carousel state lives on /guion/<id> (plan amendment 13); the shared links of Inicio may land here.
+  if (fila.tipo === "carrusel") redirect(`/guion/${fila.id}`)
   const pilar = pilarVisible(pilares, idea?.pilar)
 
   switch (fila.estado) {

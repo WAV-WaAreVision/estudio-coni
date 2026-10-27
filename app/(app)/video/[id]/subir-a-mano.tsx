@@ -168,7 +168,7 @@ export function SubirAMano({
 }
 
 /** One numbered step: the number sits in the icon column, so the content keeps the screen's left axis at x = 56. */
-function Paso({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
+export function Paso({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
   return (
     <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-x-3 pt-1">
       <span aria-hidden="true" className="text-meta font-semibold tabular-nums">
