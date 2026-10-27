@@ -40,10 +40,16 @@ export async function renderizarCarrusel(abrir: AbrirPagina, entrada: EntradaDeR
       throw new FallaDeConfiguracion(`La letra del carrusel no cargó en Chromium (${problemaDeLetra}).`)
     }
 
+    // Everything in the box counts, the portada's rule (`::before`) too. Centred content overflows both ways and
+    // `scrollHeight` only sees the bottom half of it, so the box is measured top-aligned and put back.
     const desbordadas = await pagina.$$eval("[data-texto]", (cajas) =>
       cajas.flatMap((caja, indice) => {
-        const parrafo = caja.firstElementChild
-        return parrafo && parrafo.getBoundingClientRect().height > caja.clientHeight + 1 ? [indice] : []
+        if (!(caja instanceof HTMLElement)) return []
+        const alineado = caja.style.justifyContent
+        caja.style.justifyContent = "flex-start"
+        const desborda = caja.scrollHeight > caja.clientHeight + 1
+        caja.style.justifyContent = alineado
+        return desborda ? [indice] : []
       }),
     )
     if (desbordadas.length > 0) return { tipo: "desborda", laminas: desbordadas }
