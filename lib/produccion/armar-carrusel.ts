@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { marcaDelCarrusel } from "@/lib/carrusel/plantilla/plantilla"
 import type { EntradaDeRender, Render } from "@/lib/carrusel/render"
 import {
+  empezarArmado,
   guardarAcortado,
   guardarArmado,
   laminasAJson,
@@ -227,7 +228,7 @@ export async function armarCarrusel(deps: DepsArmado, piezaId: string): Promise<
   // The database makes this impossible (proteger_pieza): a mismatch is a bug, never rendered.
   if (!veredicto.ok) throw new Error(`No armo el carrusel ${fila.id}: ${veredicto.motivo}`)
 
-  await marcarVersion(db, version.id, "armando")
+  await empezarArmado(db, version.id, deps.ahora())
   const render = await deps.renderizar({
     laminas: version.laminas,
     variante: version.diseno.variante,

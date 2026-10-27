@@ -285,17 +285,44 @@ export async function leerPiezasAtascadas(db: Db, antesDe: string): Promise<Fila
   return data
 }
 
-/** Carousels waiting for their slides, without a reason, whose last write is older than `antesDe`. */
-export async function leerCarruselesAtascados(db: Db, antesDe: string): Promise<FilaDePieza[]> {
-  const { data, error } = await db
+/**
+ * Carousels waiting for their slides, without a reason, whose latest version is not rendered and either started
+ * before `empezoAntesDe` or was asked for before `pedidoAntesDe` and never started. A version with neither stamp is
+ * left alone: it was never asked for, so there is nothing to time.
+ */
+export async function leerCarruselesAtascados(
+  db: Db,
+  plazos: { empezoAntesDe: string; pedidoAntesDe: string },
+): Promise<FilaDePieza[]> {
+  const { data: piezas, error } = await db
     .from("piezas")
     .select("*")
     .eq("estado", "armando_carrusel")
     .is("explicacion", null)
-    .lt("actualizada_en", antesDe)
     .order("actualizada_en")
   if (error) throw fallo("No pude leer los carruseles atascados", error)
-  return data
+  if (piezas.length === 0) return []
+  const { data: versiones, error: errorVersiones } = await db
+    .from("carruseles")
+    .select("pieza_id, version, estado, armado_pedido_en, armado_empezo_en")
+    .in(
+      "pieza_id",
+      piezas.map((pieza) => pieza.id),
+    )
+  if (errorVersiones) throw fallo("No pude leer las versiones de los carruseles atascados", errorVersiones)
+  const vigentes = new Map<string, (typeof versiones)[number]>()
+  for (const version of versiones) {
+    const actual = vigentes.get(version.pieza_id)
+    if (!actual || version.version > actual.version) vigentes.set(version.pieza_id, version)
+  }
+  const empezo = Date.parse(plazos.empezoAntesDe)
+  const pedido = Date.parse(plazos.pedidoAntesDe)
+  return piezas.filter((pieza) => {
+    const version = vigentes.get(pieza.id)
+    if (!version || version.estado === "listo") return false
+    if (version.armado_empezo_en !== null) return Date.parse(version.armado_empezo_en) < empezo
+    return version.armado_pedido_en !== null && Date.parse(version.armado_pedido_en) < pedido
+  })
 }
 
 /** Pieces recording their voice whose last write is older than `antesDe`: their run died or never started. */

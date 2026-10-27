@@ -34,7 +34,7 @@ const MINUTOS_SIN_ARMAR = 10
  * the net under that warning, for scripts, recordings and carousel renders. It asks again with the same idempotency
  * key the app used, so a run that did start is not doubled (Trigger.dev answers with the first run) and one that did
  * not is started now. Asking on every tick is safe for the same reason; `conciliarRenders` gives the piece up after an
- * hour.
+ * hour (a carousel: an hour after its render started, or a day after it was asked for).
  */
 export async function reanudarArranques(deps: DepsArranques): Promise<ResultadoArranque[]> {
   const ahora = Date.parse(deps.ahora())

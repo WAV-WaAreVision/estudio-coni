@@ -277,6 +277,8 @@ export type Database = {
       }
       carruseles: {
         Row: {
+          armado_empezo_en: string | null
+          armado_pedido_en: string | null
           creado_en: string
           diseno: Json
           estado: string
@@ -292,6 +294,8 @@ export type Database = {
           version: number
         }
         Insert: {
+          armado_empezo_en?: string | null
+          armado_pedido_en?: string | null
           creado_en?: string
           diseno?: Json
           estado?: string
@@ -307,6 +311,8 @@ export type Database = {
           version: number
         }
         Update: {
+          armado_empezo_en?: string | null
+          armado_pedido_en?: string | null
           creado_en?: string
           diseno?: Json
           estado?: string
@@ -1735,6 +1741,8 @@ export type Database = {
           p_version: number
         }
         Returns: {
+          armado_empezo_en: string | null
+          armado_pedido_en: string | null
           creado_en: string
           diseno: Json
           estado: string

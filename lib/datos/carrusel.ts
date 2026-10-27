@@ -203,6 +203,19 @@ export async function marcarVersion(db: Db, carruselId: string, estado: "armando
   if (error) throw fallo("No pude marcar la versión del carrusel", error)
 }
 
+/**
+ * The run starts rendering a version now (`en`): the maintenance gives the render an hour from here
+ * (lib/mantenimiento/conciliar.ts), not from when it was asked for.
+ */
+export async function empezarArmado(db: Db, carruselId: string, en: string): Promise<void> {
+  const { error } = await db
+    .from("carruseles")
+    .update({ estado: "armando", armado_empezo_en: en })
+    .eq("id", carruselId)
+    .neq("estado", "listo")
+  if (error) throw fallo("No pude marcar la versión del carrusel", error)
+}
+
 /** After the last retry of a render: the latest version, if it was being rendered, failed. */
 export async function marcarArmadoFallido(db: Db, piezaId: string): Promise<void> {
   const version = await leerVersionVigente(db, piezaId)

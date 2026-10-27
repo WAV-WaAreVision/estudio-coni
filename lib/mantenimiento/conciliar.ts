@@ -36,6 +36,11 @@ const MINUTO_MS = 60_000
 const MINUTOS_SIN_NOVEDAD = 15
 /** Design A10: a piece that has made no progress for this long is given up on and handed back to Coni. */
 const MINUTOS_SIN_PROGRESO = 60
+/**
+ * A carousel render asked for this long ago that never started is given up on too. Generous on purpose: the queue
+ * renders one carousel at a time, and every carousel signed before the deploy is asked for at once.
+ */
+const MINUTOS_SIN_EMPEZAR_A_ARMAR = 24 * 60
 
 const EXPLICACION_RENDER_LENTO = "El video tardó demasiado en estar listo. Puedes volver a intentarlo."
 const EXPLICACION_SIN_RENDER = "El video no alcanzó a empezar a grabarse. Puedes volver a intentarlo."
@@ -51,12 +56,17 @@ const EXPLICACION_SIN_CARRUSEL = "No pude armar el carrusel. WAV ya está revisa
 export async function conciliarRenders(deps: DepsConciliacion): Promise<ResultadoConciliacion[]> {
   const ahora = Date.parse(deps.ahora())
   const desde = new Date(ahora - MINUTOS_SIN_NOVEDAD * MINUTO_MS).toISOString()
-  // A carousel's render has no provider to ask: the sweep re-asks it every ten minutes, and after an hour (its run and
-  // its onFailure both died) it goes back to Coni as error_produccion so Reintentar works.
-  const sinProgreso = new Date(ahora - MINUTOS_SIN_PROGRESO * MINUTO_MS).toISOString()
+  // A carousel's render has no provider to ask: the sweep re-asks it every ten minutes, and an hour after its run
+  // started (the run and its onFailure both died), or a day after it was asked for if it never started, it goes back
+  // to Coni as error_produccion so Reintentar works. Never timed by piezas.actualizada_en: the render does not write the
+  // piece, so a carousel signed days ago would look stuck while its run is still going.
+  const antesDe = (minutos: number) => new Date(ahora - minutos * MINUTO_MS).toISOString()
   const filas = [
     ...(await leerPiezasAtascadas(deps.db, desde)),
-    ...(await leerCarruselesAtascados(deps.db, sinProgreso)),
+    ...(await leerCarruselesAtascados(deps.db, {
+      empezoAntesDe: antesDe(MINUTOS_SIN_PROGRESO),
+      pedidoAntesDe: antesDe(MINUTOS_SIN_EMPEZAR_A_ARMAR),
+    })),
   ]
 
   let llave: Promise<string> | undefined
@@ -102,7 +112,7 @@ async function conciliar(
       deps,
       fila,
       EXPLICACION_SIN_CARRUSEL,
-      "lleva una hora en armando_carrusel",
+      "su armado empezó hace una hora o se pidió hace un día y no ha terminado",
       "Un carrusel se quedó sin armar",
     )
   }
