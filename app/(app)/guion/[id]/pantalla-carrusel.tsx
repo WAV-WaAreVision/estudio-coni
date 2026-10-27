@@ -16,6 +16,7 @@ import { useRedibujar } from "@/components/use-redibujar"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { DescartarPieza } from "../../descartar-pieza"
 import { firmarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
 import { faltaParaFirmarCarrusel } from "./falta-para-firmar"
 import { LaminasEnLectura } from "./laminas-en-lectura"
@@ -146,6 +147,10 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
           )}
         </MasOpciones>
       </Seccion>
+
+      <div className="mt-8">
+        <DescartarPieza piezaId={datos.id} version={datos.version} />
+      </div>
 
       <BarraDeFirma
         idConsecuencia={idConsecuencia}

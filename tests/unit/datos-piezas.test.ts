@@ -16,6 +16,7 @@ const filaNueva: FilaPieza = {
   puerta1_hash: null,
   puerta1_en: null,
   puerta2_video_id: null,
+  puerta2_carrusel_id: null,
   puerta2_hash_texto: null,
   puerta2_publicar_en: null,
   puerta2_en: null,
@@ -34,6 +35,7 @@ const filaProgramada: FilaPieza = {
   puerta1_hash: "a".repeat(64),
   puerta1_en: "2026-10-08T20:00:00.000Z",
   puerta2_video_id: "video-1",
+  puerta2_carrusel_id: null,
   puerta2_hash_texto: "b".repeat(64),
   puerta2_publicar_en: "2026-10-09T22:00:00.000Z",
   puerta2_en: "2026-10-08T21:00:00.000Z",
@@ -180,6 +182,7 @@ describe("cambiosDesdePieza", () => {
         "puerta1_hash",
         "puerta1_en",
         "puerta2_video_id",
+        "puerta2_carrusel_id",
         "puerta2_hash_texto",
         "puerta2_publicar_en",
         "puerta2_en",
@@ -204,10 +207,9 @@ describe("cambiosDesdePieza", () => {
   })
 
   it("writes formula 2 as 2 and formula 1 as null, so an old approval stays byte for byte as it was", () => {
-    const con2 = {
-      ...piezaProgramada,
-      puerta2: piezaProgramada.puerta2 && { ...piezaProgramada.puerta2, formula: 2 as const },
-    }
+    const aprobacion = piezaProgramada.puerta2
+    if (aprobacion?.videoId === undefined) throw new Error("La pieza de prueba es un reel aprobado.")
+    const con2: Pieza = { ...piezaProgramada, puerta2: { ...aprobacion, formula: 2 } }
     expect(cambiosDesdePieza(con2).puerta2_formula).toBe(2)
     expect(cambiosDesdePieza(piezaProgramada).puerta2_formula).toBeNull()
     expect(piezaDesdeFila(releida(con2))).toEqual(con2)
@@ -239,5 +241,31 @@ describe("the piece type", () => {
 
   it("refuses a type the domain does not know", () => {
     expect(() => piezaDesdeFila({ ...filaNueva, tipo: "video" })).toThrow("Tipo de pieza desconocido")
+  })
+})
+
+describe("the gate 2 of a carousel", () => {
+  const filaDeCarrusel: FilaPieza = {
+    ...filaProgramada,
+    tipo: "carrusel",
+    audio_id: null,
+    video_id: null,
+    puerta2_video_id: null,
+    puerta2_carrusel_id: "11111111-1111-4111-8111-111111111111",
+  }
+
+  it("reads it with its carousel id and writes it back the same", () => {
+    const pieza = piezaDesdeFila(filaDeCarrusel)
+    expect(pieza.puerta2).toEqual({
+      carruselId: "11111111-1111-4111-8111-111111111111",
+      hashTexto: "b".repeat(64),
+      publicarEn: "2026-10-09T22:00:00.000Z",
+      en: "2026-10-08T21:00:00.000Z",
+    })
+    expect(releida(pieza)).toEqual(filaDeCarrusel)
+  })
+
+  it("refuses a gate 2 with both a video and a carousel", () => {
+    expect(() => piezaDesdeFila({ ...filaDeCarrusel, puerta2_video_id: "video-1" })).toThrow(Error)
   })
 })

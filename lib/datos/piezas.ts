@@ -1,6 +1,6 @@
 import {
   type AprobacionGuion,
-  type AprobacionVideo,
+  type AprobacionPuerta2,
   type EstadoAntesDelError,
   instanteEstricto,
   type Pieza,
@@ -25,6 +25,7 @@ export type CambiosPieza = Pick<
   | "puerta1_hash"
   | "puerta1_en"
   | "puerta2_video_id"
+  | "puerta2_carrusel_id"
   | "puerta2_hash_texto"
   | "puerta2_publicar_en"
   | "puerta2_en"
@@ -36,7 +37,7 @@ export type CambiosPieza = Pick<
 export type FilaPieza = Omit<CambiosPieza, ColumnaDeInstante> &
   Record<ColumnaDeInstante, string | Date | null> & { tipo: FilaBase["tipo"] }
 
-const REINTENTABLES: readonly EstadoAntesDelError[] = ["en_render", "subtitulando", "programado"]
+const REINTENTABLES: readonly EstadoAntesDelError[] = ["en_render", "subtitulando", "programado", "armando_carrusel"]
 
 /**
  * Postgres keeps microseconds and writes `2026-10-08 22:00:00.123456+00`; supabase-js sends
@@ -79,14 +80,16 @@ function puerta1(fila: FilaPieza): AprobacionGuion | null {
   return { hash: fila.puerta1_hash, en }
 }
 
-function puerta2(fila: FilaPieza): AprobacionVideo | null {
+function puerta2(fila: FilaPieza): AprobacionPuerta2 | null {
   const publicarEn = instanteDeBase(fila.puerta2_publicar_en)
   const en = instanteDeBase(fila.puerta2_en)
-  const { puerta2_video_id: videoId, puerta2_hash_texto: hashTexto } = fila
-  if (videoId === null && hashTexto === null && publicarEn === null && en === null) return null
-  if (videoId === null || hashTexto === null || publicarEn === null || en === null) {
+  const { puerta2_video_id: videoId, puerta2_carrusel_id: carruselId, puerta2_hash_texto: hashTexto } = fila
+  if (videoId === null && carruselId === null && hashTexto === null && publicarEn === null && en === null) return null
+  if (hashTexto === null || publicarEn === null || en === null || (videoId === null) === (carruselId === null)) {
     throw new Error("La puerta 2 de la pieza está incompleta en la base.")
   }
+  if (carruselId !== null) return { carruselId, hashTexto, publicarEn, en }
+  if (videoId === null) throw new Error("La puerta 2 de la pieza está incompleta en la base.")
   return { videoId, hashTexto, formula: formulaDePuerta2(fila.puerta2_formula), publicarEn, en }
 }
 
@@ -116,6 +119,7 @@ export function cambiosDesdePieza(pieza: Pieza): CambiosPieza {
     puerta1_hash: pieza.puerta1?.hash ?? null,
     puerta1_en: pieza.puerta1?.en ?? null,
     puerta2_video_id: pieza.puerta2?.videoId ?? null,
+    puerta2_carrusel_id: pieza.puerta2?.carruselId ?? null,
     puerta2_hash_texto: pieza.puerta2?.hashTexto ?? null,
     puerta2_publicar_en: pieza.puerta2?.publicarEn ?? null,
     puerta2_en: pieza.puerta2?.en ?? null,

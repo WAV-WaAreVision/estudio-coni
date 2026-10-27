@@ -14,6 +14,8 @@ export interface Disparos {
   grabar(piezaId: string, clave: string, intento: number, retraso?: `${number}s`): Promise<void>
   /** `nueva`: Coni asked to record again, so an earlier take of the same text is not reused. */
   voz(piezaId: string, clave: string, nueva: boolean): Promise<void>
+  /** One render of a carousel version (plan amendment 7). */
+  armar(piezaId: string, clave: string): Promise<void>
 }
 
 interface FilaParaClave {
@@ -47,4 +49,9 @@ export function claveGrabar(fila: FilaParaClave): string {
  */
 export function claveVoz(fila: FilaParaClave): string {
   return claveIdempotencia({ piezaId: fila.id, paso: "voz", hash: hashTexto("voz"), intento: fila.intento })
+}
+
+/** One render: the version (its own files) and the attempt, which Reintentar and a design change bump. */
+export function claveArmar(piezaId: string, carruselId: string, intento: number): string {
+  return claveIdempotencia({ piezaId, paso: "armar", hash: hashTexto(`carrusel:${carruselId}`), intento })
 }

@@ -73,7 +73,7 @@ export function hashPuerta2(aprobacion: { videoId: string; hashTexto: string; pu
   return sha256(["puerta2", aprobacion.videoId, aprobacion.hashTexto, aprobacion.publicarEn])
 }
 
-export type Paso = "producir" | "grabar" | "publicar" | "voz"
+export type Paso = "producir" | "grabar" | "publicar" | "voz" | "armar"
 
 /**
  * Same piece, step, approved artifact and attempt: same key, so a blind retry is deduplicated.
@@ -117,18 +117,37 @@ export function puedeGrabarVoz(pieza: Pieza, guion: string | null): VeredictoVoz
   return { ok: true }
 }
 
-/** What both exits of a scheduled piece (publish, hand over for manual upload) require of what Coni approved. */
-function aprobacionVigente(pieza: Pieza, hashTextoActual: string): Veredicto {
+/**
+ * The render task calls this before it renders or pays for a shortening: the version it renders carries the words gate
+ * 1 signed (`hash_texto` in `puerta1_hash`).
+ */
+export function puedeArmar(pieza: Pieza, hashTextoActual: string): Veredicto {
+  if (pieza.tipo !== "carrusel" || pieza.estado !== "armando_carrusel") return no("estado")
+  if (!pieza.puerta1) return no("sin_aprobacion")
+  if (pieza.puerta1.hash !== hashTextoActual) return no("artefacto_cambio")
+  return { ok: true }
+}
+
+/**
+ * What both exits of a scheduled piece (publish, hand over for manual upload) require of what Coni approved: the same
+ * video (a reel) or the same rendered version (a carousel, plan amendment 2), and the same text.
+ */
+function aprobacionVigente(pieza: Pieza, actual: { hashTexto: string; carruselId?: string }): Veredicto {
   if (pieza.estado !== "programado") return no("estado")
   const aprobacion = pieza.puerta2
   if (!aprobacion) return no("sin_aprobacion")
-  if (aprobacion.videoId !== pieza.videoId || aprobacion.hashTexto !== hashTextoActual) return no("artefacto_cambio")
+  const mismoMedio =
+    aprobacion.carruselId !== undefined
+      ? aprobacion.carruselId === actual.carruselId
+      : aprobacion.videoId === pieza.videoId
+  if (!mismoMedio || aprobacion.hashTexto !== actual.hashTexto) return no("artefacto_cambio")
   return { ok: true }
 }
 
 /** The publish task calls this right before publishing; it never publishes at an unapproved time. */
 export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
-  const vigente = aprobacionVigente(pieza, actual.hashTexto)
+  // A carousel is never published by this path in part 2: without a `carruselId` it is refused.
+  const vigente = aprobacionVigente(pieza, actual)
   if (!vigente.ok || !pieza.puerta2) return vigente
   const ahora = instanteEstricto(actual.ahora)
   const publicarEn = instanteEstricto(pieza.puerta2.publicarEn)
@@ -145,8 +164,11 @@ export function puedePublicar(pieza: Pieza, actual: { hashTexto: string; ahora: 
  * so a late hour is no risk and there is no 30-minute window; the piece still never leaves before its time and still
  * has to be what she approved.
  */
-export function puedeEntregarseParaSubir(pieza: Pieza, actual: { hashTexto: string; ahora: string }): Veredicto {
-  const vigente = aprobacionVigente(pieza, actual.hashTexto)
+export function puedeEntregarseParaSubir(
+  pieza: Pieza,
+  actual: { hashTexto: string; carruselId?: string; ahora: string },
+): Veredicto {
+  const vigente = aprobacionVigente(pieza, actual)
   if (!vigente.ok || !pieza.puerta2) return vigente
   const ahora = instanteEstricto(actual.ahora)
   const publicarEn = instanteEstricto(pieza.puerta2.publicarEn)

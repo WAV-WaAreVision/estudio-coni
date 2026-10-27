@@ -2,6 +2,8 @@ import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
 import type { DepsResumen } from "@/lib/avisos/resumen"
+import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
+import { renderizarCarrusel } from "@/lib/carrusel/render"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
@@ -17,6 +19,7 @@ import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
+import type { DepsArmado } from "./armar-carrusel"
 import type { DepsFalla } from "./fallas"
 import type { DepsGrabacion } from "./grabar"
 import type { DepsGrabarVoz } from "./grabar-voz"
@@ -149,10 +152,11 @@ function clienteDeServicio() {
   return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
-/** The dependencies of the ten-minute maintenance run. The two starters come from the task: they need the task objects. */
+/** The dependencies of the ten-minute maintenance run. The starters come from the task: they need the task objects. */
 export function depsFrecuente(
   dispararGrabacion: DepsFrecuente["dispararGrabacion"],
   dispararProduccion: DepsFrecuente["dispararProduccion"],
+  dispararArmado: DepsFrecuente["dispararArmado"],
 ): DepsFrecuente {
   return {
     db: clienteDeServicio(),
@@ -160,7 +164,30 @@ export function depsFrecuente(
     ahora: () => new Date().toISOString(),
     dispararGrabacion,
     dispararProduccion,
+    dispararArmado,
     temas: depsTemas,
+  }
+}
+
+/** The dependencies of an `armar-carrusel` run. Claude is read only if a slide has to be shortened. */
+export async function depsArmado(): Promise<DepsArmado> {
+  const db = clienteDeServicio()
+  return {
+    db,
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    // Loaded only when a render runs: every other task imports this file and must not load playwright.
+    renderizar: async (entrada) => {
+      const { abrirPaginaDeChromium } = await import("@/lib/carrusel/navegador")
+      return renderizarCarrusel(abrirPaginaDeChromium, entrada)
+    },
+    fuente: () => fuenteDelCarrusel(carpetaDeFuentes()),
+    claude: async () => {
+      const llave = await leerSecreto(db, "anthropic")
+      if (!llave) throw new FallaDeConfiguracion("Coni todavía no ingresó su llave de Anthropic en Ajustes.")
+      return new Anthropic({ apiKey: llave, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 })
+    },
   }
 }
 

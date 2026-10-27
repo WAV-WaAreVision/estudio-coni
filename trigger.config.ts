@@ -1,5 +1,6 @@
 import type { BuildExtension } from "@trigger.dev/build"
 import { additionalFiles, ffmpeg } from "@trigger.dev/build/extensions/core"
+import { playwright } from "@trigger.dev/build/extensions/playwright"
 import { defineConfig } from "@trigger.dev/sdk"
 
 /**
@@ -48,9 +49,11 @@ export default defineConfig({
     extensions: [
       // ffmpeg and ffprobe with libass (apt), and the FFMPEG_PATH and FFPROBE_PATH that lib/video/ffmpeg.ts looks for.
       ffmpeg(),
-      // The Montserrat Bold of the subtitles (assets/fuentes/README.md), at the same path under process.cwd().
+      // The subtitles' Montserrat Bold and the carousel's Newsreader (assets/fuentes/README.md), under process.cwd().
       additionalFiles({ files: ["./assets/fuentes/**"] }),
       postgresClient17(),
+      // Chromium (headless shell) for armar-carrusel: the version comes from the `playwright` dependency.
+      playwright({ browsers: ["chromium"], headless: true }),
     ],
   },
 })

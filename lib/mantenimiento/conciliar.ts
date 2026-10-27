@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { marcarArmadoFallido } from "@/lib/datos/carrusel"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
-import { actualizarPieza, type FilaDePieza, leerPiezasAtascadas, leerSecreto } from "@/lib/datos/repositorio"
+import {
+  actualizarPieza,
+  type FilaDePieza,
+  leerCarruselesAtascados,
+  leerPiezasAtascadas,
+  leerSecreto,
+} from "@/lib/datos/repositorio"
 import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -29,10 +36,17 @@ const MINUTO_MS = 60_000
 const MINUTOS_SIN_NOVEDAD = 15
 /** Design A10: a piece that has made no progress for this long is given up on and handed back to Coni. */
 const MINUTOS_SIN_PROGRESO = 60
+/**
+ * A carousel render asked for this long ago that never started is given up on too. Generous on purpose: the queue
+ * renders one carousel at a time, and every carousel signed before the deploy is asked for at once.
+ */
+const MINUTOS_SIN_EMPEZAR_A_ARMAR = 24 * 60
 
 const EXPLICACION_RENDER_LENTO = "El video tardó demasiado en estar listo. Puedes volver a intentarlo."
 const EXPLICACION_SIN_RENDER = "El video no alcanzó a empezar a grabarse. Puedes volver a intentarlo."
 const EXPLICACION_SIN_SUBTITULOS = "El video no alcanzó a quedar listo con sus subtítulos. Puedes volver a intentarlo."
+/** As the render's own `onFailure` says it (lib/produccion/fallas.ts), so Reintentar is offered the same way. */
+const EXPLICACION_SIN_CARRUSEL = "No pude armar el carrusel. WAV ya está revisando."
 
 /**
  * Looks at every piece the render has left without news for 15 minutes. A render HeyGen already finished (or failed)
@@ -42,7 +56,18 @@ const EXPLICACION_SIN_SUBTITULOS = "El video no alcanzó a quedar listo con sus 
 export async function conciliarRenders(deps: DepsConciliacion): Promise<ResultadoConciliacion[]> {
   const ahora = Date.parse(deps.ahora())
   const desde = new Date(ahora - MINUTOS_SIN_NOVEDAD * MINUTO_MS).toISOString()
-  const filas = await leerPiezasAtascadas(deps.db, desde)
+  // A carousel's render has no provider to ask: the sweep re-asks it every ten minutes, and an hour after its run
+  // started (the run and its onFailure both died), or a day after it was asked for if it never started, it goes back
+  // to Coni as error_produccion so Reintentar works. Never timed by piezas.actualizada_en: the render does not write the
+  // piece, so a carousel signed days ago would look stuck while its run is still going.
+  const antesDe = (minutos: number) => new Date(ahora - minutos * MINUTO_MS).toISOString()
+  const filas = [
+    ...(await leerPiezasAtascadas(deps.db, desde)),
+    ...(await leerCarruselesAtascados(deps.db, {
+      empezoAntesDe: antesDe(MINUTOS_SIN_PROGRESO),
+      pedidoAntesDe: antesDe(MINUTOS_SIN_EMPEZAR_A_ARMAR),
+    })),
+  ]
 
   let llave: Promise<string> | undefined
   const leerLlave = () => {
@@ -80,6 +105,18 @@ async function conciliar(
   const sinProgreso = minutos >= MINUTOS_SIN_PROGRESO
   const subtitulando = fila.estado === "subtitulando"
 
+  if (fila.estado === "armando_carrusel") {
+    // The version being rendered failed (plan amendment 8); Reintentar renders it again.
+    await marcarArmadoFallido(deps.db, fila.id)
+    return fallar(
+      deps,
+      fila,
+      EXPLICACION_SIN_CARRUSEL,
+      "su armado empezó hace una hora o se pidió hace un día y no ha terminado",
+      "Un carrusel se quedó sin armar",
+    )
+  }
+
   if (fila.render_id === null) {
     // Waiting for Coni to raise the spending cap leaves a reason on the piece, and nothing else to do.
     if (fila.explicacion !== null) return null
@@ -114,6 +151,7 @@ async function fallar(
   fila: FilaDePieza,
   explicacion: string,
   motivo: string,
+  asunto = "Un video se quedó sin terminar",
 ): Promise<ResultadoConciliacion | null> {
   const { pieza } = transicionar(piezaDesdeFila(fila), { tipo: "falla_produccion", explicacion })
   const guardada = await actualizarPieza(deps.db, fila.id, fila.version, cambiosDesdePieza(pieza))
@@ -125,7 +163,7 @@ async function fallar(
     piezaId: fila.id,
   })
   await deps.avisos.aWav(
-    "Un video se quedó sin terminar",
+    asunto,
     `pieza ${fila.id} («${fila.titulo}»), estado ${fila.estado}, render ${fila.render_id ?? "ninguno"}: ${motivo}.`,
   )
   return { piezaId: fila.id, resultado: "falla_produccion" }

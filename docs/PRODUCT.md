@@ -46,6 +46,10 @@ Formatos: el reel (video con su avatar, Instagram y LinkedIn) y el carrusel de L
 diseñado solo para LinkedIn, firmado «Constanza del Rosario»: sin voz, sin avatar y sin mencionar ningún avatar. Pasa
 por las mismas dos puertas que un reel: en la primera Coni lee las láminas numeradas y el texto del post y lo firma,
 o pide hasta tres cambios con una frase; en la segunda ve el diseño terminado.
+Las láminas son texto diseñado en una plantilla editorial (papel crema, una serif grande) con tres variantes de color.
+En la puerta 2 Coni ve las láminas tal como se verán, puede pedir un cambio de texto (cuenta entre los tres) o un
+cambio de diseño acotado (no cuenta) y lo programa. Mientras no exista la publicación por la API de LinkedIn, a su
+hora ella sube el PDF a mano. (Parte 2 en rama, pendiente de deploy.)
 
 ## Brand Personality
 

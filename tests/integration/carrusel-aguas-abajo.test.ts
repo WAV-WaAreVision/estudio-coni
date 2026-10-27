@@ -55,15 +55,20 @@ describe("a signed carousel downstream (plan amendment 2)", () => {
     expect(rows).toEqual([])
   })
 
-  it("is never taken to publish, nor by the maintenance sweeps", async () => {
+  it("is never taken to publish nor by a reel's sweeps, only by the render sweep (plan amendment 9)", async () => {
     const id = await firmado()
     const servicio = clienteDeServicio()
     const tomada = await tomarParaPublicar(servicio, MAÑANA(), 60)
     expect(tomada?.id).not.toBe(id)
     expect((await leerPiezasAtascadas(servicio, MAÑANA())).map((f) => f.id)).not.toContain(id)
     expect((await leerVocesTrabadas(servicio, MAÑANA())).map((f) => f.id)).not.toContain(id)
-    const { aGrabar } = await leerPiezasSinArrancar(servicio, { grabarAntesDe: MAÑANA(), producirAntesDe: MAÑANA() })
+    const { aGrabar, aArmar } = await leerPiezasSinArrancar(servicio, {
+      grabarAntesDe: MAÑANA(),
+      producirAntesDe: MAÑANA(),
+      armarAntesDe: MAÑANA(),
+    })
     expect(aGrabar.map((f) => f.id)).not.toContain(id)
+    expect(aArmar.map((f) => f.id)).toContain(id)
   })
 
   it("is restarted by maintenance only as a carousel still being written (producir-pieza handles it)", async () => {
@@ -72,6 +77,7 @@ describe("a signed carousel downstream (plan amendment 2)", () => {
     const { aProducir } = await leerPiezasSinArrancar(clienteDeServicio(), {
       grabarAntesDe: MAÑANA(),
       producirAntesDe: MAÑANA(),
+      armarAntesDe: MAÑANA(),
     })
     expect(aProducir.map((f) => f.id)).toContain(id)
   })

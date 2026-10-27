@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import type { armarCarruselTask } from "@/trigger/armar-carrusel"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
 import type { grabarVozTask } from "@/trigger/grabar-voz"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
@@ -39,6 +40,13 @@ function disparosReales(): Disparos {
         { idempotencyKey: await claveGlobal(clave), concurrencyKey: piezaId },
       )
     },
+    async armar(piezaId, clave) {
+      await tasks.trigger<typeof armarCarruselTask>(
+        "armar-carrusel",
+        { piezaId },
+        { idempotencyKey: await claveGlobal(clave) },
+      )
+    },
   }
 }
 
@@ -50,6 +58,7 @@ function disparosDePrueba(archivo: string): Disparos {
     grabar: async (piezaId, clave, intento, retraso) =>
       anotar({ tarea: "grabar", piezaId, clave, intento, ...(retraso ? { retraso } : {}) }),
     voz: async (piezaId, clave, nueva) => anotar({ tarea: "voz", piezaId, clave, nueva }),
+    armar: async (piezaId, clave) => anotar({ tarea: "armar", piezaId, clave }),
   }
 }
 

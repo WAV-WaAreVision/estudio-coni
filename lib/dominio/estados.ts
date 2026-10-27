@@ -24,7 +24,7 @@ export const ESTADOS = [
 export type Estado = (typeof ESTADOS)[number]
 export type Actor = "coni" | "sistema" | "admin"
 /** Steps a failed piece can be retried from. */
-export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado"
+export type EstadoAntesDelError = "en_render" | "subtitulando" | "programado" | "armando_carrusel"
 
 /** A reel (voice, avatar, video) or a LinkedIn carousel (design 2026-10-26, C3). It never changes. */
 export const TIPOS_DE_PIEZA = ["reel", "carrusel"] as const
@@ -54,12 +54,26 @@ export interface AprobacionGuion {
 
 export interface AprobacionVideo {
   videoId: string
+  /** Never on a reel's approval: it tells the two kinds apart. */
+  carruselId?: undefined
   hashTexto: string
   /** How `hashTexto` was computed (`hashTextoDePuerta2`): 1 is an approval from before LinkedIn, 2 binds its text too. */
   formula: 1 | 2
   publicarEn: string
   en: string
 }
+
+/** Gate 2 of a carousel (plan amendment 2): the rendered version she saw, its words (`hash_texto`) and the time. */
+export interface AprobacionCarrusel {
+  carruselId: string
+  videoId?: undefined
+  hashTexto: string
+  formula?: undefined
+  publicarEn: string
+  en: string
+}
+
+export type AprobacionPuerta2 = AprobacionVideo | AprobacionCarrusel
 
 export interface Pieza {
   /** Which pipeline the piece goes through: the state machine refuses the other type's events. */
@@ -73,7 +87,7 @@ export interface Pieza {
   audioId: string | null
   videoId: string | null
   puerta1: AprobacionGuion | null
-  puerta2: AprobacionVideo | null
+  puerta2: AprobacionPuerta2 | null
   explicacion: string | null
 }
 
@@ -88,8 +102,27 @@ export type Evento =
   | { tipo: "guion_listo"; audioId: null; explicacion: string }
   /** The writer hands a carousel's slides and post text over: no voice, nothing else to make. */
   | { tipo: "carrusel_listo" }
-  /** Coni signs a carousel's text (its `hash_texto`). Part 1 stops here: nothing renders it yet. */
+  /** Coni signs a carousel's text (its `hash_texto`): the render starts. */
   | { tipo: "firmar_carrusel"; actor: Actor; hashVisto: string; hashActual: string; en: string }
+  /** The renderer saved a version's PNGs and PDF (`guardar_armado`): gate 2 can look at it. */
+  | { tipo: "carrusel_armado" }
+  /** A version that does not fit goes back to gate 1: shortened (a new text) or too long even shortened. */
+  | { tipo: "volver_a_firmar"; explicacion: string }
+  /** A design change that does not fit is dropped: back to gate 2 on the version she saw, with why. */
+  | { tipo: "diseno_no_cabe"; explicacion: string }
+  /** "El diseño" at gate 2 (D5): a new version with the same words, rendered again. */
+  | { tipo: "cambiar_diseno" }
+  /** Gate 2 of a carousel: the version she saw, its words and the time. */
+  | {
+      tipo: "aprobar_carrusel"
+      actor: Actor
+      carruselVisto: string
+      carruselActual: string
+      hashTextoVisto: string
+      hashTextoActual: string
+      publicarEn: string
+      en: string
+    }
   | { tipo: "pedir_cambios" }
   | { tipo: "editar_texto" }
   /** Coni signs the script, her voice and the video spend in one gesture; the video starts after the undo window. */
@@ -230,30 +263,60 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
       // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
       return pieza.explicacion === null
     case "armando_carrusel":
-      // Part 1: nothing renders a carousel yet, so there is nothing to poll for. Part 2 turns this on.
-      return false
+      // The render runs. Nothing leaves a reason here today (a shortening the cap stops goes back to gate 1), but a
+      // piece with one is left alone, as armarCarrusel and the maintenance leave it: no task would work on it.
+      return pieza.explicacion === null
     default:
       return false
   }
 }
 
 /**
- * What a carousel goes through (design 2026-10-26, C3): written, signed, changed by request or discarded. Never a
- * voice, an avatar, a video or Instagram. Part 2 adds its rendering and gate 2 here.
+ * What a carousel goes through (design 2026-10-26, C3): written, signed, rendered, changed, scheduled and uploaded by
+ * hand (part 2). Never a voice, an avatar, a video, Instagram, nor (until part 3) a post of its own.
  */
 export const EVENTOS_DE_CARRUSEL: readonly Evento["tipo"][] = [
   "elegir",
   "carrusel_listo",
   "pedir_cambios",
   "firmar_carrusel",
+  "carrusel_armado",
+  "volver_a_firmar",
+  "diseno_no_cabe",
+  "falla_produccion",
+  "reintentar",
+  "cambiar_diseno",
+  "aprobar_carrusel",
+  "cambiar_fecha",
+  "entregar_para_subir",
+  "subido_a_mano",
+  "falla_publicacion",
   "descartar",
 ]
-const SOLO_DE_CARRUSEL: readonly Evento["tipo"][] = ["carrusel_listo", "firmar_carrusel"]
+const SOLO_DE_CARRUSEL: readonly Evento["tipo"][] = [
+  "carrusel_listo",
+  "firmar_carrusel",
+  "carrusel_armado",
+  "volver_a_firmar",
+  "diseno_no_cabe",
+  "cambiar_diseno",
+  "aprobar_carrusel",
+]
 
 function soloConi(actor: Actor): void {
   if (actor !== "coni") {
     throw new AprobacionNoAutorizada(actor)
   }
+}
+
+/** The approved time of a gate 2: readable and after the moment of the approval. */
+function fechaDePublicacion(publicarEn: string, aprobadoEn: string): string {
+  const instante = instanteEstricto(publicarEn)
+  if (!instante) throw new Falla("La fecha de publicación no es válida.")
+  if (Date.parse(instante) <= Date.parse(aprobadoEn)) {
+    throw new Falla("La fecha de publicación ya pasó. Elige una hora futura.")
+  }
+  return instante
 }
 
 export function transicionar(pieza: Pieza, evento: Evento): Transicion {
@@ -281,9 +344,12 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       })
 
     case "pedir_cambios":
-      if (estado !== "guion_por_aprobar") throw invalida()
-      // A new script round is a new attempt: its Claude and voice spend must not reuse the keys of the old round.
-      return a("guion_en_proceso", { audioId: null, intento: pieza.intento + 1 })
+      if (estado !== "guion_por_aprobar" && !(pieza.tipo === "carrusel" && estado === "carrusel_por_aprobar")) {
+        throw invalida()
+      }
+      // A new script round is a new attempt: its Claude and voice spend must not reuse the keys of the old round. From
+      // a carousel's gate 2 the signature goes with the old text.
+      return a("guion_en_proceso", { audioId: null, puerta1: null, intento: pieza.intento + 1 })
 
     case "editar_texto": {
       // Editing the caption does not answer the reason on the piece (no voice, a missed hour): it stays, as in
@@ -344,7 +410,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1, explicacion: evento.explicacion })
 
     case "falla_produccion":
-      if (estado !== "en_render" && estado !== "subtitulando") throw invalida()
+      if (estado !== "en_render" && estado !== "subtitulando" && estado !== "armando_carrusel") throw invalida()
       return a("error_produccion", { estadoAntesDelError: estado, explicacion: evento.explicacion })
 
     case "video_listo":
@@ -358,13 +424,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
         throw new ArtefactoCambio()
       }
       const aprobadoEn = instanteDelServidor(evento.en)
-      const publicarEn = instanteEstricto(evento.publicarEn)
-      if (!publicarEn) {
-        throw new Falla("La fecha de publicación no es válida.")
-      }
-      if (Date.parse(publicarEn) <= Date.parse(aprobadoEn)) {
-        throw new Falla("La fecha de publicación ya pasó. Elige una hora futura.")
-      }
+      const publicarEn = fechaDePublicacion(evento.publicarEn, aprobadoEn)
       const puerta2 = {
         videoId: evento.videoVisto,
         hashTexto: evento.hashTextoVisto,
@@ -385,7 +445,11 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
 
     case "cambiar_fecha":
       if (estado !== "programado") throw invalida()
-      return a("video_por_aprobar", { puerta2: null, intento: pieza.intento + 1 }, ["cancelar_publicacion"])
+      return a(
+        pieza.tipo === "carrusel" ? "carrusel_por_aprobar" : "video_por_aprobar",
+        { puerta2: null, intento: pieza.intento + 1 },
+        ["cancelar_publicacion"],
+      )
 
     case "publicado":
       if (estado !== "programado") throw invalida()
@@ -434,7 +498,7 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
           : Number.POSITIVE_INFINITY
         // An unreadable stored time is treated as late: ask Coni again instead of rescheduling blindly.
         if (Number.isNaN(atraso) || atraso > MARGEN_HORA_APROBADA_MS) {
-          return a("video_por_aprobar", {
+          return a(pieza.tipo === "carrusel" ? "carrusel_por_aprobar" : "video_por_aprobar", {
             estadoAntesDelError: null,
             puerta2: null,
             intento,
@@ -455,6 +519,39 @@ export function transicionar(pieza: Pieza, evento: Evento): Transicion {
       if (estado !== "guion_por_aprobar") throw invalida()
       if (evento.hashVisto !== evento.hashActual) throw new ArtefactoCambio()
       return a("armando_carrusel", { puerta1: { hash: evento.hashVisto, en: instanteDelServidor(evento.en) } })
+
+    case "carrusel_armado":
+      if (estado !== "armando_carrusel") throw invalida()
+      return a("carrusel_por_aprobar")
+
+    case "volver_a_firmar":
+      if (estado !== "armando_carrusel") throw invalida()
+      return a("guion_por_aprobar", { puerta1: null, intento: pieza.intento + 1, explicacion: evento.explicacion })
+
+    case "diseno_no_cabe":
+      if (estado !== "armando_carrusel") throw invalida()
+      return a("carrusel_por_aprobar", { explicacion: evento.explicacion })
+
+    case "cambiar_diseno":
+      if (estado !== "carrusel_por_aprobar") throw invalida()
+      return a("armando_carrusel", { intento: pieza.intento + 1 })
+
+    case "aprobar_carrusel": {
+      soloConi(evento.actor)
+      if (estado !== "carrusel_por_aprobar") throw invalida()
+      if (
+        evento.carruselVisto !== evento.carruselActual ||
+        evento.hashTextoVisto !== evento.hashTextoActual ||
+        pieza.puerta1?.hash !== evento.hashTextoActual
+      ) {
+        throw new ArtefactoCambio()
+      }
+      const aprobadoEn = instanteDelServidor(evento.en)
+      const publicarEn = fechaDePublicacion(evento.publicarEn, aprobadoEn)
+      return a("programado", {
+        puerta2: { carruselId: evento.carruselVisto, hashTexto: evento.hashTextoVisto, publicarEn, en: aprobadoEn },
+      })
+    }
 
     case "descartar":
       if (estado === "publicado" || estado === "publicado_a_mano" || estado === "descartado") throw invalida()

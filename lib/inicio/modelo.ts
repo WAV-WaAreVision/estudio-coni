@@ -93,7 +93,11 @@ const DIAS_DE_CELEBRACION_MS = 2 * 24 * 60 * 60 * 1000
 const EXPLICACION_GENERICA = "Algo no salió como esperábamos con esta pieza."
 
 /** Only what she can sign now counts: a voice being made waits apart (critique v3, P2). */
-const ESPERAN_FIRMA: readonly Estado[] = ["guion_por_aprobar", "video_por_aprobar"]
+const ESPERAN_FIRMA: readonly Estado[] = ["guion_por_aprobar", "video_por_aprobar", "carrusel_por_aprobar"]
+
+/** A carousel lives on /guion/<id> in every state (plan amendment 13); a reel's later states on /video/<id>. */
+const rutaDe = (pieza: PiezaDeInicio, deUnReel: "guion" | "video") =>
+  `/${pieza.tipo === "carrusel" ? "guion" : deUnReel}/${pieza.id}`
 
 /** The order of the failures (decision 8, step 3): what is already late first. */
 const ORDEN_DE_ATENCION: readonly Estado[] = [
@@ -128,6 +132,14 @@ function segundosDe(pieza: PiezaDeInicio): number {
 
 function filaDeFirma(pieza: PiezaDeInicio): FilaDeFirma {
   const base = { id: pieza.id, titulo: pieza.titulo, pilar: pieza.pilar }
+  if (pieza.estado === "carrusel_por_aprobar") {
+    return {
+      ...base,
+      meta: "Carrusel de LinkedIn",
+      href: `/guion/${pieza.id}`,
+      instruccion: "Mira las láminas y elige la fecha.",
+    }
+  }
   if (pieza.estado === "video_por_aprobar") {
     return {
       ...base,
@@ -171,8 +183,14 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
           }
         : null
     case "armando_carrusel":
-      // Part 1: signed and waiting for part 2's design (plan amendment 1). Nothing works on it, so no working dot.
-      return { ...base, estado: "Texto firmado · falta el diseño", ocupada: false, href: `/guion/${pieza.id}` }
+      // Nothing leaves a reason here today (a shortening the cap stops goes back to gate 1); a piece with one is left
+      // alone by every task (piezaTrabajando), so it gets no working dot.
+      return {
+        ...base,
+        estado: pieza.explicacion === null ? "Armando las láminas · te aviso" : "Armando las láminas",
+        ocupada: pieza.explicacion === null,
+        href: `/guion/${pieza.id}`,
+      }
     case "en_render":
     case "subtitulando":
       return { ...base, estado: "Grabando · unos 5 min · te aviso", ocupada: true, href: `/guion/${pieza.id}` }
@@ -181,7 +199,7 @@ function filaEnCamino(pieza: PiezaDeInicio, zona: string): FilaEnCamino | null {
         ...base,
         estado: pieza.publicarEn ? `Programado · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : "Programado",
         ocupada: false,
-        href: `/video/${pieza.id}`,
+        href: rutaDe(pieza, "video"),
       }
     default:
       return null
@@ -201,9 +219,18 @@ function avisoDeError(pieza: PiezaDeInicio): AvisoDeInicio | null {
   const revisar = (ruta: "guion" | "video") => ({ etiqueta: "Revisar", href: `/${ruta}/${pieza.id}` })
   switch (pieza.estado) {
     case "error_publicacion":
-      return { ...base, causa: "No pude publicar.", accion: revisar("video") }
+      return {
+        ...base,
+        // In the words of the carousel's own screen (app/(app)/guion/[id]/carrusel.tsx).
+        causa: pieza.tipo === "carrusel" ? "No te lo pude dejar para subir." : "No pude publicar.",
+        accion: { etiqueta: "Revisar", href: rutaDe(pieza, "video") },
+      }
     case "error_produccion":
-      return { ...base, causa: "No pude terminar el video.", accion: revisar("guion") }
+      return {
+        ...base,
+        causa: pieza.tipo === "carrusel" ? "No pude armar el carrusel." : "No pude terminar el video.",
+        accion: revisar("guion"),
+      }
     case "guion_por_aprobar":
       // A phrase HeyGen refused or a voice that could not be made: the text says which, the screen has the way out.
       return pieza.explicacion === null
@@ -281,7 +308,7 @@ function filaPorSubir(pieza: PiezaDeInicio, zona: string): FilaPorSubir {
     titulo: pieza.titulo,
     pilar: pieza.pilar,
     meta: `Para subir a ${nombreDeDestinos(esperando(pieza))}${pieza.publicarEn ? ` · ${etiquetaDeFecha(pieza.publicarEn, zona, "corta")}` : ""}`,
-    href: `/video/${pieza.id}`,
+    href: rutaDe(pieza, "video"),
   }
 }
 

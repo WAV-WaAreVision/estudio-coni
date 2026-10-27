@@ -6,8 +6,10 @@ import { z } from "zod"
 import { type DepsGuion, editarGuion, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaDescargar } from "@/lib/acciones/medios"
 import {
+  aprobarCarrusel,
   aprobarGuion,
   aprobarVideo,
+  cambiarDisenoDeCarrusel,
   cambiarFecha,
   descartar,
   deshacerAprobacion,
@@ -21,6 +23,7 @@ import {
   marcarSubidoAMano,
   pedirCambioDeCarrusel,
   pedirCambios,
+  pedirDescargaDelCarrusel,
   pedirDescargaDelVideo,
   pedirVoz,
   regrabar,
@@ -31,6 +34,7 @@ import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, comoConi, conSesionDeConi, disparosDeLaApp } from "@/lib/acciones/servidor"
 import { MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
 import { DESTINOS } from "@/lib/dominio/destinos"
+import { type CambioDeDiseno, VARIANTES } from "@/lib/dominio/diseno-carrusel"
 import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
 import { baseDe } from "@/lib/proveedores/bases"
 
@@ -93,6 +97,39 @@ export async function firmarCarruselAccion(piezaId: string, version: number) {
   return refrescar(
     await comoConi("firmarCarrusel", sobrePieza, { piezaId, version }, (deps, d) =>
       firmarCarrusel(deps, d.piezaId, d.version),
+    ),
+  )
+}
+
+const cambioDeDiseno = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("variante"), variante: z.enum(VARIANTES) }),
+  z.object({ tipo: z.literal("dividir"), lamina: z.number().int().min(0).max(7) }),
+  z.object({ tipo: z.literal("unir"), lamina: z.number().int().min(0).max(7) }),
+  z.object({
+    tipo: z.literal("destacar"),
+    lamina: z.number().int().min(0).max(7),
+    palabra: z.string().max(80).nullable(),
+  }),
+])
+
+export async function aprobarCarruselAccion(piezaId: string, version: number, carruselId: string, publicarEn: string) {
+  return refrescar(
+    await comoConi(
+      "aprobarCarrusel",
+      sobrePieza.extend({ carruselId: z.uuid(), publicarEn: z.string().max(40) }),
+      { piezaId, version, carruselId, publicarEn },
+      (deps, d) => aprobarCarrusel(deps, d.piezaId, d.version, d.carruselId, d.publicarEn),
+    ),
+  )
+}
+
+export async function cambiarDisenoAccion(piezaId: string, version: number, cambio: CambioDeDiseno) {
+  return refrescar(
+    await comoConi(
+      "cambiarDisenoDeCarrusel",
+      sobrePieza.extend({ cambio: cambioDeDiseno }),
+      { piezaId, version, cambio },
+      (deps, d) => cambiarDisenoDeCarrusel(deps, d.piezaId, d.version, d.cambio),
     ),
   )
 }
@@ -251,4 +288,11 @@ export async function pedirVozAccion(piezaId: string, version: number, nueva: bo
   // Refreshed either way: a voice that failed to start still moved the piece (asked, then failed) to a new version.
   revalidatePath("/", "layout")
   return resultado
+}
+
+/** Not revalidated: it only hands out a link and changes nothing on the piece. */
+export async function descargarCarruselAccion(piezaId: string) {
+  return comoConi("pedirDescargaDelCarrusel", z.object({ piezaId: z.uuid() }), { piezaId }, (deps, d) =>
+    pedirDescargaDelCarrusel(deps, d.piezaId, urlParaDescargar),
+  )
 }

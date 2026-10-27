@@ -23,6 +23,9 @@ export function apruebaAlSoltar(progreso: number): boolean {
 export const ETIQUETA_DE_FIRMA = "Desliza para firmar"
 /** The same act at large text, where the whole label would break in two lines next to the thumb (decision 6): a whole verb, never a cut sentence. */
 export const ETIQUETA_CORTA_DE_FIRMA = "Firmar"
+/** Gate 2 of a carousel schedules (design 2026-10-26, D1 step 5): the same track with its own words. */
+export const ETIQUETA_DE_PROGRAMAR = "Desliza para programar"
+export const ETIQUETA_CORTA_DE_PROGRAMAR = "Programar"
 export const TEXTO_ARMADO = "Toca otra vez para firmar"
 export const TEXTO_FIRMADO = "Firmado"
 /** What the slider's value reads at rest (v6 `aria-valuetext`). */
@@ -31,6 +34,16 @@ export const TEXTO_SIN_FIRMAR = "Sin firmar"
 export const AYUDA_DE_TOQUE = "o toca dos veces"
 export const AYUDA_DE_TECLADO = "o pulsa Enter"
 export const PISTA_DE_FIRMA = "Enter o Espacio firman. También puedes tocar dos veces: la primera prepara la firma."
+
+/** Every word the track says on a gate that schedules instead of signing, spread onto `DeslizarParaAprobar`. */
+export const TEXTOS_DE_PROGRAMAR = {
+  etiqueta: ETIQUETA_DE_PROGRAMAR,
+  etiquetaCorta: ETIQUETA_CORTA_DE_PROGRAMAR,
+  textoArmado: "Toca otra vez para programar",
+  textoHecho: "Programado",
+  textoEnReposo: "Sin programar",
+  pista: "Enter o Espacio programan. También puedes tocar dos veces: la primera lo prepara.",
+} as const
 
 /** A pointer that moved more than this is a drag or a scroll, never a tap. */
 export const TOQUE_MAXIMO_PX = 8

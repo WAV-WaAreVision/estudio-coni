@@ -1,11 +1,12 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { claveGrabar, claveProducir } from "@/lib/acciones/disparos"
+import { claveArmar, claveGrabar, claveProducir } from "@/lib/acciones/disparos"
 import { type DepsArranques, reanudarArranques } from "@/lib/mantenimiento/arranques"
 import { mantenimientoFrecuente } from "@/lib/mantenimiento/ejecutar"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import { crearPiezaEn } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { sembrarCarrusel } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -44,7 +45,7 @@ async function fila(id: string) {
 }
 
 function doble(ahora: () => string, cambios: Partial<DepsArranques> = {}) {
-  const disparos: { tarea: "grabar" | "producir"; piezaId: string; clave: string; intento?: number }[] = []
+  const disparos: { tarea: "grabar" | "producir" | "armar"; piezaId: string; clave: string; intento?: number }[] = []
   const deps: DepsArranques = {
     db: clienteDeServicio(),
     ahora,
@@ -53,6 +54,9 @@ function doble(ahora: () => string, cambios: Partial<DepsArranques> = {}) {
     },
     dispararProduccion: async (piezaId, clave) => {
       disparos.push({ tarea: "producir", piezaId, clave })
+    },
+    dispararArmado: async (piezaId, clave) => {
+      disparos.push({ tarea: "armar", piezaId, clave })
     },
     ...cambios,
   }
@@ -133,6 +137,28 @@ describe("reanudarArranques: producir-pieza", () => {
 
     expect(await reanudarArranques(deps)).toEqual([])
     expect(disparos).toEqual([])
+  })
+})
+
+describe("reanudarArranques: armar-carrusel", () => {
+  it("asks again for the render of a carousel that has waited ten quiet minutes, with the app's key", async () => {
+    const id = await sembrarCarrusel("armando_carrusel")
+    piezasCreadas.push(id)
+    const { deps, disparos } = doble(dentroDe(11))
+
+    expect(await reanudarArranques(deps)).toContainEqual({ piezaId: id, tarea: "armar" })
+
+    const leida = await fila(id)
+    const { rows } = await pool.query("select id from public.carruseles where pieza_id = $1", [id])
+    expect(disparos).toContainEqual({ tarea: "armar", piezaId: id, clave: claveArmar(id, rows[0].id, leida.intento) })
+  })
+
+  it("does not ask for a carousel signed a minute ago", async () => {
+    const reciente = await sembrarCarrusel("armando_carrusel")
+    piezasCreadas.push(reciente)
+    const { deps, disparos } = doble(dentroDe(1))
+    await reanudarArranques(deps)
+    expect(disparos.filter((d) => d.piezaId === reciente)).toEqual([])
   })
 })
 

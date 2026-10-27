@@ -244,6 +244,7 @@ describe("maintenance runs", () => {
       ...base(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
       temas: async () => deps(),
     })
 
@@ -256,6 +257,7 @@ describe("maintenance runs", () => {
       ...base(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
       temas: async () => null,
     })
 
@@ -280,6 +282,7 @@ describe("maintenance runs", () => {
       ...base(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
       temas: async () => {
         throw new Error("sin llaves")
       },

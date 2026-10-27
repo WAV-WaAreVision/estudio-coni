@@ -472,9 +472,16 @@ describe("carousels in the Agenda", () => {
     expect(ocupante).toMatchObject({ estado: "Falta tu firma: carrusel", tono: "aviso", href: "/guion/c1" })
   })
 
-  it("says a signed carousel waits for its design and opens it", () => {
-    const ocupante = ocupanteDe({ id: "c2", estado: "armando_carrusel" })
-    expect(ocupante).toMatchObject({ estado: "Texto firmado · falta el diseño", href: "/guion/c2" })
+  it("names a carousel's render and its gate 2, and opens them", () => {
+    expect(ocupanteDe({ id: "c2", estado: "armando_carrusel" })).toMatchObject({
+      estado: "Armando las láminas",
+      href: "/guion/c2",
+    })
+    expect(ocupanteDe({ id: "c3", estado: "carrusel_por_aprobar" })).toMatchObject({
+      estado: "Falta tu firma: carrusel y fecha",
+      tono: "aviso",
+      href: "/guion/c3",
+    })
   })
 })
 

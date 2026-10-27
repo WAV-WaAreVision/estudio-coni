@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { leerCarruselVigente } from "@/lib/datos/carrusel"
+import { laminasAJson, leerCarruselVigente, leerVersion, leerVersionVigente } from "@/lib/datos/carrusel"
 import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
@@ -16,6 +16,7 @@ import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import { canonicos, destinosValidos, esDestino, resumenDePublicaciones } from "@/lib/dominio/destinos"
+import { aplicarCambioDeDiseno, type CambioDeDiseno, DisenoInvalido } from "@/lib/dominio/diseno-carrusel"
 import { enlaceDeInstagram } from "@/lib/dominio/enlace-instagram"
 import { enlaceDeLinkedIn } from "@/lib/dominio/enlace-linkedin"
 import {
@@ -23,6 +24,7 @@ import {
   type Evento,
   instanteEstricto,
   MARGEN_DE_RELOJ_MS,
+  piezaTrabajando,
   restoDeVentana,
   TEXTO_DESHACER_TARDE,
   type TipoDePieza,
@@ -49,7 +51,7 @@ import { ESTIMADO_POR_GUION_USD, TEXTO_TOPE } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { type AvatarElegible, type ConfigElevenlabs, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
-import { claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
+import { claveArmar, claveGrabar, claveProducir, claveVoz, type Disparos } from "./disparos"
 import { aResultado, type Resultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
@@ -103,6 +105,8 @@ const TEXTO_PEDIDO_LARGO = `Escríbelo en ${MAXIMO_DEL_PEDIDO} caracteres o meno
 const AVISO_CAMBIO_DE_CARRUSEL =
   "Pedí el cambio, pero el carrusel nuevo tarda en partir. Si no avanza, vuelve a intentarlo."
 
+const TEXTO_DISENO_SIN_CAMBIO = "Eso ya está así."
+
 function traducir(error: unknown): unknown {
   if (error instanceof Falla || !(error instanceof Error)) return error
   // The database enforces the same rules as the screen; these are the two a race can reach.
@@ -121,6 +125,8 @@ function traducir(error: unknown): unknown {
   if (error.message.includes("sin_cambios_de_texto")) return new Falla(TEXTO_SIN_CAMBIOS_DE_TEXTO)
   if (error.message.includes("pedido_invalido")) return new Falla(TEXTO_PEDIDO_VACIO)
   if (error.message.includes("estado_no_cambiable")) return new PantallaVencida()
+  if (error.message.includes("diseno_invalido")) return new DisenoInvalido()
+  if (error.message.includes("diseno_sin_cambio")) return new Falla(TEXTO_DISENO_SIN_CAMBIO)
   return error
 }
 
@@ -159,6 +165,19 @@ async function iniciar(
 }
 
 const AVISO_GRABACION = "Quedó aprobado, pero la grabación tarda en partir. Si no avanza, te aviso."
+
+const AVISO_ARMADO = "Quedó firmado, pero las láminas tardan en armarse. Si no avanzan, te aviso."
+
+/** Starts the render of the carousel's latest version; a failure to start is a warning, the sweep is the net. */
+async function iniciarArmado(deps: DepsAcciones, fila: FilaDePieza, aviso: string) {
+  const carrusel = await leerCarruselVigente(deps.db, fila.id)
+  if (!carrusel) throw new Error(`La pieza ${fila.id} va a armarse sin carrusel.`)
+  return iniciar(
+    "armar-carrusel",
+    () => deps.disparar.armar(fila.id, claveArmar(fila.id, carrusel.id, fila.intento)),
+    aviso,
+  )
+}
 
 /** The undo window plus the clock margin: the render starts once Coni can no longer take the signature back. */
 const RETRASO_DE_GRABACION = `${(VENTANA_DESHACER_MS + MARGEN_DE_RELOJ_MS) / 1000}s` as const
@@ -434,7 +453,7 @@ export function deshacerAprobacion(deps: DepsAcciones, piezaId: string, versionV
 /**
  * Gate 1 of a carousel (design 2026-10-26, D1 step 3): she signs the slides and the post text of the latest version,
  * as `hash_texto`; the database checks it is still the latest (`carrusel_no_coincide`). No avatar, no voice, no cost.
- * Part 1 ends here: nothing starts, and the carousel waits in `armando_carrusel` (plan amendment 1).
+ * The render starts at once (part 2); a run that fails to start is resumed by `reanudarArranques`.
  */
 export function firmarCarrusel(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("firmarCarrusel", async () => {
@@ -459,7 +478,8 @@ export function firmarCarrusel(deps: DepsAcciones, piezaId: string, versionVista
       hashActual: hash,
       en: deps.ahora(),
     })
-    return { version: firmada.version }
+    const inicio = await iniciarArmado(deps, firmada, AVISO_ARMADO)
+    return { version: firmada.version, ...inicio }
   })
 }
 
@@ -492,6 +512,83 @@ export function pedirCambioDeCarrusel(
       "producir-pieza",
       () => deps.disparar.producir(data.id, claveProducir(data)),
       AVISO_CAMBIO_DE_CARRUSEL,
+    )
+  })
+}
+
+/**
+ * Gate 2 of a carousel (design 2026-10-26, D1 step 5): the rendered version she saw, its words (the same gate 1
+ * signed) and the time. The database binds it again (plan amendment 2). Nothing starts: at the time the publisher hands
+ * it to her to upload (decision P1).
+ */
+export function aprobarCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  carruselVisto: string,
+  publicarEn: string,
+) {
+  return aResultado("aprobarCarrusel", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista, new ArtefactoCambio())
+    if (fila.tipo !== "carrusel" || fila.estado !== "carrusel_por_aprobar") {
+      throw new TransicionInvalida(fila.estado, "aprobar_carrusel")
+    }
+    const version = await leerVersionVigente(deps.db, fila.id)
+    if (!version || version.estado !== "listo") throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
+    const hash = hashTextoDeCarrusel(version)
+    if (hash !== version.hashTexto)
+      throw new Error(`El hash guardado del carrusel ${version.id} no es el de sus palabras.`)
+    await exigirHorarioLibre(deps.db, fila.id, publicarEn, "carrusel")
+    await guardarEvento(deps.db, fila, {
+      tipo: "aprobar_carrusel",
+      actor: "coni",
+      carruselVisto,
+      carruselActual: version.id,
+      hashTextoVisto: hash,
+      hashTextoActual: hash,
+      publicarEn,
+      en: deps.ahora(),
+    })
+    return {}
+  })
+}
+
+const AVISO_DISENO = "Pedí el diseño nuevo, pero las láminas tardan en armarse. Si no avanzan, te aviso."
+
+/**
+ * "El diseño" at gate 2 (D5, plan amendment 5): one bounded change on the latest rendered version, as a new version with
+ * the same words (so gate 1 stands and it is not one of her three changes), rendered again at once.
+ */
+export function cambiarDisenoDeCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  versionVista: number,
+  cambio: CambioDeDiseno,
+) {
+  return aResultado("cambiarDisenoDeCarrusel", async () => {
+    const fila = await leerObligatoria(deps.db, piezaId)
+    exigirVersion(fila, versionVista)
+    if (fila.tipo !== "carrusel") throw new TransicionInvalida(fila.estado, "cambiar_diseno")
+    // Validated here and applied by the function below, which repeats it in SQL.
+    transicionar(piezaDesdeFila(fila), { tipo: "cambiar_diseno" })
+    const version = await leerVersionVigente(deps.db, fila.id)
+    if (!version || version.estado !== "listo") throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
+    const nuevo = aplicarCambioDeDiseno(version.laminas, version.diseno, cambio)
+    if (hashTextoDeCarrusel({ laminas: nuevo.laminas, textoPost: version.textoPost }) !== version.hashTexto) {
+      throw new Error(`Un cambio de diseño cambió las palabras del carrusel ${version.id}.`)
+    }
+    const { data, error } = await deps.db.rpc("cambiar_diseno_de_carrusel", {
+      p_pieza: fila.id,
+      p_version: fila.version,
+      p_laminas: laminasAJson(nuevo.laminas),
+      p_diseno: { variante: nuevo.diseno.variante },
+    })
+    if (error) throw traducir(new Error(error.message, { cause: error }))
+    return iniciar(
+      "armar-carrusel",
+      () => deps.disparar.armar(fila.id, claveArmar(fila.id, data.id, fila.intento + 1)),
+      AVISO_DISENO,
     )
   })
 }
@@ -593,7 +690,11 @@ export function editarTexto(deps: DepsAcciones, piezaId: string, versionVista: n
   })
 }
 
-/** The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back). */
+/**
+ * The states where the LinkedIn text can still be edited: before gate 2, or on a scheduled piece (it takes gate 2 back).
+ * Reels only: `carrusel_por_aprobar` is left out on purpose (a carousel's post is part of `hash_texto`, changed only
+ * through Pedir cambio).
+ */
 const ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE: readonly Database["public"]["Enums"]["estado_pieza"][] = [
   "guion_por_aprobar",
   "video_por_aprobar",
@@ -615,6 +716,8 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
 
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    // A carousel's post is carruseles.texto_post, signed at gate 1 (plan amendment 11): never this reel column.
+    if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "editar_texto")
     if (!ESTADOS_CON_TEXTO_DE_LINKEDIN_EDITABLE.includes(fila.estado)) {
       throw new TransicionInvalida(fila.estado, "editar_texto")
     }
@@ -645,7 +748,12 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
 }
 
 /** Two reels at the same minute would go out together: the slot has to be free. An unreadable time is the domain's to refuse. */
-async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): Promise<void> {
+async function exigirHorarioLibre(
+  db: Db,
+  piezaId: string,
+  publicarEn: string,
+  tipo: "reel" | "carrusel" = "reel",
+): Promise<void> {
   const instante = instanteEstricto(publicarEn)
   if (instante === null) return
   const { data, error } = await db
@@ -656,7 +764,13 @@ async function exigirHorarioLibre(db: Db, piezaId: string, publicarEn: string): 
     .neq("id", piezaId)
     .limit(1)
   if (error) throw new Error(`No pude revisar si el horario está libre: ${error.message}`, { cause: error })
-  if (data.length > 0) throw new Falla("Ese horario ya lo tiene otro reel. Elige otro.")
+  if (data.length > 0) {
+    throw new Falla(
+      tipo === "reel"
+        ? "Ese horario ya lo tiene otro reel. Elige otro."
+        : "Ese horario ya lo tiene otra pieza. Elige otro.",
+    )
+  }
 }
 
 /**
@@ -737,11 +851,18 @@ export function cambiarFecha(deps: DepsAcciones, piezaId: string, versionVista: 
   })
 }
 
-/** Discarding a scheduled piece needs no remote cancel either: the state change is what stops `publicar-pendientes`. */
+const TEXTO_PIEZA_TRABAJANDO = "Espera a que termine lo que estoy haciendo con esta pieza."
+
+/**
+ * Discarding needs no remote cancel (publishing is our own task: the state change is what stops `publicar-pendientes`)
+ * and touches no spend: a confirmed voice stays confirmed. A piece a run is working on is refused (decision P2 of the
+ * carousels part 2 plan): the run holds a reservation and may still pay a provider after the discard.
+ */
 export function descartar(deps: DepsAcciones, piezaId: string, versionVista: number) {
   return aResultado("descartar", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    if (piezaTrabajando(fila)) throw new Falla(TEXTO_PIEZA_TRABAJANDO)
     await guardarEvento(deps.db, fila, { tipo: "descartar" })
     return {}
   })
@@ -752,6 +873,13 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
     const guardada = await guardarEvento(deps.db, fila, { tipo: "reintentar", ahora: deps.ahora() })
+    if (guardada.estado === "armando_carrusel") {
+      return iniciarArmado(
+        deps,
+        guardada,
+        "Lo intenté otra vez, pero las láminas tardan en armarse. Si no avanzan, te aviso.",
+      )
+    }
     // Back in the render steps a run has to start again; back on the schedule, the cron takes it at its time.
     if (guardada.estado !== "en_render" && guardada.estado !== "subtitulando") return {}
     return iniciar(
@@ -804,6 +932,34 @@ export function marcarSubidoAMano(
 }
 
 const TEXTO_SIN_DESCARGA = "No pude preparar el video para descargarlo. Inténtalo de nuevo en unos minutos."
+
+const TEXTO_SIN_DESCARGA_PDF = "No pude preparar el PDF para descargarlo. Inténtalo de nuevo en unos minutos."
+
+/**
+ * The signed address of the approved carousel's PDF (decision P1), for ten minutes and with a name she recognises. It
+ * goes from R2 to her phone; nothing passes through the server. Only once it waits to be uploaded (decision P7).
+ */
+export function pedirDescargaDelCarrusel(
+  deps: DepsAcciones,
+  piezaId: string,
+  firmar: (clave: string, nombreDeArchivo: string) => Promise<string | null>,
+) {
+  return aResultado("pedirDescargaDelCarrusel", async () => {
+    const { data: esConi, error } = await deps.db.rpc("es_coni")
+    if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
+    if (!esConi) throw new Falla("Esta app es solo para Coni.")
+    const fila = await leerObligatoria(deps.db, piezaId)
+    if (fila.tipo !== "carrusel" || fila.estado !== "para_subir_a_mano") {
+      throw new Falla("Este carrusel ya no está esperando que lo subas.")
+    }
+    // The version she approved, not the latest one.
+    const version = fila.puerta2_carrusel_id ? await leerVersion(deps.db, fila.puerta2_carrusel_id) : null
+    if (!version?.pdfClave) throw new Error(`La pieza ${fila.id} espera subirse sin el PDF aprobado.`)
+    const url = await firmar(version.pdfClave, `carrusel-${fila.id.slice(0, 8)}.pdf`)
+    if (url === null) throw new Falla(TEXTO_SIN_DESCARGA_PDF)
+    return { url }
+  })
+}
 
 /**
  * The signed address she downloads the approved video from. The file goes from R2 to her phone: nothing of it passes

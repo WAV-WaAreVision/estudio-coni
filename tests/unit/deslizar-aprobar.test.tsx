@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { ETIQUETA_CORTA_DE_PROGRAMAR, ETIQUETA_DE_PROGRAMAR, TEXTOS_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
 
 const pista = () => screen.getByRole("slider", { name: "Desliza para firmar" })
 const pulgar = () => screen.getByTestId("pulgar-firma")
@@ -281,5 +282,38 @@ describe("DeslizarParaAprobar: the visible way to sign without dragging", () => 
   it("hides the hint while the signature is closed", () => {
     render(<DeslizarParaAprobar habilitado={false} alFirmar={vi.fn()} />)
     expect(ayuda()).toBeNull()
+  })
+
+  it("takes another label for a gate that schedules, and keeps 'Desliza para firmar' by default", () => {
+    const { rerender } = render(<DeslizarParaAprobar habilitado alFirmar={() => {}} />)
+    expect(screen.getByRole("slider", { name: "Desliza para firmar" })).toBeInTheDocument()
+    rerender(
+      <DeslizarParaAprobar
+        habilitado
+        etiqueta={ETIQUETA_DE_PROGRAMAR}
+        etiquetaCorta={ETIQUETA_CORTA_DE_PROGRAMAR}
+        alFirmar={() => {}}
+      />,
+    )
+    expect(screen.getByRole("slider", { name: "Desliza para programar" })).toBeInTheDocument()
+  })
+
+  it("says programming, never signing, at rest, armed, done and in its description on a gate that schedules", () => {
+    render(<DeslizarParaAprobar habilitado {...TEXTOS_DE_PROGRAMAR} alFirmar={vi.fn()} />)
+    const programar = () => screen.getByRole("slider", { name: "Desliza para programar" })
+    expect(programar()).toHaveAttribute("aria-valuetext", "Sin programar")
+    expect(programar()).toHaveAccessibleDescription(
+      "Enter o Espacio programan. También puedes tocar dos veces: la primera lo prepara.",
+    )
+    fireEvent.click(programar(), { detail: 0 })
+    expect(programar()).toHaveAttribute("aria-valuetext", "Toca otra vez para programar")
+    expect(programar()).toHaveTextContent("Toca otra vez para programar")
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(programar(), { detail: 0 })
+    expect(programar()).toHaveAttribute("aria-valuetext", "Programado")
+    expect(programar()).toHaveTextContent("Programado")
+    expect(programar().textContent).not.toMatch(/firm/i)
   })
 })

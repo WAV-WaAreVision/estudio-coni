@@ -40,7 +40,7 @@ export async function leerCodigo(correo: string): Promise<string> {
 }
 
 const Disparo = z.object({
-  tarea: z.enum(["producir", "grabar", "voz"]),
+  tarea: z.enum(["producir", "grabar", "voz", "armar"]),
   piezaId: z.string(),
   clave: z.string(),
   nueva: z.boolean().optional(),
@@ -89,6 +89,10 @@ export async function simularMedios(page: Page): Promise<void> {
       await ruta.fulfill({ status: 200, contentType: "image/png", body: url.includes("look-b") ? AVATAR_B : AVATAR_A })
     } else if (url.includes("/videos/")) {
       await ruta.fulfill({ status: 200, contentType: "video/webm", body: VIDEO })
+    } else if (url.includes("/carruseles/") && url.includes(".png")) {
+      await ruta.fulfill({ status: 200, contentType: "image/png", body: AVATAR_A })
+    } else if (url.includes("/carruseles/") && url.includes(".pdf")) {
+      await ruta.fulfill({ status: 200, contentType: "application/pdf", body: "%PDF-1.7" })
     } else {
       await ruta.fulfill({ status: 404, body: "" })
     }

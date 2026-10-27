@@ -9,11 +9,12 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { cambiarFechaAccion, descartarAccion, reintentarAccion, reintentarGuionAccion } from "./piezas/acciones"
 
-type Que = "reintentar" | "reintentarGuion" | "cambiarFecha" | "descartar"
+type Que = "reintentar" | "reintentarGuion" | "reintentarCarrusel" | "cambiarFecha" | "descartar"
 
 const ETIQUETAS: Record<Que, string> = {
   reintentar: "Reintentar",
   reintentarGuion: "Reintentar",
+  reintentarCarrusel: "Reintentar (no se cobra)",
   cambiarFecha: "Cambiar la fecha",
   descartar: "Descartar esta pieza",
 }
@@ -21,6 +22,7 @@ const ETIQUETAS: Record<Que, string> = {
 const ACCIONES: Record<Que, (piezaId: string, version: number) => ReturnType<typeof reintentarAccion>> = {
   reintentar: reintentarAccion,
   reintentarGuion: reintentarGuionAccion,
+  reintentarCarrusel: reintentarAccion,
   cambiarFecha: cambiarFechaAccion,
   descartar: descartarAccion,
 }
@@ -88,7 +90,7 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
             variante={indice === 0 ? "primario" : "callado"}
             cargando={pendiente}
             icono={
-              que === "reintentar" || que === "reintentarGuion" ? (
+              que === "reintentar" || que === "reintentarGuion" || que === "reintentarCarrusel" ? (
                 <ArrowCounterClockwise aria-hidden="true" size={ICONO.medio} />
               ) : undefined
             }

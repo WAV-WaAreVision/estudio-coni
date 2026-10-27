@@ -214,26 +214,31 @@ test("more contrast outlines the raised controls and turns the quiet text to ink
   expect(colorApagado).toBe(colorTinta)
 })
 
+/** The visible controls smaller than 44 x 44 on the page as it is. */
+function controlesChicos(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        "a[href], button, [role=slider], [role=switch], input:not([type=hidden]), select, summary",
+      ),
+    ]
+      .filter((el) => el.offsetParent !== null && !el.closest("[aria-hidden=true], [data-en-linea]"))
+      // A native input that is invisible or covers its row is measured through its label: the label is the target.
+      .map((el) => ({ el, caja: (el.closest("label") ?? el).getBoundingClientRect() }))
+      .filter(({ caja }) => caja.width < 44 || caja.height < 44)
+      .map(
+        ({ el, caja }) =>
+          `${el.tagName} "${el.textContent?.trim().slice(0, 30) || el.getAttribute("aria-label")}" ${Math.round(caja.width)}x${Math.round(caja.height)}`,
+      ),
+  )
+}
+
 test("every control on every screen is at least 44 x 44", async ({ page }) => {
   const hallazgos: string[] = []
   for (const ruta of await rutas()) {
     await page.goto(ruta)
     await abrirPliegues(page, ruta)
-    const chicos = await page.evaluate(() =>
-      [
-        ...document.querySelectorAll<HTMLElement>(
-          "a[href], button, [role=slider], [role=switch], input:not([type=hidden]), select, summary",
-        ),
-      ]
-        .filter((el) => el.offsetParent !== null && !el.closest("[aria-hidden=true], [data-en-linea]"))
-        // A native input that is invisible or covers its row is measured through its label: the label is the target.
-        .map((el) => ({ el, caja: (el.closest("label") ?? el).getBoundingClientRect() }))
-        .filter(({ caja }) => caja.width < 44 || caja.height < 44)
-        .map(
-          ({ el, caja }) =>
-            `${el.tagName} "${el.textContent?.trim().slice(0, 30) || el.getAttribute("aria-label")}" ${Math.round(caja.width)}x${Math.round(caja.height)}`,
-        ),
-    )
+    const chicos = await controlesChicos(page)
     hallazgos.push(...chicos.map((chico) => `${ruta}: ${chico}`))
   }
   expect(hallazgos).toEqual([])
@@ -280,6 +285,12 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
     await expect(page.getByRole("button", { name: "Sí, pedir cambios" })).toBeVisible()
     hallazgos.push(...(await hallazgosDeAxe(page, "pedir cambios")))
     await page.getByRole("button", { name: "Volver", exact: true }).click()
+
+    // Gate 1 with the discard question open (decision P2 of the carousels part 2 plan), then closed again.
+    await page.getByRole("button", { name: "Descartar esta pieza" }).click()
+    await expect(page.getByRole("button", { name: "Sí, descartar" })).toBeVisible()
+    hallazgos.push(...(await hallazgosDeAxe(page, "descartar en la puerta 1")))
+    await page.getByRole("button", { name: "Cancelar" }).click()
 
     const pista = page.getByRole("slider", { name: "Desliza para firmar" })
     await expect(pista).toHaveAttribute("aria-disabled", "false")
@@ -469,4 +480,32 @@ test("the carousel screens and the format choice pass WCAG 2.x AA, also at large
   await page.goto("/ideas")
   await page.getByRole("radio", { name: "Carrusel de LinkedIn" }).check()
   expect(await hallazgosDeAxe(page, "idea con Carrusel de LinkedIn elegido")).toEqual([])
+})
+
+test("the carousel's render, gate 2, design change, upload and failure pass WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await sembrarEscena()
+  const estados = [
+    "armando_carrusel",
+    "carrusel_por_aprobar",
+    "programado",
+    "para_subir_a_mano",
+    "error_produccion",
+  ] as const
+  const rutas: string[] = []
+  for (const estado of estados) rutas.push(`/guion/${await sembrarCarruselDeEscena(estado)}`)
+  // `auditar` opens a reel's folds on every /guion/ address; a carousel has none of them, so its screens go as they are.
+  const hallazgos: string[] = []
+  for (const ruta of rutas) {
+    await page.goto(ruta)
+    hallazgos.push(...(await hallazgosDeAxe(page, ruta)))
+  }
+  const puerta2 = rutas[1] ?? ""
+  await page.goto(puerta2)
+  await expect(page.getByRole("img", { name: /^Lámina 1 de 6/ })).toBeVisible()
+  await abrirDesplegable(page, "Pedir cambio")
+  await page.getByRole("radio", { name: /El diseño/ }).check()
+  hallazgos.push(...(await hallazgosDeAxe(page, "puerta 2 con El diseño abierto")))
+  hallazgos.push(...(await controlesChicos(page)).map((chico) => `${puerta2}: ${chico}`))
+  expect(hallazgos).toEqual([])
 })

@@ -27,6 +27,7 @@ vi.mock("@/app/(app)/piezas/acciones", () => ({
   pedirCambiosAccion,
   editarGuionAccion,
   volverAVersionDeClaudeAccion: vi.fn(),
+  descartarAccion: vi.fn(),
 }))
 // The player is a real <audio>: here it only says the take was heard to the end.
 vi.mock("@/components/reproductor-voz", () => ({

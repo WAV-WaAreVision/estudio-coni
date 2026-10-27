@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { claveGrabar, claveProducir } from "@/lib/acciones/disparos"
+import { claveArmar, claveGrabar, claveProducir } from "@/lib/acciones/disparos"
+import { leerCarruselVigente } from "@/lib/datos/carrusel"
 import { type FilaDePieza, leerPiezasSinArrancar } from "@/lib/datos/repositorio"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -11,28 +12,37 @@ export interface DepsArranques {
   dispararGrabacion: (piezaId: string, clave: string, intento: number) => Promise<void>
   /** Starts `producir-pieza` under this idempotency key (the key of the script round). */
   dispararProduccion: (piezaId: string, clave: string) => Promise<void>
+  /** Starts `armar-carrusel` under this idempotency key (the key of the version and attempt). */
+  dispararArmado: (piezaId: string, clave: string) => Promise<void>
 }
 
-export type ResultadoArranque = { piezaId: string; tarea: "grabar" | "producir" }
+export type ResultadoArranque = { piezaId: string; tarea: "grabar" | "producir" | "armar" }
 
 const MINUTO_MS = 60_000
 /** A recording starts within seconds of the approval: ten quiet minutes mean the run never started. */
 const MINUTOS_SIN_GRABAR = 10
 /** A script takes a minute or two, queue included: fifteen quiet minutes mean the run never started. */
 const MINUTOS_SIN_GUION = 15
+/**
+ * A render takes about a minute: ten quiet minutes mean the run never started. Carousels signed under part 1 are picked
+ * up here after the deploy (plan amendment 9).
+ */
+const MINUTOS_SIN_ARMAR = 10
 
 /**
  * The app starts the runs after saving the approval, and says so to Coni when it cannot reach Trigger.dev; this is
- * the net under that warning. It asks again with the same idempotency key the app used, so a run that did start is
- * not doubled (Trigger.dev answers with the first run) and one that did not is started now. Asking on every tick is
- * safe for the same reason; `conciliarRenders` gives the piece up after an hour.
+ * the net under that warning, for scripts, recordings and carousel renders. It asks again with the same idempotency
+ * key the app used, so a run that did start is not doubled (Trigger.dev answers with the first run) and one that did
+ * not is started now. Asking on every tick is safe for the same reason; `conciliarRenders` gives the piece up after an
+ * hour (a carousel: an hour after its render started, or a day after it was asked for).
  */
 export async function reanudarArranques(deps: DepsArranques): Promise<ResultadoArranque[]> {
   const ahora = Date.parse(deps.ahora())
   const antesDe = (minutos: number) => new Date(ahora - minutos * MINUTO_MS).toISOString()
-  const { aGrabar, aProducir } = await leerPiezasSinArrancar(deps.db, {
+  const { aGrabar, aProducir, aArmar } = await leerPiezasSinArrancar(deps.db, {
     grabarAntesDe: antesDe(MINUTOS_SIN_GRABAR),
     producirAntesDe: antesDe(MINUTOS_SIN_GUION),
+    armarAntesDe: antesDe(MINUTOS_SIN_ARMAR),
   })
 
   const trabajos: { fila: FilaDePieza; tarea: ResultadoArranque["tarea"]; arrancar: () => Promise<void> }[] = [
@@ -45,6 +55,15 @@ export async function reanudarArranques(deps: DepsArranques): Promise<ResultadoA
       fila,
       tarea: "producir" as const,
       arrancar: () => deps.dispararProduccion(fila.id, claveProducir(fila)),
+    })),
+    ...aArmar.map((fila) => ({
+      fila,
+      tarea: "armar" as const,
+      arrancar: async () => {
+        const carrusel = await leerCarruselVigente(deps.db, fila.id)
+        if (!carrusel) throw new Error(`El carrusel ${fila.id} espera sus láminas sin versión.`)
+        await deps.dispararArmado(fila.id, claveArmar(fila.id, carrusel.id, fila.intento))
+      },
     })),
   ]
 

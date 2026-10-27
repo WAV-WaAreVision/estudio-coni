@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test"
+import { instanteLocal } from "@/lib/dominio/fechas"
+import { lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 import { pool } from "../integration/db"
-import { sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
+import { moverHoraAprobada, sembrarIdea, sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
 import { capturar } from "./ayudas"
 import { PIEZAS } from "./escena"
 
@@ -72,7 +74,13 @@ test("the agenda places what is on its way in the next slots and leaves the rest
 test("the rhythm shows the last four weeks by the days of the schedule and has no advice without history", async ({
   page,
 }) => {
-  await pieza("publicado", "Un reel", "acceso-salud-publica")
+  const publicado = await pieza("publicado", "Un reel", "acceso-salud-publica")
+  // The server reads the real clock: a reel out on a day off her schedule left the grid out. It went out last
+  // Saturday at 19:00, one of her days and always inside the four weeks, whatever today is.
+  const zona = "America/Santiago"
+  const [anio, mes, dia] = sumarDias(lunesDeLaSemana(Date.now(), zona), -2).split("-").map(Number)
+  const sabado = instanteLocal({ anio: anio ?? 0, mes: mes ?? 0, dia: dia ?? 0, hora: 19, minuto: 0 }, zona)
+  await moverHoraAprobada(publicado, new Date(sabado).toISOString())
 
   await page.goto("/calendario?vista=ritmo")
 

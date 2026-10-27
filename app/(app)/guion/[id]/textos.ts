@@ -59,10 +59,18 @@ export const TEXTO_REVISA_POST = "2. Revisa el texto de la publicación"
 export const TEXTO_SIN_OBSERVACIONES_CARRUSEL = "Revisé el carrusel y no encontré observaciones. Tú decides."
 export const TEXTO_AYUDA_DEL_PEDIDO = "Escríbelo en una frase. Escribo el carrusel de nuevo y este se descarta."
 export const TEXTO_CONSECUENCIA_CARRUSEL = "Firmas las láminas y el texto. Todavía no se publica nada."
-export const TEXTO_CARRUSEL_FIRMADO = "Firmaste el texto del carrusel"
-export const TEXTO_CARRUSEL_ESPERA =
-  "El diseño de las láminas llega en la próxima versión de la app. Cuando esté, te aviso para que lo veas y elijas la fecha. Nada se publica sin que lo apruebes."
 export const TEXTO_ASI_QUEDO_FIRMADO = "Así quedó firmado"
 
 export const textoCambiosQuedan = (quedan: number) =>
   quedan === 1 ? "Te queda 1 cambio." : `Te quedan ${quedan} cambios.`
+
+export const TEXTO_ARMANDO = "Estoy armando las láminas"
+export const TEXTO_ARMANDO_DETALLE = "Tarda un par de minutos. Te aviso cuando estén para que elijas la fecha."
+export const TEXTO_NO_ARME = "No pude armar el carrusel"
+export const TEXTO_DESLIZA_RIEL = "Desliza para leerlo completo"
+export const TEXTO_ASI_SALE = "Así sale en LinkedIn"
+export const TEXTO_CUANDO_SALE = "Cuándo sale"
+export const TEXTO_CAMBIO_TEXTO = "Vuelve a la firma del texto y cuenta como uno de tus 3 cambios."
+export const TEXTO_CAMBIO_DISENO = "Rehago las láminas con el mismo texto. No cuenta como cambio."
+export const TEXTO_SIN_LAMINA_PARA_CAMBIO = "Ninguna lámina permite este cambio ahora."
+export const TEXTO_PROGRAMADO_CARRUSEL = "A esa hora te dejo el PDF y el texto para que lo subas a LinkedIn."

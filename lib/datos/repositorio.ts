@@ -285,6 +285,46 @@ export async function leerPiezasAtascadas(db: Db, antesDe: string): Promise<Fila
   return data
 }
 
+/**
+ * Carousels waiting for their slides, without a reason, whose latest version is not rendered and either started
+ * before `empezoAntesDe` or was asked for before `pedidoAntesDe` and never started. A version with neither stamp is
+ * left alone: it was never asked for, so there is nothing to time.
+ */
+export async function leerCarruselesAtascados(
+  db: Db,
+  plazos: { empezoAntesDe: string; pedidoAntesDe: string },
+): Promise<FilaDePieza[]> {
+  const { data: piezas, error } = await db
+    .from("piezas")
+    .select("*")
+    .eq("estado", "armando_carrusel")
+    .is("explicacion", null)
+    .order("actualizada_en")
+  if (error) throw fallo("No pude leer los carruseles atascados", error)
+  if (piezas.length === 0) return []
+  const { data: versiones, error: errorVersiones } = await db
+    .from("carruseles")
+    .select("pieza_id, version, estado, armado_pedido_en, armado_empezo_en")
+    .in(
+      "pieza_id",
+      piezas.map((pieza) => pieza.id),
+    )
+  if (errorVersiones) throw fallo("No pude leer las versiones de los carruseles atascados", errorVersiones)
+  const vigentes = new Map<string, (typeof versiones)[number]>()
+  for (const version of versiones) {
+    const actual = vigentes.get(version.pieza_id)
+    if (!actual || version.version > actual.version) vigentes.set(version.pieza_id, version)
+  }
+  const empezo = Date.parse(plazos.empezoAntesDe)
+  const pedido = Date.parse(plazos.pedidoAntesDe)
+  return piezas.filter((pieza) => {
+    const version = vigentes.get(pieza.id)
+    if (!version || version.estado === "listo") return false
+    if (version.armado_empezo_en !== null) return Date.parse(version.armado_empezo_en) < empezo
+    return version.armado_pedido_en !== null && Date.parse(version.armado_pedido_en) < pedido
+  })
+}
+
 /** Pieces recording their voice whose last write is older than `antesDe`: their run died or never started. */
 export async function leerVocesTrabadas(db: Db, antesDe: string): Promise<FilaDePieza[]> {
   const { data, error } = await db
@@ -352,9 +392,9 @@ export async function guardarTokenMeta(db: Db, token: string, expiraEn: string):
  */
 export async function leerPiezasSinArrancar(
   db: Db,
-  corte: { grabarAntesDe: string; producirAntesDe: string },
-): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[] }> {
-  const [aGrabar, aProducir] = await Promise.all([
+  corte: { grabarAntesDe: string; producirAntesDe: string; armarAntesDe: string },
+): Promise<{ aGrabar: FilaDePieza[]; aProducir: FilaDePieza[]; aArmar: FilaDePieza[] }> {
+  const [aGrabar, aProducir, aArmar] = await Promise.all([
     db
       .from("piezas")
       .select("*")
@@ -370,10 +410,18 @@ export async function leerPiezasSinArrancar(
       .is("explicacion", null)
       .lt("actualizada_en", corte.producirAntesDe)
       .order("actualizada_en"),
+    db
+      .from("piezas")
+      .select("*")
+      .eq("estado", "armando_carrusel")
+      .is("explicacion", null)
+      .lt("actualizada_en", corte.armarAntesDe)
+      .order("actualizada_en"),
   ])
   if (aGrabar.error) throw fallo("No pude leer las piezas sin grabar", aGrabar.error)
   if (aProducir.error) throw fallo("No pude leer las piezas sin guion", aProducir.error)
-  return { aGrabar: aGrabar.data, aProducir: aProducir.data }
+  if (aArmar.error) throw fallo("No pude leer los carruseles sin armar", aArmar.error)
+  return { aGrabar: aGrabar.data, aProducir: aProducir.data, aArmar: aArmar.data }
 }
 
 export interface ConexionLinkedin {

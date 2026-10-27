@@ -86,4 +86,10 @@ describe("AccionesDeEstado", () => {
     expect(screen.getByRole("button", { name: "Sí, descartar" })).toBeInTheDocument()
     expect(screen.queryByText("No pude reintentar.")).toBeNull()
   })
+
+  it("retries a failed carousel render with 'Reintentar (no se cobra)'", async () => {
+    render(<AccionesDeEstado piezaId="p" version={5} acciones={["reintentarCarrusel", "descartar"]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar (no se cobra)" }))
+    await waitFor(() => expect(reintentarAccion).toHaveBeenCalledWith("p", 5))
+  })
 })

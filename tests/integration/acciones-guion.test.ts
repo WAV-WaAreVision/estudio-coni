@@ -77,6 +77,9 @@ function deps(db: Db = coni, fallos: { voz?: Error } = {}): DepsGuion {
         if (fallos.voz) throw fallos.voz
         disparos.push({ tarea: "voz", piezaId, clave, nueva })
       },
+      armar: async () => {
+        throw new Error("editarGuion no arma carruseles")
+      },
     },
   }
 }

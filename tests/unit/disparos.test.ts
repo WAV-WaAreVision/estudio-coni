@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { claveGrabar, claveProducir, claveVoz } from "@/lib/acciones/disparos"
+import { claveArmar, claveGrabar, claveProducir, claveVoz } from "@/lib/acciones/disparos"
 import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashTexto } from "@/lib/dominio/puertas"
@@ -86,5 +86,14 @@ describe("claveVoz", () => {
 
   it("does not change with gate 1: the voice is made before it", () => {
     expect(claveVoz({ ...fila, puerta1_hash: "e".repeat(64) })).toBe(claveVoz(fila))
+  })
+})
+
+describe("claveArmar", () => {
+  it("is one key per piece, version and attempt", () => {
+    const a = claveArmar("p", "11111111-1111-4111-8111-111111111111", 0)
+    expect(a).toMatch(/^p:armar:[0-9a-f]{16}:0$/)
+    expect(claveArmar("p", "11111111-1111-4111-8111-111111111111", 1)).not.toBe(a)
+    expect(claveArmar("p", "22222222-2222-4222-8222-222222222222", 0)).not.toBe(a)
   })
 })

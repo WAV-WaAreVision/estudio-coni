@@ -32,6 +32,7 @@ import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { DescartarPieza } from "../../descartar-pieza"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
 import {
@@ -359,6 +360,12 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           <TextoLinkedinEnLectura texto={datos.textoLinkedin} />
         </MasOpciones>
       ) : null}
+
+      {preparando ? null : (
+        <div className="mt-8">
+          <DescartarPieza piezaId={datos.id} version={version} />
+        </div>
+      )}
 
       {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
       <BarraDeFirma

@@ -48,6 +48,8 @@ export const MODELO_POR_TAREA = {
   // A carousel is written and judged like a script (design 2026-10-26, D3: the model scripts use today).
   escribirCarrusel: { modelo: "claude-opus-5-5", effort: "medium" },
   revisarCarrusel: { modelo: "claude-opus-5-5", effort: "low" },
+  // One automatic shortening of the slides that do not fit (plan 2026-10-27, amendment 3): a small rewrite.
+  acortarLaminas: { modelo: "claude-opus-5-5", effort: "low" },
   escribirFicha: { modelo: "claude-opus-5-5", effort: "low" },
   clasificarIdea: { modelo: "claude-sonnet-5-5", effort: "low" },
   clasificarEnPilares: { modelo: "claude-sonnet-5-5", effort: "low" },
@@ -598,6 +600,50 @@ export async function revisarCarruselConClaude(entrada: {
     (h): Hallazgo => ({ regla: h.regla, tipo: "advierte", mensaje: h.mensaje, frase: h.frase }),
   )
   return { hallazgos, uso }
+}
+
+export const SalidaAcortado = z.object({
+  laminas: z.array(z.object({ numero: z.number().int().min(1), texto: z.string().min(1) })).min(1),
+})
+
+function pedidoDeAcortado(laminas: readonly Lamina[], largas: readonly number[]): string {
+  const lista = laminas.map((lamina, indice) => `${indice + 1}. ${lamina.texto}`).join("\n")
+  const pedidas = largas.map((indice) => {
+    const lamina = laminas[indice]
+    const maximo = lamina ? Math.min(LARGO_DE_LAMINA[lamina.tipo], Math.floor([...lamina.texto].length * 0.75)) : 0
+    return `- Lámina ${indice + 1}: máximo ${maximo} caracteres.`
+  })
+  return `Algunas láminas de un carrusel de LinkedIn de Coni del Rosario no caben en la plantilla. Acórtalas sin cambiar su idea, su tono ni su orden: de tú, en español de Chile, sin emojis, hashtags ni rayas largas, y sin agregar datos. No toques las demás. Devuelve solo las láminas pedidas, cada una con su número.
+
+<laminas>
+${sinCierre(lista)}
+</laminas>
+
+Acorta solo estas láminas: ${largas.map((indice) => indice + 1).join(", ")}
+${pedidas.join("\n")}`
+}
+
+/**
+ * Shortens the slides the renderer found too long (`largas`, 0-based). Returns the new text of exactly those slides by
+ * index; anything else is a plain error Trigger.dev retries.
+ */
+export async function acortarLaminas(entrada: {
+  cliente: Anthropic
+  guia: string
+  laminas: readonly Lamina[]
+  largas: readonly number[]
+}): Promise<{ textos: Map<number, string>; uso: UsoClaude }> {
+  const { salida, uso } = await pedirJson(entrada.cliente, "acortarLaminas", {
+    guia: entrada.guia,
+    usuario: pedidoDeAcortado(entrada.laminas, entrada.largas),
+    esquema: SalidaAcortado,
+  })
+  const pedidas = new Set(entrada.largas.map((indice) => indice + 1))
+  const devueltas = new Set(salida.laminas.map((lamina) => lamina.numero))
+  if (devueltas.size !== pedidas.size || [...pedidas].some((numero) => !devueltas.has(numero))) {
+    throw new Error("Claude no devolvió las láminas que pedí acortar.")
+  }
+  return { textos: new Map(salida.laminas.map((lamina) => [lamina.numero - 1, lamina.texto])), uso }
 }
 
 function salidaIdea(pilares: readonly DatosDePilar[]) {

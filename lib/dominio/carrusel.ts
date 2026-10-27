@@ -45,7 +45,11 @@ function limpio(texto: string): string {
   return texto.replace(/\r\n?/g, "\n").normalize("NFC").trim()
 }
 
-const palabrasDe = (texto: string): string[] => texto.match(/[\p{L}\p{N}]+/gu) ?? []
+/**
+ * The words of a text as the highlight sees them. Decimal digits only (`\p{Nd}`), as SQL's `palabras_de`
+ * ([[:digit:]]): "m²" is the word "m" on both sides, so the app never offers a highlight the database refuses.
+ */
+export const palabrasDe = (texto: string): string[] => texto.match(/[\p{L}\p{Nd}]+/gu) ?? []
 
 /** A source line worth printing: Coni's own backing is not cited (`conLineaDeFuente` does the same). */
 function lineaCitable(linea: string | null): string | null {

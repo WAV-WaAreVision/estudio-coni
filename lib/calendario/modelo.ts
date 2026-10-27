@@ -253,18 +253,20 @@ function ocupanteDe(pieza: PiezaConPilar, provisional: boolean, propuesta = fals
     propuesta,
     destinos: provisional ? null : canonicos(pieza.destinos).map(nombreDeDestino).join(" · "),
   }
+  // A carousel lives on /guion/<id> in every state (plan amendment 13).
+  const tardia = `/${pieza.tipo === "carrusel" ? "guion" : "video"}/${pieza.id}`
   switch (pieza.estado) {
     case "programado":
-      return { ...base, estado: "Programado", tono: "ok", href: `/video/${pieza.id}` }
+      return { ...base, estado: "Programado", tono: "ok", href: tardia }
     case "para_subir_a_mano":
       return {
         ...base,
         estado: `Para subir a ${nombreDeDestinos(esperando(pieza))}`,
         tono: "aviso",
-        href: `/video/${pieza.id}`,
+        href: tardia,
       }
     case "publicado_a_mano":
-      return { ...base, estado: "Subido a mano", tono: "ok", href: `/video/${pieza.id}` }
+      return { ...base, estado: "Subido a mano", tono: "ok", href: tardia }
     case "video_por_aprobar":
       return { ...base, estado: "Falta tu firma: video y fecha", tono: "aviso", href: `/video/${pieza.id}` }
     case "guion_por_aprobar":
@@ -274,9 +276,10 @@ function ocupanteDe(pieza: PiezaConPilar, provisional: boolean, propuesta = fals
         tono: "aviso",
         href: `/guion/${pieza.id}`,
       }
-    // Part 1 of the carousel ends at its signed text (design 2026-10-26, amendment 1).
+    case "carrusel_por_aprobar":
+      return { ...base, estado: "Falta tu firma: carrusel y fecha", tono: "aviso", href: `/guion/${pieza.id}` }
     case "armando_carrusel":
-      return { ...base, estado: "Texto firmado · falta el diseño", tono: "neutro", href: `/guion/${pieza.id}` }
+      return { ...base, estado: "Armando las láminas", tono: "neutro", href: `/guion/${pieza.id}` }
     // Only a piece the old app left there (design 2026-10-15): the deploy moves those back to gate 1.
     case "guion_aprobado":
       return { ...base, estado: "Guion aprobado · falta grabar", tono: "aviso", href: `/guion/${pieza.id}` }
@@ -286,7 +289,12 @@ function ocupanteDe(pieza: PiezaConPilar, provisional: boolean, propuesta = fals
     case "subtitulando":
       return { ...base, estado: "Grabando", tono: "neutro", href: null }
     case "error_produccion":
-      return { ...base, estado: "Algo falló al grabar", tono: "error", href: `/guion/${pieza.id}` }
+      return {
+        ...base,
+        estado: pieza.tipo === "carrusel" ? "Algo falló al armar el carrusel" : "Algo falló al grabar",
+        tono: "error",
+        href: `/guion/${pieza.id}`,
+      }
     default:
       return { ...base, estado: "Guion en preparación", tono: "neutro", href: null }
   }

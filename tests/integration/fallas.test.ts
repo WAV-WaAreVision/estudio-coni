@@ -5,6 +5,7 @@ import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import { crearPiezaEn } from "./flujo"
 import { clienteDeServicio } from "./servicio"
+import { sembrarCarrusel } from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -239,5 +240,29 @@ describe("alFallarDeTarea", () => {
 
     expect(avisos.aConiEnviados).toEqual([])
     expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+})
+
+describe("a failed render of a carousel", () => {
+  it("marks the version fallo and leaves the piece in error_produccion, retryable from armando_carrusel", async () => {
+    const id = await sembrarCarrusel("armando_carrusel")
+    piezasCreadas.push(id)
+    const { deps, avisos } = doble()
+
+    await avisarFalla(deps, {
+      tarea: "armar-carrusel",
+      corrida: "run_1",
+      piezaId: id,
+      error: new Error("Chromium murió"),
+    })
+
+    expect(await pieza(id)).toMatchObject({
+      estado: "error_produccion",
+      estado_antes_del_error: "armando_carrusel",
+      explicacion: "No pude armar el carrusel. WAV ya está revisando.",
+    })
+    const { rows } = await pool.query("select estado from public.carruseles where pieza_id = $1", [id])
+    expect(rows).toEqual([{ estado: "fallo" }])
+    expect(avisos.aConiEnviados.map((a) => a.mensaje)).toEqual(["No pude armar el carrusel. WAV ya está revisando."])
   })
 })

@@ -2,6 +2,7 @@ import { idempotencyKeys, queue, schedules } from "@trigger.dev/sdk"
 import { mantenimientoFrecuente, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { depsFalla, depsFrecuente, depsNocturno } from "@/lib/produccion/deps-reales"
 import { alFallarDeTarea } from "@/lib/produccion/fallas"
+import { armarCarruselTask } from "./armar-carrusel"
 import { grabarPiezaTask } from "./grabar-pieza"
 import { producirPiezaTask } from "./producir-pieza"
 
@@ -42,10 +43,17 @@ export const mantenimientoFrecuenteTask = schedules.task({
   onFailure: alFallarDeTarea("mantenimiento-frecuente", depsFalla),
   run: async () =>
     mantenimientoFrecuente(
-      depsFrecuente(arrancarGrabacion, async (piezaId, clave) => {
-        const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
-        await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
-      }),
+      depsFrecuente(
+        arrancarGrabacion,
+        async (piezaId, clave) => {
+          const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
+          await producirPiezaTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
+        },
+        async (piezaId, clave) => {
+          const idempotencyKey = await idempotencyKeys.create(clave, { scope: "global" })
+          await armarCarruselTask.trigger({ piezaId }, { idempotencyKey, idempotencyKeyTTL: "1d" })
+        },
+      ),
     ),
 })
 
