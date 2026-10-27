@@ -1,7 +1,18 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
 import { ESTADOS } from "@/lib/dominio/estados"
-import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import {
+  asumir,
+  CONI,
+  como,
+  comoConi,
+  comoMantenedor,
+  comoOtra,
+  comoPostgres,
+  comoServicio,
+  fallaCon,
+  pool,
+} from "./db"
 import { crearPiezaEn } from "./flujo"
 
 afterAll(() => pool.end())
@@ -293,26 +304,28 @@ describe("gate 2 by type", () => {
       const id = await carrusel(c)
       const v = await version(c, id)
       const otro = await version(c, await carrusel(c))
-      // As Coni: only she approves gate 2, and proteger_pieza writes puerta2_por itself.
-      await asumir(c, comoConi)
+      // The table's own constraints, without proteger_pieza: since carousels part 2 (20261027000100) it refuses a
+      // gate 2 that is not the latest rendered version first (carrusel-armado-esquema.test.ts covers that binding).
+      // As the owner, in this rolled-back transaction, writing puerta2_por as the trigger would.
+      await c.query("alter table public.piezas disable trigger proteger_pieza")
       const conVideo = await fallaCon(
         c,
         `update public.piezas set version = version + 1, puerta2_video_id = 'v', puerta2_hash_texto = $2,
-           puerta2_publicar_en = now(), puerta2_en = now() where id = $1`,
-        [id, HASH],
+           puerta2_publicar_en = now(), puerta2_en = now(), puerta2_por = $3 where id = $1`,
+        [id, HASH, CONI],
       )
       expect(conVideo).toMatchObject({ code: "23514", constraint: "puerta2_completa" })
       const ajena = await fallaCon(
         c,
         `update public.piezas set version = version + 1, puerta2_carrusel_id = $2, puerta2_hash_texto = $3,
-           puerta2_publicar_en = now(), puerta2_en = now() where id = $1`,
-        [id, otro, HASH],
+           puerta2_publicar_en = now(), puerta2_en = now(), puerta2_por = $4 where id = $1`,
+        [id, otro, HASH, CONI],
       )
       expect(ajena).toMatchObject({ code: "23503", constraint: "puerta2_carrusel_de_la_pieza" })
       await c.query(
         `update public.piezas set version = version + 1, puerta2_carrusel_id = $2, puerta2_hash_texto = $3,
-           puerta2_publicar_en = now(), puerta2_en = now() where id = $1`,
-        [id, v, HASH],
+           puerta2_publicar_en = now(), puerta2_en = now(), puerta2_por = $4 where id = $1`,
+        [id, v, HASH, CONI],
       )
     })
   })
