@@ -4,7 +4,11 @@ import { aLittleText } from "@/lib/dominio/linkedin"
 import { AVISO_AVATAR_LINKEDIN } from "@/lib/dominio/revision"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
-import { EXPLICACION_LINKEDIN_TARDE, LINKEDIN_SIN_CONEXION } from "@/lib/publicacion/linkedin"
+import {
+  EXPLICACION_LINKEDIN_RECONECTAR,
+  EXPLICACION_LINKEDIN_TARDE,
+  LINKEDIN_SIN_CONEXION,
+} from "@/lib/publicacion/linkedin"
 import {
   EXPLICACION_LINKEDIN_CARRUSEL,
   EXPLICACION_LINKEDIN_DUDOSA_CARRUSEL,
@@ -204,6 +208,32 @@ describe("a scheduled carousel with LinkedIn connected (part 3)", () => {
 
     expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
     expect((await publicacionesConDetalle(id))[0]?.explicacion).toBe(EXPLICACION_LINKEDIN_CARRUSEL)
+  })
+
+  it("goes by hand asking to reconnect when LinkedIn answers 401 to the document start", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({ iniciarDocumento: () => HttpResponse.json({ status: 401 }, { status: 401 }) })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.subidasDeDocumento).toHaveLength(0)
+    expect(sim.posts).toHaveLength(0)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila).toMatchObject({ estado: "para_subir", explicacion: EXPLICACION_LINKEDIN_RECONECTAR, enviado_en: null })
+    expect((await leerFila(id)).estado).toBe("para_subir_a_mano")
+  })
+
+  it("goes by hand asking to reconnect when LinkedIn answers 401 to the PDF upload", async () => {
+    const d = doble(() => despues(1))
+    const id = await programado(d)
+    const sim = simularLinkedin({ subidaDeDocumento: () => new HttpResponse(null, { status: 401 }) })
+
+    expect(await publicarPendientes(d.deps)).toEqual([{ piezaId: id, resultado: "para_subir_a_mano" }])
+    expect(sim.subidasDeDocumento).toHaveLength(1)
+    expect(sim.posts).toHaveLength(0)
+    const [fila] = await publicacionesConDetalle(id)
+    expect(fila).toMatchObject({ estado: "para_subir", explicacion: EXPLICACION_LINKEDIN_RECONECTAR, enviado_en: null })
+    expect((await leerFila(id)).estado).toBe("para_subir_a_mano")
   })
 
   it("goes by hand without sending her token when LinkedIn hands out an upload address that is not its own", async () => {
