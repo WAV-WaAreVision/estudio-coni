@@ -206,6 +206,7 @@ export type EstadoDeCarruselDePrueba =
   | "carrusel_por_aprobar"
   | "programado"
   | "para_subir_a_mano"
+  | "publicado"
   | "error_produccion"
 
 export interface OpcionesDeCarrusel {
@@ -294,6 +295,21 @@ export async function crearCarruselEn(
     en: ahora(),
   })
   if (destino === "programado") return id
+
+  if (destino === "publicado") {
+    // What part 3's publisher leaves: the row with its document and post, then the piece closed by the service.
+    await asumir(c, comoServicio)
+    await c.query(
+      `update public.publicaciones
+          set documento_urn = 'urn:li:document:D5510AQprueba', enviado_en = now(), estado = 'publicado',
+              post_urn = 'urn:li:share:7123456789', enlace = 'https://www.linkedin.com/feed/update/urn:li:share:7123456789/',
+              marcado_en = now()
+        where pieza_id = $1 and destino = 'linkedin'`,
+      [id],
+    )
+    await aplicar(c, id, comoServicio, { tipo: "publicado" })
+    return id
+  }
 
   await aplicar(c, id, comoServicio, { tipo: "entregar_para_subir" })
   return id

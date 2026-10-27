@@ -7,7 +7,9 @@ import { leerFila, sembrarIdea, vaciarPiezasEIdeas } from "../integration/siembr
 import {
   abrirDesplegable,
   bloquearRedExterna,
+  conectarLinkedin,
   configurarServicios,
+  desconectarLinkedin,
   disparosRegistrados,
   limpiarDisparos,
   simularMedios,
@@ -19,6 +21,10 @@ test.beforeEach(async ({ page }) => {
   await vaciarPiezasEIdeas()
   limpiarDisparos()
   await configurarServicios()
+})
+
+test.afterEach(async () => {
+  await desconectarLinkedin()
 })
 
 test("a carousel being written says so and refreshes itself", async ({ page }) => {
@@ -195,4 +201,36 @@ test("/video/<id> of a carousel opens its own screen", async ({ page }) => {
   await page.goto(`/video/${id}`)
   await expect(page).toHaveURL(new RegExp(`/guion/${id}$`))
   await expect(page.getByText(/^Programado para el /)).toBeVisible()
+})
+
+test("a carousel LinkedIn posted shows as published, with its link", async ({ page }) => {
+  const id = await sembrarCarruselDeEscena("publicado")
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("Publicado en LinkedIn")).toBeVisible()
+  await expect(page.getByText("Salió solo a la hora que elegiste.")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Ver en LinkedIn" })).toHaveAttribute(
+    "href",
+    "https://www.linkedin.com/feed/update/urn:li:share:7123456789/",
+  )
+})
+
+test("a scheduled carousel says it posts by itself while LinkedIn will be connected", async ({ page }) => {
+  await conectarLinkedin()
+  const id = await sembrarCarruselDeEscena("programado")
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("A esa hora se publica solo en LinkedIn.")).toBeVisible()
+  await desconectarLinkedin()
+  await page.reload()
+  await expect(page.getByText("A esa hora te dejo el PDF y el texto para que lo subas a LinkedIn.")).toBeVisible()
+})
+
+test("a carousel left to upload by hand says why", async ({ page }) => {
+  const id = await sembrarCarruselDeEscena("para_subir_a_mano")
+  await pool.query("update public.publicaciones set explicacion = $2 where pieza_id = $1 and destino = 'linkedin'", [
+    id,
+    "LinkedIn no está conectado, así que te lo dejé para subir a mano.",
+  ])
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByText("Listo para que lo subas a LinkedIn")).toBeVisible()
+  await expect(page.getByText("LinkedIn no está conectado, así que te lo dejé para subir a mano.")).toBeVisible()
 })
