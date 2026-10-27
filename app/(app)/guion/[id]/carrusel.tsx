@@ -8,7 +8,7 @@ import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { contarCambiosDeTexto, leerCarruselVigente, leerVersion, leerVersionVigente } from "@/lib/datos/carrusel"
-import { type FilaDePieza, leerPublicaciones } from "@/lib/datos/repositorio"
+import { type FilaDePieza, leerPublicaciones, leerVencimientoLinkedin } from "@/lib/datos/repositorio"
 import { leerRevision } from "@/lib/datos/revision"
 import { cambiosQuedan } from "@/lib/dominio/carrusel"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
@@ -112,9 +112,10 @@ export async function VistaDeCarrusel({
       const version = await leerVersionVigente(db, fila.id)
       if (!version || version.estado !== "listo")
         throw new Error(`La pieza ${fila.id} está en la puerta 2 sin láminas.`)
-      const [imagenes, { fechas }] = await Promise.all([
+      const [imagenes, { fechas }, linkedinExpiraEn] = await Promise.all([
         Promise.all(version.pngClaves.map((clave) => urlParaVer(clave))),
         fechasDePuerta2(db, fila.id, Date.now()),
+        leerVencimientoLinkedin(db),
       ])
       return (
         <PantallaPuerta2Carrusel
@@ -132,6 +133,7 @@ export async function VistaDeCarrusel({
             fechas,
             cambiosQuedan: cambiosQuedan(fila.cambios_de_texto),
             explicacion: fila.explicacion,
+            linkedinExpiraEn,
           }}
         />
       )

@@ -25,9 +25,20 @@ const DATOS = {
   fechas: [{ iso: "2026-10-29T22:00:00.000Z", etiqueta: "jueves 29 de octubre · 19:00", corta: "jueves 29 · 19:00" }],
   cambiosQuedan: 2,
   explicacion: null,
+  linkedinExpiraEn: "2026-12-06T12:00:00.000Z",
 }
 
 describe("PantallaPuerta2Carrusel", () => {
+  it("says under the date that it posts by itself while LinkedIn will be connected", () => {
+    render(<PantallaPuerta2Carrusel datos={DATOS} />)
+    expect(screen.getByText("Se publica solo en LinkedIn a esa hora.")).toBeInTheDocument()
+  })
+
+  it("says it will be left to upload by hand when LinkedIn is not connected", () => {
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, linkedinExpiraEn: null }} />)
+    expect(screen.getByText("LinkedIn no está conectado: te lo dejo para subir a mano.")).toBeInTheDocument()
+  })
+
   it("opens 'Desliza para programar' only after the last slide was seen", () => {
     render(<PantallaPuerta2Carrusel datos={DATOS} />)
     const pista = screen.getByRole("slider", { name: "Desliza para programar" })
