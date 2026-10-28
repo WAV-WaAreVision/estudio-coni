@@ -11,9 +11,10 @@ Dos personas, dos contextos.
 **Coni del Rosario** (usuaria principal). Psicóloga clínica y sexóloga chilena, no técnica. Usa la
 app en su iPhone, instalada en la pantalla de inicio, en ratos cortos entre pacientes, talleres y
 escritura, con luz de día. Su presupuesto es de unos 15 minutos a la semana. Viene a firmar: aprobar
-guiones, escuchar la voz, aprobar videos y el texto de LinkedIn, y elegir fechas. Aprueba en su
-propio nombre y responde éticamente por lo que se publica (Código de Ética del Colegio de
-Psicólogos, art. 16.3.3).
+guiones, escuchar la voz, aprobar videos y el texto de LinkedIn, y elegir fechas. En la puerta 2,
+además de los horarios de su ritmo, puede elegir otra fecha y hora (hora de Chile, en bloques de 5
+minutos, con al menos 15 minutos de anticipación). Aprueba en su propio nombre y responde éticamente
+por lo que se publica (Código de Ética del Colegio de Psicólogos, art. 16.3.3).
 
 **WAV (Federico)** (operador). En el computador sube material a la ingesta (papers, charlas,
 transcripciones), conecta cuentas, revisa saldos y gastos, y destraba errores. Necesita densidad y
