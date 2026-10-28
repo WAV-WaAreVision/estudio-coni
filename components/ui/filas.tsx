@@ -29,13 +29,17 @@ interface PropiedadesDeFilaConValor<T extends string> {
   etiqueta: string
   valor: T
   alCambiar: (valor: T) => void
-  /** «select» (default) lists `opciones`; «time» hands over the native time picker. */
-  tipo?: "select" | "time"
+  /** «select» (default) lists `opciones`; «time» and «date» hand over the native time or day picker. */
+  tipo?: "select" | "time" | "date"
   opciones?: readonly OpcionDeFila<T>[]
   /** What the row says on the left when it is not the accessible name («A las» for «Hora de publicación»). */
   titulo?: string
   /** A word after the value («hora de Chile»). */
   sufijo?: string
+  /** The text shown instead of the raw value (a day reads "miércoles 28 de octubre", not `2026-10-28`). */
+  mostrar?: string
+  /** For a time: the minutes between choices, in seconds (300 is 5 minutes). */
+  step?: number
 }
 
 /**
@@ -50,8 +54,11 @@ export function FilaConValor<T extends string>({
   opciones = [],
   titulo,
   sufijo,
+  mostrar,
+  step,
 }: PropiedadesDeFilaConValor<T>) {
-  const visible = tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor
+  const visible =
+    mostrar ?? (tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor)
   const clasesDelControl = "absolute inset-0 size-full cursor-pointer opacity-0"
   return (
     <div className="relative flex min-h-fila-baja items-center justify-between gap-4">
@@ -61,11 +68,12 @@ export function FilaConValor<T extends string>({
         {sufijo ? <span>{sufijo}</span> : null}
         <CaretUpDown aria-hidden="true" size={ICONO.medio} />
       </span>
-      {tipo === "time" ? (
+      {tipo === "time" || tipo === "date" ? (
         <input
-          type="time"
+          type={tipo}
           aria-label={etiqueta}
           value={valor}
+          step={step}
           onChange={(evento) => alCambiar(evento.target.value as T)}
           className={clasesDelControl}
         />
