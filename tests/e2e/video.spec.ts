@@ -69,8 +69,8 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
 
   // She takes the second free slot instead of the first one.
   await page.getByRole("button", { name: "Cambiar" }).click()
-  const opciones = page.getByRole("radio")
-  await expect(opciones).toHaveCount(4)
+  const opciones = page.getByRole("group", { name: "Elige cuándo sale" }).getByRole("radio")
+  await expect(opciones).toHaveCount(5)
   await opciones.nth(1).check()
   const etiquetaElegida = (await page.locator("label:has(input[type=radio])").nth(1).innerText()).trim()
   await page.getByRole("button", { name: "Listo" }).click()
@@ -91,6 +91,33 @@ test("she watches the whole video, checks it, picks a date and slides: it is sch
   // 19:00 in Chile is 22:00 UTC in summer time and 23:00 in winter time.
   expect([22, 23]).toContain(hora.getUTCHours())
   expect(disparosRegistrados()).toEqual([])
+})
+
+test("gate 2 schedules a reel at another day and time", async ({ page }) => {
+  const id = await videoPorAprobar()
+  await simularMedios(page)
+  await page.goto(`/video/${id}`)
+
+  await page.getByRole("button", { name: "Reproducir el video" }).click()
+  await expect(page.getByText("Lo viste completo")).toBeVisible({ timeout: 15_000 })
+  await page.getByRole("checkbox", { name: /Revisé labios/ }).check()
+
+  const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(manana)
+  await page.getByRole("button", { name: "Cambiar" }).click()
+  await page.getByRole("radio", { name: "Otra fecha y hora" }).check()
+  await page.getByLabel(/^Día/).fill(dia)
+  await page.getByLabel("Hora", { exact: true }).fill("10:15")
+  await expect(page.getByText(/ · 10:15$/).first()).toBeVisible()
+
+  const deslizador = page.getByRole("slider", { name: ETIQUETA })
+  await expect(deslizador).toHaveAttribute("aria-disabled", "false")
+  await deslizador.focus()
+  await page.keyboard.press("End")
+  await expect(page.getByText(/^Programado para el .* · 10:15/)).toBeVisible()
+  const fila = await leerFila(id)
+  expect(fila.estado).toBe("programado")
+  expect(new Date(fila.puerta2_publicar_en).getUTCMinutes()).toBe(15)
 })
 
 test("skipping to the end of the video does not count as watching it", async ({ page }) => {

@@ -158,6 +158,30 @@ test("the whole flow: Ideas, gate 1, the render, gate 2 with one design change, 
   expect(await leerFila(id)).toMatchObject({ estado: "programado", puerta2_carrusel_id: despues?.id })
 })
 
+test("gate 2 schedules a carousel at another day and time", async ({ page }) => {
+  await simularMedios(page)
+  const id = await sembrarCarruselDeEscena("carrusel_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  for (let i = 1; i < 6; i += 1) await page.getByRole("button", { name: "Lámina siguiente" }).click()
+
+  const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(manana)
+  await page.getByRole("button", { name: "Cambiar" }).click()
+  await page.getByRole("radio", { name: "Otra fecha y hora" }).check()
+  await page.getByLabel(/^Día/).fill(dia)
+  await page.getByLabel("Hora", { exact: true }).fill("10:15")
+  await expect(page.getByText(/ · 10:15$/).first()).toBeVisible()
+
+  const programar = page.getByRole("slider", { name: "Desliza para programar" })
+  await expect(programar).toHaveAttribute("aria-disabled", "false")
+  await programar.focus()
+  await page.keyboard.press("End")
+  await expect(page.getByText(/^Programado para el .* · 10:15/)).toBeVisible()
+  const fila = await leerFila(id)
+  expect(fila.estado).toBe("programado")
+  expect(new Date(fila.puerta2_publicar_en).getUTCMinutes()).toBe(15)
+})
+
 test("the manual upload: download the PDF, copy the text, say it is up", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"])
   const id = await sembrarCarruselDeEscena("para_subir_a_mano")
