@@ -66,6 +66,8 @@ function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
       { iso: "2099-10-09T22:00:00.000Z", etiqueta: "viernes 9 de octubre · 19:00", corta: "viernes 9 · 19:00" },
       { iso: "2099-10-12T22:00:00.000Z", etiqueta: "lunes 12 de octubre · 19:00", corta: "lunes 12 · 19:00" },
     ],
+    zona: "America/Santiago",
+    horaDelRitmo: "19:00",
     costoDeRegrabar: "US$ 3,48",
     explicacion: null,
     primeraVez: false,

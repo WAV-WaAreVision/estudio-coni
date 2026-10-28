@@ -23,6 +23,8 @@ const DATOS = {
   diseno: { variante: "crema" as const },
   textoPost: TEXTO_POST_DE_PRUEBA,
   fechas: [{ iso: "2026-10-29T22:00:00.000Z", etiqueta: "jueves 29 de octubre · 19:00", corta: "jueves 29 · 19:00" }],
+  zona: "America/Santiago",
+  horaDelRitmo: "19:00",
   cambiosQuedan: 2,
   explicacion: null,
   linkedinExpiraEn: "2026-12-06T12:00:00.000Z",

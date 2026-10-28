@@ -57,6 +57,10 @@ export interface DatosDeVideo {
   videoUrl: string | null
   videoId: string
   fechas: FechaPropuesta[]
+  /** Where her schedule lives ("America/Santiago"): the picked day and time are read there. */
+  zona: string
+  /** Her schedule hour (`19:00`): where "Otra fecha y hora" starts. */
+  horaDelRitmo: string
   /** "US$ 2,40": what re-recording costs; null when the setup cannot say. */
   costoDeRegrabar: string | null
   explicacion: string | null

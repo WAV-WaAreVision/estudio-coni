@@ -47,6 +47,10 @@ export interface DatosDePuerta2Carrusel {
   diseno: DisenoDeCarrusel
   textoPost: string
   fechas: FechaPropuesta[]
+  /** Where her schedule lives ("America/Santiago"): the picked day and time are read there. */
+  zona: string
+  /** Her schedule hour (`19:00`): where "Otra fecha y hora" starts. */
+  horaDelRitmo: string
   cambiosQuedan: number
   /** Why the piece is back here without the change she asked for (a design change that did not fit). */
   explicacion: string | null
