@@ -14,7 +14,6 @@ import { Casilla } from "@/components/ui/casilla"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { FilaMeta } from "@/components/ui/fila-meta"
-import { Eleccion } from "@/components/ui/filas"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MarcaRevision } from "@/components/ui/marca-revision"
 import { MasOpciones } from "@/components/ui/mas-opciones"
@@ -26,6 +25,7 @@ import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
+import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
 import { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } from "../../piezas/acciones"
 import { ElegirDestinos } from "./elegir-destinos"
 import { faltaParaFirmarVideo, LISTO_PARA_FIRMAR, resumenDeMasOpciones } from "./falta-para-firmar"
@@ -82,8 +82,12 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const [editandoElTexto, setEditandoElTexto] = useState(false)
   const [editandoLinkedin, setEditandoLinkedin] = useState(false)
   const [destinos, setDestinos] = useState<Destino[]>(datos.destinosPorDefecto)
-  const [fecha, setFecha] = useState(datos.fechas[0]?.iso ?? null)
-  const [cambiandoFecha, setCambiandoFecha] = useState(false)
+  const eleccionDeFecha = useEleccionDeFecha({
+    fechas: datos.fechas,
+    zona: datos.zona,
+    horaDelRitmo: datos.horaDelRitmo,
+  })
+  const fechaElegida = eleccionDeFecha.fecha
   const [regrabando, setRegrabando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   // Stable, so a re-render while the toast is up does not restart its 8 s.
@@ -103,7 +107,6 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   const sinConfirmar = aplicables.filter(
     (hallazgo) => hallazgo.tipo === "advierte" && !confirmadas.has(claveDe(hallazgo)),
   )
-  const fechaElegida = datos.fechas.find((propuesta) => propuesta.iso === fecha)
   const falta = faltaParaFirmarVideo({
     visto,
     revisado,
@@ -112,7 +115,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
     editando: editandoElTexto || editandoLinkedin,
     bloqueos: bloqueos.length,
     sinRevisar: sinConfirmar,
-    hayFecha: fechaElegida !== undefined,
+    hayFecha: fechaElegida !== null,
   })
   const errorDeAccion = aprobacion.error ?? regrabacion.error
 
@@ -215,43 +218,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
       ) : null}
 
       <Seccion titulo="Dónde y cuándo" id="fecha">
-        {fechaElegida ? (
-          <div className="grid gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="grid">
-                <span data-snapshot="varia" className="font-semibold tabular-nums">
-                  {fechaElegida.etiqueta}
-                </span>
-                <span className="text-meta text-apagado">{nombreDeDestinos(destinos)} · hora de Chile</span>
-              </span>
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                aria-expanded={cambiandoFecha}
-                onClick={() => setCambiandoFecha((actual) => !actual)}
-              >
-                {cambiandoFecha ? "Listo" : "Cambiar"}
-              </Boton>
-            </div>
-            {cambiandoFecha ? (
-              <fieldset className="elecciones grid border-0 p-0">
-                <legend className="sr-only">Elige cuándo sale</legend>
-                {datos.fechas.map((propuesta) => (
-                  <Eleccion
-                    key={propuesta.iso}
-                    nombre="fecha"
-                    valor={propuesta.iso}
-                    elegido={propuesta.iso === fecha}
-                    etiqueta={propuesta.etiqueta}
-                    alElegir={setFecha}
-                  />
-                ))}
-              </fieldset>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-cuerpo text-apagado">No hay un horario libre en los próximos días.</p>
-        )}
+        <ElegirFecha eleccion={eleccionDeFecha} meta={`${nombreDeDestinos(destinos)} · hora de Chile`} />
       </Seccion>
 
       <MasOpciones className="mt-8" titulo="Más opciones" resumen={resumenDeMasOpciones(destinos)}>
@@ -317,7 +284,9 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
           enviando={aprobacion.pendiente}
           describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
           alFirmar={() => {
-            if (fecha) aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fecha, destinos))
+            if (fechaElegida) {
+              aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fechaElegida.iso, destinos))
+            }
           }}
         />
       </BarraDeFirma>
