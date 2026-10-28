@@ -38,7 +38,7 @@ interface PropiedadesDeFilaConValor<T extends string> {
   sufijo?: string
   /** The text shown instead of the raw value (a day reads "miércoles 28 de octubre", not `2026-10-28`). */
   mostrar?: string
-  /** For a time: the minutes between choices, in seconds (300 is 5 minutes). */
+  /** For a time: seconds between choices (300 is 5 minutes). */
   step?: number
 }
 
@@ -61,19 +61,24 @@ export function FilaConValor<T extends string>({
     mostrar ?? (tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor)
   const clasesDelControl = "absolute inset-0 size-full cursor-pointer opacity-0"
   return (
-    <div className="relative flex min-h-fila-baja items-center justify-between gap-4">
+    // The control is invisible, so the row shows its focus ring (as the label rows in globals.css do).
+    <div className="relative flex min-h-fila-baja items-center justify-between gap-4 has-[:focus-visible]:rounded-bloque has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-tinta">
       <span className="text-cuerpo font-semibold">{titulo ?? etiqueta}</span>
       <span className="flex items-center gap-2 text-cuerpo text-apagado tabular-nums">
-        <span className="tabular-nums">{visible}</span>
+        <span aria-hidden={mostrar ? "true" : undefined} className="tabular-nums">
+          {visible}
+        </span>
         {sufijo ? <span>{sufijo}</span> : null}
         <CaretUpDown aria-hidden="true" size={ICONO.medio} />
       </span>
       {tipo === "time" || tipo === "date" ? (
         <input
           type={tipo}
-          aria-label={etiqueta}
+          aria-label={mostrar ? `${etiqueta}: ${mostrar}` : etiqueta}
           value={valor}
-          step={step}
+          step={tipo === "time" ? step : undefined}
+          // On a desktop a click on the invisible field lands on one of its segments; open the picker instead.
+          onClick={(evento) => evento.currentTarget.showPicker?.()}
           onChange={(evento) => alCambiar(evento.target.value as T)}
           className={clasesDelControl}
         />
