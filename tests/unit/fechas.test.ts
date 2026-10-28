@@ -155,11 +155,44 @@ describe("horaElegida", () => {
   it("refuses a day more than 400 days ahead", () => {
     expect(elegir("2027-12-31", "19:00")).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.lejos })
   })
+
+  it("accepts up to exactly 400 days ahead and refuses the next block", () => {
+    expect(elegir("2027-12-02", "08:40")).toEqual({ ok: true, iso: "2027-12-02T11:40:00.000Z" })
+    expect(elegir("2027-12-02", "08:45")).toEqual({ ok: true, iso: "2027-12-02T11:45:00.000Z" })
+    expect(elegir("2027-12-02", "08:50")).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.lejos })
+  })
+
+  it("refuses a minute, an hour or a month out of range", () => {
+    expect(elegir("2026-10-28", "10:60")).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.hora })
+    expect(elegir("2026-10-28", "24:00")).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.hora })
+    expect(elegir("2026-13-01", "10:15")).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.dia })
+  })
+
+  it("refuses a time that does not exist in Chile when summer time starts", () => {
+    const antes = Date.parse("2026-09-01T12:00:00Z")
+    expect(elegir("2026-09-06", "00:30", antes)).toEqual({ ok: false, motivo: MOTIVOS_DE_HORA.noExiste })
+    expect(elegir("2027-09-05", "00:30", Date.parse("2027-09-01T12:00:00Z"))).toEqual({
+      ok: false,
+      motivo: MOTIVOS_DE_HORA.noExiste,
+    })
+    expect(elegir("2026-09-06", "01:00", antes)).toEqual({ ok: true, iso: "2026-09-06T04:00:00.000Z" })
+  })
+
+  it("takes the first of the two times a repeated hour has when summer time ends", () => {
+    expect(elegir("2026-04-04", "23:30", Date.parse("2026-04-01T12:00:00Z"))).toEqual({
+      ok: true,
+      iso: "2026-04-05T02:30:00.000Z",
+    })
+  })
 })
 
 describe("etiquetaDeDia", () => {
   it("names a calendar day in Chile", () => {
     expect(etiquetaDeDia("2026-10-28", ZONA)).toBe("miércoles 28 de octubre")
+  })
+
+  it("names the day summer time starts, whose midnight does not exist", () => {
+    expect(etiquetaDeDia("2026-09-06", ZONA)).toBe("domingo 6 de septiembre")
   })
 
   it("is empty for an unreadable day", () => {

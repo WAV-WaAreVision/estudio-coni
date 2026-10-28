@@ -812,6 +812,19 @@ describe("aprobarVideo", () => {
     expect(new Date((await fila(id)).puerta2_publicar_en).toISOString()).toBe("2099-10-09T21:35:00.000Z")
   })
 
+  it("reads the clock once, so the time it checked is the time it records", async () => {
+    const id = await paraAprobar()
+    const { deps } = armar()
+    // A clock that moves past the picked time between two reads.
+    const lecturas = ["2099-10-09T21:25:00.000Z", "2099-10-09T22:30:00.000Z"]
+    const reloj = { ...deps, ahora: () => lecturas.shift() ?? "2099-10-09T23:00:00.000Z" }
+
+    const resultado = await aprobarVideo(reloj, id, (await fila(id)).version, "2099-10-09T21:45:00.000Z", ["instagram"])
+
+    expect(resultado).toEqual({ ok: true })
+    expect(new Date((await fila(id)).puerta2_en).toISOString()).toBe("2099-10-09T21:25:00.000Z")
+  })
+
   it("refuses a date that already passed", async () => {
     const id = await paraAprobar()
     const { deps } = armar()

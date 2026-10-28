@@ -150,6 +150,7 @@ export const MOTIVOS_DE_HORA = {
   paso: "Elige una hora en bloques de 5 minutos.",
   anticipacion: "Elige una hora con al menos 15 minutos de anticipación.",
   lejos: "Elige una fecha dentro del próximo año.",
+  noExiste: "Esa hora no existe en Chile ese día. Elige otra.",
 } as const
 
 export type HoraElegida = { ok: true; iso: string } | { ok: false; motivo: string }
@@ -178,7 +179,19 @@ export function horaElegida(entrada: { dia: string; hora: string; zona: string; 
   const reloj = leerHoraElegida(entrada.hora)
   if (!reloj) return { ok: false, motivo: MOTIVOS_DE_HORA.hora }
   if (reloj.minuto % PASO_EN_MINUTOS !== 0) return { ok: false, motivo: MOTIVOS_DE_HORA.paso }
+  // A repeated hour (summer time ending) takes its first occurrence; a skipped one (summer time starting) does not
+  // read back as what she picked.
   const instante = instanteLocal({ ...dia, ...reloj }, entrada.zona)
+  const leido = partesLocales(instante, entrada.zona)
+  if (
+    leido.anio !== dia.anio ||
+    leido.mes !== dia.mes ||
+    leido.dia !== dia.dia ||
+    leido.hora !== reloj.hora ||
+    leido.minuto !== reloj.minuto
+  ) {
+    return { ok: false, motivo: MOTIVOS_DE_HORA.noExiste }
+  }
   if (instante < entrada.ahora + ANTICIPACION_MINIMA_MS) return { ok: false, motivo: MOTIVOS_DE_HORA.anticipacion }
   if (instante > entrada.ahora + DIAS_A_REVISAR * UN_DIA_MS) return { ok: false, motivo: MOTIVOS_DE_HORA.lejos }
   return { ok: true, iso: new Date(instante).toISOString() }

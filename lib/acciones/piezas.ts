@@ -540,7 +540,8 @@ export function aprobarCarrusel(
     const hash = hashTextoDeCarrusel(version)
     if (hash !== version.hashTexto)
       throw new Error(`El hash guardado del carrusel ${version.id} no es el de sus palabras.`)
-    exigirAnticipacion(publicarEn, deps.ahora())
+    const ahora = deps.ahora()
+    exigirAnticipacion(publicarEn, ahora)
     await exigirHorarioLibre(deps.db, fila.id, publicarEn, "carrusel")
     await guardarEvento(deps.db, fila, {
       tipo: "aprobar_carrusel",
@@ -550,7 +551,7 @@ export function aprobarCarrusel(
       hashTextoVisto: hash,
       hashTextoActual: hash,
       publicarEn,
-      en: deps.ahora(),
+      en: ahora,
     })
     return {}
   })
@@ -816,7 +817,8 @@ export function aprobarVideo(
       .map((p) => p.destino)
     if (destinos.every((destino) => subidos.includes(destino)))
       throw new Falla("Eso ya lo subiste. Elige otro destino.")
-    exigirAnticipacion(publicarEn, deps.ahora())
+    const ahora = deps.ahora()
+    exigirAnticipacion(publicarEn, ahora)
     await exigirHorarioLibre(deps.db, fila.id, publicarEn)
     const hash = hashTextoDePuerta2(2, { texto: fila.texto, textoLinkedin: fila.texto_linkedin, destinos })
     await guardarEvento(
@@ -830,7 +832,7 @@ export function aprobarVideo(
         hashTextoActual: hash,
         formula: 2,
         publicarEn,
-        en: deps.ahora(),
+        en: ahora,
       },
       { destinos },
     )
