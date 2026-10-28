@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Eleccion, FilaConValor } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
@@ -55,7 +55,9 @@ export function useEleccionDeFecha(entrada: {
       motivo = resultado.motivo
     }
   } else {
+    // A refresh after a refused signature can drop the chosen slot; say so instead of quietly picking another.
     fecha = fechas.find((propuesta) => propuesta.iso === elegida) ?? null
+    if (fecha === null) motivo = "Ese horario ya no está libre. Elige otro."
   }
   return { fecha, fechas, zona, elegida, elegir, dia, setDia, hora, setHora, motivo, cambiando, setCambiando }
 }
@@ -74,6 +76,7 @@ export function ElegirFecha({
 }) {
   const { fecha, cambiando } = eleccion
   const abierto = cambiando || fecha === null
+  const idDeElecciones = useId()
   return (
     <div className="grid gap-2">
       {fecha ? (
@@ -88,6 +91,7 @@ export function ElegirFecha({
             variante="secundario"
             tamano="chico"
             aria-expanded={cambiando}
+            aria-controls={abierto ? idDeElecciones : undefined}
             onClick={() => eleccion.setCambiando(!cambiando)}
           >
             {cambiando ? "Listo" : "Cambiar"}
@@ -96,7 +100,7 @@ export function ElegirFecha({
       ) : null}
       {fecha && debajo ? <p className="text-meta text-apagado">{debajo(fecha.iso)}</p> : null}
       {abierto ? (
-        <fieldset className="elecciones grid border-0 p-0">
+        <fieldset id={idDeElecciones} className="elecciones grid border-0 p-0">
           <legend className="sr-only">Elige cuándo sale</legend>
           {eleccion.fechas.map((propuesta) => (
             <Eleccion
@@ -118,28 +122,30 @@ export function ElegirFecha({
         </fieldset>
       ) : null}
       {abierto && eleccion.elegida === OTRA ? (
-        <>
-          <Grupo>
-            <FilaConValor
-              tipo="date"
-              etiqueta="Día"
-              valor={eleccion.dia}
-              mostrar={etiquetaDeDia(eleccion.dia, eleccion.zona) || "Elegir"}
-              alCambiar={eleccion.setDia}
-            />
-            <FilaConValor
-              tipo="time"
-              etiqueta="Hora"
-              valor={eleccion.hora}
-              step={300}
-              sufijo="hora de Chile"
-              alCambiar={eleccion.setHora}
-            />
-          </Grupo>
-          <p className="text-meta text-apagado" aria-live="polite">
-            {eleccion.motivo ?? ""}
-          </p>
-        </>
+        <Grupo>
+          <FilaConValor
+            tipo="date"
+            etiqueta="Día"
+            valor={eleccion.dia}
+            mostrar={etiquetaDeDia(eleccion.dia, eleccion.zona) || undefined}
+            vacio="Elegir"
+            alCambiar={eleccion.setDia}
+          />
+          <FilaConValor
+            tipo="time"
+            etiqueta="Hora"
+            valor={eleccion.hora}
+            step={300}
+            sufijo="hora de Chile"
+            alCambiar={eleccion.setHora}
+          />
+        </Grupo>
+      ) : null}
+      {/* Mounted while the choices are open, so a screen reader hears the first message; empty, it takes no gap. */}
+      {abierto ? (
+        <p className="text-meta text-apagado empty:-mt-2" aria-live="polite">
+          {eleccion.motivo}
+        </p>
       ) : null}
     </div>
   )

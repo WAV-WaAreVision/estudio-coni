@@ -38,6 +38,8 @@ interface PropiedadesDeFilaConValor<T extends string> {
   sufijo?: string
   /** The text shown instead of the raw value (a day reads "miércoles 28 de octubre", not `2026-10-28`). */
   mostrar?: string
+  /** The text shown while there is no value («Elegir»); only seen, so the field's name stays the label. */
+  vacio?: string
   /** For a time: seconds between choices (300 is 5 minutes). */
   step?: number
 }
@@ -55,17 +57,20 @@ export function FilaConValor<T extends string>({
   titulo,
   sufijo,
   mostrar,
+  vacio,
   step,
 }: PropiedadesDeFilaConValor<T>) {
-  const visible =
-    mostrar ?? (tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor)
+  const muestraVacio = vacio !== undefined && valor === "" && mostrar === undefined
+  const visible = muestraVacio
+    ? vacio
+    : (mostrar ?? (tipo === "select" ? (opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor) : valor))
   const clasesDelControl = "absolute inset-0 size-full cursor-pointer opacity-0"
   return (
     // The control is invisible, so the row shows its focus ring (as the label rows in globals.css do).
     <div className="relative flex min-h-fila-baja items-center justify-between gap-4 has-[:focus-visible]:rounded-bloque has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-tinta">
       <span className="text-cuerpo font-semibold">{titulo ?? etiqueta}</span>
       <span className="flex items-center gap-2 text-cuerpo text-apagado tabular-nums">
-        <span aria-hidden={mostrar ? "true" : undefined} className="tabular-nums">
+        <span aria-hidden={mostrar || muestraVacio ? "true" : undefined} className="tabular-nums">
           {visible}
         </span>
         {sufijo ? <span>{sufijo}</span> : null}

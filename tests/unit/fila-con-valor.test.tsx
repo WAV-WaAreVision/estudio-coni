@@ -14,6 +14,12 @@ describe("FilaConValor", () => {
     expect(alCambiar).toHaveBeenCalledWith("2026-10-28")
   })
 
+  it("shows the empty text while there is no value, hidden from the field's name", () => {
+    render(<FilaConValor tipo="date" etiqueta="Día" valor="" vacio="Elegir" alCambiar={() => {}} />)
+    expect(screen.getByLabelText("Día")).toHaveAttribute("type", "date")
+    expect(screen.getByText("Elegir")).toHaveAttribute("aria-hidden", "true")
+  })
+
   it("passes the step to a time field", () => {
     render(<FilaConValor tipo="time" etiqueta="Hora" valor="10:15" step={300} alCambiar={() => {}} />)
     expect(screen.getByLabelText("Hora")).toHaveAttribute("step", "300")

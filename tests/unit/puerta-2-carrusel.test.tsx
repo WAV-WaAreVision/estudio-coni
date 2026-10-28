@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 
 vi.mock("@/app/(app)/piezas/acciones", () => ({
@@ -29,6 +29,10 @@ const DATOS = {
   explicacion: null,
   linkedinExpiraEn: "2026-12-06T12:00:00.000Z",
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe("PantallaPuerta2Carrusel", () => {
   it("says under the date that it posts by itself while LinkedIn will be connected", () => {
@@ -81,7 +85,6 @@ describe("PantallaPuerta2Carrusel", () => {
     expect(
       screen.getByText("Tu conexión con LinkedIn vence antes de esa fecha: te lo dejo para subir a mano."),
     ).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it("speaks of programming, not signing, on the track and in how to use it without dragging", () => {
