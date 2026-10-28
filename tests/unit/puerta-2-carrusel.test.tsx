@@ -61,6 +61,29 @@ describe("PantallaPuerta2Carrusel", () => {
     expect(screen.queryByText(/Avísale a Federico/)).toBeNull()
   })
 
+  it("with no free slot opens on another day and time", () => {
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, fechas: [] }} />)
+    expect(screen.getByRole("radio", { name: "Otra fecha y hora" })).toBeChecked()
+    expect(screen.getByLabelText(/^Día/)).toBeInTheDocument()
+    expect(screen.queryByText("No hay un horario libre en los próximos días.")).not.toBeInTheDocument()
+  })
+
+  it("schedules at another day and time, and the LinkedIn line follows it", () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-28T11:45:00Z"))
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, linkedinExpiraEn: "2026-11-30T12:00:00.000Z" }} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Otra fecha y hora" }))
+    fireEvent.change(screen.getByLabelText(/^Día/), { target: { value: "2026-12-01" } })
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "10:15" } })
+
+    expect(screen.getByText("martes 1 de diciembre · 10:15")).toBeInTheDocument()
+    expect(
+      screen.getByText("Tu conexión con LinkedIn vence antes de esa fecha: te lo dejo para subir a mano."),
+    ).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it("speaks of programming, not signing, on the track and in how to use it without dragging", () => {
     render(<PantallaPuerta2Carrusel datos={DATOS} />)
     const pista = screen.getByRole("slider", { name: "Desliza para programar" })
