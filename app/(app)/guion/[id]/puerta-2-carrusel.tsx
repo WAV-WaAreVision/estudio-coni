@@ -224,11 +224,6 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
         arriba={
           <>
             {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "bloqueo" ? (
-              <Bloque tipo="aviso" id={idFalta}>
-                {falta.texto}
-              </Bloque>
-            ) : null}
             {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
             {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={["Láminas vistas", "Fecha"]} /> : null}
           </>

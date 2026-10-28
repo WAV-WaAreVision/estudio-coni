@@ -55,6 +55,12 @@ describe("PantallaPuerta2Carrusel", () => {
     ).toBeInTheDocument()
   })
 
+  it("asks to choose the date when there is no free slot, instead of blocking", () => {
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, fechas: [] }} />)
+    expect(screen.getByText(/elegir la fecha/)).toHaveTextContent("Falta: ver todas las láminas · elegir la fecha")
+    expect(screen.queryByText(/Avísale a Federico/)).toBeNull()
+  })
+
   it("speaks of programming, not signing, on the track and in how to use it without dragging", () => {
     render(<PantallaPuerta2Carrusel datos={DATOS} />)
     const pista = screen.getByRole("slider", { name: "Desliza para programar" })

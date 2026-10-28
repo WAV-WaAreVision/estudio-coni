@@ -18,19 +18,13 @@ export interface EstadoDeLaFirmaDelVideo {
   hayFecha: boolean
 }
 
-export type FaltaParaFirmarVideo =
-  | { tipo: "nada" }
-  | { tipo: "bloqueo"; texto: string }
-  | { tipo: "falta"; cosas: string[] }
-
-export const SIN_HORARIO = "No hay un horario libre. Avísale a Federico."
+export type FaltaParaFirmarVideo = { tipo: "nada" } | { tipo: "falta"; cosas: string[] }
 
 /** Gate 2 when nothing is missing (decision 11, step 8): what she did, each with its check. */
 export const LISTO_PARA_FIRMAR = ["Video visto", "Texto"] as const
 
-/** What keeps gate 2's signature closed (decision 11, step 8): a missing slot is a block, the rest a "Falta:" list. */
+/** What keeps gate 2's signature closed (decision 11, step 8): a "Falta:" list; the date is the last item. */
 export function faltaParaFirmarVideo(estado: EstadoDeLaFirmaDelVideo): FaltaParaFirmarVideo {
-  if (!estado.hayFecha) return { tipo: "bloqueo", texto: SIN_HORARIO }
   const cosas = [
     estado.visto ? null : "terminar el video",
     estado.revisado ? null : "marcar lo que revisaste",
@@ -38,6 +32,7 @@ export function faltaParaFirmarVideo(estado: EstadoDeLaFirmaDelVideo): FaltaPara
     estado.editando ? "guardar o cancelar la edición del texto" : null,
     estado.bloqueos > 0 ? "corregir el texto" : null,
     revisarPendientes(estado.sinRevisar),
+    estado.hayFecha ? null : "elegir la fecha",
   ].filter((cosa): cosa is string => cosa !== null)
   return cosas.length === 0 ? { tipo: "nada" } : { tipo: "falta", cosas }
 }

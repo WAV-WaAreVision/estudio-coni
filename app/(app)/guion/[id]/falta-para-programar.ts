@@ -1,12 +1,9 @@
-import { SIN_HORARIO } from "../../video/[id]/falta-para-firmar"
+export type FaltaParaProgramar = { tipo: "nada" } | { tipo: "falta"; cosas: string[] }
 
-export type FaltaParaProgramar =
-  | { tipo: "nada" }
-  | { tipo: "bloqueo"; texto: string }
-  | { tipo: "falta"; cosas: string[] }
-
-/** What keeps a carousel's gate 2 closed: no free time blocks; otherwise she has to have seen every slide. */
+/** What keeps a carousel's gate 2 closed: seeing every slide and choosing the date. */
 export function faltaParaProgramarCarrusel(estado: { vioTodas: boolean; hayFecha: boolean }): FaltaParaProgramar {
-  if (!estado.hayFecha) return { tipo: "bloqueo", texto: SIN_HORARIO }
-  return estado.vioTodas ? { tipo: "nada" } : { tipo: "falta", cosas: ["ver todas las láminas"] }
+  const cosas = [estado.vioTodas ? null : "ver todas las láminas", estado.hayFecha ? null : "elegir la fecha"].filter(
+    (cosa): cosa is string => cosa !== null,
+  )
+  return cosas.length === 0 ? { tipo: "nada" } : { tipo: "falta", cosas }
 }

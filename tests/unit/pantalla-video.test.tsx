@@ -133,10 +133,11 @@ describe("PantallaVideo: todo a la vista antes de terminar", () => {
     )
   })
 
-  it("blocks with today's text when there is no free slot", () => {
+  it("asks to choose the date when there is no free slot", () => {
     abrir({ fechas: [] })
     revisar()
-    expect(within(barra()).getByRole("status")).toHaveTextContent("No hay un horario libre. Avísale a Federico.")
+    expect(within(barra()).getByText(/elegir la fecha/)).toHaveTextContent("Falta: elegir la fecha")
+    expect(within(barra()).queryByText(/Avísale a Federico/)).toBeNull()
     expect(firma()).toHaveAttribute("aria-disabled", "true")
   })
 })
