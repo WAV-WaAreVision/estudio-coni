@@ -49,8 +49,7 @@ o pide hasta tres cambios con una frase; en la segunda ve el diseño terminado.
 Las láminas son texto diseñado en una plantilla editorial (papel crema, una serif grande) con tres variantes de color.
 En la puerta 2 Coni ve las láminas tal como se verán, puede pedir un cambio de texto (cuenta entre los tres) o un
 cambio de diseño acotado (no cuenta) y lo programa. A su hora Conidolly lo publica solo en su perfil de
-LinkedIn; si LinkedIn no está conectado o no lo acepta, se lo deja para subir a mano con la razón. (Parte 3 en rama,
-pendiente de deploy; hasta entonces lo sube ella a mano.)
+LinkedIn; si LinkedIn no está conectado o no lo acepta, se lo deja para subir a mano con la razón.
 
 ## Brand Personality
 
