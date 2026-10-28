@@ -33,6 +33,7 @@ import {
   VENTANA_DESHACER_MS,
 } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
+import { ANTICIPACION_MINIMA_MS, MOTIVOS_DE_HORA } from "@/lib/dominio/fechas"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { cuantasAlcanzan } from "@/lib/dominio/lote"
 import { hashPuerta1, hashTextoDeCarrusel, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
@@ -539,6 +540,7 @@ export function aprobarCarrusel(
     const hash = hashTextoDeCarrusel(version)
     if (hash !== version.hashTexto)
       throw new Error(`El hash guardado del carrusel ${version.id} no es el de sus palabras.`)
+    exigirAnticipacion(publicarEn, deps.ahora())
     await exigirHorarioLibre(deps.db, fila.id, publicarEn, "carrusel")
     await guardarEvento(deps.db, fila, {
       tipo: "aprobar_carrusel",
@@ -747,6 +749,14 @@ export function editarTextoLinkedin(deps: DepsAcciones, piezaId: string, version
   })
 }
 
+/** Spec F2: at least 15 minutes ahead. A past or unreadable time is left to the transition, which says it its way. */
+function exigirAnticipacion(publicarEn: string, ahora: string): void {
+  const instante = instanteEstricto(publicarEn)
+  if (instante === null) return
+  const falta = Date.parse(instante) - Date.parse(ahora)
+  if (falta > 0 && falta < ANTICIPACION_MINIMA_MS) throw new Falla(MOTIVOS_DE_HORA.anticipacion)
+}
+
 /** Two reels at the same minute would go out together: the slot has to be free. An unreadable time is the domain's to refuse. */
 async function exigirHorarioLibre(
   db: Db,
@@ -806,6 +816,7 @@ export function aprobarVideo(
       .map((p) => p.destino)
     if (destinos.every((destino) => subidos.includes(destino)))
       throw new Falla("Eso ya lo subiste. Elige otro destino.")
+    exigirAnticipacion(publicarEn, deps.ahora())
     await exigirHorarioLibre(deps.db, fila.id, publicarEn)
     const hash = hashTextoDePuerta2(2, { texto: fila.texto, textoLinkedin: fila.texto_linkedin, destinos })
     await guardarEvento(

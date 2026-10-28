@@ -788,6 +788,30 @@ describe("aprobarVideo", () => {
     expect(new Date(guardada.puerta2_publicar_en).toISOString()).toBe("2099-10-09T22:00:00.000Z")
   })
 
+  it("refuses a time less than 15 minutes ahead", async () => {
+    const id = await paraAprobar()
+    const { deps } = armar()
+    const diezAntes = { ...deps, ahora: () => "2099-10-09T21:50:00.000Z" }
+
+    const resultado = await aprobarVideo(diezAntes, id, (await fila(id)).version, FUTURO, ["instagram"])
+
+    expect(resultado).toEqual({ ok: false, error: "Elige una hora con al menos 15 minutos de anticipación." })
+    expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("accepts a time 20 minutes ahead that is not a schedule slot", async () => {
+    const id = await paraAprobar()
+    const { deps } = armar()
+    const veinteAntes = { ...deps, ahora: () => "2099-10-09T21:15:00.000Z" }
+
+    const resultado = await aprobarVideo(veinteAntes, id, (await fila(id)).version, "2099-10-09T18:35:00-03:00", [
+      "instagram",
+    ])
+
+    expect(resultado.ok).toBe(true)
+    expect(new Date((await fila(id)).puerta2_publicar_en).toISOString()).toBe("2099-10-09T21:35:00.000Z")
+  })
+
   it("refuses a date that already passed", async () => {
     const id = await paraAprobar()
     const { deps } = armar()

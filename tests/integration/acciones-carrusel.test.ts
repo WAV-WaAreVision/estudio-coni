@@ -338,6 +338,27 @@ describe("aprobarCarrusel", () => {
     expect(disparos).toEqual([])
   })
 
+  it("refuses a time less than 15 minutes ahead", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps } = armar()
+    const publicarEn = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+
+    expect(await aprobarCarrusel(deps, id, await versionDe(id), version.id, publicarEn)).toEqual({
+      ok: false,
+      error: "Elige una hora con al menos 15 minutos de anticipación.",
+    })
+    expect((await leerFila(id)).estado).toBe("carrusel_por_aprobar")
+  })
+
+  it("accepts a time 20 minutes ahead", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps } = armar()
+    const publicarEn = new Date(Date.now() + 20 * 60 * 1000).toISOString()
+
+    expect(await aprobarCarrusel(deps, id, await versionDe(id), version.id, publicarEn)).toEqual({ ok: true })
+    expect((await leerFila(id)).estado).toBe("programado")
+  })
+
   it("refuses a version that is not the one on screen", async () => {
     const { id } = await enPuerta2()
     const resultado = await aprobarCarrusel(
