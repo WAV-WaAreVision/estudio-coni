@@ -71,7 +71,7 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
     token: () => mantenerTokenMeta(deps),
     linkedin: () => mantenerTokenLinkedin(deps),
     numerosLinkedin: () => recordarNumerosDeLinkedin(deps),
-    // Hashes first: tonight's backup then holds only yesterday's, never older ones.
+    // Hashes first, so tonight's backup never keeps hashes older than the rule allows (yesterday's and today's).
     huella: () => borrarHuellaDeVisitas(deps),
     respaldo: () => respaldarBase(deps),
     revisionDeInventario: () => recordarRevisionDeInventario(deps),

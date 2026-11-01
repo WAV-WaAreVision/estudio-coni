@@ -392,7 +392,7 @@ values
    'Por confirmar', 'Se guardan los últimos 30 días.', 'respaldos', 30),
   ('huella_de_visitas', 10, 'Huella diaria de quien toca tus enlaces de /l',
    'Contar un clic por persona y día, sin guardar su dirección ni su aparato.', 'Supabase', 'Por confirmar',
-   'Se borra al día siguiente. El respaldo nocturno guarda una copia hasta 30 días.', 'huella_de_visitas', 1),
+   'Se borra a los dos días. El respaldo nocturno guarda una copia hasta 30 días.', 'huella_de_visitas', 1),
   ('suscripciones_a_avisos', 11, 'Los aparatos donde recibes avisos', 'Mandarte avisos al celular.', 'Supabase',
    'Por confirmar', 'Mientras no los quites en Ajustes.', null, null);
 
@@ -3766,8 +3766,8 @@ git commit -m "Cover the data register and the AI page end to end and document t
 
 1. `supabase migration list --linked`: the pending migrations must be exactly what is expected. TRASPASO lists production up to `20261027000150`, so `20261028000100_linkedin_documento.sql` may also be pending; confirm it is meant to go out with this one before pushing.
 2. `supabase db push` (production, ref `mvfytttfxmzzjajecsch`). Check in the dashboard: 11 rows in `inventario_de_datos`, one row (version 0, `propuesta`) in `transparencia_versiones`, `ajustes.inventario_desde` = the day of the push.
-3. Trigger.dev (the nightly maintenance changed: the new step `huella`, before `respaldo`, is the only maintenance step that deletes `visitas_clic`, and it logs the deletion; `registrar_clic` also deletes with the same cutoff on every click, without logging it (whether to log it is still to be decided); the daily metrics run no longer deletes them): `pnpm install`, then `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check`.
-4. Vercel, estudio-coni, from a clean copy: `git archive main | tar -x -C <dir>`, copy `.vercel/project.json`, `vercel deploy --prod --yes`. No new variable: `/l/ia` uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, already set.
+3. Trigger.dev, deployed from the `main` checkout after the merge, not from a worktree (the nightly maintenance changed: the new step `huella`, before `respaldo`, is the only maintenance step that deletes `visitas_clic`, and it logs the deletion; `registrar_clic` also deletes with the same cutoff on every click, without logging it (whether to log it is still to be decided); the daily metrics run no longer deletes them): `pnpm install`, then `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check`.
+4. Vercel, estudio-coni: `vercel deploy --prod --yes` from the repo root on a clean `main` (`.vercelignore` keeps worktrees out), Vercel CLI 65 or newer. No new variable: `/l/ia` uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, already set.
 5. Vercel, conidolly-ingesta, after its PR is merged (Task 18), the same way.
 6. Smoke: `https://conidolly.vercel.app/l/ia` answers 404 and `/l` has no AI link; as Coni, Ajustes › Datos personales shows 11 cards and Ajustes › Página de IA shows «Propuesta de WAV»; as WAV, Ingesta shows the «Datos» tab. The morning after, the run of `mantenimiento-nocturno` lists `huella` (before `respaldo`) and `revisionDeInventario` in its output, and `visitas_clic` holds no row older than yesterday.
 7. Coni reviews the register, edits and publishes the page, and pastes the bio line. After the legal review WAV confirms countries and periods from Ingesta.
