@@ -8,7 +8,8 @@ export type AnotarBorrado = (regla: ReglaDeBorrado, cantidad: number) => Promise
 /** The log of the nightly maintenance, with a `service_role` client. A night that deleted nothing writes nothing. */
 export function anotadorDeBorrados(db: SupabaseClient<Database>, ahora: () => string): AnotarBorrado {
   return async (regla, cantidad) => {
-    if (cantidad <= 0) return
+    // Only zero is skipped: a negative count is a bug, and the table's check turns it into an error.
+    if (cantidad === 0) return
     const { error } = await db.from("registro_de_borrados").insert({ regla, cantidad, borrado_en: ahora() })
     if (error) throw new Error(`No pude anotar el borrado de ${regla}: ${error.message}`, { cause: error })
   }

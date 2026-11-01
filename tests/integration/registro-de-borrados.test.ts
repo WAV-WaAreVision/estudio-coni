@@ -33,6 +33,15 @@ describe("anotadorDeBorrados", () => {
   it("says which rule it could not write down", async () => {
     // Coni's session may read the log but never write it.
     const anotar = anotadorDeBorrados(await clienteDeConi(), () => AHORA)
-    await expect(anotar("huella_de_visitas", 2)).rejects.toThrow(/No pude anotar el borrado de huella_de_visitas/)
+    await expect(anotar("huella_de_visitas", 2)).rejects.toMatchObject({
+      message: expect.stringMatching(/No pude anotar el borrado de huella_de_visitas/),
+      cause: { code: "42501" },
+    })
+  })
+
+  it("lets a negative count reach the database check instead of skipping it", async () => {
+    const anotar = anotadorDeBorrados(clienteDeServicio(), () => AHORA)
+    await expect(anotar("respaldos", -1)).rejects.toThrow(/No pude anotar el borrado de respaldos/)
+    expect(await anotados()).toEqual([])
   })
 })

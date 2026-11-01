@@ -1,11 +1,13 @@
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RegistroDeDatos } from "@/app/(app)/ajustes/datos-personales/registro-de-datos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { VistaDelRegistro } from "@/lib/datos-personales/presentar"
 
 const refrescar = vi.hoisted(() => vi.fn())
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: refrescar }) }))
+
+beforeEach(() => refrescar.mockClear())
 
 const VISTA: VistaDelRegistro = {
   tarjetas: [
@@ -26,7 +28,7 @@ const VISTA: VistaDelRegistro = {
       discrepancia: "No coincide con lo que la app borra (30 días)",
     },
   ],
-  borrados: [{ id: "b1", frase: "Se borraron 3 archivos de videos y voces el 2 de noviembre." }],
+  borrados: [{ id: "b1", frase: "Se borraron 3 archivos de video y voz el 2 de noviembre." }],
   revision: { ultima: null, vence: "15 de noviembre de 2027" },
 }
 
@@ -63,7 +65,7 @@ describe("RegistroDeDatos", () => {
 
   it("lists the latest deletions in words", () => {
     mostrar()
-    expect(screen.getByText("Se borraron 3 archivos de videos y voces el 2 de noviembre.")).toBeInTheDocument()
+    expect(screen.getByText("Se borraron 3 archivos de video y voz el 2 de noviembre.")).toBeInTheDocument()
   })
 
   it("says when nothing was deleted yet", () => {

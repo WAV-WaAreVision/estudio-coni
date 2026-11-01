@@ -9,6 +9,12 @@ describe("diaAntes", () => {
     expect(diaAntes("2026-03-01", 1)).toBe("2026-02-28")
     expect(diaAntes("2027-11-15", 30)).toBe("2027-10-16")
   })
+
+  it("refuses a day that is not YYYY-MM-DD or does not exist", () => {
+    for (const dia of ["2026-11-1", "2026-11-01T00:00:00Z", "ayer", "2026-02-30", "2026-13-01"]) {
+      expect(() => diaAntes(dia, 1)).toThrow(`Día ilegible: ${dia}`)
+    }
+  })
 })
 
 describe("unAnioDespues", () => {
@@ -21,6 +27,10 @@ describe("unAnioDespues", () => {
 describe("diaEnPalabras", () => {
   it("names a calendar day with its year", () => {
     expect(diaEnPalabras("2027-11-15")).toBe("15 de noviembre de 2027")
+  })
+
+  it("refuses an unreadable day", () => {
+    expect(() => diaEnPalabras("15-11-2027")).toThrow("Día ilegible: 15-11-2027")
   })
 })
 

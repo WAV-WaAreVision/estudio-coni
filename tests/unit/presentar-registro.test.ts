@@ -21,7 +21,7 @@ describe("fraseDeBorrado", () => {
   it("says what was deleted and when, in her words", () => {
     expect(
       fraseDeBorrado({ id: "1", regla: "videos_de_piezas", cantidad: 3, borradoEn: "2026-11-02T06:00:00Z" }, ZONA),
-    ).toBe("Se borraron 3 archivos de videos y voces el 2 de noviembre.")
+    ).toBe("Se borraron 3 archivos de video y voz el 2 de noviembre.")
     expect(fraseDeBorrado({ id: "2", regla: "respaldos", cantidad: 1, borradoEn: "2026-11-02T06:00:00Z" }, ZONA)).toBe(
       "Se borró 1 respaldo de la base el 2 de noviembre.",
     )
@@ -34,6 +34,9 @@ describe("fraseDeBorrado", () => {
     expect(fraseDeBorrado({ id: "4", regla: "reposts", cantidad: 2, borradoEn: "2026-11-02T06:00:00Z" }, ZONA)).toBe(
       "Se borraron 2 elementos de reposts el 2 de noviembre.",
     )
+    expect(
+      fraseDeBorrado({ id: "5", regla: "mensajes_directos", cantidad: 1, borradoEn: "2026-11-02T06:00:00Z" }, ZONA),
+    ).toBe("Se borró 1 elemento de mensajes directos el 2 de noviembre.")
   })
 })
 

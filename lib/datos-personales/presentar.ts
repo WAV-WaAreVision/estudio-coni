@@ -29,16 +29,20 @@ export function paisEnPalabras(pais: string, confirmado: boolean): string {
 }
 
 const NOMBRES: Record<ReglaDeBorrado, readonly [uno: string, varios: string]> = {
-  videos_de_piezas: ["archivo de video o voz", "archivos de videos y voces"],
+  videos_de_piezas: ["archivo de video o voz", "archivos de video y voz"],
   respaldos: ["respaldo de la base", "respaldos de la base"],
   huella_de_visitas: ["huella de visitas", "huellas de visitas"],
 }
 
-/** «Se borraron 3 archivos de videos y voces el 2 de noviembre.» */
+/** A rule the code no longer has still reads as words: `mensajes_directos` is «elementos de mensajes directos». */
+function elementosDe(regla: string): readonly [uno: string, varios: string] {
+  const nombre = regla.replaceAll("_", " ")
+  return [`elemento de ${nombre}`, `elementos de ${nombre}`]
+}
+
+/** «Se borraron 3 archivos de video y voz el 2 de noviembre.» */
 export function fraseDeBorrado(borrado: BorradoAnotado, zona: string): string {
-  const [uno, varios] = esReglaDeBorrado(borrado.regla)
-    ? NOMBRES[borrado.regla]
-    : ([`elemento de ${borrado.regla}`, `elementos de ${borrado.regla}`] as const)
+  const [uno, varios] = esReglaDeBorrado(borrado.regla) ? NOMBRES[borrado.regla] : elementosDe(borrado.regla)
   const cuando = instanteEnPalabras(borrado.borradoEn, zona, { anio: false })
   return borrado.cantidad === 1
     ? `Se borró 1 ${uno} el ${cuando}.`
