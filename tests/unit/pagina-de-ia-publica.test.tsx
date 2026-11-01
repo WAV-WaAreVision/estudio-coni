@@ -20,7 +20,7 @@ describe("/l/ia", () => {
     const { container } = render(await PaginaDeIa())
 
     expect(screen.getByRole("heading", { level: 1, name: "Cómo uso IA en mi contenido" })).toBeInTheDocument()
-    expect(screen.getByText("Coni del Rosario")).toBeInTheDocument()
+    expect(screen.getByText("Constanza del Rosario")).toBeInTheDocument()
     expect(screen.getByText("Dos <b>tres</b>.")).toBeInTheDocument()
     expect(container.querySelector("b")).toBeNull()
     expect(screen.getByText("Actualizado el 2 de noviembre de 2026.")).toBeInTheDocument()

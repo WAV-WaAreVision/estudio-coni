@@ -60,6 +60,7 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
   Verificado contra la documentación de LinkedIn (202609) el 2026-10-27; sin probar en real hasta el primer carrusel: F3 para documentos (flujo por `/rest` para una app de miembro) sigue sin confirmar hasta ese primer carrusel real.
   Tests inestables que ya fallaban en `main` (no son de esta parte): E2E `tests/e2e/linkedin.spec.ts:63` (falla 2 de 6 veces también en main) y el unit de `tests/unit/cuentas-conectadas.test.tsx` "says the key was saved but could not be checked".
 - **Fecha y hora exacta en la puerta 2** (spec `2026-10-28-conidolly-fecha-y-hora-exacta-design.md`, plan `2026-10-28-fecha-y-hora-exacta.md`, rama `feat/fecha-exacta`, pendiente de deploy): «Otra fecha y hora» en reels y carruseles; regla `horaElegida`; el servidor exige 15 minutos (`exigirAnticipacion`); sin migración ni cambios en Trigger; una fecha que falta ya no bloquea, es «elegir la fecha».
+- **Nombre público de `/l` y `/l/ia`** (rama `feat/registro-de-datos`): las dos páginas públicas dicen «Constanza del Rosario» (`NOMBRE_PUBLICO` en `lib/enlaces/perfil.ts`, decisión de Federico del 01-11-2026). El cierre de los reels, los guiones y las firmas de LinkedIn no cambian.
 - Verde (main `ea7445b`, 26-10-2026): estudio-coni 2693 unit, 1380 integración (1 timeout conocido de procesar-medios con la máquina cargada), 174 E2E.
 - Verde (main `a7d24aa`, 17-10-2026): estudio-coni 2619 unit, 1333 integración, 158 E2E; conidolly-ingesta 353 unit, 131 integración, 28 E2E.
 
