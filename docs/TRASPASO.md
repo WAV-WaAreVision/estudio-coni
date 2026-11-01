@@ -13,7 +13,7 @@ Nota para retomar Conidolly en una sesión nueva. Leer entera antes de tocar nad
 
 | Pieza | Dónde |
 |---|---|
-| App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). El push **no** despliega solo: `vercel deploy --prod --yes` desde una copia limpia (`git archive HEAD | tar -x -C <dir>` más `.vercel/project.json`), porque el repo no tiene `.vercelignore` y subiría `.worktrees/`. Preview usa la base de producción y `CORREO_CONI=federico@wearevision.cl`: mirar, no firmar. |
+| App | **https://conidolly.vercel.app** (Vercel Hobby, equipo `federico-1787s-projects`, proyecto `estudio-coni`). El push **no** despliega solo: `vercel deploy --prod --yes` desde la raíz del repo, con la rama `main` limpia; `.vercelignore` deja fuera `.worktrees/`, carpetas locales y `.env*`. Usa la CLI 65 o más nueva (la 62 respondía «Not authorized»). Preview usa la base de producción y `CORREO_CONI=federico@wearevision.cl`: mirar, no firmar. |
 | Ingesta | **https://conidolly-ingesta.vercel.app** (proyecto Vercel `conidolly-ingesta`, mismo equipo; deploy igual, a mano). |
 | Base | Supabase `estudio-coni`, ref `mvfytttfxmzzjajecsch`, sa-east-1. Migraciones aplicadas hasta **`20261027000150`** (carruseles parte 2, 27-10-2026). `supabase/pendientes/20261003000350_borrar_vinculos.sql` sigue sin aplicar (a propósito). |
 | Tareas | Trigger.dev org WAV, proyecto **`proj_spcwrflbtedwehbvsmhv`** (estudio-coni), versión **`20261027.2`** (con Chromium para `armar-carrusel`). Deploy: `TRIGGER_PROJECT_REF=proj_spcwrflbtedwehbvsmhv pnpm dlx trigger.dev@4.6.4 deploy --env prod --skip-update-check` (antes `pnpm install`). |

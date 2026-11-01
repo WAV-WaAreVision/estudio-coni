@@ -1,0 +1,21 @@
+# Local-only folders that must never reach a deployment (worktrees hold whole copies of the repo).
+.worktrees
+.impeccable
+.superpowers
+respaldos
+.claude
+agent-os
+
+# Same as .gitignore: secrets, builds and test output.
+.env*
+!.env.example
+*.pem
+node_modules
+.next
+out
+build
+coverage
+test-results
+playwright-report
+tests/e2e/.auth
+*.tsbuildinfo
