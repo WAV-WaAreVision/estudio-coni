@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { MOTIVO_TOPE } from "@/lib/ingesta/procesar"
 import { correrMotor, type DepsDelMotor } from "@/lib/motor/semanal"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
 import { CONI, pool } from "./db"
@@ -558,7 +558,7 @@ describe("correrMotor", () => {
     }
 
     expect(claude.llamadas).toBe(0)
-    expect(await corrida()).toMatchObject({ estado: "fallida", motivo_fallo: MOTIVO_TOPE })
+    expect(await corrida()).toMatchObject({ estado: "fallida", motivo_fallo: TEXTO_LIMITE })
     expect(await contar("select count(*) as n from public.ideas where origen = 'motor'")).toBe(0)
   })
 

@@ -2,6 +2,7 @@ import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { alFallarMaterial } from "@/lib/ingesta/falla-material"
 import { procesarMaterial } from "@/lib/ingesta/procesar"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 import { pool } from "./db"
@@ -314,8 +315,9 @@ describe("link de YouTube", () => {
   })
 })
 
-describe("tope de gasto", () => {
-  it("leaves the material in process with the reason and calls no provider", async () => {
+describe("límite del mes", () => {
+  it("leaves the material in process with the reason, calls no provider and tells Coni", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
     const almacen = almacenEnMemoria()
     const claude = simularClaude()
     const id = await crearMaterial(almacen, {
@@ -324,15 +326,17 @@ describe("tope de gasto", () => {
     })
     const anterior = await pool.query<{ tope: string }>("select tope_mensual_usd::text as tope from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0.0001")
+    const avisos = notificadorEnMemoria()
 
     try {
-      const resultado = await procesarMaterial(await deps(almacen), id)
+      const resultado = await procesarMaterial(await deps(almacen, { avisos }), id)
 
       expect(resultado).toEqual({ resultado: "tope" })
       const fila = await material(id)
       expect(fila.estado).toBe("procesando")
-      expect(fila.motivo_fallo).toContain("Llegaste al tope de gasto del mes")
+      expect(fila.motivo_fallo).toBe(TEXTO_LIMITE)
       expect(claude.total).toBe(0)
+      expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [anterior.rows[0]?.tope])
     }

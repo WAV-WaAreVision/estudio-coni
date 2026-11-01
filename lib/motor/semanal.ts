@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { pilaresActivos } from "@/lib/datos/pilares"
 import { leerGuiaVigente } from "@/lib/datos/repositorio"
 import { falloDeBase, pagarPaso, redondear } from "@/lib/ingesta/gasto-material"
-import { MOTIVO_TOPE } from "@/lib/ingesta/procesar"
 import { type DatosDelMotor, leerDatosDelMotor, type TemaDelMotor } from "@/lib/motor/datos"
 import {
   CRUCES_POR_SEMANA,
@@ -13,6 +12,7 @@ import {
   puntuarTemaSolo,
   reporteQueSubir,
 } from "@/lib/motor/puntaje"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { detalleTecnico } from "@/lib/produccion/fallas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
@@ -303,7 +303,7 @@ async function escribirPorLotes(
         },
       )
       if (pagado.tope) {
-        lotesFallidos.push({ cruces: ids, error: MOTIVO_TOPE })
+        lotesFallidos.push({ cruces: ids, error: TEXTO_LIMITE })
         descartadas.push(...ids.map((cruceId) => ({ cruceId, razon: RAZON_DE_LOTE_FALLIDO })))
         continue
       }
@@ -375,7 +375,7 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
 
   const contexto = await contextoEditorial(db)
   const escritura = await escribirPorLotes(deps, semana, paraClaude, contexto)
-  if (escritura.resultado === "tope") return { resultado: "fallida", motivo: MOTIVO_TOPE }
+  if (escritura.resultado === "tope") return { resultado: "fallida", motivo: TEXTO_LIMITE }
   const { teorias, descartadas, lotesFallidos, costo } = escritura
 
   const elegidos = new Map(cruces.map((c) => [c.id, c]))
