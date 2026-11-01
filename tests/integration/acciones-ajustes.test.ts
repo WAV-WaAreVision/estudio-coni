@@ -30,12 +30,24 @@ afterEach(async () => {
   vi.restoreAllMocks()
   await pool.query("delete from vault.secrets where name in ('heygen','elevenlabs','anthropic')")
   await pool.query("delete from public.gastos where paso = 'prueba_ajustes'")
+  await pool.query("delete from public.limites_del_mes")
   await pool.query(
     "update public.ajustes set meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, limite_duro_usd = null, motor_semanal_activo = true, fusiones_nocturnas_activas = true, avisos_resumen = true, avisos_urgentes = true, destinos_por_defecto = '{instagram}', produccion = '{}'::jsonb",
   )
 })
 
 afterAll(() => pool.end())
+
+async function esperarBloqueo(): Promise<void> {
+  for (let intento = 0; intento < 100; intento++) {
+    const { rowCount } = await pool.query(
+      "select 1 from pg_stat_activity where wait_event_type = 'Lock' and query ilike '%update%ajustes%' and pid <> pg_backend_pid()",
+    )
+    if (rowCount) return
+    await new Promise((listo) => setTimeout(listo, 20))
+  }
+  throw new Error("El guardado nunca esperó la fila de ajustes.")
+}
 
 async function ajustes() {
   const { rows } = await pool.query("select * from public.ajustes")
@@ -154,6 +166,62 @@ describe("guardarAjuste", () => {
 
     expect(resultado).toMatchObject({ ok: true, aviso: "Tu límite volvió al doble del tope: US$ 140,00" })
     expect(await ajustes()).toMatchObject({ tope_mensual_usd: "70.00", limite_duro_usd: null })
+  })
+
+  it("says the limit goes back to twice the cap from next month when she reactivated this one", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso: "Tu límite volvió al doble del tope: US$ 140,00 desde el próximo mes.",
+    })
+  })
+
+  it("adds the pause when the month already spent the limit the cap brought back", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-2')",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso:
+        "Tu límite volvió al doble del tope: US$ 140,00. Ya gastaste US$ 150,00; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.",
+    })
+  })
+
+  it("moves her limit only in steps of US$ 5", async () => {
+    expect(await guardarAjuste(deps(), { campo: "limite", valor: 92 })).toEqual({
+      ok: false,
+      error: "No entendí ese cambio. Vuelve a abrir Ajustes.",
+    })
+    expect((await ajustes()).limite_duro_usd).toBeNull()
+  })
+
+  it("explains a limit refused because the cap rose in another tab meanwhile", async () => {
+    // Another tab raises the cap and holds the row; this save reads the old cap, waits on the row and then the
+    // database check limite_no_bajo_el_tope refuses it against the cap that won.
+    const otraPestana = await pool.connect()
+    try {
+      await otraPestana.query("begin")
+      await otraPestana.query("update public.ajustes set tope_mensual_usd = 100")
+      const guardado = guardarAjuste(deps(), { campo: "limite", valor: 50 })
+      await esperarBloqueo()
+      await otraPestana.query("commit")
+
+      expect(await guardado).toEqual({ ok: false, error: "Tu límite no puede ser menor que tu tope de US$ 100,00." })
+    } finally {
+      await otraPestana.query("rollback")
+      otraPestana.release()
+    }
+    expect((await ajustes()).limite_duro_usd).toBeNull()
   })
 
   it("keeps the limit she set when the cap stays under it", async () => {

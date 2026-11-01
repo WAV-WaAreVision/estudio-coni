@@ -60,16 +60,25 @@ describe("reactivarLimite", () => {
     })
   })
 
-  it("explains a limit above the most the database takes", async () => {
-    // The database refuses a limit over US$ 1.000 with `limite_alto`; a stub stands in until that check exists.
-    const db = {
-      rpc: async () => ({ data: null, error: { message: "limite_alto", details: "", hint: "", code: "22023" } }),
-    } as unknown as SupabaseClient<Database>
-
-    expect(await reactivarLimite(db, { limite: 999 })).toEqual({
+  it("refuses a limit above US$ 1.000 before it asks the database", async () => {
+    expect(await reactivarLimite(coni, { limite: 1500 })).toEqual({
       ok: false,
       error: "El límite no puede pasar de US$ 1.000.",
     })
+    expect(await limiteGuardado()).toBeNull()
+  })
+
+  it("explains a limit under her cap with the cap", async () => {
+    expect(await reactivarLimite(coni, { limite: 35 })).toEqual({
+      ok: false,
+      error: "Tu límite no puede ser menor que tu tope de US$ 40,00.",
+    })
+    expect(await limiteGuardado()).toBeNull()
+  })
+
+  it("rounds the limit to cents", async () => {
+    expect(await reactivarLimite(coni, { limite: 120.456 })).toEqual({ ok: true, limite: 120.46 })
+    expect(await limiteGuardado()).toBe(120.46)
   })
 
   it("does not let WAV reactivate the month", async () => {

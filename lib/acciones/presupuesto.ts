@@ -6,7 +6,15 @@ import { MAXIMO_DEL_LIMITE_USD } from "@/lib/presupuesto/presentar"
 import type { Database } from "@/lib/supabase/database.types"
 import { aResultado, type Resultado } from "./resultado"
 
-const EntradaDeLimite = z.object({ limite: z.number().positive().max(MAXIMO_DEL_LIMITE_USD) })
+const TEXTO_LIMITE_ALTO = "El límite no puede pasar de US$ 1.000."
+
+// The database rounds too; rounding here first makes US$ 1.000,004 a valid US$ 1.000.
+const EntradaDeLimite = z.object({
+  limite: z
+    .number()
+    .positive()
+    .transform((limite) => Math.round(limite * 100) / 100),
+})
 
 /**
  * «Reactivar» in Ajustes › Presupuesto (D4): Coni sets this month's limit through `fijar_limite_del_mes`, which is hers
@@ -19,6 +27,7 @@ export function reactivarLimite(
   return aResultado("reactivarLimite", async () => {
     const datos = EntradaDeLimite.safeParse(entrada)
     if (!datos.success) throw new Falla("Escribe tu límite en dólares, por ejemplo 120.")
+    if (datos.data.limite > MAXIMO_DEL_LIMITE_USD) throw new Falla(TEXTO_LIMITE_ALTO)
     const { data, error } = await db.rpc("fijar_limite_del_mes", { p_limite: datos.data.limite })
     if (error) {
       if (error.message === "limite_bajo") {
@@ -29,7 +38,15 @@ export function reactivarLimite(
             : `Ese límite no alcanza: ya gastaste ${dolares(Number(usado))} este mes. Elige uno mayor.`,
         )
       }
-      if (error.message === "limite_alto") throw new Falla("El límite no puede pasar de US$ 1.000.")
+      if (error.message === "limite_bajo_el_tope") {
+        const tope = /tope=([0-9.]+)/.exec(error.details ?? "")?.[1]
+        throw new Falla(
+          tope === undefined
+            ? "Tu límite no puede ser menor que tu tope."
+            : `Tu límite no puede ser menor que tu tope de ${dolares(Number(tope))}.`,
+        )
+      }
+      if (error.message === "limite_alto") throw new Falla(TEXTO_LIMITE_ALTO)
       throw new Error(`No pude reactivar el límite: ${error.message}`, { cause: error })
     }
     return { limite: Number(data.limite_usd) }
