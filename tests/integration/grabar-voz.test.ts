@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { leerPieza } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveDeToma } from "@/lib/dominio/voz"
-import { TEXTO_TOPE } from "@/lib/produccion/comun"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
 import { asegurarVoz, claveDeGastoDeVoz, huellaDelGuion } from "@/lib/produccion/voz"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -174,14 +174,17 @@ describe("grabarVoz", () => {
     expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz" })
   })
 
-  it("explains the cap and spends nothing when the voice would pass it", async () => {
+  it("refuses a new voice before gate 1 at the month's limit, spends nothing and tells her", async () => {
+    // A cap of 0 makes a limit of 0: a voice not yet signed is new spend.
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     const id = await grabando()
-    const d = deps()
+    const avisos = notificadorEnMemoria()
+    const d = { ...deps(), avisos }
 
-    expect(await grabarVoz(d, { piezaId: id, nueva: false })).toEqual({ resultado: "tope" })
+    expect(await grabarVoz(d, { piezaId: id, nueva: false })).toEqual({ resultado: "limite" })
     expect(llamadas).toBe(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_TOPE })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_LIMITE })
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
   })
 
   it("returns the piece with Coni's text when ElevenLabs has no characters", async () => {

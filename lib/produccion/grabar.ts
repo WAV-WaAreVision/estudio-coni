@@ -10,7 +10,7 @@ import {
   leerProduccion,
   leerSecreto,
   liberarGasto,
-  reservarGasto,
+  reservarGastoFirmado,
 } from "@/lib/datos/repositorio"
 import {
   ArtefactoCambio,
@@ -27,7 +27,7 @@ import { claveIdempotencia, formulaDePuerta1, hashPuerta1, puedeGrabar } from "@
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
 import { vozDelGuion } from "@/lib/dominio/voz"
 import { artefactoAprobado, formulaGuardada } from "@/lib/produccion/aprobacion"
-import { aCuatroDecimales, avisarTope, explicar, MINIMO_USD, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { aCuatroDecimales, MINIMO_USD, piezaCambio } from "@/lib/produccion/comun"
 import { asegurarVoz, huellaDelGuion, leerLlaveDeVoz } from "@/lib/produccion/voz"
 import { type Almacen, claveVideo, claveVozAprobada } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -74,7 +74,6 @@ export type ResultadoGrabacion =
   | { resultado: "grabada"; videoId: string }
   | { resultado: "nada_que_hacer" }
   | { resultado: "sin_aprobacion" }
-  | { resultado: "tope" }
   | { resultado: "politica_contenido" }
   | { resultado: "falla_produccion" }
 
@@ -376,8 +375,8 @@ function vozAprobada(contexto: Contexto): string | null {
   })
 }
 
-/** The voice of the approved script, reused when it exists, written into the piece. False when the cap stops it. */
-async function ponerLaVoz(contexto: Contexto): Promise<boolean> {
+/** The voice of the approved script, reused when it exists, written into the piece. Signed work: never stopped. */
+async function ponerLaVoz(contexto: Contexto): Promise<void> {
   const { deps, config } = contexto
   const voz = await asegurarVoz(deps, {
     fila: contexto.fila,
@@ -386,13 +385,10 @@ async function ponerLaVoz(contexto: Contexto): Promise<boolean> {
     llave: () => leerLlaveDeVoz(deps.db, config),
     nueva: false,
   })
-  if (voz.tipo === "tope") {
-    await explicar(deps, contexto.fila, TEXTO_TOPE)
-    await avisarTope(deps, contexto.fila)
-    return false
-  }
+  // The piece is in `en_render` with its gate-1 signature, so `vozFirmada` holds: a limit here breaks the contract.
+  if (voz.tipo === "limite")
+    throw new Error(`La voz firmada de la pieza ${contexto.fila.id} frenó en el límite del mes.`)
   await escribir(contexto, { tipo: "voz_lista", audioId: voz.audioId })
-  return true
 }
 
 async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
@@ -402,9 +398,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
 
   // Only a render that was never created spends from here; a stored render id or a delivered video was paid already.
   if (enRender && contexto.fila.render_id === null) await tomarLaPieza(contexto)
-  if (enRender && vozAprobada(contexto) === null && !(await ponerLaVoz(contexto))) {
-    return { resultado: "tope" }
-  }
+  if (enRender && vozAprobada(contexto) === null) await ponerLaVoz(contexto)
 
   let videoId = contexto.fila.render_id
   if (videoId === null) {
@@ -422,7 +416,8 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
     })
   }
   const estimado = estimarCostoVideo(contexto.guion, contexto.config.heygen.motor)
-  const reserva = await reservarGasto(db, {
+  // The video is signed work (spec 2026-11-02, D1): the month's limit never stops it.
+  const gasto = await reservarGastoFirmado(db, {
     piezaId: contexto.fila.id,
     proveedor: "heygen",
     paso: "grabar",
@@ -430,12 +425,6 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
     clave: contexto.clave,
     ahora: deps.ahora(),
   })
-  if (reserva.limite) {
-    await explicar(deps, contexto.fila, TEXTO_TOPE)
-    await avisarTope(deps, contexto.fila)
-    return { resultado: "tope" }
-  }
-  const { gasto } = reserva
 
   let video: EstadoVideo
   if (videoId === null) {
