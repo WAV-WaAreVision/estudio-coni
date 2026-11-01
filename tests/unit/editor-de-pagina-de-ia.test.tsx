@@ -161,7 +161,7 @@ describe("EditorDePaginaDeIa", () => {
     expect(screen.getByRole("region", { name: "Versiones" })).toContainElement(aviso)
   })
 
-  it("clears an old publishing error once going back succeeds", async () => {
+  it("clears an old publishing error when going back", async () => {
     render(
       <EditorDePaginaDeIa
         publicada={{ texto: VIGENTE.texto, fecha: VIGENTE.fecha }}
