@@ -1,0 +1,65 @@
+name: Algo no funciona
+description: Algo falla, se ve mal o no hace lo que esperabas.
+title: "[Error] "
+labels: ["error"]
+projects: ["WAV-WaAreVision/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. Escribe con tus palabras, no hace falta lenguaje técnico.
+        **Nunca escribas aquí** datos de pacientes, contraseñas ni llaves, ni subas capturas con información sensible.
+  - type: dropdown
+    id: area
+    attributes:
+      label: ¿En qué parte de la app pasó?
+      options:
+        - Inicio
+        - Ideas y motor
+        - Buscador
+        - Guiones (puerta 1)
+        - Reels y voz
+        - Carruseles
+        - Calendario y publicación (puerta 2)
+        - Métricas y Metricool
+        - Pilares
+        - No sé / otra
+    validations:
+      required: true
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: ¿Qué pasó?
+      description: Lo que viste. Si apareció un mensaje, cópialo tal cual.
+    validations:
+      required: true
+  - type: textarea
+    id: que-esperabas
+    attributes:
+      label: ¿Qué esperabas que pasara?
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: ¿Qué estabas haciendo justo antes?
+      description: Los pasos en orden, si los recuerdas.
+      placeholder: |
+        1. Entré a...
+        2. Apreté...
+        3. Apareció...
+  - type: textarea
+    id: capturas
+    attributes:
+      label: Capturas
+      description: Arrastra aquí una captura o un video corto. Revisa que no muestre información sensible.
+  - type: dropdown
+    id: urgencia
+    attributes:
+      label: ¿Qué tan urgente es?
+      options:
+        - "Me bloquea: no puedo seguir trabajando"
+        - "Molesta, pero puedo seguir"
+        - "Puede esperar"
+    validations:
+      required: true
