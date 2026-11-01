@@ -32,6 +32,7 @@ import {
   sembrarEscena,
   sembrarPiezaDeEscena,
 } from "./escena"
+import { publicarPaginaDeIa, quitarPaginaDeIa, TEXTO_DE_PRUEBA } from "./pagina-de-ia"
 
 test("the app text is set in Geist, one family", async ({ page }) => {
   await page.goto("/")
@@ -58,6 +59,8 @@ test("the app stays light even when the phone is in dark mode (light only)", asy
 // Light only: there is no dark theme to audit.
 async function rutas(): Promise<string[]> {
   const { guion, video } = await sembrarEscena()
+  // /l/ia is a 404 until something is published (D7).
+  await publicarPaginaDeIa(TEXTO_DE_PRUEBA)
   return [
     "/",
     "/ideas",
@@ -67,9 +70,12 @@ async function rutas(): Promise<string[]> {
     "/metricas",
     "/ajustes",
     "/ajustes/cuentas",
+    "/ajustes/datos-personales",
+    "/ajustes/pagina-de-ia",
     `/guion/${guion}`,
     `/video/${video}`,
     "/l",
+    "/l/ia",
   ]
 }
 
@@ -127,6 +133,8 @@ test.beforeEach(async ({ page }) => {
   await configurarServicios()
   await simularMedios(page)
 })
+
+test.afterAll(quitarPaginaDeIa)
 
 test("every screen passes WCAG 2.x AA", async ({ page }) => {
   // Tall enough that the sticky bottom bar never covers content while axe measures target sizes (it depends on scroll).

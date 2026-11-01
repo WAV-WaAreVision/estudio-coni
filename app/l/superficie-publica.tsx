@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 
-/** A link on the raspberry: full colour, underlined, the focus ring in the same colour (brandkit 2). */
+/** A link on the raspberry: full colour, underlined, the focus ring in the same colour (brandkit 2), 44 px tall to tap. */
 export const CLASES_DE_ENLACE_PUBLICO =
-  "w-fit font-semibold underline underline-offset-4 outline-offset-2 focus-visible:outline-sobre-firma"
+  "inline-flex min-h-objetivo w-fit items-center font-semibold underline underline-offset-4 outline-offset-2 focus-visible:outline-sobre-firma"
 
 /** The raspberry surface of `/l/ia` and its error page: the same column and safe areas as `/l`. */
 export function SuperficiePublica({ children }: { children: ReactNode }) {
