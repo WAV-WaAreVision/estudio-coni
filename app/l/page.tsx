@@ -5,6 +5,9 @@ import { COLOR_DE_FIRMA } from "@/lib/diseno/marca"
 import { type Enlace, leerEnlaces } from "@/lib/enlaces/config"
 import { clienteDeEnlaces } from "@/lib/enlaces/deps-reales"
 import { AVISO_PUBLICO, NOMBRE_PUBLICO, TITULO_PUBLICO } from "@/lib/enlaces/perfil"
+import { clienteAnonimo, leerTransparenciaVigente } from "@/lib/transparencia/publica"
+import { TITULO_DE_TRANSPARENCIA } from "@/lib/transparencia/texto"
+import { CLASES_DE_ENLACE_PUBLICO } from "./superficie-publica"
 
 // The links are Coni's to change: read on every request, no session, no client script.
 export const dynamic = "force-dynamic"
@@ -28,10 +31,20 @@ async function enlacesDeLaPagina(): Promise<Enlace[]> {
   }
 }
 
+async function hayPaginaDeIa(): Promise<boolean> {
+  try {
+    return (await leerTransparenciaVigente(clienteAnonimo())) !== null
+  } catch (error) {
+    // Like the links: the page stays up without the footer link, and WAV finds the reason in the logs.
+    console.error("/l no pudo leer la página de IA", error)
+    return false
+  }
+}
+
 // Text on the raspberry surface is always the full on-signature colour: any opacity would take the small print below
 // 4.5:1 (brandkit 2). Focus is drawn in the same colour because the global ink ring would be dark on dark here.
 export default async function PaginaPublica() {
-  const enlaces = await enlacesDeLaPagina()
+  const [enlaces, conPaginaDeIa] = await Promise.all([enlacesDeLaPagina(), hayPaginaDeIa()])
 
   return (
     <div data-superficie="marca" className="min-h-dvh bg-firma text-sobre-firma">
@@ -61,6 +74,11 @@ export default async function PaginaPublica() {
         ) : null}
 
         <p className="text-meta">{AVISO_PUBLICO}</p>
+        {conPaginaDeIa ? (
+          <a href="/l/ia" className={`text-meta ${CLASES_DE_ENLACE_PUBLICO}`}>
+            {TITULO_DE_TRANSPARENCIA}
+          </a>
+        ) : null}
       </main>
     </div>
   )
