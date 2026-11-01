@@ -1,0 +1,182 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  type AccionesDelPresupuesto,
+  PantallaDePresupuesto,
+} from "@/app/(app)/ajustes/presupuesto/pantalla-de-presupuesto"
+import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
+import type { PresupuestoDelMes } from "@/lib/presupuesto/presentar"
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+
+const INICIAL: PresupuestoDelMes = {
+  tope: 40,
+  limiteExplicito: null,
+  limite: 80,
+  reactivado: false,
+  usado: 12.8,
+  porProveedor: { anthropic: 2.5, elevenlabs: 0.3, heygen: 10, voyage: 0 },
+  motor: { activo: true, usd: 1.2 },
+  fusiones: { activas: true, usd: 0.4 },
+  avisoSinLeer: false,
+  margenUsd: 1.1,
+}
+
+const ANTERIOR = { campo: "tope", valor: 40 } as CambioDeAjuste
+
+function acciones(cambios: Partial<AccionesDelPresupuesto> = {}): AccionesDelPresupuesto {
+  return {
+    guardar: vi.fn(async (_cambio: CambioDeAjuste) => ({ ok: true as const, anterior: ANTERIOR })),
+    reactivar: vi.fn(async (limite: number) => ({ ok: true as const, limite })),
+    ...cambios,
+  }
+}
+
+function mostrar(inicial: Partial<PresupuestoDelMes> = {}, cambios: Partial<AccionesDelPresupuesto> = {}) {
+  const a = acciones(cambios)
+  render(<PantallaDePresupuesto inicial={{ ...INICIAL, ...inicial }} acciones={a} />)
+  return a
+}
+
+const esperarElGuardado = () =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(800)
+  })
+
+beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
+afterEach(() => vi.useRealTimers())
+
+describe("PantallaDePresupuesto", () => {
+  it("shows the month against the cap, its marks in words, the cap and the limit", () => {
+    mostrar()
+
+    expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveAttribute(
+      "aria-valuetext",
+      "Llevas US$ 12,80 de tu tope de US$ 40,00 este mes",
+    )
+    expect(screen.getByText("50 % del tope: US$ 20,00")).toBeInTheDocument()
+    expect(screen.getByText("Límite: US$ 80,00")).toBeInTheDocument()
+    expect(screen.getByText("US$ 40")).toBeInTheDocument()
+    expect(screen.getByText("US$ 80 (el doble del tope)")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Reactivar" })).toBeNull()
+  })
+
+  it("says past the cap that the app goes on up to the limit", () => {
+    mostrar({ usado: 45 })
+    expect(screen.getByText("Pasaste tu tope. La app sigue hasta tu límite de US$ 80,00.")).toBeInTheDocument()
+  })
+
+  it("moves the cap in steps of 5 and saves once, after she stops tapping", async () => {
+    const a = mostrar()
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    expect(screen.getByText("US$ 50")).toBeInTheDocument()
+    expect(screen.getByText("US$ 100 (el doble del tope)")).toBeInTheDocument()
+    expect(a.guardar).not.toHaveBeenCalled()
+
+    await esperarElGuardado()
+
+    expect(a.guardar).toHaveBeenCalledTimes(1)
+    expect(a.guardar).toHaveBeenCalledWith({ campo: "tope", valor: 50 })
+  })
+
+  it("brings the limit back to twice the cap on screen when the cap goes above the limit she set", () => {
+    mostrar({ limiteExplicito: 45, limite: 45 })
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+
+    expect(screen.getByText("US$ 100 (el doble del tope)")).toBeInTheDocument()
+  })
+
+  it("stores a limit stepped back to twice the cap as no limit of her own", async () => {
+    const a = mostrar({ limiteExplicito: 75, limite: 75 })
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    await esperarElGuardado()
+
+    expect(a.guardar).toHaveBeenCalledWith({ campo: "limite", valor: null })
+  })
+
+  it("never offers a limit under the cap", () => {
+    mostrar({ limiteExplicito: 40, limite: 40 })
+    expect(screen.getByRole("button", { name: "Bajar el límite" })).toHaveAttribute("aria-disabled", "true")
+  })
+
+  it("shows the server's warning after a save", async () => {
+    mostrar(
+      {},
+      {
+        guardar: vi.fn(async () => ({
+          ok: true as const,
+          anterior: ANTERIOR,
+          aviso: "Tu límite volvió al doble del tope: US$ 100,00",
+        })),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+
+    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00")).toBeInTheDocument()
+  })
+
+  it("at the limit offers Reactivar, prefilled with the limit plus the cap, with one confirmation", async () => {
+    const a = mostrar({ usado: 79 })
+
+    expect(
+      screen.getByText("Llegaste a tu límite de US$ 80,00. Lo nuevo quedó en pausa; lo que ya firmaste sigue."),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Reactivar" }))
+    expect(screen.getByLabelText("Tu límite de este mes")).toHaveValue(120)
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+
+    await waitFor(() => expect(a.reactivar).toHaveBeenCalledWith(120))
+    expect(await screen.findByText("Listo: tu límite de este mes es US$ 120,00.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Reactivar" })).toBeNull()
+    expect(screen.getByText("Este mes tu límite es US$ 120,00 porque lo reactivaste.")).toBeInTheDocument()
+  })
+
+  it("explains a refusal in plain Spanish and keeps what she wrote", async () => {
+    mostrar(
+      { usado: 79 },
+      {
+        reactivar: vi.fn(async () => ({
+          ok: false as const,
+          error: "Ese límite no alcanza: ya gastaste US$ 79,00 este mes. Elige uno mayor.",
+        })),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Reactivar" }))
+    fireEvent.change(screen.getByLabelText("Tu límite de este mes"), { target: { value: "70" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+
+    expect(
+      await screen.findByText("Ese límite no alcanza: ya gastaste US$ 79,00 este mes. Elige uno mayor."),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Tu límite de este mes")).toHaveValue(70)
+  })
+
+  it("lists this month by provider", () => {
+    mostrar()
+    const lista = screen.getByRole("list", { name: "Gasto por proveedor" })
+    expect(
+      within(lista)
+        .getAllByRole("listitem")
+        .map((fila) => fila.textContent),
+    ).toEqual(["ClaudeUS$ 2,50", "ElevenLabsUS$ 0,30", "HeyGenUS$ 10,00", "VoyageUS$ 0,00"])
+  })
+
+  it("switches off what spends by itself, with this month's spend beside each", async () => {
+    const a = mostrar()
+
+    expect(screen.getByText("US$ 1,20 este mes")).toBeInTheDocument()
+    expect(screen.getByText("US$ 0,40 este mes")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("switch", { name: "Ideas nuevas cada domingo" }))
+    await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "motor_semanal", valor: false }))
+    fireEvent.click(screen.getByRole("switch", { name: "Unir temas parecidos cada noche" }))
+    await waitFor(() => expect(a.guardar).toHaveBeenLastCalledWith({ campo: "fusiones_nocturnas", valor: false }))
+  })
+})
