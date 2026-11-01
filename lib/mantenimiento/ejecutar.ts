@@ -2,9 +2,11 @@ import { fusionarTemas } from "@/lib/ingesta/temas"
 import { type DepsArranques, reanudarArranques } from "./arranques"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
+import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { type DepsNumerosLinkedin, recordarNumerosDeLinkedin } from "./numeros-linkedin"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
+import { type DepsRevisionDeInventario, recordarRevisionDeInventario } from "./revision-de-inventario"
 import { type DepsMantenimientoTemas, mantenerTemas } from "./temas"
 import { type DepsTokenLinkedin, mantenerTokenLinkedin } from "./token-linkedin"
 import { type DepsTokenMeta, mantenerTokenMeta } from "./token-meta"
@@ -42,7 +44,9 @@ export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
   DepsTokenLinkedin &
   DepsNumerosLinkedin &
-  DepsRespaldo & { temas: ConstructorDeTemas }
+  DepsRespaldo &
+  DepsHuella &
+  DepsRevisionDeInventario & { temas: ConstructorDeTemas }
 
 const OMITIDO = { omitido: true } as const
 
@@ -60,7 +64,7 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
   })
 }
 
-/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the Monday reminder of LinkedIn's numbers, the backup of the database and the merges of topics. */
+/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the Monday reminder of LinkedIn's numbers, the backup of the database, the visitor hashes of /l, the yearly review of the data register and the merges of topics. */
 export function mantenimientoNocturno(deps: DepsNocturno) {
   return enSerie({
     retencion: () => aplicarRetencion(deps),
@@ -68,6 +72,8 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
     linkedin: () => mantenerTokenLinkedin(deps),
     numerosLinkedin: () => recordarNumerosDeLinkedin(deps),
     respaldo: () => respaldarBase(deps),
+    huella: () => borrarHuellaDeVisitas(deps),
+    revisionDeInventario: () => recordarRevisionDeInventario(deps),
     fusiones: async () => {
       const propias = await deps.temas()
       return propias ? fusionarTemas(propias) : OMITIDO
