@@ -79,7 +79,7 @@ values
    'Por confirmar', 'Se guardan los últimos 30 días.', 'respaldos', 30),
   ('huella_de_visitas', 10, 'Huella diaria de quien toca tus enlaces de /l',
    'Contar un clic por persona y día, sin guardar su dirección ni su aparato.', 'Supabase', 'Por confirmar',
-   'Se borra al día siguiente.', 'huella_de_visitas', 1),
+   'Se borra al día siguiente. El respaldo nocturno guarda una copia hasta 30 días.', 'huella_de_visitas', 1),
   ('suscripciones_a_avisos', 11, 'Los aparatos donde recibes avisos', 'Mandarte avisos al celular.', 'Supabase',
    'Por confirmar', 'Mientras no los quites en Ajustes.', null, null);
 

@@ -64,15 +64,16 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
   })
 }
 
-/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the Monday reminder of LinkedIn's numbers, the backup of the database, the visitor hashes of /l, the yearly review of the data register and the merges of topics. */
+/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the Monday reminder of LinkedIn's numbers, the visitor hashes of /l, the backup of the database, the yearly review of the data register and the merges of topics. */
 export function mantenimientoNocturno(deps: DepsNocturno) {
   return enSerie({
     retencion: () => aplicarRetencion(deps),
     token: () => mantenerTokenMeta(deps),
     linkedin: () => mantenerTokenLinkedin(deps),
     numerosLinkedin: () => recordarNumerosDeLinkedin(deps),
-    respaldo: () => respaldarBase(deps),
+    // Hashes first: tonight's backup then holds only yesterday's, never older ones.
     huella: () => borrarHuellaDeVisitas(deps),
+    respaldo: () => respaldarBase(deps),
     revisionDeInventario: () => recordarRevisionDeInventario(deps),
     fusiones: async () => {
       const propias = await deps.temas()

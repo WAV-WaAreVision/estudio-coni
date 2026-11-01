@@ -30,7 +30,7 @@ const DEPS: DepsNocturno = {
 }
 
 describe("mantenimientoNocturno", () => {
-  it("deletes the visitor hashes and checks the yearly review every night, after the backup", async () => {
+  it("deletes the visitor hashes before the backup (so it keeps only yesterday's) and checks the yearly review every night", async () => {
     const resultado = await mantenimientoNocturno(DEPS)
 
     expect(Object.keys(resultado)).toEqual([
@@ -38,8 +38,8 @@ describe("mantenimientoNocturno", () => {
       "token",
       "linkedin",
       "numerosLinkedin",
-      "respaldo",
       "huella",
+      "respaldo",
       "revisionDeInventario",
       "fusiones",
     ])
