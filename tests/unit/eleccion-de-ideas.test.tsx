@@ -108,7 +108,10 @@ describe("EleccionDeIdeas", () => {
     expect(await screen.findByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeInTheDocument()
     expect(screen.getByText("Hago la primera que elegiste. El resto queda en el banco.")).toBeInTheDocument()
     expect(alSacar).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: "Sí, hacer 1 guion" }))
+    // The question shows before the first transition settles; until then the button is aria-disabled and ignores taps.
+    const hacerUno = screen.getByRole("button", { name: "Sí, hacer 1 guion" })
+    await waitFor(() => expect(hacerUno).not.toHaveAttribute("aria-disabled"))
+    fireEvent.click(hacerUno)
 
     await waitFor(() => expect(elegirVarias).toHaveBeenLastCalledWith(["i0"]))
     expect(alSacar).toHaveBeenCalledWith(["i0"])
