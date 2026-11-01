@@ -1,6 +1,5 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { registrarMetricasDiarias } from "@/lib/metricas/diarias"
 import { servidor } from "../msw"
 import { pool } from "./db"
@@ -63,13 +62,7 @@ async function cuenta() {
   return rows
 }
 
-const sinAnotar: AnotarBorrado = async () => {}
-
-const deps = (anotarBorrado: AnotarBorrado = sinAnotar) => ({
-  db: clienteDeServicio(),
-  ahora: () => AHORA,
-  anotarBorrado,
-})
+const deps = () => ({ db: clienteDeServicio(), ahora: () => AHORA })
 
 beforeEach(async () => {
   await vaciarPiezasEIdeas()
@@ -228,10 +221,10 @@ describe("registrarMetricasDiarias", () => {
     expect(pedidos.filter((url) => url.searchParams.get("metric") === "profile_links_taps")).toEqual([])
   })
 
-  it("forgets the click visitors from before yesterday, even if nobody clicked since", async () => {
+  it("leaves the old click visitors to the nightly huella step", async () => {
     await pool.query(
       `insert into public.visitas_clic (dia, enlace, visitante) values
-         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-08', 'agenda', repeat('b', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
+         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
     )
     simularInsights({ medias: {} })
 
@@ -240,61 +233,7 @@ describe("registrarMetricasDiarias", () => {
     const { rows } = await pool.query<{ dia: string }>(
       "select to_char(dia, 'YYYY-MM-DD') as dia from public.visitas_clic order by dia",
     )
-    expect(rows.map((r) => r.dia)).toEqual(["2026-10-08", "2026-10-09"])
-  })
-
-  it("writes down how many click visitors it forgot", async () => {
-    await pool.query(
-      `insert into public.visitas_clic (dia, enlace, visitante) values
-         ('2026-10-06', 'agenda', repeat('a', 64)), ('2026-10-07', 'agenda', repeat('b', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
-    )
-    simularInsights({ medias: {} })
-    const anotados: [string, number][] = []
-
-    await registrarMetricasDiarias(
-      deps(async (regla, cantidad) => {
-        anotados.push([regla, cantidad])
-      }),
-    )
-
-    expect(anotados).toEqual([["huella_de_visitas", 2]])
-  })
-
-  it("writes nothing down when there were no old click visitors", async () => {
-    await pool.query(
-      "insert into public.visitas_clic (dia, enlace, visitante) values ('2026-10-09', 'agenda', repeat('c', 64))",
-    )
-    simularInsights({ medias: {} })
-    const anotados: [string, number][] = []
-
-    await registrarMetricasDiarias(
-      deps(async (regla, cantidad) => {
-        anotados.push([regla, cantidad])
-      }),
-    )
-
-    expect(anotados).toEqual([])
-  })
-
-  it("keeps the click visitors forgotten and fails the run when the log cannot be written", async () => {
-    await pool.query(
-      `insert into public.visitas_clic (dia, enlace, visitante) values
-         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
-    )
-    simularInsights({ medias: {} })
-
-    await expect(
-      registrarMetricasDiarias(
-        deps(async () => {
-          throw new Error("No pude anotar el borrado de huella_de_visitas: sin conexión")
-        }),
-      ),
-    ).rejects.toThrow(/visitas: .*sin conexión/)
-
-    const { rows } = await pool.query<{ dia: string }>(
-      "select to_char(dia, 'YYYY-MM-DD') as dia from public.visitas_clic order by dia",
-    )
-    expect(rows.map((r) => r.dia)).toEqual(["2026-10-09"])
+    expect(rows.map((r) => r.dia)).toEqual(["2026-10-07", "2026-10-09"])
   })
 
   it("does nothing while Instagram is not connected", async () => {

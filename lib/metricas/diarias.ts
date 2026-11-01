@@ -1,13 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import {
-  guardarLecturaDeCuenta,
-  guardarLecturaDeReel,
-  leerReelsPublicados,
-  leerZona,
-  olvidarVisitasDeClics,
-} from "@/lib/datos/metricas"
+import { guardarLecturaDeCuenta, guardarLecturaDeReel, leerReelsPublicados, leerZona } from "@/lib/datos/metricas"
 import { leerCuentaMeta, leerSecreto } from "@/lib/datos/repositorio"
-import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
 import { sumarDias } from "@/lib/dominio/metricas"
@@ -20,7 +13,6 @@ export interface DepsMetricas {
   /** A `service_role` client. */
   db: SupabaseClient<Database>
   ahora: () => string
-  anotarBorrado: AnotarBorrado
 }
 
 export type ResultadoMetricas =
@@ -106,12 +98,6 @@ export async function registrarMetricasDiarias(deps: DepsMetricas): Promise<Resu
     },
     // The account call would fail the same way with a dead token.
     cuenta: async () => (tokenMuerto ? 0 : leerCuenta(deps, token, cuentaId, zona, hoy)),
-    // The click counter keeps a visitor's hash for the day only; this makes sure it goes even on a quiet page.
-    // Logged after the deletion: a failed log fails the run but the hashes stay deleted.
-    visitas: async () => {
-      const olvidadas = await olvidarVisitasDeClics(deps.db, sumarDias(hoy, -1))
-      if (olvidadas > 0) await deps.anotarBorrado("huella_de_visitas", olvidadas)
-    },
   })
   return { estado: "leidas", reels: hecho.reels.leidos, sinLectura: hecho.reels.sinLectura, dias: hecho.cuenta }
 }
