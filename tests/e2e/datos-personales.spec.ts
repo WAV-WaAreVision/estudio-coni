@@ -17,6 +17,10 @@ test("Coni reads her data register from Ajustes and marks it reviewed", async ({
 
   await expect(page.getByRole("heading", { name: "Datos personales", level: 1 })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Tu rostro (biometría)" })).toBeVisible()
+  // One card per row of the register: 11 kinds of data, each under its own level-3 heading.
+  await expect(
+    page.getByRole("region", { name: "Lo que la app guarda" }).getByRole("heading", { level: 3 }),
+  ).toHaveCount(11)
   await expect(page.getByText("HeyGen, Estados Unidos (por confirmar)")).toBeVisible()
   await expect(page.getByText(/^Todavía no la revisas\. Tu próxima revisión vence el /)).toBeVisible()
 
