@@ -116,17 +116,27 @@ language sql set search_path = '' as $$
   select * from public.reservar_gasto(null, p_proveedor, p_paso, p_estimado, p_clave, p_ahora, false, null, false)
 $$;
 
--- «Reactivar»: Coni sets this month's limit. It must cover what the month already used, read under the month's lock so
--- a reservation cannot slip in between. Her limit notice of the month has done its job once she reactivated.
+-- «Reactivar»: Coni sets this month's limit, rounded to cents, never under the cap nor over US$ 1.000 (P9). It must
+-- cover what the month already used, read under the month's lock so a reservation cannot slip in between. Her limit
+-- notice of the month has done its job once she reactivated.
 create function public.fijar_limite_del_mes(p_limite numeric) returns public.limites_del_mes
 language plpgsql security definer set search_path = '' as $$
 declare
   v_mes date := date_trunc('month', now() at time zone 'America/Santiago')::date;
+  v_tope numeric;
   v_usado numeric;
   v_fila public.limites_del_mes;
 begin
   if not public.es_coni() then
     raise exception using errcode = '42501', message = 'solo_coni';
+  end if;
+  p_limite := round(p_limite, 2);
+  select tope_mensual_usd into v_tope from public.ajustes where id;
+  if p_limite < v_tope then
+    raise exception using errcode = '22023', message = 'limite_bajo_el_tope', detail = format('tope=%s', v_tope);
+  end if;
+  if p_limite > 1000 then
+    raise exception using errcode = '22023', message = 'limite_alto';
   end if;
   perform pg_advisory_xact_lock(hashtext('gastos:' || v_mes::text));
   select coalesce(sum(coalesce(real_usd, estimado_usd)), 0) into v_usado

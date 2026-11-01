@@ -179,6 +179,36 @@ describe("fijar_limite_del_mes", () => {
     })
   })
 
+  it("refuses a limit under the cap, and says the cap", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.fijar_limite_del_mes(35)")
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("limite_bajo_el_tope")
+      expect(error.detail).toContain("tope=40")
+    })
+  })
+
+  it("refuses a limit above US$ 1.000", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.fijar_limite_del_mes(1000.01)")
+      expect(error.code).toBe("22023")
+      expect(error.message).toBe("limite_alto")
+    })
+  })
+
+  it("rounds the limit to cents before it checks it", async () => {
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ limite: number }>(
+        "select limite_usd::float8 as limite from public.fijar_limite_del_mes(39.996)",
+      )
+      expect(rows[0]).toEqual({ limite: 40 })
+      const { rows: tope } = await c.query<{ limite: number }>(
+        "select limite_usd::float8 as limite from public.fijar_limite_del_mes(1000.004)",
+      )
+      expect(tope[0]).toEqual({ limite: 1000 })
+    })
+  })
+
   it("is Coni's alone", async () => {
     for (const sesion of [comoMantenedor, comoOtra]) {
       await como(sesion, async (c) => {
@@ -216,6 +246,26 @@ describe("limites_del_mes", () => {
         [CONI],
       )
       expect(error.message).toMatch(/permission denied/)
+    })
+  })
+
+  it("does not let Coni change or delete a month's row directly", async () => {
+    await como(comoPostgres, async (c) => {
+      await c.query(
+        `insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (${MES_DE_HOY}, 130, $1)`,
+        [CONI],
+      )
+      await asumir(c, comoConi)
+      const cambio = await fallaCon(c, "update public.limites_del_mes set limite_usd = 999")
+      expect(cambio.message).toMatch(/permission denied/)
+      const borrado = await fallaCon(c, "delete from public.limites_del_mes")
+      expect(borrado.message).toMatch(/permission denied/)
+
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ limite: number }>(
+        "select limite_usd::float8 as limite from public.limites_del_mes",
+      )
+      expect(rows).toEqual([{ limite: 130 }])
     })
   })
 })
