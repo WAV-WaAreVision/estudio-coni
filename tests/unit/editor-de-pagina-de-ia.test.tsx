@@ -161,6 +161,28 @@ describe("EditorDePaginaDeIa", () => {
     expect(screen.getByRole("region", { name: "Versiones" })).toContainElement(aviso)
   })
 
+  it("clears an old publishing error once going back succeeds", async () => {
+    render(
+      <EditorDePaginaDeIa
+        publicada={{ texto: VIGENTE.texto, fecha: VIGENTE.fecha }}
+        inicial={VIGENTE.texto}
+        esPropuesta={false}
+        historial={[VIGENTE, PRIMERA]}
+        lineaParaLaBio={LINEA}
+        publicar={vi.fn<Publicar>(async () => ({ ok: false, error: "No pude publicar." }))}
+        volverA={vi.fn<VolverA>(async () => ({ ok: true, version: 3 }))}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText("¿Por qué lo cambias?"), { target: { value: "Otro cambio" } })
+    fireEvent.click(screen.getByRole("button", { name: "Publicar" }))
+    expect(await screen.findByText("No pude publicar.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+
+    await screen.findByText("Volviste al texto de la versión 1: ahora es la versión 3.")
+    expect(screen.queryByText("No pude publicar.")).toBeNull()
+  })
+
   it("disables every action while one is pending", async () => {
     let terminar: (r: Resultado<{ version: number }>) => void = () => {}
     const volverA = conVersiones(

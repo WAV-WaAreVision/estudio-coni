@@ -88,6 +88,7 @@ export function EditorDePaginaDeIa({
     setVolviendoA(version.version)
     setAvisoDeVuelta(null)
     setAviso(null)
+    publicacion.limpiarError()
     vuelta.ejecutar(
       () => volverA(version.version),
       (resultado) => {
