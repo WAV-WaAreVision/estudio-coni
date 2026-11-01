@@ -145,3 +145,96 @@ alter table public.avisos add constraint avisos_tipo_check check (tipo in (
   'ideas_propuestas', 'guion_listo', 'video_listo', 'error_definitivo', 'publicado', 'tope_alcanzado',
   'instagram_por_vencer', 'recordatorio_48h', 'listo_para_subir', 'linkedin_por_vencer', 'revision_de_inventario'
 ));
+
+-- Part 2: «Cómo uso IA en mi contenido». Coni edits and publishes it (D3); every publication is a new version and
+-- going back copies an old text into a new one, so the history is never rewritten. Plain text with blank lines
+-- between paragraphs (D5). WAV's first draft is version 0, a proposal that can never be the current page.
+create table public.transparencia_versiones (
+  id uuid primary key default gen_random_uuid(),
+  version integer not null unique check (version >= 0),
+  texto text not null check (char_length(texto) between 300 and 6000),
+  motivo text not null check (char_length(btrim(motivo)) between 3 and 300),
+  creada_por uuid references auth.users (id) on delete set null,
+  creada_en timestamptz not null default now(),
+  propuesta boolean not null default false,
+  vigente boolean not null default false,
+  constraint propuesta_nunca_vigente check (not (propuesta and vigente))
+);
+create unique index una_transparencia_vigente on public.transparencia_versiones (vigente) where vigente;
+
+alter table public.transparencia_versiones enable row level security;
+create policy "coni y wav leen las versiones" on public.transparencia_versiones for select to authenticated
+  using (public.es_coni() or public.es_mantenedor());
+-- Written only through publicar_transparencia and volver_a_transparencia.
+revoke all on public.transparencia_versiones from anon;
+revoke insert, update, delete, truncate on public.transparencia_versiones from authenticated;
+grant select on public.transparencia_versiones to authenticated;
+
+-- WAV's draft from Coni's five points (pedido L.16851). Coni rewrites and publishes it.
+insert into public.transparencia_versiones (version, texto, motivo, propuesta) values (0, $texto$Uso inteligencia artificial para hacer mi contenido y quiero contarte cómo, con palabras simples.
+
+Algunos de mis reels los hace mi avatar digital: una versión de mí creada con IA a partir de mi rostro y mi voz, con mi autorización. Cada reel hecho así lo dice en su texto y, en Instagram, lleva la etiqueta «Información de IA». Antes de que salga, veo el video completo y lo apruebo yo.
+
+Mis textos los escribo con apoyo de IA. La herramienta me ayuda a ordenar ideas, proponer borradores y revisar la redacción, pero cada texto lo leo, lo corrijo y lo firmo yo. Lo que publico es mi criterio profesional y respondo por él.
+
+Cuando hablo de un estudio o de un dato, cito la fuente para que puedas revisarla tú también. Si algo no tiene una fuente que lo respalde, no lo presento como un hecho.
+
+Nunca uso datos de mis pacientes. Ninguna conversación, historia ni caso de mi consulta entra a estas herramientas ni aparece en mi contenido.
+
+Si uso una imagen hecha con IA que se ve real, la marco como hecha con IA. No publico imágenes hechas con IA que se hagan pasar por fotos reales de una persona, un lugar o una situación.
+
+Mi contenido es educativo y no reemplaza una consulta.$texto$, 'Borrador de WAV para que lo revises', true);
+
+create function public.publicar_transparencia(p_texto text, p_motivo text) returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  -- The same normalisation as normalizarTexto in lib/transparencia/texto.ts, so the editor counts what is stored.
+  v_texto text := btrim(replace(coalesce(p_texto, ''), E'\r\n', E'\n'), E' \t\n');
+  v_motivo text := btrim(coalesce(p_motivo, ''));
+  v_version integer;
+begin
+  if not public.es_coni() then
+    raise exception using errcode = '42501', message = 'solo_coni_publica';
+  end if;
+  if char_length(v_texto) not between 300 and 6000 then
+    raise exception using errcode = '22023', message = 'texto_fuera_de_largo';
+  end if;
+  if char_length(v_motivo) not between 3 and 300 then
+    raise exception using errcode = '22023', message = 'falta_motivo';
+  end if;
+  -- Two taps at once must not take the same number.
+  lock table public.transparencia_versiones in share row exclusive mode;
+  select coalesce(max(version), 0) + 1 into v_version from public.transparencia_versiones;
+  update public.transparencia_versiones set vigente = false where vigente;
+  insert into public.transparencia_versiones (version, texto, motivo, creada_por, vigente)
+  values (v_version, v_texto, v_motivo, auth.uid(), true);
+  return v_version;
+end $$;
+
+create function public.volver_a_transparencia(p_version integer) returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_texto text;
+begin
+  if not public.es_coni() then
+    raise exception using errcode = '42501', message = 'solo_coni_publica';
+  end if;
+  select texto into v_texto from public.transparencia_versiones where version = p_version;
+  if not found then
+    raise exception using errcode = '22023', message = 'version_desconocida';
+  end if;
+  return public.publicar_transparencia(v_texto, format('Volví a la versión %s', p_version));
+end $$;
+
+-- D6: what the public page reads, with the anon key. Only the current published text and its date.
+create function public.transparencia_vigente() returns table (texto text, creada_en timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select v.texto, v.creada_en from public.transparencia_versiones v where v.vigente and not v.propuesta
+$$;
+
+revoke execute on function public.publicar_transparencia(text, text) from public, anon;
+grant execute on function public.publicar_transparencia(text, text) to authenticated;
+revoke execute on function public.volver_a_transparencia(integer) from public, anon;
+grant execute on function public.volver_a_transparencia(integer) to authenticated;
+revoke execute on function public.transparencia_vigente() from public;
+grant execute on function public.transparencia_vigente() to anon, authenticated, service_role;

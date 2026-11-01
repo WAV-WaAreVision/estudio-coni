@@ -140,6 +140,7 @@ export type Database = {
           hora_publicacion: string
           id: boolean
           ideas_por_semana: number
+          inventario_desde: string
           linkedin_conectado_en: string | null
           linkedin_miembro: string | null
           linkedin_nombre: string | null
@@ -149,6 +150,7 @@ export type Database = {
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
           produccion: Json
+          revision_de_inventario_avisada: string | null
           tope_mensual_usd: number
           zona: string
         }
@@ -162,6 +164,7 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          inventario_desde?: string
           linkedin_conectado_en?: string | null
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
@@ -171,6 +174,7 @@ export type Database = {
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
           produccion?: Json
+          revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
           zona?: string
         }
@@ -184,6 +188,7 @@ export type Database = {
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
+          inventario_desde?: string
           linkedin_conectado_en?: string | null
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
@@ -193,6 +198,7 @@ export type Database = {
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
           produccion?: Json
+          revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
           zona?: string
         }
@@ -766,6 +772,54 @@ export type Database = {
           },
         ]
       }
+      inventario_de_datos: {
+        Row: {
+          actualizado_en: string
+          actualizado_por: string | null
+          clave: string
+          dato: string
+          id: string
+          orden: number
+          pais: string
+          pais_confirmado: boolean
+          para_que: string
+          plazo: string
+          plazo_dias: number | null
+          proveedor: string
+          regla_de_borrado: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          clave: string
+          dato: string
+          id?: string
+          orden: number
+          pais: string
+          pais_confirmado?: boolean
+          para_que: string
+          plazo: string
+          plazo_dias?: number | null
+          proveedor: string
+          regla_de_borrado?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          clave?: string
+          dato?: string
+          id?: string
+          orden?: number
+          pais?: string
+          pais_confirmado?: boolean
+          para_que?: string
+          plazo?: string
+          plazo_dias?: number | null
+          proveedor?: string
+          regla_de_borrado?: string | null
+        }
+        Relationships: []
+      }
       materiales: {
         Row: {
           anio: number | null
@@ -1290,6 +1344,45 @@ export type Database = {
         }
         Relationships: []
       }
+      registro_de_borrados: {
+        Row: {
+          borrado_en: string
+          cantidad: number
+          id: string
+          regla: string
+        }
+        Insert: {
+          borrado_en?: string
+          cantidad: number
+          id?: string
+          regla: string
+        }
+        Update: {
+          borrado_en?: string
+          cantidad?: number
+          id?: string
+          regla?: string
+        }
+        Relationships: []
+      }
+      revisiones_de_inventario: {
+        Row: {
+          id: string
+          revisado_en: string
+          revisado_por: string | null
+        }
+        Insert: {
+          id?: string
+          revisado_en?: string
+          revisado_por?: string | null
+        }
+        Update: {
+          id?: string
+          revisado_en?: string
+          revisado_por?: string | null
+        }
+        Relationships: []
+      }
       suscripciones_push: {
         Row: {
           auth: string
@@ -1576,6 +1669,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transparencia_versiones: {
+        Row: {
+          creada_en: string
+          creada_por: string | null
+          id: string
+          motivo: string
+          propuesta: boolean
+          texto: string
+          version: number
+          vigente: boolean
+        }
+        Insert: {
+          creada_en?: string
+          creada_por?: string | null
+          id?: string
+          motivo: string
+          propuesta?: boolean
+          texto: string
+          version: number
+          vigente?: boolean
+        }
+        Update: {
+          creada_en?: string
+          creada_por?: string | null
+          id?: string
+          motivo?: string
+          propuesta?: boolean
+          texto?: string
+          version?: number
+          vigente?: boolean
+        }
+        Relationships: []
       }
       vinculos: {
         Row: {
@@ -2292,6 +2418,7 @@ export type Database = {
       }
       linkedin_conectado: { Args: never; Returns: boolean }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
+      marcar_inventario_revisado: { Args: never; Returns: string }
       marcar_subido_como_coni: {
         Args: {
           p_destino: string
@@ -2446,6 +2573,10 @@ export type Database = {
       proponer_fechas: {
         Args: { p_fechas: string[]; p_piezas: string[] }
         Returns: undefined
+      }
+      publicar_transparencia: {
+        Args: { p_motivo: string; p_texto: string }
+        Returns: number
       }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       rechazar_diseno_que_no_cabe: {
@@ -2652,7 +2783,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      transparencia_vigente: {
+        Args: never
+        Returns: {
+          creada_en: string
+          texto: string
+        }[]
+      }
       unaccent_inmutable: { Args: { texto: string }; Returns: string }
+      volver_a_transparencia: { Args: { p_version: number }; Returns: number }
     }
     Enums: {
       estado_pieza:
