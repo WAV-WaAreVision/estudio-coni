@@ -179,7 +179,11 @@ export const AVISO_AVATAR = "Video hecho con mi avatar digital."
 export const AVISO_AVATAR_LINKEDIN =
   "Este video lo narra mi avatar digital, creado con IA a partir de mi imagen y mi voz. El contenido lo revisé y aprobé yo."
 export const LINEAS_AYUDA =
-  "Líneas de ayuda en Chile: Fono 1455 (violencia contra la mujer), *4141 (prevención del suicidio, gratis, 24 horas) y 133 (emergencias)."
+  "Líneas de ayuda en Chile: Fono 1455 (violencia de género, de 08:00 a 00:00 todos los días) y *4141 (prevención del suicidio, gratis, confidencial, 24 horas)."
+/** The numbers a risky topic must carry in its text (Coni, 2026-11-01). */
+const NUMEROS_DE_AYUDA = ["1455", "*4141"] as const
+const NUMEROS_DE_AYUDA_EN_PALABRAS = NUMEROS_DE_AYUDA.join(" y ")
+const tieneLineasDeAyuda = (texto: string) => NUMEROS_DE_AYUDA.every((numero) => texto.includes(numero))
 export const TIPO_ALERTA_LINEAS_AYUDA = "líneas de ayuda"
 /** The types of alert an idea can carry, spelled as the bank writes them. */
 export const TIPOS_DE_ALERTA = ["verificar dato", TIPO_ALERTA_LINEAS_AYUDA, "no es terapia", "nota"] as const
@@ -236,11 +240,11 @@ export function revisarGuion(entrada: {
     })
   }
 
-  if (requiereLineasAyuda && !["1455", "*4141", "133"].every((linea) => texto.includes(linea))) {
+  if (requiereLineasAyuda && !tieneLineasDeAyuda(texto)) {
     hallazgos.push({
       regla: "lineas_ayuda",
       tipo: "bloquea",
-      mensaje: "Este tema pide las líneas de ayuda de Chile en el texto de la publicación: 1455, *4141 y 133.",
+      mensaje: `Este tema pide las líneas de ayuda de Chile en el texto de la publicación: ${NUMEROS_DE_AYUDA_EN_PALABRAS}.`,
     })
   }
 
@@ -404,11 +408,11 @@ export function revisarTextoLinkedin(entrada: {
     })
   }
 
-  if (requiereLineasAyuda && !["1455", "*4141", "133"].every((linea) => texto.includes(linea))) {
+  if (requiereLineasAyuda && !tieneLineasDeAyuda(texto)) {
     hallazgos.push({
       regla: "lineas_ayuda",
       tipo: "bloquea",
-      mensaje: "Este tema pide las líneas de ayuda de Chile también en el texto para LinkedIn: 1455, *4141 y 133.",
+      mensaje: `Este tema pide las líneas de ayuda de Chile también en el texto para LinkedIn: ${NUMEROS_DE_AYUDA_EN_PALABRAS}.`,
     })
   }
 

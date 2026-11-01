@@ -129,13 +129,29 @@ describe("revisarGuion", () => {
   it.each([
     ["1455", `Escribe aquí. ${LINEAS_AYUDA.replace("Fono 1455", "Fono")} ${AVISO_AVATAR}`],
     ["*4141", `Escribe aquí. ${LINEAS_AYUDA.replace("*4141", "4141")} ${AVISO_AVATAR}`],
-    ["133", `Escribe aquí. ${LINEAS_AYUDA.replace("133", "")} ${AVISO_AVATAR}`],
   ])("blocks a caption that has the help lines but misses %s", (_numero, texto) => {
     expect(reglas(revisar({ requiereLineasAyuda: true, texto }))).toEqual(["lineas_ayuda"])
   })
 
-  it("accepts a caption with the three help lines", () => {
+  it("accepts a caption with the two help lines", () => {
     expect(revisar({ requiereLineasAyuda: true, texto: `${TEXTO}\n\n${LINEAS_AYUDA}` })).toEqual([])
+  })
+
+  it("accepts a caption with 1455 and *4141 and no 133", () => {
+    const texto = `Escribe aquí. Llama al 1455 o al *4141 si lo necesitas. ${AVISO_AVATAR}`
+    expect(revisar({ requiereLineasAyuda: true, texto })).toEqual([])
+  })
+
+  it("names only 1455 and *4141 when the caption misses the help lines", () => {
+    expect(revisar({ requiereLineasAyuda: true })[0]?.mensaje).toBe(
+      "Este tema pide las líneas de ayuda de Chile en el texto de la publicación: 1455 y *4141.",
+    )
+  })
+
+  it("writes the help lines Coni chose, without 133", () => {
+    expect(LINEAS_AYUDA).toBe(
+      "Líneas de ayuda en Chile: Fono 1455 (violencia de género, de 08:00 a 00:00 todos los días) y *4141 (prevención del suicidio, gratis, confidencial, 24 horas).",
+    )
   })
 
   it("does not ask for the help lines when the topic does not need them", () => {
@@ -667,6 +683,19 @@ describe("revisarTextoLinkedin", () => {
           requiereLineasAyuda: true,
         }),
       ).toEqual([])
+    })
+
+    it("asks LinkedIn for 1455 and *4141 only: a text without 133 passes, one without *4141 blocks", () => {
+      const sinCarabineros = textoLinkedin({ aviso: `Llama al 1455 o al *4141.\n\n${AVISO_AVATAR_LINKEDIN}` })
+      expect(reglasDe(sinCarabineros, { requiereLineasAyuda: true })).toEqual([])
+      const sinSuicidio = textoLinkedin({ aviso: `Llama al 1455.\n\n${AVISO_AVATAR_LINKEDIN}` })
+      const hallazgos = revisarLinkedin({ texto: sinSuicidio, requiereLineasAyuda: true })
+      expect(hallazgos).toEqual([
+        expect.objectContaining({
+          regla: "lineas_ayuda",
+          mensaje: "Este tema pide las líneas de ayuda de Chile también en el texto para LinkedIn: 1455 y *4141.",
+        }),
+      ])
     })
 
     it("blocks a known tone mark", () => {

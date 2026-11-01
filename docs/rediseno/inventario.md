@@ -477,7 +477,7 @@ confirmando video · bloqueado por saldo o tope · falla de voz con explicación
   - «Sin emojis, hashtags ni símbolos en el guion: van solo en la publicación.»
   - «El texto de la publicación tiene que avisar que es un avatar digital: «Video hecho con mi
     avatar digital.»»
-  - «Este tema pide las líneas de ayuda de Chile en el texto de la publicación: 1455, *4141 y 133.»
+  - «Este tema pide las líneas de ayuda de Chile en el texto de la publicación: 1455 y *4141.»
   - «El guion tiene 160 palabras. Lo ideal es entre 75 y 150.»
   - «Escribe los números con palabras (tres señales, no 3 señales).»
   - «Esta marca de tono no la conozco: [happy]. Usa una de la lista o bórrala.»

@@ -52,9 +52,8 @@ Los ganchos son ejemplos de tono. Una cifra va en un gancho solo si Coni la entr
 - **Sin datos inventados:** ninguna cifra ni estudio que Coni no haya entregado o verificado.
 - **Encuadre educativo:** la sexualidad se nombra con lenguaje clínico y cotidiano, nunca explícito. Así el guion pasa la moderación de HeyGen y de las redes.
 - **Temas de riesgo** (violencia, abuso, suicidio, autolesiones): tono cuidadoso, sin detalles gráficos, y en la publicación se agregan las líneas de ayuda de Chile:
-  - Violencia contra la mujer: **Fono 1455** (SernamEG).
-  - Prevención del suicidio: **\*4141** (Minsal, gratis, 24 horas).
-  - Emergencias: **133** (Carabineros).
+  - Violencia de género: **Fono 1455** (SernamEG), de 08:00 a 00:00 todos los días.
+  - Prevención del suicidio: **\*4141** (Minsal, gratis, confidencial, 24 horas).
 
 ## Pronunciación para la voz sintética
 

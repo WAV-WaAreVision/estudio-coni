@@ -640,7 +640,7 @@ describe("producirPieza", () => {
       await expect(producirPieza(deps(), id)).rejects.toBeInstanceOf(FallaDeConfiguracion)
       expect(sim.escrituras).toHaveLength(0)
     } finally {
-      await pool.query("update public.guias set vigente = (version = 1)")
+      await pool.query("update public.guias set vigente = (version = (select max(version) from public.guias))")
     }
   })
 

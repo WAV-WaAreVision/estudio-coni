@@ -37,7 +37,7 @@ const AYUDA_DE_MARCAS = "Las etiquetas grises marcan el tono de la voz. No se le
 const BASE = JSON.parse(readFileSync(join(__dirname, "..", "fixtures", "coni.config.json"), "utf-8"))
 const LOOK_A = { avatar_id: "look-a", nombre: "Estudio", imagen: "avatares/look-a.png" }
 const LOOK_B = { avatar_id: "look-b", nombre: "Terraza", imagen: "avatares/look-b.png" }
-const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455, *4141 y 133.`
+const TEXTO_CON_AYUDA = `${TEXTO_VALIDO}\n\nSi lo necesitas, las líneas de ayuda de Chile: 1455 y *4141.`
 const produccionDeLaPrueba = { ...BASE, heygen: { ...BASE.heygen, avatares: [LOOK_A, LOOK_B] } }
 const ELEVENLABS = leerConfigProduccion(produccionDeLaPrueba).elevenlabs
 
