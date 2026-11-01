@@ -159,7 +159,7 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) {
+  if (reserva.limite) {
     await avisarTope(deps, fila)
     await deps.avisos.aWav(
       "Un carrusel no se acortó por el tope de gasto",

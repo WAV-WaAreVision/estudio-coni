@@ -30,7 +30,7 @@ export async function proponerReclasificacion(deps: {
     clave,
     ahora: deps.ahora,
   })
-  if (reserva.tope)
+  if (reserva.limite)
     throw new Error("El tope mensual no alcanza para la reclasificación. Súbelo en Ajustes o espera al próximo mes.")
 
   let realUsd = 0

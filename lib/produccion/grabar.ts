@@ -430,7 +430,7 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
     clave: contexto.clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) {
+  if (reserva.limite) {
     await explicar(deps, contexto.fila, TEXTO_TOPE)
     await avisarTope(deps, contexto.fila)
     return { resultado: "tope" }

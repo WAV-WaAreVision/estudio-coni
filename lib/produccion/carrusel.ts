@@ -122,7 +122,7 @@ export async function producirCarrusel(deps: DepsProduccion, leida: FilaDePieza)
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) {
+  if (reserva.limite) {
     await explicar(deps, fila, TEXTO_TOPE)
     await avisarTope(deps, fila)
     return { resultado: "tope" }

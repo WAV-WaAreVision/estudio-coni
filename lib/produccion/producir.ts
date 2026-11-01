@@ -221,7 +221,7 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     clave: claveClaude,
     ahora: deps.ahora(),
   })
-  if (reservaClaude.tope) {
+  if (reservaClaude.limite) {
     await explicar(deps, fila, TEXTO_TOPE)
     await avisarTope(deps, fila)
     return { resultado: "tope" }

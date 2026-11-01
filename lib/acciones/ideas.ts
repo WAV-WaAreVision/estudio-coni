@@ -155,7 +155,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
       clave,
       ahora: deps.ahora(),
     })
-    if (reserva.tope) {
+    if (reserva.limite) {
       const { data } = await deps.db.from("ajustes").select("tope_mensual_usd").maybeSingle()
       const tope = data ? ` de ${dolares(data.tope_mensual_usd)}` : ""
       throw new Falla(`Llegaste al tope${tope} de este mes. Súbelo en Ajustes para seguir.`)

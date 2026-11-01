@@ -151,7 +151,7 @@ async function reservarIntento(
       reabrir: true,
       reservadoPor: token,
     })
-    if (reserva.tope) return { tipo: "tope" }
+    if (reserva.limite) return { tipo: "tope" }
     // Reserved by another try (unknown outcome, or still running): calling again under it would go uncounted.
     if (reserva.gasto.estado === "reservado" && reserva.gasto.reservado_por === token)
       return { tipo: "reservada", clave }

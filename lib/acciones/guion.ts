@@ -249,7 +249,7 @@ async function juzgarConClaude(
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) return "tope"
+  if (reserva.limite) return "tope"
 
   let juicio: Awaited<ReturnType<typeof revisarConClaude>>
   try {

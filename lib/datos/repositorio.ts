@@ -135,40 +135,65 @@ export function revisionAJson(hallazgos: readonly Hallazgo[]): Json {
   }))
 }
 
-export type Reserva = { tope: true } | { tope: false; gasto: FilaDeGasto }
+/**
+ * What a reservation answers. `limite` is the hard limit of the month stopping new spend (spec 2026-11-02): the figures
+ * come from the error's detail and are null if it is missing.
+ */
+export type Reserva =
+  | { limite: true; usadoUsd: number | null; limiteUsd: number | null }
+  | { limite: false; gasto: FilaDeGasto }
 
-/** The errors of `reservar_gasto` are its contract (supabase/migrations/20261001000400_gastos.sql). */
-const ERROR_DE_TOPE = "tope_alcanzado"
+/**
+ * The errors of `reservar_gasto` are its contract (supabase/migrations/20261103000100_presupuesto.sql). `tope_alcanzado`
+ * is what the function raised before the hard limit: it is read the same way, so this code and the old function
+ * survive the deploy window together.
+ */
+const ERRORES_DE_LIMITE = new Set(["limite_alcanzado", "tope_alcanzado"])
 const ERROR_SIN_AJUSTES = "ajustes_faltantes"
 
-function resultadoDeReserva(error: { message: string } | null, gasto: FilaDeGasto | null): Reserva {
+function cifraDe(detalle: string | null | undefined, patron: RegExp): number | null {
+  const encontrada = detalle ? patron.exec(detalle) : null
+  return encontrada?.[1] === undefined ? null : Number(encontrada[1])
+}
+
+export function resultadoDeReserva(
+  error: { message: string; details?: string | null } | null,
+  gasto: FilaDeGasto | null,
+): Reserva {
   if (error) {
-    if (error.message === ERROR_DE_TOPE) return { tope: true }
-    // Without the settings row there is no cap to check, and retrying will not create it.
+    if (ERRORES_DE_LIMITE.has(error.message)) {
+      return {
+        limite: true,
+        usadoUsd: cifraDe(error.details, /usado=([0-9.]+)/),
+        limiteUsd: cifraDe(error.details, /(?:limite|tope)=([0-9.]+)/),
+      }
+    }
+    // Without the settings row there is no limit to check, and retrying will not create it.
     if (error.message === ERROR_SIN_AJUSTES) {
-      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay tope de gasto que revisar.")
+      throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay límite de gasto que revisar.")
     }
     throw fallo("No pude reservar el gasto", error)
   }
   if (!gasto) throw new Error("La base no devolvió el gasto reservado.")
-  return { tope: false, gasto }
+  return { limite: false, gasto }
 }
 
-export async function reservarGasto(
-  db: Db,
-  reserva: {
-    piezaId: string
-    proveedor: "heygen" | "elevenlabs" | "anthropic"
-    paso: string
-    estimadoUsd: number
-    clave: string
-    ahora: string
-    /** Reopen a released key (only the voice, whose release means "refused, not charged"). */
-    reabrir?: boolean
-    /** The caller's token: the reservation it gets back is its own only when `reservado_por` matches. */
-    reservadoPor?: string
-  },
-): Promise<Reserva> {
+export interface PedidoDeReserva {
+  piezaId: string
+  proveedor: "heygen" | "elevenlabs" | "anthropic"
+  paso: string
+  estimadoUsd: number
+  clave: string
+  ahora: string
+  /** Reopen a released key (only the voice, whose release means "refused, not charged"). */
+  reabrir?: boolean
+  /** The caller's token: the reservation it gets back is its own only when `reservado_por` matches. */
+  reservadoPor?: string
+  /** Work already past gate 1: the limit never stops it (D1). Prefer `reservarGastoFirmado`. */
+  firmado?: boolean
+}
+
+export async function reservarGasto(db: Db, reserva: PedidoDeReserva): Promise<Reserva> {
   const { data, error } = await db.rpc("reservar_gasto", {
     p_pieza: reserva.piezaId,
     p_proveedor: reserva.proveedor,
@@ -178,11 +203,22 @@ export async function reservarGasto(
     p_ahora: reserva.ahora,
     p_reabrir: reserva.reabrir ?? false,
     p_reservado_por: reserva.reservadoPor,
+    p_firmado: reserva.firmado ?? false,
   })
   return resultadoDeReserva(error, data)
 }
 
-/** A spend that belongs to no piece (`reservar_gasto_general`); it counts against the monthly cap all the same. */
+/**
+ * Signed work (voice, video, the shortening of a signed carousel): the database always reserves it, so the caller gets
+ * the row. An answer of "limit" would break the function's contract, and is WAV's to look at.
+ */
+export async function reservarGastoFirmado(db: Db, reserva: Omit<PedidoDeReserva, "firmado">): Promise<FilaDeGasto> {
+  const resultado = await reservarGasto(db, { ...reserva, firmado: true })
+  if (resultado.limite) throw new Error("reservar_gasto frenó un gasto firmado, y su contrato dice que nunca lo hace.")
+  return resultado.gasto
+}
+
+/** A spend that belongs to no piece (`reservar_gasto_general`); it counts against the month's limit all the same. */
 export async function reservarGastoGeneral(
   db: Db,
   reserva: {
@@ -201,6 +237,14 @@ export async function reservarGastoGeneral(
     p_ahora: reserva.ahora,
   })
   return resultadoDeReserva(error, data)
+}
+
+/** The brake of the Santiago month of `ahora` (`limite_del_mes`): this month's row, her limit, or twice the cap. */
+export async function limiteDelMes(db: Db, ahora: string): Promise<number> {
+  const { data, error } = await db.rpc("limite_del_mes", { p_ahora: ahora })
+  if (error) throw fallo("No pude leer el límite del mes", error)
+  if (data === null) throw new FallaDeConfiguracion("Falta la fila de ajustes: sin ella no hay límite de gasto.")
+  return Number(data)
 }
 
 /** The still open reservations of one voice attempt: its own key and every `:r<n>` try of it. */
