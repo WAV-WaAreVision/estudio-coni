@@ -10,6 +10,7 @@ import { AvisosDelCelular } from "./avisos-del-celular"
 import { BloqueDeEstado } from "./bloque-de-estado"
 import { CerrarSesion } from "./cerrar-sesion"
 import { EditorDeAjustes } from "./editor-de-ajustes"
+import { TuPresupuesto } from "./tu-presupuesto"
 import { TusDatos } from "./tus-datos"
 
 export default async function Ajustes() {
@@ -41,8 +42,6 @@ export default async function Ajustes() {
             meta: ajustes.meta === "talleres" || ajustes.meta === "marca" ? ajustes.meta : "consultas",
             dias: ajustes.dias_publicacion,
             hora: ajustes.hora_publicacion.slice(0, 5),
-            tope: Number(ajustes.tope_mensual_usd),
-            usado: presupuesto.usado,
             avisosResumen: ajustes.avisos_resumen,
             avisosUrgentes: ajustes.avisos_urgentes,
             destinos: destinosPorDefecto(ajustes.destinos_por_defecto),
@@ -61,6 +60,10 @@ export default async function Ajustes() {
             />
           }
         />
+      </div>
+
+      <div className="mt-10">
+        <TuPresupuesto usado={presupuesto.usado} tope={presupuesto.tope} />
       </div>
 
       <div className="mt-10">

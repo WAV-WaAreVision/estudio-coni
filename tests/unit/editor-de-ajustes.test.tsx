@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelEditor, EditorDeAjustes } from "@/app/(app)/ajustes/editor-de-ajustes"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
@@ -7,8 +7,6 @@ const INICIAL = {
   meta: "consultas" as const,
   dias: [2, 4, 6],
   hora: "19:00",
-  tope: 40,
-  usado: 12.8,
   avisosResumen: true,
   avisosUrgentes: true,
   destinos: ["instagram"] as ("instagram" | "linkedin")[],
@@ -16,12 +14,9 @@ const INICIAL = {
 
 function acciones(cambios: Partial<AccionesDelEditor> = {}): AccionesDelEditor {
   return {
-    guardar: vi.fn(async (cambio: CambioDeAjuste) => ({
+    guardar: vi.fn(async (_cambio: CambioDeAjuste) => ({
       ok: true as const,
       anterior: { campo: "meta", valor: "consultas" } as CambioDeAjuste,
-      ...(cambio.campo === "tope" && cambio.valor < 12.8
-        ? { aviso: "Ya gastaste US$ 12,80; con este tope no grabo más hasta el próximo mes." }
-        : {}),
     })),
     ...cambios,
   }
@@ -37,7 +32,7 @@ beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
 afterEach(() => vi.useRealTimers())
 
 describe("EditorDeAjustes", () => {
-  it("folds the spending cap under Para WAV, with what the page adds there, out of her way", () => {
+  it("folds what is WAV's under Para WAV, and the cap is no longer there", () => {
     render(
       <EditorDeAjustes
         inicial={INICIAL}
@@ -49,9 +44,8 @@ describe("EditorDeAjustes", () => {
     const pliegue = screen.getByText("Para WAV").closest("details")
     expect(pliegue).not.toBeNull()
     expect(pliegue).not.toHaveAttribute("open")
-    expect(pliegue).toContainElement(screen.getByRole("button", { name: "Subir el tope" }))
-    expect(pliegue).toContainElement(screen.getByText("Llevas US$ 12,80 este mes"))
     expect(pliegue).toContainElement(screen.getByRole("link", { name: "Cuentas conectadas" }))
+    expect(screen.queryByRole("button", { name: "Subir el tope" })).toBeNull()
   })
 
   it("shows the current settings", () => {
@@ -61,8 +55,6 @@ describe("EditorDeAjustes", () => {
     expect(screen.getByRole("button", { name: "Mar" })).toHaveAttribute("aria-pressed", "true")
     expect(screen.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "false")
     expect(screen.getByLabelText("Hora de publicación")).toHaveValue("19:00")
-    expect(screen.getByText("US$ 40")).toBeInTheDocument()
-    expect(screen.getByText("Llevas US$ 12,80 este mes")).toBeInTheDocument()
     expect(screen.getByRole("switch", { name: "Resumen diario a las 08:30" })).toHaveAttribute("aria-checked", "true")
     expect(screen.getByText(/Lo que ya aprobaste mantiene su fecha/)).toBeInTheDocument()
   })
@@ -117,39 +109,6 @@ describe("EditorDeAjustes", () => {
     await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "hora", valor: "20:30" }))
   })
 
-  it("moves the cap in steps of 5 and saves once, after she stops tapping", async () => {
-    const a = mostrar()
-
-    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
-    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
-    expect(screen.getByText("US$ 50")).toBeInTheDocument()
-    expect(a.guardar).not.toHaveBeenCalled()
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800)
-    })
-
-    expect(a.guardar).toHaveBeenCalledTimes(1)
-    expect(a.guardar).toHaveBeenCalledWith({ campo: "tope", valor: 50 })
-  })
-
-  it("does not take the cap under zero", () => {
-    render(<EditorDeAjustes inicial={{ ...INICIAL, tope: 0 }} acciones={acciones()} linkedinConectado={false} />)
-
-    expect(screen.getByRole("button", { name: "Bajar el tope" })).toHaveAttribute("aria-disabled", "true")
-  })
-
-  it("shows the server's warning when the cap is under what was spent", async () => {
-    mostrar()
-
-    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole("button", { name: "Bajar el tope" }))
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800)
-    })
-
-    expect(await screen.findByText(/Ya gastaste US\$ 12,80; con este tope no grabo más/)).toBeInTheDocument()
-  })
-
   it("saves the notification switches", async () => {
     const a = mostrar()
 
@@ -180,20 +139,6 @@ describe("EditorDeAjustes", () => {
     expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(3)
     expect(screen.getByLabelText("Hora de publicación")).toHaveAttribute("type", "time")
     expect(screen.getByText("hora de Chile")).toBeInTheDocument()
-  })
-
-  it("draws the month's spend as a sunken meter that adds a warning icon from 80 percent of the cap", () => {
-    render(<EditorDeAjustes inicial={{ ...INICIAL, usado: 32 }} acciones={acciones()} linkedinConectado={false} />)
-
-    expect(screen.getByRole("meter", { name: "Gasto del mes" })).toHaveAttribute("aria-valuenow", "32")
-    expect(screen.getByText("Llevas US$ 32,00 este mes")).toHaveClass("text-tinta")
-    expect(screen.getByText("Llevas US$ 32,00 este mes").querySelector("svg")).not.toBeNull()
-  })
-
-  it("keeps the spend in ink below 80 percent", () => {
-    mostrar()
-
-    expect(screen.getByText("Llevas US$ 12,80 este mes")).toHaveClass("text-tinta")
   })
 
   describe("dónde se publica", () => {

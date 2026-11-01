@@ -1,29 +1,21 @@
 "use client"
 
-import { Minus, Plus } from "@phosphor-icons/react"
-import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { type ReactNode, useCallback, useRef, useState, useTransition } from "react"
 import { Chip } from "@/components/chip"
 import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
-import { Boton } from "@/components/ui/boton"
 import { FilaConInterruptor, FilaConValor } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
-import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MasOpciones } from "@/components/ui/mas-opciones"
-import { Medidor } from "@/components/ui/medidor"
 import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { canonicos, DESTINOS, type Destino, nombreDeDestino } from "@/lib/dominio/destinos"
-import { dolares } from "@/lib/formato"
-import { MAXIMO_DEL_TOPE_USD } from "@/lib/presupuesto/presentar"
 
 export interface AjustesEditables {
   meta: "consultas" | "talleres" | "marca"
   dias: number[]
   hora: string
-  tope: number
-  usado: number
   avisosResumen: boolean
   avisosUrgentes: boolean
   /** Where reels are published unless she says otherwise at gate 2. */
@@ -50,12 +42,8 @@ const DIAS = [
   { numero: 7, etiqueta: "Dom" },
 ] as const
 
-const PASO_DEL_TOPE_USD = 5
-// She taps the stepper a few times: one save and one line in the log, once she stops.
-const ESPERA_DEL_TOPE_MS = 600
-
-// The limit and the switches live in Ajustes › Presupuesto; this editor never sends them.
-type CambioDelEditor = Exclude<CambioDeAjuste, { campo: "limite" | "motor_semanal" | "fusiones_nocturnas" }>
+// The cap, the limit and the switches live in Ajustes › Presupuesto; this editor never sends them.
+type CambioDelEditor = Exclude<CambioDeAjuste, { campo: "tope" | "limite" | "motor_semanal" | "fusiones_nocturnas" }>
 
 function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEditables {
   switch (cambio.campo) {
@@ -65,14 +53,13 @@ function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEdit
       return { ...valores, dias: cambio.valor }
     case "hora":
       return { ...valores, hora: cambio.valor }
-    case "tope":
-      return { ...valores, tope: cambio.valor }
     case "avisos_resumen":
       return { ...valores, avisosResumen: cambio.valor }
     case "avisos_urgentes":
       return { ...valores, avisosUrgentes: cambio.valor }
     case "destinos":
       return { ...valores, destinos: cambio.valor }
+    case "tope":
     case "limite":
     case "motor_semanal":
     case "fusiones_nocturnas":
@@ -88,8 +75,6 @@ function valorDe(valores: AjustesEditables, campo: CambioDelEditor["campo"]): Ca
       return { campo, valor: valores.dias }
     case "hora":
       return { campo, valor: valores.hora }
-    case "tope":
-      return { campo, valor: valores.tope }
     case "avisos_resumen":
       return { campo, valor: valores.avisosResumen }
     case "avisos_urgentes":
@@ -118,7 +103,7 @@ export function EditorDeAjustes({
   linkedinConectado: boolean
   /** The phone block (install, turn on, test): it belongs to the same «Avisos» section as the switches. */
   avisosDelCelular?: ReactNode
-  /** What the page adds to the Para WAV fold, after the cap (the link to the accounts). */
+  /** What the page puts in the Para WAV fold (the link to the accounts). */
   paraWav?: ReactNode
 }) {
   const [valores, setValores] = useState(inicial)
@@ -127,18 +112,9 @@ export function EditorDeAjustes({
   const [, empezar] = useTransition()
   const cerrarMensaje = useCallback(() => setMensaje(null), [])
 
-  // The latest values, for the callbacks that run later (the cap's timer, the undo).
+  // The latest values, for the callbacks that run later (the undo).
   const ultimos = useRef(valores)
   ultimos.current = valores
-  const temporizadorDelTope = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const topeAntesDeTocar = useRef<number | null>(null)
-
-  useEffect(
-    () => () => {
-      if (temporizadorDelTope.current) clearTimeout(temporizadorDelTope.current)
-    },
-    [],
-  )
 
   function enviar(cambio: CambioDeAjuste, antes: CambioDeAjuste) {
     setError(null)
@@ -184,19 +160,6 @@ export function EditorDeAjustes({
     }
     const siguientes = puesto ? valores.destinos.filter((d) => d !== destino) : [...valores.destinos, destino]
     cambiar({ campo: "destinos", valor: canonicos(siguientes) })
-  }
-
-  function moverTope(delta: number) {
-    const nuevo = Math.min(MAXIMO_DEL_TOPE_USD, Math.max(0, ultimos.current.tope + delta))
-    if (topeAntesDeTocar.current === null) topeAntesDeTocar.current = ultimos.current.tope
-    setError(null)
-    setValores((actuales) => ({ ...actuales, tope: nuevo }))
-    if (temporizadorDelTope.current) clearTimeout(temporizadorDelTope.current)
-    temporizadorDelTope.current = setTimeout(() => {
-      const antes: CambioDeAjuste = { campo: "tope", valor: topeAntesDeTocar.current ?? nuevo }
-      topeAntesDeTocar.current = null
-      enviar({ campo: "tope", valor: ultimos.current.tope }, antes)
-    }, ESPERA_DEL_TOPE_MS)
   }
 
   return (
@@ -274,37 +237,8 @@ export function EditorDeAjustes({
         {avisosDelCelular ? <div className="mt-4">{avisosDelCelular}</div> : null}
       </Seccion>
 
-      {/* Exit critique 3: the cap, accounts, keys, balances and Claude are WAV's operation, folded out of her way. */}
-      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Tope de gasto, cuentas, llaves, saldos y Claude">
-        <Seccion titulo="Tope de gasto al mes" id="ajuste-tope">
-          <div className="flex min-h-fila-baja items-center justify-between gap-3">
-            <span className="text-cuerpo">Tope</span>
-            <div className="flex items-center gap-3">
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                aria-label="Bajar el tope"
-                deshabilitado={valores.tope <= 0}
-                className="w-objetivo justify-center px-0"
-                onClick={() => moverTope(-PASO_DEL_TOPE_USD)}
-              >
-                <Minus aria-hidden="true" size={ICONO.medio} />
-              </Boton>
-              <output className="min-w-20 text-center text-pieza tabular-nums">{`US$ ${valores.tope}`}</output>
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                aria-label="Subir el tope"
-                deshabilitado={valores.tope >= MAXIMO_DEL_TOPE_USD}
-                className="w-objetivo justify-center px-0"
-                onClick={() => moverTope(PASO_DEL_TOPE_USD)}
-              >
-                <Plus aria-hidden="true" size={ICONO.medio} />
-              </Boton>
-            </div>
-          </div>
-          <Medidor gastado={valores.usado} tope={valores.tope} texto={`Llevas ${dolares(valores.usado)} este mes`} />
-        </Seccion>
+      {/* Exit critique 3: accounts, keys, balances and Claude are WAV's operation, folded out of her way. */}
+      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Cuentas, llaves, saldos y Claude">
         {paraWav}
       </MasOpciones>
 
