@@ -68,6 +68,7 @@ Para bugs o tweaks rápidos: invocar `triage-lead` agent (global).
 - **Textos para Coni:** español de Chile, tú, sin rayas largas (em dash). Colores y tipos solo desde
   los tokens de `DESIGN.md`.
 - **Biome solo en modo seguro** (`biome check --write`); nunca `--unsafe`.
+- **Salida a producción (autorizada por Federico, 01-11-2026):** Claude hace `supabase db push` y el merge a `main` (que publica solo) si el cambio tiene issue en el tablero, pruebas y CI en verde, revisiones aprobadas y un `--dry-run` con solo las migraciones esperadas; verifica en vivo y avisa qué publicó. Migraciones que borran o reescriben datos y deploys de Trigger: solo con OK de Federico.
 
 ## Reference
 
