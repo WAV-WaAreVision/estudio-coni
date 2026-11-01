@@ -1,0 +1,58 @@
+name: Idea o mejora
+description: Algo nuevo que te gustaría o algo que podría funcionar mejor.
+title: "[Idea] "
+labels: ["idea"]
+projects: ["WAV-WaAreVision/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuéntanos la idea como se la contarías a alguien en persona. WAV te va a hacer preguntas en este mismo hilo si hace falta.
+        **Nunca escribas aquí** datos de pacientes, contraseñas ni llaves.
+  - type: dropdown
+    id: area
+    attributes:
+      label: ¿A qué parte de la app se refiere?
+      options:
+        - Inicio
+        - Ideas y motor
+        - Buscador
+        - Guiones (puerta 1)
+        - Reels y voz
+        - Carruseles
+        - Calendario y publicación (puerta 2)
+        - Métricas y Metricool
+        - Pilares
+        - No sé / otra
+    validations:
+      required: true
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué te gustaría resolver?
+      description: La situación de hoy y por qué te complica o te quita tiempo.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: ¿Cómo te lo imaginas?
+      description: Cómo debería funcionar. Un dibujo o un ejemplo de otra app también sirve.
+    validations:
+      required: true
+  - type: textarea
+    id: listo
+    attributes:
+      label: ¿Cómo sabremos que quedó bien?
+      description: Lo que tendrías que poder hacer cuando esté listo.
+      placeholder: "Por ejemplo: puedo elegir la hora exacta de publicación y se publica a esa hora."
+  - type: dropdown
+    id: importancia
+    attributes:
+      label: ¿Qué tan importante es para ti?
+      options:
+        - "Muy importante: lo necesito pronto"
+        - "Importante, pero puede esperar"
+        - "Sería bueno tenerlo algún día"
+    validations:
+      required: true
