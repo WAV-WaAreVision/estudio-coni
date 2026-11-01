@@ -6,7 +6,7 @@ export interface TarjetaDeDato {
   clave: string
   dato: string
   paraQue: string
-  /** Provider and country: «HeyGen, Estados Unidos (por confirmar)». */
+  /** Provider and country: «HeyGen, Estados Unidos (por confirmar)», or «Supabase, país por confirmar». */
   donde: string
   plazo: string
   /** «No coincide con lo que la app borra (30 días)», or null. */
@@ -21,9 +21,11 @@ export interface VistaDelRegistro {
 
 const POR_CONFIRMAR = /^por confirmar$/i
 
+/** A country still unknown reads «país por confirmar», so the provider is not taken for a place. */
 export function paisEnPalabras(pais: string, confirmado: boolean): string {
   const limpio = pais.trim()
-  return confirmado || POR_CONFIRMAR.test(limpio) ? limpio : `${limpio} (por confirmar)`
+  if (POR_CONFIRMAR.test(limpio)) return "país por confirmar"
+  return confirmado ? limpio : `${limpio} (por confirmar)`
 }
 
 const NOMBRES: Record<ReglaDeBorrado, readonly [uno: string, varios: string]> = {

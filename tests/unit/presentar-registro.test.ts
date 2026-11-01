@@ -9,7 +9,11 @@ describe("paisEnPalabras", () => {
   it("adds «por confirmar» until WAV confirms the country", () => {
     expect(paisEnPalabras("Estados Unidos", false)).toBe("Estados Unidos (por confirmar)")
     expect(paisEnPalabras("Estados Unidos", true)).toBe("Estados Unidos")
-    expect(paisEnPalabras("Por confirmar", false)).toBe("Por confirmar")
+  })
+
+  it("says «país por confirmar» when the country itself is still unknown", () => {
+    expect(paisEnPalabras("Por confirmar", false)).toBe("país por confirmar")
+    expect(paisEnPalabras("por confirmar", true)).toBe("país por confirmar")
   })
 })
 
@@ -61,7 +65,7 @@ describe("presentarRegistro", () => {
           clave: "respaldos",
           dato: "Respaldo nocturno de la base",
           paraQue: "Recuperar la app si algo se pierde.",
-          donde: "Cloudflare R2, Por confirmar",
+          donde: "Cloudflare R2, país por confirmar",
           plazo: "Se guardan los últimos 90 días.",
           discrepancia: "No coincide con lo que la app borra (30 días)",
         },
@@ -69,6 +73,11 @@ describe("presentarRegistro", () => {
       borrados: [{ id: "b1", frase: "Se borraron 2 respaldos de la base el 2 de noviembre." }],
       revision: { ultima: null, vence: "15 de noviembre de 2027" },
     })
+  })
+
+  it("names the provider and says its country is still to confirm", () => {
+    const fila = { ...REGISTRO.filas[0], clave: "metricas", proveedor: "Supabase", pais: "Por confirmar" }
+    expect(presentarRegistro({ ...REGISTRO, filas: [fila] }).tarjetas[0].donde).toBe("Supabase, país por confirmar")
   })
 
   it("words her latest review with its year", () => {

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Seccion } from "@/components/seccion"
 import { Boton } from "@/components/ui/boton"
@@ -15,13 +16,26 @@ interface PropiedadesDelRegistro extends VistaDelRegistro {
 
 /** D2: she reads the register and confirms once a year; WAV corrects it from Ingesta. */
 export function RegistroDeDatos({ tarjetas, borrados, revision, marcar }: PropiedadesDelRegistro) {
+  const router = useRouter()
   const { pendiente, error, ejecutar } = useAccion()
   const [revisado, setRevisado] = useState(false)
   const ultima = revision.ultima ? `La revisaste por última vez el ${revision.ultima}.` : "Todavía no la revisas."
 
+  function marcarRevisado() {
+    setRevisado(false)
+    ejecutar(marcar, () => {
+      setRevisado(true)
+      router.refresh()
+    })
+  }
+
   return (
     <div>
-      <Seccion titulo="Lo que la app guarda" id="datos-lista" cifra={tarjetas.length}>
+      <Seccion
+        titulo="Lo que la app guarda"
+        id="datos-lista"
+        cifra={tarjetas.length === 1 ? "1 tipo de dato" : `${tarjetas.length} tipos de datos`}
+      >
         <ul className="grid gap-3">
           {tarjetas.map((tarjeta) => (
             <li key={tarjeta.clave}>
@@ -57,7 +71,7 @@ export function RegistroDeDatos({ tarjetas, borrados, revision, marcar }: Propie
         <p className="text-cuerpo">{`${ultima} Tu próxima revisión vence el ${revision.vence}.`}</p>
         {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
         {revisado ? <LineaDeEstado tipo="exito" titulo="Quedó anotado. Gracias." /> : null}
-        <Boton variante="secundario" cargando={pendiente} onClick={() => ejecutar(marcar, () => setRevisado(true))}>
+        <Boton variante="secundario" cargando={pendiente} onClick={marcarRevisado}>
           Lo revisé
         </Boton>
       </Seccion>

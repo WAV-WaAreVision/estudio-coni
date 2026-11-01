@@ -4,7 +4,8 @@ import { RegistroDeDatos } from "@/app/(app)/ajustes/datos-personales/registro-d
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { VistaDelRegistro } from "@/lib/datos-personales/presentar"
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+const refrescar = vi.hoisted(() => vi.fn())
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: refrescar }) }))
 
 const VISTA: VistaDelRegistro = {
   tarjetas: [
@@ -20,7 +21,7 @@ const VISTA: VistaDelRegistro = {
       clave: "respaldos",
       dato: "Respaldo nocturno de la base",
       paraQue: "Recuperar la app si algo se pierde.",
-      donde: "Cloudflare R2, Por confirmar",
+      donde: "Cloudflare R2, país por confirmar",
       plazo: "Se guardan los últimos 90 días.",
       discrepancia: "No coincide con lo que la app borra (30 días)",
     },
@@ -80,6 +81,34 @@ describe("RegistroDeDatos", () => {
 
     expect(await screen.findByText("Quedó anotado. Gracias.")).toBeInTheDocument()
     expect(marcar).toHaveBeenCalledOnce()
+    expect(refrescar).toHaveBeenCalled()
+  })
+
+  it("counts the kinds of data in words", () => {
+    mostrar()
+    expect(screen.getByText("2 tipos de datos")).toBeInTheDocument()
+  })
+
+  it("counts a single kind of data in the singular", () => {
+    mostrar({ ...VISTA, tarjetas: [VISTA.tarjetas[0]] })
+    expect(screen.getByText("1 tipo de dato")).toBeInTheDocument()
+  })
+
+  it("drops the earlier success when a second try fails", async () => {
+    let veces = 0
+    mostrar(VISTA, async () => {
+      veces += 1
+      return veces === 1
+        ? { ok: true, revisadoEn: "2026-11-02T12:00:00Z" }
+        : { ok: false, error: "Algo falló de nuestro lado. Inténtalo de nuevo en unos minutos." }
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Lo revisé" }))
+    expect(await screen.findByText("Quedó anotado. Gracias.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Lo revisé" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Algo falló de nuestro lado.")
+    expect(screen.queryByText("Quedó anotado. Gracias.")).toBeNull()
   })
 
   it("names her latest review", () => {
