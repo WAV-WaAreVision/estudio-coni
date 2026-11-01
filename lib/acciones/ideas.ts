@@ -12,7 +12,7 @@ import {
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
-import { dolares } from "@/lib/formato"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { aResultado, type Resultado } from "./resultado"
@@ -129,7 +129,7 @@ const ERROR_ENTRADA = `Escribe tu idea en una o dos frases (hasta ${MAXIMO_GANCH
 
 /**
  * Claude proposes the pillar, format and alerts of an idea Coni wrote (design A12); the call is paid, so it goes through
- * the monthly cap like every other spend. She confirms or corrects the proposal before anything is saved.
+ * the month's limit like every other new spend. She confirms or corrects the proposal before anything is saved.
  */
 export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resultado<{ propuesta: PropuestaDeIdea }>> {
   return aResultado("proponerIdea", async () => {
@@ -155,11 +155,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
       clave,
       ahora: deps.ahora(),
     })
-    if (reserva.limite) {
-      const { data } = await deps.db.from("ajustes").select("tope_mensual_usd").maybeSingle()
-      const tope = data ? ` de ${dolares(data.tope_mensual_usd)}` : ""
-      throw new Falla(`Llegaste al tope${tope} de este mes. Súbelo en Ajustes para seguir.`)
-    }
+    if (reserva.limite) throw new Falla(TEXTO_LIMITE)
 
     try {
       const { propuesta, uso } = await clasificarIdea({

@@ -3,8 +3,6 @@ import { actualizarPieza, type FilaDePieza } from "@/lib/datos/repositorio"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
 import type { Database } from "@/lib/supabase/database.types"
 
-export const TEXTO_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
-
 /** `gastos.estimado_usd` must be positive, so a (hypothetical) empty estimate still reserves the minimum. */
 export const MINIMO_USD = 0.0001
 

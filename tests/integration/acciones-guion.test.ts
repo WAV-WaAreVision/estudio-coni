@@ -8,6 +8,7 @@ import { claveVoz } from "@/lib/acciones/disparos"
 import { type DepsGuion, editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
@@ -271,7 +272,7 @@ describe("editarGuion", () => {
     expect(await versionesDe(id)).toEqual([])
   })
 
-  it("stops at the monthly cap without writing", async () => {
+  it("stops at the month's limit without writing", async () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     const pedidos = claudeRevisa()
@@ -279,7 +280,7 @@ describe("editarGuion", () => {
 
     const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
 
-    expect(resultado).toMatchObject({ ok: false, motivo: "tope" })
+    expect(resultado).toMatchObject({ ok: false, motivo: "limite", error: TEXTO_LIMITE })
     expect(pedidos).toHaveLength(0)
     expect(await leerFila(id)).toMatchObject({ guion, version })
   })

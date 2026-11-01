@@ -11,18 +11,18 @@ import {
 } from "@/lib/dominio/lote"
 
 describe("cuantasAlcanzan", () => {
-  it("counts the scripts the month still covers, the way reservar_gasto refuses (usado + estimado > tope)", () => {
-    expect(cuantasAlcanzan({ tope: 40, usado: 0, estimadoPorGuion: 1.1, pedidas: 5 })).toBe(5)
-    expect(cuantasAlcanzan({ tope: 40, usado: 37.8, estimadoPorGuion: 1.1, pedidas: 5 })).toBe(2)
-    // Exactly at the cap still passes: 2 x 1.1 = 2.2 = 40 - 37.8.
-    expect(cuantasAlcanzan({ tope: 40, usado: 37.8, estimadoPorGuion: 1.1, pedidas: 2 })).toBe(2)
+  it("counts the scripts the month still covers, the way reservar_gasto refuses (usado + estimado > limite)", () => {
+    expect(cuantasAlcanzan({ limite: 80, usado: 0, estimadoPorGuion: 1.1, pedidas: 5 })).toBe(5)
+    expect(cuantasAlcanzan({ limite: 80, usado: 77.8, estimadoPorGuion: 1.1, pedidas: 5 })).toBe(2)
+    // Exactly at the limit still passes: 2 x 1.1 = 2.2 = 80 - 77.8.
+    expect(cuantasAlcanzan({ limite: 80, usado: 77.8, estimadoPorGuion: 1.1, pedidas: 2 })).toBe(2)
   })
 
-  it("says none when the month is spent or past the cap, and never more than asked", () => {
-    expect(cuantasAlcanzan({ tope: 40, usado: 40, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
-    expect(cuantasAlcanzan({ tope: 40, usado: 41, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
-    expect(cuantasAlcanzan({ tope: 0, usado: 0, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
-    expect(cuantasAlcanzan({ tope: 1000, usado: 0, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(3)
+  it("says none when the month reached or passed its limit, and never more than asked", () => {
+    expect(cuantasAlcanzan({ limite: 80, usado: 80, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
+    expect(cuantasAlcanzan({ limite: 80, usado: 81, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
+    expect(cuantasAlcanzan({ limite: 0, usado: 0, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(0)
+    expect(cuantasAlcanzan({ limite: 1000, usado: 0, estimadoPorGuion: 1.1, pedidas: 3 })).toBe(3)
   })
 })
 

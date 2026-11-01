@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { sinFechaFirmada } from "@/lib/calendario/propuestas"
-import { type FilaDePieza, type IdeaLeida, leerIdea, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
+import {
+  type FilaDePieza,
+  type IdeaLeida,
+  leerIdea,
+  leerPieza,
+  leerProduccion,
+  limiteDelMes,
+} from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { diaLocal, type Horario } from "@/lib/dominio/fechas"
@@ -92,20 +99,24 @@ export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<Con
 
 export interface Presupuesto {
   tope: number
+  /** The brake of the month (`limite_del_mes`): this month's row, her limit, or twice the cap. */
+  limite: number
   usado: number
 }
 
-/** What the month has spent or reserved against the cap: a confirmed spend counts its real cost. */
+/** What the month has spent or reserved: a confirmed spend counts its real cost, as `reservar_gasto` counts it. */
 export async function leerPresupuesto(db: Db, ahora: number, zona: string): Promise<Presupuesto> {
   const mes = `${diaLocal(ahora, zona).slice(0, 7)}-01`
-  const [ajustes, gastos] = await Promise.all([
+  const [ajustes, gastos, limite] = await Promise.all([
     db.from("ajustes").select("tope_mensual_usd").maybeSingle(),
     db.from("gastos").select("estado, estimado_usd, real_usd").eq("mes", mes).in("estado", ["reservado", "confirmado"]),
+    limiteDelMes(db, new Date(ahora).toISOString()),
   ])
   if (ajustes.error) throw fallo("No pude leer el tope", ajustes.error)
   if (gastos.error) throw fallo("No pude leer los gastos", gastos.error)
   return {
     tope: ajustes.data?.tope_mensual_usd ?? 0,
+    limite,
     usado: gastos.data.reduce(
       (suma, gasto) =>
         suma + (gasto.estado === "confirmado" ? (gasto.real_usd ?? gasto.estimado_usd) : gasto.estimado_usd),

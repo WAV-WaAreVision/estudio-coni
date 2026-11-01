@@ -27,7 +27,7 @@ import {
   revisarLinkedinSiHay,
   sinLinkedin,
 } from "@/lib/dominio/revision"
-import { dolares } from "@/lib/formato"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { huellaDelGuion } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA, revisarConClaude } from "@/lib/proveedores/anthropic"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
@@ -49,7 +49,7 @@ export interface DepsGuion {
   ahora: () => string
 }
 
-export type MotivoDeGuion = "revision_bloquea" | "tope" | "sin_version_de_claude"
+export type MotivoDeGuion = "revision_bloquea" | "limite" | "sin_version_de_claude"
 
 export type ResultadoDeGuion =
   | { ok: true; version: number; revision: Hallazgo[] }
@@ -169,7 +169,7 @@ async function trabajoDeEditar(deps: DepsGuion, edicion: Edicion): Promise<Cuerp
     textoLinkedin: fila.texto_linkedin,
     alertas,
   })
-  if (juicio === "tope") return { motivo: "tope", error: await textoDelTope(db) }
+  if (juicio === "limite") return { motivo: "limite", error: TEXTO_LIMITE }
 
   const deRiesgo = juicio.hallazgos.some((h) => h.regla === "tema_de_riesgo")
   const reglas = deRiesgo ? revisar(true) : deterministas
@@ -212,12 +212,6 @@ async function pedirLaVozDelEditado(deps: DepsGuion, editada: FilaDePieza): Prom
   }
 }
 
-async function textoDelTope(db: Db): Promise<string> {
-  const { data } = await db.from("ajustes").select("tope_mensual_usd").maybeSingle()
-  const tope = data ? ` de ${dolares(data.tope_mensual_usd)}` : ""
-  return `Llegaste al tope${tope} de este mes. Súbelo en Ajustes para seguir.`
-}
-
 async function juzgarConClaude(
   deps: DepsGuion,
   entrada: {
@@ -227,7 +221,7 @@ async function juzgarConClaude(
     textoLinkedin: string | null
     alertas: Parameters<typeof revisarConClaude>[0]["alertas"]
   },
-): Promise<{ hallazgos: Hallazgo[] } | "tope"> {
+): Promise<{ hallazgos: Hallazgo[] } | "limite"> {
   const servicio = deps.servicio()
   const llave = await leerSecreto(servicio, "anthropic")
   if (!llave) throw new Falla("Para revisar el guion necesito tu llave de Anthropic. Agrégala en Ajustes.")
@@ -249,7 +243,7 @@ async function juzgarConClaude(
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.limite) return "tope"
+  if (reserva.limite) return "limite"
 
   let juicio: Awaited<ReturnType<typeof revisarConClaude>>
   try {

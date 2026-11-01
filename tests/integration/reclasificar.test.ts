@@ -183,7 +183,7 @@ describe("reclasificación de pilares", () => {
     for (const id of sembrados) expect(filas.find((f) => f.id === id)?.propuesta).toBe("ia-salud-mental")
   })
 
-  it("stops before calling Claude when the monthly cap cannot cover the estimate", async () => {
+  it("stops before calling Claude when the month's limit cannot cover the estimate", async () => {
     await materialEn("bienestar", "Siembra tope")
     const { rows } = await pool.query<{ tope: string }>("select tope_mensual_usd as tope from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
@@ -195,7 +195,7 @@ describe("reclasificación de pilares", () => {
       }),
     )
     try {
-      await expect(proponer()).rejects.toThrow("El tope mensual no alcanza para la reclasificación.")
+      await expect(proponer()).rejects.toThrow("El límite del mes no alcanza para la reclasificación.")
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.tope])
     }

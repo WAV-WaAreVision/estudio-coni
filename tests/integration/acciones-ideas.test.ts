@@ -12,6 +12,7 @@ import {
   restaurarIdeas,
   usarIdea,
 } from "@/lib/acciones/ideas"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
@@ -230,13 +231,13 @@ describe("proponerIdea", () => {
     expect(await gastosDeIdeas()).toEqual([])
   })
 
-  it("stops at the monthly cap before calling Claude", async () => {
+  it("stops at the month's limit before calling Claude", async () => {
     await pool.query("update public.ajustes set tope_mensual_usd = 0.01")
     const pedidos = claudeResponde(PROPUESTA)
 
     const resultado = await proponerIdea(deps(), { gancho: "Una idea propia suficientemente larga.", tema: "" })
 
-    expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("tope") })
+    expect(resultado).toEqual({ ok: false, error: TEXTO_LIMITE })
     expect(pedidos).toEqual([])
   })
 
