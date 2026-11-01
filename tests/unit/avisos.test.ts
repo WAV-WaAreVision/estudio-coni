@@ -178,3 +178,15 @@ describe("canalReal y avisosReales", () => {
     expect(() => avisosReales(CORREO)).toThrow(/SUPABASE_URL/)
   })
 })
+
+describe("aviso de la revisión anual", () => {
+  it("opens the register in Ajustes and says it in the push without detail", () => {
+    const aviso = { tipo: "revision_de_inventario" } as const
+    expect(esTipoDeAviso("revision_de_inventario")).toBe(true)
+    expect(rutaDeAviso(aviso)).toBe("/ajustes/datos-personales")
+    expect(mensajePush(aviso)).toMatchObject({
+      cuerpo: "Te toca revisar tus datos personales",
+      url: "/ajustes/datos-personales",
+    })
+  })
+})
