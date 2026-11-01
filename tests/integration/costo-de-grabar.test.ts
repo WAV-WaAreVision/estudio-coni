@@ -18,41 +18,42 @@ beforeAll(async () => {
   AHORA = Date.now()
 })
 beforeEach(async () => {
-  await pool.query("update public.ajustes set produccion = $1::jsonb, tope_mensual_usd = 40", [
+  await pool.query("update public.ajustes set produccion = $1::jsonb, tope_mensual_usd = 40, limite_duro_usd = null", [
     JSON.stringify(coniConfig),
   ])
 })
 afterEach(async () => {
-  await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
+  await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40, limite_duro_usd = null")
 })
 afterAll(() => pool.end())
 
-async function topeQueCubreSoloElVideo(): Promise<{ video: number; voz: number }> {
+async function limiteQueCubreSoloElVideo(): Promise<{ video: number; voz: number }> {
   const video = estimarCostoVideo(GUION, coniConfig.heygen.motor)
   const voz = estimarCostoVoz(GUION)
   const { usado } = await leerPresupuesto(coni, AHORA, ZONA)
-  await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado + video + voz / 2])
+  const limite = usado + video + voz / 2
+  await pool.query("update public.ajustes set tope_mensual_usd = $1, limite_duro_usd = $1", [limite])
   return { video, voz }
 }
 
 describe("leerCostoDeGrabar", () => {
   it("adds the voice to the video estimate when the piece has no audio yet", async () => {
-    const { video, voz } = await topeQueCubreSoloElVideo()
+    const { video, voz } = await limiteQueCubreSoloElVideo()
     const costo = await leerCostoDeGrabar(coni, GUION, AHORA, ZONA, null)
     expect(costo.estimadoUsd).toBeCloseTo(video + voz, 6)
     expect(costo.linea).toContain(`Grabar cuesta unos ${dolares(video + voz)}`)
   })
 
-  it("warns that it passes the cap when the video fits but video plus voice does not", async () => {
-    await topeQueCubreSoloElVideo()
-    expect((await leerCostoDeGrabar(coni, GUION, AHORA, ZONA, null)).superaElTope).toBe(true)
+  it("warns that it passes the limit when the video fits but video plus voice does not", async () => {
+    await limiteQueCubreSoloElVideo()
+    expect((await leerCostoDeGrabar(coni, GUION, AHORA, ZONA, null)).superaElLimite).toBe(true)
   })
 
-  it("does not add the voice when the piece already has its audio, and then it fits the cap", async () => {
-    const { video } = await topeQueCubreSoloElVideo()
+  it("does not add the voice when the piece already has its audio, and then it fits the limit", async () => {
+    const { video } = await limiteQueCubreSoloElVideo()
     const costo = await leerCostoDeGrabar(coni, GUION, AHORA, ZONA, "audio-ya-pagado")
     expect(costo.estimadoUsd).toBeCloseTo(video, 6)
-    expect(costo.superaElTope).toBe(false)
+    expect(costo.superaElLimite).toBe(false)
   })
 
   it("prices the voice on the text ElevenLabs receives, without the tone marks of a model that would read them", async () => {

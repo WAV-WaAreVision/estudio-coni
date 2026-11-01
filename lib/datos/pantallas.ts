@@ -129,8 +129,8 @@ export interface CostoDeGrabar {
   /** "Grabar cuesta unos US$ 2,40 · te quedan US$ 37,00 este mes", or null when the setup cannot say. */
   linea: string | null
   estimadoUsd: number | null
-  /** True when this recording would take the month past the cap. */
-  superaElTope: boolean
+  /** True when this recording would take the month past its limit. */
+  superaElLimite: boolean
 }
 
 /**
@@ -154,14 +154,14 @@ export async function leerCostoDeGrabar(
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude estimar el costo de grabar", error)
-    return { linea: null, estimadoUsd: null, superaElTope: false }
+    return { linea: null, estimadoUsd: null, superaElLimite: false }
   }
-  const { tope, usado } = await leerPresupuesto(db, ahora, zona)
-  const quedan = Math.max(0, tope - usado)
+  const { limite, usado } = await leerPresupuesto(db, ahora, zona)
+  const quedan = Math.max(0, limite - usado)
   return {
     linea: `Grabar cuesta unos ${dolares(estimadoUsd)} · te quedan ${dolares(quedan)} este mes`,
     estimadoUsd,
-    superaElTope: estimadoUsd > quedan,
+    superaElLimite: estimadoUsd > quedan,
   }
 }
 

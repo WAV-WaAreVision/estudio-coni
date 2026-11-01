@@ -15,6 +15,7 @@ import {
   type Saldos,
 } from "@/lib/dominio/saldos"
 import { vozDelGuion } from "@/lib/dominio/voz"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { formulaGuardada } from "@/lib/produccion/aprobacion"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo, estimarCreditosVideo } from "@/lib/produccion/grabar"
@@ -48,8 +49,6 @@ export interface DatosDeGrabacion {
   vozSinCobro: boolean
 }
 
-const TEXTO_SIN_TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
-
 const bloqueo = (alcance: Alcance) => (alcance.tipo === "no_alcanza" ? alcance.mensaje : null)
 
 export function presentarGrabacion(entrada: {
@@ -59,7 +58,7 @@ export function presentarGrabacion(entrada: {
   zona: string
   /** The ElevenLabs model: it decides which tone marks reach the voice, and so the characters it bills. */
   modeloDeVoz: string
-  /** What is left of the month's cap. */
+  /** What is left of the month's limit (`limite - usado`). */
   quedanUsd: number
 }): BotonesDeGrabacion {
   const { guion, motor, saldos } = entrada
@@ -67,17 +66,18 @@ export function presentarGrabacion(entrada: {
   const textoDeVoz = textoParaVoz(guion, entrada.modeloDeVoz)
   const usdVoz = estimarCostoVoz(textoDeVoz)
   const usdVideo = estimarCostoVideo(guion, motor)
-  const sinTope = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_SIN_TOPE : null)
+  const sinLimite = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_LIMITE : null)
   const costoVozPartido = costoDeVoz(textoDeVoz.length, usdVoz)
   return {
     montoVoz: costoVozPartido.monto,
     unidadVoz: costoVozPartido.unidad,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
-    bloqueoVoz: sinTope(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
-    // The signature needs her voice first, so the video is only about its own cost.
-    bloqueoVideo:
-      sinTope(usdVideo) ??
-      bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
+    // At gate 1 her voice is not signed yet: new spend, stopped by the month's limit (spec 2026-11-02, D1).
+    bloqueoVoz: sinLimite(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
+    // The signature starts the recording, which is signed work: only the HeyGen balance can close it.
+    bloqueoVideo: bloqueo(
+      alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
+    ),
   }
 }
 
@@ -162,7 +162,7 @@ export async function leerDatosDeGrabacion(
       saldos,
       zona,
       modeloDeVoz: config.elevenlabs.model_id,
-      quedanUsd: presupuesto.tope - presupuesto.usado,
+      quedanUsd: presupuesto.limite - presupuesto.usado,
     }),
     lineaDeFirma: lineaDeFirma({
       segundos: estimarSegundos(guion),
