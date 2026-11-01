@@ -67,6 +67,14 @@ describe("publicarTransparencia", () => {
     expect(await vigentes()).toEqual([])
   })
 
+  it("says how long the text must be when it is over 6000 characters after trimming", async () => {
+    expect(await publicarTransparencia(coni, { texto: `  ${"a".repeat(6001)}  `, motivo: "Prueba" })).toEqual({
+      ok: false,
+      error: "El texto tiene que tener entre 300 y 6.000 caracteres.",
+    })
+    expect(await vigentes()).toEqual([])
+  })
+
   it("asks for the reason of the change", async () => {
     expect(await publicarTransparencia(coni, { texto: LARGO, motivo: "  " })).toEqual({
       ok: false,
@@ -105,6 +113,14 @@ describe("volverATransparencia", () => {
       ok: false,
       error: "Esa versión ya no existe. Vuelve a abrir la pantalla.",
     })
+  })
+
+  it("does not let WAV go back to a version", async () => {
+    await publicarTransparencia(coni, { texto: LARGO, motivo: "Primera versión" })
+    await publicarTransparencia(coni, { texto: OTRO, motivo: "Agrego una línea" })
+
+    expect(await volverATransparencia(mantenedor, 1)).toEqual({ ok: false, error: ERROR_GENERICO })
+    expect(await vigentes()).toEqual([{ version: 2, texto: OTRO }])
   })
 
   it("does not go back to WAV's draft, which was never published", async () => {

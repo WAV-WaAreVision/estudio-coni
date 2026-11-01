@@ -17,8 +17,11 @@ const PARA_CONI = new Map([
   ["no_publicada", "Esa versión nunca estuvo publicada. Elige una del historial."],
 ])
 
-function falloDeRpc(que: string, error: { message: string }): Error {
-  const paraConi = PARA_CONI.get(error.message)
+// The RPCs raise Coni's refusals as invalid_parameter_value; any other code is not hers even with the same words.
+const RECHAZO_PARA_CONI = "22023"
+
+function falloDeRpc(que: string, error: { message: string; code: string }): Error {
+  const paraConi = error.code === RECHAZO_PARA_CONI ? PARA_CONI.get(error.message) : undefined
   return paraConi ? new Falla(paraConi) : new Error(`No pude ${que}: ${error.message}`, { cause: error })
 }
 

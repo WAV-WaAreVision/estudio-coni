@@ -96,8 +96,9 @@ export async function marcarInventarioRevisadoAccion() {
   )
 }
 
-// The limits themselves are the database's (300 to 6000 after trimming); this only keeps a request reasonable.
-const paginaDeIa = z.object({ texto: z.string().max(7000), motivo: z.string().max(400) })
+// The limits are the database's, counted after trimming, so it answers with the plain message. This only refuses a
+// request far too big to be a page.
+const paginaDeIa = z.object({ texto: z.string().max(60_000), motivo: z.string().max(4_000) })
 
 export async function publicarTransparenciaAccion(texto: string, motivo: string) {
   return refrescar(
