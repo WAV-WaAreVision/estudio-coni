@@ -53,7 +53,7 @@ Para bugs o tweaks rápidos: invocar `triage-lead` agent (global).
 
 - **Mapa:** las decisiones viven en `~/Projects/coni-heygen/docs/designs/plataforma-coni.md`
   ("Cambios aceptados" manda sobre el cuerpo), `PRODUCT.md` y `DESIGN.md` del mismo directorio.
-  Planes de construcción en `docs/superpowers/plans/`.
+  Planes en `docs/superpowers/plans/`. Pedido de Coni: `docs/pedido-coni-2026-10-31/` (sus decisiones mandan).
 - **Capas:** `lib/dominio/` es puro (sin red, sin base, sin reloj implícito: la hora entra como
   parámetro). `lib/proveedores/` habla con HeyGen, ElevenLabs, Anthropic, Meta y R2.
 - **Dos puertas humanas:** solo Coni aprueba (guion + voz en la puerta 1; video, texto y fecha en
@@ -61,6 +61,9 @@ Para bugs o tweaks rápidos: invocar `triage-lead` agent (global).
   video o publicar, la tarea compara el artefacto actual con el aprobado (`puedeGrabar`,
   `puedePublicar`).
 - **Nunca se publica a una hora no aprobada:** más de 30 min de atraso vuelve a aprobación.
+- **Decidido por Coni el 01-11-2026:** Instagram solo por Meta (Metricool sale); el tope de gasto pasa a alarma con límite
+  duro del doble (llega con el cambio 12a, hoy aún frena); WAV no entra a Conidolly (cambio 30); la app nunca escribe ni
+  borra firmas (la reserva sale por una regla que Coni firma, cambio 23); identidad «Constanza del Rosario», sin «sexóloga».
 - **Subtítulos:** el port de `coni.py` tiene goldens de 2 reels reales; si cambian, se regeneran
   con `coni.py` y se explica por qué en el commit.
 - **Llaves fuera del repo** (`.env*` está ignorado). Fechas en UTC; se muestran en
