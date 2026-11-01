@@ -1,4 +1,6 @@
 import { fusionarTemas } from "@/lib/ingesta/temas"
+import { leerInterruptores } from "@/lib/presupuesto/interruptores"
+import { avisarLimite } from "@/lib/presupuesto/limite"
 import { type DepsArranques, reanudarArranques } from "./arranques"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
@@ -49,6 +51,7 @@ export type DepsNocturno = DepsRetencion &
   DepsRevisionDeInventario & { temas: ConstructorDeTemas }
 
 const OMITIDO = { omitido: true } as const
+const APAGADO = { apagado: true } as const
 
 /** Every ten minutes: runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
@@ -59,7 +62,11 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
     gastos: () => barrerGastos(deps),
     temas: async () => {
       const propias = await deps.temas()
-      return propias ? mantenerTemas(propias) : OMITIDO
+      if (!propias) return OMITIDO
+      const resultado = await mantenerTemas(propias)
+      // Silent before the hard limit; now Coni hears it once a month (spec 2026-11-02).
+      if (resultado.tope) await avisarLimite(deps, deps.ahora())
+      return resultado
     },
   })
 }
@@ -77,7 +84,12 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
     revisionDeInventario: () => recordarRevisionDeInventario(deps),
     fusiones: async () => {
       const propias = await deps.temas()
-      return propias ? fusionarTemas(propias) : OMITIDO
+      if (!propias) return OMITIDO
+      // Read only when there is work: Coni can turn the nightly merges off in Ajustes › Presupuesto (D2).
+      if (!(await leerInterruptores(deps.db)).fusionesNocturnas) return APAGADO
+      const resultado = await fusionarTemas(propias)
+      if (resultado.tope) await avisarLimite(deps, deps.ahora())
+      return resultado
     },
   })
 }

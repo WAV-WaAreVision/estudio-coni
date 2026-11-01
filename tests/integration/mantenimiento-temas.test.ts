@@ -278,6 +278,28 @@ describe("maintenance runs", () => {
     expect(claude.fusiones).toBe(0)
   })
 
+  it("tells Coni when the month's limit stops the topics job, and does not fail the run", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await conTopeChico(() =>
+      mantenimientoFrecuente({
+        ...base(),
+        avisos,
+        dispararGrabacion: async () => undefined,
+        dispararProduccion: async () => undefined,
+        dispararArmado: async () => undefined,
+        temas: async () => deps(),
+      }),
+    )
+
+    expect(resultado.temas).toMatchObject({ tope: true })
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+  })
+
   it("lets a failing topics job through enSerie without stopping the rest", async () => {
     const error = await mantenimientoFrecuente({
       ...base(),
