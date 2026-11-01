@@ -19,15 +19,15 @@ Federico. XL changes get their own spec and plan.
 
 | Phase | Changes | Gate to start | Notes |
 |---|---|---|---|
-| 0 · Now | CI green and flaky test (done, in branch); reconnect Instagram; apply for LinkedIn Member Analytics; merge `feat/fecha-exacta` | None | No code from the request. |
+| 0 · Now | Help lines to 1455 and *4141 (drop 133, A7); diarization test with the symposium (A5); CI green and flaky test (done, in branch); reconnect Instagram; apply for LinkedIn Member Analytics; merge `feat/fecha-exacta` | None | No code from the request. |
 | 1 · Foundations | 29 stage 1 · 26 core · 12a budget panel · 13a measuring · split `lib/proveedores/anthropic.ts` per task (prep for 7, 18, 21) | A1 (12a), A3 (13a), A4 (26) | All small or medium and independent: can run in parallel. |
-| 2 · One app | 29 stage 2, then stage 3 | A6 | Biggest single piece. Gates every new Biblioteca screen. |
+| 2 · One app | 29 stage 2 (Coni only: WAV does not enter Conidolly, A6), then stage 3 | A14 before stage 3 | Biggest single piece. Gates every new Biblioteca screen. |
 | 2b · Hosting on Cloudflare | Move Conidolly from Vercel to Cloudflare Workers (see below) | A13 | Right after 29 stage 3, so only one app moves. |
 | 2c · Staging | Persistent Supabase branch `staging` wired to PR previews, Trigger staging and an R2 staging bucket (see below) | Federico approves the cost (~US$ 10/month) | Must exist before phase 3: from there on most changes rewrite gates, spend or data. |
 | 3 · Knowledge base | 15 → 17 (dry run and decision) → 5 (after diarization test B3) → 6 → 9 → 18 with fallback → 7 single reprocess | A5 (Gemini), A7, A8, A10 | 7 applies 5, 6 and 17 in one pass. Base is small today (6 materials, 189 claims, ~US$ 0.60 to reprocess). |
 | 4 · Organise and find | 3 · 2 · 8 · 1 → 1c (pilot, 1–2 weeks of Coni's ratings) → 1b · 19 | A5 (8), A11 (8) | 1c needs Coni's time; plan it on her calendar. |
-| 5 · Engine to piece | 21 → 4 → 16 → 12b → 11 → 14 → 22 → 25, with 28 built alongside 12b, 22, 23 and 25 | A2 (22, 25), A5 (14) | Replaces the weekly engine; the old one stays until 21 is proven. |
-| 6 · Publish, measure, sell | 23 · 13b · 27 · 20 phase 0 · 24 | A2 (23), A3, A4 (27) | 20 phases 1–3 (ads) only after A9 and real funnel data. |
+| 5 · Engine to piece | 21 → 4 → 16 → 12b → 11 → 14 → 22 → 25 + 23 (moved here by Coni, A12), with 28 built alongside 12b, 22, 23 and 25 | A5 (14) | Replaces the weekly engine; the old one stays until 21 is proven. |
+| 6 · Publish, measure, sell | 13b · 27 · 20 phase 0 (ADHD test stays outside the app) · 24 with Anthropic web search · 30 | Legal review (27) | 20 phases 1–3 (ads) only after A9 and real funnel data. |
 
 ## 2b · Moving hosting from Vercel to Cloudflare
 

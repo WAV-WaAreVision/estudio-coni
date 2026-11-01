@@ -312,3 +312,22 @@ first. Line numbers point to `pedido-original.md`.
 - Sensitive: **suicidal ideation of third parties sent to Claude in the US** (Ley 21.719); Meta permission
   `instagram_business_manage_comments` also allows replying (a test must assert no POST); new HMAC secret.
 - Open: LinkedIn probably does not expose comments of a personal profile; liability when reading is paused or down.
+
+### 30 · Two-way suggestions between WAV and Coni (inbox and PostIA) · M (respuestas-coni-2026-11-01.md, §10)
+- Added by Coni on 2026-11-01 instead of giving WAV access to Conidolly (A6).
+- "Sugerencias de WAV" inbox in the Biblioteca: WAV (directly, or from PostIA) sends a link or file with an optional note through
+  a keyed entry. Pending suggestions touch nothing (no graph, topics, claims, interest, search or engine); only their own
+  fingerprint is stored, to show the relation with her map (repetida ≥ 0.95, refuerza ≥ 0.8, puente 0.6–0.8, territorio nuevo).
+- Coni classifies with the change 24 card: Guardar (processed as material with origin WAV, cost on the button), Leer después,
+  Descartar with motive (never changes interest), Seguir investigando.
+- "Enviar a PostIA" on materials, findings and suggestions: only link, title and note travel; a log of what was sent.
+- Optional, off by default: WAV can read her decisions on its suggestions (last 90 days).
+- Security: one key per direction and origin, https only, title ≤ 200, note ≤ 1,000, files PDF/audio/video ≤ 50 MB, 50 per day
+  per key (notice to Coni when reached).
+- Depends: 8 (`registrar_material` with origin "sugerencia"), 24 (classification card, read-later list, relation cutoffs),
+  29 stage 2, 17 (`embeber`). After 24. PostIA side built by Federico.
+- Sensitive: new public entry with keys (Bearer, timing-safe compare); file uploads must use signed R2 URLs (Vercel 4.5 MB
+  body limit); cost of embedding per suggestion before any approval (tiny, but it is spend without a tap); new data register
+  row "Sugerencias recibidas y enviadas" (26).
+- Open: PostIA's entry URL and format; who edits the data register once Ingesta is off (A14); the draft uses
+  `clienteServicio`, `avisarAConi` and a day boundary from `new Date().setHours(0)` (server time, not Chile): adapt to the repo.
