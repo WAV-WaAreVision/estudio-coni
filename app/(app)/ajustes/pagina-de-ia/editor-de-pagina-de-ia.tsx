@@ -1,7 +1,7 @@
 "use client"
 
 import { Check } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
+import { useId, useRef, useState } from "react"
 import { Seccion } from "@/components/seccion"
 import { TextoEnParrafos } from "@/components/texto-en-parrafos"
 import { Bloque } from "@/components/ui/bloque"
@@ -51,16 +51,26 @@ export function EditorDePaginaDeIa({
   const [texto, setTexto] = useState(inicial)
   const [motivo, setMotivo] = useState("")
   const [aviso, setAviso] = useState<string | null>(null)
+  const [avisoDeVuelta, setAvisoDeVuelta] = useState<string | null>(null)
   const [volviendoA, setVolviendoA] = useState<number | null>(null)
   const [copia, setCopia] = useState<"nada" | "copiado" | "fallo">("nada")
   const publicacion = useAccion()
   const vuelta = useAccion()
   const caja = useRef<HTMLTextAreaElement>(null)
   useAutoAlto(caja, texto)
+  const idDelContador = useId()
+  const idDeLaRazon = useId()
 
   const largo = largoDeTexto(texto)
   const fueraDeLargo = largo < LARGO_MINIMO_TRANSPARENCIA || largo > LARGO_MAXIMO_TRANSPARENCIA
   const sinMotivo = motivo.trim().length < MOTIVO_MINIMO
+  const razon = fueraDeLargo
+    ? `El texto tiene que tener entre ${LARGO_MINIMO_TRANSPARENCIA} y ${miles(LARGO_MAXIMO_TRANSPARENCIA)} caracteres.`
+    : sinMotivo
+      ? "Escribe por qué lo cambias para poder publicar."
+      : null
+  // One change at a time: a publication and a going back would race for the next version number.
+  const ocupado = publicacion.pendiente || vuelta.pendiente
 
   async function copiar() {
     try {
@@ -74,13 +84,18 @@ export function EditorDePaginaDeIa({
   }
 
   function volver(version: VersionParaMostrar) {
+    if (ocupado) return
     setVolviendoA(version.version)
+    setAvisoDeVuelta(null)
     setAviso(null)
     vuelta.ejecutar(
       () => volverA(version.version),
       (resultado) => {
+        // The old text is now the published one, so the editor starts from it (her unsaved edits are replaced).
         setTexto(version.texto)
-        setAviso(`Volviste al texto de la versión ${version.version}: ahora es la versión ${resultado.version}.`)
+        setAvisoDeVuelta(
+          `Volviste al texto de la versión ${version.version}: ahora es la versión ${resultado.version}.`,
+        )
       },
     )
   }
@@ -110,8 +125,10 @@ export function EditorDePaginaDeIa({
           className="grid gap-3"
           onSubmit={(evento) => {
             evento.preventDefault()
-            if (fueraDeLargo || sinMotivo) return
+            if (razon !== null || ocupado) return
             setAviso(null)
+            setAvisoDeVuelta(null)
+            vuelta.limpiarError()
             publicacion.ejecutar(
               () => publicar(texto, motivo),
               (resultado) => {
@@ -127,10 +144,11 @@ export function EditorDePaginaDeIa({
               ref={caja}
               value={texto}
               onChange={(evento) => setTexto(evento.target.value)}
+              aria-describedby={idDelContador}
               className="campo w-full text-cuerpo"
             />
           </label>
-          <p className="mx-0.5 text-meta text-apagado tabular-nums">
+          <p id={idDelContador} className="mx-0.5 text-meta text-apagado tabular-nums">
             {`${miles(largo)} de ${miles(LARGO_MAXIMO_TRANSPARENCIA)} caracteres · mínimo ${LARGO_MINIMO_TRANSPARENCIA}`}
           </p>
           <div className="grid gap-2">
@@ -143,16 +161,25 @@ export function EditorDePaginaDeIa({
             <span className="text-meta font-semibold">¿Por qué lo cambias?</span>
             <input
               value={motivo}
-              maxLength={300}
               onChange={(evento) => setMotivo(evento.target.value)}
               className="campo w-full text-cuerpo"
             />
           </label>
           {publicacion.error ? <LineaDeEstado tipo="error" titulo={publicacion.error} /> : null}
           {aviso ? <LineaDeEstado tipo="exito" titulo={aviso} /> : null}
-          <Boton type="submit" cargando={publicacion.pendiente} deshabilitado={fueraDeLargo || sinMotivo}>
+          <Boton
+            type="submit"
+            cargando={publicacion.pendiente}
+            deshabilitado={razon !== null || vuelta.pendiente}
+            aria-describedby={razon !== null ? idDeLaRazon : undefined}
+          >
             Publicar
           </Boton>
+          {razon !== null ? (
+            <p id={idDeLaRazon} className="text-meta text-apagado">
+              {razon}
+            </p>
+          ) : null}
         </form>
       </Seccion>
 
@@ -172,6 +199,7 @@ export function EditorDePaginaDeIa({
                       tamano="chico"
                       className="mt-3 w-fit"
                       cargando={vuelta.pendiente && volviendoA === version.version}
+                      deshabilitado={ocupado}
                       onClick={() => volver(version)}
                     >
                       Volver a esta
@@ -182,6 +210,7 @@ export function EditorDePaginaDeIa({
             ))}
           </ul>
           {vuelta.error ? <LineaDeEstado tipo="error" titulo={vuelta.error} /> : null}
+          {avisoDeVuelta ? <LineaDeEstado tipo="exito" titulo={avisoDeVuelta} /> : null}
         </Seccion>
       ) : null}
 

@@ -124,6 +124,64 @@ describe("EditorDePaginaDeIa", () => {
     await waitFor(() => expect(editor().value).toBe(PRIMERA.texto))
   })
 
+  it("says why Publicar is not ready and links the reason and the counter", () => {
+    antesDePublicar()
+    const boton = screen.getByRole("button", { name: "Publicar" })
+
+    expect(boton).toHaveAccessibleDescription("Escribe por qué lo cambias para poder publicar.")
+    fireEvent.change(editor(), { target: { value: "Corto." } })
+    expect(boton).toHaveAccessibleDescription("El texto tiene que tener entre 300 y 6.000 caracteres.")
+    expect(editor()).toHaveAccessibleDescription("6 de 6.000 caracteres · mínimo 300")
+
+    fireEvent.change(editor(), { target: { value: BORRADOR } })
+    fireEvent.change(screen.getByLabelText("¿Por qué lo cambias?"), { target: { value: "Primera versión" } })
+    expect(boton).not.toHaveAttribute("aria-disabled")
+    expect(boton).not.toHaveAttribute("aria-describedby")
+  })
+
+  it("shows a failed going back next to the versions and leaves the editor text alone", async () => {
+    conVersiones(async () => ({ ok: false, error: "Esa versión ya no está." }))
+    fireEvent.change(editor(), { target: { value: `${VIGENTE.texto} Mío.` } })
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+
+    const alerta = await screen.findByRole("alert")
+    expect(alerta).toHaveTextContent("Esa versión ya no está.")
+    const versiones = screen.getByRole("region", { name: "Versiones" })
+    expect(versiones).toContainElement(alerta)
+    expect(editor().value).toBe(`${VIGENTE.texto} Mío.`)
+  })
+
+  it("shows the going back confirmation next to the versions, not in the form", async () => {
+    conVersiones()
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+
+    const aviso = await screen.findByText("Volviste al texto de la versión 1: ahora es la versión 3.")
+    expect(screen.getByRole("region", { name: "Versiones" })).toContainElement(aviso)
+  })
+
+  it("disables every action while one is pending", async () => {
+    let terminar: (r: Resultado<{ version: number }>) => void = () => {}
+    const volverA = conVersiones(
+      () =>
+        new Promise((r) => {
+          terminar = r
+        }),
+    )
+    fireEvent.change(screen.getByLabelText("¿Por qué lo cambias?"), { target: { value: "Prueba" } })
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Publicar" })).toHaveAttribute("aria-disabled", "true"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+    expect(volverA).toHaveBeenCalledTimes(1)
+    terminar({ ok: true, version: 3 })
+    await screen.findByText("Volviste al texto de la versión 1: ahora es la versión 3.")
+  })
+
   it("copies the line for her bios", async () => {
     antesDePublicar()
 
