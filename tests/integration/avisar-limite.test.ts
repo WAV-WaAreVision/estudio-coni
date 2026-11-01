@@ -16,7 +16,10 @@ const NOVIEMBRE = "2026-11-15T15:00:00.000Z"
 const DICIEMBRE = "2026-12-02T15:00:00.000Z"
 const db = clienteDeServicio()
 
-afterEach(() => pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'"))
+afterEach(async () => {
+  await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+  await pool.query("delete from public.limites_del_mes")
+})
 afterAll(() => pool.end())
 
 function conRegistro() {
@@ -75,6 +78,24 @@ describe("avisarLimite", () => {
     const avisos = notificadorConRegistro({ db, canal, ahora: () => NOVIEMBRE })
 
     await expect(avisarLimite({ db, avisos }, NOVIEMBRE)).rejects.toThrow("Resend no responde")
+  })
+
+  it("still emails WAV once when the first push failed and a retry succeeds", async () => {
+    const canal = notificadorEnMemoria()
+    const caido = {
+      ...canal,
+      aConi: async () => {
+        throw new Error("Resend no responde")
+      },
+    }
+
+    await expect(
+      avisarLimite({ db, avisos: notificadorConRegistro({ db, canal: caido, ahora: () => NOVIEMBRE }) }, NOVIEMBRE),
+    ).rejects.toThrow("Resend no responde")
+    await avisarLimite({ db, avisos: notificadorConRegistro({ db, canal, ahora: () => NOVIEMBRE }) }, NOVIEMBRE)
+
+    expect(canal.aWavEnviados).toHaveLength(1)
+    expect(canal.aConiEnviados).toHaveLength(1)
   })
 
   it("is said in one line every stopped path shares", () => {

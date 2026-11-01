@@ -42,10 +42,13 @@ export async function avisarLimite(deps: DepsDelAvisoDeLimite, ahora: string): P
   const clave = claveDelAvisoDeLimite(mes)
   const yaAvisado = await existeAviso(deps.db, clave)
   const limite = await limiteDelMes(deps.db, ahora)
+  // WAV before Coni: `aConi` stores the notice row before sending, so a push that fails after a sent email only
+  // resends the push, and a failed email leaves no row, so the retry sends it again.
+  if (!yaAvisado) {
+    await deps.avisos.aWav(
+      `Coni llegó a su límite de gasto (${mes})`,
+      `El gasto nuevo quedó en pausa al llegar a ${dolares(limite)} en ${mes}. Lo firmado sigue. Coni lo reactiva en Ajustes, Presupuesto.`,
+    )
+  }
   await deps.avisos.aConi(textoDelAvisoDeLimite(limite), true, { tipo: "limite_alcanzado", clave })
-  if (yaAvisado) return
-  await deps.avisos.aWav(
-    `Coni llegó a su límite de gasto (${mes})`,
-    `El gasto nuevo quedó en pausa al llegar a ${dolares(limite)} en ${mes}. Lo firmado sigue. Coni lo reactiva en Ajustes, Presupuesto.`,
-  )
 }
