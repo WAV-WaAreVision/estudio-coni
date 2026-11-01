@@ -17,8 +17,9 @@ export type ResultadoRevisionDeInventario = "al_dia" | "avisado"
 
 /**
  * The yearly review of the register (spec): 30 days before it is due, one notice for Coni (it waits for the daily
- * summary) and one message for WAV, who corrects the register first. The due date is written down after both go out,
- * so a due date is told once.
+ * summary) and one message for WAV, who corrects the register first. The due date is written down after both go out.
+ * Coni hears of a due date once even if that write fails, because her notices dedupe by `clave`; WAV's email has no
+ * such key and goes out again the next night until the `ajustes` write succeeds.
  */
 export async function recordarRevisionDeInventario(
   deps: DepsRevisionDeInventario,

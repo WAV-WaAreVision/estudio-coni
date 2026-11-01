@@ -42,9 +42,9 @@ function fechaDe(clave: string): string | null {
 }
 
 /**
- * The nightly backup of the database (design D6): `respaldos/AAAA-MM-DD.sql.gz` in R2, 30 days of history, and an alert
- * for WAV when the dump fails, comes out empty or weighs under 80% of the previous one. An empty dump is not stored, so
- * it never becomes the file the next night is compared with.
+ * The nightly backup of the database (design D6): `respaldos/AAAA-MM-DD.sql.gz` in R2, as many days of history as
+ * `REGLAS_DE_BORRADO.respaldos`, and an alert for WAV when the dump fails, comes out empty or weighs under 80% of the
+ * previous one. An empty dump is not stored, so it never becomes the file the next night is compared with.
  */
 export async function respaldarBase(deps: DepsRespaldo): Promise<ResultadoRespaldo> {
   const ahora = Date.parse(deps.ahora())

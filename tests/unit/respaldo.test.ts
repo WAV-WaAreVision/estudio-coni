@@ -193,4 +193,33 @@ describe("respaldarBase", () => {
 
     expect(anotados).toEqual([["respaldos", 1]])
   })
+
+  it("raises both errors together when the store fails and the log of what it already deleted fails too", async () => {
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async () => {
+        throw new Error("No pude anotar el borrado de respaldos: sin conexión")
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-02", 1000)
+    let intentos = 0
+    const quebradizo = {
+      ...almacen,
+      async borrar(clave: string) {
+        intentos += 1
+        if (intentos === 2) throw new Error("R2 no responde")
+        await almacen.borrar(clave)
+      },
+    }
+
+    const fallo = respaldarBase({ ...deps, almacen: quebradizo })
+
+    await expect(fallo).rejects.toBeInstanceOf(AggregateError)
+    await expect(fallo).rejects.toMatchObject({
+      message: "Falló el borrado de respaldos y también su registro.",
+      errors: [{ message: "R2 no responde" }, { message: "No pude anotar el borrado de respaldos: sin conexión" }],
+    })
+  })
 })

@@ -22,11 +22,14 @@ describe("texto de la página de IA", () => {
 
   it("normalises like publicar_transparencia: Windows line ends and the edges", () => {
     expect(normalizarTexto("\r\nUno\r\nDos \n")).toBe("Uno\nDos")
+    // A lone carriage return is not one of the edges the database trims.
+    expect(normalizarTexto("Hola\r")).toBe("Hola\r")
   })
 
   it("counts characters as the database does, an emoji as one", () => {
     expect(largoDeTexto("\r\n  Hola  \r\n")).toBe(4)
     expect(largoDeTexto("🙂")).toBe(1)
+    expect(largoDeTexto("\tHola\t")).toBe(4)
   })
 
   it("splits paragraphs on blank lines and keeps single line breaks inside one", () => {

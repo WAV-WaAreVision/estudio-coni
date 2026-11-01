@@ -19,7 +19,10 @@ export interface VersionesDeTransparencia {
   historial: VersionDeTransparencia[]
 }
 
-/** Ajustes › Página de IA, with Coni's session. */
+/**
+ * Ajustes › Página de IA, with Coni's session. RLS lets only Coni and WAV read the versions, so any other user gets
+ * empty results rather than an error: the page checks the role before calling this.
+ */
 export async function leerVersionesDeTransparencia(db: SupabaseClient<Database>): Promise<VersionesDeTransparencia> {
   const { data, error } = await db
     .from("transparencia_versiones")

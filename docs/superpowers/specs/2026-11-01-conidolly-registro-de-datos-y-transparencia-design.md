@@ -93,7 +93,7 @@ New notice type `revision_de_inventario`. The migration rewrites `avisos_tipo_ch
   per night when they deleted something. A failed log insert does not undo the deletion: it is reported in the maintenance
   result like other step errors.
 - **Mismatch:** the register screen compares each row that has `regla_de_borrado` with `REGLAS_DE_BORRADO` and shows
-  "No coincide con lo que la app borra (N días)". A unit test asserts the seed matches the rules.
+  "No coincide con lo que la app borra (N días)". An integration test asserts the seed matches the rules.
 
 ## Yearly review
 

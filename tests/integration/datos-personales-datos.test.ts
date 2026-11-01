@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { unAnioDespues } from "@/lib/datos-personales/fechas"
 import { leerRegistroDeDatos } from "@/lib/datos-personales/leer"
 import type { Database } from "@/lib/supabase/database.types"
@@ -8,13 +8,17 @@ import { clienteDeConi } from "./sesion-coni"
 
 let coni: SupabaseClient<Database>
 
+async function limpiar() {
+  await pool.query("delete from public.registro_de_borrados where borrado_en >= '2031-01-01'")
+  await pool.query("delete from public.revisiones_de_inventario")
+}
+
 beforeAll(async () => {
   coni = await clienteDeConi()
 })
-afterEach(async () => {
-  await pool.query("delete from public.registro_de_borrados where borrado_en >= '2031-01-01'")
-  await pool.query("delete from public.revisiones_de_inventario")
-})
+// Before as well as after: a run that died halfway must not leave rows that the next one would read as its own.
+beforeEach(limpiar)
+afterEach(limpiar)
 afterAll(() => pool.end())
 
 describe("leerRegistroDeDatos", () => {

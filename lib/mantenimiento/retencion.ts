@@ -15,7 +15,7 @@ export interface DepsRetencion {
 }
 
 const DIA_MS = 86_400_000
-/** Design D5: files of published and discarded pieces are kept for 30 days (the number lives in REGLAS_DE_BORRADO). */
+/** Design D5: how long files of published and discarded pieces are kept is `REGLAS_DE_BORRADO.videos_de_piezas`. */
 const DIAS_DE_RETENCION = REGLAS_DE_BORRADO.videos_de_piezas
 
 /**
@@ -37,7 +37,7 @@ async function archivosABorrar(fila: FilaDePieza, almacen: Almacen): Promise<str
   return [...new Set([...claves, ...tomas])]
 }
 
-/** Deletes the files of published and discarded pieces 30 days after they reached that state. */
+/** Deletes the files of published and discarded pieces `DIAS_DE_RETENCION` days after they reached that state. */
 export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: number; archivos: number }> {
   const ahora = Date.parse(deps.ahora())
   // A published or discarded piece is not written to again, so its last write is when it reached the state.
