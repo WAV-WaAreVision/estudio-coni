@@ -64,10 +64,11 @@ export async function guardarLecturaDeReel(db: Db, lectura: LecturaDeReel): Prom
   if (error) throw fallo("No pude guardar las métricas del reel", error)
 }
 
-/** Deletes the click counter's visitor hashes from before `antesDe` (`2026-10-09`). */
-export async function olvidarVisitasDeClics(db: Db, antesDe: string): Promise<void> {
-  const { error } = await db.rpc("olvidar_visitas_clic", { p_antes_de: antesDe })
+/** Deletes the click counter's visitor hashes from before `antesDe` (`2026-10-09`) and returns how many went. */
+export async function olvidarVisitasDeClics(db: Db, antesDe: string): Promise<number> {
+  const { data, error } = await db.rpc("olvidar_visitas_clic", { p_antes_de: antesDe })
   if (error) throw fallo("No pude olvidar las visitas del contador", error)
+  return data
 }
 
 export async function guardarLecturaDeCuenta(db: Db, dia: string, toquesPerfil: number): Promise<void> {
