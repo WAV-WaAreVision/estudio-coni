@@ -10,6 +10,7 @@ import { AvisosDelCelular } from "./avisos-del-celular"
 import { BloqueDeEstado } from "./bloque-de-estado"
 import { CerrarSesion } from "./cerrar-sesion"
 import { EditorDeAjustes } from "./editor-de-ajustes"
+import { TusDatos } from "./tus-datos"
 
 export default async function Ajustes() {
   const { db } = await exigirConi()
@@ -60,6 +61,10 @@ export default async function Ajustes() {
             />
           }
         />
+      </div>
+
+      <div className="mt-10">
+        <TusDatos />
       </div>
 
       <div className="mt-6">
