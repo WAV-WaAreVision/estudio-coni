@@ -47,10 +47,11 @@ describe("transparencia_versiones", () => {
 
       await asumir(c, comoConi)
       await publicar(c, LARGO, "Primera versión")
+      await publicar(c, OTRO, "Agrego una línea")
       await comoAnonimo(c)
       const { rows } = await c.query<{ texto: string; creada_en: Date }>("select * from public.transparencia_vigente()")
       expect(rows).toHaveLength(1)
-      expect(rows[0]?.texto).toBe(LARGO)
+      expect(rows[0]?.texto).toBe(OTRO)
       expect(rows[0]?.creada_en).toBeInstanceOf(Date)
       expect(Object.keys(rows[0] ?? {}).sort()).toEqual(["creada_en", "texto"])
     })
@@ -100,7 +101,18 @@ describe("transparencia_versiones", () => {
       expect((await fallaCon(c, "select public.publicar_transparencia($1, '  ')", [LARGO])).message).toBe(
         "falta_motivo",
       )
+      const soloEspacios = await fallaCon(c, "select public.publicar_transparencia($1, $2)", [LARGO, "\t\n\r\n\t"])
+      expect(soloEspacios.message).toBe("falta_motivo")
+      const largo = await fallaCon(c, "select public.publicar_transparencia($1, $2)", [LARGO, "m".repeat(301)])
+      expect({ codigo: largo.code, mensaje: largo.message }).toEqual({ codigo: "22023", mensaje: "motivo_largo" })
       expect((await fallaCon(c, "select public.volver_a_transparencia(999)")).message).toBe("version_desconocida")
+    })
+  })
+
+  it("keeps WAV's draft out of going back, since it was never published", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.volver_a_transparencia(0)")
+      expect({ codigo: error.code, mensaje: error.message }).toEqual({ codigo: "22023", mensaje: "no_publicada" })
     })
   })
 

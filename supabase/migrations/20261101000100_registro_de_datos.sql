@@ -190,7 +190,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   -- The same normalisation as normalizarTexto in lib/transparencia/texto.ts, so the editor counts what is stored.
   v_texto text := btrim(replace(coalesce(p_texto, ''), E'\r\n', E'\n'), E' \t\n');
-  v_motivo text := btrim(coalesce(p_motivo, ''));
+  v_motivo text := btrim(coalesce(p_motivo, ''), E' \t\n\r');
   v_version integer;
 begin
   if not public.es_coni() then
@@ -199,8 +199,11 @@ begin
   if char_length(v_texto) not between 300 and 6000 then
     raise exception using errcode = '22023', message = 'texto_fuera_de_largo';
   end if;
-  if char_length(v_motivo) not between 3 and 300 then
+  if char_length(v_motivo) < 3 then
     raise exception using errcode = '22023', message = 'falta_motivo';
+  end if;
+  if char_length(v_motivo) > 300 then
+    raise exception using errcode = '22023', message = 'motivo_largo';
   end if;
   -- Two taps at once must not take the same number.
   lock table public.transparencia_versiones in share row exclusive mode;
@@ -215,13 +218,18 @@ create function public.volver_a_transparencia(p_version integer) returns integer
 language plpgsql security definer set search_path = '' as $$
 declare
   v_texto text;
+  v_propuesta boolean;
 begin
   if not public.es_coni() then
     raise exception using errcode = '42501', message = 'solo_coni_publica';
   end if;
-  select texto into v_texto from public.transparencia_versiones where version = p_version;
+  select texto, propuesta into v_texto, v_propuesta from public.transparencia_versiones where version = p_version;
   if not found then
     raise exception using errcode = '22023', message = 'version_desconocida';
+  end if;
+  -- WAV's draft was never on the page, so there is nothing to go back to.
+  if v_propuesta then
+    raise exception using errcode = '22023', message = 'no_publicada';
   end if;
   return public.publicar_transparencia(v_texto, format('Volví a la versión %s', p_version));
 end $$;
