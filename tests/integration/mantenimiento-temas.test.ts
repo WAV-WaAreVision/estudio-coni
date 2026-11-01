@@ -270,6 +270,7 @@ describe("maintenance runs", () => {
       ...base(),
       almacen: almacenEnMemoria(),
       volcarBase: async () => new Uint8Array([1, 2, 3]),
+      anotarBorrado: async () => {},
       temas: async () => deps(),
     })
 

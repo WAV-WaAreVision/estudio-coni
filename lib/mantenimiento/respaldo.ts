@@ -1,3 +1,4 @@
+import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -8,6 +9,8 @@ export interface DepsRespaldo {
   ahora: () => string
   /** The gzipped `pg_dump` of the database (`volcarConPgDump` in production). */
   volcarBase: () => Promise<Uint8Array>
+  /** The deletion log (`registro_de_borrados`). */
+  anotarBorrado: AnotarBorrado
 }
 
 export type ResultadoRespaldo =
@@ -77,17 +80,24 @@ export async function respaldarBase(deps: DepsRespaldo): Promise<ResultadoRespal
 
   // Older than the history: dated keys only, whatever else lives under the prefix stays.
   const corte = fechaEnSantiago(ahora - DIAS_DE_HISTORIA * DIA_MS)
+  let borrados = 0
   for (const objeto of existentes) {
     const fecha = fechaDe(objeto.clave)
-    if (fecha !== null && fecha < corte) await deps.almacen.borrar(objeto.clave)
+    if (fecha !== null && fecha < corte) {
+      await deps.almacen.borrar(objeto.clave)
+      borrados += 1
+    }
   }
 
+  let resultado: ResultadoRespaldo = { estado: "guardado", clave, bytes: volcado.byteLength }
   if (anterior && volcado.byteLength < anterior.bytes * PROPORCION_MINIMA) {
     await deps.avisos.aWav(
       "El respaldo de la base pesa mucho menos que el anterior",
       `El volcado del ${hoy} pesa ${volcado.byteLength} bytes y el del ${anterior.fecha} pesaba ${anterior.bytes}: menos del 80 %.`,
     )
-    return { estado: "mas_chico", clave, bytes: volcado.byteLength }
+    resultado = { estado: "mas_chico", clave, bytes: volcado.byteLength }
   }
-  return { estado: "guardado", clave, bytes: volcado.byteLength }
+  // Last, so a failed log fails the step after the backup and its alerts are done; the deletion stands.
+  if (borrados > 0) await deps.anotarBorrado("respaldos", borrados)
+  return resultado
 }

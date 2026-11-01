@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { actualizarPieza, type FilaDePieza, leerPiezasParaRetencion } from "@/lib/datos/repositorio"
+import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
@@ -9,6 +10,8 @@ export interface DepsRetencion {
   db: SupabaseClient<Database>
   almacen: Almacen
   ahora: () => string
+  /** The deletion log (`registro_de_borrados`). */
+  anotarBorrado: AnotarBorrado
 }
 
 const DIA_MS = 86_400_000
@@ -56,6 +59,15 @@ export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: n
     } catch (error) {
       if (!(error instanceof Error)) throw error
       // One bad piece must not stop the rest, night after night.
+      errores.push(error)
+    }
+  }
+  if (archivos > 0) {
+    try {
+      await deps.anotarBorrado("videos_de_piezas", archivos)
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      // The files are gone either way: the night fails so WAV hears that the log is missing a row.
       errores.push(error)
     }
   }

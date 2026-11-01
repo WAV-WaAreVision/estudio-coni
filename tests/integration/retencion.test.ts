@@ -8,6 +8,7 @@ import { clienteDeServicio } from "./servicio"
 afterAll(() => pool.end())
 
 const DIA = 86_400_000
+const sinAnotar = async () => {}
 const piezasCreadas: string[] = []
 
 function dentroDe(dias: number): () => string {
@@ -64,7 +65,12 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    const resultado = await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })
+    const resultado = await aplicarRetencion({
+      db: clienteDeServicio(),
+      almacen,
+      anotarBorrado: sinAnotar,
+      ahora: dentroDe(31),
+    })
 
     expect(resultado).toEqual({ piezas: 1, archivos: 1 })
     expect(almacen.claves()).toEqual([p.audio])
@@ -76,7 +82,9 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(29) })).toEqual({
+    expect(
+      await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(29) }),
+    ).toEqual({
       piezas: 0,
       archivos: 0,
     })
@@ -90,7 +98,9 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })).toEqual({
+    expect(
+      await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(31) }),
+    ).toEqual({
       piezas: 1,
       archivos: 2,
     })
@@ -105,7 +115,7 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video, ...tomas, otra.audio)
 
-    await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })
+    await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(31) })
 
     expect(almacen.claves().filter((clave) => clave.includes(p.id))).toEqual([])
     expect(almacen.claves()).toContain(otra.audio)
@@ -116,7 +126,9 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })).toEqual({
+    expect(
+      await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(31) }),
+    ).toEqual({
       piezas: 1,
       archivos: 1,
     })
@@ -129,7 +141,9 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(400) })).toEqual({
+    expect(
+      await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(400) }),
+    ).toEqual({
       piezas: 0,
       archivos: 0,
     })
@@ -142,7 +156,9 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.audio, p.video)
 
-    expect(await aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(400) })).toEqual({
+    expect(
+      await aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(400) }),
+    ).toEqual({
       piezas: 0,
       archivos: 0,
     })
@@ -154,7 +170,7 @@ describe("aplicarRetencion", () => {
     const p = await pieza("publicado")
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, p.video)
-    const deps = { db: clienteDeServicio(), almacen, ahora: dentroDe(31) }
+    const deps = { db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(31) }
 
     await aplicarRetencion(deps)
     expect(await aplicarRetencion(deps)).toEqual({ piezas: 0, archivos: 0 })
@@ -167,10 +183,66 @@ describe("aplicarRetencion", () => {
     const almacen = almacenEnMemoria()
     await conArchivos(almacen, otra)
 
-    await expect(aplicarRetencion({ db: clienteDeServicio(), almacen, ahora: dentroDe(31) })).rejects.toThrow(
-      /no pertenece/,
-    )
+    await expect(
+      aplicarRetencion({ db: clienteDeServicio(), almacen, anotarBorrado: sinAnotar, ahora: dentroDe(31) }),
+    ).rejects.toThrow(/no pertenece/)
 
     expect(almacen.claves()).toEqual([otra])
+  })
+
+  it("writes down how many files it deleted under the videos_de_piezas rule", async () => {
+    const p = await pieza("video_por_aprobar", "descartado")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+    const anotados: [string, number][] = []
+
+    await aplicarRetencion({
+      db: clienteDeServicio(),
+      almacen,
+      anotarBorrado: async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+      ahora: dentroDe(31),
+    })
+
+    expect(anotados).toEqual([["videos_de_piezas", 2]])
+  })
+
+  it("writes nothing down on a night with nothing to delete", async () => {
+    const p = await pieza("publicado")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+    const anotados: [string, number][] = []
+
+    await aplicarRetencion({
+      db: clienteDeServicio(),
+      almacen,
+      anotarBorrado: async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+      ahora: dentroDe(29),
+    })
+
+    expect(anotados).toEqual([])
+  })
+
+  it("keeps the deleted files and fails the step when the log cannot be written", async () => {
+    const p = await pieza("publicado")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+
+    await expect(
+      aplicarRetencion({
+        db: clienteDeServicio(),
+        almacen,
+        anotarBorrado: async () => {
+          throw new Error("No pude anotar el borrado de videos_de_piezas: sin conexión")
+        },
+        ahora: dentroDe(31),
+      }),
+    ).rejects.toThrow(/sin conexión/)
+
+    expect(almacen.claves()).toEqual([p.audio])
+    expect(await borradoEn(p.id)).not.toBeNull()
   })
 })

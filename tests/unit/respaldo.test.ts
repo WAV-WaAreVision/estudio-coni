@@ -1,15 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
+import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { respaldarBase } from "@/lib/mantenimiento/respaldo"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 
 const AHORA = "2031-03-14T12:00:00.000Z"
 
-function doble(volcado: () => Promise<Uint8Array>, ahora = AHORA) {
+function doble(volcado: () => Promise<Uint8Array>, ahora = AHORA, anotarBorrado: AnotarBorrado = async () => {}) {
   const almacen = almacenEnMemoria()
   const avisos = notificadorEnMemoria()
-  return { deps: { almacen, avisos, ahora: () => ahora, volcarBase: volcado }, almacen, avisos }
+  return { deps: { almacen, avisos, ahora: () => ahora, volcarBase: volcado, anotarBorrado }, almacen, avisos }
 }
 
 const bytes = (n: number) => new Uint8Array(n).fill(7)
@@ -113,5 +114,54 @@ describe("respaldarBase", () => {
     await respaldarBase(deps)
 
     expect(almacen.claves()).toContain("respaldos/LEEME.txt")
+  })
+
+  it("writes down how many old backups it deleted under the respaldos rule", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-11", 1000)
+    await previo(almacen, "2031-03-13", 1000)
+
+    await respaldarBase(deps)
+
+    expect(anotados).toEqual([["respaldos", 2]])
+  })
+
+  it("writes nothing down on a night that deleted no backup", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-03-13", 1000)
+
+    await respaldarBase(deps)
+
+    expect(anotados).toEqual([])
+  })
+
+  it("keeps the deletion and fails the step when the log cannot be written", async () => {
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async () => {
+        throw new Error("No pude anotar el borrado de respaldos: sin conexión")
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+
+    await expect(respaldarBase(deps)).rejects.toThrow("sin conexión")
+
+    expect(almacen.claves()).toEqual(["respaldos/2031-03-14.sql.gz"])
   })
 })
