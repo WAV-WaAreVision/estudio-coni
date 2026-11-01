@@ -85,8 +85,19 @@ first. Line numbers point to `pedido-original.md`.
 - Depends: 29-2, 12, 5, 15, 3, 17, 7. Blocks 24, 19, 7.
 - Sensitive: patient declaration moves from per material to per batch; Bearer entry without session; **SSRF** on arbitrary
   URL download; new providers; ~20 new columns; **do not apply** `pendientes/20261003000350_borrar_vinculos.sql`.
-- Open: **Reposts spec lives in an external artifact not included**; SHA-256 of 2 GB files in the browser; legal basis of
-  "private study use"; behaviour before 12 exists.
+- Reposts spec: `reposts-original.md` (received 2026-11-01). Five pieces: upload-only keys with a panel, `POST
+  /api/entrada/reposts`, iPhone Shortcut, "Reposts" tray, `instagram_repost` material (caption + slides + audio as one).
+  Nothing is processed or spent until Coni picks it in the tray. Stages: keys and endpoint → Shortcut with 10 real posts →
+  tray → processing → per-1,000 metrics.
+- Reconcile with the main request: the spec says `llaves_entrada`, `/api/entrada/reposts` and `instagram_repost`; change 8
+  says `llaves`, `/api/entrada` and `post_instagram`. One key table and one type. The tray belongs in the Biblioteca of
+  Conidolly once 29 stage 2 is done, not in Ingesta.
+- **Upload path must change**: the spec sends files (up to 25 MB images, 300 MB video) through a Next.js route, but Vercel
+  limits request bodies to 4.5 MB. Use signed R2 upload URLs, as Ingesta already does.
+- HEIC from the iPhone must be converted before Claude reads the slides.
+- Open: SHA-256 of 2 GB files in the browser; legal basis of "private study use" (spec cites Ley 17.336 art. 71 B as
+  orientation); behaviour before 12 exists; 8 checks on Coni's phone before stage 2 (does Repost give the original caption
+  and @account, watermark on the free plan, videos in the camera roll, Shortcuts with videos over 50 MB).
 
 ### 24 · Research and classify · XL (L.4203)
 - "Investigar" screen with suggested briefs (gaps, map edges, empty pillars, lopsided debates). Anthropic web search with

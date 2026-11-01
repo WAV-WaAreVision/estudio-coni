@@ -17,7 +17,7 @@ providers or tests; each spec confirms the ones it needs before writing code. Ma
 | A8 | **Identity.** Prompts and manuals drop "sexóloga"; signature becomes "Soy Constanza del Rosario." | 7, 18, 21 | Coni decided on 30-10; confirm that the drop of "sexóloga" is intended. | Open |
 | A9 | **LinkedIn company page** for Thought Leader Ads. | 20 | Only needed for ads (phase 1+ of 20). | Open |
 | A10 | **Emotion list** for tags. | 6 | Coni has to define it. | Open |
-| A11 | **Reposts spec**: lives in an external artifact not included in the request. | 8 | Ask Coni for the document before planning 8. | Open |
+| A11 | **Reposts spec**: lives in an external artifact not included in the request. | 8 | Received 2026-11-01 as `reposts-original.md`. Still open: the 8 checks on Coni's phone listed in its last section. | Closed 2026-11-01 |
 | A12 | **Order and scope.** Accept the phases in `fases.md`, or Coni's order. Which changes are out for now (candidates: 20 phases 1–3, 19 projects, 24 watch). | all | ~6–9 months for one developer. | Open |
 
 ## B. To confirm (providers and tests)
