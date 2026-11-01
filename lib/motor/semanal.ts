@@ -24,7 +24,7 @@ import {
   type TeoriaDelMotor,
 } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
-import type { Database } from "@/lib/supabase/database.types"
+import type { Database, Json } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
 
@@ -451,16 +451,11 @@ function llegoAlLimite(trabajo: Trabajo): boolean {
   return trabajo.resumen.lotesFallidos.some((lote) => lote.error === TEXTO_LIMITE)
 }
 
-/**
- * Works the week and closes its run either way: failed with the Spanish motive, or ready with its summary. The limit
- * notice goes before the run is closed: a notice that fails closes it as failed, which a retry takes over (`retomar`)
- * and notices again. Closed first as `lista`, a retry would answer `ya_corrio` and Coni would never hear it.
- */
+/** Works the week and closes its run either way: failed with the Spanish motive, or ready with its summary. */
 async function trabajarYCerrar(deps: DepsDelMotor, semana: string, manual: boolean): Promise<Trabajo> {
   const { db } = deps
   try {
     const r = await trabajar(deps, semana)
-    if (llegoAlLimite(r)) await avisarLimite(deps, deps.ahora())
     if (r.resultado === "fallida") {
       await terminar(db, semana, { estado: "fallida", motivo_fallo: r.motivo }, deps.ahora())
     } else {
@@ -478,12 +473,39 @@ async function trabajarYCerrar(deps: DepsDelMotor, semana: string, manual: boole
   }
 }
 
+const esObjeto = (valor: Json | undefined): valor is { [clave: string]: Json | undefined } =>
+  typeof valor === "object" && valor !== null && !Array.isArray(valor)
+
+/** A closed run's summary with a batch the limit stopped: the notice of that run may not have gone out. */
+function resumenLlegoAlLimite(resumen: Json | null): boolean {
+  const valor = resumen ?? undefined
+  if (!esObjeto(valor)) return false
+  const lotes = valor.lotesFallidos
+  return Array.isArray(lotes) && lotes.some((lote) => esObjeto(lote) && lote.error === TEXTO_LIMITE)
+}
+
+/**
+ * The week already ran. If the limit stopped part of it, the notice of that run may have failed after the run was
+ * closed (a retry lands here): it goes again, deduped by its monthly key, dated by the run so a retry past midnight
+ * at the end of the month keeps the run's month.
+ */
+async function avisarLimiteDeUnaCorridaCerrada(deps: DepsDelMotor, semana: string): Promise<void> {
+  const { data, error } = await deps.db
+    .from("motor_corridas")
+    .select("resumen, terminada_en")
+    .eq("semana", semana)
+    .maybeSingle()
+  if (error) throw falloDeBase("No pude leer la corrida del motor", error)
+  if (data?.terminada_en && resumenLlegoAlLimite(data.resumen)) await avisarLimite(deps, data.terminada_en)
+}
+
 /**
  * The Sunday run: scores crossings, asks Claude for theories and ideas, validates the backing and fills the bank.
  * One run per week (`motor_corridas.semana` is unique). Turned off in Ajustes › Presupuesto, the Sunday run is skipped
  * before it registers anything; «Proponer ahora» (manual) is Coni asking and always runs. Reaching the limit closes the
- * run as failed without throwing and tells Coni; any other error closes it as failed and propagates so the scheduled
- * task alerts WAV.
+ * run as failed without throwing and tells Coni, also when it stopped only some batches; a notice that fails
+ * propagates (the task alerts WAV) and the retry sends it again. Any other error closes the run as failed and
+ * propagates so the scheduled task alerts WAV.
  */
 export async function correrMotor(
   deps: DepsDelMotor,
@@ -494,10 +516,16 @@ export async function correrMotor(
   if (!manual && !(await leerInterruptores(db)).motorSemanal) return { resultado: "apagado" }
   const { error } = await db.from("motor_corridas").insert({ semana, estado: "corriendo" })
   if (error?.code === UNIQUE_VIOLATION) {
-    if (!(await retomar(deps, semana))) return { resultado: "ya_corrio" }
+    if (!(await retomar(deps, semana))) {
+      await avisarLimiteDeUnaCorridaCerrada(deps, semana)
+      return { resultado: "ya_corrio" }
+    }
   } else if (error) throw falloDeBase("No pude registrar la corrida del motor", error)
 
   const r = await trabajarYCerrar(deps, semana, manual)
+  // After the run is closed, so a failed notice never makes a retry redo the run and drop its paid ideas: a failed
+  // run is taken over by `retomar` and notices again; a ready one answers `ya_corrio` and notices from its summary.
+  if (llegoAlLimite(r)) await avisarLimite(deps, deps.ahora())
   return r.resultado === "fallida"
     ? { resultado: "fallida", motivo: r.motivo }
     : { resultado: "lista", resumen: r.resumen }

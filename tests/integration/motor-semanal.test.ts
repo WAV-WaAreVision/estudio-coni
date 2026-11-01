@@ -121,7 +121,13 @@ interface Pedido {
 }
 
 function simularClaude(
-  opciones: { nada?: (indice: number) => boolean; estado?: number; fallaLlamada?: (llamada: number) => boolean } = {},
+  opciones: {
+    nada?: (indice: number) => boolean
+    estado?: number
+    fallaLlamada?: (llamada: number) => boolean
+    /** Runs inside the call, after its spend was reserved and before it is confirmed. */
+    alLlamar?: (llamada: number) => Promise<unknown>
+  } = {},
 ) {
   const registro = { llamadas: 0, cruces: [] as CruceEnviado[], lotes: [] as CruceEnviado[][], usuario: "" }
   servidor.use(
@@ -131,6 +137,7 @@ function simularClaude(
       const cuerpo = await request.json()
       const usuario = cuerpo.messages[0]?.content ?? ""
       registro.llamadas += 1
+      await opciones.alLlamar?.(registro.llamadas)
       if (opciones.fallaLlamada?.(registro.llamadas))
         return HttpResponse.json({ error: { type: "api_error", message: "x" } }, { status: 500 })
       registro.usuario = usuario
@@ -564,6 +571,55 @@ describe("correrMotor", () => {
     expect(await corrida()).toMatchObject({ estado: "fallida", motivo_fallo: TEXTO_LIMITE })
     expect(await contar("select count(*) as n from public.ideas where origen = 'motor'")).toBe(0)
     expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+  })
+
+  describe("when the limit fits the first batch but not the second", () => {
+    let tope = "100"
+    beforeEach(async () => {
+      const { rows } = await pool.query<{ t: string }>("select tope_mensual_usd::text as t from public.ajustes")
+      tope = rows[0]?.t ?? "100"
+    })
+    afterEach(() => pool.query("update public.ajustes set tope_mensual_usd = $1, limite_duro_usd = null", [tope]))
+    // Batch 1 is already reserved when Claude answers it: dropping the cap then leaves no room for batch 2 or 3.
+    const limiteTrasElPrimerLote = (llamada: number) =>
+      llamada === 1 ? pool.query("update public.ajustes set tope_mensual_usd = 0.00001") : Promise.resolve()
+    const ideasDelMotor = () => contar("select count(*) as n from public.ideas where origen = 'motor'")
+
+    it("keeps the run ready with the first batch's ideas and tells Coni once", async () => {
+      await ochoTemas()
+      const claude = simularClaude({ alLlamar: limiteTrasElPrimerLote })
+      const avisos = notificadorEnMemoria()
+
+      const r = await correrMotor(deps(avisos), { semana: SEMANA, manual: false })
+
+      expect(r.resultado).toBe("lista")
+      expect(claude.llamadas).toBe(1)
+      expect((await corrida())?.estado).toBe("lista")
+      expect(await ideasDelMotor()).toBeGreaterThan(0)
+      expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+    })
+
+    it("keeps the paid ideas when the notice fails, and the retry tells Coni without redoing the run", async () => {
+      await ochoTemas()
+      simularClaude({ alLlamar: limiteTrasElPrimerLote })
+      const fallido = notificadorEnMemoria()
+
+      await expect(
+        correrMotor(
+          { ...deps(fallido), avisos: { ...fallido, aConi: () => Promise.reject(new Error("push caído")) } },
+          { semana: SEMANA, manual: false },
+        ),
+      ).rejects.toThrow("push caído")
+
+      expect((await corrida())?.estado).toBe("lista")
+      const ideas = await ideasDelMotor()
+      expect(ideas).toBeGreaterThan(0)
+
+      const avisos = notificadorEnMemoria()
+      expect(await correrMotor(deps(avisos), { semana: SEMANA, manual: false })).toEqual({ resultado: "ya_corrio" })
+      expect(await ideasDelMotor()).toBe(ideas)
+      expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+    })
   })
 
   it("leaves the run to a retry that tells Coni when the limit notice fails", async () => {
