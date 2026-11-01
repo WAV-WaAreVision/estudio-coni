@@ -68,6 +68,15 @@ describe("inventario_de_datos", () => {
     })
   })
 
+  it("does not let WAV remove a row that has a deletion rule, so it cannot come back without it", async () => {
+    await como(comoMantenedor, async (c) => {
+      expect((await c.query("delete from public.inventario_de_datos where clave = 'respaldos'")).rowCount).toBe(0)
+      const quedan = await c.query("select 1 from public.inventario_de_datos where clave = 'respaldos'")
+      expect(quedan.rowCount).toBe(1)
+      expect((await c.query("delete from public.inventario_de_datos where clave = 'rostro_de_coni'")).rowCount).toBe(1)
+    })
+  })
+
   it("does not let Coni or anybody else change it", async () => {
     for (const sesion of [comoConi, comoOtra]) {
       await como(sesion, async (c) => {
@@ -114,15 +123,15 @@ describe("registro_de_borrados", () => {
 
   it("lets Coni and WAV read it and hides it from anybody else", async () => {
     await como(comoPostgres, async (c) => {
-      await c.query("delete from public.registro_de_borrados")
-      await c.query(ANOTAR)
+      await c.query("insert into public.registro_de_borrados (regla, cantidad) values ('prueba_lectura', 1)")
       for (const [sesion, filas] of [
         [comoConi, 1],
         [comoMantenedor, 1],
         [comoOtra, 0],
       ] as const) {
         await asumir(c, sesion)
-        expect((await c.query("select * from public.registro_de_borrados")).rowCount).toBe(filas)
+        const leidas = await c.query("select 1 from public.registro_de_borrados where regla = 'prueba_lectura'")
+        expect(leidas.rowCount).toBe(filas)
       }
     })
   })
@@ -168,6 +177,34 @@ describe("marcar_inventario_revisado", () => {
     })
   })
 
+  it("leaves notices of other kinds and already read yearly notices as they were", async () => {
+    const sufijo = Date.now()
+    const yaLeido = new Date("2026-01-01T12:00:00Z")
+    await como(comoPostgres, async (c) => {
+      await c.query(
+        "insert into public.avisos (tipo, clave, mensaje) values ('publicado', $1, 'Tu reel ya está publicado.')",
+        [`publicado:prueba-${sufijo}`],
+      )
+      await c.query(
+        "insert into public.avisos (tipo, clave, mensaje, leido_en) values ('revision_de_inventario', $1, 'Te toca revisar tu registro.', $2)",
+        [`revision_de_inventario:leido-${sufijo}`, yaLeido],
+      )
+
+      await asumir(c, comoConi)
+      await c.query("select public.marcar_inventario_revisado()")
+
+      await asumir(c, comoPostgres)
+      const otro = await c.query<{ leido_en: Date | null }>("select leido_en from public.avisos where clave = $1", [
+        `publicado:prueba-${sufijo}`,
+      ])
+      expect(otro.rows[0]?.leido_en).toBeNull()
+      const leido = await c.query<{ leido_en: Date | null }>("select leido_en from public.avisos where clave = $1", [
+        `revision_de_inventario:leido-${sufijo}`,
+      ])
+      expect(leido.rows[0]?.leido_en).toEqual(yaLeido)
+    })
+  })
+
   it("does not let WAV or anybody else mark it, nor anyone write a review directly", async () => {
     for (const sesion of [comoMantenedor, comoOtra]) {
       await como(sesion, async (c) => {
@@ -183,8 +220,21 @@ describe("marcar_inventario_revisado", () => {
 
 describe("ajustes for the yearly review", () => {
   it("starts the register on the day of the migration", async () => {
-    const { rows } = await pool.query<{ inventario_desde: Date | null }>("select inventario_desde from public.ajustes")
-    expect(rows[0]?.inventario_desde).toBeInstanceOf(Date)
+    const { rows } = await pool.query<{ al_dia: boolean | null }>(
+      "select inventario_desde <= current_date as al_dia from public.ajustes",
+    )
+    expect(rows[0]?.al_dia).toBe(true)
+  })
+})
+
+describe("the three new tables as anon", () => {
+  it("are closed to anybody not signed in", async () => {
+    for (const tabla of ["inventario_de_datos", "registro_de_borrados", "revisiones_de_inventario"]) {
+      await como(comoPostgres, async (c) => {
+        await c.query("set local role anon")
+        expect((await fallaCon(c, `select 1 from public.${tabla}`)).message).toMatch(/permission denied/)
+      })
+    }
   })
 })
 

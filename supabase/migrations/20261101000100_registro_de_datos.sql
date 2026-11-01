@@ -39,8 +39,9 @@ create policy "wav agrega al inventario" on public.inventario_de_datos for inser
   with check (public.es_mantenedor());
 create policy "wav corrige el inventario" on public.inventario_de_datos for update to authenticated
   using (public.es_mantenedor()) with check (public.es_mantenedor());
+-- A row with a deletion rule stays: removing and re-adding it would hide a real rule from Coni (D4).
 create policy "wav quita del inventario" on public.inventario_de_datos for delete to authenticated
-  using (public.es_mantenedor());
+  using (public.es_mantenedor() and regla_de_borrado is null);
 revoke all on public.inventario_de_datos from anon;
 revoke insert, update, delete, truncate on public.inventario_de_datos from authenticated;
 grant select, delete on public.inventario_de_datos to authenticated;
