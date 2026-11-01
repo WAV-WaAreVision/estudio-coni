@@ -48,14 +48,17 @@ export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: n
   for (const fila of filas) {
     try {
       const claves = await archivosABorrar(fila, deps.almacen)
-      for (const clave of claves) await deps.almacen.borrar(clave)
+      for (const clave of claves) {
+        await deps.almacen.borrar(clave)
+        // Counted one by one: a store failing halfway still leaves the earlier files gone, and the log must say so.
+        archivos += 1
+      }
       const marcada = await actualizarPieza(deps.db, fila.id, fila.version, {
         archivos_borrados_en: new Date(ahora).toISOString(),
         version: fila.version + 1,
       })
       // Null: the piece changed in the meantime. Its files are already gone; the next night marks it.
       if (marcada) piezas += 1
-      archivos += claves.length
     } catch (error) {
       if (!(error instanceof Error)) throw error
       // One bad piece must not stop the rest, night after night.

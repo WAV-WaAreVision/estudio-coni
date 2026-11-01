@@ -245,4 +245,58 @@ describe("aplicarRetencion", () => {
     expect(almacen.claves()).toEqual([p.audio])
     expect(await borradoEn(p.id)).not.toBeNull()
   })
+
+  it("writes down only the files it really deleted when the store fails halfway through a piece", async () => {
+    const p = await pieza("video_por_aprobar", "descartado")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, p.audio, p.video)
+    let intentos = 0
+    const quebradizo = {
+      ...almacen,
+      async borrar(clave: string) {
+        intentos += 1
+        if (intentos === 2) throw new Error("R2 no responde")
+        await almacen.borrar(clave)
+      },
+    }
+    const anotados: [string, number][] = []
+
+    await expect(
+      aplicarRetencion({
+        db: clienteDeServicio(),
+        almacen: quebradizo,
+        anotarBorrado: async (regla, cantidad) => {
+          anotados.push([regla, cantidad])
+        },
+        ahora: dentroDe(31),
+      }),
+    ).rejects.toThrow(/R2 no responde/)
+
+    expect(anotados).toEqual([["videos_de_piezas", 1]])
+    expect(almacen.claves()).toHaveLength(1)
+  })
+
+  it("writes down the files of the good piece on a night another piece fails", async () => {
+    const mala = await pieza("publicado")
+    const ajeno = "videos/00000000-0000-4000-8000-000000000000/ajeno.mp4"
+    await pool.query("update public.piezas set video_id = $2, version = version + 1 where id = $1", [mala.id, ajeno])
+    const buena = await pieza("publicado")
+    const almacen = almacenEnMemoria()
+    await conArchivos(almacen, ajeno, buena.audio, buena.video)
+    const anotados: [string, number][] = []
+
+    await expect(
+      aplicarRetencion({
+        db: clienteDeServicio(),
+        almacen,
+        anotarBorrado: async (regla, cantidad) => {
+          anotados.push([regla, cantidad])
+        },
+        ahora: dentroDe(31),
+      }),
+    ).rejects.toThrow(/no pertenece/)
+
+    expect(anotados).toEqual([["videos_de_piezas", 1]])
+    expect(almacen.claves().sort()).toEqual([ajeno, buena.audio].sort())
+  })
 })

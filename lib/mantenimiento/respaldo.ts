@@ -81,12 +81,24 @@ export async function respaldarBase(deps: DepsRespaldo): Promise<ResultadoRespal
   // Older than the history: dated keys only, whatever else lives under the prefix stays.
   const corte = fechaEnSantiago(ahora - DIAS_DE_HISTORIA * DIA_MS)
   let borrados = 0
-  for (const objeto of existentes) {
-    const fecha = fechaDe(objeto.clave)
-    if (fecha !== null && fecha < corte) {
-      await deps.almacen.borrar(objeto.clave)
-      borrados += 1
+  try {
+    for (const objeto of existentes) {
+      const fecha = fechaDe(objeto.clave)
+      if (fecha !== null && fecha < corte) {
+        await deps.almacen.borrar(objeto.clave)
+        borrados += 1
+      }
     }
+  } catch (error) {
+    // What was already deleted stays deleted: write it down, then fail with the store's own error.
+    if (borrados > 0) {
+      try {
+        await deps.anotarBorrado("respaldos", borrados)
+      } catch (falloDelRegistro) {
+        throw new AggregateError([error, falloDelRegistro], "Falló el borrado de respaldos y también su registro.")
+      }
+    }
+    throw error
   }
 
   let resultado: ResultadoRespaldo = { estado: "guardado", clave, bytes: volcado.byteLength }

@@ -151,17 +151,46 @@ describe("respaldarBase", () => {
   })
 
   it("keeps the deletion and fails the step when the log cannot be written", async () => {
-    const { deps, almacen } = doble(
+    const { deps, almacen, avisos } = doble(
       async () => bytes(1000),
       AHORA,
       async () => {
         throw new Error("No pude anotar el borrado de respaldos: sin conexión")
       },
     )
-    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-01", 2000)
 
     await expect(respaldarBase(deps)).rejects.toThrow("sin conexión")
 
     expect(almacen.claves()).toEqual(["respaldos/2031-03-14.sql.gz"])
+    expect(avisos.aWavEnviados.map((aviso) => aviso.asunto)).toEqual([
+      "El respaldo de la base pesa mucho menos que el anterior",
+    ])
+  })
+
+  it("writes down the backups it deleted before the store failed, and fails with the store's error", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-02", 1000)
+    let intentos = 0
+    const quebradizo = {
+      ...almacen,
+      async borrar(clave: string) {
+        intentos += 1
+        if (intentos === 2) throw new Error("R2 no responde")
+        await almacen.borrar(clave)
+      },
+    }
+
+    await expect(respaldarBase({ ...deps, almacen: quebradizo })).rejects.toThrow("R2 no responde")
+
+    expect(anotados).toEqual([["respaldos", 1]])
   })
 })
