@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { actualizarPieza, type FilaDePieza, leerPiezasParaRetencion } from "@/lib/datos/repositorio"
+import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -11,8 +12,8 @@ export interface DepsRetencion {
 }
 
 const DIA_MS = 86_400_000
-/** Design D5: files of published and discarded pieces are kept for 30 days. */
-const DIAS_DE_RETENCION = 30
+/** Design D5: files of published and discarded pieces are kept for 30 days (the number lives in REGLAS_DE_BORRADO). */
+const DIAS_DE_RETENCION = REGLAS_DE_BORRADO.videos_de_piezas
 
 /**
  * The files a piece is allowed to lose: a published piece keeps its voice and loses its final video (design D5); a

@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest"
 import { TIPOS_DE_AVISO } from "@/lib/avisos/tipos"
+import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import {
   asumir,
   CONI,
@@ -246,5 +247,14 @@ describe("avisos_tipo_check", () => {
     const tipos = [...(rows[0]?.def ?? "").matchAll(/'([a-z0-9_]+)'::text/g)].map((m) => m[1])
     expect(tipos).toContain("revision_de_inventario")
     expect([...tipos].sort()).toEqual([...TIPOS_DE_AVISO].sort())
+  })
+})
+
+describe("the seeded register and the code", () => {
+  it("has one row per deletion rule, with the same days the code uses", async () => {
+    const { rows } = await pool.query<{ regla_de_borrado: string; plazo_dias: number }>(
+      "select regla_de_borrado, plazo_dias from public.inventario_de_datos where regla_de_borrado is not null",
+    )
+    expect(Object.fromEntries(rows.map((fila) => [fila.regla_de_borrado, fila.plazo_dias]))).toEqual(REGLAS_DE_BORRADO)
   })
 })

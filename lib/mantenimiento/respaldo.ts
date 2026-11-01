@@ -1,3 +1,4 @@
+import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Notificador } from "@/lib/proveedores/avisos"
 
@@ -17,7 +18,7 @@ export type ResultadoRespaldo =
 
 const PREFIJO = "respaldos/"
 const SUFIJO = ".sql.gz"
-const DIAS_DE_HISTORIA = 30
+const DIAS_DE_HISTORIA = REGLAS_DE_BORRADO.respaldos
 const DIA_MS = 86_400_000
 /** Design D6: a dump under 80% of the previous one is as suspicious as an empty one. */
 const PROPORCION_MINIMA = 0.8
