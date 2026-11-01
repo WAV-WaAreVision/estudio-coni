@@ -35,3 +35,10 @@ export async function clienteDeUsuario(correo: string): Promise<SupabaseClient<D
 
 export const clienteDeConi = () => clienteDeUsuario("coni@estudio.test")
 export const clienteDelMantenedor = () => clienteDeUsuario("wav@estudio.test")
+
+/** A client with the anon key and no session: what a visitor of a public page has. */
+export function clienteAnonimoDePrueba(): SupabaseClient<Database> {
+  return createClient<Database>(credencialesDeServicio().url, claveAnonima(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}

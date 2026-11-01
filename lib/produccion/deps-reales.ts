@@ -5,6 +5,7 @@ import type { DepsResumen } from "@/lib/avisos/resumen"
 import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
 import { renderizarCarrusel } from "@/lib/carrusel/render"
 import { leerSecreto } from "@/lib/datos/repositorio"
+import { anotadorDeBorrados } from "@/lib/datos-personales/borrados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 import { buscarFfmpegBasico } from "@/lib/ingesta/fotogramas"
@@ -228,11 +229,14 @@ export function depsResumen(): DepsResumen {
 
 /** The dependencies of the nightly run. A missing database URL is the backup's failure, and WAV is told by it. */
 export function depsNocturno(): DepsNocturno {
+  const db = clienteDeServicio()
+  const ahora = () => new Date().toISOString()
   return {
-    db: clienteDeServicio(),
+    db,
     almacen: almacenReal(),
     avisos: avisosReales(),
-    ahora: () => new Date().toISOString(),
+    ahora,
+    anotarBorrado: anotadorDeBorrados(db, ahora),
     volcarBase: () => volcarConPgDump(exigirEnv("RESPALDO_DB_URL", process.env.RESPALDO_DB_URL)),
     temas: depsTemas,
   }

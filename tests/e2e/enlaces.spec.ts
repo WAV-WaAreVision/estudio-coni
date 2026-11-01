@@ -65,7 +65,7 @@ test("the page needs no session, shows her name, the notice and only the links t
   await page.goto("/l")
 
   await expect(page).toHaveURL(/\/l$/)
-  await expect(page.getByRole("heading", { name: "Coni del Rosario", level: 1 })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Constanza del Rosario", level: 1 })).toBeVisible()
   await expect(page.getByText("Psicóloga clínica y sexóloga")).toBeVisible()
   await expect(
     page.getByText("Contenido educativo. No reemplaza una consulta. Algunos videos usan mi avatar digital."),

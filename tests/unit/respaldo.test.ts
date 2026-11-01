@@ -1,15 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
+import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
 import { respaldarBase } from "@/lib/mantenimiento/respaldo"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 
 const AHORA = "2031-03-14T12:00:00.000Z"
 
-function doble(volcado: () => Promise<Uint8Array>, ahora = AHORA) {
+function doble(volcado: () => Promise<Uint8Array>, ahora = AHORA, anotarBorrado: AnotarBorrado = async () => {}) {
   const almacen = almacenEnMemoria()
   const avisos = notificadorEnMemoria()
-  return { deps: { almacen, avisos, ahora: () => ahora, volcarBase: volcado }, almacen, avisos }
+  return { deps: { almacen, avisos, ahora: () => ahora, volcarBase: volcado, anotarBorrado }, almacen, avisos }
 }
 
 const bytes = (n: number) => new Uint8Array(n).fill(7)
@@ -113,5 +114,112 @@ describe("respaldarBase", () => {
     await respaldarBase(deps)
 
     expect(almacen.claves()).toContain("respaldos/LEEME.txt")
+  })
+
+  it("writes down how many old backups it deleted under the respaldos rule", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-11", 1000)
+    await previo(almacen, "2031-03-13", 1000)
+
+    await respaldarBase(deps)
+
+    expect(anotados).toEqual([["respaldos", 2]])
+  })
+
+  it("writes nothing down on a night that deleted no backup", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-03-13", 1000)
+
+    await respaldarBase(deps)
+
+    expect(anotados).toEqual([])
+  })
+
+  it("keeps the deletion and fails the step when the log cannot be written", async () => {
+    const { deps, almacen, avisos } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async () => {
+        throw new Error("No pude anotar el borrado de respaldos: sin conexión")
+      },
+    )
+    await previo(almacen, "2031-02-01", 2000)
+
+    await expect(respaldarBase(deps)).rejects.toThrow("sin conexión")
+
+    expect(almacen.claves()).toEqual(["respaldos/2031-03-14.sql.gz"])
+    expect(avisos.aWavEnviados.map((aviso) => aviso.asunto)).toEqual([
+      "El respaldo de la base pesa mucho menos que el anterior",
+    ])
+  })
+
+  it("writes down the backups it deleted before the store failed, and fails with the store's error", async () => {
+    const anotados: [string, number][] = []
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async (regla, cantidad) => {
+        anotados.push([regla, cantidad])
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-02", 1000)
+    let intentos = 0
+    const quebradizo = {
+      ...almacen,
+      async borrar(clave: string) {
+        intentos += 1
+        if (intentos === 2) throw new Error("R2 no responde")
+        await almacen.borrar(clave)
+      },
+    }
+
+    await expect(respaldarBase({ ...deps, almacen: quebradizo })).rejects.toThrow("R2 no responde")
+
+    expect(anotados).toEqual([["respaldos", 1]])
+  })
+
+  it("raises both errors together when the store fails and the log of what it already deleted fails too", async () => {
+    const { deps, almacen } = doble(
+      async () => bytes(1000),
+      AHORA,
+      async () => {
+        throw new Error("No pude anotar el borrado de respaldos: sin conexión")
+      },
+    )
+    await previo(almacen, "2031-02-01", 1000)
+    await previo(almacen, "2031-02-02", 1000)
+    let intentos = 0
+    const quebradizo = {
+      ...almacen,
+      async borrar(clave: string) {
+        intentos += 1
+        if (intentos === 2) throw new Error("R2 no responde")
+        await almacen.borrar(clave)
+      },
+    }
+
+    const fallo = respaldarBase({ ...deps, almacen: quebradizo })
+
+    await expect(fallo).rejects.toBeInstanceOf(AggregateError)
+    await expect(fallo).rejects.toMatchObject({
+      message: "Falló el borrado de respaldos y también su registro.",
+      errors: [{ message: "R2 no responde" }, { message: "No pude anotar el borrado de respaldos: sin conexión" }],
+    })
   })
 })

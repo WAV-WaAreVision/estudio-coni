@@ -20,7 +20,7 @@ export const CONFIGURACION_FRECUENTE = {
   retry: { maxAttempts: 1 },
 } as const
 
-/** 03:00 in Chile whatever the daylight saving time (design Q4): file retention, Instagram's token, the backup and the merges of topics. */
+/** 03:00 in Chile whatever the daylight saving time (design Q4): file retention, Instagram's token, the backup, the visitor hashes of /l, the yearly review of the data register and the merges of topics. */
 export const CONFIGURACION_NOCTURNA = {
   id: "mantenimiento-nocturno",
   cron: { pattern: "0 3 * * *", timezone: "America/Santiago" },

@@ -221,10 +221,10 @@ describe("registrarMetricasDiarias", () => {
     expect(pedidos.filter((url) => url.searchParams.get("metric") === "profile_links_taps")).toEqual([])
   })
 
-  it("forgets the click visitors from before yesterday, even if nobody clicked since", async () => {
+  it("leaves the old click visitors to the nightly huella step", async () => {
     await pool.query(
       `insert into public.visitas_clic (dia, enlace, visitante) values
-         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-08', 'agenda', repeat('b', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
+         ('2026-10-07', 'agenda', repeat('a', 64)), ('2026-10-09', 'agenda', repeat('c', 64))`,
     )
     simularInsights({ medias: {} })
 
@@ -233,7 +233,7 @@ describe("registrarMetricasDiarias", () => {
     const { rows } = await pool.query<{ dia: string }>(
       "select to_char(dia, 'YYYY-MM-DD') as dia from public.visitas_clic order by dia",
     )
-    expect(rows.map((r) => r.dia)).toEqual(["2026-10-08", "2026-10-09"])
+    expect(rows.map((r) => r.dia)).toEqual(["2026-10-07", "2026-10-09"])
   })
 
   it("does nothing while Instagram is not connected", async () => {

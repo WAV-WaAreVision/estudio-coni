@@ -7,9 +7,10 @@ const patron = new RegExp(`^${config.matcher[0]}$`)
 const pasaPorElProxy = (ruta: string) => patron.test(ruta)
 
 describe("matcher del proxy", () => {
-  it("leaves the public page and its redirect out: no session is read for them", () => {
+  it("leaves the public pages and the redirect out: no session is read for them", () => {
     expect(pasaPorElProxy("/l")).toBe(false)
     expect(pasaPorElProxy("/l/ir/agenda")).toBe(false)
+    expect(pasaPorElProxy("/l/ia")).toBe(false)
   })
 
   it("still guards every other page, including ones that merely start with the letter l", () => {

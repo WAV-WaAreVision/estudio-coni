@@ -153,7 +153,12 @@ describe("design rules", () => {
   })
 
   it("keeps the signature colour to the slider, the wordmark dot and the public page", () => {
-    const permitidos = new Set(["components/deslizar-para-aprobar.tsx", "components/ui/wordmark.tsx", "app/l/page.tsx"])
+    const permitidos = new Set([
+      "components/deslizar-para-aprobar.tsx",
+      "components/ui/wordmark.tsx",
+      "app/l/page.tsx",
+      "app/l/superficie-publica.tsx",
+    ])
     const culpables = CODIGO.filter(
       (ruta) => /\b(text|bg|fill|border|ring|outline)-firma\b/.test(leer(ruta)) && !permitidos.has(ruta),
     )

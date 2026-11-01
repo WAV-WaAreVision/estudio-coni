@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { actualizarPieza, type FilaDePieza, leerPiezasParaRetencion } from "@/lib/datos/repositorio"
+import type { AnotarBorrado } from "@/lib/datos-personales/borrados"
+import { REGLAS_DE_BORRADO } from "@/lib/datos-personales/reglas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -8,11 +10,13 @@ export interface DepsRetencion {
   db: SupabaseClient<Database>
   almacen: Almacen
   ahora: () => string
+  /** The deletion log (`registro_de_borrados`). */
+  anotarBorrado: AnotarBorrado
 }
 
 const DIA_MS = 86_400_000
-/** Design D5: files of published and discarded pieces are kept for 30 days. */
-const DIAS_DE_RETENCION = 30
+/** Design D5: how long files of published and discarded pieces are kept is `REGLAS_DE_BORRADO.videos_de_piezas`. */
+const DIAS_DE_RETENCION = REGLAS_DE_BORRADO.videos_de_piezas
 
 /**
  * The files a piece is allowed to lose: a published piece keeps its voice and loses its final video (design D5); a
@@ -33,7 +37,7 @@ async function archivosABorrar(fila: FilaDePieza, almacen: Almacen): Promise<str
   return [...new Set([...claves, ...tomas])]
 }
 
-/** Deletes the files of published and discarded pieces 30 days after they reached that state. */
+/** Deletes the files of published and discarded pieces `DIAS_DE_RETENCION` days after they reached that state. */
 export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: number; archivos: number }> {
   const ahora = Date.parse(deps.ahora())
   // A published or discarded piece is not written to again, so its last write is when it reached the state.
@@ -44,17 +48,29 @@ export async function aplicarRetencion(deps: DepsRetencion): Promise<{ piezas: n
   for (const fila of filas) {
     try {
       const claves = await archivosABorrar(fila, deps.almacen)
-      for (const clave of claves) await deps.almacen.borrar(clave)
+      for (const clave of claves) {
+        await deps.almacen.borrar(clave)
+        // Counted one by one: a store failing halfway still leaves the earlier files gone, and the log must say so.
+        archivos += 1
+      }
       const marcada = await actualizarPieza(deps.db, fila.id, fila.version, {
         archivos_borrados_en: new Date(ahora).toISOString(),
         version: fila.version + 1,
       })
       // Null: the piece changed in the meantime. Its files are already gone; the next night marks it.
       if (marcada) piezas += 1
-      archivos += claves.length
     } catch (error) {
       if (!(error instanceof Error)) throw error
       // One bad piece must not stop the rest, night after night.
+      errores.push(error)
+    }
+  }
+  if (archivos > 0) {
+    try {
+      await deps.anotarBorrado("videos_de_piezas", archivos)
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      // The files are gone either way: the night fails so WAV hears that the log is missing a row.
       errores.push(error)
     }
   }
