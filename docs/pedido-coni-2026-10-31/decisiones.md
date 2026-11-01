@@ -19,7 +19,7 @@ providers or tests; each spec confirms the ones it needs before writing code. Ma
 | A10 | **Emotion list** for tags. | 6 | Coni has to define it. | Open |
 | A11 | **Reposts spec**: lives in an external artifact not included in the request. | 8 | Received 2026-11-01 as `reposts-original.md`. Still open: the 8 checks on Coni's phone listed in its last section. | Closed 2026-11-01 |
 | A12 | **Order and scope.** Accept the phases in `fases.md`, or Coni's order. Which changes are out for now (candidates: 20 phases 1–3, 19 projects, 24 watch). | all | ~6–9 months for one developer. | Open |
-| A13 | **Hosting.** Move to Cloudflare in phase 2b (decided by Federico 2026-11-01). Until then Conidolly runs on Vercel Hobby, whose terms do not allow commercial use: upgrade to Vercel Pro (US$ 20/month) for the interim, or accept the risk until the move. | 2b | Terms of service of the current host. | Move decided; interim open |
+| A13 | **Hosting.** Move to Cloudflare in phase 2b (decided by Federico 2026-11-01). Until then Conidolly runs on Vercel Hobby, whose terms do not allow commercial use: upgrade to Vercel Pro (US$ 20/month) for the interim, or accept the risk until the move. | 2b | Terms of service of the current host. | Closed 2026-11-01: Federico accepts the risk and stays on Hobby until 2b |
 
 ## B. To confirm (providers and tests)
 
