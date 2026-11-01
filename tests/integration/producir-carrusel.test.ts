@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw"
 import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import { leerRevision } from "@/lib/datos/revision"
 import { FIRMA_DEL_CARRUSEL } from "@/lib/dominio/carrusel"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -14,7 +15,6 @@ import { clienteDeConi } from "./sesion-coni"
 import { borrarSembrado, leerFila, sembrarCarrusel, sembrarIdea } from "./siembra"
 
 const URL_CLAUDE = "https://api.anthropic.com/v1/messages"
-const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
 // 0.042 to write, 0.008 to review, as in producir.test.ts.
 const USO_ESCRITURA = {
   input_tokens: 3000,
@@ -203,15 +203,15 @@ describe("producirPieza with a carousel", () => {
     expect((await gastos(id)).map((g) => g.estado)).toEqual(["confirmado", "liberado"])
   })
 
-  it("spends nothing over the monthly cap and says why", async () => {
+  it("spends nothing at the month's limit and says why", async () => {
     const id = await carruselEnEscritura()
     const sim = simular()
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
 
-    expect(await producirPieza(deps(), id)).toEqual({ resultado: "tope" })
+    expect(await producirPieza(deps(), id)).toEqual({ resultado: "limite" })
 
     expect(sim.escrituras).toHaveLength(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_en_proceso", explicacion: TOPE })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_en_proceso", explicacion: TEXTO_LIMITE })
   })
 
   it("hands over a version a dead run already saved without paying again", async () => {
