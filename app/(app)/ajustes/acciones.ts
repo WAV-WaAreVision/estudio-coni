@@ -10,6 +10,7 @@ import {
   marcarAvisoLeido,
   quitarSuscripcion,
 } from "@/lib/acciones/avisos"
+import { marcarInventarioRevisado, publicarTransparencia, volverATransparencia } from "@/lib/acciones/datos-personales"
 import { desconectarLinkedin } from "@/lib/acciones/linkedin"
 import { aResultado, type Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
@@ -85,6 +86,34 @@ export async function desconectarLinkedinAccion() {
   return refrescar(
     await conSesionDeConi("desconectarLinkedin", z.object({}), {}, (db) =>
       aResultado("desconectarLinkedin", () => desconectarLinkedin(db)),
+    ),
+  )
+}
+
+export async function marcarInventarioRevisadoAccion() {
+  return refrescar(
+    await conSesionDeConi("marcarInventarioRevisado", z.object({}), {}, (db) => marcarInventarioRevisado(db)),
+  )
+}
+
+// The limits themselves are the database's (300 to 6000 after trimming); this only keeps a request reasonable.
+const paginaDeIa = z.object({ texto: z.string().max(7000), motivo: z.string().max(400) })
+
+export async function publicarTransparenciaAccion(texto: string, motivo: string) {
+  return refrescar(
+    await conSesionDeConi("publicarTransparencia", paginaDeIa, { texto, motivo }, (db, d) =>
+      publicarTransparencia(db, d),
+    ),
+  )
+}
+
+export async function volverATransparenciaAccion(version: number) {
+  return refrescar(
+    await conSesionDeConi(
+      "volverATransparencia",
+      z.object({ version: z.number().int().min(0) }),
+      { version },
+      (db, d) => volverATransparencia(db, d.version),
     ),
   )
 }
