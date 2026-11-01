@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!lib/supabase/database.types.ts",
-      "!app/tema-cerrado.css"
+      "!app/tema-cerrado.css",
+      "!.worktrees"
     ]
   },
   "formatter": {

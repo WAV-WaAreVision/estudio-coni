@@ -116,7 +116,9 @@ describe("proteger_pieza with carousels", () => {
     await como(comoPostgres, async (c) => {
       const id = await porAprobar(c)
       await c.query("update public.piezas set revision = $2::jsonb, version = version + 1 where id = $1", [id, BLOQUEA])
-      const { rows: leida } = await c.query<{ version: number }>("select version from public.piezas where id = $1", [id])
+      const { rows: leida } = await c.query<{ version: number }>("select version from public.piezas where id = $1", [
+        id,
+      ])
       await asumir(c, comoConi)
       await c.query("select public.pedir_cambio_de_carrusel($1, $2, 'Más corto')", [id, leida[0]?.version])
       const error = await fallaCon(

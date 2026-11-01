@@ -12,7 +12,7 @@ describe("script length", () => {
     expect(estimarSegundos("palabra ".repeat(100))).toBeCloseTo(40, 9)
   })
   test("adds a pause for each paragraph break", () => {
-    expect(estimarSegundos("palabra ".repeat(100).trim() + "\n\nfin")).toBeCloseTo((101 / 150) * 60 + 0.6, 9)
+    expect(estimarSegundos(`${"palabra ".repeat(100).trim()}\n\nfin`)).toBeCloseTo((101 / 150) * 60 + 0.6, 9)
   })
   test("flags short, ok and long against the 75 to 150 word target", () => {
     expect(estadoDeLargo(60)).toBe("corto")
