@@ -137,10 +137,12 @@ export type Database = {
           destinos_por_defecto: string[]
           dias_publicacion: number[]
           enlaces: Json
+          fusiones_nocturnas_activas: boolean
           hora_publicacion: string
           id: boolean
           ideas_por_semana: number
           inventario_desde: string
+          limite_duro_usd: number | null
           linkedin_conectado_en: string | null
           linkedin_miembro: string | null
           linkedin_nombre: string | null
@@ -149,6 +151,7 @@ export type Database = {
           meta: string
           meta_cuenta_id: string | null
           meta_token_expira_en: string | null
+          motor_semanal_activo: boolean
           produccion: Json
           revision_de_inventario_avisada: string | null
           tope_mensual_usd: number
@@ -161,10 +164,12 @@ export type Database = {
           destinos_por_defecto?: string[]
           dias_publicacion?: number[]
           enlaces?: Json
+          fusiones_nocturnas_activas?: boolean
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
           inventario_desde?: string
+          limite_duro_usd?: number | null
           linkedin_conectado_en?: string | null
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
@@ -173,6 +178,7 @@ export type Database = {
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
+          motor_semanal_activo?: boolean
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
@@ -185,10 +191,12 @@ export type Database = {
           destinos_por_defecto?: string[]
           dias_publicacion?: number[]
           enlaces?: Json
+          fusiones_nocturnas_activas?: boolean
           hora_publicacion?: string
           id?: boolean
           ideas_por_semana?: number
           inventario_desde?: string
+          limite_duro_usd?: number | null
           linkedin_conectado_en?: string | null
           linkedin_miembro?: string | null
           linkedin_nombre?: string | null
@@ -197,6 +205,7 @@ export type Database = {
           meta?: string
           meta_cuenta_id?: string | null
           meta_token_expira_en?: string | null
+          motor_semanal_activo?: boolean
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
@@ -817,6 +826,27 @@ export type Database = {
           plazo_dias?: number | null
           proveedor?: string
           regla_de_borrado?: string | null
+        }
+        Relationships: []
+      }
+      limites_del_mes: {
+        Row: {
+          fijado_en: string
+          fijado_por: string
+          limite_usd: number
+          mes: string
+        }
+        Insert: {
+          fijado_en?: string
+          fijado_por: string
+          limite_usd: number
+          mes: string
+        }
+        Update: {
+          fijado_en?: string
+          fijado_por?: string
+          limite_usd?: number
+          mes?: string
         }
         Relationships: []
       }
@@ -2126,6 +2156,21 @@ export type Database = {
         Args: { p_excluida: boolean; p_id: string }
         Returns: undefined
       }
+      fijar_limite_del_mes: {
+        Args: { p_limite: number }
+        Returns: {
+          fijado_en: string
+          fijado_por: string
+          limite_usd: number
+          mes: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "limites_del_mes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fusionar_autores: {
         Args: { p_destino: string; p_origen: string }
         Returns: undefined
@@ -2416,6 +2461,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      limite_del_mes: { Args: { p_ahora?: string }; Returns: number }
       linkedin_conectado: { Args: never; Returns: boolean }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       marcar_inventario_revisado: { Args: never; Returns: string }
@@ -2652,6 +2698,7 @@ export type Database = {
           p_ahora?: string
           p_clave: string
           p_estimado: number
+          p_firmado?: boolean
           p_paso: string
           p_pieza: string
           p_proveedor: string

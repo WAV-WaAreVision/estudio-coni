@@ -190,3 +190,15 @@ describe("aviso de la revisión anual", () => {
     })
   })
 })
+
+describe("aviso del límite del mes", () => {
+  it("opens Ajustes, Presupuesto and says it in the push without the amount", () => {
+    const aviso = { tipo: "limite_alcanzado" } as const
+    expect(esTipoDeAviso("limite_alcanzado")).toBe(true)
+    expect(rutaDeAviso(aviso)).toBe("/ajustes/presupuesto")
+    expect(mensajePush(aviso)).toMatchObject({
+      cuerpo: "Llegaste a tu límite de gasto de este mes",
+      url: "/ajustes/presupuesto",
+    })
+  })
+})
