@@ -300,6 +300,34 @@ describe("maintenance runs", () => {
     expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
   })
 
+  it("fails the run when the month's first limit notice cannot be sent", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+    const avisos = notificadorEnMemoria()
+    avisos.aWav = async () => {
+      throw new Error("correo caído")
+    }
+
+    const error = await conTopeChico(() =>
+      mantenimientoFrecuente({
+        ...base(),
+        avisos,
+        dispararGrabacion: async () => undefined,
+        dispararProduccion: async () => undefined,
+        dispararArmado: async () => undefined,
+        temas: async () => deps(),
+      }),
+    ).then(
+      () => new Error("se esperaba un rechazo"),
+      (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+    )
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect(error.message).toContain("temas: correo caído")
+  })
+
   it("lets a failing topics job through enSerie without stopping the rest", async () => {
     const error = await mantenimientoFrecuente({
       ...base(),

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fusionarTemas } from "@/lib/ingesta/temas"
 import { type DepsNocturno, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { borrarHuellaDeVisitas } from "@/lib/mantenimiento/huella"
@@ -33,6 +33,8 @@ vi.mock("@/lib/presupuesto/limite", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/presupuesto/limite")>()),
   avisarLimite: vi.fn(async () => {}),
 }))
+
+beforeEach(() => vi.clearAllMocks())
 
 const DEPS: DepsNocturno = {
   // Never reached: every step is mocked. A real client keeps the type honest without a cast.

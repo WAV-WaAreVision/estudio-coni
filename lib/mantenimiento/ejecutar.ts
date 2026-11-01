@@ -1,6 +1,7 @@
+import { existeAviso } from "@/lib/avisos/registro"
 import { fusionarTemas } from "@/lib/ingesta/temas"
 import { leerInterruptores } from "@/lib/presupuesto/interruptores"
-import { avisarLimite } from "@/lib/presupuesto/limite"
+import { avisarLimite, claveDelAvisoDeLimite, mesDelGasto } from "@/lib/presupuesto/limite"
 import { type DepsArranques, reanudarArranques } from "./arranques"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
@@ -53,6 +54,24 @@ export type DepsNocturno = DepsRetencion &
 const OMITIDO = { omitido: true } as const
 const APAGADO = { apagado: true } as const
 
+/**
+ * This job meets the limit on every tick of the month, so a notice channel that keeps failing would fail every run and
+ * email WAV through `onFailure` up to 144 times a day. Only the month's first failure fails the run (WAV hears once);
+ * once the notice row exists, a failed resend is logged and shown in the run's output, and the next tick retries it.
+ */
+async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ avisoPendiente?: string }> {
+  const ahora = deps.ahora()
+  const yaRegistrado = await existeAviso(deps.db, claveDelAvisoDeLimite(mesDelGasto(ahora)))
+  try {
+    await avisarLimite(deps, ahora)
+    return {}
+  } catch (error) {
+    if (!(error instanceof Error) || !yaRegistrado) throw error
+    console.error("No pude reenviar el aviso del límite del mes", error)
+    return { avisoPendiente: error.message }
+  }
+}
+
 /** Every ten minutes: runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
@@ -64,9 +83,9 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
       const propias = await deps.temas()
       if (!propias) return OMITIDO
       const resultado = await mantenerTemas(propias)
+      if (!resultado.tope) return resultado
       // Silent before the hard limit; now Coni hears it once a month (spec 2026-11-02).
-      if (resultado.tope) await avisarLimite(deps, deps.ahora())
-      return resultado
+      return { ...resultado, ...(await avisarLimiteCadaDiezMinutos(deps)) }
     },
   })
 }
