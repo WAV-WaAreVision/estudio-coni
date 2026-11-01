@@ -34,6 +34,73 @@ export interface AccionesDelPresupuesto {
 const ESPERA_DEL_PASO_MS = 600
 
 type CampoConPaso = "tope" | "limite"
+type CampoDelPresupuesto = CampoConPaso | "motor_semanal" | "fusiones_nocturnas"
+type CambioDelPresupuesto = Extract<CambioDeAjuste, { campo: CampoDelPresupuesto }>
+
+interface Mensaje {
+  texto: string
+  deshacer?: () => void
+}
+
+function esDelPresupuesto(cambio: CambioDeAjuste): cambio is CambioDelPresupuesto {
+  return (
+    cambio.campo === "tope" ||
+    cambio.campo === "limite" ||
+    cambio.campo === "motor_semanal" ||
+    cambio.campo === "fusiones_nocturnas"
+  )
+}
+
+/** The lowest limit the stepper offers: the first step at or above the cap. */
+function limiteMinimo(tope: number): number {
+  return Math.ceil(tope / PASO_DEL_PRESUPUESTO_USD) * PASO_DEL_PRESUPUESTO_USD
+}
+
+/** The same rule as guardarAjuste: a cap above the limit she set brings the limit back to twice the cap. */
+function conTope(p: PresupuestoDelMes, tope: number): PresupuestoDelMes {
+  const limiteExplicito = p.limiteExplicito !== null && tope > p.limiteExplicito ? null : p.limiteExplicito
+  const limite = p.reactivado ? p.limite : (limiteExplicito ?? limitePorDefecto(tope))
+  return { ...p, tope, limiteExplicito, limite }
+}
+
+/** Back at twice the cap it is no limit of her own: it follows the cap again. */
+function conLimite(p: PresupuestoDelMes, valor: number | null): PresupuestoDelMes {
+  const defecto = limitePorDefecto(p.tope)
+  const limiteExplicito = valor === null || valor === defecto ? null : valor
+  const limite = p.reactivado ? p.limite : (limiteExplicito ?? defecto)
+  return { ...p, limiteExplicito, limite }
+}
+
+function aplicar(p: PresupuestoDelMes, cambio: CambioDelPresupuesto): PresupuestoDelMes {
+  switch (cambio.campo) {
+    case "tope":
+      return conTope(p, cambio.valor)
+    case "limite":
+      return conLimite(p, cambio.valor)
+    case "motor_semanal":
+      return { ...p, motor: { ...p.motor, activo: cambio.valor } }
+    case "fusiones_nocturnas":
+      return { ...p, fusiones: { ...p.fusiones, activas: cambio.valor } }
+  }
+}
+
+/** A failed save takes back only the fields that change touched; her newer edits elsewhere stay. */
+function restaurar(actual: PresupuestoDelMes, antes: PresupuestoDelMes, campo: CampoDelPresupuesto): PresupuestoDelMes {
+  switch (campo) {
+    case "tope":
+      return { ...actual, tope: antes.tope, limiteExplicito: antes.limiteExplicito, limite: antes.limite }
+    case "limite":
+      return { ...actual, limiteExplicito: antes.limiteExplicito, limite: antes.limite }
+    case "motor_semanal":
+      return { ...actual, motor: { ...actual.motor, activo: antes.motor.activo } }
+    case "fusiones_nocturnas":
+      return { ...actual, fusiones: { ...actual.fusiones, activas: antes.fusiones.activas } }
+  }
+}
+
+function cambioDelPaso(campo: CampoConPaso, p: PresupuestoDelMes): CambioDelPresupuesto {
+  return campo === "tope" ? { campo, valor: p.tope } : { campo, valor: p.limiteExplicito }
+}
 
 /** Spec 2026-11-02, Screens: the month's bar, the cap and the limit, Reactivar, spend by provider and the switches. */
 export function PantallaDePresupuesto({
@@ -44,26 +111,20 @@ export function PantallaDePresupuesto({
   acciones: AccionesDelPresupuesto
 }) {
   const [estado, setEstado] = useState(inicial)
-  const [mensaje, setMensaje] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [mensaje, setMensaje] = useState<Mensaje | null>(null)
+  const [errores, setErrores] = useState<Partial<Record<CampoDelPresupuesto, string>>>({})
   const [, empezar] = useTransition()
   const reactivacion = useAccion()
   const [reactivando, setReactivando] = useState(false)
   const [nuevoLimite, setNuevoLimite] = useState("")
   const cerrarMensaje = useCallback(() => setMensaje(null), [])
 
-  // The latest state, for the timers that save later; and what the screen showed before each run of taps.
+  // The latest state, for the timers that save later; and, per stepper, what the screen showed before its run of taps.
   const ultimo = useRef(estado)
   ultimo.current = estado
-  const temporizadores = useRef<Partial<Record<CampoConPaso, ReturnType<typeof setTimeout>>>>({})
-  const antesDeTocar = useRef<Partial<Record<CampoConPaso, PresupuestoDelMes>>>({})
-
-  useEffect(() => {
-    const pendientes = temporizadores.current
-    return () => {
-      for (const temporizador of Object.values(pendientes)) clearTimeout(temporizador)
-    }
-  }, [])
+  const pendientes = useRef<
+    Partial<Record<CampoConPaso, { temporizador: ReturnType<typeof setTimeout>; antes: PresupuestoDelMes }>>
+  >({})
 
   const vista = presentarPresupuesto(estado)
 
@@ -72,66 +133,91 @@ export function PantallaDePresupuesto({
     setEstado(siguiente)
   }
 
-  function guardar(cambio: CambioDeAjuste, antes: PresupuestoDelMes) {
-    setError(null)
-    empezar(async () => {
-      const resultado = await acciones.guardar(cambio)
-      if (!resultado.ok) {
-        poner(antes)
-        setError(resultado.error)
-        return
-      }
-      setMensaje(resultado.aviso ?? "Guardado")
+  function ponerError(campo: CampoDelPresupuesto, error: string | null) {
+    setErrores((actuales) => {
+      const siguientes = { ...actuales }
+      if (error === null) delete siguientes[campo]
+      else siguientes[campo] = error
+      return siguientes
     })
   }
 
-  function programar(campo: CampoConPaso, siguiente: PresupuestoDelMes, cambio: () => CambioDeAjuste) {
-    antesDeTocar.current[campo] ??= ultimo.current
-    setError(null)
+  function guardar(cambio: CambioDelPresupuesto, antes: PresupuestoDelMes, ofrecerDeshacer = true) {
+    ponerError(cambio.campo, null)
+    empezar(async () => {
+      const resultado = await acciones.guardar(cambio)
+      if (!resultado.ok) {
+        poner(restaurar(ultimo.current, antes, cambio.campo))
+        ponerError(cambio.campo, resultado.error)
+        return
+      }
+      if (!ofrecerDeshacer) return
+      const anterior = resultado.anterior
+      setMensaje({
+        texto: resultado.aviso ?? "Guardado",
+        deshacer: esDelPresupuesto(anterior) ? () => deshacer(anterior) : undefined,
+      })
+    })
+  }
+
+  function deshacer(anterior: CambioDelPresupuesto) {
+    soltar("tope")
+    soltar("limite")
+    const antes = ultimo.current
+    poner(aplicar(antes, anterior))
+    guardar(anterior, antes, false)
+  }
+
+  /** Saves a stepper's pending run of taps now. */
+  function soltar(campo: CampoConPaso) {
+    const pendiente = pendientes.current[campo]
+    if (!pendiente) return
+    clearTimeout(pendiente.temporizador)
+    delete pendientes.current[campo]
+    guardar(cambioDelPaso(campo, ultimo.current), pendiente.antes)
+  }
+
+  // Leaving the screen (back to Ajustes, another tab, the phone locking) must not lose the last taps.
+  const soltarTodo = useRef(() => {})
+  soltarTodo.current = () => {
+    soltar("tope")
+    soltar("limite")
+  }
+  useEffect(() => {
+    const alOcultar = () => soltarTodo.current()
+    window.addEventListener("pagehide", alOcultar)
+    return () => {
+      window.removeEventListener("pagehide", alOcultar)
+      alOcultar()
+    }
+  }, [])
+
+  function programar(campo: CampoConPaso, siguiente: PresupuestoDelMes) {
+    const previo = pendientes.current[campo]
+    if (previo) clearTimeout(previo.temporizador)
+    const antes = previo?.antes ?? ultimo.current
+    ponerError(campo, null)
     poner(siguiente)
-    const previo = temporizadores.current[campo]
-    if (previo) clearTimeout(previo)
-    temporizadores.current[campo] = setTimeout(() => {
-      const antes = antesDeTocar.current[campo] ?? ultimo.current
-      delete antesDeTocar.current[campo]
-      guardar(cambio(), antes)
-    }, ESPERA_DEL_PASO_MS)
+    pendientes.current[campo] = { antes, temporizador: setTimeout(() => soltar(campo), ESPERA_DEL_PASO_MS) }
   }
 
   function moverTope(delta: number) {
     const actual = ultimo.current
-    const tope = Math.min(MAXIMO_DEL_TOPE_USD, Math.max(0, actual.tope + delta))
-    // The same rule as guardarAjuste: a cap above the limit she set brings the limit back to twice the cap.
-    const limiteExplicito =
-      actual.limiteExplicito !== null && tope > actual.limiteExplicito ? null : actual.limiteExplicito
-    const limite = actual.reactivado ? actual.limite : (limiteExplicito ?? limitePorDefecto(tope))
-    programar("tope", { ...actual, tope, limiteExplicito, limite }, () => ({
-      campo: "tope",
-      valor: ultimo.current.tope,
-    }))
+    programar("tope", conTope(actual, Math.min(MAXIMO_DEL_TOPE_USD, Math.max(0, actual.tope + delta))))
   }
 
   function moverLimite(delta: number) {
     const actual = ultimo.current
-    const defecto = limitePorDefecto(actual.tope)
-    const valor = Math.min(MAXIMO_DEL_LIMITE_USD, Math.max(actual.tope, (actual.limiteExplicito ?? defecto) + delta))
-    // Back at twice the cap it is no limit of her own: it follows the cap again.
-    const limiteExplicito = valor === defecto ? null : valor
-    const limite = actual.reactivado ? actual.limite : valor
-    programar("limite", { ...actual, limiteExplicito, limite }, () => ({
-      campo: "limite",
-      valor: ultimo.current.limiteExplicito,
-    }))
+    const enPasos = actual.limiteExplicito ?? limitePorDefecto(actual.tope)
+    const valor = Math.min(MAXIMO_DEL_LIMITE_USD, Math.max(limiteMinimo(actual.tope), enPasos + delta))
+    programar("limite", conLimite(actual, valor))
   }
 
   function alternar(campo: "motor_semanal" | "fusiones_nocturnas", valor: boolean) {
     const antes = ultimo.current
-    poner(
-      campo === "motor_semanal"
-        ? { ...antes, motor: { ...antes.motor, activo: valor } }
-        : { ...antes, fusiones: { ...antes.fusiones, activas: valor } },
-    )
-    guardar({ campo, valor }, antes)
+    const cambio: CambioDelPresupuesto = { campo, valor }
+    poner(aplicar(antes, cambio))
+    guardar(cambio, antes)
   }
 
   function abrirReactivar() {
@@ -141,18 +227,20 @@ export function PantallaDePresupuesto({
   }
 
   function confirmarReactivar() {
-    const limite = Number(nuevoLimite.replace(",", "."))
+    const limite = Number(nuevoLimite.trim().replace(",", "."))
     reactivacion.ejecutar(
       () => acciones.reactivar(limite),
       (resultado) => {
         poner({ ...ultimo.current, limite: resultado.limite, reactivado: true, avisoSinLeer: false })
         setReactivando(false)
-        setMensaje(`Listo: tu límite de este mes es ${dolares(resultado.limite)}.`)
+        setMensaje({ texto: `Listo: tu límite de este mes es ${dolares(resultado.limite)}.` })
       },
     )
   }
 
   const limiteEnPasos = estado.limiteExplicito ?? limitePorDefecto(estado.tope)
+  const error = (campo: CampoDelPresupuesto) =>
+    errores[campo] ? <LineaDeEstado tipo="error" titulo={errores[campo]} /> : null
 
   return (
     <div>
@@ -174,11 +262,11 @@ export function PantallaDePresupuesto({
                 </label>
                 <input
                   id="limite-del-mes"
-                  type="number"
+                  // Text, not number: «120,5» with a decimal comma must reach the server, which rounds it and
+                  // explains a refusal in plain Spanish.
+                  type="text"
                   inputMode="decimal"
-                  // Any amount: the browser's own step check would block the form without saying why; the server
-                  // rounds it and explains a refusal in plain Spanish.
-                  step="any"
+                  autoComplete="off"
                   value={nuevoLimite}
                   onChange={(evento) => setNuevoLimite(evento.target.value)}
                   className="campo w-full text-cuerpo tabular-nums"
@@ -211,16 +299,18 @@ export function PantallaDePresupuesto({
           puedeSubir={estado.tope < MAXIMO_DEL_TOPE_USD}
           alMover={moverTope}
         />
+        {error("tope")}
         <p className="text-meta text-apagado">Es tu referencia: al pasarlo, la app sigue y te lo muestra aquí.</p>
         <Paso
           etiqueta="Límite"
           nombre="el límite"
           valor={vista.etiquetaDelLimite}
           valorLargo={estado.limiteExplicito === null}
-          puedeBajar={limiteEnPasos > estado.tope}
+          puedeBajar={limiteEnPasos > limiteMinimo(estado.tope)}
           puedeSubir={limiteEnPasos < MAXIMO_DEL_LIMITE_USD}
           alMover={moverLimite}
         />
+        {error("limite")}
         <p className="text-meta text-apagado">
           Es el freno: al llegar, lo nuevo queda en pausa y lo que ya firmaste sigue. Nunca baja del tope.
         </p>
@@ -252,18 +342,14 @@ export function PantallaDePresupuesto({
             alCambiar={(valor) => alternar("fusiones_nocturnas", valor)}
           />
         </Grupo>
+        {error("motor_semanal")}
+        {error("fusiones_nocturnas")}
         <p className="text-meta text-apagado">
           Corren sin que los pidas. Apagados no gastan. «Proponer ahora» en Ingesta sigue funcionando.
         </p>
       </Seccion>
 
-      {error ? (
-        <div className="mt-6">
-          <LineaDeEstado tipo="error" titulo={error} />
-        </div>
-      ) : null}
-
-      {mensaje ? <Aviso mensaje={mensaje} alCerrar={cerrarMensaje} /> : null}
+      {mensaje ? <Aviso mensaje={mensaje.texto} alCerrar={cerrarMensaje} alDeshacer={mensaje.deshacer} /> : null}
     </div>
   )
 }
@@ -334,7 +420,7 @@ function Paso({
   return (
     <div className="flex min-h-fila-baja flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <span className="text-cuerpo">{etiqueta}</span>
-      <div className="flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-3">
         <Boton
           variante="secundario"
           tamano="chico"
