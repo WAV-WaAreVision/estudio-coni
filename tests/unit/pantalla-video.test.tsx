@@ -66,6 +66,8 @@ function datos(sobre: Partial<DatosDeVideo> = {}): DatosDeVideo {
       { iso: "2099-10-09T22:00:00.000Z", etiqueta: "viernes 9 de octubre · 19:00", corta: "viernes 9 · 19:00" },
       { iso: "2099-10-12T22:00:00.000Z", etiqueta: "lunes 12 de octubre · 19:00", corta: "lunes 12 · 19:00" },
     ],
+    zona: "America/Santiago",
+    horaDelRitmo: "19:00",
     costoDeRegrabar: "US$ 3,48",
     explicacion: null,
     primeraVez: false,
@@ -131,10 +133,11 @@ describe("PantallaVideo: todo a la vista antes de terminar", () => {
     )
   })
 
-  it("blocks with today's text when there is no free slot", () => {
+  it("asks to choose the date when there is no free slot", () => {
     abrir({ fechas: [] })
     revisar()
-    expect(within(barra()).getByRole("status")).toHaveTextContent("No hay un horario libre. Avísale a Federico.")
+    expect(within(barra()).getByText(/elegir la fecha/)).toHaveTextContent("Falta: elegir la fecha")
+    expect(within(barra()).queryByText(/Avísale a Federico/)).toBeNull()
     expect(firma()).toHaveAttribute("aria-disabled", "true")
   })
 })
@@ -151,6 +154,25 @@ describe("PantallaVideo: dónde y cuándo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }))
     revisar()
     expect(within(barra()).getByText(consecuencia("Sale el lunes 12 · 19:00"))).toBeInTheDocument()
+  })
+
+  it("offers another day and time under the schedule slots", () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-28T11:45:00Z"))
+    render(<PantallaVideo datos={datos()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Otra fecha y hora" }))
+    fireEvent.change(screen.getByLabelText(/^Día/), { target: { value: "2026-10-28" } })
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "10:15" } })
+
+    expect(screen.getByText("miércoles 28 de octubre · 10:15")).toBeInTheDocument()
+  })
+
+  it("with no free slot opens on another day and time", () => {
+    abrir({ fechas: [] })
+    expect(screen.getByRole("radio", { name: "Otra fecha y hora" })).toBeChecked()
+    expect(screen.getByLabelText(/^Día/)).toBeInTheDocument()
+    expect(screen.queryByText("No hay un horario libre en los próximos días.")).not.toBeInTheDocument()
   })
 
   it("keeps the destinations folded under Más opciones, and names them under the date", () => {

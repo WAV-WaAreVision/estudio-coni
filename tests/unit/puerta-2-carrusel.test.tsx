@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { LAMINAS_DE_PRUEBA, TEXTO_POST_DE_PRUEBA } from "../fixtures/carrusel"
 
 vi.mock("@/app/(app)/piezas/acciones", () => ({
@@ -23,10 +23,16 @@ const DATOS = {
   diseno: { variante: "crema" as const },
   textoPost: TEXTO_POST_DE_PRUEBA,
   fechas: [{ iso: "2026-10-29T22:00:00.000Z", etiqueta: "jueves 29 de octubre · 19:00", corta: "jueves 29 · 19:00" }],
+  zona: "America/Santiago",
+  horaDelRitmo: "19:00",
   cambiosQuedan: 2,
   explicacion: null,
   linkedinExpiraEn: "2026-12-06T12:00:00.000Z",
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe("PantallaPuerta2Carrusel", () => {
   it("says under the date that it posts by itself while LinkedIn will be connected", () => {
@@ -50,6 +56,34 @@ describe("PantallaPuerta2Carrusel", () => {
     expect(pista).toHaveAttribute("aria-disabled", "false")
     expect(
       screen.getByText((_, nodo) => nodo?.tagName === "P" && nodo.textContent === "Sale el jueves 29 · 19:00"),
+    ).toBeInTheDocument()
+  })
+
+  it("asks to choose the date when there is no free slot, instead of blocking", () => {
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, fechas: [] }} />)
+    expect(screen.getByText(/elegir la fecha/)).toHaveTextContent("Falta: ver todas las láminas · elegir la fecha")
+    expect(screen.queryByText(/Avísale a Federico/)).toBeNull()
+  })
+
+  it("with no free slot opens on another day and time", () => {
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, fechas: [] }} />)
+    expect(screen.getByRole("radio", { name: "Otra fecha y hora" })).toBeChecked()
+    expect(screen.getByLabelText(/^Día/)).toBeInTheDocument()
+    expect(screen.queryByText("No hay un horario libre en los próximos días.")).not.toBeInTheDocument()
+  })
+
+  it("schedules at another day and time, and the LinkedIn line follows it", () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-28T11:45:00Z"))
+    render(<PantallaPuerta2Carrusel datos={{ ...DATOS, linkedinExpiraEn: "2026-11-30T12:00:00.000Z" }} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Otra fecha y hora" }))
+    fireEvent.change(screen.getByLabelText(/^Día/), { target: { value: "2026-12-01" } })
+    fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "10:15" } })
+
+    expect(screen.getByText("martes 1 de diciembre · 10:15")).toBeInTheDocument()
+    expect(
+      screen.getByText("Tu conexión con LinkedIn vence antes de esa fecha: te lo dejo para subir a mano."),
     ).toBeInTheDocument()
   })
 

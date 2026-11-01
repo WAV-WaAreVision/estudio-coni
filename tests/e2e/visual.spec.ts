@@ -563,6 +563,25 @@ test("carrusel puerta 2", async ({ page }) => {
   await capturaDe(page, "carrusel-puerta-2")
 })
 
+test("carrusel puerta 2 otra fecha", async ({ page }) => {
+  await sembrarEscena()
+  await simularMedios(page)
+  const id = await sembrarCarruselDeEscena("carrusel_por_aprobar")
+  await page.goto(`/guion/${id}`)
+  await expect(page.getByRole("img", { name: /^Lámina 1 de 6/ })).toBeVisible()
+  await page.getByRole("button", { name: "Cambiar" }).click()
+  await page.getByRole("radio", { name: "Otra fecha y hora" }).check()
+  // The slots are her next free days after the real clock: their rows are masked whole, so the mask keeps one width
+  // whatever the date. The day row stays "Elegir" and the time row shows the schedule hour.
+  const horarios = page
+    .getByRole("group", { name: "Elige cuándo sale" })
+    .locator("label")
+    .filter({ hasNotText: "Otra fecha y hora" })
+  // Ticking the radio scrolled the page, and a full-page mask is placed from the top: start the capture there.
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await capturaDe(page, "carrusel-puerta-2-otra-fecha", [horarios])
+})
+
 test("carrusel puerta 2 diseno", async ({ page }) => {
   await sembrarEscena()
   await simularMedios(page)

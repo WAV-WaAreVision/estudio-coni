@@ -17,6 +17,7 @@ import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/li
 import type { DisenoDeCarrusel } from "@/lib/dominio/diseno-carrusel"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import { DescartarPieza } from "../../descartar-pieza"
+import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
 import { aprobarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
 import type { FechaPropuesta } from "../../video/[id]/pantalla-video"
 import { CambioDeDiseno } from "./cambio-de-diseno"
@@ -47,6 +48,10 @@ export interface DatosDePuerta2Carrusel {
   diseno: DisenoDeCarrusel
   textoPost: string
   fechas: FechaPropuesta[]
+  /** Where her schedule lives ("America/Santiago"): the picked day and time are read there. */
+  zona: string
+  /** Her schedule hour (`19:00`): where "Otra fecha y hora" starts. */
+  horaDelRitmo: string
   cambiosQuedan: number
   /** Why the piece is back here without the change she asked for (a design change that did not fit). */
   explicacion: string | null
@@ -64,8 +69,12 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
   const cambio = useAccion()
   const [vioTodas, setVioTodas] = useState(false)
   const verTodas = useCallback(() => setVioTodas(true), [])
-  const [fecha, setFecha] = useState(datos.fechas[0]?.iso ?? null)
-  const [cambiandoFecha, setCambiandoFecha] = useState(false)
+  const eleccionDeFecha = useEleccionDeFecha({
+    fechas: datos.fechas,
+    zona: datos.zona,
+    horaDelRitmo: datos.horaDelRitmo,
+  })
+  const fechaElegida = eleccionDeFecha.fecha
   const [queCambia, setQueCambia] = useState<"texto" | "diseno">("texto")
   const [pedido, setPedido] = useState("")
   const idFalta = useId()
@@ -73,8 +82,7 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
   const idPedido = useId()
   const idAyuda = useId()
 
-  const fechaElegida = datos.fechas.find((propuesta) => propuesta.iso === fecha)
-  const falta = faltaParaProgramarCarrusel({ vioTodas, hayFecha: fechaElegida !== undefined })
+  const falta = faltaParaProgramarCarrusel({ vioTodas, hayFecha: fechaElegida !== null })
   const errorDeAccion = firma.error ?? cambio.error
 
   return (
@@ -169,44 +177,11 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
       </Seccion>
 
       <Seccion titulo={TEXTO_CUANDO_SALE} id="fecha">
-        {fechaElegida ? (
-          <div className="grid gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="grid">
-                <span data-snapshot="varia" className="font-semibold tabular-nums">
-                  {fechaElegida.etiqueta}
-                </span>
-                <span className="text-meta text-apagado">LinkedIn · hora de Chile</span>
-              </span>
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                aria-expanded={cambiandoFecha}
-                onClick={() => setCambiandoFecha((actual) => !actual)}
-              >
-                {cambiandoFecha ? "Listo" : "Cambiar"}
-              </Boton>
-            </div>
-            <p className="text-meta text-apagado">{lineaDeLinkedin(datos.linkedinExpiraEn, fechaElegida.iso)}</p>
-            {cambiandoFecha ? (
-              <fieldset className="elecciones grid border-0 p-0">
-                <legend className="sr-only">Elige cuándo sale</legend>
-                {datos.fechas.map((propuesta) => (
-                  <Eleccion
-                    key={propuesta.iso}
-                    nombre="fecha"
-                    valor={propuesta.iso}
-                    elegido={propuesta.iso === fecha}
-                    etiqueta={propuesta.etiqueta}
-                    alElegir={setFecha}
-                  />
-                ))}
-              </fieldset>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-cuerpo text-apagado">No hay un horario libre en los próximos días.</p>
-        )}
+        <ElegirFecha
+          eleccion={eleccionDeFecha}
+          meta="LinkedIn · hora de Chile"
+          debajo={(iso) => lineaDeLinkedin(datos.linkedinExpiraEn, iso)}
+        />
       </Seccion>
 
       <div className="mt-8">
@@ -220,11 +195,6 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
         arriba={
           <>
             {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "bloqueo" ? (
-              <Bloque tipo="aviso" id={idFalta}>
-                {falta.texto}
-              </Bloque>
-            ) : null}
             {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
             {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={["Láminas vistas", "Fecha"]} /> : null}
           </>
@@ -236,8 +206,11 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
           {...TEXTOS_DE_PROGRAMAR}
           describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
           alFirmar={() => {
-            if (fecha) {
-              firma.ejecutar(() => aprobarCarruselAccion(datos.id, datos.version, datos.carruselId, fecha), redibujar)
+            if (fechaElegida) {
+              firma.ejecutar(
+                () => aprobarCarruselAccion(datos.id, datos.version, datos.carruselId, fechaElegida.iso),
+                redibujar,
+              )
             }
           }}
         />

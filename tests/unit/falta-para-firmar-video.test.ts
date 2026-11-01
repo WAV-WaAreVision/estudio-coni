@@ -49,10 +49,10 @@ describe("faltaParaFirmarVideo", () => {
     })
   })
 
-  it("says a missing slot as a block", () => {
+  it("asks to choose the date last when none is chosen", () => {
     expect(faltaParaFirmarVideo({ ...LISTA, visto: false, hayFecha: false })).toEqual({
-      tipo: "bloqueo",
-      texto: "No hay un horario libre. Avísale a Federico.",
+      tipo: "falta",
+      cosas: ["terminar el video", "elegir la fecha"],
     })
   })
 })

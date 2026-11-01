@@ -10,13 +10,14 @@ const FECHAS_A_OFRECER = 4
 
 /**
  * The times gate 2 offers, reel or carousel: free slots of her schedule at least an hour ahead, with the piece's live
- * proposal (`fechas_propuestas`, from Repartir) first. Also the zone, for the labels of a scheduled piece.
+ * proposal (`fechas_propuestas`, from Repartir) first. Also the zone and the schedule hour: the labels of a scheduled
+ * piece and the start of "Otra fecha y hora".
  */
 export async function fechasDePuerta2(
   db: SupabaseClient<Database>,
   piezaId: string,
   ahora: number,
-): Promise<{ fechas: FechaPropuesta[]; zona: string }> {
+): Promise<{ fechas: FechaPropuesta[]; zona: string; horaDelRitmo: string }> {
   const contexto = await leerContextoDeFechas(db, piezaId)
   const ocupadas = ocupadasEnLaPuerta(contexto, ahora)
   const tomadas = new Set(ocupadas.map((iso) => Date.parse(iso)))
@@ -36,5 +37,5 @@ export async function fechasDePuerta2(
     etiqueta: etiquetaDeFecha(iso, contexto.horario.zona, "larga"),
     corta: etiquetaDeFecha(iso, contexto.horario.zona, "corta"),
   }))
-  return { fechas, zona: contexto.horario.zona }
+  return { fechas, zona: contexto.horario.zona, horaDelRitmo: contexto.horario.hora }
 }

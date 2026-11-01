@@ -338,6 +338,44 @@ describe("aprobarCarrusel", () => {
     expect(disparos).toEqual([])
   })
 
+  it("refuses a time less than 15 minutes ahead", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps } = armar()
+    const ahora = Date.now()
+    const reloj = { ...deps, ahora: () => new Date(ahora).toISOString() }
+    const publicarEn = new Date(ahora + 10 * 60 * 1000).toISOString()
+
+    expect(await aprobarCarrusel(reloj, id, await versionDe(id), version.id, publicarEn)).toEqual({
+      ok: false,
+      error: "Elige una hora con al menos 15 minutos de anticipación.",
+    })
+    expect((await leerFila(id)).estado).toBe("carrusel_por_aprobar")
+  })
+
+  it("accepts a time 20 minutes ahead", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps } = armar()
+    const ahora = Date.now()
+    const reloj = { ...deps, ahora: () => new Date(ahora).toISOString() }
+    const publicarEn = new Date(ahora + 20 * 60 * 1000).toISOString()
+
+    expect(await aprobarCarrusel(reloj, id, await versionDe(id), version.id, publicarEn)).toEqual({ ok: true })
+    expect((await leerFila(id)).estado).toBe("programado")
+  })
+
+  it("reads the clock once, so the time it checked is the time it records", async () => {
+    const { id, version } = await enPuerta2()
+    const { deps } = armar()
+    const ahora = Date.now()
+    // A clock that moves past the picked time between two reads.
+    const lecturas = [new Date(ahora).toISOString(), new Date(ahora + 30 * 60 * 1000).toISOString()]
+    const reloj = { ...deps, ahora: () => lecturas.shift() ?? new Date(ahora + 60 * 60 * 1000).toISOString() }
+    const publicarEn = new Date(ahora + 20 * 60 * 1000).toISOString()
+
+    expect(await aprobarCarrusel(reloj, id, await versionDe(id), version.id, publicarEn)).toEqual({ ok: true })
+    expect(new Date((await leerFila(id)).puerta2_en).toISOString()).toBe(new Date(ahora).toISOString())
+  })
+
   it("refuses a version that is not the one on screen", async () => {
     const { id } = await enPuerta2()
     const resultado = await aprobarCarrusel(

@@ -139,6 +139,81 @@ function nombresDeFecha(ms: number, zona: string) {
   }
 }
 
+/** A picked time has to be this far ahead (spec F2): the publisher runs every 5 minutes. */
+export const ANTICIPACION_MINIMA_MS = 15 * 60 * 1000
+const PASO_EN_MINUTOS = 5
+const UN_DIA_MS = 24 * 60 * 60 * 1000
+
+export const MOTIVOS_DE_HORA = {
+  dia: "Elige el día.",
+  hora: "Elige la hora.",
+  paso: "Elige una hora en bloques de 5 minutos.",
+  anticipacion: "Elige una hora con al menos 15 minutos de anticipación.",
+  lejos: "Elige una fecha dentro del próximo año.",
+  noExiste: "Esa hora no existe en Chile ese día. Elige otra.",
+} as const
+
+export type HoraElegida = { ok: true; iso: string } | { ok: false; motivo: string }
+
+function leerDia(dia: string): { anio: number; mes: number; dia: number } | null {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dia)
+  if (!partes) return null
+  const fecha = { anio: Number(partes[1]), mes: Number(partes[2]), dia: Number(partes[3]) }
+  const enUtc = new Date(Date.UTC(fecha.anio, fecha.mes - 1, fecha.dia))
+  // Date.UTC rolls 30 February over to March: a day that does not round-trip does not exist.
+  if (enUtc.getUTCMonth() !== fecha.mes - 1 || enUtc.getUTCDate() !== fecha.dia) return null
+  return fecha
+}
+
+function leerHoraElegida(hora: string): { hora: number; minuto: number } | null {
+  const partes = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(hora)
+  if (!partes) return null
+  const valor = { hora: Number(partes[1]), minuto: Number(partes[2]) }
+  return valor.hora < 24 && valor.minuto < 60 ? valor : null
+}
+
+/** "Otra fecha y hora" at gate 2: a Chile day (`2026-10-28`) and time (`10:15`) as a UTC instant, or why not. */
+export function horaElegida(entrada: { dia: string; hora: string; zona: string; ahora: number }): HoraElegida {
+  const dia = leerDia(entrada.dia)
+  if (!dia) return { ok: false, motivo: MOTIVOS_DE_HORA.dia }
+  const reloj = leerHoraElegida(entrada.hora)
+  if (!reloj) return { ok: false, motivo: MOTIVOS_DE_HORA.hora }
+  if (reloj.minuto % PASO_EN_MINUTOS !== 0) return { ok: false, motivo: MOTIVOS_DE_HORA.paso }
+  // A repeated hour (summer time ending) takes its first occurrence; a skipped one (summer time starting) does not
+  // read back as what she picked.
+  const instante = instanteLocal({ ...dia, ...reloj }, entrada.zona)
+  const leido = partesLocales(instante, entrada.zona)
+  if (
+    leido.anio !== dia.anio ||
+    leido.mes !== dia.mes ||
+    leido.dia !== dia.dia ||
+    leido.hora !== reloj.hora ||
+    leido.minuto !== reloj.minuto
+  ) {
+    return { ok: false, motivo: MOTIVOS_DE_HORA.noExiste }
+  }
+  if (instante < entrada.ahora + ANTICIPACION_MINIMA_MS) return { ok: false, motivo: MOTIVOS_DE_HORA.anticipacion }
+  if (instante > entrada.ahora + DIAS_A_REVISAR * UN_DIA_MS) return { ok: false, motivo: MOTIVOS_DE_HORA.lejos }
+  return { ok: true, iso: new Date(instante).toISOString() }
+}
+
+/** "miércoles 28 de octubre" for a picked day, or "" while it is not a day. */
+export function etiquetaDeDia(dia: string, zona: string): string {
+  const fecha = leerDia(dia)
+  if (!fecha) return ""
+  // Midday is the same calendar day in Chile whatever the offset.
+  const f = nombresDeFecha(instanteLocal({ ...fecha, hora: 12, minuto: 0 }, zona), zona)
+  return `${f.diaDeLaSemana} ${f.dia} de ${f.mes}`
+}
+
+/** The schedule hour as the picker starts it: `19:07:00` becomes `19:05`. */
+export function horaEnBloques(hora: string): string {
+  const reloj = leerHoraElegida(hora)
+  if (!reloj) return ""
+  const minuto = reloj.minuto - (reloj.minuto % PASO_EN_MINUTOS)
+  return `${String(reloj.hora).padStart(2, "0")}:${String(minuto).padStart(2, "0")}`
+}
+
 /** "jueves 8 de octubre · 19:00" (larga) or "jueves 8 · 19:00" (corta). */
 export function etiquetaDeFecha(instante: string, zona: string, estilo: "larga" | "corta"): string {
   const ms = Date.parse(instante)
