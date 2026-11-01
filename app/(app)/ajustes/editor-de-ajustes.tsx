@@ -16,6 +16,7 @@ import type { CambioDeAjuste } from "@/lib/acciones/ajustes"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { canonicos, DESTINOS, type Destino, nombreDeDestino } from "@/lib/dominio/destinos"
 import { dolares } from "@/lib/formato"
+import { MAXIMO_DEL_TOPE_USD } from "@/lib/presupuesto/presentar"
 
 export interface AjustesEditables {
   meta: "consultas" | "talleres" | "marca"
@@ -50,9 +51,11 @@ const DIAS = [
 ] as const
 
 const PASO_DEL_TOPE_USD = 5
-const MAXIMO_DEL_TOPE_USD = 500
 // She taps the stepper a few times: one save and one line in the log, once she stops.
 const ESPERA_DEL_TOPE_MS = 600
+
+// The limit and the switches live in Ajustes › Presupuesto; this editor never sends them.
+type CambioDelEditor = Exclude<CambioDeAjuste, { campo: "limite" | "motor_semanal" | "fusiones_nocturnas" }>
 
 function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEditables {
   switch (cambio.campo) {
@@ -70,10 +73,14 @@ function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEdit
       return { ...valores, avisosUrgentes: cambio.valor }
     case "destinos":
       return { ...valores, destinos: cambio.valor }
+    case "limite":
+    case "motor_semanal":
+    case "fusiones_nocturnas":
+      return valores
   }
 }
 
-function valorDe(valores: AjustesEditables, campo: CambioDeAjuste["campo"]): CambioDeAjuste {
+function valorDe(valores: AjustesEditables, campo: CambioDelEditor["campo"]): CambioDelEditor {
   switch (campo) {
     case "meta":
       return { campo, valor: valores.meta }
@@ -155,7 +162,7 @@ export function EditorDeAjustes({
     })
   }
 
-  function cambiar(cambio: CambioDeAjuste) {
+  function cambiar(cambio: CambioDelEditor) {
     enviar(cambio, valorDe(ultimos.current, cambio.campo))
   }
 
