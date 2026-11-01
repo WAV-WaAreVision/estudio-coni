@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { correrMotor, type DepsDelMotor } from "@/lib/motor/semanal"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
+import { type NotificadorEnMemoria, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 import { CONI, pool } from "./db"
 import { URL_CLAUDE, USO } from "./procesar-comun"
@@ -14,10 +15,11 @@ afterAll(() => pool.end())
 const db = clienteDeServicio()
 const SEMANA = "2026-10-04"
 
-function deps(): DepsDelMotor {
+function deps(avisos: NotificadorEnMemoria = notificadorEnMemoria()): DepsDelMotor {
   return {
     db,
     almacen: almacenEnMemoria(),
+    avisos,
     ahora: () => new Date().toISOString(),
     claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
   }
@@ -545,13 +547,14 @@ describe("correrMotor", () => {
     expect(claude.usuario).toContain("Frase propia de Coni semanal")
   })
 
-  it("fails the run with the cap motive and no ideas when the monthly cap is reached", async () => {
+  it("fails the run with the limit motive and no ideas, and tells Coni, when the month's limit is reached", async () => {
     await tresTemas()
     const claude = simularClaude()
     const { rows } = await pool.query<{ t: string }>("select tope_mensual_usd::text as t from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0.00001")
+    const avisos = notificadorEnMemoria()
     try {
-      const r = await correrMotor(deps(), { semana: SEMANA, manual: false })
+      const r = await correrMotor(deps(avisos), { semana: SEMANA, manual: false })
       expect(r.resultado).toBe("fallida")
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.t ?? "100"])
@@ -560,6 +563,36 @@ describe("correrMotor", () => {
     expect(claude.llamadas).toBe(0)
     expect(await corrida()).toMatchObject({ estado: "fallida", motivo_fallo: TEXTO_LIMITE })
     expect(await contar("select count(*) as n from public.ideas where origen = 'motor'")).toBe(0)
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+  })
+
+  it("leaves the run to a retry that tells Coni when the limit notice fails", async () => {
+    await tresTemas()
+    simularClaude()
+    const { rows } = await pool.query<{ t: string }>("select tope_mensual_usd::text as t from public.ajustes")
+    await pool.query("update public.ajustes set tope_mensual_usd = 0.00001")
+    const fallido = notificadorEnMemoria()
+    const avisos = notificadorEnMemoria()
+    try {
+      await expect(
+        correrMotor(
+          {
+            ...deps(fallido),
+            avisos: {
+              ...fallido,
+              aConi: () => Promise.reject(new Error("push caído")),
+            },
+          },
+          { semana: SEMANA, manual: false },
+        ),
+      ).rejects.toThrow("push caído")
+      await correrMotor(deps(avisos), { semana: SEMANA, manual: false })
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.t ?? "100"])
+    }
+
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+    expect(await corrida()).toMatchObject({ estado: "fallida", motivo_fallo: TEXTO_LIMITE })
   })
 
   it("fails the run with a Spanish motive and rethrows on any other error", async () => {
@@ -591,5 +624,25 @@ describe("correrMotor", () => {
       teorias: 0,
       queSubir: { unSoloAutor: [], pilaresSinMaterial: expect.any(Array) },
     })
+  })
+})
+
+describe("el interruptor del motor", () => {
+  afterEach(() => pool.query("update public.ajustes set motor_semanal_activo = true"))
+
+  it("skips the Sunday run, without registering it, when Coni turned it off", async () => {
+    await pool.query("update public.ajustes set motor_semanal_activo = false")
+
+    expect(await correrMotor(deps(), { semana: SEMANA, manual: false })).toEqual({ resultado: "apagado" })
+    expect(await corrida()).toBeUndefined()
+  })
+
+  it("still runs «Proponer ahora» with the switch off: she asked for it", async () => {
+    await pool.query("update public.ajustes set motor_semanal_activo = false")
+
+    const resultado = await correrMotor(deps(), { semana: SEMANA, manual: true })
+
+    expect(resultado.resultado).not.toBe("apagado")
+    expect(await corrida()).toBeDefined()
   })
 })

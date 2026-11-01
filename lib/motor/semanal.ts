@@ -12,7 +12,8 @@ import {
   puntuarTemaSolo,
   reporteQueSubir,
 } from "@/lib/motor/puntaje"
-import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
+import { leerInterruptores } from "@/lib/presupuesto/interruptores"
+import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { detalleTecnico } from "@/lib/produccion/fallas"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
@@ -22,6 +23,7 @@ import {
   MODELO_POR_TAREA,
   type TeoriaDelMotor,
 } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -30,10 +32,12 @@ export interface DepsDelMotor {
   db: Db
   claude: Anthropic
   almacen: Almacen
+  avisos: Notificador
   ahora: () => string
 }
 
 export type ResultadoDelMotor =
+  | { resultado: "apagado" }
   | { resultado: "ya_corrio" }
   | { resultado: "fallida"; motivo: string }
   | { resultado: "lista"; resumen: ResumenDeCorrida }
@@ -441,10 +445,45 @@ async function retomar(deps: DepsDelMotor, semana: string): Promise<boolean> {
   return true
 }
 
+/** A run the month's limit stopped, whole or in part: Coni hears it once a month (spec 2026-11-02). */
+function llegoAlLimite(trabajo: Trabajo): boolean {
+  if (trabajo.resultado === "fallida") return trabajo.motivo === TEXTO_LIMITE
+  return trabajo.resumen.lotesFallidos.some((lote) => lote.error === TEXTO_LIMITE)
+}
+
+/**
+ * Works the week and closes its run either way: failed with the Spanish motive, or ready with its summary. The limit
+ * notice goes before the run is closed: a notice that fails closes it as failed, which a retry takes over (`retomar`)
+ * and notices again. Closed first as `lista`, a retry would answer `ya_corrio` and Coni would never hear it.
+ */
+async function trabajarYCerrar(deps: DepsDelMotor, semana: string, manual: boolean): Promise<Trabajo> {
+  const { db } = deps
+  try {
+    const r = await trabajar(deps, semana)
+    if (llegoAlLimite(r)) await avisarLimite(deps, deps.ahora())
+    if (r.resultado === "fallida") {
+      await terminar(db, semana, { estado: "fallida", motivo_fallo: r.motivo }, deps.ahora())
+    } else {
+      await terminar(
+        db,
+        semana,
+        { estado: "lista", resumen: { ...r.resumen, manual }, costo_usd: r.costo },
+        deps.ahora(),
+      )
+    }
+    return r
+  } catch (causa) {
+    await terminar(db, semana, { estado: "fallida", motivo_fallo: MOTIVO_DE_FALLA }, deps.ahora())
+    throw causa
+  }
+}
+
 /**
  * The Sunday run: scores crossings, asks Claude for theories and ideas, validates the backing and fills the bank.
- * One run per week (`motor_corridas.semana` is unique). Reaching the cap closes the run as failed without throwing;
- * any other error closes it as failed and propagates so the scheduled task alerts WAV.
+ * One run per week (`motor_corridas.semana` is unique). Turned off in Ajustes › Presupuesto, the Sunday run is skipped
+ * before it registers anything; «Proponer ahora» (manual) is Coni asking and always runs. Reaching the limit closes the
+ * run as failed without throwing and tells Coni; any other error closes it as failed and propagates so the scheduled
+ * task alerts WAV.
  */
 export async function correrMotor(
   deps: DepsDelMotor,
@@ -452,21 +491,14 @@ export async function correrMotor(
 ): Promise<ResultadoDelMotor> {
   const { db } = deps
   const { semana, manual } = entrada
+  if (!manual && !(await leerInterruptores(db)).motorSemanal) return { resultado: "apagado" }
   const { error } = await db.from("motor_corridas").insert({ semana, estado: "corriendo" })
   if (error?.code === UNIQUE_VIOLATION) {
     if (!(await retomar(deps, semana))) return { resultado: "ya_corrio" }
   } else if (error) throw falloDeBase("No pude registrar la corrida del motor", error)
 
-  try {
-    const r = await trabajar(deps, semana)
-    if (r.resultado === "fallida") {
-      await terminar(db, semana, { estado: "fallida", motivo_fallo: r.motivo }, deps.ahora())
-      return { resultado: "fallida", motivo: r.motivo }
-    }
-    await terminar(db, semana, { estado: "lista", resumen: { ...r.resumen, manual }, costo_usd: r.costo }, deps.ahora())
-    return { resultado: "lista", resumen: r.resumen }
-  } catch (causa) {
-    await terminar(db, semana, { estado: "fallida", motivo_fallo: MOTIVO_DE_FALLA }, deps.ahora())
-    throw causa
-  }
+  const r = await trabajarYCerrar(deps, semana, manual)
+  return r.resultado === "fallida"
+    ? { resultado: "fallida", motivo: r.motivo }
+    : { resultado: "lista", resumen: r.resumen }
 }

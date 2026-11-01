@@ -217,6 +217,7 @@ export async function depsMotor(): Promise<DepsDelMotor | null> {
   return {
     db,
     almacen: almacenReal(),
+    avisos: avisosReales(),
     claude: clienteDelMotor(llave),
     ahora: () => new Date().toISOString(),
   }
