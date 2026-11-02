@@ -153,7 +153,8 @@ const ERROR_SIN_AJUSTES = "ajustes_faltantes"
 
 function cifraDe(detalle: string | null | undefined, patron: RegExp): number | null {
   const encontrada = detalle ? patron.exec(detalle) : null
-  return encontrada?.[1] === undefined ? null : Number(encontrada[1])
+  const cifra = encontrada?.[1] === undefined ? Number.NaN : Number(encontrada[1])
+  return Number.isFinite(cifra) ? cifra : null
 }
 
 export function resultadoDeReserva(
@@ -214,7 +215,11 @@ export async function reservarGasto(db: Db, reserva: PedidoDeReserva): Promise<R
  */
 export async function reservarGastoFirmado(db: Db, reserva: Omit<PedidoDeReserva, "firmado">): Promise<FilaDeGasto> {
   const resultado = await reservarGasto(db, { ...reserva, firmado: true })
-  if (resultado.limite) throw new Error("reservar_gasto frenó un gasto firmado, y su contrato dice que nunca lo hace.")
+  if (resultado.limite) {
+    throw new Error(
+      `reservar_gasto frenó un gasto firmado (clave ${reserva.clave}, paso ${reserva.paso}), y su contrato dice que nunca lo hace.`,
+    )
+  }
   return resultado.gasto
 }
 

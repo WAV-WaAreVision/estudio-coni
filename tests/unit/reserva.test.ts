@@ -39,6 +39,30 @@ describe("resultadoDeReserva", () => {
     })
   })
 
+  it("gives null figures for a garbled detail instead of NaN", () => {
+    expect(resultadoDeReserva({ message: "limite_alcanzado", details: "usado=1.2.3;limite=." }, null)).toEqual({
+      limite: true,
+      usadoUsd: null,
+      limiteUsd: null,
+    })
+  })
+
+  it("throws a plain error, not a configuration one, for an unknown database error", () => {
+    let lanzado: unknown
+    try {
+      resultadoDeReserva({ message: "deadlock_detected" }, null)
+    } catch (error) {
+      lanzado = error
+    }
+    expect(lanzado).toBeInstanceOf(Error)
+    expect(lanzado).not.toBeInstanceOf(FallaDeConfiguracion)
+    expect((lanzado as Error).message).toContain("deadlock_detected")
+  })
+
+  it("throws when the database answers neither an error nor a row", () => {
+    expect(() => resultadoDeReserva(null, null)).toThrow("La base no devolvió el gasto reservado.")
+  })
+
   it("fails as a configuration error without the settings row", () => {
     expect(() => resultadoDeReserva({ message: "ajustes_faltantes" }, null)).toThrow(FallaDeConfiguracion)
   })

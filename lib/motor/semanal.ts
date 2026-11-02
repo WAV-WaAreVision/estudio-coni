@@ -473,14 +473,13 @@ async function trabajarYCerrar(deps: DepsDelMotor, semana: string, manual: boole
   }
 }
 
-const esObjeto = (valor: Json | undefined): valor is { [clave: string]: Json | undefined } =>
+const esObjeto = (valor: Json | null | undefined): valor is { [clave: string]: Json | undefined } =>
   typeof valor === "object" && valor !== null && !Array.isArray(valor)
 
 /** A closed run's summary with a batch the limit stopped: the notice of that run may not have gone out. */
 function resumenLlegoAlLimite(resumen: Json | null): boolean {
-  const valor = resumen ?? undefined
-  if (!esObjeto(valor)) return false
-  const lotes = valor.lotesFallidos
+  if (!esObjeto(resumen)) return false
+  const lotes = resumen.lotesFallidos
   return Array.isArray(lotes) && lotes.some((lote) => esObjeto(lote) && lote.error === TEXTO_LIMITE)
 }
 
