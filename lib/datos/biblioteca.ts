@@ -30,17 +30,21 @@ export interface MaterialDeLista {
 const COLUMNAS =
   "id, titulo, autor_id, rol, tipo, estado, motivo_fallo, costo_estimado_usd, costo_confirmado_en, creado_en"
 
-/** The main topic of each listed material, from all their ideas, paged by id past the 1000-row limit (D8). */
+/**
+ * The main topic of each listed material, from their non-excluded ideas with a topic, paged by id past the 1000-row
+ * limit (D8). The pure function filters the same rows again: the rule stays in one tested place.
+ */
 async function leerTemasPrincipales(db: Db, ids: string[]): Promise<Map<string, TemaPrincipal>> {
   if (ids.length === 0) return new Map()
-  const filas = await leerTodas("los temas de los materiales", (desde, hasta) =>
-    db
+  const filas = await leerTodas("los temas de los materiales", (despuesDe, limite) => {
+    const consulta = db
       .from("afirmaciones")
-      .select("material_id, tema_id, excluida, temas ( nombre )")
+      .select("id, material_id, tema_id, excluida, temas ( nombre )")
       .in("material_id", ids)
-      .order("id")
-      .range(desde, hasta),
-  )
+      .eq("excluida", false)
+      .not("tema_id", "is", null)
+    return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+  })
   return temasPrincipales(
     filas.map((fila) => ({
       materialId: fila.material_id,
@@ -126,15 +130,14 @@ export async function leerMaterialConFicha(
 
 /** The map of a material: what its ideas are about and how they are backed. Excluded ideas are not part of it. */
 export async function leerMapaDelMaterial(db: Db, materialId: string): Promise<MapaDelMaterial> {
-  const filas: FilaDeAfirmacion[] = await leerTodas(`las ideas del material ${materialId}`, (desde, hasta) =>
-    db
+  const filas: FilaDeAfirmacion[] = await leerTodas(`las ideas del material ${materialId}`, (despuesDe, limite) => {
+    const consulta = db
       .from("afirmaciones")
-      .select("tema_id, tipo, evidencia, temas ( nombre )")
+      .select("id, tema_id, tipo, evidencia, temas ( nombre )")
       .eq("material_id", materialId)
       .eq("excluida", false)
-      .order("id")
-      .range(desde, hasta),
-  )
+    return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+  })
   return armarMapa(filas)
 }
 
