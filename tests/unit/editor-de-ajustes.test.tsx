@@ -46,6 +46,7 @@ describe("EditorDeAjustes", () => {
     expect(pliegue).not.toHaveAttribute("open")
     expect(pliegue).toContainElement(screen.getByRole("link", { name: "Cuentas conectadas" }))
     expect(screen.queryByRole("button", { name: "Subir el tope" })).toBeNull()
+    expect(screen.queryByRole("meter")).toBeNull()
   })
 
   it("shows the current settings", () => {

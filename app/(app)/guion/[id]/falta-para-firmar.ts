@@ -15,14 +15,14 @@ export interface EstadoDeLaFirma {
   sinRevisar: readonly Hallazgo[]
   sinAvatares: boolean
   avatarElegido: boolean
-  /** HeyGen's balance or the month's cap cannot cover the video (today's text). */
+  /** HeyGen's balance cannot cover the video (today's text). The month's limit never closes the signature (P4). */
   bloqueoVideo: string | null
 }
 
 export type FaltaParaFirmar = { tipo: "nada" } | { tipo: "bloqueo"; texto: string } | { tipo: "falta"; cosas: string[] }
 
 /**
- * What keeps gate 1's signature closed (decision 9, step 7). A balance, the cap or no looks at all is a block, said
+ * What keeps gate 1's signature closed (decision 9, step 7). HeyGen's balance or no looks at all is a block, said
  * whole; otherwise every missing item, in the order she would do them, for the "Falta:" line.
  */
 export function faltaParaFirmar(estado: EstadoDeLaFirma): FaltaParaFirmar {
