@@ -44,6 +44,7 @@ export function TablaDeMateriales({ materiales, filtros, seleccion, ahora }: Pro
                   href={hrefDeLista(filtros, material.id)}
                   scroll={false}
                   aria-current={elegido ? "true" : undefined}
+                  data-abre-panel={material.id}
                   className="text-balance text-tinta underline-offset-4 hover:underline"
                 >
                   {material.titulo ?? "Sin título"}

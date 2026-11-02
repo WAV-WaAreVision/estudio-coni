@@ -32,7 +32,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
         </span>
         <EstadoDeMaterial material={material} />
       </div>
-      <h2 id="panel-titulo" className="text-pieza text-balance">
+      <h2 id="panel-titulo" tabIndex={-1} className="text-pieza text-balance">
         {material.titulo ?? "Sin título"}
       </h2>
       <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno" nivel={3}>
@@ -66,7 +66,12 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
       ) : null}
       {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
       <DetalleParaWav lineas={lineasParaWav(material, evidencia)} proveedor={null} />
-      <Link href={hrefDeLista(filtros)} scroll={false} className={clasesDeBoton({ variante: "callado" })}>
+      <Link
+        href={hrefDeLista(filtros)}
+        scroll={false}
+        data-cierra-panel={material.id}
+        className={clasesDeBoton({ variante: "callado" })}
+      >
         Cerrar el panel
       </Link>
     </section>

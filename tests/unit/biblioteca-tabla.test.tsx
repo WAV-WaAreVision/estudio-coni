@@ -37,6 +37,8 @@ describe("TablaDeMateriales", () => {
   it("makes each row a link that opens the side panel with ?m, keeping the filters", () => {
     render(<TablaDeMateriales materiales={materiales} filtros={{ estado: "listo" }} seleccion={null} ahora={AHORA} />)
     expect(screen.getByRole("link", { name: "Burnout" })).toHaveAttribute("href", `/biblioteca?estado=listo&m=${UNO}`)
+    // The focus of the panel finds the row that opened it by this mark.
+    expect(screen.getByRole("link", { name: "Burnout" })).toHaveAttribute("data-abre-panel", UNO)
     expect(screen.getByRole("row", { name: /Pausas/ })).toHaveTextContent("Hoy")
   })
 

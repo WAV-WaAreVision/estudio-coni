@@ -64,6 +64,9 @@ describe("PanelDeMaterial", () => {
   it("has its own close control that keeps the filters", () => {
     render(<PanelDeMaterial panel={panel} filtros={{ estado: "listo" }} ahora={AHORA} />)
     expect(screen.getByRole("link", { name: "Cerrar el panel" })).toHaveAttribute("href", "/biblioteca?estado=listo")
+    expect(screen.getByRole("link", { name: "Cerrar el panel" })).toHaveAttribute("data-cierra-panel", ID)
+    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute("id", "panel-titulo")
+    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute("tabindex", "-1")
   })
 
   it("carries Reintentar for a failed material, and says when there are no ideas yet", () => {

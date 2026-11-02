@@ -5,6 +5,7 @@ import { estaProcesando } from "@/lib/dominio/biblioteca/estado"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
 import { FiltrosRapidos } from "./filtros-rapidos"
+import { FocoDelPanel } from "./foco-del-panel"
 import { MasFiltros } from "./mas-filtros"
 import { NavDeBiblioteca } from "./nav-de-biblioteca"
 import { PanelDeMaterial, PistaDelPanel } from "./panel-de-material"
@@ -32,6 +33,7 @@ export default async function Materiales({
 
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_22rem] md:items-start md:gap-8">
+      <FocoDelPanel seleccion={seleccion} />
       <RefrescoAutomatico activo={materiales.some(estaProcesando)} cadaMs={REFRESCO_MS} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
