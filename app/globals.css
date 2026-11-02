@@ -486,6 +486,11 @@ html[data-letra="grande"] .nav-inferior a {
   min-height: 0;
   padding: var(--e-2) var(--e-1);
 }
+/* Four tabs at large text: a little less gutter so "Biblioteca" keeps one line at 375 px. */
+html[data-letra="grande"] .nav-inferior {
+  gap: var(--e-1);
+  padding-inline: var(--e-2);
+}
 html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
   height: 1.2rem;
