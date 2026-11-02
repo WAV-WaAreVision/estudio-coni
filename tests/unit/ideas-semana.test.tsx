@@ -1,8 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { IdeasSemana } from "@/app/(app)/ideas-semana"
 import { pilarVisible } from "@/lib/dominio/pilares"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
+
+const { redibujar } = vi.hoisted(() => ({ redibujar: vi.fn() }))
+// A `router.refresh()` loses the race with the address's prefetches (`useRedibujar`): Inicio redraws by its address.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: redibujar }) }))
 
 const IDEAS = [
   { id: "i1", gancho: "¿Te achicas para que nadie se incomode?", pilar: pilarVisible(PILARES_DE_PRUEBA, "autoestima") },
@@ -37,6 +41,10 @@ const EXTRA = {
 function elegir(...ganchos: string[]) {
   for (const gancho of ganchos) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(gancho.slice(0, 20)) }))
 }
+
+beforeEach(() => {
+  redibujar.mockReset()
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -123,6 +131,28 @@ describe("IdeasSemana", () => {
 
     await waitFor(() => expect(alElegir).toHaveBeenCalledWith(["i1", "i3", "i5"]))
     expect(await screen.findByText("Escribiendo 3 guiones. Te aviso cuando estén.")).toBeInTheDocument()
+  })
+
+  it("redraws Inicio when the choice succeeds, so the new rows replace the chosen ideas", async () => {
+    const alElegir = vi.fn().mockResolvedValue({ ok: true, piezas: ["p1"] })
+    render(<IdeasSemana ideas={IDEAS} alElegir={alElegir} />)
+    elegir(IDEAS[0].gancho)
+
+    fireEvent.click(screen.getByRole("button", { name: "Escribir 1 guion" }))
+
+    await waitFor(() => expect(redibujar).toHaveBeenCalledTimes(1))
+    expect(redibujar.mock.calls[0][0]).toMatch(/[?&]v=\d+/)
+  })
+
+  it("does not redraw when the choice fails, so her selection stays", async () => {
+    const alElegir = vi.fn().mockResolvedValue({ ok: false, error: "No se pudo." })
+    render(<IdeasSemana ideas={IDEAS} alElegir={alElegir} />)
+    elegir(IDEAS[0].gancho)
+
+    fireEvent.click(screen.getByRole("button", { name: "Escribir 1 guion" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo.")
+    expect(redibujar).not.toHaveBeenCalled()
   })
 
   it("shows why it failed and keeps her choice", async () => {

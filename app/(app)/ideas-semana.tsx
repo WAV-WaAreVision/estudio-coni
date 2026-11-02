@@ -10,6 +10,7 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { FilaNavegacion } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { useRedibujar } from "@/components/use-redibujar"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
 import type { PilarVisible } from "@/lib/dominio/pilares"
@@ -32,6 +33,8 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
   // Stable, so a re-render while the toast is up does not restart its 8 s.
   const cerrarAviso = useCallback(() => setAviso(null), [])
   const [pendiente, empezar] = useTransition()
+  // The action's revalidatePath alone loses the race with Inicio's prefetches (see `useRedibujar`).
+  const redibujar = useRedibujar()
 
   if (ideas.length === 0) {
     return (
@@ -63,6 +66,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
       }
       setElegidas([])
       setAviso(`Escribiendo ${resultado.piezas.length} guiones. Te aviso cuando estén.`)
+      redibujar()
     })
   }
 
