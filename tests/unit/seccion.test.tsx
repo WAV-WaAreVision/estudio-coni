@@ -37,4 +37,19 @@ describe("Seccion", () => {
     expect(region.className).not.toMatch(/\bmt-/)
     expect(region).toHaveClass("grid", "gap-3")
   })
+
+  it("is an h2 by default and an h3 under a heading of its own (nivel 3)", () => {
+    render(
+      <>
+        <Seccion id="a" titulo="Arriba">
+          <p>x</p>
+        </Seccion>
+        <Seccion id="b" titulo="Adentro" nivel={3}>
+          <p>y</p>
+        </Seccion>
+      </>,
+    )
+    expect(screen.getByRole("heading", { name: "Arriba", level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Adentro", level: 3 })).toHaveClass("text-meta", "font-semibold")
+  })
 })

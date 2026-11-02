@@ -43,7 +43,7 @@ describe("PanelDeMaterial", () => {
 
   it("shows the ideas taken with their count and the first two, and Ver todas opens the detail", () => {
     render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
-    expect(screen.getByRole("heading", { name: "Ideas sacadas" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Ideas sacadas", level: 3 })).toBeInTheDocument()
     expect(screen.getByText("12")).toBeInTheDocument()
     expect(screen.getByText("«El aislamiento pesa más que las horas extra.»")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Ver todas" })).toHaveAttribute("href", `/biblioteca/materiales/${ID}`)
@@ -51,7 +51,7 @@ describe("PanelDeMaterial", () => {
 
   it("says who she is for you with the credential, and folds the technical detail for WAV", () => {
     const { container } = render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
-    expect(screen.getByRole("heading", { name: "¿Quién es para ti?" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "¿Quién es para ti?", level: 3 })).toBeInTheDocument()
     expect(screen.getByText("Daniela Ruiz · investigadora de confianza")).toBeInTheDocument()
     expect(screen.getByText("Referente")).toBeInTheDocument()
     const detalle = container.querySelector("details")

@@ -35,7 +35,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
       <h2 id="panel-titulo" className="text-pieza text-balance">
         {material.titulo ?? "Sin título"}
       </h2>
-      <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno">
+      <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno" nivel={3}>
         {ideas.primeras.length === 0 ? (
           <p className="text-cuerpo text-apagado">
             {material.estado === "listo"
@@ -57,7 +57,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
           </Link>
         ) : null}
       </Seccion>
-      <Seccion titulo={PALABRAS.papel} id="panel-quien" espacio="ninguno">
+      <Seccion titulo={PALABRAS.papel} id="panel-quien" espacio="ninguno" nivel={3}>
         <p className="text-cuerpo">{quien}</p>
         <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
       </Seccion>
