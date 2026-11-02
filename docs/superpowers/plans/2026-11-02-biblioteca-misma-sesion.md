@@ -2883,7 +2883,7 @@ Expected: no output (the only hex is in `globals.css` and `lib/diseno/marca.ts`,
 
 ### Task 22: ship Ingesta, then Conidolly
 
-Standing release authorization (Federico, 01-11-2026) covers estudio-coni. Ingesta's `CLAUDE.md` still says "Nada de GitHub, Vercel ni Supabase alojado sin pedirlo": **ask Federico for the OK to push and deploy Ingesta before Step 2.** No migration, no Trigger deploy.
+Standing release authorization (Federico, 01-11-2026, written in estudio-coni's `CLAUDE.md`) covers estudio-coni, and Ingesta's `CLAUDE.md` now says its releases follow the same authorization (Ingesta is on GitHub, private, and deployed to Vercel by hand). Its conditions apply to both PRs. No migration, no Trigger deploy.
 
 - [ ] **Step 1: Board, start.** Move issue #13 to **En Curso** (if it is not already):
 
@@ -2925,17 +2925,28 @@ printf 'https://conidolly.vercel.app' | vercel env add CONIDOLLY_URL preview
 vercel deploy --prod --yes
 ```
 
-(`CONIDOLLY_URL` is a public address, not a secret.) Verify it is served:
+(`CONIDOLLY_URL` is a public address, not a secret.) Verify it is served. The bridge only reads a POST whose `Origin` is exactly `CONIDOLLY_URL`, so the check takes two POSTs, one with Conidolly's origin and a junk token and one without an origin:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" -X POST -d token_hash=0 https://conidolly-ingesta.vercel.app/ingreso/puente
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" -X POST \
+  -H "Origin: https://conidolly.vercel.app" --data-urlencode "token_hash=no-es-un-token" \
+  https://conidolly-ingesta.vercel.app/ingreso/puente
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" -X POST \
+  --data-urlencode "token_hash=no-es-un-token" \
+  https://conidolly-ingesta.vercel.app/ingreso/puente
 curl -s "https://conidolly-ingesta.vercel.app/ingreso?puente=vencido&v=$(date +%s)" | grep -c "El enlace ya se usó o venció"
 curl -s "https://conidolly-ingesta.vercel.app/ingreso?v=$(date +%s)" | grep -c "geist"
 ```
 
-Expected: `303 https://conidolly-ingesta.vercel.app/ingreso?puente=vencido`, then `1`, then a count of 1 or more. Wait 45 s and retry once if the alias still serves the old build.
+Expected, in order:
 
-- [ ] **Step 4: Conidolly env var, PR and merge.**
+1. `303 https://conidolly-ingesta.vercel.app/ingreso?puente=vencido`: the bridge is deployed, it accepted Conidolly's origin (so `CONIDOLLY_URL` is set and spelled exactly `https://conidolly.vercel.app`) and refused the junk token. A `303 .../ingreso` here means `CONIDOLLY_URL` is missing or wrong (the Vercel log says which: "CONIDOLLY_URL falta o no es válida"); a `404` means the deploy does not have the bridge yet.
+2. `303 https://conidolly-ingesta.vercel.app/ingreso`: a POST without Conidolly's origin never touches the session.
+3. `1`, then a count of 1 or more.
+
+Wait 45 s and retry once if the alias still serves the old build. **Do not merge Conidolly (Step 4) until these checks pass:** the Biblioteca tab posts to `/ingreso/puente`, and before Ingesta serves it Coni gets a 404.
+
+- [ ] **Step 4: Conidolly env var, PR and merge.** Only after Step 3's curls answered as expected against Ingesta production.
 
 ```bash
 cd /Users/fede/Projects/estudio-coni
@@ -2947,7 +2958,8 @@ gh pr create --base main --head feat/biblioteca-sesion \
 Closes #13 (change 29a, stage 1). Ingesta side: WAV-WaAreVision/conidolly-ingesta (merged and deployed first).
 
 - Fourth tab "Biblioteca" (plain link to /ir-a-biblioteca, never current).
-- /ir-a-biblioteca: Coni only; generateLink magiclink with the service role (sends no email, pinned by an integration test); a self-posting form carries the hashed token to Ingesta's /ingreso/puente; no-store and no-referrer; the token never in a URL or a log.
+- /ir-a-biblioteca: Coni only; generateLink magiclink with the service role (sends no email, pinned by an integration test); a self-posting form carries the hashed token to Ingesta's /ingreso/puente; no-store and Referrer-Policy strict-origin (Ingesta sees only the origin it checks); the token never in a URL or a log.
+- A missing SUPABASE_SERVICE_ROLE_KEY sends Coni to /biblioteca-no-abrio and logs only the variable's name.
 - /biblioteca-no-abrio: plain failure page.
 - New env var INGESTA_URL (set in Vercel production and preview).
 - Visual baselines of the bar regenerated after review.
@@ -2970,6 +2982,8 @@ curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "https://conidolly.verc
 ```
 
 Expected: `307 https://conidolly.vercel.app/ingreso` (no session: the usual sign-in redirect). Then ask Federico to sign in to Conidolly with the account that is Coni's today (TRASPASO: `federico@wearevision.cl` is Coni's account for testing), tap Biblioteca once and confirm he lands on Ingesta's Materiales with "Volver a Conidolly". Coni tries it once and reports.
+
+Release note, Coni's iPhone: if she uses Conidolly as an installed PWA (added to the home screen), the Biblioteca opens outside the PWA, in Safari or an in-app browser view, which keeps its own cookies apart from the PWA's. Check on her phone, with her, that (a) she lands on Materiales signed in, (b) the Ingesta session holds when she comes back to the Biblioteca later from that same place, and (c) what "Volver a Conidolly" does there (it opens Conidolly in that browser, where she may not be signed in, rather than going back to the PWA). Write what happened in TRASPASO; if (b) or (c) confuse her, it becomes an issue for stage 2.
 
 - [ ] **Step 6: Board, done.** Move #13 to **Listo** (`--single-select-option-id 98236657`, same command as Step 1) and re-read the item to confirm it stayed there.
 
