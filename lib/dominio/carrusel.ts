@@ -19,7 +19,7 @@ export interface TextoDeCarrusel {
   textoPost: string
 }
 
-/** What Claude writes (`SalidaCarrusel` in lib/proveedores/anthropic.ts). */
+/** What Claude writes (`SalidaCarrusel` in lib/proveedores/anthropic/carrusel.ts). */
 export interface EscritoDeCarrusel {
   portada: { texto: string }
   ideas: readonly { texto: string; destacado: string | null }[]
