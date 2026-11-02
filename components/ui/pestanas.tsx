@@ -1,10 +1,12 @@
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 interface OpcionDePestana<T extends string> {
   valor: T
   etiqueta: string
   href: string
+  icono?: ReactNode
 }
 
 interface PropiedadesDePestanas<T extends string> {
@@ -30,10 +32,11 @@ export function Pestanas<T extends string>({ etiqueta, actual, opciones }: Propi
                 replace
                 aria-current={esActual ? "page" : undefined}
                 className={cn(
-                  "flex min-h-objetivo items-center justify-center rounded-control px-3 text-cuerpo transition-shadow duration-[var(--dur-corta)] ease-salida",
+                  "flex min-h-objetivo items-center justify-center gap-2 rounded-control px-3 text-cuerpo transition-shadow duration-[var(--dur-corta)] ease-salida",
                   esActual ? "bg-piedra font-semibold text-tinta shadow-relieve" : "font-medium text-apagado",
                 )}
               >
+                {opcion.icono}
                 {opcion.etiqueta}
               </Link>
             </li>

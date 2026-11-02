@@ -13,25 +13,30 @@ const ICONOS = { ok: Check, aviso: Warning, error: WarningCircle } as const
  */
 export function PildoraDeEstado({
   tipo,
+  icono,
   children,
   className,
 }: {
   tipo: TipoDePildora
+  /** An icon that says this state better than the kind's own (the Biblioteca's processing hourglass, 4j). */
+  icono?: ReactNode
   children: ReactNode
   className?: string
 }) {
   const Icono = tipo === "neutro" ? null : ICONOS[tipo]
+  const marca =
+    icono ?? (Icono ? <Icono aria-hidden="true" size={ICONO.chico} weight="bold" className="shrink-0" /> : null)
   return (
     <span
       data-contorno
       className={cn(
         "pildora inline-flex min-h-pildora max-w-full items-center gap-2 rounded-control py-1 pr-3.5 pl-2.5 text-meta font-semibold",
-        tipo === "neutro" ? "bg-piedra-alta pl-3.5" : "bg-piedra-honda",
+        tipo === "neutro" ? cn("bg-piedra-alta", !marca && "pl-3.5") : "bg-piedra-honda",
         tipo === "error" ? "text-error" : "text-tinta",
         className,
       )}
     >
-      {Icono ? <Icono aria-hidden="true" size={ICONO.chico} weight="bold" className="shrink-0" /> : null}
+      {marca}
       <span>{children}</span>
     </span>
   )
