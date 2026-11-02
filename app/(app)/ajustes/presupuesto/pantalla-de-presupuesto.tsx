@@ -34,7 +34,8 @@ export interface AccionesDelPresupuesto {
 const ESPERA_DEL_PASO_MS = 600
 
 type CampoConPaso = "tope" | "limite"
-type CampoDelPresupuesto = CampoConPaso | "motor_semanal" | "fusiones_nocturnas"
+type CampoDeInterruptor = "motor_semanal" | "fusiones_nocturnas"
+type CampoDelPresupuesto = CampoConPaso | CampoDeInterruptor
 type CambioDelPresupuesto = Extract<CambioDeAjuste, { campo: CampoDelPresupuesto }>
 
 interface Mensaje {
@@ -84,22 +85,15 @@ function aplicar(p: PresupuestoDelMes, cambio: CambioDelPresupuesto): Presupuest
   }
 }
 
-/** A failed save takes back only the fields that change touched; her newer edits elsewhere stay. */
-function restaurar(actual: PresupuestoDelMes, antes: PresupuestoDelMes, campo: CampoDelPresupuesto): PresupuestoDelMes {
-  switch (campo) {
-    case "tope":
-      return { ...actual, tope: antes.tope, limiteExplicito: antes.limiteExplicito, limite: antes.limite }
-    case "limite":
-      return { ...actual, limiteExplicito: antes.limiteExplicito, limite: antes.limite }
-    case "motor_semanal":
-      return { ...actual, motor: { ...actual.motor, activo: antes.motor.activo } }
-    case "fusiones_nocturnas":
-      return { ...actual, fusiones: { ...actual.fusiones, activas: antes.fusiones.activas } }
-  }
-}
-
-function cambioDelPaso(campo: CampoConPaso, p: PresupuestoDelMes): CambioDelPresupuesto {
-  return campo === "tope" ? { campo, valor: p.tope } : { campo, valor: p.limiteExplicito }
+/** A failed switch save takes back only that switch; her other edits stay. */
+function restaurarInterruptor(
+  actual: PresupuestoDelMes,
+  confirmado: PresupuestoDelMes,
+  campo: CampoDeInterruptor,
+): PresupuestoDelMes {
+  return campo === "motor_semanal"
+    ? { ...actual, motor: { ...actual.motor, activo: confirmado.motor.activo } }
+    : { ...actual, fusiones: { ...actual.fusiones, activas: confirmado.fusiones.activas } }
 }
 
 /** Spec 2026-11-02, Screens: the month's bar, the cap and the limit, Reactivar, spend by provider and the switches. */
@@ -119,13 +113,21 @@ export function PantallaDePresupuesto({
   const [nuevoLimite, setNuevoLimite] = useState("")
   const cerrarMensaje = useCallback(() => setMensaje(null), [])
 
-  // The latest state, for the timers that save later; what the server last accepted, to go back to on a failure; the
-  // number of each field's latest save, so an older answer arriving late never overrides a newer one.
+  // The latest state, for the timers that save later, and what the server last accepted, to go back to on a failure.
   const ultimo = useRef(estado)
   ultimo.current = estado
   const confirmado = useRef(inicial)
-  const ultimaVez = useRef<Partial<Record<CampoDelPresupuesto, number>>>({})
-  const pendientes = useRef<Partial<Record<CampoConPaso, ReturnType<typeof setTimeout>>>>({})
+  // C11: the cap and the limit share one queue (one wait, one save in flight), because each changes what the other
+  // means. The switches are independent: each numbers its saves, so a late answer never overrides a newer one.
+  const cola = useRef<{
+    temporizador: ReturnType<typeof setTimeout> | null
+    enVuelo: boolean
+    /** Taps were saved for while a save was in flight: one more flush after it, offering Deshacer or not. */
+    otraVez: { ofrecerDeshacer: boolean } | null
+    /** The steppers she touched since the flush in flight began: a failure keeps what she did after it. */
+    tocados: Set<CampoConPaso>
+  }>({ temporizador: null, enVuelo: false, otraVez: null, tocados: new Set() })
+  const ultimaVez = useRef<Partial<Record<CampoDeInterruptor, number>>>({})
 
   const vista = presentarPresupuesto(estado)
 
@@ -143,22 +145,97 @@ export function PantallaDePresupuesto({
     })
   }
 
-  function guardar(cambio: CambioDelPresupuesto, ofrecerDeshacer = true) {
+  /** What the steppers show now against what the server accepted: the cap first, then the limit it leaves. */
+  function cambiosDeLosPasos(): CambioDelPresupuesto[] {
+    const actual = ultimo.current
+    const base = confirmado.current
+    const cambios: CambioDelPresupuesto[] = []
+    if (actual.tope !== base.tope) cambios.push({ campo: "tope", valor: actual.tope })
+    if (actual.limiteExplicito !== conTope(base, actual.tope).limiteExplicito) {
+      cambios.push({ campo: "limite", valor: actual.limiteExplicito })
+    }
+    return cambios
+  }
+
+  /** After a failure: the cap and the limit go back to what the server accepted, except what she tapped since. */
+  function revertirLosPasos() {
+    const actual = ultimo.current
+    const base = confirmado.current
+    let siguiente: PresupuestoDelMes = {
+      ...actual,
+      tope: base.tope,
+      limiteExplicito: base.limiteExplicito,
+      limite: base.limite,
+    }
+    if (cola.current.tocados.has("tope")) siguiente = conTope(siguiente, actual.tope)
+    if (cola.current.tocados.has("limite")) siguiente = conLimite(siguiente, actual.limiteExplicito)
+    poner(siguiente)
+  }
+
+  /** Saves the steppers now, or right after the save in flight. */
+  function soltarPasos(ofrecerDeshacer = true) {
+    const c = cola.current
+    if (c.temporizador !== null) {
+      clearTimeout(c.temporizador)
+      c.temporizador = null
+    }
+    if (c.enVuelo) {
+      c.otraVez = { ofrecerDeshacer: (c.otraVez?.ofrecerDeshacer ?? true) && ofrecerDeshacer }
+      return
+    }
+    const cambios = cambiosDeLosPasos()
+    if (cambios.length === 0) return
+    const base = confirmado.current
+    // A cap above the limit she set takes that limit back: undoing the cap could not return it (P9), so no Deshacer.
+    const quitaSuLimite = cambios.some(
+      (cambio) => cambio.campo === "tope" && base.limiteExplicito !== null && cambio.valor > base.limiteExplicito,
+    )
+    c.enVuelo = true
+    c.tocados = new Set()
+    for (const cambio of cambios) ponerError(cambio.campo, null)
+    empezar(async () => {
+      const anteriores: CambioDelPresupuesto[] = []
+      const avisos: string[] = []
+      let fallo = false
+      for (const cambio of cambios) {
+        const resultado = await acciones.guardar(cambio)
+        if (!resultado.ok) {
+          revertirLosPasos()
+          ponerError(cambio.campo, resultado.error)
+          fallo = true
+          break
+        }
+        confirmado.current = aplicar(confirmado.current, cambio)
+        if (esDelPresupuesto(resultado.anterior)) anteriores.push(resultado.anterior)
+        if (resultado.aviso) avisos.push(resultado.aviso)
+      }
+      c.enVuelo = false
+      if (!fallo && ofrecerDeshacer) {
+        setMensaje({
+          texto: avisos.length > 0 ? avisos.join(" ") : "Guardado",
+          deshacer: quitaSuLimite || anteriores.length !== cambios.length ? undefined : () => deshacer(anteriores),
+        })
+      }
+      const otraVez = c.otraVez
+      c.otraVez = null
+      if (otraVez) soltarPasos(otraVez.ofrecerDeshacer)
+    })
+  }
+
+  function guardarInterruptor(
+    cambio: Extract<CambioDelPresupuesto, { campo: CampoDeInterruptor }>,
+    ofrecerDeshacer = true,
+  ) {
     const vez = (ultimaVez.current[cambio.campo] ?? 0) + 1
     ultimaVez.current[cambio.campo] = vez
-    // A cap above the limit she set takes that limit back: undoing the cap could not return it (P9), so no Deshacer.
-    const quitaSuLimite =
-      cambio.campo === "tope" &&
-      confirmado.current.limiteExplicito !== null &&
-      cambio.valor > confirmado.current.limiteExplicito
     ponerError(cambio.campo, null)
     empezar(async () => {
       const resultado = await acciones.guardar(cambio)
-      const esLaUltima = ultimaVez.current[cambio.campo] === vez && !(cambio.campo in pendientes.current)
+      // An older save answering after a newer one was sent says nothing about what the screen shows now.
+      const esLaUltima = ultimaVez.current[cambio.campo] === vez
       if (!resultado.ok) {
-        // An older save failing after a newer one was sent says nothing about what the screen shows now.
         if (!esLaUltima) return
-        poner(restaurar(ultimo.current, confirmado.current, cambio.campo))
+        poner(restaurarInterruptor(ultimo.current, confirmado.current, cambio.campo))
         ponerError(cambio.campo, resultado.error)
         return
       }
@@ -167,33 +244,29 @@ export function PantallaDePresupuesto({
       const anterior = resultado.anterior
       setMensaje({
         texto: resultado.aviso ?? "Guardado",
-        deshacer: esDelPresupuesto(anterior) && !quitaSuLimite ? () => deshacer(anterior) : undefined,
+        deshacer: esDelPresupuesto(anterior) ? () => deshacer([anterior]) : undefined,
       })
     })
   }
 
-  function deshacer(anterior: CambioDelPresupuesto) {
-    soltar("tope", false)
-    soltar("limite", false)
-    poner(aplicar(ultimo.current, anterior))
-    guardar(anterior, false)
-  }
-
-  /** Saves a stepper's pending run of taps now. */
-  function soltar(campo: CampoConPaso, ofrecerDeshacer = true) {
-    const pendiente = pendientes.current[campo]
-    if (pendiente === undefined) return
-    clearTimeout(pendiente)
-    delete pendientes.current[campo]
-    guardar(cambioDelPaso(campo, ultimo.current), ofrecerDeshacer)
+  /** Puts back what each save replaced. The steppers go through their queue, which also takes any pending taps. */
+  function deshacer(anteriores: CambioDelPresupuesto[]) {
+    let siguiente = ultimo.current
+    for (const anterior of anteriores) siguiente = aplicar(siguiente, anterior)
+    poner(siguiente)
+    for (const anterior of anteriores) {
+      if (anterior.campo === "motor_semanal" || anterior.campo === "fusiones_nocturnas") {
+        guardarInterruptor(anterior, false)
+      }
+    }
+    if (anteriores.some((anterior) => anterior.campo === "tope" || anterior.campo === "limite")) soltarPasos(false)
   }
 
   // Leaving the screen (back to Ajustes, another tab, the phone locking or going to the background) must not lose the
   // last taps. Best effort: the save is sent at once, but a browser closing the page may not wait for its answer.
   const soltarTodo = useRef(() => {})
   soltarTodo.current = () => {
-    soltar("tope")
-    soltar("limite")
+    if (cola.current.temporizador !== null) soltarPasos()
   }
   useEffect(() => {
     const alOcultar = () => soltarTodo.current()
@@ -210,11 +283,12 @@ export function PantallaDePresupuesto({
   }, [])
 
   function programar(campo: CampoConPaso, siguiente: PresupuestoDelMes) {
-    const previo = pendientes.current[campo]
-    if (previo !== undefined) clearTimeout(previo)
+    const c = cola.current
+    if (c.temporizador !== null) clearTimeout(c.temporizador)
+    c.tocados.add(campo)
     ponerError(campo, null)
     poner(siguiente)
-    pendientes.current[campo] = setTimeout(() => soltar(campo), ESPERA_DEL_PASO_MS)
+    c.temporizador = setTimeout(() => soltarPasos(), ESPERA_DEL_PASO_MS)
   }
 
   function moverTope(delta: number) {
@@ -229,10 +303,10 @@ export function PantallaDePresupuesto({
     programar("limite", conLimite(actual, valor))
   }
 
-  function alternar(campo: "motor_semanal" | "fusiones_nocturnas", valor: boolean) {
-    const cambio: CambioDelPresupuesto = { campo, valor }
+  function alternar(campo: CampoDeInterruptor, valor: boolean) {
+    const cambio = { campo, valor }
     poner(aplicar(ultimo.current, cambio))
-    guardar(cambio)
+    guardarInterruptor(cambio)
   }
 
   function abrirReactivar() {

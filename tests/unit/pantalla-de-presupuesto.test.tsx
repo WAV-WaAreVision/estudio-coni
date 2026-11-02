@@ -397,4 +397,59 @@ describe("PantallaDePresupuesto", () => {
     expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
   })
+  it("saves and shows a limit tapped while a cap save hangs and then fails", async () => {
+    let fallarElTope: (valor: { ok: false; error: string }) => void = () => {}
+    const a = mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "tope"
+            ? new Promise<{ ok: false; error: string }>((resolver) => {
+                fallarElTope = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: ANTERIOR }),
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    await act(async () => {
+      fallarElTope({ ok: false, error: "No pude guardar tu tope." })
+    })
+    await esperarElGuardado()
+
+    expect(a.guardar).toHaveBeenLastCalledWith({ campo: "limite", valor: 95 })
+    const topeYLimite = screen.getByRole("region", { name: "Tope y límite" })
+    expect(within(topeYLimite).getByText("US$ 40")).toBeInTheDocument()
+    expect(within(topeYLimite).getByText("US$ 95")).toBeInTheDocument()
+    expect(within(topeYLimite).getByText("No pude guardar tu tope.")).toBeInTheDocument()
+  })
+
+  it("saves a cap and a limit tapped together in one flush, the cap first and the limit after it", async () => {
+    let terminarElTope: (valor: { ok: true; anterior: CambioDeAjuste }) => void = () => {}
+    const a = mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "tope"
+            ? new Promise<{ ok: true; anterior: CambioDeAjuste }>((resolver) => {
+                terminarElTope = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: { campo: "limite", valor: null } as CambioDeAjuste }),
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    await esperarElGuardado()
+    expect(vi.mocked(a.guardar).mock.calls).toEqual([[{ campo: "tope", valor: 45 }]])
+
+    await act(async () => {
+      terminarElTope({ ok: true, anterior: ANTERIOR })
+    })
+    expect(vi.mocked(a.guardar).mock.calls).toEqual([[{ campo: "tope", valor: 45 }], [{ campo: "limite", valor: 95 }]])
+  })
 })
