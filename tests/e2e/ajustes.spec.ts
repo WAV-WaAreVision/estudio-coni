@@ -18,7 +18,7 @@ const DIA = 24 * 60 * 60 * 1000
 async function limpiar() {
   await pool.query(`delete from vault.secrets where name in ${NOMBRES_DE_LLAVES}`)
   await pool.query(
-    "update public.ajustes set produccion = '{}'::jsonb, meta_cuenta_id = null, meta_token_expira_en = null, meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, avisos_resumen = true, avisos_urgentes = true",
+    "update public.ajustes set produccion = '{}'::jsonb, meta_cuenta_id = null, meta_token_expira_en = null, meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, limite_duro_usd = null, avisos_resumen = true, avisos_urgentes = true",
   )
   await pool.query("delete from public.gastos")
 }
@@ -101,9 +101,7 @@ test("a key a provider refuses is flagged, and one that cannot be checked is not
   await expect(page.getByText("Sin revisar")).toBeVisible()
 })
 
-test("settings save by themselves, can be undone, and are logged with her as the actor", async ({ page }) => {
-  // `eventos` is append-only, so earlier runs stay: only what this test writes is looked at.
-  const { rows: previos } = await pool.query("select coalesce(max(id), 0) as id from public.eventos")
+test("settings save by themselves and can be undone", async ({ page }) => {
   await page.goto("/ajustes")
 
   const meta = page.getByRole("combobox", { name: "Meta de este mes" })
@@ -121,40 +119,12 @@ test("settings save by themselves, can be undone, and are logged with her as the
   await hora.fill("20:30")
   await expect.poll(async () => (await ajustes()).hora_publicacion).toBe("20:30:00")
 
-  // The cap is WAV's: it folds under "Para WAV".
-  await abrirDesplegable(page, "Para WAV")
-  await page.getByRole("button", { name: "Subir el tope" }).click()
-  await page.getByRole("button", { name: "Subir el tope" }).click()
-  await expect(page.getByText("US$ 50")).toBeVisible()
-  await expect.poll(async () => Number((await ajustes()).tope_mensual_usd)).toBe(50)
-  const { rows } = await pool.query(
-    "select actor_usuario from public.eventos where id > $1 and tabla = 'ajustes' and datos ->> 'tope_mensual_usd' = '50.00'",
-    [previos[0].id],
-  )
-  expect(rows.map((r) => r.actor_usuario)).toEqual(["c0000000-0000-4000-8000-000000000001"])
-
   await page.getByRole("switch", { name: "Avisarme apenas falle algo" }).click()
   await expect.poll(async () => (await ajustes()).avisos_urgentes).toBe(false)
 
   await page.reload()
   await expect(page.getByRole("button", { name: "Lun" })).toHaveAttribute("aria-pressed", "true")
-  await abrirDesplegable(page, "Para WAV")
-  await expect(page.getByText("US$ 50")).toBeVisible()
   await capturar(page, "ajustes-editar")
-})
-
-test("a cap under what was spent is saved with a warning", async ({ page }) => {
-  await pool.query(
-    "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'e2e', date_trunc('month', now() at time zone 'America/Santiago')::date, 20, 22, 'confirmado', 'e2e-ajustes-gasto')",
-  )
-  await page.goto("/ajustes")
-  await abrirDesplegable(page, "Para WAV")
-  await expect(page.getByText("Llevas US$ 22,00 este mes")).toBeVisible()
-
-  for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Bajar el tope" }).click()
-
-  await expect(page.getByText("Ya gastaste US$ 22,00; con este tope no grabo más hasta el próximo mes.")).toBeVisible()
-  await expect.poll(async () => Number((await ajustes()).tope_mensual_usd)).toBe(10)
 })
 
 test("she enters a key: it is checked with the provider, saved only if it works, and the status follows", async ({

@@ -433,7 +433,9 @@ function Paso({
         </Boton>
         <output
           className={cn(
-            "min-w-20 whitespace-nowrap text-center tabular-nums",
+            // At large text the two buttons and «US$ 80 (el doble del tope)» are wider than the phone: the figure's
+            // floor shrinks with the screen and its words wrap, so the page never widens (WCAG 1.4.10).
+            "min-w-[min(5rem,25vw)] text-center tabular-nums",
             valorLargo ? "text-cuerpo font-semibold" : "text-pieza",
           )}
         >

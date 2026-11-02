@@ -20,12 +20,12 @@ test.beforeEach(async ({ page }) => {
   await vaciarPiezasEIdeas()
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await configurarServicios()
-  await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
 })
 
 test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name = 'anthropic'")
-  await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
 })
 
 async function sembrarBanco() {
@@ -243,7 +243,7 @@ test("she ticks two ideas and both scripts start, each on its way to its own gat
 test("when the month covers one, she is asked and nothing starts until she says yes", async ({ page }) => {
   await sembrarBanco()
   limpiarDisparos()
-  await pool.query("update public.ajustes set tope_mensual_usd = 1.5")
+  await pool.query("update public.ajustes set tope_mensual_usd = 1.5, limite_duro_usd = 1.5")
   await elegirVarias(page, DOS)
 
   await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()

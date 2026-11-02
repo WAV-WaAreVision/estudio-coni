@@ -72,6 +72,7 @@ async function rutas(): Promise<string[]> {
     "/ajustes/cuentas",
     "/ajustes/datos-personales",
     "/ajustes/pagina-de-ia",
+    "/ajustes/presupuesto",
     `/guion/${guion}`,
     `/video/${video}`,
     "/l",
@@ -337,7 +338,7 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
 
     // A render stopped with a reason.
     const detenida = await sembrarPieza("en_render", {
-      explicacion: "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.",
+      explicacion: "Llegaste a tu límite de este mes. Reactívalo en Ajustes.",
     })
     await page.goto(`/guion/${detenida}`)
     await expect(page.getByText(TEXTO_VIDEO_DETENIDO)).toBeVisible()
@@ -444,12 +445,12 @@ test("the batch mode, its undo, the cap question and the Agenda with proposals p
 
   await page.getByRole("checkbox", { name: /Tercera idea del lote/ }).check()
   await page.getByRole("checkbox", { name: /Cuarta idea del lote/ }).check()
-  await pool.query("update public.ajustes set tope_mensual_usd = 1.5")
+  await pool.query("update public.ajustes set tope_mensual_usd = 1.5, limite_duro_usd = 1.5")
   try {
     await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()
     await expect(page.getByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeVisible()
   } finally {
-    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+    await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
   }
   const tope = await hallazgosDeAxe(page, "lote tope")
 
