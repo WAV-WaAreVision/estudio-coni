@@ -1,6 +1,16 @@
 import type pg from "pg"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { asumir, como, comoConi, comoMantenedor, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import {
+  asumir,
+  como,
+  comoConi,
+  comoMantenedor,
+  comoPostgres,
+  comoServicio,
+  fallaCon,
+  pool,
+  sinLimiteFijado,
+} from "./db"
 
 afterAll(() => pool.end())
 
@@ -33,8 +43,10 @@ async function reservar(c: pg.PoolClient, clave: string, monto: number, ahora?: 
 
 const unaReserva = "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-x')"
 
+beforeEach(sinLimiteFijado)
+
 describe("reservar gasto", () => {
-  it("reserva cuando cabe en el tope del mes", async () => {
+  it("reserva cuando cabe en el límite del mes", async () => {
     await como(comoServicio, async (c) => {
       const reserva = await reservar(c, "clave-1", 10)
       const { rows } = await c.query<{ mes: string }>(
@@ -45,35 +57,42 @@ describe("reservar gasto", () => {
     })
   })
 
-  it("reserva cuando la suma queda justo en el tope", async () => {
-    await como(comoServicio, async (c) => {
-      await reservar(c, "clave-1", 30)
-      const reserva = await reservar(c, "clave-2", 10)
-      expect(reserva.estado).toBe("reservado")
-    })
-  })
-
-  it("rechaza cuando la reserva pasa el tope", async () => {
+  it("sigue reservando sobre el tope, porque el tope ya no frena", async () => {
     await como(comoServicio, async (c) => {
       await reservar(c, "clave-1", 35)
-      const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-2')")
-      expect(err.code).toBe("P0001")
-      expect(err.message).toBe("tope_alcanzado")
-      expect(err.detail).toContain("usado=35")
+      expect((await reservar(c, "clave-2", 10)).estado).toBe("reservado")
     })
   })
 
-  it("respeta un tope distinto cuando coni lo cambia en los ajustes", async () => {
+  it("reserva cuando la suma queda justo en el límite", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-1", 70)
+      expect((await reservar(c, "clave-2", 10)).estado).toBe("reservado")
+    })
+  })
+
+  it("rechaza lo nuevo cuando la reserva pasa el límite, el doble del tope", async () => {
+    await como(comoServicio, async (c) => {
+      await reservar(c, "clave-1", 75)
+      const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-2')")
+      expect(err.code).toBe("P0001")
+      expect(err.message).toBe("limite_alcanzado")
+      expect(err.detail).toContain("usado=75")
+      expect(err.detail).toContain(";limite=80")
+    })
+  })
+
+  it("mueve el límite con el tope cuando coni lo cambia en los ajustes", async () => {
     await como(comoConi, async (c) => {
       await c.query("update public.ajustes set tope_mensual_usd = 12")
       await asumir(c, comoServicio)
-      await reservar(c, "clave-1", 10)
+      await reservar(c, "clave-1", 20)
       const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 5, 'clave-2')")
-      expect(err.message).toBe("tope_alcanzado")
+      expect(err.message).toBe("limite_alcanzado")
     })
   })
 
-  it("rechaza cuando faltan los ajustes en vez de gastar sin tope", async () => {
+  it("rechaza cuando faltan los ajustes en vez de gastar sin límite", async () => {
     await como(comoPostgres, async (c) => {
       await c.query("delete from public.ajustes")
       await asumir(c, comoServicio)
@@ -93,10 +112,10 @@ describe("reservar gasto", () => {
       const liberada = await c.query<Reserva>(`select ${COLUMNAS} from public.liberar_gasto('b')`)
       expect(liberada.rows[0]).toMatchObject({ estado: "liberado" })
 
-      // 5 confirmed (not the 20 estimated) + 35 = 40: fits only if the released 30 is ignored.
-      expect((await reservar(c, "c", 35)).estado).toBe("reservado")
+      // 5 confirmed (not the 20 estimated) + 75 = 80: fits only if the released 30 is ignored.
+      expect((await reservar(c, "c", 75)).estado).toBe("reservado")
       const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 1, 'd')")
-      expect(err.message).toBe("tope_alcanzado")
+      expect(err.message).toBe("limite_alcanzado")
     })
   })
 
@@ -111,15 +130,15 @@ describe("reservar gasto", () => {
 
   it("devuelve la misma reserva cuando se repite la clave", async () => {
     await como(comoServicio, async (c) => {
-      const primera = await reservar(c, "repetida", 25)
-      const segunda = await reservar(c, "repetida", 25)
+      const primera = await reservar(c, "repetida", 50)
+      const segunda = await reservar(c, "repetida", 50)
       expect(segunda.id).toBe(primera.id)
       const { rows } = await c.query<{ n: string }>(
         "select count(*)::text as n from public.gastos where clave = 'repetida'",
       )
       expect(rows[0]?.n).toBe("1")
-      // The repeat did not consume the cap a second time.
-      expect((await reservar(c, "otra", 15)).estado).toBe("reservado")
+      // The repeat did not consume the limit a second time.
+      expect((await reservar(c, "otra", 30)).estado).toBe("reservado")
     })
   })
 
@@ -137,24 +156,24 @@ describe("reservar gasto", () => {
     })
   })
 
-  it("separa el tope de cada mes cuando se reserva en otro mes", async () => {
+  it("separa el límite de cada mes cuando se reserva en otro mes", async () => {
     await como(comoServicio, async (c) => {
-      await reservar(c, "octubre", 40, "2026-10-15T12:00:00Z")
-      const noviembre = await reservar(c, "noviembre", 40, "2026-11-15T12:00:00Z")
+      await reservar(c, "octubre", 80, "2026-10-15T12:00:00Z")
+      const noviembre = await reservar(c, "noviembre", 80, "2026-11-15T12:00:00Z")
       expect(noviembre.estado).toBe("reservado")
     })
   })
 
-  it("cuenta contra el tope del mes cuando el proveedor es voyage, reservado y confirmado", async () => {
+  it("cuenta contra el límite del mes cuando el proveedor es voyage, reservado y confirmado", async () => {
     await como(comoServicio, async (c) => {
-      await c.query("select public.reservar_gasto_general('voyage', 'embeddings', 35, 'voyage-1', now())")
+      await c.query("select public.reservar_gasto_general('voyage', 'embeddings', 75, 'voyage-1', now())")
       const err = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-2')")
       expect(err.code).toBe("P0001")
-      await c.query("select public.confirmar_gasto('voyage-1', 30)")
+      await c.query("select public.confirmar_gasto('voyage-1', 70)")
       const { rows } = await c.query<{ estado: string; real: number }>(
         "select estado, real_usd::float8 as real from public.gastos where clave = 'voyage-1'",
       )
-      expect(rows[0]).toEqual({ estado: "confirmado", real: 30 })
+      expect(rows[0]).toEqual({ estado: "confirmado", real: 70 })
       await c.query("select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-3')")
       const falla = await fallaCon(c, "select public.reservar_gasto(null, 'heygen', 'grabar', 1, 'clave-4')")
       expect(falla.code).toBe("P0001")
@@ -175,7 +194,7 @@ describe("reservas simultáneas", () => {
     try {
       await cliente.query("begin")
       await cliente.query("set local role service_role")
-      await cliente.query("select public.reservar_gasto(null, 'heygen', 'grabar', 25, $1)", [clave])
+      await cliente.query("select public.reservar_gasto(null, 'heygen', 'grabar', 45, $1)", [clave])
       // Holding the transaction open makes the second reservation arrive while the first is uncommitted.
       await new Promise((resolver) => setTimeout(resolver, retenerMs))
       await cliente.query("commit")
@@ -187,7 +206,7 @@ describe("reservas simultáneas", () => {
     }
   }
 
-  it("deja pasar solo una de dos reservas simultáneas que juntas pasan el tope", async () => {
+  it("deja pasar solo una de dos reservas simultáneas que juntas pasan el límite", async () => {
     const resultados = await Promise.allSettled([
       reservarYSoltar("test-concurrente-1", 300),
       reservarYSoltar("test-concurrente-2", 300),
@@ -196,7 +215,7 @@ describe("reservas simultáneas", () => {
     const rechazadas = resultados.filter((r): r is PromiseRejectedResult => r.status === "rejected")
     expect(aceptadas).toHaveLength(1)
     expect(rechazadas).toHaveLength(1)
-    expect(rechazadas[0]?.reason).toMatchObject({ message: "tope_alcanzado" })
+    expect(rechazadas[0]?.reason).toMatchObject({ message: "limite_alcanzado" })
 
     const { rows } = await pool.query<{ n: string }>(
       "select count(*)::text as n from public.gastos where clave like 'test-concurrente-%'",
@@ -329,16 +348,16 @@ describe("reabrir una reserva liberada", () => {
     })
   })
 
-  it("checks the cap again before reopening", async () => {
+  it("checks the limit again before reopening", async () => {
     await como(comoServicio, async (c) => {
       await reservar(c, "clave-tope", 1)
       await c.query("select public.liberar_gasto('clave-tope', true)")
-      await reservar(c, "clave-llena", 39.5)
+      await reservar(c, "clave-llena", 79.5)
       const err = await fallaCon(
         c,
         "select public.reservar_gasto(null, 'elevenlabs', 'voz', 1, 'clave-tope', now(), true)",
       )
-      expect(err.message).toBe("tope_alcanzado")
+      expect(err.message).toBe("limite_alcanzado")
     })
   })
 

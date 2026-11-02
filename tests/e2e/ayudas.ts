@@ -5,7 +5,8 @@ import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { ETIQUETA_DE_FIRMA, TEXTO_ARMADO } from "@/lib/diseno/deslizador"
-import { pool } from "../integration/db"
+import { exigirBaseLocal } from "../integration/base-local"
+import { pool, URL_DB } from "../integration/db"
 import {
   ARCHIVO_DE_DISPAROS,
   BUZON,
@@ -20,6 +21,20 @@ import {
 const Mensajes = z.object({
   messages: z.array(z.object({ To: z.array(z.object({ Address: z.string() })), Snippet: z.string() })),
 })
+
+/**
+ * The budget as `pnpm db:reset` leaves it: cap 40, the limit at twice the cap, no month reactivated, no spend, no limit
+ * notice and both switches on. The budget spec runs it around each test and the global teardown at the end.
+ */
+export async function limpiarPresupuesto(): Promise<void> {
+  exigirBaseLocal(URL_DB)
+  await pool.query(
+    "update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null, motor_semanal_activo = true, fusiones_nocturnas_activas = true",
+  )
+  await pool.query("delete from public.gastos")
+  await pool.query("delete from public.limites_del_mes")
+  await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+}
 
 export async function vaciarBuzon(): Promise<void> {
   const respuesta = await fetch(`${BUZON}/api/v1/messages`, { method: "DELETE" })

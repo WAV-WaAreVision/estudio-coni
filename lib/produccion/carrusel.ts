@@ -13,14 +13,8 @@ import { fuentesCitadas, lineaDeFuente } from "@/lib/dominio/fuente"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo, paraElGuion } from "@/lib/dominio/respaldo"
 import { bloquea, pideLineasDeAyuda, revisarCarrusel } from "@/lib/dominio/revision"
-import {
-  aCuatroDecimales,
-  avisarTope,
-  ESTIMADO_CARRUSEL_CLAUDE_USD,
-  explicar,
-  piezaCambio,
-  TEXTO_TOPE,
-} from "@/lib/produccion/comun"
+import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
+import { aCuatroDecimales, ESTIMADO_CARRUSEL_CLAUDE_USD, explicar, piezaCambio } from "@/lib/produccion/comun"
 import { type Contexto, cargarContexto, claveDeGasto } from "@/lib/produccion/contexto"
 // Types only: producir.ts imports this module's function, so a value import back would close a cycle.
 import type { DepsProduccion, ResultadoProduccion } from "@/lib/produccion/producir"
@@ -122,10 +116,10 @@ export async function producirCarrusel(deps: DepsProduccion, leida: FilaDePieza)
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) {
-    await explicar(deps, fila, TEXTO_TOPE)
-    await avisarTope(deps, fila)
-    return { resultado: "tope" }
+  if (reserva.limite) {
+    await explicar(deps, fila, TEXTO_LIMITE)
+    await avisarLimite(deps, deps.ahora())
+    return { resultado: "limite" }
   }
 
   // A declined change leaves the version she read: it goes back to gate 1 to sign as it is or ask again. Her request

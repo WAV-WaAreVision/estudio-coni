@@ -20,7 +20,7 @@ import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { comoConi, comoServicio, pool } from "./db"
+import { comoConi, comoServicio, pool, sinLimiteFijado } from "./db"
 import { AUDIO, AVATAR, aplicar, aprobarComoConi, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi } from "./sesion-coni"
@@ -53,7 +53,6 @@ const INFO_BUENA: InfoVideo = {
   bytes: VIDEO_FINAL.length,
 }
 const MENSAJE_POLITICA = "HeyGen no aceptó una frase del guion. Revísalo y vuelve a aprobarlo."
-const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
 // 7 words at 150 a minute is 2.8 s; avatar_v is 48 credits a minute and the assumption is US$ 4 a minute.
 const ESTIMADO = 0.1867
 
@@ -321,6 +320,8 @@ afterEach(async () => {
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
 
+beforeEach(sinLimiteFijado)
+
 describe("estimarCostoVideo", () => {
   it("prices the script at 48 credits a minute for avatar_v and 16 for Avatar IV, at US$ 4 a minute of avatar_v", () => {
     expect(estimarCostoVideo(GUION, "avatar_v")).toBe(ESTIMADO)
@@ -584,7 +585,7 @@ describe("grabarPieza sin aprobación", () => {
   })
 })
 
-describe("grabarPieza sin llave o con el tope alcanzado", () => {
+describe("grabarPieza sin llave o sobre el límite", () => {
   it("fails as a configuration error, before reserving anything, when Coni has not entered her HeyGen key", async () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
@@ -616,24 +617,21 @@ describe("grabarPieza sin llave o con el tope alcanzado", () => {
     expect(await gastos(id)).toEqual([])
   })
 
-  it("explains the cap to Coni and makes no request when the spend would pass it", async () => {
+  it("records over the month's limit, because the video is signed work, and tells nobody about the limit", async () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
-    await pool.query("update public.ajustes set tope_mensual_usd = 0.1")
-    const d = doble()
+    // A cap of US$ 0,05 makes a limit of US$ 0,10, under the estimate of this video (ESTIMADO).
+    await pool.query("update public.ajustes set tope_mensual_usd = 0.05")
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
     await conVozEnAlmacen(d.almacen, id)
 
-    const resultado = await grabarPieza(d.deps, id)
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
 
-    expect(resultado).toEqual({ resultado: "tope" })
-    expect(d.deps.avisos).toMatchObject({
-      aConiEnviados: [{ mensaje: TOPE, urgente: true }],
-      avisosEnviados: [{ tipo: "tope_alcanzado", clave: `tope_alcanzado:${id}:0`, piezaId: id }],
-    })
-    expect(sim.assets).toHaveLength(0)
-    expect(sim.creaciones).toHaveLength(0)
-    expect(await gastos(id)).toEqual([])
-    expect(await pieza(id)).toMatchObject({ estado: "en_render", explicacion: TOPE, render_id: null })
+    expect(sim.creaciones).toHaveLength(1)
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).not.toContain("limite_alcanzado")
+    expect(avisos.aWavEnviados).toEqual([])
+    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["heygen", "confirmado"]])
   })
 })
 
@@ -1553,41 +1551,32 @@ describe("grabarPieza con la voz después de la puerta 1", () => {
     expect(await gastos(id)).toEqual([])
   })
 
-  it("explains the cap and records nothing when the voice alone would pass it", async () => {
+  it("makes the voice of an approved piece and records over the month's limit: both are signed work", async () => {
     const id = await crearPiezaSinVoz()
     const sim = simular()
-    await conTopeMensual(estimarCostoVoz(GUION) / 2)
+    await conTopeMensual(estimarCostoVoz(GUION) / 4)
     const d = doble()
 
-    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
 
-    expect(sim.voces).toHaveLength(0)
-    expect(sim.assets).toHaveLength(0)
-    expect(await gastos(id)).toEqual([])
-    expect(await pieza(id)).toMatchObject({ estado: "en_render", explicacion: TOPE, audio_id: null })
-    expect(d.deps.avisos).toMatchObject({ aConiEnviados: [{ mensaje: TOPE, urgente: true }] })
-  })
-
-  it("keeps the voice and finishes the render after the cap is raised", async () => {
-    const id = await crearPiezaSinVoz()
-    const sim = simular()
-    await conTopeMensual(estimarCostoVoz(GUION) + 0.01)
-    const d = doble()
-
-    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
     expect(sim.voces).toHaveLength(1)
-    expect(sim.creaciones).toHaveLength(0)
-    expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "confirmado"]])
-
-    await conTopeMensual(40)
-    const resultado = await grabarPieza(d.deps, id)
-
-    expect(resultado.resultado).toBe("grabada")
-    expect(sim.voces).toHaveLength(1)
+    expect(sim.creaciones).toHaveLength(1)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([
       ["elevenlabs", "confirmado"],
       ["heygen", "confirmado"],
     ])
+  })
+
+  it("says nothing about the limit while it records an approved piece over it", async () => {
+    const id = await crearPiezaSinVoz()
+    simular()
+    await conTopeMensual(0)
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
+
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).not.toContain("limite_alcanzado")
   })
 
   it("fails as a configuration error, before any spend, when elevenlabs.voice_id is missing", async () => {
@@ -1768,7 +1757,7 @@ describe("grabarPieza con la voz por texto", () => {
     expect([...(sim.assets[0]?.archivo ?? [])]).toEqual([...VOZ])
   })
 
-  it("spends nothing on HeyGen when the voice is rejected and the new one is stopped by the cap", async () => {
+  it("speaks the approved script again and records when the stored voice was of another text, even at the limit", async () => {
     const id = await crearPiezaSinVoz()
     const ajena = claveDeToma(id, huellaDelGuion("Otro texto que Coni no aprobó.", ELEVENLABS), 0)
     await enTransaccion(async (c) => {
@@ -1779,11 +1768,9 @@ describe("grabarPieza con la voz por texto", () => {
     const d = doble()
     await d.almacen.subir(ajena, new Uint8Array([7, 7, 7]), "audio/mpeg")
 
-    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "tope" })
-    expect(sim.voces).toHaveLength(0)
-    expect(sim.assets).toHaveLength(0)
-    expect(sim.creaciones).toHaveLength(0)
-    expect(await gastos(id)).toEqual([])
+    expect((await grabarPieza(d.deps, id)).resultado).toBe("grabada")
+    expect(sim.voces).toHaveLength(1)
+    expect(sim.creaciones).toHaveLength(1)
   })
 
   it("makes a new voice when the voice settings changed since the stored one", async () => {

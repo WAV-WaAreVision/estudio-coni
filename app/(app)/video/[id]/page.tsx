@@ -188,7 +188,7 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
   const { fechas, zona, horaDelRitmo } = await fechasDePuerta2(db, fila.id, ahora)
   const [videoUrl, costo, ajustes, instagramConectado, linkedinConectado] = await Promise.all([
     urlParaVer(fila.video_id),
-    leerCostoDeGrabar(db, fila.guion, ahora, zona, fila.audio_id),
+    leerCostoDeGrabar(db, fila.guion, ahora, fila.audio_id),
     leerAjustesDelVideo(db),
     leerInstagramConectado(db),
     leerLinkedinConectado(db, ahora),

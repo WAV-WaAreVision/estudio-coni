@@ -30,12 +30,24 @@ afterEach(async () => {
   vi.restoreAllMocks()
   await pool.query("delete from vault.secrets where name in ('heygen','elevenlabs','anthropic')")
   await pool.query("delete from public.gastos where paso = 'prueba_ajustes'")
+  await pool.query("delete from public.limites_del_mes")
   await pool.query(
-    "update public.ajustes set meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, avisos_resumen = true, avisos_urgentes = true, destinos_por_defecto = '{instagram}', produccion = '{}'::jsonb",
+    "update public.ajustes set meta = 'consultas', dias_publicacion = '{2,4,6}', hora_publicacion = '19:00', tope_mensual_usd = 40, limite_duro_usd = null, motor_semanal_activo = true, fusiones_nocturnas_activas = true, avisos_resumen = true, avisos_urgentes = true, destinos_por_defecto = '{instagram}', produccion = '{}'::jsonb",
   )
 })
 
 afterAll(() => pool.end())
+
+async function esperarBloqueo(): Promise<void> {
+  for (let intento = 0; intento < 100; intento++) {
+    const { rowCount } = await pool.query(
+      "select 1 from pg_stat_activity where wait_event_type = 'Lock' and query ilike '%update%ajustes%' and pid <> pg_backend_pid()",
+    )
+    if (rowCount) return
+    await new Promise((listo) => setTimeout(listo, 20))
+  }
+  throw new Error("El guardado nunca esperó la fila de ajustes.")
+}
 
 async function ajustes() {
   const { rows } = await pool.query("select * from public.ajustes")
@@ -132,7 +144,7 @@ describe("guardarAjuste", () => {
     })
   })
 
-  it("warns when the new cap is under what the month already spent, and still saves it", async () => {
+  it("warns when the new cap leaves a limit under what the month already spent, and still saves it", async () => {
     await pool.query(
       "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 10, 12.5, 'confirmado', 'prueba-ajustes-1')",
     )
@@ -141,9 +153,147 @@ describe("guardarAjuste", () => {
 
     expect(resultado).toMatchObject({
       ok: true,
-      aviso: "Ya gastaste US$ 12,50; con este tope no grabo más hasta el próximo mes.",
+      aviso:
+        "Ya gastaste US$ 12,50; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.",
     })
     expect(Number((await ajustes()).tope_mensual_usd)).toBe(5)
+  })
+
+  it("brings the limit back to twice the cap, and says so, when the cap goes above the limit she set", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({ ok: true, aviso: "Tu límite volvió al doble del tope: US$ 140,00." })
+    expect(await ajustes()).toMatchObject({ tope_mensual_usd: "70.00", limite_duro_usd: null })
+  })
+
+  it("says the limit goes back to twice the cap from next month when she reactivated this one", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso: "Tu límite volvió al doble del tope: US$ 140,00 desde el próximo mes.",
+    })
+  })
+
+  it("adds the pause when the month already spent the limit the cap brought back", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-2')",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso:
+        "Tu límite volvió al doble del tope: US$ 140,00. Ya gastaste US$ 150,00; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.",
+    })
+  })
+
+  it("does not claim the cap paused the month when a reactivated month's own limit was already spent", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+    )
+    await pool.query(
+      "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-3')",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso:
+        "Tu límite volvió al doble del tope: US$ 140,00 desde el próximo mes. Este mes ya gastaste US$ 150,00 de tu límite de US$ 130,00; lo nuevo sigue en pausa.",
+    })
+  })
+
+  for (const cambio of [
+    { campo: "limite", valor: 200 },
+    { campo: "tope", valor: 45 },
+  ] as const) {
+    it(`does not say the ${cambio.campo} paused a reactivated month whose own limit was already spent`, async () => {
+      await pool.query(
+        "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+      )
+      await pool.query(
+        "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-4')",
+      )
+
+      const resultado = await guardarAjuste(deps(), cambio)
+
+      expect(resultado).toMatchObject({
+        ok: true,
+        aviso: "Este mes ya gastaste US$ 150,00 de tu límite de US$ 130,00; lo nuevo sigue en pausa.",
+      })
+    })
+  }
+
+  it("moves her limit only in steps of US$ 5", async () => {
+    expect(await guardarAjuste(deps(), { campo: "limite", valor: 92 })).toEqual({
+      ok: false,
+      error: "No entendí ese cambio. Vuelve a abrir Ajustes.",
+    })
+    expect((await ajustes()).limite_duro_usd).toBeNull()
+  })
+
+  it("explains a limit refused because the cap rose in another tab meanwhile", async () => {
+    // Another tab raises the cap and holds the row; this save reads the old cap, waits on the row and then the
+    // database check limite_no_bajo_el_tope refuses it against the cap that won.
+    const otraPestana = await pool.connect()
+    try {
+      await otraPestana.query("begin")
+      await otraPestana.query("update public.ajustes set tope_mensual_usd = 100")
+      const guardado = guardarAjuste(deps(), { campo: "limite", valor: 50 })
+      await esperarBloqueo()
+      await otraPestana.query("commit")
+
+      expect(await guardado).toEqual({ ok: false, error: "Tu límite no puede ser menor que tu tope de US$ 100,00." })
+    } finally {
+      await otraPestana.query("rollback")
+      otraPestana.release()
+    }
+    expect((await ajustes()).limite_duro_usd).toBeNull()
+  })
+
+  it("keeps the limit she set when the cap stays under it", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 100")
+
+    expect(await guardarAjuste(deps(), { campo: "tope", valor: 45 })).toMatchObject({ ok: true })
+    expect(await ajustes()).toMatchObject({ tope_mensual_usd: "45.00", limite_duro_usd: "100.00" })
+  })
+
+  it("saves her own limit, back to twice the cap with null, and never one under the cap", async () => {
+    expect(await guardarAjuste(deps(), { campo: "limite", valor: 90 })).toMatchObject({
+      ok: true,
+      anterior: { campo: "limite", valor: null },
+    })
+    expect((await ajustes()).limite_duro_usd).toBe("90.00")
+
+    expect(await guardarAjuste(deps(), { campo: "limite", valor: null })).toMatchObject({ ok: true })
+    expect((await ajustes()).limite_duro_usd).toBeNull()
+
+    expect(await guardarAjuste(deps(), { campo: "limite", valor: 30 })).toEqual({
+      ok: false,
+      error: "Tu límite no puede ser menor que tu tope de US$ 40,00.",
+    })
+    expect((await ajustes()).limite_duro_usd).toBeNull()
+  })
+
+  it("saves the switches of what spends by itself", async () => {
+    expect(await guardarAjuste(deps(), { campo: "motor_semanal", valor: false })).toMatchObject({
+      ok: true,
+      anterior: { campo: "motor_semanal", valor: true },
+    })
+    expect(await guardarAjuste(deps(), { campo: "fusiones_nocturnas", valor: false })).toMatchObject({ ok: true })
+    expect(await ajustes()).toMatchObject({ motor_semanal_activo: false, fusiones_nocturnas_activas: false })
   })
 
   it("does not warn when the cap is above the spend", async () => {

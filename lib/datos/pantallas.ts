@@ -1,11 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { sinFechaFirmada } from "@/lib/calendario/propuestas"
-import { type FilaDePieza, type IdeaLeida, leerIdea, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
+import {
+  type FilaDePieza,
+  type IdeaLeida,
+  leerIdea,
+  leerPieza,
+  leerProduccion,
+  limiteDelMes,
+} from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { diaLocal, type Horario } from "@/lib/dominio/fechas"
+import type { Horario } from "@/lib/dominio/fechas"
 import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
 import { dolares } from "@/lib/formato"
+import { mesDelGasto } from "@/lib/presupuesto/limite"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
 import { type AvatarElegible, leerConfigProduccion } from "@/lib/proveedores/config"
@@ -92,20 +100,32 @@ export async function leerContextoDeFechas(db: Db, piezaId: string): Promise<Con
 
 export interface Presupuesto {
   tope: number
+  /** The brake of the month (`limite_del_mes`): this month's row, her limit, or twice the cap. */
+  limite: number
+  /** She reactivated this month (`limites_del_mes`): its row is the month's limit until the month ends. */
+  reactivado: boolean
   usado: number
 }
 
-/** What the month has spent or reserved against the cap: a confirmed spend counts its real cost. */
-export async function leerPresupuesto(db: Db, ahora: number, zona: string): Promise<Presupuesto> {
-  const mes = `${diaLocal(ahora, zona).slice(0, 7)}-01`
-  const [ajustes, gastos] = await Promise.all([
+/**
+ * What the month has spent or reserved: a confirmed spend counts its real cost, as `reservar_gasto` counts it, in the
+ * Santiago month the database files it under (whatever Coni's own zone is).
+ */
+export async function leerPresupuesto(db: Db, ahora: number): Promise<Presupuesto> {
+  const mes = `${mesDelGasto(new Date(ahora).toISOString())}-01`
+  const [ajustes, gastos, filaDelMes, limite] = await Promise.all([
     db.from("ajustes").select("tope_mensual_usd").maybeSingle(),
     db.from("gastos").select("estado, estimado_usd, real_usd").eq("mes", mes).in("estado", ["reservado", "confirmado"]),
+    db.from("limites_del_mes").select("mes").eq("mes", mes).maybeSingle(),
+    limiteDelMes(db, new Date(ahora).toISOString()),
   ])
   if (ajustes.error) throw fallo("No pude leer el tope", ajustes.error)
   if (gastos.error) throw fallo("No pude leer los gastos", gastos.error)
+  if (filaDelMes.error) throw fallo("No pude leer el límite del mes", filaDelMes.error)
   return {
     tope: ajustes.data?.tope_mensual_usd ?? 0,
+    limite,
+    reactivado: filaDelMes.data !== null,
     usado: gastos.data.reduce(
       (suma, gasto) =>
         suma + (gasto.estado === "confirmado" ? (gasto.real_usd ?? gasto.estimado_usd) : gasto.estimado_usd),
@@ -118,8 +138,6 @@ export interface CostoDeGrabar {
   /** "Grabar cuesta unos US$ 2,40 · te quedan US$ 37,00 este mes", or null when the setup cannot say. */
   linea: string | null
   estimadoUsd: number | null
-  /** True when this recording would take the month past the cap. */
-  superaElTope: boolean
 }
 
 /**
@@ -131,7 +149,6 @@ export async function leerCostoDeGrabar(
   db: Db,
   guion: string,
   ahora: number,
-  zona: string,
   audioId: string | null,
 ): Promise<CostoDeGrabar> {
   let estimadoUsd: number
@@ -143,14 +160,13 @@ export async function leerCostoDeGrabar(
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude estimar el costo de grabar", error)
-    return { linea: null, estimadoUsd: null, superaElTope: false }
+    return { linea: null, estimadoUsd: null }
   }
-  const { tope, usado } = await leerPresupuesto(db, ahora, zona)
-  const quedan = Math.max(0, tope - usado)
+  const { limite, usado } = await leerPresupuesto(db, ahora)
+  const quedan = Math.max(0, limite - usado)
   return {
     linea: `Grabar cuesta unos ${dolares(estimadoUsd)} · te quedan ${dolares(quedan)} este mes`,
     estimadoUsd,
-    superaElTope: estimadoUsd > quedan,
   }
 }
 

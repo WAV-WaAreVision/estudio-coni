@@ -3,7 +3,14 @@ import { enviarResumenDelDia } from "@/lib/avisos/resumen"
 import { type Notificador, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
-import { ajustarPieza, borrarSembrado, sembrarCarrusel, sembrarIdea, sembrarPieza } from "./siembra"
+import {
+  ajustarPieza,
+  borrarSembrado,
+  sembrarCarrusel,
+  sembrarIdea,
+  sembrarIdeaDelMotor,
+  sembrarPieza,
+} from "./siembra"
 
 afterAll(() => pool.end())
 
@@ -131,8 +138,17 @@ describe("enviarResumenDelDia", () => {
   })
 
   describe("ideas of the week", () => {
-    it("announces ideas on Monday, once, when the bank has some", async () => {
-      ideas.push(await sembrarIdea())
+    // Sunday 4 October 2026, 20:05 in Santiago: the Sunday engine just wrote its ideas.
+    const DOMINGO_2005 = "2026-10-04T23:05:00.000Z"
+
+    async function ideaDelMotor(creadaEn: string) {
+      const id = await sembrarIdeaDelMotor({ gancho: `Idea del motor ${creadaEn}`, semana: "2026-10-04" })
+      await pool.query("update public.ideas set creada_en = $2 where id = $1", [id, creadaEn])
+      ideas.push(id)
+    }
+
+    it("announces on Monday, once, the ideas the engine wrote since Sunday", async () => {
+      await ideaDelMotor(DOMINGO_2005)
       const memoria = notificadorEnMemoria()
       const { deps } = armar(LUNES_0830, memoria)
       expect(await enviarResumenDelDia(deps)).toMatchObject({ enviado: true, avisos: 1 })
@@ -141,8 +157,21 @@ describe("enviarResumenDelDia", () => {
       expect((await filas()).map((f) => f.clave)).toEqual(["ideas_propuestas:2026-10-05"])
     })
 
-    it("says nothing about ideas on any other day", async () => {
+    it("says nothing on Monday when the engine wrote nothing since Sunday (switched off or stopped)", async () => {
+      await ideaDelMotor("2026-09-27T23:05:00.000Z")
       ideas.push(await sembrarIdea())
+      expect(await enviarResumenDelDia(armar(LUNES_0830).deps)).toEqual({ enviado: false })
+    })
+
+    it("does not count an idea of her own written on Sunday as the engine's", async () => {
+      const propia = await sembrarIdea()
+      ideas.push(propia)
+      await pool.query("update public.ideas set creada_en = $2 where id = $1", [propia, DOMINGO_2005])
+      expect(await enviarResumenDelDia(armar(LUNES_0830).deps)).toEqual({ enviado: false })
+    })
+
+    it("says nothing about ideas on any other day", async () => {
+      await ideaDelMotor(DOMINGO_2005)
       expect(await enviarResumenDelDia(armar(MARTES_0830).deps)).toEqual({ enviado: false })
     })
 
@@ -151,7 +180,7 @@ describe("enviarResumenDelDia", () => {
     })
 
     it("counts Monday in Santiago, not in UTC: Sunday night UTC is still Sunday there", async () => {
-      ideas.push(await sembrarIdea())
+      await ideaDelMotor(DOMINGO_2005)
       // Monday 02:30 UTC is Sunday 23:30 in Santiago.
       expect(await enviarResumenDelDia(armar("2026-10-05T02:30:00.000Z").deps)).toEqual({ enviado: false })
     })

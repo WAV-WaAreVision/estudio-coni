@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http, passthrough } from "msw"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import { aplicarReclasificacion, leerElementosPorReclasificar } from "@/lib/datos/reclasificacion"
 import { proponerReclasificacion } from "@/lib/pilares/proponer"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 
 afterAll(async () => {
@@ -76,6 +76,8 @@ const ultimoGasto = async () =>
       "select estado, real_usd from public.gastos where paso = 'reclasificar_pilares' order by creado_en desc limit 1",
     )
   ).rows[0]
+
+beforeEach(sinLimiteFijado)
 
 describe("reclasificación de pilares", () => {
   it("confirms what earlier batches cost when a later batch fails, and rethrows the failure", async () => {
@@ -183,7 +185,7 @@ describe("reclasificación de pilares", () => {
     for (const id of sembrados) expect(filas.find((f) => f.id === id)?.propuesta).toBe("ia-salud-mental")
   })
 
-  it("stops before calling Claude when the monthly cap cannot cover the estimate", async () => {
+  it("stops before calling Claude when the month's limit cannot cover the estimate", async () => {
     await materialEn("bienestar", "Siembra tope")
     const { rows } = await pool.query<{ tope: string }>("select tope_mensual_usd as tope from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
@@ -195,7 +197,7 @@ describe("reclasificación de pilares", () => {
       }),
     )
     try {
-      await expect(proponer()).rejects.toThrow("El tope mensual no alcanza para la reclasificación.")
+      await expect(proponer()).rejects.toThrow("El límite del mes no alcanza para la reclasificación.")
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.tope])
     }

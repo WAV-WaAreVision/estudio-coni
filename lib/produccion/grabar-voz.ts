@@ -4,7 +4,8 @@ import { actualizarPieza, type FilaDePieza, leerPieza, leerProduccion } from "@/
 import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { puedeGrabarVoz } from "@/lib/dominio/puertas"
-import { avisarTope, piezaCambio, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
+import { piezaCambio } from "@/lib/produccion/comun"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz } from "@/lib/produccion/voz"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
@@ -16,7 +17,7 @@ export interface DepsGrabarVoz extends DepsVoz {
 export type ResultadoVoz =
   | { resultado: "lista"; audioId: string }
   | { resultado: "nada_que_hacer" }
-  | { resultado: "tope" }
+  | { resultado: "limite" }
   | { resultado: "falla" }
 
 async function escribir(deps: DepsGrabarVoz, fila: FilaDePieza, evento: Evento): Promise<void> {
@@ -54,10 +55,12 @@ export async function grabarVoz(
       llave: () => leerLlaveDeVoz(deps.db, config),
       nueva: entrada.nueva,
     })
-    if (voz.tipo === "tope") {
-      await escribir(deps, fila, { tipo: "falla_voz", explicacion: TEXTO_TOPE })
-      await avisarTope(deps, fila)
-      return { resultado: "tope" }
+    // The piece is still at gate 1 (`grabando_voz`): its voice is new spend, and the month's limit stops it. The
+    // notice goes first: a failed one leaves the piece in `grabando_voz`, so the retry reaches the limit and sends it.
+    if (voz.tipo === "limite") {
+      await avisarLimite(deps, deps.ahora())
+      await escribir(deps, fila, { tipo: "falla_voz", explicacion: TEXTO_LIMITE })
+      return { resultado: "limite" }
     }
     await escribir(deps, fila, { tipo: "voz_lista", audioId: voz.audioId })
     return { resultado: "lista", audioId: voz.audioId }

@@ -48,7 +48,8 @@ import {
   sinLinkedin,
 } from "@/lib/dominio/revision"
 import { vozDelGuion } from "@/lib/dominio/voz"
-import { ESTIMADO_POR_GUION_USD, TEXTO_TOPE } from "@/lib/produccion/comun"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
+import { ESTIMADO_POR_GUION_USD } from "@/lib/produccion/comun"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { type AvatarElegible, type ConfigElevenlabs, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
@@ -251,22 +252,21 @@ export function elegirIdeas(deps: DepsAcciones, ideaIds: readonly string[]): Pro
 export type LoteElegido = { tipo: "empezadas"; resultados: InicioDeIdea[] } | { tipo: "alcanza"; cuantas: number }
 
 /**
- * "Hacer los guiones (N)" on Ideas (decision 23): the month is checked for the whole batch first. When it covers
+ * "Hacer los guiones (N)" on Ideas (decision 23): the month's limit is checked for the whole batch first. When it covers
  * fewer, nothing starts and she is told how many fit; she asks again for those. The reservation inside the writer
  * stays the real guard (amendment A2).
  */
 export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<LoteElegido>> {
   return aResultado("elegirLote", async (): Promise<LoteElegido> => {
     exigirLoteDeIdeas(ideaIds)
-    const { data, error } = await deps.db.from("ajustes").select("zona").maybeSingle()
-    if (error) throw new Error(`No pude leer la zona: ${error.message}`, { cause: error })
-    const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()), data?.zona ?? "America/Santiago")
+    const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
     const alcanza = cuantasAlcanzan({
-      ...presupuesto,
+      limite: presupuesto.limite,
+      usado: presupuesto.usado,
       estimadoPorGuion: ESTIMADO_POR_GUION_USD,
       pedidas: ideaIds.length,
     })
-    if (alcanza === 0) throw new Falla(TEXTO_TOPE)
+    if (alcanza === 0) throw new Falla(TEXTO_LIMITE)
     if (alcanza < ideaIds.length) return { tipo: "alcanza", cuantas: alcanza }
     return { tipo: "empezadas", resultados: await empezarIdeas(deps, ideaIds) }
   })

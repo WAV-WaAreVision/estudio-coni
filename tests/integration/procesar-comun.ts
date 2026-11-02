@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import type { DepsProcesar } from "@/lib/ingesta/procesar"
 import { type AlmacenEnMemoria, almacenEnMemoria, claveMaterial } from "@/lib/proveedores/almacen"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 import { CONI, pool } from "./db"
 import { clienteDeServicio } from "./servicio"
@@ -162,6 +163,7 @@ export async function deps(almacen: AlmacenEnMemoria, extra: Partial<DepsProcesa
   return {
     db: clienteDeServicio(),
     almacen,
+    avisos: notificadorEnMemoria(),
     fetch: (entrada, init) => fetch(entrada, init),
     resolver: async () => ["93.184.216.34"],
     claude: new Anthropic({ apiKey: "sk-ant-de-prueba", maxRetries: 0 }),

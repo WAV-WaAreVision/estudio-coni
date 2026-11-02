@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, type Page, test } from "@playwright/test"
 import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_VIDEO_DETENIDO } from "@/app/(app)/guion/[id]/textos"
 import { TEXTO_ARMADO } from "@/lib/diseno/deslizador"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { pool } from "../integration/db"
 import {
@@ -17,11 +18,13 @@ import {
 } from "../integration/siembra"
 import {
   abrirDesplegable,
+  alerta,
   bloquearRedExterna,
   conectarLinkedin,
   configurarServicios,
   conLetraGrande,
   desconectarLinkedin,
+  limpiarPresupuesto,
   simularMedios,
 } from "./ayudas"
 import {
@@ -72,6 +75,7 @@ async function rutas(): Promise<string[]> {
     "/ajustes/cuentas",
     "/ajustes/datos-personales",
     "/ajustes/pagina-de-ia",
+    "/ajustes/presupuesto",
     `/guion/${guion}`,
     `/video/${video}`,
     "/l",
@@ -336,9 +340,7 @@ test("the states the Soft UI kit adds pass WCAG 2.x AA: sign, undo window, failu
     hallazgos.push(...(await hallazgosDeAxe(page, "guion sin escribir")))
 
     // A render stopped with a reason.
-    const detenida = await sembrarPieza("en_render", {
-      explicacion: "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir.",
-    })
+    const detenida = await sembrarPieza("en_render", { explicacion: TEXTO_LIMITE })
     await page.goto(`/guion/${detenida}`)
     await expect(page.getByText(TEXTO_VIDEO_DETENIDO)).toBeVisible()
     hallazgos.push(...(await hallazgosDeAxe(page, "video detenido")))
@@ -395,6 +397,25 @@ test("Cuentas with LinkedIn connected and its folds open passes WCAG 2.x AA", as
   }
 })
 
+// Change 12a: Presupuesto at the limit with Reactivar open and a limit refused for being under the month's spend.
+test("Presupuesto with Reactivar open and a refused limit passes WCAG 2.x AA", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 2600 })
+  await limpiarPresupuesto()
+  await pool.query(
+    "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'e2e', date_trunc('month', now() at time zone 'America/Santiago')::date, 80, 80, 'confirmado', 'e2e-accesibilidad-reactivar')",
+  )
+  try {
+    await page.goto("/ajustes/presupuesto")
+    await page.getByRole("button", { name: "Reactivar" }).click()
+    await page.getByLabel("Tu límite de este mes").fill("70")
+    await page.getByRole("button", { name: "Confirmar" }).click()
+    await expect(alerta(page, "Ese límite no alcanza: ya gastaste US$ 80,00 este mes. Elige uno mayor.")).toBeVisible()
+    expect(await hallazgosDeAxe(page, "presupuesto reactivar")).toEqual([])
+  } finally {
+    await limpiarPresupuesto()
+  }
+})
+
 // Part 3: Métricas with a LinkedIn post pending in Para WAV, a manual upload, and Ritmo before the first publication.
 test("Métricas with LinkedIn and Para WAV open, and the empty Ritmo, pass WCAG 2.x AA", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 2600 })
@@ -444,12 +465,13 @@ test("the batch mode, its undo, the cap question and the Agenda with proposals p
 
   await page.getByRole("checkbox", { name: /Tercera idea del lote/ }).check()
   await page.getByRole("checkbox", { name: /Cuarta idea del lote/ }).check()
-  await pool.query("update public.ajustes set tope_mensual_usd = 1.5")
+  await pool.query("update public.ajustes set tope_mensual_usd = 1.5, limite_duro_usd = 1.5")
   try {
     await page.getByRole("button", { name: "Hacer los guiones (2)" }).click()
     await expect(page.getByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeVisible()
   } finally {
-    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+    await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
+    await pool.query("delete from public.limites_del_mes")
   }
   const tope = await hallazgosDeAxe(page, "lote tope")
 

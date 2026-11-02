@@ -3,12 +3,13 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { claveDeToma } from "@/lib/dominio/voz"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { huellaDelGuion } from "@/lib/produccion/voz"
 import { claveVozAprobada } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { GUION } from "./flujo"
 import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 import { clienteDeConi } from "./sesion-coni"
@@ -29,7 +30,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await pool.query("update public.ajustes set produccion = $1::jsonb, tope_mensual_usd = 40", [
+  await pool.query("update public.ajustes set produccion = $1::jsonb, tope_mensual_usd = 40, limite_duro_usd = null", [
     JSON.stringify(coniConfig),
   ])
   for (const nombre of ["elevenlabs", "heygen"]) {
@@ -50,7 +51,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks()
   for (const nombre of ["elevenlabs", "heygen"]) await pool.query("delete from vault.secrets where name = $1", [nombre])
-  await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
+  await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40, limite_duro_usd = null")
 })
 
 afterAll(async () => {
@@ -71,6 +72,9 @@ async function piezaPorFirmar(ajustes: Record<string, unknown> = {}) {
   creadas.push(id)
   return id
 }
+
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
 
 describe("leerDatosDeGrabacion", () => {
   it("reads the balances through the real wiring and prices voice and signature, no voice yet", async () => {
@@ -102,7 +106,7 @@ describe("leerDatosDeGrabacion", () => {
     expect(datos.voz?.clave).toBe(toma)
   })
 
-  it("blocks both buttons with the cap line when the month has no room left", async () => {
+  it("closes the voice with the limit line, and never the signature, when the month has no room left", async () => {
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     const id = await piezaPorFirmar()
 
@@ -113,9 +117,8 @@ describe("leerDatosDeGrabacion", () => {
       zona: ZONA,
     })
 
-    const linea = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
-    expect(datos.botones?.bloqueoVoz).toBe(linea)
-    expect(datos.botones?.bloqueoVideo).toBe(linea)
+    expect(datos.botones?.bloqueoVoz).toBe(TEXTO_LIMITE)
+    expect(datos.botones?.bloqueoVideo).toBeNull()
   })
 
   it("does not offer a voice of another text or of another piece", async () => {

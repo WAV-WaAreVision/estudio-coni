@@ -217,6 +217,7 @@ export async function depsMotor(): Promise<DepsDelMotor | null> {
   return {
     db,
     almacen: almacenReal(),
+    avisos: avisosReales(),
     claude: clienteDelMotor(llave),
     ahora: () => new Date().toISOString(),
   }
@@ -261,6 +262,7 @@ export async function depsProcesar(corrida: string): Promise<DepsProcesar> {
   return {
     db,
     almacen: almacenReal(),
+    avisos: avisosReales(),
     fetch: (entrada, init) => fetch(entrada, init),
     resolver: resolverDns,
     claude: new Anthropic({ apiKey: llaveDeAnthropic, timeout: CLAUDE_ESPERA_MS, maxRetries: 1 }),

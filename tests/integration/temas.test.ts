@@ -14,7 +14,7 @@ import {
 } from "@/lib/ingesta/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
-import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool, sinLimiteFijado } from "./db"
 import { URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -170,6 +170,8 @@ async function conTopeChico<T>(fn: () => Promise<T>): Promise<T> {
     await pool.query("update public.ajustes set tope_mensual_usd = $1", [original])
   }
 }
+
+beforeEach(sinLimiteFijado)
 
 describe("asignarATemas", () => {
   it("puts a claim in the nearest topic and moves the centroid by (m*n + v)/(n+1), without normalizing", async () => {

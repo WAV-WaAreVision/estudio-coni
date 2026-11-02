@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { leerPieza } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveDeToma } from "@/lib/dominio/voz"
-import { TEXTO_TOPE } from "@/lib/produccion/comun"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
 import { asegurarVoz, claveDeGastoDeVoz, huellaDelGuion } from "@/lib/produccion/voz"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -12,7 +12,7 @@ import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { GUION } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { ajustarPieza, leerFila, sembrarPieza } from "./siembra"
@@ -106,6 +106,8 @@ afterEach(async () => {
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
 
+beforeEach(sinLimiteFijado)
+
 describe("grabarVoz", () => {
   it("speaks the current script once, stores the take and returns the piece to guion_por_aprobar", async () => {
     const id = await grabando()
@@ -174,14 +176,37 @@ describe("grabarVoz", () => {
     expect(await leerFila(id)).toMatchObject({ estado: "grabando_voz" })
   })
 
-  it("explains the cap and spends nothing when the voice would pass it", async () => {
+  it("refuses a new voice before gate 1 at the month's limit, spends nothing and tells her", async () => {
+    // A cap of 0 makes a limit of 0: a voice not yet signed is new spend.
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     const id = await grabando()
-    const d = deps()
+    const avisos = notificadorEnMemoria()
+    const d = { ...deps(), avisos }
 
-    expect(await grabarVoz(d, { piezaId: id, nueva: false })).toEqual({ resultado: "tope" })
+    expect(await grabarVoz(d, { piezaId: id, nueva: false })).toEqual({ resultado: "limite" })
     expect(llamadas).toBe(0)
-    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_TOPE })
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_LIMITE })
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+    expect(await gastosDeVoz(id)).toEqual([])
+  })
+
+  it("tells her about the limit on the retry when the first notice failed", async () => {
+    await pool.query("update public.ajustes set tope_mensual_usd = 0")
+    const id = await grabando()
+    const caido = notificadorEnMemoria()
+    caido.aConi = async () => {
+      throw new Error("Resend no responde")
+    }
+
+    await expect(grabarVoz({ ...deps(), avisos: caido }, { piezaId: id, nueva: false })).rejects.toThrow(
+      "Resend no responde",
+    )
+    const avisos = notificadorEnMemoria()
+    expect(await grabarVoz({ ...deps(), avisos }, { piezaId: id, nueva: false })).toEqual({ resultado: "limite" })
+
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+    expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_LIMITE })
+    expect(llamadas).toBe(0)
   })
 
   it("returns the piece with Coni's text when ElevenLabs has no characters", async () => {

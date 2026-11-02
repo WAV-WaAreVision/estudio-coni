@@ -110,10 +110,18 @@ interface PropiedadesDeFilaConInterruptor {
   detalle?: string
   encendido: boolean
   alCambiar: (encendido: boolean) => void
+  /** The id of a line that describes the switch, such as the error of its last save. */
+  descritoPor?: string
 }
 
 /** A label around the switch, so the whole row is its target and the click reaches it once. */
-export function FilaConInterruptor({ etiqueta, detalle, encendido, alCambiar }: PropiedadesDeFilaConInterruptor) {
+export function FilaConInterruptor({
+  etiqueta,
+  detalle,
+  encendido,
+  alCambiar,
+  descritoPor,
+}: PropiedadesDeFilaConInterruptor) {
   const id = useId()
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is a button with role=switch, which a label can wrap.
@@ -124,7 +132,12 @@ export function FilaConInterruptor({ etiqueta, detalle, encendido, alCambiar }: 
         </span>
         {detalle ? <span className="text-meta text-apagado">{detalle}</span> : null}
       </span>
-      <Interruptor encendido={encendido} aria-labelledby={id} onClick={() => alCambiar(!encendido)} />
+      <Interruptor
+        encendido={encendido}
+        aria-labelledby={id}
+        aria-describedby={descritoPor}
+        onClick={() => alCambiar(!encendido)}
+      />
     </label>
   )
 }

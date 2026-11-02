@@ -23,7 +23,7 @@ import {
   leerIdea,
   leerPieza,
   liberarGasto,
-  reservarGasto,
+  reservarGastoFirmado,
   revisionAJson,
 } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
@@ -39,7 +39,7 @@ import { type Almacen, claveLaminaDeCarrusel, clavePdfDeCarrusel } from "@/lib/p
 import { acortarLaminas, costoClaude, MODELO_POR_TAREA, RechazoDeClaude } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
-import { aCuatroDecimales, avisarTope, ESTIMADO_ACORTAR_CLAUDE_USD, piezaCambio } from "./comun"
+import { aCuatroDecimales, ESTIMADO_ACORTAR_CLAUDE_USD, piezaCambio } from "./comun"
 
 export interface DepsArmado {
   /** A `service_role` client: the database functions keep the gates on everything it writes. */
@@ -79,13 +79,6 @@ export function textoMuyLarga(indices: readonly number[]): string {
   return indices.length === 1
     ? `La lámina ${numeros(indices)} quedó muy larga. Pide un cambio para acortarla.`
     : `Las láminas ${numeros(indices)} quedaron muy largas. Pide un cambio para acortarlas.`
-}
-
-/** The cap, not the slide, is why it was not shortened: she can shorten it herself or raise the cap and sign again. */
-export function textoTopeAlAcortar(indices: readonly number[]): string {
-  return indices.length === 1
-    ? `No pude acortar la lámina ${numeros(indices)} porque llegaste al tope de gasto de este mes. Acórtala con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.`
-    : `No pude acortar las láminas ${numeros(indices)} porque llegaste al tope de gasto de este mes. Acórtalas con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.`
 }
 
 async function pilarCortoDe(db: DepsArmado["db"], fila: FilaDePieza): Promise<string | null> {
@@ -151,7 +144,8 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     hash: hashTexto(`acortar:${version.id}`),
     intento: 0,
   })
-  const reserva = await reservarGasto(db, {
+  // The carousel is signed (it waits for its slides after gate 1): the month's limit never stops its one shortening.
+  const gasto = await reservarGastoFirmado(db, {
     piezaId: fila.id,
     proveedor: "anthropic",
     paso: "carrusel",
@@ -159,18 +153,10 @@ async function acortar(deps: DepsArmado, fila: FilaDePieza, version: VersionDeCa
     clave,
     ahora: deps.ahora(),
   })
-  if (reserva.tope) {
-    await avisarTope(deps, fila)
-    await deps.avisos.aWav(
-      "Un carrusel no se acortó por el tope de gasto",
-      `pieza ${fila.id} («${fila.titulo}»): las láminas ${numeros(largas)} no caben y el tope del mes no deja pagar el acortado.`,
-    )
-    return devolver(deps, fila, version, textoTopeAlAcortar(largas))
-  }
   // A refusal released it before: asking again would only be refused again, and cost money. A confirmed one means
   // Claude already answered and the save failed: asking again would pay twice for the one shortening.
-  if (reserva.gasto.estado !== "reservado") {
-    if (reserva.gasto.estado === "confirmado") {
+  if (gasto.estado !== "reservado") {
+    if (gasto.estado === "confirmado") {
       await deps.avisos.aWav(
         "Se perdió un acortado pagado de un carrusel",
         `pieza ${fila.id} («${fila.titulo}»): Claude ya cobró el acortado de las láminas ${numeros(largas)}, no se guardó y no se vuelve a pedir.`,

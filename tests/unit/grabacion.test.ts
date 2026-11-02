@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest"
 import { presentarGrabacion } from "@/lib/datos/grabacion"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import type { Saldos } from "@/lib/dominio/saldos"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
-import { estimarCostoVideo } from "@/lib/produccion/grabar"
 
 const GUION = "Hola, soy Coni. Hoy hablamos de límites."
 const BIEN: Saldos = {
@@ -61,33 +61,19 @@ describe("presentarGrabacion", () => {
   })
 })
 
-describe("presentarGrabacion y el tope del mes", () => {
-  const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
+describe("presentarGrabacion y el límite del mes", () => {
   const entrada = (quedanUsd: number) => ({ ...ENTRADA, quedanUsd })
 
-  it("blocks the voice and the video, with one short line, when the month cannot cover them", () => {
-    const sin = presentarGrabacion(entrada(0))
-    expect(sin.bloqueoVoz).toBe(TOPE)
-    expect(sin.bloqueoVideo).toBe(TOPE)
+  it("closes the voice, with the plain line, when the month's limit cannot cover it: it is new spend", () => {
+    expect(presentarGrabacion(entrada(0)).bloqueoVoz).toBe(TEXTO_LIMITE)
   })
 
-  it("lets the voice through but stops the video when only the voice fits", () => {
-    const voz = estimarCostoVoz(GUION)
-    const r = presentarGrabacion(entrada(voz + 0.0001))
-    expect(r.bloqueoVoz).toBeNull()
-    expect(r.bloqueoVideo).toBe(TOPE)
+  it("lets the voice through when it fits what is left of the limit", () => {
+    expect(presentarGrabacion(entrada(estimarCostoVoz(GUION) + 0.0001)).bloqueoVoz).toBeNull()
   })
 
-  it("counts only the video for the signature: the voice is already made", () => {
-    const video = estimarCostoVideo(GUION, "avatar_v")
-    expect(presentarGrabacion(entrada(video + 0.0001)).bloqueoVideo).toBeNull()
-    expect(presentarGrabacion(entrada(video / 2)).bloqueoVideo).toBe(TOPE)
-  })
-
-  it("does not block anything when the month has room", () => {
-    const r = presentarGrabacion(entrada(37))
-    expect(r.bloqueoVoz).toBeNull()
-    expect(r.bloqueoVideo).toBeNull()
+  it("never closes the signature for the month: the recording it starts is signed work", () => {
+    expect(presentarGrabacion(entrada(0)).bloqueoVideo).toBeNull()
   })
 })
 

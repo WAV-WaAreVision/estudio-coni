@@ -5,6 +5,7 @@ import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { actualizarPieza, type FilaDePieza, leerPieza } from "@/lib/datos/repositorio"
 import { type Evento, transicionar } from "@/lib/dominio/estados"
 import { Falla } from "@/lib/dominio/falla"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -64,10 +65,14 @@ async function dejarConstancia(deps: DepsFalla, fila: FilaDePieza, entrada: Entr
   const voz = entrada.tarea === "grabar-voz" && fila.estado === "grabando_voz"
   const armado = entrada.tarea === "armar-carrusel" && fila.estado === "armando_carrusel"
   if (!guion && !video && !voz && !armado) return null
-  const explicacion = paraConi(
-    entrada.error,
-    guion ? GENERICO_GUION : voz ? GENERICO_VOZ : armado ? GENERICO_CARRUSEL : GENERICO_VIDEO,
-  )
+  // A run the limit stopped already told Coni why; a later failure (its notice, say) must not hide that.
+  const explicacion =
+    fila.explicacion === TEXTO_LIMITE
+      ? TEXTO_LIMITE
+      : paraConi(
+          entrada.error,
+          guion ? GENERICO_GUION : voz ? GENERICO_VOZ : armado ? GENERICO_CARRUSEL : GENERICO_VIDEO,
+        )
   // The version that was being rendered failed (plan amendment 8); a retry renders it again.
   if (armado) await marcarArmadoFallido(deps.db, fila.id)
   const evento: Evento = voz ? { tipo: "falla_voz", explicacion } : { tipo: "falla_produccion", explicacion }

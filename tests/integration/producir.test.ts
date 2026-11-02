@@ -7,6 +7,7 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { type Alerta, AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { claveDeToma } from "@/lib/dominio/voz"
+import { claveDelAvisoDeLimite, mesDelGasto, TEXTO_LIMITE, textoDelAvisoDeLimite } from "@/lib/presupuesto/limite"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { type DepsProduccion, producirPieza } from "@/lib/produccion/producir"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
@@ -15,7 +16,7 @@ import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { comoConi, pool } from "./db"
+import { comoConi, pool, sinLimiteFijado } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { leerFila, sembrarIdeaDelMotor, type TeoriaSembrada, vaciarMotor } from "./siembra"
@@ -25,7 +26,6 @@ afterAll(() => pool.end())
 const URL_CLAUDE = "https://api.anthropic.com/v1/messages"
 const URL_VOZ = "https://api.elevenlabs.io/v1/text-to-speech/:voz"
 const RECHAZO = "Claude no quiso escribir este guion. Prueba con otra idea."
-const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes para seguir."
 const CLAVE_ELEVENLABS = "sk_eleven_de_prueba"
 const AUDIO = new Uint8Array([73, 68, 51, 4, 0, 255, 251, 144, 1, 2, 3])
 const ELEVENLABS = leerConfigProduccion(coniConfig).elevenlabs
@@ -247,6 +247,8 @@ afterEach(async () => {
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
 
+beforeEach(sinLimiteFijado)
+
 describe("producirPieza", () => {
   it("writes and reviews the script, makes her voice of it and leaves the piece waiting for Coni", async () => {
     const id = await crearPiezaEnProduccion()
@@ -441,19 +443,24 @@ describe("producirPieza", () => {
     ])
   })
 
-  it("writes only an explanation, and calls nobody, when the monthly cap is reached", async () => {
+  it("writes only an explanation, calls nobody and tells her, when the month's limit is reached", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
     const id = await crearPiezaEnProduccion()
+    // A cap of 0 makes a limit of 0: nothing new fits.
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     const sim = simular()
     const avisos = notificadorEnMemoria()
 
     const resultado = await producirPieza(deps(avisos), id)
 
-    expect(resultado).toEqual({ resultado: "tope" })
-    expect(avisos.aConiEnviados).toEqual([{ mensaje: TOPE, urgente: true }])
-    expect(avisos.avisosEnviados).toEqual([{ tipo: "tope_alcanzado", clave: `tope_alcanzado:${id}:0`, piezaId: id }])
+    expect(resultado).toEqual({ resultado: "limite" })
+    expect(avisos.aConiEnviados).toEqual([{ mensaje: textoDelAvisoDeLimite(0), urgente: true }])
+    expect(avisos.avisosEnviados).toEqual([
+      { tipo: "limite_alcanzado", clave: claveDelAvisoDeLimite(mesDelGasto(new Date().toISOString())) },
+    ])
+    expect(avisos.aWavEnviados).toHaveLength(1)
     const fila = await pieza(id)
-    expect(fila).toMatchObject({ estado: "guion_en_proceso", explicacion: TOPE, guion: null, audio_id: null })
+    expect(fila).toMatchObject({ estado: "guion_en_proceso", explicacion: TEXTO_LIMITE, guion: null, audio_id: null })
     expect(fila.version).toBe(2)
     expect(sim.escrituras).toHaveLength(0)
     expect(sim.voces).toHaveLength(0)

@@ -6,7 +6,7 @@ import { AFIRMACIONES_POR_CORRIDA, type DepsMantenimientoTemas, mantenerTemas } 
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { simularVoyage, URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -117,6 +117,8 @@ async function conTopeChico<T>(fn: () => Promise<T>): Promise<T> {
     await pool.query("update public.ajustes set tope_mensual_usd = $1", [original])
   }
 }
+
+beforeEach(sinLimiteFijado)
 
 describe("mantenerTemas", () => {
   it("embeds the claims without a vector, assigns them and forms topics from the pending ones", async () => {
@@ -276,6 +278,56 @@ describe("maintenance runs", () => {
 
     expect(resultado.fusiones).toMatchObject({ tope: false, fusionados: 0 })
     expect(claude.fusiones).toBe(0)
+  })
+
+  it("tells Coni when the month's limit stops the topics job, and does not fail the run", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await conTopeChico(() =>
+      mantenimientoFrecuente({
+        ...base(),
+        avisos,
+        dispararGrabacion: async () => undefined,
+        dispararProduccion: async () => undefined,
+        dispararArmado: async () => undefined,
+        temas: async () => deps(),
+      }),
+    )
+
+    expect(resultado.temas).toMatchObject({ tope: true })
+    expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
+  })
+
+  it("fails the run when the month's first limit notice cannot be sent", async () => {
+    await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+    const avisos = notificadorEnMemoria()
+    avisos.aWav = async () => {
+      throw new Error("correo caído")
+    }
+
+    const error = await conTopeChico(() =>
+      mantenimientoFrecuente({
+        ...base(),
+        avisos,
+        dispararGrabacion: async () => undefined,
+        dispararProduccion: async () => undefined,
+        dispararArmado: async () => undefined,
+        temas: async () => deps(),
+      }),
+    ).then(
+      () => new Error("se esperaba un rechazo"),
+      (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+    )
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect(error.message).toContain("temas: correo caído")
   })
 
   it("lets a failing topics job through enSerie without stopping the rest", async () => {

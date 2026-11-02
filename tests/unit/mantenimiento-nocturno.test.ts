@@ -1,9 +1,14 @@
 // @vitest-environment node
+import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fusionarTemas } from "@/lib/ingesta/temas"
 import { type DepsNocturno, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { borrarHuellaDeVisitas } from "@/lib/mantenimiento/huella"
 import { recordarRevisionDeInventario } from "@/lib/mantenimiento/revision-de-inventario"
+import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
+import { leerInterruptores } from "@/lib/presupuesto/interruptores"
+import { avisarLimite } from "@/lib/presupuesto/limite"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
@@ -17,6 +22,19 @@ vi.mock("@/lib/mantenimiento/huella", () => ({ borrarHuellaDeVisitas: vi.fn(asyn
 vi.mock("@/lib/mantenimiento/revision-de-inventario", () => ({
   recordarRevisionDeInventario: vi.fn(async () => "al_dia"),
 }))
+vi.mock("@/lib/ingesta/temas", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ingesta/temas")>()),
+  fusionarTemas: vi.fn(async () => ({ tope: false, fusionados: 0 })),
+}))
+vi.mock("@/lib/presupuesto/interruptores", () => ({
+  leerInterruptores: vi.fn(async () => ({ motorSemanal: true, fusionesNocturnas: true })),
+}))
+vi.mock("@/lib/presupuesto/limite", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/presupuesto/limite")>()),
+  avisarLimite: vi.fn(async () => {}),
+}))
+
+beforeEach(() => vi.clearAllMocks())
 
 const DEPS: DepsNocturno = {
   // Never reached: every step is mocked. A real client keeps the type honest without a cast.
@@ -47,5 +65,33 @@ describe("mantenimientoNocturno", () => {
     expect(resultado.revisionDeInventario).toBe("al_dia")
     expect(borrarHuellaDeVisitas).toHaveBeenCalledWith(DEPS)
     expect(recordarRevisionDeInventario).toHaveBeenCalledWith(DEPS)
+  })
+})
+
+const TEMAS: DepsMantenimientoTemas = {
+  db: DEPS.db,
+  almacen: almacenEnMemoria(),
+  ahora: DEPS.ahora,
+  claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
+  llaveVoyage: () => undefined,
+}
+
+describe("las fusiones nocturnas", () => {
+  it("are skipped, as «apagado» and not as a failure, when Coni turned them off", async () => {
+    vi.mocked(leerInterruptores).mockResolvedValueOnce({ motorSemanal: true, fusionesNocturnas: false })
+
+    const resultado = await mantenimientoNocturno({ ...DEPS, temas: async () => TEMAS })
+
+    expect(resultado.fusiones).toEqual({ apagado: true })
+    expect(fusionarTemas).not.toHaveBeenCalled()
+  })
+
+  it("tell Coni when the month's limit stops them", async () => {
+    vi.mocked(fusionarTemas).mockResolvedValueOnce({ tope: true, fusionados: 0 })
+
+    const resultado = await mantenimientoNocturno({ ...DEPS, temas: async () => TEMAS })
+
+    expect(resultado.fusiones).toEqual({ tope: true, fusionados: 0 })
+    expect(avisarLimite).toHaveBeenCalledWith(expect.objectContaining({ avisos: DEPS.avisos }), DEPS.ahora())
   })
 })

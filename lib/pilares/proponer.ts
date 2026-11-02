@@ -7,7 +7,7 @@ import { clasificarEnPilares, costoClaude, guiaDeReclasificacion } from "@/lib/p
 import type { Database } from "@/lib/supabase/database.types"
 import { estimarClasificacion, type FilaDeReclasificacion, POR_TANDA } from "./reclasificar"
 
-/** Claude proposes; nothing is written to the knowledge base here. The spend goes through the monthly cap. */
+/** Claude proposes; nothing is written to the knowledge base here. The spend goes through the month's limit. */
 export async function proponerReclasificacion(deps: {
   db: SupabaseClient<Database>
   claude: Anthropic
@@ -30,8 +30,10 @@ export async function proponerReclasificacion(deps: {
     clave,
     ahora: deps.ahora,
   })
-  if (reserva.tope)
-    throw new Error("El tope mensual no alcanza para la reclasificación. Súbelo en Ajustes o espera al próximo mes.")
+  if (reserva.limite)
+    throw new Error(
+      "El límite del mes no alcanza para la reclasificación. Reactívalo en Ajustes o espera al próximo mes.",
+    )
 
   let realUsd = 0
   const filas: FilaDeReclasificacion[] = []

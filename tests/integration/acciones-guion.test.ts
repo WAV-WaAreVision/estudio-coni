@@ -8,12 +8,13 @@ import { claveVoz } from "@/lib/acciones/disparos"
 import { type DepsGuion, editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, leerFila, sembrarPieza } from "./siembra"
@@ -156,6 +157,8 @@ afterAll(async () => {
   await pool.end()
 })
 
+beforeEach(sinLimiteFijado)
+
 describe("editarGuion", () => {
   // Most of these run with an empty production setup, which logs that there is no voice to make.
   beforeEach(() => {
@@ -271,7 +274,7 @@ describe("editarGuion", () => {
     expect(await versionesDe(id)).toEqual([])
   })
 
-  it("stops at the monthly cap without writing", async () => {
+  it("stops at the month's limit without writing", async () => {
     const id = await pieza()
     const { version, guion } = await leerFila(id)
     const pedidos = claudeRevisa()
@@ -279,7 +282,7 @@ describe("editarGuion", () => {
 
     const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
 
-    expect(resultado).toMatchObject({ ok: false, motivo: "tope" })
+    expect(resultado).toMatchObject({ ok: false, motivo: "limite", error: TEXTO_LIMITE })
     expect(pedidos).toHaveLength(0)
     expect(await leerFila(id)).toMatchObject({ guion, version })
   })

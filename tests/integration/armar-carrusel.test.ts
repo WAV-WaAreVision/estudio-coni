@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { EntradaDeRender, Render } from "@/lib/carrusel/render"
 import { leerVersionVigente } from "@/lib/datos/carrusel"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
@@ -8,7 +8,7 @@ import { armarCarrusel, type DepsArmado } from "@/lib/produccion/armar-carrusel"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { asumir, comoConi, comoServicio, pool } from "./db"
+import { asumir, comoConi, comoServicio, pool, sinLimiteFijado } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { borrarSembrado, leerFila, sembrarCarrusel } from "./siembra"
@@ -80,6 +80,8 @@ async function firmarDeNuevo(id: string) {
     c.release()
   }
 }
+
+beforeEach(sinLimiteFijado)
 
 describe("armarCarrusel", () => {
   it("renders the signed version, uploads one PNG per slide and the PDF, and puts the piece at gate 2", async () => {
@@ -346,20 +348,34 @@ describe("armarCarrusel", () => {
     }
   })
 
-  it("tells her the monthly cap stopped the shortening, not that the slide is simply long, and tells WAV", async () => {
+  it("shortens over the month's limit, because the carousel is signed, and warns nobody about the limit", async () => {
     const id = await carrusel()
+    servidor.use(
+      http.post("https://api.anthropic.com/v1/messages", () =>
+        HttpResponse.json({
+          id: "msg_prueba",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [
+            { type: "text", text: JSON.stringify({ laminas: [{ numero: 4, texto: "No ve cómo cambia tu voz." }] }) },
+          ],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 900, output_tokens: 60, cache_creation_input_tokens: 0, cache_read_input_tokens: 800 },
+        }),
+      ),
+    )
     const { rows } = await pool.query<{ tope: string }>("select tope_mensual_usd as tope from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0")
     try {
       const d = doble([{ tipo: "desborda", laminas: [3] }])
-      expect(await armarCarrusel(d.deps, id)).toEqual({ resultado: "muy_largo" })
+      expect(await armarCarrusel(d.deps, id)).toEqual({ resultado: "acortado" })
 
-      expect(await leerFila(id)).toMatchObject({
-        estado: "guion_por_aprobar",
-        explicacion:
-          "No pude acortar la lámina 4 porque llegaste al tope de gasto de este mes. Acórtala con Pedir cambio, o sube el tope en Ajustes y vuelve a firmar.",
-      })
-      expect(d.avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Un carrusel no se acortó por el tope de gasto"])
+      expect(d.avisos.avisosEnviados).toEqual([])
+      expect(d.avisos.aWavEnviados).toEqual([])
+      const nueva = await leerVersionVigente(clienteDeServicio(), id)
+      expect(nueva).toMatchObject({ origen: "acortado", estado: "escrito" })
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [rows[0]?.tope])
     }

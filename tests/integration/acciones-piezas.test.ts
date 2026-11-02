@@ -30,13 +30,13 @@ import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puerta
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
 import { claveDeToma } from "@/lib/dominio/voz"
-import { TEXTO_TOPE } from "@/lib/produccion/comun"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { huellaDelGuion, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { claveAudio } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
-import { CONI, comoConi, pool } from "./db"
+import { CONI, comoConi, pool, sinLimiteFijado } from "./db"
 import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
@@ -156,6 +156,9 @@ afterAll(async () => {
   await pool.end()
 })
 
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
+
 describe("elegirIdeas", () => {
   it("creates one piece per idea, marks the ideas as used and starts the script of each", async () => {
     const [a, b] = [await idea(), await idea({ pilar: "ia-salud-mental" })]
@@ -238,17 +241,32 @@ describe("elegirIdeas", () => {
 describe("elegirLote", () => {
   const piezasDe = (resultados: readonly InicioDeIdea[]) =>
     resultados.flatMap((resultado) => ("piezaId" in resultado ? [resultado.piezaId] : []))
-  async function topeConLugarPara(guiones: number): Promise<void> {
-    const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
-    await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado + guiones * 1.1 + 0.05])
+  async function limiteConLugarPara(guiones: number): Promise<void> {
+    const { usado } = await leerPresupuesto(coni, Date.now())
+    const limite = usado + guiones * 1.1 + 0.05
+    // Cap and limit at the same figure, so the batch is checked against exactly this room.
+    await pool.query("update public.ajustes set tope_mensual_usd = $1, limite_duro_usd = $1", [limite])
   }
   afterEach(async () => {
-    await pool.query("update public.ajustes set tope_mensual_usd = 40")
+    await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
+  })
+
+  it("checks the batch against the limit, not the cap: past the cap the scripts still start", async () => {
+    const [a, b] = [await idea(), await idea()]
+    const { usado } = await leerPresupuesto(coni, Date.now())
+    // The cap alone covers at most one script; twice the cap (the default limit) covers both.
+    await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado / 2 + 1.2])
+    const { deps } = armar()
+
+    const resultado = await elegirLote(deps, [a, b])
+
+    expect(resultado).toMatchObject({ ok: true, tipo: "empezadas" })
+    if (resultado.ok && resultado.tipo === "empezadas") piezasCreadas.push(...piezasDe(resultado.resultados))
   })
 
   it("starts every script when the month covers the whole batch", async () => {
     const [a, b] = [await idea(), await idea()]
-    await topeConLugarPara(2)
+    await limiteConLugarPara(2)
     const { deps, disparos } = armar()
 
     const resultado = await elegirLote(deps, [a, b])
@@ -265,7 +283,7 @@ describe("elegirLote", () => {
 
   it("keeps what started when another device takes the second idea mid-batch, and goes on with the third", async () => {
     const [a, b, c] = [await idea(), await idea(), await idea()]
-    await topeConLugarPara(3)
+    await limiteConLugarPara(3)
     const { deps, disparos } = armar()
     const producir = deps.disparar.producir
     deps.disparar.producir = async (piezaId, clave) => {
@@ -288,7 +306,7 @@ describe("elegirLote", () => {
 
   it("leaves the piece whose script did not start with its reason and still starts the rest", async () => {
     const [a, b, c] = [await idea(), await idea(), await idea()]
-    await topeConLugarPara(3)
+    await limiteConLugarPara(3)
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     const { deps, disparos } = armar()
     const producir = deps.disparar.producir
@@ -317,7 +335,7 @@ describe("elegirLote", () => {
 
   it("gives the idea back to the bank when its piece cannot be created, and still starts the rest", async () => {
     const [a, b] = [await idea(), await idea({ gancho: "Falla al crear" })]
-    await topeConLugarPara(2)
+    await limiteConLugarPara(2)
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     await pool.query(`create function public.falla_de_prueba() returns trigger language plpgsql as $$
       begin if new.titulo = 'Falla al crear' then raise exception 'falla de prueba'; end if; return new; end $$`)
@@ -345,7 +363,7 @@ describe("elegirLote", () => {
 
   it("says how many fit and starts nothing when the month covers fewer", async () => {
     const [a, b, c] = [await idea(), await idea(), await idea()]
-    await topeConLugarPara(2)
+    await limiteConLugarPara(2)
     const { deps, disparos } = armar()
     const antes = await pool.query("select count(*)::int as n from public.piezas")
 
@@ -357,12 +375,12 @@ describe("elegirLote", () => {
     expect(rows.every((fila) => fila.estado === "idea")).toBe(true)
   })
 
-  it("says the cap is reached when not even one fits", async () => {
+  it("says the limit is reached when not even one fits", async () => {
     const id = await idea()
-    await topeConLugarPara(0)
+    await limiteConLugarPara(0)
     const { deps, disparos } = armar()
 
-    expect(await elegirLote(deps, [id])).toEqual({ ok: false, error: TEXTO_TOPE })
+    expect(await elegirLote(deps, [id])).toEqual({ ok: false, error: TEXTO_LIMITE })
     expect(disparos).toEqual([])
   })
 

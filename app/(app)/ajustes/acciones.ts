@@ -12,6 +12,7 @@ import {
 } from "@/lib/acciones/avisos"
 import { marcarInventarioRevisado, publicarTransparencia, volverATransparencia } from "@/lib/acciones/datos-personales"
 import { desconectarLinkedin } from "@/lib/acciones/linkedin"
+import { reactivarLimite } from "@/lib/acciones/presupuesto"
 import { aResultado, type Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
 import { servicioPushReal } from "@/lib/proveedores/push"
@@ -115,6 +116,14 @@ export async function volverATransparenciaAccion(version: number) {
       z.object({ version: z.number().int().min(0) }),
       { version },
       (db, d) => volverATransparencia(db, d.version),
+    ),
+  )
+}
+
+export async function reactivarLimiteAccion(limite: number) {
+  return refrescar(
+    await conSesionDeConi("reactivarLimite", z.object({ limite: z.number() }), { limite }, (db, d) =>
+      reactivarLimite(db, d),
     ),
   )
 }

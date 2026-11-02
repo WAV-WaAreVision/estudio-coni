@@ -126,7 +126,7 @@ export async function pagarPaso<T>(
     clave,
     ahora: ahora(),
   })
-  if (reserva.tope) return TOPE
+  if (reserva.limite) return TOPE
   let resultado: { datos: T; realUsd: number }
   try {
     resultado = await paso.llamar()

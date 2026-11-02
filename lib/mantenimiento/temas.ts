@@ -102,8 +102,8 @@ async function embeberPendientes(
 
 /**
  * The frequent topics job: embeds up to 200 claims left without a vector (nothing to do without a Voyage key, which is
- * not a failure), assigns them, and the pending ones that already had a vector, to the nearest topic and forms new topics from what stays pending. Reaching the cap
- * returns `tope: true` and alerts nobody: the next month's reset is the retry.
+ * not a failure), assigns them, and the pending ones that already had a vector, to the nearest topic and forms new topics from what stays pending. Reaching the month's
+ * limit returns `tope: true`; the maintenance run tells Coni (lib/mantenimiento/ejecutar.ts).
  */
 export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<ResultadoMantenerTemas> {
   const llave = deps.llaveVoyage()

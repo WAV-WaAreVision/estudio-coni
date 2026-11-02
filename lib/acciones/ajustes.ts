@@ -4,6 +4,12 @@ import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { canonicos, type Destino, destinosDe, destinosValidos } from "@/lib/dominio/destinos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { dolares } from "@/lib/formato"
+import {
+  limitePorDefecto,
+  MAXIMO_DEL_LIMITE_USD,
+  MAXIMO_DEL_TOPE_USD,
+  PASO_DEL_PRESUPUESTO_USD,
+} from "@/lib/presupuesto/presentar"
 import { baseDe } from "@/lib/proveedores/bases"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { verificarVoz } from "@/lib/proveedores/elevenlabs"
@@ -18,8 +24,6 @@ export interface DepsAjustes {
   db: Db
   ahora: () => string
 }
-
-export const MAXIMO_DEL_TOPE_USD = 500
 
 const dias = z
   .array(z.number().int().min(1).max(7))
@@ -38,6 +42,12 @@ const CambioDeAjuste = z.discriminatedUnion("campo", [
   z.object({ campo: z.literal("dias"), valor: dias }),
   z.object({ campo: z.literal("hora"), valor: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
   z.object({ campo: z.literal("tope"), valor: z.number().min(0).max(MAXIMO_DEL_TOPE_USD) }),
+  z.object({
+    campo: z.literal("limite"),
+    valor: z.number().min(0).max(MAXIMO_DEL_LIMITE_USD).multipleOf(PASO_DEL_PRESUPUESTO_USD).nullable(),
+  }),
+  z.object({ campo: z.literal("motor_semanal"), valor: z.boolean() }),
+  z.object({ campo: z.literal("fusiones_nocturnas"), valor: z.boolean() }),
   z.object({ campo: z.literal("avisos_resumen"), valor: z.boolean() }),
   z.object({ campo: z.literal("avisos_urgentes"), valor: z.boolean() }),
   z.object({ campo: z.literal("destinos"), valor: destinos }),
@@ -50,10 +60,17 @@ const COLUMNAS = {
   dias: "dias_publicacion",
   hora: "hora_publicacion",
   tope: "tope_mensual_usd",
+  limite: "limite_duro_usd",
+  motor_semanal: "motor_semanal_activo",
+  fusiones_nocturnas: "fusiones_nocturnas_activas",
   avisos_resumen: "avisos_resumen",
   avisos_urgentes: "avisos_urgentes",
   destinos: "destinos_por_defecto",
 } as const
+
+function limiteBajoElTope(tope: number): string {
+  return `Tu límite no puede ser menor que tu tope de ${dolares(tope)}.`
+}
 
 const ERROR_DE_CAMBIO = "No entendí ese cambio. Vuelve a abrir Ajustes."
 
@@ -69,6 +86,12 @@ function valorActual(fila: FilaDeAjustes, campo: CambioDeAjuste["campo"]): Cambi
       return { campo, valor: fila.hora_publicacion.slice(0, 5) }
     case "tope":
       return { campo, valor: Number(fila.tope_mensual_usd) }
+    case "limite":
+      return { campo, valor: fila.limite_duro_usd === null ? null : Number(fila.limite_duro_usd) }
+    case "motor_semanal":
+      return { campo, valor: fila.motor_semanal_activo }
+    case "fusiones_nocturnas":
+      return { campo, valor: fila.fusiones_nocturnas_activas }
     case "avisos_resumen":
       return { campo, valor: fila.avisos_resumen }
     case "avisos_urgentes":
@@ -99,23 +122,60 @@ export function guardarAjuste(
     if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
     if (!antes) throw new Error("Falta la fila de ajustes.")
 
+    if (cambio.data.campo === "limite" && cambio.data.valor !== null && cambio.data.valor < antes.tope_mensual_usd) {
+      throw new Falla(limiteBajoElTope(antes.tope_mensual_usd))
+    }
+    // D5: a cap above the limit she set brings the limit back to twice the cap, in the same write, so the database
+    // check (limite_no_bajo_el_tope) never refuses it.
+    const vuelveAlDoble =
+      cambio.data.campo === "tope" &&
+      antes.limite_duro_usd !== null &&
+      cambio.data.valor > Number(antes.limite_duro_usd)
+    const columnas = vuelveAlDoble ? { ...columnaCon(cambio.data), limite_duro_usd: null } : columnaCon(cambio.data)
+
     const { data: despues, error: errorAlGuardar } = await deps.db
       .from("ajustes")
-      .update(columnaCon(cambio.data))
+      .update(columnas)
       .eq("id", true)
       .select()
       .maybeSingle()
+    if (errorAlGuardar?.code === "23514" && errorAlGuardar.message.includes("limite_no_bajo_el_tope")) {
+      // The cap rose in another tab between our read and this write: answer with the cap that won.
+      const { data: ahora, error: errorAlReleer } = await deps.db
+        .from("ajustes")
+        .select("tope_mensual_usd")
+        .maybeSingle()
+      if (errorAlReleer) throw new Error(`No pude leer los ajustes: ${errorAlReleer.message}`, { cause: errorAlReleer })
+      throw new Falla(limiteBajoElTope(ahora?.tope_mensual_usd ?? antes.tope_mensual_usd))
+    }
     if (errorAlGuardar)
       throw new Error(`No pude guardar el cambio: ${errorAlGuardar.message}`, { cause: errorAlGuardar })
     // Row level security answers "no rows" to anybody who is not Coni.
     if (!despues) throw new Error("La base no guardó el cambio de ajustes.")
 
     const resultado: { anterior: CambioDeAjuste; aviso?: string } = { anterior: valorActual(antes, cambio.data.campo) }
-    if (cambio.data.campo === "tope") {
-      const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()), despues.zona)
-      if (presupuesto.usado > cambio.data.valor) {
-        resultado.aviso = `Ya gastaste ${dolares(presupuesto.usado)}; con este tope no grabo más hasta el próximo mes.`
+    if (cambio.data.campo === "tope" || cambio.data.campo === "limite") {
+      const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
+      const frases: string[] = []
+      // A month she reactivated keeps its own limit (P10): a change of cap or limit only reaches the months after it,
+      // so it never paused this month.
+      const fijoElLimiteDelMes = !presupuesto.reactivado
+      if (cambio.data.campo === "tope" && vuelveAlDoble) {
+        const doble = limitePorDefecto(cambio.data.valor)
+        frases.push(
+          fijoElLimiteDelMes
+            ? `Tu límite volvió al doble del tope: ${dolares(doble)}.`
+            : `Tu límite volvió al doble del tope: ${dolares(doble)} desde el próximo mes.`,
+        )
       }
+      if (presupuesto.usado >= presupuesto.limite) {
+        frases.push(
+          fijoElLimiteDelMes
+            ? `Ya gastaste ${dolares(presupuesto.usado)}; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.`
+            : `Este mes ya gastaste ${dolares(presupuesto.usado)} de tu límite de ${dolares(presupuesto.limite)}; lo nuevo sigue en pausa.`,
+        )
+      }
+      if (frases.length > 0) resultado.aviso = frases.join(" ")
     }
     return resultado
   })

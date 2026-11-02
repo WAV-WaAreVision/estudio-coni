@@ -23,15 +23,9 @@ import {
   revisarGuion,
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
+import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { producirCarrusel } from "@/lib/produccion/carrusel"
-import {
-  aCuatroDecimales,
-  avisarTope,
-  ESTIMADO_GUION_CLAUDE_USD,
-  explicar,
-  piezaCambio,
-  TEXTO_TOPE,
-} from "@/lib/produccion/comun"
+import { aCuatroDecimales, ESTIMADO_GUION_CLAUDE_USD, explicar, piezaCambio } from "@/lib/produccion/comun"
 import { type Contexto, cargarContexto, claveDeGasto } from "@/lib/produccion/contexto"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz, TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import {
@@ -57,7 +51,7 @@ export interface DepsProduccion extends DepsVoz {
 export type ResultadoProduccion =
   | { resultado: "producida" }
   | { resultado: "nada_que_hacer" }
-  | { resultado: "tope" }
+  | { resultado: "limite" }
   | { resultado: "rechazado" }
 
 interface Borrador {
@@ -221,10 +215,10 @@ export async function producirPieza(deps: DepsProduccion, piezaId: string): Prom
     clave: claveClaude,
     ahora: deps.ahora(),
   })
-  if (reservaClaude.tope) {
-    await explicar(deps, fila, TEXTO_TOPE)
-    await avisarTope(deps, fila)
-    return { resultado: "tope" }
+  if (reservaClaude.limite) {
+    await explicar(deps, fila, TEXTO_LIMITE)
+    await avisarLimite(deps, deps.ahora())
+    return { resultado: "limite" }
   }
 
   let borrador: Borrador

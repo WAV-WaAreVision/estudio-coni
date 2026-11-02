@@ -7,12 +7,12 @@ const enDiezmilesimos = (usd: number) => Math.round(usd * 10_000)
 
 /** How many of `pedidas` scripts the month still covers: `reservar_gasto` refuses when `usado + estimado > tope`. */
 export function cuantasAlcanzan(entrada: {
-  tope: number
+  limite: number
   usado: number
   estimadoPorGuion: number
   pedidas: number
 }): number {
-  const libre = enDiezmilesimos(entrada.tope) - enDiezmilesimos(entrada.usado)
+  const libre = enDiezmilesimos(entrada.limite) - enDiezmilesimos(entrada.usado)
   if (libre <= 0) return 0
   return Math.min(entrada.pedidas, Math.floor(libre / enDiezmilesimos(entrada.estimadoPorGuion)))
 }

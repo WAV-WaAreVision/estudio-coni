@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   confirmarGasto,
+  type FilaDeGasto,
   type FilaDePieza,
   leerReservasAbiertasDeVoz,
   leerSecreto,
   liberarGasto,
   reservarGasto,
+  reservarGastoFirmado,
 } from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -68,7 +70,16 @@ export interface DepsVoz {
   esperar?: (ms: number) => Promise<void>
 }
 
-export type VozAsegurada = { tipo: "lista"; audioId: string } | { tipo: "tope" }
+export type VozAsegurada = { tipo: "lista"; audioId: string } | { tipo: "limite" }
+
+/**
+ * Spec 2026-11-02, D1: only the voice of a piece already signed at gate 1 is signed work. The signature
+ * (`aprobar_guion`) is what sets `puerta1_hash` and moves a reel to `en_render`; the voice of a draft
+ * (`guion_en_proceso`) or of «Preparar mi voz» (`grabando_voz`) is new spend and stops at the month's limit.
+ */
+export function vozFirmada(fila: FilaDePieza): boolean {
+  return fila.estado === "en_render" && fila.puerta1_hash !== null
+}
 
 const REINTENTOS_DE_SUBIDA = 3
 const ESPERA_DE_SUBIDA_MS = 1_000
@@ -133,16 +144,16 @@ const CLAVES_MAXIMAS = 12
 async function reservarIntento(
   deps: DepsVoz,
   entrada: { fila: FilaDePieza; huella: string; estimado: number; toma: string },
-): Promise<{ tipo: "tope" } | { tipo: "lista" } | { tipo: "reservada"; clave: string }> {
+): Promise<{ tipo: "limite" } | { tipo: "lista" } | { tipo: "reservada"; clave: string }> {
   const { fila, huella, estimado } = entrada
   // This try's own token: a reservation is ours only if it comes back with it (another run may hold the same key).
   const token = crypto.randomUUID()
   let perdidas = 0
   for (let cobro = 0; cobro < CLAVES_MAXIMAS; cobro += 1) {
     const clave = claveDeGastoDeVoz(fila.id, huella, fila.intento, cobro)
-    const reserva = await reservarGasto(deps.db, {
+    const pedido = {
       piezaId: fila.id,
-      proveedor: "elevenlabs",
+      proveedor: "elevenlabs" as const,
       paso: "voz",
       estimadoUsd: estimado,
       clave,
@@ -150,12 +161,18 @@ async function reservarIntento(
       // Only a key released as a refusal (sin_cobro) reopens; a sweeper release stays closed and comes back `liberado`.
       reabrir: true,
       reservadoPor: token,
-    })
-    if (reserva.tope) return { tipo: "tope" }
+    }
+    let gasto: FilaDeGasto
+    if (vozFirmada(fila)) {
+      gasto = await reservarGastoFirmado(deps.db, pedido)
+    } else {
+      const reserva = await reservarGasto(deps.db, pedido)
+      if (reserva.limite) return { tipo: "limite" }
+      gasto = reserva.gasto
+    }
     // Reserved by another try (unknown outcome, or still running): calling again under it would go uncounted.
-    if (reserva.gasto.estado === "reservado" && reserva.gasto.reservado_por === token)
-      return { tipo: "reservada", clave }
-    if (reserva.gasto.estado === "confirmado") {
+    if (gasto.estado === "reservado" && gasto.reservado_por === token) return { tipo: "reservada", clave }
+    if (gasto.estado === "confirmado") {
       // A run that ended meanwhile may have stored the take and confirmed: then that paid audio is the voice.
       if (await deps.almacen.existe(entrada.toma)) return { tipo: "lista" }
       perdidas += 1
@@ -208,7 +225,7 @@ export async function asegurarVoz(
   const texto = textoParaVoz(guion, config.model_id)
   const estimado = estimarCostoVoz(texto)
   const reserva = await reservarIntento(deps, { fila, huella, estimado, toma: exacta })
-  if (reserva.tipo === "tope") return { tipo: "tope" }
+  if (reserva.tipo === "limite") return { tipo: "limite" }
   if (reserva.tipo === "lista") return { tipo: "lista", audioId: exacta }
   const { clave } = reserva
   let audio: Uint8Array

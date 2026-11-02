@@ -38,6 +38,13 @@ export async function registrarAviso(db: Db, aviso: DatosDeAviso, mensaje: strin
   return aFilaDeAviso(data)
 }
 
+/** Whether a notice with this key was already stored, whatever its state. */
+export async function existeAviso(db: Db, clave: string): Promise<boolean> {
+  const { data, error } = await db.from("avisos").select("id").eq("clave", clave).maybeSingle()
+  if (error) throw fallo("leer un aviso", error)
+  return data !== null
+}
+
 export async function marcarEnviados(
   db: Db,
   ids: readonly string[],

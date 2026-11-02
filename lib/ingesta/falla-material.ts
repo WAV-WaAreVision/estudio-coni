@@ -3,6 +3,7 @@ import { Falla } from "@/lib/dominio/falla"
 import { DemasiadoLargo, SinTexto } from "@/lib/ingesta/extraer"
 import { MedioIlegible } from "@/lib/ingesta/medios"
 import { EnlaceDemasiadoGrande, EnlaceNoPermitido } from "@/lib/ingesta/red-segura"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { detalleTecnico } from "@/lib/produccion/fallas"
 import { RechazoDeClaude } from "@/lib/proveedores/anthropic"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -66,11 +67,17 @@ export async function alFallarMaterial(
   deps: DepsFallaMaterial,
   entrada: { materialId: string; corrida: string; error: unknown },
 ): Promise<void> {
-  await marcarFallido(deps.db, entrada.materialId, motivoParaConi(entrada.error))
-  // Deleted meanwhile: there is nothing left to fix, so WAV is not bothered.
-  const { data, error } = await deps.db.from("materiales").select("id").eq("id", entrada.materialId).maybeSingle()
+  const { data, error } = await deps.db
+    .from("materiales")
+    .select("motivo_fallo")
+    .eq("id", entrada.materialId)
+    .maybeSingle()
   if (error) throw new Error(`No pude leer el material ${entrada.materialId}: ${error.message}`)
+  // Deleted meanwhile: there is nothing left to fix, so WAV is not bothered.
   if (!data) return
+  // A run the limit stopped already told Coni why; a later failure (its notice, say) must not hide that.
+  const motivo = data.motivo_fallo === TEXTO_LIMITE ? TEXTO_LIMITE : motivoParaConi(entrada.error)
+  await marcarFallido(deps.db, entrada.materialId, motivo)
   await deps.avisos.aWav(
     "Falló procesar-material",
     [`Corrida: ${entrada.corrida}`, `Material: ${entrada.materialId}`, detalleTecnico(entrada.error)].join("\n"),

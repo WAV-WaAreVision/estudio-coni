@@ -201,6 +201,8 @@ describe("design rules", () => {
       "components/ui/linea-de-error.tsx",
       // A refused retry is a plain error line drawn only inside the large error block (`enUnError`).
       "app/(app)/estado-de-pieza.tsx",
+      // The month's bar past the cap (plan 12a, P12): the raspberry is for signing, so the overrun is drawn in error.
+      "app/(app)/ajustes/presupuesto/pantalla-de-presupuesto.tsx",
     ])
     const culpables = CODIGO.filter(
       (ruta) => /\b(text|bg|border|ring|outline|fill)-error\b/.test(leer(ruta)) && !permitidos.has(ruta),

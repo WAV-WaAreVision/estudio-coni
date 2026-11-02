@@ -38,6 +38,7 @@ import { extraerAudio, imagenAJpeg, sondearMedio } from "@/lib/ingesta/medios"
 import { Parte } from "@/lib/ingesta/partes"
 import { descargarEnlace, type FetchDeEnlace, type Resolver } from "@/lib/ingesta/red-segura"
 import { renderizarPartes } from "@/lib/ingesta/texto-material"
+import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import {
   costoClaude,
@@ -46,6 +47,7 @@ import {
   MODELO_POR_TAREA,
   type TextoLeido,
 } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { estimarCostoTranscripcion, transcribir } from "@/lib/proveedores/elevenlabs"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -56,6 +58,8 @@ export interface DepsProcesar {
   /** A `service_role` client: only the service updates the state and writes the cards. */
   db: Db
   almacen: Almacen
+  /** Tells Coni, once a month, that the hard limit stopped a material (spec 2026-11-02). */
+  avisos: Notificador
   fetch: FetchDeEnlace
   /** DNS, injected so the SSRF guard can be tested without a network. */
   resolver: Resolver
@@ -75,14 +79,13 @@ export type ResultadoProcesar =
   | { resultado: "listo" }
   | { resultado: "ya_listo" }
   | { resultado: "fallido"; motivo: string }
-  | { resultado: "tope" }
+  | { resultado: "limite" }
   | { resultado: "en_curso" }
   | { resultado: "borrado" }
   | { resultado: "esperando_confirmacion" }
 
 /** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
 export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
-export const MOTIVO_TOPE = "Llegaste al tope de gasto del mes. Súbelo en Ajustes para seguir."
 /** Above this estimate (the claims of every chunk, or the card, in USD) a person confirms the cost before the run spends it. */
 export const UMBRAL_CONFIRMACION_USD = 1
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
@@ -590,10 +593,14 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
   return { resultado: "listo" }
 }
 
-/** The cap stops the run without failing it: the material waits as it is, with the reason, and no provider is called. */
+/**
+ * The month's limit stops the run without failing it: the material waits as it is, with the reason, and Reintentar
+ * picks it up after she reactivates. No provider is called; Coni is told once a month.
+ */
 async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
-  await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: MOTIVO_TOPE, ...LIBRE })
-  return { resultado: "tope" }
+  await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: TEXTO_LIMITE, ...LIBRE })
+  await avisarLimite(ctx.deps, ctx.deps.ahora())
+  return { resultado: "limite" }
 }
 
 /**
