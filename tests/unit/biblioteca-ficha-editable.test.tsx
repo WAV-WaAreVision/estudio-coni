@@ -103,4 +103,45 @@ describe("FichaEditable", () => {
     )
     expect(editarFichaAccion).not.toHaveBeenCalled()
   })
+
+  it("focuses the summary when it opens, and Editar again after saving", async () => {
+    render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    expect(screen.getByLabelText("Resumen")).toHaveFocus()
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Editar" })).toHaveFocus())
+  })
+
+  it("Cancelar without changes closes and gives the focus back to Editar", () => {
+    render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(screen.queryByText("¿Descartar lo que cambiaste?")).toBeNull()
+    expect(screen.getByRole("button", { name: "Editar" })).toHaveFocus()
+  })
+
+  it("Cancelar with changes asks first, and only discards them on yes", () => {
+    render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    fireEvent.change(screen.getByLabelText("Resumen"), { target: { value: "Otro resumen" } })
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(screen.getByText("¿Descartar lo que cambiaste?")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }))
+    expect(screen.getByLabelText("Resumen")).toHaveValue("Otro resumen")
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Sí, descartar" }))
+    expect(screen.getByText("Un plan para noviembre.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Editar" })).toHaveFocus()
+    expect(editarFichaAccion).not.toHaveBeenCalled()
+  })
+
+  it("keeps the Quitar buttons small, each named after what it removes", () => {
+    render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    for (const nombre of ["Quitar la idea clave 1", "Quitar la cita 1"]) {
+      const boton = screen.getByRole("button", { name: nombre })
+      expect(boton).toHaveTextContent("Quitar")
+      expect(boton.className).toContain("w-fit")
+    }
+  })
 })

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
+import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
 import {
@@ -98,18 +99,41 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
   const [ficha, setFicha] = useState(inicial)
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [errorDeLaFicha, setErrorDeLaFicha] = useState<string | null>(null)
+  const [preguntandoDescartar, setPreguntandoDescartar] = useState(false)
+  // Opening, closing and the discard question each unmount the focused control: the focus moves after the render.
+  const [enfocar, setEnfocar] = useState<"resumen" | "editar" | "cancelar" | null>(null)
+  const resumen = useRef<HTMLTextAreaElement>(null)
+  const editar = useRef<HTMLButtonElement>(null)
+  const cancelar = useRef<HTMLButtonElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+
+  // No dependency list: the target appears in a later render than the one that asked for it.
+  useEffect(() => {
+    if (enfocar === null) return
+    const destino = { resumen, editar, cancelar }[enfocar].current
+    if (!destino) return
+    destino.focus()
+    setEnfocar(null)
+  })
+
+  function cerrar() {
+    setPreguntandoDescartar(false)
+    setBorrador(null)
+    setEnfocar("editar")
+  }
 
   if (borrador === null) {
     return (
       <div className="grid gap-5">
         <Lectura ficha={ficha} />
         <Boton
+          ref={editar}
           variante="secundario"
           onClick={() => {
             setErrorDeLaFicha(null)
             limpiarError()
             setBorrador(aBorrador(ficha))
+            setEnfocar("resumen")
           }}
         >
           Editar
@@ -144,7 +168,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
       () => {
         const { resumen, ideasClave, citas, fuente } = leida.datos
         setFicha({ resumen, ideasClave, citas, fuente })
-        setBorrador(null)
+        cerrar()
       },
     )
   }
@@ -161,6 +185,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
     >
       <Campo id="ficha-resumen" etiqueta="Resumen">
         <textarea
+          ref={resumen}
           id="ficha-resumen"
           rows={6}
           maxLength={LARGO_DE_RESUMEN}
@@ -189,6 +214,8 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
             </Campo>
             <Boton
               variante="callado"
+              tamano="chico"
+              className="w-fit"
               aria-label={`Quitar la idea clave ${indice + 1}`}
               onClick={() => cambiar({ ideas: borrador.ideas.filter((_, i) => i !== indice) })}
             >
@@ -234,6 +261,8 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
                 {lugar ? <p className="text-meta text-apagado">{lugar}</p> : null}
                 <Boton
                   variante="callado"
+                  tamano="chico"
+                  className="w-fit"
                   aria-label={`Quitar la cita ${indice + 1}`}
                   onClick={() => cambiar({ citas: borrador.citas.filter((_, i) => i !== indice) })}
                 >
@@ -286,9 +315,32 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
       <Boton type="submit" cargando={pendiente}>
         Guardar cambios
       </Boton>
-      <Boton variante="callado" deshabilitado={pendiente} onClick={() => setBorrador(null)}>
-        Cancelar
-      </Boton>
+      {preguntandoDescartar ? (
+        <ConfirmacionEnLinea
+          trato="destructivo"
+          pregunta="¿Descartar lo que cambiaste?"
+          confirmar="Sí, descartar"
+          volver="Seguir editando"
+          alConfirmar={cerrar}
+          alVolver={() => {
+            setPreguntandoDescartar(false)
+            setEnfocar("cancelar")
+          }}
+        />
+      ) : (
+        <Boton
+          ref={cancelar}
+          variante="callado"
+          deshabilitado={pendiente}
+          onClick={() => {
+            const sinCambios = JSON.stringify(borrador) === JSON.stringify(aBorrador(ficha))
+            if (sinCambios) cerrar()
+            else setPreguntandoDescartar(true)
+          }}
+        >
+          Cancelar
+        </Boton>
+      )}
     </form>
   )
 }
