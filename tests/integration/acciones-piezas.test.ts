@@ -36,7 +36,7 @@ import { claveAudio } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
-import { CONI, comoConi, pool } from "./db"
+import { CONI, comoConi, pool, sinLimiteFijado } from "./db"
 import { aplicar, TEXTO, VIDEO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
@@ -156,6 +156,9 @@ afterAll(async () => {
   await pool.end()
 })
 
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
+
 describe("elegirIdeas", () => {
   it("creates one piece per idea, marks the ideas as used and starts the script of each", async () => {
     const [a, b] = [await idea(), await idea({ pilar: "ia-salud-mental" })]
@@ -239,7 +242,7 @@ describe("elegirLote", () => {
   const piezasDe = (resultados: readonly InicioDeIdea[]) =>
     resultados.flatMap((resultado) => ("piezaId" in resultado ? [resultado.piezaId] : []))
   async function limiteConLugarPara(guiones: number): Promise<void> {
-    const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
+    const { usado } = await leerPresupuesto(coni, Date.now())
     const limite = usado + guiones * 1.1 + 0.05
     // Cap and limit at the same figure, so the batch is checked against exactly this room.
     await pool.query("update public.ajustes set tope_mensual_usd = $1, limite_duro_usd = $1", [limite])
@@ -250,7 +253,7 @@ describe("elegirLote", () => {
 
   it("checks the batch against the limit, not the cap: past the cap the scripts still start", async () => {
     const [a, b] = [await idea(), await idea()]
-    const { usado } = await leerPresupuesto(coni, Date.now(), "America/Santiago")
+    const { usado } = await leerPresupuesto(coni, Date.now())
     // The cap alone covers at most one script; twice the cap (the default limit) covers both.
     await pool.query("update public.ajustes set tope_mensual_usd = $1", [usado / 2 + 1.2])
     const { deps } = armar()

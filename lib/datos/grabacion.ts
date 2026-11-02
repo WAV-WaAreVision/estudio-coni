@@ -148,7 +148,7 @@ export async function leerDatosDeGrabacion(
   const clave = vozVigente(fila, guion, config)
   const [saldos, presupuesto, url, vozSinCobro] = await Promise.all([
     leerSaldos(),
-    leerPresupuesto(db, Date.now(), zona),
+    leerPresupuesto(db, Date.now()),
     urlParaVer(clave),
     vozSinCobroOFalso(db, fila),
   ])

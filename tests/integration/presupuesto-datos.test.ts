@@ -68,6 +68,20 @@ describe("leerPresupuestoDelMes", () => {
     })
   })
 
+  it("rounds every sum to four decimals, so the screen never shows a float's tail", async () => {
+    await gasto("anthropic", "motor", "prueba-redondeo-motor-1", "confirmado", 0.1)
+    await gasto("anthropic", "motor", "prueba-redondeo-motor-2", "confirmado", 0.2)
+    await gasto("anthropic", "temas", "temas:fusionar:prueba-redondeo-1", "confirmado", 0.1)
+    await gasto("anthropic", "temas", "temas:fusionar:prueba-redondeo-2", "confirmado", 0.2)
+
+    expect(await leerPresupuestoDelMes(coni, Date.now())).toMatchObject({
+      usado: 0.6,
+      porProveedor: { anthropic: 0.6 },
+      motor: { usd: 0.3 },
+      fusiones: { usd: 0.3 },
+    })
+  })
+
   it("knows a reactivated month and an unread limit notice that came after it", async () => {
     await reactivar(130, "now() - interval '1 minute'")
     await avisoDeLimite("now()")

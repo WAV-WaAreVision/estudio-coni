@@ -10,9 +10,10 @@ import {
 } from "@/lib/datos/repositorio"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { diaLocal, type Horario } from "@/lib/dominio/fechas"
+import type { Horario } from "@/lib/dominio/fechas"
 import { linkedinConectadoEn } from "@/lib/dominio/linkedin"
 import { dolares } from "@/lib/formato"
+import { mesDelGasto } from "@/lib/presupuesto/limite"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
 import { estimarCostoVideo } from "@/lib/produccion/grabar"
 import { type AvatarElegible, leerConfigProduccion } from "@/lib/proveedores/config"
@@ -104,9 +105,12 @@ export interface Presupuesto {
   usado: number
 }
 
-/** What the month has spent or reserved: a confirmed spend counts its real cost, as `reservar_gasto` counts it. */
-export async function leerPresupuesto(db: Db, ahora: number, zona: string): Promise<Presupuesto> {
-  const mes = `${diaLocal(ahora, zona).slice(0, 7)}-01`
+/**
+ * What the month has spent or reserved: a confirmed spend counts its real cost, as `reservar_gasto` counts it, in the
+ * Santiago month the database files it under (whatever Coni's own zone is).
+ */
+export async function leerPresupuesto(db: Db, ahora: number): Promise<Presupuesto> {
+  const mes = `${mesDelGasto(new Date(ahora).toISOString())}-01`
   const [ajustes, gastos, limite] = await Promise.all([
     db.from("ajustes").select("tope_mensual_usd").maybeSingle(),
     db.from("gastos").select("estado, estimado_usd, real_usd").eq("mes", mes).in("estado", ["reservado", "confirmado"]),
@@ -129,8 +133,6 @@ export interface CostoDeGrabar {
   /** "Grabar cuesta unos US$ 2,40 · te quedan US$ 37,00 este mes", or null when the setup cannot say. */
   linea: string | null
   estimadoUsd: number | null
-  /** True when this recording would take the month past its limit. */
-  superaElLimite: boolean
 }
 
 /**
@@ -142,7 +144,6 @@ export async function leerCostoDeGrabar(
   db: Db,
   guion: string,
   ahora: number,
-  zona: string,
   audioId: string | null,
 ): Promise<CostoDeGrabar> {
   let estimadoUsd: number
@@ -154,14 +155,13 @@ export async function leerCostoDeGrabar(
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude estimar el costo de grabar", error)
-    return { linea: null, estimadoUsd: null, superaElLimite: false }
+    return { linea: null, estimadoUsd: null }
   }
-  const { limite, usado } = await leerPresupuesto(db, ahora, zona)
+  const { limite, usado } = await leerPresupuesto(db, ahora)
   const quedan = Math.max(0, limite - usado)
   return {
     linea: `Grabar cuesta unos ${dolares(estimadoUsd)} · te quedan ${dolares(quedan)} este mes`,
     estimadoUsd,
-    superaElLimite: estimadoUsd > quedan,
   }
 }
 

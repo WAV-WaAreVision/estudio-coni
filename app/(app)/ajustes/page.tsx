@@ -18,7 +18,7 @@ export default async function Ajustes() {
   const { data: ajustes, error } = await db.from("ajustes").select("*").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   if (!ajustes) throw new Error("Falta la fila de ajustes.")
-  const presupuesto = await leerPresupuesto(db, Date.now(), ajustes.zona)
+  const presupuesto = await leerPresupuesto(db, Date.now())
   const { count: dispositivos, error: errorDeDispositivos } = await db
     .from("suscripciones_push")
     .select("id", { count: "exact", head: true })

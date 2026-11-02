@@ -259,9 +259,7 @@ export type LoteElegido = { tipo: "empezadas"; resultados: InicioDeIdea[] } | { 
 export function elegirLote(deps: DepsAcciones, ideaIds: readonly string[]): Promise<Resultado<LoteElegido>> {
   return aResultado("elegirLote", async (): Promise<LoteElegido> => {
     exigirLoteDeIdeas(ideaIds)
-    const { data, error } = await deps.db.from("ajustes").select("zona").maybeSingle()
-    if (error) throw new Error(`No pude leer la zona: ${error.message}`, { cause: error })
-    const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()), data?.zona ?? "America/Santiago")
+    const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
     const alcanza = cuantasAlcanzan({
       limite: presupuesto.limite,
       usado: presupuesto.usado,

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { limiteDelMes } from "@/lib/datos/repositorio"
-import { ESTIMADO_POR_GUION_USD } from "@/lib/produccion/comun"
+import { aCuatroDecimales, ESTIMADO_POR_GUION_USD } from "@/lib/produccion/comun"
 import type { Database } from "@/lib/supabase/database.types"
 import { claveDelAvisoDeLimite, mesDelGasto } from "./limite"
 import { esProveedor, type PresupuestoDelMes, type Proveedor } from "./presentar"
@@ -73,10 +73,16 @@ export async function leerPresupuestoDelMes(db: Db, ahora: number): Promise<Pres
     limiteExplicito: ajustes.data.limite_duro_usd,
     limite,
     reactivado: filaDelMes.data !== null,
-    usado,
-    porProveedor,
-    motor: { activo: ajustes.data.motor_semanal_activo, usd: motor },
-    fusiones: { activas: ajustes.data.fusiones_nocturnas_activas, usd: fusiones },
+    // Summed as floats; rounded once here, at the four decimals the database keeps.
+    usado: aCuatroDecimales(usado),
+    porProveedor: {
+      anthropic: aCuatroDecimales(porProveedor.anthropic),
+      elevenlabs: aCuatroDecimales(porProveedor.elevenlabs),
+      heygen: aCuatroDecimales(porProveedor.heygen),
+      voyage: aCuatroDecimales(porProveedor.voyage),
+    },
+    motor: { activo: ajustes.data.motor_semanal_activo, usd: aCuatroDecimales(motor) },
+    fusiones: { activas: ajustes.data.fusiones_nocturnas_activas, usd: aCuatroDecimales(fusiones) },
     avisoSinLeer,
     margenUsd: ESTIMADO_POR_GUION_USD,
   }

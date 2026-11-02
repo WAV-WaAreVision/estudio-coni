@@ -155,7 +155,7 @@ export function guardarAjuste(
 
     const resultado: { anterior: CambioDeAjuste; aviso?: string } = { anterior: valorActual(antes, cambio.data.campo) }
     if (cambio.data.campo === "tope" || cambio.data.campo === "limite") {
-      const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()), despues.zona)
+      const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
       const frases: string[] = []
       if (cambio.data.campo === "tope" && vuelveAlDoble) {
         const doble = limitePorDefecto(cambio.data.valor)
