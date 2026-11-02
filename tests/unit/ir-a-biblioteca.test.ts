@@ -1,10 +1,12 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { exigirEnv } from "@/lib/env"
 
 const leerSesion = vi.hoisted(() => vi.fn())
 const generateLink = vi.hoisted(() => vi.fn())
+const clienteDeServicio = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/sesion/coni", () => ({ leerSesion }))
-vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio: () => ({ auth: { admin: { generateLink } } }) }))
+vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio }))
 
 const TOKEN = "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
 const CONI = { estado: "coni", db: {}, userId: "c0000000-0000-4000-8000-000000000001", correo: "coni@estudio.test" }
@@ -14,6 +16,11 @@ afterEach(() => {
   vi.restoreAllMocks()
   leerSesion.mockReset()
   generateLink.mockReset()
+  clienteDeServicio.mockReset()
+})
+
+beforeEach(() => {
+  clienteDeServicio.mockImplementation(() => ({ auth: { admin: { generateLink } } }))
 })
 
 describe("/ir-a-biblioteca", () => {
@@ -76,5 +83,33 @@ describe("/ir-a-biblioteca", () => {
     const { GET } = await import("@/app/ir-a-biblioteca/route")
 
     expect((await GET()).headers.get("location")).toBe("/biblioteca-no-abrio")
+  })
+
+  it("sends Coni to the failure page when the service key is missing, logging only the variable's name", async () => {
+    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    leerSesion.mockResolvedValue(CONI)
+    clienteDeServicio.mockImplementation(() => exigirEnv("SUPABASE_SERVICE_ROLE_KEY", undefined))
+    const { GET } = await import("@/app/ir-a-biblioteca/route")
+
+    const respuesta = await GET()
+
+    expect(respuesta.status).toBe(307)
+    expect(respuesta.headers.get("location")).toBe("/biblioteca-no-abrio")
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(error.mock.calls[0]).toEqual([
+      "La Biblioteca no se puede abrir: falta la variable de entorno SUPABASE_SERVICE_ROLE_KEY.",
+    ])
+  })
+
+  it("lets any other failure of the service client propagate", async () => {
+    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
+    leerSesion.mockResolvedValue(CONI)
+    clienteDeServicio.mockImplementation(() => {
+      throw new TypeError("otra cosa")
+    })
+    const { GET } = await import("@/app/ir-a-biblioteca/route")
+
+    await expect(GET()).rejects.toThrow("otra cosa")
   })
 })

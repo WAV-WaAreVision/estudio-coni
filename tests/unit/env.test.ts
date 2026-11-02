@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { exigirEnv } from "@/lib/env"
+import { exigirEnv, FaltaVariableDeEntorno } from "@/lib/env"
 
 describe("exigirEnv", () => {
   it("devuelve el valor cuando la variable existe", () => {
@@ -11,5 +11,18 @@ describe("exigirEnv", () => {
       "Falta la variable de entorno NEXT_PUBLIC_SUPABASE_URL.",
     )
     expect(() => exigirEnv("NEXT_PUBLIC_SUPABASE_URL", "")).toThrow("NEXT_PUBLIC_SUPABASE_URL")
+  })
+
+  it("falla con un error que lleva solo el nombre de la variable, para reconocerlo sin leer el mensaje", () => {
+    const fallo = (() => {
+      try {
+        exigirEnv("SUPABASE_SERVICE_ROLE_KEY", undefined)
+      } catch (error) {
+        return error
+      }
+    })()
+    expect(fallo).toBeInstanceOf(FaltaVariableDeEntorno)
+    expect(fallo).toBeInstanceOf(Error)
+    expect(fallo).toMatchObject({ nombre: "SUPABASE_SERVICE_ROLE_KEY" })
   })
 })
