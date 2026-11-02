@@ -41,12 +41,12 @@ describe("PanelDeMaterial", () => {
     expect(within(region).getByText("Listo")).toBeInTheDocument()
   })
 
-  it("shows the ideas taken with their count and the first two, and Ver todas opens the detail", () => {
+  it("shows the ideas taken with their count and the first two, and «Ver las 12» opens the detail", () => {
     render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
     expect(screen.getByRole("heading", { name: "Ideas sacadas", level: 3 })).toBeInTheDocument()
     expect(screen.getByText("12")).toBeInTheDocument()
     expect(screen.getByText("«El aislamiento pesa más que las horas extra.»")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Ver todas" })).toHaveAttribute("href", `/biblioteca/materiales/${ID}`)
+    expect(screen.getByRole("link", { name: "Ver las 12" })).toHaveAttribute("href", `/biblioteca/materiales/${ID}`)
   })
 
   it("says who she is for you with the credential, and folds the technical detail for WAV", () => {
@@ -79,7 +79,14 @@ describe("PanelDeMaterial", () => {
     )
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument()
     expect(screen.getByText("Las ideas aparecen cuando termina de procesarse.")).toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: "Ver todas" })).toBeNull()
+    expect(screen.queryByRole("link", { name: /^Ver / })).toBeNull()
+  })
+})
+
+describe("PanelDeMaterial with a single idea", () => {
+  it("says «Ver la idea» instead of «Ver las 1»", () => {
+    render(<PanelDeMaterial panel={{ ...panel, ideas: { total: 1, primeras: ["Una."] } }} filtros={{}} ahora={AHORA} />)
+    expect(screen.getByRole("link", { name: "Ver la idea" })).toBeInTheDocument()
   })
 })
 

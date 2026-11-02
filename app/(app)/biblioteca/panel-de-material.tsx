@@ -53,7 +53,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
         )}
         {ideas.total > 0 ? (
           <Link href={`/biblioteca/materiales/${material.id}`} className={clasesDeBoton({ variante: "callado" })}>
-            Ver todas
+            {ideas.total === 1 ? "Ver la idea" : `Ver las ${ideas.total}`}
           </Link>
         ) : null}
       </Seccion>
