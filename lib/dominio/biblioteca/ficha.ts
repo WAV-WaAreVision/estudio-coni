@@ -78,6 +78,7 @@ export const MAXIMO_DE_IDEAS = 10
 const texto = (maximo: number) => z.string().trim().max(maximo)
 const textoONulo = z
   .string()
+  .max(2000)
   .nullable()
   .transform((valor) => valor?.trim() || null)
 

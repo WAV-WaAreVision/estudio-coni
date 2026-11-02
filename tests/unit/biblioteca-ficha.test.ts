@@ -90,4 +90,13 @@ describe("leerEdicion", () => {
       error: "No entendí esa solicitud. Vuelve a abrir la pantalla.",
     })
   })
+
+  it.each(["autor", "enlace"])("refuses a source %s over 2000 characters, and takes one of 2000", (campo) => {
+    const fuente = (largo: number) => ({ ...edicion.fuente, enlace: null, [campo]: `https://${"a".repeat(largo - 8)}` })
+    expect(leerEdicion({ ...edicion, fuente: fuente(2001) })).toEqual({
+      ok: false,
+      error: "No entendí esa solicitud. Vuelve a abrir la pantalla.",
+    })
+    expect(leerEdicion({ ...edicion, fuente: fuente(2000) }).ok).toBe(true)
+  })
 })
