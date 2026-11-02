@@ -16,7 +16,7 @@ import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { sembrarIdea } from "./siembra"
@@ -111,6 +111,8 @@ afterEach(async () => {
 })
 
 afterAll(() => pool.end())
+
+beforeEach(sinLimiteFijado)
 
 describe("descartarIdea", () => {
   it("discards the idea with the reason she chose and unpins it", async () => {

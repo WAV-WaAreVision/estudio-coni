@@ -6,7 +6,7 @@ import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { type NotificadorEnMemoria, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -206,6 +206,9 @@ async function corrida() {
 }
 
 const contar = async (sql: string): Promise<number> => Number((await pool.query<{ n: string }>(sql)).rows[0]?.n)
+
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
 
 describe("motor_afirmaciones_de_tema", () => {
   it("puts studies and clinical practice first, then the claims closest to the centroid", async () => {
@@ -601,7 +604,7 @@ describe("correrMotor", () => {
 
     it("keeps the paid ideas when the notice fails, and the retry tells Coni without redoing the run", async () => {
       await ochoTemas()
-      simularClaude({ alLlamar: limiteTrasElPrimerLote })
+      const claude = simularClaude({ alLlamar: limiteTrasElPrimerLote })
       const fallido = notificadorEnMemoria()
 
       await expect(
@@ -614,9 +617,11 @@ describe("correrMotor", () => {
       expect((await corrida())?.estado).toBe("lista")
       const ideas = await ideasDelMotor()
       expect(ideas).toBeGreaterThan(0)
+      const llamadasAntes = claude.llamadas
 
       const avisos = notificadorEnMemoria()
       expect(await correrMotor(deps(avisos), { semana: SEMANA, manual: false })).toEqual({ resultado: "ya_corrio" })
+      expect(claude.llamadas).toBe(llamadasAntes)
       expect(await ideasDelMotor()).toBe(ideas)
       expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).toEqual(["limite_alcanzado"])
     })

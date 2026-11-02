@@ -20,7 +20,7 @@ import { CODIGO_POLITICA } from "@/lib/proveedores/heygen-api"
 import type { InfoVideo } from "@/lib/video/chequeos"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { comoConi, comoServicio, pool } from "./db"
+import { comoConi, comoServicio, pool, sinLimiteFijado } from "./db"
 import { AUDIO, AVATAR, aplicar, aprobarComoConi, crearPiezaEn, GUION, TEXTO } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi } from "./sesion-coni"
@@ -320,6 +320,8 @@ afterEach(async () => {
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
 
+beforeEach(sinLimiteFijado)
+
 describe("estimarCostoVideo", () => {
   it("prices the script at 48 credits a minute for avatar_v and 16 for Avatar IV, at US$ 4 a minute of avatar_v", () => {
     expect(estimarCostoVideo(GUION, "avatar_v")).toBe(ESTIMADO)
@@ -618,7 +620,7 @@ describe("grabarPieza sin llave o sobre el límite", () => {
   it("records over the month's limit, because the video is signed work, and tells nobody about the limit", async () => {
     const id = await crearPiezaEnRender()
     const sim = simular()
-    // A limit of US$ 0,10 is under the estimate of this video (ESTIMADO).
+    // A cap of US$ 0,05 makes a limit of US$ 0,10, under the estimate of this video (ESTIMADO).
     await pool.query("update public.ajustes set tope_mensual_usd = 0.05")
     const avisos = notificadorEnMemoria()
     const d = doble({ avisos })
@@ -628,6 +630,7 @@ describe("grabarPieza sin llave o sobre el límite", () => {
 
     expect(sim.creaciones).toHaveLength(1)
     expect(avisos.avisosEnviados.map((aviso) => aviso.tipo)).not.toContain("limite_alcanzado")
+    expect(avisos.aWavEnviados).toEqual([])
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["heygen", "confirmado"]])
   })
 })

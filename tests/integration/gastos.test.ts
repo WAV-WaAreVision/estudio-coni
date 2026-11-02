@@ -1,6 +1,16 @@
 import type pg from "pg"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { asumir, como, comoConi, comoMantenedor, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import {
+  asumir,
+  como,
+  comoConi,
+  comoMantenedor,
+  comoPostgres,
+  comoServicio,
+  fallaCon,
+  pool,
+  sinLimiteFijado,
+} from "./db"
 
 afterAll(() => pool.end())
 
@@ -32,6 +42,8 @@ async function reservar(c: pg.PoolClient, clave: string, monto: number, ahora?: 
 }
 
 const unaReserva = "select public.reservar_gasto(null, 'heygen', 'grabar', 10, 'clave-x')"
+
+beforeEach(sinLimiteFijado)
 
 describe("reservar gasto", () => {
   it("reserva cuando cabe en el límite del mes", async () => {

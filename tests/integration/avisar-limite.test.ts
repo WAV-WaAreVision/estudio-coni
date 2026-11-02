@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { notificadorConRegistro } from "@/lib/avisos/registrado"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import {
@@ -9,7 +9,7 @@ import {
   textoDelAvisoDeLimite,
 } from "@/lib/presupuesto/limite"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 
 const NOVIEMBRE = "2026-11-15T15:00:00.000Z"
@@ -26,6 +26,9 @@ function conRegistro() {
   const canal = notificadorEnMemoria()
   return { canal, avisos: notificadorConRegistro({ db, canal, ahora: () => NOVIEMBRE }) }
 }
+
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
 
 describe("mesDelGasto", () => {
   it("is the Santiago month, as the database counts it", () => {

@@ -16,7 +16,7 @@ import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { comoConi, pool } from "./db"
+import { comoConi, pool, sinLimiteFijado } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { leerFila, sembrarIdeaDelMotor, type TeoriaSembrada, vaciarMotor } from "./siembra"
@@ -246,6 +246,8 @@ afterEach(async () => {
   ideasCreadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
+
+beforeEach(sinLimiteFijado)
 
 describe("producirPieza", () => {
   it("writes and reviews the script, makes her voice of it and leaves the piece waiting for Coni", async () => {

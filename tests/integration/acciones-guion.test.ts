@@ -14,7 +14,7 @@ import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, leerFila, sembrarPieza } from "./siembra"
@@ -156,6 +156,8 @@ afterAll(async () => {
   await borrarSembrado(piezasCreadas, [])
   await pool.end()
 })
+
+beforeEach(sinLimiteFijado)
 
 describe("editarGuion", () => {
   // Most of these run with an empty production setup, which logs that there is no voice to make.

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { EntradaDeRender, Render } from "@/lib/carrusel/render"
 import { leerVersionVigente } from "@/lib/datos/carrusel"
 import { hashTextoDeCarrusel } from "@/lib/dominio/puertas"
@@ -8,7 +8,7 @@ import { armarCarrusel, type DepsArmado } from "@/lib/produccion/armar-carrusel"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { asumir, comoConi, comoServicio, pool } from "./db"
+import { asumir, comoConi, comoServicio, pool, sinLimiteFijado } from "./db"
 import { aplicar } from "./flujo"
 import { clienteDeServicio } from "./servicio"
 import { borrarSembrado, leerFila, sembrarCarrusel } from "./siembra"
@@ -80,6 +80,8 @@ async function firmarDeNuevo(id: string) {
     c.release()
   }
 }
+
+beforeEach(sinLimiteFijado)
 
 describe("armarCarrusel", () => {
   it("renders the signed version, uploads one PNG per slide and the PDF, and puts the piece at gate 2", async () => {
@@ -370,7 +372,8 @@ describe("armarCarrusel", () => {
       const d = doble([{ tipo: "desborda", laminas: [3] }])
       expect(await armarCarrusel(d.deps, id)).toEqual({ resultado: "acortado" })
 
-      expect(d.avisos.avisosEnviados.map((aviso) => aviso.tipo)).not.toContain("limite_alcanzado")
+      expect(d.avisos.avisosEnviados).toEqual([])
+      expect(d.avisos.aWavEnviados).toEqual([])
       const nueva = await leerVersionVigente(clienteDeServicio(), id)
       expect(nueva).toMatchObject({ origen: "acortado", estado: "escrito" })
     } finally {

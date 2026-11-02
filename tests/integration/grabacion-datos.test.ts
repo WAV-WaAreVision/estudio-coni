@@ -9,7 +9,7 @@ import { claveVozAprobada } from "@/lib/proveedores/almacen"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { GUION } from "./flujo"
 import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 import { clienteDeConi } from "./sesion-coni"
@@ -72,6 +72,9 @@ async function piezaPorFirmar(ajustes: Record<string, unknown> = {}) {
   creadas.push(id)
   return id
 }
+
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
 
 describe("leerDatosDeGrabacion", () => {
   it("reads the balances through the real wiring and prices voice and signature, no voice yet", async () => {

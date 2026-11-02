@@ -6,7 +6,7 @@ import { AFIRMACIONES_POR_CORRIDA, type DepsMantenimientoTemas, mantenerTemas } 
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { simularVoyage, URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -117,6 +117,8 @@ async function conTopeChico<T>(fn: () => Promise<T>): Promise<T> {
     await pool.query("update public.ajustes set tope_mensual_usd = $1", [original])
   }
 }
+
+beforeEach(sinLimiteFijado)
 
 describe("mantenerTemas", () => {
   it("embeds the claims without a vector, assigns them and forms topics from the pending ones", async () => {

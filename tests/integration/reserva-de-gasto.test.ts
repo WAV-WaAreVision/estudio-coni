@@ -1,6 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { limiteDelMes, reservarGasto, reservarGastoFirmado } from "@/lib/datos/repositorio"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { borrarSembrado, sembrarPieza } from "./siembra"
 
@@ -34,6 +34,9 @@ afterAll(async () => {
   await borrarSembrado(piezas, [])
   await pool.end()
 })
+
+beforeEach(sinLimiteFijado)
+afterEach(sinLimiteFijado)
 
 describe("reservarGasto y el límite", () => {
   it("says the limit stopped new spend, with the month's figures", async () => {

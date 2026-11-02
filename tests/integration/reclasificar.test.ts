@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http, passthrough } from "msw"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import { aplicarReclasificacion, leerElementosPorReclasificar } from "@/lib/datos/reclasificacion"
 import { proponerReclasificacion } from "@/lib/pilares/proponer"
 import { servidor } from "../msw"
-import { CONI, pool } from "./db"
+import { CONI, pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 
 afterAll(async () => {
@@ -76,6 +76,8 @@ const ultimoGasto = async () =>
       "select estado, real_usd from public.gastos where paso = 'reclasificar_pilares' order by creado_en desc limit 1",
     )
   ).rows[0]
+
+beforeEach(sinLimiteFijado)
 
 describe("reclasificación de pilares", () => {
   it("confirms what earlier batches cost when a later batch fails, and rethrows the failure", async () => {
