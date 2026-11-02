@@ -25,7 +25,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
   const { material, ideas, evidencia } = panel
   const quien = material.credencial ? `${material.autor} · ${material.credencial}` : material.autor
   return (
-    <section aria-labelledby="panel-titulo" className="grid gap-4 rounded-panel bg-piedra-alta p-5">
+    <section aria-labelledby="panel-titulo" className="grid gap-6 rounded-panel bg-piedra-alta p-5">
       <div className="flex flex-wrap items-center gap-2 text-meta text-apagado">
         <span data-snapshot="varia">
           {`${etiquetaDeTipo(material.tipo)} · ${subidoEnFrase(material.creado_en, ahora, ZONA_DE_LA_BIBLIOTECA)}`}
@@ -35,7 +35,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
       <h2 id="panel-titulo" className="text-pieza text-balance">
         {material.titulo ?? "Sin título"}
       </h2>
-      <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total}>
+      <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno">
         {ideas.primeras.length === 0 ? (
           <p className="text-cuerpo text-apagado">
             {material.estado === "listo"
@@ -57,7 +57,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
           </Link>
         ) : null}
       </Seccion>
-      <Seccion titulo={PALABRAS.papel} id="panel-quien">
+      <Seccion titulo={PALABRAS.papel} id="panel-quien" espacio="ninguno">
         <p className="text-cuerpo">{quien}</p>
         <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
       </Seccion>

@@ -80,6 +80,15 @@ describe("PanelDeMaterial", () => {
   })
 })
 
+describe("PanelDeMaterial spacing", () => {
+  it("lets the panel's gap space its sections, with no extra top margin on them", () => {
+    render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
+    for (const nombre of ["Ideas sacadas", "¿Quién es para ti?"]) {
+      expect(screen.getByRole("region", { name: nombre }).className).not.toMatch(/\bmt-/)
+    }
+  })
+})
+
 describe("PistaDelPanel", () => {
   it("says what the panel is for while nothing is selected", () => {
     render(<PistaDelPanel />)

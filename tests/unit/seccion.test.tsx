@@ -26,4 +26,15 @@ describe("Seccion", () => {
     expect(screen.getByText("2")).toHaveClass("text-apagado", "font-medium")
     expect(screen.getByRole("region", { name: "Necesita tu firma" })).toHaveClass("mt-8")
   })
+
+  it("drops its top margin when the container already spaces it (espacio ninguno)", () => {
+    render(
+      <Seccion id="s" titulo="Ideas sacadas" espacio="ninguno">
+        <p>x</p>
+      </Seccion>,
+    )
+    const region = screen.getByRole("region", { name: "Ideas sacadas" })
+    expect(region.className).not.toMatch(/\bmt-/)
+    expect(region).toHaveClass("grid", "gap-3")
+  })
 })
