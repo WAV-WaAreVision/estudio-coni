@@ -46,7 +46,7 @@ export const ESTIMADO_CARRUSEL_CLAUDE_USD = 0.5
 export const ESTIMADO_ACORTAR_CLAUDE_USD = 0.2
 
 /**
- * The most one script can hold against the cap: Claude's draft and review, then her voice of the longest script
+ * The most one script can hold against the limit: Claude's draft and review, then her voice of the longest script
  * allowed. The batch on Ideas checks the month with it before starting anything (decision 23, amendment A2).
  */
 export const ESTIMADO_POR_GUION_USD = aCuatroDecimales(

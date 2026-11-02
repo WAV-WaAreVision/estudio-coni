@@ -4,12 +4,12 @@ import { textoDeVector } from "@/lib/ingesta/agrupar"
 import {
   type Contexto,
   falloDeBase,
+  LIMITE,
+  type Limite,
   MaterialBorrado,
   pagadoAntes,
   pagar,
   redondear,
-  TOPE,
-  type Tope,
 } from "@/lib/ingesta/gasto-material"
 import { type Parte, Ubicacion } from "@/lib/ingesta/partes"
 import { asignarATemas, recalcularTema } from "@/lib/ingesta/temas"
@@ -83,7 +83,7 @@ export async function autorDelMaterial(
 async function extraerPorTramo(
   ctx: Contexto,
   tramos: readonly Tramo[],
-): Promise<Tope | { tope: false; extraidas: Extraidas[] }> {
+): Promise<Limite | { limite: false; extraidas: Extraidas[] }> {
   const { deps, material } = ctx
   const autor = await autorDelMaterial(deps.db, material.autor_id)
   const modelo = MODELO_POR_TAREA.extraerAfirmaciones.modelo
@@ -114,10 +114,10 @@ async function extraerPorTramo(
         }
       },
     })
-    if (pagado.tope) return TOPE
+    if (pagado.limite) return LIMITE
     extraidas.push(pagado.datos)
   }
-  return { tope: false, extraidas }
+  return { limite: false, extraidas }
 }
 
 export const estimarEmbebido = (textos: readonly string[]) =>
@@ -125,7 +125,7 @@ export const estimarEmbebido = (textos: readonly string[]) =>
 
 /**
  * The vectors of the claims' texts, in batches of 128, each batch kept in the store. Never fails the material: with no
- * key, a provider error or the cap reached, the claims it could not reach stay without a vector (maintenance embeds them).
+ * key, a provider error or the limit reached, the claims it could not reach stay without a vector (maintenance embeds them).
  */
 async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Promise<(number[] | null)[]> {
   const { deps, material } = ctx
@@ -151,7 +151,7 @@ async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Pr
             return { datos: { huella, vectores: r.vectores }, realUsd: costoVoyage(r.tokens) }
           },
         })
-        if (pagado.tope) return vectores
+        if (pagado.limite) return vectores
         lista = pagado.datos.vectores
       }
       lista.forEach((v, i) => {
@@ -241,11 +241,11 @@ function idiomaDominante(extraidas: readonly Extraidas[]): string | null {
 export async function afirmarMaterial(
   ctx: Contexto,
   partes: readonly Parte[],
-): Promise<Tope | { tope: false; idioma: string | null }> {
+): Promise<Limite | { limite: false; idioma: string | null }> {
   const { db } = ctx.deps
   const tramos = aTramos(partes)
   const extraccion = await extraerPorTramo(ctx, tramos)
-  if (extraccion.tope) return TOPE
+  if (extraccion.limite) return LIMITE
   const { extraidas } = extraccion
   const textos = extraidas.flatMap((e) => e.afirmaciones.map((a) => a.texto))
   const vectores = await embeberAfirmaciones(ctx, textos)
@@ -255,5 +255,5 @@ export async function afirmarMaterial(
     await asignarATemas({ db }, ids.slice(desde, desde + IDS_POR_CONSULTA))
   }
   for (const temaId of temasAnteriores) await recalcularTema(db, temaId)
-  return { tope: false, idioma: idiomaDominante(extraidas) }
+  return { limite: false, idioma: idiomaDominante(extraidas) }
 }

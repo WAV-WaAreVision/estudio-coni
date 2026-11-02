@@ -23,8 +23,8 @@ export class MaterialBorrado extends Error {
   }
 }
 
-export type Tope = { tope: true }
-export const TOPE: Tope = { tope: true }
+export type Limite = { limite: true }
+export const LIMITE: Limite = { limite: true }
 
 export interface Contexto {
   deps: DepsProcesar
@@ -107,7 +107,7 @@ interface PasoPagado<T> {
 }
 
 /**
- * One paid provider call: reserve against the monthly cap, call, keep the result in the store (when the step names a
+ * One paid provider call: reserve against the monthly limit, call, keep the result in the store (when the step names a
  * file) and only then confirm the real cost. The reservation key is new on every attempt: reserving an old key returns the old row, even a
  * released one, and the retry would run unmetered. A failed call releases its reservation; a call that was paid for
  * is confirmed even when keeping its result fails.
@@ -115,7 +115,7 @@ interface PasoPagado<T> {
 export async function pagarPaso<T>(
   ctx: ContextoDePago,
   paso: PasoPagado<T>,
-): Promise<Tope | { tope: false; datos: T }> {
+): Promise<Limite | { limite: false; datos: T }> {
   const { db, almacen, ahora } = ctx
   await ctx.verificar()
   const clave = ctx.clave(paso.paso)
@@ -126,7 +126,7 @@ export async function pagarPaso<T>(
     clave,
     ahora: ahora(),
   })
-  if (reserva.limite) return TOPE
+  if (reserva.limite) return LIMITE
   let resultado: { datos: T; realUsd: number }
   try {
     resultado = await paso.llamar()
@@ -140,9 +140,9 @@ export async function pagarPaso<T>(
   } finally {
     await confirmarGasto(db, clave, realUsd)
   }
-  return { tope: false, datos: resultado.datos }
+  return { limite: false, datos: resultado.datos }
 }
 
-export async function pagar<T>(ctx: Contexto, paso: PasoPagado<T>): Promise<Tope | { tope: false; datos: T }> {
+export async function pagar<T>(ctx: Contexto, paso: PasoPagado<T>): Promise<Limite | { limite: false; datos: T }> {
   return pagarPaso(contextoDePagoDeMaterial(ctx), paso)
 }

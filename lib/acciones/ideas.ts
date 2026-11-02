@@ -168,7 +168,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
       await confirmarGasto(servicio, clave, Number(costoClaude(uso, MODELO_POR_TAREA.clasificarIdea.modelo).toFixed(4)))
       return { propuesta }
     } catch (error) {
-      // Nothing was proposed, so nothing was spent that she should pay against the cap.
+      // Nothing was proposed, so nothing was spent that she should pay against the limit.
       await liberarGasto(servicio, clave)
       console.error("No pude clasificar la idea con Claude", error)
       throw new Falla("No pude proponerte el pilar ahora. Elígelo tú y confirma las alertas.")

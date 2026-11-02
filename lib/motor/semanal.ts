@@ -306,7 +306,7 @@ async function escribirPorLotes(
           },
         },
       )
-      if (pagado.tope) {
+      if (pagado.limite) {
         lotesFallidos.push({ cruces: ids, error: TEXTO_LIMITE })
         descartadas.push(...ids.map((cruceId) => ({ cruceId, razon: RAZON_DE_LOTE_FALLIDO })))
         continue

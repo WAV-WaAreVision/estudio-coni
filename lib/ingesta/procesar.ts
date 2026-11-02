@@ -24,13 +24,13 @@ import {
   existeMaterial,
   falloDeBase,
   guardarJson,
+  LIMITE,
+  type Limite,
   leerJson,
   MaterialBorrado,
   pagadoAntes,
   pagar,
   redondear,
-  TOPE,
-  type Tope,
 } from "@/lib/ingesta/gasto-material"
 import { idiomaPorHeuristica } from "@/lib/ingesta/idioma"
 import { limpiarTranscripcionDeYoutube } from "@/lib/ingesta/limpiar-transcripcion-youtube"
@@ -164,14 +164,14 @@ const TIPO_DE_AUDIO: Record<string, string> = { mp3: "audio/mpeg", m4a: "audio/m
 async function transcribirAudio(
   ctx: Contexto,
   entrada: { bytes: Uint8Array; esVideo: boolean; tipo: string },
-): Promise<Tope | { tope: false; voz: Voz | null }> {
+): Promise<Limite | { limite: false; voz: Voz | null }> {
   const { deps } = ctx
   const archivo = claves(ctx.material.id).transcripcion
   const previo = await pagadoAntes(ctx, archivo, Voz)
-  if (previo) return { tope: false, voz: previo }
+  if (previo) return { limite: false, voz: previo }
   const ffmpeg = await ffmpegDe(deps)
   const info = await sondearMedio({ ffmpeg, bytes: entrada.bytes })
-  if (!info.conAudio) return { tope: false, voz: null }
+  if (!info.conAudio) return { limite: false, voz: null }
   const audio = entrada.esVideo ? await extraerAudio({ ffmpeg, video: entrada.bytes }) : entrada.bytes
   const costo = redondear(estimarCostoTranscripcion(info.duracion))
   const pagado = await pagar(ctx, {
@@ -188,7 +188,7 @@ async function transcribirAudio(
       realUsd: costo,
     }),
   })
-  return pagado.tope ? TOPE : { tope: false, voz: pagado.datos }
+  return pagado.limite ? LIMITE : { limite: false, voz: pagado.datos }
 }
 
 const aPartesDeVoz = (voz: Voz | null): Parte[] =>
@@ -213,7 +213,7 @@ async function leerImagenes(
   ctx: Contexto,
   paso: "pantalla" | "imagen",
   imagenes: readonly { id: string; jpeg: Uint8Array }[],
-): Promise<Tope | { tope: false; lecturas: TextoLeido[] }> {
+): Promise<Limite | { limite: false; lecturas: TextoLeido[] }> {
   const lecturas: TextoLeido[] = []
   for (let desde = 0, n = 0; desde < imagenes.length; desde += IMAGENES_POR_LOTE, n++) {
     const lote = imagenes.slice(desde, desde + IMAGENES_POR_LOTE)
@@ -233,10 +233,10 @@ async function leerImagenes(
         return { datos: r.lecturas, realUsd: costoClaude(r.uso, MODELO_POR_TAREA.leerTextoEnImagenes.modelo) }
       },
     })
-    if (pagado.tope) return TOPE
+    if (pagado.limite) return LIMITE
     lecturas.push(...pagado.datos)
   }
-  return { tope: false, lecturas }
+  return { limite: false, lecturas }
 }
 
 /** The language most of the non-empty readings agree on, for the translation step to start from. */
@@ -330,24 +330,24 @@ async function extraerLink(ctx: Contexto): Promise<Extraccion> {
   }
 }
 
-async function extraerAudioDeMaterial(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraerAudioDeMaterial(ctx: Contexto): Promise<Limite | Extraccion> {
   const { bytes, clave } = await bajarArchivo(ctx, ctx.material.archivo_clave, "audio")
   const r = await transcribirAudio(ctx, {
     bytes,
     esVideo: false,
     tipo: TIPO_DE_AUDIO[extensionDe(clave)] ?? "audio/mpeg",
   })
-  if (r.tope) return TOPE
+  if (r.limite) return LIMITE
   const partes = aPartesDeVoz(r.voz)
   if (partes.length === 0) throw new SinTexto()
   return { titulo: null, idioma: r.voz?.idioma, partes }
 }
 
-async function extraerVideo(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraerVideo(ctx: Contexto): Promise<Limite | Extraccion> {
   const { deps, material } = ctx
   const { bytes } = await bajarArchivo(ctx, material.archivo_clave, "video")
   const voz = await transcribirAudio(ctx, { bytes, esVideo: true, tipo: "audio/mpeg" })
-  if (voz.tope) return TOPE
+  if (voz.limite) return LIMITE
   const ffmpeg = await ffmpegDe(deps)
   const fotogramas = await deduplicarFotogramas(
     await extraerFotogramas(bytes, { cadaSegundos: SEGUNDOS_ENTRE_FOTOGRAMAS, ffmpeg }),
@@ -358,7 +358,7 @@ async function extraerVideo(ctx: Contexto): Promise<Tope | Extraccion> {
     "pantalla",
     fotogramas.map((f) => ({ id: String(f.segundo), jpeg: f.jpeg })),
   )
-  if (pantalla.tope) return TOPE
+  if (pantalla.limite) return LIMITE
   const lineas = unirLineasDePantalla(pantalla.lecturas.map((l) => ({ segundo: Number(l.id), texto: l.texto })))
   const partes: Parte[] = [
     ...aPartesDeVoz(voz.voz),
@@ -379,7 +379,7 @@ async function archivosDeImagen(ctx: Contexto): Promise<{ orden: number; clave: 
   return ctx.material.archivo_clave ? [{ orden: 1, clave: ctx.material.archivo_clave }] : []
 }
 
-async function extraerImagenes(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraerImagenes(ctx: Contexto): Promise<Limite | Extraccion> {
   const archivos = await archivosDeImagen(ctx)
   if (archivos.length === 0) throw new MaterialNoProcesable("Faltan las imágenes del material. Súbelas de nuevo.")
   const ffmpeg = await ffmpegDe(ctx.deps)
@@ -389,7 +389,7 @@ async function extraerImagenes(ctx: Contexto): Promise<Tope | Extraccion> {
     imagenes.push({ id: String(orden), jpeg: await imagenAJpeg({ ffmpeg, bytes, extension: extensionDe(clave) }) })
   }
   const leidas = await leerImagenes(ctx, "imagen", imagenes)
-  if (leidas.tope) return TOPE
+  if (leidas.limite) return LIMITE
   const partes = leidas.lecturas
     .filter((l) => l.texto.trim() !== "")
     .map((l): Parte => ({ texto: l.texto, ubicacion: { imagen: Number(l.id) } }))
@@ -397,7 +397,7 @@ async function extraerImagenes(ctx: Contexto): Promise<Tope | Extraccion> {
   return { titulo: null, idioma: idiomaMasFrecuente(leidas.lecturas), partes }
 }
 
-async function extraerPost(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraerPost(ctx: Contexto): Promise<Limite | Extraccion> {
   const { material } = ctx
   const partes: Parte[] = []
   const pegado = material.texto_pegado?.trim() ?? ""
@@ -406,7 +406,7 @@ async function extraerPost(ctx: Contexto): Promise<Tope | Extraccion> {
   if (material.archivo_clave) {
     const { bytes } = await bajarArchivo(ctx, material.archivo_clave, "video")
     const voz = await transcribirAudio(ctx, { bytes, esVideo: true, tipo: "audio/mpeg" })
-    if (voz.tope) return TOPE
+    if (voz.limite) return LIMITE
     partes.push(...aPartesDeVoz(voz.voz))
     idioma = voz.voz?.idioma
   }
@@ -415,7 +415,7 @@ async function extraerPost(ctx: Contexto): Promise<Tope | Extraccion> {
   return { titulo: null, idioma, partes }
 }
 
-async function extraer(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraer(ctx: Contexto): Promise<Limite | Extraccion> {
   switch (ctx.material.tipo) {
     case "documento":
       return extraerDocumento(ctx)
@@ -435,13 +435,13 @@ async function extraer(ctx: Contexto): Promise<Tope | Extraccion> {
 }
 
 /** Step 1: the text of the source, as parts. Kept in the store, so what a crash leaves behind is not read (or paid) twice. */
-async function extraccionDe(ctx: Contexto): Promise<Tope | Extraccion> {
+async function extraccionDe(ctx: Contexto): Promise<Limite | Extraccion> {
   const { almacen } = ctx.deps
   const k = claves(ctx.material.id)
   const guardada = await leerJson(almacen, k.partesOriginal, Extraccion)
   if (guardada) return guardada
   const extraida = await extraer(ctx)
-  if ("tope" in extraida) return extraida
+  if ("limite" in extraida) return extraida
   await guardarJson(almacen, k.partesOriginal, extraida)
   return extraida
 }
@@ -473,7 +473,7 @@ async function fichaDe(
   ctx: Contexto,
   partes: readonly Parte[],
   titulo: string | null,
-): Promise<Tope | { tope: false }> {
+): Promise<Limite | { limite: false }> {
   const { deps, material } = ctx
   const { nombre: autorDado } = await autorDelMaterial(deps.db, material.autor_id)
   if (!(await existeFicha(deps.db, material.id))) {
@@ -493,7 +493,7 @@ async function fichaDe(
         return { datos: f, realUsd: costoClaude(f.uso, MODELO_POR_TAREA.escribirFicha.modelo) }
       },
     })
-    if (pagado.tope) return TOPE
+    if (pagado.limite) return LIMITE
     const f = pagado.datos
     const { error } = await deps.db.from("fichas").insert({
       material_id: material.id,
@@ -509,7 +509,7 @@ async function fichaDe(
     if (error) throw falloDeBase("No pude guardar la ficha", error)
   }
   await actualizarMaterial(deps.db, material.id, materialListo(material, titulo))
-  return { tope: false }
+  return { limite: false }
 }
 
 /** What every ready material gets, whatever its role: no links to resolve, the original text as its text, the claim released. */
@@ -531,15 +531,15 @@ async function afirmacionesDe(
   ctx: Contexto,
   original: Extraccion,
   idiomaConocido: string | null,
-): Promise<Tope | { tope: false }> {
+): Promise<Limite | { limite: false }> {
   const hechas = await afirmarMaterial(ctx, original.partes)
-  if ("tope" in hechas && hechas.tope) return TOPE
+  if ("limite" in hechas && hechas.limite) return LIMITE
   const idioma = idiomaConocido ?? ("idioma" in hechas ? hechas.idioma : null)
   await actualizarMaterial(ctx.deps.db, ctx.material.id, {
     ...materialListo(ctx.material, original.titulo),
     ...(idioma ? { idioma_original: idioma } : {}),
   })
-  return { tope: false }
+  return { limite: false }
 }
 
 /**
@@ -580,7 +580,7 @@ function idiomaDeLaFuente(original: Extraccion): string | null {
 async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
   const { deps, material } = ctx
   const original = await extraccionDe(ctx)
-  if ("tope" in original) return detenidoPorTope(ctx)
+  if ("limite" in original) return detenidoPorLimite(ctx)
   if (await esperaConfirmacion(ctx, original)) return { resultado: "esperando_confirmacion" }
   await guardarTexto(deps.almacen, claves(material.id).textoOriginal, renderizarPartes(original.partes))
   const idioma = idiomaDeLaFuente(original)
@@ -589,7 +589,7 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
     material.rol === "estrategia"
       ? await fichaDe(ctx, original.partes, original.titulo)
       : await afirmacionesDe(ctx, original, idioma)
-  if (terminado.tope) return detenidoPorTope(ctx)
+  if (terminado.limite) return detenidoPorLimite(ctx)
   return { resultado: "listo" }
 }
 
@@ -597,7 +597,7 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
  * The month's limit stops the run without failing it: the material waits as it is, with the reason, and Reintentar
  * picks it up after she reactivates. No provider is called; Coni is told once a month.
  */
-async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
+async function detenidoPorLimite(ctx: Contexto): Promise<ResultadoProcesar> {
   await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: TEXTO_LIMITE, ...LIBRE })
   await avisarLimite(ctx.deps, ctx.deps.ahora())
   return { resultado: "limite" }

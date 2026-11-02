@@ -5,7 +5,7 @@ import { VENTANA_DESHACER_MS } from "@/lib/dominio/estados"
 /** In ten-thousandths of a dollar, the precision of `gastos`, so 37.8 + 2.2 is exactly 40. */
 const enDiezmilesimos = (usd: number) => Math.round(usd * 10_000)
 
-/** How many of `pedidas` scripts the month still covers: `reservar_gasto` refuses when `usado + estimado > tope`. */
+/** How many of `pedidas` scripts the month still covers: `reservar_gasto` refuses when `usado + estimado > limite`. */
 export function cuantasAlcanzan(entrada: {
   limite: number
   usado: number

@@ -256,7 +256,7 @@ async function juzgarConClaude(
       alertas: entrada.alertas,
     })
   } catch (error) {
-    // Nothing was judged, so nothing was spent that she should pay against the cap.
+    // Nothing was judged, so nothing was spent that she should pay against the limit.
     await liberarGasto(servicio, clave)
     console.error("No pude revisar el guion con Claude", error)
     throw new Falla(ERROR_REVISION)
