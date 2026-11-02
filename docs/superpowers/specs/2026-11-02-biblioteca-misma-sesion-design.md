@@ -68,7 +68,8 @@ Stage 2 (#17) later moves the screens into Conidolly; nothing here is built only
   `components/casillas-codigo.tsx`, `components/navegacion-principal.tsx`, and the material card's surface. Same props, new
   classes only.
 - No hex outside `globals.css`; no new colours that Conidolly does not have except the two state tokens above.
-- `docs/DESIGN.md` of Ingesta points to Conidolly's design as the source of the tokens.
+- The header comment of Ingesta's `globals.css` (it cites a `docs/DESIGN.md` that does not exist in that repo) names
+  Conidolly's `app/globals.css` as the source of the tokens, to be kept in sync until stage 2.
 
 ## 4. Tests (TDD, failing test first)
 
