@@ -475,9 +475,25 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
   }
 }
 
+const ANFITRIONES_LOCALES = new Set(["127.0.0.1", "localhost", "[::1]", "::1"])
+
+/**
+ * `R2_ENDPOINT` only ever points at the fake S3 of a local run. The Trigger.dev workers build this store too and
+ * do not set `VERCEL`, so a stray endpoint to any other host would silently move production storage: refused.
+ */
+function endpointLocal(endpoint: string): string {
+  if (!URL.canParse(endpoint)) throw new FallaDeConfiguracion("R2_ENDPOINT no es una URL válida.")
+  if (!ANFITRIONES_LOCALES.has(new URL(endpoint).hostname)) {
+    throw new FallaDeConfiguracion(
+      "R2_ENDPOINT solo puede apuntar a esta máquina (127.0.0.1, localhost o ::1): es para el S3 falso de las pruebas.",
+    )
+  }
+  return endpoint
+}
+
 /**
  * The store of the tasks and the app, from the R2 variables. `R2_ENDPOINT` (a fake S3 for the local E2E run) is
- * refused on Vercel, where nothing would then reach the real bucket.
+ * refused on Vercel, where nothing would then reach the real bucket, and anywhere for a host that is not loopback.
  */
 export function almacenReal(entorno: Record<string, string | undefined> = process.env): Almacen {
   if (entorno.R2_ENDPOINT && entorno.VERCEL) {
@@ -488,6 +504,6 @@ export function almacenReal(entorno: Record<string, string | undefined> = proces
     llave: exigirEnv("R2_ACCESS_KEY_ID", entorno.R2_ACCESS_KEY_ID),
     secreto: exigirEnv("R2_SECRET_ACCESS_KEY", entorno.R2_SECRET_ACCESS_KEY),
     balde: exigirEnv("R2_BUCKET", entorno.R2_BUCKET),
-    endpoint: entorno.R2_ENDPOINT || undefined,
+    endpoint: entorno.R2_ENDPOINT ? endpointLocal(entorno.R2_ENDPOINT) : undefined,
   })
 }

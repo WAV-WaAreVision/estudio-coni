@@ -492,6 +492,30 @@ describe("almacenReal", () => {
     expect(pedidos).toEqual(["HEAD"])
   })
 
+  it.each(["http://localhost:3203", "http://127.0.0.1:3203", "http://[::1]:3203"])(
+    "accepts the loopback endpoint %s",
+    (endpoint) => {
+      expect(() => almacenReal({ ...VARIABLES, R2_ENDPOINT: endpoint })).not.toThrow()
+    },
+  )
+
+  it.each(["https://otro-balde.example.com", "http://10.0.0.5:9000", "http://127.0.0.1.example.com:3203"])(
+    "refuses the remote endpoint %s even off Vercel, naming R2_ENDPOINT without secrets",
+    (endpoint) => {
+      const intento = () => almacenReal({ ...VARIABLES, R2_ENDPOINT: endpoint })
+      expect(intento).toThrow(FallaDeConfiguracion)
+      expect(intento).toThrow("R2_ENDPOINT")
+      expect(intento).not.toThrow(SECRETO)
+      expect(intento).not.toThrow(LLAVE)
+    },
+  )
+
+  it("refuses a malformed R2_ENDPOINT, naming it", () => {
+    const intento = () => almacenReal({ ...VARIABLES, R2_ENDPOINT: "no es una url" })
+    expect(intento).toThrow(FallaDeConfiguracion)
+    expect(intento).toThrow("R2_ENDPOINT")
+  })
+
   it("refuses R2_ENDPOINT on Vercel: nothing would reach the real bucket", () => {
     expect(() => almacenReal({ ...VARIABLES, R2_ENDPOINT: "http://127.0.0.1:9999", VERCEL: "1" })).toThrow(
       FallaDeConfiguracion,
