@@ -273,4 +273,128 @@ describe("PantallaDePresupuesto", () => {
     mostrar({ tope: 42, limiteExplicito: 45, limite: 45 })
     expect(screen.getByRole("button", { name: "Bajar el límite" })).toHaveAttribute("aria-disabled", "true")
   })
+  it("keeps a newer cap save when an older one fails after it", async () => {
+    let fallarPrimero: (valor: { ok: false; error: string }) => void = () => {}
+    mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "tope" && cambio.valor === 45
+            ? new Promise<{ ok: false; error: string }>((resolver) => {
+                fallarPrimero = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: ANTERIOR }),
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    await act(async () => {
+      fallarPrimero({ ok: false, error: "No pude guardar tu tope." })
+    })
+
+    const topeYLimite = screen.getByRole("region", { name: "Tope y límite" })
+    expect(within(topeYLimite).getByText("US$ 50")).toBeInTheDocument()
+    expect(within(topeYLimite).queryByText("No pude guardar tu tope.")).toBeNull()
+  })
+
+  it("keeps a switch flipped back when the first flip fails after the second saved", async () => {
+    let fallarPrimero: (valor: { ok: false; error: string }) => void = () => {}
+    mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "motor_semanal" && cambio.valor === false
+            ? new Promise<{ ok: false; error: string }>((resolver) => {
+                fallarPrimero = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: ANTERIOR }),
+        ),
+      },
+    )
+
+    const interruptor = () => screen.getByRole("switch", { name: "Ideas nuevas cada domingo" })
+    fireEvent.click(interruptor())
+    fireEvent.click(interruptor())
+    await act(async () => {
+      fallarPrimero({ ok: false, error: "No pude apagar las ideas del domingo." })
+    })
+
+    expect(interruptor()).toHaveAttribute("aria-checked", "true")
+    expect(screen.queryByText("No pude apagar las ideas del domingo.")).toBeNull()
+  })
+
+  it("does not offer a new Deshacer for the taps it saves on the way to undoing", async () => {
+    const a = mostrar()
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Deshacer" }))
+    await esperarElGuardado()
+
+    expect(a.guardar).toHaveBeenCalledWith({ campo: "limite", valor: 95 })
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
+  })
+
+  it("saves pending taps when the page goes to the background", () => {
+    const a = mostrar()
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    const estado = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden")
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    estado.mockRestore()
+    expect(a.guardar).toHaveBeenCalledWith({ campo: "tope", valor: 45 })
+  })
+
+  it("ties each error to its own controls", async () => {
+    mostrar(
+      {},
+      {
+        guardar: vi.fn(async (cambio: CambioDeAjuste) => ({
+          ok: false as const,
+          error: cambio.campo === "tope" ? "No pude guardar tu tope." : "No pude apagar las ideas del domingo.",
+        })),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("switch", { name: "Ideas nuevas cada domingo" }))
+    await esperarElGuardado()
+
+    expect(await screen.findByRole("button", { name: "Subir el tope" })).toHaveAccessibleDescription(
+      "No pude guardar tu tope.",
+    )
+    expect(screen.getByRole("button", { name: "Bajar el tope" })).toHaveAccessibleDescription(
+      "No pude guardar tu tope.",
+    )
+    expect(screen.getByRole("switch", { name: "Ideas nuevas cada domingo" })).toHaveAccessibleDescription(
+      "No pude apagar las ideas del domingo.",
+    )
+    expect(screen.getByRole("button", { name: "Subir el límite" })).not.toHaveAttribute("aria-describedby")
+  })
+
+  it("offers no Deshacer when raising the cap took back the limit she set", async () => {
+    mostrar(
+      { limiteExplicito: 45, limite: 45 },
+      {
+        guardar: vi.fn(async () => ({
+          ok: true as const,
+          anterior: ANTERIOR,
+          aviso: "Tu límite volvió al doble del tope: US$ 100,00",
+        })),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+
+    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
+  })
 })
