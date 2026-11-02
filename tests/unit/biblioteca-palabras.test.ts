@@ -15,6 +15,19 @@ function archivos(carpeta: string): string[] {
   })
 }
 
+const VIEJAS = "Papel|Afirmaciones|Tipos de afirmación|Puntaje|Evidencia"
+/** At the start of a "", '' or `` string. */
+const EN_CADENA = new RegExp(`["'\`]\\s*(${VIEJAS})\\b`)
+/** Anywhere in JSX text: between a tag's `>` and the next `<`, once the `{...}` expressions are taken out. */
+const TEXTO_JSX = />([^<>]*)</g
+const EXPRESION = /\{[^{}]*\}/g
+const EN_TEXTO = new RegExp(`\\b(${VIEJAS})\\b`)
+
+function conPalabrasViejas(codigo: string): boolean {
+  if (EN_CADENA.test(codigo)) return true
+  return [...codigo.matchAll(TEXTO_JSX)].some(([, texto]) => EN_TEXTO.test((texto ?? "").replace(EXPRESION, " ")))
+}
+
 describe("Coni's words (4h)", () => {
   it("replaces the technical words with hers", () => {
     expect(REEMPLAZOS).toEqual([
@@ -31,9 +44,22 @@ describe("Coni's words (4h)", () => {
     expect(ideasSacadas(12)).toBe("12 ideas sacadas")
   })
 
+  it("finds the old words in strings, template literals and JSX text, not in names", () => {
+    expect(conPalabrasViejas(`const a = "Papel del autor"`)).toBe(true)
+    expect(conPalabrasViejas("const a = 'Afirmaciones'")).toBe(true)
+    expect(conPalabrasViejas("const a = `Puntaje del material`")).toBe(true)
+    expect(conPalabrasViejas("<dt>Tipos de afirmación</dt>")).toBe(true)
+    expect(conPalabrasViejas("<p>\n  Ver la Evidencia\n</p>")).toBe(true)
+    expect(conPalabrasViejas("<span className={c}>{n} de Puntaje</span>")).toBe(true)
+    expect(conPalabrasViejas("import { EVIDENCIA } from './etiquetas'")).toBe(false)
+    expect(conPalabrasViejas("type TipoDeEvidencia = string")).toBe(false)
+    expect(conPalabrasViejas("<p>{ideasSacadas(n)}</p>")).toBe(false)
+  })
+
+  // No exception is needed inside the section: "Papel:" and "Evidencia:" live in lib/dominio/biblioteca/detalle.ts,
+  // which only feeds "Detalle para WAV" and is outside the folder scanned here.
   it("keeps the old words out of the text of every Biblioteca screen", () => {
-    const viejas = /["'>]\s*(Papel|Afirmaciones|Tipos de afirmación|Puntaje|Evidencia)\b/
-    expect(archivos(SECCION).filter((ruta) => viejas.test(readFileSync(ruta, "utf-8")))).toEqual([])
+    expect(archivos(SECCION).filter((ruta) => conPalabrasViejas(readFileSync(ruta, "utf-8")))).toEqual([])
   })
 })
 
