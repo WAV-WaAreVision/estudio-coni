@@ -390,13 +390,16 @@ export function almacenR2(opciones: OpcionesR2): Almacen {
         return objetos
       }),
     tamano: async (clave) => {
+      let largo: number | undefined
       try {
-        const { ContentLength } = await cliente.send(new HeadObjectCommand({ Bucket: balde, Key: clave }))
-        return ContentLength ?? 0
+        largo = (await cliente.send(new HeadObjectCommand({ Bucket: balde, Key: clave }))).ContentLength
       } catch (error) {
         if (esNoEncontrado(error)) return null
         throw fallaDeR2("medir", clave, error, secretos)
       }
+      // A HEAD without a length says nothing about the size: reporting 0 would pass for an empty object.
+      if (largo === undefined) throw fallaDeR2("medir", clave, new Error("HEAD sin Content-Length"), secretos)
+      return largo
     },
     borrarCarpeta: async (materialId) => {
       const prefijo = carpetaDeMaterial(materialId)

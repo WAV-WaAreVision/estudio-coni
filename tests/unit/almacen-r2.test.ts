@@ -353,6 +353,13 @@ describe("almacenR2 for the Biblioteca", () => {
     expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
   })
 
+  it("tamano rejects a HEAD 200 without a length instead of reporting an empty object", async () => {
+    capturando(() => new HttpResponse(null, { status: 200 }))
+    const error = await rechazo(r2().tamano(TEXTO))
+    expect(error.message).toContain(TEXTO)
+    expect(error.message).not.toContain(SECRETO)
+  })
+
   it("tamano answers null for an object that is not there", async () => {
     capturando(() => new HttpResponse(null, { status: 404 }))
     expect(await r2().tamano(TEXTO)).toBeNull()
