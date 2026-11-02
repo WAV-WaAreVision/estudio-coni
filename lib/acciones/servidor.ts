@@ -6,7 +6,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import type { Disparos, DisparosDeBiblioteca } from "./disparos"
 import { disparosDeBibliotecaDeEntorno, disparosDeEntorno } from "./disparos-entorno"
 import type { DepsAcciones } from "./piezas"
-import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "./resultado"
+import { ERROR_GENERICO, ERROR_SESION_VENCIDA, ERROR_SOLO_CONI, type Resultado } from "./resultado"
 
 const ERROR_SOLICITUD = "No entendí esa solicitud. Vuelve a abrir la pantalla."
 
@@ -42,7 +42,7 @@ export async function conSesionDeConi<E extends z.ZodType, T extends object>(
     if (!data.user) return { ok: false, error: ERROR_SESION_VENCIDA }
     const { data: esConi, error } = await db.rpc("es_coni")
     if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
-    if (!esConi) return { ok: false, error: "Esta app es solo para Coni." }
+    if (!esConi) return { ok: false, error: ERROR_SOLO_CONI }
   } catch (error) {
     console.error(`La acción ${nombre} no pudo abrir la sesión`, error)
     return { ok: false, error: ERROR_GENERICO }

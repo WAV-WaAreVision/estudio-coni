@@ -7,7 +7,7 @@ import { Falla } from "@/lib/dominio/falla"
 import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import type { DisparosDeBiblioteca } from "./disparos"
-import { aResultado, type Resultado } from "./resultado"
+import { aResultado, ERROR_SOLO_CONI, type Resultado } from "./resultado"
 
 type Db = SupabaseClient<Database>
 
@@ -28,9 +28,8 @@ export const AutorNuevo = z.object({
   tipo: z.enum(TIPOS_DE_AUTOR_NUEVO),
 })
 
-const SOLO_CONI = "Esta app es solo para Coni."
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
-const NO_ENCONTRE = "No encontré ese material."
+export const NO_ENCONTRE = "No encontré ese material."
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
 /** A download link is for one tap. */
@@ -40,7 +39,7 @@ const SEGUNDOS_DE_DESCARGA = 5 * 60
 async function exigirConi(db: Db): Promise<void> {
   const { data, error } = await db.rpc("es_coni")
   if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
-  if (!data) throw new Falla(SOLO_CONI)
+  if (!data) throw new Falla(ERROR_SOLO_CONI)
 }
 
 /**

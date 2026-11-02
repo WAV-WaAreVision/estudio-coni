@@ -12,6 +12,7 @@ const { conSesionDeConi } = vi.hoisted(() => ({
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi }))
 
 import { GET } from "@/app/(app)/biblioteca/materiales/[id]/texto/route"
+import { ERROR_GENERICO, ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const llamar = () =>
@@ -33,11 +34,27 @@ describe("GET /biblioteca/materiales/[id]/texto", () => {
     expect(respuesta.headers.get("cache-control")).toBe("no-store")
   })
 
-  it("answers the reason in plain text when it cannot sign", async () => {
-    conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Ese texto todavía no está disponible." })
+  it.each([
+    ["Ese texto todavía no está disponible.", 404],
+    ["No encontré ese material.", 404],
+    [ERROR_SESION_VENCIDA, 401],
+    ["Esta app es solo para Coni.", 403],
+    [ERROR_GENERICO, 502],
+  ])("answers %j in plain text with status %i, never cached", async (error, estado) => {
+    conSesionDeConi.mockResolvedValueOnce({ ok: false, error })
     const respuesta = await llamar()
-    expect(respuesta.status).toBe(404)
-    expect(await respuesta.text()).toBe("Ese texto todavía no está disponible.")
+    expect(respuesta.status).toBe(estado)
+    expect(await respuesta.text()).toBe(error)
     expect(respuesta.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("answers 404 for an id that is not a uuid, without opening a session", async () => {
+    const respuesta = await GET(new Request("http://app.test/biblioteca/materiales/abc/texto"), {
+      params: Promise.resolve({ id: "abc" }),
+    })
+    expect(respuesta.status).toBe(404)
+    expect(await respuesta.text()).toBe("No encontré ese material.")
+    expect(respuesta.headers.get("cache-control")).toBe("no-store")
+    expect(conSesionDeConi).not.toHaveBeenCalled()
   })
 })
