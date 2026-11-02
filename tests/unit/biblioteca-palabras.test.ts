@@ -16,15 +16,16 @@ function archivos(carpeta: string): string[] {
 }
 
 const VIEJAS = "Papel|Afirmaciones|Tipos de afirmación|Puntaje|Evidencia"
-/** At the start of a "", '' or `` string. */
-const EN_CADENA = new RegExp(`["'\`]\\s*(${VIEJAS})\\b`)
+/** Every "", '' or `` string literal, anywhere in it; a template's `${...}` holes are code, so they are taken out. */
+const CADENA = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g
 /** Anywhere in JSX text: between a tag's `>` and the next `<`, once the `{...}` expressions are taken out. */
 const TEXTO_JSX = />([^<>]*)</g
 const EXPRESION = /\{[^{}]*\}/g
+const HUECO = /\$\{[^{}]*\}/g
 const EN_TEXTO = new RegExp(`\\b(${VIEJAS})\\b`)
 
 function conPalabrasViejas(codigo: string): boolean {
-  if (EN_CADENA.test(codigo)) return true
+  if ([...codigo.matchAll(CADENA)].some(([cadena]) => EN_TEXTO.test(cadena.replace(HUECO, " ")))) return true
   return [...codigo.matchAll(TEXTO_JSX)].some(([, texto]) => EN_TEXTO.test((texto ?? "").replace(EXPRESION, " ")))
 }
 
@@ -48,6 +49,11 @@ describe("Coni's words (4h)", () => {
     expect(conPalabrasViejas(`const a = "Papel del autor"`)).toBe(true)
     expect(conPalabrasViejas("const a = 'Afirmaciones'")).toBe(true)
     expect(conPalabrasViejas("const a = `Puntaje del material`")).toBe(true)
+    expect(conPalabrasViejas(`const a = "Ver el Papel del autor"`)).toBe(true)
+    expect(conPalabrasViejas("const a = 'Sin Afirmaciones'")).toBe(true)
+    expect(conPalabrasViejas("const a = `\u0024{n} de Puntaje`")).toBe(true)
+    expect(conPalabrasViejas(`aria-label="Abrir la Evidencia"`)).toBe(true)
+    expect(conPalabrasViejas(`const a = "Papeles"`)).toBe(false)
     expect(conPalabrasViejas("<dt>Tipos de afirmación</dt>")).toBe(true)
     expect(conPalabrasViejas("<p>\n  Ver la Evidencia\n</p>")).toBe(true)
     expect(conPalabrasViejas("<span className={c}>{n} de Puntaje</span>")).toBe(true)
