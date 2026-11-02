@@ -268,6 +268,20 @@ describe("almacenEnMemoria for the Biblioteca", () => {
     )
   })
 
+  it("acts on the lowercase folder when the id comes in uppercase", async () => {
+    const conLetras = "abcdef12-3456-4789-8abc-def012345678"
+    const texto = `materiales/${conLetras}/texto-original.txt`
+    const almacen = almacenEnMemoria()
+    await almacen.subir(texto, MP3, "text/plain")
+    await almacen.subir(`materiales/${OTRO}/texto-original.txt`, MP3, "text/plain")
+
+    expect(await almacen.urlDeTexto(conLetras.toUpperCase(), 300)).toBe(
+      `https://almacen.test/${texto}?expira=300&descarga=texto-original.txt`,
+    )
+    expect(await almacen.borrarCarpeta(conLetras.toUpperCase())).toBe(1)
+    expect(almacen.claves()).toEqual([`materiales/${OTRO}/texto-original.txt`])
+  })
+
   it("answers null while the text is not there, and refuses an expiry over an hour or an id that is not a UUID", async () => {
     const almacen = almacenEnMemoria()
 
