@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
@@ -12,25 +12,33 @@ const AUTOR = "6f1d6c2e-8f43-4a8e-9a3f-2b1c7a0d9e55"
 beforeEach(() => vi.clearAllMocks())
 
 describe("FiltrosRapidos", () => {
-  it("is one row of one-tap filters, the current one pressed, with counts only above zero (4i)", () => {
+  it("is one row of one-tap filter links, the current one marked, with counts only above zero (4i)", () => {
     render(<FiltrosRapidos filtros={{ estado: "fallido" }} conteos={{ procesando: 0, fallido: 1 }} />)
-    expect(screen.getByRole("group", { name: "Filtrar por estado" })).toBeInTheDocument()
-    expect(screen.getAllByRole("button").map((boton) => boton.textContent)).toEqual([
-      "Todos",
-      "Procesando",
-      "Listos",
-      "Con error · 1",
-    ])
-    expect(screen.getByRole("button", { name: "Con error · 1" })).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByRole("button", { name: "Todos" })).toHaveAttribute("aria-pressed", "false")
+    const grupo = screen.getByRole("group", { name: "Filtrar por estado" })
+    expect(
+      within(grupo)
+        .getAllByRole("link")
+        .map((enlace) => enlace.textContent),
+    ).toEqual(["Todos", "Procesando", "Listos", "Con error · 1"])
+    expect(screen.getByRole("link", { name: "Con error · 1" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("link", { name: "Todos" })).not.toHaveAttribute("aria-current")
   })
 
-  it("keeps the folded filters and drops the open panel when it changes the state", () => {
+  it("links each state keeping the folded filters and dropping the open panel, so Back undoes it", () => {
     render(<FiltrosRapidos filtros={{ autor: AUTOR }} conteos={{ procesando: 2, fallido: 0 }} />)
-    fireEvent.click(screen.getByRole("button", { name: "Procesando · 2" }))
-    expect(replace).toHaveBeenCalledWith(`/biblioteca?autor=${AUTOR}&estado=procesando`, { scroll: false })
-    fireEvent.click(screen.getByRole("button", { name: "Todos" }))
-    expect(replace).toHaveBeenLastCalledWith(`/biblioteca?autor=${AUTOR}`, { scroll: false })
+    expect(screen.getByRole("link", { name: "Procesando · 2" })).toHaveAttribute(
+      "href",
+      `/biblioteca?autor=${AUTOR}&estado=procesando`,
+    )
+    expect(screen.getByRole("link", { name: "Todos" })).toHaveAttribute("href", `/biblioteca?autor=${AUTOR}`)
+  })
+
+  it("draws the links as chips: raised, the current one filled with ink and a check", () => {
+    render(<FiltrosRapidos filtros={{}} conteos={{ procesando: 0, fallido: 0 }} />)
+    const todos = screen.getByRole("link", { name: "Todos" })
+    expect(todos).toHaveClass("rounded-control", "shadow-relieve", "min-h-objetivo", "aria-[current=page]:bg-tinta")
+    expect(todos.querySelector("svg")).not.toBeNull()
+    expect(screen.getByRole("link", { name: "Listos" }).querySelector("svg")).toBeNull()
   })
 })
 
