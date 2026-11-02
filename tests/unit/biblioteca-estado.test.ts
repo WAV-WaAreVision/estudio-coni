@@ -3,9 +3,9 @@ import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import {
   esperaConfirmacion,
   estaProcesando,
+  marcadoConMotivo,
   presentarEstado,
   sePuedeReintentar,
-  tieneMotivo,
 } from "@/lib/dominio/biblioteca/estado"
 
 const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
@@ -32,21 +32,21 @@ describe("the state of a material", () => {
   })
 })
 
-describe("tieneMotivo: a blank reason is no reason, in the state and in the detail for WAV alike", () => {
-  it("needs some text once trimmed", () => {
-    expect(tieneMotivo("tope_mensual")).toBe(true)
-    expect(tieneMotivo(null)).toBe(false)
-    expect(tieneMotivo("")).toBe(false)
-    expect(tieneMotivo("   ")).toBe(false)
+describe("marcadoConMotivo: as the database decides (reintentar_material, marcar_disparo_fallido)", () => {
+  it("counts any reason that is not null, a blank one included", () => {
+    expect(marcadoConMotivo("tope_mensual")).toBe(true)
+    expect(marcadoConMotivo("")).toBe(true)
+    expect(marcadoConMotivo("   ")).toBe(true)
+    expect(marcadoConMotivo(null)).toBe(false)
   })
 
-  it.each(["", "  "])("treats a material processing with the reason %j as processing", (motivo) => {
+  it.each(["", "  "])("treats a material processing with the reason %j as paused and retryable", (motivo) => {
     const material = { ...base, motivo_fallo: motivo }
-    expect(estaProcesando(material)).toBe(true)
-    expect(sePuedeReintentar(material)).toBe(false)
-    expect(presentarEstado(material)).toEqual({ palabra: "Procesando", tipo: "neutro", icono: "reloj" })
-    expect(lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente" }, {})).not.toContainEqual(
-      expect.stringMatching(/^Motivo:/),
+    expect(estaProcesando(material)).toBe(false)
+    expect(sePuedeReintentar(material)).toBe(true)
+    expect(presentarEstado(material)).toEqual({ palabra: "En pausa", tipo: "aviso", icono: "pausa" })
+    expect(lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente" }, {})).toContain(
+      "Motivo: sin detalle",
     )
   })
 })

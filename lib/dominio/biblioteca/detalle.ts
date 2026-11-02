@@ -1,4 +1,4 @@
-import { tieneMotivo } from "./estado"
+import { marcadoConMotivo } from "./estado"
 import { EVIDENCIA } from "./etiquetas"
 
 interface MaterialParaWav {
@@ -20,7 +20,9 @@ export function lineasParaWav(material: MaterialParaWav, evidencia: Record<strin
     .sort(([claveA, a], [claveB, b]) => b - a || claveA.localeCompare(claveB))
     .map(([clave, cantidad]) => `${EVIDENCIA[clave] ?? clave} ${cantidad}`)
   if (respaldo.length > 0) lineas.push(`Evidencia: ${respaldo.join(" · ")}`)
-  if (tieneMotivo(material.motivo_fallo)) lineas.push(`Motivo: ${material.motivo_fallo}`)
+  if (marcadoConMotivo(material.motivo_fallo)) {
+    lineas.push(`Motivo: ${material.motivo_fallo.trim() === "" ? "sin detalle" : material.motivo_fallo}`)
+  }
   if (material.costo_estimado_usd !== null) {
     const confirmado = material.costo_confirmado_en ? "confirmado" : "sin confirmar"
     lineas.push(`Costo estimado: ${dolares(material.costo_estimado_usd)} (${confirmado})`)
