@@ -75,19 +75,33 @@ export function adaptacionDe(idiomaOriginal: string | null): string {
 export const MINIMO_DE_IDEAS = 5
 export const MAXIMO_DE_IDEAS = 10
 
+/** The longest text each field of the card takes: the form uses them as `maxLength`, the action refuses anything longer. */
+export const LARGO_DE_RESUMEN = 5000
+export const LARGO_DE_IDEA = 500
+export const LARGO_DE_CITA = 2000
+export const LARGO_DE_AUTOR = 2000
+export const LARGO_DE_ENLACE = 2000
+export const ANIO_MINIMO = 0
+export const ANIO_MAXIMO = 3000
+
 const texto = (maximo: number) => z.string().trim().max(maximo)
-const textoONulo = z
-  .string()
-  .max(2000)
-  .nullable()
-  .transform((valor) => valor?.trim() || null)
+const textoONulo = (maximo: number) =>
+  z
+    .string()
+    .max(maximo)
+    .nullable()
+    .transform((valor) => valor?.trim() || null)
 
 export const EsquemaDeEdicionDeFicha = z.object({
   materialId: z.uuid(),
-  resumen: texto(5000),
-  ideasClave: z.array(texto(500)).max(MAXIMO_DE_IDEAS + 10),
-  citas: z.array(z.object({ texto: texto(2000), ubicacion: Ubicacion })).max(20),
-  fuente: z.object({ autor: textoONulo, anio: z.number().int().min(0).max(3000).nullable(), enlace: textoONulo }),
+  resumen: texto(LARGO_DE_RESUMEN),
+  ideasClave: z.array(texto(LARGO_DE_IDEA)).max(MAXIMO_DE_IDEAS + 10),
+  citas: z.array(z.object({ texto: texto(LARGO_DE_CITA), ubicacion: Ubicacion })).max(20),
+  fuente: z.object({
+    autor: textoONulo(LARGO_DE_AUTOR),
+    anio: z.number().int().min(ANIO_MINIMO).max(ANIO_MAXIMO).nullable(),
+    enlace: textoONulo(LARGO_DE_ENLACE),
+  }),
 })
 
 export type EdicionDeFicha = z.output<typeof EsquemaDeEdicionDeFicha>
@@ -103,10 +117,39 @@ export function esEnlaceWeb(enlace: string): boolean {
   return protocol === "http:" || protocol === "https:"
 }
 
+const MUY_LARGO: Record<string, string> = {
+  resumen: "El resumen es muy largo.",
+  ideasClave: "Una idea clave es muy larga.",
+  citas: "Una cita es muy larga.",
+  autor: "El autor de la fuente es muy largo.",
+  enlace: "El enlace de la fuente es muy largo.",
+}
+
+/** The first problem the form can cause, in her words; anything else means the screen is out of date. */
+function errorDeEdicion(problemas: z.core.$ZodIssue[]): string {
+  for (const { path, code } of problemas) {
+    const [campo, segundo] = path
+    if (campo === "fuente" && segundo === "anio") {
+      return code === "too_big" || code === "too_small"
+        ? `El año va entre ${ANIO_MINIMO} y ${ANIO_MAXIMO}.`
+        : "Escribe el año como un número entero, por ejemplo 2024."
+    }
+    if (code !== "too_big") continue
+    // A list with too many entries has the problem on the list itself; a long entry has it one level down.
+    if (campo === "ideasClave" && path.length === 1)
+      return `Deja entre ${MINIMO_DE_IDEAS} y ${MAXIMO_DE_IDEAS} ideas clave.`
+    const nombre = campo === "fuente" ? segundo : campo
+    if (typeof nombre === "string" && nombre in MUY_LARGO && !(campo === "citas" && path.length === 1)) {
+      return MUY_LARGO[nombre] ?? ERROR_SOLICITUD
+    }
+  }
+  return ERROR_SOLICITUD
+}
+
 /** Validates an edit of a card; blank ideas and quotes are dropped before counting. The error is for her. */
 export function leerEdicion(entrada: unknown): EdicionLeida {
   const leida = EsquemaDeEdicionDeFicha.safeParse(entrada)
-  if (!leida.success) return { ok: false, error: ERROR_SOLICITUD }
+  if (!leida.success) return { ok: false, error: errorDeEdicion(leida.error.issues) }
   const datos = {
     ...leida.data,
     ideasClave: leida.data.ideasClave.filter((idea) => idea !== ""),

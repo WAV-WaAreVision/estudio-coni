@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest"
 import { EVIDENCIA, TIPO_DE_AFIRMACION } from "@/lib/dominio/biblioteca/etiquetas"
-import { adaptacionDe, esEnlaceWeb, leerEdicion, leerFicha, textoDeUbicacion } from "@/lib/dominio/biblioteca/ficha"
+import {
+  ANIO_MAXIMO,
+  ANIO_MINIMO,
+  adaptacionDe,
+  esEnlaceWeb,
+  LARGO_DE_AUTOR,
+  LARGO_DE_CITA,
+  LARGO_DE_ENLACE,
+  LARGO_DE_IDEA,
+  LARGO_DE_RESUMEN,
+  leerEdicion,
+  leerFicha,
+  textoDeUbicacion,
+} from "@/lib/dominio/biblioteca/ficha"
 
 const MATERIAL = "11111111-2222-4333-8444-555555555555"
 const IDEAS = ["Una", "Dos", "Tres", "Cuatro", "Cinco"]
@@ -91,13 +104,44 @@ describe("leerEdicion", () => {
     })
   })
 
-  it.each(["autor", "enlace"])("refuses a source %s over 2000 characters, and takes one of 2000", (campo) => {
-    const fuente = (largo: number) => ({ ...edicion.fuente, enlace: null, [campo]: `https://${"a".repeat(largo - 8)}` })
-    expect(leerEdicion({ ...edicion, fuente: fuente(2001) })).toEqual({
+  it.each([
+    ["autor", LARGO_DE_AUTOR, "El autor de la fuente es muy largo."],
+    ["enlace", LARGO_DE_ENLACE, "El enlace de la fuente es muy largo."],
+  ] as const)("refuses a source %s over its limit in her words, and takes one at the limit", (campo, largo, error) => {
+    const fuente = (n: number) => ({ ...edicion.fuente, enlace: null, [campo]: `https://${"a".repeat(n - 8)}` })
+    expect(leerEdicion({ ...edicion, fuente: fuente(largo + 1) })).toEqual({ ok: false, error })
+    expect(leerEdicion({ ...edicion, fuente: fuente(largo) }).ok).toBe(true)
+  })
+
+  it("says which text is too long in her words, and takes each one at its limit", () => {
+    const largo = (n: number) => "a".repeat(n)
+    expect(leerEdicion({ ...edicion, resumen: largo(LARGO_DE_RESUMEN + 1) })).toEqual({
       ok: false,
-      error: "No entendí esa solicitud. Vuelve a abrir la pantalla.",
+      error: "El resumen es muy largo.",
     })
-    expect(leerEdicion({ ...edicion, fuente: fuente(2000) }).ok).toBe(true)
+    expect(leerEdicion({ ...edicion, resumen: largo(LARGO_DE_RESUMEN) }).ok).toBe(true)
+    expect(leerEdicion({ ...edicion, ideasClave: [...IDEAS.slice(1), largo(LARGO_DE_IDEA + 1)] })).toEqual({
+      ok: false,
+      error: "Una idea clave es muy larga.",
+    })
+    expect(leerEdicion({ ...edicion, ideasClave: [...IDEAS.slice(1), largo(LARGO_DE_IDEA)] }).ok).toBe(true)
+    const cita = (n: number) => [{ texto: largo(n), ubicacion: { pagina: 1 } }]
+    expect(leerEdicion({ ...edicion, citas: cita(LARGO_DE_CITA + 1) })).toEqual({
+      ok: false,
+      error: "Una cita es muy larga.",
+    })
+    expect(leerEdicion({ ...edicion, citas: cita(LARGO_DE_CITA) }).ok).toBe(true)
+  })
+
+  it("says a year out of range or not a whole number plainly, instead of dropping it", () => {
+    const conAnio = (anio: number) => ({ ...edicion, fuente: { ...edicion.fuente, anio } })
+    const fuera = { ok: false, error: `El año va entre ${ANIO_MINIMO} y ${ANIO_MAXIMO}.` }
+    expect(leerEdicion(conAnio(ANIO_MAXIMO + 1))).toEqual(fuera)
+    expect(leerEdicion(conAnio(ANIO_MINIMO - 1))).toEqual(fuera)
+    const entero = { ok: false, error: "Escribe el año como un número entero, por ejemplo 2024." }
+    expect(leerEdicion(conAnio(2024.5))).toEqual(entero)
+    expect(leerEdicion(conAnio(Number.NaN))).toEqual(entero)
+    expect(leerEdicion(conAnio(ANIO_MAXIMO)).ok).toBe(true)
   })
 })
 

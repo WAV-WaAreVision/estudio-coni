@@ -5,8 +5,15 @@ import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
 import {
+  ANIO_MAXIMO,
+  ANIO_MINIMO,
   esEnlaceWeb,
   type FichaLeida,
+  LARGO_DE_AUTOR,
+  LARGO_DE_CITA,
+  LARGO_DE_ENLACE,
+  LARGO_DE_IDEA,
+  LARGO_DE_RESUMEN,
   leerEdicion,
   MAXIMO_DE_IDEAS,
   textoDeUbicacion,
@@ -114,7 +121,8 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
   const cambiar = (cambios: Partial<Borrador>) => setBorrador({ ...borrador, ...cambios })
 
   function guardar(actual: Borrador) {
-    const anio = actual.anio.trim() === "" ? null : Number(actual.anio)
+    // A year that is not a whole number reaches leerEdicion as it is, so she hears why instead of losing it.
+    const anio = actual.anio.trim() === "" ? null : Number(actual.anio.trim())
     const leida = leerEdicion({
       materialId,
       resumen: actual.resumen,
@@ -122,7 +130,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
       citas: actual.citas,
       fuente: {
         autor: actual.autor,
-        anio: anio !== null && Number.isInteger(anio) ? anio : null,
+        anio,
         enlace: actual.enlace,
       },
     })
@@ -144,6 +152,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
   const aviso = errorDeLaFicha ?? error
   return (
     <form
+      noValidate
       className="grid gap-5"
       onSubmit={(evento) => {
         evento.preventDefault()
@@ -154,6 +163,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
         <textarea
           id="ficha-resumen"
           rows={6}
+          maxLength={LARGO_DE_RESUMEN}
           className={CLASES_DE_CAMPO}
           value={borrador.resumen}
           onChange={(evento) => cambiar({ resumen: evento.target.value })}
@@ -169,6 +179,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
               <textarea
                 id={`ficha-idea-${indice}`}
                 rows={2}
+                maxLength={LARGO_DE_IDEA}
                 className={CLASES_DE_CAMPO}
                 value={idea}
                 onChange={(evento) =>
@@ -209,6 +220,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
                 <textarea
                   aria-label={`Texto de la cita ${indice + 1}`}
                   rows={3}
+                  maxLength={LARGO_DE_CITA}
                   className={CLASES_DE_CAMPO}
                   value={cita.texto}
                   onChange={(evento) =>
@@ -238,6 +250,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
         <Campo id="ficha-autor" etiqueta="Autor de la fuente">
           <input
             id="ficha-autor"
+            maxLength={LARGO_DE_AUTOR}
             className={CLASES_DE_CAMPO}
             value={borrador.autor}
             onChange={(evento) => cambiar({ autor: evento.target.value })}
@@ -248,6 +261,9 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
             id="ficha-anio"
             type="number"
             inputMode="numeric"
+            min={ANIO_MINIMO}
+            max={ANIO_MAXIMO}
+            step={1}
             className={CLASES_DE_CAMPO}
             value={borrador.anio}
             onChange={(evento) => cambiar({ anio: evento.target.value })}
@@ -258,6 +274,7 @@ export function FichaEditable({ materialId, ficha: inicial }: { materialId: stri
             id="ficha-enlace"
             type="url"
             inputMode="url"
+            maxLength={LARGO_DE_ENLACE}
             className={CLASES_DE_CAMPO}
             value={borrador.enlace}
             onChange={(evento) => cambiar({ enlace: evento.target.value })}

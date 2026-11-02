@@ -9,7 +9,16 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({ editarFichaAccion }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
 import { FichaEditable } from "@/app/(app)/biblioteca/materiales/[id]/ficha-editable"
-import type { FichaLeida } from "@/lib/dominio/biblioteca/ficha"
+import {
+  ANIO_MAXIMO,
+  ANIO_MINIMO,
+  type FichaLeida,
+  LARGO_DE_AUTOR,
+  LARGO_DE_CITA,
+  LARGO_DE_ENLACE,
+  LARGO_DE_IDEA,
+  LARGO_DE_RESUMEN,
+} from "@/lib/dominio/biblioteca/ficha"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const FICHA: FichaLeida = {
@@ -68,5 +77,30 @@ describe("FichaEditable", () => {
       ),
     )
     expect(await screen.findByText("Cinco bis")).toBeInTheDocument()
+  })
+
+  it("caps every field at the length the action takes and never lets the browser speak for itself", () => {
+    const { container } = render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    expect(container.querySelector("form")).toHaveAttribute("novalidate")
+    expect(screen.getByLabelText("Resumen")).toHaveAttribute("maxLength", String(LARGO_DE_RESUMEN))
+    expect(screen.getByLabelText("Idea clave 1")).toHaveAttribute("maxLength", String(LARGO_DE_IDEA))
+    expect(screen.getByLabelText("Texto de la cita 1")).toHaveAttribute("maxLength", String(LARGO_DE_CITA))
+    expect(screen.getByLabelText("Autor de la fuente")).toHaveAttribute("maxLength", String(LARGO_DE_AUTOR))
+    expect(screen.getByLabelText("Enlace")).toHaveAttribute("maxLength", String(LARGO_DE_ENLACE))
+    const anio = screen.getByLabelText("Año")
+    expect(anio).toHaveAttribute("min", String(ANIO_MINIMO))
+    expect(anio).toHaveAttribute("max", String(ANIO_MAXIMO))
+  })
+
+  it("says a year that is not a whole number instead of saving the card without it", async () => {
+    render(<FichaEditable materialId={ID} ficha={FICHA} />)
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }))
+    fireEvent.change(screen.getByLabelText("Año"), { target: { value: "2024.5" } })
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Escribe el año como un número entero, por ejemplo 2024.",
+    )
+    expect(editarFichaAccion).not.toHaveBeenCalled()
   })
 })
