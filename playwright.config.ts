@@ -2,15 +2,18 @@ import { defineConfig, devices } from "@playwright/test"
 import { generateVAPIDKeys } from "web-push"
 import {
   ARCHIVO_DE_DISPAROS,
+  BALDE_DE_PRUEBA,
   CLAVE_ANONIMA,
   CLAVE_DE_SERVICIO,
   CORREO_DE_CONI,
   ESTADO_DE_SESION,
   PUERTO,
+  PUERTO_ALMACEN,
   PUERTO_SERVICIOS,
   SUPABASE_URL,
   URL_DE_INGESTA,
   URL_DE_LA_APP,
+  URL_DEL_ALMACEN,
   URL_SERVICIOS,
 } from "./tests/e2e/entorno"
 
@@ -72,6 +75,15 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      // The R2 of the run: the Biblioteca's signed links, sizes and downloads go to this machine only.
+      command: "node --import tsx tests/e2e/almacen-falso.ts",
+      gracefulShutdown: { signal: "SIGTERM", timeout: 3000 },
+      url: `${URL_DEL_ALMACEN}/__salud`,
+      env: { PUERTO_ALMACEN_FALSO: String(PUERTO_ALMACEN) },
+      reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
+      timeout: 60_000,
+    },
+    {
       command: `pnpm exec next build && node node_modules/next/dist/bin/next start -p ${PUERTO}`,
       // `next start` runs the server as its own child: a SIGTERM lets it pass the signal on; a SIGKILL would orphan it.
       gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
@@ -103,6 +115,12 @@ export default defineConfig({
         META_REDIRECT_URI: `${URL_DE_LA_APP}/api/meta/callback`,
         // The Biblioteca tab posts there; only playwright.biblioteca.config.ts starts an Ingesta to receive it.
         INGESTA_URL: URL_DE_INGESTA,
+        // The Biblioteca's store is the real R2 code against the fake S3 above (R2_ENDPOINT is refused on Vercel).
+        R2_ACCOUNT_ID: "cuenta-e2e",
+        R2_ACCESS_KEY_ID: "llave-e2e",
+        R2_SECRET_ACCESS_KEY: "secreto-e2e",
+        R2_BUCKET: BALDE_DE_PRUEBA,
+        R2_ENDPOINT: URL_DEL_ALMACEN,
       },
     },
   ],

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
+import AxeBuilder from "@axe-core/playwright"
 import { type BrowserContext, expect, type Locator, type Page } from "@playwright/test"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
@@ -63,18 +64,39 @@ const Disparo = z.object({
   retraso: z.string().optional(),
 })
 
+const DisparoDeMaterial = z.object({
+  tarea: z.literal("procesar-material"),
+  materialId: z.string(),
+  clave: z.string(),
+})
+
+const DisparoDelMotor = z.object({ tarea: z.literal("motor-manual"), semana: z.string(), clave: z.string() })
+
+const CualquierDisparo = z.union([Disparo, DisparoDeMaterial, DisparoDelMotor])
+
 export function limpiarDisparos(): void {
   mkdirSync(dirname(ARCHIVO_DE_DISPAROS), { recursive: true })
   rmSync(ARCHIVO_DE_DISPAROS, { force: true })
 }
 
-/** The background runs the app would have started (Trigger.dev is never called in tests). */
-export function disparosRegistrados(): z.infer<typeof Disparo>[] {
+function leerDisparos(): z.infer<typeof CualquierDisparo>[] {
   if (!existsSync(ARCHIVO_DE_DISPAROS)) return []
   return readFileSync(ARCHIVO_DE_DISPAROS, "utf-8")
     .split("\n")
     .filter((linea) => linea.trim() !== "")
-    .map((linea) => Disparo.parse(JSON.parse(linea)))
+    .map((linea) => CualquierDisparo.parse(JSON.parse(linea)))
+}
+
+/** The piece runs the app would have started (Trigger.dev is never called in tests). */
+export function disparosRegistrados(): z.infer<typeof Disparo>[] {
+  return leerDisparos().flatMap((disparo) =>
+    disparo.tarea === "procesar-material" || disparo.tarea === "motor-manual" ? [] : [disparo],
+  )
+}
+
+/** The material runs the Biblioteca would have started, each with its key. */
+export function disparosDeMateriales(): z.infer<typeof DisparoDeMaterial>[] {
+  return leerDisparos().flatMap((disparo) => (disparo.tarea === "procesar-material" ? [disparo] : []))
 }
 
 /** An alert with that text. Next adds its own empty `role=alert` (the route announcer), so a bare role matches two. */
@@ -255,4 +277,12 @@ export async function conLetraGrande(page: Page): Promise<void> {
   await page.addStyleTag({ content: "html { font-size: 212.5% !important }" })
   await page.evaluate(() => window.dispatchEvent(new Event("resize")))
   await expect(page.locator("html")).toHaveAttribute("data-letra", "grande")
+}
+
+/** WCAG 2.x AA findings of the page as it is now, one line each, named after the state being checked. */
+export async function revisarConAxe(page: Page, estado: string): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze()
+  return violations.map((v) => `${estado}: ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)
 }
