@@ -41,6 +41,8 @@ interface CuerpoMensaje {
   messages: unknown
 }
 
+const BETA_ESPERADA = "server-side-fallback-2026-07-01"
+
 interface Huella {
   sistema: string
   usuario: string
@@ -50,8 +52,10 @@ interface Huella {
 /** Runs one call against a refusing API and returns the fingerprint of every request it sent. */
 async function huellas(llamada: (c: Anthropic) => Promise<unknown>): Promise<Huella[]> {
   const cuerpos: CuerpoMensaje[] = []
+  const betas: (string | null)[] = []
   servidor.use(
     http.post<never, CuerpoMensaje>(URL_MENSAJES, async ({ request }) => {
+      betas.push(request.headers.get("anthropic-beta"))
       cuerpos.push(await request.json())
       return HttpResponse.json({
         id: "msg_prueba",
@@ -66,6 +70,8 @@ async function huellas(llamada: (c: Anthropic) => Promise<unknown>): Promise<Hue
     }),
   )
   await expect(llamada(cliente())).rejects.toBeInstanceOf(RechazoDeClaude)
+  // The fallback beta travels as a header, not in the body, so the body hash alone would not catch losing it.
+  expect(betas).toEqual(cuerpos.map(() => BETA_ESPERADA))
   return cuerpos.map((cuerpo) => ({
     sistema: sha(cuerpo.system.map((bloque) => bloque.text).join("\n")),
     usuario: sha(JSON.stringify(cuerpo.messages)),
