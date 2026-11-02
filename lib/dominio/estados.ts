@@ -260,7 +260,7 @@ export function piezaTrabajando(pieza: { estado: Estado; explicacion: string | n
       return true
     case "en_render":
     case "subtitulando":
-      // With a reason on it (the monthly cap stopped the run) the piece waits for Coni: nothing to poll for.
+      // With a reason on it (the monthly limit stopped the run) the piece waits for Coni: nothing to poll for.
       return pieza.explicacion === null
     case "armando_carrusel":
       // The render runs. Nothing leaves a reason here today (a shortening the cap stops goes back to gate 1), but a

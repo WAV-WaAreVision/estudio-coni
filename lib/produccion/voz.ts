@@ -232,7 +232,7 @@ export async function asegurarVoz(
   try {
     audio = await generarVoz({ clave: llave, config, texto, base: deps.base?.elevenlabs })
   } catch (error) {
-    // A refusal (4xx) made no audio and billed nothing: the money goes back to the cap now, and the screen may say so.
+    // A refusal (4xx) made no audio and billed nothing: the money goes back to the limit now, and the screen may say so.
     // Anything else may have been billed: the reservation stays, and the sweeper frees it after an hour with no take.
     if (rechazoSinCobro(error)) await liberarGasto(deps.db, clave, { sinCobro: true })
     throw error

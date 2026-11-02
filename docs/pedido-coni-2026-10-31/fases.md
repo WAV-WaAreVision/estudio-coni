@@ -59,7 +59,7 @@ Decided by Federico on 2026-11-01. Only the web app moves; Supabase, Trigger.dev
 
 - Shared constraints and lists (`avisos_tipo_check`, `gastos_proveedor_check`, `guardar_secreto`, `CUENTAS_CON_LLAVE`) are
   rewritten in full by each change; the spec states the final list and a test asserts it.
-- `reservar_gasto` / `confirmar_gasto` are called from both repos until stage 3 of 29: any signature change ships in both.
+- `reservar_gasto` / `confirmar_gasto` are called only from estudio-coni: a signature change ships here alone.
 - Signed pieces keep their hashes: changes to `respaldo_de_idea`, gate 2 formulas or `huellaDeRespaldo` must keep old
   signatures valid (test with a signed piece fixture).
 - Every phase ends with the full unit suite, integration tests against local Supabase and the real route loaded once.

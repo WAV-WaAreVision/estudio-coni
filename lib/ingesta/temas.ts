@@ -217,7 +217,7 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
         return { datos: temas, realUsd: costoClaude(uso, MODELO_POR_TAREA.nombrarTemas.modelo) }
       },
     })
-    if (pagado.tope) return { ...resultado, tope: true }
+    if (pagado.limite) return { ...resultado, tope: true }
     for (const nombrado of pagado.datos) {
       const ids = lote[Number(nombrado.id.slice(1))]
       if (!ids) continue
@@ -321,7 +321,7 @@ export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
       return { datos: veredictos, realUsd: costoClaude(uso, MODELO_POR_TAREA.confirmarFusiones.modelo) }
     },
   })
-  if (pagado.tope) return { tope: true, fusionados: 0 }
+  if (pagado.limite) return { tope: true, fusionados: 0 }
 
   const absorbidos = new Map<string, string>()
   const resolver = (id: string): string => {

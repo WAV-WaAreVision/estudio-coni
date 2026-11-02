@@ -84,7 +84,7 @@ async function embeberPendientes(
         },
       },
     )
-    if (pagado.tope) return { tope: true }
+    if (pagado.limite) return { tope: true }
     for (const [i, a] of lote.entries()) {
       const vector = pagado.datos[i]
       if (!vector) continue
