@@ -172,7 +172,7 @@ describe("PantallaDePresupuesto", () => {
   it("switches off what spends by itself, with this month's spend beside each", async () => {
     const a = mostrar()
 
-    expect(screen.getByText("US$ 1,20 este mes")).toBeInTheDocument()
+    expect(screen.getByText("US$ 1,20 este mes, contando «Proponer ahora»")).toBeInTheDocument()
     expect(screen.getByText("US$ 0,40 este mes")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("switch", { name: "Ideas nuevas cada domingo" }))
     await waitFor(() => expect(a.guardar).toHaveBeenCalledWith({ campo: "motor_semanal", valor: false }))
@@ -451,5 +451,113 @@ describe("PantallaDePresupuesto", () => {
       terminarElTope({ ok: true, anterior: ANTERIOR })
     })
     expect(vi.mocked(a.guardar).mock.calls).toEqual([[{ campo: "tope", valor: 45 }], [{ campo: "limite", valor: 95 }]])
+  })
+  it("shows what the database kept when an older switch save succeeds after a newer one failed", async () => {
+    let terminarPrimero: (valor: { ok: true; anterior: CambioDeAjuste }) => void = () => {}
+    mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "motor_semanal" && cambio.valor === false
+            ? new Promise<{ ok: true; anterior: CambioDeAjuste }>((resolver) => {
+                terminarPrimero = resolver
+              })
+            : Promise.resolve({ ok: false as const, error: "No pude encender las ideas del domingo." }),
+        ),
+      },
+    )
+
+    const interruptor = () => screen.getByRole("switch", { name: "Ideas nuevas cada domingo" })
+    fireEvent.click(interruptor())
+    fireEvent.click(interruptor())
+    await act(async () => {})
+    await act(async () => {
+      terminarPrimero({ ok: true, anterior: { campo: "motor_semanal", valor: true } as CambioDeAjuste })
+    })
+
+    expect(interruptor()).toHaveAttribute("aria-checked", "false")
+    expect(screen.queryByText("Guardado")).toBeNull()
+    expect(screen.getByText("No pude encender las ideas del domingo.")).toBeInTheDocument()
+  })
+
+  it("keeps an undo pressed while a stepper save is in flight that then fails", async () => {
+    let fallarElLimite: (valor: { ok: false; error: string }) => void = () => {}
+    const a = mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "limite"
+            ? new Promise<{ ok: false; error: string }>((resolver) => {
+                fallarElLimite = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: ANTERIOR }),
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    const deshacer = await screen.findByRole("button", { name: "Deshacer" })
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    await esperarElGuardado()
+    fireEvent.click(deshacer)
+    await act(async () => {
+      fallarElLimite({ ok: false, error: "No pude guardar tu límite." })
+    })
+
+    expect(a.guardar).toHaveBeenLastCalledWith({ campo: "tope", valor: 40 })
+    expect(within(screen.getByRole("region", { name: "Tope y límite" })).getByText("US$ 40")).toBeInTheDocument()
+  })
+
+  it("still shows the cap's warning when the limit after it fails in the same flush", async () => {
+    mostrar(
+      {},
+      {
+        guardar: vi.fn(async (cambio: CambioDeAjuste) =>
+          cambio.campo === "tope"
+            ? { ok: true as const, anterior: ANTERIOR, aviso: "Ya gastaste US$ 50,00; lo nuevo queda en pausa." }
+            : { ok: false as const, error: "No pude guardar tu límite." },
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    await esperarElGuardado()
+
+    const topeYLimite = screen.getByRole("region", { name: "Tope y límite" })
+    expect(await screen.findByText("Ya gastaste US$ 50,00; lo nuevo queda en pausa.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
+    expect(within(topeYLimite).getByText("US$ 45")).toBeInTheDocument()
+    expect(within(topeYLimite).getByText("US$ 90 (el doble del tope)")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Subir el límite" })).toHaveAccessibleDescription(
+      "No pude guardar tu límite.",
+    )
+  })
+
+  it("still sends the taps left behind when she leaves during a save", async () => {
+    let terminarElTope: (valor: { ok: true; anterior: CambioDeAjuste }) => void = () => {}
+    const a = mostrar(
+      {},
+      {
+        guardar: vi.fn((cambio: CambioDeAjuste) =>
+          cambio.campo === "tope"
+            ? new Promise<{ ok: true; anterior: CambioDeAjuste }>((resolver) => {
+                terminarElTope = resolver
+              })
+            : Promise.resolve({ ok: true as const, anterior: ANTERIOR }),
+        ),
+      },
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
+    await esperarElGuardado()
+    fireEvent.click(screen.getByRole("button", { name: "Subir el límite" }))
+    a.unmount()
+    await act(async () => {
+      terminarElTope({ ok: true, anterior: ANTERIOR })
+    })
+
+    expect(a.guardar).toHaveBeenLastCalledWith({ campo: "limite", valor: 95 })
   })
 })

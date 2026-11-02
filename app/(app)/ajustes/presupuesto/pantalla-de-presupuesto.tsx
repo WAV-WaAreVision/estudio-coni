@@ -128,6 +128,8 @@ export function PantallaDePresupuesto({
     tocados: Set<CampoConPaso>
   }>({ temporizador: null, enVuelo: false, otraVez: null, tocados: new Set() })
   const ultimaVez = useRef<Partial<Record<CampoDeInterruptor, number>>>({})
+  /** The switches whose latest save failed: they show what the server kept, also when an older save lands later. */
+  const ultimaFallo = useRef<Set<CampoDeInterruptor>>(new Set())
 
   const vista = presentarPresupuesto(estado)
 
@@ -210,7 +212,10 @@ export function PantallaDePresupuesto({
         if (resultado.aviso) avisos.push(resultado.aviso)
       }
       c.enVuelo = false
-      if (!fallo && ofrecerDeshacer) {
+      if (fallo && avisos.length > 0) {
+        // The cap was saved before the limit failed: what the server said about it still stands, without an undo.
+        setMensaje({ texto: avisos.join(" ") })
+      } else if (!fallo && ofrecerDeshacer) {
         setMensaje({
           texto: avisos.length > 0 ? avisos.join(" ") : "Guardado",
           deshacer: quitaSuLimite || anteriores.length !== cambios.length ? undefined : () => deshacer(anteriores),
@@ -228,19 +233,22 @@ export function PantallaDePresupuesto({
   ) {
     const vez = (ultimaVez.current[cambio.campo] ?? 0) + 1
     ultimaVez.current[cambio.campo] = vez
+    ultimaFallo.current.delete(cambio.campo)
     ponerError(cambio.campo, null)
     empezar(async () => {
       const resultado = await acciones.guardar(cambio)
-      // An older save answering after a newer one was sent says nothing about what the screen shows now.
+      // An older save answering after a newer one was sent does not speak for what she sees now: it only moves what
+      // the server holds, which the screen shows if her latest save for this switch failed.
       const esLaUltima = ultimaVez.current[cambio.campo] === vez
-      if (!resultado.ok) {
-        if (!esLaUltima) return
-        poner(restaurarInterruptor(ultimo.current, confirmado.current, cambio.campo))
+      if (resultado.ok) confirmado.current = aplicar(confirmado.current, cambio)
+      else if (esLaUltima) {
+        ultimaFallo.current.add(cambio.campo)
         ponerError(cambio.campo, resultado.error)
-        return
       }
-      confirmado.current = aplicar(confirmado.current, cambio)
-      if (!ofrecerDeshacer) return
+      if (ultimaFallo.current.has(cambio.campo)) {
+        poner(restaurarInterruptor(ultimo.current, confirmado.current, cambio.campo))
+      }
+      if (!resultado.ok || !esLaUltima || !ofrecerDeshacer) return
       const anterior = resultado.anterior
       setMensaje({
         texto: resultado.aviso ?? "Guardado",
@@ -254,6 +262,10 @@ export function PantallaDePresupuesto({
     let siguiente = ultimo.current
     for (const anterior of anteriores) siguiente = aplicar(siguiente, anterior)
     poner(siguiente)
+    // A save in flight that fails afterwards must not wipe the undo she just asked for.
+    for (const anterior of anteriores) {
+      if (anterior.campo === "tope" || anterior.campo === "limite") cola.current.tocados.add(anterior.campo)
+    }
     for (const anterior of anteriores) {
       if (anterior.campo === "motor_semanal" || anterior.campo === "fusiones_nocturnas") {
         guardarInterruptor(anterior, false)
@@ -430,7 +442,7 @@ export function PantallaDePresupuesto({
         <Grupo>
           <FilaConInterruptor
             etiqueta="Ideas nuevas cada domingo"
-            detalle={`${dolares(estado.motor.usd)} este mes`}
+            detalle={`${dolares(estado.motor.usd)} este mes, contando «Proponer ahora»`}
             encendido={estado.motor.activo}
             alCambiar={(valor) => alternar("motor_semanal", valor)}
             descritoPor={descritoPor("motor_semanal")}
