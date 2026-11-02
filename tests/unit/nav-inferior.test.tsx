@@ -10,12 +10,23 @@ describe("NavInferior", () => {
     usePathname.mockReturnValue("/")
   })
 
-  it("has the three tabs of the design", () => {
+  it("has the four tabs of the design, the Biblioteca last", () => {
     render(<NavInferior />)
 
     const enlaces = screen.getAllByRole("link").map((enlace) => enlace.textContent)
 
-    expect(enlaces).toEqual(["Inicio", "Métricas", "Ajustes"])
+    expect(enlaces).toEqual(["Inicio", "Métricas", "Ajustes", "Biblioteca"])
+    expect(screen.getByRole("navigation", { name: "Secciones" })).toHaveClass("grid-cols-4")
+  })
+
+  it("leaves the app for the Biblioteca and never marks it current", () => {
+    usePathname.mockReturnValue("/ir-a-biblioteca")
+    render(<NavInferior />)
+
+    const biblioteca = screen.getByRole("link", { name: "Biblioteca" })
+    expect(biblioteca).toHaveAttribute("href", "/ir-a-biblioteca")
+    expect(biblioteca).not.toHaveAttribute("aria-current")
+    expect(biblioteca).toHaveClass("text-apagado", "min-h-nav")
   })
 
   it("marks the current tab", () => {

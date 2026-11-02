@@ -1,21 +1,26 @@
 "use client"
 
-import { ChartBar, GearSix, House } from "@phosphor-icons/react"
+import { Books, ChartBar, GearSix, House } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ICONO } from "@/components/ui/icono"
+import { RUTA_DE_LA_BIBLIOTECA } from "@/lib/sesion/rutas"
 import { cn } from "@/lib/utils"
 
+// `sale`: the tab leaves the app (the Biblioteca lives in Ingesta until stage 2, #17). It is a plain link: a Next
+// <Link> would prefetch the route handler and mint a sign-in link on every render of this bar.
 const PESTANAS = [
-  { href: "/", etiqueta: "Inicio", icono: House },
-  { href: "/metricas", etiqueta: "Métricas", icono: ChartBar },
-  { href: "/ajustes", etiqueta: "Ajustes", icono: GearSix },
+  { href: "/", etiqueta: "Inicio", icono: House, sale: false },
+  { href: "/metricas", etiqueta: "Métricas", icono: ChartBar, sale: false },
+  { href: "/ajustes", etiqueta: "Ajustes", icono: GearSix, sale: false },
+  { href: RUTA_DE_LA_BIBLIOTECA, etiqueta: "Biblioteca", icono: Books, sale: true },
 ] as const
 
 // Ideas and Calendario hang from Inicio: they have no tab of their own, so Inicio stays current on them.
 const RUTAS_QUE_CUELGAN_DE_INICIO = ["/ideas", "/calendario"]
 
 function estaActiva(ruta: string, pestana: (typeof PESTANAS)[number]): boolean {
+  if (pestana.sale) return false
   if (pestana.href === "/") {
     return ruta === "/" || RUTAS_QUE_CUELGAN_DE_INICIO.some((raiz) => ruta === raiz || ruta.startsWith(`${raiz}/`))
   }
@@ -33,23 +38,28 @@ export function NavInferior() {
   return (
     <nav
       aria-label="Secciones"
-      className="nav-inferior sticky bottom-0 z-10 grid grid-cols-3 gap-2 rounded-t-panel bg-piedra px-[14px] pt-2 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-relieve-fijo md:top-0 md:bottom-auto md:rounded-t-none md:rounded-b-panel md:pb-2"
+      className="nav-inferior sticky bottom-0 z-10 grid grid-cols-4 gap-2 rounded-t-panel bg-piedra px-[14px] pt-2 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-relieve-fijo md:top-0 md:bottom-auto md:rounded-t-none md:rounded-b-panel md:pb-2"
     >
       {PESTANAS.map((pestana) => {
         const activa = estaActiva(ruta, pestana)
         const Icono = pestana.icono
-        return (
-          <Link
-            key={pestana.href}
-            href={pestana.href}
-            aria-current={activa ? "page" : undefined}
-            className={cn(
-              "grid min-h-nav content-center justify-items-center gap-0.5 rounded-control py-2 text-meta transition-shadow duration-[var(--dur-corta)] ease-salida",
-              activa ? "bg-piedra-honda font-semibold text-tinta shadow-hundido" : "font-medium text-apagado",
-            )}
-          >
+        const clases = cn(
+          "grid min-h-nav content-center justify-items-center gap-0.5 rounded-control py-2 text-meta transition-shadow duration-[var(--dur-corta)] ease-salida",
+          activa ? "bg-piedra-honda font-semibold text-tinta shadow-hundido" : "font-medium text-apagado",
+        )
+        const contenido = (
+          <>
             <Icono aria-hidden="true" size={ICONO.grande} />
             <span className="nav-etiqueta">{pestana.etiqueta}</span>
+          </>
+        )
+        return pestana.sale ? (
+          <a key={pestana.href} href={pestana.href} className={clases}>
+            {contenido}
+          </a>
+        ) : (
+          <Link key={pestana.href} href={pestana.href} aria-current={activa ? "page" : undefined} className={clases}>
+            {contenido}
           </Link>
         )
       })}
