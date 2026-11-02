@@ -49,6 +49,18 @@ describe("abrirPuente", () => {
     expect(html.split(TOKEN)).toHaveLength(2)
   })
 
+  it("never hands the token or the page to the console on the way through", async () => {
+    const metodos = ["log", "info", "warn", "error", "debug"] as const
+    const espias = metodos.map((metodo) => vi.spyOn(console, metodo).mockImplementation(() => undefined))
+
+    const { html } = await paginaPara("https://ingesta.example")
+
+    const dicho = espias
+      .flatMap((espia) => espia.mock.calls.flat())
+      .map((argumento) => (typeof argumento === "string" ? argumento : (JSON.stringify(argumento) ?? "")))
+    expect(dicho.filter((texto) => texto.includes(TOKEN) || texto.includes(html))).toEqual([])
+  })
+
   it.each(["https://ingesta.example/", "https://ingesta.example/otra/ruta"])(
     "aims at the bridge whatever path INGESTA_URL carries (%s)",
     async (url) => {
