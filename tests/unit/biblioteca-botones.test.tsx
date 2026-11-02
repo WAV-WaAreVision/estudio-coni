@@ -35,6 +35,13 @@ describe("BotonReintentar", () => {
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument()
   })
 
+  it("Cancelar gives the focus back to the button that asked", () => {
+    render(<BotonReintentar materialId={ID} />)
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(screen.getByRole("button", { name: "Reintentar" })).toHaveFocus()
+  })
+
   it("says a refusal under the question", async () => {
     reintentarMaterialAccion.mockResolvedValueOnce({ ok: false, error: "Ese material ya no se puede reintentar." })
     render(<BotonReintentar materialId={ID} />)
