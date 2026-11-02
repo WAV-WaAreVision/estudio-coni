@@ -55,8 +55,11 @@ describe("disparosDeEntorno", () => {
     expect(() => disparosDeEntorno({ DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).toThrow(FallaDeConfiguracion)
   })
 
-  it("asks for the Trigger.dev key before starting anything for real", () => {
+  it("asks for the Trigger.dev key before starting anything for real, in words that fit every port", () => {
     expect(() => disparosDeEntorno({})).toThrow(FallaDeConfiguracion)
+    expect(() => disparosDeEntorno({})).toThrow(
+      "Falta TRIGGER_SECRET_KEY: la app no puede iniciar tareas en segundo plano.",
+    )
   })
 })
 
@@ -104,8 +107,11 @@ describe("disparosDeBibliotecaDeEntorno", () => {
     expect(() => disparosDeBibliotecaDeEntorno({ DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).toThrow(FallaDeConfiguracion)
   })
 
-  it("asks for the Trigger.dev key before starting anything for real", () => {
+  it("asks for the Trigger.dev key before starting anything for real, in words that fit every port", () => {
     expect(() => disparosDeBibliotecaDeEntorno({})).toThrow(FallaDeConfiguracion)
+    expect(() => disparosDeBibliotecaDeEntorno({})).toThrow(
+      "Falta TRIGGER_SECRET_KEY: la app no puede iniciar tareas en segundo plano.",
+    )
   })
 })
 

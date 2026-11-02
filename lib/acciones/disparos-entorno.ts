@@ -74,7 +74,7 @@ function archivoDeDisparoDePrueba(entorno: Entorno): string | null {
 
 function exigirLlaveDeTrigger(entorno: Entorno): void {
   if (!entorno.TRIGGER_SECRET_KEY) {
-    throw new FallaDeConfiguracion("Falta TRIGGER_SECRET_KEY: la app no puede iniciar la escritura ni la grabación.")
+    throw new FallaDeConfiguracion("Falta TRIGGER_SECRET_KEY: la app no puede iniciar tareas en segundo plano.")
   }
 }
 
