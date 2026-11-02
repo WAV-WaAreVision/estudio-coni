@@ -341,6 +341,102 @@ describe("almacenR2", () => {
   })
 })
 
+describe("almacenR2 for the Biblioteca", () => {
+  const ID = "11111111-2222-4333-8444-555555555555"
+  const TEXTO = `materiales/${ID}/texto-original.txt`
+  const LISTA = `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>${TEXTO}</Key><Size>3</Size></Contents><Contents><Key>materiales/${ID}/original.pdf</Key><Size>9</Size></Contents></ListBucketResult>`
+
+  it("tamano asks with HEAD and reads the length", async () => {
+    const { capturas } = capturando(() => new HttpResponse(null, { status: 200, headers: { "Content-Length": "42" } }))
+
+    expect(await r2().tamano(TEXTO)).toBe(42)
+    expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
+  })
+
+  it("tamano answers null for an object that is not there", async () => {
+    capturando(() => new HttpResponse(null, { status: 404 }))
+    expect(await r2().tamano(TEXTO)).toBeNull()
+  })
+
+  it("tamano rejects any other failure without the secret", async () => {
+    capturando(errorS3("InternalError", `boom ${SECRETO}`, 500))
+    const error = await rechazo(r2().tamano(TEXTO))
+    expect(error.message).not.toContain(SECRETO)
+  })
+
+  it("borrarCarpeta lists the material's folder and deletes each key in it", async () => {
+    let llamadas = 0
+    const { capturas } = capturando(() =>
+      llamadas++ === 0
+        ? new HttpResponse(LISTA, { status: 200, headers: { "Content-Type": "application/xml" } })
+        : new HttpResponse(null, { status: 204 }),
+    )
+
+    expect(await r2().borrarCarpeta(ID)).toBe(2)
+    expect(capturas[0]?.url.searchParams.get("prefix")).toBe(`materiales/${ID}/`)
+    expect(capturas.slice(1).map((c) => `${c.metodo} ${c.url.pathname}`)).toEqual([
+      `DELETE /${BALDE}/${TEXTO}`,
+      `DELETE /${BALDE}/materiales/${ID}/original.pdf`,
+    ])
+  })
+
+  it("borrarCarpeta refuses an id that is not a UUID without calling R2", async () => {
+    const { capturas } = capturando(() => new HttpResponse(null, { status: 204 }))
+    await expect(r2().borrarCarpeta("../voces")).rejects.toThrow(FallaDeConfiguracion)
+    expect(capturas).toEqual([])
+  })
+
+  it("urlDeTexto checks the text with HEAD and signs a GET that downloads as texto-original.txt", async () => {
+    const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+
+    const url = new URL((await r2().urlDeTexto(ID, 300)) ?? "")
+
+    expect(url.pathname).toBe(`/${BALDE}/${TEXTO}`)
+    expect(url.searchParams.get("X-Amz-Expires")).toBe("300")
+    expect(url.searchParams.get("response-content-disposition")).toBe('attachment; filename="texto-original.txt"')
+    expect(url.href).not.toContain(SECRETO)
+    expect(capturas.map((c) => c.metodo)).toEqual(["HEAD"])
+  })
+
+  it("urlDeTexto answers null while the text is not there", async () => {
+    capturando(() => new HttpResponse(null, { status: 404 }))
+    expect(await r2().urlDeTexto(ID, 300)).toBeNull()
+  })
+
+  it("urlDeTexto refuses an expiry over an hour and an id that is not a UUID, without calling R2", async () => {
+    const { capturas } = capturando(() => new HttpResponse(null, { status: 200 }))
+    await expect(r2().urlDeTexto(ID, 3601)).rejects.toThrow(FallaDeConfiguracion)
+    await expect(r2().urlDeTexto("../voces", 300)).rejects.toThrow(FallaDeConfiguracion)
+    expect(capturas).toEqual([])
+  })
+})
+
+describe("almacenR2 with a local endpoint (the E2E fake)", () => {
+  const ID = "11111111-2222-4333-8444-555555555555"
+
+  it("talks to the endpoint given instead of the account's host", async () => {
+    const pedidos: string[] = []
+    servidor.use(
+      http.all("http://127.0.0.1:9999/*", ({ request }) => {
+        pedidos.push(`${request.method} ${new URL(request.url).pathname}`)
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+    const almacen = almacenR2({
+      cuenta: CUENTA,
+      llave: LLAVE,
+      secreto: SECRETO,
+      balde: BALDE,
+      endpoint: "http://127.0.0.1:9999",
+    })
+
+    const url = new URL((await almacen.urlDeTexto(ID, 300)) ?? "")
+
+    expect(url.host).toBe("127.0.0.1:9999")
+    expect(pedidos).toEqual([`HEAD /${BALDE}/materiales/${ID}/texto-original.txt`])
+  })
+})
+
 describe("almacenReal", () => {
   const VARIABLES = {
     R2_ACCOUNT_ID: CUENTA,
@@ -376,5 +472,29 @@ describe("almacenReal", () => {
     Object.assign(process.env, VARIABLES)
     delete process.env[faltante]
     expect(() => almacenReal()).toThrow(faltante)
+  })
+
+  it("uses R2_ENDPOINT for a local run", async () => {
+    const pedidos: string[] = []
+    servidor.use(
+      http.all("http://127.0.0.1:9999/*", ({ request }) => {
+        pedidos.push(request.method)
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+    const url = new URL(
+      (await almacenReal({ ...VARIABLES, R2_ENDPOINT: "http://127.0.0.1:9999" }).urlDeTexto(
+        "11111111-2222-4333-8444-555555555555",
+        60,
+      )) ?? "",
+    )
+    expect(url.host).toBe("127.0.0.1:9999")
+    expect(pedidos).toEqual(["HEAD"])
+  })
+
+  it("refuses R2_ENDPOINT on Vercel: nothing would reach the real bucket", () => {
+    expect(() => almacenReal({ ...VARIABLES, R2_ENDPOINT: "http://127.0.0.1:9999", VERCEL: "1" })).toThrow(
+      FallaDeConfiguracion,
+    )
   })
 })
