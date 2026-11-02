@@ -12,7 +12,7 @@ import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
 import { crearAutorAccion, editarMaterialAccion } from "../../acciones"
 import { SelectorDeAutor } from "../../selector-de-autor"
 
-export const AVISO_REPROCESAR = "Reprocesa el material para que sus ideas sacadas usen el cambio."
+export const AVISO_REPROCESAR = "Reprocesa el material para que use el cambio."
 
 interface Propiedades {
   materialId: string

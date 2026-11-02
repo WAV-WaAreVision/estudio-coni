@@ -58,6 +58,15 @@ describe("EditarAutorYRol", () => {
     expect(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" })).toBeInTheDocument()
   })
 
+  it("says the reprocess notice in words that fit a strategy card too, not only ideas", async () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="estrategia" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Referente" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(await screen.findByText("Reprocesa el material para que use el cambio.")).toBeInTheDocument()
+    expect(screen.queryByText(/ideas sacadas/i)).toBeNull()
+  })
+
   it("moves the focus to the reprocess notice after saving, so it is heard", async () => {
     render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="estrategia" conIdeas />)
     fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
