@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { RUTA_DE_INGRESO } from "./rutas"
 
 export type SesionLeida =
-  | { estado: "coni"; db: Awaited<ReturnType<typeof createClient>>; userId: string }
+  | { estado: "coni"; db: Awaited<ReturnType<typeof createClient>>; userId: string; correo: string | null }
   | { estado: "sin_sesion" }
   | { estado: "otra_persona" }
 
@@ -15,7 +15,9 @@ export const leerSesion = cache(async (): Promise<SesionLeida> => {
   if (!data.user) return { estado: "sin_sesion" }
   const { data: esConi, error } = await db.rpc("es_coni")
   if (error) throw new Error(`No pude comprobar quién entró: ${error.message}`, { cause: error })
-  return esConi ? { estado: "coni", db, userId: data.user.id } : { estado: "otra_persona" }
+  return esConi
+    ? { estado: "coni", db, userId: data.user.id, correo: data.user.email ?? null }
+    : { estado: "otra_persona" }
 })
 
 /** For pages: the signed-in Coni, or a redirect to sign in. Anyone else gets a 404 (the layout already says why). */
