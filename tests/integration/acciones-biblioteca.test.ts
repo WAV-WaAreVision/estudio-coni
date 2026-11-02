@@ -233,6 +233,12 @@ describe("pedirTextoOriginal", () => {
       url: `https://almacen.test/materiales/${id}/texto-original.txt?expira=300&descarga=texto-original.txt`,
     })
   })
+
+  it("refuses an object left in R2 when its material row no longer exists", async () => {
+    const huerfano = randomUUID()
+    await almacen.subir(`materiales/${huerfano}/texto-original.txt`, new TextEncoder().encode("hola"), "text/plain")
+    expect(await pedirTextoOriginal(deps(coni), huerfano)).toEqual({ ok: false, error: "No encontré ese material." })
+  })
 })
 
 describe("WAV is refused on every action (es_coni), even where row level security would let it", () => {

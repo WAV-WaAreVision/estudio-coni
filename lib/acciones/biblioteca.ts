@@ -171,6 +171,10 @@ export function pedirTextoOriginal(
 ): Promise<Resultado<{ url: string }>> {
   return aResultado("pedirTextoOriginal", async () => {
     await exigirConi(deps.db)
+    // R2 can outlive the row (a deleted material): only a material she can read through row level security is signed.
+    const { data, error } = await deps.db.from("materiales").select("id").eq("id", materialId).maybeSingle()
+    if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
+    if (!data) throw new Falla(NO_ENCONTRE)
     const url = await deps.almacen.urlDeTexto(materialId, SEGUNDOS_DE_DESCARGA)
     if (url === null) throw new Falla("Ese texto todavía no está disponible.")
     return { url }
