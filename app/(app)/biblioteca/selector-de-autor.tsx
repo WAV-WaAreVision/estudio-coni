@@ -1,10 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
-import type { Resultado } from "@/lib/acciones/resultado"
-import { type AutorDeLista, autoresParecidos, buscarAutores } from "@/lib/dominio/biblioteca/autores"
+import { useAccion } from "@/components/use-accion"
+import { ERROR_GENERICO, type Resultado } from "@/lib/acciones/resultado"
+import {
+  type AutorDeLista,
+  autoresParecidos,
+  buscarAutores,
+  LARGO_DE_AUTOR_NUEVO,
+} from "@/lib/dominio/biblioteca/autores"
 import {
   ETIQUETA_DE_TIPO_DE_AUTOR,
   esTipoDeAutorNuevo,
@@ -36,6 +42,9 @@ const sinEnviar = (evento: { key: string; preventDefault: () => void }) => {
 
 const descripcion = (autor: AutorDeLista) => (autor.credencial ? `${autor.nombre}, ${autor.credencial}` : autor.nombre)
 
+const cuantos = (total: number) =>
+  total === 0 ? "Nadie se llama así todavía." : total === 1 ? "1 autor" : `${total} autores`
+
 /** Search an author by name or alias, or add one ("Autor nuevo"); whoever holds it only ever sees the picked id. */
 export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }: Propiedades) {
   const [autores, setAutores] = useState(iniciales)
@@ -44,52 +53,93 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
   const [nombre, setNombre] = useState("")
   const [credencial, setCredencial] = useState("")
   const [tipo, setTipo] = useState<TipoDeAutorNuevo>("persona")
-  const [error, setError] = useState<string | null>(null)
-  const [guardando, setGuardando] = useState(false)
   const [cambiando, setCambiando] = useState(false)
+  /** "Ya existía como …": the new name was an author she already had. */
+  const [yaExistia, setYaExistia] = useState<string | null>(null)
+  const [enfocar, setEnfocar] = useState<"busqueda" | "cambiar" | null>(null)
+  const busqueda = useRef<HTMLInputElement>(null)
+  const cambiar = useRef<HTMLButtonElement>(null)
+  const { pendiente: guardando, error, ejecutar, limpiarError } = useAccion()
 
   const elegido = autores.find((autor) => autor.id === valor)
+  const mostrandoElegido = elegido !== undefined && !cambiando
+
+  // The element to focus only exists after the render that shows it (and, after choosing, after the parent takes the id).
+  useEffect(() => {
+    const destino =
+      enfocar === "busqueda" ? busqueda.current : enfocar === "cambiar" && mostrandoElegido ? cambiar.current : null
+    if (!destino) return
+    destino.focus()
+    setEnfocar(null)
+  }, [enfocar, mostrandoElegido])
 
   function elegir(id: string) {
     setCambiando(false)
     setCreando(false)
-    setError(null)
+    limpiarError()
+    setEnfocar("cambiar")
     alElegir(id)
+  }
+
+  function abrirBusqueda() {
+    setYaExistia(null)
+    setCambiando(true)
+    setEnfocar("busqueda")
+  }
+
+  function dejarElActual() {
+    setCambiando(false)
+    setCreando(false)
+    setTexto("")
+    setEnfocar("cambiar")
   }
 
   function empezarNuevo() {
     setNombre(texto.trim())
     setCredencial("")
     setTipo("persona")
-    setError(null)
+    limpiarError()
     setCreando(true)
   }
 
-  async function crear() {
-    setError(null)
-    setGuardando(true)
-    const resultado = await alCrear({ nombre, credencial, tipo })
-    setGuardando(false)
-    if (!resultado.ok) {
-      setError(resultado.error)
-      return
-    }
-    const { autor } = resultado
-    setAutores((actuales) => (actuales.some((actual) => actual.id === autor.id) ? actuales : [...actuales, autor]))
-    setTexto("")
-    elegir(autor.id)
+  function crear() {
+    const conocidos = autores
+    ejecutar(
+      async () => {
+        try {
+          return await alCrear({ nombre, credencial, tipo })
+        } catch (fallo) {
+          // A rejected action (the network, the server) must not leave the button spinning or break the screen.
+          console.error("No pude crear el autor", fallo)
+          return { ok: false, error: ERROR_GENERICO }
+        }
+      },
+      ({ autor }) => {
+        // crear_autor answers the existing author when the name or one of its aliases was already taken.
+        const existente = conocidos.find((actual) => actual.id === autor.id)
+        if (!existente) setAutores([...conocidos, autor])
+        setYaExistia(existente ? `Ya existía como ${existente.nombre}; lo elegí.` : null)
+        setTexto("")
+        elegir(autor.id)
+      },
+    )
   }
 
-  if (elegido && !cambiando) {
+  if (elegido && mostrandoElegido) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3.5 shadow-hundido">
-        <p className="grid text-cuerpo">
-          <span className="font-semibold text-tinta">{elegido.nombre}</span>
-          {elegido.credencial ? <span className="text-meta text-apagado">{elegido.credencial}</span> : null}
-        </p>
-        <Boton variante="callado" onClick={() => setCambiando(true)} aria-label="Cambiar autor">
-          Cambiar
-        </Boton>
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3.5 shadow-hundido">
+          <p className="grid text-cuerpo">
+            <span className="font-semibold text-tinta">{elegido.nombre}</span>
+            {elegido.credencial ? <span className="text-meta text-apagado">{elegido.credencial}</span> : null}
+          </p>
+          <Boton ref={cambiar} variante="callado" onClick={abrirBusqueda} aria-label="Cambiar autor">
+            Cambiar
+          </Boton>
+        </div>
+        <output aria-live="polite" className="block text-meta text-apagado">
+          {yaExistia}
+        </output>
       </div>
     )
   }
@@ -103,6 +153,7 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
             id="autor-nombre"
             type="text"
             autoComplete="off"
+            maxLength={LARGO_DE_AUTOR_NUEVO}
             value={nombre}
             aria-describedby="autor-nombre-ayuda"
             onKeyDown={sinEnviar}
@@ -131,6 +182,7 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
             id="autor-credencial"
             type="text"
             autoComplete="off"
+            maxLength={LARGO_DE_AUTOR_NUEVO}
             value={credencial}
             aria-describedby="autor-credencial-ayuda"
             onKeyDown={sinEnviar}
@@ -155,10 +207,17 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
           </select>
         </Campo>
         {error ? <LineaDeError>{error}</LineaDeError> : null}
-        <Boton variante="secundario" cargando={guardando} onClick={() => void crear()}>
+        <Boton variante="secundario" cargando={guardando} onClick={crear}>
           Crear autor
         </Boton>
-        <Boton variante="callado" deshabilitado={guardando} onClick={() => setCreando(false)}>
+        <Boton
+          variante="callado"
+          deshabilitado={guardando}
+          onClick={() => {
+            limpiarError()
+            setCreando(false)
+          }}
+        >
           Volver a buscar
         </Boton>
       </div>
@@ -170,6 +229,7 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
     <div className="grid gap-3">
       <Campo id="autor-busqueda" etiqueta="Autor" ayuda="Busca por nombre o alias.">
         <input
+          ref={busqueda}
           id="autor-busqueda"
           type="search"
           autoComplete="off"
@@ -180,9 +240,11 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
           className={CLASES_DE_CAMPO}
         />
       </Campo>
-      {encontrados.length === 0 ? (
-        <p className="text-cuerpo text-apagado">Nadie se llama así todavía.</p>
-      ) : (
+      {/* One live line for both cases: the count is only heard, the empty message is also seen. */}
+      <output aria-live="polite" className={encontrados.length === 0 ? "block text-cuerpo text-apagado" : "sr-only"}>
+        {cuantos(encontrados.length)}
+      </output>
+      {encontrados.length === 0 ? null : (
         <ul className="grid gap-2">
           {encontrados.slice(0, MAXIMO_DE_RESULTADOS).map((autor) => (
             <li key={autor.id}>
@@ -205,6 +267,11 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
       <Boton variante="secundario" tamano="chico" className="w-fit" onClick={empezarNuevo}>
         Autor nuevo
       </Boton>
+      {elegido ? (
+        <Boton variante="callado" tamano="chico" className="w-fit" onClick={dejarElActual}>
+          Dejar a {elegido.nombre}
+        </Boton>
+      ) : null}
     </div>
   )
 }

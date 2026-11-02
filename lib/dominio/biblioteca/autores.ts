@@ -41,3 +41,6 @@ export function autoresParecidos(autores: AutorDeLista[], nombre: string): Autor
     ),
   )
 }
+
+/** The longest name or credential a new author takes: the picker's `maxLength` and the action's `AutorNuevo`. */
+export const LARGO_DE_AUTOR_NUEVO = 200

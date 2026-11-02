@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
-import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
+import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
 import { Falla } from "@/lib/dominio/falla"
@@ -23,8 +23,8 @@ export interface DepsBiblioteca {
 export const SobreMaterial = z.object({ materialId: z.uuid() })
 export const EdicionDeMaterial = z.object({ materialId: z.uuid(), autorId: z.uuid(), rol: z.enum(ROLES) })
 export const AutorNuevo = z.object({
-  nombre: z.string().max(200),
-  credencial: z.string().max(200),
+  nombre: z.string().max(LARGO_DE_AUTOR_NUEVO),
+  credencial: z.string().max(LARGO_DE_AUTOR_NUEVO),
   tipo: z.enum(TIPOS_DE_AUTOR_NUEVO),
 })
 

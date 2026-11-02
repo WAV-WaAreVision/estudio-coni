@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn(), replace: vi.fn() }) }))
+
 import { SelectorDeAutor } from "@/app/(app)/biblioteca/selector-de-autor"
-import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
+import { ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
+import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 
 const autor = (id: string, nombre: string, credencial: string | null = null): AutorDeLista => ({
   id,
@@ -11,6 +16,8 @@ const autor = (id: string, nombre: string, credencial: string | null = null): Au
   alias: [],
 })
 const AUTORES = [autor("1", "Esther Perel", "Psicoterapeuta"), autor("2", "Instituto Gottman")]
+
+beforeEach(() => vi.clearAllMocks())
 
 describe("SelectorDeAutor", () => {
   it("shows the picked author and lets her change it", () => {
@@ -43,5 +50,78 @@ describe("SelectorDeAutor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Autor nuevo" }))
     fireEvent.click(screen.getByRole("button", { name: "Crear autor" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Escribe el nombre del autor.")
+  })
+
+  it("caps the new author's name and credential at what the action takes", () => {
+    render(<SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Autor nuevo" }))
+    expect(screen.getByLabelText("Nombre del autor")).toHaveAttribute("maxLength", String(LARGO_DE_AUTOR_NUEVO))
+    expect(screen.getByLabelText(/Credencial/)).toHaveAttribute("maxLength", String(LARGO_DE_AUTOR_NUEVO))
+  })
+
+  it("does not stay saving when the action is rejected, and says it", async () => {
+    const alCrear = vi.fn(async () => {
+      throw new Error("red caída")
+    })
+    render(<SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={alCrear} />)
+    fireEvent.click(screen.getByRole("button", { name: "Autor nuevo" }))
+    fireEvent.change(screen.getByLabelText("Nombre del autor"), { target: { value: "Nueva" } })
+    fireEvent.click(screen.getByRole("button", { name: "Crear autor" }))
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole("button", { name: "Crear autor" })).not.toHaveAttribute("aria-busy"))
+  })
+
+  it("sends her to sign in again when the session ended", async () => {
+    const alCrear = vi.fn(async () => ({ ok: false as const, error: ERROR_SESION_VENCIDA }))
+    render(<SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={alCrear} />)
+    fireEvent.click(screen.getByRole("button", { name: "Autor nuevo" }))
+    fireEvent.change(screen.getByLabelText("Nombre del autor"), { target: { value: "Nueva" } })
+    fireEvent.click(screen.getByRole("button", { name: "Crear autor" }))
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/ingreso"))
+  })
+
+  it("says so when the new name was an author she already had, and picks that one", async () => {
+    const conAlias = { ...autor("2", "Instituto Gottman"), alias: ["Gottman Institute"] }
+    const alElegir = vi.fn()
+    const alCrear = vi.fn(async () => ({ ok: true as const, autor: conAlias }))
+    const { rerender } = render(
+      <SelectorDeAutor autores={[AUTORES[0], conAlias]} valor="" alElegir={alElegir} alCrear={alCrear} />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Autor nuevo" }))
+    fireEvent.change(screen.getByLabelText("Nombre del autor"), { target: { value: "The Gottman Institute" } })
+    fireEvent.click(screen.getByRole("button", { name: "Crear autor" }))
+    await waitFor(() => expect(alElegir).toHaveBeenCalledWith("2"))
+    rerender(<SelectorDeAutor autores={[AUTORES[0], conAlias]} valor="2" alElegir={alElegir} alCrear={alCrear} />)
+    expect(screen.getByText("Ya existía como Instituto Gottman; lo elegí.")).toBeInTheDocument()
+  })
+
+  it("announces how many authors the search finds, or that nobody is called that", () => {
+    render(<SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={vi.fn()} />)
+    const estado = screen.getByRole("status")
+    expect(estado).toHaveAttribute("aria-live", "polite")
+    expect(estado).toHaveTextContent("2 autores")
+    fireEvent.change(screen.getByLabelText("Autor"), { target: { value: "gott" } })
+    expect(estado).toHaveTextContent("1 autor")
+    fireEvent.change(screen.getByLabelText("Autor"), { target: { value: "zzz" } })
+    expect(estado).toHaveTextContent("Nadie se llama así todavía.")
+  })
+
+  it("focuses the search when Cambiar opens it, and Cambiar again after choosing", () => {
+    const { rerender } = render(<SelectorDeAutor autores={AUTORES} valor="1" alElegir={vi.fn()} alCrear={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor" }))
+    expect(screen.getByLabelText("Autor")).toHaveFocus()
+    fireEvent.click(screen.getByRole("button", { name: "Instituto Gottman" }))
+    rerender(<SelectorDeAutor autores={AUTORES} valor="2" alElegir={vi.fn()} alCrear={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "Cambiar autor" })).toHaveFocus()
+  })
+
+  it("lets her keep the current author from the search", () => {
+    const alElegir = vi.fn()
+    render(<SelectorDeAutor autores={AUTORES} valor="1" alElegir={alElegir} alCrear={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor" }))
+    fireEvent.click(screen.getByRole("button", { name: "Dejar a Esther Perel" }))
+    expect(screen.getByText("Esther Perel")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Cambiar autor" })).toHaveFocus()
+    expect(alElegir).not.toHaveBeenCalled()
   })
 })
