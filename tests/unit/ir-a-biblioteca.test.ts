@@ -57,6 +57,7 @@ describe("/ir-a-biblioteca", () => {
   })
 
   it("sends Coni to the plain failure page when INGESTA_URL is missing", async () => {
+    vi.stubEnv("INGESTA_URL", "")
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     leerSesion.mockResolvedValue(CONI)
     const { GET } = await import("@/app/ir-a-biblioteca/route")
