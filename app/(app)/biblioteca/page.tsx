@@ -1,7 +1,6 @@
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { Panel } from "@/components/ui/panel"
 import { contarPorEstado, leerPanelDelMaterial, listarAutores, listarMateriales } from "@/lib/datos/biblioteca"
-import { estaProcesando } from "@/lib/dominio/biblioteca/estado"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
 import { FiltrosRapidos } from "./filtros-rapidos"
@@ -12,7 +11,7 @@ import { PanelDeMaterial, PistaDelPanel } from "./panel-de-material"
 import { TablaDeMateriales } from "./tabla-de-materiales"
 import { TarjetaDeMaterial } from "./tarjeta-de-material"
 
-/** While anything is really processing, the list asks the server again every 10 s. */
+/** While any material is really working (anywhere, not only in the filtered list), the list asks again every 10 s. */
 const REFRESCO_MS = 10_000
 
 export default async function Materiales({
@@ -34,7 +33,7 @@ export default async function Materiales({
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_22rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
-      <RefrescoAutomatico activo={materiales.some(estaProcesando)} cadaMs={REFRESCO_MS} />
+      <RefrescoAutomatico activo={conteos.trabajando > 0} cadaMs={REFRESCO_MS} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
         <NavDeBiblioteca actual="materiales" />

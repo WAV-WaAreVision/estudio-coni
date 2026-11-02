@@ -85,17 +85,32 @@ export async function listarMateriales(db: Db, filtros: FiltrosDeMateriales): Pr
  * every `procesando` row on purpose, so it includes the ones in pause and the ones waiting for Coni's OK: they are the
  * same database state, and the filter that the count sits on lists exactly those rows too.
  */
-export async function contarPorEstado(db: Db): Promise<{ procesando: number; fallido: number }> {
-  const contar = async (estado: "procesando" | "fallido") => {
-    const { count, error } = await db
-      .from("materiales")
-      .select("id", { count: "exact", head: true })
-      .eq("estado", estado)
-    if (error) throw new Error(`No pude contar los materiales ${estado}: ${error.message}`, { cause: error })
+/**
+ * The quick filters' counts, and `trabajando`: the materials really working (processing with no reason and no cost
+ * waiting for her OK). "Procesando" counts the paused and waiting ones too; only a working one keeps the list asking.
+ */
+export async function contarPorEstado(db: Db): Promise<{ procesando: number; fallido: number; trabajando: number }> {
+  const contar = async (
+    nombre: string,
+    consulta: PromiseLike<{ count: number | null; error: { message: string } | null }>,
+  ) => {
+    const { count, error } = await consulta
+    if (error) throw new Error(`No pude contar los materiales ${nombre}: ${error.message}`, { cause: error })
     return count ?? 0
   }
-  const [procesando, fallido] = await Promise.all([contar("procesando"), contar("fallido")])
-  return { procesando, fallido }
+  const cuantos = () => db.from("materiales").select("id", { count: "exact", head: true })
+  const [procesando, fallido, trabajando] = await Promise.all([
+    contar("procesando", cuantos().eq("estado", "procesando")),
+    contar("fallido", cuantos().eq("estado", "fallido")),
+    contar(
+      "trabajando",
+      cuantos()
+        .eq("estado", "procesando")
+        .is("motivo_fallo", null)
+        .or("costo_estimado_usd.is.null,costo_confirmado_en.not.is.null"),
+    ),
+  ])
+  return { procesando, fallido, trabajando }
 }
 
 export interface MaterialLeido extends Omit<MaterialDeLista, "tema"> {

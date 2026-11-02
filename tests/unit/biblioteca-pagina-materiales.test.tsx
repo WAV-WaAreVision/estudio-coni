@@ -6,7 +6,7 @@ const { esConi, datos } = vi.hoisted(() => ({
   esConi: { valor: false },
   datos: {
     listarMateriales: vi.fn(async () => []),
-    contarPorEstado: vi.fn(async () => ({ procesando: 0, fallido: 0 })),
+    contarPorEstado: vi.fn(async () => ({ procesando: 0, fallido: 0, trabajando: 0 })),
     listarAutores: vi.fn(async () => []),
     leerPanelDelMaterial: vi.fn(async () => null),
   },
@@ -68,5 +68,20 @@ describe("the Materiales page", () => {
     const aside = arbol.find((elemento) => elemento.type === "aside")
     expect(aside?.props.className).toContain("md:max-h-[calc(100dvh-7rem)]")
     expect(aside?.props.className).toContain("md:overflow-y-auto")
+  })
+
+  it("keeps asking while anything is really working, even outside the filtered list", async () => {
+    esConi.valor = true
+    datos.contarPorEstado.mockResolvedValueOnce({ procesando: 1, fallido: 0, trabajando: 1 })
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ estado: "listo" }) }))
+    const refresco = arbol.find((elemento) => elemento.type === RefrescoAutomatico)
+    expect(refresco?.props.activo).toBe(true)
+  })
+
+  it("stops asking when what processes is only paused or waiting for her OK", async () => {
+    esConi.valor = true
+    datos.contarPorEstado.mockResolvedValueOnce({ procesando: 2, fallido: 0, trabajando: 0 })
+    const arbol = elementos(await Materiales({ searchParams: sinFiltros() }))
+    expect(arbol.find((elemento) => elemento.type === RefrescoAutomatico)?.props.activo).toBe(false)
   })
 })
