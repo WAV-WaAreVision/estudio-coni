@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }) }))
+const { push } = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push, refresh: vi.fn() }) }))
 
 import { FiltrosRapidos } from "@/app/(app)/biblioteca/filtros-rapidos"
 import { MasFiltros } from "@/app/(app)/biblioteca/mas-filtros"
@@ -62,10 +62,27 @@ describe("MasFiltros", () => {
   it("opens by itself and offers to clear when a folded filter is on", () => {
     const { container } = render(<MasFiltros filtros={{ estado: "listo", rol: "evidencia" }} autores={autores} />)
     expect(container.querySelector("details")).toHaveAttribute("open")
-    expect(screen.getByText("1 activo")).toBeInTheDocument()
+    expect(screen.getByText("Más filtros · 1")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Quitar estos filtros" })).toHaveAttribute(
       "href",
       "/biblioteca?estado=listo",
     )
+  })
+
+  it("is a chip that opens below, so it can sit in the row of the quick filters", () => {
+    const { container } = render(<MasFiltros filtros={{}} autores={autores} />)
+    const detalle = container.querySelector("details")
+    expect(detalle).toHaveClass("open:basis-full")
+    expect(detalle?.querySelector("summary")).toHaveClass("min-h-objetivo")
+    expect(detalle?.querySelector("summary svg")).not.toBeNull()
+  })
+
+  it("sends only the filters she chose: an empty select stays out of the address", () => {
+    const { container } = render(<MasFiltros filtros={{ estado: "listo" }} autores={autores} />)
+    fireEvent.change(screen.getByLabelText("¿Quién es para ti?"), { target: { value: "evidencia" } })
+    const formulario = container.querySelector("form")
+    if (!formulario) throw new Error("Falta el formulario")
+    fireEvent.submit(formulario)
+    expect(push).toHaveBeenCalledWith("/biblioteca?rol=evidencia&estado=listo", { scroll: false })
   })
 })

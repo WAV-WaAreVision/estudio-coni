@@ -9,6 +9,8 @@ import { TemaDelMaterial } from "./tema-del-material"
 
 const COLUMNAS = ["Material", "Tipo", "Autor", "Tema", "Estado", "Subido"] as const
 const CELDA = "px-3 py-3 text-cuerpo"
+// Type, author, state and date are short: on one line, so the title column is the one that wraps.
+const CORTA = `${CELDA} whitespace-nowrap`
 
 interface Propiedades {
   materiales: MaterialDeLista[]
@@ -50,15 +52,15 @@ export function TablaDeMateriales({ materiales, filtros, seleccion, ahora }: Pro
                   {material.titulo ?? "Sin título"}
                 </Link>
               </th>
-              <td className={CELDA}>{etiquetaDeTipo(material.tipo)}</td>
-              <td className={CELDA}>{material.autor}</td>
+              <td className={CORTA}>{etiquetaDeTipo(material.tipo)}</td>
+              <td className={CORTA}>{material.autor}</td>
               <td className={CELDA}>
                 <TemaDelMaterial tema={material.tema} />
               </td>
-              <td className={CELDA}>
+              <td className={CORTA}>
                 <EstadoDeMaterial material={material} />
               </td>
-              <td data-snapshot="varia" className="px-3 py-3 text-meta text-apagado">
+              <td data-snapshot="varia" className="whitespace-nowrap px-3 py-3 text-meta text-apagado">
                 {subidoHace(material.creado_en, ahora, ZONA_DE_LA_BIBLIOTECA)}
               </td>
             </tr>

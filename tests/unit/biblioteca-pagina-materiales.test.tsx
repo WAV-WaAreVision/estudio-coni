@@ -84,4 +84,10 @@ describe("the Materiales page", () => {
     const arbol = elementos(await Materiales({ searchParams: sinFiltros() }))
     expect(arbol.find((elemento) => elemento.type === RefrescoAutomatico)?.props.activo).toBe(false)
   })
+
+  it("narrows the panel's column to 20rem so the table breathes on a computer", async () => {
+    esConi.valor = true
+    const [raiz] = elementos(await Materiales({ searchParams: sinFiltros() }))
+    expect(raiz?.props.className).toContain("md:grid-cols-[minmax(0,1fr)_20rem]")
+  })
 })

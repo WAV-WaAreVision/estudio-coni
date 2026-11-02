@@ -47,4 +47,11 @@ describe("TablaDeMateriales", () => {
     expect(screen.getByRole("link", { name: "Burnout" })).toHaveAttribute("aria-current", "true")
     expect(screen.getByRole("link", { name: "Pausas" })).not.toHaveAttribute("aria-current")
   })
+
+  it("keeps the short columns on one line, so the title column is the one that wraps", () => {
+    render(<TablaDeMateriales materiales={materiales} filtros={{}} seleccion={null} ahora={AHORA} />)
+    const celdas = screen.getAllByRole("row")[1]?.querySelectorAll("td") ?? []
+    const [tipo, autor, , estado, subido] = Array.from(celdas)
+    for (const celda of [tipo, autor, estado, subido]) expect(celda).toHaveClass("whitespace-nowrap")
+  })
 })

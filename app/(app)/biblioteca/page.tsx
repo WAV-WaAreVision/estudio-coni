@@ -31,14 +31,16 @@ export default async function Materiales({
   const ahora = Date.now()
 
   return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_22rem] md:items-start md:gap-8">
+    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
       <RefrescoAutomatico activo={conteos.trabajando > 0} cadaMs={REFRESCO_MS} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
         <NavDeBiblioteca actual="materiales" />
-        <FiltrosRapidos filtros={filtros} conteos={conteos} />
-        <MasFiltros filtros={filtros} autores={autores} />
+        <div className="flex flex-wrap items-start gap-2">
+          <FiltrosRapidos filtros={filtros} conteos={conteos} />
+          <MasFiltros filtros={filtros} autores={autores} />
+        </div>
         {materiales.length === 0 ? (
           <p className="text-cuerpo text-apagado">
             {hayFiltros(filtros)
