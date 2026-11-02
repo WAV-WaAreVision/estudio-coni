@@ -2210,7 +2210,7 @@ describe("/ir-a-biblioteca", () => {
     expect(respuesta.status).toBe(200)
     expect(respuesta.headers.get("content-type")).toBe("text/html; charset=utf-8")
     expect(respuesta.headers.get("cache-control")).toBe("no-store")
-    expect(respuesta.headers.get("referrer-policy")).toBe("no-referrer")
+    expect(respuesta.headers.get("referrer-policy")).toBe("strict-origin")
     expect(respuesta.headers.get("location")).toBeNull()
     expect(generateLink).toHaveBeenCalledWith({ type: "magiclink", email: "coni@estudio.test" })
     const html = await respuesta.text()
@@ -2301,7 +2301,7 @@ export async function GET() {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      "referrer-policy": "no-referrer",
+      "referrer-policy": "strict-origin",
     },
   })
 }
@@ -3002,7 +3002,7 @@ Push only with Federico's OK (a docs-only commit on `main` publishes nothing new
 | 1. `PESTANAS` 4th entry, Phosphor `Books`, 4 columns, never current, 375 px and desktop check, baselines | Task 17 (Steps 3, 5, 7) |
 | 1. `app/ir-a-biblioteca/route.ts` GET, outside `(app)`, Coni only, redirect others to `/`, sign-in for no session | Task 15 |
 | 1. generateLink magiclink with Coni's email from her session, no email | Tasks 14, 15 (P2), 18 |
-| 1. HTML form, hidden field, self-submit, "Abrir la Biblioteca" fallback, `no-store`, `no-referrer`, token never in URL/log/error | Tasks 14, 15, 19 |
+| 1. HTML form, hidden field, self-submit, "Abrir la Biblioteca" fallback, `no-store`, `strict-origin` (so Ingesta's Origin check works), token never in URL/log/error | Tasks 14, 15, 19 |
 | 1. Failure page copy, "Volver a intentar" and Inicio, cause to the log without token | Tasks 14, 16 (P1) |
 | 1. `INGESTA_URL` in Vercel and `.env.example` | Task 15, Task 22 Step 4 |
 | 1. `lib/sesion/puente.ts` with injected deps, unit-tested | Task 14 |

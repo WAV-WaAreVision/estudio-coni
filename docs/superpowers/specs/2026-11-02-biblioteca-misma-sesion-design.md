@@ -29,7 +29,9 @@ Stage 2 (#17) later moves the screens into Conidolly; nothing here is built only
      It must not send an email (B11, verified in a local integration test that checks the local Inbucket/Mailpit stays empty).
   3. Answer an HTML page that holds `token_hash` in a hidden field of a form that POSTs to
      `${INGESTA_URL}/ingreso/puente` and submits itself on load, with a visible "Abrir la Biblioteca" button as the
-     no-JavaScript fallback. Headers: `Cache-Control: no-store`, `Referrer-Policy: no-referrer`.
+     no-JavaScript fallback. Headers: `Cache-Control: no-store`, `Referrer-Policy: strict-origin` (not `no-referrer`: with
+     it the browser sends `Origin: null` on the cross-site POST and Ingesta's Origin check could never pass; the token is in
+     the body, so `strict-origin` leaks nothing).
   The token never appears in a URL, a log line or an error message.
 - Failure (generateLink error, missing `INGESTA_URL`): a page in plain Spanish, "No pude abrir la Biblioteca. Vuelve a
   intentarlo en un momento.", with a "Volver a intentar" link to `/ir-a-biblioteca` and one to Inicio; the cause goes to the
@@ -53,6 +55,11 @@ Stage 2 (#17) later moves the screens into Conidolly; nothing here is built only
 - A "Volver a Conidolly" link, shown only when the role is `coni`, in Ingesta's main navigation, to `CONIDOLLY_URL`
   (new env var, Vercel and `.env.example`).
 - `Referrer-Policy: no-referrer` on the bridge response. No logging of the body.
+- **Origin check (added after the review of tasks 1-6):** the POST is accepted only when its `Origin` equals the origin of
+  `CONIDOLLY_URL`; otherwise 303 to `/ingreso` without touching cookies or Auth, so a forged POST from another site cannot
+  sign WAV or Coni out. Bodies over 2 KB or with another content type are refused the same way before parsing, and an
+  exception from Auth ends on the expired-link page instead of a 500. `CONIDOLLY_URL` is used only when it parses as an
+  `https:` URL (`http:` outside production), and its origin is the link's href.
 
 ## 3. Ingesta: style
 
