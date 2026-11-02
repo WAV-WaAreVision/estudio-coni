@@ -1,0 +1,85 @@
+import Link from "next/link"
+import { Seccion } from "@/components/seccion"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
+import { Panel } from "@/components/ui/panel"
+import type { PanelDelMaterial } from "@/lib/datos/biblioteca"
+import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
+import { esperaConfirmacion, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
+import { subidoEnFrase, ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"
+import { type FiltrosDeMateriales, hrefDeLista } from "@/lib/dominio/biblioteca/filtros"
+import { etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
+import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
+import { BotonConfirmarCosto } from "./boton-confirmar-costo"
+import { BotonReintentar } from "./boton-reintentar"
+import { EstadoDeMaterial } from "./estado-de-material"
+
+interface Propiedades {
+  panel: PanelDelMaterial
+  filtros: FiltrosDeMateriales
+  ahora: number
+}
+
+/** The computer's side panel (spec 3): what a material gave, who it is for her, and WAV's detail folded. */
+export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
+  const { material, ideas, evidencia } = panel
+  const quien = material.credencial ? `${material.autor} · ${material.credencial}` : material.autor
+  return (
+    <section aria-labelledby="panel-titulo" className="grid gap-4 rounded-panel bg-piedra-alta p-5">
+      <div className="flex flex-wrap items-center gap-2 text-meta text-apagado">
+        <span data-snapshot="varia">
+          {`${etiquetaDeTipo(material.tipo)} · ${subidoEnFrase(material.creado_en, ahora, ZONA_DE_LA_BIBLIOTECA)}`}
+        </span>
+        <EstadoDeMaterial material={material} />
+      </div>
+      <h2 id="panel-titulo" className="text-pieza text-balance">
+        {material.titulo ?? "Sin título"}
+      </h2>
+      <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total}>
+        {ideas.primeras.length === 0 ? (
+          <p className="text-cuerpo text-apagado">
+            {material.estado === "listo"
+              ? "Este material no dejó ideas."
+              : "Las ideas aparecen cuando termina de procesarse."}
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {ideas.primeras.map((idea, indice) => (
+              // The first two ideas are a fixed list, replaced whole on every render: the position is its identity.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see above
+              <li key={indice} className="text-cuerpo">{`«${idea}»`}</li>
+            ))}
+          </ul>
+        )}
+        {ideas.total > 0 ? (
+          <Link href={`/biblioteca/materiales/${material.id}`} className={clasesDeBoton({ variante: "callado" })}>
+            Ver todas
+          </Link>
+        ) : null}
+      </Seccion>
+      <Seccion titulo={PALABRAS.papel} id="panel-quien">
+        <p className="text-cuerpo">{quien}</p>
+        <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
+      </Seccion>
+      {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (
+        <BotonConfirmarCosto materialId={material.id} costoUsd={material.costo_estimado_usd} />
+      ) : null}
+      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
+      <DetalleParaWav lineas={lineasParaWav(material, evidencia)} proveedor={null} />
+      <Link href={hrefDeLista(filtros)} scroll={false} className={clasesDeBoton({ variante: "callado" })}>
+        Cerrar el panel
+      </Link>
+    </section>
+  )
+}
+
+/** With no `?m`, the panel says what it is for. */
+export function PistaDelPanel() {
+  return (
+    <Panel>
+      <p className="text-cuerpo text-apagado">
+        Elige un material de la tabla para ver aquí sus ideas y quién es para ti.
+      </p>
+    </Panel>
+  )
+}
