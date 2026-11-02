@@ -71,10 +71,17 @@ describe("subidoHace (D7, America/Santiago)", () => {
     ["2026-11-02T02:30:00Z", "Ayer"],
     ["2026-10-31T12:00:00Z", "Hace 2 días"],
     ["2026-10-27T12:00:00Z", "Hace 6 días"],
+    ["2026-10-26T12:00:00Z", "26 de octubre"],
     ["2026-10-20T12:00:00Z", "20 de octubre"],
     ["2025-12-24T12:00:00Z", "24 de diciembre de 2025"],
   ])("says %s as «%s»", (instante, texto) => {
     expect(subidoHace(instante, AHORA, ZONA_DE_LA_BIBLIOTECA)).toBe(texto)
+  })
+
+  it("counts calendar days across Chile's September clock change, not elapsed hours", () => {
+    // Clocks jump from UTC-4 to UTC-3 on 6 Sep 2026: 5 Sep 23:30 to 7 Sep 00:30 local is only 24 hours apart.
+    const DESPUES_DEL_CAMBIO = Date.parse("2026-09-07T03:30:00Z")
+    expect(subidoHace("2026-09-06T03:30:00Z", DESPUES_DEL_CAMBIO, ZONA_DE_LA_BIBLIOTECA)).toBe("Hace 2 días")
   })
 
   it("puts it in a sentence for the side panel", () => {
