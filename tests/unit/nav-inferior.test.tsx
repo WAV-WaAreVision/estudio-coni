@@ -1,9 +1,18 @@
 import { render, screen } from "@testing-library/react"
+import type { ComponentProps } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NavInferior } from "@/components/nav-inferior"
 
 const usePathname = vi.hoisted(() => vi.fn<() => string>())
 vi.mock("next/navigation", () => ({ usePathname }))
+vi.mock("next/link", () => ({
+  // Marks every Next <Link>: the tabs that leave the app must stay plain links (a <Link> would prefetch and mint).
+  default: ({ children, ...props }: ComponentProps<"a">) => (
+    <a data-next-link="" {...props}>
+      {children}
+    </a>
+  ),
+}))
 
 describe("NavInferior", () => {
   beforeEach(() => {
@@ -27,6 +36,13 @@ describe("NavInferior", () => {
     expect(biblioteca).toHaveAttribute("href", "/ir-a-biblioteca")
     expect(biblioteca).not.toHaveAttribute("aria-current")
     expect(biblioteca).toHaveClass("text-apagado", "min-h-nav")
+  })
+
+  it("keeps the Biblioteca a plain link while the tabs inside the app stay Next links", () => {
+    render(<NavInferior />)
+
+    expect(screen.getByRole("link", { name: "Biblioteca" })).not.toHaveAttribute("data-next-link")
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("data-next-link")
   })
 
   it("marks the current tab", () => {
