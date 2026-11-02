@@ -1,3 +1,6 @@
+// @vitest-environment node
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { FILAS_POR_PAGINA, leerTodas } from "@/lib/datos/paginas"
 
@@ -33,5 +36,12 @@ describe("leerTodas (keyset by id)", () => {
     await expect(leerTodas("las pruebas", async () => ({ data: null, error: { message: "boom" } }))).rejects.toThrow(
       "No pude leer las pruebas: boom",
     )
+  })
+})
+
+describe("FILAS_POR_PAGINA", () => {
+  it("equals PostgREST's max_rows in supabase/config.toml, or a short page would stop the read early", () => {
+    const config = readFileSync(join(__dirname, "..", "..", "supabase", "config.toml"), "utf-8")
+    expect(config.match(/^max_rows = (\d+)$/m)?.[1]).toBe(String(FILAS_POR_PAGINA))
   })
 })
