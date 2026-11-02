@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Eleccion } from "@/components/ui/filas"
 import { LineaDeError } from "@/components/ui/linea-de-error"
@@ -19,7 +19,10 @@ interface Propiedades {
   autores: AutorDeLista[]
   autorId: string
   rol: Rol
-  /** Its ideas were taken with the author and role it had: a change reaches them only by reprocessing. */
+  /**
+   * It has a processed result (ideas or a strategy card), made with the author and role it had: a change reaches it only
+   * by reprocessing.
+   */
   conIdeas: boolean
 }
 
@@ -28,14 +31,31 @@ export function EditarAutorYRol({ materialId, autores, autorId: inicial, rol: ro
   const [autorId, setAutorId] = useState(inicial)
   const [rol, setRol] = useState<Rol>(rolInicial)
   const [aviso, setAviso] = useState<string | null>(null)
+  // Closing unmounts the focused button: the focus goes to the notice when there is one, else to the button that opened.
+  const [enfocar, setEnfocar] = useState<"aviso" | "abrir" | null>(null)
+  const lineaDeAviso = useRef<HTMLDivElement>(null)
+  const abrir = useRef<HTMLButtonElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
 
+  useEffect(() => {
+    if (enfocar === null || abierto) return
+    ;(enfocar === "aviso" ? lineaDeAviso.current : abrir.current)?.focus()
+    setEnfocar(null)
+  }, [enfocar, abierto])
+
   function guardar() {
+    if (autorId === inicial && rol === rolInicial) {
+      limpiarError()
+      setAbierto(false)
+      setEnfocar("abrir")
+      return
+    }
     ejecutar(
       () => editarMaterialAccion({ materialId, autorId, rol }),
       () => {
         setAbierto(false)
         setAviso(conIdeas ? AVISO_REPROCESAR : null)
+        setEnfocar(conIdeas ? "aviso" : "abrir")
       },
     )
   }
@@ -45,13 +65,18 @@ export function EditarAutorYRol({ materialId, autores, autorId: inicial, rol: ro
     setRol(rolInicial)
     limpiarError()
     setAbierto(false)
+    setEnfocar("abrir")
   }
 
   if (!abierto) {
     return (
       <div className="grid gap-2">
-        {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} /> : null}
-        <Boton variante="secundario" tamano="chico" className="w-fit" onClick={() => setAbierto(true)}>
+        {aviso ? (
+          <div ref={lineaDeAviso} tabIndex={-1} className="outline-none">
+            <LineaDeEstado tipo="aviso" titulo={aviso} />
+          </div>
+        ) : null}
+        <Boton ref={abrir} variante="secundario" tamano="chico" className="w-fit" onClick={() => setAbierto(true)}>
           Cambiar autor o quién es para ti
         </Boton>
       </div>

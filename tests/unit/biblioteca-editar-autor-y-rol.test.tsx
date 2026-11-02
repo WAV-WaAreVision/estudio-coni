@@ -44,7 +44,26 @@ describe("EditarAutorYRol", () => {
     editarMaterialAccion.mockResolvedValueOnce({ ok: false, error: "Ese autor ya no existe. Elígelo de nuevo." })
     render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />)
     fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Ese autor ya no existe. Elígelo de nuevo.")
+  })
+
+  it("saving without a change just closes, without calling the action", () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(editarMaterialAccion).not.toHaveBeenCalled()
+    expect(screen.queryByText(AVISO_REPROCESAR)).toBeNull()
+    expect(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" })).toBeInTheDocument()
+  })
+
+  it("moves the focus to the reprocess notice after saving, so it is heard", async () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="estrategia" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Referente" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    const aviso = await screen.findByText(AVISO_REPROCESAR)
+    await waitFor(() => expect(aviso.closest("[tabindex='-1']")).toHaveFocus())
   })
 })

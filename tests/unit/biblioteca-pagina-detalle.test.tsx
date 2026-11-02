@@ -94,4 +94,39 @@ describe("the material detail page", () => {
     expect(volver?.props.children).toBe("Materiales")
     expect(datos.leerMapaDelMaterial).toHaveBeenCalledWith(expect.anything(), ID)
   })
+
+  const CAMBIASTE = "Cambiaste quién es para ti: reprocesa el material para verlo así."
+  const FICHA = {
+    resumen: "R",
+    ideasClave: ["Una", "Dos", "Tres", "Cuatro", "Cinco"],
+    citas: [],
+    fuente: { autor: null, anio: null, enlace: null },
+  }
+  const textos = (arbol: { props: Record<string, unknown> }[]) =>
+    arbol.flatMap((elemento) => [elemento.props.children, elemento.props.titulo]).filter((x) => typeof x === "string")
+
+  it("asks to reprocess, not a failure, for a strategy material that was processed with another role", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, rol: "estrategia" }, ficha: null })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(textos(arbol)).toContain(CAMBIASTE)
+    expect(textos(arbol)).not.toContain("No pude leer la ficha de este material. Avísale a Federico.")
+  })
+
+  it("asks to reprocess, not an empty map, for a material that has a card from when it was a strategy", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: FICHA })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(textos(arbol)).toContain(CAMBIASTE)
+    expect(arbol.some((elemento) => "mapa" in elemento.props)).toBe(false)
+  })
+
+  it("counts a strategy card as a processed result, so a change of role warns to reprocess", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, rol: "estrategia" }, ficha: FICHA })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(textos(arbol)).not.toContain(CAMBIASTE)
+    const editor = arbol.find((elemento) => "conIdeas" in elemento.props)
+    expect(editor?.props.conIdeas).toBe(true)
+  })
 })
