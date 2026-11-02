@@ -35,7 +35,7 @@ test("Coni opens her budget from Ajustes and moves her cap and her limit, logged
   const { rows: previos } = await pool.query("select coalesce(max(id), 0) as id from public.eventos")
   await gastado(12.8)
   await page.goto("/ajustes")
-  await page.getByRole("link", { name: "Presupuesto · US$ 13 de 40" }).click()
+  await page.getByRole("link", { name: "Presupuesto · US$ 12 de 40" }).click()
 
   await expect(page.getByRole("heading", { name: "Presupuesto", level: 1 })).toBeVisible()
   await expect(page.getByText("Llevas US$ 12,80 de tu tope de US$ 40,00 este mes")).toBeVisible()

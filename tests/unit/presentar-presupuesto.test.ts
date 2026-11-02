@@ -37,6 +37,23 @@ describe("presentarPresupuesto", () => {
     expect(presentarPresupuesto({ ...BASE, usado: 32 }).tono).toBe("aviso")
   })
 
+  it("decides the tone on the cents it shows", () => {
+    expect(presentarPresupuesto({ ...BASE, usado: 31.996 }).tono).toBe("aviso")
+    const vista = presentarPresupuesto({ ...BASE, usado: 40.004 })
+    expect(vista.linea).toBe("Llevas US$ 40,00 de tu tope de US$ 40,00 este mes")
+    expect(vista.tono).toBe("aviso")
+    expect(vista.pasado).toBeNull()
+  })
+
+  it("shows one mark when the limit is the cap", () => {
+    const vista = presentarPresupuesto({ ...BASE, limiteExplicito: 40, limite: 40 })
+    expect(vista.marcas).toEqual([
+      { etiqueta: "50 % del tope", monto: "US$ 20,00", porcentaje: 50 },
+      { etiqueta: "80 % del tope", monto: "US$ 32,00", porcentaje: 80 },
+      { etiqueta: "Tope y límite", monto: "US$ 40,00", porcentaje: 100 },
+    ])
+  })
+
   it("says the app goes on past the cap, up to the limit", () => {
     const vista = presentarPresupuesto({ ...BASE, usado: 45 })
     expect(vista.tono).toBe("pasado")
@@ -81,7 +98,14 @@ describe("presentarPresupuesto", () => {
 })
 
 describe("filaDePresupuesto", () => {
-  it("is the short line of the Ajustes row, in whole dollars", () => {
-    expect(filaDePresupuesto(31.6, 40)).toBe("Presupuesto · US$ 32 de 40")
+  it("is the short line of the Ajustes row, in whole dollars rounded down under the cap", () => {
+    expect(filaDePresupuesto(31.6, 40)).toBe("Presupuesto · US$ 31 de 40")
+    expect(filaDePresupuesto(39.6, 40)).toBe("Presupuesto · US$ 39 de 40")
+  })
+
+  it("never reads as the cap once the spend went over it", () => {
+    expect(filaDePresupuesto(40.4, 40)).toBe("Presupuesto · US$ 41 de 40")
+    expect(filaDePresupuesto(40, 40)).toBe("Presupuesto · US$ 40 de 40")
+    expect(filaDePresupuesto(40.004, 40)).toBe("Presupuesto · US$ 40 de 40")
   })
 })

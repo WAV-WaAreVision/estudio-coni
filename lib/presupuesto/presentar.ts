@@ -79,7 +79,9 @@ export function presentarPresupuesto(p: PresupuestoDelMes): VistaDelPresupuesto 
   const escala = Math.max(p.limite, p.tope, p.usado)
   const parte = (usd: number) => (escala > 0 ? dosDecimales(Math.min(100, (usd / escala) * 100)) : 0)
   const marca = (etiqueta: string, usd: number): Marca => ({ etiqueta, monto: dolares(usd), porcentaje: parte(usd) })
-  const tono = p.usado > p.tope ? "pasado" : p.tope > 0 && p.usado >= 0.8 * p.tope ? "aviso" : "tinta"
+  const usadoVisible = dosDecimales(p.usado)
+  const pasoElTope = usadoVisible > p.tope
+  const tono = pasoElTope ? "pasado" : p.tope > 0 && usadoVisible >= 0.8 * p.tope ? "aviso" : "tinta"
   return {
     linea: `Llevas ${dolares(p.usado)} de tu tope de ${dolares(p.tope)} este mes`,
     usado: p.usado,
@@ -89,10 +91,9 @@ export function presentarPresupuesto(p: PresupuestoDelMes): VistaDelPresupuesto 
     marcas: [
       marca("50 % del tope", 0.5 * p.tope),
       marca("80 % del tope", 0.8 * p.tope),
-      marca("Tope", p.tope),
-      marca("Límite", p.limite),
+      ...(p.limite === p.tope ? [marca("Tope y límite", p.tope)] : [marca("Tope", p.tope), marca("Límite", p.limite)]),
     ],
-    pasado: p.usado > p.tope ? `Pasaste tu tope. La app sigue hasta tu límite de ${dolares(p.limite)}.` : null,
+    pasado: pasoElTope ? `Pasaste tu tope. La app sigue hasta tu límite de ${dolares(p.limite)}.` : null,
     etiquetaDelLimite:
       p.limiteExplicito === null ? `US$ ${limitePorDefecto(p.tope)} (el doble del tope)` : `US$ ${p.limiteExplicito}`,
     enElLimite: p.usado + p.margenUsd > p.limite || p.avisoSinLeer,
@@ -106,7 +107,12 @@ export function presentarPresupuesto(p: PresupuestoDelMes): VistaDelPresupuesto 
   }
 }
 
-/** The row of Ajustes: «Presupuesto · US$ 32 de 40». */
+/**
+ * The row of Ajustes: «Presupuesto · US$ 31 de 40». Rounded down under the cap and up past it, so the row never
+ * reads «40 de 40» once the month went over.
+ */
 export function filaDePresupuesto(usado: number, tope: number): string {
-  return `Presupuesto · US$ ${Math.round(usado)} de ${Math.round(tope)}`
+  const visible = dosDecimales(usado)
+  const entero = visible > tope ? Math.ceil(visible) : Math.floor(visible)
+  return `Presupuesto · US$ ${entero} de ${Math.round(tope)}`
 }
