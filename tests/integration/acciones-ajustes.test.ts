@@ -215,6 +215,27 @@ describe("guardarAjuste", () => {
     })
   })
 
+  for (const cambio of [
+    { campo: "limite", valor: 200 },
+    { campo: "tope", valor: 45 },
+  ] as const) {
+    it(`does not say the ${cambio.campo} paused a reactivated month whose own limit was already spent`, async () => {
+      await pool.query(
+        "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+      )
+      await pool.query(
+        "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-4')",
+      )
+
+      const resultado = await guardarAjuste(deps(), cambio)
+
+      expect(resultado).toMatchObject({
+        ok: true,
+        aviso: "Este mes ya gastaste US$ 150,00 de tu límite de US$ 130,00; lo nuevo sigue en pausa.",
+      })
+    })
+  }
+
   it("moves her limit only in steps of US$ 5", async () => {
     expect(await guardarAjuste(deps(), { campo: "limite", valor: 92 })).toEqual({
       ok: false,

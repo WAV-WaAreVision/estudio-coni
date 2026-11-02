@@ -102,6 +102,8 @@ export interface Presupuesto {
   tope: number
   /** The brake of the month (`limite_del_mes`): this month's row, her limit, or twice the cap. */
   limite: number
+  /** She reactivated this month (`limites_del_mes`): its row is the month's limit until the month ends. */
+  reactivado: boolean
   usado: number
 }
 
@@ -111,16 +113,19 @@ export interface Presupuesto {
  */
 export async function leerPresupuesto(db: Db, ahora: number): Promise<Presupuesto> {
   const mes = `${mesDelGasto(new Date(ahora).toISOString())}-01`
-  const [ajustes, gastos, limite] = await Promise.all([
+  const [ajustes, gastos, filaDelMes, limite] = await Promise.all([
     db.from("ajustes").select("tope_mensual_usd").maybeSingle(),
     db.from("gastos").select("estado, estimado_usd, real_usd").eq("mes", mes).in("estado", ["reservado", "confirmado"]),
+    db.from("limites_del_mes").select("mes").eq("mes", mes).maybeSingle(),
     limiteDelMes(db, new Date(ahora).toISOString()),
   ])
   if (ajustes.error) throw fallo("No pude leer el tope", ajustes.error)
   if (gastos.error) throw fallo("No pude leer los gastos", gastos.error)
+  if (filaDelMes.error) throw fallo("No pude leer el límite del mes", filaDelMes.error)
   return {
     tope: ajustes.data?.tope_mensual_usd ?? 0,
     limite,
+    reactivado: filaDelMes.data !== null,
     usado: gastos.data.reduce(
       (suma, gasto) =>
         suma + (gasto.estado === "confirmado" ? (gasto.real_usd ?? gasto.estimado_usd) : gasto.estimado_usd),

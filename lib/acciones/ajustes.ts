@@ -157,12 +157,11 @@ export function guardarAjuste(
     if (cambio.data.campo === "tope" || cambio.data.campo === "limite") {
       const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
       const frases: string[] = []
-      // Only a change that set this month's limit can say it paused the month; a reactivated month keeps its own.
-      let fijoElLimiteDelMes = true
+      // A month she reactivated keeps its own limit (P10): a change of cap or limit only reaches the months after it,
+      // so it never paused this month.
+      const fijoElLimiteDelMes = !presupuesto.reactivado
       if (cambio.data.campo === "tope" && vuelveAlDoble) {
         const doble = limitePorDefecto(cambio.data.valor)
-        // A month she reactivated keeps its own limit (P10): the reset only reaches the months after it.
-        fijoElLimiteDelMes = presupuesto.limite === doble
         frases.push(
           fijoElLimiteDelMes
             ? `Tu límite volvió al doble del tope: ${dolares(doble)}.`
