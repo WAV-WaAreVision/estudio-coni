@@ -4,7 +4,13 @@ import { useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
-import { type FichaLeida, leerEdicion, MAXIMO_DE_IDEAS, textoDeUbicacion } from "@/lib/dominio/biblioteca/ficha"
+import {
+  esEnlaceWeb,
+  type FichaLeida,
+  leerEdicion,
+  MAXIMO_DE_IDEAS,
+  textoDeUbicacion,
+} from "@/lib/dominio/biblioteca/ficha"
 import { editarFichaAccion } from "../../acciones"
 import { Campo, CLASES_DE_CAMPO } from "../../campo"
 
@@ -48,10 +54,12 @@ function Lectura({ ficha }: { ficha: FichaLeida }) {
         <section className="grid gap-2">
           <h2 className={SUBTITULO}>Fuente</h2>
           {autorYAnio ? <p>{autorYAnio}</p> : null}
-          {fuente.enlace ? (
+          {fuente.enlace && esEnlaceWeb(fuente.enlace) ? (
             <a href={fuente.enlace} className="break-all text-tinta underline" rel="noreferrer noopener">
               {fuente.enlace}
             </a>
+          ) : fuente.enlace ? (
+            <p className="break-all">{fuente.enlace}</p>
           ) : null}
         </section>
       ) : null}

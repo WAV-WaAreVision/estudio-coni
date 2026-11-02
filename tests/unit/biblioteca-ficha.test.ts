@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { EVIDENCIA, TIPO_DE_AFIRMACION } from "@/lib/dominio/biblioteca/etiquetas"
-import { adaptacionDe, leerEdicion, leerFicha, textoDeUbicacion } from "@/lib/dominio/biblioteca/ficha"
+import { adaptacionDe, esEnlaceWeb, leerEdicion, leerFicha, textoDeUbicacion } from "@/lib/dominio/biblioteca/ficha"
 
 const MATERIAL = "11111111-2222-4333-8444-555555555555"
 const IDEAS = ["Una", "Dos", "Tres", "Cuatro", "Cinco"]
@@ -98,5 +98,28 @@ describe("leerEdicion", () => {
       error: "No entendí esa solicitud. Vuelve a abrir la pantalla.",
     })
     expect(leerEdicion({ ...edicion, fuente: fuente(2000) }).ok).toBe(true)
+  })
+})
+
+describe("esEnlaceWeb", () => {
+  it.each(["https://ejemplo.cl/estudio", "http://ejemplo.cl", "HTTPS://EJEMPLO.CL"])(
+    "takes %s as a web link",
+    (enlace) => {
+      expect(esEnlaceWeb(enlace)).toBe(true)
+    },
+  )
+
+  it.each([
+    "javascript:alert(1)",
+    " javascript:alert(1)",
+    "JaVaScRiPt:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "/biblioteca",
+    "ejemplo.cl/estudio",
+    "//ejemplo.cl",
+    "mailto:alguien@ejemplo.cl",
+    "",
+  ])("refuses %j: it is shown as text, never as a link", (enlace) => {
+    expect(esEnlaceWeb(enlace)).toBe(false)
   })
 })

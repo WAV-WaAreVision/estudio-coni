@@ -31,6 +31,26 @@ describe("FichaEditable", () => {
     expect(screen.getByText("Equipo · 2026")).toBeInTheDocument()
   })
 
+  it("links the source only when it is a web address, and shows anything else as plain text", () => {
+    const web = render(
+      <FichaEditable
+        materialId={ID}
+        ficha={{ ...FICHA, fuente: { ...FICHA.fuente, enlace: "https://ejemplo.cl/x" } }}
+      />,
+    )
+    expect(screen.getByRole("link", { name: "https://ejemplo.cl/x" })).toHaveAttribute("href", "https://ejemplo.cl/x")
+    web.unmount()
+    // The card keeps what it read in its own state: each value is a fresh render.
+    for (const enlace of ["javascript:alert(1)", "data:text/html,hola", "/biblioteca/otra"]) {
+      const { unmount } = render(
+        <FichaEditable materialId={ID} ficha={{ ...FICHA, fuente: { ...FICHA.fuente, enlace } }} />,
+      )
+      expect(screen.getByText(enlace).closest("a")).toBeNull()
+      expect(screen.queryByRole("link")).toBeNull()
+      unmount()
+    }
+  })
+
   it("edits and saves only a valid card, saying what is wrong first", async () => {
     render(<FichaEditable materialId={ID} ficha={FICHA} />)
     fireEvent.click(screen.getByRole("button", { name: "Editar" }))

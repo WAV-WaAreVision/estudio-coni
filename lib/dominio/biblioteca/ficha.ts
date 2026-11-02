@@ -93,7 +93,11 @@ export const EsquemaDeEdicionDeFicha = z.object({
 export type EdicionDeFicha = z.output<typeof EsquemaDeEdicionDeFicha>
 export type EdicionLeida = { ok: true; datos: EdicionDeFicha } | { ok: false; error: string }
 
-function esEnlaceWeb(enlace: string): boolean {
+/**
+ * The card's source link is text the model or Coni wrote: only an absolute http(s) address is saved or becomes a link, so a
+ * `javascript:`, `data:` or relative value can never run or navigate inside the app.
+ */
+export function esEnlaceWeb(enlace: string): boolean {
   if (!URL.canParse(enlace)) return false
   const { protocol } = new URL(enlace)
   return protocol === "http:" || protocol === "https:"
