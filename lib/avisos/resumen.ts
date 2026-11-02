@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { diaLocal } from "@/lib/dominio/fechas"
+import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
 import type { Notificador, ResumenDelDia } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import { type FilaDeAviso, leerPendientes, marcarEnviados, registrarAviso } from "./registro"
@@ -34,12 +34,33 @@ async function leerAjustesDelResumen(db: Db): Promise<{ zona: string; resumenAct
   return { zona: data?.zona ?? ZONA_POR_DEFECTO, resumenActivado: data?.avisos_resumen ?? true }
 }
 
-/** Monday in Coni's zone is when the week's ideas are ready (design: "El lunes a las 8:00 te propongo 5 ideas nuevas"). */
+/** Sunday 00:00 in `zona` of the week whose Monday is `lunes` (YYYY-MM-DD). */
+function inicioDelDomingo(lunes: string, zona: string): string {
+  const domingo = new Date(Date.parse(`${lunes}T00:00:00Z`) - 86_400_000)
+  const ms = instanteLocal(
+    { anio: domingo.getUTCFullYear(), mes: domingo.getUTCMonth() + 1, dia: domingo.getUTCDate(), hora: 0, minuto: 0 },
+    zona,
+  )
+  return new Date(ms).toISOString()
+}
+
+/**
+ * Monday's notice of the week's ideas, only when the engine wrote some since Sunday (it runs Sundays at 20:00 in
+ * Santiago, trigger/motor-semanal.ts). Switched off in Ajustes › Presupuesto, or stopped by the limit, it wrote none,
+ * and an older bank or an idea of her own is not news.
+ */
 async function anunciarIdeasDelLunes(deps: DepsResumen, zona: string): Promise<void> {
-  const dia = diaLocal(Date.parse(deps.ahora()), zona)
+  const ahora = deps.ahora()
+  const dia = diaLocal(Date.parse(ahora), zona)
   if (new Date(`${dia}T00:00:00Z`).getUTCDay() !== 1) return
-  const { count, error } = await deps.db.from("ideas").select("id", { count: "exact", head: true }).eq("estado", "idea")
-  if (error) throw fallo("contar las ideas del banco", error)
+  const { count, error } = await deps.db
+    .from("ideas")
+    .select("id", { count: "exact", head: true })
+    .eq("estado", "idea")
+    .eq("origen", "motor")
+    .gte("creada_en", inicioDelDomingo(dia, zona))
+    .lte("creada_en", ahora)
+  if (error) throw fallo("contar las ideas nuevas del motor", error)
   if (!count) return
   await registrarAviso(
     deps.db,
