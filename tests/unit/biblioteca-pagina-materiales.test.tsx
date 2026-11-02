@@ -29,7 +29,19 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({ reintentarMaterialAccion: vi.fn(), confirmarCostoAccion: vi.fn() }))
 
+import type { ReactElement, ReactNode } from "react"
 import Materiales from "@/app/(app)/biblioteca/page"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
+
+type Elemento = ReactElement<{ children?: ReactNode; className?: string; activo?: boolean }>
+
+/** The elements of the page's tree, without rendering it (its children are server and client components). */
+function elementos(nodo: ReactNode): Elemento[] {
+  if (Array.isArray(nodo)) return nodo.flatMap(elementos)
+  if (nodo === null || typeof nodo !== "object" || !("props" in nodo)) return []
+  const elemento = nodo as Elemento
+  return [elemento, ...elementos(elemento.props.children)]
+}
 
 const sinFiltros = () => Promise.resolve({})
 
@@ -48,5 +60,13 @@ describe("the Materiales page", () => {
     await Materiales({ searchParams: sinFiltros() })
     expect(datos.listarMateriales).toHaveBeenCalledWith(expect.anything(), {})
     expect(datos.leerPanelDelMaterial).not.toHaveBeenCalled()
+  })
+
+  it("lets a long panel scroll inside its sticky column instead of running past the screen", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Materiales({ searchParams: sinFiltros() }))
+    const aside = arbol.find((elemento) => elemento.type === "aside")
+    expect(aside?.props.className).toContain("md:max-h-[calc(100dvh-7rem)]")
+    expect(aside?.props.className).toContain("md:overflow-y-auto")
   })
 })

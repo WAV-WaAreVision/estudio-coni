@@ -59,7 +59,10 @@ export default async function Materiales({
           </>
         )}
       </div>
-      <aside aria-label="Material elegido" className="hidden md:sticky md:top-24 md:block">
+      <aside
+        aria-label="Material elegido"
+        className="hidden md:sticky md:top-24 md:block md:max-h-[calc(100dvh-7rem)] md:overflow-y-auto"
+      >
         {panel ? (
           <PanelDeMaterial panel={panel} filtros={filtros} ahora={ahora} />
         ) : seleccion ? (
