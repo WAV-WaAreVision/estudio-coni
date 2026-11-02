@@ -17,6 +17,8 @@ export interface DatosDeInicio {
   recientes: IdeaDelBanco["pilar"][]
   banco: IdeaLeidaParaInicio[]
   zona: string
+  /** The weekly engine's switch (Ajustes › Presupuesto): off, Inicio promises no new ideas. */
+  motorSemanalActivo: boolean
 }
 
 const DIAS_RECIENTES_MS = 30 * 24 * 60 * 60 * 1000
@@ -44,7 +46,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       .order("actualizada_en", { ascending: false })
       .limit(PIEZAS_A_LEER),
     db.from("ideas").select("id, gancho, pilar, fuerza, numero, fijada_en").eq("estado", "idea"),
-    db.from("ajustes").select("zona").maybeSingle(),
+    db.from("ajustes").select("zona, motor_semanal_activo").maybeSingle(),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas", piezas.error)
   if (ideas.error) throw fallo("No pude leer las ideas", ideas.error)
@@ -75,5 +77,6 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       fijada: fijada_en !== null,
     })),
     zona: ajustes.data?.zona ?? "America/Santiago",
+    motorSemanalActivo: ajustes.data?.motor_semanal_activo ?? true,
   }
 }

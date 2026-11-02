@@ -28,6 +28,7 @@ import { ConsultaNueva } from "./consulta-nueva"
 import { anotarConsultaAccion, deshacerConsultaAccion } from "./consultas/acciones"
 import { IdeasSemana } from "./ideas-semana"
 import { elegirIdeasAccion } from "./piezas/acciones"
+import { SinFirmas } from "./sin-firmas"
 
 const IDEAS_DE_LA_SEMANA = 5
 const AVISOS_A_MOSTRAR = 5
@@ -129,10 +130,7 @@ export default async function Inicio() {
         {carta ? (
           <CartaDeFirma fila={carta} pilar={pilarVisible(pilares, carta.pilar)} principal={principal === undefined} />
         ) : (
-          <div className="grid gap-1 py-1">
-            <p className="text-cuerpo font-semibold">Nada espera tu firma esta semana.</p>
-            <p className="text-cuerpo text-apagado">El lunes a las 8:00 te propongo 5 ideas nuevas.</p>
-          </div>
+          <SinFirmas motorSemanalActivo={datos.motorSemanalActivo} />
         )}
         {otrasFirmas.length > 0 ? (
           <Grupo lista className="mt-2">

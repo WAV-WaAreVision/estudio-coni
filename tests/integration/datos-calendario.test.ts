@@ -19,6 +19,18 @@ afterAll(async () => {
   await pool.end()
 })
 
+describe("el motor semanal en Inicio", () => {
+  it("reads whether the weekly ideas are on", async () => {
+    try {
+      expect((await leerDatosDeInicio(coni, Date.now())).motorSemanalActivo).toBe(true)
+      await pool.query("update public.ajustes set motor_semanal_activo = false")
+      expect((await leerDatosDeInicio(coni, Date.now())).motorSemanalActivo).toBe(false)
+    } finally {
+      await pool.query("update public.ajustes set motor_semanal_activo = true")
+    }
+  })
+})
+
 describe("destinos de las piezas en Inicio y Calendario", () => {
   it("reads where a piece goes and what still waits for her, in both screens", async () => {
     const id = await sembrarPieza(
