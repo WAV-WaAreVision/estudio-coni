@@ -98,13 +98,21 @@ Stage 2 (#17) later moves the screens into Conidolly; nothing here is built only
 - No migration, no Trigger deploy. Standing release authorization applies (issue, CI green, reviews).
 - After release: Federico's account cannot test the Coni-only path; the check is the E2E locally plus a look at
   `/ir-a-biblioteca` answering a redirect to sign-in without a session. Coni tries it once and reports.
+- On a Conidolly preview deployment the Biblioteca tab ends on Ingesta's `/ingreso`: the preview's origin is not
+  `CONIDOLLY_URL`, so Ingesta's origin check refuses the POST. Expected; the bridge is only checked end to end in
+  production and in the local E2E.
 
 ## Risks
 
 - **Service role in a user-facing route.** Contained to one function, behind `exigirConi`, with its test. The link it mints
   only ever signs in Coni herself.
-- **Token exposure.** Travels in a POST body over HTTPS, single use, short expiry (Supabase OTP expiry), never in URLs, logs or
+- **Token exposure.** Travels in a POST body over HTTPS (Conidolly refuses a non-https `INGESTA_URL` in production and
+  never copies its user or password into the form), single use, short expiry (Supabase OTP expiry), never in URLs, logs or
   referrers.
+- **GET with an effect.** Any top-level cross-site navigation to `/ir-a-biblioteca` (a link on another site, a typed
+  address) carries Conidolly's `SameSite=Lax` cookies, so it mints a link and signs Coni into her own Ingesta session in
+  that browser, replacing whatever session it had there and invalidating any older link. No escalation: it only ever
+  signs in Coni, in a browser where she is already signed in to Conidolly. Accepted.
 - **Supabase API drift** (`verifyOtp` type for admin links): pinned by the integration test.
 - **Visual regressions in Ingesta** while WAV uses it daily: tokens map one to one, base pieces keep their props, E2E and
   visual tests run before the deploy.
