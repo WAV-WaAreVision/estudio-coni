@@ -9,6 +9,7 @@ import {
   PUERTO,
   PUERTO_SERVICIOS,
   SUPABASE_URL,
+  URL_DE_INGESTA,
   URL_DE_LA_APP,
   URL_SERVICIOS,
 } from "./tests/e2e/entorno"
@@ -19,7 +20,7 @@ const vapid = generateVAPIDKeys()
 // An iPhone-sized phone on Chromium: the same layout and touch settings, without installing WebKit.
 // PLAYWRIGHT_CHROMIUM_PATH points at a Chromium already on the machine when the one this Playwright version wants is
 // not installed (`playwright install` downloads it).
-const iphone = {
+export const iphone = {
   ...devices["iPhone 14"],
   defaultBrowserType: "chromium" as const,
   // The device descriptor stops at 664 px (Safari without its bars); the design is checked at 390 x 844.
@@ -100,6 +101,8 @@ export default defineConfig({
         META_APP_ID: "1234567890",
         META_APP_SECRET: "secreto-de-la-app-e2e",
         META_REDIRECT_URI: `${URL_DE_LA_APP}/api/meta/callback`,
+        // The Biblioteca tab posts there; only playwright.biblioteca.config.ts starts an Ingesta to receive it.
+        INGESTA_URL: URL_DE_INGESTA,
       },
     },
   ],

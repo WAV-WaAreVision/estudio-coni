@@ -1,5 +1,8 @@
 export const RUTA_DE_INGRESO = "/ingreso"
 
+/** The Biblioteca tab: a route handler that leaves the app for Ingesta (change 29a). */
+export const RUTA_DE_LA_BIBLIOTECA = "/ir-a-biblioteca"
+
 export type DecisionDeRuta = "seguir" | "a_ingreso" | "a_inicio"
 
 /** The optimistic check of `proxy.ts`: the real authorisation is Coni's row in `miembros`, checked on the server. */

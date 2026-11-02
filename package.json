@@ -12,6 +12,7 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:biblioteca": "playwright test --config playwright.biblioteca.config.ts",
     "check": "biome check --write",
     "type": "next typegen && tsc --noEmit",
     "db:start": "supabase start",

@@ -114,8 +114,8 @@ export async function simularMedios(page: Page): Promise<void> {
   })
 }
 
-/** Signs a seed user in through the real Auth API and gives the browser the cookies the app itself would have set. */
-export async function entrarComo(context: BrowserContext, correo: string): Promise<void> {
+/** Signs a seed user in through the real Auth API and gives the browser the cookies the app at `url` would have set. */
+export async function entrarComo(context: BrowserContext, correo: string, url: string = URL_DE_LA_APP): Promise<void> {
   const servicio = createClient(SUPABASE_URL, CLAVE_DE_SERVICIO, { auth: { persistSession: false } })
   const enlace = await servicio.auth.admin.generateLink({ type: "magiclink", email: correo })
   if (enlace.error) throw new Error(`No pude generar el código de ${correo}: ${enlace.error.message}`)
@@ -130,8 +130,8 @@ export async function entrarComo(context: BrowserContext, correo: string): Promi
   })
   const sesion = await cliente.auth.verifyOtp({ email: correo, token: enlace.data.properties.email_otp, type: "email" })
   if (sesion.error) throw new Error(`No pude entrar como ${correo}: ${sesion.error.message}`)
-  await context.clearCookies()
-  await context.addCookies([...galletas].map(([name, value]) => ({ name, value, url: URL_DE_LA_APP })))
+  await context.clearCookies({ domain: new URL(url).hostname })
+  await context.addCookies([...galletas].map(([name, value]) => ({ name, value, url })))
 }
 
 export const GUION_VALIDO = readFileSync(
