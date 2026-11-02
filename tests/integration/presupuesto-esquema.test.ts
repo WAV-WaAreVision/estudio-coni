@@ -248,7 +248,7 @@ describe("fijar_limite_del_mes", () => {
       await asumir(c, comoConi)
       const error = await fallaCon(c, "select public.fijar_limite_del_mes(120)")
       expect(error.code).toBe("P0001")
-      expect(error.message).toBe("falta_ajustes")
+      expect(error.message).toBe("ajustes_faltantes")
     })
   })
 
