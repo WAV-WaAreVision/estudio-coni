@@ -12,13 +12,14 @@ export interface IdeaConTema {
 }
 
 /**
- * The main topic of each material (spec 1, D8): over its ideas that were not excluded and have a topic, the topic with
+ * The main topic of each material (spec 1, D8): over its ideas that were not excluded and have a named topic, the topic with
  * the most ideas; a tie goes to the name first in Spanish order. A material without such ideas has no entry.
  */
 export function temasPrincipales(ideas: readonly IdeaConTema[]): Map<string, TemaPrincipal> {
   const porMaterial = new Map<string, Map<string, { nombre: string; ideas: number }>>()
   for (const idea of ideas) {
-    if (idea.excluida || idea.temaId === null) continue
+    // A blank name (a topic row the reader could not join) would show as an empty main topic: it is left out.
+    if (idea.excluida || idea.temaId === null || idea.nombre.trim() === "") continue
     const temas = porMaterial.get(idea.materialId) ?? new Map<string, { nombre: string; ideas: number }>()
     const tema = temas.get(idea.temaId) ?? { nombre: idea.nombre, ideas: 0 }
     tema.ideas += 1

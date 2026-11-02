@@ -36,6 +36,19 @@ describe("temasPrincipales (D8)", () => {
     expect(temas.get("m")).toEqual({ nombre: "Sueño", otros: 0 })
   })
 
+  it("never makes a topic with a blank name the main topic, nor counts it among the others", () => {
+    const temas = temasPrincipales([
+      idea("m", "t1", "   "),
+      idea("m", "t1", "   "),
+      idea("m", "t2", ""),
+      idea("m", "t2", ""),
+      idea("m", "t3", "Sueño"),
+      idea("solo-vacios", "t1", " "),
+    ])
+    expect(temas.get("m")).toEqual({ nombre: "Sueño", otros: 0 })
+    expect(temas.has("solo-vacios")).toBe(false)
+  })
+
   it("has nothing for a material without ideas, and keeps materials apart", () => {
     const temas = temasPrincipales([idea("a", "t1", "Sueño"), idea("b", "t2", "Ánimo"), idea("c", "t1", "Sueño", true)])
     expect(temas.get("a")).toEqual({ nombre: "Sueño", otros: 0 })
