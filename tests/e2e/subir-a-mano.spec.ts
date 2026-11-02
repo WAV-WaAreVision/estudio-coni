@@ -14,7 +14,11 @@ async function sinInstagram() {
   await pool.query("update public.ajustes set meta_cuenta_id = null, meta_token_expira_en = null")
 }
 
-/** A piece whose approved time passed 20 minutes ago: the database only lets Coni write an approval, so the time is moved as the owner. */
+/**
+ * A piece whose approved time passed 20 minutes ago: the database only lets Coni write an approval, so the time is moved
+ * as the owner. In the first 20 minutes of a Monday that would be last week, which the Agenda no longer shows, so the
+ * time is never earlier than this Monday at 00:00 in Santiago: still passed, and in the week the Agenda opens with.
+ */
 async function paraSubir(
   estado: "para_subir_a_mano" | "publicado_a_mano" = "para_subir_a_mano",
   titulo: string = PIEZAS.video.titulo,
@@ -25,9 +29,15 @@ async function paraSubir(
   try {
     await cliente.query("begin")
     await cliente.query("set local session_replication_role = replica")
-    await cliente.query("update public.piezas set puerta2_publicar_en = now() - interval '20 minutes' where id = $1", [
-      id,
-    ])
+    await cliente.query(
+      `update public.piezas
+          set puerta2_publicar_en = greatest(
+                now() - interval '20 minutes',
+                date_trunc('week', now() at time zone 'America/Santiago') at time zone 'America/Santiago'
+              )
+        where id = $1`,
+      [id],
+    )
     await cliente.query("commit")
   } finally {
     cliente.release()

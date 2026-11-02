@@ -36,8 +36,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   timeout: 60_000,
-  // A run that stops answering (a browser that will not close after a failure) ends instead of waiting for ever.
-  globalTimeout: 600_000,
+  // A run that stops answering (a browser that will not close after a failure) ends instead of waiting for ever. A clean
+  // run takes about 5.5 minutes with the build; 15 leave room for a few failures that each wait out their 60 s.
+  globalTimeout: 900_000,
   reporter: [["list"], ["html", { open: "never" }]],
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide", scale: "css" },

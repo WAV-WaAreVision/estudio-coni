@@ -12,6 +12,7 @@ import {
   leerFila,
   marcarPublicacion,
   moverHoraAprobada,
+  proponerFecha,
   quitarPublicacion,
   sembrarIdea,
   vaciarPiezasEIdeas,
@@ -34,7 +35,9 @@ import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, s
  * against (css scale, moving data masked). The app server reads the real clock, which a test cannot freeze: the masks
  * hide every element marked data-snapshot="varia" (dates, times, balances, durations, the month grid), but a month
  * change moves the calendar rows, so the baselines may need regenerating then
- * (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff).
+ * (`pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, after reviewing the diff). The Agenda also moves with
+ * the weekday (how many of this week's slots are left decides where every piece lands), so its two captures pin the
+ * scene's dated pieces to next week's three slots and show only that week (`soloLaSemanaQueViene`).
  */
 const PARA_LA_HOJA = Boolean(process.env.VISUAL_SHEET)
 // VISUAL_FINALES=<folder> writes plain 390 px css PNGs of every screen there (no masks, no comparison) for review by eye.
@@ -117,11 +120,53 @@ async function capturaDe(page: Page, nombre: string, ocultar: Locator[] = []) {
   })
 }
 
+const ZONA = "America/Santiago"
+
+/** 19:00 (her publishing hour) on the day `dias` after next week's Monday, as an ISO instant. */
+function aLasSieteDeLaSemanaQueViene(dias: number): string {
+  const [anio, mes, dia] = sumarDias(lunesDeLaSemana(Date.now(), ZONA), 7 + dias)
+    .split("-")
+    .map(Number)
+  return new Date(
+    instanteLocal({ anio: anio ?? 0, mes: mes ?? 0, dia: dia ?? 0, hora: 19, minuto: 0 }, ZONA),
+  ).toISOString()
+}
+
+/**
+ * Where the Agenda puts a piece depends on how many of this week's slots are left (none on a Sunday night, three on a
+ * Monday), so the rows moved from one week group to another with the weekday. Next week's three slots (Tuesday,
+ * Thursday and Saturday at 19:00) are filled whatever today is: the script and the video with a stored proposal and the
+ * scheduled reel on Saturday. The piece being recorded is left without a date, so Repartir still has one to place, and
+ * it lands outside next week (this week's last slot or the week after).
+ */
+async function fijarLaSemanaQueViene(guion: string, video: string): Promise<void> {
+  await proponerFecha(guion, aLasSieteDeLaSemanaQueViene(1))
+  await proponerFecha(video, aLasSieteDeLaSemanaQueViene(3))
+  const { rows } = await pool.query<{ id: string }>("select id from public.piezas where estado = 'programado'")
+  for (const { id } of rows) await moverHoraAprobada(id, aLasSieteDeLaSemanaQueViene(5))
+}
+
+/**
+ * The baseline keeps the Agenda's header and next week's group, pinned above; this week's group and the two after it
+ * hold whatever the weekday leaves there (the free slot, the proposal Repartir makes, "Sin espacios…"), so they are
+ * taken out of the capture. The sheet and the plain finals keep the whole screen.
+ */
+async function soloLaSemanaQueViene(page: Page): Promise<void> {
+  if (PARA_LA_HOJA || CARPETA_FINALES) return
+  const semanas = page.locator('section[aria-labelledby^="semana-"]')
+  await expect(semanas).toHaveCount(4)
+  await page.evaluate(() => {
+    const grupos = document.querySelectorAll<HTMLElement>('section[aria-labelledby^="semana-"]')
+    grupos.forEach((grupo, i) => {
+      if (i !== 1) grupo.style.display = "none"
+    })
+  })
+}
+
 const PANTALLAS = [
   ["inicio", "/"],
   ["ideas", "/ideas"],
   ["calendario-mes", "/calendario"],
-  ["calendario-agenda", "/calendario?vista=agenda"],
   ["ajustes", "/ajustes"],
   ["ajustes-cuentas", "/ajustes/cuentas"],
   ["l", "/l"],
@@ -161,18 +206,26 @@ test("ideas elegir varias", async ({ page }) => {
   await capturaDe(page, "ideas-elegir-varias")
 })
 
+test("calendario-agenda", async ({ page }) => {
+  const { guion, video } = await sembrarEscena()
+  await fijarLaSemanaQueViene(guion, video)
+  await page.goto("/calendario?vista=agenda")
+  await expect(page.getByText("1 pieza en camino sin fecha propuesta.")).toBeVisible()
+  await soloLaSemanaQueViene(page)
+  await capturaDe(page, "calendario-agenda")
+})
+
 test("calendario agenda con propuestas", async ({ page }) => {
-  await sembrarEscena()
+  const { guion, video } = await sembrarEscena()
+  await fijarLaSemanaQueViene(guion, video)
   await page.goto("/calendario?vista=agenda")
   await page.getByRole("button", { name: "Repartir fechas" }).click()
-  await expect(page.getByText(/ · propuesta$/).first()).toBeVisible()
   // The toast is fixed: in a full-page capture it would sit over the rows. It closes by itself after 8 s.
+  await expect(page.getByText("Propuse fecha para 1 pieza. Puedes cambiarla.")).toBeVisible()
   await expect(page.getByText(/^Propuse fecha para/)).toHaveCount(0, { timeout: 10_000 })
-  await page
-    .getByRole("button", { name: /^Cambiar la fecha de/ })
-    .first()
-    .click()
+  await page.getByRole("button", { name: `Cambiar la fecha de ${PIEZAS.guion.titulo}` }).click()
   await expect(page.getByRole("group", { name: "¿Qué otro día?" })).toBeVisible()
+  await soloLaSemanaQueViene(page)
   await capturaDe(page, "calendario-agenda-propuestas")
 })
 
