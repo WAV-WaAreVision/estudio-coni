@@ -1,6 +1,9 @@
 import pg from "pg"
+import { exigirBaseLocal } from "./base-local"
 
-export const URL_DB = process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres"
+export const URL_DB = exigirBaseLocal(
+  process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres",
+)
 
 export const CONI = "c0000000-0000-4000-8000-000000000001"
 export const MANTENEDOR = "a0000000-0000-4000-8000-000000000002"
