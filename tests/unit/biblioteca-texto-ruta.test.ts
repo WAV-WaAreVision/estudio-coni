@@ -10,8 +10,13 @@ const { conSesionDeConi } = vi.hoisted(() => ({
   ),
 }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi }))
+const { urlDeTexto } = vi.hoisted(() => ({
+  urlDeTexto: vi.fn(async (..._: unknown[]): Promise<string | null> => "https://r2.test/firmada-por-el-almacen"),
+}))
+vi.mock("@/lib/proveedores/almacen", () => ({ almacenReal: () => ({ urlDeTexto }) }))
 
 import { GET } from "@/app/(app)/biblioteca/materiales/[id]/texto/route"
+import { SobreMaterial } from "@/lib/acciones/biblioteca"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -25,13 +30,26 @@ describe("GET /biblioteca/materiales/[id]/texto", () => {
     const respuesta = await llamar()
     expect(conSesionDeConi).toHaveBeenCalledWith(
       "pedirTextoOriginal",
-      expect.anything(),
+      SobreMaterial,
       { materialId: ID },
       expect.any(Function),
     )
     expect(respuesta.status).toBe(302)
     expect(respuesta.headers.get("location")).toBe("https://r2.test/firmada")
     expect(respuesta.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("wires the session's client and the real store into pedirTextoOriginal for five minutes", async () => {
+    await llamar()
+    const trabajo = conSesionDeConi.mock.calls[0]?.[3] as (db: unknown, datos: unknown) => Promise<unknown>
+    const db = {
+      rpc: async () => ({ data: true, error: null }),
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: ID }, error: null }) }) }),
+      }),
+    }
+    expect(await trabajo(db, { materialId: ID })).toEqual({ ok: true, url: "https://r2.test/firmada-por-el-almacen" })
+    expect(urlDeTexto).toHaveBeenCalledWith(ID, 300)
   })
 
   it.each([
