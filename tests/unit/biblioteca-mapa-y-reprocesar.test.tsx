@@ -8,7 +8,11 @@ const { reprocesarMaterialAccion } = vi.hoisted(() => ({
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({ reprocesarMaterialAccion }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
-import { BotonReprocesar, PREGUNTA_REPROCESAR } from "@/app/(app)/biblioteca/materiales/[id]/boton-reprocesar"
+import {
+  BotonReprocesar,
+  PREGUNTA_REPROCESAR,
+  PREGUNTA_REPROCESAR_ESTRATEGIA,
+} from "@/app/(app)/biblioteca/materiales/[id]/boton-reprocesar"
 import { MapaDelMaterial } from "@/app/(app)/biblioteca/materiales/[id]/mapa-del-material"
 
 const MAPA = {
@@ -42,10 +46,19 @@ describe("MapaDelMaterial (4h)", () => {
 
 describe("BotonReprocesar", () => {
   it("asks first, saying what it costs and what it replaces, and reprocesses on yes", async () => {
-    render(<BotonReprocesar materialId="m-1" />)
+    render(<BotonReprocesar materialId="m-1" rol="referente" />)
     fireEvent.click(screen.getByRole("button", { name: "Reprocesar" }))
     expect(screen.getByText(PREGUNTA_REPROCESAR)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Sí, reprocesar" }))
     await waitFor(() => expect(reprocesarMaterialAccion).toHaveBeenCalledWith("m-1"))
+  })
+
+  it("for a strategy material, says the card is replaced, including what she edited", () => {
+    render(<BotonReprocesar materialId="m-1" rol="estrategia" />)
+    fireEvent.click(screen.getByRole("button", { name: "Reprocesar" }))
+    expect(screen.getByText(PREGUNTA_REPROCESAR_ESTRATEGIA)).toBeInTheDocument()
+    expect(PREGUNTA_REPROCESAR_ESTRATEGIA).toMatch(/ficha/)
+    expect(PREGUNTA_REPROCESAR_ESTRATEGIA).toMatch(/editaste/)
+    expect(screen.queryByText(PREGUNTA_REPROCESAR)).toBeNull()
   })
 })

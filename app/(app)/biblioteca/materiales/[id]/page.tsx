@@ -28,6 +28,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
   const conFicha = material.rol === "estrategia"
   const [autores, mapa] = await Promise.all([listarAutores(db), conFicha ? null : leerMapaDelMaterial(db, material.id)])
   // What was processed follows the role it had then: after "¿Quién es para ti?" changes, only reprocessing shows it the new way.
+  const rol = esRol(material.rol) ? material.rol : "referente"
   const procesadoConOtroRol = conFicha
     ? ficha === null && material.estado === "listo"
     : ficha !== null && (mapa?.total ?? 0) === 0
@@ -53,7 +54,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
         materialId={material.id}
         autores={autores}
         autorId={material.autor_id}
-        rol={esRol(material.rol) ? material.rol : "referente"}
+        rol={rol}
         conIdeas={(mapa?.total ?? 0) > 0 || ficha !== null}
       />
 
@@ -82,7 +83,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
           Descargar texto original
         </a>
       ) : null}
-      {material.estado === "listo" ? <BotonReprocesar materialId={material.id} /> : null}
+      {material.estado === "listo" ? <BotonReprocesar materialId={material.id} rol={rol} /> : null}
 
       <DetalleParaWav lineas={lineasParaWav(material, mapa?.evidencia ?? {})} proveedor={null} />
     </div>

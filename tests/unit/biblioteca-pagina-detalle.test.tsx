@@ -129,4 +129,12 @@ describe("the material detail page", () => {
     const editor = arbol.find((elemento) => "conIdeas" in elemento.props)
     expect(editor?.props.conIdeas).toBe(true)
   })
+
+  it("tells the reprocess button the material's role", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, rol: "estrategia" }, ficha: FICHA })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    const boton = arbol.find((elemento) => "rol" in elemento.props && !("autores" in elemento.props))
+    expect(boton?.props.rol).toBe("estrategia")
+  })
 })
