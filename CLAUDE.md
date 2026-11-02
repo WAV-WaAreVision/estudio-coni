@@ -61,9 +61,9 @@ Para bugs o tweaks rápidos: invocar `triage-lead` agent (global).
   video o publicar, la tarea compara el artefacto actual con el aprobado (`puedeGrabar`,
   `puedePublicar`).
 - **Nunca se publica a una hora no aprobada:** más de 30 min de atraso vuelve a aprobación.
-- **Decidido por Coni el 01-11-2026:** Instagram solo por Meta (Metricool sale); el tope de gasto es alarma y frena el
-  límite duro, por defecto el doble (cambio 12a, plan 2026-11-02-presupuesto); WAV no entra a Conidolly (cambio 30); la app nunca escribe ni
-  borra firmas (la reserva sale por una regla que Coni firma, cambio 23); identidad «Constanza del Rosario», sin «sexóloga».
+- **Decidido por Coni el 01-11-2026:** Instagram solo por Meta (Metricool sale); el tope de gasto avisa y frena el
+  límite duro, el doble por defecto (cambio 12a); WAV no entra a Conidolly (cambio 30); la app nunca escribe ni borra
+  firmas (la reserva sale por una regla que Coni firma, cambio 23); identidad «Constanza del Rosario», sin «sexóloga».
 - **Subtítulos:** el port de `coni.py` tiene goldens de 2 reels reales; si cambian, se regeneran
   con `coni.py` y se explica por qué en el commit.
 - **Llaves fuera del repo** (`.env*` está ignorado). Fechas en UTC; se muestran en
