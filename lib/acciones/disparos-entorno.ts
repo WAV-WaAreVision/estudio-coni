@@ -6,9 +6,10 @@ import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import type { armarCarruselTask } from "@/trigger/armar-carrusel"
 import type { grabarPiezaTask } from "@/trigger/grabar-pieza"
 import type { grabarVozTask } from "@/trigger/grabar-voz"
+import type { motorManualTask } from "@/trigger/motor-semanal"
 import type { procesarMaterialTask } from "@/trigger/procesar-material"
 import type { producirPiezaTask } from "@/trigger/producir-pieza"
-import type { Disparos } from "./disparos"
+import { claveMotor, claveProcesarMaterial, type Disparos, type DisparosDeBiblioteca } from "./disparos"
 
 type Entorno = Record<string, string | undefined>
 
@@ -85,20 +86,38 @@ export function disparosDeEntorno(entorno: Entorno = process.env): Disparos {
   return disparosReales()
 }
 
-/**
- * Starts the processing of an uploaded material. The key holds for ten minutes: a double tap starts one run, and
- * the retry of a failed material a while later starts a new one.
- */
-export async function dispararProcesarMaterial(materialId: string, entorno: Entorno = process.env): Promise<void> {
-  const archivo = archivoDeDisparoDePrueba(entorno)
-  if (archivo) {
-    appendFileSync(archivo, `${JSON.stringify({ tarea: "procesar-material", materialId })}\n`)
-    return
+function disparosDeBibliotecaReales(): DisparosDeBiblioteca {
+  return {
+    async material(materialId, intento) {
+      await tasks.trigger<typeof procesarMaterialTask>(
+        "procesar-material",
+        { materialId },
+        { idempotencyKey: await claveGlobal(claveProcesarMaterial(materialId, intento)), idempotencyKeyTTL: "10m" },
+      )
+    },
+    async motor(semana) {
+      await tasks.trigger<typeof motorManualTask>(
+        "motor-manual",
+        { manual: true },
+        { idempotencyKey: await claveGlobal(claveMotor(semana)), idempotencyKeyTTL: "10m" },
+      )
+    },
   }
+}
+
+function disparosDeBibliotecaDePrueba(archivo: string): DisparosDeBiblioteca {
+  const anotar = (linea: Record<string, unknown>) => appendFileSync(archivo, `${JSON.stringify(linea)}\n`)
+  return {
+    material: async (materialId, intento) =>
+      anotar({ tarea: "procesar-material", materialId, clave: claveProcesarMaterial(materialId, intento) }),
+    motor: async (semana) => anotar({ tarea: "motor-manual", semana, clave: claveMotor(semana) }),
+  }
+}
+
+/** Trigger.dev in production; a file when `DISPARO_DE_PRUEBA=1`, which a deployed app refuses. */
+export function disparosDeBibliotecaDeEntorno(entorno: Entorno = process.env): DisparosDeBiblioteca {
+  const archivo = archivoDeDisparoDePrueba(entorno)
+  if (archivo) return disparosDeBibliotecaDePrueba(archivo)
   exigirLlaveDeTrigger(entorno)
-  await tasks.trigger<typeof procesarMaterialTask>(
-    "procesar-material",
-    { materialId },
-    { idempotencyKey: await claveGlobal(`procesar-material:${materialId}`), idempotencyKeyTTL: "10m" },
-  )
+  return disparosDeBibliotecaReales()
 }

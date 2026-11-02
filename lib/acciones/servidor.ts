@@ -3,8 +3,8 @@ import type { z } from "zod"
 import { exigirEnv } from "@/lib/env"
 import { createActionClient } from "@/lib/supabase/action"
 import type { Database } from "@/lib/supabase/database.types"
-import type { Disparos } from "./disparos"
-import { disparosDeEntorno } from "./disparos-entorno"
+import type { Disparos, DisparosDeBiblioteca } from "./disparos"
+import { disparosDeBibliotecaDeEntorno, disparosDeEntorno } from "./disparos-entorno"
 import type { DepsAcciones } from "./piezas"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "./resultado"
 
@@ -60,6 +60,14 @@ export function disparosDeLaApp(): Disparos {
     grabar: (piezaId, clave, intento, retraso) => disparosDeEntorno().grabar(piezaId, clave, intento, retraso),
     voz: (piezaId, clave, nueva) => disparosDeEntorno().voz(piezaId, clave, nueva),
     armar: (piezaId, clave) => disparosDeEntorno().armar(piezaId, clave),
+  }
+}
+
+/** The Biblioteca's starters, resolved on use like `disparosDeLaApp`. */
+export function disparosDeBibliotecaDeLaApp(): DisparosDeBiblioteca {
+  return {
+    material: (materialId, intento) => disparosDeBibliotecaDeEntorno().material(materialId, intento),
+    motor: (semana) => disparosDeBibliotecaDeEntorno().motor(semana),
   }
 }
 
