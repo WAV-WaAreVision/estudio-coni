@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { alFallarDeTarea, avisarFalla, type DepsFalla } from "@/lib/produccion/fallas"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
@@ -119,6 +120,20 @@ describe("avisarFalla", () => {
     await avisarFalla(deps, { tarea: "grabar-pieza", corrida: "run_1", piezaId: id, error: new Error("ffmpeg falló") })
 
     expect(await pieza(id)).toMatchObject({ estado: "error_produccion", estado_antes_del_error: "subtitulando" })
+  })
+
+  it("keeps the limit text when a script run stopped by the limit later failed sending its notice", async () => {
+    const id = await piezaEn("guion_en_proceso")
+    await pool.query("update public.piezas set explicacion = $2, version = version + 1 where id = $1", [
+      id,
+      TEXTO_LIMITE,
+    ])
+    const { deps, avisos } = doble()
+
+    await avisarFalla(deps, { tarea: "producir-pieza", corrida: "run_lim", piezaId: id, error: new Error("push") })
+
+    expect((await pieza(id)).explicacion).toBe(TEXTO_LIMITE)
+    expect(avisos.aConiEnviados).toEqual([{ mensaje: TEXTO_LIMITE, urgente: true }])
   })
 
   it("leaves the piece where it is and only writes why when the script step failed", async () => {

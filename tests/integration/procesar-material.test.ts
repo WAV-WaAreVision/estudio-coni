@@ -1,11 +1,11 @@
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { alFallarMaterial } from "@/lib/ingesta/falla-material"
 import { procesarMaterial } from "@/lib/ingesta/procesar"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
-import { pool } from "./db"
+import { pool, sinLimiteFijado } from "./db"
 import {
   almacenEnMemoria,
   COSTO_CLAUDE,
@@ -26,6 +26,8 @@ afterEach(limpiar)
 afterAll(() => pool.end())
 
 const UN_PDF = { extension: "pdf", tipo: "application/pdf" }
+
+beforeEach(sinLimiteFijado)
 
 describe("documento", () => {
   it("extracts the text, stores it, pays Claude for the card of a strategy material and leaves it ready", async () => {
@@ -331,7 +333,7 @@ describe("límite del mes", () => {
     try {
       const resultado = await procesarMaterial(await deps(almacen, { avisos }), id)
 
-      expect(resultado).toEqual({ resultado: "tope" })
+      expect(resultado).toEqual({ resultado: "limite" })
       const fila = await material(id)
       expect(fila.estado).toBe("procesando")
       expect(fila.motivo_fallo).toBe(TEXTO_LIMITE)
@@ -384,6 +386,19 @@ describe("errores", () => {
     expect(fila.estado).toBe("fallido")
     expect(fila.motivo_fallo).toBe("No pude procesar el material. WAV ya está revisando.")
     expect(fila.motivo_fallo).not.toContain("ECONNRESET")
+  })
+
+  it("keeps the limit reason when a material the limit stopped later failed sending its notice", async () => {
+    const almacen = almacenEnMemoria()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set motivo_fallo = $2 where id = $1", [id, TEXTO_LIMITE])
+
+    await alFallarMaterial(
+      { db: clienteDeServicio(), avisos: notificadorEnMemoria() },
+      { materialId: id, corrida: "run_lim", error: new Error("push") },
+    )
+
+    expect(await material(id)).toMatchObject({ estado: "fallido", motivo_fallo: TEXTO_LIMITE })
   })
 
   it("never turns a ready material into a failed one", async () => {
@@ -476,7 +491,7 @@ describe("una corrida por material", () => {
     const anterior = await pool.query<{ tope: string }>("select tope_mensual_usd::text as tope from public.ajustes")
     await pool.query("update public.ajustes set tope_mensual_usd = 0.0001")
     try {
-      expect(await procesarMaterial(await deps(almacen), id)).toEqual({ resultado: "tope" })
+      expect(await procesarMaterial(await deps(almacen), id)).toEqual({ resultado: "limite" })
       expect(await corridaDe(id)).toBeNull()
     } finally {
       await pool.query("update public.ajustes set tope_mensual_usd = $1", [anterior.rows[0]?.tope])

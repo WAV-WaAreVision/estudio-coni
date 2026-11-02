@@ -55,10 +55,11 @@ export async function grabarVoz(
       llave: () => leerLlaveDeVoz(deps.db, config),
       nueva: entrada.nueva,
     })
-    // The piece is still at gate 1 (`grabando_voz`): its voice is new spend, and the month's limit stops it.
+    // The piece is still at gate 1 (`grabando_voz`): its voice is new spend, and the month's limit stops it. The
+    // notice goes first: a failed one leaves the piece in `grabando_voz`, so the retry reaches the limit and sends it.
     if (voz.tipo === "limite") {
-      await escribir(deps, fila, { tipo: "falla_voz", explicacion: TEXTO_LIMITE })
       await avisarLimite(deps, deps.ahora())
+      await escribir(deps, fila, { tipo: "falla_voz", explicacion: TEXTO_LIMITE })
       return { resultado: "limite" }
     }
     await escribir(deps, fila, { tipo: "voz_lista", audioId: voz.audioId })

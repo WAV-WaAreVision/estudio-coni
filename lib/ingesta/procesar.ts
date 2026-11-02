@@ -79,7 +79,7 @@ export type ResultadoProcesar =
   | { resultado: "listo" }
   | { resultado: "ya_listo" }
   | { resultado: "fallido"; motivo: string }
-  | { resultado: "tope" }
+  | { resultado: "limite" }
   | { resultado: "en_curso" }
   | { resultado: "borrado" }
   | { resultado: "esperando_confirmacion" }
@@ -600,7 +600,7 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
 async function detenidoPorTope(ctx: Contexto): Promise<ResultadoProcesar> {
   await actualizarMaterial(ctx.deps.db, ctx.material.id, { motivo_fallo: TEXTO_LIMITE, ...LIBRE })
   await avisarLimite(ctx.deps, ctx.deps.ahora())
-  return { resultado: "tope" }
+  return { resultado: "limite" }
 }
 
 /**

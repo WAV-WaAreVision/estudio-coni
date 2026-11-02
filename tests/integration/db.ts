@@ -16,6 +16,12 @@ export const comoPostgres: Sesion = { tipo: "postgres" }
 
 export const pool = new pg.Pool({ connectionString: URL_DB, max: 4 })
 
+/** Back to the default limit, twice the cap: no reactivated month and no limit of her own. */
+export async function sinLimiteFijado(): Promise<void> {
+  await pool.query("delete from public.limites_del_mes")
+  await pool.query("update public.ajustes set limite_duro_usd = null")
+}
+
 /** Impersonates an actor the way PostgREST does, for the current transaction only. */
 export async function asumir(cliente: pg.PoolClient, sesion: Sesion): Promise<void> {
   // Reset first so a test can switch actor in the middle of a transaction (also back to postgres).
