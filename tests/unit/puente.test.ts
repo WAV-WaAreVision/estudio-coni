@@ -14,8 +14,12 @@ function leer(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html")
 }
 
-async function paginaPara(urlDeIngesta: string, token = TOKEN): Promise<{ html: string; doc: Document }> {
-  const puente = await abrirPuente({ admin: adminQueDa(token), correo: CORREO, urlDeIngesta })
+async function paginaPara(
+  urlDeIngesta: string,
+  token = TOKEN,
+  entorno = "production",
+): Promise<{ html: string; doc: Document }> {
+  const puente = await abrirPuente({ admin: adminQueDa(token), correo: CORREO, urlDeIngesta, entorno })
   if (puente.tipo !== "formulario") throw new Error("Se esperaba la página del puente")
   return { html: puente.html, doc: leer(puente.html) }
 }
@@ -28,7 +32,7 @@ describe("abrirPuente", () => {
   it("mints a magic link for Coni's own address and nobody else's", async () => {
     const admin = adminQueDa(TOKEN)
 
-    await abrirPuente({ admin, correo: CORREO, urlDeIngesta: "https://ingesta.example" })
+    await abrirPuente({ admin, correo: CORREO, urlDeIngesta: "https://ingesta.example", entorno: "production" })
 
     expect(admin.generateLink).toHaveBeenCalledWith({ type: "magiclink", email: CORREO })
   })
@@ -53,6 +57,34 @@ describe("abrirPuente", () => {
     },
   )
 
+  it.each([
+    ["production", "https://ingesta.example"],
+    ["development", "https://ingesta.example"],
+    ["development", "http://localhost:3300"],
+    ["test", "http://localhost:3300"],
+  ])("accepts INGESTA_URL in %s when it is %s", async (entorno, url) => {
+    const { doc } = await paginaPara(url, TOKEN, entorno)
+    expect(doc.querySelector("form")?.getAttribute("action")).toBe(new URL("/ingreso/puente", url).toString())
+  })
+
+  it("refuses a plain http INGESTA_URL in production, without minting a link", async () => {
+    const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const admin = adminQueDa(TOKEN)
+
+    expect(
+      await abrirPuente({ admin, correo: CORREO, urlDeIngesta: "http://ingesta.example", entorno: "production" }),
+    ).toEqual({ tipo: "fallo" })
+    expect(admin.generateLink).not.toHaveBeenCalled()
+    expect(registro).toHaveBeenCalledTimes(1)
+  })
+
+  it("never carries a user or password from INGESTA_URL into the form", async () => {
+    const { html, doc } = await paginaPara("https://u:p@ingesta.example")
+
+    expect(doc.querySelector("form")?.getAttribute("action")).toBe("https://ingesta.example/ingreso/puente")
+    expect(html).not.toContain("u:p")
+  })
+
   it("submits itself, and offers a button for a browser without JavaScript", async () => {
     const { doc } = await paginaPara("https://ingesta.example")
 
@@ -75,7 +107,9 @@ describe("abrirPuente", () => {
       const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
       const admin = adminQueDa(TOKEN)
 
-      expect(await abrirPuente({ admin, correo: CORREO, urlDeIngesta })).toEqual({ tipo: "fallo" })
+      expect(await abrirPuente({ admin, correo: CORREO, urlDeIngesta, entorno: "development" })).toEqual({
+        tipo: "fallo",
+      })
       expect(admin.generateLink).not.toHaveBeenCalled()
       expect(registro).toHaveBeenCalledTimes(1)
     },
@@ -85,7 +119,9 @@ describe("abrirPuente", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined)
     const admin = adminQueDa(TOKEN)
 
-    expect(await abrirPuente({ admin, correo: null, urlDeIngesta: "https://ingesta.example" })).toEqual({
+    expect(
+      await abrirPuente({ admin, correo: null, urlDeIngesta: "https://ingesta.example", entorno: "production" }),
+    ).toEqual({
       tipo: "fallo",
     })
     expect(admin.generateLink).not.toHaveBeenCalled()
@@ -100,7 +136,9 @@ describe("abrirPuente", () => {
       })),
     }
 
-    expect(await abrirPuente({ admin, correo: CORREO, urlDeIngesta: "https://ingesta.example" })).toEqual({
+    expect(
+      await abrirPuente({ admin, correo: CORREO, urlDeIngesta: "https://ingesta.example", entorno: "production" }),
+    ).toEqual({
       tipo: "fallo",
     })
     expect(registro).toHaveBeenCalledWith("No pude generar el enlace de la Biblioteca", {

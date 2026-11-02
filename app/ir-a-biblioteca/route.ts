@@ -17,6 +17,7 @@ export async function GET() {
     admin: clienteDeServicio().auth.admin,
     correo: sesion.correo,
     urlDeIngesta: process.env.INGESTA_URL,
+    entorno: process.env.NODE_ENV,
   })
   if (puente.tipo === "fallo") return irA(RUTA_DE_FALLO_DEL_PUENTE)
   return new Response(puente.html, {

@@ -15,6 +15,8 @@ export interface DepsDelPuente {
   /** Coni's address, from her own session: the link only ever signs in the person who asked for it. */
   correo: string | null
   urlDeIngesta: string | undefined
+  /** NODE_ENV: production only trusts https, so the token never travels in clear text. */
+  entorno: string | undefined
 }
 
 export type Puente = { tipo: "formulario"; html: string } | { tipo: "fallo" }
@@ -23,11 +25,13 @@ export const RUTA_DE_FALLO_DEL_PUENTE = "/biblioteca-no-abrio"
 export const TEXTO_FALLO_DEL_PUENTE = "No pude abrir la Biblioteca. Vuelve a intentarlo en un momento."
 const RUTA_DEL_PUENTE_EN_INGESTA = "/ingreso/puente"
 
-function destinoDelPuente(urlDeIngesta: string | undefined): string | null {
+function destinoDelPuente(urlDeIngesta: string | undefined, entorno: string | undefined): string | null {
   if (!urlDeIngesta || !URL.canParse(urlDeIngesta)) return null
   const base = new URL(urlDeIngesta)
-  if (base.protocol !== "https:" && base.protocol !== "http:") return null
-  return new URL(RUTA_DEL_PUENTE_EN_INGESTA, base).toString()
+  const protocolos = entorno === "production" ? ["https:"] : ["https:", "http:"]
+  if (!protocolos.includes(base.protocol)) return null
+  // From the origin only: a user or password written into INGESTA_URL never reaches the page.
+  return new URL(RUTA_DEL_PUENTE_EN_INGESTA, base.origin).toString()
 }
 
 const escapar = (texto: string) =>
@@ -61,9 +65,11 @@ function paginaDelPuente(accion: string, token: string): string {
  * never reaches a URL, a log line or a referrer. The only function that calls `generateLink`.
  */
 export async function abrirPuente(deps: DepsDelPuente): Promise<Puente> {
-  const accion = destinoDelPuente(deps.urlDeIngesta)
+  const accion = destinoDelPuente(deps.urlDeIngesta, deps.entorno)
   if (!accion) {
-    console.error("Falta INGESTA_URL o no es una dirección http(s): la Biblioteca no se puede abrir.")
+    console.error(
+      "Falta INGESTA_URL o no es una dirección válida (https en producción): la Biblioteca no se puede abrir.",
+    )
     return { tipo: "fallo" }
   }
   if (!deps.correo) {
