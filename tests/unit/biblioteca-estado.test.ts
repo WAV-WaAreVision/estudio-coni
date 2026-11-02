@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { esperaConfirmacion, estaProcesando, presentarEstado, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
+import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
+import {
+  esperaConfirmacion,
+  estaProcesando,
+  presentarEstado,
+  sePuedeReintentar,
+  tieneMotivo,
+} from "@/lib/dominio/biblioteca/estado"
 
 const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
 
@@ -22,6 +29,25 @@ describe("the state of a material", () => {
     expect(estaProcesando(base)).toBe(true)
     expect(estaProcesando({ ...base, motivo_fallo: "tope_mensual" })).toBe(false)
     expect(estaProcesando({ ...base, estado: "listo" })).toBe(false)
+  })
+})
+
+describe("tieneMotivo: a blank reason is no reason, in the state and in the detail for WAV alike", () => {
+  it("needs some text once trimmed", () => {
+    expect(tieneMotivo("tope_mensual")).toBe(true)
+    expect(tieneMotivo(null)).toBe(false)
+    expect(tieneMotivo("")).toBe(false)
+    expect(tieneMotivo("   ")).toBe(false)
+  })
+
+  it.each(["", "  "])("treats a material processing with the reason %j as processing", (motivo) => {
+    const material = { ...base, motivo_fallo: motivo }
+    expect(estaProcesando(material)).toBe(true)
+    expect(sePuedeReintentar(material)).toBe(false)
+    expect(presentarEstado(material)).toEqual({ palabra: "Procesando", tipo: "neutro", icono: "reloj" })
+    expect(lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente" }, {})).not.toContainEqual(
+      expect.stringMatching(/^Motivo:/),
+    )
   })
 })
 
