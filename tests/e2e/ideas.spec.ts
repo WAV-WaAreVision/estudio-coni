@@ -21,11 +21,13 @@ test.beforeEach(async ({ page }) => {
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await configurarServicios()
   await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
+  await pool.query("delete from public.limites_del_mes")
 })
 
 test.afterAll(async () => {
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await pool.query("update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null")
+  await pool.query("delete from public.limites_del_mes")
 })
 
 async function sembrarBanco() {

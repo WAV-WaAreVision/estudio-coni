@@ -1,17 +1,8 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { alerta, capturar } from "./ayudas"
+import { alerta, capturar, limpiarPresupuesto } from "./ayudas"
 
 const CONI = "c0000000-0000-4000-8000-000000000001"
-
-async function limpiar() {
-  await pool.query(
-    "update public.ajustes set tope_mensual_usd = 40, limite_duro_usd = null, motor_semanal_activo = true, fusiones_nocturnas_activas = true",
-  )
-  await pool.query("delete from public.gastos")
-  await pool.query("delete from public.limites_del_mes")
-  await pool.query("delete from public.avisos where clave like 'limite_alcanzado:%'")
-}
 
 async function gastado(usd: number) {
   await pool.query(
@@ -25,8 +16,8 @@ async function ajustes() {
   return rows[0]
 }
 
-test.beforeEach(limpiar)
-test.afterAll(limpiar)
+test.beforeEach(limpiarPresupuesto)
+test.afterAll(limpiarPresupuesto)
 
 test("Coni opens her budget from Ajustes and moves her cap and her limit, logged with her as the actor", async ({
   page,
@@ -60,6 +51,7 @@ test("Coni opens her budget from Ajustes and moves her cap and her limit, logged
 test("at the limit she reactivates the month with one confirmation, and a short limit is explained", async ({
   page,
 }) => {
+  const { rows: previos } = await pool.query("select coalesce(max(id), 0) as id from public.eventos")
   await gastado(80)
   await page.goto("/ajustes/presupuesto")
 
@@ -82,6 +74,11 @@ test("at the limit she reactivates the month with one confirmation, and a short 
   await expect(page.getByRole("button", { name: "Reactivar" })).toHaveCount(0)
   const { rows } = await pool.query("select limite_usd::float8 as limite from public.limites_del_mes")
   expect(rows).toEqual([{ limite: 120 }])
+  const { rows: escrituras } = await pool.query(
+    "select actor_usuario from public.eventos where id > $1 and tabla = 'limites_del_mes'",
+    [previos[0].id],
+  )
+  expect(escrituras.map((r) => r.actor_usuario)).toEqual([CONI])
 
   await page.reload()
   await expect(page.getByText("Este mes tu límite es US$ 120,00 porque lo reactivaste.")).toBeVisible()
