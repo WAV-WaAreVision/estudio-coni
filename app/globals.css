@@ -473,23 +473,21 @@ html[data-letra="grande"] .barra-de-firma {
   border-radius: var(--r-barra);
   box-shadow: var(--relieve);
 }
+/* Four tabs at large text: a little less gutter and gap so "Biblioteca" keeps one line at 375 px. */
 html[data-letra="grande"] .nav-inferior {
   position: static;
   margin: 0 12px calc(12px + env(safe-area-inset-bottom));
   padding-bottom: 8px;
+  padding-inline: var(--e-2);
+  gap: var(--e-1);
   border-radius: var(--r-panel);
   box-shadow: var(--relieve);
 }
-/* One compact row, the icon above its label, as at normal size: the label shrinks to the normal body size so three
-   words fit side by side, and each tab keeps a target well over 44 px. */
+/* One compact row, the icon above its label, as at normal size: the label shrinks to the normal label size so the
+   four tabs fit side by side, and each tab keeps a target well over 44 px. */
 html[data-letra="grande"] .nav-inferior a {
   min-height: 0;
   padding: var(--e-2) var(--e-1);
-}
-/* Four tabs at large text: a little less gutter so "Biblioteca" keeps one line at 375 px. */
-html[data-letra="grande"] .nav-inferior {
-  gap: var(--e-1);
-  padding-inline: var(--e-2);
 }
 html[data-letra="grande"] .nav-inferior svg {
   width: 1.2rem;
