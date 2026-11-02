@@ -111,7 +111,7 @@ describe("PantallaDePresupuesto", () => {
         guardar: vi.fn(async () => ({
           ok: true as const,
           anterior: ANTERIOR,
-          aviso: "Tu límite volvió al doble del tope: US$ 100,00",
+          aviso: "Tu límite volvió al doble del tope: US$ 100,00.",
         })),
       },
     )
@@ -119,7 +119,7 @@ describe("PantallaDePresupuesto", () => {
     fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
     await esperarElGuardado()
 
-    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00")).toBeInTheDocument()
+    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00.")).toBeInTheDocument()
   })
 
   it("at the limit offers Reactivar, prefilled with the limit plus the cap, with one confirmation", async () => {
@@ -385,7 +385,7 @@ describe("PantallaDePresupuesto", () => {
         guardar: vi.fn(async () => ({
           ok: true as const,
           anterior: ANTERIOR,
-          aviso: "Tu límite volvió al doble del tope: US$ 100,00",
+          aviso: "Tu límite volvió al doble del tope: US$ 100,00.",
         })),
       },
     )
@@ -394,7 +394,7 @@ describe("PantallaDePresupuesto", () => {
     fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))
     await esperarElGuardado()
 
-    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00")).toBeInTheDocument()
+    expect(await screen.findByText("Tu límite volvió al doble del tope: US$ 100,00.")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull()
   })
   it("saves and shows a limit tapped while a cap save hangs and then fails", async () => {

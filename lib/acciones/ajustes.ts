@@ -157,25 +157,26 @@ export function guardarAjuste(
     if (cambio.data.campo === "tope" || cambio.data.campo === "limite") {
       const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
       const frases: string[] = []
+      // Only a change that set this month's limit can say it paused the month; a reactivated month keeps its own.
+      let fijoElLimiteDelMes = true
       if (cambio.data.campo === "tope" && vuelveAlDoble) {
         const doble = limitePorDefecto(cambio.data.valor)
         // A month she reactivated keeps its own limit (P10): the reset only reaches the months after it.
+        fijoElLimiteDelMes = presupuesto.limite === doble
         frases.push(
-          presupuesto.limite === doble
-            ? `Tu límite volvió al doble del tope: ${dolares(doble)}`
+          fijoElLimiteDelMes
+            ? `Tu límite volvió al doble del tope: ${dolares(doble)}.`
             : `Tu límite volvió al doble del tope: ${dolares(doble)} desde el próximo mes.`,
         )
       }
       if (presupuesto.usado >= presupuesto.limite) {
         frases.push(
-          `Ya gastaste ${dolares(presupuesto.usado)}; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.`,
+          fijoElLimiteDelMes
+            ? `Ya gastaste ${dolares(presupuesto.usado)}; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.`
+            : `Este mes ya gastaste ${dolares(presupuesto.usado)} de tu límite de ${dolares(presupuesto.limite)}; lo nuevo sigue en pausa.`,
         )
       }
-      if (frases.length > 0) {
-        resultado.aviso = frases
-          .map((frase, i) => (i < frases.length - 1 && !frase.endsWith(".") ? `${frase}.` : frase))
-          .join(" ")
-      }
+      if (frases.length > 0) resultado.aviso = frases.join(" ")
     }
     return resultado
   })

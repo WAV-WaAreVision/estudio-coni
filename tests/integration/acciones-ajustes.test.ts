@@ -164,7 +164,7 @@ describe("guardarAjuste", () => {
 
     const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
 
-    expect(resultado).toMatchObject({ ok: true, aviso: "Tu límite volvió al doble del tope: US$ 140,00" })
+    expect(resultado).toMatchObject({ ok: true, aviso: "Tu límite volvió al doble del tope: US$ 140,00." })
     expect(await ajustes()).toMatchObject({ tope_mensual_usd: "70.00", limite_duro_usd: null })
   })
 
@@ -194,6 +194,24 @@ describe("guardarAjuste", () => {
       ok: true,
       aviso:
         "Tu límite volvió al doble del tope: US$ 140,00. Ya gastaste US$ 150,00; con este límite lo nuevo queda en pausa hasta el próximo mes. Lo que ya firmaste sigue.",
+    })
+  })
+
+  it("does not claim the cap paused the month when a reactivated month's own limit was already spent", async () => {
+    await pool.query("update public.ajustes set limite_duro_usd = 60")
+    await pool.query(
+      "insert into public.limites_del_mes (mes, limite_usd, fijado_por) values (date_trunc('month', now() at time zone 'America/Santiago')::date, 130, (select id from auth.users where email = 'coni@estudio.test'))",
+    )
+    await pool.query(
+      "insert into public.gastos (proveedor, paso, mes, estimado_usd, real_usd, estado, clave) values ('heygen', 'prueba_ajustes', date_trunc('month', now() at time zone 'America/Santiago')::date, 150, 150, 'confirmado', 'prueba-ajustes-3')",
+    )
+
+    const resultado = await guardarAjuste(deps(), { campo: "tope", valor: 70 })
+
+    expect(resultado).toMatchObject({
+      ok: true,
+      aviso:
+        "Tu límite volvió al doble del tope: US$ 140,00 desde el próximo mes. Este mes ya gastaste US$ 150,00 de tu límite de US$ 130,00; lo nuevo sigue en pausa.",
     })
   })
 
