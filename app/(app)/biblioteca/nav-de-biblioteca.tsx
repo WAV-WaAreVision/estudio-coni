@@ -12,6 +12,7 @@ export function NavDeBiblioteca({ actual }: { actual: Seccion }) {
     <Pestanas
       etiqueta="Secciones de la Biblioteca"
       actual={actual}
+      compacta
       opciones={SECCIONES.map((seccion) => ({
         ...seccion,
         icono: <FileText aria-hidden="true" size={ICONO.medio} />,

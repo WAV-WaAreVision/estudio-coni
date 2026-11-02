@@ -15,6 +15,11 @@ describe("NavDeBiblioteca (4c)", () => {
     expect(enlaces[0]).toHaveAttribute("href", "/biblioteca")
     expect(nav.querySelector("svg")).not.toBeNull()
   })
+
+  it("hugs its one tab instead of stretching it across the column", () => {
+    render(<NavDeBiblioteca actual="materiales" />)
+    expect(screen.getByRole("list")).toHaveClass("w-fit")
+  })
 })
 
 describe("EstadoDeMaterial (4j)", () => {
