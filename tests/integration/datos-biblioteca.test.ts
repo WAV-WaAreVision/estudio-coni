@@ -156,4 +156,16 @@ describe("listarAutores", () => {
     const nombres = lista.map((a) => a.nombre)
     expect(nombres).toEqual([...nombres].sort((a, b) => a.localeCompare(b, "es")))
   })
+
+  it("lists every author past the 1000 rows PostgREST answers at once", async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into public.autores (nombre, tipo)
+       select 'Muchos ' || $1 || ' ' || n, 'persona' from generate_series(1, 1001) as n returning id`,
+      [SUFIJO],
+    )
+    autores.push(...rows.map((fila) => fila.id))
+    const lista = await listarAutores(coni)
+    expect(lista.filter((a) => a.nombre.startsWith(`Muchos ${SUFIJO} `))).toHaveLength(1001)
+    expect(new Set(lista.map((a) => a.id)).size).toBe(lista.length)
+  })
 })

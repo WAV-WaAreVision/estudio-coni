@@ -179,7 +179,9 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
 
 /** The authors in alphabetical order. Row level security shows nothing to someone who is not Coni or WAV. */
 export async function listarAutores(db: Db): Promise<AutorDeLista[]> {
-  const { data, error } = await db.from("autores").select("id, nombre, credencial, tipo, alias")
-  if (error) throw new Error(`No pude leer los autores: ${error.message}`, { cause: error })
-  return data.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+  const autores = await leerTodas("los autores", (despuesDe, limite) => {
+    const consulta = db.from("autores").select("id, nombre, credencial, tipo, alias")
+    return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+  })
+  return autores.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
 }
