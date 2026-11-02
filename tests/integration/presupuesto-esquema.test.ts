@@ -22,6 +22,18 @@ async function gastar(c: pg.PoolClient, clave: string, monto: number, ahora = "n
   await c.query(`select public.reservar_gasto(null, 'heygen', 'grabar', $1, $2, ${ahora})`, [monto, clave])
 }
 
+async function esperarBloqueoDe(funcion: string): Promise<void> {
+  for (let intento = 0; intento < 100; intento++) {
+    const { rowCount } = await pool.query(
+      "select 1 from pg_stat_activity where wait_event_type = 'Lock' and query ilike $1 and pid <> pg_backend_pid()",
+      [`%${funcion}%`],
+    )
+    if (rowCount) return
+    await new Promise((listo) => setTimeout(listo, 20))
+  }
+  throw new Error(`${funcion} nunca esperó la fila de ajustes.`)
+}
+
 async function limiteDelMes(c: pg.PoolClient, ahora = "now()"): Promise<number | undefined> {
   const { rows } = await c.query<{ limite: number }>(`select public.limite_del_mes(${ahora})::float8 as limite`)
   return rows[0]?.limite
@@ -206,6 +218,37 @@ describe("fijar_limite_del_mes", () => {
         "select limite_usd::float8 as limite from public.fijar_limite_del_mes(1000.004)",
       )
       expect(tope[0]).toEqual({ limite: 1000 })
+    })
+  })
+
+  it("waits for a cap raise in another tab and then refuses a limit under the new cap", async () => {
+    const otraPestana = await pool.connect()
+    try {
+      await otraPestana.query("begin")
+      await otraPestana.query("update public.ajustes set tope_mensual_usd = 100")
+      const error = await como(comoConi, async (c) => {
+        const fijado = fallaCon(c, "select public.fijar_limite_del_mes(50)")
+        await esperarBloqueoDe("fijar_limite_del_mes")
+        await otraPestana.query("commit")
+        return fijado
+      })
+      expect(error.message).toBe("limite_bajo_el_tope")
+      expect(error.detail).toContain("tope=100")
+    } finally {
+      await otraPestana.query("rollback")
+      otraPestana.release()
+      await pool.query("update public.ajustes set tope_mensual_usd = 40")
+      await pool.query("delete from public.limites_del_mes")
+    }
+  })
+
+  it("refuses to set a limit without the settings row", async () => {
+    await como(comoPostgres, async (c) => {
+      await c.query("delete from public.ajustes")
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, "select public.fijar_limite_del_mes(120)")
+      expect(error.code).toBe("P0001")
+      expect(error.message).toBe("falta_ajustes")
     })
   })
 

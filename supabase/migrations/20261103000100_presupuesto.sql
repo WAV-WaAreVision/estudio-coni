@@ -131,7 +131,11 @@ begin
     raise exception using errcode = '42501', message = 'solo_coni';
   end if;
   p_limite := round(p_limite, 2);
-  select tope_mensual_usd into v_tope from public.ajustes where id;
+  -- For share: a cap raised in another tab meanwhile is waited for, so the month's limit never ends under the cap.
+  select tope_mensual_usd into v_tope from public.ajustes where id for share;
+  if v_tope is null then
+    raise exception using errcode = 'P0001', message = 'falta_ajustes';
+  end if;
   if p_limite < v_tope then
     raise exception using errcode = '22023', message = 'limite_bajo_el_tope', detail = format('tope=%s', v_tope);
   end if;
