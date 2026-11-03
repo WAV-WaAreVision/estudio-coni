@@ -43,6 +43,7 @@ function depsDeSubir(db: DepsSubir["db"]): DepsSubir {
     almacen: {
       urlDeSubida: (clave, segundos, tipo) => almacenReal().urlDeSubida(clave, segundos, tipo),
       tamano: (clave) => almacenReal().tamano(clave),
+      borrarCarpeta: (materialId) => almacenReal().borrarCarpeta(materialId),
     },
   }
 }
@@ -112,7 +113,7 @@ export async function confirmarMaterialAccion(materialId: string) {
 export async function descartarMaterialAccion(materialId: string) {
   return refrescar(
     await conSesionDeConi("descartarMaterial", SobreMaterial, { materialId }, (db, d) =>
-      descartarMaterial({ db }, d.materialId),
+      descartarMaterial({ db, almacen: { borrarCarpeta: (id) => almacenReal().borrarCarpeta(id) } }, d.materialId),
     ),
   )
 }

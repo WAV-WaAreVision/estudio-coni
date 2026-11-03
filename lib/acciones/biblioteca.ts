@@ -192,7 +192,7 @@ export function pedirTextoOriginal(
 export interface DepsSubir {
   /** Coni's client: row level security applies, and `es_coni` is checked again here. */
   db: Db
-  almacen: Pick<Almacen, "urlDeSubida" | "tamano">
+  almacen: Pick<Almacen, "urlDeSubida" | "tamano" | "borrarCarpeta">
   disparar: Pick<DisparosDeBiblioteca, "material">
   nuevoId: () => string
   ahora: () => Date
@@ -201,11 +201,29 @@ export interface DepsSubir {
 /** A browser upload link only has to outlast one upload. */
 const UNA_HORA_S = 60 * 60
 
-/** Only while it is `procesando`: a material a run already moved on is never taken back. */
-async function borrarMaterial(db: Db, materialId: string): Promise<void> {
-  const { error } = await db.from("materiales").delete().eq("id", materialId).eq("estado", "procesando")
+/**
+ * Only while it is `procesando`: a material a run already moved on is never taken back. True when the row is gone, so
+ * its files may go too.
+ */
+async function borrarMaterial(db: Db, materialId: string): Promise<boolean> {
+  const { data, error } = await db
+    .from("materiales")
+    .delete()
+    .eq("id", materialId)
+    .eq("estado", "procesando")
+    .select("id")
   // The caller answers with the failure that led here; a row left behind is for WAV to find in the log.
   if (error) console.error(`No pude borrar el material ${materialId}`, error)
+  return (data ?? []).length > 0
+}
+
+/** The files of a deleted material. Its row is already gone, so a folder left behind is for WAV to find in the log. */
+async function borrarCarpeta(almacen: Pick<Almacen, "borrarCarpeta">, materialId: string): Promise<void> {
+  try {
+    await almacen.borrarCarpeta(materialId)
+  } catch (error) {
+    console.error(`No pude borrar los archivos del material ${materialId}`, error)
+  }
 }
 
 /**
@@ -342,7 +360,7 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
     if (tamanos === undefined) return dejarParaReintentar(deps.db, materialId)
     const malo = tamanos.find((bytes) => bytes === null || bytes === 0 || bytes > TAMANO_MAXIMO_BYTES)
     if (malo !== undefined) {
-      await borrarMaterial(deps.db, materialId)
+      if (await borrarMaterial(deps.db, materialId)) await borrarCarpeta(deps.almacen, materialId)
       throw new Falla(malo !== null && malo > TAMANO_MAXIMO_BYTES ? PESA_DEMASIADO : FALTA_EL_ARCHIVO)
     }
 
@@ -357,17 +375,22 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
 }
 
 /** Throws away a material whose upload failed: only hers, and only while it is still `procesando`. */
-export function descartarMaterial(deps: Pick<DepsSubir, "db">, materialId: string): Promise<Resultado> {
+export function descartarMaterial(
+  deps: { db: Db; almacen: Pick<Almacen, "borrarCarpeta"> },
+  materialId: string,
+): Promise<Resultado> {
   return aResultado("descartarMaterial", async () => {
     await exigirConi(deps.db)
     const subidoPor = await idDeQuienEntro(deps.db)
-    const { error } = await deps.db
+    const { data, error } = await deps.db
       .from("materiales")
       .delete()
       .eq("id", materialId)
       .eq("subido_por", subidoPor)
       .eq("estado", "procesando")
+      .select("id")
     if (error) throw new Error(`No pude descartar el material ${materialId}: ${error.message}`, { cause: error })
+    if (data.length > 0) await borrarCarpeta(deps.almacen, materialId)
     return {}
   })
 }

@@ -64,6 +64,11 @@ async function cuantosCon(titulo: string): Promise<number> {
   return rows[0]?.n ?? 0
 }
 
+const enLaCarpeta = (materialId: string) => almacen.claves().filter((c) => c.startsWith(`materiales/${materialId}/`))
+const NO_BORRA = async (): Promise<number> => {
+  throw new Error("R2 caído")
+}
+
 beforeAll(async () => {
   ;[coni, wav] = await Promise.all([clienteDeConi(), clienteDelMantenedor()])
   autor = await sembrarAutor(`Autora de subir ${SUFIJO}`)
@@ -280,6 +285,7 @@ describe("confirmarMaterial", () => {
     expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
     expect(disparos).toEqual([])
     expect(await fila(creado.materialId)).toBeNull()
+    expect(enLaCarpeta(creado.materialId)).toEqual([])
   })
 
   it("deletes the material and starts nothing when the file never arrived", async () => {
@@ -294,10 +300,12 @@ describe("confirmarMaterial", () => {
     almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([]))
     expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
     expect(await fila(creado.materialId)).toBeNull()
+    expect(enLaCarpeta(creado.materialId)).toEqual([])
   })
 
   it("deletes the material when the object in the store is over 2 GB, whatever was declared", async () => {
     const creado = await crearOk(coni, { tipo: "video", archivos: [{ nombre: "a.mp4", tamano: 10 }] })
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1]))
     const enorme = deps(coni, { almacen: { ...almacen, tamano: async () => TAMANO_MAXIMO_BYTES + 1 } })
 
     expect(await confirmarMaterial(enorme, creado.materialId)).toEqual({
@@ -306,6 +314,17 @@ describe("confirmarMaterial", () => {
     })
     expect(disparos).toEqual([])
     expect(await fila(creado.materialId)).toBeNull()
+    expect(enLaCarpeta(creado.materialId)).toEqual([])
+  })
+
+  it("answers the same and logs the material when its folder cannot be deleted", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    const sinBorrar = deps(coni, { almacen: { ...almacen, borrarCarpeta: NO_BORRA } })
+
+    expect(await confirmarMaterial(sinBorrar, creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
+    expect(await fila(creado.materialId)).toBeNull()
+    expect(error).toHaveBeenCalledWith(expect.stringContaining(creado.materialId), expect.any(Error))
   })
 
   it("never deletes a material that moved on while its file was being checked", async () => {
@@ -320,8 +339,10 @@ describe("confirmarMaterial", () => {
       },
     })
 
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1]))
     await confirmarMaterial(otraCorrida, creado.materialId)
     expect(await fila(creado.materialId)).toMatchObject({ estado: "listo" })
+    expect(enLaCarpeta(creado.materialId)).toHaveLength(1)
   })
 
   it("answers ok and starts nothing for a material that is not procesando anymore (a second tap)", async () => {
@@ -375,17 +396,31 @@ describe("confirmarMaterial", () => {
 })
 
 describe("descartarMaterial", () => {
-  it("deletes her material that is still procesando", async () => {
+  it("deletes her material that is still procesando, and its folder in the store", async () => {
     const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1]))
     expect(await descartarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
     expect(await fila(creado.materialId)).toBeNull()
+    expect(enLaCarpeta(creado.materialId)).toEqual([])
+  })
+
+  it("still answers ok and logs the material when its folder cannot be deleted", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    const sinBorrar = deps(coni, { almacen: { ...almacen, borrarCarpeta: NO_BORRA } })
+
+    expect(await descartarMaterial(sinBorrar, creado.materialId)).toEqual({ ok: true })
+    expect(await fila(creado.materialId)).toBeNull()
+    expect(error).toHaveBeenCalledWith(expect.stringContaining(creado.materialId), expect.any(Error))
   })
 
   it("never deletes a material that is ready", async () => {
     const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/v", archivos: [] })
     await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])
+    await almacen.subir(`materiales/${creado.materialId}/texto-original.txt`, new Uint8Array([1]), "text/plain")
     expect(await descartarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
     expect(await fila(creado.materialId)).not.toBeNull()
+    expect(enLaCarpeta(creado.materialId)).toHaveLength(1)
   })
 })
 
@@ -410,8 +445,10 @@ describe("a material uploaded by someone else (D8)", () => {
 
   it("is not discarded by Coni", async () => {
     const id = await deWav()
+    await almacen.subir(`materiales/${id}/original.pdf`, new Uint8Array([1]), "application/pdf")
     await descartarMaterial(deps(coni), id)
     expect(await fila(id)).toMatchObject({ estado: "procesando", subido_por: MANTENEDOR })
+    expect(enLaCarpeta(id)).toHaveLength(1)
   })
 })
 
