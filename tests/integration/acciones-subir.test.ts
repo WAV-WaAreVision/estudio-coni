@@ -36,7 +36,12 @@ function deps(db: Db, extra: Partial<DepsSubir> = {}): DepsSubir {
         disparos.push({ materialId, intento })
       },
     },
-    nuevoId: randomUUID,
+    // Every id handed out is cleaned up, also one a refused call should never have used.
+    nuevoId: () => {
+      const id = randomUUID()
+      creados.push(id)
+      return id
+    },
     ahora: () => AHORA,
     ...extra,
   }
@@ -47,7 +52,6 @@ const base = () => ({ autorId: autor, rol: "referente", declaracion: true })
 async function crearOk(db: Db, entrada: Record<string, unknown>) {
   const resultado = await crearMaterial(deps(db), { ...base(), ...entrada })
   if (!resultado.ok) throw new Error(`crearMaterial falló: ${resultado.error}`)
-  creados.push(resultado.materialId)
   return resultado
 }
 
