@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { useState } from "react"
+import { StrictMode, useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ListaDeImagenes } from "@/app/(app)/biblioteca/subir/lista-de-imagenes"
 import { moverArchivo } from "@/lib/dominio/biblioteca/borrador-de-subida"
@@ -12,7 +12,10 @@ Object.assign(URL, { createObjectURL: crear, revokeObjectURL: revocar })
 const imagen = (nombre: string) => new File(["x"], nombre, { type: "image/png" })
 const TRES = [imagen("uno.png"), imagen("dos.png"), imagen("tres.png")]
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  crear.mockImplementation((archivo: Blob) => `blob:${archivo instanceof File ? archivo.name : "x"}`)
+})
 
 /** The list as the form holds it: moving and removing change the files it gets back. */
 function ConEstado({ iniciales }: { iniciales: File[] }) {
@@ -87,6 +90,20 @@ describe("ListaDeImagenes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Quitar la imagen 1" }))
     expect(alMover).not.toHaveBeenCalled()
     expect(alQuitar).not.toHaveBeenCalled()
+  })
+
+  it("shows thumbnails that are still alive under StrictMode's double effects", () => {
+    let numero = 0
+    crear.mockImplementation(() => `blob:${++numero}`)
+    render(
+      <StrictMode>
+        <ListaDeImagenes archivos={TRES} ocupado={false} alMover={vi.fn()} alQuitar={vi.fn()} />
+      </StrictMode>,
+    )
+    const revocadas = new Set(revocar.mock.calls.map(([url]) => url))
+    const fuentes = screen.getAllByRole("img").map((imagen) => imagen.getAttribute("src"))
+    expect(fuentes).toHaveLength(3)
+    expect(fuentes.filter((fuente) => revocadas.has(fuente))).toEqual([])
   })
 
   it("frees the thumbnails it made when it goes away", () => {

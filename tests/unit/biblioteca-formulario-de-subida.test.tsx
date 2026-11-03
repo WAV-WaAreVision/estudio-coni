@@ -103,6 +103,33 @@ describe("FormularioDeSubida: the field and its type", () => {
     expect(screen.queryByText(/^Tipo:/)).toBeNull()
   })
 
+  it("says NO_RECONOZCO once when it is also the error", () => {
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+    elegirArchivos(container, [new File(["x"], "animacion.gif", { type: "image/gif" })])
+    fireEvent.click(screen.getByRole("button", { name: "Subir" }))
+    expect(screen.getByRole("alert")).toHaveTextContent(NO_RECONOZCO)
+    expect(screen.getAllByText(NO_RECONOZCO)).toHaveLength(1)
+  })
+
+  it("lists the names, not thumbnails, when she calls a file that is not an image Imagen", () => {
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+    elegirArchivos(container, [new File(["%PDF"], "tesis.pdf", { type: "application/pdf" })])
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo" }), { target: { value: "imagen" } })
+    expect(within(screen.getByRole("list", { name: "Archivos elegidos" })).getByText("tesis.pdf")).toBeInTheDocument()
+    expect(screen.queryByRole("list", { name: "Imágenes en orden" })).toBeNull()
+    expect(screen.queryByRole("img")).toBeNull()
+  })
+
+  it("has a quiet Quitar for a single picked file, which gives the focus back to Elegir archivo", () => {
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+    elegirArchivos(container, [new File(["%PDF"], "tesis.pdf", { type: "application/pdf" })])
+    fireEvent.click(screen.getByRole("button", { name: "Quitar el archivo" }))
+    expect(screen.queryByText("tesis.pdf")).toBeNull()
+    expect(screen.queryByText(/^Tipo:/)).toBeNull()
+    expect(screen.getByRole("button", { name: "Elegir archivo" })).toHaveFocus()
+  })
+
   it("lists picked images in order and asks for their reference link", () => {
     const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     elegirArchivos(

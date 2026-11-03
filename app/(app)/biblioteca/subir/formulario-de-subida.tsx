@@ -30,6 +30,8 @@ import {
   ACEPTA_VIDEO,
   AYUDA_DEL_CAMPO,
   detectarTipo,
+  EXTENSIONES_POR_TIPO,
+  extensionDe,
   FALTA_EL_ARCHIVO,
   FALTA_LA_ENTRADA,
   GUARDADO_SIN_INICIAR,
@@ -113,6 +115,9 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   const deteccion = detectarTipo({ texto, archivos })
   const efectivo = tipoEfectivo(deteccion, manual)
   const tipo = efectivo?.tipo ?? null
+  // A PDF she calls Imagen has no thumbnail to show: the list of names stays until the server says no.
+  const sonImagenes =
+    archivos.length > 0 && archivos.every((archivo) => EXTENSIONES_POR_TIPO.imagen.includes(extensionDe(archivo.name)))
   // "youtu.be/abc" is the same link as "https://youtu.be/abc": the extras follow the address it points to.
   const enlace = normalizarEnlace(texto) ?? texto.trim()
 
@@ -310,7 +315,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
               evento.target.value = ""
             }}
           />
-          {tipo === "imagen" ? (
+          {tipo === "imagen" && sonImagenes ? (
             <ListaDeImagenes
               archivos={archivos}
               ocupado={ocupado}
@@ -323,14 +328,26 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
                 // The key is the position: the same file may be picked twice.
                 <li
                   key={`${indice}-${archivo.name}`}
-                  className="rounded-bloque bg-piedra-honda p-3 text-cuerpo break-words"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3"
                 >
-                  {archivo.name}
+                  <span className="text-cuerpo break-words">{archivo.name}</span>
+                  {archivos.length === 1 ? (
+                    <Boton
+                      variante="callado"
+                      aria-label="Quitar el archivo"
+                      deshabilitado={ocupado}
+                      onClick={() => quitarArchivo(indice)}
+                    >
+                      Quitar
+                    </Boton>
+                  ) : null}
                 </li>
               ))}
             </ul>
           ) : null}
-          {deteccion === null && archivos.length > 0 ? <p className="text-meta text-apagado">{NO_RECONOZCO}</p> : null}
+          {deteccion === null && archivos.length > 0 && error !== NO_RECONOZCO ? (
+            <p className="text-meta text-apagado">{NO_RECONOZCO}</p>
+          ) : null}
           <TipoDetectado key={entradaNumero} efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
         </div>
 
