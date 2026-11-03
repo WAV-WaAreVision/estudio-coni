@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useCallback } from "react"
 
 /**
  * Redraws the screen with fresh server data after an action that changed it in place. A `router.refresh()` on the same
@@ -10,9 +11,9 @@ import { useRouter } from "next/navigation"
  */
 export function useRedibujar(): () => void {
   const router = useRouter()
-  return () => {
+  return useCallback(() => {
     const url = new URL(window.location.href)
     url.searchParams.set("v", String(Date.now()))
     router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false })
-  }
+  }, [router])
 }

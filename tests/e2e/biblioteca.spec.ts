@@ -63,22 +63,22 @@ test("the quick filters change the list with one tap and live in the URL (4b)", 
   await expect(filtros.getByRole("link", { name: "Todos" })).toHaveAttribute("aria-current", "page")
 
   await filtros.getByRole("link", { name: "Con error · 1" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\?estado=fallido$/)
+  await expect(page).toHaveURL(/\/biblioteca\?estado=fallido(?:[?&]v=\d+)?$/)
   await expect(filtros.getByRole("link", { name: "Con error · 1" })).toHaveAttribute("aria-current", "page")
   await expect(filtros.getByRole("link", { name: "Todos" })).not.toHaveAttribute("aria-current", "page")
   await expect(lista.getByRole("listitem")).toHaveCount(1)
 
   await filtros.getByRole("link", { name: "Procesando · 2" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\?estado=procesando$/)
+  await expect(page).toHaveURL(/\/biblioteca\?estado=procesando(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(2)
 
   // Back undoes a filter: each one is a link.
   await page.goBack()
-  await expect(page).toHaveURL(/\/biblioteca\?estado=fallido$/)
+  await expect(page).toHaveURL(/\/biblioteca\?estado=fallido(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(1)
 
   await filtros.getByRole("link", { name: "Todos" }).click()
-  await expect(page).toHaveURL(/\/biblioteca$/)
+  await expect(page).toHaveURL(/\/biblioteca(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(5)
 })
 
@@ -89,7 +89,7 @@ test("Más filtros folds author, who she is for you and type, and keeps the quic
   await page.getByRole("button", { name: "Filtrar" }).click()
 
   // The list writes its params in one order (hrefDeLista), whatever the form sent.
-  await expect(page).toHaveURL(/\/biblioteca\?rol=estrategia&estado=listo$/)
+  await expect(page).toHaveURL(/\/biblioteca\?rol=estrategia&estado=listo(?:[?&]v=\d+)?$/)
   const lista = page.getByRole("list", { name: "Materiales" })
   await expect(lista.getByRole("listitem")).toHaveCount(1)
   await expect(lista).toContainText(TITULO_ESTRATEGIA)
@@ -97,8 +97,26 @@ test("Más filtros folds author, who she is for you and type, and keeps the quic
   await expect(page.getByText("Más filtros · 1", { exact: true })).toBeVisible()
 
   await page.getByRole("link", { name: "Quitar estos filtros" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\?estado=listo$/)
+  await expect(page).toHaveURL(/\/biblioteca\?estado=listo(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(2)
+})
+
+test("a material that finishes while the list is open turns Listo on its own, without a tap or a reload", async ({
+  page,
+}) => {
+  await page.goto("/biblioteca")
+  const tarjeta = page
+    .getByRole("list", { name: "Materiales" })
+    .getByRole("listitem")
+    .filter({ hasText: "Liderar con IA" })
+  await expect(tarjeta).toContainText("Procesando")
+  await page.evaluate(() => window.scrollTo(0, 120))
+
+  await pool.query("update public.materiales set estado = 'listo' where id = $1", [escena.procesando])
+
+  // The list asks again every 10 s while something works: two rounds at most.
+  await expect(tarjeta).toContainText("Listo", { timeout: 25_000 })
+  expect(await page.evaluate(() => window.scrollY)).toBe(120)
 })
 
 test("Procesar por ~US$ 1,20 on a card starts the run with a key of its own", async ({ page }) => {

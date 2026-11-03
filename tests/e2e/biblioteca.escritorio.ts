@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { pool } from "../integration/db"
 import { bloquearRedExterna, disparosDeMateriales, limpiarDisparos, revisarConAxe } from "./ayudas"
 import { AUTORA, CREDENCIAL, type EscenaDeBiblioteca, sembrarBiblioteca, TITULO_LISTO } from "./biblioteca-escena"
 
@@ -27,7 +28,7 @@ test("on a computer the column widens, and the table opens the side panel with ?
   await expect(page.getByText(PISTA)).toBeVisible()
 
   await tabla.getByRole("link", { name: TITULO_LISTO }).click()
-  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?m=${escena.listo}$`))
+  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?m=${escena.listo}(?:&v=\\d+)?$`))
   const panel = page.getByRole("region", { name: TITULO_LISTO })
   // Opening from a row moves the focus to the panel's heading.
   await expect(panel.getByRole("heading", { name: TITULO_LISTO, level: 2 })).toBeFocused()
@@ -38,7 +39,7 @@ test("on a computer the column widens, and the table opens the side panel with ?
   await expect(panel.getByText("Detalle para WAV")).toBeVisible()
 
   await page.goBack()
-  await expect(page).toHaveURL(/\/biblioteca$/)
+  await expect(page).toHaveURL(/\/biblioteca(?:[?&]v=\d+)?$/)
   await expect(page.getByText(PISTA)).toBeVisible()
   await expect(page.getByRole("region", { name: TITULO_LISTO })).toHaveCount(0)
 
@@ -53,9 +54,9 @@ test("the panel closes with its own control, keeps the filter and gives the focu
   await page.goto("/biblioteca?estado=listo")
   const fila = page.getByRole("table", { name: "Materiales" }).getByRole("link", { name: TITULO_LISTO })
   await fila.click()
-  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?estado=listo&m=${escena.listo}$`))
+  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?estado=listo&m=${escena.listo}(?:&v=\\d+)?$`))
   await page.getByRole("link", { name: "Cerrar el panel" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\?estado=listo$/)
+  await expect(page).toHaveURL(/\/biblioteca\?estado=listo(?:[?&]v=\d+)?$/)
   await expect(page.getByText(PISTA)).toBeVisible()
   await expect(fila).toBeFocused()
 })
@@ -78,6 +79,22 @@ test("Reintentar in the side panel starts the run and the screen shows it workin
   await expect(panel.getByText("Procesando", { exact: true })).toBeVisible()
   await expect(panel.getByRole("button", { name: "Reintentar" })).toHaveCount(0)
   expect(disparosDeMateriales().map((disparo) => disparo.materialId)).toEqual([escena.conError])
+})
+
+test("with the panel open, a material that finishes turns Listo in the table and the panel on its own", async ({
+  page,
+}) => {
+  await page.goto(`/biblioteca?m=${escena.procesando}`)
+  const titulo = "Liderar con IA sin perder a las personas"
+  const fila = page.getByRole("table", { name: "Materiales" }).getByRole("row").filter({ hasText: titulo })
+  const panel = page.getByRole("region", { name: titulo })
+  await expect(fila).toContainText("Procesando")
+
+  await pool.query("update public.materiales set estado = 'listo' where id = $1", [escena.procesando])
+
+  await expect(fila).toContainText("Listo", { timeout: 25_000 })
+  await expect(panel.getByText("Listo", { exact: true })).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?m=${escena.procesando}(?:&v=\\d+)?$`))
 })
 
 test("the table and the side panel pass WCAG 2.x AA", async ({ page }) => {
