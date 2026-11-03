@@ -7,6 +7,7 @@ import {
   FALTA_LA_ENTRADA,
   MAXIMO_DE_IMAGENES,
   NO_RECONOZCO,
+  normalizarEnlace,
   tipoEfectivo,
 } from "@/lib/dominio/biblioteca/subir"
 
@@ -24,6 +25,14 @@ describe("detectarTipo: links and text", () => {
     ["https://podcasts.apple.com/cl/podcast/x/id1?i=2", "Podcast"],
     ["https://ejemplo.cl/nota", "Enlace"],
     ["http://ejemplo.cl/nota", "Enlace"],
+    ["youtube.com/watch?v=abc", "Video de YouTube"],
+    ["youtu.be/abc", "Video de YouTube"],
+    ["m.youtube.com/watch?v=abc", "Video de YouTube"],
+    ["open.spotify.com/episode/abc", "Podcast"],
+    ["www.ejemplo.cl/nota", "Enlace"],
+    ["ejemplo.cl/nota", "Enlace"],
+    ["ejemplo.cl", "Enlace"],
+    ["Ejemplo.CL/Nota?x=1#arriba", "Enlace"],
   ])("takes %s as a link (%s)", (texto, etiqueta) => {
     expect(conTexto(texto)).toEqual({ tipo: "link", etiqueta })
   })
@@ -36,8 +45,15 @@ describe("detectarTipo: links and text", () => {
     "Hoy quiero hablar de la carga mental.",
     "mira esto https://ejemplo.cl/nota",
     "https://ejemplo.cl/una nota con espacios",
-    "ejemplo.cl/nota",
+    "mira ejemplo.cl/nota",
+    "ejemplo.cl/una nota",
     "ftp://ejemplo.cl/archivo",
+    "javascript:alert(1)",
+    "fede@ejemplo.cl",
+    "hola",
+    "hola.",
+    "3.14",
+    "localhost:3000",
   ])("takes pasted text that is not a link as a post: %s", (texto) => {
     expect(conTexto(texto)).toEqual({ tipo: "post", etiqueta: "Texto" })
   })
@@ -45,6 +61,26 @@ describe("detectarTipo: links and text", () => {
   it("detects nothing when the field is empty or only spaces", () => {
     expect(conTexto("")).toBeNull()
     expect(conTexto("  \n ")).toBeNull()
+  })
+})
+
+describe("normalizarEnlace", () => {
+  it("adds https to a pasted address without its scheme, so it is the link that is sent", () => {
+    expect(normalizarEnlace("youtube.com/watch?v=abc")).toBe("https://youtube.com/watch?v=abc")
+    expect(normalizarEnlace("  www.ejemplo.cl/nota \n")).toBe("https://www.ejemplo.cl/nota")
+    expect(normalizarEnlace("ejemplo.cl")).toBe("https://ejemplo.cl")
+  })
+
+  it("keeps an address that already says http or https", () => {
+    expect(normalizarEnlace(" https://youtu.be/abc ")).toBe("https://youtu.be/abc")
+    expect(normalizarEnlace("http://ejemplo.cl/nota")).toBe("http://ejemplo.cl/nota")
+  })
+
+  it("is nothing for text that is not one address", () => {
+    expect(normalizarEnlace("mira ejemplo.cl")).toBeNull()
+    expect(normalizarEnlace("hola")).toBeNull()
+    expect(normalizarEnlace("ftp://ejemplo.cl/archivo")).toBeNull()
+    expect(normalizarEnlace("")).toBeNull()
   })
 })
 

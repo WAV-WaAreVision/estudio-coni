@@ -66,6 +66,24 @@ describe("armarEntrada", () => {
     expect(otro.entrada).toMatchObject({ url: "https://ejemplo.cl/nota", textoPegado: "" })
   })
 
+  it("sends a link pasted without its scheme as the https address, and the server takes it", () => {
+    const { entrada } = armarEntrada(borrador({ tipo: "link", texto: " youtu.be/abc ", transcripcion: "Hola" }))
+    expect(entrada).toMatchObject({ url: "https://youtu.be/abc", textoPegado: "Hola" })
+    expect(leerEntrada(entrada)).toMatchObject({
+      ok: true,
+      datos: { url: "https://youtu.be/abc", textoPegado: "Hola" },
+    })
+    const nota = armarEntrada(borrador({ tipo: "link", texto: "www.ejemplo.cl/nota" })).entrada
+    expect(nota.url).toBe("https://www.ejemplo.cl/nota")
+    expect(leerEntrada(nota).ok).toBe(true)
+  })
+
+  it("sends what she wrote as the link when she chose link for text that is not one, so the server says why", () => {
+    const { entrada } = armarEntrada(borrador({ tipo: "link", texto: " una idea suelta " }))
+    expect(entrada.url).toBe("una idea suelta")
+    expect(leerEntrada(entrada)).toEqual({ ok: false, error: "Ese link no parece una dirección web válida." })
+  })
+
   it("sends a post's text with its optional video, never the main files", () => {
     const video = archivo("clase.mp4", 99)
     const { entrada, aSubir } = armarEntrada(

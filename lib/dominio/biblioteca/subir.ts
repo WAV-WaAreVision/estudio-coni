@@ -218,9 +218,7 @@ function tipoDeArchivo(nombre: string): TipoConArchivo | null {
   return tipos.find((tipo) => EXTENSIONES_POR_TIPO[tipo].includes(extension)) ?? null
 }
 
-/** A whole pasted address, nothing around it: "mira https://..." is a text she wrote, not a link. */
-function esEnlace(texto: string): boolean {
-  if (/\s/.test(texto)) return false
+const esWeb = (texto: string): boolean => {
   try {
     const { protocol } = new URL(texto)
     return protocol === "http:" || protocol === "https:"
@@ -228,6 +226,20 @@ function esEnlace(texto: string): boolean {
     // Not an address: it is text.
     return false
   }
+}
+
+/** A host with a dot and a letters-only ending ("youtu.be", "www.ejemplo.cl"), then an optional port and path. */
+const DOMINIO_SIN_ESQUEMA = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i
+
+/**
+ * The address a whole pasted link points to, with "https://" added when she left it out ("youtu.be/abc").
+ * Anything around it makes it text she wrote: "mira https://..." is a post, not a link.
+ */
+export function normalizarEnlace(texto: string): string | null {
+  const limpio = texto.trim()
+  if (limpio === "" || /\s/.test(limpio)) return null
+  if (esWeb(limpio)) return limpio
+  return DOMINIO_SIN_ESQUEMA.test(limpio) && esWeb(`https://${limpio}`) ? `https://${limpio}` : null
 }
 
 /** The type of what she pasted or picked (spec table, 4k); the files decide when there are files. */
@@ -241,11 +253,11 @@ export function detectarTipo(entrada: { texto: string; archivos: readonly { name
     const [unico] = tipos
     return tipos.length === 1 && unico ? { tipo: unico, etiqueta: ETIQUETA_DE_TIPO[unico] } : null
   }
-  const texto = entrada.texto.trim()
-  if (texto === "") return null
-  if (!esEnlace(texto)) return { tipo: "post", etiqueta: "Texto" }
-  if (esYoutube(texto)) return { tipo: "link", etiqueta: "Video de YouTube" }
-  if (esPodcast(texto)) return { tipo: "link", etiqueta: "Podcast" }
+  if (entrada.texto.trim() === "") return null
+  const enlace = normalizarEnlace(entrada.texto)
+  if (enlace === null) return { tipo: "post", etiqueta: "Texto" }
+  if (esYoutube(enlace)) return { tipo: "link", etiqueta: "Video de YouTube" }
+  if (esPodcast(enlace)) return { tipo: "link", etiqueta: "Podcast" }
   return { tipo: "link", etiqueta: "Enlace" }
 }
 

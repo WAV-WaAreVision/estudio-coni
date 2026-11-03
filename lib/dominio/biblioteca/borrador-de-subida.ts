@@ -4,6 +4,7 @@ import {
   EXTENSIONES_POR_TIPO,
   extensionDe,
   MAXIMO_DE_IMAGENES,
+  normalizarEnlace,
   PESA_DEMASIADO,
   TAMANO_MAXIMO_BYTES,
 } from "./subir"
@@ -63,7 +64,8 @@ export function armarEntrada<A extends ArchivoElegido>(
       : tipo === "link"
         ? []
         : [...borrador.archivos]
-  const url = tipo === "link" ? borrador.texto.trim() : ""
+  // A link without its scheme goes as https; text that is no link goes as written, and the server says why.
+  const url = tipo === "link" ? (normalizarEnlace(borrador.texto) ?? borrador.texto.trim()) : ""
   const textoPegado = tipo === "post" ? borrador.texto : tipo === "link" && esYoutube(url) ? borrador.transcripcion : ""
   return {
     entrada: {
