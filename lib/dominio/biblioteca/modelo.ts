@@ -47,7 +47,7 @@ export function esTipoDeAutorNuevo(valor: string): valor is TipoDeAutorNuevo {
   return (TIPOS_DE_AUTOR_NUEVO as readonly string[]).includes(valor)
 }
 
-function esTipo(valor: string): valor is TipoDeMaterial {
+export function esTipo(valor: string): valor is TipoDeMaterial {
   return (TIPOS_DE_MATERIAL as readonly string[]).includes(valor)
 }
 

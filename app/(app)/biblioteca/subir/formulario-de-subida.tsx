@@ -72,6 +72,8 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
   const [texto, setTexto] = useState("")
   const [archivos, setArchivos] = useState<File[]>([])
   const [manual, setManual] = useState<TipoDeMaterial | null>(null)
+  // Each new input remounts the type line: an open Tipo select closes back to what is detected.
+  const [entradaNumero, setEntradaNumero] = useState(0)
   const [transcripcion, setTranscripcion] = useState("")
   const [referencia, setReferencia] = useState("")
   const [videoDelPost, setVideoDelPost] = useState<File | null>(null)
@@ -94,6 +96,7 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
     setTexto(nuevo)
     setArchivos([])
     setManual(null)
+    setEntradaNumero((numero) => numero + 1)
     setError(null)
   }
 
@@ -103,6 +106,7 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
     setArchivos(juntos.archivos)
     setTexto("")
     setManual(null)
+    setEntradaNumero((numero) => numero + 1)
     setError(juntos.error)
   }
 
@@ -273,7 +277,7 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
           </ul>
         ) : null}
         {deteccion === null && archivos.length > 0 ? <p className="text-meta text-apagado">{NO_RECONOZCO}</p> : null}
-        <TipoDetectado efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
+        <TipoDetectado key={entradaNumero} efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
       </div>
 
       {tipo === "link" && esYoutube(enlace) ? (

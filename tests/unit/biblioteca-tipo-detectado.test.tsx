@@ -11,29 +11,47 @@ describe("TipoDetectado", () => {
     expect(screen.getByRole("button", { name: "Cambiar el tipo" })).toHaveTextContent("Cambiar")
   })
 
-  it("opens the six types with the current one marked, and gives the focus back to Cambiar after a choice", async () => {
+  it("opens a Tipo select with the six types and the current one chosen, with the focus on it", async () => {
+    render(<TipoDetectado efectivo={YOUTUBE} ocupado={false} alElegir={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
+
+    const selector = screen.getByRole("combobox", { name: "Tipo" })
+    expect(
+      within(selector)
+        .getAllByRole("option")
+        .map((opcion) => opcion.getAttribute("value")),
+    ).toEqual(["documento", "link", "audio", "video", "imagen", "post"])
+    expect(selector).toHaveValue("link")
+    expect(within(selector).getByRole("option", { name: "Enlace" })).toHaveProperty("selected", true)
+    await waitFor(() => expect(selector).toHaveFocus())
+  })
+
+  it("changes the type from the select and stays open, so the arrow keys can go through every type", () => {
+    const alElegir = vi.fn()
+    const { rerender } = render(<TipoDetectado efectivo={YOUTUBE} ocupado={false} alElegir={alElegir} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo" }), { target: { value: "audio" } })
+    expect(alElegir).toHaveBeenCalledWith("audio")
+
+    rerender(<TipoDetectado efectivo={{ tipo: "audio", etiqueta: "Audio" }} ocupado={false} alElegir={alElegir} />)
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo" }), { target: { value: "video" } })
+    expect(alElegir.mock.calls).toEqual([["audio"], ["video"]])
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toBeInTheDocument()
+  })
+
+  it("keeps the current type when she opens the select and leaves it as it is", () => {
     const alElegir = vi.fn()
     render(<TipoDetectado efectivo={YOUTUBE} ocupado={false} alElegir={alElegir} />)
     fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
-
-    const grupo = screen.getByRole("group", { name: "¿Qué tipo de material es?" })
-    expect(
-      within(grupo)
-        .getAllByRole("radio")
-        .map((radio) => radio.getAttribute("value")),
-    ).toEqual(["documento", "link", "audio", "video", "imagen", "post"])
-    expect(within(grupo).getByRole("radio", { name: "Enlace" })).toBeChecked()
-
-    fireEvent.click(within(grupo).getByRole("radio", { name: "Documento" }))
-    expect(alElegir).toHaveBeenCalledWith("documento")
-    expect(screen.queryByRole("group", { name: "¿Qué tipo de material es?" })).toBeNull()
-    await waitFor(() => expect(screen.getByRole("button", { name: "Cambiar el tipo" })).toHaveFocus())
+    fireEvent.blur(screen.getByRole("combobox", { name: "Tipo" }))
+    expect(alElegir).not.toHaveBeenCalled()
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveValue("link")
   })
 
   it("cannot be changed while uploading", () => {
     render(<TipoDetectado efectivo={YOUTUBE} ocupado alElegir={vi.fn()} />)
     fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
-    expect(screen.queryByRole("group", { name: "¿Qué tipo de material es?" })).toBeNull()
+    expect(screen.queryByRole("combobox", { name: "Tipo" })).toBeNull()
   })
 
   it("shows nothing while nothing was detected", () => {

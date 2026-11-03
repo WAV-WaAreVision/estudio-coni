@@ -234,9 +234,9 @@ test("Subir passes WCAG 2.x AA empty, with a link, choosing the type, with image
   hallazgos.push(...(await revisarConAxe(page, "subir con un video de YouTube")))
 
   await page.getByRole("button", { name: "Cambiar el tipo" }).click()
-  await expect(page.getByRole("group", { name: "¿Qué tipo de material es?" })).toBeVisible()
+  await expect(page.getByRole("combobox", { name: "Tipo" })).toBeFocused()
   hallazgos.push(...(await revisarConAxe(page, "subir eligiendo el tipo")))
-  await page.getByRole("radio", { name: "Enlace" }).check()
+  await page.getByRole("combobox", { name: "Tipo" }).selectOption("link")
 
   await elegirArchivos(page, "Elegir archivo", [png("uno.png", 1), png("dos.png", 2)])
   await expect(page.getByRole("list", { name: "Imágenes en orden" })).toBeVisible()

@@ -80,10 +80,11 @@ describe("FormularioDeSubida: the field and its type", () => {
     pegar("Un texto mío sobre la carga mental")
     expect(screen.getByText("Tipo: Texto")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
-    fireEvent.click(screen.getByRole("radio", { name: "Documento" }))
-    expect(screen.getByText("Tipo: Documento")).toBeInTheDocument()
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo" }), { target: { value: "documento" } })
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveValue("documento")
     pegar("Otro texto")
     expect(screen.getByText("Tipo: Texto")).toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Tipo" })).toBeNull()
   })
 
   it("shows the name of a picked file and its type, and clears what was pasted", () => {
