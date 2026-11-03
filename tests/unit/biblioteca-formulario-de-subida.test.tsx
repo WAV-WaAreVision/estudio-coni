@@ -195,7 +195,7 @@ describe("FormularioDeSubida: author, who it is for her and the declaration", ()
 
   it("keeps the progress line out of the layout while it says nothing, still a live region", () => {
     const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
-    const progreso = container.querySelector('form > output[aria-live="polite"]')
+    const progreso = container.querySelector('form > div > output[aria-live="polite"]')
     expect(progreso).toBeEmptyDOMElement()
     expect(progreso?.className).toContain("empty:sr-only")
   })

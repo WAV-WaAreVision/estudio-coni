@@ -8,7 +8,7 @@ export default async function Subir() {
   const { db } = await exigirConi()
   const autores = await listarAutores(db)
   return (
-    <div className="grid w-full gap-6 md:max-w-[42rem]">
+    <div className="grid w-full gap-6">
       <FormularioDeSubida
         autores={autores}
         encabezado={<h1 className="text-pantalla text-balance">Subir material</h1>}

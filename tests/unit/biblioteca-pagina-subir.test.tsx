@@ -61,9 +61,9 @@ describe("the Subir page", () => {
     expect(encabezado.find((elemento) => elemento.type === "h1")?.props.children).toBe("Subir material")
   })
 
-  it("reads in one column on a computer, as wide as a material's detail", async () => {
+  it("takes the Biblioteca's width on a computer, with no narrower column of its own (the form splits it in two)", async () => {
     esConi.valor = true
     const raiz = (await Subir()) as Elemento
-    expect(raiz.props.className).toContain("md:max-w-[42rem]")
+    expect(raiz.props.className).not.toMatch(/max-w-/)
   })
 })

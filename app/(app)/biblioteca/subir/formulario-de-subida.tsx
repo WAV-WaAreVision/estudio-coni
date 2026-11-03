@@ -294,245 +294,252 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
       <form
         aria-label="Subir material"
         noValidate
-        className="grid gap-6"
+        className="grid gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:items-start md:gap-10"
         onSubmit={(evento) => {
           evento.preventDefault()
           if (!ocupado) void subir()
         }}
       >
-        <div className="grid gap-3">
-          <Campo id={`${id}-entrada`} etiqueta="Pega un enlace o elige un archivo" ayuda={AYUDA_DEL_CAMPO}>
-            <textarea
-              id={`${id}-entrada`}
-              rows={2}
-              autoComplete="off"
-              value={texto}
-              aria-describedby={`${id}-entrada-ayuda`}
-              onChange={(evento) => escribir(evento.target.value)}
-              className={cn(CLASES_DE_CAMPO, "resize-y")}
-            />
-          </Campo>
-          <Boton
-            ref={elegirArchivo}
-            variante="secundario"
-            tamano="chico"
-            className="w-fit"
-            deshabilitado={ocupado}
-            icono={<Paperclip aria-hidden="true" size={ICONO.medio} />}
-            onClick={() => principal.current?.click()}
-          >
-            Elegir archivo
-          </Boton>
-          {/* Never the native "Choose File" (4d): the button above opens it. */}
-          <input
-            ref={principal}
-            type="file"
-            hidden
-            multiple
-            accept={ACEPTA_TODO}
-            onChange={(evento) => {
-              elegir(Array.from(evento.target.files ?? []))
-              evento.target.value = ""
-            }}
-          />
-          {tipo === "imagen" && sonImagenes ? (
-            <ListaDeImagenes
-              archivos={archivos}
-              ocupado={ocupado}
-              alMover={(indice, hacia) => {
-                olvidarCreado()
-                setArchivos(moverArchivo(archivos, indice, hacia))
-              }}
-              alQuitar={quitarArchivo}
-            />
-          ) : archivos.length > 0 ? (
-            <ul aria-label="Archivos elegidos" className="grid gap-2">
-              {archivos.map((archivo, indice) => (
-                // The key is the position: the same file may be picked twice.
-                <li
-                  key={`${indice}-${archivo.name}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3"
-                >
-                  <span className="text-cuerpo break-words">{archivo.name}</span>
-                  {archivos.length === 1 ? (
-                    <Boton
-                      variante="callado"
-                      aria-label="Quitar el archivo"
-                      deshabilitado={ocupado}
-                      onClick={() => quitarArchivo(indice)}
-                    >
-                      Quitar
-                    </Boton>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {deteccion === null && archivos.length > 0 && error !== NO_RECONOZCO ? (
-            <p className="text-meta text-apagado">{NO_RECONOZCO}</p>
-          ) : null}
-          <TipoDetectado
-            key={entradaNumero}
-            efectivo={efectivo}
-            ocupado={ocupado}
-            alElegir={(elegido) => {
-              olvidarCreado()
-              setManual(elegido)
-            }}
-          />
-        </div>
-
-        {tipo === "link" && esYoutube(enlace) ? (
-          <Campo id={`${id}-transcripcion`} etiqueta="Transcripción del video" ayuda={PASOS_DE_YOUTUBE}>
-            <textarea
-              id={`${id}-transcripcion`}
-              rows={6}
-              value={transcripcion}
-              aria-describedby={`${id}-transcripcion-ayuda`}
-              aria-required="true"
-              onChange={(evento) => {
-                olvidarCreado()
-                setTranscripcion(evento.target.value)
-              }}
-              className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
-            />
-          </Campo>
-        ) : null}
-        {tipo === "link" && esPodcast(enlace) ? <p className="text-meta text-apagado">{AVISO_DE_PODCAST}</p> : null}
-
-        {tipo === "post" ? (
-          <div className="grid gap-2">
-            <p className="text-cuerpo font-semibold">
-              Video <span className="font-normal text-apagado">(opcional)</span>
-            </p>
-            {videoDelPost ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3">
-                <span className="text-cuerpo break-words">{videoDelPost.name}</span>
-                <Boton
-                  variante="callado"
-                  aria-label="Quitar el video"
-                  deshabilitado={ocupado}
-                  onClick={() => {
-                    olvidarCreado()
-                    setVideoDelPost(null)
-                  }}
-                >
-                  Quitar
-                </Boton>
-              </div>
-            ) : (
-              <Boton
-                variante="secundario"
-                tamano="chico"
-                className="w-fit"
-                deshabilitado={ocupado}
-                onClick={() => delPost.current?.click()}
-              >
-                Elegir video
-              </Boton>
-            )}
+        {/* A computer shows what she uploads and who made it on the left, and how it gets filed on the right, whose
+            actions stay in view while the left grows (a transcript, twenty images). The order is the phone's: the left
+            comes first in the DOM, so the focus and a screen reader meet it first. */}
+        <div className="grid min-w-0 gap-6">
+          <div className="grid gap-3">
+            <Campo id={`${id}-entrada`} etiqueta="Pega un enlace o elige un archivo" ayuda={AYUDA_DEL_CAMPO}>
+              <textarea
+                id={`${id}-entrada`}
+                rows={2}
+                autoComplete="off"
+                value={texto}
+                aria-describedby={`${id}-entrada-ayuda`}
+                onChange={(evento) => escribir(evento.target.value)}
+                className={cn(CLASES_DE_CAMPO, "resize-none")}
+              />
+            </Campo>
+            <Boton
+              ref={elegirArchivo}
+              variante="secundario"
+              tamano="chico"
+              className="w-fit"
+              deshabilitado={ocupado}
+              icono={<Paperclip aria-hidden="true" size={ICONO.medio} />}
+              onClick={() => principal.current?.click()}
+            >
+              Elegir archivo
+            </Boton>
+            {/* Never the native "Choose File" (4d): the button above opens it. */}
             <input
-              ref={delPost}
+              ref={principal}
               type="file"
               hidden
-              accept={ACEPTA_VIDEO}
+              multiple
+              accept={ACEPTA_TODO}
               onChange={(evento) => {
-                elegirVideo(evento.target.files?.[0])
+                elegir(Array.from(evento.target.files ?? []))
                 evento.target.value = ""
               }}
             />
+            {tipo === "imagen" && sonImagenes ? (
+              <ListaDeImagenes
+                archivos={archivos}
+                ocupado={ocupado}
+                alMover={(indice, hacia) => {
+                  olvidarCreado()
+                  setArchivos(moverArchivo(archivos, indice, hacia))
+                }}
+                alQuitar={quitarArchivo}
+              />
+            ) : archivos.length > 0 ? (
+              <ul aria-label="Archivos elegidos" className="grid gap-2">
+                {archivos.map((archivo, indice) => (
+                  // The key is the position: the same file may be picked twice.
+                  <li
+                    key={`${indice}-${archivo.name}`}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3"
+                  >
+                    <span className="text-cuerpo break-words">{archivo.name}</span>
+                    {archivos.length === 1 ? (
+                      <Boton
+                        variante="callado"
+                        aria-label="Quitar el archivo"
+                        deshabilitado={ocupado}
+                        onClick={() => quitarArchivo(indice)}
+                      >
+                        Quitar
+                      </Boton>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {deteccion === null && archivos.length > 0 && error !== NO_RECONOZCO ? (
+              <p className="text-meta text-apagado">{NO_RECONOZCO}</p>
+            ) : null}
+            <TipoDetectado
+              key={entradaNumero}
+              efectivo={efectivo}
+              ocupado={ocupado}
+              alElegir={(elegido) => {
+                olvidarCreado()
+                setManual(elegido)
+              }}
+            />
           </div>
-        ) : null}
 
-        {tipo === "video" || tipo === "imagen" ? (
-          <Campo id={`${id}-referencia`} etiqueta="Link de referencia (no se abre)">
+          {tipo === "link" && esYoutube(enlace) ? (
+            <Campo id={`${id}-transcripcion`} etiqueta="Transcripción del video" ayuda={PASOS_DE_YOUTUBE}>
+              <textarea
+                id={`${id}-transcripcion`}
+                rows={6}
+                value={transcripcion}
+                aria-describedby={`${id}-transcripcion-ayuda`}
+                aria-required="true"
+                onChange={(evento) => {
+                  olvidarCreado()
+                  setTranscripcion(evento.target.value)
+                }}
+                className={cn(CLASES_DE_CAMPO, "min-h-40 resize-none")}
+              />
+            </Campo>
+          ) : null}
+          {tipo === "link" && esPodcast(enlace) ? <p className="text-meta text-apagado">{AVISO_DE_PODCAST}</p> : null}
+
+          {tipo === "post" ? (
+            <div className="grid gap-2">
+              <p className="text-cuerpo font-semibold">
+                Video <span className="font-normal text-apagado">(opcional)</span>
+              </p>
+              {videoDelPost ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3">
+                  <span className="text-cuerpo break-words">{videoDelPost.name}</span>
+                  <Boton
+                    variante="callado"
+                    aria-label="Quitar el video"
+                    deshabilitado={ocupado}
+                    onClick={() => {
+                      olvidarCreado()
+                      setVideoDelPost(null)
+                    }}
+                  >
+                    Quitar
+                  </Boton>
+                </div>
+              ) : (
+                <Boton
+                  variante="secundario"
+                  tamano="chico"
+                  className="w-fit"
+                  deshabilitado={ocupado}
+                  onClick={() => delPost.current?.click()}
+                >
+                  Elegir video
+                </Boton>
+              )}
+              <input
+                ref={delPost}
+                type="file"
+                hidden
+                accept={ACEPTA_VIDEO}
+                onChange={(evento) => {
+                  elegirVideo(evento.target.files?.[0])
+                  evento.target.value = ""
+                }}
+              />
+            </div>
+          ) : null}
+
+          {tipo === "video" || tipo === "imagen" ? (
+            <Campo id={`${id}-referencia`} etiqueta="Link de referencia (no se abre)">
+              <input
+                id={`${id}-referencia`}
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="https://"
+                value={referencia}
+                onChange={(evento) => {
+                  olvidarCreado()
+                  setReferencia(evento.target.value)
+                }}
+                className={CLASES_DE_CAMPO}
+              />
+            </Campo>
+          ) : null}
+
+          <Campo
+            id={`${id}-titulo`}
+            etiqueta={
+              <>
+                Título <span className="font-normal text-apagado">(opcional)</span>
+              </>
+            }
+          >
             <input
-              id={`${id}-referencia`}
-              type="url"
-              inputMode="url"
-              autoComplete="off"
-              placeholder="https://"
-              value={referencia}
+              id={`${id}-titulo`}
+              type="text"
+              value={titulo}
               onChange={(evento) => {
                 olvidarCreado()
-                setReferencia(evento.target.value)
+                setTitulo(evento.target.value)
               }}
               className={CLASES_DE_CAMPO}
             />
           </Campo>
-        ) : null}
 
-        <Campo
-          id={`${id}-titulo`}
-          etiqueta={
-            <>
-              Título <span className="font-normal text-apagado">(opcional)</span>
-            </>
-          }
-        >
-          <input
-            id={`${id}-titulo`}
-            type="text"
-            value={titulo}
-            onChange={(evento) => {
+          <SelectorDeAutor
+            autores={autores}
+            valor={autorId}
+            alElegir={(elegido) => {
               olvidarCreado()
-              setTitulo(evento.target.value)
+              setAutorId(elegido)
+              setError(null)
             }}
-            className={CLASES_DE_CAMPO}
+            alCrear={crearAutorAccion}
           />
-        </Campo>
+        </div>
 
-        <SelectorDeAutor
-          autores={autores}
-          valor={autorId}
-          alElegir={(elegido) => {
-            olvidarCreado()
-            setAutorId(elegido)
-            setError(null)
-          }}
-          alCrear={crearAutorAccion}
-        />
+        <div className="grid min-w-0 gap-6 md:sticky md:top-24 md:rounded-panel md:bg-piedra-alta md:p-5">
+          <fieldset className="elecciones grid">
+            <legend className="text-cuerpo font-semibold">{PALABRAS.papel}</legend>
+            {ROLES.map((opcion) => (
+              <Eleccion
+                key={opcion}
+                nombre={`${id}-rol`}
+                valor={opcion}
+                elegido={rol === opcion}
+                etiqueta={ETIQUETA_DE_ROL[opcion]}
+                detalle={AYUDA_DE_ROL[opcion]}
+                alElegir={() => elegirRol(opcion)}
+              />
+            ))}
+          </fieldset>
 
-        <fieldset className="elecciones grid">
-          <legend className="text-cuerpo font-semibold">{PALABRAS.papel}</legend>
-          {ROLES.map((opcion) => (
-            <Eleccion
-              key={opcion}
-              nombre={`${id}-rol`}
-              valor={opcion}
-              elegido={rol === opcion}
-              etiqueta={ETIQUETA_DE_ROL[opcion]}
-              detalle={AYUDA_DE_ROL[opcion]}
-              alElegir={() => elegirRol(opcion)}
-            />
-          ))}
-        </fieldset>
+          <Casilla
+            etiqueta="Este material no contiene datos de pacientes"
+            marcada={declaracion}
+            alCambiar={(marcada) => {
+              olvidarCreado()
+              setDeclaracion(marcada)
+            }}
+          />
 
-        <Casilla
-          etiqueta="Este material no contiene datos de pacientes"
-          marcada={declaracion}
-          alCambiar={(marcada) => {
-            olvidarCreado()
-            setDeclaracion(marcada)
-          }}
-        />
+          {error ? <LineaDeError>{error}</LineaDeError> : null}
+          {/* Empty, it leaves the grid (no extra gap) but stays rendered: a hidden live region may never announce. */}
+          <output aria-live="polite" className="block text-cuerpo text-tinta empty:sr-only">
+            {progreso}
+          </output>
 
-        {error ? <LineaDeError>{error}</LineaDeError> : null}
-        {/* Empty, it leaves the grid (no extra gap) but stays rendered: a hidden live region may never announce. */}
-        <output aria-live="polite" className="block text-cuerpo text-tinta empty:sr-only">
-          {progreso}
-        </output>
-
-        <div className="grid gap-3 md:flex md:items-center md:gap-6">
-          <Boton type="submit" cargando={ocupado} className="md:w-auto">
-            Subir
-          </Boton>
-          {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}
-          {ocupado ? null : (
-            <Link href="/biblioteca" className={clasesDeBoton({ variante: "callado", className: "justify-center" })}>
-              Cancelar
-            </Link>
-          )}
+          <div className="grid gap-3 md:flex md:items-center md:gap-6">
+            <Boton type="submit" cargando={ocupado} className="md:w-auto">
+              Subir
+            </Boton>
+            {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}
+            {ocupado ? null : (
+              <Link href="/biblioteca" className={clasesDeBoton({ variante: "callado", className: "justify-center" })}>
+                Cancelar
+              </Link>
+            )}
+          </div>
         </div>
       </form>
     </>
