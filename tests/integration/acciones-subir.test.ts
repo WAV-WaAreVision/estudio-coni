@@ -225,6 +225,31 @@ describe("crearMaterial", () => {
     expect(resultado).toEqual({ ok: false, error: ERROR_GENERICO })
     expect(await cuantosCon(titulo)).toBe(0)
   })
+
+  it("deletes the row when the images cannot be saved, and answers the generic notice", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const titulo = `Sin imágenes ${SUFIJO}`
+    const sinImagenes = new Proxy(coni, {
+      get(destino, propiedad) {
+        if (propiedad === "from") {
+          return (tabla: keyof Database["public"]["Tables"]) =>
+            tabla === "materiales_archivos"
+              ? { insert: async () => ({ data: null, error: { message: "caído", code: "XX000" } }) }
+              : destino.from(tabla)
+        }
+        const valor: unknown = Reflect.get(destino, propiedad)
+        return typeof valor === "function" ? valor.bind(destino) : valor
+      },
+    })
+    const resultado = await crearMaterial(deps(sinImagenes), {
+      ...base(),
+      titulo,
+      tipo: "imagen",
+      archivos: [{ nombre: "a.jpg", tamano: 4 }],
+    })
+    expect(resultado).toEqual({ ok: false, error: ERROR_GENERICO })
+    expect(await cuantosCon(titulo)).toBe(0)
+  })
 })
 
 describe("confirmarMaterial", () => {
