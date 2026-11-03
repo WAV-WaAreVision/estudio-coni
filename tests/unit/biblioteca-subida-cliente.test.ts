@@ -63,13 +63,48 @@ describe("subirArchivos", () => {
     ).rejects.toThrow("No pude subir tesis.pdf. Revisa tu conexión e inténtalo de nuevo.")
   })
 
-  it("refuses to go on when a signed upload has no file", async () => {
-    await expect(
-      subirArchivos({
-        subidas: [{ orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" }],
-        archivos: [],
-        enviar: vi.fn(),
-      }),
-    ).rejects.toThrow("Falta el archivo 1 para subirlo.")
+  it("pairs each file with its URL by its order, not by where the signed upload sits", async () => {
+    const enviar = vi.fn(async (..._: unknown[]) => new Response(null, { status: 200 }))
+    await subirArchivos({
+      subidas: [
+        { orden: 2, url: "https://r2.test/b", tipoContenido: "image/png" },
+        { orden: 1, url: "https://r2.test/a", tipoContenido: "image/jpeg" },
+      ],
+      archivos: [archivo("a.jpg", "image/jpeg"), archivo("b.png", "image/png")],
+      enviar,
+    })
+    const enviados = enviar.mock.calls.map(([url, pedido]) => [url, ((pedido as RequestInit).body as File).name])
+    expect(enviados).toEqual([
+      ["https://r2.test/b", "b.png"],
+      ["https://r2.test/a", "a.jpg"],
+    ])
+  })
+
+  it.each([
+    ["a signed upload has no file", [{ orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" }], []],
+    [
+      "a file has no signed upload",
+      [{ orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" }],
+      [archivo("a.pdf", "application/pdf"), archivo("b.pdf", "application/pdf")],
+    ],
+    [
+      "two signed uploads share an order",
+      [
+        { orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" },
+        { orden: 1, url: "https://r2.test/b", tipoContenido: "application/pdf" },
+      ],
+      [archivo("a.pdf", "application/pdf"), archivo("b.pdf", "application/pdf")],
+    ],
+    [
+      "an order points past the files",
+      [{ orden: 2, url: "https://r2.test/a", tipoContenido: "application/pdf" }],
+      [archivo("a.pdf", "application/pdf")],
+    ],
+  ])("sends nothing and says it in plain words when %s", async (_caso, subidas, archivos) => {
+    const enviar = vi.fn()
+    await expect(subirArchivos({ subidas, archivos, enviar })).rejects.toThrow(
+      "No pude subir tus archivos. Inténtalo de nuevo.",
+    )
+    expect(enviar).not.toHaveBeenCalled()
   })
 })
