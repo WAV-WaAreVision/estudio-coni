@@ -14,7 +14,7 @@ export default async function DisenoDeLaApp({ children }: Readonly<{ children: R
   if (sesion.estado === "otra_persona") return <SoloParaConi />
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col md:flex-col-reverse md:justify-end md:has-[[data-ancho=biblioteca]]:max-w-[70rem]">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col md:flex-col-reverse md:justify-end md:has-[[data-ancho=biblioteca]]:max-w-[76rem]">
       <BarraSinConexion />
       <main className="flex-1 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[var(--final-pagina)]">{children}</main>
       <NavInferior />

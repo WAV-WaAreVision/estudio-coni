@@ -48,10 +48,15 @@ describe("TablaDeMateriales", () => {
     expect(screen.getByRole("link", { name: "Pausas" })).not.toHaveAttribute("aria-current")
   })
 
-  it("keeps the short columns on one line, so the title column is the one that wraps", () => {
+  it("fixes the short columns' widths so the title takes the rest; type and state stay on one line", () => {
     render(<TablaDeMateriales materiales={materiales} filtros={{}} seleccion={null} ahora={AHORA} />)
+    const tabla = screen.getByRole("table", { name: "Materiales" })
+    expect(tabla).toHaveClass("table-fixed")
+    const anchos = Array.from(tabla.querySelectorAll("col"), (columna) => columna.className)
+    expect(anchos[0]).toBe("")
+    expect(anchos.slice(1).every((ancho) => /^w-\[/.test(ancho))).toBe(true)
     const celdas = screen.getAllByRole("row")[1]?.querySelectorAll("td") ?? []
-    const [tipo, autor, , estado, subido] = Array.from(celdas)
-    for (const celda of [tipo, autor, estado, subido]) expect(celda).toHaveClass("whitespace-nowrap")
+    const [tipo, , , estado] = Array.from(celdas)
+    for (const celda of [tipo, estado]) expect(celda).toHaveClass("whitespace-nowrap")
   })
 })

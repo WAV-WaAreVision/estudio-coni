@@ -16,7 +16,7 @@ describe("the Biblioteca's width (D4)", () => {
   it("keeps every screen at 560 px and lets the column widen on md: only around the Biblioteca's marker", async () => {
     const html = renderToStaticMarkup(await DisenoDeLaApp({ children: <p>hola</p> }))
     expect(html).toContain("max-w-[560px]")
-    expect(html).toContain("md:has-[[data-ancho=biblioteca]]:max-w-[70rem]")
+    expect(html).toContain("md:has-[[data-ancho=biblioteca]]:max-w-[76rem]")
   })
 
   it("gates with Coni's session and marks the section", async () => {

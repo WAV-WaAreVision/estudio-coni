@@ -143,6 +143,24 @@ test("on a computer a material with an error offers Reintentar in the side colum
   await expect(page.getByRole("button", { name: "Reintentar" })).toHaveCount(1)
 })
 
+test("at 1280 with the panel open the Material column takes the room: titles wrap to two lines at most", async ({
+  page,
+}) => {
+  await page.goto(`/biblioteca?m=${escena.listo}`)
+  await expect(page.getByRole("region", { name: TITULO_LISTO })).toBeVisible()
+  const lineas = await page.locator("table a[data-abre-panel]").evaluateAll((enlaces) =>
+    enlaces.map((enlace) => ({
+      titulo: enlace.textContent,
+      lineas: new Set(Array.from(enlace.getClientRects(), (caja) => Math.round(caja.top))).size,
+    })),
+  )
+  expect(lineas.length).toBe(5)
+  expect(Math.max(...lineas.map((fila) => fila.lineas))).toBeLessThanOrEqual(2)
+  const tabla = await page.getByRole("table", { name: "Materiales" }).boundingBox()
+  const contenedor = await page.locator("[data-ancho=biblioteca] table").evaluate((t) => t.parentElement?.clientWidth)
+  expect(tabla?.width ?? 0).toBeLessThanOrEqual((contenedor ?? 0) + 1)
+})
+
 test("the table and the side panel pass WCAG 2.x AA", async ({ page }) => {
   await page.goto(`/biblioteca?m=${escena.listo}`)
   await expect(page.getByRole("region", { name: TITULO_LISTO })).toBeVisible()
