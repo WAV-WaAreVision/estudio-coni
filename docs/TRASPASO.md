@@ -77,6 +77,18 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **`pnpm test:e2e:biblioteca`**: la prueba de punta a punta con las dos apps (config propia, `playwright.biblioteca.config.ts`; `pnpm test:e2e` no la corre ni Vitest tampoco). Necesita `E2E_INGESTA_DIR` con la ruta de un checkout de conidolly-ingesta que tenga el puente y `pnpm install` hecho, `openssl` en el PATH (arma certificados https desechables) y la base local arriba (`pnpm db:start`). Ejemplo: `E2E_INGESTA_DIR=/Users/fede/Projects/conidolly-ingesta/.worktrees/biblioteca-sesion pnpm test:e2e:biblioteca`.
 - Publicación: tarea 22 del plan `2026-11-02-biblioteca-misma-sesion.md`. Ingesta sale primero y se comprueba con sus dos curls antes del merge de Conidolly. En un preview de Conidolly la pestaña termina en `/ingreso` de Ingesta (su origin no es `CONIDOLLY_URL`): es lo esperado.
 
+## Biblioteca en Conidolly, lote 1: cimientos y Materiales (cambio 29b, lote 1 de 7, en producción desde el 2026-11-03)
+
+- Publicado: PR #59 (merge `180d0bd`). Sin migración, sin deploy de Trigger y sin variables nuevas. Spec `2026-11-02-biblioteca-materiales-design.md`, plan `2026-11-02-biblioteca-materiales.md`. El tablero deja #17 En Curso; los pendientes menores están en #60.
+- Pendiente: Federico abre `https://conidolly.vercel.app/biblioteca` con la cuenta de Coni en el celular y en el computador (lista, un detalle, el panel lateral, una descarga del texto) y confirma que la pestaña «Biblioteca» de la barra sigue abriendo Ingesta.
+
+- **`/biblioteca`**: solo para Coni y solo por su dirección (la pestaña de la barra sigue abriendo Ingesta hasta el lote 7). Filtros de un toque y «Más filtros», tarjetas en el celular, tabla con panel lateral (`?m=<id>`) en el computador. En `md:` la columna es de 76rem (`data-ancho="biblioteca"` en `app/(app)/layout.tsx`); las demás pantallas siguen en 560 px.
+- **`/biblioteca/materiales/[id]`**: autor y «¿Quién es para ti?», ficha o mapa de ideas, «Reprocesar» y «Reintentar» con pregunta. En el computador, columna de lectura y columna lateral fija con las acciones. «Descargar texto original» responde un 302 a una URL firmada de R2 (solo `texto-original.txt`, `no-store`).
+- **Disparos**: cada reintento dispara `procesar-material` con su propia llave (`procesar-material:<id>:<uuid>`); `motor-manual` queda listo para el lote 5.
+- **Redibujo** (`components/use-redibujar.ts`, también en `RefrescoAutomatico`): navega a la misma dirección con `?v=` en vez de `router.refresh` (que pelea con los prefetch de Next 16 en producción). Vuelve a pedir la pantalla solo si de verdad se perdió y nunca después de un toque de Coni.
+- **E2E**: un S3 falso en el puerto 3203 (`R2_ENDPOINT`, solo loopback, Vercel lo rechaza) y un proyecto `escritorio` (`tests/e2e/*.escritorio.ts`). `tocarHastaLlegar` repite un toque cuando Next 16.2.6 descarta una navegación (pasa también en el producto, de vez en cuando).
+- Siguiente: lote 2, Subir.
+
 ## LinkedIn fase 2 (en producción: merge `4e6e32b`, desplegado; publica reels por la API)
 
 - Estado: Coni conectó su LinkedIn el 2026-10-07 (token de ~60 días, vence cerca del 2026-12-06). Todavía no ha salido ningún post por la API.
