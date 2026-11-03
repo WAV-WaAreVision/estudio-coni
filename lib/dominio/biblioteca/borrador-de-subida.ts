@@ -84,18 +84,26 @@ export function armarEntrada<A extends ArchivoElegido>(
 const sonImagenes = (archivos: readonly ArchivoElegido[]) =>
   archivos.length > 0 && archivos.every((archivo) => EXTENSIONES_POR_TIPO.imagen.includes(extensionDe(archivo.name)))
 
-/** Images picked again join the ones there (up to 20); anything else replaces them. A file over 2 GB never enters. */
+/**
+ * Images picked again join the ones there (up to 20); anything else replaces them. A file over 2 GB never enters,
+ * and a pick where nothing fits leaves what she had. When both limits are hit she reads both.
+ */
 export function juntarArchivos<A extends ArchivoElegido>(
   actuales: readonly A[],
   elegidos: readonly A[],
 ): { archivos: A[]; error: string | null } {
   const caben = elegidos.filter((archivo) => archivo.size <= TAMANO_MAXIMO_BYTES)
-  const error = caben.length < elegidos.length ? PESA_DEMASIADO : null
+  const pesaDemasiado = caben.length < elegidos.length
+  if (caben.length === 0) return { archivos: [...actuales], error: pesaDemasiado ? PESA_DEMASIADO : null }
   const juntos = sonImagenes(actuales) && sonImagenes(caben) ? [...actuales, ...caben] : caben
-  if (juntos.length > MAXIMO_DE_IMAGENES && sonImagenes(juntos)) {
-    return { archivos: juntos.slice(0, MAXIMO_DE_IMAGENES), error: DEMASIADAS_IMAGENES }
+  const sobran = juntos.length > MAXIMO_DE_IMAGENES && sonImagenes(juntos)
+  const errores = [sobran ? DEMASIADAS_IMAGENES : null, pesaDemasiado ? PESA_DEMASIADO : null].filter(
+    (error): error is string => error !== null,
+  )
+  return {
+    archivos: sobran ? juntos.slice(0, MAXIMO_DE_IMAGENES) : juntos,
+    error: errores.length > 0 ? errores.join(" ") : null,
   }
-  return { archivos: juntos, error }
 }
 
 /** The images keep the order she gives them: that order is `orden` 1..20 in the store. */

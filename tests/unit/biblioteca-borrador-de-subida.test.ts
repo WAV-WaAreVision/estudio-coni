@@ -115,6 +115,25 @@ describe("juntarArchivos", () => {
     const juntas = juntarArchivos([], [archivo("enorme.mp4", TAMANO_MAXIMO_BYTES + 1)])
     expect(juntas).toEqual({ archivos: [], error: "Ese archivo pesa más de 2 GB." })
   })
+
+  it("keeps the images already there when every new pick is over 2 GB", () => {
+    const actuales = [archivo("a.jpg"), archivo("b.jpg")]
+    expect(juntarArchivos(actuales, [archivo("enorme.jpg", TAMANO_MAXIMO_BYTES + 1)])).toEqual({
+      archivos: actuales,
+      error: "Ese archivo pesa más de 2 GB.",
+    })
+  })
+
+  it("keeps twenty images and says both problems when the pick is too many and one is over 2 GB", () => {
+    const diecinueve = Array.from({ length: 19 }, (_, i) => archivo(`${i}.jpg`))
+    const juntas = juntarArchivos(diecinueve, [
+      archivo("x.jpg"),
+      archivo("enorme.jpg", TAMANO_MAXIMO_BYTES + 1),
+      archivo("y.jpg"),
+    ])
+    expect(juntas.archivos.map((a) => a.name)).toEqual([...diecinueve.map((a) => a.name), "x.jpg"])
+    expect(juntas.error).toBe("Puedes subir hasta 20 imágenes. Ese archivo pesa más de 2 GB.")
+  })
 })
 
 describe("moverArchivo", () => {
