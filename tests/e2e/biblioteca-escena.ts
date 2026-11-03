@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { CONI, pool } from "../integration/db"
 import { vaciarMotor } from "../integration/siembra"
 import { BALDE_DE_PRUEBA, URL_DEL_ALMACEN } from "./entorno"
@@ -175,4 +176,13 @@ export async function sembrarBiblioteca(): Promise<EscenaDeBiblioteca> {
     ],
   )
   return { listo, procesando, conError, esperaOk, estrategia }
+}
+
+const Objetos = z.record(z.string(), z.object({ bytes: z.number(), tipo: z.string(), firmada: z.boolean() }))
+
+/** What the fake R2 holds, by `/<bucket>/<key>`: size, content type and whether the PUT was presigned. */
+export async function objetosDelAlmacen(): Promise<z.infer<typeof Objetos>> {
+  const respuesta = await fetch(`${URL_DEL_ALMACEN}/__objetos`)
+  if (!respuesta.ok) throw new Error(`El almacén falso no listó sus objetos: ${respuesta.status}`)
+  return Objetos.parse(await respuesta.json())
 }

@@ -9,16 +9,23 @@ const { conSesionDeConi, revalidatePath } = vi.hoisted(() => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
+vi.mock("@/lib/acciones/biblioteca", async (original) => ({
+  ...(await original<typeof import("@/lib/acciones/biblioteca")>()),
+  descartarMaterial: vi.fn(async () => ({ ok: true })),
+}))
 
 import {
   confirmarCostoAccion,
+  confirmarMaterialAccion,
   crearAutorAccion,
+  crearMaterialAccion,
+  descartarMaterialAccion,
   editarFichaAccion,
   editarMaterialAccion,
   reintentarMaterialAccion,
   reprocesarMaterialAccion,
 } from "@/app/(app)/biblioteca/acciones"
-import { AutorNuevo, EdicionDeMaterial, SobreMaterial } from "@/lib/acciones/biblioteca"
+import { AutorNuevo, descartarMaterial, EdicionDeMaterial, SobreMaterial } from "@/lib/acciones/biblioteca"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const AUTOR = "22222222-3333-4444-8555-666666666666"
@@ -56,6 +63,36 @@ describe("the Biblioteca's server actions", () => {
   it("refreshes nothing when the action is refused", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esta app es solo para Coni." })
     expect(await reintentarMaterialAccion(ID)).toEqual({ ok: false, error: "Esta app es solo para Coni." })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["confirmarMaterial", () => confirmarMaterialAccion(ID)],
+    ["descartarMaterial", () => descartarMaterialAccion(ID)],
+  ] as const)("%s checks Coni with the material's id and refreshes the whole section", async (nombre, accion) => {
+    expect(await accion()).toEqual({ ok: true })
+    expect(conSesionDeConi).toHaveBeenCalledWith(nombre, SobreMaterial, { materialId: ID }, expect.any(Function))
+    expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+  })
+
+  it("descartarMaterial gets a store that can delete the material's folder", async () => {
+    await descartarMaterialAccion(ID)
+    const alAccionar = conSesionDeConi.mock.calls[0]?.[3] as (
+      db: unknown,
+      d: { materialId: string },
+    ) => Promise<unknown>
+    const db = {}
+    await alAccionar(db, { materialId: ID })
+    expect(descartarMaterial).toHaveBeenCalledWith({ db, almacen: { borrarCarpeta: expect.any(Function) } }, ID)
+  })
+
+  it("crearMaterial lets the entry through to leerEntrada, which answers in her words, and refreshes nothing", async () => {
+    const entrada = { tipo: "link", url: "https://ejemplo.cl/nota" }
+    expect(await crearMaterialAccion(entrada)).toEqual({ ok: true })
+    const [nombre, esquema, recibida] = conSesionDeConi.mock.calls[0] ?? []
+    expect(nombre).toBe("crearMaterial")
+    expect(recibida).toEqual(entrada)
+    expect((esquema as { safeParse: (v: unknown) => { success: boolean } }).safeParse(42).success).toBe(true)
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 })

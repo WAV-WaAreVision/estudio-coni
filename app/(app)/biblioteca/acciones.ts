@@ -6,8 +6,12 @@ import { z } from "zod"
 import {
   AutorNuevo,
   confirmarCosto,
+  confirmarMaterial,
   crearAutor,
+  crearMaterial,
   type DepsBiblioteca,
+  type DepsSubir,
+  descartarMaterial,
   EdicionDeMaterial,
   editarFicha,
   editarMaterial,
@@ -26,6 +30,21 @@ function depsDeBiblioteca(db: DepsBiblioteca["db"]): DepsBiblioteca {
     nuevoId: randomUUID,
     // Resolved on use: an action that signs nothing must not need the R2 variables.
     almacen: { urlDeTexto: (materialId, segundos) => almacenReal().urlDeTexto(materialId, segundos) },
+  }
+}
+
+function depsDeSubir(db: DepsSubir["db"]): DepsSubir {
+  return {
+    db,
+    disparar: disparosDeBibliotecaDeLaApp(),
+    nuevoId: randomUUID,
+    ahora: () => new Date(),
+    // Resolved on use, like depsDeBiblioteca: a link needs no R2 variable to be created.
+    almacen: {
+      urlDeSubida: (clave, segundos, tipo) => almacenReal().urlDeSubida(clave, segundos, tipo),
+      tamano: (clave) => almacenReal().tamano(clave),
+      borrarCarpeta: (materialId) => almacenReal().borrarCarpeta(materialId),
+    },
   }
 }
 
@@ -76,4 +95,25 @@ export async function editarFichaAccion(edicion: unknown) {
 
 export async function crearAutorAccion(nuevo: z.input<typeof AutorNuevo>) {
   return refrescar(await conSesionDeConi("crearAutor", AutorNuevo, nuevo, (db, d) => crearAutor({ db }, d)))
+}
+
+/** The entry is validated inside `crearMaterial` with her words (leerEntrada), not here. Coni is still on the form. */
+export async function crearMaterialAccion(entrada: unknown) {
+  return conSesionDeConi("crearMaterial", z.unknown(), entrada, (db, d) => crearMaterial(depsDeSubir(db), d))
+}
+
+export async function confirmarMaterialAccion(materialId: string) {
+  return refrescar(
+    await conSesionDeConi("confirmarMaterial", SobreMaterial, { materialId }, (db, d) =>
+      confirmarMaterial(depsDeSubir(db), d.materialId),
+    ),
+  )
+}
+
+export async function descartarMaterialAccion(materialId: string) {
+  return refrescar(
+    await conSesionDeConi("descartarMaterial", SobreMaterial, { materialId }, (db, d) =>
+      descartarMaterial({ db, almacen: { borrarCarpeta: (id) => almacenReal().borrarCarpeta(id) } }, d.materialId),
+    ),
+  )
 }

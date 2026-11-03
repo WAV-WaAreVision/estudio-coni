@@ -676,3 +676,18 @@ test("biblioteca: the phone list and a material's detail", async ({ page }) => {
   await expect(page.getByRole("heading", { name: TITULO_LISTO, level: 1 })).toBeVisible()
   await capturaDe(page, "biblioteca-detalle")
 })
+
+test("biblioteca: Subir with a document picked", async ({ page }) => {
+  await sembrarBiblioteca()
+  await page.goto("/biblioteca/subir")
+  const selector = page.waitForEvent("filechooser")
+  await page.getByRole("button", { name: "Elegir archivo" }).click()
+  await (await selector).setFiles({
+    name: "apego-adulto.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%%EOF\n"),
+  })
+  await page.getByLabel(/^Título/).fill("Apego adulto en la consulta")
+  await expect(page.getByText("Tipo: Documento")).toBeVisible()
+  await capturaDe(page, "biblioteca-subir")
+})

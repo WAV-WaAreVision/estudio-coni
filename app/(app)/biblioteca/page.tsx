@@ -1,6 +1,12 @@
+import { UploadSimple } from "@phosphor-icons/react/dist/ssr"
+import Link from "next/link"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { ICONO } from "@/components/ui/icono"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Panel } from "@/components/ui/panel"
 import { contarPorEstado, leerPanelDelMaterial, listarAutores, listarMateriales } from "@/lib/datos/biblioteca"
+import { AVISO_TRAS_SUBIR, RUTA_DE_SUBIR, vieneDeSubir } from "@/lib/dominio/biblioteca/borrador-de-subida"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
 import { FiltrosRapidos } from "./filtros-rapidos"
@@ -29,24 +35,41 @@ export default async function Materiales({
     seleccion ? leerPanelDelMaterial(db, seleccion) : null,
   ])
   const ahora = Date.now()
+  // One element, drawn in the header and again in the empty list: Subir is not a tab (spec section 1).
+  const subir = (
+    <Link
+      href={RUTA_DE_SUBIR}
+      className={clasesDeBoton({ variante: "secundario", tamano: "chico", className: "w-fit" })}
+    >
+      Subir
+      <UploadSimple aria-hidden="true" size={ICONO.medio} />
+    </Link>
+  )
 
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
       <RefrescoAutomatico activo={conteos.trabajando > 0} cadaMs={REFRESCO_MS} />
       <div className="grid min-w-0 gap-5">
-        <h1 className="text-pantalla">Biblioteca</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-pantalla">Biblioteca</h1>
+          {subir}
+        </div>
+        {vieneDeSubir(params) ? <LineaDeEstado tipo="neutro" titulo={AVISO_TRAS_SUBIR} /> : null}
         <NavDeBiblioteca actual="materiales" />
         <div className="flex flex-wrap items-start gap-2">
           <FiltrosRapidos filtros={filtros} conteos={conteos} />
           <MasFiltros filtros={filtros} autores={autores} />
         </div>
         {materiales.length === 0 ? (
-          <p className="text-cuerpo text-apagado">
-            {hayFiltros(filtros)
-              ? "Ningún material coincide con esos filtros."
-              : "Aún no hay material en la Biblioteca."}
-          </p>
+          hayFiltros(filtros) ? (
+            <p className="text-cuerpo text-apagado">Ningún material coincide con esos filtros.</p>
+          ) : (
+            <div className="grid justify-items-start gap-3">
+              <p className="text-cuerpo text-apagado">Aún no hay material en la Biblioteca.</p>
+              {subir}
+            </div>
+          )
         ) : (
           <>
             <ul aria-label="Materiales" className="grid gap-3 md:hidden">
