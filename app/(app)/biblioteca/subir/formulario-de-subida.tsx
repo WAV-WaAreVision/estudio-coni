@@ -1,0 +1,331 @@
+"use client"
+
+import { Paperclip } from "@phosphor-icons/react"
+import Link from "next/link"
+import { useId, useRef, useState } from "react"
+import { Boton } from "@/components/ui/boton"
+import { Casilla } from "@/components/ui/casilla"
+import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { Eleccion } from "@/components/ui/filas"
+import { ICONO } from "@/components/ui/icono"
+import { LineaDeError } from "@/components/ui/linea-de-error"
+import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
+import {
+  armarEntrada,
+  type EntradaDeSubida,
+  juntarArchivos,
+  moverArchivo,
+} from "@/lib/dominio/biblioteca/borrador-de-subida"
+import { AYUDA_DE_ROL, ETIQUETA_DE_ROL, ROLES, type Rol, type TipoDeMaterial } from "@/lib/dominio/biblioteca/modelo"
+import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
+import {
+  ACEPTA_TODO,
+  ACEPTA_VIDEO,
+  AYUDA_DEL_CAMPO,
+  detectarTipo,
+  FALTA_LA_ENTRADA,
+  leerEntrada,
+  NO_RECONOZCO,
+  normalizarEnlace,
+  PESA_DEMASIADO,
+  TAMANO_MAXIMO_BYTES,
+  tipoEfectivo,
+} from "@/lib/dominio/biblioteca/subir"
+import { AVISO_DE_PODCAST, esPodcast, esYoutube, PASOS_DE_YOUTUBE } from "@/lib/dominio/biblioteca/youtube"
+import { cn } from "@/lib/utils"
+import { crearAutorAccion } from "../acciones"
+import { Campo, CLASES_DE_CAMPO } from "../campo"
+import { SelectorDeAutor } from "../selector-de-autor"
+import { ListaDeImagenes } from "./lista-de-imagenes"
+import { TipoDetectado } from "./tipo-detectado"
+
+type Lectura = { ok: true; entrada: EntradaDeSubida; aSubir: File[] } | { ok: false; error: string }
+
+export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
+  const id = useId()
+  const principal = useRef<HTMLInputElement>(null)
+  const delPost = useRef<HTMLInputElement>(null)
+  const [texto, setTexto] = useState("")
+  const [archivos, setArchivos] = useState<File[]>([])
+  const [manual, setManual] = useState<TipoDeMaterial | null>(null)
+  const [transcripcion, setTranscripcion] = useState("")
+  const [referencia, setReferencia] = useState("")
+  const [videoDelPost, setVideoDelPost] = useState<File | null>(null)
+  const [titulo, setTitulo] = useState("")
+  const [autorId, setAutorId] = useState("")
+  const [rol, setRol] = useState<Rol | "">("")
+  const [declaracion, setDeclaracion] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [progreso] = useState<string | null>(null)
+
+  const ocupado = progreso !== null
+  const deteccion = detectarTipo({ texto, archivos })
+  const efectivo = tipoEfectivo(deteccion, manual)
+  const tipo = efectivo?.tipo ?? null
+  // "youtu.be/abc" is the same link as "https://youtu.be/abc": the extras follow the address it points to.
+  const enlace = normalizarEnlace(texto) ?? texto.trim()
+
+  // One field, two ways in (D4): typing clears the files, picking clears the text; either clears a manual type.
+  function escribir(nuevo: string) {
+    setTexto(nuevo)
+    setArchivos([])
+    setManual(null)
+    setError(null)
+  }
+
+  function elegir(elegidos: File[]) {
+    if (elegidos.length === 0) return
+    const juntos = juntarArchivos(archivos, elegidos)
+    setArchivos(juntos.archivos)
+    setTexto("")
+    setManual(null)
+    setError(juntos.error)
+  }
+
+  function elegirVideo(elegido: File | undefined) {
+    if (!elegido) return
+    if (elegido.size > TAMANO_MAXIMO_BYTES) {
+      setError(PESA_DEMASIADO)
+      return
+    }
+    setError(null)
+    setVideoDelPost(elegido)
+  }
+
+  function elegirRol(opcion: Rol) {
+    setRol(opcion)
+    // What Coni says is by Coni: her author is the obvious pick while none is chosen.
+    if (opcion === "voz_propia" && autorId === "") setAutorId(autores.find((autor) => autor.tipo === "coni")?.id ?? "")
+    setError(null)
+  }
+
+  /** The same rules the server runs again (leerEntrada): nothing is sent while one fails. */
+  function leerFormulario(): Lectura {
+    if (!efectivo) return { ok: false, error: archivos.length > 0 ? NO_RECONOZCO : FALTA_LA_ENTRADA }
+    const { entrada, aSubir } = armarEntrada({
+      tipo: efectivo.tipo,
+      texto,
+      archivos,
+      videoDelPost,
+      transcripcion,
+      referencia,
+      titulo,
+      autorId,
+      rol,
+      declaracion,
+    })
+    const lectura = leerEntrada(entrada)
+    return lectura.ok ? { ok: true, entrada, aSubir } : { ok: false, error: lectura.error }
+  }
+
+  function subir() {
+    setError(null)
+    const leido = leerFormulario()
+    if (!leido.ok) setError(leido.error)
+  }
+
+  return (
+    <form
+      aria-label="Subir material"
+      noValidate
+      className="grid gap-6"
+      onSubmit={(evento) => {
+        evento.preventDefault()
+        if (!ocupado) subir()
+      }}
+    >
+      <div className="grid gap-3">
+        <Campo id={`${id}-entrada`} etiqueta="Pega un enlace o elige un archivo" ayuda={AYUDA_DEL_CAMPO}>
+          <textarea
+            id={`${id}-entrada`}
+            rows={2}
+            autoComplete="off"
+            value={texto}
+            aria-describedby={`${id}-entrada-ayuda`}
+            onChange={(evento) => escribir(evento.target.value)}
+            className={cn(CLASES_DE_CAMPO, "resize-y")}
+          />
+        </Campo>
+        <Boton
+          variante="secundario"
+          tamano="chico"
+          className="w-fit"
+          deshabilitado={ocupado}
+          icono={<Paperclip aria-hidden="true" size={ICONO.medio} />}
+          onClick={() => principal.current?.click()}
+        >
+          Elegir archivo
+        </Boton>
+        {/* Never the native "Choose File" (4d): the button above opens it. */}
+        <input
+          ref={principal}
+          type="file"
+          hidden
+          multiple
+          accept={ACEPTA_TODO}
+          onChange={(evento) => {
+            elegir(Array.from(evento.target.files ?? []))
+            evento.target.value = ""
+          }}
+        />
+        {tipo === "imagen" ? (
+          <ListaDeImagenes
+            archivos={archivos}
+            ocupado={ocupado}
+            alMover={(indice, hacia) => setArchivos(moverArchivo(archivos, indice, hacia))}
+            alQuitar={(indice) => setArchivos(archivos.filter((_, posicion) => posicion !== indice))}
+          />
+        ) : archivos.length > 0 ? (
+          <ul aria-label="Archivos elegidos" className="grid gap-2">
+            {archivos.map((archivo, indice) => (
+              // The key is the position: the same file may be picked twice.
+              <li
+                key={`${indice}-${archivo.name}`}
+                className="rounded-bloque bg-piedra-honda p-3 text-cuerpo break-words"
+              >
+                {archivo.name}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {deteccion === null && archivos.length > 0 ? <p className="text-meta text-apagado">{NO_RECONOZCO}</p> : null}
+        <TipoDetectado efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
+      </div>
+
+      {tipo === "link" && esYoutube(enlace) ? (
+        <Campo id={`${id}-transcripcion`} etiqueta="Transcripción del video" ayuda={PASOS_DE_YOUTUBE}>
+          <textarea
+            id={`${id}-transcripcion`}
+            rows={6}
+            value={transcripcion}
+            aria-describedby={`${id}-transcripcion-ayuda`}
+            onChange={(evento) => setTranscripcion(evento.target.value)}
+            className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
+          />
+        </Campo>
+      ) : null}
+      {tipo === "link" && esPodcast(enlace) ? <p className="text-meta text-apagado">{AVISO_DE_PODCAST}</p> : null}
+
+      {tipo === "post" ? (
+        <div className="grid gap-2">
+          <p className="text-cuerpo font-semibold">
+            Video <span className="font-normal text-apagado">(opcional)</span>
+          </p>
+          {videoDelPost ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3">
+              <span className="text-cuerpo break-words">{videoDelPost.name}</span>
+              <Boton
+                variante="callado"
+                aria-label="Quitar el video"
+                deshabilitado={ocupado}
+                onClick={() => setVideoDelPost(null)}
+              >
+                Quitar
+              </Boton>
+            </div>
+          ) : (
+            <Boton
+              variante="secundario"
+              tamano="chico"
+              className="w-fit"
+              deshabilitado={ocupado}
+              onClick={() => delPost.current?.click()}
+            >
+              Elegir video
+            </Boton>
+          )}
+          <input
+            ref={delPost}
+            type="file"
+            hidden
+            accept={ACEPTA_VIDEO}
+            onChange={(evento) => {
+              elegirVideo(evento.target.files?.[0])
+              evento.target.value = ""
+            }}
+          />
+        </div>
+      ) : null}
+
+      {tipo === "video" || tipo === "imagen" ? (
+        <Campo id={`${id}-referencia`} etiqueta="Link de referencia (no se abre)">
+          <input
+            id={`${id}-referencia`}
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="https://"
+            value={referencia}
+            onChange={(evento) => setReferencia(evento.target.value)}
+            className={CLASES_DE_CAMPO}
+          />
+        </Campo>
+      ) : null}
+
+      <Campo
+        id={`${id}-titulo`}
+        etiqueta={
+          <>
+            Título <span className="font-normal text-apagado">(opcional)</span>
+          </>
+        }
+      >
+        <input
+          id={`${id}-titulo`}
+          type="text"
+          value={titulo}
+          onChange={(evento) => setTitulo(evento.target.value)}
+          className={CLASES_DE_CAMPO}
+        />
+      </Campo>
+
+      <SelectorDeAutor
+        autores={autores}
+        valor={autorId}
+        alElegir={(elegido) => {
+          setAutorId(elegido)
+          setError(null)
+        }}
+        alCrear={crearAutorAccion}
+      />
+
+      <fieldset className="elecciones grid">
+        <legend className="text-cuerpo font-semibold">{PALABRAS.papel}</legend>
+        {ROLES.map((opcion) => (
+          <Eleccion
+            key={opcion}
+            nombre={`${id}-rol`}
+            valor={opcion}
+            elegido={rol === opcion}
+            etiqueta={ETIQUETA_DE_ROL[opcion]}
+            detalle={AYUDA_DE_ROL[opcion]}
+            alElegir={() => elegirRol(opcion)}
+          />
+        ))}
+      </fieldset>
+
+      <Casilla
+        etiqueta="Este material no contiene datos de pacientes"
+        marcada={declaracion}
+        alCambiar={setDeclaracion}
+      />
+
+      {error ? <LineaDeError>{error}</LineaDeError> : null}
+      <output aria-live="polite" className="block text-cuerpo text-tinta">
+        {progreso}
+      </output>
+
+      <div className="grid gap-3 md:flex md:items-center md:gap-6">
+        <Boton type="submit" cargando={ocupado} className="md:w-auto">
+          Subir
+        </Boton>
+        {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}
+        {ocupado ? null : (
+          <Link href="/biblioteca" className={clasesDeBoton({ variante: "callado", className: "justify-center" })}>
+            Cancelar
+          </Link>
+        )}
+      </div>
+    </form>
+  )
+}
