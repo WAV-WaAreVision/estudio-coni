@@ -5,9 +5,11 @@ import { pool } from "../integration/db"
 import {
   alerta,
   bloquearRedExterna,
+  conLetraGrande,
   disparosDeMateriales,
   entrarComo,
   limpiarDisparos,
+  revisarConAxe,
   tocarHastaLlegar,
 } from "./ayudas"
 import { AUTORA, CREDENCIAL, objetosDelAlmacen, sembrarBiblioteca, vaciarBiblioteca } from "./biblioteca-escena"
@@ -218,4 +220,52 @@ test("only Coni: without a session it asks to sign in, and the maintainer is ref
   await expect(wav.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
   await expect(wav.getByRole("form", { name: "Subir material" })).toHaveCount(0)
   await contexto.close()
+})
+
+test("Subir passes WCAG 2.x AA empty, with a link, choosing the type, with images and with an error (4n)", async ({
+  page,
+}) => {
+  const hallazgos: string[] = []
+  await page.goto("/biblioteca/subir")
+  hallazgos.push(...(await revisarConAxe(page, "subir vacío")))
+
+  await page.getByLabel("Pega un enlace o elige un archivo").fill("https://youtu.be/abc123")
+  await expect(page.getByLabel("Transcripción del video")).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "subir con un video de YouTube")))
+
+  await page.getByRole("button", { name: "Cambiar el tipo" }).click()
+  await expect(page.getByRole("group", { name: "¿Qué tipo de material es?" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "subir eligiendo el tipo")))
+  await page.getByRole("radio", { name: "Enlace" }).check()
+
+  await elegirArchivos(page, "Elegir archivo", [png("uno.png", 1), png("dos.png", 2)])
+  await expect(page.getByRole("list", { name: "Imágenes en orden" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "subir con imágenes")))
+
+  await subir(page)
+  await expect(alerta(page, "Elige el autor.")).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "subir con un error")))
+  expect(hallazgos).toEqual([])
+})
+
+test("at 375 px with large text Subir fits: nothing scrolls sideways, its buttons 44 px or more (4c)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto("/biblioteca/subir")
+  await conLetraGrande(page)
+  await page.getByLabel("Pega un enlace o elige un archivo").fill("https://www.youtube.com/watch?v=abc123")
+
+  for (const nombre of ["Elegir archivo", "Cambiar el tipo", "Subir"]) {
+    const boton = page.getByRole("button", { name: nombre, exact: true })
+    await expect(boton).toBeVisible()
+    expect((await boton.boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
+  }
+  const volver = page.getByRole("link", { name: "Volver a Biblioteca" })
+  expect((await volver.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+  const sinDesborde = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )
+  expect(sinDesborde).toBe(true)
+  expect(await revisarConAxe(page, "subir con letra grande")).toEqual([])
 })
