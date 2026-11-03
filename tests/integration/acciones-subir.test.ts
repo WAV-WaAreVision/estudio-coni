@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { crearMaterial, type DepsSubir } from "@/lib/acciones/biblioteca"
+import { confirmarMaterial, crearMaterial, type DepsSubir } from "@/lib/acciones/biblioteca"
 import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 import { TAMANO_MAXIMO_BYTES } from "@/lib/dominio/biblioteca/subir"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
@@ -15,6 +15,9 @@ type Fila = Record<string, unknown>
 
 const SUFIJO = randomUUID().slice(0, 8)
 const AHORA = new Date("2026-11-03T12:00:00.000Z")
+const GUARDADO_SIN_INICIAR =
+  "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
+const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
 
 let coni: Db
 let autor = ""
@@ -219,5 +222,111 @@ describe("crearMaterial", () => {
     })
     expect(resultado).toEqual({ ok: false, error: ERROR_GENERICO })
     expect(await cuantosCon(titulo)).toBe(0)
+  })
+})
+
+describe("confirmarMaterial", () => {
+  it("starts the run once the file is in the store, with the material's own key", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1, 2, 3, 4]))
+
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    expect(disparos).toEqual([{ materialId: creado.materialId, intento: undefined }])
+  })
+
+  it("starts a link right away: there is no file to wait for", async () => {
+    const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/z", archivos: [] })
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    expect(disparos).toEqual([{ materialId: creado.materialId, intento: undefined }])
+  })
+
+  it("needs every image of the material, and deletes it when one is missing", async () => {
+    const creado = await crearOk(coni, {
+      tipo: "imagen",
+      archivos: [
+        { nombre: "a.jpg", tamano: 1 },
+        { nombre: "b.jpg", tamano: 1 },
+      ],
+    })
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1]))
+
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
+    expect(disparos).toEqual([])
+    expect(await fila(creado.materialId)).toBeNull()
+  })
+
+  it("deletes the material and starts nothing when the file never arrived", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
+    expect(disparos).toEqual([])
+    expect(await fila(creado.materialId)).toBeNull()
+  })
+
+  it("deletes the material when the file in the store is empty", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([]))
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: FALTA_EL_ARCHIVO })
+    expect(await fila(creado.materialId)).toBeNull()
+  })
+
+  it("deletes the material when the object in the store is over 2 GB, whatever was declared", async () => {
+    const creado = await crearOk(coni, { tipo: "video", archivos: [{ nombre: "a.mp4", tamano: 10 }] })
+    const enorme = deps(coni, { almacen: { ...almacen, tamano: async () => TAMANO_MAXIMO_BYTES + 1 } })
+
+    expect(await confirmarMaterial(enorme, creado.materialId)).toEqual({
+      ok: false,
+      error: "Ese archivo pesa más de 2 GB.",
+    })
+    expect(disparos).toEqual([])
+    expect(await fila(creado.materialId)).toBeNull()
+  })
+
+  it("answers ok and starts nothing for a material that is not procesando anymore (a second tap)", async () => {
+    const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/w", archivos: [] })
+    await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    expect(disparos).toEqual([])
+  })
+
+  it("leaves the material retryable and says it was saved when the run cannot start", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/caido", archivos: [] })
+    const caido = deps(coni, {
+      disparar: {
+        material: async () => {
+          throw new Error("Trigger caído")
+        },
+      },
+    })
+
+    expect(await confirmarMaterial(caido, creado.materialId)).toEqual({ ok: false, error: GUARDADO_SIN_INICIAR })
+    expect(await fila(creado.materialId)).toMatchObject({
+      estado: "procesando",
+      motivo_fallo: "No pude iniciar el procesamiento. Reintenta.",
+    })
+  })
+
+  it("does the same when the store cannot say whether the file is there (D3)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    const mudo = deps(coni, {
+      almacen: {
+        ...almacen,
+        tamano: async () => {
+          throw new Error("R2 caído")
+        },
+      },
+    })
+
+    expect(await confirmarMaterial(mudo, creado.materialId)).toEqual({ ok: false, error: GUARDADO_SIN_INICIAR })
+    expect(disparos).toEqual([])
+    expect(await fila(creado.materialId)).toMatchObject({
+      estado: "procesando",
+      motivo_fallo: "No pude iniciar el procesamiento. Reintenta.",
+    })
+  })
+
+  it("says it did not find a material that does not exist", async () => {
+    expect(await confirmarMaterial(deps(coni), randomUUID())).toEqual({ ok: false, error: "No encontré ese material." })
   })
 })

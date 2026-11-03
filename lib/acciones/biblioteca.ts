@@ -3,7 +3,14 @@ import { z } from "zod"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
-import { extensionDe, leerEntrada, type SubidaFirmada, tipoDeContenido } from "@/lib/dominio/biblioteca/subir"
+import {
+  extensionDe,
+  leerEntrada,
+  PESA_DEMASIADO,
+  type SubidaFirmada,
+  TAMANO_MAXIMO_BYTES,
+  tipoDeContenido,
+} from "@/lib/dominio/biblioteca/subir"
 import { Falla } from "@/lib/dominio/falla"
 import { type Almacen, claveMaterial } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
@@ -263,5 +270,87 @@ export function crearMaterial(
       throw new Error(`No pude firmar la subida del material ${materialId}`, { cause: error })
     }
     return { materialId, subidas }
+  })
+}
+
+const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
+const GUARDADO_SIN_INICIAR =
+  "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
+
+/** Whoever is signed in: a material is only ever confirmed or thrown away by the one who uploaded it (D8). */
+async function idDeQuienEntro(db: Db): Promise<string> {
+  const { data, error } = await db.auth.getUser()
+  if (error) throw new Error(`No pude leer quién entró: ${error.message}`, { cause: error })
+  if (!data.user) throw new Error("No hay nadie con la sesión abierta")
+  return data.user.id
+}
+
+/** The keys of the files of a material, in order: the images of `materiales_archivos`, or its single file. */
+async function clavesDelMaterial(db: Db, materialId: string, archivoClave: string | null): Promise<string[]> {
+  const { data, error } = await db
+    .from("materiales_archivos")
+    .select("orden, archivo_clave")
+    .eq("material_id", materialId)
+    .order("orden")
+  if (error) throw new Error(`No pude leer los archivos del material ${materialId}: ${error.message}`, { cause: error })
+  if (data.length > 0) return data.map((archivo) => archivo.archivo_clave)
+  return archivoClave ? [archivoClave] : []
+}
+
+/** Every file's size, or `undefined` when the store could not answer (logged for WAV). */
+async function medirArchivos(
+  almacen: DepsSubir["almacen"],
+  materialId: string,
+  claves: string[],
+): Promise<(number | null)[] | undefined> {
+  try {
+    const tamanos: (number | null)[] = []
+    for (const clave of claves) tamanos.push(await almacen.tamano(clave))
+    return tamanos
+  } catch (error) {
+    console.error(`No pude revisar los archivos del material ${materialId}`, error)
+    return undefined
+  }
+}
+
+/** A material that cannot start now gets a reason, so the list offers Reintentar instead of waiting for ever (D3). */
+async function dejarParaReintentar(db: Db, materialId: string): Promise<never> {
+  const { error } = await db.rpc("marcar_disparo_fallido", { p_id: materialId })
+  if (error) console.error(`El material ${materialId} quedó procesando sin motivo: no pude marcarlo`, error)
+  throw new Falla(GUARDADO_SIN_INICIAR)
+}
+
+/** Checks that every file arrived and fits, then starts the run. A material whose file is wrong is deleted. */
+export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<Resultado> {
+  return aResultado("confirmarMaterial", async () => {
+    await exigirConi(deps.db)
+    const subidoPor = await idDeQuienEntro(deps.db)
+    const { data: material, error } = await deps.db
+      .from("materiales")
+      .select("id, estado, archivo_clave")
+      .eq("id", materialId)
+      .eq("subido_por", subidoPor)
+      .maybeSingle()
+    if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
+    if (!material) throw new Falla(NO_ENCONTRE)
+    // A second tap, or a retry after the page was closed: the work already started.
+    if (material.estado !== "procesando") return {}
+
+    const claves = await clavesDelMaterial(deps.db, materialId, material.archivo_clave)
+    const tamanos = await medirArchivos(deps.almacen, materialId, claves)
+    if (tamanos === undefined) return dejarParaReintentar(deps.db, materialId)
+    const malo = tamanos.find((bytes) => bytes === null || bytes === 0 || bytes > TAMANO_MAXIMO_BYTES)
+    if (malo !== undefined) {
+      await borrarMaterial(deps.db, materialId)
+      throw new Falla(malo !== null && malo > TAMANO_MAXIMO_BYTES ? PESA_DEMASIADO : FALTA_EL_ARCHIVO)
+    }
+
+    try {
+      await deps.disparar.material(materialId)
+    } catch (errorDeDisparo) {
+      console.error(`No pude iniciar el procesamiento del material ${materialId}`, errorDeDisparo)
+      return dejarParaReintentar(deps.db, materialId)
+    }
+    return {}
   })
 }
