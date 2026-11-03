@@ -18,12 +18,22 @@ Trigger deploy**. The bar's tab still opens Ingesta until batch 7.
 - Page `app/(app)/biblioteca/subir/page.tsx` (gate `exigirConi()`, own `loading`/`error`/`not-found` come from the section).
   It is not a section tab: a "Subir" button sits in the Materiales header and in its empty state.
 - "← Volver a Biblioteca" top left (to `/biblioteca`), and a quiet "Cancelar" next to "Subir" (same destination) (4e).
-- Phone: one column. Desktop: a reading column (same width rule as the batch 1 detail), no side panel.
+- Phone: one column. Desktop (`md` and up): two columns inside the Biblioteca's width (`md:max-w-[76rem]`, the
+  Materiales list's rule), split about 3/5 and 2/5. Left, what she uploads and who made it: the main field, "Elegir
+  archivo" and the chosen files, "Tipo: … · Cambiar", the per-type extras (YouTube transcript, podcast notice, post
+  video, reference link, image list), the optional title and `SelectorDeAutor`. Right, how it gets filed, on a
+  sticky panel (`md:top-24`, as the Materiales and detail side panels): "¿Quién es para ti?", the patient-data box, the
+  error, the progress line and "Subir" / "Cancelar", so the actions stay in view while the left grows. Title and author
+  sit on the left because the right column with them was taller than a 900 px screen, which left "Subir" below the fold.
+  The DOM order is the phone's (left before right) and "← Volver a Biblioteca" and the heading sit above both columns.
 
 ## 2. One field (4k, 4d)
 
 - One field labelled "Pega un enlace o elige un archivo", plus its own "Elegir archivo" button (a hidden native input
   behind a `Boton`), with the chosen file name(s) below (4d). Never the native "Choose File".
+- No native resize grip on either text area of the page (the main field, which also holds a post's text, and the
+  YouTube transcript): `resize-none`. They already grow with their text (`textarea.campo` uses `field-sizing: content`),
+  so the grip only added noise.
 - A pure `detectarTipo` in `lib/dominio/biblioteca/subir.ts` decides the type from what was pasted or picked:
 
   | Input | Detected (label) | Material `tipo` |
