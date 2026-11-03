@@ -15,7 +15,9 @@ function visibilidad(estado: "visible" | "hidden") {
 
 beforeEach(() => {
   vi.useFakeTimers()
-  replace.mockClear()
+  // The router commits each redraw: the address shows its marker, so no redraw is tried again.
+  replace.mockReset()
+  replace.mockImplementation((url: string) => window.history.replaceState(null, "", url))
   window.history.replaceState(null, "", "/biblioteca?estado=procesando&m=abc#tabla")
   visibilidad("visible")
 })
