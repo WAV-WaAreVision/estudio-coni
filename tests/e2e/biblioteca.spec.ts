@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { bloquearRedExterna, disparosDeMateriales, entrarComo, limpiarDisparos } from "./ayudas"
+import {
+  bloquearRedExterna,
+  conLetraGrande,
+  disparosDeMateriales,
+  entrarComo,
+  limpiarDisparos,
+  revisarConAxe,
+} from "./ayudas"
 import {
   AUTORA,
   type EscenaDeBiblioteca,
@@ -214,4 +221,57 @@ test("only Coni: without a session it asks to sign in, and the maintainer is ref
   expect(texto.status()).toBe(403)
   expect(texto.headers().location).toBeUndefined()
   await contexto.close()
+})
+
+test("the list, the detail and the card pass WCAG 2.x AA (4n)", async ({ page }) => {
+  const hallazgos: string[] = []
+  await page.goto("/biblioteca")
+  hallazgos.push(...(await revisarConAxe(page, "lista")))
+  await page.getByText("Más filtros", { exact: true }).click()
+  await expect(page.getByRole("button", { name: "Filtrar" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "lista con más filtros")))
+  await page.goto(`/biblioteca/materiales/${escena.listo}`)
+  hallazgos.push(...(await revisarConAxe(page, "detalle")))
+  await page.getByRole("button", { name: "Reprocesar" }).click()
+  await expect(page.getByRole("button", { name: "Sí, reprocesar" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "detalle preguntando")))
+  await page.getByRole("button", { name: "Cambiar autor o quién es para ti" }).click()
+  await expect(page.getByRole("radio", { name: "Estudio o libro" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "detalle cambiando autor y quién es para ti")))
+  await page.goto(`/biblioteca/materiales/${escena.estrategia}`)
+  await page.getByRole("button", { name: "Editar" }).click()
+  await expect(page.getByLabel("Resumen")).toBeFocused()
+  hallazgos.push(...(await revisarConAxe(page, "ficha en edición")))
+  await page.goto("/biblioteca/materiales/00000000-0000-4000-8000-000000000000")
+  await expect(page.getByRole("heading", { name: "No encontré lo que buscabas" })).toBeVisible()
+  hallazgos.push(...(await revisarConAxe(page, "no encontrado")))
+  expect(hallazgos).toEqual([])
+})
+
+test("at 375 px with large text the section tab and the quick filters fit, 44 px or more, nothing scrolls sideways (4c)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto("/biblioteca")
+  await conLetraGrande(page)
+
+  const pestana = page
+    .getByRole("navigation", { name: "Secciones de la Biblioteca" })
+    .getByRole("link", { name: "Materiales" })
+  await expect(pestana).toBeVisible()
+  expect((await pestana.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+  const filtros = page.getByRole("group", { name: "Filtrar por estado" })
+  for (const nombre of ["Todos", "Procesando · 2", "Listos", "Con error · 1"]) {
+    const chip = filtros.getByRole("link", { name: nombre })
+    await expect(chip).toBeVisible()
+    expect((await chip.boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
+  }
+  const masFiltros = page.getByText("Más filtros", { exact: true })
+  await expect(masFiltros).toBeVisible()
+  expect((await masFiltros.boundingBox())?.height ?? 0, "Más filtros").toBeGreaterThanOrEqual(44)
+  const sinDesborde = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )
+  expect(sinDesborde).toBe(true)
+  expect(await revisarConAxe(page, "lista con letra grande")).toEqual([])
 })
