@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
@@ -47,6 +47,8 @@ const cuantos = (total: number) =>
 
 /** Search an author by name or alias, or add one ("Autor nuevo"); whoever holds it only ever sees the picked id. */
 export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }: Propiedades) {
+  // The material's detail mounts a copy for the phone and one for the computer: the ids are this copy's own.
+  const id = useId()
   const [autores, setAutores] = useState(iniciales)
   const [texto, setTexto] = useState("")
   const [creando, setCreando] = useState(false)
@@ -148,14 +150,18 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
     const parecidos = autoresParecidos(autores, nombre)
     return (
       <div className="grid gap-3 rounded-bloque bg-piedra-honda p-3.5">
-        <Campo id="autor-nombre" etiqueta="Nombre del autor" ayuda="Ej: Esther Perel, @cuenta o Instituto Gottman">
+        <Campo
+          id={`${id}-autor-nombre`}
+          etiqueta="Nombre del autor"
+          ayuda="Ej: Esther Perel, @cuenta o Instituto Gottman"
+        >
           <input
-            id="autor-nombre"
+            id={`${id}-autor-nombre`}
             type="text"
             autoComplete="off"
             maxLength={LARGO_DE_AUTOR_NUEVO}
             value={nombre}
-            aria-describedby="autor-nombre-ayuda"
+            aria-describedby={`${id}-autor-nombre-ayuda`}
             onKeyDown={sinEnviar}
             onChange={(evento) => setNombre(evento.target.value)}
             className={CLASES_DE_CAMPO}
@@ -170,7 +176,7 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
           </div>
         ))}
         <Campo
-          id="autor-credencial"
+          id={`${id}-autor-credencial`}
           etiqueta={
             <>
               Credencial <span className="font-normal text-apagado">(opcional)</span>
@@ -179,20 +185,20 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
           ayuda="Ej: Psicoterapeuta de parejas"
         >
           <input
-            id="autor-credencial"
+            id={`${id}-autor-credencial`}
             type="text"
             autoComplete="off"
             maxLength={LARGO_DE_AUTOR_NUEVO}
             value={credencial}
-            aria-describedby="autor-credencial-ayuda"
+            aria-describedby={`${id}-autor-credencial-ayuda`}
             onKeyDown={sinEnviar}
             onChange={(evento) => setCredencial(evento.target.value)}
             className={CLASES_DE_CAMPO}
           />
         </Campo>
-        <Campo id="autor-tipo" etiqueta="Tipo de autor">
+        <Campo id={`${id}-autor-tipo`} etiqueta="Tipo de autor">
           <select
-            id="autor-tipo"
+            id={`${id}-autor-tipo`}
             value={tipo}
             onChange={(evento) => {
               if (esTipoDeAutorNuevo(evento.target.value)) setTipo(evento.target.value)
@@ -227,14 +233,14 @@ export function SelectorDeAutor({ autores: iniciales, valor, alElegir, alCrear }
   const encontrados = buscarAutores(autores, texto)
   return (
     <div className="grid gap-3">
-      <Campo id="autor-busqueda" etiqueta="Autor" ayuda="Busca por nombre o alias.">
+      <Campo id={`${id}-autor-busqueda`} etiqueta="Autor" ayuda="Busca por nombre o alias.">
         <input
           ref={busqueda}
-          id="autor-busqueda"
+          id={`${id}-autor-busqueda`}
           type="search"
           autoComplete="off"
           value={texto}
-          aria-describedby="autor-busqueda-ayuda"
+          aria-describedby={`${id}-autor-busqueda-ayuda`}
           onKeyDown={sinEnviar}
           onChange={(evento) => setTexto(evento.target.value)}
           className={CLASES_DE_CAMPO}

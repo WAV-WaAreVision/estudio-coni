@@ -75,4 +75,22 @@ describe("EditarAutorYRol", () => {
     const aviso = await screen.findByText(AVISO_REPROCESAR)
     await waitFor(() => expect(aviso.closest("[tabindex='-1']")).toHaveFocus())
   })
+
+  // The detail mounts the phone's copy and the computer's at once: one shared radio group would let a pick in one copy
+  // clear the other.
+  it("two copies on one page keep their own role choice", () => {
+    render(
+      <>
+        <EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />
+        <EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />
+      </>,
+    )
+    for (const boton of screen.getAllByRole("button", { name: "Cambiar autor o quién es para ti" }))
+      fireEvent.click(boton)
+    const [primero, segundo] = screen.getAllByRole("radio", { name: "Estudio o libro" })
+    fireEvent.click(primero)
+    expect(primero).toBeChecked()
+    expect(screen.getAllByRole("radio", { name: "Referente" })[1]).toBeChecked()
+    expect(primero.getAttribute("name")).not.toBe(segundo.getAttribute("name"))
+  })
 })

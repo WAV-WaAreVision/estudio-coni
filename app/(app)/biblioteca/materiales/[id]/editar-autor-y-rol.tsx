@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Eleccion } from "@/components/ui/filas"
 import { LineaDeError } from "@/components/ui/linea-de-error"
@@ -36,6 +36,8 @@ export function EditarAutorYRol({ materialId, autores, autorId: inicial, rol: ro
   const lineaDeAviso = useRef<HTMLDivElement>(null)
   const abrir = useRef<HTMLButtonElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+  // The detail mounts a copy for the phone and one for the computer: each needs a radio group of its own.
+  const grupoDeRol = useId()
 
   useEffect(() => {
     if (enfocar === null || abierto) return
@@ -91,7 +93,7 @@ export function EditarAutorYRol({ materialId, autores, autorId: inicial, rol: ro
         {ROLES.map((opcion) => (
           <Eleccion
             key={opcion}
-            nombre="rol"
+            nombre={grupoDeRol}
             valor={opcion}
             elegido={rol === opcion}
             etiqueta={ETIQUETA_DE_ROL[opcion]}

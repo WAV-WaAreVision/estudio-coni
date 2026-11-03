@@ -124,4 +124,25 @@ describe("SelectorDeAutor", () => {
     expect(screen.getByRole("button", { name: "Cambiar autor" })).toHaveFocus()
     expect(alElegir).not.toHaveBeenCalled()
   })
+
+  // The material's detail mounts the phone's copy and the computer's at once: each needs ids of its own.
+  it("two selectors on one page, searching and creating, share no id", () => {
+    const { container } = render(
+      <>
+        <SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={vi.fn()} />
+        <SelectorDeAutor autores={AUTORES} valor="" alElegir={vi.fn()} alCrear={vi.fn()} />
+      </>,
+    )
+    const sinRepetir = () => {
+      const ids = [...container.querySelectorAll("[id]")].map((el) => el.id)
+      expect(ids.length).toBeGreaterThan(0)
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+    sinRepetir()
+    expect(screen.getAllByLabelText("Autor")).toHaveLength(2)
+    for (const boton of screen.getAllByRole("button", { name: "Autor nuevo" })) fireEvent.click(boton)
+    sinRepetir()
+    expect(screen.getAllByLabelText("Nombre del autor")).toHaveLength(2)
+    expect(screen.getAllByLabelText("Tipo de autor")).toHaveLength(2)
+  })
 })
