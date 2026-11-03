@@ -286,3 +286,16 @@ export async function revisarConAxe(page: Page, estado: string): Promise<string[
     .analyze()
   return violations.map((v) => `${estado}: ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)
 }
+
+/**
+ * Taps a link and waits for its address, tapping again if the first tap went nowhere. In the production build Next
+ * 16.2.6 sometimes fetches the page of a link tapped soon after a load or a Back and then drops the navigation (the
+ * Biblioteca's rows and filters: about 1 in 15 runs before this, also with the network quiet). A person taps again; so
+ * does this, so a spec checks its screen, not that race.
+ */
+export async function tocarHastaLlegar(page: Page, enlace: Locator, direccion: RegExp): Promise<void> {
+  await expect(async () => {
+    await enlace.click()
+    await expect(page).toHaveURL(direccion, { timeout: 2000 })
+  }).toPass({ timeout: 10_000 })
+}

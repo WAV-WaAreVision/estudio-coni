@@ -7,6 +7,7 @@ import {
   entrarComo,
   limpiarDisparos,
   revisarConAxe,
+  tocarHastaLlegar,
 } from "./ayudas"
 import {
   AUTORA,
@@ -77,8 +78,7 @@ test("the quick filters change the list with one tap and live in the URL (4b)", 
   await expect(page).toHaveURL(/\/biblioteca\?estado=fallido(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(1)
 
-  await filtros.getByRole("link", { name: "Todos" }).click()
-  await expect(page).toHaveURL(/\/biblioteca(?:[?&]v=\d+)?$/)
+  await tocarHastaLlegar(page, filtros.getByRole("link", { name: "Todos" }), /\/biblioteca(?:[?&]v=\d+)?$/)
   await expect(lista.getByRole("listitem")).toHaveCount(5)
 })
 

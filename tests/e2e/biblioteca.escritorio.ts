@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { bloquearRedExterna, disparosDeMateriales, limpiarDisparos, revisarConAxe } from "./ayudas"
+import { bloquearRedExterna, disparosDeMateriales, limpiarDisparos, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import { AUTORA, CREDENCIAL, type EscenaDeBiblioteca, sembrarBiblioteca, TITULO_LISTO } from "./biblioteca-escena"
 
 // Runs only in the `escritorio` project (D15): a computer, 1280 x 900.
@@ -27,8 +27,11 @@ test("on a computer the column widens, and the table opens the side panel with ?
   await expect(tabla.getByRole("columnheader")).toHaveText(["Material", "Tipo", "Autor", "Tema", "Estado", "Subido"])
   await expect(page.getByText(PISTA)).toBeVisible()
 
-  await tabla.getByRole("link", { name: TITULO_LISTO }).click()
-  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?m=${escena.listo}(?:&v=\\d+)?$`))
+  await tocarHastaLlegar(
+    page,
+    tabla.getByRole("link", { name: TITULO_LISTO }),
+    new RegExp(`/biblioteca\\?m=${escena.listo}(?:&v=\\d+)?$`),
+  )
   const panel = page.getByRole("region", { name: TITULO_LISTO })
   // Opening from a row moves the focus to the panel's heading.
   await expect(panel.getByRole("heading", { name: TITULO_LISTO, level: 2 })).toBeFocused()
@@ -43,7 +46,12 @@ test("on a computer the column widens, and the table opens the side panel with ?
   await expect(page.getByText(PISTA)).toBeVisible()
   await expect(page.getByRole("region", { name: TITULO_LISTO })).toHaveCount(0)
 
-  await tabla.getByRole("link", { name: TITULO_LISTO }).click()
+  await tocarHastaLlegar(
+    page,
+    tabla.getByRole("link", { name: TITULO_LISTO }),
+    new RegExp(`/biblioteca\\?m=${escena.listo}(?:&v=\\d+)?$`),
+  )
+  await expect(panel.getByRole("heading", { name: TITULO_LISTO, level: 2 })).toBeFocused()
   await panel.getByRole("link", { name: "Ver las 3" }).click()
   await expect(page).toHaveURL(new RegExp(`/biblioteca/materiales/${escena.listo}$`))
 })
@@ -53,8 +61,7 @@ test("the panel closes with its own control, keeps the filter and gives the focu
 }) => {
   await page.goto("/biblioteca?estado=listo")
   const fila = page.getByRole("table", { name: "Materiales" }).getByRole("link", { name: TITULO_LISTO })
-  await fila.click()
-  await expect(page).toHaveURL(new RegExp(`/biblioteca\\?estado=listo&m=${escena.listo}(?:&v=\\d+)?$`))
+  await tocarHastaLlegar(page, fila, new RegExp(`/biblioteca\\?estado=listo&m=${escena.listo}(?:&v=\\d+)?$`))
   await page.getByRole("link", { name: "Cerrar el panel" }).click()
   await expect(page).toHaveURL(/\/biblioteca\?estado=listo(?:[?&]v=\d+)?$/)
   await expect(page.getByText(PISTA)).toBeVisible()
