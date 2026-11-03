@@ -107,7 +107,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
 
       <aside
         aria-label="Acciones del material"
-        className="hidden md:sticky md:top-24 md:grid md:max-h-[calc(100dvh-7rem)] md:content-start md:justify-items-start md:gap-4 md:overflow-y-auto md:pt-14"
+        className="hidden md:sticky md:top-24 md:grid md:max-h-[calc(100dvh-7rem)] md:content-start md:justify-items-start md:gap-4 md:overflow-y-auto md:rounded-panel md:bg-piedra-alta md:p-5"
       >
         {arrancar}
         {material.estado === "listo" ? (
