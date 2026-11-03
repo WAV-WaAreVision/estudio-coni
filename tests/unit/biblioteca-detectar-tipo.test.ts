@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import {
   AYUDA_DEL_CAMPO,
   detectarTipo,
   FALTA_LA_ENTRADA,
+  MAXIMO_DE_IMAGENES,
   NO_RECONOZCO,
   tipoEfectivo,
 } from "@/lib/dominio/biblioteca/subir"
@@ -110,5 +113,11 @@ describe("the field's words", () => {
     )
     expect(NO_RECONOZCO).toBe(`No reconozco ese archivo. ${AYUDA_DEL_CAMPO}`)
     expect(FALTA_LA_ENTRADA).toBe("Pega un enlace o elige un archivo.")
+  })
+
+  it("take the image limit from the one rule, never a number written twice", () => {
+    expect(AYUDA_DEL_CAMPO).toContain(`hasta ${MAXIMO_DE_IMAGENES} imágenes`)
+    const fuente = readFileSync(join(__dirname, "../../lib/dominio/biblioteca/subir.ts"), "utf-8")
+    expect(fuente).not.toMatch(/hasta \d+ imágenes/)
   })
 })

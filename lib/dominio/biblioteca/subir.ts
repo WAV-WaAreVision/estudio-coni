@@ -202,8 +202,7 @@ export function leerEntrada(entrada: unknown): EntradaLeida {
   }
 }
 
-export const AYUDA_DEL_CAMPO =
-  "Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta 20 imágenes."
+export const AYUDA_DEL_CAMPO = `Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta ${MAXIMO_DE_IMAGENES} imágenes.`
 export const NO_RECONOZCO = `No reconozco ese archivo. ${AYUDA_DEL_CAMPO}`
 export const FALTA_LA_ENTRADA = "Pega un enlace o elige un archivo."
 
