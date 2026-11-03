@@ -55,3 +55,23 @@ export function claveVoz(fila: FilaParaClave): string {
 export function claveArmar(piezaId: string, carruselId: string, intento: number): string {
   return claveIdempotencia({ piezaId, paso: "armar", hash: hashTexto(`carrusel:${carruselId}`), intento })
 }
+
+/**
+ * The runs of the Biblioteca (change 29b): process a material, and the weekly engine by hand (used from batch 5).
+ * Apart from `Disparos`, so the pieces' starters and their test doubles stay as they are.
+ */
+export interface DisparosDeBiblioteca {
+  /** `intento`: Reintentar, Reprocesar and "Procesar por ~US$ X" each pass a new one, so a failed run is never reused. */
+  material(materialId: string, intento?: string): Promise<void>
+  motor(semana: string): Promise<void>
+}
+
+/** Ingesta's key (`lib/ingesta/disparo.ts`): ten minutes per material, plus the attempt when there is one. */
+export function claveProcesarMaterial(materialId: string, intento?: string): string {
+  return `procesar-material:${materialId}${intento ? `:${intento}` : ""}`
+}
+
+/** "Proponer ahora": one run per week for ten minutes; the engine itself answers a finished week with nothing to do. */
+export function claveMotor(semana: string): string {
+  return `motor:${semana}`
+}

@@ -27,6 +27,7 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
+import { sembrarBiblioteca, TITULO_LISTO } from "./biblioteca-escena"
 import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
@@ -664,4 +665,14 @@ test("carrusel error", async ({ page }) => {
   const id = await sembrarCarruselDeEscena("error_produccion")
   await page.goto(`/guion/${id}`)
   await capturaDe(page, "carrusel-error")
+})
+
+test("biblioteca: the phone list and a material's detail", async ({ page }) => {
+  const escena = await sembrarBiblioteca()
+  await page.goto("/biblioteca")
+  await expect(page.getByRole("list", { name: "Materiales" })).toBeVisible()
+  await capturaDe(page, "biblioteca-lista")
+  await page.goto(`/biblioteca/materiales/${escena.listo}`)
+  await expect(page.getByRole("heading", { name: TITULO_LISTO, level: 1 })).toBeVisible()
+  await capturaDe(page, "biblioteca-detalle")
 })

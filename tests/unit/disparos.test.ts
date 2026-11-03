@@ -2,8 +2,15 @@ import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { claveArmar, claveGrabar, claveProducir, claveVoz } from "@/lib/acciones/disparos"
-import { dispararProcesarMaterial, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
+import {
+  claveArmar,
+  claveGrabar,
+  claveMotor,
+  claveProcesarMaterial,
+  claveProducir,
+  claveVoz,
+} from "@/lib/acciones/disparos"
+import { disparosDeBibliotecaDeEntorno, disparosDeEntorno } from "@/lib/acciones/disparos-entorno"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { hashTexto } from "@/lib/dominio/puertas"
 
@@ -48,31 +55,63 @@ describe("disparosDeEntorno", () => {
     expect(() => disparosDeEntorno({ DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).toThrow(FallaDeConfiguracion)
   })
 
-  it("asks for the Trigger.dev key before starting anything for real", () => {
+  it("asks for the Trigger.dev key before starting anything for real, in words that fit every port", () => {
     expect(() => disparosDeEntorno({})).toThrow(FallaDeConfiguracion)
+    expect(() => disparosDeEntorno({})).toThrow(
+      "Falta TRIGGER_SECRET_KEY: la app no puede iniciar tareas en segundo plano.",
+    )
   })
 })
 
-describe("dispararProcesarMaterial", () => {
+describe("claveProcesarMaterial", () => {
   const ID = "6f1d6c2e-8f43-4a8e-9a3f-2b1c7a0d9e55"
 
-  it("records the run in a file instead of starting it when DISPARO_DE_PRUEBA is on", async () => {
-    const archivo = join(mkdtempSync(join(tmpdir(), "disparos-")), "registro.jsonl")
+  it("is one key per material, and one per attempt when an attempt is given", () => {
+    expect(claveProcesarMaterial(ID)).toBe(`procesar-material:${ID}`)
+    expect(claveProcesarMaterial(ID, "intento-1")).toBe(`procesar-material:${ID}:intento-1`)
+  })
 
-    await dispararProcesarMaterial(ID, { DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo })
+  it("gives two attempts two keys, so a retry within ten minutes never reuses the run that failed", () => {
+    expect(claveProcesarMaterial(ID, "intento-1")).not.toBe(claveProcesarMaterial(ID, "intento-2"))
+    expect(claveProcesarMaterial(ID, "intento-1")).not.toBe(claveProcesarMaterial(ID))
+  })
+})
+
+describe("claveMotor", () => {
+  it("is one key per week", () => {
+    expect(claveMotor("2026-11-02")).toBe("motor:2026-11-02")
+    expect(claveMotor("2026-11-09")).not.toBe(claveMotor("2026-11-02"))
+  })
+})
+
+describe("disparosDeBibliotecaDeEntorno", () => {
+  const ID = "6f1d6c2e-8f43-4a8e-9a3f-2b1c7a0d9e55"
+
+  it("records each attempt with its own key instead of starting it when DISPARO_DE_PRUEBA is on", async () => {
+    const archivo = join(mkdtempSync(join(tmpdir(), "disparos-")), "registro.jsonl")
+    const disparos = disparosDeBibliotecaDeEntorno({ DISPARO_DE_PRUEBA: "1", DISPARO_DE_PRUEBA_ARCHIVO: archivo })
+
+    await disparos.material(ID, "intento-1")
+    await disparos.material(ID, "intento-2")
+    await disparos.motor("2026-11-02")
 
     const lineas = readFileSync(archivo, "utf-8").trim().split("\n")
-    expect(lineas.map((linea) => JSON.parse(linea))).toEqual([{ tarea: "procesar-material", materialId: ID }])
+    expect(lineas.map((linea) => JSON.parse(linea))).toEqual([
+      { tarea: "procesar-material", materialId: ID, clave: `procesar-material:${ID}:intento-1` },
+      { tarea: "procesar-material", materialId: ID, clave: `procesar-material:${ID}:intento-2` },
+      { tarea: "motor-manual", semana: "2026-11-02", clave: "motor:2026-11-02" },
+    ])
   })
 
-  it("never records instead of starting when it runs on Vercel", async () => {
-    await expect(dispararProcesarMaterial(ID, { DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).rejects.toThrow(
-      FallaDeConfiguracion,
+  it("never records instead of starting when it runs on Vercel", () => {
+    expect(() => disparosDeBibliotecaDeEntorno({ DISPARO_DE_PRUEBA: "1", VERCEL: "1" })).toThrow(FallaDeConfiguracion)
+  })
+
+  it("asks for the Trigger.dev key before starting anything for real, in words that fit every port", () => {
+    expect(() => disparosDeBibliotecaDeEntorno({})).toThrow(FallaDeConfiguracion)
+    expect(() => disparosDeBibliotecaDeEntorno({})).toThrow(
+      "Falta TRIGGER_SECRET_KEY: la app no puede iniciar tareas en segundo plano.",
     )
-  })
-
-  it("asks for the Trigger.dev key before starting anything for real", async () => {
-    await expect(dispararProcesarMaterial(ID, {})).rejects.toThrow(FallaDeConfiguracion)
   })
 })
 

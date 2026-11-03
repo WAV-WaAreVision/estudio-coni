@@ -231,3 +231,62 @@ describe("carousel keys", () => {
     expect(() => claveLaminaDeCarrusel(PIEZA, CARRUSEL, CORRIDA, 8)).toThrow(Error)
   })
 })
+
+describe("almacenEnMemoria for the Biblioteca", () => {
+  const ID = "11111111-2222-4333-8444-555555555555"
+  const OTRO = "99999999-2222-4333-8444-555555555555"
+  const TEXTO = `materiales/${ID}/texto-original.txt`
+
+  it("measures an object and answers null for one that is not there", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir(TEXTO, MP3, "text/plain")
+
+    expect(await almacen.tamano(TEXTO)).toBe(MP3.byteLength)
+    expect(await almacen.tamano("nada")).toBeNull()
+  })
+
+  it("deletes every object of one material and nothing else", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir(TEXTO, MP3, "text/plain")
+    await almacen.subir(claveMaterial(ID, "pdf"), MP3, "application/pdf")
+    await almacen.subir(`materiales/${OTRO}/texto-original.txt`, MP3, "text/plain")
+
+    expect(await almacen.borrarCarpeta(ID)).toBe(2)
+    expect(almacen.claves()).toEqual([`materiales/${OTRO}/texto-original.txt`])
+  })
+
+  it("refuses a folder that is not a material's", async () => {
+    await expect(almacenEnMemoria().borrarCarpeta("../voces")).rejects.toThrow(FallaDeConfiguracion)
+  })
+
+  it("signs the download of the original text, always as texto-original.txt", async () => {
+    const almacen = almacenEnMemoria()
+    await almacen.subir(TEXTO, MP3, "text/plain")
+
+    expect(await almacen.urlDeTexto(ID, 300)).toBe(
+      `https://almacen.test/${TEXTO}?expira=300&descarga=texto-original.txt`,
+    )
+  })
+
+  it("acts on the lowercase folder when the id comes in uppercase", async () => {
+    const conLetras = "abcdef12-3456-4789-8abc-def012345678"
+    const texto = `materiales/${conLetras}/texto-original.txt`
+    const almacen = almacenEnMemoria()
+    await almacen.subir(texto, MP3, "text/plain")
+    await almacen.subir(`materiales/${OTRO}/texto-original.txt`, MP3, "text/plain")
+
+    expect(await almacen.urlDeTexto(conLetras.toUpperCase(), 300)).toBe(
+      `https://almacen.test/${texto}?expira=300&descarga=texto-original.txt`,
+    )
+    expect(await almacen.borrarCarpeta(conLetras.toUpperCase())).toBe(1)
+    expect(almacen.claves()).toEqual([`materiales/${OTRO}/texto-original.txt`])
+  })
+
+  it("answers null while the text is not there, and refuses an expiry over an hour or an id that is not a UUID", async () => {
+    const almacen = almacenEnMemoria()
+
+    expect(await almacen.urlDeTexto(ID, 300)).toBeNull()
+    await expect(almacen.urlDeTexto(ID, 3601)).rejects.toThrow(FallaDeConfiguracion)
+    await expect(almacen.urlDeTexto("../x", 300)).rejects.toThrow(FallaDeConfiguracion)
+  })
+})

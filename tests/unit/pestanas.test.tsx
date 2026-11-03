@@ -35,4 +35,30 @@ describe("Pestanas", () => {
     expect(screen.getByRole("link", { name: "Agenda" })).toHaveClass("text-apagado")
     expect(screen.getByRole("link", { name: "Agenda" }).className).not.toMatch(/shadow-relieve/)
   })
+
+  it("stretches its options across the track by default", () => {
+    render(
+      <Pestanas
+        etiqueta="Vistas"
+        actual="mes"
+        opciones={[{ valor: "mes", etiqueta: "Mes", href: "/calendario?vista=mes" }]}
+      />,
+    )
+    expect(screen.getByRole("list")).toHaveClass("flex")
+    expect(screen.getByRole("listitem")).toHaveClass("flex-1")
+  })
+
+  it("hugs its options when compacta, so a single tab does not stretch", () => {
+    render(
+      <Pestanas
+        etiqueta="Secciones"
+        actual="materiales"
+        compacta
+        opciones={[{ valor: "materiales", etiqueta: "Materiales", href: "/biblioteca" }]}
+      />,
+    )
+    expect(screen.getByRole("list")).toHaveClass("inline-flex", "w-fit")
+    expect(screen.getByRole("listitem")).toHaveClass("flex-none")
+    expect(screen.getByRole("listitem")).not.toHaveClass("flex-1")
+  })
 })

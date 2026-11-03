@@ -1,0 +1,96 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+type R = { ok: true } | { ok: false; error: string }
+const { editarMaterialAccion, crearAutorAccion } = vi.hoisted(() => ({
+  editarMaterialAccion: vi.fn(async (..._: unknown[]): Promise<R> => ({ ok: true })),
+  crearAutorAccion: vi.fn(),
+}))
+vi.mock("@/app/(app)/biblioteca/acciones", () => ({ editarMaterialAccion, crearAutorAccion }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
+
+import { AVISO_REPROCESAR, EditarAutorYRol } from "@/app/(app)/biblioteca/materiales/[id]/editar-autor-y-rol"
+
+const ID = "11111111-2222-4333-8444-555555555555"
+const AUTORES = [{ id: "a-1", nombre: "Daniela Ruiz", credencial: null, tipo: "persona", alias: [] }]
+
+beforeEach(() => vi.clearAllMocks())
+
+describe("EditarAutorYRol", () => {
+  it("asks who it is for her in her words and saves the role she picks", async () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    expect(screen.getByRole("group", { name: "¿Quién es para ti?" })).toBeInTheDocument()
+    expect(screen.queryByText("Papel")).toBeNull()
+    fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    await waitFor(() =>
+      expect(editarMaterialAccion).toHaveBeenCalledWith({ materialId: ID, autorId: "a-1", rol: "evidencia" }),
+    )
+    expect(await screen.findByText(AVISO_REPROCESAR)).toBeInTheDocument()
+  })
+
+  it("Cancelar puts everything back without saving", () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(editarMaterialAccion).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    expect(screen.getByRole("radio", { name: "Referente" })).toBeChecked()
+  })
+
+  it("says a refusal", async () => {
+    editarMaterialAccion.mockResolvedValueOnce({ ok: false, error: "Ese autor ya no existe. Elígelo de nuevo." })
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ese autor ya no existe. Elígelo de nuevo.")
+  })
+
+  it("saving without a change just closes, without calling the action", () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(editarMaterialAccion).not.toHaveBeenCalled()
+    expect(screen.queryByText(AVISO_REPROCESAR)).toBeNull()
+    expect(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" })).toBeInTheDocument()
+  })
+
+  it("says the reprocess notice in words that fit a strategy card too, not only ideas", async () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="estrategia" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Referente" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(await screen.findByText("Reprocesa el material para que use el cambio.")).toBeInTheDocument()
+    expect(screen.queryByText(/ideas sacadas/i)).toBeNull()
+  })
+
+  it("moves the focus to the reprocess notice after saving, so it is heard", async () => {
+    render(<EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="estrategia" conIdeas />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar autor o quién es para ti" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Referente" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    const aviso = await screen.findByText(AVISO_REPROCESAR)
+    await waitFor(() => expect(aviso.closest("[tabindex='-1']")).toHaveFocus())
+  })
+
+  // The detail mounts the phone's copy and the computer's at once: one shared radio group would let a pick in one copy
+  // clear the other.
+  it("two copies on one page keep their own role choice", () => {
+    render(
+      <>
+        <EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />
+        <EditarAutorYRol materialId={ID} autores={AUTORES} autorId="a-1" rol="referente" conIdeas={false} />
+      </>,
+    )
+    for (const boton of screen.getAllByRole("button", { name: "Cambiar autor o quién es para ti" }))
+      fireEvent.click(boton)
+    const [primero, segundo] = screen.getAllByRole("radio", { name: "Estudio o libro" })
+    fireEvent.click(primero)
+    expect(primero).toBeChecked()
+    expect(screen.getAllByRole("radio", { name: "Referente" })[1]).toBeChecked()
+    expect(primero.getAttribute("name")).not.toBe(segundo.getAttribute("name"))
+  })
+})

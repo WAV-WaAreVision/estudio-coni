@@ -38,6 +38,11 @@ export const ESTADO_DE_SESION = join(process.cwd(), "tests", "e2e", ".auth", "co
 export const PUERTO_SERVICIOS = Number(process.env.E2E_PUERTO_SERVICIOS ?? 3201)
 export const URL_SERVICIOS = `http://127.0.0.1:${PUERTO_SERVICIOS}`
 
+/** The fake R2 of the run (tests/e2e/almacen-falso.ts): the Biblioteca signs, measures and downloads against it. */
+export const PUERTO_ALMACEN = Number(process.env.E2E_PUERTO_ALMACEN ?? PUERTO + 3)
+export const URL_DEL_ALMACEN = `http://127.0.0.1:${PUERTO_ALMACEN}`
+export const BALDE_DE_PRUEBA = "conidolly-e2e"
+
 /**
  * Ingesta for the two-app run (playwright.biblioteca.config.ts). `localhost`, not 127.0.0.1: both apps name the
  * session cookie after the same local Supabase (`sb-127-auth-token`) and cookies ignore ports, so only a different host

@@ -2,15 +2,18 @@ import { defineConfig, devices } from "@playwright/test"
 import { generateVAPIDKeys } from "web-push"
 import {
   ARCHIVO_DE_DISPAROS,
+  BALDE_DE_PRUEBA,
   CLAVE_ANONIMA,
   CLAVE_DE_SERVICIO,
   CORREO_DE_CONI,
   ESTADO_DE_SESION,
   PUERTO,
+  PUERTO_ALMACEN,
   PUERTO_SERVICIOS,
   SUPABASE_URL,
   URL_DE_INGESTA,
   URL_DE_LA_APP,
+  URL_DEL_ALMACEN,
   URL_SERVICIOS,
 } from "./tests/e2e/entorno"
 
@@ -58,6 +61,18 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       use: { ...iphone, storageState: ESTADO_DE_SESION },
     },
+    {
+      // The Biblioteca on a computer (D15): its own files, so the phone project never runs them.
+      name: "escritorio",
+      dependencies: ["ingreso"],
+      testMatch: /.*\.escritorio\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 900 },
+        launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH },
+        storageState: ESTADO_DE_SESION,
+      },
+    },
   ],
   // Built and started here so the public variables are inlined with the local stack's values. No real service is
   // reachable from this run: DISPARO_DE_PRUEBA writes the runs to a file instead of calling Trigger.dev.
@@ -68,6 +83,15 @@ export default defineConfig({
       gracefulShutdown: { signal: "SIGTERM", timeout: 3000 },
       url: `${URL_SERVICIOS}/__salud`,
       env: { PUERTO_SERVICIOS_FALSOS: String(PUERTO_SERVICIOS) },
+      reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
+      timeout: 60_000,
+    },
+    {
+      // The R2 of the run: the Biblioteca's signed links, sizes and downloads go to this machine only.
+      command: "node --import tsx tests/e2e/almacen-falso.ts",
+      gracefulShutdown: { signal: "SIGTERM", timeout: 3000 },
+      url: `${URL_DEL_ALMACEN}/__salud`,
+      env: { PUERTO_ALMACEN_FALSO: String(PUERTO_ALMACEN) },
       reuseExistingServer: Boolean(process.env.E2E_REUSE_SERVER),
       timeout: 60_000,
     },
@@ -103,6 +127,12 @@ export default defineConfig({
         META_REDIRECT_URI: `${URL_DE_LA_APP}/api/meta/callback`,
         // The Biblioteca tab posts there; only playwright.biblioteca.config.ts starts an Ingesta to receive it.
         INGESTA_URL: URL_DE_INGESTA,
+        // The Biblioteca's store is the real R2 code against the fake S3 above (R2_ENDPOINT is refused on Vercel).
+        R2_ACCOUNT_ID: "cuenta-e2e",
+        R2_ACCESS_KEY_ID: "llave-e2e",
+        R2_SECRET_ACCESS_KEY: "secreto-e2e",
+        R2_BUCKET: BALDE_DE_PRUEBA,
+        R2_ENDPOINT: URL_DEL_ALMACEN,
       },
     },
   ],

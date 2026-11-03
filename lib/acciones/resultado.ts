@@ -4,6 +4,7 @@ import { Falla } from "@/lib/dominio/falla"
 export type Resultado<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string }
 
 export const ERROR_SESION_VENCIDA = "Tu sesión venció. Entra de nuevo."
+export const ERROR_SOLO_CONI = "Esta app es solo para Coni."
 export const ERROR_GENERICO = "Algo falló de nuestro lado. Inténtalo de nuevo en unos minutos."
 
 /**

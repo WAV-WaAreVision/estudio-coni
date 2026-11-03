@@ -26,4 +26,30 @@ describe("Seccion", () => {
     expect(screen.getByText("2")).toHaveClass("text-apagado", "font-medium")
     expect(screen.getByRole("region", { name: "Necesita tu firma" })).toHaveClass("mt-8")
   })
+
+  it("drops its top margin when the container already spaces it (espacio ninguno)", () => {
+    render(
+      <Seccion id="s" titulo="Ideas sacadas" espacio="ninguno">
+        <p>x</p>
+      </Seccion>,
+    )
+    const region = screen.getByRole("region", { name: "Ideas sacadas" })
+    expect(region.className).not.toMatch(/\bmt-/)
+    expect(region).toHaveClass("grid", "gap-3")
+  })
+
+  it("is an h2 by default and an h3 under a heading of its own (nivel 3)", () => {
+    render(
+      <>
+        <Seccion id="a" titulo="Arriba">
+          <p>x</p>
+        </Seccion>
+        <Seccion id="b" titulo="Adentro" nivel={3}>
+          <p>y</p>
+        </Seccion>
+      </>,
+    )
+    expect(screen.getByRole("heading", { name: "Arriba", level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Adentro", level: 3 })).toHaveClass("text-meta", "font-semibold")
+  })
 })
