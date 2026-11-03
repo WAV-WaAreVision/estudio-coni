@@ -97,6 +97,52 @@ test("with the panel open, a material that finishes turns Listo in the table and
   await expect(page).toHaveURL(new RegExp(`/biblioteca\\?m=${escena.procesando}(?:&v=\\d+)?$`))
 })
 
+test("on a computer the detail reads in one column and keeps its actions in a side column, not across the page", async ({
+  page,
+}) => {
+  await page.goto(`/biblioteca/materiales/${escena.listo}`)
+  const titulo = page.getByRole("heading", { name: TITULO_LISTO, level: 1 })
+  const acciones = page.getByRole("complementary", { name: "Acciones del material" })
+  const descargar = acciones.getByRole("link", { name: "Descargar texto original" })
+  await expect(descargar).toBeVisible()
+  await expect(acciones.getByRole("button", { name: "Reprocesar" })).toBeVisible()
+  await expect(acciones.getByRole("button", { name: "Cambiar autor o quién es para ti" })).toBeVisible()
+  await expect(acciones.getByText("Detalle para WAV")).toBeVisible()
+  // One of each on screen: the phone's copies are not shown.
+  await expect(page.getByRole("link", { name: "Descargar texto original" })).toHaveCount(1)
+  await expect(page.getByRole("button", { name: "Cambiar autor o quién es para ti" })).toHaveCount(1)
+
+  const caja = async (localizador: typeof titulo) => {
+    const medida = await localizador.boundingBox()
+    if (!medida) throw new Error("sin caja")
+    return medida
+  }
+  const principal = await caja(page.locator("[data-detalle=principal]"))
+  const lateral = await caja(acciones)
+  expect(principal.width).toBeLessThanOrEqual(42 * 17 + 1)
+  expect(lateral.width).toBeLessThanOrEqual(20 * 17 + 1)
+  expect(lateral.x).toBeGreaterThan(principal.x + principal.width)
+  expect((await caja(descargar)).width).toBeLessThan(lateral.width + 1)
+  await expect(acciones).toHaveCSS("position", "sticky")
+
+  // Screen readers meet the material first, then its actions.
+  const orden = await page.evaluate(() => {
+    const h1 = document.querySelector("h1")
+    const aside = document.querySelector("aside[aria-label='Acciones del material']")
+    return h1 && aside ? h1.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING : 0
+  })
+  expect(orden).toBeTruthy()
+  await expect(page.getByRole("link", { name: "Materiales" })).toBeVisible()
+  expect(await revisarConAxe(page, "detalle en el computador")).toEqual([])
+})
+
+test("on a computer a material with an error offers Reintentar in the side column", async ({ page }) => {
+  await page.goto(`/biblioteca/materiales/${escena.conError}`)
+  const acciones = page.getByRole("complementary", { name: "Acciones del material" })
+  await expect(acciones.getByRole("button", { name: "Reintentar" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Reintentar" })).toHaveCount(1)
+})
+
 test("the table and the side panel pass WCAG 2.x AA", async ({ page }) => {
   await page.goto(`/biblioteca?m=${escena.listo}`)
   await expect(page.getByRole("region", { name: TITULO_LISTO })).toBeVisible()

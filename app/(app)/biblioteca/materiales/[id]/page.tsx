@@ -33,59 +33,92 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
     ? ficha === null && material.estado === "listo"
     : ficha !== null && (mapa?.total ?? 0) === 0
 
-  return (
-    <div className="grid gap-6">
-      <Volver href="/biblioteca">Materiales</Volver>
-      <header className="grid gap-2">
-        <h1 className="text-pantalla text-balance">{material.titulo ?? "Sin título"}</h1>
-        <p className="text-meta text-apagado">
-          {`${etiquetaDeTipo(material.tipo)} · ${material.autor} · ${etiquetaDeRol(material.rol)}`}
-        </p>
-        <div>
-          <EstadoDeMaterial material={material} />
-        </div>
-        {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (
-          <BotonConfirmarCosto materialId={material.id} costoUsd={material.costo_estimado_usd} />
-        ) : null}
-        {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
-      </header>
-
-      <EditarAutorYRol
-        materialId={material.id}
-        autores={autores}
-        autorId={material.autor_id}
-        rol={rol}
-        conIdeas={(mapa?.total ?? 0) > 0 || ficha !== null}
-      />
-
-      {procesadoConOtroRol ? (
-        <LineaDeEstado tipo="aviso" titulo="Cambiaste quién es para ti: reprocesa el material para verlo así." />
-      ) : mapa ? (
-        <MapaDelMaterial mapa={mapa} estado={material.estado} />
-      ) : ficha ? (
-        <>
-          <p className="rounded-bloque bg-piedra-honda p-3.5 text-meta text-tinta">
-            {adaptacionDe(material.idioma_original)}
-          </p>
-          <FichaEditable materialId={material.id} ficha={ficha} />
-        </>
-      ) : (
-        <p className="text-cuerpo text-apagado">
-          {material.estado === "listo"
-            ? "No pude leer la ficha de este material. Avísale a Federico."
-            : "La ficha aparece cuando termina de procesarse."}
-        </p>
-      )}
-
-      {material.estado === "listo" ? (
-        // A plain link (D12): a Link would prefetch the route handler and sign a download on every render.
-        <a href={`/biblioteca/materiales/${material.id}/texto`} className={clasesDeBoton({ variante: "secundario" })}>
-          Descargar texto original
-        </a>
+  const descarga = `/biblioteca/materiales/${material.id}/texto`
+  const arrancar = (
+    <>
+      {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (
+        <BotonConfirmarCosto materialId={material.id} costoUsd={material.costo_estimado_usd} />
       ) : null}
-      {material.estado === "listo" ? <BotonReprocesar materialId={material.id} rol={rol} /> : null}
+      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
+    </>
+  )
+  const editar = (
+    <EditarAutorYRol
+      materialId={material.id}
+      autores={autores}
+      autorId={material.autor_id}
+      rol={rol}
+      conIdeas={(mapa?.total ?? 0) > 0 || ficha !== null}
+    />
+  )
+  const reprocesar = material.estado === "listo" ? <BotonReprocesar materialId={material.id} rol={rol} /> : null
+  const detalle = <DetalleParaWav lineas={lineasParaWav(material, mapa?.evidencia ?? {})} proveedor={null} />
 
-      <DetalleParaWav lineas={lineasParaWav(material, mapa?.evidencia ?? {})} proveedor={null} />
+  // The phone reads one column with the actions where they always were; a computer keeps the material in a readable
+  // column and its actions in a side column (both live in the DOM, each shown on its own size: `contents md:hidden`
+  // leaves the phone's layout as it was). The material comes first in the DOM, so a screen reader meets it first.
+  return (
+    <div className="grid gap-6 md:grid-cols-[minmax(0,42rem)_20rem] md:items-start md:justify-between md:gap-10">
+      <div data-detalle="principal" className="grid min-w-0 gap-6">
+        <Volver href="/biblioteca">Materiales</Volver>
+        <header className="grid gap-2">
+          <h1 className="text-pantalla text-balance">{material.titulo ?? "Sin título"}</h1>
+          <p className="text-meta text-apagado">
+            {`${etiquetaDeTipo(material.tipo)} · ${material.autor} · ${etiquetaDeRol(material.rol)}`}
+          </p>
+          <div>
+            <EstadoDeMaterial material={material} />
+          </div>
+          <div className="contents md:hidden">{arrancar}</div>
+        </header>
+
+        <div className="contents md:hidden">{editar}</div>
+
+        {procesadoConOtroRol ? (
+          <LineaDeEstado tipo="aviso" titulo="Cambiaste quién es para ti: reprocesa el material para verlo así." />
+        ) : mapa ? (
+          <MapaDelMaterial mapa={mapa} estado={material.estado} />
+        ) : ficha ? (
+          <>
+            <p className="rounded-bloque bg-piedra-honda p-3.5 text-meta text-tinta">
+              {adaptacionDe(material.idioma_original)}
+            </p>
+            <FichaEditable materialId={material.id} ficha={ficha} />
+          </>
+        ) : (
+          <p className="text-cuerpo text-apagado">
+            {material.estado === "listo"
+              ? "No pude leer la ficha de este material. Avísale a Federico."
+              : "La ficha aparece cuando termina de procesarse."}
+          </p>
+        )}
+
+        <div className="contents md:hidden">
+          {material.estado === "listo" ? (
+            // A plain link (D12): a Link would prefetch the route handler and sign a download on every render.
+            <a href={descarga} className={clasesDeBoton({ variante: "secundario" })}>
+              Descargar texto original
+            </a>
+          ) : null}
+          {reprocesar}
+          {detalle}
+        </div>
+      </div>
+
+      <aside
+        aria-label="Acciones del material"
+        className="hidden md:sticky md:top-24 md:grid md:max-h-[calc(100dvh-7rem)] md:content-start md:justify-items-start md:gap-4 md:overflow-y-auto md:pt-14"
+      >
+        {arrancar}
+        {material.estado === "listo" ? (
+          <a href={descarga} className={clasesDeBoton({ variante: "secundario", tamano: "chico" })}>
+            Descargar texto original
+          </a>
+        ) : null}
+        {reprocesar}
+        <div className="w-full">{editar}</div>
+        <div className="w-full">{detalle}</div>
+      </aside>
     </div>
   )
 }
