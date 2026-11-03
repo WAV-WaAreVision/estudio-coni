@@ -1,15 +1,16 @@
 "use client"
 
-import { Paperclip } from "@phosphor-icons/react"
+import { CaretLeft, Paperclip } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useId, useRef, useState } from "react"
+import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { Eleccion } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeError } from "@/components/ui/linea-de-error"
+import { CLASES_DE_VOLVER, Volver } from "@/components/ui/volver"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "@/lib/acciones/resultado"
 import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
 import {
@@ -60,7 +61,13 @@ async function pedir<T extends object>(accion: () => Promise<Resultado<T>>): Pro
   }
 }
 
-export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
+interface Propiedades {
+  autores: AutorDeLista[]
+  /** The page's heading, between the way back and the form. */
+  encabezado: ReactNode
+}
+
+export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   const router = useRouter()
   const id = useId()
   const principal = useRef<HTMLInputElement>(null)
@@ -85,6 +92,23 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
   const [progreso, setProgreso] = useState<string | null>(null)
 
   const ocupado = progreso !== null
+
+  // Leaving mid-upload would keep a material whose files never arrive (D10): the browser asks first.
+  useEffect(() => {
+    if (!ocupado) return
+    const avisar = (evento: BeforeUnloadEvent) => evento.preventDefault()
+    window.addEventListener("beforeunload", avisar)
+    return () => window.removeEventListener("beforeunload", avisar)
+  }, [ocupado])
+
+  // An upload that ends after she left must not pull her back to the list.
+  const montado = useRef(true)
+  useEffect(() => {
+    montado.current = true
+    return () => {
+      montado.current = false
+    }
+  }, [])
   const deteccion = detectarTipo({ texto, archivos })
   const efectivo = tipoEfectivo(deteccion, manual)
   const tipo = efectivo?.tipo ?? null
@@ -146,9 +170,13 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
     return lectura.ok ? { ok: true, entrada, aSubir } : { ok: false, error: lectura.error }
   }
 
+  function ir(ruta: string) {
+    if (montado.current) router.push(ruta)
+  }
+
   function fallar(mensaje: string) {
     setProgreso(null)
-    if (mensaje === ERROR_SESION_VENCIDA) router.push("/ingreso")
+    if (mensaje === ERROR_SESION_VENCIDA) ir("/ingreso")
     else setError(mensaje)
   }
 
@@ -199,12 +227,12 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
     setProgreso(GUARDANDO)
     const confirmado = await pedir(() => confirmarMaterialAccion(materialId))
     if (confirmado.ok) {
-      router.push(HREF_TRAS_SUBIR)
+      ir(HREF_TRAS_SUBIR)
       return
     }
     // Saved but not started: the row on the list already offers Reintentar.
     if (confirmado.error === GUARDADO_SIN_INICIAR) {
-      router.push("/biblioteca")
+      ir("/biblioteca")
       return
     }
     // The server deleted a material whose file was wrong: the next Subir starts over.
@@ -213,207 +241,225 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
   }
 
   return (
-    <form
-      aria-label="Subir material"
-      noValidate
-      className="grid gap-6"
-      onSubmit={(evento) => {
-        evento.preventDefault()
-        if (!ocupado) void subir()
-      }}
-    >
-      <div className="grid gap-3">
-        <Campo id={`${id}-entrada`} etiqueta="Pega un enlace o elige un archivo" ayuda={AYUDA_DEL_CAMPO}>
-          <textarea
-            id={`${id}-entrada`}
-            rows={2}
-            autoComplete="off"
-            value={texto}
-            aria-describedby={`${id}-entrada-ayuda`}
-            onChange={(evento) => escribir(evento.target.value)}
-            className={cn(CLASES_DE_CAMPO, "resize-y")}
-          />
-        </Campo>
-        <Boton
-          variante="secundario"
-          tamano="chico"
-          className="w-fit"
-          deshabilitado={ocupado}
-          icono={<Paperclip aria-hidden="true" size={ICONO.medio} />}
-          onClick={() => principal.current?.click()}
+    <>
+      {ocupado ? (
+        // biome-ignore lint/a11y/useSemanticElements: an <a> with no href is not a link; this one says it is inactive
+        <span
+          role="link"
+          aria-disabled="true"
+          // No href while uploading: as a disabled Boton, still found by the focus and a screen reader, going nowhere.
+          tabIndex={0}
+          className={cn(CLASES_DE_VOLVER, "cursor-not-allowed bg-piedra-honda text-apagado shadow-none")}
         >
-          Elegir archivo
-        </Boton>
-        {/* Never the native "Choose File" (4d): the button above opens it. */}
-        <input
-          ref={principal}
-          type="file"
-          hidden
-          multiple
-          accept={ACEPTA_TODO}
-          onChange={(evento) => {
-            elegir(Array.from(evento.target.files ?? []))
-            evento.target.value = ""
-          }}
-        />
-        {tipo === "imagen" ? (
-          <ListaDeImagenes
-            archivos={archivos}
-            ocupado={ocupado}
-            alMover={(indice, hacia) => setArchivos(moverArchivo(archivos, indice, hacia))}
-            alQuitar={(indice) => setArchivos(archivos.filter((_, posicion) => posicion !== indice))}
-          />
-        ) : archivos.length > 0 ? (
-          <ul aria-label="Archivos elegidos" className="grid gap-2">
-            {archivos.map((archivo, indice) => (
-              // The key is the position: the same file may be picked twice.
-              <li
-                key={`${indice}-${archivo.name}`}
-                className="rounded-bloque bg-piedra-honda p-3 text-cuerpo break-words"
-              >
-                {archivo.name}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {deteccion === null && archivos.length > 0 ? <p className="text-meta text-apagado">{NO_RECONOZCO}</p> : null}
-        <TipoDetectado key={entradaNumero} efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
-      </div>
-
-      {tipo === "link" && esYoutube(enlace) ? (
-        <Campo id={`${id}-transcripcion`} etiqueta="Transcripción del video" ayuda={PASOS_DE_YOUTUBE}>
-          <textarea
-            id={`${id}-transcripcion`}
-            rows={6}
-            value={transcripcion}
-            aria-describedby={`${id}-transcripcion-ayuda`}
-            onChange={(evento) => setTranscripcion(evento.target.value)}
-            className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
-          />
-        </Campo>
-      ) : null}
-      {tipo === "link" && esPodcast(enlace) ? <p className="text-meta text-apagado">{AVISO_DE_PODCAST}</p> : null}
-
-      {tipo === "post" ? (
-        <div className="grid gap-2">
-          <p className="text-cuerpo font-semibold">
-            Video <span className="font-normal text-apagado">(opcional)</span>
-          </p>
-          {videoDelPost ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3">
-              <span className="text-cuerpo break-words">{videoDelPost.name}</span>
-              <Boton
-                variante="callado"
-                aria-label="Quitar el video"
-                deshabilitado={ocupado}
-                onClick={() => setVideoDelPost(null)}
-              >
-                Quitar
-              </Boton>
-            </div>
-          ) : (
-            <Boton
-              variante="secundario"
-              tamano="chico"
-              className="w-fit"
-              deshabilitado={ocupado}
-              onClick={() => delPost.current?.click()}
-            >
-              Elegir video
-            </Boton>
-          )}
+          <CaretLeft aria-hidden="true" size={ICONO.medio} />
+          Volver a Biblioteca
+        </span>
+      ) : (
+        <Volver href="/biblioteca">Volver a Biblioteca</Volver>
+      )}
+      {encabezado}
+      <form
+        aria-label="Subir material"
+        noValidate
+        className="grid gap-6"
+        onSubmit={(evento) => {
+          evento.preventDefault()
+          if (!ocupado) void subir()
+        }}
+      >
+        <div className="grid gap-3">
+          <Campo id={`${id}-entrada`} etiqueta="Pega un enlace o elige un archivo" ayuda={AYUDA_DEL_CAMPO}>
+            <textarea
+              id={`${id}-entrada`}
+              rows={2}
+              autoComplete="off"
+              value={texto}
+              aria-describedby={`${id}-entrada-ayuda`}
+              onChange={(evento) => escribir(evento.target.value)}
+              className={cn(CLASES_DE_CAMPO, "resize-y")}
+            />
+          </Campo>
+          <Boton
+            variante="secundario"
+            tamano="chico"
+            className="w-fit"
+            deshabilitado={ocupado}
+            icono={<Paperclip aria-hidden="true" size={ICONO.medio} />}
+            onClick={() => principal.current?.click()}
+          >
+            Elegir archivo
+          </Boton>
+          {/* Never the native "Choose File" (4d): the button above opens it. */}
           <input
-            ref={delPost}
+            ref={principal}
             type="file"
             hidden
-            accept={ACEPTA_VIDEO}
+            multiple
+            accept={ACEPTA_TODO}
             onChange={(evento) => {
-              elegirVideo(evento.target.files?.[0])
+              elegir(Array.from(evento.target.files ?? []))
               evento.target.value = ""
             }}
           />
+          {tipo === "imagen" ? (
+            <ListaDeImagenes
+              archivos={archivos}
+              ocupado={ocupado}
+              alMover={(indice, hacia) => setArchivos(moverArchivo(archivos, indice, hacia))}
+              alQuitar={(indice) => setArchivos(archivos.filter((_, posicion) => posicion !== indice))}
+            />
+          ) : archivos.length > 0 ? (
+            <ul aria-label="Archivos elegidos" className="grid gap-2">
+              {archivos.map((archivo, indice) => (
+                // The key is the position: the same file may be picked twice.
+                <li
+                  key={`${indice}-${archivo.name}`}
+                  className="rounded-bloque bg-piedra-honda p-3 text-cuerpo break-words"
+                >
+                  {archivo.name}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {deteccion === null && archivos.length > 0 ? <p className="text-meta text-apagado">{NO_RECONOZCO}</p> : null}
+          <TipoDetectado key={entradaNumero} efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
         </div>
-      ) : null}
 
-      {tipo === "video" || tipo === "imagen" ? (
-        <Campo id={`${id}-referencia`} etiqueta="Link de referencia (no se abre)">
+        {tipo === "link" && esYoutube(enlace) ? (
+          <Campo id={`${id}-transcripcion`} etiqueta="Transcripción del video" ayuda={PASOS_DE_YOUTUBE}>
+            <textarea
+              id={`${id}-transcripcion`}
+              rows={6}
+              value={transcripcion}
+              aria-describedby={`${id}-transcripcion-ayuda`}
+              onChange={(evento) => setTranscripcion(evento.target.value)}
+              className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
+            />
+          </Campo>
+        ) : null}
+        {tipo === "link" && esPodcast(enlace) ? <p className="text-meta text-apagado">{AVISO_DE_PODCAST}</p> : null}
+
+        {tipo === "post" ? (
+          <div className="grid gap-2">
+            <p className="text-cuerpo font-semibold">
+              Video <span className="font-normal text-apagado">(opcional)</span>
+            </p>
+            {videoDelPost ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-bloque bg-piedra-honda p-3">
+                <span className="text-cuerpo break-words">{videoDelPost.name}</span>
+                <Boton
+                  variante="callado"
+                  aria-label="Quitar el video"
+                  deshabilitado={ocupado}
+                  onClick={() => setVideoDelPost(null)}
+                >
+                  Quitar
+                </Boton>
+              </div>
+            ) : (
+              <Boton
+                variante="secundario"
+                tamano="chico"
+                className="w-fit"
+                deshabilitado={ocupado}
+                onClick={() => delPost.current?.click()}
+              >
+                Elegir video
+              </Boton>
+            )}
+            <input
+              ref={delPost}
+              type="file"
+              hidden
+              accept={ACEPTA_VIDEO}
+              onChange={(evento) => {
+                elegirVideo(evento.target.files?.[0])
+                evento.target.value = ""
+              }}
+            />
+          </div>
+        ) : null}
+
+        {tipo === "video" || tipo === "imagen" ? (
+          <Campo id={`${id}-referencia`} etiqueta="Link de referencia (no se abre)">
+            <input
+              id={`${id}-referencia`}
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="https://"
+              value={referencia}
+              onChange={(evento) => setReferencia(evento.target.value)}
+              className={CLASES_DE_CAMPO}
+            />
+          </Campo>
+        ) : null}
+
+        <Campo
+          id={`${id}-titulo`}
+          etiqueta={
+            <>
+              Título <span className="font-normal text-apagado">(opcional)</span>
+            </>
+          }
+        >
           <input
-            id={`${id}-referencia`}
-            type="url"
-            inputMode="url"
-            autoComplete="off"
-            placeholder="https://"
-            value={referencia}
-            onChange={(evento) => setReferencia(evento.target.value)}
+            id={`${id}-titulo`}
+            type="text"
+            value={titulo}
+            onChange={(evento) => setTitulo(evento.target.value)}
             className={CLASES_DE_CAMPO}
           />
         </Campo>
-      ) : null}
 
-      <Campo
-        id={`${id}-titulo`}
-        etiqueta={
-          <>
-            Título <span className="font-normal text-apagado">(opcional)</span>
-          </>
-        }
-      >
-        <input
-          id={`${id}-titulo`}
-          type="text"
-          value={titulo}
-          onChange={(evento) => setTitulo(evento.target.value)}
-          className={CLASES_DE_CAMPO}
+        <SelectorDeAutor
+          autores={autores}
+          valor={autorId}
+          alElegir={(elegido) => {
+            setAutorId(elegido)
+            setError(null)
+          }}
+          alCrear={crearAutorAccion}
         />
-      </Campo>
 
-      <SelectorDeAutor
-        autores={autores}
-        valor={autorId}
-        alElegir={(elegido) => {
-          setAutorId(elegido)
-          setError(null)
-        }}
-        alCrear={crearAutorAccion}
-      />
+        <fieldset className="elecciones grid">
+          <legend className="text-cuerpo font-semibold">{PALABRAS.papel}</legend>
+          {ROLES.map((opcion) => (
+            <Eleccion
+              key={opcion}
+              nombre={`${id}-rol`}
+              valor={opcion}
+              elegido={rol === opcion}
+              etiqueta={ETIQUETA_DE_ROL[opcion]}
+              detalle={AYUDA_DE_ROL[opcion]}
+              alElegir={() => elegirRol(opcion)}
+            />
+          ))}
+        </fieldset>
 
-      <fieldset className="elecciones grid">
-        <legend className="text-cuerpo font-semibold">{PALABRAS.papel}</legend>
-        {ROLES.map((opcion) => (
-          <Eleccion
-            key={opcion}
-            nombre={`${id}-rol`}
-            valor={opcion}
-            elegido={rol === opcion}
-            etiqueta={ETIQUETA_DE_ROL[opcion]}
-            detalle={AYUDA_DE_ROL[opcion]}
-            alElegir={() => elegirRol(opcion)}
-          />
-        ))}
-      </fieldset>
+        <Casilla
+          etiqueta="Este material no contiene datos de pacientes"
+          marcada={declaracion}
+          alCambiar={setDeclaracion}
+        />
 
-      <Casilla
-        etiqueta="Este material no contiene datos de pacientes"
-        marcada={declaracion}
-        alCambiar={setDeclaracion}
-      />
+        {error ? <LineaDeError>{error}</LineaDeError> : null}
+        <output aria-live="polite" className="block text-cuerpo text-tinta">
+          {progreso}
+        </output>
 
-      {error ? <LineaDeError>{error}</LineaDeError> : null}
-      <output aria-live="polite" className="block text-cuerpo text-tinta">
-        {progreso}
-      </output>
-
-      <div className="grid gap-3 md:flex md:items-center md:gap-6">
-        <Boton type="submit" cargando={ocupado} className="md:w-auto">
-          Subir
-        </Boton>
-        {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}
-        {ocupado ? null : (
-          <Link href="/biblioteca" className={clasesDeBoton({ variante: "callado", className: "justify-center" })}>
-            Cancelar
-          </Link>
-        )}
-      </div>
-    </form>
+        <div className="grid gap-3 md:flex md:items-center md:gap-6">
+          <Boton type="submit" cargando={ocupado} className="md:w-auto">
+            Subir
+          </Boton>
+          {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}
+          {ocupado ? null : (
+            <Link href="/biblioteca" className={clasesDeBoton({ variante: "callado", className: "justify-center" })}>
+              Cancelar
+            </Link>
+          )}
+        </div>
+      </form>
+    </>
   )
 }

@@ -32,7 +32,6 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 import type { ReactElement, ReactNode } from "react"
 import { FormularioDeSubida } from "@/app/(app)/biblioteca/subir/formulario-de-subida"
 import Subir from "@/app/(app)/biblioteca/subir/page"
-import { Volver } from "@/components/ui/volver"
 
 type Elemento = ReactElement<{ children?: ReactNode } & Record<string, unknown>>
 
@@ -53,14 +52,13 @@ describe("the Subir page", () => {
     expect(listarAutores).not.toHaveBeenCalled()
   })
 
-  it("gives Coni the way back on the left, the heading and the form with her authors (4e)", async () => {
+  it("gives the form Coni's authors and the heading, which it puts under its own way back (4e)", async () => {
     esConi.valor = true
     const arbol = elementos(await Subir())
-    const volver = arbol.find((elemento) => elemento.type === Volver)
-    expect(volver?.props.href).toBe("/biblioteca")
-    expect(volver?.props.children).toBe("Volver a Biblioteca")
-    expect(arbol.find((elemento) => elemento.type === "h1")?.props.children).toBe("Subir material")
-    expect(arbol.find((elemento) => elemento.type === FormularioDeSubida)?.props.autores).toEqual(AUTORES)
+    const formulario = arbol.find((elemento) => elemento.type === FormularioDeSubida)
+    expect(formulario?.props.autores).toEqual(AUTORES)
+    const encabezado = elementos(formulario?.props.encabezado as ReactNode)
+    expect(encabezado.find((elemento) => elemento.type === "h1")?.props.children).toBe("Subir material")
   })
 
   it("reads in one column on a computer, as wide as a material's detail", async () => {

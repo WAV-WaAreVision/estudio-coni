@@ -36,8 +36,8 @@ const DANIELA = "d1111111-2222-4333-8444-555555555555"
 const AUTORES = [{ id: DANIELA, nombre: "Daniela Ruiz", credencial: "investigadora", tipo: "persona", alias: [] }]
 const SUBIDAS = [{ orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" }]
 
-function conUnPdf(): { pdf: File } {
-  const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+function conUnPdf(): { pdf: File; unmount: () => void } {
+  const { container, unmount } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
   const pdf = new File(["%PDF-1.4"], "tesis.pdf", { type: "application/pdf" })
   const input = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')
   if (!input) throw new Error("No está el campo de archivos")
@@ -46,7 +46,7 @@ function conUnPdf(): { pdf: File } {
   fireEvent.click(screen.getByRole("button", { name: "Daniela Ruiz, investigadora" }))
   fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
   fireEvent.click(screen.getByRole("checkbox", { name: "Este material no contiene datos de pacientes" }))
-  return { pdf }
+  return { pdf, unmount }
 }
 
 const subir = () => fireEvent.click(screen.getByRole("button", { name: "Subir" }))
@@ -93,6 +93,51 @@ describe("FormularioDeSubida: the upload", () => {
     expect(screen.queryByRole("link", { name: "Cancelar" })).toBeNull()
     soltar()
     await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+  })
+
+  it("keeps the way back inactive while uploading and warns before the tab closes", async () => {
+    let soltar: () => void = () => undefined
+    subirArchivos.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolver) => {
+          soltar = resolver
+        }),
+    )
+    conUnPdf()
+    const enReposo = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(enReposo)
+    expect(enReposo.defaultPrevented).toBe(false)
+    expect(screen.getByRole("link", { name: "Volver a Biblioteca" })).toHaveAttribute("href", "/biblioteca")
+
+    subir()
+    await waitFor(() => expect(subirArchivos).toHaveBeenCalled())
+    const volver = screen.getByRole("link", { name: "Volver a Biblioteca" })
+    expect(volver).toHaveAttribute("aria-disabled", "true")
+    expect(volver).not.toHaveAttribute("href")
+    const subiendo = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(subiendo)
+    expect(subiendo.defaultPrevented).toBe(true)
+
+    soltar()
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+  })
+
+  it("does not navigate when the screen is gone before the upload ends", async () => {
+    let soltar: () => void = () => undefined
+    subirArchivos.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolver) => {
+          soltar = resolver
+        }),
+    )
+    const pantalla = conUnPdf()
+    subir()
+    await waitFor(() => expect(subirArchivos).toHaveBeenCalled())
+    pantalla.unmount()
+    soltar()
+    await waitFor(() => expect(confirmarMaterialAccion).toHaveBeenCalledWith(ID))
+    await new Promise((resolver) => setTimeout(resolver, 0))
+    expect(push).not.toHaveBeenCalled()
   })
 
   it("throws the material away when a file fails to go up, says which one and stays", async () => {

@@ -46,7 +46,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe("FormularioDeSubida: the field and its type", () => {
   it("has one field with its own file button and a hidden native input, and says which files it takes", () => {
-    const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     expect(campo()).toHaveAccessibleDescription(AYUDA_DEL_CAMPO)
     expect(screen.getByRole("button", { name: "Elegir archivo" })).toBeInTheDocument()
     expect(container.querySelector('input[type="file"][multiple]')).toHaveAttribute("hidden")
@@ -54,21 +54,21 @@ describe("FormularioDeSubida: the field and its type", () => {
   })
 
   it("detects a YouTube link and asks for the pasted transcript with its steps", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("https://youtu.be/abc123")
     expect(screen.getByText("Tipo: Video de YouTube")).toBeInTheDocument()
     expect(screen.getByLabelText("Transcripción del video")).toHaveAccessibleDescription(/Mostrar transcripción/)
   })
 
   it("asks for the transcript of a YouTube link pasted without its scheme", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("youtu.be/abc123")
     expect(screen.getByText("Tipo: Video de YouTube")).toBeInTheDocument()
     expect(screen.getByLabelText("Transcripción del video")).toBeInTheDocument()
   })
 
   it("warns that a podcast is read from its page only", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("https://open.spotify.com/episode/abc")
     expect(screen.getByText("Tipo: Podcast")).toBeInTheDocument()
     expect(screen.getByText(AVISO_DE_PODCAST)).toBeInTheDocument()
@@ -76,7 +76,7 @@ describe("FormularioDeSubida: the field and its type", () => {
   })
 
   it("lets her change the type, and a new input goes back to what is detected", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("Un texto mío sobre la carga mental")
     expect(screen.getByText("Tipo: Texto")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Cambiar el tipo" }))
@@ -88,7 +88,7 @@ describe("FormularioDeSubida: the field and its type", () => {
   })
 
   it("shows the name of a picked file and its type, and clears what was pasted", () => {
-    const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("https://ejemplo.cl/nota")
     elegirArchivos(container, [new File(["x"], "Tesis.PDF", { type: "application/pdf" })])
     expect(within(screen.getByRole("list", { name: "Archivos elegidos" })).getByText("Tesis.PDF")).toBeInTheDocument()
@@ -97,14 +97,14 @@ describe("FormularioDeSubida: the field and its type", () => {
   })
 
   it("says which files it takes when it does not know a picked file", () => {
-    const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     elegirArchivos(container, [new File(["x"], "animacion.gif", { type: "image/gif" })])
     expect(screen.getByText(NO_RECONOZCO)).toBeInTheDocument()
     expect(screen.queryByText(/^Tipo:/)).toBeNull()
   })
 
   it("lists picked images in order and asks for their reference link", () => {
-    const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     elegirArchivos(
       container,
       ["a.jpg", "b.png", "c.heic"].map((nombre) => new File(["x"], nombre)),
@@ -117,7 +117,7 @@ describe("FormularioDeSubida: the field and its type", () => {
   })
 
   it("takes a post's text and an optional video of its own", () => {
-    const { container } = render(<FormularioDeSubida autores={AUTORES} />)
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("Hoy quiero hablar del descanso.")
     expect(screen.getByText("Tipo: Texto")).toBeInTheDocument()
     elegir(container, 'input[type="file"][accept=".mp4,.mov"]', [new File(["x"], "clase.mp4", { type: "video/mp4" })])
@@ -130,7 +130,7 @@ describe("FormularioDeSubida: the field and its type", () => {
 
 describe("FormularioDeSubida: author, who it is for her and the declaration", () => {
   it("asks who it is for her in her words (4h), with Coni's four labels", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     const grupo = screen.getByRole("group", { name: "¿Quién es para ti?" })
     expect(
       within(grupo)
@@ -141,14 +141,14 @@ describe("FormularioDeSubida: author, who it is for her and the declaration", ()
   })
 
   it("picks Coni as the author when Lo dijo Coni is chosen with no author", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     fireEvent.click(screen.getByRole("radio", { name: "Lo dijo Coni" }))
     expect(screen.getByText("Coni del Rosario")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cambiar autor" })).toBeInTheDocument()
   })
 
   it("runs the rules before sending anything, and says the first problem", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Subir" }))
     expect(screen.getByRole("alert")).toHaveTextContent("Pega un enlace o elige un archivo.")
     pegar("https://ejemplo.cl/nota")
@@ -158,7 +158,7 @@ describe("FormularioDeSubida: author, who it is for her and the declaration", ()
   })
 
   it("has a quiet Cancelar back to the Biblioteca", () => {
-    render(<FormularioDeSubida autores={AUTORES} />)
+    render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     expect(screen.getByRole("link", { name: "Cancelar" })).toHaveAttribute("href", "/biblioteca")
   })
 })
