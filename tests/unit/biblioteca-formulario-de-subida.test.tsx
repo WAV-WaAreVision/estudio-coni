@@ -116,6 +116,13 @@ describe("FormularioDeSubida: the field and its type", () => {
     expect(screen.getByText("Tipo: 2 imágenes")).toBeInTheDocument()
   })
 
+  it("gives the focus to Elegir archivo when the last image is removed", () => {
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+    elegirArchivos(container, [new File(["x"], "a.jpg")])
+    fireEvent.click(screen.getByRole("button", { name: "Quitar la imagen 1" }))
+    expect(screen.getByRole("button", { name: "Elegir archivo" })).toHaveFocus()
+  })
+
   it("takes a post's text and an optional video of its own", () => {
     const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     pegar("Hoy quiero hablar del descanso.")

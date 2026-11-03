@@ -71,6 +71,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   const router = useRouter()
   const id = useId()
   const principal = useRef<HTMLInputElement>(null)
+  const elegirArchivo = useRef<HTMLButtonElement>(null)
   const delPost = useRef<HTMLInputElement>(null)
   // A tap that lands before the screen re-renders still sees `ocupado` false: the ref is the real lock.
   const enCurso = useRef(false)
@@ -132,6 +133,13 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
     setManual(null)
     setEntradaNumero((numero) => numero + 1)
     setError(juntos.error)
+  }
+
+  function quitarArchivo(indice: number) {
+    const quedan = archivos.filter((_, posicion) => posicion !== indice)
+    setArchivos(quedan)
+    // The list goes away with its last file: the focus goes back to where files come from.
+    if (quedan.length === 0) elegirArchivo.current?.focus()
   }
 
   function elegirVideo(elegido: File | undefined) {
@@ -280,6 +288,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
             />
           </Campo>
           <Boton
+            ref={elegirArchivo}
             variante="secundario"
             tamano="chico"
             className="w-fit"
@@ -306,7 +315,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
               archivos={archivos}
               ocupado={ocupado}
               alMover={(indice, hacia) => setArchivos(moverArchivo(archivos, indice, hacia))}
-              alQuitar={(indice) => setArchivos(archivos.filter((_, posicion) => posicion !== indice))}
+              alQuitar={quitarArchivo}
             />
           ) : archivos.length > 0 ? (
             <ul aria-label="Archivos elegidos" className="grid gap-2">

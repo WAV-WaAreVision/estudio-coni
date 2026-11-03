@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ICONO } from "@/components/ui/icono"
 
@@ -22,8 +22,29 @@ export function ListaDeImagenes({ archivos, ocupado, alMover, alQuitar }: Propie
     [miniaturas],
   )
 
+  // The keys are positions, so a moved or removed image re-renders its buttons: the focus is put back by name.
+  const lista = useRef<HTMLOListElement>(null)
+  const [aEnfocar, setAEnfocar] = useState<string | null>(null)
+  useEffect(() => {
+    if (aEnfocar === null) return
+    lista.current?.querySelector<HTMLButtonElement>(`button[aria-label="${aEnfocar}"]`)?.focus()
+    setAEnfocar(null)
+  }, [aEnfocar])
+
+  function mover(indice: number, hacia: -1 | 1) {
+    alMover(indice, hacia)
+    setAEnfocar(`Mover la imagen ${indice + 1 + hacia} ${hacia === -1 ? "antes" : "después"}`)
+  }
+
+  function quitar(indice: number) {
+    alQuitar(indice)
+    // The next image takes this place; when the last one goes, the one before it.
+    const siguiente = indice < archivos.length - 1 ? indice + 1 : indice
+    setAEnfocar(`Quitar la imagen ${siguiente}`)
+  }
+
   return (
-    <ol aria-label="Imágenes en orden" className="grid grid-cols-2 gap-3">
+    <ol ref={lista} aria-label="Imágenes en orden" className="grid grid-cols-2 gap-3">
       {archivos.map((archivo, indice) => {
         const numero = indice + 1
         return (
@@ -46,7 +67,7 @@ export function ListaDeImagenes({ archivos, ocupado, alMover, alQuitar }: Propie
                 tamano="chico"
                 aria-label={`Mover la imagen ${numero} antes`}
                 deshabilitado={indice === 0 || ocupado}
-                onClick={() => alMover(indice, -1)}
+                onClick={() => mover(indice, -1)}
               >
                 <ArrowLeft aria-hidden="true" size={ICONO.medio} />
               </Boton>
@@ -55,7 +76,7 @@ export function ListaDeImagenes({ archivos, ocupado, alMover, alQuitar }: Propie
                 tamano="chico"
                 aria-label={`Mover la imagen ${numero} después`}
                 deshabilitado={indice === archivos.length - 1 || ocupado}
-                onClick={() => alMover(indice, 1)}
+                onClick={() => mover(indice, 1)}
               >
                 <ArrowRight aria-hidden="true" size={ICONO.medio} />
               </Boton>
@@ -63,7 +84,7 @@ export function ListaDeImagenes({ archivos, ocupado, alMover, alQuitar }: Propie
                 variante="callado"
                 aria-label={`Quitar la imagen ${numero}`}
                 deshabilitado={ocupado}
-                onClick={() => alQuitar(indice)}
+                onClick={() => quitar(indice)}
               >
                 Quitar
               </Boton>
