@@ -3,8 +3,9 @@ import { z } from "zod"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
+import { extensionDe, leerEntrada, type SubidaFirmada, tipoDeContenido } from "@/lib/dominio/biblioteca/subir"
 import { Falla } from "@/lib/dominio/falla"
-import type { Almacen } from "@/lib/proveedores/almacen"
+import { type Almacen, claveMaterial } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import type { DisparosDeBiblioteca } from "./disparos"
 import { aResultado, ERROR_SOLO_CONI, type Resultado } from "./resultado"
@@ -177,5 +178,90 @@ export function pedirTextoOriginal(
     const url = await deps.almacen.urlDeTexto(materialId, SEGUNDOS_DE_DESCARGA)
     if (url === null) throw new Falla("Ese texto todavía no está disponible.")
     return { url }
+  })
+}
+
+/** Uploading a material (batch 2). Its id is new and a UUID: its files' keys live in its own folder. */
+export interface DepsSubir {
+  /** Coni's client: row level security applies, and `es_coni` is checked again here. */
+  db: Db
+  almacen: Pick<Almacen, "urlDeSubida" | "tamano">
+  disparar: Pick<DisparosDeBiblioteca, "material">
+  nuevoId: () => string
+  ahora: () => Date
+}
+
+/** A browser upload link only has to outlast one upload. */
+const UNA_HORA_S = 60 * 60
+
+async function borrarMaterial(db: Db, materialId: string): Promise<void> {
+  const { error } = await db.from("materiales").delete().eq("id", materialId)
+  // The caller answers with the failure that led here; a row left behind is for WAV to find in the log.
+  if (error) console.error(`No pude borrar el material ${materialId}`, error)
+}
+
+/**
+ * Creates the row of a material as Coni and signs one PUT per file. The row goes first: nothing is uploaded for a
+ * material the database refused, and a failure after it deletes the row.
+ */
+export function crearMaterial(
+  deps: DepsSubir,
+  entrada: unknown,
+): Promise<Resultado<{ materialId: string; subidas: SubidaFirmada[] }>> {
+  return aResultado("crearMaterial", async () => {
+    await exigirConi(deps.db)
+    const leida = leerEntrada(entrada)
+    if (!leida.ok) throw new Falla(leida.error)
+    const { datos } = leida
+
+    const materialId = deps.nuevoId()
+    const claves = datos.archivos.map((archivo, indice) =>
+      claveMaterial(materialId, extensionDe(archivo.nombre), datos.tipo === "imagen" ? indice + 1 : undefined),
+    )
+    const { error } = await deps.db.from("materiales").insert({
+      id: materialId,
+      tipo: datos.tipo,
+      titulo: datos.titulo,
+      autor_id: datos.autorId,
+      rol: datos.rol,
+      origen_url: datos.url ?? datos.referencia,
+      archivo_clave: claves[0] ?? null,
+      texto_pegado: datos.textoPegado,
+      declaracion_sin_pacientes_en: deps.ahora().toISOString(),
+    })
+    if (error) {
+      if (error.code === CLAVE_FORANEA) throw new Falla("Ese autor ya no existe. Elígelo de nuevo.")
+      throw new Error(`No pude crear el material: ${error.message}`, { cause: error })
+    }
+
+    if (datos.tipo === "imagen") {
+      const { error: errorDeArchivos } = await deps.db
+        .from("materiales_archivos")
+        .insert(claves.map((clave, indice) => ({ material_id: materialId, orden: indice + 1, archivo_clave: clave })))
+      if (errorDeArchivos) {
+        await borrarMaterial(deps.db, materialId)
+        throw new Error(`No pude guardar las imágenes del material ${materialId}: ${errorDeArchivos.message}`, {
+          cause: errorDeArchivos,
+        })
+      }
+    }
+
+    let subidas: SubidaFirmada[]
+    try {
+      subidas = await Promise.all(
+        claves.map(async (clave, indice) => {
+          const tipoContenido = tipoDeContenido(extensionDe(clave))
+          return {
+            orden: indice + 1,
+            url: await deps.almacen.urlDeSubida(clave, UNA_HORA_S, tipoContenido),
+            tipoContenido,
+          }
+        }),
+      )
+    } catch (error) {
+      await borrarMaterial(deps.db, materialId)
+      throw new Error(`No pude firmar la subida del material ${materialId}`, { cause: error })
+    }
+    return { materialId, subidas }
   })
 }
