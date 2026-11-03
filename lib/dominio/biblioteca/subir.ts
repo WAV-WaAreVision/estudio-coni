@@ -1,7 +1,7 @@
 // Ported from Ingesta's lib/ingesta/modelo.ts (leerEntrada, change 29b). The server runs these rules again.
 import { z } from "zod"
-import { ROLES, type Rol, TIPOS_DE_MATERIAL, type TipoDeMaterial } from "./modelo"
-import { esYoutube } from "./youtube"
+import { ETIQUETA_DE_TIPO, ROLES, type Rol, TIPOS_DE_MATERIAL, type TipoDeMaterial } from "./modelo"
+import { esPodcast, esYoutube } from "./youtube"
 
 export const TAMANO_MAXIMO_BYTES = 2 * 1024 ** 3
 export const MAXIMO_DE_IMAGENES = 20
@@ -200,4 +200,57 @@ export function leerEntrada(entrada: unknown): EntradaLeida {
       referencia: conReferencia ? datos.referencia?.trim() || null : null,
     },
   }
+}
+
+export const AYUDA_DEL_CAMPO =
+  "Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta 20 imágenes."
+export const NO_RECONOZCO = `No reconozco ese archivo. ${AYUDA_DEL_CAMPO}`
+export const FALTA_LA_ENTRADA = "Pega un enlace o elige un archivo."
+
+/** What the field understood: the material's type and how it is said to her ("Video de YouTube"). */
+export interface Deteccion {
+  tipo: TipoDeMaterial
+  etiqueta: string
+}
+
+function tipoDeArchivo(nombre: string): TipoConArchivo | null {
+  const extension = extensionDe(nombre)
+  const tipos = Object.keys(EXTENSIONES_POR_TIPO) as TipoConArchivo[]
+  return tipos.find((tipo) => EXTENSIONES_POR_TIPO[tipo].includes(extension)) ?? null
+}
+
+/** A whole pasted address, nothing around it: "mira https://..." is a text she wrote, not a link. */
+function esEnlace(texto: string): boolean {
+  if (/\s/.test(texto)) return false
+  try {
+    const { protocol } = new URL(texto)
+    return protocol === "http:" || protocol === "https:"
+  } catch {
+    // Not an address: it is text.
+    return false
+  }
+}
+
+/** The type of what she pasted or picked (spec table, 4k); the files decide when there are files. */
+export function detectarTipo(entrada: { texto: string; archivos: readonly { name: string }[] }): Deteccion | null {
+  const { archivos } = entrada
+  if (archivos.length > 0) {
+    const tipos = archivos.map((archivo) => tipoDeArchivo(archivo.name))
+    if (tipos.every((tipo) => tipo === "imagen")) {
+      return { tipo: "imagen", etiqueta: archivos.length === 1 ? "Imagen" : `${archivos.length} imágenes` }
+    }
+    const [unico] = tipos
+    return tipos.length === 1 && unico ? { tipo: unico, etiqueta: ETIQUETA_DE_TIPO[unico] } : null
+  }
+  const texto = entrada.texto.trim()
+  if (texto === "") return null
+  if (!esEnlace(texto)) return { tipo: "post", etiqueta: "Texto" }
+  if (esYoutube(texto)) return { tipo: "link", etiqueta: "Video de YouTube" }
+  if (esPodcast(texto)) return { tipo: "link", etiqueta: "Podcast" }
+  return { tipo: "link", etiqueta: "Enlace" }
+}
+
+/** Her choice wins over the detection until the input changes (the form clears `manual` then). */
+export function tipoEfectivo(deteccion: Deteccion | null, manual: TipoDeMaterial | null): Deteccion | null {
+  return manual ? { tipo: manual, etiqueta: ETIQUETA_DE_TIPO[manual] } : deteccion
 }
