@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { bloquearRedExterna, disparosDeMateriales, limpiarDisparos, revisarConAxe, tocarHastaLlegar } from "./ayudas"
@@ -174,4 +176,23 @@ test("the table and the side panel pass WCAG 2.x AA", async ({ page }) => {
   expect(await revisarConAxe(page, "tabla y panel")).toEqual([])
   await page.getByText("Detalle para WAV").click()
   expect(await revisarConAxe(page, "panel con el detalle para WAV abierto")).toEqual([])
+})
+
+test("visual: the table with the side panel open", async ({ page }) => {
+  await page.goto(`/biblioteca?m=${escena.listo}`)
+  await expect(page.getByRole("region", { name: TITULO_LISTO })).toBeVisible()
+  await page.waitForLoadState("networkidle")
+  await page.evaluate(() => document.fonts.ready)
+  const carpeta = process.env.VISUAL_FINALES
+  if (carpeta) {
+    mkdirSync(carpeta, { recursive: true })
+    await page.screenshot({ path: join(carpeta, "biblioteca-escritorio.png"), fullPage: true })
+    return
+  }
+  await expect(page).toHaveScreenshot("biblioteca-escritorio.png", {
+    fullPage: true,
+    // The honda stone of app/globals.css, as visual.spec.ts paints its masks.
+    mask: [page.locator('[data-snapshot="varia"]')],
+    maskColor: "#dcdcdb",
+  })
 })
