@@ -8,7 +8,8 @@ export const MAXIMO_DE_IMAGENES = 20
 const MAXIMO_DE_TEXTO_PEGADO = 200_000
 
 export const ERROR_SOLICITUD = "No entendí esa solicitud. Vuelve a abrir la pantalla."
-export const PESA_DEMASIADO = "Ese archivo pesa más de 2 GB."
+const TAMANO_MAXIMO = "2 GB"
+export const PESA_DEMASIADO = `Ese archivo pesa más de ${TAMANO_MAXIMO}.`
 export const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
 export const GUARDADO_SIN_INICIAR =
   "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
@@ -205,7 +206,7 @@ export function leerEntrada(entrada: unknown): EntradaLeida {
   }
 }
 
-export const AYUDA_DEL_CAMPO = `Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta ${MAXIMO_DE_IMAGENES} imágenes.`
+export const AYUDA_DEL_CAMPO = `Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta ${MAXIMO_DE_IMAGENES} imágenes. Hasta ${TAMANO_MAXIMO}.`
 export const NO_RECONOZCO = `No reconozco ese archivo. ${AYUDA_DEL_CAMPO}`
 export const FALTA_LA_ENTRADA = "Pega un enlace o elige un archivo."
 

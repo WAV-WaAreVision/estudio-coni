@@ -145,7 +145,7 @@ describe("tipoEfectivo", () => {
 describe("the field's words", () => {
   it("say which files it takes, and what is missing", () => {
     expect(AYUDA_DEL_CAMPO).toBe(
-      "Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta 20 imágenes.",
+      "Sirve un PDF, Word o texto; un audio mp3, m4a o wav; un video mp4 o mov; o hasta 20 imágenes. Hasta 2 GB.",
     )
     expect(NO_RECONOZCO).toBe(`No reconozco ese archivo. ${AYUDA_DEL_CAMPO}`)
     expect(FALTA_LA_ENTRADA).toBe("Pega un enlace o elige un archivo.")

@@ -48,6 +48,7 @@ describe("FormularioDeSubida: the field and its type", () => {
   it("has one field with its own file button and a hidden native input, and says which files it takes", () => {
     const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
     expect(campo()).toHaveAccessibleDescription(AYUDA_DEL_CAMPO)
+    expect(AYUDA_DEL_CAMPO).toMatch(/ Hasta 2 GB\.$/)
     expect(screen.getByRole("button", { name: "Elegir archivo" })).toBeInTheDocument()
     expect(container.querySelector('input[type="file"][multiple]')).toHaveAttribute("hidden")
     expect(screen.queryByText(/^Tipo:/)).toBeNull()
@@ -58,6 +59,7 @@ describe("FormularioDeSubida: the field and its type", () => {
     pegar("https://youtu.be/abc123")
     expect(screen.getByText("Tipo: Video de YouTube")).toBeInTheDocument()
     expect(screen.getByLabelText("Transcripción del video")).toHaveAccessibleDescription(/Mostrar transcripción/)
+    expect(screen.getByLabelText("Transcripción del video")).toHaveAttribute("aria-required", "true")
   })
 
   it("asks for the transcript of a YouTube link pasted without its scheme", () => {
@@ -189,6 +191,13 @@ describe("FormularioDeSubida: author, who it is for her and the declaration", ()
     fireEvent.click(screen.getByRole("button", { name: "Subir" }))
     expect(screen.getByRole("alert")).toHaveTextContent("Elige el autor.")
     expect(crearMaterialAccion).not.toHaveBeenCalled()
+  })
+
+  it("keeps the progress line out of the layout while it says nothing, still a live region", () => {
+    const { container } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+    const progreso = container.querySelector('form > output[aria-live="polite"]')
+    expect(progreso).toBeEmptyDOMElement()
+    expect(progreso?.className).toContain("empty:sr-only")
   })
 
   it("has a quiet Cancelar back to the Biblioteca", () => {

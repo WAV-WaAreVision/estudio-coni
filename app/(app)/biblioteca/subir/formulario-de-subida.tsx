@@ -358,6 +358,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
               rows={6}
               value={transcripcion}
               aria-describedby={`${id}-transcripcion-ayuda`}
+              aria-required="true"
               onChange={(evento) => setTranscripcion(evento.target.value)}
               className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
             />
@@ -470,7 +471,8 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
         />
 
         {error ? <LineaDeError>{error}</LineaDeError> : null}
-        <output aria-live="polite" className="block text-cuerpo text-tinta">
+        {/* Empty, it leaves the grid (no extra gap) but stays rendered: a hidden live region may never announce. */}
+        <output aria-live="polite" className="block text-cuerpo text-tinta empty:sr-only">
           {progreso}
         </output>
 
