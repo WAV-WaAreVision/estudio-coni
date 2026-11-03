@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import { bloquearRedExterna, disparosDeMateriales, limpiarDisparos, revisarConAxe } from "./ayudas"
@@ -73,4 +75,21 @@ test("on a computer the actions stay in view while a YouTube transcript grows th
     return campo && subir ? campo.compareDocumentPosition(subir) & Node.DOCUMENT_POSITION_FOLLOWING : 0
   })
   expect(orden).not.toBe(0)
+})
+
+test("visual: Subir with a document picked", async ({ page }) => {
+  await page.goto("/biblioteca/subir")
+  const selector = page.waitForEvent("filechooser")
+  await page.getByRole("button", { name: "Elegir archivo" }).click()
+  await (await selector).setFiles({ name: "apego-adulto.pdf", mimeType: "application/pdf", buffer: PDF })
+  await page.getByLabel(/^Título/).fill("Apego adulto en la consulta")
+  await expect(page.getByText("Tipo: Documento")).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  const carpeta = process.env.VISUAL_FINALES
+  if (carpeta) {
+    mkdirSync(carpeta, { recursive: true })
+    await page.screenshot({ path: join(carpeta, "biblioteca-subir-escritorio.png"), fullPage: true })
+    return
+  }
+  await expect(page).toHaveScreenshot("biblioteca-subir-escritorio.png", { fullPage: true })
 })
