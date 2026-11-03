@@ -308,6 +308,22 @@ describe("confirmarMaterial", () => {
     expect(await fila(creado.materialId)).toBeNull()
   })
 
+  it("never deletes a material that moved on while its file was being checked", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    const otraCorrida = deps(coni, {
+      almacen: {
+        ...almacen,
+        tamano: async () => {
+          await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])
+          return null
+        },
+      },
+    })
+
+    await confirmarMaterial(otraCorrida, creado.materialId)
+    expect(await fila(creado.materialId)).toMatchObject({ estado: "listo" })
+  })
+
   it("answers ok and starts nothing for a material that is not procesando anymore (a second tap)", async () => {
     const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/w", archivos: [] })
     await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])

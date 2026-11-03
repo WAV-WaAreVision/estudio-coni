@@ -201,8 +201,9 @@ export interface DepsSubir {
 /** A browser upload link only has to outlast one upload. */
 const UNA_HORA_S = 60 * 60
 
+/** Only while it is `procesando`: a material a run already moved on is never taken back. */
 async function borrarMaterial(db: Db, materialId: string): Promise<void> {
-  const { error } = await db.from("materiales").delete().eq("id", materialId)
+  const { error } = await db.from("materiales").delete().eq("id", materialId).eq("estado", "procesando")
   // The caller answers with the failure that led here; a row left behind is for WAV to find in the log.
   if (error) console.error(`No pude borrar el material ${materialId}`, error)
 }
