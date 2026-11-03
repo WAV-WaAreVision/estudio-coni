@@ -354,3 +354,19 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
     return {}
   })
 }
+
+/** Throws away a material whose upload failed: only hers, and only while it is still `procesando`. */
+export function descartarMaterial(deps: Pick<DepsSubir, "db">, materialId: string): Promise<Resultado> {
+  return aResultado("descartarMaterial", async () => {
+    await exigirConi(deps.db)
+    const subidoPor = await idDeQuienEntro(deps.db)
+    const { error } = await deps.db
+      .from("materiales")
+      .delete()
+      .eq("id", materialId)
+      .eq("subido_por", subidoPor)
+      .eq("estado", "procesando")
+    if (error) throw new Error(`No pude descartar el material ${materialId}: ${error.message}`, { cause: error })
+    return {}
+  })
+}

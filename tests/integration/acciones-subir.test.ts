@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { confirmarMaterial, crearMaterial, type DepsSubir } from "@/lib/acciones/biblioteca"
+import { confirmarMaterial, crearMaterial, type DepsSubir, descartarMaterial } from "@/lib/acciones/biblioteca"
 import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 import { TAMANO_MAXIMO_BYTES } from "@/lib/dominio/biblioteca/subir"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import { CONI, pool } from "./db"
-import { clienteDeConi } from "./sesion-coni"
+import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { borrarSembrado, sembrarAutor } from "./siembra-biblioteca"
 
 type Db = SupabaseClient<Database>
@@ -15,11 +15,13 @@ type Fila = Record<string, unknown>
 
 const SUFIJO = randomUUID().slice(0, 8)
 const AHORA = new Date("2026-11-03T12:00:00.000Z")
+const SOLO_CONI = "Esta app es solo para Coni."
 const GUARDADO_SIN_INICIAR =
   "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
 const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
 
 let coni: Db
+let wav: Db
 let autor = ""
 const creados: string[] = []
 const disparos: { materialId: string; intento: string | undefined }[] = []
@@ -63,7 +65,7 @@ async function cuantosCon(titulo: string): Promise<number> {
 }
 
 beforeAll(async () => {
-  coni = await clienteDeConi()
+  ;[coni, wav] = await Promise.all([clienteDeConi(), clienteDelMantenedor()])
   autor = await sembrarAutor(`Autora de subir ${SUFIJO}`)
 })
 
@@ -328,5 +330,39 @@ describe("confirmarMaterial", () => {
 
   it("says it did not find a material that does not exist", async () => {
     expect(await confirmarMaterial(deps(coni), randomUUID())).toEqual({ ok: false, error: "No encontré ese material." })
+  })
+})
+
+describe("descartarMaterial", () => {
+  it("deletes her material that is still procesando", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    expect(await descartarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    expect(await fila(creado.materialId)).toBeNull()
+  })
+
+  it("never deletes a material that is ready", async () => {
+    const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/v", archivos: [] })
+    await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])
+    expect(await descartarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    expect(await fila(creado.materialId)).not.toBeNull()
+  })
+})
+
+describe("WAV is refused on every upload action (es_coni), even where row level security would let it", () => {
+  it("creates nothing, starts nothing and deletes nothing", async () => {
+    const titulo = `De WAV ${SUFIJO}`
+    const enProceso = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    almacen.simularSubida(enProceso.subidas[0]?.url ?? "", new Uint8Array([1]))
+
+    const resultados = [
+      await crearMaterial(deps(wav), { ...base(), titulo, tipo: "link", url: "https://ejemplo.cl/wav", archivos: [] }),
+      await confirmarMaterial(deps(wav), enProceso.materialId),
+      await descartarMaterial(deps(wav), enProceso.materialId),
+    ]
+
+    expect(resultados).toEqual(Array.from({ length: 3 }, () => ({ ok: false, error: SOLO_CONI })))
+    expect(await cuantosCon(titulo)).toBe(0)
+    expect(await fila(enProceso.materialId)).toMatchObject({ estado: "procesando", motivo_fallo: null })
+    expect(disparos).toEqual([])
   })
 })
