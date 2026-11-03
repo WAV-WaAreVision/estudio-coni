@@ -89,6 +89,15 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **E2E**: un S3 falso en el puerto 3203 (`R2_ENDPOINT`, solo loopback, Vercel lo rechaza) y un proyecto `escritorio` (`tests/e2e/*.escritorio.ts`). `tocarHastaLlegar` repite un toque cuando Next 16.2.6 descarta una navegación (pasa también en el producto, de vez en cuando).
 - Siguiente: lote 2, Subir.
 
+## Biblioteca en Conidolly, lote 2: Subir (cambio 29b, lote 2 de 7, en producción desde el 2026-11-03)
+
+- Publicado: PR #62 (merge `376892d`). Sin migración y sin deploy de Trigger. Spec `2026-11-03-biblioteca-subir-design.md`. Comprobado en producción el 2026-11-03: se subió un docx real y quedó en estado `listo` en ~1 min. Deuda conocida: #63 (un material queda en `procesando` si la subida se corta a medias).
+
+- **`/biblioteca/subir`**: solo para Coni; se entra por el botón «Subir» del encabezado de Materiales y del estado vacío. Un solo campo que reconoce el tipo (`lib/dominio/biblioteca/subir.ts`: `detectarTipo`, `leerEntrada`, `normalizarEnlace`). En el computador, dos columnas con el panel de acciones fijo.
+- **Flujo** (`lib/acciones/biblioteca.ts`): `crearMaterial` devuelve URLs firmadas, el navegador sube por PUT directo a R2 (`app/(app)/biblioteca/subir/subida-cliente.ts`) y luego `confirmarMaterial` revisa los tamaños y dispara `procesar-material`; si algo falla, `descartarMaterial`.
+- **CORS de R2**: regla `conidolly-subidas` para `https://conidolly.vercel.app` en el bucket `estudio-coni` (la de Ingesta, `conidolly-ingesta-subidas`, sigue). Las vistas previas de Vercel no pueden subir (no tienen CORS); el E2E usa el S3 falso.
+- Siguiente: lote 3.
+
 ## LinkedIn fase 2 (en producción: merge `4e6e32b`, desplegado; publica reels por la API)
 
 - Estado: Coni conectó su LinkedIn el 2026-10-07 (token de ~60 días, vence cerca del 2026-12-06). Todavía no ha salido ningún post por la API.
