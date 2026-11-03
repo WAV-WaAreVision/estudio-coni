@@ -193,6 +193,19 @@ describe("useRedibujar", () => {
   })
 
   // The check outlives the button that asked for it (the fresh screen may unmount it), so it has to end by itself.
+  it("ends its check quietly when the page around it is gone", () => {
+    replace.mockImplementation(() => {})
+    const { result, unmount } = renderHook(() => useRedibujar())
+
+    result.current()
+    unmount()
+    vi.stubGlobal("window", undefined)
+    vi.stubGlobal("document", undefined)
+
+    expect(() => vi.advanceTimersByTime(20_000)).not.toThrow()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("leaves no timer or listener behind once the check ends, even after the button unmounted", () => {
     const anadir = vi.spyOn(document, "addEventListener")
     const quitar = vi.spyOn(document, "removeEventListener")

@@ -83,10 +83,12 @@ export function useRedibujar(): () => () => void {
     const terminar = () => {
       clearInterval(mirador)
       descargas?.disconnect()
-      document.removeEventListener("pointerdown", terminar, true)
-      document.removeEventListener("keydown", terminar, true)
+      globalThis.document?.removeEventListener("pointerdown", terminar, true)
+      globalThis.document?.removeEventListener("keydown", terminar, true)
     }
     const mirar = () => {
+      // The check outlives its button on purpose; when the whole page is gone (a test environment torn down), it ends.
+      if (globalThis.window === undefined) return terminar()
       const ahora = new URL(window.location.href)
       const v = ahora.searchParams.get("v")
       if (sinMarcador(ahora) !== origen) return terminar()
