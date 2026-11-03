@@ -13,6 +13,7 @@ export const PESA_DEMASIADO = `Ese archivo pesa más de ${TAMANO_MAXIMO}.`
 export const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
 export const GUARDADO_SIN_INICIAR =
   "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
+export const NO_ENCONTRE = "No encontré ese material."
 export const DEMASIADAS_IMAGENES = `Puedes subir hasta ${MAXIMO_DE_IMAGENES} imágenes.`
 
 type TipoConArchivo = "documento" | "audio" | "video" | "imagen"

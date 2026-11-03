@@ -8,6 +8,7 @@ import {
   FALTA_EL_ARCHIVO,
   GUARDADO_SIN_INICIAR,
   leerEntrada,
+  NO_ENCONTRE,
   PESA_DEMASIADO,
   type SubidaFirmada,
   TAMANO_MAXIMO_BYTES,
@@ -39,7 +40,6 @@ export const AutorNuevo = z.object({
 })
 
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
-export const NO_ENCONTRE = "No encontré ese material."
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
 /** A download link is for one tap. */

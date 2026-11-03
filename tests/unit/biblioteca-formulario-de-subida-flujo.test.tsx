@@ -29,19 +29,24 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn(), 
 import { FormularioDeSubida } from "@/app/(app)/biblioteca/subir/formulario-de-subida"
 import { NO_PUDE_SUBIR } from "@/app/(app)/biblioteca/subir/subida-cliente"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
-import { FALTA_EL_ARCHIVO, GUARDADO_SIN_INICIAR } from "@/lib/dominio/biblioteca/subir"
+import { FALTA_EL_ARCHIVO, GUARDADO_SIN_INICIAR, NO_ENCONTRE } from "@/lib/dominio/biblioteca/subir"
 
 const ID = "11111111-2222-4333-8444-555555555555"
+const OTRO_ID = "22222222-2222-4333-8444-555555555555"
 const DANIELA = "d1111111-2222-4333-8444-555555555555"
 const AUTORES = [{ id: DANIELA, nombre: "Daniela Ruiz", credencial: "investigadora", tipo: "persona", alias: [] }]
 const SUBIDAS = [{ orden: 1, url: "https://r2.test/a", tipoContenido: "application/pdf" }]
 
-function conUnPdf(): { pdf: File; unmount: () => void } {
-  const { container, unmount } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
-  const pdf = new File(["%PDF-1.4"], "tesis.pdf", { type: "application/pdf" })
-  const input = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')
+function elegirArchivos(archivos: File[]) {
+  const input = document.querySelector<HTMLInputElement>('input[type="file"][multiple]')
   if (!input) throw new Error("No está el campo de archivos")
-  fireEvent.change(input, { target: { files: [pdf] } })
+  fireEvent.change(input, { target: { files: archivos } })
+}
+
+function conUnPdf(): { pdf: File; unmount: () => void } {
+  const { unmount } = render(<FormularioDeSubida autores={AUTORES} encabezado={null} />)
+  const pdf = new File(["%PDF-1.4"], "tesis.pdf", { type: "application/pdf" })
+  elegirArchivos([pdf])
   fireEvent.change(screen.getByLabelText("Autor"), { target: { value: "Daniela" } })
   fireEvent.click(screen.getByRole("button", { name: "Daniela Ruiz, investigadora" }))
   fireEvent.click(screen.getByRole("radio", { name: "Estudio o libro" }))
@@ -201,6 +206,72 @@ describe("FormularioDeSubida: the upload", () => {
 
     subir()
     await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(2)
+  })
+
+  it("starts over when the confirmation no longer finds the material", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: NO_ENCONTRE })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(NO_ENCONTRE)).toBeInTheDocument()
+
+    subir()
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(2)
+  })
+
+  it("discards the created material and creates the one she now sees when she changes the files after a failed confirm", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: ERROR_GENERICO })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(ERROR_GENERICO)).toBeInTheDocument()
+
+    const otro = new File(["%PDF-1.7 otro"], "otra-tesis.pdf", { type: "application/pdf" })
+    elegirArchivos([otro])
+    crearMaterialAccion.mockResolvedValueOnce({ ok: true, materialId: OTRO_ID, subidas: SUBIDAS })
+    subir()
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(descartarMaterialAccion).toHaveBeenCalledWith(ID)
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(2)
+    expect(crearMaterialAccion).toHaveBeenLastCalledWith(
+      expect.objectContaining({ archivos: [{ nombre: "otra-tesis.pdf", tamano: otro.size }] }),
+    )
+    expect(subirArchivos).toHaveBeenLastCalledWith(expect.objectContaining({ archivos: [otro] }))
+    expect(confirmarMaterialAccion.mock.calls).toEqual([[ID], [OTRO_ID]])
+  })
+
+  it("discards the created material and sends the new title when she edits it after a failed confirm", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: ERROR_GENERICO })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(ERROR_GENERICO)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Título/), { target: { value: "Tesis sobre el apego" } })
+    crearMaterialAccion.mockResolvedValueOnce({ ok: true, materialId: OTRO_ID, subidas: SUBIDAS })
+    subir()
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(descartarMaterialAccion).toHaveBeenCalledTimes(1)
+    expect(descartarMaterialAccion).toHaveBeenCalledWith(ID)
+    expect(crearMaterialAccion).toHaveBeenLastCalledWith(expect.objectContaining({ titulo: "Tesis sobre el apego" }))
+    expect(confirmarMaterialAccion.mock.calls).toEqual([[ID], [OTRO_ID]])
+  })
+
+  it("logs a discard that fails after an edit and still creates the new material", async () => {
+    const consola = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: ERROR_GENERICO })
+    descartarMaterialAccion.mockResolvedValueOnce({ ok: false, error: ERROR_GENERICO })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(ERROR_GENERICO)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("radio", { name: "Referente" }))
+    crearMaterialAccion.mockResolvedValueOnce({ ok: true, materialId: OTRO_ID, subidas: SUBIDAS })
+    subir()
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(consola).toHaveBeenCalledWith(expect.stringContaining(ID), ERROR_GENERICO)
     expect(crearMaterialAccion).toHaveBeenCalledTimes(2)
   })
 

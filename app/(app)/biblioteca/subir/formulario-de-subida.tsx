@@ -36,6 +36,7 @@ import {
   FALTA_LA_ENTRADA,
   GUARDADO_SIN_INICIAR,
   leerEntrada,
+  NO_ENCONTRE,
   NO_RECONOZCO,
   normalizarEnlace,
   PESA_DEMASIADO,
@@ -79,6 +80,8 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   const enCurso = useRef(false)
   // Once the row exists, a retry only confirms it again (a second confirmation is a no-op): never a second material.
   const creadoId = useRef<string | null>(null)
+  // The discard of a material she edited away from; the next Subir waits for it before creating the new one.
+  const descartando = useRef<Promise<void>>(Promise.resolve())
   const [texto, setTexto] = useState("")
   const [archivos, setArchivos] = useState<File[]>([])
   const [manual, setManual] = useState<TipoDeMaterial | null>(null)
@@ -121,8 +124,20 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   // "youtu.be/abc" is the same link as "https://youtu.be/abc": the extras follow the address it points to.
   const enlace = normalizarEnlace(texto) ?? texto.trim()
 
+  /** Editing after a failed confirmation: that material is not the one she now sees, so it goes and Subir creates again. */
+  function olvidarCreado() {
+    const viejo = creadoId.current
+    if (!viejo) return
+    creadoId.current = null
+    descartando.current = descartando.current.then(async () => {
+      const descartado = await pedir(() => descartarMaterialAccion(viejo))
+      if (!descartado.ok) console.error(`No pude descartar el material ${viejo}`, descartado.error)
+    })
+  }
+
   // One field, two ways in (D4): typing clears the files, picking clears the text; either clears a manual type.
   function escribir(nuevo: string) {
+    olvidarCreado()
     setTexto(nuevo)
     setArchivos([])
     setManual(null)
@@ -132,6 +147,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
 
   function elegir(elegidos: File[]) {
     if (elegidos.length === 0) return
+    olvidarCreado()
     const juntos = juntarArchivos(archivos, elegidos)
     setArchivos(juntos.archivos)
     setTexto("")
@@ -141,6 +157,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
   }
 
   function quitarArchivo(indice: number) {
+    olvidarCreado()
     const quedan = archivos.filter((_, posicion) => posicion !== indice)
     setArchivos(quedan)
     // The list goes away with its last file: the focus goes back to where files come from.
@@ -153,11 +170,13 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
       setError(PESA_DEMASIADO)
       return
     }
+    olvidarCreado()
     setError(null)
     setVideoDelPost(elegido)
   }
 
   function elegirRol(opcion: Rol) {
+    olvidarCreado()
     setRol(opcion)
     // What Coni says is by Coni: her author is the obvious pick while none is chosen.
     if (opcion === "voz_propia" && autorId === "") setAutorId(autores.find((autor) => autor.tipo === "coni")?.id ?? "")
@@ -205,6 +224,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
     }
     enCurso.current = true
     try {
+      await descartando.current
       if (pendiente) await confirmar(pendiente)
       else if (leido) await crearYSubir(leido)
     } finally {
@@ -248,8 +268,8 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
       ir("/biblioteca")
       return
     }
-    // The server deleted a material whose file was wrong: the next Subir starts over.
-    if (confirmado.error === FALTA_EL_ARCHIVO || confirmado.error === PESA_DEMASIADO) creadoId.current = null
+    // The server deleted a material whose file was wrong, or no longer finds it: the next Subir starts over.
+    if ([FALTA_EL_ARCHIVO, PESA_DEMASIADO, NO_ENCONTRE].includes(confirmado.error)) creadoId.current = null
     fallar(confirmado.error)
   }
 
@@ -319,7 +339,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
             <ListaDeImagenes
               archivos={archivos}
               ocupado={ocupado}
-              alMover={(indice, hacia) => setArchivos(moverArchivo(archivos, indice, hacia))}
+              alMover={(indice, hacia) => {
+                olvidarCreado()
+                setArchivos(moverArchivo(archivos, indice, hacia))
+              }}
               alQuitar={quitarArchivo}
             />
           ) : archivos.length > 0 ? (
@@ -348,7 +371,15 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
           {deteccion === null && archivos.length > 0 && error !== NO_RECONOZCO ? (
             <p className="text-meta text-apagado">{NO_RECONOZCO}</p>
           ) : null}
-          <TipoDetectado key={entradaNumero} efectivo={efectivo} ocupado={ocupado} alElegir={setManual} />
+          <TipoDetectado
+            key={entradaNumero}
+            efectivo={efectivo}
+            ocupado={ocupado}
+            alElegir={(elegido) => {
+              olvidarCreado()
+              setManual(elegido)
+            }}
+          />
         </div>
 
         {tipo === "link" && esYoutube(enlace) ? (
@@ -359,7 +390,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
               value={transcripcion}
               aria-describedby={`${id}-transcripcion-ayuda`}
               aria-required="true"
-              onChange={(evento) => setTranscripcion(evento.target.value)}
+              onChange={(evento) => {
+                olvidarCreado()
+                setTranscripcion(evento.target.value)
+              }}
               className={cn(CLASES_DE_CAMPO, "min-h-40 resize-y")}
             />
           </Campo>
@@ -378,7 +412,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
                   variante="callado"
                   aria-label="Quitar el video"
                   deshabilitado={ocupado}
-                  onClick={() => setVideoDelPost(null)}
+                  onClick={() => {
+                    olvidarCreado()
+                    setVideoDelPost(null)
+                  }}
                 >
                   Quitar
                 </Boton>
@@ -416,7 +453,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
               autoComplete="off"
               placeholder="https://"
               value={referencia}
-              onChange={(evento) => setReferencia(evento.target.value)}
+              onChange={(evento) => {
+                olvidarCreado()
+                setReferencia(evento.target.value)
+              }}
               className={CLASES_DE_CAMPO}
             />
           </Campo>
@@ -434,7 +474,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
             id={`${id}-titulo`}
             type="text"
             value={titulo}
-            onChange={(evento) => setTitulo(evento.target.value)}
+            onChange={(evento) => {
+              olvidarCreado()
+              setTitulo(evento.target.value)
+            }}
             className={CLASES_DE_CAMPO}
           />
         </Campo>
@@ -443,6 +486,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
           autores={autores}
           valor={autorId}
           alElegir={(elegido) => {
+            olvidarCreado()
             setAutorId(elegido)
             setError(null)
           }}
@@ -467,7 +511,10 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
         <Casilla
           etiqueta="Este material no contiene datos de pacientes"
           marcada={declaracion}
-          alCambiar={setDeclaracion}
+          alCambiar={(marcada) => {
+            olvidarCreado()
+            setDeclaracion(marcada)
+          }}
         />
 
         {error ? <LineaDeError>{error}</LineaDeError> : null}

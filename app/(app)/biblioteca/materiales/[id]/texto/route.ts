@@ -1,6 +1,7 @@
-import { NO_ENCONTRE, pedirTextoOriginal, SobreMaterial } from "@/lib/acciones/biblioteca"
+import { pedirTextoOriginal, SobreMaterial } from "@/lib/acciones/biblioteca"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, ERROR_SOLO_CONI } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
+import { NO_ENCONTRE } from "@/lib/dominio/biblioteca/subir"
 import { almacenReal } from "@/lib/proveedores/almacen"
 
 const SIN_CACHE = { "cache-control": "no-store" }
