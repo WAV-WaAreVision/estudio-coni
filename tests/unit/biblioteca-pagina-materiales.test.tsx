@@ -90,4 +90,25 @@ describe("the Materiales page", () => {
     const [raiz] = elementos(await Materiales({ searchParams: sinFiltros() }))
     expect(raiz?.props.className).toContain("md:grid-cols-[minmax(0,1fr)_20rem]")
   })
+  const aSubir = (arbol: Elemento[]) =>
+    arbol.filter((elemento) => (elemento.props as { href?: unknown }).href === "/biblioteca/subir")
+  const conAviso = (arbol: Elemento[]) =>
+    arbol.some((elemento) => (elemento.props as { titulo?: unknown }).titulo === "Lo estoy procesando.")
+
+  it("links to Subir from its header and, with nothing uploaded yet, from the empty list too", async () => {
+    esConi.valor = true
+    expect(aSubir(elementos(await Materiales({ searchParams: sinFiltros() })))).toHaveLength(2)
+  })
+
+  it("keeps only the header's Subir when filters leave the list empty", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ estado: "listo" }) }))
+    expect(aSubir(arbol)).toHaveLength(1)
+  })
+
+  it("says Lo estoy procesando. after an upload, and nothing otherwise", async () => {
+    esConi.valor = true
+    expect(conAviso(elementos(await Materiales({ searchParams: Promise.resolve({ subido: "1" }) })))).toBe(true)
+    expect(conAviso(elementos(await Materiales({ searchParams: sinFiltros() })))).toBe(false)
+  })
 })
