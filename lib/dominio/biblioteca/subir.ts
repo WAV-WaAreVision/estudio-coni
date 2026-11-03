@@ -9,6 +9,9 @@ const MAXIMO_DE_TEXTO_PEGADO = 200_000
 
 export const ERROR_SOLICITUD = "No entendí esa solicitud. Vuelve a abrir la pantalla."
 export const PESA_DEMASIADO = "Ese archivo pesa más de 2 GB."
+export const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
+export const GUARDADO_SIN_INICIAR =
+  "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
 export const DEMASIADAS_IMAGENES = `Puedes subir hasta ${MAXIMO_DE_IMAGENES} imágenes.`
 
 type TipoConArchivo = "documento" | "audio" | "video" | "imagen"

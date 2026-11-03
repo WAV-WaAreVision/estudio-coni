@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 type R = { ok: true } | { ok: false; error: string }
@@ -28,7 +28,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn(), 
 
 import { FormularioDeSubida } from "@/app/(app)/biblioteca/subir/formulario-de-subida"
 import { NO_PUDE_SUBIR } from "@/app/(app)/biblioteca/subir/subida-cliente"
-import { ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
+import { ERROR_GENERICO, ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
+import { FALTA_EL_ARCHIVO, GUARDADO_SIN_INICIAR } from "@/lib/dominio/biblioteca/subir"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const DANIELA = "d1111111-2222-4333-8444-555555555555"
@@ -124,6 +125,49 @@ describe("FormularioDeSubida: the upload", () => {
     subir()
     expect(await screen.findByRole("alert")).toHaveTextContent("Ese archivo pesa más de 2 GB.")
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it("retries only the confirmation after it failed, so the material is never created twice", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: ERROR_GENERICO })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(ERROR_GENERICO)).toBeInTheDocument()
+
+    subir()
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(1)
+    expect(subirArchivos).toHaveBeenCalledTimes(1)
+    expect(confirmarMaterialAccion.mock.calls).toEqual([[ID], [ID]])
+  })
+
+  it("opens the list when the material was saved but did not start, where its own Reintentar takes over", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: GUARDADO_SIN_INICIAR })
+    conUnPdf()
+    subir()
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca"))
+    expect(push).not.toHaveBeenCalledWith("/biblioteca?subido=1")
+  })
+
+  it("starts over when the confirmation threw the material away", async () => {
+    confirmarMaterialAccion.mockResolvedValueOnce({ ok: false, error: FALTA_EL_ARCHIVO })
+    conUnPdf()
+    subir()
+    expect(await screen.findByText(FALTA_EL_ARCHIVO)).toBeInTheDocument()
+
+    subir()
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(2)
+  })
+
+  it("sends once when Subir is tapped twice before the screen answers", async () => {
+    conUnPdf()
+    const boton = screen.getByRole("button", { name: "Subir" })
+    act(() => {
+      boton.click()
+      boton.click()
+    })
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/biblioteca?subido=1"))
+    expect(crearMaterialAccion).toHaveBeenCalledTimes(1)
   })
 
   it("says the generic notice when an action does not answer at all", async () => {

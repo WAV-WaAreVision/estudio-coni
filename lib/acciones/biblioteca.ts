@@ -5,6 +5,8 @@ import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
 import {
   extensionDe,
+  FALTA_EL_ARCHIVO,
+  GUARDADO_SIN_INICIAR,
   leerEntrada,
   PESA_DEMASIADO,
   type SubidaFirmada,
@@ -291,10 +293,6 @@ export function crearMaterial(
     return { materialId, subidas }
   })
 }
-
-const FALTA_EL_ARCHIVO = "No encontré el archivo que subiste. Inténtalo de nuevo."
-const GUARDADO_SIN_INICIAR =
-  "El material quedó guardado, pero no pude iniciar su procesamiento. Toca Reintentar en un rato."
 
 /** Whoever is signed in: a material is only ever confirmed or thrown away by the one who uploaded it (D8). */
 async function idDeQuienEntro(db: Db): Promise<string> {

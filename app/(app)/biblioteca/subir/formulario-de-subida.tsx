@@ -29,7 +29,9 @@ import {
   ACEPTA_VIDEO,
   AYUDA_DEL_CAMPO,
   detectarTipo,
+  FALTA_EL_ARCHIVO,
   FALTA_LA_ENTRADA,
+  GUARDADO_SIN_INICIAR,
   leerEntrada,
   NO_RECONOZCO,
   normalizarEnlace,
@@ -63,6 +65,10 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
   const id = useId()
   const principal = useRef<HTMLInputElement>(null)
   const delPost = useRef<HTMLInputElement>(null)
+  // A tap that lands before the screen re-renders still sees `ocupado` false: the ref is the real lock.
+  const enCurso = useRef(false)
+  // Once the row exists, a retry only confirms it again (a second confirmation is a no-op): never a second material.
+  const creadoId = useRef<string | null>(null)
   const [texto, setTexto] = useState("")
   const [archivos, setArchivos] = useState<File[]>([])
   const [manual, setManual] = useState<TipoDeMaterial | null>(null)
@@ -144,12 +150,24 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
 
   /** Create the row and its signed uploads, put each file straight to the store, then confirm (spec section 3). */
   async function subir() {
+    if (enCurso.current) return
     setError(null)
-    const leido = leerFormulario()
-    if (!leido.ok) {
+    const pendiente = creadoId.current
+    const leido = pendiente ? null : leerFormulario()
+    if (leido && !leido.ok) {
       setError(leido.error)
       return
     }
+    enCurso.current = true
+    try {
+      if (pendiente) await confirmar(pendiente)
+      else if (leido) await crearYSubir(leido)
+    } finally {
+      enCurso.current = false
+    }
+  }
+
+  async function crearYSubir(leido: Extract<Lectura, { ok: true }>) {
     setProgreso(PREPARANDO)
     const creado = await pedir(() => crearMaterialAccion(leido.entrada))
     if (!creado.ok) {
@@ -169,13 +187,25 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
       fallar(falla instanceof Error ? falla.message : ERROR_GENERICO)
       return
     }
+    creadoId.current = creado.materialId
+    await confirmar(creado.materialId)
+  }
+
+  async function confirmar(materialId: string) {
     setProgreso(GUARDANDO)
-    const confirmado = await pedir(() => confirmarMaterialAccion(creado.materialId))
-    if (!confirmado.ok) {
-      fallar(confirmado.error)
+    const confirmado = await pedir(() => confirmarMaterialAccion(materialId))
+    if (confirmado.ok) {
+      router.push(HREF_TRAS_SUBIR)
       return
     }
-    router.push(HREF_TRAS_SUBIR)
+    // Saved but not started: the row on the list already offers Reintentar.
+    if (confirmado.error === GUARDADO_SIN_INICIAR) {
+      router.push("/biblioteca")
+      return
+    }
+    // The server deleted a material whose file was wrong: the next Subir starts over.
+    if (confirmado.error === FALTA_EL_ARCHIVO || confirmado.error === PESA_DEMASIADO) creadoId.current = null
+    fallar(confirmado.error)
   }
 
   return (
