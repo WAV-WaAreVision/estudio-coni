@@ -2,6 +2,7 @@
 
 import { Paperclip } from "@phosphor-icons/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useId, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
@@ -9,12 +10,17 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { Eleccion } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeError } from "@/components/ui/linea-de-error"
+import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "@/lib/acciones/resultado"
 import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
 import {
   armarEntrada,
   type EntradaDeSubida,
+  GUARDANDO,
+  HREF_TRAS_SUBIR,
   juntarArchivos,
   moverArchivo,
+  PREPARANDO,
+  progresoDeSubida,
 } from "@/lib/dominio/biblioteca/borrador-de-subida"
 import { AYUDA_DE_ROL, ETIQUETA_DE_ROL, ROLES, type Rol, type TipoDeMaterial } from "@/lib/dominio/biblioteca/modelo"
 import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
@@ -33,15 +39,27 @@ import {
 } from "@/lib/dominio/biblioteca/subir"
 import { AVISO_DE_PODCAST, esPodcast, esYoutube, PASOS_DE_YOUTUBE } from "@/lib/dominio/biblioteca/youtube"
 import { cn } from "@/lib/utils"
-import { crearAutorAccion } from "../acciones"
+import { confirmarMaterialAccion, crearAutorAccion, crearMaterialAccion, descartarMaterialAccion } from "../acciones"
 import { Campo, CLASES_DE_CAMPO } from "../campo"
 import { SelectorDeAutor } from "../selector-de-autor"
 import { ListaDeImagenes } from "./lista-de-imagenes"
+import { subirArchivos } from "./subida-cliente"
 import { TipoDetectado } from "./tipo-detectado"
 
 type Lectura = { ok: true; entrada: EntradaDeSubida; aSubir: File[] } | { ok: false; error: string }
 
+/** A rejected action (the network, the server) must not leave the button spinning or break the screen. */
+async function pedir<T extends object>(accion: () => Promise<Resultado<T>>): Promise<Resultado<T>> {
+  try {
+    return await accion()
+  } catch (fallo) {
+    console.error("Una acción de Subir no respondió", fallo)
+    return { ok: false, error: ERROR_GENERICO }
+  }
+}
+
 export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
+  const router = useRouter()
   const id = useId()
   const principal = useRef<HTMLInputElement>(null)
   const delPost = useRef<HTMLInputElement>(null)
@@ -56,7 +74,7 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
   const [rol, setRol] = useState<Rol | "">("")
   const [declaracion, setDeclaracion] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [progreso] = useState<string | null>(null)
+  const [progreso, setProgreso] = useState<string | null>(null)
 
   const ocupado = progreso !== null
   const deteccion = detectarTipo({ texto, archivos })
@@ -118,10 +136,46 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
     return lectura.ok ? { ok: true, entrada, aSubir } : { ok: false, error: lectura.error }
   }
 
-  function subir() {
+  function fallar(mensaje: string) {
+    setProgreso(null)
+    if (mensaje === ERROR_SESION_VENCIDA) router.push("/ingreso")
+    else setError(mensaje)
+  }
+
+  /** Create the row and its signed uploads, put each file straight to the store, then confirm (spec section 3). */
+  async function subir() {
     setError(null)
     const leido = leerFormulario()
-    if (!leido.ok) setError(leido.error)
+    if (!leido.ok) {
+      setError(leido.error)
+      return
+    }
+    setProgreso(PREPARANDO)
+    const creado = await pedir(() => crearMaterialAccion(leido.entrada))
+    if (!creado.ok) {
+      fallar(creado.error)
+      return
+    }
+    try {
+      await subirArchivos({
+        subidas: creado.subidas,
+        archivos: leido.aSubir,
+        alAvanzar: (hechos, total) => setProgreso(progresoDeSubida(hechos, total)),
+      })
+    } catch (falla) {
+      // The row exists before the upload: a failed upload must not leave a material that will never have its file.
+      const descartado = await pedir(() => descartarMaterialAccion(creado.materialId))
+      if (!descartado.ok) console.error(`No pude descartar el material ${creado.materialId}`, descartado.error)
+      fallar(falla instanceof Error ? falla.message : ERROR_GENERICO)
+      return
+    }
+    setProgreso(GUARDANDO)
+    const confirmado = await pedir(() => confirmarMaterialAccion(creado.materialId))
+    if (!confirmado.ok) {
+      fallar(confirmado.error)
+      return
+    }
+    router.push(HREF_TRAS_SUBIR)
   }
 
   return (
@@ -131,7 +185,7 @@ export function FormularioDeSubida({ autores }: { autores: AutorDeLista[] }) {
       className="grid gap-6"
       onSubmit={(evento) => {
         evento.preventDefault()
-        if (!ocupado) subir()
+        if (!ocupado) void subir()
       }}
     >
       <div className="grid gap-3">
