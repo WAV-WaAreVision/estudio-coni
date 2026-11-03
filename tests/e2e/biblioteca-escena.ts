@@ -1,4 +1,5 @@
 import { CONI, pool } from "../integration/db"
+import { vaciarMotor } from "../integration/siembra"
 import { BALDE_DE_PRUEBA, URL_DEL_ALMACEN } from "./entorno"
 
 // The run's Biblioteca: the run owns `materiales` (D16), so the scene empties it first and the teardown last.
@@ -78,6 +79,9 @@ async function textoOriginal(materialId: string, texto: string): Promise<void> {
 }
 
 export async function vaciarBiblioteca(): Promise<void> {
+  // Emptying every material would orphan the authors a scene's theories made (`vaciarMotor` finds them through their
+  // seeded materials) and leave them for `pnpm test:db` to count: the engine's seed goes first.
+  await vaciarMotor()
   await pool.query("delete from public.materiales")
   await pool.query("delete from public.temas where nombre = any($1::text[])", [TEMAS])
   await pool.query("delete from public.autores where nombre = $1", [AUTORA])
