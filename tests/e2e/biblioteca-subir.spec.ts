@@ -2,9 +2,16 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { alerta, bloquearRedExterna, disparosDeMateriales, limpiarDisparos, tocarHastaLlegar } from "./ayudas"
-import { AUTORA, CREDENCIAL, objetosDelAlmacen, sembrarBiblioteca } from "./biblioteca-escena"
-import { BALDE_DE_PRUEBA } from "./entorno"
+import {
+  alerta,
+  bloquearRedExterna,
+  disparosDeMateriales,
+  entrarComo,
+  limpiarDisparos,
+  tocarHastaLlegar,
+} from "./ayudas"
+import { AUTORA, CREDENCIAL, objetosDelAlmacen, sembrarBiblioteca, vaciarBiblioteca } from "./biblioteca-escena"
+import { BALDE_DE_PRUEBA, CORREO_DEL_MANTENEDOR, URL_DEL_ALMACEN } from "./entorno"
 
 const PDF = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n")
 const PNG = readFileSync(join(__dirname, "fixtures", "avatar-a.png"))
@@ -158,4 +165,57 @@ test("three images keep the order she gives them, in the database and in the sto
     { bytes: PNG.byteLength + 2, tipo: "image/png", firmada: true },
   ])
   expect(disparosDeMateriales()).toHaveLength(1)
+})
+
+test("a failed upload leaves no material, starts nothing and says which file failed", async ({ page }) => {
+  const titulo = "Una subida que se cae"
+  // Registered after bloquearRedExterna, so it is asked first: only the browser's PUT to the store is cut.
+  await page.route(`${URL_DEL_ALMACEN}/**`, (ruta) =>
+    ruta.request().method() === "PUT" ? ruta.abort("failed") : ruta.fallback(),
+  )
+  await page.goto("/biblioteca/subir")
+  await elegirArchivos(page, "Elegir archivo", [{ name: "caida.pdf", mimeType: "application/pdf", buffer: PDF }])
+  await completar(page, titulo, "Referente")
+  await subir(page)
+
+  await expect(alerta(page, "No pude subir caida.pdf. Revisa tu conexión e inténtalo de nuevo.")).toBeVisible()
+  await expect(page).toHaveURL(/\/biblioteca\/subir$/)
+  await expect(page.getByRole("link", { name: "Cancelar" })).toBeVisible()
+  expect(await materialesCon(titulo)).toEqual([])
+  expect(disparosDeMateriales()).toEqual([])
+})
+
+test("Volver a Biblioteca and Cancelar both go back to the list and leave nothing behind (4e)", async ({ page }) => {
+  const { rows: antes } = await pool.query<{ n: number }>("select count(*)::int as n from public.materiales")
+  await page.goto("/biblioteca/subir")
+  await page.getByLabel("Pega un enlace o elige un archivo").fill("https://ejemplo.cl/nota")
+  await tocarHastaLlegar(page, page.getByRole("link", { name: "Volver a Biblioteca" }), /\/biblioteca$/)
+  await page.goto("/biblioteca/subir")
+  await tocarHastaLlegar(page, page.getByRole("link", { name: "Cancelar" }), /\/biblioteca$/)
+  const { rows: despues } = await pool.query<{ n: number }>("select count(*)::int as n from public.materiales")
+  expect(despues[0]?.n).toBe(antes[0]?.n)
+})
+
+test("with nothing uploaded yet, the empty list offers Subir too", async ({ page }) => {
+  await vaciarBiblioteca()
+  await page.goto("/biblioteca")
+  await expect(page.getByText("Aún no hay material en la Biblioteca.")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Subir", exact: true })).toHaveCount(2)
+  await tocarHastaLlegar(page, page.getByRole("link", { name: "Subir", exact: true }).last(), /\/biblioteca\/subir$/)
+})
+
+test("only Coni: without a session it asks to sign in, and the maintainer is refused Subir", async ({ browser }) => {
+  const sinSesion = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+  const visitante = await sinSesion.newPage()
+  await visitante.goto("/biblioteca/subir")
+  await expect(visitante).toHaveURL(/\/ingreso$/)
+  await sinSesion.close()
+
+  const contexto = await browser.newContext()
+  await entrarComo(contexto, CORREO_DEL_MANTENEDOR)
+  const wav = await contexto.newPage()
+  await wav.goto("/biblioteca/subir")
+  await expect(wav.getByRole("heading", { name: "Esta app es solo para Coni." })).toBeVisible()
+  await expect(wav.getByRole("form", { name: "Subir material" })).toHaveCount(0)
+  await contexto.close()
 })
