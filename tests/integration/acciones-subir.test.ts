@@ -6,7 +6,7 @@ import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 import { TAMANO_MAXIMO_BYTES } from "@/lib/dominio/biblioteca/subir"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
-import { CONI, pool } from "./db"
+import { CONI, MANTENEDOR, pool } from "./db"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { borrarSembrado, sembrarAutor } from "./siembra-biblioteca"
 
@@ -345,6 +345,32 @@ describe("descartarMaterial", () => {
     await pool.query("update public.materiales set estado = 'listo' where id = $1", [creado.materialId])
     expect(await descartarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
     expect(await fila(creado.materialId)).not.toBeNull()
+  })
+})
+
+describe("a material uploaded by someone else (D8)", () => {
+  // Row level security lets Coni delete any material: the subido_por filter is the only guard here.
+  async function deWav(): Promise<string> {
+    const id = randomUUID()
+    creados.push(id)
+    await pool.query(
+      `insert into public.materiales (id, tipo, titulo, autor_id, origen_url, declaracion_sin_pacientes_en, subido_por)
+       values ($1, 'link', $2, $3, 'https://ejemplo.cl/de-wav', now(), $4)`,
+      [id, `De WAV ${SUFIJO}`, autor, MANTENEDOR],
+    )
+    return id
+  }
+
+  it("is not confirmed by Coni: she does not find it and nothing starts", async () => {
+    const id = await deWav()
+    expect(await confirmarMaterial(deps(coni), id)).toEqual({ ok: false, error: "No encontré ese material." })
+    expect(disparos).toEqual([])
+  })
+
+  it("is not discarded by Coni", async () => {
+    const id = await deWav()
+    await descartarMaterial(deps(coni), id)
+    expect(await fila(id)).toMatchObject({ estado: "procesando", subido_por: MANTENEDOR })
   })
 })
 
