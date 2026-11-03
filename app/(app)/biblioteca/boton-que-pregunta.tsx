@@ -5,6 +5,7 @@ import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
+import { useRedibujar } from "@/components/use-redibujar"
 import type { Resultado } from "@/lib/acciones/resultado"
 
 interface Propiedades {
@@ -21,6 +22,7 @@ export function BotonQuePregunta({ etiqueta, pregunta, confirmar, alConfirmar }:
   const [devolverFoco, setDevolverFoco] = useState(false)
   const boton = useRef<HTMLButtonElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+  const redibujar = useRedibujar()
 
   useEffect(() => {
     if (!devolverFoco || preguntando) return
@@ -43,7 +45,12 @@ export function BotonQuePregunta({ etiqueta, pregunta, confirmar, alConfirmar }:
         confirmar={confirmar}
         volver="Cancelar"
         cargando={pendiente}
-        alConfirmar={() => ejecutar(alConfirmar, () => setPreguntando(false))}
+        alConfirmar={() =>
+          ejecutar(alConfirmar, () => {
+            setPreguntando(false)
+            redibujar()
+          })
+        }
         alVolver={() => {
           limpiarError()
           setPreguntando(false)
