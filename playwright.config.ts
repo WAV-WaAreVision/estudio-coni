@@ -61,6 +61,18 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       use: { ...iphone, storageState: ESTADO_DE_SESION },
     },
+    {
+      // The Biblioteca on a computer (D15): its own files, so the phone project never runs them.
+      name: "escritorio",
+      dependencies: ["ingreso"],
+      testMatch: /.*\.escritorio\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 900 },
+        launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH },
+        storageState: ESTADO_DE_SESION,
+      },
+    },
   ],
   // Built and started here so the public variables are inlined with the local stack's values. No real service is
   // reachable from this run: DISPARO_DE_PRUEBA writes the runs to a file instead of calling Trigger.dev.
