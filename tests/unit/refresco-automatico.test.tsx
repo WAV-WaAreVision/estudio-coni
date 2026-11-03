@@ -21,7 +21,10 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/biblioteca?estado=procesando&m=abc#tabla")
   visibilidad("visible")
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
+})
 
 describe("RefrescoAutomatico", () => {
   it("redraws on its own address every interval while active, keeping filters, anchor and scroll", () => {
@@ -72,5 +75,31 @@ describe("RefrescoAutomatico", () => {
     })
     act(() => vi.advanceTimersByTime(4000))
     expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  // A slow render (a phone on mobile data) must not be superseded by its own round: the next round is the next try.
+  it("never re-issues a round's redraw that is still in flight", () => {
+    replace.mockReset()
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => vi.advanceTimersByTime(3900))
+    expect(replace).toHaveBeenCalledTimes(1)
+    act(() => vi.advanceTimersByTime(100))
+    expect(replace).toHaveBeenCalledTimes(2)
+  })
+
+  it("leaves no timer or listener behind when it unmounts", () => {
+    const anadir = vi.spyOn(document, "addEventListener")
+    const quitar = vi.spyOn(document, "removeEventListener")
+    const { unmount } = render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    unmount()
+    act(() => vi.advanceTimersByTime(1000))
+    expect(vi.getTimerCount()).toBe(0)
+    expect(quitar.mock.calls.length).toBe(anadir.mock.calls.length)
+    act(() => vi.advanceTimersByTime(12_000))
+    expect(replace).toHaveBeenCalledTimes(1)
+    anadir.mockRestore()
+    quitar.mockRestore()
   })
 })

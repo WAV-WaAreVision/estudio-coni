@@ -20,12 +20,14 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     if (!activo) return
     let intervalo: ReturnType<typeof setInterval> | null = null
     let ultimoToque = Number.NEGATIVE_INFINITY
+    // The watch of the last round's redraw: it ends with this component.
+    let dejar: (() => void) | null = null
     const alTocar = () => {
       ultimoToque = Date.now()
     }
     const ronda = () => {
       if (Date.now() - ultimoToque < RESPIRO_TRAS_TOCAR_MS) return
-      redibujar()
+      dejar = redibujar()
     }
     const arrancar = () => {
       if (intervalo === null) intervalo = setInterval(ronda, cadaMs)
@@ -36,7 +38,7 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     }
     const alCambiarVisibilidad = () => {
       if (document.visibilityState === "visible") {
-        redibujar()
+        dejar = redibujar()
         arrancar()
       } else {
         parar()
@@ -48,6 +50,7 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     document.addEventListener("keydown", alTocar, true)
     return () => {
       parar()
+      dejar?.()
       document.removeEventListener("visibilitychange", alCambiarVisibilidad)
       document.removeEventListener("pointerdown", alTocar, true)
       document.removeEventListener("keydown", alTocar, true)
