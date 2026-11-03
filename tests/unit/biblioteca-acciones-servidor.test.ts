@@ -12,7 +12,10 @@ vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotec
 
 import {
   confirmarCostoAccion,
+  confirmarMaterialAccion,
   crearAutorAccion,
+  crearMaterialAccion,
+  descartarMaterialAccion,
   editarFichaAccion,
   editarMaterialAccion,
   reintentarMaterialAccion,
@@ -56,6 +59,25 @@ describe("the Biblioteca's server actions", () => {
   it("refreshes nothing when the action is refused", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esta app es solo para Coni." })
     expect(await reintentarMaterialAccion(ID)).toEqual({ ok: false, error: "Esta app es solo para Coni." })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["confirmarMaterial", () => confirmarMaterialAccion(ID)],
+    ["descartarMaterial", () => descartarMaterialAccion(ID)],
+  ] as const)("%s checks Coni with the material's id and refreshes the whole section", async (nombre, accion) => {
+    expect(await accion()).toEqual({ ok: true })
+    expect(conSesionDeConi).toHaveBeenCalledWith(nombre, SobreMaterial, { materialId: ID }, expect.any(Function))
+    expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+  })
+
+  it("crearMaterial lets the entry through to leerEntrada, which answers in her words, and refreshes nothing", async () => {
+    const entrada = { tipo: "link", url: "https://ejemplo.cl/nota" }
+    expect(await crearMaterialAccion(entrada)).toEqual({ ok: true })
+    const [nombre, esquema, recibida] = conSesionDeConi.mock.calls[0] ?? []
+    expect(nombre).toBe("crearMaterial")
+    expect(recibida).toEqual(entrada)
+    expect((esquema as { safeParse: (v: unknown) => { success: boolean } }).safeParse(42).success).toBe(true)
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 })
