@@ -81,11 +81,6 @@ export async function listarMateriales(db: Db, filtros: FiltrosDeMateriales): Pr
 }
 
 /**
- * How many materials are processing and how many failed: the counts of the quick filters (4b). "Procesando · N" counts
- * every `procesando` row on purpose, so it includes the ones in pause and the ones waiting for Coni's OK: they are the
- * same database state, and the filter that the count sits on lists exactly those rows too.
- */
-/**
  * The quick filters' counts, and `trabajando`: the materials really working (processing with no reason and no cost
  * waiting for her OK). "Procesando" counts the paused and waiting ones too; only a working one keeps the list asking.
  */
