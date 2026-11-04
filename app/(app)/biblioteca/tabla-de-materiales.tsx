@@ -68,7 +68,7 @@ export function TablaDeMateriales({ materiales, filtros, seleccion, ahora }: Pro
               <td className={CORTA}>{etiquetaDeTipo(material.tipo)}</td>
               <td className={CELDA}>{material.autor}</td>
               <td className={CELDA}>
-                <TemaDelMaterial tema={material.tema} />
+                <TemaDelMaterial tema={material.tema} conEnlace />
               </td>
               <td className={CORTA}>
                 <EstadoDeMaterial material={material} />

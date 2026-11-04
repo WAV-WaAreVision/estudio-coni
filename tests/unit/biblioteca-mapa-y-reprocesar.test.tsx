@@ -42,6 +42,24 @@ describe("MapaDelMaterial (4h)", () => {
     render(<MapaDelMaterial mapa={{ ...MAPA, total: 0, temas: [], sinTema: 0 }} estado="procesando" />)
     expect(screen.getByText("Las ideas aparecen cuando termina de procesarse.")).toBeInTheDocument()
   })
+
+  it("links each topic row to its page by the topic alone, and not «Sin tema todavía» (D9)", () => {
+    render(<MapaDelMaterial mapa={MAPA} estado="listo" />)
+    const temas = screen.getByRole("list", { name: "Temas" })
+    const enlace = within(temas).getByRole("link")
+    expect(enlace).toHaveAccessibleName("Carga mental")
+    expect(enlace).toHaveAttribute("href", "/biblioteca/temas/t1")
+    expect(within(temas).getAllByRole("link")).toHaveLength(1)
+    expect(within(screen.getByRole("list", { name: "Qué tipo de idea es" })).queryByRole("link")).toBeNull()
+  })
+
+  it("marks a topic row as one that opens, with a chevron the screen reader skips", () => {
+    render(<MapaDelMaterial mapa={MAPA} estado="listo" />)
+    const [conEnlace, sinEnlace] = within(screen.getByRole("list", { name: "Temas" })).getAllByRole("listitem")
+    expect(conEnlace?.querySelector("svg[aria-hidden='true']")).not.toBeNull()
+    expect(sinEnlace?.querySelector("svg")).toBeNull()
+    expect(screen.getByRole("list", { name: "Qué tipo de idea es" }).querySelector("svg")).toBeNull()
+  })
 })
 
 describe("BotonReprocesar", () => {

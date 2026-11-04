@@ -27,7 +27,7 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
-import { sembrarBiblioteca, TITULO_LISTO } from "./biblioteca-escena"
+import { AUTORA, sembrarAutoresYTemas, sembrarBiblioteca, TEMA_PRINCIPAL, TITULO_LISTO } from "./biblioteca-escena"
 import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
@@ -690,4 +690,20 @@ test("biblioteca: Subir with a document picked", async ({ page }) => {
   await page.getByLabel(/^Título/).fill("Apego adulto en la consulta")
   await expect(page.getByText("Tipo: Documento")).toBeVisible()
   await capturaDe(page, "biblioteca-subir")
+})
+
+test("biblioteca: Autores and Temas on the phone, and an author's and a topic's page", async ({ page }) => {
+  const escena = await sembrarAutoresYTemas()
+  await page.goto("/biblioteca/autores")
+  await expect(page.getByRole("list", { name: "Autores" })).toBeVisible()
+  await capturaDe(page, "biblioteca-autores")
+  await page.goto(`/biblioteca/autores/${escena.autora}`)
+  await expect(page.getByRole("heading", { name: AUTORA, level: 1 })).toBeVisible()
+  await capturaDe(page, "biblioteca-autor")
+  await page.goto("/biblioteca/temas")
+  await expect(page.getByRole("list", { name: "Temas" })).toBeVisible()
+  await capturaDe(page, "biblioteca-temas")
+  await page.goto(`/biblioteca/temas/${escena.carga}`)
+  await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
+  await capturaDe(page, "biblioteca-tema")
 })

@@ -38,10 +38,16 @@ export const AutorNuevo = z.object({
   credencial: z.string().max(LARGO_DE_AUTOR_NUEVO),
   tipo: z.enum(TIPOS_DE_AUTOR_NUEVO),
 })
+export const UnionDeAutores = z.object({ origen: z.uuid(), destino: z.uuid() })
+export const CambioDeIdea = z.object({ id: z.uuid(), oculta: z.boolean() })
 
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
+const NO_EXISTE = "P0002"
+const AUTOR_INEXISTENTE = "Ese autor ya no existe."
+const MISMO_AUTOR = "Elige otro autor para unirlos."
+const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
 /** A download link is for one tap. */
 const SEGUNDOS_DE_DESCARGA = 5 * 60
 
@@ -389,6 +395,61 @@ export function descartarMaterial(
       .select("id")
     if (error) throw new Error(`No pude descartar el material ${materialId}: ${error.message}`, { cause: error })
     if (data.length > 0) await borrarCarpeta(deps.almacen, materialId)
+    return {}
+  })
+}
+
+/**
+ * Joins `origen` into `destino` with `fusionar_autores` (ported from Ingesta's `fusionarAutores`): its materials and
+ * ideas pass to the one that stays and it disappears, so Coni's own card is refused here before the database (D7).
+ */
+export function unirAutores(
+  deps: Pick<DepsBiblioteca, "db">,
+  union: z.output<typeof UnionDeAutores>,
+): Promise<Resultado> {
+  return aResultado("unirAutores", async () => {
+    await exigirConi(deps.db)
+    // A uuid may arrive in either case; the database compares them as the same value.
+    if (union.origen.toLowerCase() === union.destino.toLowerCase()) throw new Falla(MISMO_AUTOR)
+    const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
+    if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
+    if (!origen) throw new Falla(AUTOR_INEXISTENTE)
+    if (origen.tipo === "coni") throw new Falla(CONI_NO_SE_UNE)
+    const { error: errorDeUnion } = await deps.db.rpc("fusionar_autores", {
+      p_origen: union.origen,
+      p_destino: union.destino,
+    })
+    if (errorDeUnion) {
+      if (errorDeUnion.code === NO_EXISTE) throw new Falla(AUTOR_INEXISTENTE)
+      // Backstops for the checks above, for a row that changed between the two reads.
+      if (errorDeUnion.code === NO_ES_EL_ESTADO && errorDeUnion.message === "autores_iguales")
+        throw new Falla(MISMO_AUTOR)
+      if (errorDeUnion.code === NO_ES_EL_ESTADO && errorDeUnion.message === "autor_coni_protegido") {
+        throw new Falla(CONI_NO_SE_UNE)
+      }
+      throw new Error(`No pude unir el autor ${union.origen} con ${union.destino}: ${errorDeUnion.message}`, {
+        cause: errorDeUnion,
+      })
+    }
+    return {}
+  })
+}
+
+/**
+ * Hides or shows an idea with `excluir_afirmacion` (ported from Ingesta's `excluirAfirmacion`). Hiding takes it out of
+ * its topic, and a topic left without ideas goes away; shown again it waits without topic for the next maintenance run.
+ */
+export function ocultarIdea(
+  deps: Pick<DepsBiblioteca, "db">,
+  cambio: z.output<typeof CambioDeIdea>,
+): Promise<Resultado> {
+  return aResultado("ocultarIdea", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("excluir_afirmacion", { p_id: cambio.id, p_excluida: cambio.oculta })
+    if (error) {
+      if (error.code === NO_EXISTE) throw new Falla("Esa idea ya no existe.")
+      throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
+    }
     return {}
   })
 }

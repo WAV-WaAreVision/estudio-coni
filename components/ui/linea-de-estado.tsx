@@ -18,6 +18,8 @@ interface PropiedadesDeLinea {
   accion?: ReactNode
   /** The error was already announced by another alert of the screen: this one is read, not announced again. */
   anunciada?: boolean
+  /** `neutro` only: false draws the same line without its own live region, for a wrapper that is already live. */
+  enVivo?: boolean
   className?: string
 }
 
@@ -33,6 +35,7 @@ export function LineaDeEstado({
   detalle,
   accion,
   anunciada = false,
+  enVivo = true,
   className,
 }: PropiedadesDeLinea) {
   // Each in its own span, so the label and the title stay two texts for whoever reads them apart.
@@ -90,7 +93,8 @@ export function LineaDeEstado({
       </span>
     </>
   )
-  // A date the screen states is not news: no live region at all.
-  if (tipo === "fecha") return <div className={clases}>{contenido}</div>
+  // A date the screen states is not news: no live region at all. Nor is a line inside a live region already, or it
+  // would be read twice.
+  if (tipo === "fecha" || !enVivo) return <div className={clases}>{contenido}</div>
   return <output className={clases}>{contenido}</output>
 }

@@ -17,12 +17,12 @@ describe("temasPrincipales (D8)", () => {
       idea("m", "t2", "Carga mental"),
       idea("m", "t3", "Ánimo"),
     ])
-    expect(temas.get("m")).toEqual({ nombre: "Carga mental", otros: 2 })
+    expect(temas.get("m")).toEqual({ id: "t2", nombre: "Carga mental", otros: 2 })
   })
 
   it("breaks a tie by the name first in Spanish order", () => {
     const temas = temasPrincipales([idea("m", "t1", "Sueño"), idea("m", "t2", "Ánimo")])
-    expect(temas.get("m")).toEqual({ nombre: "Ánimo", otros: 1 })
+    expect(temas.get("m")).toEqual({ id: "t2", nombre: "Ánimo", otros: 1 })
   })
 
   it("leaves out excluded ideas and ideas without a topic", () => {
@@ -33,7 +33,7 @@ describe("temasPrincipales (D8)", () => {
       idea("m", null, ""),
       idea("m", null, ""),
     ])
-    expect(temas.get("m")).toEqual({ nombre: "Sueño", otros: 0 })
+    expect(temas.get("m")).toEqual({ id: "t1", nombre: "Sueño", otros: 0 })
   })
 
   it("never makes a topic with a blank name the main topic, nor counts it among the others", () => {
@@ -45,32 +45,35 @@ describe("temasPrincipales (D8)", () => {
       idea("m", "t3", "Sueño"),
       idea("solo-vacios", "t1", " "),
     ])
-    expect(temas.get("m")).toEqual({ nombre: "Sueño", otros: 0 })
+    expect(temas.get("m")).toEqual({ id: "t3", nombre: "Sueño", otros: 0 })
     expect(temas.has("solo-vacios")).toBe(false)
   })
 
   it("has nothing for a material without ideas, and keeps materials apart", () => {
     const temas = temasPrincipales([idea("a", "t1", "Sueño"), idea("b", "t2", "Ánimo"), idea("c", "t1", "Sueño", true)])
-    expect(temas.get("a")).toEqual({ nombre: "Sueño", otros: 0 })
-    expect(temas.get("b")).toEqual({ nombre: "Ánimo", otros: 0 })
+    expect(temas.get("a")).toEqual({ id: "t1", nombre: "Sueño", otros: 0 })
+    expect(temas.get("b")).toEqual({ id: "t2", nombre: "Ánimo", otros: 0 })
     expect(temas.has("c")).toBe(false)
     expect(temas.has("d")).toBe(false)
   })
 
   it("counts more than a thousand ideas of one material", () => {
     const filas = [...Array.from({ length: 1001 }, () => idea("m", "t1", "Sueño")), idea("m", "t2", "Ánimo")]
-    expect(temasPrincipales(filas).get("m")).toEqual({ nombre: "Sueño", otros: 1 })
+    expect(temasPrincipales(filas).get("m")).toEqual({ id: "t1", nombre: "Sueño", otros: 1 })
   })
 })
 
 describe("textoDeTema", () => {
   it("shows +N and reads it out in words", () => {
-    expect(textoDeTema({ nombre: "Carga mental", otros: 2 })).toEqual({
+    expect(textoDeTema({ id: "t", nombre: "Carga mental", otros: 2 })).toEqual({
       visible: "Carga mental +2",
       leido: "Carga mental y 2 temas más",
     })
-    expect(textoDeTema({ nombre: "Sueño", otros: 1 })).toEqual({ visible: "Sueño +1", leido: "Sueño y 1 tema más" })
-    expect(textoDeTema({ nombre: "Sueño", otros: 0 })).toEqual({ visible: "Sueño", leido: "Sueño" })
+    expect(textoDeTema({ id: "t", nombre: "Sueño", otros: 1 })).toEqual({
+      visible: "Sueño +1",
+      leido: "Sueño y 1 tema más",
+    })
+    expect(textoDeTema({ id: "t", nombre: "Sueño", otros: 0 })).toEqual({ visible: "Sueño", leido: "Sueño" })
     expect(textoDeTema(null)).toEqual({ visible: "Sin tema todavía", leido: "Sin tema todavía" })
   })
 })

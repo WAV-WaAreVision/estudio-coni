@@ -1,5 +1,5 @@
 import { marcadoConMotivo } from "./estado"
-import { EVIDENCIA } from "./etiquetas"
+import { EVIDENCIA, TIPO_DE_AFIRMACION } from "./etiquetas"
 
 interface MaterialParaWav {
   id: string
@@ -29,4 +29,13 @@ export function lineasParaWav(material: MaterialParaWav, evidencia: Record<strin
   }
   lineas.push(`Material: ${material.id}`, `Autor: ${material.autor_id}`)
   return lineas
+}
+
+/** What only WAV needs about one idea, folded under it (4h, D8). The score arrives with Semana (batch 5). */
+export function lineasDeIdeaParaWav(idea: { id: string; tipo: string; evidencia: string }): string[] {
+  return [
+    `Tipo de idea: ${TIPO_DE_AFIRMACION[idea.tipo] ?? idea.tipo}`,
+    `Evidencia: ${EVIDENCIA[idea.evidencia] ?? idea.evidencia}`,
+    `Idea: ${idea.id}`,
+  ]
 }

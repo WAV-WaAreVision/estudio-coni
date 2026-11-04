@@ -4,6 +4,7 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { Panel } from "@/components/ui/panel"
 import type { PanelDelMaterial } from "@/lib/datos/biblioteca"
+import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import { esperaConfirmacion, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
 import { subidoEnFrase, ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"
@@ -23,7 +24,6 @@ interface Propiedades {
 /** The computer's side panel (spec 3): what a material gave, who it is for her, and WAV's detail folded. */
 export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
   const { material, ideas, evidencia } = panel
-  const quien = material.credencial ? `${material.autor} · ${material.credencial}` : material.autor
   return (
     <section aria-labelledby="panel-titulo" className="grid gap-6 rounded-panel bg-piedra-alta p-5">
       <div className="flex flex-wrap items-center gap-2 text-meta text-apagado">
@@ -58,7 +58,15 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
         ) : null}
       </Seccion>
       <Seccion titulo={PALABRAS.papel} id="panel-quien" espacio="ninguno" nivel={3}>
-        <p className="text-cuerpo">{quien}</p>
+        <p className="text-cuerpo">
+          <Link
+            href={hrefDeAutor(material.autor_id)}
+            className="font-semibold underline decoration-1 underline-offset-4"
+          >
+            {material.autor}
+          </Link>
+          {material.credencial ? ` · ${material.credencial}` : null}
+        </p>
         <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
       </Seccion>
       {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (

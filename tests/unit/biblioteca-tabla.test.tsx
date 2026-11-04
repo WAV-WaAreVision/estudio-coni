@@ -16,7 +16,7 @@ const fila = (id: string, titulo: string, creado_en: string): MaterialDeLista =>
   costo_estimado_usd: null,
   costo_confirmado_en: null,
   creado_en,
-  tema: { nombre: "Carga mental", otros: 0 },
+  tema: { id: "t1", nombre: "Carga mental", otros: 0 },
 })
 const UNO = "11111111-2222-4333-8444-555555555555"
 const DOS = "99999999-2222-4333-8444-555555555555"
@@ -58,5 +58,12 @@ describe("TablaDeMateriales", () => {
     const celdas = screen.getAllByRole("row")[1]?.querySelectorAll("td") ?? []
     const [tipo, , , estado] = Array.from(celdas)
     for (const celda of [tipo, estado]) expect(celda).toHaveClass("whitespace-nowrap")
+  })
+
+  it("links each main topic to its page (D9)", () => {
+    render(<TablaDeMateriales materiales={materiales} filtros={{}} seleccion={null} ahora={AHORA} />)
+    const temas = screen.getAllByRole("link", { name: "Carga mental" })
+    expect(temas).toHaveLength(2)
+    expect(temas[0]).toHaveAttribute("href", "/biblioteca/temas/t1")
   })
 })

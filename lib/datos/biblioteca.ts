@@ -1,9 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
+import { type AutorDeLista, type AutorResumido, armarResumenDeAutores } from "@/lib/dominio/biblioteca/autores"
 import { type FichaLeida, leerFicha } from "@/lib/dominio/biblioteca/ficha"
 import type { FiltrosDeMateriales } from "@/lib/dominio/biblioteca/filtros"
+import {
+  agruparPorAutor,
+  agruparPorTema,
+  type GrupoPorAutor,
+  type GrupoPorTema,
+  type IdeaLeida,
+} from "@/lib/dominio/biblioteca/ideas"
 import { armarMapa, type FilaDeAfirmacion, type MapaDelMaterial } from "@/lib/dominio/biblioteca/mapa"
-import { type TemaPrincipal, temasPrincipales } from "@/lib/dominio/biblioteca/temas"
+import {
+  ordenarTemas,
+  seguirFusiones,
+  type TemaPrincipal,
+  type TemaResumido,
+  temasPrincipales,
+} from "@/lib/dominio/biblioteca/temas"
 import type { Database } from "@/lib/supabase/database.types"
 import { leerTodas } from "./paginas"
 
@@ -194,4 +207,181 @@ export async function listarAutores(db: Db): Promise<AutorDeLista[]> {
     return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
   })
   return autores.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+}
+
+const COLUMNAS_DE_AUTOR = "id, nombre, credencial, tipo, alias"
+
+/** Every author with what it gave (ported from Ingesta's `resumirAutores`): most visible ideas first (D3). */
+export async function resumirAutores(db: Db): Promise<AutorResumido[]> {
+  const [autores, materiales, ideas] = await Promise.all([
+    listarAutores(db),
+    leerTodas("los materiales de los autores", (despuesDe, limite) => {
+      const consulta = db.from("materiales").select("id, autor_id")
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+    leerTodas("las ideas de los autores", (despuesDe, limite) => {
+      const consulta = db.from("afirmaciones").select("id, autor_id, tema_id, temas ( nombre )").eq("excluida", false)
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+  ])
+  return armarResumenDeAutores(
+    autores,
+    materiales.map((material) => ({ autorId: material.autor_id })),
+    ideas.map((idea) => ({ autorId: idea.autor_id, temaId: idea.tema_id, tema: idea.temas?.nombre ?? "" })),
+  )
+}
+
+export interface AutorLeido {
+  autor: AutorDeLista
+  materiales: number
+  /** Visible ideas. */
+  ideas: number
+  grupos: GrupoPorTema[]
+  ocultas: IdeaLeida[]
+}
+
+/** One author with its ideas by topic and its hidden ones; null when it does not exist or is not hers to see. */
+export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> {
+  const { data: autor, error } = await db.from("autores").select(COLUMNAS_DE_AUTOR).eq("id", id).maybeSingle()
+  if (error) throw new Error(`No pude leer el autor ${id}: ${error.message}`, { cause: error })
+  if (!autor) return null
+  const [conteo, filas] = await Promise.all([
+    db.from("materiales").select("id", { count: "exact", head: true }).eq("autor_id", id),
+    leerTodas(`las ideas del autor ${id}`, (despuesDe, limite) => {
+      const consulta = db
+        .from("afirmaciones")
+        .select("id, texto, tipo, evidencia, excluida, tema_id, creada_en, temas ( nombre )")
+        .eq("autor_id", id)
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+  ])
+  if (conteo.error) {
+    throw new Error(`No pude contar los materiales del autor ${id}: ${conteo.error.message}`, { cause: conteo.error })
+  }
+  const { grupos, ocultas } = agruparPorTema(
+    filas.map((fila) => ({
+      id: fila.id,
+      texto: fila.texto,
+      tipo: fila.tipo,
+      evidencia: fila.evidencia,
+      excluida: fila.excluida,
+      temaId: fila.tema_id,
+      tema: fila.temas?.nombre ?? "",
+      creadaEn: fila.creada_en,
+    })),
+  )
+  return {
+    autor,
+    materiales: conteo.count ?? 0,
+    ideas: grupos.reduce((total, grupo) => total + grupo.ideas.length, 0),
+    grupos,
+    ocultas,
+  }
+}
+
+/**
+ * The view types every column nullable, but a topic row always has its id and name. One without them is impossible, so
+ * it throws: dropping it would shorten the page and make `leerTodas` stop before the last one.
+ */
+export function conIdYNombre<T extends { id: string | null; nombre: string | null }>(
+  fila: T,
+): T & { id: string; nombre: string } {
+  const { id, nombre } = fila
+  if (id === null || nombre === null) {
+    throw new Error(`El tema ${id ?? "(sin id)"} de temas_resumen llegó sin id o sin nombre.`)
+  }
+  return { ...fila, id, nombre }
+}
+
+/** The topics of Temas (ported from Ingesta's `listarTemas`), a pillar narrowing them; ordered by `ordenarTemas`. */
+export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
+  const filas = await leerTodas("los temas", (despuesDe, limite) => {
+    const todas = db
+      .from("temas_resumen")
+      .select("id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni")
+    const delPilar = filtros.pilar ? todas.eq("categoria_id", filtros.pilar) : todas
+    return (despuesDe === null ? delPilar : delPilar.gt("id", despuesDe))
+      .order("id")
+      .limit(limite)
+      .then(({ data, error }) => ({ data: data?.map(conIdYNombre) ?? null, error }))
+  })
+  return ordenarTemas(
+    filas.map((fila) => ({
+      id: fila.id,
+      nombre: fila.nombre,
+      descripcion: fila.descripcion,
+      pilarId: fila.categoria_id,
+      ideas: fila.afirmaciones ?? 0,
+      autores: fila.autores ?? 0,
+      cubiertoPorConi: fila.cubierto_por_coni === true,
+    })),
+  )
+}
+
+export interface Pilar {
+  id: string
+  nombre: string
+}
+
+/** The pillars a topic can be filtered by: active pillar rows only, in their order (`leerPilares` has no id). */
+export async function listarPilaresDeTemas(db: Db): Promise<Pilar[]> {
+  const { data, error } = await db
+    .from("categorias")
+    .select("id, nombre")
+    .eq("es_pilar", true)
+    .eq("activa", true)
+    .order("orden")
+  if (error) throw new Error(`No pude leer los pilares: ${error.message}`, { cause: error })
+  return data
+}
+
+export interface TemaLeido {
+  tema: { id: string; nombre: string; descripcion: string | null }
+  /** Visible ideas. */
+  ideas: number
+  autores: GrupoPorAutor[]
+}
+
+/** One live topic with its visible ideas by author; null when it is missing or was merged into another. */
+export async function leerTema(db: Db, id: string): Promise<TemaLeido | null> {
+  const { data: tema, error } = await db
+    .from("temas")
+    .select("id, nombre, descripcion, fusionado_en")
+    .eq("id", id)
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer el tema ${id}: ${error.message}`, { cause: error })
+  if (!tema || tema.fusionado_en !== null) return null
+  const filas = await leerTodas(`las ideas del tema ${id}`, (despuesDe, limite) => {
+    const consulta = db
+      .from("afirmaciones")
+      .select("id, texto, tipo, evidencia, creada_en, autor_id, autores ( nombre, credencial )")
+      .eq("tema_id", id)
+      .eq("excluida", false)
+    return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+  })
+  return {
+    tema: { id: tema.id, nombre: tema.nombre, descripcion: tema.descripcion },
+    ideas: filas.length,
+    autores: agruparPorAutor(
+      filas.map((fila) => ({
+        id: fila.id,
+        texto: fila.texto,
+        tipo: fila.tipo,
+        evidencia: fila.evidencia,
+        creadaEn: fila.creada_en,
+        autorId: fila.autor_id,
+        autor: fila.autores?.nombre ?? "",
+        credencial: fila.autores?.credencial ?? null,
+      })),
+    ),
+  }
+}
+
+/** The live topic an address leads to (D2): itself, the one a merge kept, or null. */
+export function destinoDeTema(db: Db, id: string): Promise<string | null> {
+  return seguirFusiones(id, async (actual) => {
+    const { data, error } = await db.from("temas").select("id, fusionado_en").eq("id", actual).maybeSingle()
+    if (error) throw new Error(`No pude leer el tema ${actual}: ${error.message}`, { cause: error })
+    return data ? { id: data.id, fusionadoEn: data.fusionado_en } : null
+  })
 }

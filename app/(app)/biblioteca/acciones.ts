@@ -2,9 +2,11 @@
 
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { z } from "zod"
 import {
   AutorNuevo,
+  CambioDeIdea,
   confirmarCosto,
   confirmarMaterial,
   crearAutor,
@@ -15,12 +17,17 @@ import {
   EdicionDeMaterial,
   editarFicha,
   editarMaterial,
+  ocultarIdea,
   reintentarMaterial,
   reprocesarMaterial,
   SobreMaterial,
+  UnionDeAutores,
+  unirAutores,
 } from "@/lib/acciones/biblioteca"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
+import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
+import { destinoTrasOcultar } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { almacenReal } from "@/lib/proveedores/almacen"
 
 function depsDeBiblioteca(db: DepsBiblioteca["db"]): DepsBiblioteca {
@@ -116,4 +123,30 @@ export async function descartarMaterialAccion(materialId: string) {
       descartarMaterial({ db, almacen: { borrarCarpeta: (id) => almacenReal().borrarCarpeta(id) } }, d.materialId),
     ),
   )
+}
+
+/**
+ * Joining moves materials and ideas: the three sections' counts change. As Ocultar, the author that stayed comes in this
+ * same answer: a client navigation after it could lose the race with the revalidated tree and draw the deleted author.
+ */
+export async function unirAutoresAccion(union: z.input<typeof UnionDeAutores>) {
+  const resultado = await refrescar(
+    await conSesionDeConi("unirAutores", UnionDeAutores, union, (db, d) => unirAutores({ db }, d)),
+  )
+  // Success means the schema passed: the destination is a uuid, so the address stays inside the Biblioteca.
+  if (resultado.ok) redirect(hrefDeAutor(UnionDeAutores.parse(union).destino), "replace")
+  return resultado
+}
+
+/**
+ * Hiding changes a topic, its author and the materials' main topics. The new screen comes in this same answer: a client
+ * navigation after it could lose the race with the revalidated tree (`useRedibujar`) and, after a topic's last idea,
+ * draw the deleted topic. `redirect` throws, so it runs only after success and outside any catch.
+ */
+export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>, despues: string) {
+  const resultado = await refrescar(
+    await conSesionDeConi("ocultarIdea", CambioDeIdea, cambio, (db, d) => ocultarIdea({ db }, d)),
+  )
+  if (resultado.ok) redirect(destinoTrasOcultar(despues), "replace")
+  return resultado
 }
