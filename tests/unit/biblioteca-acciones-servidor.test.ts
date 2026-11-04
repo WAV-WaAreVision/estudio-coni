@@ -1,13 +1,18 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { conSesionDeConi, revalidatePath } = vi.hoisted(() => ({
+const { conSesionDeConi, revalidatePath, redirect } = vi.hoisted(() => ({
   conSesionDeConi: vi.fn(
     async (..._: unknown[]): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true }),
   ),
   revalidatePath: vi.fn(),
+  // Like Next's, it throws: nothing after it runs.
+  redirect: vi.fn((): never => {
+    throw new Error("NEXT_REDIRECT")
+  }),
 }))
 vi.mock("next/cache", () => ({ revalidatePath }))
+vi.mock("next/navigation", () => ({ redirect }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
 vi.mock("@/lib/acciones/biblioteca", async (original) => ({
   ...(await original<typeof import("@/lib/acciones/biblioteca")>()),
@@ -119,13 +124,6 @@ describe("the server actions of Autores and Temas", () => {
       { origen: ID, destino: AUTOR },
       unirAutores,
     ],
-    [
-      "ocultarIdea",
-      () => ocultarIdeaAccion({ id: ID, oculta: true }),
-      CambioDeIdea,
-      { id: ID, oculta: true },
-      ocultarIdea,
-    ],
   ] as const)(
     "%s checks Coni with its schema, runs its own action and refreshes the three sections, so their counts agree",
     async (nombre, accion, esquema, entrada, propia) => {
@@ -138,6 +136,34 @@ describe("the server actions of Autores and Temas", () => {
       expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
     },
   )
+
+  it("ocultarIdea checks Coni with its schema, runs its own action, refreshes the three sections and then goes to the checked address in the same answer", async () => {
+    const despues = `/biblioteca/temas/${AUTOR}?oculta=${ID}`
+    await expect(ocultarIdeaAccion({ id: ID, oculta: true }, despues)).rejects.toThrow("NEXT_REDIRECT")
+    const [recibido, conEsquema, conEntrada, alAccionar] = conSesionDeConi.mock.calls[0] ?? []
+    expect([recibido, conEsquema, conEntrada]).toEqual(["ocultarIdea", CambioDeIdea, { id: ID, oculta: true }])
+    const db = {}
+    await (alAccionar as (db: unknown, d: unknown) => Promise<unknown>)(db, { id: ID, oculta: true })
+    expect(ocultarIdea).toHaveBeenCalledWith({ db }, { id: ID, oculta: true })
+    expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+    expect(redirect).toHaveBeenCalledWith(despues, "replace")
+    expect(revalidatePath.mock.invocationCallOrder[0]).toBeLessThan(redirect.mock.invocationCallOrder[0] ?? 0)
+  })
+
+  it("ocultarIdea never goes outside the Biblioteca: an address from elsewhere lands on the Temas list", async () => {
+    await expect(ocultarIdeaAccion({ id: ID, oculta: false }, "https://evil.example")).rejects.toThrow("NEXT_REDIRECT")
+    expect(redirect).toHaveBeenCalledWith("/biblioteca/temas", "replace")
+  })
+
+  it("ocultarIdea refused answers with the error, refreshes nothing and goes nowhere", async () => {
+    conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esa idea ya no existe." })
+    expect(await ocultarIdeaAccion({ id: ID, oculta: true }, `/biblioteca/temas?oculta=${ID}`)).toEqual({
+      ok: false,
+      error: "Esa idea ya no existe.",
+    })
+    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
 
   it("refreshes nothing when joining is refused", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esta app es solo para Coni." })

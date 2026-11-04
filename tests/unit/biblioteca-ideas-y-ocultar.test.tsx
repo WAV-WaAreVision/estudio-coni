@@ -54,22 +54,33 @@ function conAviso() {
 }
 
 describe("BotonOcultar", () => {
-  it("Ocultar hides the idea, moves focus to the page's note and goes to the address after hiding (D6)", async () => {
+  it("Ocultar moves focus to the page's note first, then hides the idea and hands the server where to go (D6)", async () => {
     const aviso = conAviso()
+    let enfocadoAlLlamar: Element | null = null
+    ocultarIdeaAccion.mockImplementationOnce(async () => {
+      enfocadoAlLlamar = document.activeElement
+      return { ok: true }
+    })
     render(<BotonOcultar ideaId={ID} oculta={false} despues={`/biblioteca/temas/t?oculta=${ID}`} />)
     fireEvent.click(screen.getByRole("button", { name: "Ocultar" }))
-    await waitFor(() => expect(ocultarIdeaAccion).toHaveBeenCalledWith({ id: ID, oculta: true }))
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/biblioteca/temas/t?oculta=${ID}`, { scroll: false }))
+    await waitFor(() =>
+      expect(ocultarIdeaAccion).toHaveBeenCalledWith({ id: ID, oculta: true }, `/biblioteca/temas/t?oculta=${ID}`),
+    )
+    expect(enfocadoAlLlamar).toBe(aviso)
+    // The server answers with the new screen itself: the client does not navigate on its own.
+    expect(replace).not.toHaveBeenCalled()
     expect(aviso).toHaveFocus()
     aviso.remove()
   })
 
-  it("Mostrar shows it again, moves focus to the page's note and goes to the address after showing", async () => {
+  it("Mostrar moves focus to the page's note, then shows it again and hands the server the author's address", async () => {
     const aviso = conAviso()
     render(<BotonOcultar ideaId={ID} oculta despues={`/biblioteca/autores/a?mostrada=${ID}`} />)
     fireEvent.click(screen.getByRole("button", { name: "Mostrar" }))
-    await waitFor(() => expect(ocultarIdeaAccion).toHaveBeenCalledWith({ id: ID, oculta: false }))
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/biblioteca/autores/a?mostrada=${ID}`, { scroll: false }))
+    await waitFor(() =>
+      expect(ocultarIdeaAccion).toHaveBeenCalledWith({ id: ID, oculta: false }, `/biblioteca/autores/a?mostrada=${ID}`),
+    )
+    expect(replace).not.toHaveBeenCalled()
     expect(aviso).toHaveFocus()
     aviso.remove()
   })
@@ -79,12 +90,16 @@ describe("BotonOcultar", () => {
     expect(screen.getByRole("button", { name: "Ocultar" })).toHaveAttribute("aria-describedby", idDeIdea(ID))
   })
 
-  it("says a refusal and goes nowhere", async () => {
+  it("says a refusal, gives the focus back to the button and goes nowhere", async () => {
+    const aviso = conAviso()
     ocultarIdeaAccion.mockResolvedValueOnce({ ok: false, error: "Esa idea ya no existe." })
     render(<BotonOcultar ideaId={ID} oculta={false} despues="/biblioteca/temas" />)
-    fireEvent.click(screen.getByRole("button", { name: "Ocultar" }))
+    const boton = screen.getByRole("button", { name: "Ocultar" })
+    fireEvent.click(boton)
     expect(await screen.findByRole("alert")).toHaveTextContent("Esa idea ya no existe.")
+    expect(boton).toHaveFocus()
     expect(replace).not.toHaveBeenCalled()
+    aviso.remove()
   })
 })
 

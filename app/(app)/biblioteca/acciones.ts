@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { z } from "zod"
 import {
   AutorNuevo,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/acciones/biblioteca"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
+import { destinoTrasOcultar } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { almacenReal } from "@/lib/proveedores/almacen"
 
 function depsDeBiblioteca(db: DepsBiblioteca["db"]): DepsBiblioteca {
@@ -127,7 +129,15 @@ export async function unirAutoresAccion(union: z.input<typeof UnionDeAutores>) {
   return refrescar(await conSesionDeConi("unirAutores", UnionDeAutores, union, (db, d) => unirAutores({ db }, d)))
 }
 
-/** Hiding changes a topic, its author and the materials' main topics. */
-export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>) {
-  return refrescar(await conSesionDeConi("ocultarIdea", CambioDeIdea, cambio, (db, d) => ocultarIdea({ db }, d)))
+/**
+ * Hiding changes a topic, its author and the materials' main topics. The new screen comes in this same answer: a client
+ * navigation after it could lose the race with the revalidated tree (`useRedibujar`) and, after a topic's last idea,
+ * draw the deleted topic. `redirect` throws, so it runs only after success and outside any catch.
+ */
+export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>, despues: string) {
+  const resultado = await refrescar(
+    await conSesionDeConi("ocultarIdea", CambioDeIdea, cambio, (db, d) => ocultarIdea({ db }, d)),
+  )
+  if (resultado.ok) redirect(destinoTrasOcultar(despues), "replace")
+  return resultado
 }

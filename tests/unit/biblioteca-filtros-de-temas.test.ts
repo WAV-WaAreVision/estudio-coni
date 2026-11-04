@@ -5,6 +5,7 @@ import {
   AVISO_TRAS_OCULTAR,
   AVISO_TRAS_OCULTAR_LA_ULTIMA,
   contarCoberturas,
+  destinoTrasOcultar,
   filtrarPorCobertura,
   hayFiltrosDeTemas,
   hrefDeTema,
@@ -103,6 +104,35 @@ describe("the addresses of Temas", () => {
     expect(AVISO_TRAS_OCULTAR_LA_ULTIMA).toBe(
       "La oculté. Era la última idea de ese tema, así que el tema salió de la lista. La puedes volver a mostrar desde su autor.",
     )
+  })
+})
+
+describe("destinoTrasOcultar", () => {
+  it("keeps an address of the Biblioteca, with its note", () => {
+    expect(destinoTrasOcultar(`/biblioteca/temas/${TEMA}?oculta=${IDEA}`)).toBe(
+      `/biblioteca/temas/${TEMA}?oculta=${IDEA}`,
+    )
+    expect(destinoTrasOcultar(`/biblioteca/temas?oculta=${IDEA}`)).toBe(`/biblioteca/temas?oculta=${IDEA}`)
+    expect(destinoTrasOcultar(`/biblioteca/autores/${TEMA}?mostrada=${IDEA}`)).toBe(
+      `/biblioteca/autores/${TEMA}?mostrada=${IDEA}`,
+    )
+  })
+
+  it.each([
+    ["an external address", "https://evil.example/biblioteca/temas"],
+    ["a protocol-relative address", "//evil.example/biblioteca/temas"],
+    ["a doubled slash inside", "/biblioteca//evil.example"],
+    ["a backslash", "/biblioteca/\\evil.example"],
+    ["a scheme", "javascript:alert(1)"],
+    ["a climb out", "/biblioteca/../ingreso"],
+    ["an encoded climb out", "/biblioteca/%2e%2e/ingreso"],
+    ["another section", "/agenda"],
+    ["the section's prefix without its slash", "/bibliotecas/temas"],
+    ["a relative path", "biblioteca/temas"],
+    ["an empty address", ""],
+    ["something that is not text", 42],
+  ])("falls back to the Temas list for %s, so it never becomes an open redirect", (_, destino) => {
+    expect(destinoTrasOcultar(destino)).toBe("/biblioteca/temas")
   })
 })
 

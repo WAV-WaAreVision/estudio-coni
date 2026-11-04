@@ -84,6 +84,17 @@ export function hrefTrasOcultar(temaId: string, ideaId: string, ideasAntesDeOcul
   return ideasAntesDeOcultar > 1 ? `${hrefDeTema(temaId)}?oculta=${ideaId}` : `${RUTA_DE_TEMAS}?oculta=${ideaId}`
 }
 
+// A path inside the Biblioteca and a plain query: no scheme, host, dot, backslash, percent or doubled slash can pass.
+const DESTINO_DE_LA_BIBLIOTECA = /^\/biblioteca(?:\/[A-Za-z0-9_-]+)+(?:\?[A-Za-z0-9_=&-]*)?$/
+
+/**
+ * Where the server goes after Ocultar or Mostrar. The address comes from the client, so only one of the Biblioteca's
+ * own is kept; anything else lands on the Temas list, never on another site.
+ */
+export function destinoTrasOcultar(destino: unknown): string {
+  return typeof destino === "string" && DESTINO_DE_LA_BIBLIOTECA.test(destino) ? destino : RUTA_DE_TEMAS
+}
+
 /** The idea just hidden (`?oculta=<id>`), so the page says its note; anything else is no note. */
 export function leerIdeaOculta(params: Params): string | null {
   const leida = z.uuid().safeParse(primero(params.oculta)?.trim())

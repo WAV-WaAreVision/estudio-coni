@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
@@ -11,17 +10,16 @@ interface Propiedades {
   ideaId: string
   /** Whether it is hidden now: the button does the opposite. */
   oculta: boolean
-  /** Where to go after it worked (`hrefTrasOcultar`, `hrefTrasMostrar`): an address whose page says the note. */
+  /** Where the server goes after it worked (`hrefTrasOcultar`, `hrefTrasMostrar`): an address whose page says the note. */
   despues: string
 }
 
 /**
- * Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. The idea
- * moves away on the fresh screen and takes the button with it, so the focus goes first to the page's note
- * (`AvisoDeIdeas`), which stays.
+ * Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. The action
+ * answers with the new screen itself (`redirect`), where the idea has moved away and taken the button with it, so the
+ * focus goes first to the page's note (`AvisoDeIdeas`), which stays; a refusal gives it back to the button.
  */
 export function BotonOcultar({ ideaId, oculta, despues }: Propiedades) {
-  const router = useRouter()
   const { pendiente, error, ejecutar } = useAccion()
   return (
     <div className="grid justify-items-start gap-1">
@@ -29,15 +27,15 @@ export function BotonOcultar({ ideaId, oculta, despues }: Propiedades) {
         variante="callado"
         cargando={pendiente}
         aria-describedby={idDeIdea(ideaId)}
-        onClick={() =>
+        onClick={(evento) => {
+          const boton = evento.currentTarget
+          document.getElementById(ID_DEL_AVISO_DE_IDEAS)?.focus()
           ejecutar(
-            () => ocultarIdeaAccion({ id: ideaId, oculta: !oculta }),
-            () => {
-              document.getElementById(ID_DEL_AVISO_DE_IDEAS)?.focus()
-              router.replace(despues, { scroll: false })
-            },
+            () => ocultarIdeaAccion({ id: ideaId, oculta: !oculta }, despues),
+            undefined,
+            () => boton.focus(),
           )
-        }
+        }}
       >
         {oculta ? "Mostrar" : "Ocultar"}
       </Boton>
