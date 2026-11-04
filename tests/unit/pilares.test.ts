@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
   calcularPesosDeRed,
   eleccionDe,
+  eleccionDisponible,
   filasDeEleccion,
   lineaDePilares,
+  mismaEleccion,
   nombreDePilar,
+  pilaresDeEleccion,
   pilaresDeRedes,
   pilaresDeTema,
   pilaresParaElegir,
@@ -197,5 +200,56 @@ describe("pilares de un tema", () => {
       { pilar: "mujeres-lideres", fuerza: "media" },
       { pilar: "capa-tdah", fuerza: null },
     ])
+  })
+})
+
+describe("una elección de pilares", () => {
+  const OPCIONES = pilaresDeRedes(PILARES_DE_PRUEBA)
+  const eleccion = (
+    linkedin: string,
+    secundariosLinkedin: string[],
+    instagram = "",
+    capas: string[] = [],
+  ): ReturnType<typeof eleccionDe> => ({
+    principal: { linkedin, instagram },
+    secundarios: { linkedin: secundariosLinkedin, instagram: [] },
+    capas,
+  })
+
+  it("is the same choice whatever the order she ticked its «También toca» in", () => {
+    const a = eleccion("bienestar-e-impacto", ["diagnostico-doble", "mujeres-lideres"])
+    const b = eleccion("bienestar-e-impacto", ["mujeres-lideres", "diagnostico-doble"])
+    expect(mismaEleccion(a, b)).toBe(true)
+    expect(mismaEleccion(a, eleccion("bienestar-e-impacto", ["diagnostico-doble"]))).toBe(false)
+    expect(mismaEleccion(a, eleccion("psicologia-en-la-mesa", ["diagnostico-doble", "mujeres-lideres"]))).toBe(false)
+  })
+
+  it("ignores the «También toca» of a network without a pillar, which are never saved", () => {
+    expect(mismaEleccion(eleccion("", ["diagnostico-doble"]), eleccion("", []))).toBe(true)
+  })
+
+  it("keeps only the pillars and layers the form can show", () => {
+    const sinMujeres = OPCIONES.filter((opcion) => opcion.slug !== "mujeres-lideres" && opcion.slug !== "capa-tdah")
+    expect(
+      eleccionDisponible(
+        eleccion("mujeres-lideres", ["diagnostico-doble"], "mi-nueva-partida", ["capa-tdah"]),
+        sinMujeres,
+      ),
+    ).toEqual(eleccion("", ["diagnostico-doble"], "mi-nueva-partida", []))
+    expect(eleccionDisponible(eleccion("bienestar-e-impacto", ["mujeres-lideres"]), sinMujeres)).toEqual(
+      eleccion("bienestar-e-impacto", []),
+    )
+  })
+
+  it("draws a saved choice as a topic's pillars, «También toca» in catalog order, with the short names", () => {
+    const pilares = pilaresDeEleccion(
+      eleccion("psicologia-en-la-mesa", ["mujeres-lideres", "diagnostico-doble"], "mi-nueva-partida", ["capa-tdah"]),
+      OPCIONES,
+    )
+    expect(lineaDePilares("linkedin", pilares.linkedin)).toBe(
+      "LinkedIn: Psicología en la mesa · También toca: Diagnóstico doble, Mujeres líderes",
+    )
+    expect(lineaDePilares("instagram", pilares.instagram)).toBe("Instagram: Mi nueva partida · Capa TDAH")
+    expect(pilaresDeEleccion(eleccion("", ["diagnostico-doble"]), OPCIONES)).toEqual(sinPilares())
   })
 })

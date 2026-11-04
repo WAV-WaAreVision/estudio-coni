@@ -6,21 +6,28 @@ import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { FilaConInterruptor } from "@/components/ui/filas"
 import { LineaDeError } from "@/components/ui/linea-de-error"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
 import {
   type EleccionDePilares,
   eleccionDe,
+  eleccionDisponible,
   filasDeEleccion,
   lineaDePilares,
+  mismaEleccion,
   NOMBRE_DE_RED,
   type PilarDeRed,
   type PilaresDeTema,
+  pilaresDeEleccion,
   REDES,
   type Red,
 } from "@/lib/dominio/pilares"
 import { cambiarPilaresAccion } from "../../acciones"
 import { Campo, CLASES_DE_CAMPO } from "../../campo"
+
+const GUARDADOS = "Listo, guardé los pilares."
+const SIN_TAMBIEN_TOCA = "Sin pilar, esta red no lleva «También toca»."
 
 interface Propiedades {
   temaId: string
@@ -36,6 +43,12 @@ interface Propiedades {
 export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
   const [abierto, setAbierto] = useState(false)
   const [eleccion, setEleccion] = useState<EleccionDePilares>(() => eleccionDe(pilares))
+  // What the form started from: saving it unchanged writes nothing (her rows keep their origin and lot).
+  const [inicial, setInicial] = useState<EleccionDePilares>(() => eleccionDe(pilares))
+  // Her last save, until the page's own pillars bring it: before that the props are the old ones, and reopening from
+  // them would save the old pillars back.
+  const [guardada, setGuardada] = useState<EleccionDePilares | null>(null)
+  const [guardo, setGuardo] = useState(false)
   // Opening and closing unmount the focused button: the focus goes to the first field, or back to the button.
   const [enfocar, setEnfocar] = useState<"campo" | "abrir" | null>(null)
   const abrir = useRef<HTMLButtonElement>(null)
@@ -43,6 +56,14 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
   const redibujar = useRedibujar()
   const base = useId()
+
+  const delServidor = eleccionDe(pilares)
+  const porLlegar = guardada !== null && !mismaEleccion(guardada, delServidor) ? guardada : null
+  const vigentes = porLlegar ? pilaresDeEleccion(porLlegar, opciones) : pilares
+
+  useEffect(() => {
+    if (guardada !== null && mismaEleccion(guardada, eleccionDe(pilares))) setGuardada(null)
+  }, [guardada, pilares])
 
   useEffect(() => {
     if (enfocar === null) return
@@ -76,9 +97,12 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
     }))
   }
 
-  // The form always starts from the pillars the page has now: after a save they are the saved ones.
+  // The form starts from what the lines say, without a pillar retired since (it has no option to show).
   function abrirFormulario() {
-    setEleccion(eleccionDe(pilares))
+    const desde = eleccionDisponible(porLlegar ?? delServidor, opciones)
+    setEleccion(desde)
+    setInicial(desde)
+    setGuardo(false)
     limpiarError()
     setAbierto(true)
     setEnfocar("campo")
@@ -91,9 +115,16 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
   }
 
   function guardar() {
+    if (mismaEleccion(eleccion, inicial)) {
+      cerrar()
+      return
+    }
+    const guardando = eleccion
     ejecutar(
-      () => cambiarPilaresAccion({ temaId, filas: filasDeEleccion(eleccion) }),
+      () => cambiarPilaresAccion({ temaId, filas: filasDeEleccion(guardando) }),
       () => {
+        setGuardada(guardando)
+        setGuardo(true)
         setAbierto(false)
         setEnfocar("abrir")
         // The action's revalidated tree can lose the race with earlier prefetches: the lines redraw with fresh data.
@@ -107,10 +138,14 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
       <ul className="grid gap-1">
         {REDES.map((red) => (
           <li key={red} className="text-cuerpo">
-            {lineaDePilares(red, pilares[red])}
+            {lineaDePilares(red, vigentes[red])}
           </li>
         ))}
       </ul>
+      {/* The section's one live region: always mounted so the note is announced; empty, it is out of the layout. */}
+      <div aria-live="polite" aria-atomic="true" className="empty:sr-only">
+        {guardo ? <LineaDeEstado tipo="neutro" titulo={GUARDADOS} enVivo={false} /> : null}
+      </div>
       {abierto ? (
         <section aria-label="Cambiar pilares" className="grid gap-5 rounded-panel bg-piedra p-4 shadow-relieve">
           {REDES.map((red, posicion) => {
@@ -120,11 +155,17 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
             const nombreDeRed = NOMBRE_DE_RED[red]
             const idDelCampo = `${base}-${red}`
             return (
-              <fieldset key={red} className="grid gap-3">
+              // Disabled while it saves: what is sent is what she sees.
+              <fieldset key={red} disabled={pendiente} className="grid gap-3">
                 <legend className="mb-1 text-meta text-apagado">{nombreDeRed}</legend>
-                <Campo id={idDelCampo} etiqueta={`Pilar en ${nombreDeRed}`}>
+                <Campo
+                  id={idDelCampo}
+                  etiqueta={`Pilar en ${nombreDeRed}`}
+                  ayuda={elegido === "" ? SIN_TAMBIEN_TOCA : undefined}
+                >
                   <select
                     id={idDelCampo}
+                    aria-describedby={elegido === "" ? `${idDelCampo}-ayuda` : undefined}
                     ref={posicion === 0 ? primerCampo : undefined}
                     value={elegido}
                     onChange={(evento) => elegirPilar(red, evento.target.value)}

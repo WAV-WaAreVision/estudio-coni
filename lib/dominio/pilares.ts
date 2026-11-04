@@ -268,3 +268,46 @@ export function filasDeEleccion(eleccion: EleccionDePilares): FilaDePilarElegida
   })
   return [...pilares, ...eleccion.capas.map((pilar): FilaDePilarElegida => ({ pilar, fuerza: null }))]
 }
+
+/** Two choices save the same rows: the order she ticked the «También toca» in does not count. */
+export function mismaEleccion(a: EleccionDePilares, b: EleccionDePilares): boolean {
+  const clave = (eleccion: EleccionDePilares) =>
+    filasDeEleccion(eleccion)
+      .map((fila) => `${fila.pilar}:${fila.fuerza ?? ""}`)
+      .toSorted()
+      .join("|")
+  return clave(a) === clave(b)
+}
+
+/**
+ * The part of a choice the form can show: a pillar or layer retired since it was saved has no option, and saving it
+ * back would be refused (`pilar_desconocido`), so it leaves the choice.
+ */
+export function eleccionDisponible(eleccion: EleccionDePilares, opciones: readonly PilarDeRed[]): EleccionDePilares {
+  const hay = (red: Red | null, esCapa: boolean) => (slug: string) =>
+    opciones.some((opcion) => opcion.slug === slug && opcion.esCapa === esCapa && (red === null || opcion.red === red))
+  const principal = (red: Red) => (hay(red, false)(eleccion.principal[red]) ? eleccion.principal[red] : "")
+  return {
+    principal: { linkedin: principal("linkedin"), instagram: principal("instagram") },
+    secundarios: {
+      linkedin: eleccion.secundarios.linkedin.filter(hay("linkedin", false)),
+      instagram: eleccion.secundarios.instagram.filter(hay("instagram", false)),
+    },
+    capas: eleccion.capas.filter(hay(null, true)),
+  }
+}
+
+/** A choice drawn as a topic's pillars, as the page reads them back once saved (catalog order, short names). */
+export function pilaresDeEleccion(eleccion: EleccionDePilares, opciones: readonly PilarDeRed[]): PilaresDeTema {
+  const resultado = sinPilares()
+  const visible = ({ slug, nombreCorto }: PilarDeRed): PilarVisible => ({ slug, nombre: nombreCorto, nombreCorto })
+  const guardadas = new Set(filasDeEleccion(eleccion).map((fila) => fila.pilar))
+  for (const opcion of opciones) {
+    if (!guardadas.has(opcion.slug)) continue
+    const deRed = resultado[opcion.red]
+    if (opcion.esCapa) deRed.capa = visible(opcion)
+    else if (eleccion.principal[opcion.red] === opcion.slug) deRed.principal = visible(opcion)
+    else deRed.secundarios.push(visible(opcion))
+  }
+  return resultado
+}
