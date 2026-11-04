@@ -740,6 +740,52 @@ describe("fusionar_par_de_temas", () => {
     ])
   })
 
+  it("keeps the winner's main pillar when the loser has the same pillar as a secondary", async () => {
+    const g = await tema("Gana mismo pilar", vec({ 6: 1 }))
+    const p = await tema("Pierde mismo pilar", vec({ 7: 1 }))
+    await pilarDeTema(g, "bienestar-e-impacto", "alta")
+    await pilarDeTema(p, "bienestar-e-impacto", "media")
+    const filas = await como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const { rows } = await c.query<{ tema_id: string; fuerza: string | null }>(
+        "select tema_id, fuerza from public.tema_pilares where tema_id = any($1::uuid[])",
+        [[g, p]],
+      )
+      return rows
+    })
+    expect(filas).toEqual([{ tema_id: g, fuerza: "alta" }])
+  })
+
+  it("carries a lot's row to the winner, where undoing the lot still removes it", async () => {
+    const g = await tema("Gana lote", vec({ 6: 1 }))
+    const p = await tema("Pierde lote", vec({ 7: 1 }))
+    await pilarDeTema(g, "diagnostico-doble", "alta")
+    await como(comoPostgres, async (c) => {
+      await c.query("insert into public.lotes_de_pilares (lote) values ('lote-fusion')")
+      await c.query(
+        `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen, lote)
+         select $1, c.id, c.red, c.es_capa, 'alta', 'reclasificacion', 'lote-fusion'
+         from public.categorias c where c.slug = 'mi-nueva-partida'`,
+        [p],
+      )
+      await asumir(c, comoServicio)
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const llevada = await c.query<{ lote: string | null }>(
+        `select t.lote from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = $1 and c.slug = 'mi-nueva-partida'`,
+        [g],
+      )
+      expect(llevada.rows).toEqual([{ lote: "lote-fusion" }])
+      await c.query("select public.deshacer_lote_de_pilares('lote-fusion')")
+      const { rows } = await c.query<{ slug: string }>(
+        `select c.slug from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = any($1::uuid[]) order by c.slug`,
+        [[g, p]],
+      )
+      expect(rows).toEqual([{ slug: "diagnostico-doble" }])
+    })
+  })
+
   it("refuses the same topic, a merged one and a missing one, and does nothing", async () => {
     const g = await tema("G", vec({ 4: 1 }))
     const p = await tema("P", vec({ 5: 1 }), { fusionado: g })

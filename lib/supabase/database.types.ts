@@ -2338,6 +2338,7 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      es_uuid_de_texto: { Args: { p_valor: Json }; Returns: boolean }
       espacios_simples: { Args: { p_texto: string }; Returns: string }
       excluir_afirmacion: {
         Args: { p_excluida: boolean; p_id: string }

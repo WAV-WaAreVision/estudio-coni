@@ -26,7 +26,6 @@ begin
 
   update public.afirmaciones set tema_id = p_ganador where tema_id = p_perdedor;
 
-  -- Pillar rows.
   insert into public.tema_pilares as actual (tema_id, pilar_id, red, es_capa, fuerza, origen, lote, creado_en)
   select p_ganador, p.pilar_id, p.red, p.es_capa,
          case

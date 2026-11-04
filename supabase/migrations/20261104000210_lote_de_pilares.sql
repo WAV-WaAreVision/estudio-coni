@@ -28,6 +28,15 @@ grant select on public.lotes_de_pilares, public.lote_pilares_retirados, public.i
 create trigger auditar after insert or update or delete on public.lotes_de_pilares
   for each row execute function public.registrar_evento();
 
+-- True for a JSON string that is a uuid (any case), the only shape a row id takes.
+create function public.es_uuid_de_texto(p_valor jsonb) returns boolean
+language sql immutable set search_path = '' as $$
+  select coalesce(jsonb_typeof(p_valor) = 'string'
+    and (p_valor #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', false)
+$$;
+
+revoke execute on function public.es_uuid_de_texto(jsonb) from public, anon, authenticated, service_role;
+
 -- p_filas: {"temas": [{"tema_id": uuid, "pilares": [{"pilar": slug, "fuerza": ...}]}],
 --           "ideas": [{"idea_id": uuid, "pilar": slug}]}
 -- Order (spec section 3): the topics' rows, then the bank ideas move, then the old pillars retire, so no bank idea is
@@ -43,14 +52,73 @@ declare
   v_filas int := 0;
   v_ideas int := 0;
   v_retirados int;
+  v_invalida text;
+  v_repetido text;
 begin
   if p_lote is null or btrim(p_lote) = '' then
     raise exception using errcode = '22023', message = 'lote_vacio';
   end if;
-  if exists (select 1 from public.lotes_de_pilares where lote = p_lote) then
+
+  -- The shape first, so every later error names a real id. `detail` says which part is wrong.
+  if p_filas is null or jsonb_typeof(p_filas) <> 'object' then
+    raise exception using errcode = '22023', message = 'filas_invalidas', detail = 'p_filas';
+  end if;
+  select l.parte into v_invalida
+  from (values ('temas'), ('ideas')) l (parte)
+  where p_filas ? l.parte and jsonb_typeof(p_filas -> l.parte) <> 'array'
+  limit 1;
+  if v_invalida is null then
+    select format('temas[%s].%s', f.n - 1, f.campo) into v_invalida
+    from (
+      select x.n, case when jsonb_typeof(x.fila) <> 'object' then 'tema_id'
+                       when not public.es_uuid_de_texto(x.fila -> 'tema_id') then 'tema_id'
+                       when x.fila ? 'pilares' and jsonb_typeof(x.fila -> 'pilares') <> 'array' then 'pilares'
+                  end as campo
+      from jsonb_array_elements(coalesce(p_filas -> 'temas', '[]'::jsonb)) with ordinality x (fila, n)
+    ) f
+    where f.campo is not null
+    order by f.n
+    limit 1;
+  end if;
+  if v_invalida is null then
+    select format('ideas[%s].%s', f.n - 1, f.campo) into v_invalida
+    from (
+      select x.n, case when jsonb_typeof(x.fila) <> 'object' then 'idea_id'
+                       when not public.es_uuid_de_texto(x.fila -> 'idea_id') then 'idea_id'
+                       when jsonb_typeof(x.fila -> 'pilar') is distinct from 'string' then 'pilar'
+                  end as campo
+      from jsonb_array_elements(coalesce(p_filas -> 'ideas', '[]'::jsonb)) with ordinality x (fila, n)
+    ) f
+    where f.campo is not null
+    order by f.n
+    limit 1;
+  end if;
+  if v_invalida is not null then
+    raise exception using errcode = '22023', message = 'filas_invalidas', detail = v_invalida;
+  end if;
+
+  select r.id into v_repetido
+  from (
+    select lower(x ->> 'tema_id') as id from jsonb_array_elements(coalesce(p_filas -> 'temas', '[]'::jsonb)) x
+    union all
+    select lower(x ->> 'idea_id') from jsonb_array_elements(coalesce(p_filas -> 'ideas', '[]'::jsonb)) x
+  ) r
+  group by r.id having count(*) > 1
+  limit 1;
+  if v_repetido is not null then
+    raise exception using errcode = '22023', message = 'filas_repetidas', detail = v_repetido;
+  end if;
+
+  -- Without topic rows the lot would only retire the old pillars.
+  if jsonb_array_length(coalesce(p_filas -> 'temas', '[]'::jsonb)) = 0 then
+    raise exception using errcode = '22023', message = 'lote_vacio';
+  end if;
+
+  -- A concurrent apply of the same lot waits here and then finds it recorded.
+  insert into public.lotes_de_pilares (lote) values (p_lote) on conflict (lote) do nothing;
+  if not found then
     raise exception using errcode = '22023', message = 'lote_ya_aplicado';
   end if;
-  insert into public.lotes_de_pilares (lote) values (p_lote);
 
   for v_tema in select * from jsonb_array_elements(coalesce(p_filas -> 'temas', '[]'::jsonb)) loop
     v_tema_id := (v_tema ->> 'tema_id')::uuid;

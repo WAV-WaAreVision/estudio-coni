@@ -153,15 +153,90 @@ describe("aplicar_lote_de_pilares", () => {
         filasDelLote(e),
       ])
       expect(conPilares.message).toBe("tema_ya_tiene_pilares")
-      const usada = JSON.stringify({ temas: [], ideas: [{ idea_id: e.usadas[0], pilar: "mi-nueva-partida" }] })
+      // A topic row first: a lot without one is refused before any idea is looked at.
+      const temas = [{ tema_id: e.temaA, pilares: [{ pilar: "bienestar-e-impacto", fuerza: "alta" }] }]
+      const usada = JSON.stringify({ temas, ideas: [{ idea_id: e.usadas[0], pilar: "mi-nueva-partida" }] })
       expect((await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, usada])).message).toBe(
         "idea_fuera_del_banco",
       )
-      const capa = JSON.stringify({ temas: [], ideas: [{ idea_id: e.banco[0], pilar: "capa-tdah" }] })
+      const capa = JSON.stringify({ temas, ideas: [{ idea_id: e.banco[0], pilar: "capa-tdah" }] })
       expect((await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, capa])).message).toBe(
         "pilar_desconocido",
       )
       expect((await fallaCon(c, "select public.aplicar_lote_de_pilares(' ', '{}'::jsonb)")).message).toBe("lote_vacio")
+    })
+  })
+
+  it.each([
+    ["rows that are not an object", () => "[]", "p_filas"],
+    ["topics that are not a list", () => JSON.stringify({ temas: {} }), "temas"],
+    ["ideas that are null", (e: Escena) => JSON.stringify({ ...JSON.parse(filasDelLote(e)), ideas: null }), "ideas"],
+    ["a topic row without tema_id", () => JSON.stringify({ temas: [{ pilares: [] }] }), "temas[0].tema_id"],
+    ["a tema_id that is no uuid", () => JSON.stringify({ temas: [{ tema_id: "x", pilares: [] }] }), "temas[0].tema_id"],
+    [
+      "an idea row without idea_id",
+      (e: Escena) => JSON.stringify({ ...JSON.parse(filasDelLote(e)), ideas: [{ pilar: "psicologia-en-la-mesa" }] }),
+      "ideas[0].idea_id",
+    ],
+    [
+      "an idea row without pillar",
+      (e: Escena) => JSON.stringify({ ...JSON.parse(filasDelLote(e)), ideas: [{ idea_id: e.banco[0] }] }),
+      "ideas[0].pilar",
+    ],
+  ] as const)("refuses %s as filas_invalidas with a detail", async (_caso, filas, detalle) => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      await asumir(c, comoServicio)
+      const error = await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, filas(e)])
+      expect(error).toMatchObject({ code: "22023", message: "filas_invalidas", detail: detalle })
+    })
+  })
+
+  it("refuses a repeated topic or idea as filas_repetidas naming the id", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      await asumir(c, comoServicio)
+      const lote = JSON.parse(filasDelLote(e)) as { temas: unknown[]; ideas: unknown[] }
+      const temaDoble = JSON.stringify({ ...lote, temas: [...lote.temas, lote.temas[0]] })
+      expect(
+        await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, temaDoble]),
+      ).toMatchObject({
+        code: "22023",
+        message: "filas_repetidas",
+        detail: e.temaA,
+      })
+      const ideaDoble = JSON.stringify({ ...lote, ideas: [...lote.ideas, lote.ideas[0]] })
+      expect(
+        await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, ideaDoble]),
+      ).toMatchObject({
+        code: "22023",
+        message: "filas_repetidas",
+        detail: e.banco[0],
+      })
+    })
+  })
+
+  it("refuses a lot without topic rows and retires nothing", async () => {
+    await como(comoPostgres, async (c) => {
+      await asumir(c, comoServicio)
+      for (const filas of ["{}", JSON.stringify({ temas: [], ideas: [] })]) {
+        const error = await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, filas])
+        expect(error).toMatchObject({ code: "22023", message: "lote_vacio" })
+      }
+      await asumir(c, comoPostgres)
+      const viejos = await c.query("select 1 from public.categorias where slug = any($1) and activa", [VIEJOS])
+      expect(viejos.rowCount).toBe(5)
+    })
+  })
+
+  it("answers lote_ya_aplicado when another apply already recorded the lot", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      // What a concurrent apply that committed first leaves behind.
+      await c.query("insert into public.lotes_de_pilares (lote) values ($1)", [LOTE])
+      await asumir(c, comoServicio)
+      const error = await fallaCon(c, "select public.aplicar_lote_de_pilares($1, $2::jsonb)", [LOTE, filasDelLote(e)])
+      expect(error).toMatchObject({ code: "22023", message: "lote_ya_aplicado" })
     })
   })
 
