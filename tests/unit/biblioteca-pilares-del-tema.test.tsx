@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { cambiar } = vi.hoisted(() => ({
+const { cambiar, replace } = vi.hoisted(() => ({
   cambiar: vi.fn(async (..._: unknown[]): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true })),
+  replace: vi.fn(),
 }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({ cambiarPilaresAccion: cambiar }))
 
 import { PilaresDelTema } from "@/app/(app)/biblioteca/temas/[id]/pilares-del-tema"
@@ -56,6 +57,8 @@ describe("PilaresDelTema", () => {
       }),
     )
     await waitFor(() => expect(screen.queryByRole("button", { name: "Guardar" })).toBeNull())
+    // The lines redraw with the saved pillars: the revalidated tree alone can lose the race with older prefetches.
+    expect(replace).toHaveBeenCalledWith(expect.stringMatching(/[?&]v=\d+/), { scroll: false })
   })
 
   it("offers «También toca» only in a network with a pillar, never that pillar itself", () => {
@@ -79,6 +82,7 @@ describe("PilaresDelTema", () => {
     fireEvent.change(screen.getByLabelText("Pilar en LinkedIn"), { target: { value: "" } })
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
     expect(await screen.findByText("Ese tema ya no existe.")).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
     fireEvent.click(screen.getByRole("button", { name: "Cambiar pilares" }))
     expect(screen.getByLabelText("Pilar en LinkedIn")).toHaveValue("bienestar-e-impacto")

@@ -7,6 +7,7 @@ import { Casilla } from "@/components/ui/casilla"
 import { FilaConInterruptor } from "@/components/ui/filas"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
+import { useRedibujar } from "@/components/use-redibujar"
 import {
   type EleccionDePilares,
   eleccionDe,
@@ -40,6 +41,7 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
   const abrir = useRef<HTMLButtonElement>(null)
   const primerCampo = useRef<HTMLSelectElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+  const redibujar = useRedibujar()
   const base = useId()
 
   useEffect(() => {
@@ -94,6 +96,8 @@ export function PilaresDelTema({ temaId, pilares, opciones }: Propiedades) {
       () => {
         setAbierto(false)
         setEnfocar("abrir")
+        // The action's revalidated tree can lose the race with earlier prefetches: the lines redraw with fresh data.
+        redibujar()
       },
     )
   }

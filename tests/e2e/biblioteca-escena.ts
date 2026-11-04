@@ -14,7 +14,9 @@ export const OTRA_AUTORA = "D. Ruiz"
 export const SIN_MATERIAL = "Instituto del Descanso"
 export const TEMA_DE_UN_AUTOR = "Descanso digital"
 export const TEMA_FUSIONADO = "Pausas cortas"
-export const PILAR = "IA y salud mental"
+/** Carga mental's pillar in LinkedIn (short name, as the select and the page say it), and one «También toca». */
+export const PILAR = "Bienestar e impacto"
+export const PILAR_SECUNDARIO = "Diagnóstico doble"
 export const IDEA_DE_CONI = "Repartir la carga mental empieza por nombrarla."
 /** One of the two ideas of Daniela in Carga mental (sembrarBiblioteca). */
 export const IDEA_QUE_SE_OCULTA = "Las pausas acordadas protegen."
@@ -245,8 +247,17 @@ export async function sembrarAutoresYTemas(): Promise<EscenaDeAutoresYTemas> {
   if (!coni) throw new Error("La escena no encontró a la autora Coni")
   const carga = await uno("select id from public.temas where nombre = $1", [TEMA_PRINCIPAL])
   const pausas = await uno("select id from public.temas where nombre = $1", [OTRO_TEMA])
-  const pilar = await uno("select id from public.categorias where nombre = $1 and es_pilar and activa", [PILAR])
-  await pool.query("update public.temas set categoria_id = $1 where id = $2", [pilar, carga])
+  const pilar = await uno("select id from public.categorias where nombre_corto = $1 and red is not null and activa", [
+    PILAR,
+  ])
+  // Its pillar in LinkedIn and one «También toca»; nothing in Instagram (spec 2026-11-04, part 15a). As postgres:
+  // only the RPCs write tema_pilares from the app.
+  await pool.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1, c.id, c.red, c.es_capa, case when c.nombre_corto = $2 then 'alta' else 'media' end, 'coni'
+       from public.categorias c where c.nombre_corto = any($3::text[]) and c.red is not null`,
+    [carga, PILAR, [PILAR, PILAR_SECUNDARIO]],
+  )
 
   const charla = await material({
     titulo: "Charla: la carga mental en casa",
