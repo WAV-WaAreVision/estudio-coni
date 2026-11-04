@@ -22,6 +22,7 @@ vi.mock("@/lib/acciones/biblioteca", async (original) => ({
 }))
 
 import {
+  cambiarPilaresAccion,
   confirmarCostoAccion,
   confirmarMaterialAccion,
   crearAutorAccion,
@@ -37,6 +38,7 @@ import {
 import {
   AutorNuevo,
   CambioDeIdea,
+  CambioDePilares,
   descartarMaterial,
   EdicionDeMaterial,
   ocultarIdea,
@@ -50,6 +52,7 @@ const AUTOR = "22222222-3333-4444-8555-666666666666"
 const edicion = { materialId: ID, autorId: AUTOR, rol: "referente" as const }
 const autor = { nombre: "Daniela", credencial: "", tipo: "persona" as const }
 const ficha = { materialId: ID, resumen: "Un resumen" }
+const pilares = { temaId: ID, filas: [{ pilar: "mujeres-lideres", fuerza: "alta" as const }] }
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -60,6 +63,7 @@ describe("the Biblioteca's server actions", () => {
     ["confirmarCosto", () => confirmarCostoAccion(ID), SobreMaterial, { materialId: ID }],
     ["editarMaterial", () => editarMaterialAccion(edicion), EdicionDeMaterial, edicion],
     ["crearAutor", () => crearAutorAccion(autor), AutorNuevo, autor],
+    ["cambiarPilaresDeTema", () => cambiarPilaresAccion(pilares), CambioDePilares, pilares],
   ] as const)(
     "%s checks Coni with its schema and refreshes the whole section",
     async (nombre, accion, esquema, entrada) => {
