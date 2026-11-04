@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
-import { pilaresActivos } from "@/lib/datos/pilares"
+import { pilaresElegibles } from "@/lib/datos/pilares"
 import {
   confirmarGasto,
   leerGuiaVigente,
@@ -145,7 +145,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
     }
     const guia = await leerGuiaVigente(servicio)
     if (!guia) throw new Error("No hay una guía editorial vigente para clasificar la idea.")
-    const pilares = await pilaresActivos(servicio)
+    const pilares = await pilaresElegibles(servicio)
 
     const clave = `idea_propia:${crypto.randomUUID()}`
     const reserva = await reservarGastoGeneral(servicio, {
@@ -187,8 +187,9 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
   return aResultado("crearIdeaPropia", async () => {
     const idea = IdeaConfirmada.safeParse(entrada)
     if (!idea.success) throw new Falla(ERROR_ENTRADA)
-    const activos = await pilaresActivos(deps.db)
-    if (!activos.some((p) => p.slug === idea.data.pilar)) throw new Falla(ERROR_ENTRADA)
+    // Active and not a layer (spec 2026-11-04, section 4): the trigger refuses the rest too, with a database error.
+    const elegibles = await pilaresElegibles(deps.db)
+    if (!elegibles.some((p) => p.slug === idea.data.pilar)) throw new Falla(ERROR_ENTRADA)
     const { data, error } = await deps.db
       .from("ideas")
       .insert({

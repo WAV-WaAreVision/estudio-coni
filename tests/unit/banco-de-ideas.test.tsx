@@ -81,10 +81,11 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
   }
 }
 
-const ACTIVOS = pilaresParaElegir(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto }) => ({
+const ACTIVOS = pilaresParaElegir(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto, red }) => ({
   slug,
   nombre,
   nombreCorto,
+  red,
 }))
 
 function mostrar(cambios: Partial<AccionesDelBanco> = {}, ideas: IdeaDeBanco[] = IDEAS) {
@@ -268,6 +269,15 @@ describe("BancoDeIdeas: buscar", () => {
     expect(screen.queryByRole("button", { name: "Capa TDAH" })).not.toBeInTheDocument()
   })
 
+  it("names each network over its pillars, the old ones under Pilares anteriores", async () => {
+    mostrar()
+    await abrirBusqueda()
+    const grupo = screen.getByRole("group", { name: "Pilar" })
+    for (const etiqueta of ["LinkedIn", "Instagram", "Pilares anteriores"]) {
+      expect(within(grupo).getByText(etiqueta)).toBeInTheDocument()
+    }
+  })
+
   it("can include the ideas already used", async () => {
     mostrar()
     await abrirBusqueda()
@@ -370,6 +380,18 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     await waitFor(() =>
       expect(a.crear).toHaveBeenCalledWith(expect.objectContaining({ pilar: "caso-coni", alertas: [] })),
     )
+  })
+
+  it("names each network over the pillars she can choose from", async () => {
+    mostrar({ proponer: vi.fn(async () => ({ ok: false as const, error: "No pude proponerte el pilar ahora." })) })
+    await escribir()
+    fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
+    await screen.findByRole("alert")
+    fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
+    const grupo = screen.getByRole("group", { name: "Pilar" })
+    for (const etiqueta of ["LinkedIn", "Instagram", "Pilares anteriores"]) {
+      expect(within(grupo).getByText(etiqueta)).toBeInTheDocument()
+    }
   })
 
   it("lets her choose among the pillars it is given, by their full names", async () => {

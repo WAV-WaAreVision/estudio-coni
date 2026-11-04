@@ -1,12 +1,12 @@
 "use client"
 
 import { Check, Warning } from "@phosphor-icons/react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { Chip } from "@/components/chip"
 import { Boton } from "@/components/ui/boton"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { type PilarDeEleccion, porRed } from "@/lib/dominio/pilares"
 import { etiquetaDeAlerta } from "@/lib/dominio/revision"
 import { buscarIdeas, type IdeaDeBanco } from "@/lib/ideas/mazo"
 
@@ -15,7 +15,7 @@ const RESULTADOS_A_MOSTRAR = 40
 interface PropiedadesDeBusqueda {
   ideas: readonly IdeaDeBanco[]
   /** The active pillars, in order: one chip each. */
-  pilares: readonly PilarVisible[]
+  pilares: readonly PilarDeEleccion[]
   /** Ideas she just added to the week from this screen: they are not offered again. */
   sumadas: readonly string[]
   alAbrir: (ideaId: string) => void
@@ -47,19 +47,24 @@ export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPr
         />
       </label>
 
-      <fieldset className="flex min-w-0 gap-2 overflow-x-auto">
+      <fieldset className="flex min-w-0 items-center gap-2 overflow-x-auto">
         <legend className="sr-only">Pilar</legend>
         <Chip presionado={pilar === null} onClick={() => setPilar(null)}>
           Todos
         </Chip>
-        {pilares.map((candidato) => (
-          <Chip
-            key={candidato.slug}
-            presionado={pilar === candidato.slug}
-            onClick={() => setPilar(pilar === candidato.slug ? null : candidato.slug)}
-          >
-            {candidato.nombreCorto}
-          </Chip>
+        {porRed(pilares).map((grupo) => (
+          <Fragment key={grupo.red ?? "sin-red"}>
+            <span className="shrink-0 text-meta text-apagado">{grupo.etiqueta}</span>
+            {grupo.pilares.map((candidato) => (
+              <Chip
+                key={candidato.slug}
+                presionado={pilar === candidato.slug}
+                onClick={() => setPilar(pilar === candidato.slug ? null : candidato.slug)}
+              >
+                {candidato.nombreCorto}
+              </Chip>
+            ))}
+          </Fragment>
         ))}
       </fieldset>
       <fieldset className="flex min-w-0 gap-2 overflow-x-auto">
