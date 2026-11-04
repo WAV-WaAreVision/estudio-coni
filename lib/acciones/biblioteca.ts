@@ -39,9 +39,13 @@ export const AutorNuevo = z.object({
   tipo: z.enum(TIPOS_DE_AUTOR_NUEVO),
 })
 
+export const UnionDeAutores = z.object({ origen: z.uuid(), destino: z.uuid() })
+
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
+const NO_EXISTE = "P0002"
+const AUTOR_INEXISTENTE = "Ese autor ya no existe."
 /** A download link is for one tap. */
 const SEGUNDOS_DE_DESCARGA = 5 * 60
 
@@ -389,6 +393,35 @@ export function descartarMaterial(
       .select("id")
     if (error) throw new Error(`No pude descartar el material ${materialId}: ${error.message}`, { cause: error })
     if (data.length > 0) await borrarCarpeta(deps.almacen, materialId)
+    return {}
+  })
+}
+
+/**
+ * Joins `origen` into `destino` with `fusionar_autores` (ported from Ingesta's `fusionarAutores`): its materials and
+ * ideas pass to the one that stays and it disappears, so Coni's own card is refused here before the database (D7).
+ */
+export function unirAutores(
+  deps: Pick<DepsBiblioteca, "db">,
+  union: z.output<typeof UnionDeAutores>,
+): Promise<Resultado> {
+  return aResultado("unirAutores", async () => {
+    await exigirConi(deps.db)
+    if (union.origen === union.destino) throw new Falla("Elige otro autor para unirlos.")
+    const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
+    if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
+    if (!origen) throw new Falla(AUTOR_INEXISTENTE)
+    if (origen.tipo === "coni") throw new Falla("Tu propia ficha no se puede unir a otro autor.")
+    const { error: errorDeUnion } = await deps.db.rpc("fusionar_autores", {
+      p_origen: union.origen,
+      p_destino: union.destino,
+    })
+    if (errorDeUnion) {
+      if (errorDeUnion.code === NO_EXISTE) throw new Falla(AUTOR_INEXISTENTE)
+      throw new Error(`No pude unir el autor ${union.origen} con ${union.destino}: ${errorDeUnion.message}`, {
+        cause: errorDeUnion,
+      })
+    }
     return {}
   })
 }
