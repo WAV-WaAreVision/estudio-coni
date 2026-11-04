@@ -34,6 +34,8 @@
 8. **The proposal CSV** is one file with a `tipo` column (`tema` / `idea`); secondaries are slugs separated by `;`; the layer column is `capa_tdah` (`si` / `no`). The Markdown for Coni has her columns plus "Venía de".
 9. **A `pnpm pilares:deshacer` command** exists next to `pilares:proponer` and `pilares:aplicar`, so the undo never needs hand-written SQL.
 10. **Release order.** Section 7 numbers the Trigger deploy last but also says "the Trigger deploy right after" the merge, and that the propose run must list topics created between the merge and the deploy. This plan follows the second: `db push`, merge, Trigger deploy (with OK), propose, apply (with OK). Until the apply, the deployed engine crosses topics that have no pillar rows yet without any pillar exclusion, which is harmless for a week of proposals.
+11. **Saving from "Cambiar pilares" writes every secondary as `media`.** The form has no strength control, so a `baja` written later by change 21 becomes `media` the next time Coni saves that topic's pillars. A save that changes nothing does not call the action at all, so her rows keep their `origen` and `lote` (and the topic stays in the reclassification lot and its undo).
+12. **"Cambiar pilares" redraws with `useRedibujar` instead of a server `redirect`.** It is an edit in place: the topic's page stays, the form closes and the focus returns to its button. A `redirect` would remount the page and lose that focus; the revalidated tree alone lost the race with earlier prefetches in the E2E and kept the old pillars on screen. Until the fresh page arrives, the section shows and reopens from her last saved choice, so reopening never saves the old pillars back.
 
 ## File structure
 
