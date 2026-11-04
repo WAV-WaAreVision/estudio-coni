@@ -2970,6 +2970,29 @@ export type Database = {
           tema_id: string
         }[]
       }
+      temas_de_pilar: {
+        Args: { p_pilar: string }
+        Returns: {
+          actualizado_en: string | null
+          afirmaciones: number | null
+          alias: string[] | null
+          autores: number | null
+          categoria_id: string | null
+          creado_en: string | null
+          cubierto_por_coni: boolean | null
+          descripcion: string | null
+          evidencia: Json | null
+          id: string | null
+          nombre: string | null
+          ultima_afirmacion: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "temas_resumen"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       temas_parecidos: {
         Args: { p_umbral: number }
         Returns: {

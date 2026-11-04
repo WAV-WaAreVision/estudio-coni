@@ -296,29 +296,17 @@ export function conIdYNombre<T extends { id: string | null; nombre: string | nul
 }
 
 /**
- * The topics a pillar lists (spec 2026-11-04, section 2): those it is the main pillar of, or, for a layer, those with
- * its lens. A secondary pillar never lists a topic.
+ * The topics of Temas (ported from Ingesta's `listarTemas`), ordered by `ordenarTemas`. A pillar narrows them to those
+ * it lists (spec 2026-11-04, section 2): `temas_de_pilar` joins in the DB, so no list of ids travels in the URL.
  */
-async function temasDelPilar(db: Db, pilarId: string): Promise<string[]> {
-  const { data, error } = await db
-    .from("tema_pilares")
-    .select("tema_id")
-    .eq("pilar_id", pilarId)
-    .or("fuerza.eq.alta,es_capa.is.true")
-  if (error) throw new Error(`No pude leer los temas del pilar ${pilarId}: ${error.message}`, { cause: error })
-  return data.map((fila) => fila.tema_id)
-}
-
-/** The topics of Temas (ported from Ingesta's `listarTemas`), a pillar narrowing them; ordered by `ordenarTemas`. */
 export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
-  const delPilar = filtros.pilar ? await temasDelPilar(db, filtros.pilar) : null
-  if (delPilar !== null && delPilar.length === 0) return []
+  const { pilar } = filtros
   const filas = await leerTodas("los temas", (despuesDe, limite) => {
-    const todas = db
-      .from("temas_resumen")
-      .select("id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni")
-    const filtradas = delPilar === null ? todas : todas.in("id", delPilar)
-    return (despuesDe === null ? filtradas : filtradas.gt("id", despuesDe))
+    const columnas = "id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni"
+    const todas = pilar
+      ? db.rpc("temas_de_pilar", { p_pilar: pilar }).select(columnas)
+      : db.from("temas_resumen").select(columnas)
+    return (despuesDe === null ? todas : todas.gt("id", despuesDe))
       .order("id")
       .limit(limite)
       .then(({ data, error }) => ({ data: data?.map(conIdYNombre) ?? null, error }))

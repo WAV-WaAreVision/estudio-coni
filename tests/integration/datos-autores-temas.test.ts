@@ -148,6 +148,28 @@ describe("listarTemas", () => {
     const vacio = (await listarTemas(coni, { pilar: idDe("game-over-impostora") })).filter((t) => temas.includes(t.id))
     expect(vacio).toEqual([])
   })
+  it("lists every topic of a pillar with hundreds of main topics, never naming them in the request", async () => {
+    const { rows: elegido } = await pool.query<{ id: string }>(
+      "select id from public.categorias where slug = 'psicologia-en-la-mesa'",
+    )
+    const muchoPilar = elegido[0]?.id ?? ""
+    const { rows: creados } = await pool.query<{ id: string }>(
+      `insert into public.temas (nombre, centroide)
+       select 'Muchos ' || $1 || ' ' || n, (select centroide from public.temas where id = $2)
+         from generate_series(1, 350) as n
+       returning id`,
+      [SUFIJO, carga],
+    )
+    const muchos = creados.map((r) => r.id)
+    temas.push(...muchos)
+    await pool.query(
+      `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+       select t, c.id, c.red, c.es_capa, 'alta', 'coni' from unnest($1::uuid[]) as t, public.categorias c where c.id = $2`,
+      [muchos, muchoPilar],
+    )
+    const listados = (await listarTemas(coni, { pilar: muchoPilar })).map((t) => t.id)
+    expect(listados.toSorted()).toEqual(muchos.toSorted())
+  })
 })
 
 describe("listarPilaresDeTemas", () => {
