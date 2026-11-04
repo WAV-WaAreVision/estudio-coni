@@ -81,6 +81,7 @@ describe("catálogo de pilares", () => {
     })
     expect(pilarVisible(PILARES_DE_PRUEBA, "pareja")?.nombre).toBe("Pareja y conversación")
     expect(pilarVisible(PILARES_DE_PRUEBA, null)).toBeNull()
+    expect(pilarVisible(PILARES_DE_PRUEBA, undefined)).toBeNull()
   })
 
   it("throws on a slug that is not a pillar, naming it", () => {
