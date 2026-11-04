@@ -87,8 +87,10 @@ describe("PilaresDelTema", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
     expect(await screen.findByText("Ese tema ya no existe. Recarga la página.")).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
+    // The refusal can show before the transition ends; Cancelar stays inactive until then, on purpose.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancelar" })).not.toHaveAttribute("aria-disabled"))
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar pilares" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cambiar pilares" }))
     expect(screen.getByLabelText("Pilar en LinkedIn")).toHaveValue("bienestar-e-impacto")
   })
 
