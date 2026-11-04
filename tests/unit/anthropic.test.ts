@@ -11,9 +11,11 @@ import {
   clasificarIdea,
   costoClaude,
   escribirGuion,
+  guiaDeReclasificacion,
   RespuestaCortada,
   revisarConClaude,
 } from "@/lib/proveedores/anthropic"
+import { listaDePilares } from "@/lib/proveedores/anthropic/secciones"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -886,5 +888,33 @@ describe("clasificarEnPilares", () => {
       elementos: elementos.slice(0, 1),
     })
     expect(asignaciones[0]?.pilar).toBe("general")
+  })
+})
+
+describe("listaDePilares", () => {
+  const de = (slug: string) => {
+    const pilar = PILARES_DE_PRUEBA.find((p) => p.slug === slug)
+    if (!pilar) throw new Error(`Falta ${slug} en el fixture`)
+    return pilar
+  }
+
+  it("groups the pillars by network, leaves layers and retired pillars out, and keeps the old ones apart", () => {
+    const pilares = ["caso-coni", "capa-tdah", "mi-nueva-partida", "pareja", "diagnostico-doble"].map(de)
+    expect(listaDePilares(pilares)).toBe(
+      [
+        "LinkedIn:",
+        `- diagnostico-doble: Diagnóstico doble: transformación digital con factor humano. ${de("diagnostico-doble").descripcion}`,
+        "Instagram:",
+        `- mi-nueva-partida: Mi nueva partida. ${de("mi-nueva-partida").descripcion}`,
+        "Pilares anteriores:",
+        `- caso-coni: Caso Coni: humana + avatar. ${de("caso-coni").descripcion}`,
+      ].join("\n"),
+    )
+  })
+})
+
+describe("guiaDeReclasificacion", () => {
+  it("speaks of the pillars of LinkedIn and Instagram", () => {
+    expect(guiaDeReclasificacion(PILARES_DE_PRUEBA)).toContain("pilares de contenido de LinkedIn e Instagram")
   })
 })

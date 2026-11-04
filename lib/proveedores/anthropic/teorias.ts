@@ -156,7 +156,7 @@ export async function escribirTeorias(entrada: {
 GUÍA EDITORIAL DE CONI
 ${contexto.guia}
 
-PILARES (cada idea va en uno de estos; usa exactamente el slug en pilar. Un tema de la categoría general puede ir en cualquiera)
+PILARES (cada idea va en uno de estos; usa exactamente el slug en pilar. Un tema sin pilar puede ir en cualquiera)
 ${listaDePilares(contexto.pilares)}
 
 <estrategia>

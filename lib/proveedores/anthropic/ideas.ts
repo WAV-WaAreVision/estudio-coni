@@ -59,7 +59,7 @@ export async function clasificarIdea(entrada: {
 
 // A few hundred tokens, below the 1024-token cache minimum: it is sent uncached (`cachearGuia: false`).
 export function guiaDeReclasificacion(pilares: readonly DatosDePilar[]): string {
-  return `Ordenas la base de conocimiento de Coni del Rosario, psicóloga clínica y sexóloga chilena, en sus pilares de contenido para LinkedIn. Su audiencia son colegas de salud mental y tecnología; su postura, la adopción responsable de la IA con criterio clínico. La sexología no tiene pilar propio: un elemento de sexualidad va en el pilar que toque su mirada (por ejemplo, la IA y la salud sexual va en IA y salud mental).
+  return `Ordenas la base de conocimiento de Coni del Rosario, psicóloga clínica y sexóloga chilena, en sus pilares de contenido de LinkedIn e Instagram. Su audiencia son colegas de salud mental y tecnología; su postura, la adopción responsable de la IA con criterio clínico. La sexología no tiene pilar propio: un elemento de sexualidad va en el pilar que toque su mirada (por ejemplo, la IA y la salud sexual va en IA y salud mental).
 
 PILARES (usa exactamente el slug)
 ${listaDePilares(pilares)}

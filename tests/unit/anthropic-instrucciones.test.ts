@@ -154,7 +154,7 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
 
   it("keeps the re-classification guide and batch text", () => {
     expect(sha(guiaDeReclasificacion(PILARES))).toMatchInlineSnapshot(
-      `"129a65979e63a2bd5332b4aa3e15f2489f1d6039818a8e913011423aa25bdf6d"`,
+      `"251d8cb8aa5d6e11fa2a1710fad53c47a2946c49770b3ac80a6807bf1e0cabd4"`,
     )
     expect(sha(pedidoDeReclasificacion([{ id: "m1", tipo: "material", texto: "Un material." }]))).toMatchInlineSnapshot(
       `"90aac3e0d8326b26aa31a1bdd5624a9227d70e2ebf8cf687a5e60ebb9610d7cd"`,
@@ -322,15 +322,15 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
       {
         "idea": [
           {
-            "cuerpo": "1606708c5c35457e890bab5046f72d1b4e87d683674be168c82fabaf498ec74d",
+            "cuerpo": "2cfbf661d2754f0f3f374ef2ff0d02a724a5642686e320c42cb172a693f0a47e",
             "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-            "usuario": "9af02c09bb9f320b0907255572507fd6e7d5664d66e6299b23afa724bf6ce59e",
+            "usuario": "153e80c0a80d6299d2afd998d9d7a9df2ba71009b0ee60a852c216bec914ef81",
           },
         ],
         "pilares": [
           {
-            "cuerpo": "568a5e9a9c85cb642efed3cec79e989dbc274c515fe0d18c018fd96a4c245e3a",
-            "sistema": "129a65979e63a2bd5332b4aa3e15f2489f1d6039818a8e913011423aa25bdf6d",
+            "cuerpo": "28bdb38a62d99011d092be5b0d59a6896c0f0642224289e50e17bcb09a8622a0",
+            "sistema": "251d8cb8aa5d6e11fa2a1710fad53c47a2946c49770b3ac80a6807bf1e0cabd4",
             "usuario": "ac4da2af3c698c9e41c2679c8d576dcac56217e03d0fd871a2ca262c4d2e9bb2",
           },
         ],
@@ -459,9 +459,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "01dc13ee7fe891ec77b9112eb2d6b928928da5f53a981c00372318dff6f4d8ea",
+          "cuerpo": "8d01dd99c885e97eb418629acb7d30f5e1ab429faa0c05e055a4f29a33d9e2a2",
           "sistema": "fcb534380cf7a9bd7d4f49aedd5e501aab837a8f1497cea51bc9219e5dd2080b",
-          "usuario": "77a89c746f74769425ae93c606c65acd22af56955a3df1275ae14ec3a2ed8100",
+          "usuario": "c41cd8a3115fb699c3b6e057c8f6339176683a62a805c21f787d7dcb920b768e",
         },
       ]
     `)
