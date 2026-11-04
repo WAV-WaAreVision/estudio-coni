@@ -13,6 +13,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeIdeas } from "../aviso-de-ideas"
 import { FocoDelPanel } from "../foco-del-panel"
 import { NavDeBiblioteca } from "../nav-de-biblioteca"
+import { TrasElAviso } from "../tras-el-aviso"
 import { FiltrosDeCobertura } from "./filtros-de-cobertura"
 import { MasFiltrosDeTemas } from "./mas-filtros-de-temas"
 import { PanelDeTema } from "./panel-de-tema"
@@ -35,13 +36,15 @@ export default async function Temas({
   const temas = await listarTemas(db, { pilar: filtros.pilar })
   const visibles = filtrarPorCobertura(temas, filtros.cobertura)
   const elegido = seleccion ? (temas.find((tema) => tema.id === seleccion) ?? null) : null
+  const ocultaLaUltima = leerIdeaOculta(params) !== null
 
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
-        <AvisoDeIdeas texto={leerIdeaOculta(params) ? AVISO_TRAS_OCULTAR_LA_ULTIMA : null} />
+        <AvisoDeIdeas texto={ocultaLaUltima ? AVISO_TRAS_OCULTAR_LA_ULTIMA : null} />
+        {ocultaLaUltima ? <TrasElAviso parametro="oculta" /> : null}
         <NavDeBiblioteca actual="temas" />
         <div className="flex flex-wrap items-start gap-2">
           <FiltrosDeCobertura filtros={filtros} conteos={contarCoberturas(temas)} />

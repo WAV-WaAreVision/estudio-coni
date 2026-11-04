@@ -37,6 +37,7 @@ import { FiltrosDeCobertura } from "@/app/(app)/biblioteca/temas/filtros-de-cobe
 import Temas from "@/app/(app)/biblioteca/temas/page"
 import { PanelDeTema } from "@/app/(app)/biblioteca/temas/panel-de-tema"
 import { TarjetaDeTema } from "@/app/(app)/biblioteca/temas/tarjeta-de-tema"
+import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { AVISO_TRAS_OCULTAR, AVISO_TRAS_OCULTAR_LA_ULTIMA } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
@@ -128,7 +129,15 @@ describe("the Temas page", () => {
     datos.listarTemas.mockResolvedValueOnce([carga])
     const arbol = elementos(await Temas(conParams({ oculta: IDEA, t: CARGA })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR_LA_ULTIMA)
+    // A new page: the focus the button gave the old note is gone, so the note takes it on arrival.
+    expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "oculta" })
     expect(arbol.find((elemento) => elemento.type === PanelDeTema)?.props.tema).toEqual(carga)
+  })
+
+  it("has nothing to do after the note when there is none", async () => {
+    esConi.valor = true
+    datos.listarTemas.mockResolvedValueOnce([carga])
+    expect(elementos(await Temas(conParams({}))).some((elemento) => elemento.type === TrasElAviso)).toBe(false)
   })
 })
 
