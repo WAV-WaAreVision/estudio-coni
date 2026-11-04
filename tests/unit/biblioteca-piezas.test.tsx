@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { EstadoDeMaterial } from "@/app/(app)/biblioteca/estado-de-material"
 import { NavDeBiblioteca } from "@/app/(app)/biblioteca/nav-de-biblioteca"
@@ -7,18 +7,23 @@ import { TemaDelMaterial } from "@/app/(app)/biblioteca/tema-del-material"
 const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
 
 describe("NavDeBiblioteca (4c)", () => {
-  it("shows only the sections already in Conidolly, each with an icon and its name", () => {
-    render(<NavDeBiblioteca actual="materiales" />)
+  it("shows the three sections already in Conidolly, each with an icon and its name", () => {
+    render(<NavDeBiblioteca actual="autores" />)
     const nav = screen.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    const enlaces = screen.getAllByRole("link")
-    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales"])
-    expect(enlaces[0]).toHaveAttribute("href", "/biblioteca")
-    expect(nav.querySelector("svg")).not.toBeNull()
+    const enlaces = within(nav).getAllByRole("link")
+    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas"])
+    expect(enlaces.map((enlace) => enlace.getAttribute("href"))).toEqual([
+      "/biblioteca",
+      "/biblioteca/autores",
+      "/biblioteca/temas",
+    ])
+    expect(enlaces[1]).toHaveAttribute("aria-current", "page")
+    expect(nav.querySelectorAll("svg")).toHaveLength(3)
   })
 
-  it("hugs its one tab instead of stretching it across the column", () => {
+  it("hugs its tabs and wraps them instead of pushing the page sideways", () => {
     render(<NavDeBiblioteca actual="materiales" />)
-    expect(screen.getByRole("list")).toHaveClass("w-fit")
+    expect(screen.getByRole("list")).toHaveClass("w-fit", "max-w-full", "flex-wrap")
   })
 })
 

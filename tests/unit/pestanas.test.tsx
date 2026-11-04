@@ -62,3 +62,19 @@ describe("Pestanas", () => {
     expect(screen.getByRole("listitem")).not.toHaveClass("flex-1")
   })
 })
+
+describe("Pestanas compactas", () => {
+  it("wrap instead of pushing the page sideways, with a tighter tab, and the shared ones keep theirs", () => {
+    const opciones = [
+      { valor: "a", etiqueta: "Una", href: "/a" },
+      { valor: "b", etiqueta: "Otra", href: "/b" },
+    ]
+    const { unmount } = render(<Pestanas etiqueta="Secciones" actual="a" compacta opciones={opciones} />)
+    expect(screen.getByRole("list")).toHaveClass("flex-wrap", "max-w-full")
+    expect(screen.getAllByRole("link")[0]).toHaveClass("gap-1.5", "px-2.5")
+    unmount()
+    render(<Pestanas etiqueta="Vistas" actual="a" opciones={opciones} />)
+    expect(screen.getByRole("list")).not.toHaveClass("flex-wrap")
+    expect(screen.getAllByRole("link")[0]).toHaveClass("gap-2", "px-3")
+  })
+})

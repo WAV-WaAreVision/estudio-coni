@@ -13,7 +13,10 @@ interface PropiedadesDePestanas<T extends string> {
   etiqueta: string
   actual: T
   opciones: readonly OpcionDePestana<T>[]
-  /** The track hugs its options instead of sharing the width: for a nav with one or two short entries. */
+  /**
+   * The track hugs its options instead of sharing the width, with tighter tabs; when they do not fit one row (large
+   * text) they wrap instead of pushing the page sideways (WCAG 1.4.10).
+   */
   compacta?: boolean
 }
 
@@ -26,7 +29,7 @@ export function Pestanas<T extends string>({ etiqueta, actual, opciones, compact
     <nav aria-label={etiqueta}>
       <ul
         className={cn(
-          compacta ? "inline-flex w-fit" : "flex",
+          compacta ? "inline-flex w-fit max-w-full flex-wrap" : "flex",
           "gap-1 rounded-control bg-piedra-honda p-1 shadow-hundido",
         )}
       >
@@ -39,7 +42,8 @@ export function Pestanas<T extends string>({ etiqueta, actual, opciones, compact
                 replace
                 aria-current={esActual ? "page" : undefined}
                 className={cn(
-                  "flex min-h-objetivo items-center justify-center gap-2 rounded-control px-3 text-cuerpo transition-shadow duration-[var(--dur-corta)] ease-salida",
+                  "flex min-h-objetivo items-center justify-center rounded-control text-cuerpo transition-shadow duration-[var(--dur-corta)] ease-salida",
+                  compacta ? "gap-1.5 px-2.5" : "gap-2 px-3",
                   esActual ? "bg-piedra font-semibold text-tinta shadow-relieve" : "font-medium text-apagado",
                 )}
               >
