@@ -52,13 +52,19 @@ describe("PanelDeMaterial", () => {
   it("says who she is for you with the credential, and folds the technical detail for WAV", () => {
     const { container } = render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
     expect(screen.getByRole("heading", { name: "¿Quién es para ti?", level: 3 })).toBeInTheDocument()
-    expect(screen.getByText("Daniela Ruiz · investigadora de confianza")).toBeInTheDocument()
+    const quien = screen.getByRole("heading", { name: "¿Quién es para ti?", level: 3 }).closest("section")
+    expect(quien).toHaveTextContent("Daniela Ruiz · investigadora de confianza")
     expect(screen.getByText("Referente")).toBeInTheDocument()
     const detalle = container.querySelector("details")
     expect(detalle).not.toHaveAttribute("open")
     expect(detalle).toHaveTextContent("Detalle para WAV")
     expect(detalle).toHaveTextContent("Evidencia: Estudio 9 · Opinión 3")
     expect(detalle).toHaveTextContent(`Material: ${ID}`)
+  })
+
+  it("links the author to its page; the reader already gives its id (deviation 6)", () => {
+    render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
+    expect(screen.getByRole("link", { name: "Daniela Ruiz" })).toHaveAttribute("href", "/biblioteca/autores/a-1")
   })
 
   it("has its own close control that keeps the filters", () => {
