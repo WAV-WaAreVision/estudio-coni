@@ -30,11 +30,16 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({ unirAutoresAccion: vi.fn(), 
 
 import type { ReactElement, ReactNode } from "react"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
+import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
+import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
+import DetalleDeTema from "@/app/(app)/biblioteca/temas/[id]/page"
 import { FiltrosDeCobertura } from "@/app/(app)/biblioteca/temas/filtros-de-cobertura"
 import Temas from "@/app/(app)/biblioteca/temas/page"
 import { PanelDeTema } from "@/app/(app)/biblioteca/temas/panel-de-tema"
 import { TarjetaDeTema } from "@/app/(app)/biblioteca/temas/tarjeta-de-tema"
-import { AVISO_TRAS_OCULTAR_LA_ULTIMA } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
+import { AVISO_TRAS_OCULTAR, AVISO_TRAS_OCULTAR_LA_ULTIMA } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 
 type Elemento = ReactElement<Record<string, unknown> & { children?: ReactNode }>
 
@@ -124,5 +129,77 @@ describe("the Temas page", () => {
     const arbol = elementos(await Temas(conParams({ oculta: IDEA, t: CARGA })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR_LA_ULTIMA)
     expect(arbol.find((elemento) => elemento.type === PanelDeTema)?.props.tema).toEqual(carga)
+  })
+})
+
+const UNA = { id: "i-1", texto: "Una", tipo: "dato", evidencia: "estudio" }
+const DOS = { id: "i-2", texto: "Dos", tipo: "dato", evidencia: "estudio" }
+const leido = (ideas: IdeaLeida[]) => ({
+  tema: { id: CARGA, nombre: "Carga mental", descripcion: "El peso de lo que nadie ve." },
+  ideas: ideas.length,
+  autores: [{ autor: { id: "a-1", nombre: "Daniela Ruiz", credencial: null }, ideas }],
+})
+const abrir = (id: string, params: Record<string, string> = {}) =>
+  DetalleDeTema({ params: Promise.resolve({ id }), searchParams: Promise.resolve(params) })
+
+describe("a topic's page", () => {
+  it("refuses what is not an id before reading", async () => {
+    esConi.valor = true
+    await expect(abrir("no-es-un-id")).rejects.toThrow("NEXT_NOT_FOUND")
+    expect(datos.destinoDeTema).not.toHaveBeenCalled()
+  })
+
+  it("sends a merged topic's address to the one that stayed", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValueOnce(CARGA)
+    await expect(abrir(PAUSAS)).rejects.toThrow(`NEXT_REDIRECT /biblioteca/temas/${CARGA}`)
+    expect(datos.leerTema).not.toHaveBeenCalled()
+  })
+
+  it("is not found for a missing topic, a loop, or one gone meanwhile", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValueOnce(null)
+    await expect(abrir(CARGA)).rejects.toThrow("NEXT_NOT_FOUND")
+    datos.destinoDeTema.mockResolvedValueOnce(CARGA)
+    datos.leerTema.mockResolvedValueOnce(null)
+    await expect(abrir(CARGA)).rejects.toThrow("NEXT_NOT_FOUND")
+  })
+
+  it("groups its ideas by author, each title linking to the author with a full-size target", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    const titulo = elementos(await abrir(CARGA)).find((elemento) => elemento.type === "h2")
+    const enlace = elementos(titulo).find((elemento) => elemento.props.href !== undefined)
+    expect(enlace?.props.href).toBe(hrefDeAutor("a-1"))
+    expect(enlace?.props.children).toBe("Daniela Ruiz")
+    expect(enlace?.props.className).toContain("min-h-objetivo")
+  })
+
+  it("gives each idea Ocultar, going to the topic while it keeps ideas and to the list after the last (D6)", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA, DOS]))
+    const lista = elementos(await abrir(CARGA)).find((elemento) => elemento.type === ListaDeIdeas)
+    expect(lista?.props.etiqueta).toBe("Ideas de Daniela Ruiz")
+    const boton = (lista?.props.accion as (idea: IdeaLeida) => Elemento)(UNA)
+    expect(boton.type).toBe(BotonOcultar)
+    expect(boton.props).toEqual({ ideaId: "i-1", oculta: false, despues: `/biblioteca/temas/${CARGA}?oculta=i-1` })
+
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    const sola = elementos(await abrir(CARGA)).find((elemento) => elemento.type === ListaDeIdeas)
+    expect((sola?.props.accion as (idea: IdeaLeida) => Elemento)(UNA).props.despues).toBe(
+      "/biblioteca/temas?oculta=i-1",
+    )
+  })
+
+  it("says the quiet note after hiding", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    expect(elementos(await abrir(CARGA)).find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    const arbol = elementos(await abrir(CARGA, { oculta: IDEA }))
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR)
   })
 })
