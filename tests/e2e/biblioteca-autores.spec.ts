@@ -43,7 +43,7 @@ test("Autores shows each author with kind, counts without zeros and top topics, 
   await expect(tarjetas.nth(2)).toContainText("4 materiales · 1 idea sacada")
   const vacia = tarjetas.nth(3)
   await expect(vacia).toContainText(SIN_MATERIAL)
-  await expect(vacia).toContainText("Todavía no hay material de esta persona. Súbelo desde Subir.")
+  await expect(vacia).toContainText("Todavía no hay material de este autor. Súbelo desde Subir.")
   await expect(vacia.getByRole("link", { name: "Subir", exact: true })).toHaveAttribute("href", "/biblioteca/subir")
 
   await tocarHastaLlegar(

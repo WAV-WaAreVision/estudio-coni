@@ -21,9 +21,9 @@ describe("NavDeBiblioteca (4c)", () => {
     expect(nav.querySelectorAll("svg")).toHaveLength(3)
   })
 
-  it("hugs its tabs and wraps them instead of pushing the page sideways", () => {
+  it("hugs its tabs and slides them on one row instead of pushing the page sideways", () => {
     render(<NavDeBiblioteca actual="materiales" />)
-    expect(screen.getByRole("list")).toHaveClass("w-fit", "max-w-full", "flex-wrap")
+    expect(screen.getByRole("list")).toHaveClass("w-fit", "max-w-full", "flex-nowrap", "overflow-x-auto")
   })
 })
 

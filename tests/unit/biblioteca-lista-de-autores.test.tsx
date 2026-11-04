@@ -54,7 +54,7 @@ describe("ListaDeAutores", () => {
 
   it("says how to give an author material when it has none", () => {
     render(<ListaDeAutores autores={AUTORES} seleccion={null} />)
-    expect(tarjeta(2)).toHaveTextContent("Todavía no hay material de esta persona. Súbelo desde Subir.")
+    expect(tarjeta(2)).toHaveTextContent("Todavía no hay material de este autor. Súbelo desde Subir.")
     expect(within(tarjeta(2)).getByRole("link", { name: "Subir" })).toHaveAttribute("href", "/biblioteca/subir")
   })
 
@@ -89,5 +89,14 @@ describe("ListaDeAutores", () => {
     expect(fila).toHaveAttribute("data-abre-panel", DANIELA)
     expect(fila).toHaveAttribute("aria-current", "true")
     expect(within(tabla).getByRole("row", { name: /Instituto del Descanso/ })).not.toHaveTextContent("0")
+  })
+
+  it("on a computer fills the topics cell of an author with no material instead of leaving the row blank", () => {
+    render(<ListaDeAutores autores={AUTORES} seleccion={null} />)
+    const tabla = screen.getByRole("table", { name: "Autores" })
+    const celdas = within(within(tabla).getByRole("row", { name: /Instituto del Descanso/ })).getAllByRole("cell")
+    expect(celdas[1]).toHaveTextContent("Todavía no hay material")
+    // Ana has a material but no idea yet: her row has counts, so no note.
+    expect(within(tabla).getByRole("row", { name: /Ana Pérez/ })).not.toHaveTextContent("Todavía no hay material")
   })
 })

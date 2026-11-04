@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { type AutorResumido, hrefDeAutores } from "@/lib/dominio/biblioteca/autores"
+import { cuentasDeAutor } from "@/lib/dominio/biblioteca/cuentas"
 import { etiquetaDeTipoDeAutor } from "@/lib/dominio/biblioteca/modelo"
 import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
 import { cn } from "@/lib/utils"
@@ -54,7 +55,14 @@ export function TablaDeAutores({ autores, seleccion }: { autores: AutorResumido[
                 </Link>
               </th>
               <td className={CELDA}>{etiquetaDeTipoDeAutor(autor.tipo)}</td>
-              <td className={CELDA}>{autor.temas.map((tema) => tema.nombre).join(" · ")}</td>
+              <td className={CELDA}>
+                {/* Without material the row would be blank; the way to give it some is in its panel. */}
+                {cuentasDeAutor(autor) === null ? (
+                  <span className="text-apagado">Todavía no hay material</span>
+                ) : (
+                  autor.temas.map((tema) => tema.nombre).join(" · ")
+                )}
+              </td>
               <td className={NUMERO}>{cifra(autor.materiales)}</td>
               <td className={NUMERO}>{cifra(autor.ideas)}</td>
             </tr>

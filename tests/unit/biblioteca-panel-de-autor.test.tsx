@@ -38,7 +38,7 @@ describe("PanelDeAutor", () => {
 
   it("says how to give it material when it has none", () => {
     render(<PanelDeAutor autor={{ ...autor, materiales: 0, ideas: 0, temas: [] }} />)
-    expect(screen.getByText(/Todavía no hay material de esta persona/)).toBeInTheDocument()
+    expect(screen.getByText(/Todavía no hay material de este autor/)).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Temas" })).toBeNull()
   })
 })

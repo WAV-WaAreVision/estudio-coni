@@ -1,5 +1,7 @@
+import { CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Seccion } from "@/components/seccion"
+import { ICONO } from "@/components/ui/icono"
 import { TIPO_DE_AFIRMACION } from "@/lib/dominio/biblioteca/etiquetas"
 import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { type MapaDelMaterial as Mapa, masFrecuentesPrimero } from "@/lib/dominio/biblioteca/mapa"
@@ -13,26 +15,34 @@ interface FilaDeRecuento {
   href?: string
 }
 
-const CONTENIDO_DE_FILA = "flex min-h-objetivo w-full items-center justify-between gap-3 text-cuerpo"
+const CONTENIDO_DE_FILA = "relative flex min-h-objetivo w-full items-center justify-between gap-3 text-cuerpo"
 
 function Recuento({ titulo, id, filas }: { titulo: string; id: string; filas: FilaDeRecuento[] }) {
+  const conEnlaces = filas.some((fila) => fila.href)
   return (
     <Seccion titulo={titulo} id={id}>
       <ul aria-label={titulo} className="divide-y divide-hilo rounded-panel bg-piedra-alta px-[18px]">
         {filas.map((fila) => (
           <li key={fila.clave} className={CONTENIDO_DE_FILA}>
-            {/* The count stays outside the link so the link is named by the topic alone. */}
+            {/* The count and the chevron stay outside the link so it is named by the topic alone; its ::after
+                stretches over the row, so a tap anywhere on it opens the topic. */}
             {fila.href ? (
               <Link
                 href={fila.href}
-                className="flex min-h-objetivo flex-1 items-center underline-offset-4 hover:underline"
+                className="flex min-h-objetivo flex-1 items-center underline-offset-4 after:absolute after:inset-0 hover:underline"
               >
                 {fila.texto}
               </Link>
             ) : (
-              <span>{fila.texto}</span>
+              <span className="flex-1">{fila.texto}</span>
             )}
             <span className="text-meta font-semibold text-apagado tabular-nums">{fila.cantidad}</span>
+            {fila.href ? (
+              <CaretRight aria-hidden="true" size={ICONO.medio} className="shrink-0 text-apagado" />
+            ) : conEnlaces ? (
+              // Keeps the counts in one column with the rows that have a chevron (ICONO.medio wide).
+              <span aria-hidden="true" className="w-[1.2em] shrink-0" />
+            ) : null}
           </li>
         ))}
       </ul>

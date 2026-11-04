@@ -38,6 +38,16 @@ test("the nav moves between the three sections; at 375 and 390 px its tabs are 4
         await expect(pestana).toBeVisible()
         expect((await pestana.boundingBox())?.height ?? 0, `${ancho} px ${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
       }
+      // One row inside the pill (it slides when it does not fit), and the open section is whole in view.
+      const arribas = await nav
+        .getByRole("link")
+        .evaluateAll((pestanas) => pestanas.map((pestana) => Math.round(pestana.getBoundingClientRect().top)))
+      expect(new Set(arribas).size, `${ancho} px ${ruta}`).toBe(1)
+      const pista = await nav.getByRole("list").boundingBox()
+      const actual = await nav.locator("[aria-current='page']").boundingBox()
+      expect(actual && pista && actual.x >= pista.x && actual.x + actual.width <= pista.x + pista.width + 0.5).toBe(
+        true,
+      )
       const sinDesborde = await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       )

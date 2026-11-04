@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { Pestanas } from "@/components/ui/pestanas"
 
 describe("Pestanas", () => {
@@ -64,17 +64,43 @@ describe("Pestanas", () => {
 })
 
 describe("Pestanas compactas", () => {
-  it("wrap instead of pushing the page sideways, with a tighter tab, and the shared ones keep theirs", () => {
+  it("slide inside their track on one row instead of wrapping or pushing the page sideways, and the shared ones keep theirs", () => {
     const opciones = [
       { valor: "a", etiqueta: "Una", href: "/a" },
       { valor: "b", etiqueta: "Otra", href: "/b" },
     ]
     const { unmount } = render(<Pestanas etiqueta="Secciones" actual="a" compacta opciones={opciones} />)
-    expect(screen.getByRole("list")).toHaveClass("flex-wrap", "max-w-full")
-    expect(screen.getAllByRole("link")[0]).toHaveClass("gap-1.5", "px-2.5")
+    expect(screen.getByRole("list")).toHaveClass("flex-nowrap", "overflow-x-auto", "max-w-full")
+    expect(screen.getByRole("list")).not.toHaveClass("flex-wrap")
+    // A grid item sizes to its content by default: without this the unwrapped row would widen the page.
+    expect(screen.getByRole("navigation")).toHaveClass("min-w-0")
+    expect(screen.getAllByRole("link")[0]).toHaveClass("gap-1.5", "px-2.5", "whitespace-nowrap")
     unmount()
     render(<Pestanas etiqueta="Vistas" actual="a" opciones={opciones} />)
-    expect(screen.getByRole("list")).not.toHaveClass("flex-wrap")
+    expect(screen.getByRole("list")).not.toHaveClass("overflow-x-auto")
     expect(screen.getAllByRole("link")[0]).toHaveClass("gap-2", "px-3")
+  })
+})
+
+describe("Pestanas compactas on arrival", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+  })
+
+  it("bring the open section into view inside the track, and only the compact ones do", () => {
+    const vistas: Element[] = []
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      vistas.push(this)
+    })
+    const opciones = [
+      { valor: "a", etiqueta: "Una", href: "/a" },
+      { valor: "b", etiqueta: "Otra", href: "/b" },
+    ]
+    const { unmount } = render(<Pestanas etiqueta="Secciones" actual="b" compacta opciones={opciones} />)
+    expect(vistas).toEqual([screen.getByRole("link", { name: "Otra" })])
+    unmount()
+    vistas.length = 0
+    render(<Pestanas etiqueta="Vistas" actual="b" opciones={opciones} />)
+    expect(vistas).toEqual([])
   })
 })
