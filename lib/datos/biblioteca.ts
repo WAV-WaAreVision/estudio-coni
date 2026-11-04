@@ -279,6 +279,20 @@ export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> 
   }
 }
 
+/**
+ * The view types every column nullable, but a topic row always has its id and name. One without them is impossible, so
+ * it throws: dropping it would shorten the page and make `leerTodas` stop before the last one.
+ */
+export function conIdYNombre<T extends { id: string | null; nombre: string | null }>(
+  fila: T,
+): T & { id: string; nombre: string } {
+  const { id, nombre } = fila
+  if (id === null || nombre === null) {
+    throw new Error(`El tema ${id ?? "(sin id)"} de temas_resumen llegó sin id o sin nombre.`)
+  }
+  return { ...fila, id, nombre }
+}
+
 /** The topics of Temas (ported from Ingesta's `listarTemas`), a pillar narrowing them; ordered by `ordenarTemas`. */
 export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
   const filas = await leerTodas("los temas", (despuesDe, limite) => {
@@ -289,14 +303,7 @@ export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<
     return (despuesDe === null ? delPilar : delPilar.gt("id", despuesDe))
       .order("id")
       .limit(limite)
-      .then(({ data, error }) => ({
-        // The view types every column nullable; a topic row always has its id and name.
-        data:
-          data?.flatMap((fila) =>
-            fila.id === null || fila.nombre === null ? [] : [{ ...fila, id: fila.id, nombre: fila.nombre }],
-          ) ?? null,
-        error,
-      }))
+      .then(({ data, error }) => ({ data: data?.map(conIdYNombre) ?? null, error }))
   })
   return ordenarTemas(
     filas.map((fila) => ({

@@ -46,6 +46,8 @@ const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
 const NO_EXISTE = "P0002"
 const AUTOR_INEXISTENTE = "Ese autor ya no existe."
+const MISMO_AUTOR = "Elige otro autor para unirlos."
+const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
 /** A download link is for one tap. */
 const SEGUNDOS_DE_DESCARGA = 5 * 60
 
@@ -407,17 +409,21 @@ export function unirAutores(
 ): Promise<Resultado> {
   return aResultado("unirAutores", async () => {
     await exigirConi(deps.db)
-    if (union.origen === union.destino) throw new Falla("Elige otro autor para unirlos.")
+    if (union.origen === union.destino) throw new Falla(MISMO_AUTOR)
     const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
     if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
     if (!origen) throw new Falla(AUTOR_INEXISTENTE)
-    if (origen.tipo === "coni") throw new Falla("Tu propia ficha no se puede unir a otro autor.")
+    if (origen.tipo === "coni") throw new Falla(CONI_NO_SE_UNE)
     const { error: errorDeUnion } = await deps.db.rpc("fusionar_autores", {
       p_origen: union.origen,
       p_destino: union.destino,
     })
     if (errorDeUnion) {
       if (errorDeUnion.code === NO_EXISTE) throw new Falla(AUTOR_INEXISTENTE)
+      // Backstops for the checks above: the same uuid in another case, or a row that changed between the two reads.
+      if (errorDeUnion.code === NO_ES_EL_ESTADO) {
+        throw new Falla(errorDeUnion.message === "autores_iguales" ? MISMO_AUTOR : CONI_NO_SE_UNE)
+      }
       throw new Error(`No pude unir el autor ${union.origen} con ${union.destino}: ${errorDeUnion.message}`, {
         cause: errorDeUnion,
       })

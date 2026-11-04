@@ -12,6 +12,8 @@ vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotec
 vi.mock("@/lib/acciones/biblioteca", async (original) => ({
   ...(await original<typeof import("@/lib/acciones/biblioteca")>()),
   descartarMaterial: vi.fn(async () => ({ ok: true })),
+  unirAutores: vi.fn(async () => ({ ok: true })),
+  ocultarIdea: vi.fn(async () => ({ ok: true })),
 }))
 
 import {
@@ -32,8 +34,10 @@ import {
   CambioDeIdea,
   descartarMaterial,
   EdicionDeMaterial,
+  ocultarIdea,
   SobreMaterial,
   UnionDeAutores,
+  unirAutores,
 } from "@/lib/acciones/biblioteca"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -113,13 +117,24 @@ describe("the server actions of Autores and Temas", () => {
       () => unirAutoresAccion({ origen: ID, destino: AUTOR }),
       UnionDeAutores,
       { origen: ID, destino: AUTOR },
+      unirAutores,
     ],
-    ["ocultarIdea", () => ocultarIdeaAccion({ id: ID, oculta: true }), CambioDeIdea, { id: ID, oculta: true }],
+    [
+      "ocultarIdea",
+      () => ocultarIdeaAccion({ id: ID, oculta: true }),
+      CambioDeIdea,
+      { id: ID, oculta: true },
+      ocultarIdea,
+    ],
   ] as const)(
-    "%s checks Coni with its schema and refreshes the three sections, so their counts agree",
-    async (nombre, accion, esquema, entrada) => {
+    "%s checks Coni with its schema, runs its own action and refreshes the three sections, so their counts agree",
+    async (nombre, accion, esquema, entrada, propia) => {
       expect(await accion()).toEqual({ ok: true })
-      expect(conSesionDeConi).toHaveBeenCalledWith(nombre, esquema, entrada, expect.any(Function))
+      const [recibido, conEsquema, conEntrada, alAccionar] = conSesionDeConi.mock.calls[0] ?? []
+      expect([recibido, conEsquema, conEntrada]).toEqual([nombre, esquema, entrada])
+      const db = {}
+      await (alAccionar as (db: unknown, d: unknown) => Promise<unknown>)(db, entrada)
+      expect(propia).toHaveBeenCalledWith({ db }, entrada)
       expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
     },
   )

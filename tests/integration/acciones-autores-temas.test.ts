@@ -81,13 +81,16 @@ describe("unirAutores", () => {
 
   it("lets Coni be the one that stays", async () => {
     const origen = await autor("Coni de nuevo")
-    expect(await unirAutores({ db: coni }, { origen, destino: coniAutora })).toEqual({ ok: true })
-    expect(await existe(origen)).toBe(false)
-    // Coni's row is the seed's, shared by every test: the alias the join added must not stay behind.
-    await pool.query("update public.autores set alias = array_remove(alias, $1) where id = $2", [
-      `Coni de nuevo ${SUFIJO}`,
-      coniAutora,
-    ])
+    try {
+      expect(await unirAutores({ db: coni }, { origen, destino: coniAutora })).toEqual({ ok: true })
+      expect(await existe(origen)).toBe(false)
+    } finally {
+      // Coni's row is the seed's, shared by every test: the alias the join added must not stay behind.
+      await pool.query("update public.autores set alias = array_remove(alias, $1) where id = $2", [
+        `Coni de nuevo ${SUFIJO}`,
+        coniAutora,
+      ])
+    }
   })
 
   it("refuses the same author twice and a missing one, in plain words", async () => {
