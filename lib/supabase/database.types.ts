@@ -1481,6 +1481,61 @@ export type Database = {
         }
         Relationships: []
       }
+      tema_pilares: {
+        Row: {
+          creado_en: string
+          es_capa: boolean
+          fuerza: string | null
+          lote: string | null
+          origen: string
+          pilar_id: string
+          red: string
+          tema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          es_capa: boolean
+          fuerza?: string | null
+          lote?: string | null
+          origen: string
+          pilar_id: string
+          red: string
+          tema_id: string
+        }
+        Update: {
+          creado_en?: string
+          es_capa?: boolean
+          fuerza?: string | null
+          lote?: string | null
+          origen?: string
+          pilar_id?: string
+          red?: string
+          tema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tema_pilares_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "red", "es_capa"]
+          },
+          {
+            foreignKeyName: "tema_pilares_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tema_pilares_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       temas: {
         Row: {
           actualizado_en: string
