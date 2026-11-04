@@ -31,6 +31,9 @@ export default async function DetalleDeTema({
   if (!valido.success) notFound()
   // A merged topic's address leads to the one that stayed; a missing one or a loop is not found.
   const destino = await destinoDeTema(db, valido.data)
+  // Hiding what turned out to be its last idea (another tab, the nightly run) deleted the topic: the list says the note.
+  const ideaOculta = leerIdeaOculta(consulta)
+  if (destino === null && ideaOculta !== null) redirect(`${RUTA_DE_TEMAS}?oculta=${ideaOculta}`)
   if (destino === null) notFound()
   if (destino !== valido.data) redirect(hrefDeTema(destino))
   const leido = await leerTema(db, destino)
@@ -38,7 +41,7 @@ export default async function DetalleDeTema({
   const { tema, ideas, autores } = leido
   const cuentas = cuentasDeTema({ ideas, autores: autores.length })
 
-  const oculta = leerIdeaOculta(consulta) !== null
+  const oculta = ideaOculta !== null
   return (
     <div className="grid gap-6 md:max-w-[42rem]">
       <Volver href={RUTA_DE_TEMAS}>Temas</Volver>

@@ -26,6 +26,7 @@ import {
 } from "@/lib/acciones/biblioteca"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
+import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { destinoTrasOcultar } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { almacenReal } from "@/lib/proveedores/almacen"
 
@@ -124,9 +125,17 @@ export async function descartarMaterialAccion(materialId: string) {
   )
 }
 
-/** Joining moves materials and ideas: the three sections' counts change. */
+/**
+ * Joining moves materials and ideas: the three sections' counts change. As Ocultar, the author that stayed comes in this
+ * same answer: a client navigation after it could lose the race with the revalidated tree and draw the deleted author.
+ */
 export async function unirAutoresAccion(union: z.input<typeof UnionDeAutores>) {
-  return refrescar(await conSesionDeConi("unirAutores", UnionDeAutores, union, (db, d) => unirAutores({ db }, d)))
+  const resultado = await refrescar(
+    await conSesionDeConi("unirAutores", UnionDeAutores, union, (db, d) => unirAutores({ db }, d)),
+  )
+  // Success means the schema passed: the destination is a uuid, so the address stays inside the Biblioteca.
+  if (resultado.ok) redirect(hrefDeAutor(UnionDeAutores.parse(union).destino), "replace")
+  return resultado
 }
 
 /**

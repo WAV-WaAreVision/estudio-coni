@@ -1,11 +1,10 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { useAccion } from "@/components/use-accion"
-import { type AutorDeLista, buscarAutores, hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
+import { type AutorDeLista, buscarAutores } from "@/lib/dominio/biblioteca/autores"
 import { unirAutoresAccion } from "../../acciones"
 import { Campo, CLASES_DE_CAMPO } from "../../campo"
 
@@ -25,7 +24,6 @@ interface Propiedades {
 
 /** Ported from Ingesta's `unir-autores.tsx`, with the search instead of a select (D7). */
 export function UnirAutores({ origen, otros }: Propiedades) {
-  const router = useRouter()
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState("")
   const [destino, setDestino] = useState<AutorDeLista | null>(null)
@@ -76,12 +74,8 @@ export function UnirAutores({ origen, otros }: Propiedades) {
         volver="Elegir otro"
         cargando={pendiente}
         error={error}
-        alConfirmar={() =>
-          ejecutar(
-            () => unirAutoresAccion({ origen: origen.id, destino: destino.id }),
-            () => router.push(hrefDeAutor(destino.id)),
-          )
-        }
+        // On success the action itself takes her to the author that stayed.
+        alConfirmar={() => ejecutar(() => unirAutoresAccion({ origen: origen.id, destino: destino.id }))}
         alVolver={() => {
           limpiarError()
           setDestino(null)

@@ -42,7 +42,7 @@ describe("UnirAutores (D7)", () => {
     expect(nota).toHaveTextContent("")
   })
 
-  it("asks before joining, naming both and saying it cannot be undone, then goes to the one that stayed", async () => {
+  it("asks before joining, naming both and saying it cannot be undone; the server action takes her to the one that stayed", async () => {
     render(<UnirAutores origen={ORIGEN} otros={OTROS} />)
     elegir("daniela", "Daniela Ruiz, investigadora")
     expect(
@@ -52,7 +52,7 @@ describe("UnirAutores (D7)", () => {
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Sí, unir" }))
     await waitFor(() => expect(unirAutoresAccion).toHaveBeenCalledWith({ origen: ORIGEN.id, destino: DANIELA }))
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/biblioteca/autores/${DANIELA}`))
+    expect(push).not.toHaveBeenCalled()
   })
 
   it("lets Coni be the one that stays, found by her alias", () => {

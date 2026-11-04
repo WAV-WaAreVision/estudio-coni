@@ -116,26 +116,18 @@ describe("the Biblioteca's server actions", () => {
 })
 
 describe("the server actions of Autores and Temas", () => {
-  it.each([
-    [
-      "unirAutores",
-      () => unirAutoresAccion({ origen: ID, destino: AUTOR }),
-      UnionDeAutores,
-      { origen: ID, destino: AUTOR },
-      unirAutores,
-    ],
-  ] as const)(
-    "%s checks Coni with its schema, runs its own action and refreshes the three sections, so their counts agree",
-    async (nombre, accion, esquema, entrada, propia) => {
-      expect(await accion()).toEqual({ ok: true })
-      const [recibido, conEsquema, conEntrada, alAccionar] = conSesionDeConi.mock.calls[0] ?? []
-      expect([recibido, conEsquema, conEntrada]).toEqual([nombre, esquema, entrada])
-      const db = {}
-      await (alAccionar as (db: unknown, d: unknown) => Promise<unknown>)(db, entrada)
-      expect(propia).toHaveBeenCalledWith({ db }, entrada)
-      expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
-    },
-  )
+  it("unirAutores checks Coni with its schema, runs its own action, refreshes the three sections and then goes to the author that stayed in the same answer", async () => {
+    await expect(unirAutoresAccion({ origen: ID, destino: AUTOR })).rejects.toThrow("NEXT_REDIRECT")
+    const [recibido, conEsquema, conEntrada, alAccionar] = conSesionDeConi.mock.calls[0] ?? []
+    expect([recibido, conEsquema, conEntrada]).toEqual(["unirAutores", UnionDeAutores, { origen: ID, destino: AUTOR }])
+    const db = {}
+    await (alAccionar as (db: unknown, d: unknown) => Promise<unknown>)(db, { origen: ID, destino: AUTOR })
+    expect(unirAutores).toHaveBeenCalledWith({ db }, { origen: ID, destino: AUTOR })
+    expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+    // A client navigation after the answer could lose the race with the revalidated tree and draw the deleted author.
+    expect(redirect).toHaveBeenCalledWith(`/biblioteca/autores/${AUTOR}`, "replace")
+    expect(revalidatePath.mock.invocationCallOrder[0]).toBeLessThan(redirect.mock.invocationCallOrder[0] ?? 0)
+  })
 
   it("ocultarIdea checks Coni with its schema, runs its own action, refreshes the three sections and then goes to the checked address in the same answer", async () => {
     const despues = `/biblioteca/temas/${AUTOR}?oculta=${ID}`
@@ -165,13 +157,14 @@ describe("the server actions of Autores and Temas", () => {
     expect(redirect).not.toHaveBeenCalled()
   })
 
-  it("refreshes nothing when joining is refused", async () => {
+  it("refreshes nothing and goes nowhere when joining is refused", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esta app es solo para Coni." })
     expect(await unirAutoresAccion({ origen: ID, destino: AUTOR })).toEqual({
       ok: false,
       error: "Esta app es solo para Coni.",
     })
     expect(revalidatePath).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
   })
 
   it("the schemas refuse what is not an id or a yes/no", () => {

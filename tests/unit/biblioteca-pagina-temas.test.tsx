@@ -174,6 +174,14 @@ describe("a topic's page", () => {
     await expect(abrir(CARGA)).rejects.toThrow("NEXT_NOT_FOUND")
   })
 
+  it("after hiding, lands on the list with its note when the topic is gone meanwhile instead of not found", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValueOnce(null)
+    await expect(abrir(CARGA, { oculta: PAUSAS })).rejects.toThrow(`NEXT_REDIRECT /biblioteca/temas?oculta=${PAUSAS}`)
+    datos.destinoDeTema.mockResolvedValueOnce(null)
+    await expect(abrir(CARGA, { oculta: "no-es-un-id" })).rejects.toThrow("NEXT_NOT_FOUND")
+  })
+
   it("groups its ideas by author, each title linking to the author with a full-size target", async () => {
     esConi.valor = true
     datos.destinoDeTema.mockResolvedValue(CARGA)
