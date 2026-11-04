@@ -36,9 +36,9 @@ export function leerFiltros(params: Params): FiltrosDeMateriales {
   return filtros
 }
 
-/** The material open in the desktop side panel (`?m=<id>`). */
-export function leerSeleccion(params: Params): string | null {
-  return leer(z.uuid(), params.m) ?? null
+/** The row open in the desktop side panel: `?m=<id>` on Materiales, `?a=` on Autores, `?t=` on Temas (D4). */
+export function leerSeleccion(params: Params, clave = "m"): string | null {
+  return leer(z.uuid(), params[clave]) ?? null
 }
 
 export function hayFiltros(filtros: FiltrosDeMateriales): boolean {
