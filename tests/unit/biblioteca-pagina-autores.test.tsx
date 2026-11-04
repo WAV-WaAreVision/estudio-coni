@@ -37,6 +37,7 @@ import { SinMaterial } from "@/app/(app)/biblioteca/autores/sin-material"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
 import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
+import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import { AVISO_TRAS_MOSTRAR, hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
@@ -188,6 +189,7 @@ describe("an author's page", () => {
     expect(boton.type).toBe(BotonOcultar)
     expect(boton.props).toEqual({ ideaId: "i-2", oculta: true, despues: `/biblioteca/autores/${ID}?mostrada=i-2` })
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
+    expect(arbol.some((elemento) => elemento.type === TrasElAviso)).toBe(false)
     const visibles = arbol.find(
       (elemento) => elemento.type === ListaDeIdeas && elemento.props.etiqueta === "Ideas sobre Carga mental",
     )
@@ -199,5 +201,6 @@ describe("an author's page", () => {
     datos.leerAutor.mockResolvedValueOnce(leido("persona"))
     const arbol = elementos(await DetalleDeAutor(conId(ID, { mostrada: MOSTRADA })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_MOSTRAR)
+    expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "mostrada" })
   })
 })

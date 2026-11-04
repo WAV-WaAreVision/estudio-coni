@@ -48,4 +48,27 @@ describe("TrasElAviso", () => {
     )
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).not.toHaveFocus()
   })
+
+  it("takes its note out of the address, keeping the rest, so a reload, Back or a shared link does not say it again", () => {
+    const estado = { __NA: true, arbol: "el de Next" }
+    window.history.replaceState(estado, "", `/biblioteca/temas?pilar=p&oculta=${IDEA}&t=x#arriba`)
+    render(
+      <>
+        <AvisoDeIdeas texto="La oculté." />
+        <TrasElAviso parametro="oculta" />
+      </>,
+    )
+    expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe(
+      "/biblioteca/temas?pilar=p&t=x#arriba",
+    )
+    // The router's own state rides along, and the note the server drew stays on screen.
+    expect(window.history.state).toEqual(estado)
+    expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toHaveTextContent("La oculté.")
+  })
+
+  it("takes out only its own parameter", () => {
+    en(`/biblioteca/autores/a?mostrada=${IDEA}`)
+    render(<TrasElAviso parametro="mostrada" />)
+    expect(`${window.location.pathname}${window.location.search}`).toBe("/biblioteca/autores/a")
+  })
 })

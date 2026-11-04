@@ -16,6 +16,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
+import { TrasElAviso } from "../../tras-el-aviso"
 
 /** One topic (ported from Ingesta's `temas/[id]/page.tsx`): its ideas by author, each with Ocultar. */
 export default async function DetalleDeTema({
@@ -37,6 +38,7 @@ export default async function DetalleDeTema({
   const { tema, ideas, autores } = leido
   const cuentas = cuentasDeTema({ ideas, autores: autores.length })
 
+  const oculta = leerIdeaOculta(consulta) !== null
   return (
     <div className="grid gap-6 md:max-w-[42rem]">
       <Volver href={RUTA_DE_TEMAS}>Temas</Volver>
@@ -45,7 +47,8 @@ export default async function DetalleDeTema({
         {tema.descripcion ? <p className="text-cuerpo">{tema.descripcion}</p> : null}
         {cuentas ? <p className="text-meta text-apagado">{cuentas}</p> : null}
       </header>
-      <AvisoDeIdeas texto={leerIdeaOculta(consulta) ? AVISO_TRAS_OCULTAR : null} />
+      <AvisoDeIdeas texto={oculta ? AVISO_TRAS_OCULTAR : null} />
+      {oculta ? <TrasElAviso parametro="oculta" /> : null}
 
       {autores.map((grupo) => {
         const idDelTitulo = `autor-${grupo.autor.id}`

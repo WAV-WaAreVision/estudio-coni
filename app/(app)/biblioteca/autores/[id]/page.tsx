@@ -16,6 +16,7 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
+import { TrasElAviso } from "../../tras-el-aviso"
 import { SinMaterial } from "../sin-material"
 import { UnirAutores } from "./unir-autores"
 
@@ -35,6 +36,7 @@ export default async function DetalleDeAutor({
   const { autor, materiales, ideas, grupos, ocultas } = leido
   const cuentas = cuentasDeAutor({ materiales, ideas })
 
+  const mostrada = leerIdeaMostrada(consulta) !== null
   return (
     <div className="grid gap-6 md:max-w-[42rem]">
       <Volver href={RUTA_DE_AUTORES}>Autores</Volver>
@@ -43,7 +45,8 @@ export default async function DetalleDeAutor({
         <p className="text-meta text-apagado">{descripcionDeAutor(autor)}</p>
         {cuentas ? <p className="text-cuerpo">{cuentas}</p> : <SinMaterial />}
       </header>
-      <AvisoDeIdeas texto={leerIdeaMostrada(consulta) ? AVISO_TRAS_MOSTRAR : null} />
+      <AvisoDeIdeas texto={mostrada ? AVISO_TRAS_MOSTRAR : null} />
+      {mostrada ? <TrasElAviso parametro="mostrada" /> : null}
 
       {grupos.map((grupo) => {
         const idDelTitulo = `grupo-${grupo.tema?.id ?? "sin-tema"}`
