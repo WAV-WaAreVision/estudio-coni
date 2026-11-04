@@ -22,10 +22,19 @@ import {
   descartarMaterialAccion,
   editarFichaAccion,
   editarMaterialAccion,
+  ocultarIdeaAccion,
   reintentarMaterialAccion,
   reprocesarMaterialAccion,
+  unirAutoresAccion,
 } from "@/app/(app)/biblioteca/acciones"
-import { AutorNuevo, descartarMaterial, EdicionDeMaterial, SobreMaterial } from "@/lib/acciones/biblioteca"
+import {
+  AutorNuevo,
+  CambioDeIdea,
+  descartarMaterial,
+  EdicionDeMaterial,
+  SobreMaterial,
+  UnionDeAutores,
+} from "@/lib/acciones/biblioteca"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const AUTOR = "22222222-3333-4444-8555-666666666666"
@@ -94,5 +103,38 @@ describe("the Biblioteca's server actions", () => {
     expect(recibida).toEqual(entrada)
     expect((esquema as { safeParse: (v: unknown) => { success: boolean } }).safeParse(42).success).toBe(true)
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe("the server actions of Autores and Temas", () => {
+  it.each([
+    [
+      "unirAutores",
+      () => unirAutoresAccion({ origen: ID, destino: AUTOR }),
+      UnionDeAutores,
+      { origen: ID, destino: AUTOR },
+    ],
+    ["ocultarIdea", () => ocultarIdeaAccion({ id: ID, oculta: true }), CambioDeIdea, { id: ID, oculta: true }],
+  ] as const)(
+    "%s checks Coni with its schema and refreshes the three sections, so their counts agree",
+    async (nombre, accion, esquema, entrada) => {
+      expect(await accion()).toEqual({ ok: true })
+      expect(conSesionDeConi).toHaveBeenCalledWith(nombre, esquema, entrada, expect.any(Function))
+      expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+    },
+  )
+
+  it("refreshes nothing when joining is refused", async () => {
+    conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "Esta app es solo para Coni." })
+    expect(await unirAutoresAccion({ origen: ID, destino: AUTOR })).toEqual({
+      ok: false,
+      error: "Esta app es solo para Coni.",
+    })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("the schemas refuse what is not an id or a yes/no", () => {
+    expect(UnionDeAutores.safeParse({ origen: "1", destino: AUTOR }).success).toBe(false)
+    expect(CambioDeIdea.safeParse({ id: ID, oculta: "si" }).success).toBe(false)
   })
 })

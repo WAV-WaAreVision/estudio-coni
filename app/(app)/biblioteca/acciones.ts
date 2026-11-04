@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import {
   AutorNuevo,
+  CambioDeIdea,
   confirmarCosto,
   confirmarMaterial,
   crearAutor,
@@ -15,9 +16,12 @@ import {
   EdicionDeMaterial,
   editarFicha,
   editarMaterial,
+  ocultarIdea,
   reintentarMaterial,
   reprocesarMaterial,
   SobreMaterial,
+  UnionDeAutores,
+  unirAutores,
 } from "@/lib/acciones/biblioteca"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
@@ -116,4 +120,14 @@ export async function descartarMaterialAccion(materialId: string) {
       descartarMaterial({ db, almacen: { borrarCarpeta: (id) => almacenReal().borrarCarpeta(id) } }, d.materialId),
     ),
   )
+}
+
+/** Joining moves materials and ideas: the three sections' counts change. */
+export async function unirAutoresAccion(union: z.input<typeof UnionDeAutores>) {
+  return refrescar(await conSesionDeConi("unirAutores", UnionDeAutores, union, (db, d) => unirAutores({ db }, d)))
+}
+
+/** Hiding changes a topic, its author and the materials' main topics. */
+export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>) {
+  return refrescar(await conSesionDeConi("ocultarIdea", CambioDeIdea, cambio, (db, d) => ocultarIdea({ db }, d)))
 }
