@@ -48,9 +48,24 @@ describe("EstadoDeMaterial (4j)", () => {
 
 describe("TemaDelMaterial", () => {
   it("shows +N and reads it in words", () => {
-    const { container } = render(<TemaDelMaterial tema={{ nombre: "Carga mental", otros: 2 }} />)
+    const { container } = render(<TemaDelMaterial tema={{ id: "t1", nombre: "Carga mental", otros: 2 }} />)
     expect(screen.getByText("Carga mental +2")).toHaveAttribute("aria-hidden", "true")
     expect(screen.getByText("Carga mental y 2 temas más")).toHaveClass("sr-only")
     expect(container.textContent).toContain("Carga mental +2")
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+
+  it("links to the topic when asked, named in words", () => {
+    render(<TemaDelMaterial tema={{ id: "t1", nombre: "Carga mental", otros: 2 }} conEnlace />)
+    expect(screen.getByRole("link", { name: "Carga mental y 2 temas más" })).toHaveAttribute(
+      "href",
+      "/biblioteca/temas/t1",
+    )
+  })
+
+  it("never links a material without a topic", () => {
+    render(<TemaDelMaterial tema={null} conEnlace />)
+    expect(screen.queryByRole("link")).toBeNull()
+    expect(screen.getAllByText("Sin tema todavía")).toHaveLength(2)
   })
 })

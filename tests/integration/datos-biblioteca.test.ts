@@ -70,14 +70,18 @@ afterAll(async () => {
 describe("listarMateriales", () => {
   it("gives each material its main topic: most ideas, ties by name, excluded and topicless ideas left out", async () => {
     const lista = await listarMateriales(coni, { autor })
-    expect(lista.find((m) => m.id === empate)?.tema).toEqual({ nombre: `Carga mental ${SUFIJO}`, otros: 1 })
+    expect(lista.find((m) => m.id === empate)?.tema).toEqual({
+      id: temas[0],
+      nombre: `Carga mental ${SUFIJO}`,
+      otros: 1,
+    })
     expect(lista.find((m) => m.id === vacio)?.tema).toBeNull()
   })
 
   it("reads every idea of the listed materials past the 1000 rows PostgREST answers at once", async () => {
     // The idea of the other topic sorts last by id: without paging it is never read and "+1" would be missing.
     const lista = await listarMateriales(coni, { autor })
-    expect(lista.find((m) => m.id === largo)?.tema).toEqual({ nombre: `Ánimo ${SUFIJO}`, otros: 1 })
+    expect(lista.find((m) => m.id === largo)?.tema).toEqual({ id: temas[3], nombre: `Ánimo ${SUFIJO}`, otros: 1 })
   })
 
   it("brings the author's name and the upload date, newest first", async () => {

@@ -23,7 +23,7 @@ const material: MaterialDeLista = {
   costo_estimado_usd: null,
   costo_confirmado_en: null,
   creado_en: "2026-10-31T12:00:00Z",
-  tema: { nombre: "Carga mental", otros: 1 },
+  tema: { id: "t1", nombre: "Carga mental", otros: 1 },
 }
 
 function tarjeta(m: MaterialDeLista) {
@@ -60,5 +60,10 @@ describe("TarjetaDeMaterial", () => {
     expect(within(li).getByRole("button", { name: "Procesar por ~US$ 1,20" })).toBeInTheDocument()
     expect(li).toHaveTextContent("Sin título")
     expect(li).toHaveTextContent("Espera tu OK")
+  })
+
+  it("keeps the topic as text inside its one link, never a link inside a link (deviation 4)", () => {
+    const li = tarjeta(material)
+    expect(within(li).getAllByRole("link")).toHaveLength(1)
   })
 })

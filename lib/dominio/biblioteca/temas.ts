@@ -1,4 +1,6 @@
 export interface TemaPrincipal {
+  /** The topic's id: the list links to its page (D9). */
+  id: string
   nombre: string
   /** How many other topics the material's ideas belong to: the list shows "+N". */
   otros: number
@@ -16,12 +18,12 @@ export interface IdeaConTema {
  * the most ideas; a tie goes to the name first in Spanish order. A material without such ideas has no entry.
  */
 export function temasPrincipales(ideas: readonly IdeaConTema[]): Map<string, TemaPrincipal> {
-  const porMaterial = new Map<string, Map<string, { nombre: string; ideas: number }>>()
+  const porMaterial = new Map<string, Map<string, { id: string; nombre: string; ideas: number }>>()
   for (const idea of ideas) {
     // A blank name (a topic row the reader could not join) would show as an empty main topic: it is left out.
     if (idea.excluida || idea.temaId === null || idea.nombre.trim() === "") continue
-    const temas = porMaterial.get(idea.materialId) ?? new Map<string, { nombre: string; ideas: number }>()
-    const tema = temas.get(idea.temaId) ?? { nombre: idea.nombre, ideas: 0 }
+    const temas = porMaterial.get(idea.materialId) ?? new Map<string, { id: string; nombre: string; ideas: number }>()
+    const tema = temas.get(idea.temaId) ?? { id: idea.temaId, nombre: idea.nombre, ideas: 0 }
     tema.ideas += 1
     temas.set(idea.temaId, tema)
     porMaterial.set(idea.materialId, temas)
@@ -29,7 +31,7 @@ export function temasPrincipales(ideas: readonly IdeaConTema[]): Map<string, Tem
   const principales = new Map<string, TemaPrincipal>()
   for (const [materialId, temas] of porMaterial) {
     const [primero] = [...temas.values()].sort((a, b) => b.ideas - a.ideas || a.nombre.localeCompare(b.nombre, "es"))
-    if (primero) principales.set(materialId, { nombre: primero.nombre, otros: temas.size - 1 })
+    if (primero) principales.set(materialId, { id: primero.id, nombre: primero.nombre, otros: temas.size - 1 })
   }
   return principales
 }
