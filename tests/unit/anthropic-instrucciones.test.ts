@@ -18,6 +18,7 @@ import {
   leerTextoEnImagenes,
   nombrarTemas,
   pedidoDeReclasificacion,
+  proponerPilaresPorRed,
   RechazoDeClaude,
   revisarCarruselConClaude,
   revisarConClaude,
@@ -462,6 +463,26 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
           "cuerpo": "a69330d81e5c0396097e9d420e6304ff6a7c1687fbb032dc52cc2af6d336b313",
           "sistema": "0fad5f26bf31dd746365923bd712c2fc7abe9ffc4f493ba463b94168f18eba33",
           "usuario": "7c4b28b9a784a246cbcbf485566be141535600d14a23e2580421d3f883a8e838",
+        },
+      ]
+    `)
+  })
+
+  it("keeps the pillars-per-network proposal prompt", async () => {
+    const pedidos = await huellas((c) =>
+      proponerPilaresPorRed({
+        cliente: c,
+        pilares: PILARES,
+        temas: [{ id: "t1", nombre: "Tema", descripcion: null, ideas: ["Una idea."] }],
+        ideas: [{ id: "i1", gancho: "Un gancho.", tema: "" }],
+      }),
+    )
+    expect(pedidos).toMatchInlineSnapshot(`
+      [
+        {
+          "cuerpo": "cf84e36c5676906ea7f501ee5f187b8c4b937860457d4c939044e6666ee1ae24",
+          "sistema": "86f365901a4c799b19416c0bba24b168427a5150ad14b2d9cad20c11e0ad9380",
+          "usuario": "98b4416136fbbc9e27dc7fc75d18844002344925c54bd7ae726bda3188916db2",
         },
       ]
     `)

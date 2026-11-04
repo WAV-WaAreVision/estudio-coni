@@ -24,6 +24,8 @@ export const MODELO_POR_TAREA = {
   escribirFicha: { modelo: "claude-opus-5-5", effort: "low" },
   clasificarIdea: { modelo: "claude-sonnet-5-5", effort: "low" },
   clasificarEnPilares: { modelo: "claude-sonnet-5-5", effort: "low" },
+  // The one-off proposal of pillars per network (spec 2026-11-04, section 3): a person reviews every line of it.
+  proponerPilaresPorRed: { modelo: "claude-sonnet-5-5", effort: "low" },
   extraerAfirmaciones: { modelo: "claude-sonnet-5-5", effort: "low" },
   nombrarTemas: { modelo: "claude-sonnet-5-5", effort: "low" },
   escribirTeorias: { modelo: "claude-opus-5-5", effort: "medium" },

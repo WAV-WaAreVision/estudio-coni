@@ -36,6 +36,15 @@ export {
   RespuestaCortada,
   type UsoClaude,
 } from "./anthropic/nucleo"
+export {
+  guiaDePilaresPorRed,
+  type IdeaPorClasificar,
+  type PropuestaDeIdeaPorRed,
+  type PropuestaDeTema,
+  pedidoDePilaresPorRed,
+  proponerPilaresPorRed,
+  type TemaPorClasificar,
+} from "./anthropic/pilares"
 export type { IdeaParaGuion, RespaldoParaGuion } from "./anthropic/secciones"
 export {
   confirmarFusiones,
