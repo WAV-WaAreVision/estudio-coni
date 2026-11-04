@@ -2726,7 +2726,7 @@ export type Database = {
         }[]
       }
       motor_pares: {
-        Args: { p_minimo_autores: number }
+        Args: { p_minimo_autores: number; p_por_pilares_de_red?: boolean }
         Returns: {
           a: string
           autores_comunes: number
@@ -2743,6 +2743,7 @@ export type Database = {
           evidencia_fuerte: number
           nombre: string
           pilar: string
+          pilares: string[]
           tema_id: string
         }[]
       }
