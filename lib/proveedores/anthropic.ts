@@ -28,6 +28,7 @@ export {
 } from "./anthropic/ideas"
 export { leerTextoEnImagenes, type TextoLeido } from "./anthropic/lectura"
 export {
+  cobroDeFalla,
   costoClaude,
   MODELO_POR_TAREA,
   type ModeloClaude,

@@ -189,6 +189,65 @@ describe("pilares por red, los comandos", () => {
     expect(gasto.rows[0]?.estado).toBe("confirmado")
   })
 
+  async function ultimoGasto() {
+    const { rows } = await pool.query<{ estado: string; real_usd: string | null }>(
+      "select estado, real_usd::text from public.gastos where paso = 'pilares_por_red' order by creado_en desc, id desc limit 1",
+    )
+    return rows[0]
+  }
+
+  it("proponer charges a cut answer, writes no file and says why", async () => {
+    servidor.use(
+      http.post(URL_CLAUDE, () =>
+        HttpResponse.json({
+          id: "msg_prueba",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-5-5",
+          content: [{ type: "text", text: '{"temas": [' }],
+          stop_reason: "max_tokens",
+          stop_sequence: null,
+          usage: USO,
+        }),
+      ),
+    )
+    const base = join(carpeta, "cortada")
+    const { deps } = dependencias()
+    await expect(ejecutarPilaresPorRed(["proponer", base], deps)).rejects.toThrow(
+      "Claude se quedó sin espacio antes de terminar la respuesta.",
+    )
+    expect(existsSync(`${base}.csv`) || existsSync(`${base}.md`)).toBe(false)
+    const gasto = await ultimoGasto()
+    expect(gasto?.estado).toBe("confirmado")
+    expect(Number(gasto?.real_usd)).toBeGreaterThan(0)
+  })
+
+  it("proponer releases the reservation when Claude never answered, and writes no file", async () => {
+    servidor.use(http.post(URL_CLAUDE, () => HttpResponse.json({ error: { type: "api_error" } }, { status: 500 })))
+    const base = join(carpeta, "sin-respuesta")
+    const { deps } = dependencias()
+    await expect(ejecutarPilaresPorRed(["proponer", base], deps)).rejects.toThrow()
+    expect(existsSync(`${base}.csv`) || existsSync(`${base}.md`)).toBe(false)
+    expect((await ultimoGasto())?.estado).toBe("liberado")
+  })
+
+  it("proponer stops at the month's limit without calling Claude", async () => {
+    const { rows } = await pool.query<{ t: string }>("select tope_mensual_usd::text as t from public.ajustes")
+    const tope = rows[0]?.t ?? "100"
+    await pool.query("update public.ajustes set tope_mensual_usd = 0.00001, limite_duro_usd = null")
+    const base = join(carpeta, "sin-limite")
+    const { uso, deps } = dependencias()
+    try {
+      await expect(ejecutarPilaresPorRed(["proponer", base], deps)).rejects.toThrow(
+        "El límite del mes no alcanza para la propuesta.",
+      )
+    } finally {
+      await pool.query("update public.ajustes set tope_mensual_usd = $1", [tope])
+    }
+    expect(uso.clientes).toBe(0)
+    expect(existsSync(`${base}.csv`) || existsSync(`${base}.md`)).toBe(false)
+  })
+
   it("aplicar refuses a CSV with mistakes, naming them, and changes nothing", async () => {
     const ruta = join(carpeta, "con-errores.csv")
     writeFileSync(ruta, aCsvPorRed([filaDelTema({ linkedin: "mi-nueva-partida" })]), "utf-8")

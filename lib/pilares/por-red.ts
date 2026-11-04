@@ -280,6 +280,25 @@ export function filasDelLote(filas: readonly FilaPorRed[], catalogo: CatalogoDeP
   return resultado
 }
 
+/** One call answers at most this many topics and ideas: about 120 output tokens each must fit its `max_tokens`. */
+export const MAXIMO_ELEMENTOS_POR_PROPUESTA = 100
+
+/** Why a proposal would be money spent for nothing, or null to go ahead. Checked before the key and the reservation. */
+export function porQueNoProponer(temas: readonly { id: string }[], ideas: readonly { id: string }[]): string | null {
+  if (temas.length === 0 && ideas.length === 0) {
+    return "No hay temas sin pilares ni ideas del banco en pilares anteriores: nada que proponer."
+  }
+  // `aplicar_lote_de_pilares` refuses a lot without topics (`lote_vacio`), so a proposal of ideas alone is a dead end.
+  if (temas.length === 0) {
+    return `No hay temas sin pilares, pero quedan ${ideas.length} ideas del banco en pilares anteriores. Un lote sin temas no se puede aplicar, así que no gasto en una propuesta: avísale a WAV.`
+  }
+  const elementos = temas.length + ideas.length
+  if (elementos > MAXIMO_ELEMENTOS_POR_PROPUESTA) {
+    return `Son ${elementos} elementos; el máximo de una propuesta es ${MAXIMO_ELEMENTOS_POR_PROPUESTA}.`
+  }
+  return null
+}
+
 const CARACTERES_POR_TOKEN = 4
 // Two slugs, a few secondaries, a one-sentence Spanish reason and the JSON keys per item.
 const TOKENS_DE_SALIDA_POR_ELEMENTO = 120

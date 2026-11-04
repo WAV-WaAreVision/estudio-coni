@@ -9,7 +9,7 @@ import {
   leerTemasSinPilaresDeRed,
 } from "@/lib/datos/pilares-por-red"
 import { confirmarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
-import { costoClaude, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
+import { cobroDeFalla, costoClaude, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import {
   aCsvPorRed,
@@ -20,6 +20,7 @@ import {
   filasDePropuesta,
   LOTE_PILARES_POR_RED,
   leerCsvPorRed,
+  porQueNoProponer,
 } from "./por-red"
 import { cerrarGastoTrasFalla } from "./proponer"
 
@@ -56,9 +57,13 @@ async function proponer(base: string, deps: DepsPilaresPorRed): Promise<void> {
     leerTemasSinPilaresDeRed(deps.db),
     leerIdeasEnPilaresSinRed(deps.db),
   ])
-  if (temas.length === 0 && ideas.length === 0) {
-    deps.avisar("No hay temas sin pilares ni ideas del banco en pilares anteriores: nada que proponer.")
-    return
+  const motivo = porQueNoProponer(temas, ideas)
+  if (motivo !== null) {
+    if (temas.length + ideas.length === 0) {
+      deps.avisar(motivo)
+      return
+    }
+    throw new Error(motivo)
   }
   // Claude reads neither the old category nor the old pillar: the proposal starts from the topic itself.
   const paraClaude = {
@@ -87,16 +92,30 @@ async function proponer(base: string, deps: DepsPilaresPorRed): Promise<void> {
   try {
     propuesta = await proponerPilaresPorRed({ cliente: deps.crearClaude(llave), pilares: catalogo, ...paraClaude })
   } catch (error) {
-    // One call: if it failed, nothing was billed.
-    await cerrarGastoTrasFalla(deps, clave, 0)
+    // A refusal, a cut answer or one off the schema was billed; a request Claude never answered was not.
+    const cobro = cobroDeFalla(error)
+    await cerrarGastoTrasFalla(deps, clave, cobro ? costoClaude(cobro.uso, cobro.modelo) : 0)
     throw error
   }
   const realUsd = costoClaude(propuesta.uso, propuesta.modelo)
-  await confirmarGasto(deps.db, clave, Number(realUsd.toFixed(4)))
 
+  // The files first: a paid proposal is not lost to a failure confirming its spend.
   const filas = filasDePropuesta(temas, ideas, propuesta)
-  writeFileSync(csv, aCsvPorRed(filas), { encoding: "utf-8", flag: "wx" })
-  writeFileSync(md, aMarkdownParaConi(filas, catalogo), { encoding: "utf-8", flag: "wx" })
+  try {
+    writeFileSync(csv, aCsvPorRed(filas), { encoding: "utf-8", flag: "wx" })
+    writeFileSync(md, aMarkdownParaConi(filas, catalogo), { encoding: "utf-8", flag: "wx" })
+  } catch (error) {
+    await cerrarGastoTrasFalla(deps, clave, realUsd)
+    throw error
+  }
+  try {
+    await confirmarGasto(deps.db, clave, Number(realUsd.toFixed(4)))
+  } catch (error) {
+    throw new Error(
+      `La propuesta quedó en ${csv} y ${md}, pero no pude confirmar el gasto ${clave} (US$ ${realUsd.toFixed(4)}): ${error instanceof Error ? error.message : String(error)}. Revísalo en la tabla gastos; no vuelvas a proponer.`,
+      { cause: error },
+    )
+  }
   deps.avisar(
     `Propuesta en ${csv} (para aplicar) y ${md} (para Coni). Costo real: US$ ${realUsd.toFixed(4)}. Nada cambió en los temas ni en las ideas.`,
   )

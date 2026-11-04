@@ -2,7 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { MODELO_POR_TAREA, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
+import { cobroDeFalla, MODELO_POR_TAREA, proponerPilaresPorRed, RespuestaCortada } from "@/lib/proveedores/anthropic"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -134,5 +134,43 @@ describe("proponerPilaresPorRed", () => {
       { id: "i2", pilar: null, razon: "Claude no propuso un pilar." },
     ])
     expect(modelo).toBe("claude-opus-5-5")
+  })
+
+  describe("a failure after Claude answered", () => {
+    const entrada = () => ({ cliente: cliente(), pilares: PILARES_DE_PRUEBA, temas: TEMAS, ideas: IDEAS })
+
+    it("carries what that answer cost when it was cut", async () => {
+      servidor.use(
+        http.post(URL_MENSAJES, () =>
+          HttpResponse.json({
+            id: "msg_prueba",
+            type: "message",
+            role: "assistant",
+            model: "claude-opus-5-5",
+            content: [{ type: "text", text: '{"temas": [' }],
+            stop_reason: "max_tokens",
+            stop_sequence: null,
+            usage: USO,
+          }),
+        ),
+      )
+      const error = await proponerPilaresPorRed(entrada()).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(RespuestaCortada)
+      expect(cobroDeFalla(error)).toEqual({ uso: USO, modelo: "claude-opus-5-5" })
+    })
+
+    it("carries what that answer cost when it does not fit the schema", async () => {
+      respondiendo({ temas: "no es una lista" })
+      const error = await proponerPilaresPorRed(entrada()).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(Error)
+      expect(cobroDeFalla(error)).toEqual({ uso: USO, modelo: "claude-sonnet-5-5" })
+    })
+
+    it("carries nothing when Claude never answered", async () => {
+      servidor.use(http.post(URL_MENSAJES, () => HttpResponse.json({ error: { type: "api_error" } }, { status: 500 })))
+      const error = await proponerPilaresPorRed(entrada()).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(Error)
+      expect(cobroDeFalla(error)).toBeNull()
+    })
   })
 })

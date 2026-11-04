@@ -9,6 +9,8 @@ import {
   filasDePropuesta,
   LOTE_PILARES_POR_RED,
   leerCsvPorRed,
+  MAXIMO_ELEMENTOS_POR_PROPUESTA,
+  porQueNoProponer,
 } from "@/lib/pilares/por-red"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
@@ -218,5 +220,32 @@ describe("la propuesta de pilares por red", () => {
     })
     expect(usd).toBeGreaterThan(0)
     expect(usd).toBeLessThan(0.05)
+  })
+
+  describe("before spending on a proposal", () => {
+    const temas = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `t${i}` }))
+    const ideas = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `i${i}` }))
+
+    it("goes ahead with topics, with or without bank ideas, up to the maximum of one call", () => {
+      expect(MAXIMO_ELEMENTOS_POR_PROPUESTA).toBe(100)
+      expect(porQueNoProponer(temas(1), ideas(0))).toBeNull()
+      expect(porQueNoProponer(temas(60), ideas(40))).toBeNull()
+    })
+
+    it("stops when there is nothing to propose", () => {
+      expect(porQueNoProponer(temas(0), ideas(0))).toBe(
+        "No hay temas sin pilares ni ideas del banco en pilares anteriores: nada que proponer.",
+      )
+    })
+
+    it("stops when only bank ideas are left, since a lot without topics cannot be applied", () => {
+      expect(porQueNoProponer(temas(0), ideas(3))).toBe(
+        "No hay temas sin pilares, pero quedan 3 ideas del banco en pilares anteriores. Un lote sin temas no se puede aplicar, así que no gasto en una propuesta: avísale a WAV.",
+      )
+    })
+
+    it("stops above the maximum of one call", () => {
+      expect(porQueNoProponer(temas(80), ideas(21))).toBe("Son 101 elementos; el máximo de una propuesta es 100.")
+    })
   })
 })
