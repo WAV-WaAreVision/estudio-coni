@@ -43,15 +43,28 @@ describe("columna revision de las piezas", () => {
 })
 
 describe("guías", () => {
-  it("trae sembrada la línea editorial de Coni como versión 2 vigente, sobre la 1 retirada", async () => {
+  it("trae sembrada la línea editorial de Coni como versión 3 vigente, sobre la 1 y la 2 retiradas", async () => {
     await como(comoPostgres, async (c) => {
       const { rows } = await c.query<{ version: number; vigente: boolean; texto: string }>(
         "select version, vigente, texto from public.guias order by version",
       )
-      expect(rows).toHaveLength(2)
+      expect(rows).toHaveLength(3)
       expect(rows[0]).toMatchObject({ version: 1, vigente: false })
-      expect(rows[1]).toMatchObject({ version: 2, vigente: true })
-      expect(rows[1]?.texto).toBe(GUIA_DE_CONI)
+      expect(rows[1]).toMatchObject({ version: 2, vigente: false })
+      expect(rows[2]).toMatchObject({ version: 3, vigente: true })
+      expect(rows[2]?.texto).toBe(GUIA_DE_CONI)
+    })
+  })
+
+  it("trae los pilares por red con su peso de hoy y sus ángulos, sin los cinco pilares anteriores", async () => {
+    await como(comoPostgres, async (c) => {
+      const { rows } = await c.query<{ texto: string }>("select texto from public.guias where vigente")
+      const texto = rows[0]?.texto ?? ""
+      expect(texto).toContain("### LinkedIn")
+      expect(texto).toContain("### Instagram")
+      expect(texto).toContain("| **Mi nueva partida** | 40% | «Lo vivo» y «Pruébalo tú» |")
+      expect(texto).toContain("**Capa TDAH** (Instagram): no es un pilar.")
+      expect(texto).not.toContain("Práctica clínica aumentada")
     })
   })
 
@@ -80,7 +93,7 @@ describe("guías", () => {
 
   it("admite una sola vigente", async () => {
     await como(comoServicio, async (c) => {
-      const err = await fallaCon(c, "insert into public.guias (version, texto, vigente) values (3, 'otra', true)")
+      const err = await fallaCon(c, "insert into public.guias (version, texto, vigente) values (4, 'otra', true)")
       expect(err.code).toBe("23505")
     })
   })
@@ -88,17 +101,17 @@ describe("guías", () => {
   it("admite una versión nueva vigente cuando la anterior deja de serlo", async () => {
     await como(comoServicio, async (c) => {
       await c.query("update public.guias set vigente = false where vigente")
-      await c.query("insert into public.guias (version, texto, vigente) values (3, 'otra', true)")
+      await c.query("insert into public.guias (version, texto, vigente) values (4, 'otra', true)")
       const { rows } = await c.query<{ version: number }>("select version from public.guias where vigente")
-      expect(rows).toEqual([{ version: 3 }])
+      expect(rows).toEqual([{ version: 4 }])
     })
   })
 
   it("admite varias versiones que no son la vigente", async () => {
     await como(comoServicio, async (c) => {
-      await c.query("insert into public.guias (version, texto) values (3, 'a'), (4, 'b')")
+      await c.query("insert into public.guias (version, texto) values (4, 'a'), (5, 'b')")
       const { rows } = await c.query<{ n: number }>("select count(*)::int as n from public.guias where not vigente")
-      expect(rows[0]?.n).toBe(3)
+      expect(rows[0]?.n).toBe(4)
     })
   })
 
@@ -144,12 +157,12 @@ describe("guías", () => {
 
   it("registra en la auditoría quién cambió la guía", async () => {
     await como(comoServicio, async (c) => {
-      await c.query("insert into public.guias (version, texto) values (3, 'nueva')")
+      await c.query("insert into public.guias (version, texto) values (4, 'nueva')")
       await asumir(c, comoPostgres)
       const { rows } = await c.query<{ operacion: string; actor_rol: string; datos: { version: number } }>(
         "select operacion, actor_rol, datos from public.eventos where tabla = 'guias' order by id desc limit 1",
       )
-      expect(rows[0]).toMatchObject({ operacion: "insert", actor_rol: "service_role", datos: { version: 3 } })
+      expect(rows[0]).toMatchObject({ operacion: "insert", actor_rol: "service_role", datos: { version: 4 } })
     })
   })
 })
