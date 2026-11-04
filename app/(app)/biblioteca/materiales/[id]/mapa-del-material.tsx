@@ -19,25 +19,22 @@ function Recuento({ titulo, id, filas }: { titulo: string; id: string; filas: Fi
   return (
     <Seccion titulo={titulo} id={id}>
       <ul aria-label={titulo} className="divide-y divide-hilo rounded-panel bg-piedra-alta px-[18px]">
-        {filas.map((fila) => {
-          const contenido = (
-            <>
+        {filas.map((fila) => (
+          <li key={fila.clave} className={CONTENIDO_DE_FILA}>
+            {/* The count stays outside the link so the link is named by the topic alone. */}
+            {fila.href ? (
+              <Link
+                href={fila.href}
+                className="flex min-h-objetivo flex-1 items-center underline-offset-4 hover:underline"
+              >
+                {fila.texto}
+              </Link>
+            ) : (
               <span>{fila.texto}</span>
-              <span className="text-meta font-semibold text-apagado tabular-nums">{fila.cantidad}</span>
-            </>
-          )
-          return (
-            <li key={fila.clave}>
-              {fila.href ? (
-                <Link href={fila.href} className={`${CONTENIDO_DE_FILA} underline-offset-4 hover:underline`}>
-                  {contenido}
-                </Link>
-              ) : (
-                <div className={CONTENIDO_DE_FILA}>{contenido}</div>
-              )}
-            </li>
-          )
-        })}
+            )}
+            <span className="text-meta font-semibold text-apagado tabular-nums">{fila.cantidad}</span>
+          </li>
+        ))}
       </ul>
     </Seccion>
   )

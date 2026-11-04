@@ -43,10 +43,12 @@ describe("MapaDelMaterial (4h)", () => {
     expect(screen.getByText("Las ideas aparecen cuando termina de procesarse.")).toBeInTheDocument()
   })
 
-  it("links each topic row to its page, and not «Sin tema todavía» (D9)", () => {
+  it("links each topic row to its page by the topic alone, and not «Sin tema todavía» (D9)", () => {
     render(<MapaDelMaterial mapa={MAPA} estado="listo" />)
     const temas = screen.getByRole("list", { name: "Temas" })
-    expect(within(temas).getByRole("link", { name: /Carga mental/ })).toHaveAttribute("href", "/biblioteca/temas/t1")
+    const enlace = within(temas).getByRole("link")
+    expect(enlace).toHaveAccessibleName("Carga mental")
+    expect(enlace).toHaveAttribute("href", "/biblioteca/temas/t1")
     expect(within(temas).getAllByRole("link")).toHaveLength(1)
     expect(within(screen.getByRole("list", { name: "Qué tipo de idea es" })).queryByRole("link")).toBeNull()
   })
