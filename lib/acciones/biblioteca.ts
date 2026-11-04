@@ -38,8 +38,8 @@ export const AutorNuevo = z.object({
   credencial: z.string().max(LARGO_DE_AUTOR_NUEVO),
   tipo: z.enum(TIPOS_DE_AUTOR_NUEVO),
 })
-
 export const UnionDeAutores = z.object({ origen: z.uuid(), destino: z.uuid() })
+export const CambioDeIdea = z.object({ id: z.uuid(), oculta: z.boolean() })
 
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
 const NO_ES_EL_ESTADO = "22023"
@@ -421,6 +421,25 @@ export function unirAutores(
       throw new Error(`No pude unir el autor ${union.origen} con ${union.destino}: ${errorDeUnion.message}`, {
         cause: errorDeUnion,
       })
+    }
+    return {}
+  })
+}
+
+/**
+ * Hides or shows an idea with `excluir_afirmacion` (ported from Ingesta's `excluirAfirmacion`). Hiding takes it out of
+ * its topic, and a topic left without ideas goes away; shown again it waits without topic for the next maintenance run.
+ */
+export function ocultarIdea(
+  deps: Pick<DepsBiblioteca, "db">,
+  cambio: z.output<typeof CambioDeIdea>,
+): Promise<Resultado> {
+  return aResultado("ocultarIdea", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("excluir_afirmacion", { p_id: cambio.id, p_excluida: cambio.oculta })
+    if (error) {
+      if (error.code === NO_EXISTE) throw new Falla("Esa idea ya no existe.")
+      throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
     }
     return {}
   })

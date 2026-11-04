@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { unirAutores } from "@/lib/acciones/biblioteca"
+import { ocultarIdea, unirAutores } from "@/lib/acciones/biblioteca"
+import { destinoDeTema, leerAutor, leerTema } from "@/lib/datos/biblioteca"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
@@ -110,5 +111,80 @@ describe("unirAutores", () => {
     const [origen, destino] = [await autor("Origen WAV"), await autor("Destino WAV")]
     expect(await unirAutores({ db: wav }, { origen, destino })).toEqual({ ok: false, error: SOLO_CONI })
     expect(await existe(origen)).toBe(true)
+  })
+})
+
+async function ideasDe(materialId: string): Promise<string[]> {
+  const { rows } = await pool.query<{ id: string }>(
+    "select id from public.afirmaciones where material_id = $1 order by creada_en, id",
+    [materialId],
+  )
+  return rows.map((fila) => fila.id)
+}
+
+describe("ocultarIdea", () => {
+  it("takes an idea out of its topic, and its author shows it under the hidden ones", async () => {
+    const autora = await autor("Oculta")
+    const delaAutora = await material(autora)
+    const tema = await sembrarTema(`Ocultar ${SUFIJO}`)
+    temas.push(tema)
+    await sembrarIdeas(delaAutora, autora, tema, 2)
+    const [primera] = await ideasDe(delaAutora)
+    if (!primera) throw new Error("Faltan ideas")
+
+    expect(await ocultarIdea({ db: coni }, { id: primera, oculta: true })).toEqual({ ok: true })
+
+    const leido = await leerTema(coni, tema)
+    expect(leido?.ideas).toBe(1)
+    expect(leido?.autores[0]?.ideas.map((i) => i.id)).not.toContain(primera)
+    expect((await leerAutor(coni, autora))?.ocultas.map((i) => i.id)).toEqual([primera])
+  })
+
+  it("Mostrar brings it back without a topic, under «Sin tema todavía» (D6)", async () => {
+    const autora = await autor("Mostrar")
+    const delaAutora = await material(autora)
+    const tema = await sembrarTema(`Mostrar ${SUFIJO}`)
+    temas.push(tema)
+    await sembrarIdeas(delaAutora, autora, tema, 2)
+    const [primera] = await ideasDe(delaAutora)
+    if (!primera) throw new Error("Faltan ideas")
+    await ocultarIdea({ db: coni }, { id: primera, oculta: true })
+
+    expect(await ocultarIdea({ db: coni }, { id: primera, oculta: false })).toEqual({ ok: true })
+
+    const leido = await leerAutor(coni, autora)
+    expect(leido?.ocultas).toEqual([])
+    expect(leido?.grupos.find((g) => g.tema === null)?.ideas.map((i) => i.id)).toEqual([primera])
+  })
+
+  it("hiding the last idea of a topic deletes the topic (deviation 1)", async () => {
+    const autora = await autor("Última")
+    const delaAutora = await material(autora)
+    const tema = await sembrarTema(`Última ${SUFIJO}`)
+    temas.push(tema)
+    await sembrarIdeas(delaAutora, autora, tema, 1)
+    const [unica] = await ideasDe(delaAutora)
+    if (!unica) throw new Error("Falta la idea")
+
+    expect(await ocultarIdea({ db: coni }, { id: unica, oculta: true })).toEqual({ ok: true })
+    expect(await destinoDeTema(coni, tema)).toBeNull()
+  })
+
+  it("says an idea that is gone in plain words", async () => {
+    expect(await ocultarIdea({ db: coni }, { id: AUSENTE, oculta: true })).toEqual({
+      ok: false,
+      error: "Esa idea ya no existe.",
+    })
+  })
+
+  it("refuses WAV, although the database would let it", async () => {
+    const autora = await autor("Idea WAV")
+    const delaAutora = await material(autora)
+    await sembrarIdeas(delaAutora, autora, null, 1)
+    const [idea] = await ideasDe(delaAutora)
+    if (!idea) throw new Error("Falta la idea")
+    expect(await ocultarIdea({ db: wav }, { id: idea, oculta: true })).toEqual({ ok: false, error: SOLO_CONI })
+    const { rows } = await pool.query("select excluida from public.afirmaciones where id = $1", [idea])
+    expect(rows[0]?.excluida).toBe(false)
   })
 })
