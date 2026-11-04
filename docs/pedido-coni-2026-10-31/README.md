@@ -8,6 +8,7 @@ Everything needed to turn Coni's request (29 changes for Conidolly and Ingesta) 
 | `reposts-original.md` | Coni's separate spec for the Instagram Reposts intake (part of change 8), converted from its .docx. |
 | `respuestas-coni-2026-11-01.md` | Coni's answers to the decisions (A1–A12) and her new change 30. |
 | `emociones.md` | Coni's emotion list for tags (A10, change 6), with `emociones-media/`. |
+| `respuesta-coni-temas-pilares-2026-11-04.md` | Coni's answer of 2026-11-04 on the Temas buttons (network and pillar row, «Sin tratar» per network) and her pillar merge (LinkedIn 6→4, Instagram 4→3 plus the TDAH layer, angles, balance rule). Input for change 15 (#18). |
 | `fichas.md` | One card per change: what it asks, size, dependencies, sensitive rules, code claims to verify, open points. Read this before opening the original. |
 | `decisiones.md` | Decisions that block planning (Federico and Coni) and facts to confirm with providers. |
 | `fases.md` | Proposed build order in phases, each one a spec → plan → build cycle. |

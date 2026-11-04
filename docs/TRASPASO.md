@@ -98,6 +98,32 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **CORS de R2**: regla `conidolly-subidas` para `https://conidolly.vercel.app` en el bucket `estudio-coni` (la de Ingesta, `conidolly-ingesta-subidas`, sigue). Las vistas previas de Vercel no pueden subir (no tienen CORS); el E2E usa el S3 falso.
 - Siguiente: lote 3.
 
+## Biblioteca en Conidolly, lote 3: Autores y Temas (cambio 29b, lote 3 de 7, en producción desde el 2026-11-04)
+
+- **Publicado:** PR #65 (merge `31677a8`). Sin migración, sin deploy de Trigger y sin variables nuevas.
+  - Spec: `2026-11-04-biblioteca-autores-temas-design.md`.
+  - Plan: `2026-11-04-biblioteca-autores-temas.md`, con los desvíos 1 a 15 en `...-desvios.md`.
+- **Pendiente:** Federico abre `/biblioteca/autores` y `/biblioteca/temas` con la cuenta de Coni, por la dirección. Revisa:
+  - en el celular y en el computador, la lista, un autor, un tema y el panel lateral;
+  - unir dos autores de prueba solo si hay un duplicado real, porque no se puede deshacer.
+- **`/biblioteca/autores`:**
+  - Tarjetas en el celular; tabla con panel lateral (`?a=<id>`) en el computador.
+  - Búsqueda por nombre o alias.
+  - Detalle con las ideas por tema y las ocultas plegadas.
+  - «Unir con otro autor» llama a `fusionar_autores`. Coni nunca es la que desaparece. Tras unir, la acción redirige en el servidor al autor que quedó (desvío 15).
+- **`/biblioteca/temas`:**
+  - Filtros de cobertura (`?cobertura=`) y pilar en «Más filtros» (`?pilar=`).
+  - Detalle con las ideas por autor y «Ocultar». «Mostrar» está en la página del autor.
+  - Ocultar y Mostrar (`excluir_afirmacion`) redirigen en el servidor y dicen una sola nota viva (desvío 14).
+  - Ocultar la última idea borra el tema (`recalcular_tema`) y lleva a la lista.
+  - La dirección de un tema fusionado lleva al que quedó.
+- **Pestañas compactas (`Pestanas compacta`):** una sola fila que se desliza dentro de la píldora (`components/ui/pista-de-pestanas.tsx`).
+- **Los filtros de Temas ya quedaron viejos.** Coni respondió el 2026-11-04 con otro diseño (`docs/pedido-coni-2026-10-31/respuesta-coni-temas-pilares-2026-11-04.md`, resumen en #18):
+  - una fila con «Sin tratar» por red, «Instagram ▾» y «LinkedIn ▾» con sus pilares, y «+ Agregar red»;
+  - pilares fusionados, con ángulos.
+  - Se rehace con el cambio 15. La fusión de pilares reescribe datos en producción y necesita el OK de Federico.
+- **Siguiente:** lote 4 (borrar un autor con «Deshacer»).
+
 ## LinkedIn fase 2 (en producción: merge `4e6e32b`, desplegado; publica reels por la API)
 
 - Estado: Coni conectó su LinkedIn el 2026-10-07 (token de ~60 días, vence cerca del 2026-12-06). Todavía no ha salido ningún post por la API.
