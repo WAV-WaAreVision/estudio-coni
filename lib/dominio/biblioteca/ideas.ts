@@ -83,3 +83,6 @@ export function agruparPorAutor(filas: readonly FilaDeIdeaDeTema[]): GrupoPorAut
     (a, b) => b.ideas.length - a.ideas.length || a.autor.nombre.localeCompare(b.autor.nombre, "es"),
   )
 }
+
+/** The id of an idea's text on screen: its button points at it (D8). */
+export const idDeIdea = (id: string) => `idea-${id}`
