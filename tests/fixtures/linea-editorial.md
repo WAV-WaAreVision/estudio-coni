@@ -5,7 +5,7 @@
 
 ## Audiencia y postura
 
-- Coni publica sobre todo en LinkedIn, para colegas: psicólogos, médicos y el ecosistema de salud mental y tecnología. Foco en IA, tecnología y el futuro de la práctica clínica; la sexología aparece de vez en cuando. El mismo contenido va en video a Instagram.
+- Coni publica en LinkedIn e Instagram. Cada red tiene sus propios pilares y su público, así que un tema se trabaja distinto en cada una.
 - Postura: adopción responsable de la IA con criterio clínico, ni entusiasta ni alarmista. Coni lee la evidencia como psicóloga y usa su propio avatar como caso transparente.
 - La sexología no tiene pilar propio: aparece como mirada dentro de los pilares, por ejemplo la IA y la salud sexual o el sesgo de género en los modelos.
 
