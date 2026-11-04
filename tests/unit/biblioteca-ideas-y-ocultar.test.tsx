@@ -114,4 +114,12 @@ describe("AvisoDeIdeas", () => {
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toBe(aviso)
     expect(aviso).toHaveTextContent("La volví a mostrar. Está en Sin tema todavía.")
   })
+
+  it("is the only live region with its note in it, read whole", () => {
+    const { container } = render(<AvisoDeIdeas texto="La oculté. La puedes volver a mostrar desde su autor." />)
+    const vivas = container.querySelectorAll('[aria-live], [role="status"], [role="alert"], [role="log"], output')
+    expect(vivas).toHaveLength(1)
+    expect(vivas[0]).toHaveAttribute("id", ID_DEL_AVISO_DE_IDEAS)
+    expect(vivas[0]).toHaveAttribute("aria-atomic", "true")
+  })
 })

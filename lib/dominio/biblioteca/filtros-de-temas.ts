@@ -84,7 +84,7 @@ export function hrefTrasOcultar(temaId: string, ideaId: string, ideasAntesDeOcul
   return ideasAntesDeOcultar > 1 ? `${hrefDeTema(temaId)}?oculta=${ideaId}` : `${RUTA_DE_TEMAS}?oculta=${ideaId}`
 }
 
-// A path inside the Biblioteca and a plain query: no scheme, host, dot, backslash, percent or doubled slash can pass.
+// A path inside the Biblioteca and a plain query: no scheme, host, dot, backslash, percent or doubled slash passes.
 const DESTINO_DE_LA_BIBLIOTECA = /^\/biblioteca(?:\/[A-Za-z0-9_-]+)+(?:\?[A-Za-z0-9_=&-]*)?$/
 
 /**

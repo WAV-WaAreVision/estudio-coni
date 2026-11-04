@@ -45,6 +45,14 @@ describe("LineaDeEstado", () => {
     expect(screen.queryByRole("alert")).toBeNull()
   })
 
+  it("is a plain line, with the same look, inside a live region of its own (enVivo={false})", () => {
+    const { container } = render(<LineaDeEstado tipo="neutro" titulo="La oculté." enVivo={false} />)
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(container.querySelector("output")).toBeNull()
+    expect(container.firstElementChild).toHaveTextContent("La oculté.")
+    expect(container.firstElementChild?.className).toMatch(/\bflex\b/)
+  })
+
   it("does not interrupt again for an error already announced", () => {
     render(<LineaDeEstado tipo="error" titulo="Hay que corregirlo" anunciada />)
     expect(screen.queryByRole("alert")).toBeNull()

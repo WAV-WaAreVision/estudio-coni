@@ -10,14 +10,14 @@ interface Propiedades {
   ideaId: string
   /** Whether it is hidden now: the button does the opposite. */
   oculta: boolean
-  /** Where the server goes after it worked (`hrefTrasOcultar`, `hrefTrasMostrar`): an address whose page says the note. */
+  /** Where the server goes after it worked (`hrefTrasOcultar`, `hrefTrasMostrar`): a page that says the note. */
   despues: string
 }
 
 /**
- * Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. The action
- * answers with the new screen itself (`redirect`), where the idea has moved away and taken the button with it, so the
- * focus goes first to the page's note (`AvisoDeIdeas`), which stays; a refusal gives it back to the button.
+ * Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. The
+ * action answers with the new screen itself (`redirect`), where the idea has moved away and taken the button with it,
+ * so the focus goes first to the page's note (`AvisoDeIdeas`), which stays; a refusal gives it back to the button.
  */
 export function BotonOcultar({ ideaId, oculta, despues }: Propiedades) {
   const { pendiente, error, ejecutar } = useAccion()
