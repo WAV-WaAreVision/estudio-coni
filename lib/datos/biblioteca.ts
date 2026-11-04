@@ -17,8 +17,10 @@ import {
   type TemaResumido,
   temasPrincipales,
 } from "@/lib/dominio/biblioteca/temas"
+import { esFuerza, type PilarDeRed, type PilaresDeTema, pilaresDeRedes, pilaresDeTema } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 import { leerTodas } from "./paginas"
+import { leerPilares } from "./pilares"
 
 type Db = SupabaseClient<Database>
 
@@ -293,14 +295,30 @@ export function conIdYNombre<T extends { id: string | null; nombre: string | nul
   return { ...fila, id, nombre }
 }
 
+/**
+ * The topics a pillar lists (spec 2026-11-04, section 2): those it is the main pillar of, or, for a layer, those with
+ * its lens. A secondary pillar never lists a topic.
+ */
+async function temasDelPilar(db: Db, pilarId: string): Promise<string[]> {
+  const { data, error } = await db
+    .from("tema_pilares")
+    .select("tema_id")
+    .eq("pilar_id", pilarId)
+    .or("fuerza.eq.alta,es_capa.is.true")
+  if (error) throw new Error(`No pude leer los temas del pilar ${pilarId}: ${error.message}`, { cause: error })
+  return data.map((fila) => fila.tema_id)
+}
+
 /** The topics of Temas (ported from Ingesta's `listarTemas`), a pillar narrowing them; ordered by `ordenarTemas`. */
 export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
+  const delPilar = filtros.pilar ? await temasDelPilar(db, filtros.pilar) : null
+  if (delPilar !== null && delPilar.length === 0) return []
   const filas = await leerTodas("los temas", (despuesDe, limite) => {
     const todas = db
       .from("temas_resumen")
       .select("id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni")
-    const delPilar = filtros.pilar ? todas.eq("categoria_id", filtros.pilar) : todas
-    return (despuesDe === null ? delPilar : delPilar.gt("id", despuesDe))
+    const filtradas = delPilar === null ? todas : todas.in("id", delPilar)
+    return (despuesDe === null ? filtradas : filtradas.gt("id", despuesDe))
       .order("id")
       .limit(limite)
       .then(({ data, error }) => ({ data: data?.map(conIdYNombre) ?? null, error }))
@@ -318,21 +336,24 @@ export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<
   )
 }
 
-export interface Pilar {
-  id: string
-  nombre: string
+/** The pillars and layers a topic can be filtered by and given: those of a network, LinkedIn first. */
+export async function listarPilaresDeTemas(db: Db): Promise<PilarDeRed[]> {
+  return pilaresDeRedes(await leerPilares(db))
 }
 
-/** The pillars a topic can be filtered by: active pillar rows only, in their order (`leerPilares` has no id). */
-export async function listarPilaresDeTemas(db: Db): Promise<Pilar[]> {
-  const { data, error } = await db
-    .from("categorias")
-    .select("id, nombre")
-    .eq("es_pilar", true)
-    .eq("activa", true)
-    .order("orden")
-  if (error) throw new Error(`No pude leer los pilares: ${error.message}`, { cause: error })
-  return data
+/** A topic's pillars per network; empty for a topic without rows. */
+export async function leerPilaresDeTema(db: Db, temaId: string): Promise<PilaresDeTema> {
+  const [catalogo, filas] = await Promise.all([
+    leerPilares(db),
+    db.from("tema_pilares").select("pilar_id, fuerza").eq("tema_id", temaId),
+  ])
+  if (filas.error) {
+    throw new Error(`No pude leer los pilares del tema ${temaId}: ${filas.error.message}`, { cause: filas.error })
+  }
+  return pilaresDeTema(
+    catalogo,
+    filas.data.map((fila) => ({ pilarId: fila.pilar_id, fuerza: esFuerza(fila.fuerza) ? fila.fuerza : null })),
+  )
 }
 
 export interface TemaLeido {

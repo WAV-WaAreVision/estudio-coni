@@ -11,8 +11,8 @@ import { MasFiltrosDeTemas } from "@/app/(app)/biblioteca/temas/mas-filtros-de-t
 const PILAR = "11111111-2222-4333-8444-555555555555"
 const OTRO = "22222222-2222-4333-8444-555555555555"
 const PILARES = [
-  { id: PILAR, nombre: "IA y salud mental" },
-  { id: OTRO, nombre: "Ética y regulación" },
+  { id: PILAR, slug: "diagnostico-doble", nombreCorto: "IA y salud mental", red: "linkedin" as const, esCapa: false },
+  { id: OTRO, slug: "mi-nueva-partida", nombreCorto: "Ética y regulación", red: "instagram" as const, esCapa: false },
 ]
 const CONTEOS = { "sin-tratar": 2, tratados: 0, "un-autor": 1 }
 

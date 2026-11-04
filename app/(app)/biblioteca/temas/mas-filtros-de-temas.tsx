@@ -4,13 +4,13 @@ import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { MasOpciones } from "@/components/ui/mas-opciones"
-import type { Pilar } from "@/lib/datos/biblioteca"
 import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import type { PilarDeRed } from "@/lib/dominio/pilares"
 import { Campo, CLASES_DE_CAMPO } from "../campo"
 import { FormularioDeFiltros } from "../formulario-de-filtros"
 
 /** The pillar, folded behind a chip in the row of the quick filters (as Materiales' "Más filtros"). */
-export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTemas; pilares: Pilar[] }) {
+export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTemas; pilares: readonly PilarDeRed[] }) {
   const activos = filtros.pilar ? 1 : 0
   return (
     <MasOpciones
@@ -28,7 +28,7 @@ export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTema
             <option value="">Todos</option>
             {pilares.map((pilar) => (
               <option key={pilar.id} value={pilar.id}>
-                {pilar.nombre}
+                {pilar.nombreCorto}
               </option>
             ))}
           </select>
