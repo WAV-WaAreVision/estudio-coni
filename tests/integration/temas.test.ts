@@ -124,7 +124,16 @@ interface Pedido {
 }
 
 /** Claude answers by the kind of prompt: names for `nombrarTemas`, verdicts for `confirmarFusiones`. */
-function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boolean; pilar?: string } = {}) {
+function simularClaude(
+  opciones: {
+    nombre?: (i: number) => string
+    mismo?: boolean
+    pilar?: string
+    linkedin?: string | null
+    instagram?: string | null
+    capas?: string[]
+  } = {},
+) {
   const llamadas = { nombres: 0, fusiones: 0, pilaresOfrecidos: [] as string[] }
   servidor.use(
     http.post<never, Pedido>(URL_CLAUDE, async ({ request }) => {
@@ -141,6 +150,9 @@ function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boole
             nombre: opciones.nombre ? opciones.nombre(i) : `Tema ${i}`,
             descripcion: "Descripción.",
             pilar: opciones.pilar ?? "ia-salud-mental",
+            linkedin: opciones.linkedin ?? null,
+            instagram: opciones.instagram ?? null,
+            capas: opciones.capas ?? [],
           })),
         }
       } else {
@@ -401,6 +413,52 @@ describe("formarTemas", () => {
     expect(rows).toHaveLength(0)
     const { rows: libres } = await pool.query("select id from public.afirmaciones where tema_id is null")
     expect(libres).toHaveLength(9)
+  })
+
+  it("gives each new topic the main pillar per network and the layer Claude named, as automatico, and keeps categoria_id", async () => {
+    await dosGrupos()
+    simularClaude({ linkedin: "bienestar-e-impacto", instagram: "game-over-impostora", capas: ["capa-tdah"] })
+    await formarTemas(deps())
+    const { rows } = await pool.query<{ tema: string; slug: string; fuerza: string | null; origen: string }>(
+      `select t.nombre as tema, c.slug, p.fuerza, p.origen
+         from public.tema_pilares p join public.temas t on t.id = p.tema_id join public.categorias c on c.id = p.pilar_id
+        order by t.nombre, c.slug`,
+    )
+    expect(rows.filter((r) => r.tema === "Tema 0")).toEqual([
+      { tema: "Tema 0", slug: "bienestar-e-impacto", fuerza: "alta", origen: "automatico" },
+      { tema: "Tema 0", slug: "capa-tdah", fuerza: null, origen: "automatico" },
+      { tema: "Tema 0", slug: "game-over-impostora", fuerza: "alta", origen: "automatico" },
+    ])
+    const categorias = await pool.query<{ slug: string | null }>(
+      "select c.slug from public.temas t left join public.categorias c on c.id = t.categoria_id",
+    )
+    expect(categorias.rows.every((r) => r.slug === "ia-salud-mental")).toBe(true)
+  })
+
+  it("writes no pillar row when Claude names none", async () => {
+    await dosGrupos()
+    simularClaude()
+    await formarTemas(deps())
+    const { rows } = await pool.query("select 1 from public.tema_pilares")
+    expect(rows).toEqual([])
+  })
+
+  it("drops a slug that is unknown, of the other network or not a layer, and still forms the topic", async () => {
+    await dosGrupos()
+    simularClaude({
+      linkedin: "game-over-impostora",
+      instagram: "no-existe",
+      capas: ["diagnostico-doble", "capa-tdah"],
+    })
+    const resultado = await formarTemas(deps())
+    expect(resultado).toMatchObject({ tope: false, creados: 2 })
+    const { rows } = await pool.query<{ slug: string; fuerza: string | null }>(
+      `select c.slug, p.fuerza from public.tema_pilares p join public.categorias c on c.id = p.pilar_id order by c.slug`,
+    )
+    expect(rows).toEqual([
+      { slug: "capa-tdah", fuerza: null },
+      { slug: "capa-tdah", fuerza: null },
+    ])
   })
 })
 

@@ -1,5 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { filasDePilaresAJson, leerPilares } from "@/lib/datos/pilares"
+import { soloActivos } from "@/lib/dominio/pilares"
 import { agruparPorSimilitud, centroideIncremental, media, parsearVector, textoDeVector } from "@/lib/ingesta/agrupar"
 import { type ContextoDePago, falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
 import type { Almacen } from "@/lib/proveedores/almacen"
@@ -198,10 +200,17 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
   if (grupos.length === 0) return resultado
 
   // Only active categories: a retired pillar is neither offered to Claude nor stored if Claude answers with it.
-  const { data: categorias, error: errorCategorias } = await db.from("categorias").select("id, slug").eq("activa", true)
+  // A layer is never a topic's category.
+  const { data: categorias, error: errorCategorias } = await db
+    .from("categorias")
+    .select("id, slug")
+    .eq("activa", true)
+    .eq("es_capa", false)
   if (errorCategorias) throw falloDeBase("No pude leer los pilares", errorCategorias)
   const categoriaDe = new Map(categorias.map((c) => [c.slug, c.id]))
   const pilares = categorias.map((c) => c.slug)
+  // The pillars and layers of each network (spec 2026-11-04, section 4).
+  const redes = soloActivos(await leerPilares(db)).filter((p) => p.red !== null)
 
   for (const lote of porTrozos(grupos, GRUPOS_POR_LLAMADA)) {
     const paraNombrar = lote.map((ids, i) => ({
@@ -213,7 +222,7 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
       paso: "temas",
       estimadoUsd: estimarNombres(paraNombrar),
       llamar: async () => {
-        const { temas, uso } = await nombrarTemas({ cliente: deps.claude, grupos: paraNombrar, pilares })
+        const { temas, uso } = await nombrarTemas({ cliente: deps.claude, grupos: paraNombrar, pilares, redes })
         return { datos: temas, realUsd: costoClaude(uso, MODELO_POR_TAREA.nombrarTemas.modelo) }
       },
     })
@@ -239,6 +248,13 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
           .select("id")
           .single()
         if (errorCrear) throw falloDeBase("No pude crear el tema", errorCrear)
+        if (nombrado.pilaresDeRed.length > 0) {
+          const { error: errorPilares } = await db.rpc("pilares_automaticos_de_tema", {
+            p_tema: creado.id,
+            p_filas: filasDePilaresAJson(nombrado.pilaresDeRed),
+          })
+          if (errorPilares) throw falloDeBase("No pude guardar los pilares del tema", errorPilares)
+        }
         await asignarAfirmaciones(db, creado.id, ids)
         resultado.creados += 1
       }

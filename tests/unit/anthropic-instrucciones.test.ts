@@ -354,7 +354,7 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
 
   it("keeps the topic naming and merging prompts", async () => {
     const nombres = await huellas((c) =>
-      nombrarTemas({ cliente: c, grupos: [{ id: "g1", textos: ["Uno.", "Dos."] }], pilares: ["vinculos"] }),
+      nombrarTemas({ cliente: c, grupos: [{ id: "g1", textos: ["Uno.", "Dos."] }], pilares: ["vinculos"], redes: [] }),
     )
     const tema = (id: string) => ({ id, nombre: `Tema ${id}`, descripcion: null, textos: ["Un texto."] })
     const fusiones = await huellas((c) => confirmarFusiones({ cliente: c, pares: [{ a: tema("a"), b: tema("b") }] }))
@@ -369,9 +369,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
         ],
         "nombres": [
           {
-            "cuerpo": "9c136472ea5bd5663c903a725cb731d12d6920d423ed24544f7ea465ccacc153",
-            "sistema": "2e4fa793fdaa27eadb142ec9caddd78d3a5ecdea212f25c96e27b97280d98633",
-            "usuario": "f6ac13cda1bb70b5adc2649c66e8a41f9aab1e5a03df3bdfff05b51cb2842da4",
+            "cuerpo": "2e36f25bdd49ed2f8fb24cead2681db84446f0bfcec63022141b5f7695194ee5",
+            "sistema": "07b152369de1631495bc6dd87072345da36bd500b2939842168eaff4abf70a10",
+            "usuario": "6b586895e0be9f1c79f44b4e0a8047b39749d8bc5895702e69da52d62b35a526",
           },
         ],
       }
