@@ -177,6 +177,15 @@ describe("escribirTeorias", () => {
     expect(guia).not.toMatch(/[—–]/)
   })
 
+  it("tells Claude two crossed topics share no main pillar in any network, and a topic without one crosses any", async () => {
+    const cuerpos = respondiendo({ teorias: [] })
+    await escribirTeorias({ cliente: cliente(), cruces: [CRUCE], contexto: CONTEXTO })
+    const guia = cuerpos[0]?.system.map((bloque) => bloque.text).join("\n") ?? ""
+    expect(guia).not.toContain("de pilares distintos")
+    expect(guia).toContain("no comparten pilar en ninguna red")
+    expect(guia).toContain("un tema sin pilar se cruza con cualquiera")
+  })
+
   it("returns validated theories, the dropped crossings and the usage", async () => {
     respondiendo({
       teorias: [teoria(), nada("c2", "ya dicho"), teoria({ cruceId: "c-ajeno" })],
