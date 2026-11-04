@@ -5,11 +5,14 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/filtros-de-temas"
-import type { PilarDeRed } from "@/lib/dominio/pilares"
+import { type PilarDeRed, porRed } from "@/lib/dominio/pilares"
 import { Campo, CLASES_DE_CAMPO } from "../campo"
 import { FormularioDeFiltros } from "../formulario-de-filtros"
 
-/** The pillar, folded behind a chip in the row of the quick filters (as Materiales' "Más filtros"). */
+/**
+ * The pillar, folded behind a chip in the row of the quick filters, grouped by network (spec 2026-11-04, section 5).
+ * It filters on the main pillar.
+ */
 export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTemas; pilares: readonly PilarDeRed[] }) {
   const activos = filtros.pilar ? 1 : 0
   return (
@@ -26,10 +29,14 @@ export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTema
         <Campo id="filtro-pilar" etiqueta="Pilar">
           <select id="filtro-pilar" name="pilar" defaultValue={filtros.pilar ?? ""} className={CLASES_DE_CAMPO}>
             <option value="">Todos</option>
-            {pilares.map((pilar) => (
-              <option key={pilar.id} value={pilar.id}>
-                {pilar.nombreCorto}
-              </option>
+            {porRed(pilares).map((grupo) => (
+              <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
+                {grupo.pilares.map((pilar) => (
+                  <option key={pilar.id} value={pilar.id}>
+                    {pilar.nombreCorto}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </Campo>

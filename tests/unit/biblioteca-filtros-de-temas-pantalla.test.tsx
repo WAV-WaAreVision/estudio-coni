@@ -10,9 +10,11 @@ import { MasFiltrosDeTemas } from "@/app/(app)/biblioteca/temas/mas-filtros-de-t
 
 const PILAR = "11111111-2222-4333-8444-555555555555"
 const OTRO = "22222222-2222-4333-8444-555555555555"
+const CAPA = "33333333-2222-4333-8444-555555555555"
 const PILARES = [
-  { id: PILAR, slug: "diagnostico-doble", nombreCorto: "IA y salud mental", red: "linkedin" as const, esCapa: false },
-  { id: OTRO, slug: "mi-nueva-partida", nombreCorto: "Ética y regulación", red: "instagram" as const, esCapa: false },
+  { id: PILAR, slug: "diagnostico-doble", nombreCorto: "Diagnóstico doble", red: "linkedin" as const, esCapa: false },
+  { id: OTRO, slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", red: "instagram" as const, esCapa: false },
+  { id: CAPA, slug: "capa-tdah", nombreCorto: "Capa TDAH", red: "instagram" as const, esCapa: true },
 ]
 const CONTEOS = { "sin-tratar": 2, tratados: 0, "un-autor": 1 }
 
@@ -50,11 +52,16 @@ describe("MasFiltrosDeTemas", () => {
     const { container } = render(<MasFiltrosDeTemas filtros={{ cobertura: "tratados" }} pilares={PILARES} />)
     expect(screen.getByText("Más filtros")).toBeInTheDocument()
     expect(container.querySelector("details")).not.toHaveAttribute("open")
+    const select = screen.getByLabelText("Pilar")
+    expect([...select.querySelectorAll("optgroup")].map((grupo) => grupo.getAttribute("label"))).toEqual([
+      "LinkedIn",
+      "Instagram",
+    ])
     expect(
-      within(screen.getByLabelText("Pilar"))
+      within(select)
         .getAllByRole("option")
         .map((opcion) => opcion.textContent),
-    ).toEqual(["Todos", "IA y salud mental", "Ética y regulación"])
+    ).toEqual(["Todos", "Diagnóstico doble", "Mi nueva partida", "Capa TDAH"])
     expect(container.querySelector('input[type="hidden"][name="cobertura"]')).toHaveAttribute("value", "tratados")
     expect(screen.queryByRole("link", { name: "Quitar este filtro" })).toBeNull()
   })
