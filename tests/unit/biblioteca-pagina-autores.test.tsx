@@ -33,9 +33,12 @@ import { UnirAutores } from "@/app/(app)/biblioteca/autores/[id]/unir-autores"
 import { ListaDeAutores } from "@/app/(app)/biblioteca/autores/lista-de-autores"
 import Autores from "@/app/(app)/biblioteca/autores/page"
 import { PanelDeAutor } from "@/app/(app)/biblioteca/autores/panel-de-autor"
+import { SinMaterial } from "@/app/(app)/biblioteca/autores/sin-material"
+import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
 import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import { MasOpciones } from "@/components/ui/mas-opciones"
+import { AVISO_TRAS_MOSTRAR, hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 
 type Elemento = ReactElement<Record<string, unknown> & { children?: ReactNode }>
@@ -98,19 +101,33 @@ describe("the Autores page", () => {
 
 const OTRO = "99999999-2222-4333-8444-555555555555"
 const IDEA = { id: "i-1", texto: "Una idea", tipo: "dato", evidencia: "estudio" }
+const SUELTA = { id: "i-3", texto: "Una sin tema", tipo: "dato", evidencia: "estudio" }
 const OCULTA = { id: "i-2", texto: "Una oculta", tipo: "mito", evidencia: "opinion" }
-const leido = (tipo: string) => ({
+const MOSTRADA = "77777777-2222-4333-8444-555555555555"
+const leido = (tipo: string, cuentas = { materiales: 1, ideas: 2 }) => ({
   autor: { id: ID, nombre: "Daniela Ruiz", credencial: null, tipo, alias: [] },
-  materiales: 1,
-  ideas: 1,
-  grupos: [{ tema: { id: "t1", nombre: "Carga mental" }, ideas: [IDEA] }],
+  ...cuentas,
+  grupos: [
+    { tema: { id: "t1", nombre: "Carga mental" }, ideas: [IDEA] },
+    { tema: null, ideas: [SUELTA] },
+  ],
   ocultas: [OCULTA],
 })
 const LISTA = [
   { id: ID, nombre: "Daniela Ruiz", credencial: null, tipo: "persona", alias: [] },
   { id: OTRO, nombre: "D. Ruiz", credencial: null, tipo: "persona", alias: [] },
 ]
-const conId = (id: string) => ({ params: Promise.resolve({ id }) })
+const conId = (id: string, params: Record<string, string> = {}) => ({
+  params: Promise.resolve({ id }),
+  searchParams: Promise.resolve(params),
+})
+/** The text of an element, through its children. */
+function texto(nodo: ReactNode): string {
+  if (typeof nodo === "string" || typeof nodo === "number") return String(nodo)
+  if (Array.isArray(nodo)) return nodo.map(texto).join("")
+  if (nodo !== null && typeof nodo === "object" && "props" in nodo) return texto((nodo as Elemento).props.children)
+  return ""
+}
 
 describe("an author's page", () => {
   it("refuses what is not an id before reading, and an author that does not exist", async () => {
@@ -137,7 +154,28 @@ describe("an author's page", () => {
     expect(arbol.some((elemento) => elemento.type === UnirAutores)).toBe(false)
   })
 
-  it("folds the hidden ideas under «Ideas ocultas (N)», each with Mostrar that redraws in place", async () => {
+  it("groups its ideas by topic, each title linking to its topic with a full-size target, and the loose ones last", async () => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(leido("persona"))
+    const arbol = elementos(await DetalleDeAutor(conId(ID)))
+    const titulos = arbol.filter((elemento) => elemento.type === "h2")
+    expect(titulos.map((titulo) => texto(titulo))).toEqual(["Carga mental", "Sin tema todavía"])
+    const enlace = elementos(titulos[0]).find((elemento) => elemento.props.href !== undefined)
+    expect(enlace?.props.href).toBe(hrefDeTema("t1"))
+    expect(enlace?.props.className).toContain("min-h-objetivo")
+    expect(
+      arbol.some((elemento) => elemento.type === ListaDeIdeas && elemento.props.etiqueta === "Ideas sin tema todavía"),
+    ).toBe(true)
+    expect(arbol.some((elemento) => elemento.type === SinMaterial)).toBe(false)
+  })
+
+  it("says how to give it material when it has none, instead of zeros", async () => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(leido("persona", { materiales: 0, ideas: 0 }))
+    expect(elementos(await DetalleDeAutor(conId(ID))).some((elemento) => elemento.type === SinMaterial)).toBe(true)
+  })
+
+  it("folds the hidden ideas under «Ideas ocultas (N)», each with Mostrar that comes back with its note", async () => {
     esConi.valor = true
     datos.leerAutor.mockResolvedValueOnce(leido("persona"))
     const arbol = elementos(await DetalleDeAutor(conId(ID)))
@@ -148,10 +186,18 @@ describe("an author's page", () => {
     const accion = ocultas?.props.accion as (idea: IdeaLeida) => Elemento
     const boton = accion(OCULTA)
     expect(boton.type).toBe(BotonOcultar)
-    expect(boton.props).toEqual({ ideaId: "i-2", oculta: true, despues: null })
+    expect(boton.props).toEqual({ ideaId: "i-2", oculta: true, despues: `/biblioteca/autores/${ID}?mostrada=i-2` })
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
     const visibles = arbol.find(
       (elemento) => elemento.type === ListaDeIdeas && elemento.props.etiqueta === "Ideas sobre Carga mental",
     )
     expect(visibles?.props.accion).toBeUndefined()
+  })
+
+  it("says where a shown idea went, after Mostrar", async () => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(leido("persona"))
+    const arbol = elementos(await DetalleDeAutor(conId(ID, { mostrada: MOSTRADA })))
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_MOSTRAR)
   })
 })

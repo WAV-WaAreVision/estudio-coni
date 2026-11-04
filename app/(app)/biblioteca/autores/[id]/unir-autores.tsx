@@ -107,9 +107,10 @@ export function UnirAutores({ origen, otros }: Propiedades) {
           className={CLASES_DE_CAMPO}
         />
       </Campo>
-      {buscado === "" ? null : resultados.length === 0 ? (
-        <output className="text-meta text-apagado">Nadie se llama así todavía.</output>
-      ) : (
+      <output aria-live="polite" className="text-meta text-apagado empty:sr-only">
+        {buscado !== "" && resultados.length === 0 ? "Nadie se llama así todavía." : ""}
+      </output>
+      {resultados.length === 0 ? null : (
         <ul aria-label="Con quién unir" className="grid gap-2">
           {resultados.map((autor) => (
             <li key={autor.id}>

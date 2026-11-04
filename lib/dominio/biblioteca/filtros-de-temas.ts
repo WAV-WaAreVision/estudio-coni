@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { hrefDeAutor } from "./autores"
 import type { TemaResumido } from "./temas"
 
 export const RUTA_DE_TEMAS = "/biblioteca/temas"
@@ -86,5 +87,19 @@ export function hrefTrasOcultar(temaId: string, ideaId: string, ideasAntesDeOcul
 /** The idea just hidden (`?oculta=<id>`), so the page says its note; anything else is no note. */
 export function leerIdeaOculta(params: Params): string | null {
   const leida = z.uuid().safeParse(primero(params.oculta)?.trim())
+  return leida.success ? leida.data : null
+}
+
+export const AVISO_TRAS_MOSTRAR = "La volví a mostrar. Está en Sin tema todavía."
+
+/**
+ * Where Mostrar goes: back to the author, with the idea in the address so the page says its note. Shown again, the idea
+ * has no topic until the next maintenance run places it (deviation 2).
+ */
+export const hrefTrasMostrar = (autorId: string, ideaId: string) => `${hrefDeAutor(autorId)}?mostrada=${ideaId}`
+
+/** The idea just shown again (`?mostrada=<id>`); anything else is no note. */
+export function leerIdeaMostrada(params: Params): string | null {
+  const leida = z.uuid().safeParse(primero(params.mostrada)?.trim())
   return leida.success ? leida.data : null
 }

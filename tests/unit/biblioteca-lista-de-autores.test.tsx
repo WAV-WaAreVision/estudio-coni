@@ -60,15 +60,20 @@ describe("ListaDeAutores", () => {
 
   it("filters the cards and the table as she types, by name or alias, without accents or case (D5)", () => {
     render(<ListaDeAutores autores={AUTORES} seleccion={null} />)
+    // The live note is there from the start, empty, so the first "nobody" is announced.
+    const nota = screen.getByRole("status")
+    expect(nota).toHaveTextContent("")
     fireEvent.change(screen.getByLabelText("Buscar por nombre"), { target: { value: "D. RUÍZ" } })
     expect(within(screen.getByRole("list", { name: "Autores" })).getAllByRole("listitem")).toHaveLength(1)
     expect(within(screen.getByRole("table", { name: "Autores" })).getAllByRole("row")).toHaveLength(2)
     fireEvent.change(screen.getByLabelText("Buscar por nombre"), { target: { value: "zzz" } })
-    expect(screen.getByText("Nadie se llama así todavía.")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toBe(nota)
+    expect(nota).toHaveTextContent("Nadie se llama así todavía.")
     expect(screen.queryByRole("list", { name: "Autores" })).toBeNull()
     expect(screen.queryByRole("table")).toBeNull()
     fireEvent.change(screen.getByLabelText("Buscar por nombre"), { target: { value: "" } })
     expect(within(screen.getByRole("list", { name: "Autores" })).getAllByRole("listitem")).toHaveLength(3)
+    expect(nota).toHaveTextContent("")
   })
 
   it("on a computer is a table whose rows open the side panel with ?a, writing no zeros", () => {

@@ -10,9 +10,11 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
 
 import { unirAutoresAccion } from "@/app/(app)/biblioteca/acciones"
+import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 
 const ORIGEN = "11111111-2222-4333-8444-555555555555"
 const DESTINO = "22222222-3333-4444-8555-666666666666"
+const CON_LETRAS = "abcdef12-3456-4789-8abc-def012345678"
 
 /** A session whose origin reads as someone else, but the database protects it anyway (it became Coni's meanwhile). */
 function sesionQueLaBaseRechaza(message: string) {
@@ -44,5 +46,25 @@ describe("unirAutores when the database refuses what the app let through", () =>
       ok: false,
       error: "Elige otro autor para unirlos.",
     })
+  })
+
+  it("answers in plain words for any other refusal of that kind", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    expect(await unirCon(sesionQueLaBaseRechaza("otra_cosa"))).toEqual({ ok: false, error: ERROR_GENERICO })
+  })
+
+  it("sees the same author in another case before asking the database", async () => {
+    const rpc = vi.fn(async (nombre: string) =>
+      nombre === "es_coni" ? { data: true, error: null } : { data: null, error: null },
+    )
+    const db = { ...sesionQueLaBaseRechaza(""), rpc }
+    const union = { origen: CON_LETRAS, destino: CON_LETRAS.toUpperCase() }
+    await unirAutoresAccion(union)
+    const trabajo = conSesionDeConi.mock.calls.at(-1)?.[3] as (db: unknown, d: unknown) => Promise<unknown>
+    expect(await trabajo(db, union)).toEqual({
+      ok: false,
+      error: "Elige otro autor para unirlos.",
+    })
+    expect(rpc).not.toHaveBeenCalledWith("fusionar_autores", expect.anything())
   })
 })

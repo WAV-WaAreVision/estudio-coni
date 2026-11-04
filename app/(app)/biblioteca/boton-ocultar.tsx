@@ -4,22 +4,24 @@ import { useRouter } from "next/navigation"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
-import { useRedibujar } from "@/components/use-redibujar"
-import { idDeIdea } from "@/lib/dominio/biblioteca/ideas"
+import { ID_DEL_AVISO_DE_IDEAS, idDeIdea } from "@/lib/dominio/biblioteca/ideas"
 import { ocultarIdeaAccion } from "./acciones"
 
 interface Propiedades {
   ideaId: string
   /** Whether it is hidden now: the button does the opposite. */
   oculta: boolean
-  /** Where to go after it worked (`hrefTrasOcultar`); null redraws the page where it is. */
-  despues: string | null
+  /** Where to go after it worked (`hrefTrasOcultar`, `hrefTrasMostrar`): an address whose page says the note. */
+  despues: string
 }
 
-/** Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. */
+/**
+ * Ported from Ingesta's `boton-ocultar.tsx` (D6). Hiding is undone from the author's page, so it does not ask. The idea
+ * moves away on the fresh screen and takes the button with it, so the focus goes first to the page's note
+ * (`AvisoDeIdeas`), which stays.
+ */
 export function BotonOcultar({ ideaId, oculta, despues }: Propiedades) {
   const router = useRouter()
-  const redibujar = useRedibujar()
   const { pendiente, error, ejecutar } = useAccion()
   return (
     <div className="grid justify-items-start gap-1">
@@ -31,8 +33,8 @@ export function BotonOcultar({ ideaId, oculta, despues }: Propiedades) {
           ejecutar(
             () => ocultarIdeaAccion({ id: ideaId, oculta: !oculta }),
             () => {
-              if (despues) router.replace(despues, { scroll: false })
-              else redibujar()
+              document.getElementById(ID_DEL_AVISO_DE_IDEAS)?.focus()
+              router.replace(despues, { scroll: false })
             },
           )
         }

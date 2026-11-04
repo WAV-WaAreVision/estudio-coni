@@ -409,7 +409,8 @@ export function unirAutores(
 ): Promise<Resultado> {
   return aResultado("unirAutores", async () => {
     await exigirConi(deps.db)
-    if (union.origen === union.destino) throw new Falla(MISMO_AUTOR)
+    // A uuid may arrive in either case; the database compares them as the same value.
+    if (union.origen.toLowerCase() === union.destino.toLowerCase()) throw new Falla(MISMO_AUTOR)
     const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
     if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
     if (!origen) throw new Falla(AUTOR_INEXISTENTE)
@@ -420,9 +421,11 @@ export function unirAutores(
     })
     if (errorDeUnion) {
       if (errorDeUnion.code === NO_EXISTE) throw new Falla(AUTOR_INEXISTENTE)
-      // Backstops for the checks above: the same uuid in another case, or a row that changed between the two reads.
-      if (errorDeUnion.code === NO_ES_EL_ESTADO) {
-        throw new Falla(errorDeUnion.message === "autores_iguales" ? MISMO_AUTOR : CONI_NO_SE_UNE)
+      // Backstops for the checks above, for a row that changed between the two reads.
+      if (errorDeUnion.code === NO_ES_EL_ESTADO && errorDeUnion.message === "autores_iguales")
+        throw new Falla(MISMO_AUTOR)
+      if (errorDeUnion.code === NO_ES_EL_ESTADO && errorDeUnion.message === "autor_coni_protegido") {
+        throw new Falla(CONI_NO_SE_UNE)
       }
       throw new Error(`No pude unir el autor ${union.origen} con ${union.destino}: ${errorDeUnion.message}`, {
         cause: errorDeUnion,

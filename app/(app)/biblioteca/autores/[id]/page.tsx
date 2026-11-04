@@ -6,16 +6,28 @@ import { Volver } from "@/components/ui/volver"
 import { leerAutor, listarAutores } from "@/lib/datos/biblioteca"
 import { descripcionDeAutor, RUTA_DE_AUTORES, sePuedeUnir } from "@/lib/dominio/biblioteca/autores"
 import { cuentasDeAutor } from "@/lib/dominio/biblioteca/cuentas"
-import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import {
+  AVISO_TRAS_MOSTRAR,
+  hrefDeTema,
+  hrefTrasMostrar,
+  leerIdeaMostrada,
+} from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { exigirConi } from "@/lib/sesion/coni"
+import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
 import { SinMaterial } from "../sin-material"
 import { UnirAutores } from "./unir-autores"
 
 /** One author (ported from Ingesta's `autores/[id]/page.tsx`): its ideas by topic, the hidden ones, and joining. */
-export default async function DetalleDeAutor({ params }: { params: Promise<{ id: string }> }) {
-  const [{ db }, { id }] = await Promise.all([exigirConi(), params])
+export default async function DetalleDeAutor({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const [{ db }, { id }, consulta] = await Promise.all([exigirConi(), params, searchParams])
   const valido = z.uuid().safeParse(id)
   if (!valido.success) notFound()
   const [leido, autores] = await Promise.all([leerAutor(db, valido.data), listarAutores(db)])
@@ -31,6 +43,7 @@ export default async function DetalleDeAutor({ params }: { params: Promise<{ id:
         <p className="text-meta text-apagado">{descripcionDeAutor(autor)}</p>
         {cuentas ? <p className="text-cuerpo">{cuentas}</p> : <SinMaterial />}
       </header>
+      <AvisoDeIdeas texto={leerIdeaMostrada(consulta) ? AVISO_TRAS_MOSTRAR : null} />
 
       {grupos.map((grupo) => {
         const idDelTitulo = `grupo-${grupo.tema?.id ?? "sin-tema"}`
@@ -38,7 +51,10 @@ export default async function DetalleDeAutor({ params }: { params: Promise<{ id:
           <section key={idDelTitulo} aria-labelledby={idDelTitulo} className="grid gap-3">
             <h2 id={idDelTitulo} className="text-pieza text-balance">
               {grupo.tema ? (
-                <Link href={hrefDeTema(grupo.tema.id)} className="underline decoration-1 underline-offset-4">
+                <Link
+                  href={hrefDeTema(grupo.tema.id)}
+                  className="inline-flex min-h-objetivo items-center underline decoration-1 underline-offset-4"
+                >
                   {grupo.tema.nombre}
                 </Link>
               ) : (
@@ -59,7 +75,7 @@ export default async function DetalleDeAutor({ params }: { params: Promise<{ id:
             <ListaDeIdeas
               etiqueta="Ideas ocultas"
               ideas={ocultas}
-              accion={(idea) => <BotonOcultar ideaId={idea.id} oculta despues={null} />}
+              accion={(idea) => <BotonOcultar ideaId={idea.id} oculta despues={hrefTrasMostrar(autor.id, idea.id)} />}
             />
           </div>
         </MasOpciones>

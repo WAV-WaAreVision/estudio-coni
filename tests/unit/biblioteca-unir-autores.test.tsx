@@ -33,8 +33,13 @@ describe("UnirAutores (D7)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unir con otro autor" }))
     await waitFor(() => expect(screen.getByLabelText("Buscar por nombre")).toHaveFocus())
     expect(screen.queryByRole("list", { name: "Con quién unir" })).toBeNull()
+    const nota = screen.getByRole("status")
+    expect(nota).toHaveTextContent("")
     fireEvent.change(screen.getByLabelText("Buscar por nombre"), { target: { value: "zzz" } })
-    expect(screen.getByText("Nadie se llama así todavía.")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toBe(nota)
+    expect(nota).toHaveTextContent("Nadie se llama así todavía.")
+    fireEvent.change(screen.getByLabelText("Buscar por nombre"), { target: { value: "dan" } })
+    expect(nota).toHaveTextContent("")
   })
 
   it("asks before joining, naming both and saying it cannot be undone, then goes to the one that stayed", async () => {

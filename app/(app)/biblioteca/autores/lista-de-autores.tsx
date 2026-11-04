@@ -24,9 +24,10 @@ export function ListaDeAutores({ autores, seleccion }: { autores: AutorResumido[
           />
         </Campo>
       </div>
-      {visibles.length === 0 ? (
-        <output className="text-cuerpo text-apagado">Nadie se llama así todavía.</output>
-      ) : (
+      <output aria-live="polite" className="text-cuerpo text-apagado empty:sr-only">
+        {visibles.length === 0 ? "Nadie se llama así todavía." : ""}
+      </output>
+      {visibles.length === 0 ? null : (
         <>
           <ul aria-label="Autores" className="grid gap-3 md:hidden">
             {visibles.map((autor) => (

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import {
+  AVISO_TRAS_MOSTRAR,
   AVISO_TRAS_OCULTAR,
   AVISO_TRAS_OCULTAR_LA_ULTIMA,
   contarCoberturas,
@@ -8,8 +9,10 @@ import {
   hayFiltrosDeTemas,
   hrefDeTema,
   hrefDeTemas,
+  hrefTrasMostrar,
   hrefTrasOcultar,
   leerFiltrosDeTemas,
+  leerIdeaMostrada,
   leerIdeaOculta,
 } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { TemaResumido } from "@/lib/dominio/biblioteca/temas"
@@ -100,6 +103,16 @@ describe("the addresses of Temas", () => {
     expect(AVISO_TRAS_OCULTAR_LA_ULTIMA).toBe(
       "La oculté. Era la última idea de ese tema, así que el tema salió de la lista. La puedes volver a mostrar desde su autor.",
     )
+  })
+})
+
+describe("after Mostrar", () => {
+  it("goes back to the author with the idea in the address, and says where it went (deviation 2)", () => {
+    expect(hrefTrasMostrar(TEMA, IDEA)).toBe(`/biblioteca/autores/${TEMA}?mostrada=${IDEA}`)
+    expect(leerIdeaMostrada({ mostrada: IDEA })).toBe(IDEA)
+    expect(leerIdeaMostrada({ mostrada: "1" })).toBeNull()
+    expect(leerIdeaMostrada({})).toBeNull()
+    expect(AVISO_TRAS_MOSTRAR).toBe("La volví a mostrar. Está en Sin tema todavía.")
   })
 })
 

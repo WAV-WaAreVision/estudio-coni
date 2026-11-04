@@ -86,3 +86,6 @@ export function agruparPorAutor(filas: readonly FilaDeIdeaDeTema[]): GrupoPorAut
 
 /** The id of an idea's text on screen: its button points at it (D8). */
 export const idDeIdea = (id: string) => `idea-${id}`
+
+/** The note a page says after Ocultar or Mostrar, and where the focus goes when the button is redrawn away. */
+export const ID_DEL_AVISO_DE_IDEAS = "aviso-de-ideas"
