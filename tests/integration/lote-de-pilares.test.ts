@@ -42,7 +42,8 @@ interface Escena {
 async function escena(c: pg.PoolClient): Promise<Escena> {
   const temaA = await tema(c, "Lote tema A")
   const temaB = await tema(c, "Lote tema B")
-  for (const pilar of ["caso-coni", "ia-salud-mental", "etica-regulacion", "practica-clinica"]) await idea(c, pilar, "idea")
+  for (const pilar of ["caso-coni", "ia-salud-mental", "etica-regulacion", "practica-clinica"])
+    await idea(c, pilar, "idea")
   const usadas = [await idea(c, "caso-coni", "usada"), await idea(c, "acceso-salud-publica", "usada")]
   const descartadas = [await idea(c, "ia-salud-mental", "descartada"), await idea(c, "etica-regulacion", "descartada")]
   const { rows } = await c.query<{ id: string }>(
@@ -168,6 +169,91 @@ describe("aplicar_lote_de_pilares", () => {
     for (const sesion of [comoConi, comoMantenedor]) {
       await como(sesion, async (c) => {
         const error = await fallaCon(c, "select public.aplicar_lote_de_pilares('x', '{}'::jsonb)")
+        expect(error.code).toBe("42501")
+      })
+    }
+  })
+})
+
+const deshacer = (c: pg.PoolClient, lote = LOTE) =>
+  c.query<{ r: { filas: number; ideas: number; reactivados: number } }>(
+    "select public.deshacer_lote_de_pilares($1) as r",
+    [lote],
+  )
+
+describe("deshacer_lote_de_pilares", () => {
+  it("round-trips: the rows go, the ideas get their pillar back, the old pillars come back and the lot is gone", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      const antes = new Map<string, string | undefined>()
+      for (const ideaId of e.banco) antes.set(ideaId, await pilarDe(c, ideaId))
+      await asumir(c, comoServicio)
+      await aplicar(c, filasDelLote(e))
+      const { rows } = await deshacer(c)
+      expect(rows[0]?.r).toEqual({ filas: 4, ideas: e.banco.length, reactivados: 5 })
+
+      await asumir(c, comoPostgres)
+      const filas = await c.query("select 1 from public.tema_pilares where tema_id = any($1::uuid[])", [
+        [e.temaA, e.temaB],
+      ])
+      expect(filas.rowCount).toBe(0)
+      for (const ideaId of e.banco) expect(await pilarDe(c, ideaId)).toBe(antes.get(ideaId))
+      const viejos = await c.query<{ activa: boolean }>("select activa from public.categorias where slug = any($1)", [
+        VIEJOS,
+      ])
+      expect(viejos.rows.every((f) => f.activa)).toBe(true)
+      const nuevos = await c.query<{ n: number }>(
+        "select count(*)::int as n from public.categorias where red is not null and activa",
+      )
+      expect(nuevos.rows[0]?.n).toBe(8)
+      for (const tabla of ["lotes_de_pilares", "lote_pilares_retirados", "ideas_pilar_antes"]) {
+        const quedan = await c.query(`select 1 from public.${tabla} where lote = $1`, [LOTE])
+        expect(quedan.rowCount, tabla).toBe(0)
+      }
+    })
+  })
+
+  it("keeps what changed after the lot: Coni's pillars and an idea used in between", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      await asumir(c, comoServicio)
+      await aplicar(c, filasDelLote(e))
+      await asumir(c, comoConi)
+      await c.query("select public.cambiar_pilares_de_tema($1, $2::jsonb)", [
+        e.temaB,
+        JSON.stringify([{ pilar: "game-over-impostora", fuerza: "alta" }]),
+      ])
+      await asumir(c, comoPostgres)
+      const usadaEntreMedio = e.banco[0] ?? ""
+      await c.query("update public.ideas set estado = 'usada' where id = $1", [usadaEntreMedio])
+      await asumir(c, comoServicio)
+      await deshacer(c)
+      await asumir(c, comoPostgres)
+      const deConi = await c.query<{ origen: string }>("select origen from public.tema_pilares where tema_id = $1", [
+        e.temaB,
+      ])
+      expect(deConi.rows).toEqual([{ origen: "coni" }])
+      expect(await pilarDe(c, usadaEntreMedio)).toBe("psicologia-en-la-mesa")
+    })
+  })
+
+  it("lets the same lot be applied again after an undo, and refuses an unknown lot", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await escena(c)
+      await asumir(c, comoServicio)
+      await aplicar(c, filasDelLote(e))
+      await deshacer(c)
+      const { rows } = await aplicar(c, filasDelLote(e))
+      expect(rows[0]?.r.retirados).toBe(5)
+      const error = await fallaCon(c, "select public.deshacer_lote_de_pilares('no-existe')")
+      expect(error).toMatchObject({ code: "P0002", message: "lote_inexistente" })
+    })
+  })
+
+  it("cannot be run by Coni or WAV from the app", async () => {
+    for (const sesion of [comoConi, comoMantenedor]) {
+      await como(sesion, async (c) => {
+        const error = await fallaCon(c, "select public.deshacer_lote_de_pilares('x')")
         expect(error.code).toBe("42501")
       })
     }

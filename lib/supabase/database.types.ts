@@ -2157,6 +2157,7 @@ export type Database = {
         Returns: undefined
       }
       desconectar_linkedin: { Args: never; Returns: undefined }
+      deshacer_lote_de_pilares: { Args: { p_lote: string }; Returns: Json }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
