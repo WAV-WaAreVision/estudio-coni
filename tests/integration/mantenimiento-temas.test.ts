@@ -86,6 +86,9 @@ function simularClaude() {
             nombre: `Tema de mantenimiento ${i}`,
             descripcion: "Descripción.",
             pilar: "deseo",
+            linkedin: null,
+            instagram: null,
+            capas: [],
           })),
         }
       } else {
