@@ -79,7 +79,7 @@ describe("cambiarPilaresDeTema", () => {
   it("says the topic is gone when it is", async () => {
     expect(await cambiarPilaresDeTema({ db: coni }, { temaId: AUSENTE, filas: [] })).toEqual({
       ok: false,
-      error: "Ese tema ya no existe.",
+      error: "Ese tema ya no existe. Recarga la página.",
     })
   })
 

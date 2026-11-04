@@ -55,7 +55,7 @@ const NO_EXISTE = "P0002"
 const AUTOR_INEXISTENTE = "Ese autor ya no existe."
 const MISMO_AUTOR = "Elige otro autor para unirlos."
 const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
-const TEMA_INEXISTENTE = "Ese tema ya no existe."
+const TEMA_INEXISTENTE = "Ese tema ya no existe. Recarga la página."
 const PILAR_QUE_YA_NO_ESTA = "Uno de esos pilares ya no está. Recarga la página y elige de nuevo."
 const PILARES_QUE_NO_CALZAN = "Elige un solo pilar por red, y «También toca» solo en una red con pilar."
 /** A download link is for one tap. */
