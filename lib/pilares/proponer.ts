@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { pilaresActivos } from "@/lib/datos/pilares"
 import { leerElementosPorReclasificar } from "@/lib/datos/reclasificacion"
 import { confirmarGasto, liberarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
-import { clasificarEnPilares, costoClaude, guiaDeReclasificacion } from "@/lib/proveedores/anthropic"
+import { clasificarEnPilares, cobroDeFalla, costoClaude, guiaDeReclasificacion } from "@/lib/proveedores/anthropic"
 import type { Database } from "@/lib/supabase/database.types"
 import { estimarClasificacion, type FilaDeReclasificacion, POR_TANDA } from "./reclasificar"
 
@@ -53,8 +53,10 @@ export async function proponerReclasificacion(deps: {
       }
     }
   } catch (error) {
-    // Batches that answered were billed: confirm them so the cap counts them; release only when nothing was billed.
-    await cerrarGastoTrasFalla(deps, clave, realUsd)
+    // Batches that answered were billed, the failing one too when Claude answered before it failed (cut, refused,
+    // unreadable): confirm them so the cap counts them; release only when nothing was billed.
+    const cobro = cobroDeFalla(error)
+    await cerrarGastoTrasFalla(deps, clave, realUsd + (cobro ? costoClaude(cobro.uso, cobro.modelo) : 0))
     throw error
   }
   await confirmarGasto(deps.db, clave, Number(realUsd.toFixed(4)))

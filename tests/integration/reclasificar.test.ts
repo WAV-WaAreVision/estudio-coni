@@ -95,6 +95,30 @@ describe("reclasificación de pilares", () => {
     expect(await ultimoGasto()).toEqual({ estado: "confirmado", real_usd: "0.0020" })
   })
 
+  it("also charges a batch that Claude answered and billed but that came back cut", async () => {
+    await materialesEn("pareja", 41)
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_MENSAJES, ({ request }) => {
+        llamadas += 1
+        if (llamadas === 1) return asignandoTodo(request)
+        return HttpResponse.json({
+          id: "msg",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-5-5",
+          stop_reason: "max_tokens",
+          stop_sequence: null,
+          usage: { input_tokens: 500, output_tokens: 100 },
+          content: [{ type: "text", text: '{"asignaciones": [' }],
+        })
+      }),
+    )
+    await expect(proponer()).rejects.toThrow()
+    expect(llamadas).toBe(2)
+    expect(await ultimoGasto()).toEqual({ estado: "confirmado", real_usd: "0.0040" })
+  })
+
   it("reads items of retired pillars, general and none, and leaves active pillars alone", async () => {
     const viejo = await materialEn("pareja", "Siembra viejo")
     const general = await materialEn("general", "Siembra general")
