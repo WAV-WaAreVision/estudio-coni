@@ -7,6 +7,8 @@ const { conSesionDeConi } = vi.hoisted(() => ({
   ),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+// These tests are about the work inside the session; where the action goes after it is pinned elsewhere.
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
 
 import { unirAutoresAccion } from "@/app/(app)/biblioteca/acciones"
