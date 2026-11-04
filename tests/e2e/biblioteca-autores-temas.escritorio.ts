@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
+import { expect, type Page, test } from "@playwright/test"
 import { bloquearRedExterna, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import {
   AUTORA,
@@ -56,6 +58,7 @@ test("Autores is a table; a row opens its summary in the sticky side panel with 
   await page.getByLabel("Buscar por nombre").fill("instituto")
   await expect(tabla.getByRole("row")).toHaveCount(2)
   await expect(tabla).toContainText(SIN_MATERIAL)
+  await expect(tabla.getByRole("row", { name: new RegExp(SIN_MATERIAL) })).toContainText("Todavía no hay material")
 })
 
 test("Temas is a table that keeps its filters; a row opens the side panel, and closing gives the focus back", async ({
@@ -117,4 +120,31 @@ test("the tables and their side panels pass WCAG 2.x AA", async ({ page }) => {
   await page.goto(`/biblioteca/autores/${escena.autora}`)
   await expect(page.getByRole("heading", { name: AUTORA, level: 1 })).toBeVisible()
   expect(await revisarConAxe(page, "autor en el computador")).toEqual([])
+})
+
+async function capturaDeEscritorio(page: Page, nombre: string): Promise<void> {
+  await page.waitForLoadState("networkidle")
+  await page.evaluate(() => document.fonts.ready)
+  const carpeta = process.env.VISUAL_FINALES
+  if (carpeta) {
+    mkdirSync(carpeta, { recursive: true })
+    await page.screenshot({ path: join(carpeta, nombre), fullPage: true })
+    return
+  }
+  await expect(page).toHaveScreenshot(nombre, { fullPage: true })
+}
+
+test("visual: Autores and Temas with their side panels, and an author's and a topic's page", async ({ page }) => {
+  await page.goto(`/biblioteca/autores?a=${escena.autora}`)
+  await expect(page.getByRole("region", { name: AUTORA })).toBeVisible()
+  await capturaDeEscritorio(page, "biblioteca-autores-escritorio.png")
+  await page.goto(`/biblioteca/autores/${escena.autora}`)
+  await expect(page.getByRole("heading", { name: AUTORA, level: 1 })).toBeVisible()
+  await capturaDeEscritorio(page, "biblioteca-autor-escritorio.png")
+  await page.goto(`/biblioteca/temas?t=${escena.carga}`)
+  await expect(page.getByRole("region", { name: TEMA_PRINCIPAL })).toBeVisible()
+  await capturaDeEscritorio(page, "biblioteca-temas-escritorio.png")
+  await page.goto(`/biblioteca/temas/${escena.carga}`)
+  await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
+  await capturaDeEscritorio(page, "biblioteca-tema-escritorio.png")
 })
