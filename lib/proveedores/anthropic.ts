@@ -34,6 +34,7 @@ export {
   modeloQueCobra,
   RechazoDeClaude,
   RespuestaCortada,
+  sinRaya,
   type UsoClaude,
 } from "./anthropic/nucleo"
 export {
