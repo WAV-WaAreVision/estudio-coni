@@ -16,6 +16,13 @@ import {
   TEMA_PRINCIPAL,
 } from "./biblioteca-escena"
 
+// The query of a Temas address without its cache-busting `v`, so the filters compare whatever their order.
+function filtrosDe(direccion: string): Record<string, string> {
+  const url = new URL(direccion)
+  expect(url.pathname).toBe("/biblioteca/temas")
+  return Object.fromEntries([...url.searchParams].filter(([clave]) => clave !== "v"))
+}
+
 const NOTA = "La oculté. La puedes volver a mostrar desde su autor."
 const NOTA_DE_LA_ULTIMA =
   "La oculté. Era la última idea de ese tema, así que el tema salió de la lista. La puedes volver a mostrar desde su autor."
@@ -98,9 +105,7 @@ test("the pillar under Más filtros combines with the coverage, and its counts f
   await page.getByLabel("Pilar").selectOption({ label: PILAR })
   await page.getByRole("button", { name: "Filtrar" }).click()
 
-  await expect(page).toHaveURL(
-    new RegExp(`/biblioteca/temas\\?pilar=${escena.pilar}&cobertura=tratados(?:[?&]v=\\d+)?$`),
-  )
+  await expect.poll(() => filtrosDe(page.url())).toEqual({ pilar: escena.pilar, cobertura: "tratados" })
   const tarjetas = page.getByRole("list", { name: "Temas" }).getByRole("listitem")
   await expect(tarjetas).toHaveCount(1)
   await expect(tarjetas.nth(0)).toContainText(TEMA_PRINCIPAL)
@@ -111,8 +116,9 @@ test("the pillar under Más filtros combines with the coverage, and its counts f
   await tocarHastaLlegar(
     page,
     filtros.getByRole("link", { name: "Sin tratar", exact: true }),
-    new RegExp(`/biblioteca/temas\\?pilar=${escena.pilar}&cobertura=sin-tratar(?:[?&]v=\\d+)?$`),
+    /\/biblioteca\/temas\?(?:.*&)?cobertura=sin-tratar(?:&|$)/,
   )
+  expect(filtrosDe(page.url())).toEqual({ pilar: escena.pilar, cobertura: "sin-tratar" })
   await expect(page.getByText("Ningún tema coincide con esos filtros.")).toBeVisible()
 
   await page.getByRole("link", { name: "Quitar este filtro" }).click()

@@ -21,18 +21,28 @@ test("a material's detail links each of its topics to the topic's page (D9)", as
   await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
 })
 
-test("the nav moves between the three sections, and at 390 px nothing scrolls sideways", async ({ page }) => {
+test("the nav moves between the three sections; at 375 and 390 px its tabs are 44 px or more and nothing scrolls sideways", async ({
+  page,
+}) => {
   await page.goto("/biblioteca")
   const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
   await tocarHastaLlegar(page, nav.getByRole("link", { name: "Autores" }), /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
   await tocarHastaLlegar(page, nav.getByRole("link", { name: "Temas" }), /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
   await tocarHastaLlegar(page, nav.getByRole("link", { name: "Materiales" }), /\/biblioteca(?:[?&]v=\d+)?$/)
-  for (const ruta of ["/biblioteca", "/biblioteca/autores", "/biblioteca/temas"]) {
-    await page.goto(ruta)
-    const sinDesborde = await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    )
-    expect(sinDesborde, ruta).toBe(true)
+  for (const ancho of [375, 390]) {
+    await page.setViewportSize({ width: ancho, height: 812 })
+    for (const ruta of ["/biblioteca", "/biblioteca/autores", "/biblioteca/temas"]) {
+      await page.goto(ruta)
+      for (const nombre of ["Materiales", "Autores", "Temas"]) {
+        const pestana = nav.getByRole("link", { name: nombre })
+        await expect(pestana).toBeVisible()
+        expect((await pestana.boundingBox())?.height ?? 0, `${ancho} px ${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
+      }
+      const sinDesborde = await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      )
+      expect(sinDesborde, `${ancho} px ${ruta}`).toBe(true)
+    }
   }
 })
 
@@ -68,10 +78,19 @@ test("only Coni: without a session it asks to sign in, and the maintainer is ref
 test("Autores, Temas and their pages pass WCAG 2.x AA (4n)", async ({ page }) => {
   const hallazgos: string[] = []
   await page.goto("/biblioteca/autores")
-  // At the first scroll the fourth card sits half under the fixed bottom bar, and axe reads a target cut by a fixed
-  // element as too small. A person scrolls it out from under the bar: the list is checked at its end, where the page's
-  // room under the last card must clear the bar.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  // The bottom bar is `sticky bottom-0` and comes after <main>'s bottom padding: at the end of the page it sits in the
+  // flow, so nothing is under it. At the first scroll position it overlaps the fourth card, and axe's target-size hit
+  // there is an artefact of that position, not a target a person cannot reach: the list is checked at its end.
+  await expect(page.getByRole("list", { name: "Autores" }).getByRole("listitem")).toHaveCount(4)
+  // Scrolled until it stays at the end: a scroll made while the page still grows stops short of it.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight)
+        return Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight
+      }),
+    )
+    .toBe(true)
   hallazgos.push(...(await revisarConAxe(page, "autores")))
   await page.getByLabel("Buscar por nombre").fill("zzz")
   await expect(page.getByText("Nadie se llama así todavía.")).toBeVisible()

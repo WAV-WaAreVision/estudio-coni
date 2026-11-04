@@ -226,6 +226,8 @@ export interface EscenaDeAutoresYTemas extends EscenaDeBiblioteca {
 export async function sembrarAutoresYTemas(): Promise<EscenaDeAutoresYTemas> {
   const base = await sembrarBiblioteca()
   // The run owns the Biblioteca (D16): an author or a topic nothing of this scene uses is another run's leftover.
+  // It also drops every orphan author and topic of the local DB (the pool is local only, exigirBaseLocal): a local DB
+  // restored from prod loses them.
   await pool.query(
     `delete from public.autores a where a.tipo <> 'coni'
        and not exists (select 1 from public.materiales m where m.autor_id = a.id)

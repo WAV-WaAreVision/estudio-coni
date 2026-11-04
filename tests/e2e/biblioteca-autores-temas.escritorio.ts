@@ -114,4 +114,7 @@ test("the tables and their side panels pass WCAG 2.x AA", async ({ page }) => {
   expect(await revisarConAxe(page, "temas con el panel")).toEqual([])
   await page.goto(`/biblioteca/temas/${escena.carga}`)
   expect(await revisarConAxe(page, "tema en el computador")).toEqual([])
+  await page.goto(`/biblioteca/autores/${escena.autora}`)
+  await expect(page.getByRole("heading", { name: AUTORA, level: 1 })).toBeVisible()
+  expect(await revisarConAxe(page, "autor en el computador")).toEqual([])
 })
