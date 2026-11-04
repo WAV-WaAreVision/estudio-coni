@@ -12,16 +12,23 @@ alter table public.categorias
 
 -- The spec's `pilar_con_red`, as a trigger: a check would refuse the five pillars of 2026-10-17 (active, no network)
 -- and the undo of the apply step, which reactivates them. A new active pillar, a category made a pillar, or an active
--- pillar that loses its network needs one; reactivating a pillar that never had a network stays possible.
-create function public.exigir_red_de_pilar() returns trigger
-language plpgsql set search_path = '' as $$
+-- pillar that loses its network needs one. Only the pillars that had no network when this migration ran may be
+-- reactivated without one: their ids are frozen into the function as a literal (ids differ per database, so they are
+-- read here, not written by hand). A timestamp cutoff would not do: in one transaction the seed below shares now().
+do $migracion$
 begin
-  if new.es_pilar and new.activa and new.red is null
-     and (tg_op = 'INSERT' or not old.es_pilar or old.red is not null) then
-    raise exception using errcode = '23514', message = 'pilar_sin_red';
-  end if;
-  return new;
-end $$;
+  execute format($funcion$
+    create function public.exigir_red_de_pilar() returns trigger
+    language plpgsql set search_path = '' as $$
+    begin
+      if new.es_pilar and new.activa and new.red is null
+         and (tg_op = 'INSERT' or not old.es_pilar or old.red is not null or not (old.id = any (%L::uuid[]))) then
+        raise exception using errcode = '23514', message = 'pilar_sin_red';
+      end if;
+      return new;
+    end $$
+  $funcion$, (select coalesce(array_agg(id), '{}') from public.categorias where es_pilar and red is null));
+end $migracion$;
 
 create trigger exigir_red_de_pilar before insert or update on public.categorias
   for each row execute function public.exigir_red_de_pilar();
@@ -74,27 +81,19 @@ insert into public.categorias (slug, nombre, nombre_corto, descripcion, orden, e
 -- The weight of a date is the row with the latest `desde` on or before it. Nothing forces a network to add up to 100:
 -- `pesosDeRed` flags it for the 15c panel. Changes 21 and 25 will read these weights; nothing reads them yet.
 create table public.pilar_pesos (
-  pilar_id uuid not null references public.categorias (id),
+  pilar_id uuid not null,
+  red text,
+  es_capa boolean not null default false,
   desde date not null,
   peso numeric(5, 2) not null check (peso > 0 and peso <= 100),
-  primary key (pilar_id, desde)
+  primary key (pilar_id, desde),
+  -- A weight belongs to a pillar of a network, never to a layer (spec section 1). Like tema_pilares, the composite
+  -- key keeps it so: a weighted pillar cannot become a layer nor lose its network (`red` is only set on pillars).
+  constraint pilar_pesos_pilar foreign key (pilar_id, red, es_capa)
+    references public.categorias (id, red, es_capa),
+  -- `red` may be null here only so this check, not a not-null error, names the rule; a null skips the foreign key.
+  constraint peso_de_pilar_de_red check (red is not null and not es_capa)
 );
-
--- A weight belongs to a pillar of a network; a layer has none (spec section 1).
-create function public.exigir_pilar_con_peso() returns trigger
-language plpgsql set search_path = '' as $$
-begin
-  if not exists (
-    select 1 from public.categorias c
-    where c.id = new.pilar_id and c.es_pilar and c.red is not null and not c.es_capa
-  ) then
-    raise exception using errcode = '23514', message = 'peso_sin_pilar_de_red';
-  end if;
-  return new;
-end $$;
-
-create trigger exigir_pilar_con_peso before insert or update on public.pilar_pesos
-  for each row execute function public.exigir_pilar_con_peso();
 
 alter table public.pilar_pesos enable row level security;
 -- Only migrations and definer RPCs write in 15a; 15c adds Coni's drafts.
@@ -105,8 +104,8 @@ create policy "coni y wav leen pesos de pilares" on public.pilar_pesos for selec
 create trigger auditar after insert or update or delete on public.pilar_pesos
   for each row execute function public.registrar_evento();
 
-insert into public.pilar_pesos (pilar_id, desde, peso)
-select c.id, v.desde::date, v.peso
+insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+select c.id, c.red, c.es_capa, v.desde::date, v.peso
 from (values
   ('diagnostico-doble', '2026-11-04', 30), ('diagnostico-doble', '2027-01-01', 25), ('diagnostico-doble', '2027-07-01', 25),
   ('bienestar-e-impacto', '2026-11-04', 25), ('bienestar-e-impacto', '2027-01-01', 25), ('bienestar-e-impacto', '2027-07-01', 20),

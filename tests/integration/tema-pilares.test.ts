@@ -1,6 +1,6 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
-import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, fallaCon, pool } from "./db"
+import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, comoServicio, fallaCon, pool } from "./db"
 
 afterAll(() => pool.end())
 
@@ -138,6 +138,16 @@ describe("tema_pilares", () => {
       await asumir(c, comoConi)
       const escribir = await fallaCon(c, "delete from public.tema_pilares where tema_id = $1", [tema])
       expect(escribir.code).toBe("42501")
+      for (const sesion of [comoMantenedor, comoServicio]) {
+        await asumir(c, sesion)
+        const insertar = await fallaCon(
+          c,
+          `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+           select $1, c.id, c.red, c.es_capa, 'alta', 'coni' from public.categorias c where c.slug = 'mi-nueva-partida'`,
+          [tema],
+        )
+        expect(insertar.code).toBe("42501")
+      }
     })
   })
 })

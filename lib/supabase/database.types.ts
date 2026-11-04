@@ -1309,26 +1309,32 @@ export type Database = {
       pilar_pesos: {
         Row: {
           desde: string
+          es_capa: boolean
           peso: number
           pilar_id: string
+          red: string | null
         }
         Insert: {
           desde: string
+          es_capa?: boolean
           peso: number
           pilar_id: string
+          red?: string | null
         }
         Update: {
           desde?: string
+          es_capa?: boolean
           peso?: number
           pilar_id?: string
+          red?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "pilar_pesos_pilar_id_fkey"
-            columns: ["pilar_id"]
+            foreignKeyName: "pilar_pesos_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
             isOneToOne: false
             referencedRelation: "categorias"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "red", "es_capa"]
           },
         ]
       }
