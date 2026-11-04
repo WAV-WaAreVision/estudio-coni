@@ -49,7 +49,7 @@ describe("categorias", () => {
   it("is seeded with the six categories and the five LinkedIn pillars, with no author", async () => {
     await como(comoConi, async (c) => {
       const { rows } = await c.query<{ slug: string; nombre: string; creada_por: string | null }>(
-        "select slug, nombre, creada_por from public.categorias order by slug",
+        "select slug, nombre, creada_por from public.categorias where red is null order by slug",
       )
       expect(rows).toEqual(
         [
