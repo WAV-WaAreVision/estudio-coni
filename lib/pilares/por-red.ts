@@ -117,12 +117,19 @@ export function aCsvPorRed(filas: readonly FilaPorRed[]): string {
   return `${lineas.join("\n")}\n`
 }
 
+/** The row Federico sees in his spreadsheet: the header is row 1. Every message about the CSV uses it. */
+export const filaDeHoja = (indice: number) => indice + 2
+
 export function leerCsvPorRed(texto: string): FilaPorRed[] {
   const [cabecera, ...resto] = camposDeCsv(texto.replace(/^\uFEFF/, ""))
   if (!cabecera || cabecera.valores.join(",") !== COLUMNAS_POR_RED.join(",")) {
-    throw new Error(`La primera línea tiene que ser: ${COLUMNAS_POR_RED.join(",")}`)
+    throw new Error(
+      `La primera línea tiene que ser: ${COLUMNAS_POR_RED.join(",")}. ¿Lo guardaste con punto y coma? Expórtalo como CSV UTF-8 separado por comas.`,
+    )
   }
-  return resto.map(({ valores, linea }) => {
+  const errores: string[] = []
+  const filas = resto.flatMap(({ valores }, indice): FilaPorRed[] => {
+    const donde = `Fila ${filaDeHoja(indice)}`
     const [
       tipo = "",
       id = "",
@@ -135,14 +142,30 @@ export function leerCsvPorRed(texto: string): FilaPorRed[] {
       venia_de = "",
       razon = "",
     ] = valores.map((valor) => valor.trim())
-    if (tipo !== "tema" && tipo !== "idea") throw new Error(`Línea ${linea}: tipo desconocido «${tipo}».`)
-    if (id === "") throw new Error(`Línea ${linea}: falta el id.`)
-    return { tipo, id, nombre, linkedin, instagram, secundarios, capa_tdah, pilar_nuevo, venia_de, razon }
+    const antes = errores.length
+    if (id === "") errores.push(`${donde}: falta el id.`)
+    if (tipo !== "tema" && tipo !== "idea") errores.push(`${donde}: tipo desconocido «${tipo}».`)
+    if (valores.length > COLUMNAS_POR_RED.length) {
+      errores.push(`${donde}: tiene ${valores.length} valores y el CSV tiene ${COLUMNAS_POR_RED.length} columnas.`)
+    }
+    if (errores.length > antes || (tipo !== "tema" && tipo !== "idea")) return []
+    return [{ tipo, id, nombre, linkedin, instagram, secundarios, capa_tdah, pilar_nuevo, venia_de, razon }]
   })
+  if (errores.length > 0) throw new Error(`El CSV tiene errores:\n${errores.join("\n")}`)
+  return filas
 }
 
 // Coni's copy bans em dashes; a topic name or a hook from the bank may still carry one.
 const celda = (texto: string) => sinRaya(texto).replaceAll("|", "\\|").replaceAll("\n", " ")
+/** «Sí», «SI» or «no» as typed in a spreadsheet; anything else stays as it was, for the error to quote. */
+const capaTdah = (valor: string) =>
+  valor
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const slugsDe = (lista: string) =>
   lista
     .split(";")
@@ -170,7 +193,7 @@ export function aMarkdownParaConi(filas: readonly FilaPorRed[], catalogo: Catalo
           fila.linkedin ? nombre(fila.linkedin) : "Sin pilar",
           fila.instagram ? nombre(fila.instagram) : "Sin pilar",
           slugsDe(fila.secundarios).map(nombre).join(", ") || "Ninguno",
-          fila.capa_tdah === "si" ? "Sí" : "No",
+          capaTdah(fila.capa_tdah) === "si" ? "Sí" : "No",
           fila.venia_de ? celda(fila.venia_de) : "Sin pilar",
         ].join(" | "),
       )
@@ -198,9 +221,12 @@ export function filasDelLote(filas: readonly FilaPorRed[], catalogo: CatalogoDeP
   const resultado: FilasDelLote = { temas: [], ideas: [] }
 
   filas.forEach((fila, indice) => {
-    const donde = `Fila ${indice + 2} (${fila.tipo} ${fila.id})`
-    if (vistos.has(fila.id)) errores.push(`${donde}: el id está repetido.`)
-    vistos.add(fila.id)
+    const donde = `Fila ${filaDeHoja(indice)} (${fila.tipo} ${fila.id})`
+    if (!ES_UUID.test(fila.id)) errores.push(`${donde}: el id no es válido.`)
+    // The database compares ids without case: two spellings of one id are the same row.
+    const clave = fila.id.toLowerCase()
+    if (vistos.has(clave)) errores.push(`${donde}: el id está repetido.`)
+    vistos.add(clave)
 
     if (fila.tipo === "idea") {
       const pilar = pilarDe(fila.pilar_nuevo)
@@ -219,7 +245,13 @@ export function filasDelLote(filas: readonly FilaPorRed[], catalogo: CatalogoDeP
       }
       return [{ pilar: slug, fuerza: "alta" }]
     })
+    const yaNombrados = new Set<string>()
     const secundarios = slugsDe(fila.secundarios).flatMap((slug): FilaDePilarElegida[] => {
+      if (yaNombrados.has(slug)) {
+        errores.push(`${donde}: «${slug}» está repetido en Secundarios.`)
+        return []
+      }
+      yaNombrados.add(slug)
       const pilar = pilarDe(slug)
       if (!pilar) {
         errores.push(`${donde}: «${slug}» no es un pilar activo de una red.`)
@@ -234,9 +266,10 @@ export function filasDelLote(filas: readonly FilaPorRed[], catalogo: CatalogoDeP
       return principalDe[pilar.red] === slug ? [] : [{ pilar: slug, fuerza: "media" }]
     })
     const capas: FilaDePilarElegida[] = []
-    if (fila.capa_tdah !== "si" && fila.capa_tdah !== "no") {
+    const conCapa = capaTdah(fila.capa_tdah)
+    if (conCapa !== "si" && conCapa !== "no") {
       errores.push(`${donde}: Capa TDAH tiene que ser si o no, no «${fila.capa_tdah}».`)
-    } else if (fila.capa_tdah === "si") {
+    } else if (conCapa === "si") {
       if (capa) capas.push({ pilar: capa.slug, fuerza: null })
       else errores.push(`${donde}: no hay una capa activa.`)
     }

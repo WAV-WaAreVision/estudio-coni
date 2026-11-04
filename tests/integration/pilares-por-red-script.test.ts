@@ -116,6 +116,19 @@ const filaDelTema = (cambios: Partial<FilaPorRed> = {}): FilaPorRed => ({
   ...cambios,
 })
 
+const filaDeIdea = (id: string): FilaPorRed => ({
+  tipo: "idea",
+  id,
+  nombre: "",
+  linkedin: "",
+  instagram: "",
+  secundarios: "",
+  capa_tdah: "",
+  pilar_nuevo: "psicologia-en-la-mesa",
+  venia_de: "",
+  razon: "",
+})
+
 async function bancoEnPilaresViejos(): Promise<string[]> {
   const { rows } = await pool.query<{ id: string }>(
     `select i.id from public.ideas i join public.categorias c on c.slug = i.pilar
@@ -201,17 +214,21 @@ describe("pilares por red, los comandos", () => {
   it("aplicar says in plain Spanish why the database refused the lot", async () => {
     const otro = randomUUID()
     const ruta = join(carpeta, "tema-que-no-existe.csv")
-    writeFileSync(ruta, aCsvPorRed([filaDelTema({ id: otro })]), "utf-8")
+    writeFileSync(
+      ruta,
+      aCsvPorRed([filaDelTema({ id: otro }), ...(await bancoEnPilaresViejos()).map(filaDeIdea)]),
+      "utf-8",
+    )
     const { deps } = dependencias()
     await expect(ejecutarPilaresPorRed(["aplicar", ruta], deps)).rejects.toThrow(
-      `El tema ${otro} no existe o se fusionó con otro. Sácalo del CSV y vuelve a aplicar.`,
+      `Fila 2 (tema ${otro}): no existe o se fusionó con otro. Sácalo del CSV y vuelve a aplicar.`,
     )
 
     const sinIdeas = join(carpeta, "sin-ideas.csv")
     writeFileSync(sinIdeas, aCsvPorRed([filaDelTema()]), "utf-8")
-    await expect(ejecutarPilaresPorRed(["aplicar", sinIdeas], deps)).rejects.toThrow(
-      "Quedan ideas del banco en un pilar anterior que el CSV no mueve.",
-    )
+    const faltan = ejecutarPilaresPorRed(["aplicar", sinIdeas], deps)
+    await expect(faltan).rejects.toThrow("en un pilar anterior y el CSV no nombra.")
+    await expect(faltan).rejects.toThrow(`- ${idea} «Idea del script ${SUFIJO}»`)
     const lote = await pool.query("select 1 from public.lotes_de_pilares where lote = $1", [LOTE_PILARES_POR_RED])
     expect(lote.rowCount).toBe(0)
   })

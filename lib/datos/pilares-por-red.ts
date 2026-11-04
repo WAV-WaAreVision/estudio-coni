@@ -106,9 +106,17 @@ interface RechazoDeLaBase {
  * What `aplicar_lote_de_pilares`, `resolver_filas_de_pilares` and `deshacer_lote_de_pilares` raise, said so Federico
  * knows what to fix in the CSV. Anything else keeps the database's own words.
  */
-export function explicarRechazoDelLote(error: RechazoDeLaBase, lote: string): string {
+export function explicarRechazoDelLote(
+  error: RechazoDeLaBase,
+  lote: string,
+  /** The spreadsheet row of a topic or idea id, so the message points at it. */
+  filaDe: (id: string) => number | undefined = () => undefined,
+): string {
   const detalle = error.details ?? null
   const corrige = "Corrígelo en el CSV."
+  const fila = detalle === null ? undefined : filaDe(detalle)
+  const elTema = fila === undefined ? `El tema ${detalle}` : `Fila ${fila} (tema ${detalle}):`
+  const laIdea = fila === undefined ? `La idea ${detalle}` : `Fila ${fila} (idea ${detalle}):`
   switch (error.message) {
     case "lote_ya_aplicado":
       return `El lote ${lote} ya está aplicado. Para aplicarlo de nuevo, primero corre pnpm pilares:deshacer.`
@@ -117,21 +125,20 @@ export function explicarRechazoDelLote(error: RechazoDeLaBase, lote: string): st
     case "lote_vacio":
       return "El CSV no trae ningún tema: no hay nada que aplicar."
     case "filas_invalidas":
-      return detalle
-        ? `El CSV tiene una fila mal armada (${detalle}). Vuelve a generarlo con pnpm pilares:proponer.`
-        : "Un tema del CSV tiene sus pilares mal armados. Vuelve a generarlo con pnpm pilares:proponer."
+      // The CSV is checked before the call (ids, pillars, layers): what still reaches here is a bug of ours.
+      return `Error interno: el lote salió mal armado${detalle ? ` (${detalle})` : ""}. No es un problema del CSV: avísale a WAV.`
     case "filas_repetidas":
-      return `El id ${detalle} aparece dos veces en el CSV. Deja una sola fila.`
+      return `${fila === undefined ? "El" : `Fila ${fila}: el`} id ${detalle} aparece dos veces en el CSV. Deja una sola fila.`
     case "tema_inexistente":
-      return `El tema ${detalle} no existe o se fusionó con otro. Sácalo del CSV y vuelve a aplicar.`
+      return `${elTema} no existe o se fusionó con otro. Sácalo del CSV y vuelve a aplicar.`
     case "tema_ya_tiene_pilares":
-      return `El tema ${detalle} ya tiene pilares (los puso Coni o la ingesta). Sácalo del CSV y vuelve a aplicar.`
+      return `${elTema} ya tiene pilares (los puso Coni o la ingesta). Sácalo del CSV y vuelve a aplicar.`
     case "idea_inexistente":
-      return `La idea ${detalle} no existe. Sácala del CSV y vuelve a aplicar.`
+      return `${laIdea} no existe. Sácala del CSV y vuelve a aplicar.`
     case "idea_fuera_del_banco":
-      return `La idea ${detalle} ya no está en el banco (se usó o se descartó). Sácala del CSV y vuelve a aplicar.`
+      return `${laIdea} ya no está en el banco (se usó o se descartó). Sácala del CSV y vuelve a aplicar.`
     case "idea_en_pilar_retirado":
-      return "Quedan ideas del banco en un pilar anterior que el CSV no mueve. Agrégalas al CSV con su pilar nuevo, o vuelve a correr pnpm pilares:proponer."
+      return "Quedan ideas del banco en un pilar anterior que el CSV no mueve. Agrega una fila de idea para cada una, con su pilar nuevo."
     case "pilar_desconocido":
       return detalle
         ? `«${detalle}» no es un pilar activo de una red. ${corrige}`
@@ -154,9 +161,10 @@ export async function aplicarLoteDePilares(
   db: Db,
   lote: string,
   filas: FilasDelLote,
+  filaDe?: (id: string) => number | undefined,
 ): Promise<z.infer<typeof ResumenDelLote>> {
   const { data, error } = await db.rpc("aplicar_lote_de_pilares", { p_lote: lote, p_filas: loteAJson(filas) })
-  if (error) throw new Error(explicarRechazoDelLote(error, lote), { cause: error })
+  if (error) throw new Error(explicarRechazoDelLote(error, lote, filaDe), { cause: error })
   return ResumenDelLote.parse(data)
 }
 

@@ -18,13 +18,9 @@ describe("los rechazos del lote, en palabras para Federico", () => {
     [
       "filas_invalidas",
       "temas[2].tema_id",
-      "El CSV tiene una fila mal armada (temas[2].tema_id). Vuelve a generarlo con pnpm pilares:proponer.",
+      "Error interno: el lote salió mal armado (temas[2].tema_id). No es un problema del CSV: avísale a WAV.",
     ],
-    [
-      "filas_invalidas",
-      null,
-      "Un tema del CSV tiene sus pilares mal armados. Vuelve a generarlo con pnpm pilares:proponer.",
-    ],
+    ["filas_invalidas", null, "Error interno: el lote salió mal armado. No es un problema del CSV: avísale a WAV."],
     ["filas_repetidas", ID, `El id ${ID} aparece dos veces en el CSV. Deja una sola fila.`],
     ["tema_inexistente", ID, `El tema ${ID} no existe o se fusionó con otro. Sácalo del CSV y vuelve a aplicar.`],
     [
@@ -41,7 +37,7 @@ describe("los rechazos del lote, en palabras para Federico", () => {
     [
       "idea_en_pilar_retirado",
       null,
-      "Quedan ideas del banco en un pilar anterior que el CSV no mueve. Agrégalas al CSV con su pilar nuevo, o vuelve a correr pnpm pilares:proponer.",
+      "Quedan ideas del banco en un pilar anterior que el CSV no mueve. Agrega una fila de idea para cada una, con su pilar nuevo.",
     ],
     ["pilar_desconocido", "otro-pilar", "«otro-pilar» no es un pilar activo de una red. Corrígelo en el CSV."],
     [
@@ -59,6 +55,25 @@ describe("los rechazos del lote, en palabras para Federico", () => {
     ["fuerza_invalida", null, "Un tema del CSV tiene un pilar con una fuerza que no corresponde. Corrígelo en el CSV."],
   ])("explains %s (%s)", (codigo, detalle, mensaje) => {
     expect(explica(codigo, detalle)).toBe(mensaje)
+  })
+
+  it("points at the CSV row of the topic or idea the database names", () => {
+    const filaDe = (id: string) => (id === ID ? 5 : undefined)
+    expect(explicarRechazoDelLote({ message: "tema_ya_tiene_pilares", details: ID }, LOTE, filaDe)).toBe(
+      `Fila 5 (tema ${ID}): ya tiene pilares (los puso Coni o la ingesta). Sácalo del CSV y vuelve a aplicar.`,
+    )
+    expect(explicarRechazoDelLote({ message: "idea_fuera_del_banco", details: ID }, LOTE, filaDe)).toBe(
+      `Fila 5 (idea ${ID}): ya no está en el banco (se usó o se descartó). Sácala del CSV y vuelve a aplicar.`,
+    )
+    expect(explicarRechazoDelLote({ message: "filas_repetidas", details: ID }, LOTE, filaDe)).toBe(
+      `Fila 5: el id ${ID} aparece dos veces en el CSV. Deja una sola fila.`,
+    )
+  })
+
+  it("never suggests generating the proposal again, which spends again and loses Coni's corrections", () => {
+    for (const codigo of ["filas_invalidas", "idea_en_pilar_retirado", "pilar_desconocido", "lote_vacio"]) {
+      expect(explica(codigo, null)).not.toContain("pilares:proponer")
+    }
   })
 
   it("keeps what the database said when it is something else", () => {

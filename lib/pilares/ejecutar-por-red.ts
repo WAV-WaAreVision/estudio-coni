@@ -15,6 +15,7 @@ import {
   aCsvPorRed,
   aMarkdownParaConi,
   estimarPropuestaPorRed,
+  filaDeHoja,
   filasDelLote,
   filasDePropuesta,
   LOTE_PILARES_POR_RED,
@@ -107,7 +108,16 @@ async function aplicar(ruta: string, deps: DepsPilaresPorRed): Promise<void> {
   const lote = filasDelLote(filas, await leerPilares(deps.db))
   // The RPC refuses it too (`lote_vacio`); refused here, an empty CSV never reaches the database.
   if (lote.temas.length === 0) throw new Error("El CSV no trae ningún tema: no hay nada que aplicar.")
-  const resumen = await aplicarLoteDePilares(deps.db, LOTE_PILARES_POR_RED, lote)
+  // The RPC only says some bank idea is left on an old pillar (`idea_en_pilar_retirado`); here they are named.
+  const enElCsv = new Set(lote.ideas.map((idea) => idea.ideaId.toLowerCase()))
+  const faltan = (await leerIdeasEnPilaresSinRed(deps.db)).filter((idea) => !enElCsv.has(idea.id.toLowerCase()))
+  if (faltan.length > 0) {
+    throw new Error(
+      `${faltan.length === 1 ? "Hay 1 idea del banco que sigue" : `Hay ${faltan.length} ideas del banco que siguen`} en un pilar anterior y el CSV no nombra. Agrega una fila de idea para cada una, con su pilar nuevo:\n${faltan.map((idea) => `- ${idea.id} «${idea.gancho}»`).join("\n")}`,
+    )
+  }
+  const filaDe = new Map(filas.map((fila, indice) => [fila.id.toLowerCase(), filaDeHoja(indice)]))
+  const resumen = await aplicarLoteDePilares(deps.db, LOTE_PILARES_POR_RED, lote, (id) => filaDe.get(id.toLowerCase()))
   deps.avisar(
     `Lote ${LOTE_PILARES_POR_RED} aplicado: ${resumen.filas} pilares en ${lote.temas.length} temas, ${resumen.ideas} ideas movidas, ${resumen.retirados} pilares anteriores retirados. Para volver atrás: pnpm pilares:deshacer.`,
   )

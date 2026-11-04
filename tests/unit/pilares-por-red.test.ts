@@ -88,7 +88,29 @@ describe("la propuesta de pilares por red", () => {
   it("refuses a CSV with another header or an unknown kind of row", () => {
     expect(() => leerCsvPorRed("id,tipo\n")).toThrow("La primera línea tiene que ser:")
     const malo = aCsvPorRed([tema()]).replace('"tema"', '"material"')
-    expect(() => leerCsvPorRed(malo)).toThrow("Línea 2: tipo desconocido «material».")
+    expect(() => leerCsvPorRed(malo)).toThrow("Fila 2: tipo desconocido «material».")
+  })
+
+  it("hints at the separator when the header does not match, as a spreadsheet saved with semicolons does", () => {
+    const conPuntoYComa = aCsvPorRed([tema()]).replaceAll('","', '";"')
+    expect(() => leerCsvPorRed(conPuntoYComa)).toThrow(
+      "¿Lo guardaste con punto y coma? Expórtalo como CSV UTF-8 separado por comas.",
+    )
+  })
+
+  it("names the spreadsheet row of every broken line at once: unknown kind, missing id, values beyond the columns", () => {
+    const csv = aCsvPorRed([tema(), idea({ id: "" }), tema({ tipo: "material" as FilaPorRed["tipo"] })])
+    const conExtra = csv.replace(/\n$/, ',"sobra"\n')
+    let mensaje = ""
+    try {
+      leerCsvPorRed(conExtra)
+    } catch (error) {
+      mensaje = error instanceof Error ? error.message : String(error)
+    }
+    expect(mensaje).toContain("Fila 3: falta el id.")
+    expect(mensaje).toContain("Fila 4: tipo desconocido «material».")
+    expect(mensaje).toContain("Fila 4: tiene 11 valores y el CSV tiene 10 columnas.")
+    expect(mensaje).not.toContain("Fila 2")
   })
 
   it("lists for Coni her columns plus «Venía de», with short names and no slugs", () => {
@@ -132,6 +154,40 @@ describe("la propuesta de pilares por red", () => {
       ],
       ideas: [{ ideaId: IDEA, pilar: "psicologia-en-la-mesa" }],
     })
+  })
+
+  it("keeps a topic with no pillar in either network and no layer as a topic with no rows", () => {
+    expect(filasDelLote([tema({ linkedin: "", secundarios: "", capa_tdah: "no" })], PILARES_DE_PRUEBA).temas).toEqual([
+      { temaId: TEMA, pilares: [] },
+    ])
+  })
+
+  it("reads Capa TDAH however it was typed: si, sí, SI, Sí, no, NO", () => {
+    const capas = ["si", "sí", "SI", "Sí", "no", "NO"].map(
+      (valor) =>
+        filasDelLote([tema({ linkedin: "", secundarios: "", capa_tdah: valor })], PILARES_DE_PRUEBA).temas[0]?.pilares
+          .length,
+    )
+    expect(capas).toEqual([1, 1, 1, 1, 0, 0])
+  })
+
+  it("points at the spreadsheet row of an id that is not one and of a secondary written twice", () => {
+    let mensaje = ""
+    try {
+      filasDelLote(
+        [
+          tema({ secundarios: "diagnostico-doble;diagnostico-doble" }),
+          idea({ id: "no-es-un-id" }),
+          tema({ id: TEMA.toUpperCase(), nombre: "El mismo tema en mayúsculas" }),
+        ],
+        PILARES_DE_PRUEBA,
+      )
+    } catch (error) {
+      mensaje = error instanceof Error ? error.message : String(error)
+    }
+    expect(mensaje).toContain(`Fila 2 (tema ${TEMA}): «diagnostico-doble» está repetido en Secundarios.`)
+    expect(mensaje).toContain("Fila 3 (idea no-es-un-id): el id no es válido.")
+    expect(mensaje).toContain(`Fila 4 (tema ${TEMA.toUpperCase()}): el id está repetido.`)
   })
 
   it("lists every mistake of the reviewed rows at once", () => {
