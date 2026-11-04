@@ -749,6 +749,46 @@ export type Database = {
           },
         ]
       }
+      ideas_pilar_antes: {
+        Row: {
+          idea_id: string
+          lote: string
+          pilar: string
+        }
+        Insert: {
+          idea_id: string
+          lote: string
+          pilar: string
+        }
+        Update: {
+          idea_id?: string
+          lote?: string
+          pilar?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_pilar_antes_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ideas_pilar_antes_lote_fkey"
+            columns: ["lote"]
+            isOneToOne: false
+            referencedRelation: "lotes_de_pilares"
+            referencedColumns: ["lote"]
+          },
+          {
+            foreignKeyName: "ideas_pilar_antes_pilar_fkey"
+            columns: ["pilar"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       intervenciones: {
         Row: {
           canal: string
@@ -853,6 +893,51 @@ export type Database = {
           fijado_por?: string
           limite_usd?: number
           mes?: string
+        }
+        Relationships: []
+      }
+      lote_pilares_retirados: {
+        Row: {
+          lote: string
+          pilar_id: string
+        }
+        Insert: {
+          lote: string
+          pilar_id: string
+        }
+        Update: {
+          lote?: string
+          pilar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_pilares_retirados_lote_fkey"
+            columns: ["lote"]
+            isOneToOne: false
+            referencedRelation: "lotes_de_pilares"
+            referencedColumns: ["lote"]
+          },
+          {
+            foreignKeyName: "lote_pilares_retirados_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_de_pilares: {
+        Row: {
+          aplicado_en: string
+          lote: string
+        }
+        Insert: {
+          aplicado_en?: string
+          lote: string
+        }
+        Update: {
+          aplicado_en?: string
+          lote?: string
         }
         Relationships: []
       }
@@ -1978,6 +2063,10 @@ export type Database = {
           p_semana: string
         }
         Returns: undefined
+      }
+      aplicar_lote_de_pilares: {
+        Args: { p_filas: Json; p_lote: string }
+        Returns: Json
       }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
