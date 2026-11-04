@@ -98,6 +98,14 @@ async function tema(nombre: string, v: number[], extra: { alias?: string[]; fusi
   return rows[0]?.id ?? ""
 }
 
+/** A pillar row written as postgres, as the RPCs would; `limpiarTodo` removes it with its topic. */
+const pilarDeTema = (temaId: string, slug: string, fuerza: string | null) =>
+  pool.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1, c.id, c.red, c.es_capa, $3, 'coni' from public.categorias c where c.slug = $2`,
+    [temaId, slug, fuerza],
+  )
+
 async function centroideDe(id: string): Promise<number[]> {
   const { rows } = await pool.query<{ c: string }>("select centroide::text as c from public.temas where id = $1", [id])
   return parsearVector(rows[0]?.c ?? "")
@@ -705,6 +713,31 @@ describe("fusionar_par_de_temas", () => {
     const p = await tema("P", vec({ 5: 1 }))
     const { tema: temaPor } = await fusionarComoServicio(g, p)
     expect(parsearVector(temaPor(g).c)[4]).toBeCloseTo(1, 4)
+  })
+
+  it("moves the loser's pillar rows to the winner: the stronger row wins and a second main pillar becomes a secondary", async () => {
+    const g = await tema("Gana pilares", vec({ 6: 1 }))
+    const p = await tema("Pierde pilares", vec({ 7: 1 }))
+    await pilarDeTema(g, "diagnostico-doble", "alta")
+    await pilarDeTema(g, "mi-nueva-partida", "media")
+    await pilarDeTema(p, "bienestar-e-impacto", "alta")
+    await pilarDeTema(p, "mi-nueva-partida", "alta")
+    await pilarDeTema(p, "capa-tdah", null)
+    const filas = await como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const { rows } = await c.query<{ tema_id: string; slug: string; fuerza: string | null }>(
+        `select t.tema_id, c.slug, t.fuerza from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = any($1::uuid[]) order by c.slug`,
+        [[g, p]],
+      )
+      return rows
+    })
+    expect(filas).toEqual([
+      { tema_id: g, slug: "bienestar-e-impacto", fuerza: "media" },
+      { tema_id: g, slug: "capa-tdah", fuerza: null },
+      { tema_id: g, slug: "diagnostico-doble", fuerza: "alta" },
+      { tema_id: g, slug: "mi-nueva-partida", fuerza: "alta" },
+    ])
   })
 
   it("refuses the same topic, a merged one and a missing one, and does nothing", async () => {
