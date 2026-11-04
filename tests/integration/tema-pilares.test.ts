@@ -151,3 +151,146 @@ describe("tema_pilares", () => {
     })
   })
 })
+
+type Par = readonly [string, string | null]
+const filas = (pares: readonly Par[]) => JSON.stringify(pares.map(([pilar, fuerza]) => ({ pilar, fuerza })))
+
+async function pilaresDe(c: pg.PoolClient, tema: string) {
+  await asumir(c, comoPostgres)
+  const { rows } = await c.query<{ slug: string; fuerza: string | null; origen: string }>(
+    `select c.slug, t.fuerza, t.origen from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+      where t.tema_id = $1 order by c.slug`,
+    [tema],
+  )
+  return rows
+}
+
+describe("cambiar_pilares_de_tema", () => {
+  it("as Coni replaces the topic's rows with hers", async () => {
+    await como(comoPostgres, async (c) => {
+      const tema = await crearTema(c, "Tema que Coni cambia")
+      await fila(c, tema, "diagnostico-doble", "alta", "automatico")
+      await asumir(c, comoConi)
+      await c.query("select public.cambiar_pilares_de_tema($1, $2::jsonb)", [
+        tema,
+        filas([
+          ["bienestar-e-impacto", "alta"],
+          ["diagnostico-doble", "media"],
+          ["mi-nueva-partida", "alta"],
+          ["capa-tdah", null],
+        ]),
+      ])
+      expect(await pilaresDe(c, tema)).toEqual([
+        { slug: "bienestar-e-impacto", fuerza: "alta", origen: "coni" },
+        { slug: "capa-tdah", fuerza: null, origen: "coni" },
+        { slug: "diagnostico-doble", fuerza: "media", origen: "coni" },
+        { slug: "mi-nueva-partida", fuerza: "alta", origen: "coni" },
+      ])
+    })
+  })
+
+  it("leaves the topic without pillars when she clears them", async () => {
+    await como(comoPostgres, async (c) => {
+      const tema = await crearTema(c, "Tema sin pilares")
+      await fila(c, tema, "mujeres-lideres", "alta")
+      await asumir(c, comoConi)
+      await c.query("select public.cambiar_pilares_de_tema($1, '[]'::jsonb)", [tema])
+      expect(await pilaresDe(c, tema)).toEqual([])
+    })
+  })
+
+  it.each([
+    [
+      "two main pillars in one network",
+      [
+        ["bienestar-e-impacto", "alta"],
+        ["diagnostico-doble", "alta"],
+      ],
+      "22023",
+      "dos_principales",
+    ],
+    [
+      "a secondary without a main pillar in its network",
+      [["diagnostico-doble", "media"]],
+      "22023",
+      "secundario_sin_principal",
+    ],
+    ["a layer with a strength", [["capa-tdah", "media"]], "22023", "fuerza_invalida"],
+    ["a pillar without a strength", [["mi-nueva-partida", null]], "22023", "fuerza_invalida"],
+    [
+      "a pillar twice",
+      [
+        ["mi-nueva-partida", "alta"],
+        ["mi-nueva-partida", "media"],
+      ],
+      "22023",
+      "pilar_repetido",
+    ],
+    ["a pillar without a network", [["caso-coni", "alta"]], "P0002", "pilar_desconocido"],
+    ["a slug that is no pillar", [["no-existe", "alta"]], "P0002", "pilar_desconocido"],
+  ] as const)("refuses %s and keeps what was there", async (_caso, pares, code, message) => {
+    await como(comoPostgres, async (c) => {
+      const tema = await crearTema(c, "Tema que no cambia")
+      await fila(c, tema, "mujeres-lideres", "alta")
+      await asumir(c, comoConi)
+      const error = await fallaCon(c, "select public.cambiar_pilares_de_tema($1, $2::jsonb)", [tema, filas(pares)])
+      expect(error).toMatchObject({ code, message })
+      expect(await pilaresDe(c, tema)).toEqual([{ slug: "mujeres-lideres", fuerza: "alta", origen: "coni" }])
+    })
+  })
+
+  it("refuses rows that are not a list, a merged or missing topic, and WAV", async () => {
+    await como(comoPostgres, async (c) => {
+      const tema = await crearTema(c, "Tema destino")
+      const fusionado = await crearTema(c, "Tema fusionado")
+      await c.query("update public.temas set fusionado_en = $1 where id = $2", [tema, fusionado])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.cambiar_pilares_de_tema($1, '{}'::jsonb)", [tema])).message).toBe(
+        "filas_invalidas",
+      )
+      expect((await fallaCon(c, "select public.cambiar_pilares_de_tema($1, '[]'::jsonb)", [fusionado])).message).toBe(
+        "tema_inexistente",
+      )
+      await asumir(c, comoMantenedor)
+      const wav = await fallaCon(c, "select public.cambiar_pilares_de_tema($1, '[]'::jsonb)", [tema])
+      expect(wav).toMatchObject({ code: "42501", message: "sin_permiso" })
+    })
+  })
+})
+
+describe("pilares_automaticos_de_tema", () => {
+  it("as the service role fills a topic without pillars and leaves one that has them", async () => {
+    await como(comoPostgres, async (c) => {
+      const nuevo = await crearTema(c, "Tema recién creado")
+      const conPilares = await crearTema(c, "Tema que ya tiene pilares")
+      await fila(c, conPilares, "mujeres-lideres", "alta")
+      await asumir(c, comoServicio)
+      const pares = filas([
+        ["game-over-impostora", "alta"],
+        ["capa-tdah", null],
+      ])
+      const { rows } = await c.query<{ n: number }>("select public.pilares_automaticos_de_tema($1, $2::jsonb) as n", [
+        nuevo,
+        pares,
+      ])
+      expect(rows[0]?.n).toBe(2)
+      const otra = await c.query<{ n: number }>("select public.pilares_automaticos_de_tema($1, $2::jsonb) as n", [
+        conPilares,
+        pares,
+      ])
+      expect(otra.rows[0]?.n).toBe(0)
+      expect(await pilaresDe(c, nuevo)).toEqual([
+        { slug: "capa-tdah", fuerza: null, origen: "automatico" },
+        { slug: "game-over-impostora", fuerza: "alta", origen: "automatico" },
+      ])
+      expect(await pilaresDe(c, conPilares)).toEqual([{ slug: "mujeres-lideres", fuerza: "alta", origen: "coni" }])
+    })
+  })
+
+  it("is for the service role only", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.pilares_automaticos_de_tema(gen_random_uuid(), '[]'::jsonb)")
+      expect(error.code).toBe("42501")
+    })
+  })
+})

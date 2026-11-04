@@ -2013,6 +2013,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cambiar_pilares_de_tema: {
+        Args: { p_filas: Json; p_tema: string }
+        Returns: undefined
+      }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
@@ -2709,6 +2713,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pilares_automaticos_de_tema: {
+        Args: { p_filas: Json; p_tema: string }
+        Returns: number
+      }
       proponer_fechas: {
         Args: { p_fechas: string[]; p_piezas: string[] }
         Returns: undefined
@@ -2847,6 +2855,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolver_filas_de_pilares: {
+        Args: { p_filas: Json }
+        Returns: {
+          es_capa: boolean
+          fuerza: string
+          pilar_id: string
+          red: string
+        }[]
       }
       respaldo_de_idea: {
         Args: { p_idea: string; p_limite: number }
