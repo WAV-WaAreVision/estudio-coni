@@ -39,6 +39,15 @@ describe("armarResumenDeAutores", () => {
     expect(resumen.map((a) => a.nombre)).toEqual(["Zoe", "Álvaro", "Bea"])
   })
 
+  it("puts Nuria before Ñuñoa when they tie, as Spanish orders Ñ after N", () => {
+    const resumen = armarResumenDeAutores(
+      [autor("1", "Ñuñoa"), autor("2", "Nuria")],
+      [],
+      [idea("1", null), idea("2", null)],
+    )
+    expect(resumen.map((a) => a.nombre)).toEqual(["Nuria", "Ñuñoa"])
+  })
+
   it("keeps an author with nothing, with zero counts and no topics", () => {
     const resumen = armarResumenDeAutores(AUTORES, [], [])
     expect(resumen.find((a) => a.id === "d")).toEqual({ ...AUTORES[3], materiales: 0, ideas: 0, temas: [] })

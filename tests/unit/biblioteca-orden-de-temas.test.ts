@@ -26,6 +26,11 @@ describe("ordenarTemas", () => {
     ])
     expect(orden.map((t) => t.nombre)).toEqual(["Pausas", "Ánimo", "Carga mental", "Sueño"])
   })
+
+  it("breaks a tie by name in Spanish order, where Ñ comes after N", () => {
+    const orden = ordenarTemas([tema("1", "Ñuñoa", 2, 2), tema("2", "Nuria", 2, 2)])
+    expect(orden.map((t) => t.nombre)).toEqual(["Nuria", "Ñuñoa"])
+  })
 })
 
 describe("seguirFusiones", () => {

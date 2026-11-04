@@ -52,6 +52,13 @@ describe("leerFiltrosDeTemas", () => {
     expect(leerFiltrosDeTemas({ pilar: OTRO })).toEqual({ pilar: OTRO })
   })
 
+  it("reads coverage and pillar together", () => {
+    expect(leerFiltrosDeTemas({ cobertura: "tratados", pilar: PILAR }, [PILAR])).toEqual({
+      cobertura: "tratados",
+      pilar: PILAR,
+    })
+  })
+
   it("ignores the note and the selection", () => {
     expect(leerFiltrosDeTemas({ oculta: IDEA, t: TEMA })).toEqual({})
     expect(hayFiltrosDeTemas({})).toBe(false)

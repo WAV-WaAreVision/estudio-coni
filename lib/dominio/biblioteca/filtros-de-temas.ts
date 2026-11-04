@@ -76,10 +76,11 @@ export const AVISO_TRAS_OCULTAR_LA_ULTIMA =
 
 /**
  * Where Ocultar goes (D6). The hidden idea leaves its topic, and a topic left without ideas is deleted by the database
- * (`recalcular_tema`), so the last one goes to the list. The idea's id makes each address new.
+ * (`recalcular_tema`), so the last one goes to the list. The count is the topic's ideas before hiding; the idea's id
+ * makes each address new.
  */
-export function hrefTrasOcultar(temaId: string, ideaId: string, ideasDelTema: number): string {
-  return ideasDelTema > 1 ? `${hrefDeTema(temaId)}?oculta=${ideaId}` : `${RUTA_DE_TEMAS}?oculta=${ideaId}`
+export function hrefTrasOcultar(temaId: string, ideaId: string, ideasAntesDeOcultar: number): string {
+  return ideasAntesDeOcultar > 1 ? `${hrefDeTema(temaId)}?oculta=${ideaId}` : `${RUTA_DE_TEMAS}?oculta=${ideaId}`
 }
 
 /** The idea just hidden (`?oculta=<id>`), so the page says its note; anything else is no note. */
