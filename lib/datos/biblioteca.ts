@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { AutorDeLista } from "@/lib/dominio/biblioteca/autores"
+import { type AutorDeLista, type AutorResumido, armarResumenDeAutores } from "@/lib/dominio/biblioteca/autores"
 import { type FichaLeida, leerFicha } from "@/lib/dominio/biblioteca/ficha"
 import type { FiltrosDeMateriales } from "@/lib/dominio/biblioteca/filtros"
+import { agruparPorTema, type GrupoPorTema, type IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 import { armarMapa, type FilaDeAfirmacion, type MapaDelMaterial } from "@/lib/dominio/biblioteca/mapa"
 import { type TemaPrincipal, temasPrincipales } from "@/lib/dominio/biblioteca/temas"
 import type { Database } from "@/lib/supabase/database.types"
@@ -194,4 +195,74 @@ export async function listarAutores(db: Db): Promise<AutorDeLista[]> {
     return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
   })
   return autores.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+}
+
+const COLUMNAS_DE_AUTOR = "id, nombre, credencial, tipo, alias"
+
+/** Every author with what it gave (ported from Ingesta's `resumirAutores`): most visible ideas first (D3). */
+export async function resumirAutores(db: Db): Promise<AutorResumido[]> {
+  const [autores, materiales, ideas] = await Promise.all([
+    listarAutores(db),
+    leerTodas("los materiales de los autores", (despuesDe, limite) => {
+      const consulta = db.from("materiales").select("id, autor_id")
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+    leerTodas("las ideas de los autores", (despuesDe, limite) => {
+      const consulta = db.from("afirmaciones").select("id, autor_id, tema_id, temas ( nombre )").eq("excluida", false)
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+  ])
+  return armarResumenDeAutores(
+    autores,
+    materiales.map((material) => ({ autorId: material.autor_id })),
+    ideas.map((idea) => ({ autorId: idea.autor_id, temaId: idea.tema_id, tema: idea.temas?.nombre ?? "" })),
+  )
+}
+
+export interface AutorLeido {
+  autor: AutorDeLista
+  materiales: number
+  /** Visible ideas. */
+  ideas: number
+  grupos: GrupoPorTema[]
+  ocultas: IdeaLeida[]
+}
+
+/** One author with its ideas by topic and its hidden ones; null when it does not exist or is not hers to see. */
+export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> {
+  const { data: autor, error } = await db.from("autores").select(COLUMNAS_DE_AUTOR).eq("id", id).maybeSingle()
+  if (error) throw new Error(`No pude leer el autor ${id}: ${error.message}`, { cause: error })
+  if (!autor) return null
+  const [conteo, filas] = await Promise.all([
+    db.from("materiales").select("id", { count: "exact", head: true }).eq("autor_id", id),
+    leerTodas(`las ideas del autor ${id}`, (despuesDe, limite) => {
+      const consulta = db
+        .from("afirmaciones")
+        .select("id, texto, tipo, evidencia, excluida, tema_id, creada_en, temas ( nombre )")
+        .eq("autor_id", id)
+      return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+    }),
+  ])
+  if (conteo.error) {
+    throw new Error(`No pude contar los materiales del autor ${id}: ${conteo.error.message}`, { cause: conteo.error })
+  }
+  const { grupos, ocultas } = agruparPorTema(
+    filas.map((fila) => ({
+      id: fila.id,
+      texto: fila.texto,
+      tipo: fila.tipo,
+      evidencia: fila.evidencia,
+      excluida: fila.excluida,
+      temaId: fila.tema_id,
+      tema: fila.temas?.nombre ?? "",
+      creadaEn: fila.creada_en,
+    })),
+  )
+  return {
+    autor,
+    materiales: conteo.count ?? 0,
+    ideas: grupos.reduce((total, grupo) => total + grupo.ideas.length, 0),
+    grupos,
+    ocultas,
+  }
 }
