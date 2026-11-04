@@ -17,6 +17,14 @@ const SLUGS = [
   "etica-regulacion",
   "acceso-salud-publica",
   "caso-coni",
+  "diagnostico-doble",
+  "bienestar-e-impacto",
+  "psicologia-en-la-mesa",
+  "mujeres-lideres",
+  "game-over-impostora",
+  "mi-nueva-partida",
+  "inteligencia-emocional",
+  "capa-tdah",
 ]
 const ALTERNATIVAS = SLUGS.join("|")
 const NUEVOS = SLUGS.filter((slug) => slug.includes("-")).join("|")
@@ -54,6 +62,9 @@ describe("el detector de slugs", () => {
     ['"/ideas?pilar=autoestima"'],
     ['"Pilar: caso-coni"'],
     ["texto(`caso-coni y más`)"],
+    ['const red = "mi-nueva-partida"'],
+    ["{ capa-tdah: 1 }"],
+    ['"Pilar: psicologia-en-la-mesa"'],
   ])("catches %s", (linea) => {
     expect(nombraUnSlug(linea)).toBe(true)
   })
