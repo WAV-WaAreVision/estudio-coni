@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { leerAutor, resumirAutores } from "@/lib/datos/biblioteca"
+import {
+  destinoDeTema,
+  leerAutor,
+  leerTema,
+  listarPilaresDeTemas,
+  listarTemas,
+  resumirAutores,
+} from "@/lib/datos/biblioteca"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
@@ -93,5 +100,70 @@ describe("leerAutor", () => {
 
   it("is null for an author that does not exist", async () => {
     expect(await leerAutor(coni, AUSENTE)).toBeNull()
+  })
+})
+
+describe("listarTemas", () => {
+  it("counts visible ideas and distinct authors, says who covered it, orders by most authors, leaves merged out", async () => {
+    const nuestros = (await listarTemas(coni, {})).filter((t) => temas.includes(t.id))
+    expect(nuestros.map((t) => t.id)).toEqual([carga, solo, pausas])
+    expect(nuestros[0]).toEqual({
+      id: carga,
+      nombre: `Carga ${SUFIJO}`,
+      descripcion: null,
+      pilarId: pilar,
+      ideas: 3,
+      autores: 2,
+      cubiertoPorConi: true,
+    })
+    expect(nuestros[1]).toMatchObject({ ideas: 2, autores: 1, cubiertoPorConi: false })
+  })
+
+  it("narrows to one pillar", async () => {
+    const nuestros = (await listarTemas(coni, { pilar })).filter((t) => temas.includes(t.id))
+    expect(nuestros.map((t) => t.id)).toEqual([carga])
+  })
+})
+
+describe("listarPilaresDeTemas", () => {
+  it("gives the active pillars with their id, in their order", async () => {
+    const pilares = await listarPilaresDeTemas(coni)
+    expect(pilares[0]?.id).toBe(pilar)
+    const { rows } = await pool.query<{ id: string }>(
+      "select id from public.categorias where not (es_pilar and activa)",
+    )
+    expect(pilares.some((p) => rows.some((fila) => fila.id === p.id))).toBe(false)
+  })
+})
+
+describe("leerTema", () => {
+  it("groups the visible ideas by author, most ideas first, with the credential", async () => {
+    const leido = await leerTema(coni, carga)
+    expect(leido?.tema).toEqual({ id: carga, nombre: `Carga ${SUFIJO}`, descripcion: null })
+    expect(leido?.ideas).toBe(3)
+    expect(leido?.autores.map((g) => g.autor.id)).toEqual([autora, coniAutora])
+    expect(leido?.autores[0]?.autor.credencial).toBe("investigadora")
+    expect(leido?.autores[0]?.ideas.map((i) => i.texto)).toEqual(["Carga 1", "Carga 2"])
+  })
+
+  it("is null for a merged or missing topic", async () => {
+    expect(await leerTema(coni, viejo)).toBeNull()
+    expect(await leerTema(coni, AUSENTE)).toBeNull()
+  })
+})
+
+describe("destinoDeTema", () => {
+  it("follows a merged topic to the one that stayed, and is null for a missing one", async () => {
+    expect(await destinoDeTema(coni, viejo)).toBe(carga)
+    expect(await destinoDeTema(coni, carga)).toBe(carga)
+    expect(await destinoDeTema(coni, AUSENTE)).toBeNull()
+  })
+
+  it("is null for a loop", async () => {
+    const [uno, dos] = [await sembrarTema(`Bucle 1 ${SUFIJO}`), await sembrarTema(`Bucle 2 ${SUFIJO}`)]
+    temas.push(uno, dos)
+    await pool.query("update public.temas set fusionado_en = $1 where id = $2", [dos, uno])
+    await pool.query("update public.temas set fusionado_en = $1 where id = $2", [uno, dos])
+    expect(await destinoDeTema(coni, uno)).toBeNull()
   })
 })

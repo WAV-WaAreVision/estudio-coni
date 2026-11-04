@@ -2,9 +2,21 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { type AutorDeLista, type AutorResumido, armarResumenDeAutores } from "@/lib/dominio/biblioteca/autores"
 import { type FichaLeida, leerFicha } from "@/lib/dominio/biblioteca/ficha"
 import type { FiltrosDeMateriales } from "@/lib/dominio/biblioteca/filtros"
-import { agruparPorTema, type GrupoPorTema, type IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
+import {
+  agruparPorAutor,
+  agruparPorTema,
+  type GrupoPorAutor,
+  type GrupoPorTema,
+  type IdeaLeida,
+} from "@/lib/dominio/biblioteca/ideas"
 import { armarMapa, type FilaDeAfirmacion, type MapaDelMaterial } from "@/lib/dominio/biblioteca/mapa"
-import { type TemaPrincipal, temasPrincipales } from "@/lib/dominio/biblioteca/temas"
+import {
+  ordenarTemas,
+  seguirFusiones,
+  type TemaPrincipal,
+  type TemaResumido,
+  temasPrincipales,
+} from "@/lib/dominio/biblioteca/temas"
 import type { Database } from "@/lib/supabase/database.types"
 import { leerTodas } from "./paginas"
 
@@ -265,4 +277,104 @@ export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> 
     grupos,
     ocultas,
   }
+}
+
+/** The topics of Temas (ported from Ingesta's `listarTemas`), a pillar narrowing them; ordered by `ordenarTemas`. */
+export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
+  const filas = await leerTodas("los temas", (despuesDe, limite) => {
+    const todas = db
+      .from("temas_resumen")
+      .select("id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni")
+    const delPilar = filtros.pilar ? todas.eq("categoria_id", filtros.pilar) : todas
+    return (despuesDe === null ? delPilar : delPilar.gt("id", despuesDe))
+      .order("id")
+      .limit(limite)
+      .then(({ data, error }) => ({
+        // The view types every column nullable; a topic row always has its id and name.
+        data:
+          data?.flatMap((fila) =>
+            fila.id === null || fila.nombre === null ? [] : [{ ...fila, id: fila.id, nombre: fila.nombre }],
+          ) ?? null,
+        error,
+      }))
+  })
+  return ordenarTemas(
+    filas.map((fila) => ({
+      id: fila.id,
+      nombre: fila.nombre,
+      descripcion: fila.descripcion,
+      pilarId: fila.categoria_id,
+      ideas: fila.afirmaciones ?? 0,
+      autores: fila.autores ?? 0,
+      cubiertoPorConi: fila.cubierto_por_coni === true,
+    })),
+  )
+}
+
+export interface Pilar {
+  id: string
+  nombre: string
+}
+
+/** The pillars a topic can be filtered by: active pillar rows only, in their order (`leerPilares` has no id). */
+export async function listarPilaresDeTemas(db: Db): Promise<Pilar[]> {
+  const { data, error } = await db
+    .from("categorias")
+    .select("id, nombre")
+    .eq("es_pilar", true)
+    .eq("activa", true)
+    .order("orden")
+  if (error) throw new Error(`No pude leer los pilares: ${error.message}`, { cause: error })
+  return data
+}
+
+export interface TemaLeido {
+  tema: { id: string; nombre: string; descripcion: string | null }
+  /** Visible ideas. */
+  ideas: number
+  autores: GrupoPorAutor[]
+}
+
+/** One live topic with its visible ideas by author; null when it is missing or was merged into another. */
+export async function leerTema(db: Db, id: string): Promise<TemaLeido | null> {
+  const { data: tema, error } = await db
+    .from("temas")
+    .select("id, nombre, descripcion, fusionado_en")
+    .eq("id", id)
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer el tema ${id}: ${error.message}`, { cause: error })
+  if (!tema || tema.fusionado_en !== null) return null
+  const filas = await leerTodas(`las ideas del tema ${id}`, (despuesDe, limite) => {
+    const consulta = db
+      .from("afirmaciones")
+      .select("id, texto, tipo, evidencia, creada_en, autor_id, autores ( nombre, credencial )")
+      .eq("tema_id", id)
+      .eq("excluida", false)
+    return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
+  })
+  return {
+    tema: { id: tema.id, nombre: tema.nombre, descripcion: tema.descripcion },
+    ideas: filas.length,
+    autores: agruparPorAutor(
+      filas.map((fila) => ({
+        id: fila.id,
+        texto: fila.texto,
+        tipo: fila.tipo,
+        evidencia: fila.evidencia,
+        creadaEn: fila.creada_en,
+        autorId: fila.autor_id,
+        autor: fila.autores?.nombre ?? "",
+        credencial: fila.autores?.credencial ?? null,
+      })),
+    ),
+  }
+}
+
+/** The live topic an address leads to (D2): itself, the one a merge kept, or null. */
+export function destinoDeTema(db: Db, id: string): Promise<string | null> {
+  return seguirFusiones(id, async (actual) => {
+    const { data, error } = await db.from("temas").select("id, fusionado_en").eq("id", actual).maybeSingle()
+    if (error) throw new Error(`No pude leer el tema ${actual}: ${error.message}`, { cause: error })
+    return data ? { id: data.id, fusionadoEn: data.fusionado_en } : null
+  })
 }
