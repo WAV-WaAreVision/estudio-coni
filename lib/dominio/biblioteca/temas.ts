@@ -43,3 +43,40 @@ export function textoDeTema(tema: TemaPrincipal | null): { visible: string; leid
     leido: `${tema.nombre} y ${tema.otros} ${tema.otros === 1 ? "tema" : "temas"} más`,
   }
 }
+
+/** A topic of Temas: the view `temas_resumen`, counting only visible ideas. */
+export interface TemaResumido {
+  id: string
+  nombre: string
+  descripcion: string | null
+  pilarId: string | null
+  ideas: number
+  autores: number
+  /** Some visible idea comes from a material whose role is "Lo dijo Coni" (the view's `cubierto_por_coni`). */
+  cubiertoPorConi: boolean
+}
+
+/** Most authors first, then most ideas, then name (D3, as Ingesta). */
+export function ordenarTemas(temas: readonly TemaResumido[]): TemaResumido[] {
+  return temas.toSorted((a, b) => b.autores - a.autores || b.ideas - a.ideas || a.nombre.localeCompare(b.nombre, "es"))
+}
+
+/** How many merges an old address may go through before it counts as a loop. */
+export const PASOS_MAXIMOS_DE_FUSION = 5
+
+export type PasoDeFusion = { id: string; fusionadoEn: string | null } | null
+
+/**
+ * The topic alive where `id` leads (ported from Ingesta's `destinoDeTema`): itself, or the one that absorbed it through
+ * `fusionado_en`. Null when a step is missing or the chain does not end within five merges (a loop).
+ */
+export async function seguirFusiones(id: string, leer: (id: string) => Promise<PasoDeFusion>): Promise<string | null> {
+  let actual = id
+  for (let paso = 0; paso <= PASOS_MAXIMOS_DE_FUSION; paso++) {
+    const fila = await leer(actual)
+    if (fila === null) return null
+    if (fila.fusionadoEn === null) return fila.id
+    actual = fila.fusionadoEn
+  }
+  return null
+}
