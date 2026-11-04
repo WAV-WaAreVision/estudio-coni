@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { ID_DEL_AVISO_DE_IDEAS } from "@/lib/dominio/biblioteca/ideas"
@@ -10,7 +10,10 @@ function en(direccion: string) {
   window.history.replaceState(null, "", direccion)
 }
 
-afterEach(() => en("/"))
+afterEach(() => {
+  vi.restoreAllMocks()
+  en("/")
+})
 
 describe("TrasElAviso", () => {
   it("moves the focus to the note when the page arrives with ?oculta= and nothing has it (the list after the last idea)", () => {
@@ -49,9 +52,9 @@ describe("TrasElAviso", () => {
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).not.toHaveFocus()
   })
 
-  it("takes its note out of the address, keeping the rest, so a reload, Back or a shared link does not say it again", () => {
-    const estado = { __NA: true, arbol: "el de Next" }
-    window.history.replaceState(estado, "", `/biblioteca/temas?pilar=p&oculta=${IDEA}&t=x#arriba`)
+  it("takes its note out of the address, keeping the rest, so a reload or a shared link does not say it again", () => {
+    window.history.replaceState({ __NA: true }, "", `/biblioteca/temas?pilar=p&oculta=${IDEA}&t=x#arriba`)
+    const reemplazar = vi.spyOn(window.history, "replaceState")
     render(
       <>
         <AvisoDeIdeas texto="La oculté." />
@@ -61,8 +64,11 @@ describe("TrasElAviso", () => {
     expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe(
       "/biblioteca/temas?pilar=p&t=x#arriba",
     )
-    // The router's own state rides along, and the note the server drew stays on screen.
-    expect(window.history.state).toEqual(estado)
+    // No state of its own: Next's patched replaceState skips its router when the state carries `__NA`, so the router
+    // would keep the old address and write it back on its next commit. With `null` Next copies its internals and
+    // tells its router the new address.
+    expect(reemplazar).toHaveBeenCalledWith(null, "", "/biblioteca/temas?pilar=p&t=x#arriba")
+    // The note the server drew stays on screen.
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toHaveTextContent("La oculté.")
   })
 

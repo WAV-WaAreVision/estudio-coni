@@ -9,8 +9,10 @@ import { ID_DEL_AVISO_DE_IDEAS } from "@/lib/dominio/biblioteca/ideas"
  * Only while the address still has the note and nothing holds the focus: a page shown again by Back, or one where she
  * already moved on, keeps hers.
  *
- * Then the note leaves the address, so a reload, Back or a shared link does not say it again. The note the server drew
- * stays on screen: Next's `replaceState` only syncs the address, and the router's own state rides along.
+ * Then the note leaves the address, so a reload or a shared link does not say it again. The note the server drew stays
+ * on screen. The state passed is `null` on purpose: Next's patched `replaceState` skips its router when the state
+ * carries `__NA`, so its router would keep the old address and write it back on its next commit. With `null` Next
+ * copies its own internals into the entry and tells its router the new address.
  */
 export function TrasElAviso({ parametro }: { parametro: "oculta" | "mostrada" }) {
   useEffect(() => {
@@ -19,7 +21,7 @@ export function TrasElAviso({ parametro }: { parametro: "oculta" | "mostrada" })
     const activo = document.activeElement
     if (activo === null || activo === document.body) document.getElementById(ID_DEL_AVISO_DE_IDEAS)?.focus()
     url.searchParams.delete(parametro)
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
   }, [parametro])
   return null
 }
