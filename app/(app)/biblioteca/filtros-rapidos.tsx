@@ -2,6 +2,7 @@ import { Check } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
 import { ICONO } from "@/components/ui/icono"
+import { conCuenta } from "@/lib/dominio/biblioteca/cuentas"
 import { type EstadoDeMaterial, type FiltrosDeMateriales, hrefDeLista } from "@/lib/dominio/biblioteca/filtros"
 import { cn } from "@/lib/utils"
 
@@ -9,9 +10,6 @@ interface Propiedades {
   filtros: FiltrosDeMateriales
   conteos: { procesando: number; fallido: number }
 }
-
-/** A count only when there is something to count (4i): "Procesando · 2", or just "Procesando". */
-const conCuenta = (texto: string, cantidad: number) => (cantidad > 0 ? `${texto} · ${cantidad}` : texto)
 
 /**
  * Fix 4b: one tap per state. Each is a link that keeps the other filters, so Back undoes a filter and they work

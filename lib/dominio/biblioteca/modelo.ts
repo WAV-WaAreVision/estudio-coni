@@ -58,3 +58,9 @@ export function etiquetaDeRol(rol: string): string {
 export function etiquetaDeTipo(tipo: string): string {
   return esTipo(tipo) ? ETIQUETA_DE_TIPO[tipo] : tipo
 }
+
+/** Coni's own card says "Coni"; every other kind uses the words of "Autor nuevo". */
+export function etiquetaDeTipoDeAutor(tipo: string): string {
+  if (tipo === "coni") return "Coni"
+  return esTipoDeAutorNuevo(tipo) ? ETIQUETA_DE_TIPO_DE_AUTOR[tipo] : tipo
+}
