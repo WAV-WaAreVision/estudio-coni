@@ -248,6 +248,8 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
           .select("id")
           .single()
         if (errorCrear) throw falloDeBase("No pude crear el tema", errorCrear)
+        // Claims first: a topic without pillars is valid (the next propose run lists it), one without claims is not.
+        await asignarAfirmaciones(db, creado.id, ids)
         if (nombrado.pilaresDeRed.length > 0) {
           const { error: errorPilares } = await db.rpc("pilares_automaticos_de_tema", {
             p_tema: creado.id,
@@ -255,7 +257,6 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
           })
           if (errorPilares) throw falloDeBase("No pude guardar los pilares del tema", errorPilares)
         }
-        await asignarAfirmaciones(db, creado.id, ids)
         resultado.creados += 1
       }
       resultado.pendientes -= ids.length

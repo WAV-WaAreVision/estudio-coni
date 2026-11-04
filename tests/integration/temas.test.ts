@@ -443,6 +443,29 @@ describe("formarTemas", () => {
     expect(rows).toEqual([])
   })
 
+  it("assigns the claims before the pillars, so a failed pillar write leaves the topic whole", async () => {
+    await dosGrupos()
+    simularClaude({ linkedin: "bienestar-e-impacto" })
+    await pool.query(
+      `create function public.prueba_falla_pilares() returns trigger language plpgsql as $$
+       begin raise exception 'falla de prueba'; end $$`,
+    )
+    await pool.query(
+      "create trigger prueba_falla_pilares before insert on public.tema_pilares for each row execute function public.prueba_falla_pilares()",
+    )
+    try {
+      await expect(formarTemas(deps())).rejects.toThrow(/No pude guardar los pilares del tema/)
+    } finally {
+      await pool.query("drop trigger prueba_falla_pilares on public.tema_pilares")
+      await pool.query("drop function public.prueba_falla_pilares()")
+    }
+    const { rows } = await pool.query<{ n: number }>(
+      "select (select count(*)::int from public.afirmaciones a where a.tema_id = t.id) as n from public.temas t",
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.n).toBeGreaterThanOrEqual(3)
+  })
+
   it("drops a slug that is unknown, of the other network or not a layer, and still forms the topic", async () => {
     await dosGrupos()
     simularClaude({
