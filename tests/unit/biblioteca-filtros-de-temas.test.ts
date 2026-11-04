@@ -142,7 +142,7 @@ describe("after Mostrar", () => {
     expect(leerIdeaMostrada({ mostrada: IDEA })).toBe(IDEA)
     expect(leerIdeaMostrada({ mostrada: "1" })).toBeNull()
     expect(leerIdeaMostrada({})).toBeNull()
-    expect(AVISO_TRAS_MOSTRAR).toBe("La volví a mostrar. Está en Sin tema todavía.")
+    expect(AVISO_TRAS_MOSTRAR).toBe("La volví a mostrar. Está en «Sin tema todavía».")
   })
 })
 

@@ -110,9 +110,9 @@ describe("AvisoDeIdeas", () => {
     expect(aviso).toHaveAttribute("aria-live", "polite")
     expect(aviso).toHaveAttribute("tabindex", "-1")
     expect(aviso).toBeEmptyDOMElement()
-    rerender(<AvisoDeIdeas texto="La volví a mostrar. Está en Sin tema todavía." />)
+    rerender(<AvisoDeIdeas texto="La volví a mostrar. Está en «Sin tema todavía»." />)
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toBe(aviso)
-    expect(aviso).toHaveTextContent("La volví a mostrar. Está en Sin tema todavía.")
+    expect(aviso).toHaveTextContent("La volví a mostrar. Está en «Sin tema todavía».")
   })
 
   it("is the only live region with its note in it, read whole", () => {

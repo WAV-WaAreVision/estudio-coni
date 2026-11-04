@@ -101,7 +101,7 @@ export function leerIdeaOculta(params: Params): string | null {
   return leida.success ? leida.data : null
 }
 
-export const AVISO_TRAS_MOSTRAR = "La volví a mostrar. Está en Sin tema todavía."
+export const AVISO_TRAS_MOSTRAR = "La volví a mostrar. Está en «Sin tema todavía»."
 
 /**
  * Where Mostrar goes: back to the author, with the idea in the address so the page says its note. Shown again, the idea
