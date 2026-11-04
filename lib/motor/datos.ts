@@ -13,6 +13,8 @@ export interface TemaDelMotor {
   tema_id: string
   nombre: string
   pilar: string | null
+  /** The topic's main pillar slugs, one per network that has one (spec 2026-11-04, section 4). */
+  pilares: string[]
   afirmaciones: number
   autores: number
   evidencia_fuerte: number
@@ -73,7 +75,12 @@ export async function leerDatosDelMotor(
   )
   const pares = await leerTodo("No pude leer los cruces del motor", (a, b) =>
     db
-      .rpc("motor_pares", { p_minimo_autores: opciones.minimoAutores ?? AUTORES_MINIMOS_POR_DEFECTO })
+      .rpc("motor_pares", {
+        p_minimo_autores: opciones.minimoAutores ?? AUTORES_MINIMOS_POR_DEFECTO,
+        // Two topics cross unless a network gives them the same main pillar (the SQL keeps the old rule by default
+        // for the tasks deployed before this one).
+        p_por_pilares_de_red: true,
+      })
       .order("a")
       .order("b")
       .range(a, b),
@@ -108,7 +115,7 @@ export async function leerDatosDelMotor(
   }
 
   return {
-    temas: temas.map((t) => ({ ...t, pilar: t.pilar ?? null })),
+    temas: temas.map((t) => ({ ...t, pilar: t.pilar ?? null, pilares: t.pilares ?? [] })),
     pares,
     recientes: { temas: temasRecientes, pares: paresRecientes },
     descartes,

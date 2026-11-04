@@ -65,8 +65,8 @@ function afirmacion(id: string, autor: string, evidencia = "estudio") {
 const CRUCE: CruceParaTeoria = {
   id: "c1",
   temas: [
-    { id: "t1", nombre: "Deseo que fluctúa", pilar: "deseo" },
-    { id: "t2", nombre: "Conversar en pareja", pilar: "pareja" },
+    { id: "t1", nombre: "Deseo que fluctúa", pilares: ["bienestar-e-impacto"] },
+    { id: "t2", nombre: "Conversar en pareja", pilares: [] },
   ],
   afirmaciones: [afirmacion("a1", "Ana"), afirmacion("a2", "Beto"), afirmacion("a3", "Ana", "opinion")],
 }

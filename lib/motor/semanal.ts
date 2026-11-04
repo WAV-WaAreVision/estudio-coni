@@ -1,7 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { pilaresActivos } from "@/lib/datos/pilares"
+import { leerPilares, pilaresActivos } from "@/lib/datos/pilares"
 import { leerGuiaVigente } from "@/lib/datos/repositorio"
+import { pilaresDeRedes } from "@/lib/dominio/pilares"
 import { falloDeBase, pagarPaso, redondear } from "@/lib/ingesta/gasto-material"
 import { type DatosDelMotor, leerDatosDelMotor, type TemaDelMotor } from "@/lib/motor/datos"
 import {
@@ -337,7 +338,10 @@ type Trabajo =
 async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
   const { db } = deps
   const datos = await leerDatosDelMotor(db, { hoy: semana })
-  const queSubir = reporteQueSubir(datos.temas, await pilaresActivos(db))
+  const queSubir = reporteQueSubir(
+    datos.temas,
+    pilaresDeRedes(await leerPilares(db)).filter((p) => !p.esCapa),
+  )
   const { cruces, arranqueEnFrio } = elegir(datos)
   const resumenBase = {
     cruces: cruces.map((c) => ({
@@ -368,7 +372,7 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
     paraClaude.push({
       id: cruce.id,
       ...(arranqueEnFrio && cruce.temas.length === 1 ? { minimoAutores: 1 } : {}),
-      temas: cruce.temas.map((t) => ({ id: t.tema_id, nombre: t.nombre, pilar: t.pilar ?? "general" })),
+      temas: cruce.temas.map((t) => ({ id: t.tema_id, nombre: t.nombre, pilares: t.pilares })),
       afirmaciones: afirmaciones.map((a) => ({ ...a })),
     })
   }

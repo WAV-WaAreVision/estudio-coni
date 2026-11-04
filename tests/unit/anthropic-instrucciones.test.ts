@@ -437,7 +437,7 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
         cruces: [
           {
             id: "c1",
-            temas: [{ id: "t1", nombre: "Tema", pilar: "vinculos" }],
+            temas: [{ id: "t1", nombre: "Tema", pilares: ["vinculos"] }],
             afirmaciones: [
               {
                 id: "a1",
@@ -459,9 +459,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "8d01dd99c885e97eb418629acb7d30f5e1ab429faa0c05e055a4f29a33d9e2a2",
+          "cuerpo": "eb61b233e66321a84d476d9bc62b3b78351a35ea6535b024cbea5e93574d5e39",
           "sistema": "fcb534380cf7a9bd7d4f49aedd5e501aab837a8f1497cea51bc9219e5dd2080b",
-          "usuario": "c41cd8a3115fb699c3b6e057c8f6339176683a62a805c21f787d7dcb920b768e",
+          "usuario": "7c4b28b9a784a246cbcbf485566be141535600d14a23e2580421d3f883a8e838",
         },
       ]
     `)

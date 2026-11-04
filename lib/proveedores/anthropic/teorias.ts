@@ -67,7 +67,8 @@ export interface CruceParaTeoria {
   id: string
   /** Authors the backing must span; 2 by default, 1 for the single-topic crossings of the cold start. */
   minimoAutores?: number
-  temas: { id: string; nombre: string; pilar: string }[]
+  /** Each topic's main pillar slugs, one per network that has one; empty for a topic without pillars. */
+  temas: { id: string; nombre: string; pilares: string[] }[]
   afirmaciones: {
     id: string
     autor: string

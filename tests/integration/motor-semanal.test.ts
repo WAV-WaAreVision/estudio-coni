@@ -58,12 +58,21 @@ const material = (autorId: string, rol: string, texto = "motor-semanal") =>
     [autorId, rol, texto, CONI],
   )
 
-const tema = (nombre: string, pilar: string, posicion: number) =>
-  uno(
+async function tema(nombre: string, pilar: string, posicion: number): Promise<string> {
+  const id = await uno(
     `insert into public.temas (nombre, descripcion, categoria_id, centroide)
      values ($1, 'd', (select id from public.categorias where slug = $2), $3::extensions.vector) returning id`,
     [nombre, pilar, eje(posicion)],
   )
+  // As postgres (pool): the pillar is the topic's main pillar in its network; an old slug has no network and no row.
+  await pool.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1, c.id, c.red, c.es_capa, 'alta', 'coni' from public.categorias c
+      where c.slug = $2 and c.red is not null and not c.es_capa`,
+    [id, pilar],
+  )
+  return id
+}
 
 async function afirmacion(
   materialId: string,
@@ -85,9 +94,9 @@ async function tresTemas(evidencia = "estudio"): Promise<{ t1: string; t2: strin
   const beto = await autor("Beto")
   const mAna = await material(ana, "referente")
   const mBeto = await material(beto, "referente")
-  const t1 = await tema("Tema uno", "deseo", 0)
-  const t2 = await tema("Tema dos", "pareja", 1)
-  const t3 = await tema("Tema tres", "limites", 2)
+  const t1 = await tema("Tema uno", "diagnostico-doble", 0)
+  const t2 = await tema("Tema dos", "bienestar-e-impacto", 1)
+  const t3 = await tema("Tema tres", "game-over-impostora", 2)
   for (const t of [t1, t2, t3]) {
     await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`, { evidencia })
     await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`, { evidencia })
@@ -101,9 +110,15 @@ async function ochoTemas(): Promise<void> {
   const beto = await autor("Beto")
   const mAna = await material(ana, "referente")
   const mBeto = await material(beto, "referente")
-  const pilares = ["pareja", "deseo", "autoestima", "limites", "bienestar"]
+  const pilares = [
+    "diagnostico-doble",
+    "bienestar-e-impacto",
+    "psicologia-en-la-mesa",
+    "mujeres-lideres",
+    "game-over-impostora",
+  ]
   for (let i = 0; i < 10; i += 1) {
-    const t = await tema(`Tema ${i}`, pilares[i % pilares.length] ?? "pareja", i)
+    const t = await tema(`Tema ${i}`, pilares[i % pilares.length] ?? "diagnostico-doble", i)
     await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`)
     await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`)
   }
@@ -112,7 +127,7 @@ async function ochoTemas(): Promise<void> {
 interface CruceEnviado {
   id: string
   minimoAutores?: number
-  temas: { id: string; nombre: string; pilar: string }[]
+  temas: { id: string; nombre: string; pilares: string[] }[]
   afirmaciones: { id: string; autor: string; texto: string }[]
 }
 
@@ -296,8 +311,8 @@ describe("correrMotor", () => {
     const beto = await autor("Beto")
     const mAna = await material(ana, "referente")
     const mBeto = await material(beto, "referente")
-    const t1 = await tema("Chatbots", "ia-salud-mental", 0)
-    const t2 = await tema("Regulación", "etica-regulacion", 1)
+    const t1 = await tema("Chatbots", "bienestar-e-impacto", 0)
+    const t2 = await tema("Regulación", "mi-nueva-partida", 1)
     for (const t of [t1, t2]) {
       await afirmacion(mAna, ana, t, `Ana dice sobre ${t}`)
       await afirmacion(mBeto, beto, t, `Beto dice sobre ${t}`)
@@ -307,13 +322,23 @@ describe("correrMotor", () => {
     const resultado = await correrMotor(deps(), { semana: SEMANA, manual: false })
 
     expect(resultado.resultado).toBe("lista")
+    // `claude.cruces` is what `simularClaude` (this file, around line 122) parsed from the last request.
+    expect(claude.cruces.flatMap((cruce) => cruce.temas.map((t) => t.pilares))).toEqual(
+      expect.arrayContaining([["bienestar-e-impacto"], ["mi-nueva-partida"]]),
+    )
     expect(claude.usuario).toContain("- caso-coni: Caso Coni: humana + avatar.")
     expect(
       await contar("select count(*) as n from public.ideas where origen = 'motor' and pilar = 'ia-salud-mental'"),
     ).toBe(2)
     expect((await corrida())?.resumen).toMatchObject({
       queSubir: {
-        pilaresSinMaterial: ["practica-clinica", "acceso-salud-publica", "caso-coni"],
+        pilaresSinMaterial: [
+          "diagnostico-doble",
+          "psicologia-en-la-mesa",
+          "mujeres-lideres",
+          "game-over-impostora",
+          "inteligencia-emocional",
+        ],
       },
     })
   })

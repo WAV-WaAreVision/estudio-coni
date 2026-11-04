@@ -361,4 +361,25 @@ describe("leerDatosDelMotor", () => {
     const datos = await leerDatosDelMotor(db, { hoy })
     expect(datos.temas).toHaveLength(1101)
   })
+
+  it("reads each topic's main pillars and pairs topics by the per-network rule", async () => {
+    const c = await pool.connect()
+    let a = ""
+    let b = ""
+    try {
+      const autor = await crearAutor(c, "Ana red datos motor")
+      const material = await crearMaterial(c, autor)
+      a = await crearTema(c, "Datos red A", "deseo", 0)
+      b = await crearTema(c, "Datos red B", "deseo", 1)
+      for (const t of [a, b]) await crearAfirmacion(c, material, autor, t)
+      await pilarDeTema(c, a, "bienestar-e-impacto")
+      await pilarDeTema(c, b, "game-over-impostora")
+    } finally {
+      c.release()
+    }
+    const datos = await leerDatosDelMotor(db, { hoy, minimoAutores: 1 })
+    expect(datos.temas.find((t) => t.tema_id === a)?.pilares).toEqual(["bienestar-e-impacto"])
+    // Same category, different main pillars: the old rule would not pair them, the new one does.
+    expect(datos.pares.some((p) => [p.a, p.b].sort().join("|") === [a, b].sort().join("|"))).toBe(true)
+  })
 })
