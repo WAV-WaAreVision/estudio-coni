@@ -358,12 +358,14 @@ export type Database = {
           creada_en: string
           creada_por: string | null
           descripcion: string | null
+          es_capa: boolean
           es_pilar: boolean
           id: string
           nombre: string
           nombre_corto: string | null
           nombre_normalizado: string | null
           orden: number | null
+          red: string | null
           slug: string
         }
         Insert: {
@@ -371,12 +373,14 @@ export type Database = {
           creada_en?: string
           creada_por?: string | null
           descripcion?: string | null
+          es_capa?: boolean
           es_pilar?: boolean
           id?: string
           nombre: string
           nombre_corto?: string | null
           nombre_normalizado?: string | null
           orden?: number | null
+          red?: string | null
           slug: string
         }
         Update: {
@@ -384,12 +388,14 @@ export type Database = {
           creada_en?: string
           creada_por?: string | null
           descripcion?: string | null
+          es_capa?: boolean
           es_pilar?: boolean
           id?: string
           nombre?: string
           nombre_corto?: string | null
           nombre_normalizado?: string | null
           orden?: number | null
+          red?: string | null
           slug?: string
         }
         Relationships: []
@@ -1297,6 +1303,32 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "carruseles"
             referencedColumns: ["id", "pieza_id"]
+          },
+        ]
+      }
+      pilar_pesos: {
+        Row: {
+          desde: string
+          peso: number
+          pilar_id: string
+        }
+        Insert: {
+          desde: string
+          peso: number
+          pilar_id: string
+        }
+        Update: {
+          desde?: string
+          peso?: number
+          pilar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilar_pesos_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
           },
         ]
       }
