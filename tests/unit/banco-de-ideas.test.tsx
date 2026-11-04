@@ -273,9 +273,11 @@ describe("BancoDeIdeas: buscar", () => {
     mostrar()
     await abrirBusqueda()
     const grupo = screen.getByRole("group", { name: "Pilar" })
-    for (const etiqueta of ["LinkedIn", "Instagram", "Pilares anteriores"]) {
-      expect(within(grupo).getByText(etiqueta)).toBeInTheDocument()
-    }
+    const red = (name: string) => within(grupo).getByRole("group", { name })
+    expect(within(red("LinkedIn")).getByRole("button", { name: "Diagnóstico doble" })).toBeInTheDocument()
+    expect(within(red("Instagram")).getByRole("button", { name: "Mi nueva partida" })).toBeInTheDocument()
+    expect(within(red("Pilares anteriores")).getByRole("button", { name: "Caso Coni" })).toBeInTheDocument()
+    expect(within(red("Instagram")).queryByRole("button", { name: "Diagnóstico doble" })).not.toBeInTheDocument()
   })
 
   it("can include the ideas already used", async () => {
@@ -389,9 +391,16 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     await screen.findByRole("alert")
     fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
     const grupo = screen.getByRole("group", { name: "Pilar" })
-    for (const etiqueta of ["LinkedIn", "Instagram", "Pilares anteriores"]) {
-      expect(within(grupo).getByText(etiqueta)).toBeInTheDocument()
-    }
+    const red = (name: string) => within(grupo).getByRole("group", { name })
+    expect(
+      within(red("LinkedIn")).getByRole("radio", {
+        name: "Diagnóstico doble: transformación digital con factor humano",
+      }),
+    ).toBeInTheDocument()
+    expect(within(red("Instagram")).getByRole("radio", { name: "Mi nueva partida" })).toBeInTheDocument()
+    expect(
+      within(red("Pilares anteriores")).getByRole("radio", { name: "Caso Coni: humana + avatar" }),
+    ).toBeInTheDocument()
   })
 
   it("lets her choose among the pillars it is given, by their full names", async () => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowRight, CaretLeft } from "@phosphor-icons/react"
-import { Fragment, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
 import { Eleccion, FilaConValor } from "@/components/ui/filas"
@@ -169,8 +169,8 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
           <fieldset className="elecciones grid">
             <legend className="mb-1 text-meta font-semibold">Pilar</legend>
             {porRed(pilares).map((grupo) => (
-              <Fragment key={grupo.red ?? "sin-red"}>
-                <p className="mt-2 text-meta text-apagado">{grupo.etiqueta}</p>
+              <fieldset key={grupo.red ?? "sin-red"} className="grid">
+                <legend className="mt-2 text-meta text-apagado">{grupo.etiqueta}</legend>
                 {grupo.pilares.map((candidato) => (
                   <Eleccion
                     key={candidato.slug}
@@ -181,7 +181,7 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
                     alElegir={() => setPilar(candidato.slug)}
                   />
                 ))}
-              </Fragment>
+              </fieldset>
             ))}
           </fieldset>
 

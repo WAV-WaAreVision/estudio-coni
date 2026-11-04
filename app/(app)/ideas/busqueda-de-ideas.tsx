@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, Warning } from "@phosphor-icons/react"
-import { Fragment, useState } from "react"
+import { useState } from "react"
 import { Chip } from "@/components/chip"
 import { Boton } from "@/components/ui/boton"
 import { Grupo } from "@/components/ui/grupo"
@@ -53,8 +53,8 @@ export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPr
           Todos
         </Chip>
         {porRed(pilares).map((grupo) => (
-          <Fragment key={grupo.red ?? "sin-red"}>
-            <span className="shrink-0 text-meta text-apagado">{grupo.etiqueta}</span>
+          <fieldset key={grupo.red ?? "sin-red"} className="flex shrink-0 items-center gap-2">
+            <legend className="float-left shrink-0 text-meta text-apagado">{grupo.etiqueta}</legend>
             {grupo.pilares.map((candidato) => (
               <Chip
                 key={candidato.slug}
@@ -64,7 +64,7 @@ export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPr
                 {candidato.nombreCorto}
               </Chip>
             ))}
-          </Fragment>
+          </fieldset>
         ))}
       </fieldset>
       <fieldset className="flex min-w-0 gap-2 overflow-x-auto">

@@ -630,8 +630,9 @@ body:has([data-superficie="marca"]) {
   background: var(--firma);
 }
 
-/* Decision 4, choice rows: once one is chosen the others drop to 500, still in ink (an option, never a closed one). */
-.elecciones:has(input:checked) > label:not(:has(input:checked)) .eleccion-titulo {
+/* Decision 4, choice rows: once one is chosen the others drop to 500, still in ink (an option, never a closed one).
+   Descendant, not child: the pillars of a new idea sit in one fieldset per network inside the group. */
+.elecciones:has(input:checked) label:not(:has(input:checked)) .eleccion-titulo {
   font-weight: 500;
 }
 
