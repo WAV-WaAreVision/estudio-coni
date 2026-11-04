@@ -5,21 +5,34 @@
 
 ## Audiencia y postura
 
-- Coni publica sobre todo en LinkedIn, para colegas: psicólogos, médicos y el ecosistema de salud mental y tecnología. Foco en IA, tecnología y el futuro de la práctica clínica; la sexología aparece de vez en cuando. El mismo contenido va en video a Instagram.
+- Coni publica en LinkedIn e Instagram. Cada red tiene sus propios pilares y su público, así que un tema se trabaja distinto en cada una.
 - Postura: adopción responsable de la IA con criterio clínico, ni entusiasta ni alarmista. Coni lee la evidencia como psicóloga y usa su propio avatar como caso transparente.
 - La sexología no tiene pilar propio: aparece como mirada dentro de los pilares, por ejemplo la IA y la salud sexual o el sesgo de género en los modelos.
 
-## Pilares (rotar para no repetir)
+## Pilares por red (rotar para no repetir)
 
-| Pilar | De qué se trata | Ejemplo de gancho |
+Cada red tiene sus propios pilares. Los pesos son los de hoy, desde el 4 de noviembre de 2026.
+
+### LinkedIn
+
+| Pilar | Peso hoy | Ángulos |
 |---|---|---|
-| **IA y salud mental** | Qué dice la evidencia sobre chatbots, apps y modelos: uso real, beneficios y riesgos. | "¿Qué pasa cuando alguien le cuenta a un chatbot lo que no le cuenta a nadie?" |
-| **Práctica clínica aumentada** | Cómo cambia la consulta: herramientas, cuándo sí y cuándo no, y el rol del vínculo terapéutico. | "La IA en terapia debería aprender como los autos autónomos." |
-| **Ética y regulación** | Consentimiento, privacidad, sesgos, responsabilidad profesional y regulación en Chile y el mundo. | "¿Quién cuida lo que le contamos a una app de bienestar emocional?" |
-| **Acceso y salud pública** | Brechas de atención, escala, equidad, y salud mental en el trabajo y la educación. | "Faltan profesionales de salud mental. ¿Puede un chatbot ayudar sin reemplazar a nadie?" |
-| **Caso Coni: humana + avatar** | Su propio experimento: qué aprende usando un avatar con transparencia y qué funciona y qué no. | "Uso un avatar de IA para divulgar. Esto es lo que decidí no delegarle." |
+| **Diagnóstico doble:** transformación digital con factor humano | 30% | Sin ángulos |
+| **Bienestar e impacto:** lo que le pasa a las personas cuando llega la IA, y cómo medirlo | 25% | «Lo que se ve» y «Cómo se mide» |
+| **Psicología en la mesa:** la psicología donde se construye la IA | 30% | «Lo que planteo» y «Lo que construyo» |
+| **Mujeres líderes, IA y síndrome del impostor** | 15% | Sin ángulos |
 
-Los ganchos son ejemplos de tono. Una cifra va en un gancho solo si Coni la entregó o la verificó.
+### Instagram
+
+| Pilar | Peso hoy | Ángulos |
+|---|---|---|
+| **Game Over Impostora** | 35% | Sin ángulos |
+| **Mi nueva partida** | 40% | «Lo vivo» y «Pruébalo tú» |
+| **Inteligencia emocional aplicada:** autocuidado, productividad y relaciones | 25% | Sin ángulos |
+
+**Capa TDAH** (Instagram): no es un pilar. Es una mirada que aparece dentro de los otros pilares, más o menos en una de cada seis piezas.
+
+Una cifra va en un gancho solo si Coni la entregó o la verificó.
 
 ## Formatos que funcionan
 

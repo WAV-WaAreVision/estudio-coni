@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
 import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
-import { nombreDePilar, pilarVisible, soloActivos } from "@/lib/dominio/pilares"
+import { nombreDePilar, pilaresParaElegir, pilarVisible } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
@@ -81,7 +81,12 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
   }
 }
 
-const ACTIVOS = soloActivos(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto }) => ({ slug, nombre, nombreCorto }))
+const ACTIVOS = pilaresParaElegir(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto, red }) => ({
+  slug,
+  nombre,
+  nombreCorto,
+  red,
+}))
 
 function mostrar(cambios: Partial<AccionesDelBanco> = {}, ideas: IdeaDeBanco[] = IDEAS) {
   const a = acciones(cambios)
@@ -247,6 +252,13 @@ describe("BancoDeIdeas: buscar", () => {
     const chips = within(screen.getByRole("group", { name: "Pilar" })).getAllByRole("button")
     expect(chips.map((chip) => chip.textContent)).toEqual([
       "Todos",
+      "Diagnóstico doble",
+      "Bienestar e impacto",
+      "Psicología en la mesa",
+      "Mujeres líderes",
+      "Game Over Impostora",
+      "Mi nueva partida",
+      "Inteligencia emocional",
       "IA y salud mental",
       "Práctica clínica",
       "Ética",
@@ -254,6 +266,18 @@ describe("BancoDeIdeas: buscar", () => {
       "Caso Coni",
     ])
     expect(screen.queryByRole("button", { name: "Pareja" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Capa TDAH" })).not.toBeInTheDocument()
+  })
+
+  it("names each network over its pillars, the old ones under Pilares anteriores", async () => {
+    mostrar()
+    await abrirBusqueda()
+    const grupo = screen.getByRole("group", { name: "Pilar" })
+    const red = (name: string) => within(grupo).getByRole("group", { name })
+    expect(within(red("LinkedIn")).getByRole("button", { name: "Diagnóstico doble" })).toBeInTheDocument()
+    expect(within(red("Instagram")).getByRole("button", { name: "Mi nueva partida" })).toBeInTheDocument()
+    expect(within(red("Pilares anteriores")).getByRole("button", { name: "Caso Coni" })).toBeInTheDocument()
+    expect(within(red("Instagram")).queryByRole("button", { name: "Diagnóstico doble" })).not.toBeInTheDocument()
   })
 
   it("can include the ideas already used", async () => {
@@ -360,6 +384,25 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     )
   })
 
+  it("names each network over the pillars she can choose from", async () => {
+    mostrar({ proponer: vi.fn(async () => ({ ok: false as const, error: "No pude proponerte el pilar ahora." })) })
+    await escribir()
+    fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
+    await screen.findByRole("alert")
+    fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
+    const grupo = screen.getByRole("group", { name: "Pilar" })
+    const red = (name: string) => within(grupo).getByRole("group", { name })
+    expect(
+      within(red("LinkedIn")).getByRole("radio", {
+        name: "Diagnóstico doble: transformación digital con factor humano",
+      }),
+    ).toBeInTheDocument()
+    expect(within(red("Instagram")).getByRole("radio", { name: "Mi nueva partida" })).toBeInTheDocument()
+    expect(
+      within(red("Pilares anteriores")).getByRole("radio", { name: "Caso Coni: humana + avatar" }),
+    ).toBeInTheDocument()
+  })
+
   it("lets her choose among the pillars it is given, by their full names", async () => {
     mostrar({ proponer: vi.fn(async () => ({ ok: false as const, error: "No pude proponerte el pilar ahora." })) })
     await escribir()
@@ -368,6 +411,13 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
     fireEvent.click(screen.getByRole("button", { name: "Elegir yo el pilar" }))
 
     const nombres = [
+      "Diagnóstico doble: transformación digital con factor humano",
+      "Bienestar e impacto: lo que le pasa a las personas cuando llega la IA, y cómo medirlo",
+      "Psicología en la mesa: la psicología donde se construye la IA",
+      "Mujeres líderes, IA y síndrome del impostor",
+      "Game Over Impostora",
+      "Mi nueva partida",
+      "Inteligencia emocional aplicada: autocuidado, productividad y relaciones",
       "IA y salud mental",
       "Práctica clínica aumentada",
       "Ética y regulación",
@@ -606,7 +656,7 @@ describe("BancoDeIdeas: elegir varias", () => {
 
 describe("the format of the idea (design 2026-10-26, D1 step 1)", () => {
   it("offers Reel and Carrusel de LinkedIn on the card, with Reel chosen", () => {
-    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={acciones()} />)
+    render(<BancoDeIdeas ideas={IDEAS} pilares={pilaresParaElegir(PILARES_DE_PRUEBA)} acciones={acciones()} />)
     expect(screen.getByRole("group", { name: "Formato" })).toBeInTheDocument()
     expect(screen.getByRole("radio", { name: "Reel" })).toBeChecked()
     expect(screen.getByRole("radio", { name: "Carrusel de LinkedIn" })).not.toBeChecked()
@@ -615,7 +665,7 @@ describe("the format of the idea (design 2026-10-26, D1 step 1)", () => {
 
   it("makes the carousel at once and takes the idea out of the deck", async () => {
     const todas = acciones()
-    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={todas} />)
+    render(<BancoDeIdeas ideas={IDEAS} pilares={pilaresParaElegir(PILARES_DE_PRUEBA)} acciones={todas} />)
 
     fireEvent.click(screen.getByRole("radio", { name: "Carrusel de LinkedIn" }))
     fireEvent.click(screen.getByRole("button", { name: "Hacer el carrusel" }))
@@ -635,7 +685,7 @@ describe("the format of the idea (design 2026-10-26, D1 step 1)", () => {
         error: "Una de esas ideas ya no está disponible. Vuelve a elegir.",
       })),
     })
-    render(<BancoDeIdeas ideas={IDEAS} pilares={soloActivos(PILARES_DE_PRUEBA)} acciones={todas} />)
+    render(<BancoDeIdeas ideas={IDEAS} pilares={pilaresParaElegir(PILARES_DE_PRUEBA)} acciones={todas} />)
     fireEvent.click(screen.getByRole("radio", { name: "Carrusel de LinkedIn" }))
     fireEvent.click(screen.getByRole("button", { name: "Hacer el carrusel" }))
     expect(await screen.findByText("Una de esas ideas ya no está disponible. Vuelve a elegir.")).toBeInTheDocument()

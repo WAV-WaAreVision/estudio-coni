@@ -1,5 +1,5 @@
 import { leerBanco } from "@/lib/datos/banco"
-import { pilaresActivos } from "@/lib/datos/pilares"
+import { pilaresElegibles } from "@/lib/datos/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
 import { elegirLoteAccion, hacerCarruselAccion } from "../piezas/acciones"
 import {
@@ -15,12 +15,12 @@ import { BancoDeIdeas } from "./banco-de-ideas"
 
 export default async function Ideas() {
   const { db } = await exigirConi()
-  const [ideas, activos] = await Promise.all([leerBanco(db, Date.now()), pilaresActivos(db)])
+  const [ideas, activos] = await Promise.all([leerBanco(db, Date.now()), pilaresElegibles(db)])
 
   return (
     <BancoDeIdeas
       ideas={ideas}
-      pilares={activos.map(({ slug, nombre, nombreCorto }) => ({ slug, nombre, nombreCorto }))}
+      pilares={activos.map(({ slug, nombre, nombreCorto, red }) => ({ slug, nombre, nombreCorto, red }))}
       acciones={{
         usar: usarIdeaAccion,
         quitar: quitarIdeaAccion,

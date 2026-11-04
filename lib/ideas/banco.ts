@@ -70,8 +70,16 @@ function leerEstado(celda: string, numero: string): IdeaDelBanco["estado"] {
  * imported as if it were whole.
  */
 export function parsearBanco(markdown: string, pilares: CatalogoDePilares): IdeaDelBanco[] {
-  // A pillar's table sits under its name. Any other table of the file (summary, patterns, accounts) is not an idea.
-  const porTitulo = new Map(pilares.map((p) => [p.nombre, p.slug]))
+  // A pillar's table sits under its name or its short name (the manuals of 2026-11-04 use the short one). A layer
+  // holds no ideas, and any other table of the file (summary, patterns, accounts) is not an idea either.
+  const porTitulo = new Map(
+    pilares
+      .filter((p) => !p.esCapa)
+      .flatMap((p): [string, string][] => [
+        [p.nombreCorto, p.slug],
+        [p.nombre, p.slug],
+      ]),
+  )
   const ideas: IdeaDelBanco[] = []
   const vistos = new Set<number>()
   let pilar: string | null = null

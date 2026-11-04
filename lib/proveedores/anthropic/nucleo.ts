@@ -24,6 +24,8 @@ export const MODELO_POR_TAREA = {
   escribirFicha: { modelo: "claude-opus-5-5", effort: "low" },
   clasificarIdea: { modelo: "claude-sonnet-5-5", effort: "low" },
   clasificarEnPilares: { modelo: "claude-sonnet-5-5", effort: "low" },
+  // The one-off proposal of pillars per network (spec 2026-11-04, section 3): a person reviews every line of it.
+  proponerPilaresPorRed: { modelo: "claude-sonnet-5-5", effort: "low" },
   extraerAfirmaciones: { modelo: "claude-sonnet-5-5", effort: "low" },
   nombrarTemas: { modelo: "claude-sonnet-5-5", effort: "low" },
   escribirTeorias: { modelo: "claude-opus-5-5", effort: "medium" },
@@ -114,6 +116,15 @@ function esRechazoDelPedido(estado: number | undefined): boolean {
   return estado !== undefined && estado >= 400 && estado < 500 && estado !== 408 && estado !== 409 && estado !== 429
 }
 
+// A failure after Claude answered was billed all the same. The errors stay as they are (callers test their classes);
+// what that answer cost is kept beside each one, for a caller that confirms a spend.
+const COBROS = new WeakMap<object, { uso: UsoClaude; modelo: ModeloClaude }>()
+
+/** What the answer behind a failure of `pedirJson` cost; null when Claude never answered. */
+export function cobroDeFalla(error: unknown): { uso: UsoClaude; modelo: ModeloClaude } | null {
+  return typeof error === "object" && error !== null ? (COBROS.get(error) ?? null) : null
+}
+
 /**
  * One structured call. It uses `create` and parses by hand because `parse` reads the answer before the caller can
  * look at `stop_reason`: a refusal that carries half a JSON would surface as a parsing error instead of a refusal.
@@ -146,30 +157,37 @@ export async function pedirJson<S extends z.ZodType>(
   } catch (error) {
     throw traducirError(error, config.modelo)
   }
+  const cobro = { uso: respuesta.usage, modelo: modeloQueCobra(respuesta.model) }
+  const cobrada = <E extends Error>(error: E): E => {
+    COBROS.set(error, cobro)
+    return error
+  }
   if (respuesta.stop_reason === "refusal") {
-    throw new RechazoDeClaude()
+    throw cobrada(new RechazoDeClaude())
   }
   if (respuesta.stop_reason === "max_tokens") {
-    throw new RespuestaCortada()
+    throw cobrada(new RespuestaCortada())
   }
   // After a fallback, `content` holds what the declined model wrote (possibly half a JSON), a `fallback` block, and
   // then the answer of the model that served the request: only the last part is the answer.
   const respuestaFinal = respuesta.content.slice(respuesta.content.findLastIndex((b) => b.type === "fallback") + 1)
   const bloque = respuestaFinal.find((candidato) => candidato.type === "text")
   if (!bloque) {
-    throw new Error("Claude no devolvió una respuesta que se pueda leer.")
+    throw cobrada(new Error("Claude no devolvió una respuesta que se pueda leer."))
   }
   let crudo: unknown
   try {
     crudo = JSON.parse(bloque.text)
   } catch (error) {
-    throw new Error("Claude devolvió una respuesta que no tiene el formato pedido.", { cause: error })
+    throw cobrada(new Error("Claude devolvió una respuesta que no tiene el formato pedido.", { cause: error }))
   }
   const lectura = pedido.esquema.safeParse(crudo)
   if (!lectura.success) {
-    throw new Error("Claude devolvió una respuesta que no tiene el formato pedido.", {
-      cause: new Error(describirIncumplimientos(lectura.error.issues, crudo)),
-    })
+    throw cobrada(
+      new Error("Claude devolvió una respuesta que no tiene el formato pedido.", {
+        cause: new Error(describirIncumplimientos(lectura.error.issues, crudo)),
+      }),
+    )
   }
   return { salida: lectura.data, uso: respuesta.usage, modelo: respuesta.model }
 }

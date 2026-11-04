@@ -1,7 +1,7 @@
 import type pg from "pg"
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { leerDatosDelMotor } from "@/lib/motor/datos"
-import { CONI, como, comoConi, comoServicio, fallaCon, pool } from "./db"
+import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool } from "./db"
 import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
@@ -49,6 +49,14 @@ const crearAfirmacion = (
     `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, excluida)
      values ($1, $2, 0, '{"pagina": 1}', 'Idea', 'cita', 'consejo', $3, $4, $5) returning id`,
     [material, autor, extra.evidencia ?? "opinion", tema, extra.excluida ?? false],
+  )
+
+/** As postgres (the service role cannot write tema_pilares): a pillar row of a topic. */
+const pilarDeTema = (c: Cliente, tema: string, slug: string, fuerza: string | null = "alta") =>
+  c.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1, c.id, c.red, c.es_capa, $3, 'coni' from public.categorias c where c.slug = $2`,
+    [tema, slug, fuerza],
   )
 
 interface FilaTema {
@@ -113,6 +121,27 @@ describe("motor_temas", () => {
       expect(error.code).toBe("42501")
     })
   })
+
+  it("adds the main pillar slugs of both networks in `pilares` and keeps `pilar` as the topic's category", async () => {
+    await como(comoPostgres, async (c) => {
+      const ana = await crearAutor(c, "Ana pilares")
+      const m = await crearMaterial(c, ana)
+      const t = await crearTema(c, "Con pilares", "deseo", 0)
+      const sinFilas = await crearTema(c, "Sin pilares", null, 1)
+      await crearAfirmacion(c, m, ana, t)
+      await pilarDeTema(c, t, "bienestar-e-impacto")
+      await pilarDeTema(c, t, "mi-nueva-partida")
+      await pilarDeTema(c, t, "diagnostico-doble", "media")
+      await pilarDeTema(c, t, "capa-tdah", null)
+      await asumir(c, comoServicio)
+      const { rows } = await c.query<FilaTema & { pilares: string[] }>("select * from public.motor_temas()")
+      expect(rows.find((r) => r.tema_id === t)).toMatchObject({
+        pilar: "deseo",
+        pilares: ["mi-nueva-partida", "bienestar-e-impacto"],
+      })
+      expect(rows.find((r) => r.tema_id === sinFilas)?.pilares).toEqual([])
+    })
+  })
 })
 
 describe("motor_pares", () => {
@@ -167,6 +196,52 @@ describe("motor_pares", () => {
     await como(comoConi, async (c) => {
       const error = await fallaCon(c, "select * from public.motor_pares(1)")
       expect(error.code).toBe("42501")
+    })
+  })
+
+  async function cuatroTemas(c: Cliente) {
+    const ana = await crearAutor(c, "Ana red")
+    const beto = await crearAutor(c, "Beto red")
+    const mAna = await crearMaterial(c, ana)
+    const mBeto = await crearMaterial(c, beto)
+    const a = await crearTema(c, "Red A", "deseo", 0)
+    const b = await crearTema(c, "Red B", "pareja", 1)
+    const d = await crearTema(c, "Red C", "limites", 2)
+    const sinNada = await crearTema(c, "Red sin pilar", null, 3)
+    for (const tema of [a, b, d, sinNada]) {
+      await crearAfirmacion(c, mAna, ana, tema)
+      await crearAfirmacion(c, mBeto, beto, tema)
+    }
+    await pilarDeTema(c, a, "bienestar-e-impacto")
+    await pilarDeTema(c, b, "bienestar-e-impacto")
+    await pilarDeTema(c, b, "mi-nueva-partida")
+    await pilarDeTema(c, d, "diagnostico-doble")
+    await pilarDeTema(c, d, "bienestar-e-impacto", "media")
+    return { a, b, d, sinNada }
+  }
+
+  const clavesDe = (rows: FilaPar[]) => rows.map((r) => [r.a, r.b].sort().join("|")).sort()
+  const clave = (x: string, y: string) => [x, y].sort().join("|")
+
+  it("with p_por_pilares_de_red crosses two topics unless one network gives them the same main pillar", async () => {
+    await como(comoPostgres, async (c) => {
+      const { a, b, d, sinNada } = await cuatroTemas(c)
+      await asumir(c, comoServicio)
+      const { rows } = await c.query<FilaPar>("select * from public.motor_pares(2, true)")
+      const nuestros = rows.filter((r) => [a, b, d, sinNada].includes(r.a) && [a, b, d, sinNada].includes(r.b))
+      expect(clavesDe(nuestros)).toEqual(
+        [clave(a, d), clave(a, sinNada), clave(b, d), clave(b, sinNada), clave(d, sinNada)].sort(),
+      )
+    })
+  })
+
+  it("keeps the old rule by default: categories must differ and a topic without one is left out", async () => {
+    await como(comoPostgres, async (c) => {
+      const { a, b, d, sinNada } = await cuatroTemas(c)
+      await asumir(c, comoServicio)
+      const { rows } = await c.query<FilaPar>("select * from public.motor_pares(2)")
+      const nuestros = rows.filter((r) => [a, b, d, sinNada].includes(r.a) && [a, b, d, sinNada].includes(r.b))
+      expect(clavesDe(nuestros)).toEqual([clave(a, b), clave(a, d), clave(b, d)].sort())
     })
   })
 })
@@ -285,5 +360,26 @@ describe("leerDatosDelMotor", () => {
     }
     const datos = await leerDatosDelMotor(db, { hoy })
     expect(datos.temas).toHaveLength(1101)
+  })
+
+  it("reads each topic's main pillars and pairs topics by the per-network rule", async () => {
+    const c = await pool.connect()
+    let a = ""
+    let b = ""
+    try {
+      const autor = await crearAutor(c, "Ana red datos motor")
+      const material = await crearMaterial(c, autor)
+      a = await crearTema(c, "Datos red A", "deseo", 0)
+      b = await crearTema(c, "Datos red B", "deseo", 1)
+      for (const t of [a, b]) await crearAfirmacion(c, material, autor, t)
+      await pilarDeTema(c, a, "bienestar-e-impacto")
+      await pilarDeTema(c, b, "game-over-impostora")
+    } finally {
+      c.release()
+    }
+    const datos = await leerDatosDelMotor(db, { hoy, minimoAutores: 1 })
+    expect(datos.temas.find((t) => t.tema_id === a)?.pilares).toEqual(["bienestar-e-impacto"])
+    // Same category, different main pillars: the old rule would not pair them, the new one does.
+    expect(datos.pares.some((p) => [p.a, p.b].sort().join("|") === [a, b].sort().join("|"))).toBe(true)
   })
 })

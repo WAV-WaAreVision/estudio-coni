@@ -159,7 +159,8 @@ export function reporteQueSubir(
     .sort((x, y) => y.afirmaciones - x.afirmaciones || porId(x.tema_id, y.tema_id))
     .slice(0, MAXIMO_UN_SOLO_AUTOR)
     .map((t) => t.nombre)
-  const conMaterial = new Set(temas.map((t) => t.pilar))
-  // Slugs, not names: the ingesta's Semana names them from `categorias` and drops retired ones (amendment 13).
+  // A pillar has material when it is some topic's main pillar (spec 2026-11-04). Slugs, not names: the ingesta's
+  // Semana names them from `categorias` and drops retired ones (amendment 13).
+  const conMaterial = new Set(temas.flatMap((t) => t.pilares))
   return { unSoloAutor, pilaresSinMaterial: activos.filter((p) => !conMaterial.has(p.slug)).map((p) => p.slug) }
 }

@@ -304,6 +304,23 @@ describe("crearIdeaPropia", () => {
     expect(rows).toEqual([])
   })
 
+  it("refuses a layer as the idea's pillar with the input error and inserts nothing", async () => {
+    expect(await crearIdeaPropia(deps(), { ...entrada, pilar: "capa-tdah" })).toEqual({
+      ok: false,
+      error: "Escribe tu idea en una o dos frases (hasta 220 letras).",
+    })
+    const { rows } = await pool.query("select id from public.ideas where gancho = $1", [entrada.gancho])
+    expect(rows).toEqual([])
+  })
+
+  it("takes a pillar of a network", async () => {
+    const resultado = await crearIdeaPropia(deps(), { ...entrada, pilar: "mi-nueva-partida" })
+    expect(resultado.ok).toBe(true)
+    const { rows } = await pool.query("select id, pilar from public.ideas where gancho = $1", [entrada.gancho])
+    ideasCreadas.push(...rows.map((r) => r.id))
+    expect(rows[0]?.pilar).toBe("mi-nueva-partida")
+  })
+
   it("refuses a pillar or an alert type the app does not know, and an empty idea", async () => {
     expect(await crearIdeaPropia(deps(), { ...entrada, pilar: "negocios" })).toMatchObject({ ok: false })
     expect(await crearIdeaPropia(deps(), { ...entrada, alertas: [{ tipo: "peligro", texto: "x" }] })).toMatchObject({

@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { describirFuente, type Fuente } from "@/lib/dominio/fuente"
-import { type DatosDePilar, soloActivos } from "@/lib/dominio/pilares"
+import { type DatosDePilar, pilaresParaElegir, porRed } from "@/lib/dominio/pilares"
 import type { paraElGuion } from "@/lib/dominio/respaldo"
 import { type Alerta, type Hallazgo, REGLAS_CLAUDE } from "@/lib/dominio/revision"
 import { sinCierre } from "@/lib/ingesta/texto-seguro"
@@ -57,9 +57,17 @@ ${fuentes.map((f) => `- ${describirFuente(f)}`).join("\n")}
 export const SIN_CONSULTA =
   "Nunca presentes a pacientes, consultantes ni consultas como fuente de lo que dices. Prohibidas frases como «me cuentan», «me dicen», «en consulta», «en mi consulta veo», «mis pacientes», «una paciente me dijo», «un consultante me contó», «muchas personas me escriben», «me ha tocado ver» y «me ha tocado acompañar». Habla en general, sin decir que ella lo escuchó de alguien: «Es súper común…», «A muchas personas les pasa…»."
 
-/** One line per active pillar: slug (what goes in `pilar`), name and the description the prompts read. */
+/**
+ * The pillars a prompt offers, grouped by network (spec 2026-11-04, section 4): slug (what goes in `pilar`), name and
+ * description. A layer is a lens, never a pillar to choose, so it is left out.
+ */
 export function listaDePilares(pilares: readonly DatosDePilar[]): string {
-  return soloActivos(pilares)
-    .map((p) => `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd())
+  return porRed(pilaresParaElegir(pilares))
+    .map((grupo) =>
+      [
+        `${grupo.etiqueta}:`,
+        ...grupo.pilares.map((p) => `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd()),
+      ].join("\n"),
+    )
     .join("\n")
 }

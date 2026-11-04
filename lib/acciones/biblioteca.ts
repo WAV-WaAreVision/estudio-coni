@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { filasDePilaresAJson } from "@/lib/datos/pilares"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
@@ -15,6 +16,7 @@ import {
   tipoDeContenido,
 } from "@/lib/dominio/biblioteca/subir"
 import { Falla } from "@/lib/dominio/falla"
+import { FUERZAS } from "@/lib/dominio/pilares"
 import { type Almacen, claveMaterial } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import type { DisparosDeBiblioteca } from "./disparos"
@@ -40,6 +42,11 @@ export const AutorNuevo = z.object({
 })
 export const UnionDeAutores = z.object({ origen: z.uuid(), destino: z.uuid() })
 export const CambioDeIdea = z.object({ id: z.uuid(), oculta: z.boolean() })
+export const CambioDePilares = z.object({
+  temaId: z.uuid(),
+  // A pillar per network, its secondaries and the layers: a handful; 20 is far above any real choice.
+  filas: z.array(z.object({ pilar: z.string().min(1).max(80), fuerza: z.enum(FUERZAS).nullable() })).max(20),
+})
 
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
 const NO_ES_EL_ESTADO = "22023"
@@ -48,6 +55,9 @@ const NO_EXISTE = "P0002"
 const AUTOR_INEXISTENTE = "Ese autor ya no existe."
 const MISMO_AUTOR = "Elige otro autor para unirlos."
 const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
+const TEMA_INEXISTENTE = "Ese tema ya no existe. Recarga la página."
+const PILAR_QUE_YA_NO_ESTA = "Uno de esos pilares ya no está. Recarga la página y elige de nuevo."
+const PILARES_QUE_NO_CALZAN = "Elige un solo pilar por red, y «También toca» solo en una red con pilar."
 /** A download link is for one tap. */
 const SEGUNDOS_DE_DESCARGA = 5 * 60
 
@@ -449,6 +459,30 @@ export function ocultarIdea(
     if (error) {
       if (error.code === NO_EXISTE) throw new Falla("Esa idea ya no existe.")
       throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
+    }
+    return {}
+  })
+}
+
+/**
+ * Replaces a topic's pillars with Coni's (spec 2026-11-04, part 15a, section 5) through `cambiar_pilares_de_tema`,
+ * which checks every row. The form never sends a broken choice; the database's refusals are the backstop.
+ */
+export function cambiarPilaresDeTema(
+  deps: Pick<DepsBiblioteca, "db">,
+  cambio: z.output<typeof CambioDePilares>,
+): Promise<Resultado> {
+  return aResultado("cambiarPilaresDeTema", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("cambiar_pilares_de_tema", {
+      p_tema: cambio.temaId,
+      p_filas: filasDePilaresAJson(cambio.filas),
+    })
+    if (error) {
+      if (error.code === NO_EXISTE && error.message === "tema_inexistente") throw new Falla(TEMA_INEXISTENTE)
+      if (error.code === NO_EXISTE) throw new Falla(PILAR_QUE_YA_NO_ESTA)
+      if (error.code === NO_ES_EL_ESTADO) throw new Falla(PILARES_QUE_NO_CALZAN)
+      throw new Error(`No pude cambiar los pilares del tema ${cambio.temaId}: ${error.message}`, { cause: error })
     }
     return {}
   })

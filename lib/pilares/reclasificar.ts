@@ -33,8 +33,8 @@ export function aCsv(filas: readonly FilaDeReclasificacion[]): string {
   return `${lineas.join("\n")}\n`
 }
 
-/** RFC 4180 fields: quoted or not, with doubled quotes and line breaks inside quotes. */
-function campos(texto: string): { valores: string[]; linea: number }[] {
+/** RFC 4180 fields: quoted or not, with doubled quotes and line breaks inside quotes. Shared with lib/pilares/por-red.ts. */
+export function camposDeCsv(texto: string): { valores: string[]; linea: number }[] {
   const registros: { valores: string[]; linea: number }[] = []
   let valores: string[] = []
   let campo = ""
@@ -76,7 +76,7 @@ function campos(texto: string): { valores: string[]; linea: number }[] {
 }
 
 export function leerCsv(texto: string): FilaDeReclasificacion[] {
-  const [cabecera, ...resto] = campos(texto.replace(/^\uFEFF/, ""))
+  const [cabecera, ...resto] = camposDeCsv(texto.replace(/^\uFEFF/, ""))
   if (!cabecera || cabecera.valores.join(",") !== COLUMNAS.join(",")) {
     throw new Error(`La primera línea tiene que ser: ${COLUMNAS.join(",")}`)
   }

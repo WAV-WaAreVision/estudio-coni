@@ -11,7 +11,7 @@ import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
 import type { MotivoDeDescarte } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import type { PilarDeEleccion } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
@@ -53,7 +53,7 @@ export function BancoDeIdeas({
   acciones,
 }: {
   ideas: readonly IdeaDeBanco[]
-  pilares: readonly PilarVisible[]
+  pilares: readonly PilarDeEleccion[]
   acciones: AccionesDelBanco
 }) {
   const [vista, setVista] = useState<Vista>("mazo")

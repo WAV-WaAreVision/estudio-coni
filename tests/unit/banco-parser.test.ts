@@ -12,6 +12,25 @@ const ENCABEZADO =
 const bajoPareja = (...filas: string[]) => `## Pareja y conversación\n\n${ENCABEZADO}${filas.join("\n")}\n`
 
 describe("parsearBanco", () => {
+  it("reads a heading by the pillar's short name too, and never as a layer", () => {
+    const tabla = [
+      "| # | Gancho | Tema | Formato | Fuerza | Revisar | Fuentes | Estado |",
+      "|---|---|---|---|---|---|---|---|",
+    ]
+    const md = [
+      "## Diagnóstico doble",
+      "",
+      ...tabla,
+      "| 1 | Medir el factor humano. | Diagnóstico | Mito o realidad | alta |  |  | idea |",
+      "",
+      "## Capa TDAH",
+      "",
+      ...tabla,
+      "| 2 | Mi cerebro y yo. | TDAH | Mito o realidad | alta |  |  | idea |",
+    ].join("\n")
+    expect(parsearBanco(md, PILARES_DE_PRUEBA).map((i) => [i.numero, i.pilar])).toEqual([[1, "diagnostico-doble"]])
+  })
+
   it("reads the pillar from the heading through the catalog it is given", () => {
     const md = [
       "## Caso Coni: humana + avatar",

@@ -7,6 +7,8 @@ import { z } from "zod"
 import {
   AutorNuevo,
   CambioDeIdea,
+  CambioDePilares,
+  cambiarPilaresDeTema,
   confirmarCosto,
   confirmarMaterial,
   crearAutor,
@@ -149,4 +151,11 @@ export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>, de
   )
   if (resultado.ok) redirect(destinoTrasOcultar(despues), "replace")
   return resultado
+}
+
+/** A topic's pillars show on its page and decide which pillar lists it in Temas: the whole section is refreshed. */
+export async function cambiarPilaresAccion(cambio: z.input<typeof CambioDePilares>) {
+  return refrescar(
+    await conSesionDeConi("cambiarPilaresDeTema", CambioDePilares, cambio, (db, d) => cambiarPilaresDeTema({ db }, d)),
+  )
 }

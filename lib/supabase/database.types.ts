@@ -358,12 +358,14 @@ export type Database = {
           creada_en: string
           creada_por: string | null
           descripcion: string | null
+          es_capa: boolean
           es_pilar: boolean
           id: string
           nombre: string
           nombre_corto: string | null
           nombre_normalizado: string | null
           orden: number | null
+          red: string | null
           slug: string
         }
         Insert: {
@@ -371,12 +373,14 @@ export type Database = {
           creada_en?: string
           creada_por?: string | null
           descripcion?: string | null
+          es_capa?: boolean
           es_pilar?: boolean
           id?: string
           nombre: string
           nombre_corto?: string | null
           nombre_normalizado?: string | null
           orden?: number | null
+          red?: string | null
           slug: string
         }
         Update: {
@@ -384,12 +388,14 @@ export type Database = {
           creada_en?: string
           creada_por?: string | null
           descripcion?: string | null
+          es_capa?: boolean
           es_pilar?: boolean
           id?: string
           nombre?: string
           nombre_corto?: string | null
           nombre_normalizado?: string | null
           orden?: number | null
+          red?: string | null
           slug?: string
         }
         Relationships: []
@@ -743,6 +749,46 @@ export type Database = {
           },
         ]
       }
+      ideas_pilar_antes: {
+        Row: {
+          idea_id: string
+          lote: string
+          pilar: string
+        }
+        Insert: {
+          idea_id: string
+          lote: string
+          pilar: string
+        }
+        Update: {
+          idea_id?: string
+          lote?: string
+          pilar?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_pilar_antes_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ideas_pilar_antes_lote_fkey"
+            columns: ["lote"]
+            isOneToOne: false
+            referencedRelation: "lotes_de_pilares"
+            referencedColumns: ["lote"]
+          },
+          {
+            foreignKeyName: "ideas_pilar_antes_pilar_fkey"
+            columns: ["pilar"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       intervenciones: {
         Row: {
           canal: string
@@ -847,6 +893,51 @@ export type Database = {
           fijado_por?: string
           limite_usd?: number
           mes?: string
+        }
+        Relationships: []
+      }
+      lote_pilares_retirados: {
+        Row: {
+          lote: string
+          pilar_id: string
+        }
+        Insert: {
+          lote: string
+          pilar_id: string
+        }
+        Update: {
+          lote?: string
+          pilar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_pilares_retirados_lote_fkey"
+            columns: ["lote"]
+            isOneToOne: false
+            referencedRelation: "lotes_de_pilares"
+            referencedColumns: ["lote"]
+          },
+          {
+            foreignKeyName: "lote_pilares_retirados_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_de_pilares: {
+        Row: {
+          aplicado_en: string
+          lote: string
+        }
+        Insert: {
+          aplicado_en?: string
+          lote: string
+        }
+        Update: {
+          aplicado_en?: string
+          lote?: string
         }
         Relationships: []
       }
@@ -1300,6 +1391,38 @@ export type Database = {
           },
         ]
       }
+      pilar_pesos: {
+        Row: {
+          desde: string
+          es_capa: boolean
+          peso: number
+          pilar_id: string
+          red: string | null
+        }
+        Insert: {
+          desde: string
+          es_capa?: boolean
+          peso: number
+          pilar_id: string
+          red?: string | null
+        }
+        Update: {
+          desde?: string
+          es_capa?: boolean
+          peso?: number
+          pilar_id?: string
+          red?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilar_pesos_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "red", "es_capa"]
+          },
+        ]
+      }
       publicaciones: {
         Row: {
           destino: string
@@ -1448,6 +1571,61 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tema_pilares: {
+        Row: {
+          creado_en: string
+          es_capa: boolean
+          fuerza: string | null
+          lote: string | null
+          origen: string
+          pilar_id: string
+          red: string
+          tema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          es_capa: boolean
+          fuerza?: string | null
+          lote?: string | null
+          origen: string
+          pilar_id: string
+          red: string
+          tema_id: string
+        }
+        Update: {
+          creado_en?: string
+          es_capa?: boolean
+          fuerza?: string | null
+          lote?: string | null
+          origen?: string
+          pilar_id?: string
+          red?: string
+          tema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tema_pilares_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "red", "es_capa"]
+          },
+          {
+            foreignKeyName: "tema_pilares_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tema_pilares_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       temas: {
         Row: {
@@ -1886,6 +2064,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      aplicar_lote_de_pilares: {
+        Args: { p_filas: Json; p_lote: string }
+        Returns: Json
+      }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
@@ -1919,6 +2101,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      cambiar_pilares_de_tema: {
+        Args: { p_filas: Json; p_tema: string }
+        Returns: undefined
       }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
@@ -1971,6 +2157,7 @@ export type Database = {
         Returns: undefined
       }
       desconectar_linkedin: { Args: never; Returns: undefined }
+      deshacer_lote_de_pilares: { Args: { p_lote: string }; Returns: Json }
       editar_guion_como_coni: {
         Args: {
           p_guion: string
@@ -2151,6 +2338,7 @@ export type Database = {
       }
       es_coni: { Args: never; Returns: boolean }
       es_mantenedor: { Args: never; Returns: boolean }
+      es_uuid_de_texto: { Args: { p_valor: Json }; Returns: boolean }
       espacios_simples: { Args: { p_texto: string }; Returns: string }
       excluir_afirmacion: {
         Args: { p_excluida: boolean; p_id: string }
@@ -2539,7 +2727,7 @@ export type Database = {
         }[]
       }
       motor_pares: {
-        Args: { p_minimo_autores: number }
+        Args: { p_minimo_autores: number; p_por_pilares_de_red?: boolean }
         Returns: {
           a: string
           autores_comunes: number
@@ -2556,6 +2744,7 @@ export type Database = {
           evidencia_fuerte: number
           nombre: string
           pilar: string
+          pilares: string[]
           tema_id: string
         }[]
       }
@@ -2615,6 +2804,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      pilares_automaticos_de_tema: {
+        Args: { p_filas: Json; p_tema: string }
+        Returns: number
       }
       proponer_fechas: {
         Args: { p_fechas: string[]; p_piezas: string[] }
@@ -2755,6 +2948,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolver_filas_de_pilares: {
+        Args: { p_filas: Json }
+        Returns: {
+          es_capa: boolean
+          fuerza: string
+          pilar_id: string
+          red: string
+        }[]
+      }
       respaldo_de_idea: {
         Args: { p_idea: string; p_limite: number }
         Returns: Json
@@ -2767,6 +2969,29 @@ export type Database = {
           similitud: number
           tema_id: string
         }[]
+      }
+      temas_de_pilar: {
+        Args: { p_pilar: string }
+        Returns: {
+          actualizado_en: string | null
+          afirmaciones: number | null
+          alias: string[] | null
+          autores: number | null
+          categoria_id: string | null
+          creado_en: string | null
+          cubierto_por_coni: boolean | null
+          descripcion: string | null
+          evidencia: Json | null
+          id: string | null
+          nombre: string | null
+          ultima_afirmacion: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "temas_resumen"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       temas_parecidos: {
         Args: { p_umbral: number }

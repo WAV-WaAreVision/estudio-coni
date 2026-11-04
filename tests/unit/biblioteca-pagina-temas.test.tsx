@@ -8,6 +8,12 @@ const { esConi, datos } = vi.hoisted(() => ({
     listarPilaresDeTemas: vi.fn(async (): Promise<unknown[]> => []),
     leerTema: vi.fn(async (): Promise<unknown> => null),
     destinoDeTema: vi.fn(async (): Promise<string | null> => null),
+    leerPilaresDeTema: vi.fn(
+      async (): Promise<unknown> => ({
+        linkedin: { principal: null, secundarios: [], capa: null },
+        instagram: { principal: null, secundarios: [], capa: null },
+      }),
+    ),
   },
 }))
 vi.mock("@/lib/supabase/server", () => ({
@@ -26,13 +32,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
-vi.mock("@/app/(app)/biblioteca/acciones", () => ({ unirAutoresAccion: vi.fn(), ocultarIdeaAccion: vi.fn() }))
+vi.mock("@/app/(app)/biblioteca/acciones", () => ({
+  unirAutoresAccion: vi.fn(),
+  ocultarIdeaAccion: vi.fn(),
+  cambiarPilaresAccion: vi.fn(),
+}))
 
 import type { ReactElement, ReactNode } from "react"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
 import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import DetalleDeTema from "@/app/(app)/biblioteca/temas/[id]/page"
+import { PilaresDelTema } from "@/app/(app)/biblioteca/temas/[id]/pilares-del-tema"
 import { FiltrosDeCobertura } from "@/app/(app)/biblioteca/temas/filtros-de-cobertura"
 import Temas from "@/app/(app)/biblioteca/temas/page"
 import { PanelDeTema } from "@/app/(app)/biblioteca/temas/panel-de-tema"
@@ -208,6 +219,32 @@ describe("a topic's page", () => {
     expect((sola?.props.accion as (idea: IdeaLeida) => Elemento)(UNA).props.despues).toBe(
       "/biblioteca/temas?oculta=i-1",
     )
+  })
+
+  it("shows the topic's pillars per network with the pillars it can take", async () => {
+    esConi.valor = true
+    const pilares = {
+      linkedin: {
+        principal: { slug: "bienestar-e-impacto", nombre: "Bienestar e impacto", nombreCorto: "Bienestar e impacto" },
+        secundarios: [],
+        capa: null,
+      },
+      instagram: { principal: null, secundarios: [], capa: null },
+    }
+    const opcion = {
+      id: PILAR,
+      slug: "bienestar-e-impacto",
+      nombreCorto: "Bienestar e impacto",
+      red: "linkedin",
+      esCapa: false,
+    }
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    datos.leerPilaresDeTema.mockResolvedValueOnce(pilares)
+    datos.listarPilaresDeTemas.mockResolvedValueOnce([opcion])
+    const seccion = elementos(await abrir(CARGA)).find((elemento) => elemento.type === PilaresDelTema)
+    expect(seccion?.props).toMatchObject({ temaId: CARGA, pilares, opciones: [opcion] })
+    expect(datos.leerPilaresDeTema).toHaveBeenCalledWith(expect.anything(), CARGA)
   })
 
   it("says the quiet note after hiding", async () => {

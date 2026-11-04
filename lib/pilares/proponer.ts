@@ -62,7 +62,7 @@ export async function proponerReclasificacion(deps: {
 }
 
 /** Never masks the failure that brought us here: a failure closing the spend is reported, then the caller rethrows. */
-async function cerrarGastoTrasFalla(
+export async function cerrarGastoTrasFalla(
   deps: { db: SupabaseClient<Database>; avisar: (linea: string) => void },
   clave: string,
   realUsd: number,

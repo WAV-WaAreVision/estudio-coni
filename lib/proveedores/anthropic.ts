@@ -28,14 +28,25 @@ export {
 } from "./anthropic/ideas"
 export { leerTextoEnImagenes, type TextoLeido } from "./anthropic/lectura"
 export {
+  cobroDeFalla,
   costoClaude,
   MODELO_POR_TAREA,
   type ModeloClaude,
   modeloQueCobra,
   RechazoDeClaude,
   RespuestaCortada,
+  sinRaya,
   type UsoClaude,
 } from "./anthropic/nucleo"
+export {
+  guiaDePilaresPorRed,
+  type IdeaPorClasificar,
+  type PropuestaDeIdeaPorRed,
+  type PropuestaDeTema,
+  pedidoDePilaresPorRed,
+  proponerPilaresPorRed,
+  type TemaPorClasificar,
+} from "./anthropic/pilares"
 export type { IdeaParaGuion, RespaldoParaGuion } from "./anthropic/secciones"
 export {
   confirmarFusiones,

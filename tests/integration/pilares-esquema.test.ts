@@ -11,6 +11,7 @@ interface FilaDePilar {
   es_pilar: boolean
   activa: boolean
   orden: number | null
+  red: string | null
 }
 
 const NUEVOS = [
@@ -26,7 +27,7 @@ const VIEJOS = ["pareja", "deseo", "autoestima", "limites", "bienestar"] as cons
 async function pilares(): Promise<FilaDePilar[]> {
   return como(comoPostgres, async (c) => {
     const { rows } = await c.query<FilaDePilar>(
-      "select slug, nombre, nombre_corto, descripcion, es_pilar, activa, orden from public.categorias order by orden nulls last, slug",
+      "select slug, nombre, nombre_corto, descripcion, es_pilar, activa, orden, red from public.categorias order by orden nulls last, slug",
     )
     return rows
   })
@@ -35,7 +36,7 @@ async function pilares(): Promise<FilaDePilar[]> {
 describe("categorias como pilares", () => {
   it("adds the five LinkedIn pillars, active and in the PDF's order", async () => {
     const filas = await pilares()
-    const activos = filas.filter((f) => f.es_pilar && f.activa)
+    const activos = filas.filter((f) => f.es_pilar && f.activa && f.red === null)
     expect(activos.map((f) => [f.slug, f.nombre, f.nombre_corto, f.orden])).toEqual(NUEVOS.map((n) => [...n]))
     for (const pilar of activos) expect(pilar.descripcion?.length ?? 0).toBeGreaterThan(20)
   })
@@ -68,7 +69,8 @@ describe("categorias como pilares", () => {
     const leer = (sesion: typeof comoConi) =>
       como(
         sesion,
-        async (c) => (await c.query("select slug from public.categorias where es_pilar and activa")).rowCount,
+        async (c) =>
+          (await c.query("select slug from public.categorias where es_pilar and activa and red is null")).rowCount,
       )
     expect(await leer(comoConi)).toBe(5)
     expect(await leer(comoMantenedor)).toBe(5)

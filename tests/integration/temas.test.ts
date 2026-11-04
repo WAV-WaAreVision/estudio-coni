@@ -98,6 +98,14 @@ async function tema(nombre: string, v: number[], extra: { alias?: string[]; fusi
   return rows[0]?.id ?? ""
 }
 
+/** A pillar row written as postgres, as the RPCs would; `limpiarTodo` removes it with its topic. */
+const pilarDeTema = (temaId: string, slug: string, fuerza: string | null) =>
+  pool.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1, c.id, c.red, c.es_capa, $3, 'coni' from public.categorias c where c.slug = $2`,
+    [temaId, slug, fuerza],
+  )
+
 async function centroideDe(id: string): Promise<number[]> {
   const { rows } = await pool.query<{ c: string }>("select centroide::text as c from public.temas where id = $1", [id])
   return parsearVector(rows[0]?.c ?? "")
@@ -116,7 +124,16 @@ interface Pedido {
 }
 
 /** Claude answers by the kind of prompt: names for `nombrarTemas`, verdicts for `confirmarFusiones`. */
-function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boolean; pilar?: string } = {}) {
+function simularClaude(
+  opciones: {
+    nombre?: (i: number) => string
+    mismo?: boolean
+    pilar?: string
+    linkedin?: string | null
+    instagram?: string | null
+    capas?: string[]
+  } = {},
+) {
   const llamadas = { nombres: 0, fusiones: 0, pilaresOfrecidos: [] as string[] }
   servidor.use(
     http.post<never, Pedido>(URL_CLAUDE, async ({ request }) => {
@@ -133,6 +150,9 @@ function simularClaude(opciones: { nombre?: (i: number) => string; mismo?: boole
             nombre: opciones.nombre ? opciones.nombre(i) : `Tema ${i}`,
             descripcion: "Descripción.",
             pilar: opciones.pilar ?? "ia-salud-mental",
+            linkedin: opciones.linkedin ?? null,
+            instagram: opciones.instagram ?? null,
+            capas: opciones.capas ?? [],
           })),
         }
       } else {
@@ -393,6 +413,75 @@ describe("formarTemas", () => {
     expect(rows).toHaveLength(0)
     const { rows: libres } = await pool.query("select id from public.afirmaciones where tema_id is null")
     expect(libres).toHaveLength(9)
+  })
+
+  it("gives each new topic the main pillar per network and the layer Claude named, as automatico, and keeps categoria_id", async () => {
+    await dosGrupos()
+    simularClaude({ linkedin: "bienestar-e-impacto", instagram: "game-over-impostora", capas: ["capa-tdah"] })
+    await formarTemas(deps())
+    const { rows } = await pool.query<{ tema: string; slug: string; fuerza: string | null; origen: string }>(
+      `select t.nombre as tema, c.slug, p.fuerza, p.origen
+         from public.tema_pilares p join public.temas t on t.id = p.tema_id join public.categorias c on c.id = p.pilar_id
+        order by t.nombre, c.slug`,
+    )
+    expect(rows.filter((r) => r.tema === "Tema 0")).toEqual([
+      { tema: "Tema 0", slug: "bienestar-e-impacto", fuerza: "alta", origen: "automatico" },
+      { tema: "Tema 0", slug: "capa-tdah", fuerza: null, origen: "automatico" },
+      { tema: "Tema 0", slug: "game-over-impostora", fuerza: "alta", origen: "automatico" },
+    ])
+    const categorias = await pool.query<{ slug: string | null }>(
+      "select c.slug from public.temas t left join public.categorias c on c.id = t.categoria_id",
+    )
+    expect(categorias.rows.every((r) => r.slug === "ia-salud-mental")).toBe(true)
+  })
+
+  it("writes no pillar row when Claude names none", async () => {
+    await dosGrupos()
+    simularClaude()
+    await formarTemas(deps())
+    const { rows } = await pool.query("select 1 from public.tema_pilares")
+    expect(rows).toEqual([])
+  })
+
+  it("assigns the claims before the pillars, so a failed pillar write leaves the topic whole", async () => {
+    await dosGrupos()
+    simularClaude({ linkedin: "bienestar-e-impacto" })
+    await pool.query(
+      `create function public.prueba_falla_pilares() returns trigger language plpgsql as $$
+       begin raise exception 'falla de prueba'; end $$`,
+    )
+    await pool.query(
+      "create trigger prueba_falla_pilares before insert on public.tema_pilares for each row execute function public.prueba_falla_pilares()",
+    )
+    try {
+      await expect(formarTemas(deps())).rejects.toThrow(/No pude guardar los pilares del tema/)
+    } finally {
+      await pool.query("drop trigger prueba_falla_pilares on public.tema_pilares")
+      await pool.query("drop function public.prueba_falla_pilares()")
+    }
+    const { rows } = await pool.query<{ n: number }>(
+      "select (select count(*)::int from public.afirmaciones a where a.tema_id = t.id) as n from public.temas t",
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.n).toBeGreaterThanOrEqual(3)
+  })
+
+  it("drops a slug that is unknown, of the other network or not a layer, and still forms the topic", async () => {
+    await dosGrupos()
+    simularClaude({
+      linkedin: "game-over-impostora",
+      instagram: "no-existe",
+      capas: ["diagnostico-doble", "capa-tdah"],
+    })
+    const resultado = await formarTemas(deps())
+    expect(resultado).toMatchObject({ tope: false, creados: 2 })
+    const { rows } = await pool.query<{ slug: string; fuerza: string | null }>(
+      `select c.slug, p.fuerza from public.tema_pilares p join public.categorias c on c.id = p.pilar_id order by c.slug`,
+    )
+    expect(rows).toEqual([
+      { slug: "capa-tdah", fuerza: null },
+      { slug: "capa-tdah", fuerza: null },
+    ])
   })
 })
 
@@ -705,6 +794,77 @@ describe("fusionar_par_de_temas", () => {
     const p = await tema("P", vec({ 5: 1 }))
     const { tema: temaPor } = await fusionarComoServicio(g, p)
     expect(parsearVector(temaPor(g).c)[4]).toBeCloseTo(1, 4)
+  })
+
+  it("moves the loser's pillar rows to the winner: the stronger row wins and a second main pillar becomes a secondary", async () => {
+    const g = await tema("Gana pilares", vec({ 6: 1 }))
+    const p = await tema("Pierde pilares", vec({ 7: 1 }))
+    await pilarDeTema(g, "diagnostico-doble", "alta")
+    await pilarDeTema(g, "mi-nueva-partida", "media")
+    await pilarDeTema(p, "bienestar-e-impacto", "alta")
+    await pilarDeTema(p, "mi-nueva-partida", "alta")
+    await pilarDeTema(p, "capa-tdah", null)
+    const filas = await como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const { rows } = await c.query<{ tema_id: string; slug: string; fuerza: string | null }>(
+        `select t.tema_id, c.slug, t.fuerza from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = any($1::uuid[]) order by c.slug`,
+        [[g, p]],
+      )
+      return rows
+    })
+    expect(filas).toEqual([
+      { tema_id: g, slug: "bienestar-e-impacto", fuerza: "media" },
+      { tema_id: g, slug: "capa-tdah", fuerza: null },
+      { tema_id: g, slug: "diagnostico-doble", fuerza: "alta" },
+      { tema_id: g, slug: "mi-nueva-partida", fuerza: "alta" },
+    ])
+  })
+
+  it("keeps the winner's main pillar when the loser has the same pillar as a secondary", async () => {
+    const g = await tema("Gana mismo pilar", vec({ 6: 1 }))
+    const p = await tema("Pierde mismo pilar", vec({ 7: 1 }))
+    await pilarDeTema(g, "bienestar-e-impacto", "alta")
+    await pilarDeTema(p, "bienestar-e-impacto", "media")
+    const filas = await como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const { rows } = await c.query<{ tema_id: string; fuerza: string | null }>(
+        "select tema_id, fuerza from public.tema_pilares where tema_id = any($1::uuid[])",
+        [[g, p]],
+      )
+      return rows
+    })
+    expect(filas).toEqual([{ tema_id: g, fuerza: "alta" }])
+  })
+
+  it("carries a lot's row to the winner, where undoing the lot still removes it", async () => {
+    const g = await tema("Gana lote", vec({ 6: 1 }))
+    const p = await tema("Pierde lote", vec({ 7: 1 }))
+    await pilarDeTema(g, "diagnostico-doble", "alta")
+    await como(comoPostgres, async (c) => {
+      await c.query("insert into public.lotes_de_pilares (lote) values ('lote-fusion')")
+      await c.query(
+        `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen, lote)
+         select $1, c.id, c.red, c.es_capa, 'alta', 'reclasificacion', 'lote-fusion'
+         from public.categorias c where c.slug = 'mi-nueva-partida'`,
+        [p],
+      )
+      await asumir(c, comoServicio)
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [g, p])
+      const llevada = await c.query<{ lote: string | null }>(
+        `select t.lote from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = $1 and c.slug = 'mi-nueva-partida'`,
+        [g],
+      )
+      expect(llevada.rows).toEqual([{ lote: "lote-fusion" }])
+      await c.query("select public.deshacer_lote_de_pilares('lote-fusion')")
+      const { rows } = await c.query<{ slug: string }>(
+        `select c.slug from public.tema_pilares t join public.categorias c on c.id = t.pilar_id
+          where t.tema_id = any($1::uuid[]) order by c.slug`,
+        [[g, p]],
+      )
+      expect(rows).toEqual([{ slug: "diagnostico-doble" }])
+    })
   })
 
   it("refuses the same topic, a merged one and a missing one, and does nothing", async () => {

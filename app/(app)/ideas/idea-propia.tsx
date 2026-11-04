@@ -10,7 +10,7 @@ import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { CLASES_DE_VOLVER } from "@/components/ui/volver"
 import type { Resultado } from "@/lib/acciones/resultado"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { type PilarDeEleccion, porRed } from "@/lib/dominio/pilares"
 import { type Alerta, etiquetaDeAlerta, TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
 
@@ -43,7 +43,7 @@ interface PropiedadesDeIdeaPropia {
   proponer: (gancho: string, tema: string) => Promise<Resultado<{ propuesta: PropuestaDeIdea }>>
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
   /** The active pillars, in order: the only ones she can file an idea under. */
-  pilares: readonly PilarVisible[]
+  pilares: readonly PilarDeEleccion[]
   alGuardar: () => void
   alVolver: () => void
 }
@@ -168,15 +168,20 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
 
           <fieldset className="elecciones grid">
             <legend className="mb-1 text-meta font-semibold">Pilar</legend>
-            {pilares.map((candidato) => (
-              <Eleccion
-                key={candidato.slug}
-                nombre="pilar"
-                valor={candidato.slug}
-                elegido={pilar === candidato.slug}
-                etiqueta={candidato.nombre}
-                alElegir={() => setPilar(candidato.slug)}
-              />
+            {porRed(pilares).map((grupo) => (
+              <fieldset key={grupo.red ?? "sin-red"} className="grid">
+                <legend className="mt-2 text-meta text-apagado">{grupo.etiqueta}</legend>
+                {grupo.pilares.map((candidato) => (
+                  <Eleccion
+                    key={candidato.slug}
+                    nombre="pilar"
+                    valor={candidato.slug}
+                    elegido={pilar === candidato.slug}
+                    etiqueta={candidato.nombre}
+                    alElegir={() => setPilar(candidato.slug)}
+                  />
+                ))}
+              </fieldset>
             ))}
           </fieldset>
 

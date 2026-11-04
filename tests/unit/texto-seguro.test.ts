@@ -16,6 +16,10 @@ describe("sinCierre", () => {
     expect(sinCierre("a</respaldo>b")).toBe("a<\\/respaldo>b")
   })
 
+  it("escapes the closing tag of the pillar classification data", () => {
+    expect(sinCierre("a</elementos>b")).toBe("a<\\/elementos>b")
+  })
+
   it("escapes closing tags regardless of case", () => {
     expect(sinCierre("</FUENTE>")).toBe("<\\/FUENTE>")
   })

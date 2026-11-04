@@ -65,8 +65,8 @@ function afirmacion(id: string, autor: string, evidencia = "estudio") {
 const CRUCE: CruceParaTeoria = {
   id: "c1",
   temas: [
-    { id: "t1", nombre: "Deseo que fluctúa", pilar: "deseo" },
-    { id: "t2", nombre: "Conversar en pareja", pilar: "pareja" },
+    { id: "t1", nombre: "Deseo que fluctúa", pilares: ["bienestar-e-impacto"] },
+    { id: "t2", nombre: "Conversar en pareja", pilares: [] },
   ],
   afirmaciones: [afirmacion("a1", "Ana"), afirmacion("a2", "Beto"), afirmacion("a3", "Ana", "opinion")],
 }
@@ -175,6 +175,15 @@ describe("escribirTeorias", () => {
     expect(guia).toMatch(/péptidos|peptidos/)
     expect(guia).toContain("original")
     expect(guia).not.toMatch(/[—–]/)
+  })
+
+  it("tells Claude two crossed topics share no main pillar in any network, and a topic without one crosses any", async () => {
+    const cuerpos = respondiendo({ teorias: [] })
+    await escribirTeorias({ cliente: cliente(), cruces: [CRUCE], contexto: CONTEXTO })
+    const guia = cuerpos[0]?.system.map((bloque) => bloque.text).join("\n") ?? ""
+    expect(guia).not.toContain("de pilares distintos")
+    expect(guia).toContain("no comparten pilar en ninguna red")
+    expect(guia).toContain("un tema sin pilar se cruza con cualquiera")
   })
 
   it("returns validated theories, the dropped crossings and the usage", async () => {

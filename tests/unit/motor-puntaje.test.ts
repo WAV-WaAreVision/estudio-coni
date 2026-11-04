@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { soloActivos } from "@/lib/dominio/pilares"
+import { pilaresDeRedes, soloActivos } from "@/lib/dominio/pilares"
 import type { ParDelMotor, TemaDelMotor } from "@/lib/motor/datos"
 import { claveDePar } from "@/lib/motor/datos"
 import {
@@ -16,6 +16,7 @@ const tema = (id: string, extra: Partial<TemaDelMotor> = {}): TemaDelMotor => ({
   tema_id: id,
   nombre: `Tema ${id}`,
   pilar: "pareja",
+  pilares: [],
   afirmaciones: 20,
   autores: 4,
   evidencia_fuerte: 10,
@@ -206,17 +207,18 @@ describe("reporteQueSubir", () => {
     expect(unSoloAutor).not.toContain("Tema dos")
   })
 
-  it("lists the slugs of the active pillars without material, with any subset empty", () => {
+  it("lists the network pillars that are no topic's main pillar, layers left out", () => {
     const temas = [
-      tema("t1", { nombre: "Chatbots", pilar: "ia-salud-mental" }),
-      tema("t2", { nombre: "Regulación", pilar: "etica-regulacion" }),
-      tema("c", { pilar: null }),
-      tema("d", { pilar: "general" }),
+      tema("t1", { nombre: "Chatbots", pilares: ["bienestar-e-impacto", "mi-nueva-partida"] }),
+      tema("t2", { nombre: "Regulación", pilares: ["psicologia-en-la-mesa"] }),
+      tema("c", { pilares: [] }),
     ]
-    expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
-      "practica-clinica",
-      "acceso-salud-publica",
-      "caso-coni",
+    const deRedes = pilaresDeRedes(PILARES_DE_PRUEBA).filter((p) => !p.esCapa)
+    expect(reporteQueSubir(temas, deRedes).pilaresSinMaterial).toEqual([
+      "diagnostico-doble",
+      "mujeres-lideres",
+      "game-over-impostora",
+      "inteligencia-emocional",
     ])
   })
 })

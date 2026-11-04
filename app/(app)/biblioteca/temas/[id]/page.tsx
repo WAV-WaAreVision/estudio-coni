@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { Volver } from "@/components/ui/volver"
-import { destinoDeTema, leerTema } from "@/lib/datos/biblioteca"
+import { destinoDeTema, leerPilaresDeTema, leerTema, listarPilaresDeTemas } from "@/lib/datos/biblioteca"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { cuentasDeTema } from "@/lib/dominio/biblioteca/cuentas"
 import {
@@ -17,8 +17,9 @@ import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
 import { TrasElAviso } from "../../tras-el-aviso"
+import { PilaresDelTema } from "./pilares-del-tema"
 
-/** One topic (ported from Ingesta's `temas/[id]/page.tsx`): its ideas by author, each with Ocultar. */
+/** One topic (ported from Ingesta's `temas/[id]/page.tsx`): its pillars per network, then its ideas by author, each with Ocultar. */
 export default async function DetalleDeTema({
   params,
   searchParams,
@@ -36,7 +37,11 @@ export default async function DetalleDeTema({
   if (destino === null && ideaOculta !== null) redirect(`${RUTA_DE_TEMAS}?oculta=${ideaOculta}`)
   if (destino === null) notFound()
   if (destino !== valido.data) redirect(hrefDeTema(destino))
-  const leido = await leerTema(db, destino)
+  const [leido, pilares, opciones] = await Promise.all([
+    leerTema(db, destino),
+    leerPilaresDeTema(db, destino),
+    listarPilaresDeTemas(db),
+  ])
   if (!leido) notFound()
   const { tema, ideas, autores } = leido
   const cuentas = cuentasDeTema({ ideas, autores: autores.length })
@@ -50,6 +55,7 @@ export default async function DetalleDeTema({
         {tema.descripcion ? <p className="text-cuerpo">{tema.descripcion}</p> : null}
         {cuentas ? <p className="text-meta text-apagado">{cuentas}</p> : null}
       </header>
+      <PilaresDelTema temaId={tema.id} pilares={pilares} opciones={opciones} />
       <AvisoDeIdeas texto={oculta ? AVISO_TRAS_OCULTAR : null} />
       {oculta ? <TrasElAviso parametro="oculta" /> : null}
 
