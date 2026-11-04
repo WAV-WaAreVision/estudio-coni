@@ -214,6 +214,14 @@ describe("reporteQueSubir", () => {
       tema("d", { pilar: "general" }),
     ]
     expect(reporteQueSubir(temas, soloActivos(PILARES_DE_PRUEBA)).pilaresSinMaterial).toEqual([
+      "diagnostico-doble",
+      "bienestar-e-impacto",
+      "psicologia-en-la-mesa",
+      "mujeres-lideres",
+      "game-over-impostora",
+      "mi-nueva-partida",
+      "inteligencia-emocional",
+      "capa-tdah",
       "practica-clinica",
       "acceso-salud-publica",
       "caso-coni",
