@@ -206,7 +206,8 @@ describe("proponerIdea", () => {
       tema: "",
     })
 
-    expect(resultado).toEqual({ ok: true, propuesta: PROPUESTA })
+    // Claude answered without an angle (a 15a-shaped answer): it reads null.
+    expect(resultado).toEqual({ ok: true, propuesta: { ...PROPUESTA, angulo: null } })
     expect(pedidos).toHaveLength(1)
     expect(pedidos[0]?.cabeceras.get("x-api-key")).toBe(LLAVE)
     expect(JSON.stringify(pedidos[0]?.cuerpo.system)).toContain("Línea editorial de Coni")
@@ -273,6 +274,30 @@ describe("crearIdeaPropia", () => {
     pilar: "caso-coni",
     alertas: PROPUESTA.alertas,
   }
+
+  it("saves the angle she confirmed, and refuses one of another pillar", async () => {
+    const conAngulo = {
+      ...entrada,
+      gancho: `${entrada.gancho} (ángulo)`,
+      pilar: "mi-nueva-partida",
+      angulo: "pruebalo-tu",
+    }
+    expect((await crearIdeaPropia(deps(), conAngulo)).ok).toBe(true)
+    const { rows } = await pool.query<{ id: string; angulo: string | null }>(
+      `select i.id, a.slug as angulo from public.ideas i left join public.pilar_angulos a on a.id = i.angulo_id
+        where i.gancho = $1`,
+      [conAngulo.gancho],
+    )
+    ideasCreadas.push(...rows.map((r) => r.id))
+    expect(rows.map((r) => r.angulo)).toEqual(["pruebalo-tu"])
+
+    const ajeno = await crearIdeaPropia(deps(), {
+      ...conAngulo,
+      gancho: `${entrada.gancho} (ajeno)`,
+      angulo: "lo-que-construyo",
+    })
+    expect(ajeno).toEqual({ ok: false, error: "Ese ángulo no es de este pilar." })
+  })
 
   it("saves the idea with the pillar and alerts she confirmed, added to the week and without a number", async () => {
     const resultado = await crearIdeaPropia(deps(), entrada)

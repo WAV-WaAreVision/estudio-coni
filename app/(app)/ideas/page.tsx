@@ -20,7 +20,13 @@ export default async function Ideas() {
   return (
     <BancoDeIdeas
       ideas={ideas}
-      pilares={activos.map(({ slug, nombre, nombreCorto, red }) => ({ slug, nombre, nombreCorto, red }))}
+      pilares={activos.map(({ slug, nombre, nombreCorto, red, angulos }) => ({
+        slug,
+        nombre,
+        nombreCorto,
+        red,
+        angulos: angulos.map((angulo) => ({ id: angulo.id, slug: angulo.slug, nombre: angulo.nombre })),
+      }))}
       acciones={{
         usar: usarIdeaAccion,
         quitar: quitarIdeaAccion,

@@ -2,8 +2,8 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { soloActivos } from "@/lib/dominio/pilares"
-import { escribirTeorias } from "@/lib/proveedores/anthropic"
+import { pilaresParaElegir, soloActivos } from "@/lib/dominio/pilares"
+import { clasificarIdea, escribirTeorias } from "@/lib/proveedores/anthropic"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -96,5 +96,39 @@ describe("escribirTeorias con ángulos", () => {
     respondiendo({ teorias: [teoria([idea("mujeres-lideres", "lo-que-construyo"), idea("psicologia-en-la-mesa")])] })
     const segunda = await escribirTeorias({ cliente: cliente(), cruces: [CRUCE], contexto: CONTEXTO })
     expect(segunda.teorias[0]?.ideas.map((i) => i.angulo)).toEqual([null, null])
+  })
+})
+
+describe("clasificarIdea con ángulos", () => {
+  const pilares = pilaresParaElegir(PILARES_DE_PRUEBA)
+  const propuesta = (pilar: string, angulo?: string) => ({
+    pilar,
+    formato: "Mito o realidad",
+    alertas: [],
+    ...(angulo === undefined ? {} : { angulo }),
+  })
+
+  it("asks for the angle and keeps one of the chosen pillar", async () => {
+    const usuarios = respondiendo(propuesta("mi-nueva-partida", "pruebalo-tu"))
+    const { propuesta: salida } = await clasificarIdea({
+      cliente: cliente(),
+      guia: "Guía.",
+      gancho: "G",
+      tema: "",
+      pilares,
+    })
+    expect(salida.angulo).toBe("pruebalo-tu")
+    expect(usuarios[0]).toContain("  - ángulo pruebalo-tu: Pruébalo tú.")
+  })
+
+  it("drops an angle of another pillar and reads a missing one as none", async () => {
+    respondiendo(propuesta("mujeres-lideres", "pruebalo-tu"))
+    expect(
+      (await clasificarIdea({ cliente: cliente(), guia: "G", gancho: "G", tema: "", pilares })).propuesta.angulo,
+    ).toBeNull()
+    respondiendo(propuesta("mi-nueva-partida"))
+    expect(
+      (await clasificarIdea({ cliente: cliente(), guia: "G", gancho: "G", tema: "", pilares })).propuesta.angulo,
+    ).toBeNull()
   })
 })

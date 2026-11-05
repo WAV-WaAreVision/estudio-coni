@@ -100,6 +100,7 @@ const ideaConfirmada = z.object({
   tema: z.string().max(2000),
   formato: z.string().max(200),
   pilar: z.string().max(40),
+  angulo: z.string().max(60).nullable(),
   alertas: z.array(z.object({ tipo: z.string().max(40), texto: z.string().max(2000) })).max(20),
 })
 

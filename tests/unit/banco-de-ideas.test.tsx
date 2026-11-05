@@ -69,6 +69,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
       propuesta: {
         pilar: "acceso-salud-publica",
         formato: "Mito o realidad",
+        angulo: null,
         alertas: [{ tipo: "líneas de ayuda" as const, texto: "El tema roza la violencia en la pareja." }],
       },
     })),
@@ -354,6 +355,7 @@ describe("BancoDeIdeas: escribir una idea mía", () => {
       tema: "",
       formato: "Mito o realidad",
       pilar: "ia-salud-mental",
+      angulo: null,
       alertas: [
         { tipo: "verificar dato", texto: expect.any(String) },
         { tipo: "líneas de ayuda", texto: "El tema roza la violencia en la pareja." },

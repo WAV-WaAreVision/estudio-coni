@@ -1,16 +1,25 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type DatosDePilar, slugsActivos } from "@/lib/dominio/pilares"
+import { anguloPorSlug, type DatosDePilar, slugsActivos } from "@/lib/dominio/pilares"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import { sinCierre } from "@/lib/ingesta/texto-seguro"
 import type { ElementoPorClasificar } from "@/lib/pilares/reclasificar"
-import { enumTolerante, type ModeloClaude, modeloQueCobra, pedirJson, sinRaya, type UsoClaude } from "./nucleo"
-import { listaDePilares } from "./secciones"
+import {
+  enumTolerante,
+  type ModeloClaude,
+  modeloQueCobra,
+  pedirJson,
+  sinRaya,
+  textoONulo,
+  type UsoClaude,
+} from "./nucleo"
+import { listaDePilares, REGLA_DE_ANGULO } from "./secciones"
 
 function salidaIdea(pilares: readonly DatosDePilar[]) {
   return z.object({
     pilar: enumTolerante(slugsActivos(pilares)),
     formato: z.string(),
+    angulo: textoONulo(),
     alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string() })),
   })
 }
@@ -18,10 +27,10 @@ function salidaIdea(pilares: readonly DatosDePilar[]) {
 export type PropuestaDeIdea = z.infer<ReturnType<typeof salidaIdea>>
 
 function pedidoDeClasificacion(entrada: { gancho: string; tema: string; pilares: readonly DatosDePilar[] }): string {
-  return `Coni del Rosario escribió una idea propia para un reel. Propón en qué pilar de la línea editorial va, qué formato le calza y qué alertas necesita antes de escribir el guion. Ella confirma o corrige lo que propongas.
+  return `Coni del Rosario escribió una idea propia para un reel. Propón en qué pilar de la línea editorial va (y con qué ángulo, si el pilar los tiene), qué formato le calza y qué alertas necesita antes de escribir el guion. Ella confirma o corrige lo que propongas.
 
-PILARES (usa exactamente el slug (lo que va antes de los dos puntos) en pilar)
-${listaDePilares(entrada.pilares)}
+PILARES (usa exactamente el slug (lo que va antes de los dos puntos) en pilar. ${REGLA_DE_ANGULO})
+${listaDePilares(entrada.pilares, { angulos: true })}
 
 FORMATOS (elige uno de la línea editorial; si ninguno calza, escribe «otro: » y dos o tres palabras)
 Mito o realidad, Tres señales, Pregunta de la audiencia
@@ -54,7 +63,8 @@ export async function clasificarIdea(entrada: {
     usuario: pedidoDeClasificacion({ gancho, tema, pilares }),
     esquema: salidaIdea(pilares),
   })
-  return { propuesta: salida, uso }
+  // An angle that is not one of the chosen pillar's is dropped (spec 15d, decision 3): she picks it on screen.
+  return { propuesta: { ...salida, angulo: anguloPorSlug(pilares, salida.pilar, salida.angulo)?.slug ?? null }, uso }
 }
 
 // A few hundred tokens, below the 1024-token cache minimum: it is sent uncached (`cachearGuia: false`).
