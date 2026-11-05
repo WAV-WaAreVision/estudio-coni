@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { type AccionesDeEleccion, EleccionDeIdeas } from "@/app/(app)/ideas/eleccion-de-ideas"
 import { nombreDePilar } from "@/lib/dominio/pilares"
@@ -56,6 +56,17 @@ function mostrar(cambios: Partial<AccionesDeEleccion> = {}) {
 
 const marcar = (gancho: string) => fireEvent.click(screen.getByRole("checkbox", { name: gancho }))
 
+/**
+ * A tap that starts an action, settled before the test goes on. The answer lands over several commits (the rows, the
+ * toast mounting empty, then its message, then the transition ending), and findBy would race its one-second wall clock
+ * through all of them, which a busy machine loses. act() flushes every one of them first, because every mock
+ * here resolves in microtasks: a mock with a real delay would make the synchronous checks below fail, never pass.
+ */
+const tocar = (nombre: string) =>
+  act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: nombre }))
+  })
+
 describe("EleccionDeIdeas", () => {
   it("names each row's pillar by its short name", () => {
     mostrar()
@@ -88,10 +99,10 @@ describe("EleccionDeIdeas", () => {
     const { acciones, alSacar } = mostrar()
     marcar("Dos")
     marcar("Uno")
-    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (2)" }))
-    await waitFor(() => expect(acciones.elegirVarias).toHaveBeenCalledWith(["i1", "i0"]))
+    await tocar("Hacer los guiones (2)")
+    expect(acciones.elegirVarias).toHaveBeenCalledWith(["i1", "i0"])
     expect(alSacar).toHaveBeenCalledWith(["i1", "i0"])
-    expect(await screen.findByText("Escribiendo 2 guiones. Te aviso cuando estén.")).toBeInTheDocument()
+    expect(screen.getByText("Escribiendo 2 guiones. Te aviso cuando estén.")).toBeInTheDocument()
     expect(screen.queryByRole("region", { name: "Ideas elegidas" })).toBeNull()
   })
 
@@ -103,17 +114,15 @@ describe("EleccionDeIdeas", () => {
     const { alSacar } = mostrar({ elegirVarias })
     marcar("Uno")
     marcar("Dos")
-    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (2)" }))
+    await tocar("Hacer los guiones (2)")
 
-    expect(await screen.findByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeInTheDocument()
+    expect(screen.getByText("Alcanza para 1 este mes. ¿Hago ese?")).toBeInTheDocument()
     expect(screen.getByText("Hago la primera que elegiste. El resto queda en el banco.")).toBeInTheDocument()
     expect(alSacar).not.toHaveBeenCalled()
-    // The question shows before the first transition settles; until then the button is aria-disabled and ignores taps.
-    const hacerUno = screen.getByRole("button", { name: "Sí, hacer 1 guion" })
-    await waitFor(() => expect(hacerUno).not.toHaveAttribute("aria-disabled"))
-    fireEvent.click(hacerUno)
+    // tocar() let the first transition end, so the button is active again and takes the tap.
+    await tocar("Sí, hacer 1 guion")
 
-    await waitFor(() => expect(elegirVarias).toHaveBeenLastCalledWith(["i0"]))
+    expect(elegirVarias).toHaveBeenLastCalledWith(["i0"])
     expect(alSacar).toHaveBeenCalledWith(["i0"])
   })
 
@@ -122,8 +131,8 @@ describe("EleccionDeIdeas", () => {
     mostrar({ elegirVarias })
     marcar("Uno")
     marcar("Dos")
-    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (2)" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Volver" }))
+    await tocar("Hacer los guiones (2)")
+    fireEvent.click(screen.getByRole("button", { name: "Volver" }))
     expect(screen.getByRole("button", { name: "Hacer los guiones (2)" })).toBeInTheDocument()
     expect(elegirVarias).toHaveBeenCalledTimes(1)
   })
@@ -133,25 +142,25 @@ describe("EleccionDeIdeas", () => {
     marcar("Uno")
     marcar("Tres")
     fireEvent.click(screen.getByRole("button", { name: "Descartar (2)" }))
-    fireEvent.click(screen.getByRole("button", { name: "Repetida" }))
+    await tocar("Repetida")
 
-    await waitFor(() => expect(acciones.descartarVarias).toHaveBeenCalledWith(["i0", "i2"], "repetida"))
+    expect(acciones.descartarVarias).toHaveBeenCalledWith(["i0", "i2"], "repetida")
     expect(alSacar).toHaveBeenCalledWith(["i0", "i2"])
-    expect(await screen.findByText("Descarté 2 ideas.")).toBeInTheDocument()
+    expect(screen.getByText("Descarté 2 ideas.")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
-    await waitFor(() => expect(acciones.restaurar).toHaveBeenCalledWith(["i0", "i2"]))
+    await tocar("Deshacer")
+    expect(acciones.restaurar).toHaveBeenCalledWith(["i0", "i2"])
     expect(alDevolver).toHaveBeenCalledWith(["i0", "i2"])
-    expect(await screen.findByText("Volvieron al banco.")).toBeInTheDocument()
+    expect(screen.getByText("Volvieron al banco.")).toBeInTheDocument()
   })
 
   it("says the window closed when nothing came back", async () => {
     mostrar({ restaurar: vi.fn(async () => ({ ok: true as const, restauradas: [] })) })
     marcar("Uno")
     fireEvent.click(screen.getByRole("button", { name: "Descartar (1)" }))
-    fireEvent.click(screen.getByRole("button", { name: "Débil" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Deshacer" }))
-    expect(await screen.findByText("Ya pasaron los 8 segundos: quedaron descartadas.")).toBeInTheDocument()
+    await tocar("Débil")
+    await tocar("Deshacer")
+    expect(screen.getByText("Ya pasaron los 8 segundos: quedaron descartadas.")).toBeInTheDocument()
   })
 
   it("keeps the selection and says why when an action is refused", async () => {
@@ -162,8 +171,8 @@ describe("EleccionDeIdeas", () => {
       })),
     })
     marcar("Uno")
-    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (1)" }))
-    expect(await screen.findByText(/Llegaste al tope de gasto/)).toBeInTheDocument()
+    await tocar("Hacer los guiones (1)")
+    expect(screen.getByText(/Llegaste al tope de gasto/)).toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: "Uno" })).toBeChecked()
   })
 
@@ -181,11 +190,9 @@ describe("EleccionDeIdeas", () => {
     marcar("Uno")
     marcar("Dos")
     marcar("Tres")
-    fireEvent.click(screen.getByRole("button", { name: "Hacer los guiones (3)" }))
+    await tocar("Hacer los guiones (3)")
 
-    expect(
-      await screen.findByText("Empecé 1 de 3. 1 volvió al banco y 1 quedó con un aviso en Inicio."),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Empecé 1 de 3. 1 volvió al banco y 1 quedó con un aviso en Inicio.")).toBeInTheDocument()
     expect(alSacar).toHaveBeenCalledWith(["i0", "i2"])
     expect(alEmpezar).toHaveBeenCalled()
     expect(screen.getByRole("checkbox", { name: "Dos" })).toBeChecked()
@@ -197,7 +204,7 @@ describe("EleccionDeIdeas", () => {
     mostrar()
     marcar("Uno")
     fireEvent.click(screen.getByRole("button", { name: "Descartar (1)" }))
-    fireEvent.click(screen.getByRole("button", { name: "Débil" }))
-    await waitFor(() => expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus())
+    await tocar("Débil")
+    expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus()
   })
 })
