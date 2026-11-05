@@ -62,10 +62,28 @@ describe("FormularioDePilar", () => {
         await vi.advanceTimersByTimeAsync(60_000)
       })
       expect(screen.getByRole("alert")).toHaveTextContent(ERROR_AL_LLEGAR)
-      expect(screen.getByRole("button", { name: "Guardar borrador" })).toBeEnabled()
+      // Not loading any more, and not active either: the draft is saved, another tap would save it twice.
+      const boton = screen.getByRole("button", { name: "Guardar borrador" })
+      expect(boton).not.toHaveAttribute("aria-busy")
+      expect(boton).toHaveAttribute("aria-disabled", "true")
+      fireEvent.click(boton)
+      expect(guardarBorradorDePilarAccion).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("keeps going when she taps the busy button again, and never sends the draft twice", async () => {
+    render(<FormularioDePilar modo={{ tipo: "nuevo", red: "linkedin" }} cancelar={CANCELAR} />)
+    llenarTodo()
+    const boton = screen.getByRole("button", { name: "Guardar borrador" })
+    fireEvent.click(boton)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(DESTINO))
+    fireEvent.pointerDown(boton)
+    fireEvent.click(boton)
+    fireEvent.submit(boton.closest("form") as HTMLFormElement)
+    expect(boton).toHaveAttribute("aria-busy", "true")
+    expect(guardarBorradorDePilarAccion).toHaveBeenCalledTimes(1)
   })
 
   it("says what is missing, marks that field, gives it the focus and sends nothing", () => {

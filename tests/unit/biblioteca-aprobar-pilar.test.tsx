@@ -96,6 +96,17 @@ describe("AprobarPilar", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith(DESTINO))
   })
 
+  it("never approves twice: a tap on the busy button keeps the trip going and sends nothing more", async () => {
+    abrir()
+    const boton = screen.getByRole("button", { name: "Aprobar pilar" })
+    fireEvent.click(boton)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(DESTINO))
+    fireEvent.pointerDown(boton)
+    fireEvent.submit(boton.closest("form") as HTMLFormElement)
+    expect(boton).toHaveAttribute("aria-busy", "true")
+    expect(aprobarBorradorDePilarAccion).toHaveBeenCalledTimes(1)
+  })
+
   it("names the weight it cannot read with its stage, focuses it and approves nothing", () => {
     abrir()
     const campo = screen.getByLabelText("Bienestar e impacto, Desde el 1 de enero de 2027")

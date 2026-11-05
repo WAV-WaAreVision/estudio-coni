@@ -57,6 +57,9 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
 
   function aprobar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    // Busy, or done and only the next screen failed: a second tap would send it twice.
+    if (pendiente || yendo || errorAlIr !== null) return
+    const formulario = evento.currentTarget
     const armado = armarPesos(etapas)
     if (!armado.ok) {
       setInvalido({ error: armado.error, desde: armado.desde, clave: armado.clave })
@@ -66,7 +69,7 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
     setInvalido(null)
     ejecutar<{ destino: string }>(
       () => aprobarBorradorDePilarAccion({ id: borrador.id, pesos: armado.pesos }),
-      ({ destino }) => ir(destino),
+      ({ destino }) => ir(destino, formulario),
     )
   }
 
@@ -123,7 +126,12 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
       {error ? <LineaDeError>{error}</LineaDeError> : null}
       {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
       <div className="flex flex-wrap gap-3">
-        <Boton type="submit" cargando={(pendiente || yendo) && errorAlIr === null} className="md:w-auto">
+        <Boton
+          type="submit"
+          cargando={(pendiente || yendo) && errorAlIr === null}
+          deshabilitado={errorAlIr !== null}
+          className="md:w-auto"
+        >
           Aprobar pilar
         </Boton>
         <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>

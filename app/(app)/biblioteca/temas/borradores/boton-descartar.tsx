@@ -21,6 +21,8 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
   // Cancelar unmounts the question, which held the focus: it goes back to the button that asked.
   const [devolverFoco, setDevolverFoco] = useState(false)
   const boton = useRef<HTMLButtonElement>(null)
+  // The question that started the trip: a tap on it does not end the watch (useIrA).
+  const pregunta = useRef<HTMLDivElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
   // The action names Borradores with its note; this goes there and checks it landed (Next can drop it).
   const { ir, yendo, error: errorAlIr } = useIrA()
@@ -46,7 +48,7 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
     )
   }
   return (
-    <div className="basis-full">
+    <div ref={pregunta} className="basis-full">
       <ConfirmacionEnLinea
         trato="destructivo"
         pregunta={`¿Descartar «${nombre}»? ${tipo === "pilar" ? "Ya no lo podrás aprobar ni editar." : "Ya no lo podrás editar."}`}
@@ -54,12 +56,14 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
         volver="Cancelar"
         cargando={(pendiente || yendo) && errorAlIr === null}
         error={error ?? errorAlIr}
-        alConfirmar={() =>
+        alConfirmar={() => {
+          // Busy, or done and only the next screen failed: a second tap would discard it twice.
+          if (pendiente || yendo || errorAlIr !== null) return
           ejecutar<{ destino: string }>(
             () => descartarBorradorAccion({ tipo, id }),
-            ({ destino }) => ir(destino),
+            ({ destino }) => ir(destino, pregunta.current),
           )
-        }
+        }}
         alVolver={() => {
           limpiarError()
           setPreguntando(false)

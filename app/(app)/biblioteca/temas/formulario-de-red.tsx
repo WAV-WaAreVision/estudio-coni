@@ -64,6 +64,9 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
 
   function guardar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    // Busy, or done and only the next screen failed: a second tap would send it twice.
+    if (pendiente || yendo || errorAlIr !== null) return
+    const formulario = evento.currentTarget
     const armado = armarBorradorDeRed(campos)
     if (!armado.ok) {
       setInvalido({ error: armado.error, campo: armado.campo })
@@ -77,7 +80,7 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
         modo.tipo === "nuevo"
           ? guardarBorradorDeRedAccion(datos)
           : editarBorradorDeRedAccion({ ...datos, id: modo.id }),
-      ({ destino }) => ir(destino),
+      ({ destino }) => ir(destino, formulario),
     )
   }
 
@@ -114,7 +117,12 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
       {error ? <LineaDeError>{error}</LineaDeError> : null}
       {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
       <div className="flex flex-wrap gap-3">
-        <Boton type="submit" cargando={(pendiente || yendo) && errorAlIr === null} className="md:w-auto">
+        <Boton
+          type="submit"
+          cargando={(pendiente || yendo) && errorAlIr === null}
+          deshabilitado={errorAlIr !== null}
+          className="md:w-auto"
+        >
           Guardar borrador
         </Boton>
         <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>
