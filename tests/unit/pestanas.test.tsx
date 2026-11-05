@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Pestanas } from "@/components/ui/pestanas"
 
 describe("Pestanas", () => {
@@ -83,24 +83,59 @@ describe("Pestanas compactas", () => {
 })
 
 describe("Pestanas compactas on arrival", () => {
-  afterEach(() => {
-    Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+  const cajas = new Map<string, { left: number; right: number }>()
+  let desplazamiento = 0
+
+  beforeEach(() => {
+    desplazamiento = 0
+    cajas.clear()
+    Element.prototype.scrollIntoView = vi.fn()
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const caja = cajas.get(this.tagName === "UL" ? "pista" : (this.textContent ?? "")) ?? { left: 0, right: 0 }
+      return { ...caja, top: 0, bottom: 44, width: caja.right - caja.left, height: 44, x: caja.left, y: 0 } as DOMRect
+    })
+    Object.defineProperty(HTMLUListElement.prototype, "scrollLeft", {
+      configurable: true,
+      get: () => desplazamiento,
+      set: (valor: number) => {
+        desplazamiento = valor
+      },
+    })
   })
 
-  it("bring the open section into view inside the track, and only the compact ones do", () => {
-    const vistas: Element[] = []
-    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
-      vistas.push(this)
-    })
-    const opciones = [
-      { valor: "a", etiqueta: "Una", href: "/a" },
-      { valor: "b", etiqueta: "Otra", href: "/b" },
-    ]
+  afterEach(() => {
+    vi.restoreAllMocks()
+    Reflect.deleteProperty(Element.prototype, "scrollIntoView")
+    Reflect.deleteProperty(HTMLUListElement.prototype, "scrollLeft")
+  })
+
+  const opciones = [
+    { valor: "a", etiqueta: "Una", href: "/a" },
+    { valor: "b", etiqueta: "Otra", href: "/b" },
+  ]
+
+  it("slide only their own track to show the open section, never the page, and only the compact ones do", () => {
+    cajas.set("pista", { left: 0, right: 300 })
+    cajas.set("Otra", { left: 350, right: 450 })
     const { unmount } = render(<Pestanas etiqueta="Secciones" actual="b" compacta opciones={opciones} />)
-    expect(vistas).toEqual([screen.getByRole("link", { name: "Otra" })])
+    expect(desplazamiento).toBe(150)
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
     unmount()
-    vistas.length = 0
+    desplazamiento = 0
     render(<Pestanas etiqueta="Vistas" actual="b" opciones={opciones} />)
-    expect(vistas).toEqual([])
+    expect(desplazamiento).toBe(0)
+  })
+
+  it("slide back when the open section is cut off on the left, and leave a visible one where it is", () => {
+    cajas.set("pista", { left: 0, right: 300 })
+    cajas.set("Otra", { left: -40, right: 60 })
+    desplazamiento = 100
+    const { unmount } = render(<Pestanas etiqueta="Secciones" actual="b" compacta opciones={opciones} />)
+    expect(desplazamiento).toBe(60)
+    unmount()
+    cajas.set("Otra", { left: 100, right: 200 })
+    desplazamiento = 30
+    render(<Pestanas etiqueta="Secciones" actual="b" compacta opciones={opciones} />)
+    expect(desplazamiento).toBe(30)
   })
 })
