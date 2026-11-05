@@ -98,4 +98,11 @@ describe("FilaDeTemas", () => {
     expect(redes).toHaveClass("flex-wrap")
     expect(redes).not.toHaveClass("overflow-x-auto")
   })
+
+  it("keeps the same pillar track when another pillar is chosen, so the keyboard focus stays on it", () => {
+    const { rerender } = render(<FilaDeTemas filtros={{ red: "linkedin" }} pilares={PILARES} sinTratar={2} />)
+    const antes = screen.getByRole("list", { name: "Pilares de LinkedIn" })
+    rerender(<FilaDeTemas filtros={{ red: "linkedin", pilar: BIENESTAR }} pilares={PILARES} sinTratar={2} />)
+    expect(screen.getByRole("list", { name: "Pilares de LinkedIn" })).toBe(antes)
+  })
 })

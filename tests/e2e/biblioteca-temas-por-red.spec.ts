@@ -202,6 +202,16 @@ async function pilaresEnUnaPista(page: Page, nombre: "LinkedIn" | "Instagram") {
   ).toBe(true)
 }
 
+test("choosing a pillar from the keyboard keeps the focus on it: the track is not rebuilt", async ({ page }) => {
+  await page.goto("/biblioteca/temas?red=linkedin")
+  const pilar = pilaresDe(page, "LinkedIn").getByRole("link", { name: PILAR, exact: true })
+  await pilar.focus()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL(new RegExp(`\\?red=linkedin&pilar=${UN_PILAR}(?:&v=\\d+)?$`))
+  await expect(pilar).toHaveAttribute("aria-current", "page")
+  await expect(pilar).toBeFocused()
+})
+
 test("on the phone the pillars slide along one line; a chosen or focused pillar off the screen comes into view", async ({
   page,
 }) => {

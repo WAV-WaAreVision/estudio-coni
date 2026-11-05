@@ -80,7 +80,8 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
         ))}
       </ul>
       <PistaDePestanas
-        key={`${filtros.red}:${filtros.pilar ?? "todos"}`}
+        key={filtros.red}
+        actual={filtros.pilar ?? "todos"}
         etiqueta={`Pilares de ${NOMBRE_DE_RED[filtros.red]}`}
         className={PISTA_DE_PILARES}
       >
