@@ -26,6 +26,7 @@ Builds on 15a (spec `2026-11-04-pilares-por-red-design.md`, in production since 
   - With a network pillar, it returns the topics whose main pillar (`fuerza = 'alta'`) in `p_red` is `p_pilar`.
   - With a layer, it returns the topics that carry it.
   - A pillar of another network or an unknown pillar returns nothing.
+  - A network other than `linkedin` or `instagram` returns nothing.
   - It is read with the repo's keyset paging (`leerTodas`). The app stops calling `temas_de_pilar`, but 15b keeps it (see section 4).
 - **`ajustes.ultima_red text check (ultima_red in ('linkedin','instagram'))`**, nullable. This migration only adds a column. Coni writes it through a definer RPC `recordar_red(p_red)` (es_coni check), or through the repo's existing ajustes write path if one fits.
 - **The engine keeps `cubierto_por_coni`:** `puntaje.ts` `novedad` still means "Coni has her own voice on it". Changing that meaning would change the engine's scoring; it is recorded as a decision, not changed.
@@ -96,7 +97,7 @@ The row sits at the top of `/biblioteca/temas`, on the phone and on the computer
 
 ## 4. Release
 
-- **`db push`, then the merge.** There are two migrations: the view plus `temas_de_red`, and the `ajustes` column plus `recordar_red`. Neither changes an existing row.
+- **`db push`, then the merge.** There are two migrations: the view plus `temas_de_red`, and the `ajustes` column `ultima_red` with its check. There is no `recordar_red` RPC: the app writes `ultima_red` through the existing "coni edita ajustes" policy, as section 1 allows. Neither migration changes an existing row.
 - **No Trigger deploy:** no task reads these.
 - **Order:** migrate first, then merge. `temas_de_pilar` stays in 15b, because the old Vercel code calls it between `db push` and the merge. A later cleanup migration drops it once the new code is live.
 
