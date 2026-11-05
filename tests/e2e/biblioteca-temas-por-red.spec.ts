@@ -188,7 +188,41 @@ test("under Más filtros «Ya los traté» clears «Sin tratar» and «Un solo a
   await expect(tarjetas(page)).toHaveCount(3)
 })
 
-test("the row passes WCAG 2.x AA, keeps 44 px targets and wraps at large text without sideways scroll", async ({
+/** The pillars on the phone: one line wider than its track, which slides, while the page itself never scrolls sideways. */
+async function pilaresEnUnaPista(page: Page, nombre: "LinkedIn" | "Instagram") {
+  const pista = pilaresDe(page, nombre)
+  expect(await pista.evaluate((lista) => lista.scrollWidth > lista.clientWidth), "la pista se desliza").toBe(true)
+  const altos = await pista
+    .getByRole("link")
+    .evaluateAll((enlaces) => enlaces.map((e) => e.getBoundingClientRect().top))
+  expect(new Set(altos).size, "una sola línea").toBe(1)
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+    "la página no se desliza",
+  ).toBe(true)
+}
+
+test("on the phone the pillars slide along one line; a chosen or focused pillar off the screen comes into view", async ({
+  page,
+}) => {
+  await page.goto("/biblioteca/temas?red=linkedin")
+  await pilaresEnUnaPista(page, "LinkedIn")
+  const ultimo = pilaresDe(page, "LinkedIn").getByRole("link").last()
+  await expect(ultimo).not.toBeInViewport({ ratio: 1 })
+  await ultimo.focus()
+  await expect(ultimo).toBeInViewport({ ratio: 1 })
+  await capturar(page, "temas-linkedin")
+
+  // Capa TDAH, last of Instagram's track, chosen from its address: the track opens on it.
+  await tocarHastaLlegar(page, red(page, "Instagram"), /\?red=instagram(?:&v=\d+)?$/)
+  const capa = pilaresDe(page, "Instagram").getByRole("link", { name: CAPA, exact: true })
+  const destino = await capa.getAttribute("href")
+  await page.goto(destino ?? "")
+  await expect(pilaresDe(page, "Instagram").getByRole("link", { name: CAPA, exact: true })).toBeInViewport({ ratio: 1 })
+  await pilaresEnUnaPista(page, "Instagram")
+})
+
+test("the row passes WCAG 2.x AA, keeps 44 px targets and slides its pillars at large text without sideways scroll", async ({
   page,
 }) => {
   await page.goto("/biblioteca/temas?red=instagram")
@@ -197,9 +231,7 @@ test("the row passes WCAG 2.x AA, keeps 44 px targets and wraps at large text wi
   await expect(page.getByRole("link", { name: /^Un solo autor/ })).toBeVisible()
   expect(await revisarConAxe(page, "temas con más filtros")).toEqual([])
   await conLetraGrande(page)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(
-    true,
-  )
+  await pilaresEnUnaPista(page, "Instagram")
   for (const enlace of await fila(page).getByRole("link").all()) {
     const nombre = (await enlace.textContent()) ?? ""
     expect((await enlace.boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)

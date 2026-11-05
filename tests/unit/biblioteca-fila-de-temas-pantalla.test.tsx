@@ -86,4 +86,16 @@ describe("FilaDeTemas", () => {
       "/biblioteca/temas?red=linkedin&sin-tratar=1",
     )
   })
+
+  it("on the phone slides the pillars along one line inside their own track and wraps them from md up; the networks always wrap", () => {
+    render(<FilaDeTemas filtros={{ red: "linkedin", pilar: BIENESTAR }} pilares={PILARES} sinTratar={2} />)
+    const fila = screen.getByRole("group", { name: "Filtrar temas" })
+    const pilares = within(fila).getByRole("list", { name: "Pilares de LinkedIn" })
+    for (const clase of ["flex-nowrap", "overflow-x-auto", "md:flex-wrap", "md:overflow-visible"]) {
+      expect(pilares).toHaveClass(clase)
+    }
+    const redes = within(fila).getAllByRole("list")[0]
+    expect(redes).toHaveClass("flex-wrap")
+    expect(redes).not.toHaveClass("overflow-x-auto")
+  })
 })

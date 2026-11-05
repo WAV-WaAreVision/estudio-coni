@@ -2,6 +2,7 @@ import { CaretDown, Check } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { CHIP_ELEGIDO, FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
 import { ICONO } from "@/components/ui/icono"
+import { PistaDePestanas } from "@/components/ui/pista-de-pestanas"
 import { conCuenta } from "@/lib/dominio/biblioteca/cuentas"
 import {
   alternarSinTratar,
@@ -20,6 +21,10 @@ const REDES_DE_LA_FILA: readonly Red[] = ["instagram", "linkedin"]
 const RED_ELEGIDA = "aria-[current=true]:bg-piedra-honda aria-[current=true]:shadow-hundido"
 // Coni asked for the layer to read as not a pillar: outlined, without relief.
 const CAPA = "border border-campo bg-transparent shadow-none aria-[current=page]:border-tinta"
+// On the phone the pillars slide along one line in their own track, as the Biblioteca tabs do; from md up they wrap.
+// The track bleeds into the page margin (main's px-5) and pads it back, so the chips' relief is not clipped.
+const PISTA_DE_PILARES =
+  "-mx-5 -my-5 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-5 py-5 scroll-px-5 md:mx-0 md:my-0 md:flex-wrap md:overflow-visible md:p-0"
 
 interface Propiedades {
   filtros: FiltrosDeTemas
@@ -32,7 +37,8 @@ interface Propiedades {
 /**
  * Coni's row (spec 2026-11-04, part 15b, section 2): «Sin tratar», then Instagram and LinkedIn, and under them the
  * chosen network's pillars, «Todos los pilares» first and the TDAH layer last. Every button is a link to its address,
- * so Back and a shared link work without scripts. At large text both lines wrap; the page never scrolls sideways.
+ * so Back and a shared link work without scripts. The networks wrap; on the phone the pillars slide in their own track
+ * (from md up they wrap); the page never scrolls sideways.
  */
 export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
   const opcionesDePilar = [
@@ -73,11 +79,15 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
           </li>
         ))}
       </ul>
-      <ul aria-label={`Pilares de ${NOMBRE_DE_RED[filtros.red]}`} className="flex min-w-0 flex-wrap gap-2">
+      <PistaDePestanas
+        key={`${filtros.red}:${filtros.pilar ?? "todos"}`}
+        etiqueta={`Pilares de ${NOMBRE_DE_RED[filtros.red]}`}
+        className={PISTA_DE_PILARES}
+      >
         {opcionesDePilar.map(({ id, nombre, esCapa }) => {
           const actual = filtros.pilar === id
           return (
-            <li key={id ?? "todos"}>
+            <li key={id ?? "todos"} className="shrink-0">
               <Link
                 href={hrefDeTemas(conPilar(filtros, id))}
                 scroll={false}
@@ -90,7 +100,7 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
             </li>
           )
         })}
-      </ul>
+      </PistaDePestanas>
     </fieldset>
   )
 }
