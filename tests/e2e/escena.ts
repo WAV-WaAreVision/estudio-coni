@@ -345,3 +345,32 @@ export async function armarCarruselComoLaTarea(id: string): Promise<void> {
   // The version is read back so a failing write shows here, not as an empty rail.
   if ((await leerVersionVigente(clienteDeServicio(), id))?.estado !== "listo") throw new Error("Versión sin armar")
 }
+
+/** Puts the idea of piece `piezaId` on `pilar` with the angle `angulo`, in one statement (the trigger keeps it). */
+export async function conAngulo(piezaId: string, pilar: string, angulo: string): Promise<void> {
+  await pool.query(
+    `update public.ideas set pilar = $2, angulo_id = (select id from public.pilar_angulos where slug = $3)
+      where id = (select idea_id from public.piezas where id = $1)`,
+    [piezaId, pilar, angulo],
+  )
+}
+
+/** `cuantas` pieces of `pilar` with `angulo`, out on LinkedIn on the days before today, one a day. */
+export async function sembrarPublicadasConAngulo(pilar: string, angulo: string, cuantas: number): Promise<void> {
+  for (let dia = 1; dia <= cuantas; dia++) {
+    const { rows: idea } = await pool.query<{ id: string }>(
+      `insert into public.ideas (pilar, angulo_id, gancho, fuerza, estado)
+       values ($1, (select id from public.pilar_angulos where slug = $2), $3, 'alta', 'usada') returning id`,
+      [pilar, angulo, `Publicada ${dia}`],
+    )
+    const { rows: pieza } = await pool.query<{ id: string }>(
+      "insert into public.piezas (idea_id, titulo) values ($1, $2) returning id",
+      [idea[0]?.id, `Publicada ${dia}`],
+    )
+    await pool.query(
+      `insert into public.publicaciones (pieza_id, destino, estado, marcado_en, post_urn)
+       values ($1::uuid, 'linkedin', 'publicado', now() - make_interval(days => $2::int), 'urn:li:share:' || abs(hashtext($1::text)))`,
+      [pieza[0]?.id, dia],
+    )
+  }
+}
