@@ -191,15 +191,24 @@ test("under Más filtros «Ya los traté» clears «Sin tratar» and «Un solo a
 /** The pillars on the phone: one line wider than its track, which slides, while the page itself never scrolls sideways. */
 async function pilaresEnUnaPista(page: Page, nombre: "LinkedIn" | "Instagram") {
   const pista = pilaresDe(page, nombre)
-  expect(await pista.evaluate((lista) => lista.scrollWidth > lista.clientWidth), "la pista se desliza").toBe(true)
-  const altos = await pista
-    .getByRole("link")
-    .evaluateAll((enlaces) => enlaces.map((e) => e.getBoundingClientRect().top))
-  expect(new Set(altos).size, "una sola línea").toBe(1)
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
-    "la página no se desliza",
-  ).toBe(true)
+  // Polled: the large text and the fonts settle the layout after the page reports it is loaded.
+  await expect
+    .poll(() => pista.evaluate((lista) => lista.scrollWidth > lista.clientWidth), { message: "la pista se desliza" })
+    .toBe(true)
+  await expect
+    .poll(
+      async () =>
+        new Set(
+          await pista.getByRole("link").evaluateAll((enlaces) => enlaces.map((e) => e.getBoundingClientRect().top)),
+        ).size,
+      { message: "una sola línea" },
+    )
+    .toBe(1)
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), {
+      message: "la página no se desliza",
+    })
+    .toBe(true)
 }
 
 test("choosing a pillar from the keyboard keeps the focus on it: the track is not rebuilt", async ({ page }) => {
