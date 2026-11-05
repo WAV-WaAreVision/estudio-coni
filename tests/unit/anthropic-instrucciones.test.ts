@@ -85,6 +85,7 @@ const GUIA = "# Línea editorial de prueba\n\nTrata de tú. Español de Chile."
 const PILARES: DatosDePilar[] = [
   {
     id: "p-1",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "ia-salud-mental",
@@ -96,6 +97,7 @@ const PILARES: DatosDePilar[] = [
   },
   {
     id: "p-2",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "vinculos",
@@ -107,6 +109,7 @@ const PILARES: DatosDePilar[] = [
   },
   {
     id: "p-3",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "retirado",

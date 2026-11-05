@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+  anguloPorSlug,
+  angulosDelPilar,
   calcularEtapasDeRed,
   calcularPesosDeRed,
   eleccionDe,
   eleccionDisponible,
+  etiquetaDePilar,
   filasDeEleccion,
   lineaDePilares,
   mismaEleccion,
@@ -19,7 +22,7 @@ import {
   slugsActivos,
   soloActivos,
 } from "@/lib/dominio/pilares"
-import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
+import { ANGULO_DE_PRUEBA, PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const ID = Object.fromEntries(PILARES_DE_PRUEBA.map((p) => [p.slug, p.id]))
 const id = (slug: string) => ID[slug] ?? ""
@@ -293,5 +296,42 @@ describe("una elección de pilares", () => {
     )
     expect(lineaDePilares("instagram", pilares.instagram)).toBe("Instagram: Mi nueva partida · Capa TDAH")
     expect(pilaresDeEleccion(eleccion("", ["diagnostico-doble"]), OPCIONES)).toEqual(sinPilares())
+  })
+})
+
+describe("los ángulos de un pilar (15d)", () => {
+  it("gives a pillar's angles in order, none for a pillar without them or a layer", () => {
+    expect(angulosDelPilar(PILARES_DE_PRUEBA, "psicologia-en-la-mesa").map((a) => a.nombre)).toEqual([
+      "Lo que planteo",
+      "Lo que construyo",
+    ])
+    expect(angulosDelPilar(PILARES_DE_PRUEBA, "mujeres-lideres")).toEqual([])
+    expect(angulosDelPilar(PILARES_DE_PRUEBA, "capa-tdah")).toEqual([])
+  })
+
+  it("finds an angle by slug only inside its pillar", () => {
+    expect(anguloPorSlug(PILARES_DE_PRUEBA, "mi-nueva-partida", "pruebalo-tu")?.id).toBe(ANGULO_DE_PRUEBA.prueba)
+    expect(anguloPorSlug(PILARES_DE_PRUEBA, "psicologia-en-la-mesa", "pruebalo-tu")).toBeNull()
+    expect(anguloPorSlug(PILARES_DE_PRUEBA, "psicologia-en-la-mesa", null)).toBeNull()
+  })
+
+  it("shows the angle next to the pillar, and the pillar alone without one", () => {
+    const conAngulo = pilarVisible(PILARES_DE_PRUEBA, "psicologia-en-la-mesa", ANGULO_DE_PRUEBA.loQueConstruyo)
+    expect(conAngulo).toEqual({
+      slug: "psicologia-en-la-mesa",
+      nombre: "Psicología en la mesa: la psicología donde se construye la IA",
+      nombreCorto: "Psicología en la mesa",
+      angulo: "Lo que construyo",
+    })
+    expect(etiquetaDePilar(conAngulo)).toBe("Psicología en la mesa · Lo que construyo")
+    const sinAngulo = pilarVisible(PILARES_DE_PRUEBA, "psicologia-en-la-mesa", null)
+    expect(sinAngulo).not.toHaveProperty("angulo")
+    expect(etiquetaDePilar(sinAngulo)).toBe("Psicología en la mesa")
+  })
+
+  it("treats an angle of another pillar as a bug, as an unknown slug", () => {
+    expect(() => pilarVisible(PILARES_DE_PRUEBA, "mujeres-lideres", ANGULO_DE_PRUEBA.loVivo)).toThrow(
+      `Ángulo desconocido: ${ANGULO_DE_PRUEBA.loVivo}`,
+    )
   })
 })

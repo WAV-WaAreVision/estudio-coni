@@ -25,6 +25,13 @@ const SLUGS = [
   "mi-nueva-partida",
   "inteligencia-emocional",
   "capa-tdah",
+  // The angles of 15d: code reads them from `pilar_angulos`, never by name.
+  "lo-que-se-ve",
+  "como-se-mide",
+  "lo-que-planteo",
+  "lo-que-construyo",
+  "lo-vivo",
+  "pruebalo-tu",
 ]
 const ALTERNATIVAS = SLUGS.join("|")
 const NUEVOS = SLUGS.filter((slug) => slug.includes("-")).join("|")

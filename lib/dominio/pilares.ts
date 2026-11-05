@@ -19,6 +19,25 @@ export function esFuerza(valor: unknown): valor is Fuerza {
   return FUERZAS.some((fuerza) => fuerza === valor)
 }
 
+/** An angle of a pillar (spec 2026-11-05, part 15d): a way to approach it, with its own voice and format. */
+export interface DatosDeAngulo {
+  id: string
+  slug: string
+  nombre: string
+  /** Definition, voice and format, as the prompts read them. */
+  descripcion: string
+  orden: number
+  /** The least share of the pillar's pieces it must have (1/3), or null when it has no rule. */
+  minimo: number | null
+}
+
+/** What a choice of angle needs. */
+export interface OpcionDeAngulo {
+  id: string
+  slug: string
+  nombre: string
+}
+
 /** A pillar as `categorias` stores it (`es_pilar`). Inactive ones stay for the ideas, materials and topics that use them. */
 export interface DatosDePilar {
   id: string
@@ -33,6 +52,8 @@ export interface DatosDePilar {
   red: Red | null
   /** A lens inside a network's pillars (the TDAH layer): never an idea's pillar, and it has no weight. */
   esCapa: boolean
+  /** Its angles in order; empty for a layer and for a pillar without angles. */
+  angulos: readonly DatosDeAngulo[]
 }
 
 export type CatalogoDePilares = readonly DatosDePilar[]
@@ -42,11 +63,15 @@ export interface PilarVisible {
   slug: string
   nombre: string
   nombreCorto: string
+  /** The name of the idea's angle; absent when the idea has none. */
+  angulo?: string | null
 }
 
 /** A pillar an idea can take, with its network so the ideas screen groups it. */
 export interface PilarDeEleccion extends PilarVisible {
   red: Red | null
+  /** Its angles, for the choice of an angle; absent or empty when it has none. */
+  angulos?: readonly OpcionDeAngulo[]
 }
 
 /** A pillar or layer of a network as the Temas screens use it: the id filters the list, the slug goes to the RPC. */
@@ -111,13 +136,45 @@ function buscar(catalogo: CatalogoDePilares, slug: string): DatosDePilar {
   return pilar
 }
 
-/** Ideas point at pillar rows only (FK and trigger), so an unknown slug is a bug, not data to hide. */
-export function pilarVisible(catalogo: CatalogoDePilares, slug: string): PilarVisible
-export function pilarVisible(catalogo: CatalogoDePilares, slug: string | null | undefined): PilarVisible | null
-export function pilarVisible(catalogo: CatalogoDePilares, slug: string | null | undefined): PilarVisible | null {
+/** Ideas point at pillar rows only (FK and trigger), so an unknown slug is a bug, not data to hide. So is an angle of
+ * another pillar (`exigir_angulo_de_pilar`). The `angulo` key is there only when the idea has one. */
+export function pilarVisible(catalogo: CatalogoDePilares, slug: string, anguloId?: string | null): PilarVisible
+export function pilarVisible(
+  catalogo: CatalogoDePilares,
+  slug: string | null | undefined,
+  anguloId?: string | null,
+): PilarVisible | null
+export function pilarVisible(
+  catalogo: CatalogoDePilares,
+  slug: string | null | undefined,
+  anguloId?: string | null,
+): PilarVisible | null {
   if (slug == null) return null
-  const { nombre, nombreCorto } = buscar(catalogo, slug)
-  return { slug, nombre, nombreCorto }
+  const { nombre, nombreCorto, angulos } = buscar(catalogo, slug)
+  if (anguloId == null) return { slug, nombre, nombreCorto }
+  const angulo = angulos.find((candidato) => candidato.id === anguloId)
+  if (!angulo) throw new Error(`Ángulo desconocido: ${anguloId}`)
+  return { slug, nombre, nombreCorto, angulo: angulo.nombre }
+}
+
+/** A pillar's angles in order; none for a layer, a pillar without them or an unknown slug. */
+export function angulosDelPilar(catalogo: CatalogoDePilares, slug: string): readonly DatosDeAngulo[] {
+  return catalogo.find((pilar) => pilar.slug === slug)?.angulos ?? []
+}
+
+/** The angle `slug` of the pillar `slugDePilar`, or null: Claude and the forms speak slugs, the database ids. */
+export function anguloPorSlug(
+  catalogo: CatalogoDePilares,
+  slugDePilar: string,
+  slug: string | null | undefined,
+): DatosDeAngulo | null {
+  if (slug == null) return null
+  return angulosDelPilar(catalogo, slugDePilar).find((angulo) => angulo.slug === slug) ?? null
+}
+
+/** What a compact place shows: the pillar's short name, then the idea's angle ("Psicología en la mesa · Lo que construyo"). */
+export function etiquetaDePilar(pilar: PilarVisible): string {
+  return pilar.angulo ? `${pilar.nombreCorto} · ${pilar.angulo}` : pilar.nombreCorto
 }
 
 export function nombreDePilar(catalogo: CatalogoDePilares, slug: string): string {
