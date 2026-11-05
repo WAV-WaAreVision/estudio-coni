@@ -1,5 +1,6 @@
 import { Check, Info } from "@phosphor-icons/react/dist/ssr"
 import { Fragment, type ReactNode } from "react"
+import { cn } from "@/lib/utils"
 import { ICONO } from "./icono"
 
 interface PropiedadesDeBarra {
@@ -10,6 +11,8 @@ interface PropiedadesDeBarra {
   idConsecuencia?: string
   /** The consequence says a date that moves with the clock: the visual baselines mask it. */
   consecuenciaVaria?: boolean
+  /** Placement from the screen around it (a column of its own on a computer). */
+  className?: string
   /** The track. */
   children: ReactNode
 }
@@ -23,13 +26,17 @@ export function BarraDeFirma({
   consecuencia,
   idConsecuencia,
   consecuenciaVaria = false,
+  className,
   children,
 }: PropiedadesDeBarra) {
   return (
     <section
       aria-label="Firma"
       data-barra-de-firma
-      className="barra-de-firma sticky bottom-0 z-10 -mx-5 mt-8 grid gap-3 rounded-t-barra bg-piedra px-5 pt-[14px] pb-[calc(14px+env(safe-area-inset-bottom))] shadow-relieve-alto-fijo"
+      className={cn(
+        "barra-de-firma sticky bottom-0 z-10 -mx-5 mt-8 grid gap-3 rounded-t-barra bg-piedra px-5 pt-[14px] pb-[calc(14px+env(safe-area-inset-bottom))] shadow-relieve-alto-fijo",
+        className,
+      )}
     >
       {arriba}
       {children}

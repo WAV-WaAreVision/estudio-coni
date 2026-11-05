@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { cn } from "@/lib/utils"
 
 interface PropiedadesDeSeccion {
   titulo: string
@@ -11,6 +12,8 @@ interface PropiedadesDeSeccion {
   espacio?: "amplio" | "ninguno"
   /** 3 when the section sits under a heading of its own (a panel's h2). */
   nivel?: 2 | 3
+  /** Placement from the screen around it (a grid column on a computer). */
+  className?: string
   children: ReactNode
 }
 
@@ -22,11 +25,15 @@ export function Seccion({
   varia = false,
   espacio = "amplio",
   nivel = 2,
+  className,
   children,
 }: PropiedadesDeSeccion) {
   const Titulo = nivel === 3 ? "h3" : "h2"
   return (
-    <section aria-labelledby={id} className={espacio === "amplio" ? "mt-8 grid gap-3 first:mt-0" : "grid gap-3"}>
+    <section
+      aria-labelledby={id}
+      className={cn(espacio === "amplio" ? "mt-8 grid gap-3 first:mt-0" : "grid gap-3", className)}
+    >
       <div className="mx-0.5 flex flex-wrap items-baseline justify-between gap-x-3">
         <Titulo id={id} data-snapshot={varia ? "varia" : undefined} className="text-meta font-semibold text-tinta">
           {titulo}

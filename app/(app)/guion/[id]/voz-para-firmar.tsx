@@ -37,6 +37,8 @@ interface PropiedadesDeVoz {
   alEscuchar: (clave: string) => void
   /** The editor holds changes she has not saved: a voice now would speak the old text and lose her draft. */
   sinGuardar: boolean
+  /** Placement from the screen around it (a grid column on a computer). */
+  className?: string
 }
 
 /** Why the voice buttons are closed, if they are: unsaved changes first, else what does not reach. */
@@ -97,7 +99,15 @@ function LineaBajoElBoton({
  * Decision 9, step 4: "1. Escucha tu voz". Her take of this script in the player, the take being made as a working
  * line, or, without a voice, a block with "Preparar mi voz" and its cost (an error block when the last one failed).
  */
-export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar, sinGuardar }: PropiedadesDeVoz) {
+export function VozParaFirmar({
+  piezaId,
+  version,
+  datos,
+  explicacion,
+  alEscuchar,
+  sinGuardar,
+  className,
+}: PropiedadesDeVoz) {
   const pedir = useAccion()
   const idRazon = useId()
   const { voz, botones } = datos
@@ -116,7 +126,7 @@ export function VozParaFirmar({ piezaId, version, datos, explicacion, alEscuchar
     ) : undefined
 
   return (
-    <Seccion titulo="1. Escucha tu voz" id="voz">
+    <Seccion titulo="1. Escucha tu voz" id="voz" className={className}>
       {datos.estado === "grabando_voz" ? (
         <output className="flex items-center gap-3 text-boton font-semibold">
           <PuntoTrabajando />
