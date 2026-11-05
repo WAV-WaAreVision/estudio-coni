@@ -14,6 +14,10 @@ export interface LaminaDelRiel {
 
 const SEPARACION_PX = 12
 
+// In two columns (a gate on a computer) a slide is as wide as LinkedIn shows it, yet short enough that it, the arrows
+// and the counter fit the window.
+const CLASES_DE_LAMINA = "w-[82%] shrink-0 snap-start list-none dos-columnas:w-[min(82%,calc((100svh-19rem)*4/5))]"
+
 /**
  * The slides at reading size, one after another as LinkedIn shows them (design 2026-10-26, C6). Swiping, the buttons
  * or the keyboard move it; reaching the last slide is what gate 2 asks before scheduling.
@@ -78,7 +82,7 @@ export function RielDeLaminas({ laminas, alVerTodas }: { laminas: readonly Lamin
           const nombre = `Lámina ${indice + 1} de ${total}: ${lamina.texto}`
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: a slide's place is its identity within a version
-            <li key={indice} className="w-[82%] shrink-0 snap-start list-none">
+            <li key={indice} className={CLASES_DE_LAMINA}>
               {lamina.url ? (
                 // biome-ignore lint/performance/noImgElement: a signed link of an hour, which next/image would cache past its expiry
                 <img
