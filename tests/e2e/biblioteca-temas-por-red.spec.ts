@@ -212,6 +212,21 @@ test("choosing a pillar from the keyboard keeps the focus on it: the track is no
   await expect(pilar).toBeFocused()
 })
 
+test("at 375 px the pillar track's padding does not cover the bottom of the network chip above it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto("/biblioteca/temas?red=linkedin")
+  const chip = red(page, "LinkedIn")
+  const caja = await chip.boundingBox()
+  if (!caja) throw new Error("El chip de LinkedIn no tiene caja")
+  const x = caja.x + caja.width / 2
+  const y = caja.y + caja.height - 3
+  expect(
+    await chip.evaluate((enlace, punto) => enlace.contains(document.elementFromPoint(punto.x, punto.y)), { x, y }),
+  ).toBe(true)
+})
+
 test("on the phone the pillars slide along one line; a chosen or focused pillar off the screen comes into view", async ({
   page,
 }) => {

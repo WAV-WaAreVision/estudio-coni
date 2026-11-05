@@ -51,7 +51,8 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
   ]
   return (
     <fieldset aria-label="Filtrar temas" className="m-0 grid min-w-0 gap-3 border-0 p-0">
-      <ul className="flex min-w-0 flex-wrap gap-2">
+      {/* Above the pillar track, whose padding (kept for the chips' relief) reaches up into this row. */}
+      <ul className="relative z-10 flex min-w-0 flex-wrap gap-2">
         <li>
           <Link
             href={hrefDeTemas(alternarSinTratar(filtros))}
