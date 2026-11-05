@@ -251,3 +251,89 @@ describe("enviarResumenDelDia", () => {
     })
   })
 })
+
+describe("el equilibrio de los ángulos en el resumen", () => {
+  const LUNES_SIGUIENTE = "2026-10-12T11:30:00.000Z"
+  const antesDe = (ahora: string, dias: number) => new Date(Date.parse(ahora) - dias * DIA_MS).toISOString()
+
+  async function anguloId(slug: string): Promise<string> {
+    const { rows } = await pool.query<{ id: string }>("select id from public.pilar_angulos where slug = $1", [slug])
+    const id = rows[0]?.id
+    if (!id) throw new Error(`No existe el ángulo ${slug}`)
+    return id
+  }
+
+  /** A piece of `pilar` with the angle `angulo`, out on LinkedIn at `en`. */
+  async function publicada(pilar: string, angulo: string, en: string): Promise<void> {
+    const { rows: idea } = await pool.query<{ id: string }>(
+      "insert into public.ideas (pilar, angulo_id, gancho, fuerza, estado) values ($1, $2, 'Gancho', 'alta', 'usada') returning id",
+      [pilar, await anguloId(angulo)],
+    )
+    const ideaId = idea[0]?.id ?? ""
+    ideas.push(ideaId)
+    const { rows: pieza } = await pool.query<{ id: string }>(
+      "insert into public.piezas (idea_id, titulo) values ($1, 'Pieza') returning id",
+      [ideaId],
+    )
+    const piezaId = pieza[0]?.id ?? ""
+    piezas.push(piezaId)
+    await pool.query(
+      `insert into public.publicaciones (pieza_id, destino, estado, marcado_en, post_urn)
+       values ($1::uuid, 'linkedin', 'publicado', $2::timestamptz, 'urn:li:share:' || abs(hashtext($1::text)))`,
+      [piezaId, en],
+    )
+  }
+
+  const deEquilibrio = async () => (await filas()).filter((fila) => fila.tipo === "equilibrio_de_angulo")
+
+  it("writes one notice per angle and week, sends it with the summary, and writes it again the next week", async () => {
+    for (const dias of [1, 2, 3, 4, 5, 6])
+      await publicada("psicologia-en-la-mesa", "lo-que-planteo", antesDe(LUNES_0830, dias))
+    const construyo = await anguloId("lo-que-construyo")
+    const memoria = notificadorEnMemoria()
+
+    expect(await enviarResumenDelDia(armar(LUNES_0830, memoria).deps)).toMatchObject({ enviado: true })
+    expect((await deEquilibrio()).map((fila) => fila.clave)).toEqual([`equilibrio_de_angulo:${construyo}:2026-10-05`])
+    expect(memoria.resumenesEnviados[0]?.texto).toContain(
+      "En «Psicología en la mesa», ninguna de tus últimas 6 piezas es de «Lo que construyo». Tu regla es al menos 2 de cada 6.",
+    )
+
+    await enviarResumenDelDia(armar(MARTES_0830).deps)
+    expect(await deEquilibrio()).toHaveLength(1)
+
+    await enviarResumenDelDia(armar(LUNES_SIGUIENTE).deps)
+    expect((await deEquilibrio()).map((fila) => fila.clave)).toEqual([
+      `equilibrio_de_angulo:${construyo}:2026-10-05`,
+      `equilibrio_de_angulo:${construyo}:2026-10-12`,
+    ])
+  })
+
+  it("warns after three weeks without the angle, and says nothing while the pillar is young", async () => {
+    await publicada("psicologia-en-la-mesa", "lo-que-planteo", antesDe(LUNES_0830, 3))
+    await enviarResumenDelDia(armar(LUNES_0830).deps)
+    expect(await deEquilibrio()).toEqual([])
+
+    await enviarResumenDelDia(armar(new Date(Date.parse(LUNES_0830) + 18 * DIA_MS).toISOString()).deps)
+    const { rows } = await pool.query<{ mensaje: string }>(
+      "select mensaje from public.avisos where tipo = 'equilibrio_de_angulo'",
+    )
+    expect(rows.map((fila) => fila.mensaje)).toEqual([
+      "Llevas 3 semanas sin publicar piezas de «Lo que construyo» en «Psicología en la mesa».",
+    ])
+  })
+
+  it("still sends the other notices when the check fails, then fails the run", async () => {
+    await aviso("guion_listo", "guion_listo:a:1", "Tu guion «Uno» está listo para revisar.")
+    const memoria = notificadorEnMemoria()
+    await pool.query("revoke select on public.piezas_con_angulo from service_role")
+    try {
+      await expect(enviarResumenDelDia(armar(MARTES_0830, memoria).deps)).rejects.toThrow(
+        "No pude revisar el equilibrio de los ángulos",
+      )
+    } finally {
+      await pool.query("grant select on public.piezas_con_angulo to service_role")
+    }
+    expect(memoria.resumenesEnviados).toHaveLength(1)
+    expect((await filas()).every((fila) => fila.canal === "correo")).toBe(true)
+  })
+})
