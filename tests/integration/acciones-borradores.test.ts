@@ -2,17 +2,23 @@ import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import {
+  aprobarBorradorDePilar,
   BORRADOR_YA_DECIDIDO,
   descartarBorrador,
+  ETAPA_INVALIDA,
   editarBorradorDePilar,
   editarBorradorDeRed,
   guardarBorradorDePilar,
   guardarBorradorDeRed,
+  NOMBRE_EN_USO,
+  PILAR_DE_OTRA_RED,
 } from "@/lib/acciones/borradores"
 import { ERROR_SOLO_CONI } from "@/lib/acciones/resultado"
 import { listarPilaresDeTemas } from "@/lib/datos/biblioteca"
 import { contarBorradores, leerBorrador, listarBorradores } from "@/lib/datos/borradores"
-import { pilaresActivos } from "@/lib/datos/pilares"
+import { etapasDeRed, pesosDeRed, pilaresActivos } from "@/lib/datos/pilares"
+import { ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"
+import { diaLocal } from "@/lib/dominio/fechas"
 import type { Red } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
@@ -127,6 +133,67 @@ describe("drafts from the app", () => {
       },
     )
     expect(await descartarBorrador({ db: wav }, { tipo: "pilar", id })).toEqual({ ok: false, error: ERROR_SOLO_CONI })
+    expect((await leerBorrador(coni, id))?.tipo).toBe("pilar")
+  })
+})
+
+const hoy = () => diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA)
+
+describe("approving a draft from the app", () => {
+  it("makes it an active pillar every reader sees, accepts a total over 100 that pesosDeRed flags, and approves once", async () => {
+    const corto = `Aprobado ${SUFIJO}`
+    const id = await guardado(pilar(corto))
+    const resultado = await aprobarBorradorDePilar({ db: coni }, { id, pesos: {} })
+    expect(resultado).toEqual({ ok: true, pilarId: expect.stringMatching(/^[0-9a-f-]{36}$/), red: "linkedin" })
+    expect((await pilaresActivos(coni)).find((p) => p.nombreCorto === corto)).toMatchObject({
+      red: "linkedin",
+      activa: true,
+      esCapa: false,
+      descripcion: "Una definición de prueba.",
+    })
+    expect((await listarPilaresDeTemas(coni)).map((p) => p.nombreCorto)).toContain(corto)
+    const pesos = await pesosDeRed(coni, "linkedin", hoy())
+    expect(pesos.pesos.find((p) => p.nombreCorto === corto)?.peso).toBe(10)
+    expect(pesos.total).toBe(110)
+    expect(pesos.sumaCien).toBe(false)
+    expect(await leerBorrador(coni, id)).toBeNull()
+    expect(await aprobarBorradorDePilar({ db: coni }, { id, pesos: {} })).toEqual({
+      ok: false,
+      error: BORRADOR_YA_DECIDIDO,
+    })
+  })
+
+  it("gives the new pillar its weight in every stage of the network, whatever today's date is", async () => {
+    const corto = `Etapas ${SUFIJO}`
+    const id = await guardado(pilar(corto))
+    const etapas = await etapasDeRed(coni, "linkedin", hoy())
+    const pesos = Object.fromEntries(etapas.map((etapa) => [etapa.desde, { nuevo: 12 }]))
+    expect((await aprobarBorradorDePilar({ db: coni }, { id, pesos })).ok).toBe(true)
+    for (const etapa of await etapasDeRed(coni, "linkedin", hoy())) {
+      expect(etapa.pesos.find((p) => p.nombreCorto === corto)?.peso, etapa.desde).toBe(12)
+    }
+  })
+
+  it("says in her words a name already in use, a weight of the other network and a stage that is gone", async () => {
+    const enUso = await guardado({ ...pilar(`Otro ${SUFIJO}`), nombre: "Pareja y conversación" })
+    expect(await aprobarBorradorDePilar({ db: coni }, { id: enUso, pesos: {} })).toEqual({
+      ok: false,
+      error: NOMBRE_EN_USO,
+    })
+    const deLinkedin = await guardado(pilar(`Cruce ${SUFIJO}`))
+    const deInstagram = (await pilaresActivos(coni)).find((p) => p.red === "instagram" && !p.esCapa)
+    if (!deInstagram) throw new Error("No hay pilares de Instagram")
+    expect(
+      await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { [hoy()]: { [deInstagram.id]: 30 } } }),
+    ).toEqual({ ok: false, error: PILAR_DE_OTRA_RED })
+    expect(
+      await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { "2020-01-01": { nuevo: 10 } } }),
+    ).toEqual({ ok: false, error: ETAPA_INVALIDA })
+  })
+
+  it("refuses WAV before the database is asked", async () => {
+    const id = await guardado(pilar(`Para WAV ${SUFIJO}`))
+    expect(await aprobarBorradorDePilar({ db: wav }, { id, pesos: {} })).toEqual({ ok: false, error: ERROR_SOLO_CONI })
     expect((await leerBorrador(coni, id))?.tipo).toBe("pilar")
   })
 })
