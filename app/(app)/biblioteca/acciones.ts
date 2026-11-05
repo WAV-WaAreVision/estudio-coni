@@ -20,8 +20,6 @@ import {
   editarFicha,
   editarMaterial,
   ocultarIdea,
-  RedElegida,
-  recordarRed,
   reintentarMaterial,
   reprocesarMaterial,
   SobreMaterial,
@@ -160,9 +158,4 @@ export async function cambiarPilaresAccion(cambio: z.input<typeof CambioDePilare
   return refrescar(
     await conSesionDeConi("cambiarPilaresDeTema", CambioDePilares, cambio, (db, d) => cambiarPilaresDeTema({ db }, d)),
   )
-}
-
-/** Temas' last network (spec 15b): nothing on screen depends on it now, so nothing is refreshed. */
-export async function recordarRedAccion(elegida: z.input<typeof RedElegida>) {
-  return conSesionDeConi("recordarRed", RedElegida, elegida, (db, d) => recordarRed({ db }, d))
 }

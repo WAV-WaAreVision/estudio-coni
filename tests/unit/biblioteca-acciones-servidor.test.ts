@@ -31,7 +31,6 @@ import {
   editarFichaAccion,
   editarMaterialAccion,
   ocultarIdeaAccion,
-  recordarRedAccion,
   reintentarMaterialAccion,
   reprocesarMaterialAccion,
   unirAutoresAccion,
@@ -43,7 +42,6 @@ import {
   descartarMaterial,
   EdicionDeMaterial,
   ocultarIdea,
-  RedElegida,
   SobreMaterial,
   UnionDeAutores,
   unirAutores,
@@ -176,12 +174,5 @@ describe("the server actions of Autores and Temas", () => {
   it("the schemas refuse what is not an id or a yes/no", () => {
     expect(UnionDeAutores.safeParse({ origen: "1", destino: AUTOR }).success).toBe(false)
     expect(CambioDeIdea.safeParse({ id: ID, oculta: "si" }).success).toBe(false)
-  })
-
-  it("recordarRed checks Coni with its schema and refreshes nothing: the stored network is a convenience", async () => {
-    expect(await recordarRedAccion({ red: "instagram" })).toEqual({ ok: true })
-    expect(conSesionDeConi).toHaveBeenCalledWith("recordarRed", RedElegida, { red: "instagram" }, expect.any(Function))
-    expect(revalidatePath).not.toHaveBeenCalled()
-    expect(RedElegida.safeParse({ red: "youtube" }).success).toBe(false)
   })
 })
