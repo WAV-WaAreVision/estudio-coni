@@ -93,3 +93,29 @@ end $$;
 
 create trigger exigir_angulo_de_pilar before insert or update of pilar, angulo_id on public.ideas
   for each row execute function public.exigir_angulo_de_pilar();
+
+-- The pieces the balance counts (spec 15d, section 4): out on some network (`publicado` or `subido_a_mano`, both set
+-- `marcado_en`, as 15b's temas_tratados reads it) and with an angle, once each, at the first time one went out. Ideas
+-- without an angle (everything before 15d) do not count. Security invoker: only Coni reads `publicaciones`.
+create view public.piezas_con_angulo with (security_invoker = true) as
+select pz.id as pieza_id, c.id as pilar_id, i.angulo_id, min(p.marcado_en) as publicada_en
+  from public.publicaciones p
+  join public.piezas pz on pz.id = p.pieza_id
+  join public.ideas i on i.id = pz.idea_id
+  join public.categorias c on c.slug = i.pilar
+ where p.estado in ('publicado', 'subido_a_mano')
+   and p.marcado_en is not null
+   and i.angulo_id is not null
+ group by pz.id, c.id, i.angulo_id;
+
+revoke all on public.piezas_con_angulo from anon, authenticated;
+grant select on public.piezas_con_angulo to authenticated, service_role;
+
+-- `equilibrio_de_angulo`: an angle with a minimum fell short. The full list (20261103000100_presupuesto.sql plus this
+-- type); presupuesto-esquema.test.ts and datos-personales-esquema.test.ts check it equals TIPOS_DE_AVISO.
+alter table public.avisos drop constraint avisos_tipo_check;
+alter table public.avisos add constraint avisos_tipo_check check (tipo in (
+  'ideas_propuestas', 'guion_listo', 'video_listo', 'error_definitivo', 'publicado', 'tope_alcanzado',
+  'instagram_por_vencer', 'recordatorio_48h', 'listo_para_subir', 'linkedin_por_vencer', 'revision_de_inventario',
+  'limite_alcanzado', 'equilibrio_de_angulo'
+));

@@ -14,6 +14,7 @@ export const TIPOS_DE_AVISO = [
   "linkedin_por_vencer",
   "revision_de_inventario",
   "limite_alcanzado",
+  "equilibrio_de_angulo",
 ] as const
 export type TipoDeAviso = (typeof TIPOS_DE_AVISO)[number]
 
@@ -59,15 +60,17 @@ const CUERPO_DE_PUSH: Record<TipoDeAviso, string> = {
   linkedin_por_vencer: "Tu conexión con LinkedIn necesita atención",
   revision_de_inventario: "Te toca revisar tus datos personales",
   limite_alcanzado: "Llegaste a tu límite de gasto de este mes",
+  equilibrio_de_angulo: "Un ángulo de tus pilares necesita piezas",
 }
 
 /**
  * Where tapping a notice leads: the piece it is about, the register for the yearly review, the budget for the month's
- * limit, or Inicio. Never an approve action.
+ * limit, Temas for an angle that falls short, or Inicio. Never an approve action.
  */
 export function rutaDeAviso(aviso: { tipo: TipoDeAviso; piezaId?: string | null }): string {
   if (aviso.tipo === "revision_de_inventario") return "/ajustes/datos-personales"
   if (aviso.tipo === "limite_alcanzado") return "/ajustes/presupuesto"
+  if (aviso.tipo === "equilibrio_de_angulo") return "/biblioteca/temas"
   if (!aviso.piezaId) return "/"
   return aviso.tipo === "guion_listo" ? `/guion/${aviso.piezaId}` : `/video/${aviso.piezaId}`
 }

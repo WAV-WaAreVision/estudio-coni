@@ -202,3 +202,15 @@ describe("aviso del límite del mes", () => {
     })
   })
 })
+
+describe("aviso del equilibrio de un ángulo", () => {
+  it("opens Temas and says it in the push without naming the pillar", () => {
+    const aviso = { tipo: "equilibrio_de_angulo" } as const
+    expect(esTipoDeAviso("equilibrio_de_angulo")).toBe(true)
+    expect(rutaDeAviso(aviso)).toBe("/biblioteca/temas")
+    expect(mensajePush(aviso)).toMatchObject({
+      cuerpo: "Un ángulo de tus pilares necesita piezas",
+      url: "/biblioteca/temas",
+    })
+  })
+})
