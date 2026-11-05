@@ -175,4 +175,12 @@ describe("useIrA", () => {
     expect(result.current.error).toBeNull()
     formulario.remove()
   })
+  it("ends quietly when the whole page is gone mid-watch (a test environment torn down), touching nothing", () => {
+    const { result } = renderHook(() => useIrA())
+    act(() => result.current.ir(DESTINO))
+    vi.stubGlobal("window", undefined)
+    vi.stubGlobal("document", undefined)
+    expect(() => vi.advanceTimersByTime(60_000)).not.toThrow()
+    expect(vi.getTimerCount()).toBe(0)
+  })
 })

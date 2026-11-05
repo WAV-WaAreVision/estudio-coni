@@ -95,8 +95,13 @@ export function useIrA() {
         llego = true
       }
       const mirar = () => {
-        // The watch outlives its button on purpose; when the whole page is gone (a test environment torn down), it ends.
-        if (globalThis.window === undefined) return terminar(false)
+        // The watch outlives its button on purpose; when the whole page is gone (a test environment torn down), it only
+        // stops its own clock: the listeners went with the page, and touching `document` would throw.
+        if (globalThis.window === undefined || globalThis.document === undefined) {
+          clearInterval(mirador)
+          descargas?.disconnect()
+          return
+        }
         if (llego || (!mismaPantalla && pantalla(new URL(window.location.href)) === meta)) return terminar(false)
         const seDescarto = llegoEn !== null && Date.now() - llegoEn >= GRACIA_TRAS_LLEGAR_MS
         if (seDescarto || Date.now() >= plazo) {
