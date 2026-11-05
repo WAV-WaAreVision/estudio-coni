@@ -1,19 +1,22 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-type Respuesta = { ok: true } | { ok: false; error: string }
+type Respuesta = { ok: true; destino: string } | { ok: false; error: string }
 
+const DESTINO = "/biblioteca/temas?red=linkedin&aviso=borrador-guardado"
 const { guardarBorradorDePilarAccion, editarBorradorDePilarAccion } = vi.hoisted(() => ({
-  guardarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
-  editarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
+  guardarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true, destino: DESTINO })),
+  editarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true, destino: DESTINO })),
 }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
 vi.mock("@/app/(app)/biblioteca/temas/borradores/acciones", () => ({
   guardarBorradorDePilarAccion,
   editarBorradorDePilarAccion,
 }))
 
 import { FormularioDePilar } from "@/app/(app)/biblioteca/temas/formulario-de-pilar"
+import { ERROR_AL_LLEGAR } from "@/components/use-ir-a"
 import { ERRORES_DE_PILAR } from "@/lib/dominio/biblioteca/borradores"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -46,6 +49,23 @@ describe("FormularioDePilar", () => {
         peso: 12.5,
       }),
     )
+  })
+
+  it("goes to the page the action names, and says so with a reload hint if it never gets there", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<FormularioDePilar modo={{ tipo: "nuevo", red: "linkedin" }} cancelar={CANCELAR} />)
+      llenarTodo()
+      fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }))
+      await waitFor(() => expect(replace).toHaveBeenCalledWith(DESTINO))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(screen.getByRole("alert")).toHaveTextContent(ERROR_AL_LLEGAR)
+      expect(screen.getByRole("button", { name: "Guardar borrador" })).toBeEnabled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("says what is missing, marks that field, gives it the focus and sends nothing", () => {

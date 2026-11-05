@@ -7,6 +7,7 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
+import { useIrA } from "@/components/use-ir-a"
 import {
   AVISO_DE_LA_GUIA,
   armarPesos,
@@ -40,6 +41,8 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
   const [etapas, setEtapas] = useState(iniciales)
   const [invalido, setInvalido] = useState<{ error: string; desde: string; clave: string } | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
+  // The action names Temas with the new pillar; this goes there and checks it landed (Next can drop it).
+  const { ir, yendo, error: errorAlIr } = useIrA()
   const idDe = (desde: string, clave: string) => `${id}-${desde}-${clave}`
 
   function cambiar(desde: string, clave: string, peso: string) {
@@ -61,7 +64,10 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
       return
     }
     setInvalido(null)
-    ejecutar(() => aprobarBorradorDePilarAccion({ id: borrador.id, pesos: armado.pesos }))
+    ejecutar<{ destino: string }>(
+      () => aprobarBorradorDePilarAccion({ id: borrador.id, pesos: armado.pesos }),
+      ({ destino }) => ir(destino),
+    )
   }
 
   return (
@@ -115,8 +121,9 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
         </div>
       ) : null}
       {error ? <LineaDeError>{error}</LineaDeError> : null}
+      {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
       <div className="flex flex-wrap gap-3">
-        <Boton type="submit" cargando={pendiente} className="md:w-auto">
+        <Boton type="submit" cargando={(pendiente || yendo) && errorAlIr === null} className="md:w-auto">
           Aprobar pilar
         </Boton>
         <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>

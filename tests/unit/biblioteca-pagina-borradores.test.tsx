@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactElement, ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-type Respuesta = { ok: true } | { ok: false; error: string }
+type Respuesta = { ok: true; destino: string } | { ok: false; error: string }
 
-const { esConi, datos, pilares, acciones } = vi.hoisted(() => ({
+const { esConi, datos, pilares, acciones, replace } = vi.hoisted(() => ({
+  replace: vi.fn(),
   esConi: { valor: true },
   datos: {
     listarBorradores: vi.fn(async (): Promise<unknown> => ({ pilares: [], redes: [] })),
@@ -13,7 +14,12 @@ const { esConi, datos, pilares, acciones } = vi.hoisted(() => ({
   },
   pilares: { etapasDeRed: vi.fn(async (..._: unknown[]): Promise<unknown> => []) },
   acciones: {
-    descartarBorradorAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
+    descartarBorradorAccion: vi.fn(
+      async (..._: unknown[]): Promise<Respuesta> => ({
+        ok: true,
+        destino: "/biblioteca/temas/borradores?aviso=borrador-descartado",
+      }),
+    ),
     guardarBorradorDePilarAccion: vi.fn(),
     editarBorradorDePilarAccion: vi.fn(),
     guardarBorradorDeRedAccion: vi.fn(),
@@ -34,7 +40,7 @@ vi.mock("next/navigation", () => ({
   redirect: (ruta: string) => {
     throw new Error(`NEXT_REDIRECT ${ruta}`)
   },
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }),
 }))
 vi.mock("@/lib/datos/borradores", () => datos)
 vi.mock("@/lib/datos/pilares", () => pilares)
@@ -156,6 +162,7 @@ describe("BotonDescartar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
     await waitFor(() => expect(acciones.descartarBorradorAccion).toHaveBeenCalledWith({ tipo: "pilar", id: ID_1 }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/biblioteca/temas/borradores?aviso=borrador-descartado"))
   })
 })
 

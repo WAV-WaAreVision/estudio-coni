@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { useAccion } from "@/components/use-accion"
+import { useIrA } from "@/components/use-ir-a"
 import { descartarBorradorAccion } from "./acciones"
 
 interface Propiedades {
@@ -21,6 +22,8 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
   const [devolverFoco, setDevolverFoco] = useState(false)
   const boton = useRef<HTMLButtonElement>(null)
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+  // The action names Borradores with its note; this goes there and checks it landed (Next can drop it).
+  const { ir, yendo, error: errorAlIr } = useIrA()
 
   useEffect(() => {
     if (!devolverFoco || preguntando) return
@@ -49,9 +52,14 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
         pregunta={`¿Descartar «${nombre}»? ${tipo === "pilar" ? "Ya no lo podrás aprobar ni editar." : "Ya no lo podrás editar."}`}
         confirmar="Descartar"
         volver="Cancelar"
-        cargando={pendiente}
-        error={error}
-        alConfirmar={() => ejecutar(() => descartarBorradorAccion({ tipo, id }))}
+        cargando={(pendiente || yendo) && errorAlIr === null}
+        error={error ?? errorAlIr}
+        alConfirmar={() =>
+          ejecutar<{ destino: string }>(
+            () => descartarBorradorAccion({ tipo, id }),
+            ({ destino }) => ir(destino),
+          )
+        }
         alVolver={() => {
           limpiarError()
           setPreguntando(false)

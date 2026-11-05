@@ -1,7 +1,6 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import type { z } from "zod"
 import {
   AprobacionDePilar,
@@ -29,8 +28,16 @@ function refrescar<T extends object>(resultado: Resultado<T>): Resultado<T> {
   return resultado
 }
 
-// Each action answers with the next screen itself (`redirect`, as `unirAutoresAccion`), with its note in the address;
-// "replace" keeps the form out of Back. `redirect` throws, so it runs only after success and outside any catch.
+/** Success answers with the next screen and its note; a refusal as it came. */
+function hacia<T extends object>(
+  resultado: Resultado<T>,
+  destino: (exito: T) => string,
+): Resultado<{ destino: string }> {
+  return resultado.ok ? { ok: true, destino: destino(resultado) } : resultado
+}
+
+// Each action answers with the next screen, with its note in the address, and the client goes there (`useIrA`). Not
+// `redirect()`: Next 16.2.6 sometimes drops a Server Action's redirect and the button stays pending for ever.
 
 export async function guardarBorradorDePilarAccion(nuevo: z.input<typeof BorradorDePilarNuevo>) {
   const resultado = refrescar(
@@ -39,10 +46,9 @@ export async function guardarBorradorDePilarAccion(nuevo: z.input<typeof Borrado
     ),
   )
   // Success means the schema passed: the network is one of the two.
-  if (resultado.ok) {
-    redirect(conAviso(hrefDeTemas({ red: BorradorDePilarNuevo.parse(nuevo).red }), "borrador-guardado"), "replace")
-  }
-  return resultado
+  return hacia(resultado, () =>
+    conAviso(hrefDeTemas({ red: BorradorDePilarNuevo.parse(nuevo).red }), "borrador-guardado"),
+  )
 }
 
 export async function editarBorradorDePilarAccion(edicion: z.input<typeof EdicionDeBorradorDePilar>) {
@@ -51,8 +57,7 @@ export async function editarBorradorDePilarAccion(edicion: z.input<typeof Edicio
       editarBorradorDePilar({ db }, d),
     ),
   )
-  if (resultado.ok) redirect(conAviso(RUTA_DE_BORRADORES, "borrador-editado"), "replace")
-  return resultado
+  return hacia(resultado, () => conAviso(RUTA_DE_BORRADORES, "borrador-editado"))
 }
 
 /** Temas without `?red` opens on the network she used last. */
@@ -62,8 +67,7 @@ export async function guardarBorradorDeRedAccion(nuevo: z.input<typeof BorradorD
       guardarBorradorDeRed({ db }, d),
     ),
   )
-  if (resultado.ok) redirect(conAviso(RUTA_DE_TEMAS, "red-guardada"), "replace")
-  return resultado
+  return hacia(resultado, () => conAviso(RUTA_DE_TEMAS, "red-guardada"))
 }
 
 export async function editarBorradorDeRedAccion(edicion: z.input<typeof EdicionDeBorradorDeRed>) {
@@ -72,16 +76,14 @@ export async function editarBorradorDeRedAccion(edicion: z.input<typeof EdicionD
       editarBorradorDeRed({ db }, d),
     ),
   )
-  if (resultado.ok) redirect(conAviso(RUTA_DE_BORRADORES, "borrador-editado"), "replace")
-  return resultado
+  return hacia(resultado, () => conAviso(RUTA_DE_BORRADORES, "borrador-editado"))
 }
 
 export async function descartarBorradorAccion(sobre: z.input<typeof SobreBorrador>) {
   const resultado = refrescar(
     await conSesionDeConi("descartarBorrador", SobreBorrador, sobre, (db, d) => descartarBorrador({ db }, d)),
   )
-  if (resultado.ok) redirect(conAviso(RUTA_DE_BORRADORES, "borrador-descartado"), "replace")
-  return resultado
+  return hacia(resultado, () => conAviso(RUTA_DE_BORRADORES, "borrador-descartado"))
 }
 
 /** Temas opens on the new pillar's network with it chosen (spec 15c, section 2). */
@@ -91,8 +93,5 @@ export async function aprobarBorradorDePilarAccion(aprobacion: z.input<typeof Ap
       aprobarBorradorDePilar({ db }, d),
     ),
   )
-  if (resultado.ok) {
-    redirect(conAviso(hrefDeTemas({ red: resultado.red, pilar: resultado.pilarId }), "pilar-aprobado"), "replace")
-  }
-  return resultado
+  return hacia(resultado, ({ red, pilarId }) => conAviso(hrefDeTemas({ red, pilar: pilarId }), "pilar-aprobado"))
 }

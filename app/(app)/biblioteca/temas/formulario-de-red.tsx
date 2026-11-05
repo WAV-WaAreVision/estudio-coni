@@ -6,6 +6,7 @@ import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
+import { useIrA } from "@/components/use-ir-a"
 import {
   armarBorradorDeRed,
   CAMPOS_DE_RED_VACIOS,
@@ -43,6 +44,8 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
   const [campos, setCampos] = useState(inicial)
   const [invalido, setInvalido] = useState<{ error: string; campo: CampoDeRed } | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
+  // The action names the next screen; this goes there and checks it landed (Next can drop it).
+  const { ir, yendo, error: errorAlIr } = useIrA()
 
   const idDe = (campo: CampoDeRed) => `${id}-${campo}`
   const cambiar = (campo: CampoDeRed) => (evento: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -69,8 +72,12 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
     }
     setInvalido(null)
     const { datos } = armado
-    ejecutar<object>(() =>
-      modo.tipo === "nuevo" ? guardarBorradorDeRedAccion(datos) : editarBorradorDeRedAccion({ ...datos, id: modo.id }),
+    ejecutar<{ destino: string }>(
+      () =>
+        modo.tipo === "nuevo"
+          ? guardarBorradorDeRedAccion(datos)
+          : editarBorradorDeRedAccion({ ...datos, id: modo.id }),
+      ({ destino }) => ir(destino),
     )
   }
 
@@ -105,8 +112,9 @@ export function FormularioDeRed({ modo, inicial = CAMPOS_DE_RED_VACIOS, cancelar
         </div>
       ) : null}
       {error ? <LineaDeError>{error}</LineaDeError> : null}
+      {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
       <div className="flex flex-wrap gap-3">
-        <Boton type="submit" cargando={pendiente} className="md:w-auto">
+        <Boton type="submit" cargando={(pendiente || yendo) && errorAlIr === null} className="md:w-auto">
           Guardar borrador
         </Boton>
         <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>

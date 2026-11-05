@@ -77,29 +77,30 @@ describe("the drafts' server actions", () => {
       "/biblioteca/temas/borradores?aviso=borrador-descartado",
     ],
   ] as const)(
-    "%s checks Coni with its schema, refreshes the section and goes to its page with the note",
+    "%s checks Coni with its schema, refreshes the section and answers with its page and the note",
     async (nombre, accion, esquema, entrada, destino) => {
-      await expect(accion()).rejects.toThrow("NEXT_REDIRECT")
+      // No `redirect()`: Next 16.2.6 sometimes drops it; the client goes there itself and checks it landed (useIrA).
+      expect(await accion()).toEqual({ ok: true, destino })
       expect(conSesionDeConi).toHaveBeenCalledWith(nombre, esquema, entrada, expect.any(Function))
       expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
-      expect(redirect).toHaveBeenCalledWith(destino, "replace")
+      expect(redirect).not.toHaveBeenCalled()
     },
   )
 
   it("aprobarBorradorDePilar goes to Temas on the pillar's network with the new pillar chosen and the note", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: true, pilarId: PILAR, red: "linkedin" })
     const pesos = { "2026-11-05": { nuevo: 10 } }
-    await expect(aprobarBorradorDePilarAccion({ id: ID, pesos })).rejects.toThrow("NEXT_REDIRECT")
+    expect(await aprobarBorradorDePilarAccion({ id: ID, pesos })).toEqual({
+      ok: true,
+      destino: `/biblioteca/temas?red=linkedin&pilar=${PILAR}&aviso=pilar-aprobado`,
+    })
     expect(conSesionDeConi).toHaveBeenCalledWith(
       "aprobarBorradorDePilar",
       AprobacionDePilar,
       { id: ID, pesos },
       expect.any(Function),
     )
-    expect(redirect).toHaveBeenCalledWith(
-      `/biblioteca/temas?red=linkedin&pilar=${PILAR}&aviso=pilar-aprobado`,
-      "replace",
-    )
+    expect(redirect).not.toHaveBeenCalled()
   })
 
   it("a refusal answers with the error, refreshes nothing and goes nowhere", async () => {

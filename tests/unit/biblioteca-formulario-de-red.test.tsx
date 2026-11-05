@@ -1,13 +1,18 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-type Respuesta = { ok: true } | { ok: false; error: string }
+type Respuesta = { ok: true; destino: string } | { ok: false; error: string }
 
 const { guardarBorradorDeRedAccion, editarBorradorDeRedAccion } = vi.hoisted(() => ({
-  guardarBorradorDeRedAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
-  editarBorradorDeRedAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
+  guardarBorradorDeRedAccion: vi.fn(
+    async (..._: unknown[]): Promise<Respuesta> => ({ ok: true, destino: "/biblioteca/temas?aviso=red-guardada" }),
+  ),
+  editarBorradorDeRedAccion: vi.fn(
+    async (..._: unknown[]): Promise<Respuesta> => ({ ok: true, destino: "/biblioteca/temas?aviso=red-guardada" }),
+  ),
 }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
 vi.mock("@/app/(app)/biblioteca/temas/borradores/acciones", () => ({
   guardarBorradorDeRedAccion,
   editarBorradorDeRedAccion,
@@ -39,6 +44,7 @@ describe("FormularioDeRed", () => {
         conexion: "",
       }),
     )
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/biblioteca/temas?aviso=red-guardada"))
   })
 
   it("says a missing name and focuses it", () => {

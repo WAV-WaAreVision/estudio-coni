@@ -1,18 +1,20 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-type Respuesta = { ok: true } | { ok: false; error: string }
+type Respuesta = { ok: true; destino: string } | { ok: false; error: string }
 
 const { aprobarBorradorDePilarAccion } = vi.hoisted(() => ({
-  aprobarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
+  aprobarBorradorDePilarAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true, destino: DESTINO })),
 }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }))
 vi.mock("@/app/(app)/biblioteca/temas/borradores/acciones", () => ({ aprobarBorradorDePilarAccion }))
 
 import { AprobarPilar } from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/aprobar-pilar"
 import { AVISO_DE_LA_GUIA, type EtapaEditable } from "@/lib/dominio/biblioteca/borradores"
 
 const ID = "11111111-2222-4333-8444-555555555555"
+const DESTINO = "/biblioteca/temas?red=linkedin&pilar=99999999-2222-4333-8444-555555555555&aviso=pilar-aprobado"
 const HOY = "2026-11-05"
 const BORRADOR = {
   id: ID,
@@ -91,6 +93,7 @@ describe("AprobarPilar", () => {
         },
       }),
     )
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(DESTINO))
   })
 
   it("names the weight it cannot read with its stage, focuses it and approves nothing", () => {
