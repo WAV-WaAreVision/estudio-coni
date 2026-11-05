@@ -155,6 +155,7 @@ export type Database = {
           produccion: Json
           revision_de_inventario_avisada: string | null
           tope_mensual_usd: number
+          ultima_red: string | null
           zona: string
         }
         Insert: {
@@ -182,6 +183,7 @@ export type Database = {
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
+          ultima_red?: string | null
           zona?: string
         }
         Update: {
@@ -209,6 +211,7 @@ export type Database = {
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
+          ultima_red?: string | null
           zona?: string
         }
         Relationships: []
