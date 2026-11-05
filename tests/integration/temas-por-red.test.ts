@@ -75,10 +75,14 @@ describe("temas_tratados", () => {
   it("counts a topic as treated on the network where a piece went out, and only there", async () => {
     await como(comoPostgres, async (c) => {
       const carga = await tema(c, "Carga")
-      await pieza(c, [carga], [
-        { destino: "linkedin", estado: "publicado" },
-        { destino: "instagram", estado: "para_subir" },
-      ])
+      await pieza(
+        c,
+        [carga],
+        [
+          { destino: "linkedin", estado: "publicado" },
+          { destino: "instagram", estado: "para_subir" },
+        ],
+      )
       await asumir(c, comoConi)
       expect(await tratados(c, [carga])).toEqual([{ tema_id: carga, red: "linkedin" }])
     })
@@ -89,10 +93,14 @@ describe("temas_tratados", () => {
       const aMano = await tema(c, "A mano")
       const pendiente = await tema(c, "Pendiente")
       await pieza(c, [aMano], [{ destino: "instagram", estado: "subido_a_mano" }])
-      await pieza(c, [pendiente], [
-        { destino: "linkedin", estado: "esperando" },
-        { destino: "instagram", estado: "para_subir" },
-      ])
+      await pieza(
+        c,
+        [pendiente],
+        [
+          { destino: "linkedin", estado: "esperando" },
+          { destino: "instagram", estado: "para_subir" },
+        ],
+      )
       await asumir(c, comoConi)
       expect(await tratados(c, [aMano, pendiente])).toEqual([{ tema_id: aMano, red: "instagram" }])
     })
