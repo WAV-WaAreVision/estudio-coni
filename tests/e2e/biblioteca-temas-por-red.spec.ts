@@ -11,7 +11,7 @@ import {
   TEMA_PRINCIPAL,
 } from "./biblioteca-escena"
 
-// Coni's acceptance list (respuesta-coni-temas-pilares-2026-11-04.md, part 1, section 7), without 15c's buttons.
+// Coni's acceptance list (respuesta-coni-temas-pilares-2026-11-04.md, part 1, section 7); 15c's buttons are in biblioteca-borradores.spec.ts.
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
@@ -69,6 +69,7 @@ test("each network opens its own pillars in order, Capa TDAH last and only outli
     "Bienestar e impacto",
     "Psicología en la mesa",
     "Mujeres líderes",
+    "Agregar pilar",
   ])
   await tocarHastaLlegar(page, red(page, "Instagram"), /\?red=instagram(?:&v=\d+)?$/)
   const deInstagram = pilaresDe(page, "Instagram").getByRole("link")
@@ -77,6 +78,7 @@ test("each network opens its own pillars in order, Capa TDAH last and only outli
     "Game Over Impostora",
     "Mi nueva partida",
     "Inteligencia emocional",
+    "Agregar pilar",
     CAPA,
   ])
   await expect(pilaresDe(page, "LinkedIn")).toHaveCount(0)
