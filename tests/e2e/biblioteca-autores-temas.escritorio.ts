@@ -64,7 +64,7 @@ test("Autores is a table; a row opens its summary in the sticky side panel with 
 test("Temas is a table that keeps its filters; a row opens the side panel, and closing gives the focus back", async ({
   page,
 }) => {
-  await page.goto("/biblioteca/temas?cobertura=un-autor")
+  await page.goto("/biblioteca/temas?red=linkedin&un-autor=1")
   const tabla = page.getByRole("table", { name: "Temas" })
   await expect(tabla.getByRole("columnheader")).toHaveText(["Tema", "Ideas sacadas", "Autores"])
   await expect(tabla.getByRole("row")).toHaveCount(3)
@@ -74,7 +74,7 @@ test("Temas is a table that keeps its filters; a row opens the side panel, and c
   await tocarHastaLlegar(
     page,
     fila,
-    new RegExp(`/biblioteca/temas\\?cobertura=un-autor&t=${escena.deUnAutor}(?:&v=\\d+)?$`),
+    new RegExp(`/biblioteca/temas\\?red=linkedin&un-autor=1&t=${escena.deUnAutor}(?:&v=\\d+)?$`),
   )
   const panel = page.getByRole("region", { name: TEMA_DE_UN_AUTOR })
   await expect(panel.getByRole("heading", { name: TEMA_DE_UN_AUTOR, level: 2 })).toBeFocused()
@@ -86,7 +86,7 @@ test("Temas is a table that keeps its filters; a row opens the side panel, and c
   )
 
   await panel.getByRole("link", { name: "Cerrar el panel" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\/temas\?cobertura=un-autor(?:[?&]v=\d+)?$/)
+  await expect(page).toHaveURL(/\/biblioteca\/temas\?red=linkedin&un-autor=1(?:[?&]v=\d+)?$/)
   await expect(page.getByText(PISTA_DE_TEMAS)).toBeVisible()
   await expect(fila).toBeFocused()
 })
