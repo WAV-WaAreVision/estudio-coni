@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/fila-de-temas"
 import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
 import type { TemaResumido } from "@/lib/dominio/biblioteca/temas"
 import { cn } from "@/lib/utils"

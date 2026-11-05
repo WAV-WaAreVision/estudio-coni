@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { cuentasDeTema } from "@/lib/dominio/biblioteca/cuentas"
-import { type FiltrosDeTemas, hrefDeTema, hrefDeTemas } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/fila-de-temas"
+import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { TemaResumido } from "@/lib/dominio/biblioteca/temas"
 import { Insignias } from "./insignias"
 

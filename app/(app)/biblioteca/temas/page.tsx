@@ -1,22 +1,22 @@
 import { Panel } from "@/components/ui/panel"
-import { listarPilaresDeTemas, listarTemas } from "@/lib/datos/biblioteca"
-import { leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
+import { leerUltimaRed, listarPilaresDeTemas, listarTemas } from "@/lib/datos/biblioteca"
 import {
-  AVISO_TRAS_OCULTAR_LA_ULTIMA,
-  contarCoberturas,
-  filtrarPorCobertura,
+  contarFiltros,
+  filtrarTemas,
   hayFiltrosDeTemas,
   leerFiltrosDeTemas,
-  leerIdeaOculta,
-} from "@/lib/dominio/biblioteca/filtros-de-temas"
+} from "@/lib/dominio/biblioteca/fila-de-temas"
+import { leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
+import { AVISO_TRAS_OCULTAR_LA_ULTIMA, leerIdeaOculta } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeIdeas } from "../aviso-de-ideas"
 import { FocoDelPanel } from "../foco-del-panel"
 import { NavDeBiblioteca } from "../nav-de-biblioteca"
 import { TrasElAviso } from "../tras-el-aviso"
-import { FiltrosDeCobertura } from "./filtros-de-cobertura"
+import { FilaDeTemas } from "./fila-de-temas"
 import { MasFiltrosDeTemas } from "./mas-filtros-de-temas"
 import { PanelDeTema } from "./panel-de-tema"
+import { RecordarRed } from "./recordar-red"
 import { TablaDeTemas } from "./tabla-de-temas"
 import { TarjetaDeTema } from "./tarjeta-de-tema"
 
@@ -26,31 +26,28 @@ export default async function Temas({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [{ db }, params] = await Promise.all([exigirConi(), searchParams])
-  const pilares = await listarPilaresDeTemas(db)
-  const filtros = leerFiltrosDeTemas(
-    params,
-    pilares.map((pilar) => pilar.id),
-  )
+  const [pilares, ultimaRed] = await Promise.all([listarPilaresDeTemas(db), leerUltimaRed(db)])
+  const filtros = leerFiltrosDeTemas(params, { pilares, ultimaRed })
   const seleccion = leerSeleccion(params, "t")
-  // Until the row arrives (Task 10) the network is the chosen pillar's, LinkedIn without one.
-  const red = pilares.find((pilar) => pilar.id === filtros.pilar)?.red ?? "linkedin"
-  // The pillar narrows what is read; the coverage splits it, so its counts are the pillar's.
-  const temas = await listarTemas(db, { red, pilar: filtros.pilar })
-  const visibles = filtrarPorCobertura(temas, filtros.cobertura)
+  // The network and the pillar narrow what is read; the switches split it, so their counts are the pillar's.
+  const temas = await listarTemas(db, { red: filtros.red, pilar: filtros.pilar })
+  const visibles = filtrarTemas(temas, filtros)
+  const conteos = contarFiltros(temas)
   const elegido = seleccion ? (temas.find((tema) => tema.id === seleccion) ?? null) : null
   const ocultaLaUltima = leerIdeaOculta(params) !== null
 
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
+      <RecordarRed red={filtros.red} recordada={ultimaRed} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
         <AvisoDeIdeas texto={ocultaLaUltima ? AVISO_TRAS_OCULTAR_LA_ULTIMA : null} />
         {ocultaLaUltima ? <TrasElAviso parametro="oculta" /> : null}
         <NavDeBiblioteca actual="temas" />
-        <div className="flex flex-wrap items-start gap-2">
-          <FiltrosDeCobertura filtros={filtros} conteos={contarCoberturas(temas)} />
-          <MasFiltrosDeTemas filtros={filtros} pilares={pilares} />
+        <div className="grid min-w-0 gap-3">
+          <FilaDeTemas filtros={filtros} pilares={pilares} sinTratar={conteos.sinTratar} />
+          <MasFiltrosDeTemas filtros={filtros} conteos={conteos} />
         </div>
         {visibles.length === 0 ? (
           <p className="text-cuerpo text-apagado">

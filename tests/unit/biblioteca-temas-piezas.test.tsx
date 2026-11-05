@@ -56,7 +56,13 @@ describe("TarjetaDeTema", () => {
 
 describe("TablaDeTemas", () => {
   it("has three columns, rows that open the side panel with ?t keeping the filters, and badges under the name", () => {
-    render(<TablaDeTemas temas={[carga, pausas]} filtros={{ cobertura: "tratados", pilar: PILAR }} seleccion={CARGA} />)
+    render(
+      <TablaDeTemas
+        temas={[carga, pausas]}
+        filtros={{ red: "linkedin", tratados: true, pilar: PILAR }}
+        seleccion={CARGA}
+      />,
+    )
     const tabla = screen.getByRole("table", { name: "Temas" })
     expect(
       within(tabla)
@@ -64,7 +70,7 @@ describe("TablaDeTemas", () => {
         .map((celda) => celda.textContent),
     ).toEqual(["Tema", "Ideas sacadas", "Autores"])
     const fila = within(tabla).getByRole("link", { name: "Carga mental" })
-    expect(fila).toHaveAttribute("href", `/biblioteca/temas?pilar=${PILAR}&cobertura=tratados&t=${CARGA}`)
+    expect(fila).toHaveAttribute("href", `/biblioteca/temas?red=linkedin&pilar=${PILAR}&tratados=1&t=${CARGA}`)
     expect(fila).toHaveAttribute("data-abre-panel", CARGA)
     expect(fila).toHaveAttribute("aria-current", "true")
     expect(within(tabla).getByRole("row", { name: /Carga mental/ })).toHaveTextContent("Ya lo traté")
@@ -73,7 +79,7 @@ describe("TablaDeTemas", () => {
 
 describe("PanelDeTema", () => {
   it("is a region named by the topic, with its description, counts, badges and the way to its ideas", () => {
-    render(<PanelDeTema tema={carga} filtros={{ cobertura: "tratados" }} />)
+    render(<PanelDeTema tema={carga} filtros={{ red: "linkedin", tratados: true }} />)
     const region = screen.getByRole("region", { name: "Carga mental" })
     expect(region).toHaveTextContent("El peso de lo que nadie ve.")
     expect(region).toHaveTextContent("12 ideas sacadas · 3 autores")
@@ -83,7 +89,7 @@ describe("PanelDeTema", () => {
       `/biblioteca/temas/${CARGA}`,
     )
     const cerrar = within(region).getByRole("link", { name: "Cerrar el panel" })
-    expect(cerrar).toHaveAttribute("href", "/biblioteca/temas?cobertura=tratados")
+    expect(cerrar).toHaveAttribute("href", "/biblioteca/temas?red=linkedin&tratados=1")
     expect(cerrar).toHaveAttribute("data-cierra-panel", CARGA)
     expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute("id", "panel-titulo")
     expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute("tabindex", "-1")

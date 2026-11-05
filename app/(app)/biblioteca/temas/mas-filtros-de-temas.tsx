@@ -1,54 +1,61 @@
-import { Funnel } from "@phosphor-icons/react/dist/ssr"
+import { Check, Funnel } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { Boton } from "@/components/ui/boton"
-import { clasesDeBoton } from "@/components/ui/clases-de-boton"
+import { CHIP_ELEGIDO, FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
 import { ICONO } from "@/components/ui/icono"
 import { MasOpciones } from "@/components/ui/mas-opciones"
-import { type FiltrosDeTemas, hrefDeTemas } from "@/lib/dominio/biblioteca/filtros-de-temas"
-import { type PilarDeRed, porRed } from "@/lib/dominio/pilares"
-import { Campo, CLASES_DE_CAMPO } from "../campo"
-import { FormularioDeFiltros } from "../formulario-de-filtros"
+import { conCuenta } from "@/lib/dominio/biblioteca/cuentas"
+import {
+  alternarTratados,
+  alternarUnAutor,
+  type ConteosDeTemas,
+  type FiltrosDeTemas,
+  hrefDeTemas,
+} from "@/lib/dominio/biblioteca/fila-de-temas"
+import { cn } from "@/lib/utils"
 
 /**
- * The pillar, folded behind a chip in the row of the quick filters, grouped by network (spec 2026-11-04, section 5).
- * It filters on the main pillar.
+ * Coni's «Más filtros» (spec 2026-11-04, part 15b): «Ya los traté» in the chosen network, the opposite of «Sin tratar»,
+ * and «Un solo autor». Links like the row, folded behind a chip; open when one is on.
  */
-export function MasFiltrosDeTemas({ filtros, pilares }: { filtros: FiltrosDeTemas; pilares: readonly PilarDeRed[] }) {
-  const activos = filtros.pilar ? 1 : 0
+export function MasFiltrosDeTemas({ filtros, conteos }: { filtros: FiltrosDeTemas; conteos: ConteosDeTemas }) {
+  const opciones = [
+    {
+      clave: "tratados",
+      texto: conCuenta("Ya los traté", conteos.tratados),
+      actual: filtros.tratados === true,
+      href: hrefDeTemas(alternarTratados(filtros)),
+    },
+    {
+      clave: "un-autor",
+      texto: conCuenta("Un solo autor", conteos.unAutor),
+      actual: filtros.unAutor === true,
+      href: hrefDeTemas(alternarUnAutor(filtros)),
+    },
+  ]
+  const activos = opciones.filter((opcion) => opcion.actual).length
   return (
     <MasOpciones
       titulo={activos === 0 ? "Más filtros" : `Más filtros · ${activos}`}
       forma="boton"
       icono={<Funnel aria-hidden="true" size={ICONO.chico} />}
       abiertaAlInicio={activos > 0}
-      className="open:basis-full [&>summary]:w-fit [&>summary]:gap-2 [&>summary]:px-4 [&>summary]:text-meta"
+      className="[&>summary]:w-fit [&>summary]:gap-2 [&>summary]:px-4 [&>summary]:text-meta"
     >
-      {/* The select is uncontrolled: a new key remounts it when the URL changes. */}
-      <FormularioDeFiltros key={JSON.stringify(filtros)} seccion="temas" className="grid gap-3 md:max-w-sm">
-        {filtros.cobertura ? <input type="hidden" name="cobertura" value={filtros.cobertura} /> : null}
-        <Campo id="filtro-pilar" etiqueta="Pilar">
-          <select id="filtro-pilar" name="pilar" defaultValue={filtros.pilar ?? ""} className={CLASES_DE_CAMPO}>
-            <option value="">Todos</option>
-            {porRed(pilares).map((grupo) => (
-              <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
-                {grupo.pilares.map((pilar) => (
-                  <option key={pilar.id} value={pilar.id}>
-                    {pilar.nombreCorto}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </Campo>
-        <Boton type="submit" variante="secundario" tamano="chico">
-          Filtrar
-        </Boton>
-        {filtros.pilar ? (
-          <Link href={hrefDeTemas({ cobertura: filtros.cobertura })} className={clasesDeBoton({ variante: "callado" })}>
-            Quitar este filtro
-          </Link>
-        ) : null}
-      </FormularioDeFiltros>
+      <ul aria-label="Más filtros de temas" className="flex min-w-0 flex-wrap gap-2">
+        {opciones.map(({ clave, texto, actual, href }) => (
+          <li key={clave}>
+            <Link
+              href={href}
+              scroll={false}
+              aria-current={actual ? "page" : undefined}
+              className={cn(FORMA_DE_CHIP, TRANSICION_DE_CHIP, CHIP_ELEGIDO)}
+            >
+              {actual ? <Check aria-hidden="true" weight="bold" size={ICONO.chico} /> : null}
+              {texto}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </MasOpciones>
   )
 }

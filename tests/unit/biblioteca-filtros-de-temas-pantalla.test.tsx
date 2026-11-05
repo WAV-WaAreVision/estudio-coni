@@ -5,99 +5,58 @@ const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push, refresh: vi.fn() }) }))
 
 import { FormularioDeFiltros } from "@/app/(app)/biblioteca/formulario-de-filtros"
-import { FiltrosDeCobertura } from "@/app/(app)/biblioteca/temas/filtros-de-cobertura"
 import { MasFiltrosDeTemas } from "@/app/(app)/biblioteca/temas/mas-filtros-de-temas"
 
 const PILAR = "11111111-2222-4333-8444-555555555555"
-const OTRO = "22222222-2222-4333-8444-555555555555"
-const CAPA = "33333333-2222-4333-8444-555555555555"
-const PILARES = [
-  { id: PILAR, slug: "diagnostico-doble", nombreCorto: "Diagnóstico doble", red: "linkedin" as const, esCapa: false },
-  { id: OTRO, slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", red: "instagram" as const, esCapa: false },
-  { id: CAPA, slug: "capa-tdah", nombreCorto: "Capa TDAH", red: "instagram" as const, esCapa: true },
-]
-const CONTEOS = { "sin-tratar": 2, tratados: 0, "un-autor": 1 }
 
 beforeEach(() => vi.clearAllMocks())
 
-describe("FiltrosDeCobertura (Coni's option 1)", () => {
-  it("offers the four in one tap each, with counts and no zeros, keeping the pillar", () => {
-    render(<FiltrosDeCobertura filtros={{ pilar: PILAR }} conteos={CONTEOS} />)
-    const grupo = screen.getByRole("group", { name: "Filtrar temas" })
-    expect(
-      within(grupo)
-        .getAllByRole("link")
-        .map((enlace) => enlace.textContent),
-    ).toEqual(["Todos", "Sin tratar · 2", "Ya los traté", "Un solo autor · 1"])
-    expect(within(grupo).getByRole("link", { name: "Sin tratar · 2" })).toHaveAttribute(
-      "href",
-      `/biblioteca/temas?pilar=${PILAR}&cobertura=sin-tratar`,
-    )
-    expect(within(grupo).getByRole("link", { name: "Todos" })).toHaveAttribute(
-      "href",
-      `/biblioteca/temas?pilar=${PILAR}`,
-    )
-    expect(within(grupo).getByRole("link", { name: "Todos" })).toHaveAttribute("aria-current", "page")
-  })
-
-  it("marks the one in the address", () => {
-    render(<FiltrosDeCobertura filtros={{ cobertura: "un-autor" }} conteos={CONTEOS} />)
-    expect(screen.getByRole("link", { name: "Un solo autor · 1" })).toHaveAttribute("aria-current", "page")
-    expect(screen.getByRole("link", { name: "Todos" })).not.toHaveAttribute("aria-current")
-  })
-})
-
 describe("MasFiltrosDeTemas", () => {
-  it("folds the active pillars and carries the coverage as a hidden field", () => {
-    const { container } = render(<MasFiltrosDeTemas filtros={{ cobertura: "tratados" }} pilares={PILARES} />)
+  it("folds «Ya los traté» and «Un solo autor» as links with their counts, no zeros, keeping network and pillar", () => {
+    const { container } = render(
+      <MasFiltrosDeTemas
+        filtros={{ red: "instagram", pilar: PILAR, sinTratar: true }}
+        conteos={{ sinTratar: 2, tratados: 0, unAutor: 1 }}
+      />,
+    )
     expect(screen.getByText("Más filtros")).toBeInTheDocument()
     expect(container.querySelector("details")).not.toHaveAttribute("open")
-    const select = screen.getByLabelText("Pilar")
-    expect([...select.querySelectorAll("optgroup")].map((grupo) => grupo.getAttribute("label"))).toEqual([
-      "LinkedIn",
-      "Instagram",
-    ])
+    const lista = screen.getByRole("list", { name: "Más filtros de temas" })
     expect(
-      within(select)
-        .getAllByRole("option")
-        .map((opcion) => opcion.textContent),
-    ).toEqual(["Todos", "Diagnóstico doble", "Mi nueva partida", "Capa TDAH"])
-    expect(container.querySelector('input[type="hidden"][name="cobertura"]')).toHaveAttribute("value", "tratados")
-    expect(screen.queryByRole("link", { name: "Quitar este filtro" })).toBeNull()
+      within(lista)
+        .getAllByRole("link")
+        .map((enlace) => enlace.textContent),
+    ).toEqual(["Ya los traté", "Un solo autor · 1"])
+    // «Ya los traté» is the opposite of «Sin tratar» in the same network: choosing it clears the other.
+    expect(within(lista).getByRole("link", { name: "Ya los traté" })).toHaveAttribute(
+      "href",
+      `/biblioteca/temas?red=instagram&pilar=${PILAR}&tratados=1`,
+    )
+    expect(within(lista).getByRole("link", { name: "Un solo autor · 1" })).toHaveAttribute(
+      "href",
+      `/biblioteca/temas?red=instagram&pilar=${PILAR}&sin-tratar=1&un-autor=1`,
+    )
+    expect(screen.queryByRole("combobox")).toBeNull()
   })
 
-  it("with a pillar on comes open, says how many, and takes it out keeping the coverage", () => {
+  it("with a switch on comes open, says how many, marks it and takes it out in one tap", () => {
     const { container } = render(
-      <MasFiltrosDeTemas filtros={{ cobertura: "tratados", pilar: PILAR }} pilares={PILARES} />,
+      <MasFiltrosDeTemas
+        filtros={{ red: "linkedin", unAutor: true }}
+        conteos={{ sinTratar: 2, tratados: 1, unAutor: 2 }}
+      />,
     )
     expect(screen.getByText("Más filtros · 1")).toBeInTheDocument()
     expect(container.querySelector("details")).toHaveAttribute("open")
-    expect(screen.getByLabelText("Pilar")).toHaveValue(PILAR)
-    expect(screen.getByRole("link", { name: "Quitar este filtro" })).toHaveAttribute(
-      "href",
-      "/biblioteca/temas?cobertura=tratados",
-    )
+    const solo = screen.getByRole("link", { name: "Un solo autor · 2" })
+    expect(solo).toHaveAttribute("aria-current", "page")
+    expect(solo).toHaveAttribute("href", "/biblioteca/temas?red=linkedin")
+    expect(screen.getByRole("link", { name: "Ya los traté · 1" })).not.toHaveAttribute("aria-current")
   })
 })
 
 describe("FormularioDeFiltros", () => {
-  it("sends Temas' filters to Temas' own address, leaving an empty select out", () => {
-    const { container } = render(
-      <FormularioDeFiltros seccion="temas">
-        <input type="hidden" name="cobertura" value="tratados" />
-        <select name="pilar" defaultValue="">
-          <option value="">Todos</option>
-        </select>
-      </FormularioDeFiltros>,
-    )
-    const formulario = container.querySelector("form")
-    if (!formulario) throw new Error("Falta el formulario")
-    expect(formulario).toHaveAttribute("action", "/biblioteca/temas")
-    fireEvent.submit(formulario)
-    expect(push).toHaveBeenCalledWith("/biblioteca/temas?cobertura=tratados", { scroll: false })
-  })
-
-  it("still sends Materiales' filters to Materiales by default", () => {
+  it("sends Materiales' filters to Materiales' own address", () => {
     const { container } = render(
       <FormularioDeFiltros>
         <input type="hidden" name="estado" value="listo" />
@@ -105,6 +64,7 @@ describe("FormularioDeFiltros", () => {
     )
     const formulario = container.querySelector("form")
     if (!formulario) throw new Error("Falta el formulario")
+    expect(formulario).toHaveAttribute("action", "/biblioteca")
     fireEvent.submit(formulario)
     expect(push).toHaveBeenCalledWith("/biblioteca?estado=listo", { scroll: false })
   })
