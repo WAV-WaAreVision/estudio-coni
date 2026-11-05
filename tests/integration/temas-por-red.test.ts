@@ -231,6 +231,16 @@ describe("temas_de_red", () => {
     })
   })
 
+  it("lists nothing for a network that is not LinkedIn or Instagram, with or without a pillar", async () => {
+    await como(comoPostgres, async (c) => {
+      const { todos } = await escena(c)
+      const bienestar = await pilarDe(c, "bienestar-e-impacto")
+      await asumir(c, comoConi)
+      expect(await deRed(c, "tiktok", null, todos)).toEqual([])
+      expect(await deRed(c, "tiktok", bienestar, todos)).toEqual([])
+    })
+  })
+
   it("leaves temas_de_pilar as it was, for the old code until the cleanup", async () => {
     await como(comoPostgres, async (c) => {
       const { principal, todos } = await escena(c)
