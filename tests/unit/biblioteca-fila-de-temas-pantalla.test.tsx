@@ -36,6 +36,17 @@ describe("FilaDeTemas", () => {
     expect(within(fila).queryByRole("list", { name: "Pilares de Instagram" })).toBeNull()
   })
 
+  it("marks the chosen network with a check besides its relief, which forced colors drop; the other keeps only its caret", () => {
+    render(<FilaDeTemas filtros={{ red: "instagram" }} pilares={PILARES} sinTratar={0} />)
+    const fila = screen.getByRole("group", { name: "Filtrar temas" })
+    const elegida = within(fila).getByRole("link", { name: "Instagram" })
+    const otra = within(fila).getByRole("link", { name: "LinkedIn" })
+    expect(elegida.querySelectorAll("svg")).toHaveLength(2)
+    expect(elegida.firstChild?.nodeName.toLowerCase()).toBe("svg")
+    expect(otra.querySelectorAll("svg")).toHaveLength(1)
+    expect(otra.firstChild?.nodeName.toLowerCase()).not.toBe("svg")
+  })
+
   it("links each choice to its address: the switch on, the other network, the same one back to every pillar, a pillar", () => {
     render(<FilaDeTemas filtros={{ red: "linkedin", pilar: BIENESTAR }} pilares={PILARES} sinTratar={0} />)
     const fila = screen.getByRole("group", { name: "Filtrar temas" })

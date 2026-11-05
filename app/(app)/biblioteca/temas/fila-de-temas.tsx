@@ -65,6 +65,8 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
               aria-current={filtros.red === red ? "true" : undefined}
               className={cn(CHIP, RED_ELEGIDA)}
             >
+              {/* The relief vanishes in forced colors and reads weakly at low vision: the check says it too. */}
+              {filtros.red === red ? <Check aria-hidden="true" weight="bold" size={ICONO.chico} /> : null}
               {NOMBRE_DE_RED[red]}
               <CaretDown aria-hidden="true" weight="bold" size={ICONO.chico} />
             </Link>
