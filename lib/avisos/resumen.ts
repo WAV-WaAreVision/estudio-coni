@@ -160,7 +160,26 @@ export async function enviarResumenDelDia(deps: DepsResumen): Promise<ResultadoR
   await anunciarIdeasDelLunes(deps, zona)
   await recordarEsperas(deps)
   const equilibrio = await revisarEquilibrio(deps, zona)
-  const resultado: ResultadoResumen = resumenActivado ? await enviarPendientes(deps) : { enviado: false }
-  if (equilibrio) throw new Error("No pude revisar el equilibrio de los ángulos", { cause: equilibrio.falla })
+  const fallaDeEquilibrio = equilibrio
+    ? new Error("No pude revisar el equilibrio de los ángulos", { cause: equilibrio.falla })
+    : null
+  let resultado: ResultadoResumen
+  try {
+    resultado = resumenActivado ? await enviarPendientes(deps) : { enviado: false }
+  } catch (error) {
+    throw fallaDeEquilibrio ? conFallaDeEquilibrio(error, fallaDeEquilibrio) : error
+  }
+  // Trigger retries the run: the retry checks again (spec 15d) and, the other notices being marked sent, may send a
+  // second summary that carries only the angle's notice.
+  if (fallaDeEquilibrio) throw fallaDeEquilibrio
   return resultado
+}
+
+/** Both failed: the sending's error goes up, carrying the check's so neither is lost. */
+function conFallaDeEquilibrio(error: unknown, falla: Error): Error {
+  if (error instanceof Error && error.cause === undefined) {
+    error.cause = falla
+    return error
+  }
+  return new AggregateError([error, falla], "No pude enviar el resumen ni revisar el equilibrio de los ángulos")
 }

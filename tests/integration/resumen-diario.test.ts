@@ -336,4 +336,27 @@ describe("el equilibrio de los ángulos en el resumen", () => {
     expect(memoria.resumenesEnviados).toHaveLength(1)
     expect((await filas()).every((fila) => fila.canal === "correo")).toBe(true)
   })
+  it("keeps the check's failure as the cause when the sending fails too", async () => {
+    await aviso("guion_listo", "guion_listo:a:1", "Tu guion «Uno» está listo para revisar.")
+    const caido = new Error("Resend no responde")
+    const canal: Notificador = {
+      ...notificadorEnMemoria(),
+      async resumenAConi() {
+        throw caido
+      },
+    }
+    await pool.query("revoke select on public.piezas_con_angulo from service_role")
+    let lanzado: unknown
+    try {
+      await enviarResumenDelDia(armar(MARTES_0830, canal).deps)
+    } catch (error) {
+      lanzado = error
+    } finally {
+      await pool.query("grant select on public.piezas_con_angulo to service_role")
+    }
+    expect(lanzado).toBe(caido)
+    expect(caido.cause).toMatchObject({
+      message: expect.stringContaining("No pude revisar el equilibrio de los ángulos"),
+    })
+  })
 })
