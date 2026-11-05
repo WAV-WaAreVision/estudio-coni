@@ -63,7 +63,7 @@ const PILARES_QUE_NO_CALZAN = "Elige un solo pilar por red, y «También toca» 
 const SEGUNDOS_DE_DESCARGA = 5 * 60
 
 /** Row level security lets WAV act on materials (F5); only Coni does it from Conidolly. */
-async function exigirConi(db: Db): Promise<void> {
+export async function exigirConi(db: Db): Promise<void> {
   const { data, error } = await db.rpc("es_coni")
   if (error) throw new Error(`No pude comprobar quién es: ${error.message}`, { cause: error })
   if (!data) throw new Falla(ERROR_SOLO_CONI)
