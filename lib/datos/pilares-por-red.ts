@@ -188,11 +188,18 @@ export async function ponerAngulosDelLote(
   for (const idea of ideas) {
     const angulo = anguloPorSlug(catalogo, idea.pilar, idea.angulo)
     if (!angulo) continue
-    const { error } = await db.from("ideas").update({ angulo_id: angulo.id }).eq("id", idea.ideaId)
-    if (error) {
+    const { data, error } = await db
+      .from("ideas")
+      .update({ angulo_id: angulo.id })
+      .eq("id", idea.ideaId)
+      .select("id")
+      .maybeSingle()
+    // An update that touched no row (the idea is gone) set nothing: said like a refused one, never counted.
+    const motivo = error ? error.message : data ? null : "ya no está"
+    if (motivo) {
       throw new Error(
-        `Apliqué el lote, pero no pude poner el ángulo de la idea ${idea.ideaId}: ${error.message}. Ponlo desde su tarjeta en Ideas.`,
-        { cause: error },
+        `Apliqué el lote, pero no pude poner el ángulo de la idea ${idea.ideaId}: ${motivo}. Ponlo desde su tarjeta en Ideas.`,
+        { cause: error ?? undefined },
       )
     }
     puestos += 1

@@ -5,6 +5,8 @@ import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { leerPilares } from "@/lib/datos/pilares"
+import { ponerAngulosDelLote } from "@/lib/datos/pilares-por-red"
 import { ejecutarPilaresPorRed } from "@/lib/pilares/ejecutar-por-red"
 import { aCsvPorRed, type FilaPorRed, LOTE_PILARES_POR_RED, leerCsvPorRed } from "@/lib/pilares/por-red"
 import { servidor } from "../msw"
@@ -359,5 +361,20 @@ describe("pilares por red, los comandos", () => {
     expect(sinAngulo.rows[0]?.angulo_id).toBeNull()
     const filas = await pool.query("select 1 from public.tema_pilares where tema_id = $1", [tema])
     expect(filas.rowCount).toBe(0)
+  })
+})
+
+describe("ponerAngulosDelLote", () => {
+  it("fails in words when an angle's idea is gone, instead of counting it as set", async () => {
+    const db = clienteDeServicio()
+    const catalogo = await leerPilares(db)
+    const ausente = randomUUID()
+    await expect(
+      ponerAngulosDelLote(
+        db,
+        [{ ideaId: ausente, pilar: "psicologia-en-la-mesa", angulo: "lo-que-construyo" }],
+        catalogo,
+      ),
+    ).rejects.toThrow(`Apliqué el lote, pero no pude poner el ángulo de la idea ${ausente}`)
   })
 })
