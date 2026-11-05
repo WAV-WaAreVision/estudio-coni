@@ -72,18 +72,40 @@ async function etapasDeLinkedin(c: pg.PoolClient): Promise<string[]> {
   return rows.map((fila) => fila.desde)
 }
 
+/**
+ * The screen always sends every stage of the draft's network: the ones a test does not name go empty (nothing changes
+ * there but the new pillar's row, at the draft's weight). A weights value that is not an object goes as it is.
+ */
+async function conCadaEtapa(c: pg.PoolClient, id: string, pesos: unknown): Promise<unknown> {
+  if (pesos === null || typeof pesos !== "object" || Array.isArray(pesos)) return pesos
+  const { rows } = await c.query<{ desde: string }>(
+    `select s.desde::text as desde from (
+       select ${HOY} as desde
+       union
+       select w.desde from public.pilar_pesos w join public.categorias k on k.id = w.pilar_id
+       join public.borradores_de_pilar b on b.id = $1 and b.red = k.red
+       where k.es_pilar and k.activa and not k.es_capa and w.desde > ${HOY}
+     ) s`,
+    [id],
+  )
+  return { ...Object.fromEntries(rows.map((fila) => [fila.desde, {}])), ...pesos }
+}
+
 async function aprobar(c: pg.PoolClient, id: string, pesos: unknown): Promise<string> {
   const { rows } = await c.query<{ pilar: string }>("select public.aprobar_borrador_de_pilar($1, $2::jsonb) as pilar", [
     id,
-    JSON.stringify(pesos),
+    JSON.stringify(await conCadaEtapa(c, id, pesos)),
   ])
   const pilar = rows[0]?.pilar
   if (!pilar) throw new Error("La aprobación no devolvió el pilar")
   return pilar
 }
 
-const rechazo = (c: pg.PoolClient, id: string, pesos: unknown) =>
-  fallaCon(c, "select public.aprobar_borrador_de_pilar($1, $2::jsonb)", [id, JSON.stringify(pesos)])
+const rechazo = async (c: pg.PoolClient, id: string, pesos: unknown) =>
+  fallaCon(c, "select public.aprobar_borrador_de_pilar($1, $2::jsonb)", [
+    id,
+    JSON.stringify(await conCadaEtapa(c, id, pesos)),
+  ])
 
 /** The rows of a pillar written exactly on `desde`. */
 async function filasEn(c: pg.PoolClient, pilar: string, desde: string): Promise<number[]> {
@@ -242,6 +264,23 @@ describe("aprobar_borrador_de_pilar", () => {
       for (const clave of [await hoy(c, -1), "2026-11-04", rows[0]?.siguiente ?? "", "hoy", "2026-13-45"]) {
         const error = await rechazo(c, id, { [clave]: { nuevo: 10 } })
         expect([error.code, error.message], clave).toEqual(["22023", "etapa_invalida"])
+      }
+    })
+  })
+
+  it("refuses weights that leave out a stage of the network: one added after the screen opened makes her reload", async () => {
+    await como(comoConi, async (c) => {
+      const dia = await hoy(c)
+      const id = await borrador(c, "linkedin", `Falta ${SUFIJO}`, `Falta ${SUFIJO}`)
+      const etapa = await etapaPropia(c, ["diagnostico-doble"])
+      const todas = (await conCadaEtapa(c, id, {})) as Record<string, object>
+      const { [etapa]: _nueva, ...sinLaNueva } = todas
+      for (const pesos of [{}, { [dia]: { nuevo: 10 } }, sinLaNueva]) {
+        const error = await fallaCon(c, "select public.aprobar_borrador_de_pilar($1, $2::jsonb)", [
+          id,
+          JSON.stringify(pesos),
+        ])
+        expect([error.code, error.message], JSON.stringify(pesos)).toEqual(["22023", "etapa_invalida"])
       }
     })
   })

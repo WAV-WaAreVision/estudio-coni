@@ -159,6 +159,14 @@ describe("BotonDescartar", () => {
   })
 })
 
+describe("BotonDescartar of a network draft", () => {
+  it("does not promise what a network draft never had: it was never approvable", () => {
+    render(<BotonDescartar tipo="red" id={ID_3} nombre="TikTok" describe="titulo" />)
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+    expect(screen.getByText("¿Descartar «TikTok»? Ya no lo podrás editar.")).toHaveFocus()
+  })
+})
+
 describe("the edit page", () => {
   it("opens the pillar form or the network form, prefilled, and returns to Borradores", async () => {
     datos.leerBorrador.mockResolvedValueOnce({ tipo: "pilar", borrador: DE_LINKEDIN })

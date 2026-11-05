@@ -46,7 +46,7 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
     <div className="basis-full">
       <ConfirmacionEnLinea
         trato="destructivo"
-        pregunta={`¿Descartar «${nombre}»? Ya no lo podrás aprobar ni editar.`}
+        pregunta={`¿Descartar «${nombre}»? ${tipo === "pilar" ? "Ya no lo podrás aprobar ni editar." : "Ya no lo podrás editar."}`}
         confirmar="Descartar"
         volver="Cancelar"
         cargando={pendiente}

@@ -139,11 +139,17 @@ describe("drafts from the app", () => {
 
 const hoy = () => diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA)
 
+/** Every stage of the network from today, as the approval screen sends them; `cambios` fills some. */
+async function cadaEtapa(cambios: Record<string, Record<string, number>> = {}) {
+  const etapas = await etapasDeRed(coni, "linkedin", hoy())
+  return { ...Object.fromEntries(etapas.map((etapa) => [etapa.desde, {}])), ...cambios }
+}
+
 describe("approving a draft from the app", () => {
   it("makes it an active pillar every reader sees, accepts a total over 100 that pesosDeRed flags, and approves once", async () => {
     const corto = `Aprobado ${SUFIJO}`
     const id = await guardado(pilar(corto))
-    const resultado = await aprobarBorradorDePilar({ db: coni }, { id, pesos: {} })
+    const resultado = await aprobarBorradorDePilar({ db: coni }, { id, pesos: await cadaEtapa() })
     expect(resultado).toEqual({ ok: true, pilarId: expect.stringMatching(/^[0-9a-f-]{36}$/), red: "linkedin" })
     expect((await pilaresActivos(coni)).find((p) => p.nombreCorto === corto)).toMatchObject({
       red: "linkedin",
@@ -157,7 +163,7 @@ describe("approving a draft from the app", () => {
     expect(pesos.total).toBe(110)
     expect(pesos.sumaCien).toBe(false)
     expect(await leerBorrador(coni, id)).toBeNull()
-    expect(await aprobarBorradorDePilar({ db: coni }, { id, pesos: {} })).toEqual({
+    expect(await aprobarBorradorDePilar({ db: coni }, { id, pesos: await cadaEtapa() })).toEqual({
       ok: false,
       error: BORRADOR_YA_DECIDIDO,
     })
@@ -176,7 +182,7 @@ describe("approving a draft from the app", () => {
 
   it("says in her words a name already in use, a weight of the other network and a stage that is gone", async () => {
     const enUso = await guardado({ ...pilar(`Otro ${SUFIJO}`), nombre: "Pareja y conversación" })
-    expect(await aprobarBorradorDePilar({ db: coni }, { id: enUso, pesos: {} })).toEqual({
+    expect(await aprobarBorradorDePilar({ db: coni }, { id: enUso, pesos: await cadaEtapa() })).toEqual({
       ok: false,
       error: NOMBRE_EN_USO,
     })
@@ -184,16 +190,27 @@ describe("approving a draft from the app", () => {
     const deInstagram = (await pilaresActivos(coni)).find((p) => p.red === "instagram" && !p.esCapa)
     if (!deInstagram) throw new Error("No hay pilares de Instagram")
     expect(
-      await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { [hoy()]: { [deInstagram.id]: 30 } } }),
+      await aprobarBorradorDePilar(
+        { db: coni },
+        { id: deLinkedin, pesos: await cadaEtapa({ [hoy()]: { [deInstagram.id]: 30 } }) },
+      ),
     ).toEqual({ ok: false, error: PILAR_DE_OTRA_RED })
     expect(
       await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { "2020-01-01": { nuevo: 10 } } }),
     ).toEqual({ ok: false, error: ETAPA_INVALIDA })
+    // A stage the screen did not show (added after it opened) asks for a reload too.
+    expect(await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { [hoy()]: { nuevo: 10 } } })).toEqual({
+      ok: false,
+      error: ETAPA_INVALIDA,
+    })
   })
 
   it("refuses WAV before the database is asked", async () => {
     const id = await guardado(pilar(`Para WAV ${SUFIJO}`))
-    expect(await aprobarBorradorDePilar({ db: wav }, { id, pesos: {} })).toEqual({ ok: false, error: ERROR_SOLO_CONI })
+    expect(await aprobarBorradorDePilar({ db: wav }, { id, pesos: await cadaEtapa() })).toEqual({
+      ok: false,
+      error: ERROR_SOLO_CONI,
+    })
     expect((await leerBorrador(coni, id))?.tipo).toBe("pilar")
   })
 })

@@ -39,7 +39,6 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   unirAutoresAccion: vi.fn(),
   ocultarIdeaAccion: vi.fn(),
   cambiarPilaresAccion: vi.fn(),
-  recordarRedAccion: vi.fn(),
 }))
 
 import type { ReactElement, ReactNode } from "react"
@@ -206,6 +205,16 @@ describe("the Temas page", () => {
     expect(elementos(await Temas(conParams({}))).some((elemento) => elemento.type === TrasElAviso)).toBe(false)
   })
 
+  it("says hiding's note over a draft's, and takes both out of the address", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Temas(conParams({ oculta: IDEA, aviso: "borrador-guardado" })))
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR_LA_ULTIMA)
+    expect(arbol.filter((elemento) => elemento.type === TrasElAviso).map((e) => e.props)).toEqual([
+      { parametro: "oculta" },
+      { parametro: "aviso" },
+    ])
+  })
+
   it("shows «Borradores · N» after the row and says the note a draft's form left, once", async () => {
     esConi.valor = true
     borradores.contarBorradores.mockResolvedValueOnce(2)
@@ -214,9 +223,12 @@ describe("the Temas page", () => {
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISOS["borrador-guardado"])
     expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "aviso" })
 
+    // A note it does not know says nothing, and still leaves the address.
     arbol = elementos(await Temas(conParams({ aviso: "otra-cosa" })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
-    expect(arbol.some((elemento) => elemento.type === TrasElAviso)).toBe(false)
+    expect(arbol.filter((elemento) => elemento.type === TrasElAviso).map((e) => e.props)).toEqual([
+      { parametro: "aviso" },
+    ])
     expect(arbol.find((elemento) => elemento.type === EnlaceABorradores)?.props).toEqual({ cantidad: 0 })
   })
 })

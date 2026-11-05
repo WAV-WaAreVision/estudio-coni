@@ -53,7 +53,8 @@ export default async function Temas({
         <h1 className="text-pantalla">Biblioteca</h1>
         <AvisoDeIdeas texto={ocultaLaUltima ? AVISO_TRAS_OCULTAR_LA_ULTIMA : aviso} />
         {ocultaLaUltima ? <TrasElAviso parametro="oculta" /> : null}
-        {aviso ? <TrasElAviso parametro="aviso" /> : null}
+        {/* Any `?aviso=` leaves the address, also one hiding's note took the place of, or one it does not know. */}
+        {params.aviso === undefined ? null : <TrasElAviso parametro="aviso" />}
         <NavDeBiblioteca actual="temas" />
         <div className="grid min-w-0 gap-3">
           <FilaDeTemas filtros={filtros} pilares={pilares} sinTratar={conteos.sinTratar} />

@@ -145,10 +145,14 @@ begin
     join public.categorias c on c.id = w.pilar_id
     where c.es_pilar and c.activa and not c.es_capa and c.red = v_borrador.red and w.desde > v_hoy
   ) s;
-  -- A stage the screen showed that is gone, or a day that changed since it opened: she reloads (decision 6).
+  -- A stage the screen showed that is gone, a day that changed since it opened, or a stage added since then (the screen
+  -- never showed it, so its weights were never hers to see): she reloads (decision 6).
   if exists (
     select 1 from jsonb_object_keys(p_pesos) k
     where k not in (select to_char(e.desde, 'YYYY-MM-DD') from unnest(v_etapas) as e (desde))
+  ) or exists (
+    select 1 from unnest(v_etapas) as e (desde)
+    where not (p_pesos ? to_char(e.desde, 'YYYY-MM-DD'))
   ) then
     raise exception using errcode = '22023', message = 'etapa_invalida';
   end if;
