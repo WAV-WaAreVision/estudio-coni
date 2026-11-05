@@ -19,6 +19,7 @@ import {
 } from "@/lib/dominio/biblioteca/temas"
 import {
   esFuerza,
+  esRed,
   type PilarDeRed,
   type PilaresDeTema,
   pilaresDeRedes,
@@ -334,6 +335,16 @@ export async function listarTemas(db: Db, filtros: { red: Red; pilar?: string })
 /** The pillars and layers a topic can be filtered by and given: those of a network, LinkedIn first. */
 export async function listarPilaresDeTemas(db: Db): Promise<PilarDeRed[]> {
   return pilaresDeRedes(await leerPilares(db))
+}
+
+/** The network Temas opens on without `?red` (spec 2026-11-04, part 15b); null until Coni first opens it. */
+export async function leerUltimaRed(db: Db): Promise<Red | null> {
+  const { data, error } = await db.from("ajustes").select("ultima_red").maybeSingle()
+  if (error) throw new Error(`No pude leer la última red de Temas: ${error.message}`, { cause: error })
+  const red = data?.ultima_red ?? null
+  if (red === null || esRed(red)) return red
+  // The column's check lets only the two networks in: anything else means the schema changed under us.
+  throw new Error(`La última red de Temas es desconocida: ${red}.`)
 }
 
 /** A topic's pillars per network; empty for a topic without rows. */
