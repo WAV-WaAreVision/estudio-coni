@@ -763,6 +763,7 @@ export type Database = {
       ideas: {
         Row: {
           alertas: Json
+          angulo_id: string | null
           creada_en: string
           descartada_en: string | null
           descartada_por: string | null
@@ -783,6 +784,7 @@ export type Database = {
         }
         Insert: {
           alertas?: Json
+          angulo_id?: string | null
           creada_en?: string
           descartada_en?: string | null
           descartada_por?: string | null
@@ -803,6 +805,7 @@ export type Database = {
         }
         Update: {
           alertas?: Json
+          angulo_id?: string | null
           creada_en?: string
           descartada_en?: string | null
           descartada_por?: string | null
@@ -822,6 +825,13 @@ export type Database = {
           teoria_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ideas_angulo_id_fkey"
+            columns: ["angulo_id"]
+            isOneToOne: false
+            referencedRelation: "pilar_angulos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ideas_pilar_fkey"
             columns: ["pilar"]

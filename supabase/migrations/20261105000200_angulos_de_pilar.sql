@@ -56,3 +56,40 @@ from (values
    2, 1.0 / 3)
 ) as v (pilar, slug, nombre, descripcion, orden, minimo)
 join public.categorias c on c.slug = v.pilar;
+
+-- The idea carries the angle as it carries the pillar (spec 15d, decision 2): a piece's angle is its idea's.
+alter table public.ideas add column angulo_id uuid references public.pilar_angulos (id);
+create index ideas_angulo on public.ideas (angulo_id) where angulo_id is not null;
+
+-- 1. A pillar change that does not also set the angle clears it (the undo of 15a's lot, any later move).
+-- 2. An angle belongs to the idea's pillar (`ideas.pilar` is the pillar's slug).
+-- 3. Coni changes it until she signs gate 1: then the script was written and signed with that angle. Asking for
+--    changes or "volver a firmar" clears `puerta1_en`, and the angle opens again. A discarded piece locks nothing.
+create function public.exigir_angulo_de_pilar() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'UPDATE' and new.pilar is distinct from old.pilar and new.angulo_id is not distinct from old.angulo_id then
+    new.angulo_id := null;
+  end if;
+  if new.angulo_id is not null and not exists (
+    select 1
+      from public.pilar_angulos a
+      join public.categorias c on c.id = a.pilar_id
+     where a.id = new.angulo_id and c.slug = new.pilar
+  ) then
+    raise exception using errcode = '23514', message = 'angulo_de_otro_pilar';
+  end if;
+  if tg_op = 'UPDATE'
+     and new.pilar is not distinct from old.pilar
+     and new.angulo_id is distinct from old.angulo_id
+     and exists (
+       select 1 from public.piezas p
+        where p.idea_id = new.id and p.estado <> 'descartado' and p.puerta1_en is not null
+     ) then
+    raise exception using errcode = '23514', message = 'angulo_firmado';
+  end if;
+  return new;
+end $$;
+
+create trigger exigir_angulo_de_pilar before insert or update of pilar, angulo_id on public.ideas
+  for each row execute function public.exigir_angulo_de_pilar();
