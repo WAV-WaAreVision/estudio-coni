@@ -49,6 +49,7 @@
 15. **Only the engine's and the own idea's prompts list the angles** (`listaDePilares(pilares, { angulos: true })`); the one-off reclassification of 2026-10-17 keeps its text and hash.
 16. **The prompt line:** after «Pilar:», `Ángulo: <nombre> (<descripcion>)` and `Escribe con la voz y el formato del ángulo.` on its own line; an idea without an angle sends the prompt exactly as today.
 17. **Baselines.** Three new phone baselines: `guion-por-aprobar-angulo`, `ideas-angulo` and `biblioteca-temas-falta-angulo`. No existing baseline should move: the scene's ideas sit on pillars without angles and its Temas has no published piece with an angle.
+18. **A pillar change after gate 1 clears the signed angle.** The trigger clears the angle on any pillar change, and only refuses a change of the angle itself once gate 1 is signed; no action today moves a signed idea's pillar. Any future action that changes an idea's pillar must check `puerta1_en` first, or it silently drops an angle Coni signed.
 
 ## File structure
 
