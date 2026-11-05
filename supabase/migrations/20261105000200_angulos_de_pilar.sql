@@ -57,6 +57,14 @@ from (values
 ) as v (pilar, slug, nombre, descripcion, orden, minimo)
 join public.categorias c on c.slug = v.pilar;
 
+-- The join drops an angle whose pillar slug is missing: the migration fails rather than seed fewer than six.
+do $$
+begin
+  if (select count(*) from public.pilar_angulos) <> 6 then
+    raise exception 'semilla_de_angulos_incompleta';
+  end if;
+end $$;
+
 -- The idea carries the angle as it carries the pillar (spec 15d, decision 2): a piece's angle is its idea's.
 alter table public.ideas add column angulo_id uuid references public.pilar_angulos (id);
 create index ideas_angulo on public.ideas (angulo_id) where angulo_id is not null;
