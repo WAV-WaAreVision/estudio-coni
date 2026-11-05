@@ -17,7 +17,15 @@ import {
   type TemaResumido,
   temasPrincipales,
 } from "@/lib/dominio/biblioteca/temas"
-import { esFuerza, type PilarDeRed, type PilaresDeTema, pilaresDeRedes, pilaresDeTema } from "@/lib/dominio/pilares"
+import {
+  esFuerza,
+  esRed,
+  type PilarDeRed,
+  type PilaresDeTema,
+  pilaresDeRedes,
+  pilaresDeTema,
+  type Red,
+} from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 import { leerTodas } from "./paginas"
 import { leerPilares } from "./pilares"
@@ -296,16 +304,16 @@ export function conIdYNombre<T extends { id: string | null; nombre: string | nul
 }
 
 /**
- * The topics of Temas (ported from Ingesta's `listarTemas`), ordered by `ordenarTemas`. A pillar narrows them to those
- * it lists (spec 2026-11-04, section 2): `temas_de_pilar` joins in the DB, so no list of ids travels in the URL.
+ * The topics of Temas on a network (ported from Ingesta's `listarTemas`), ordered by `ordenarTemas`, each saying
+ * whether it went out there. A pillar or layer of that network narrows them (spec 2026-11-04, part 15b):
+ * `temas_de_red` joins in the DB, so no list of ids travels in the URL.
  */
-export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<TemaResumido[]> {
-  const { pilar } = filtros
-  const filas = await leerTodas("los temas", (despuesDe, limite) => {
-    const columnas = "id, nombre, descripcion, categoria_id, afirmaciones, autores, cubierto_por_coni"
-    const todas = pilar
-      ? db.rpc("temas_de_pilar", { p_pilar: pilar }).select(columnas)
-      : db.from("temas_resumen").select(columnas)
+export async function listarTemas(db: Db, filtros: { red: Red; pilar?: string }): Promise<TemaResumido[]> {
+  const { red, pilar } = filtros
+  const filas = await leerTodas(`los temas de ${red}`, (despuesDe, limite) => {
+    const todas = db
+      .rpc("temas_de_red", { p_red: red, p_pilar: pilar })
+      .select("id, nombre, descripcion, categoria_id, afirmaciones, autores, tratado")
     return (despuesDe === null ? todas : todas.gt("id", despuesDe))
       .order("id")
       .limit(limite)
@@ -319,7 +327,7 @@ export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<
       pilarId: fila.categoria_id,
       ideas: fila.afirmaciones ?? 0,
       autores: fila.autores ?? 0,
-      cubiertoPorConi: fila.cubierto_por_coni === true,
+      tratado: fila.tratado === true,
     })),
   )
 }
@@ -327,6 +335,16 @@ export async function listarTemas(db: Db, filtros: { pilar?: string }): Promise<
 /** The pillars and layers a topic can be filtered by and given: those of a network, LinkedIn first. */
 export async function listarPilaresDeTemas(db: Db): Promise<PilarDeRed[]> {
   return pilaresDeRedes(await leerPilares(db))
+}
+
+/** The network Temas opens on without `?red` (spec 2026-11-04, part 15b); null until Coni first opens it. */
+export async function leerUltimaRed(db: Db): Promise<Red | null> {
+  const { data, error } = await db.from("ajustes").select("ultima_red").maybeSingle()
+  if (error) throw new Error(`No pude leer la última red de Temas: ${error.message}`, { cause: error })
+  const red = data?.ultima_red ?? null
+  if (red === null || esRed(red)) return red
+  // The column's check lets only the two networks in: anything else means the schema changed under us.
+  throw new Error(`La última red de Temas es desconocida: ${red}.`)
 }
 
 /** A topic's pillars per network; empty for a topic without rows. */

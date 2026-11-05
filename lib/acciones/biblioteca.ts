@@ -16,7 +16,7 @@ import {
   tipoDeContenido,
 } from "@/lib/dominio/biblioteca/subir"
 import { Falla } from "@/lib/dominio/falla"
-import { FUERZAS } from "@/lib/dominio/pilares"
+import { FUERZAS, REDES } from "@/lib/dominio/pilares"
 import { type Almacen, claveMaterial } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import type { DisparosDeBiblioteca } from "./disparos"
@@ -47,6 +47,7 @@ export const CambioDePilares = z.object({
   // A pillar per network, its secondaries and the layers: a handful; 20 is far above any real choice.
   filas: z.array(z.object({ pilar: z.string().min(1).max(80), fuerza: z.enum(FUERZAS).nullable() })).max(20),
 })
+export const RedElegida = z.object({ red: z.enum(REDES) })
 
 const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un rato."
 const NO_ES_EL_ESTADO = "22023"
@@ -484,6 +485,28 @@ export function cambiarPilaresDeTema(
       if (error.code === NO_ES_EL_ESTADO) throw new Falla(PILARES_QUE_NO_CALZAN)
       throw new Error(`No pude cambiar los pilares del tema ${cambio.temaId}: ${error.message}`, { cause: error })
     }
+    return {}
+  })
+}
+
+/**
+ * The network Temas showed, so it opens there next time (spec 2026-11-04, part 15b). Written like every setting,
+ * through the policy "coni edita ajustes"; row level security answers "no rows" to anybody else, which is an error.
+ */
+export function recordarRed(
+  deps: Pick<DepsBiblioteca, "db">,
+  elegida: z.output<typeof RedElegida>,
+): Promise<Resultado> {
+  return aResultado("recordarRed", async () => {
+    await exigirConi(deps.db)
+    const { data, error } = await deps.db
+      .from("ajustes")
+      .update({ ultima_red: elegida.red })
+      .eq("id", true)
+      .select("ultima_red")
+      .maybeSingle()
+    if (error) throw new Error(`No pude recordar la red ${elegida.red}: ${error.message}`, { cause: error })
+    if (!data) throw new Error("La base no guardó la red de Temas.")
     return {}
   })
 }

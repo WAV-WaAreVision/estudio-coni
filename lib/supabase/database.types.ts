@@ -155,6 +155,7 @@ export type Database = {
           produccion: Json
           revision_de_inventario_avisada: string | null
           tope_mensual_usd: number
+          ultima_red: string | null
           zona: string
         }
         Insert: {
@@ -182,6 +183,7 @@ export type Database = {
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
+          ultima_red?: string | null
           zona?: string
         }
         Update: {
@@ -209,6 +211,7 @@ export type Database = {
           produccion?: Json
           revision_de_inventario_avisada?: string | null
           tope_mensual_usd?: number
+          ultima_red?: string | null
           zona?: string
         }
         Relationships: []
@@ -2053,6 +2056,13 @@ export type Database = {
           },
         ]
       }
+      temas_tratados: {
+        Row: {
+          red: string | null
+          tema_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anotar_numeros_linkedin: {
@@ -2992,6 +3002,24 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      temas_de_red: {
+        Args: { p_pilar?: string; p_red: string }
+        Returns: {
+          actualizado_en: string
+          afirmaciones: number
+          alias: string[]
+          autores: number
+          categoria_id: string
+          creado_en: string
+          cubierto_por_coni: boolean
+          descripcion: string
+          evidencia: Json
+          id: string
+          nombre: string
+          tratado: boolean
+          ultima_afirmacion: string
+        }[]
       }
       temas_parecidos: {
         Args: { p_umbral: number }

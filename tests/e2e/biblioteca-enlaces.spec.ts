@@ -122,7 +122,7 @@ test("Autores, Temas and their pages pass WCAG 2.x AA (4n)", async ({ page }) =>
   await page.goto("/biblioteca/temas")
   hallazgos.push(...(await revisarConAxe(page, "temas")))
   await page.getByText("Más filtros", { exact: true }).click()
-  await expect(page.getByLabel("Pilar")).toBeVisible()
+  await expect(page.getByRole("link", { name: /^Un solo autor/ })).toBeVisible()
   hallazgos.push(...(await revisarConAxe(page, "temas con más filtros")))
 
   await page.goto(`/biblioteca/temas/${escena.carga}`)
@@ -164,8 +164,8 @@ test("at 375 px with large text the tabs, the search and the quick filters fit, 
   await page.goto("/biblioteca/temas")
   await conLetraGrande(page)
   const filtros = page.getByRole("group", { name: "Filtrar temas" })
-  for (const nombre of ["Todos", "Sin tratar · 2", "Ya los traté · 1", "Un solo autor · 2"]) {
-    const chip = filtros.getByRole("link", { name: nombre })
+  for (const nombre of ["Sin tratar · 2", "LinkedIn", "Instagram", "Todos los pilares", "Bienestar e impacto"]) {
+    const chip = filtros.getByRole("link", { name: nombre, exact: true })
     await expect(chip).toBeVisible()
     expect((await chip.boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
   }

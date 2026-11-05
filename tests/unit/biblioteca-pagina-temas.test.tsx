@@ -6,6 +6,7 @@ const { esConi, datos } = vi.hoisted(() => ({
   datos: {
     listarTemas: vi.fn(async (..._: unknown[]): Promise<unknown[]> => []),
     listarPilaresDeTemas: vi.fn(async (): Promise<unknown[]> => []),
+    leerUltimaRed: vi.fn(async (): Promise<unknown> => null),
     leerTema: vi.fn(async (): Promise<unknown> => null),
     destinoDeTema: vi.fn(async (): Promise<string | null> => null),
     leerPilaresDeTema: vi.fn(
@@ -36,6 +37,7 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   unirAutoresAccion: vi.fn(),
   ocultarIdeaAccion: vi.fn(),
   cambiarPilaresAccion: vi.fn(),
+  recordarRedAccion: vi.fn(),
 }))
 
 import type { ReactElement, ReactNode } from "react"
@@ -44,9 +46,11 @@ import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import DetalleDeTema from "@/app/(app)/biblioteca/temas/[id]/page"
 import { PilaresDelTema } from "@/app/(app)/biblioteca/temas/[id]/pilares-del-tema"
-import { FiltrosDeCobertura } from "@/app/(app)/biblioteca/temas/filtros-de-cobertura"
+import { FilaDeTemas } from "@/app/(app)/biblioteca/temas/fila-de-temas"
+import { MasFiltrosDeTemas } from "@/app/(app)/biblioteca/temas/mas-filtros-de-temas"
 import Temas from "@/app/(app)/biblioteca/temas/page"
 import { PanelDeTema } from "@/app/(app)/biblioteca/temas/panel-de-tema"
+import { RecordarRed } from "@/app/(app)/biblioteca/temas/recordar-red"
 import { TarjetaDeTema } from "@/app/(app)/biblioteca/temas/tarjeta-de-tema"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
@@ -68,6 +72,10 @@ const OTRO = "99999999-2222-4333-8444-555555555555"
 const CARGA = "22222222-2222-4333-8444-555555555555"
 const PAUSAS = "33333333-2222-4333-8444-555555555555"
 const IDEA = "44444444-2222-4333-8444-555555555555"
+const PILARES = [
+  { id: PILAR, slug: "bienestar-e-impacto", nombreCorto: "Bienestar e impacto", red: "linkedin", esCapa: false },
+  { id: OTRO, slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", red: "instagram", esCapa: false },
+]
 const carga = {
   id: CARGA,
   nombre: "Carga mental",
@@ -75,7 +83,7 @@ const carga = {
   pilarId: PILAR,
   ideas: 3,
   autores: 2,
-  cubiertoPorConi: true,
+  tratado: true,
 }
 const pausas = {
   id: PAUSAS,
@@ -84,53 +92,95 @@ const pausas = {
   pilarId: null,
   ideas: 1,
   autores: 1,
-  cubiertoPorConi: false,
+  tratado: false,
 }
 const conParams = (params: Record<string, string>) => ({ searchParams: Promise.resolve(params) })
 const textos = (arbol: Elemento[]) =>
   arbol.map((elemento) => elemento.props.children).filter((c) => typeof c === "string")
+const ids = (arbol: Elemento[]) =>
+  arbol
+    .filter((elemento) => elemento.type === TarjetaDeTema)
+    .map((tarjeta) => (tarjeta.props.tema as { id: string }).id)
 
 beforeEach(() => vi.clearAllMocks())
 
 describe("the Temas page", () => {
+  beforeEach(() => {
+    datos.listarPilaresDeTemas.mockResolvedValue(PILARES)
+    datos.leerUltimaRed.mockResolvedValue(null)
+  })
+
   it("refuses a session that is not Coni's on its own, before reading anything", async () => {
     esConi.valor = false
     await expect(Temas(conParams({}))).rejects.toThrow("NEXT_NOT_FOUND")
     expect(datos.listarTemas).not.toHaveBeenCalled()
     expect(datos.listarPilaresDeTemas).not.toHaveBeenCalled()
+    expect(datos.leerUltimaRed).not.toHaveBeenCalled()
   })
 
-  it("narrows by an active pillar, and ignores one that is not", async () => {
+  it("opens on the stored network, LinkedIn when none, and hands RecordarRed the shown and the stored one", async () => {
     esConi.valor = true
-    datos.listarPilaresDeTemas.mockResolvedValue([{ id: PILAR, nombre: "IA y salud mental" }])
-    await Temas(conParams({ pilar: PILAR }))
-    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { pilar: PILAR })
-    await Temas(conParams({ pilar: OTRO }))
-    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { pilar: undefined })
+    let arbol = elementos(await Temas(conParams({})))
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "linkedin", pilar: undefined })
+    expect(arbol.find((elemento) => elemento.type === RecordarRed)?.props).toEqual({ red: "linkedin", recordada: null })
+
+    datos.leerUltimaRed.mockResolvedValue("instagram")
+    arbol = elementos(await Temas(conParams({})))
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "instagram", pilar: undefined })
+    expect(arbol.find((elemento) => elemento.type === RecordarRed)?.props).toEqual({
+      red: "instagram",
+      recordada: "instagram",
+    })
+
+    arbol = elementos(await Temas(conParams({ red: "linkedin" })))
+    expect(arbol.find((elemento) => elemento.type === RecordarRed)?.props).toEqual({
+      red: "linkedin",
+      recordada: "instagram",
+    })
   })
 
-  it("shows the topics of the coverage chosen, counting the coverages over the pillar's topics", async () => {
+  it("narrows by a pillar of the chosen network, ignores one of the other, and gives 15a's ?pilar= its network", async () => {
+    esConi.valor = true
+    await Temas(conParams({ red: "linkedin", pilar: PILAR }))
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "linkedin", pilar: PILAR })
+    await Temas(conParams({ red: "linkedin", pilar: OTRO }))
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "linkedin", pilar: undefined })
+    await Temas(conParams({ pilar: OTRO }))
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "instagram", pilar: OTRO })
+  })
+
+  it("shows the topics of the switches on, counting every switch over the network and pillar's topics", async () => {
     esConi.valor = true
     datos.listarTemas.mockResolvedValueOnce([carga, pausas])
-    const arbol = elementos(await Temas(conParams({ cobertura: "tratados" })))
+    const arbol = elementos(await Temas(conParams({ red: "linkedin", "sin-tratar": "1" })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
-    const tarjetas = arbol.filter((elemento) => elemento.type === TarjetaDeTema)
-    expect(tarjetas.map((tarjeta) => (tarjeta.props.tema as { id: string }).id)).toEqual([CARGA])
-    expect(arbol.find((elemento) => elemento.type === FiltrosDeCobertura)?.props.conteos).toEqual({
-      "sin-tratar": 1,
-      tratados: 1,
-      "un-autor": 1,
+    expect(ids(arbol)).toEqual([PAUSAS])
+    expect(arbol.find((elemento) => elemento.type === FilaDeTemas)?.props).toMatchObject({
+      filtros: { red: "linkedin", sinTratar: true },
+      pilares: PILARES,
+      sinTratar: 1,
     })
+    expect(arbol.find((elemento) => elemento.type === MasFiltrosDeTemas)?.props.conteos).toEqual({
+      sinTratar: 1,
+      tratados: 1,
+      unAutor: 1,
+    })
+  })
+
+  it("reads batch 3's ?cobertura= as its switch", async () => {
+    esConi.valor = true
+    datos.listarTemas.mockResolvedValueOnce([carga, pausas])
+    expect(ids(elementos(await Temas(conParams({ cobertura: "tratados" }))))).toEqual([CARGA])
   })
 
   it("says why the list is empty, with filters and without", async () => {
     esConi.valor = true
     datos.listarTemas.mockResolvedValueOnce([pausas])
-    expect(textos(elementos(await Temas(conParams({ cobertura: "tratados" }))))).toContain(
+    expect(textos(elementos(await Temas(conParams({ tratados: "1" }))))).toContain(
       "Ningún tema coincide con esos filtros.",
     )
     datos.listarTemas.mockResolvedValueOnce([])
-    expect(textos(elementos(await Temas(conParams({}))))).toContain(
+    expect(textos(elementos(await Temas(conParams({ red: "instagram" }))))).toContain(
       "Los temas aparecen solos cuando varias ideas sacadas hablan de lo mismo. Sube más material de distintos autores.",
     )
   })

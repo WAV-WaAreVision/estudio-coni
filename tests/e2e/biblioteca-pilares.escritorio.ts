@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { bloquearRedExterna, revisarConAxe } from "./ayudas"
+import { bloquearRedExterna, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import {
   type EscenaDeAutoresYTemas,
   PILAR,
@@ -31,10 +31,14 @@ test("on the computer, Cambiar pilares gives Instagram a pillar and the list fil
     "Instagram: Game Over Impostora · También toca: Inteligencia emocional",
   ])
 
-  await page.goto("/biblioteca/temas")
-  await page.getByText("Más filtros", { exact: true }).click()
-  await page.getByLabel("Pilar", { exact: true }).selectOption({ label: "Game Over Impostora" })
-  await page.getByRole("button", { name: "Filtrar" }).click()
+  await page.goto("/biblioteca/temas?red=instagram")
+  await tocarHastaLlegar(
+    page,
+    page
+      .getByRole("list", { name: "Pilares de Instagram" })
+      .getByRole("link", { name: "Game Over Impostora", exact: true }),
+    /\?red=instagram&pilar=[0-9a-f-]{36}(?:&v=\d+)?$/,
+  )
   await expect(
     page.getByRole("table", { name: "Temas" }).getByRole("row", { name: new RegExp(TEMA_PRINCIPAL) }),
   ).toBeVisible()

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
-import { bloquearRedExterna, conLetraGrande, revisarConAxe } from "./ayudas"
+import { bloquearRedExterna, conLetraGrande, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import {
   type EscenaDeAutoresYTemas,
   PILAR,
@@ -17,10 +17,12 @@ test.beforeEach(async ({ page }) => {
 })
 
 async function filtrarPorPilar(page: Page, nombre: string) {
-  await page.goto("/biblioteca/temas")
-  await page.getByText("Más filtros", { exact: true }).click()
-  await page.getByLabel("Pilar", { exact: true }).selectOption({ label: nombre })
-  await page.getByRole("button", { name: "Filtrar" }).click()
+  await page.goto("/biblioteca/temas?red=linkedin")
+  await tocarHastaLlegar(
+    page,
+    page.getByRole("list", { name: "Pilares de LinkedIn" }).getByRole("link", { name: nombre, exact: true }),
+    /\?red=linkedin&pilar=[0-9a-f-]{36}(?:&v=\d+)?$/,
+  )
 }
 
 test("a topic's page says its pillars per network, with «También toca» and never «principal»", async ({ page }) => {

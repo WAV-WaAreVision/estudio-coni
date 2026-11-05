@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { bloquearRedExterna, tocarHastaLlegar } from "./ayudas"
+import { bloquearRedExterna } from "./ayudas"
 import {
   AUTORA,
   type EscenaDeAutoresYTemas,
@@ -8,20 +8,12 @@ import {
   IDEA_QUE_SE_OCULTA,
   IDEA_UNICA_DE_PAUSAS,
   OTRO_TEMA,
-  PILAR,
   sembrarAutoresYTemas,
   sembrarTemasEnBucle,
   TEMA_DE_UN_AUTOR,
   TEMA_FUSIONADO,
   TEMA_PRINCIPAL,
 } from "./biblioteca-escena"
-
-// The query of a Temas address without its cache-busting `v`, so the filters compare whatever their order.
-function filtrosDe(direccion: string): Record<string, string> {
-  const url = new URL(direccion)
-  expect(url.pathname).toBe("/biblioteca/temas")
-  return Object.fromEntries([...url.searchParams].filter(([clave]) => clave !== "v"))
-}
 
 const NOTA = "La oculté. La puedes volver a mostrar desde su autor."
 const NOTA_DE_LA_ULTIMA =
@@ -57,73 +49,6 @@ test("Temas shows each topic with counts without zeros and its badges, most auth
   await expect(tarjetas.nth(2)).toContainText(OTRO_TEMA)
   await expect(tarjetas.nth(2)).toContainText("1 idea sacada · 1 autor")
   await expect(page.getByText(TEMA_FUSIONADO)).toHaveCount(0)
-})
-
-test("the quick filters split by coverage in one tap, live in the URL, and an unknown value reads as Todos", async ({
-  page,
-}) => {
-  await page.goto("/biblioteca/temas")
-  const tarjetas = page.getByRole("list", { name: "Temas" }).getByRole("listitem")
-  const filtros = page.getByRole("group", { name: "Filtrar temas" })
-  await expect(filtros.getByRole("link", { name: "Todos" })).toHaveAttribute("aria-current", "page")
-
-  await tocarHastaLlegar(
-    page,
-    filtros.getByRole("link", { name: "Sin tratar · 2" }),
-    /\/biblioteca\/temas\?cobertura=sin-tratar(?:[?&]v=\d+)?$/,
-  )
-  await expect(tarjetas).toHaveCount(2)
-  await expect(page.getByRole("list", { name: "Temas" })).not.toContainText(TEMA_PRINCIPAL)
-
-  await tocarHastaLlegar(
-    page,
-    filtros.getByRole("link", { name: "Ya los traté · 1" }),
-    /\/biblioteca\/temas\?cobertura=tratados(?:[?&]v=\d+)?$/,
-  )
-  await expect(tarjetas).toHaveCount(1)
-  await expect(tarjetas.nth(0)).toContainText(TEMA_PRINCIPAL)
-
-  await tocarHastaLlegar(
-    page,
-    filtros.getByRole("link", { name: "Un solo autor · 2" }),
-    /\/biblioteca\/temas\?cobertura=un-autor(?:[?&]v=\d+)?$/,
-  )
-  await expect(tarjetas).toHaveCount(2)
-
-  await page.goBack()
-  await expect(page).toHaveURL(/\/biblioteca\/temas\?cobertura=tratados(?:[?&]v=\d+)?$/)
-  await expect(tarjetas).toHaveCount(1)
-
-  await page.goto("/biblioteca/temas?cobertura=otra")
-  await expect(filtros.getByRole("link", { name: "Todos" })).toHaveAttribute("aria-current", "page")
-  await expect(tarjetas).toHaveCount(3)
-})
-
-test("the pillar under Más filtros combines with the coverage, and its counts follow it", async ({ page }) => {
-  await page.goto("/biblioteca/temas?cobertura=tratados")
-  await page.getByText("Más filtros", { exact: true }).click()
-  await page.getByLabel("Pilar").selectOption({ label: PILAR })
-  await page.getByRole("button", { name: "Filtrar" }).click()
-
-  await expect.poll(() => filtrosDe(page.url())).toEqual({ pilar: escena.pilar, cobertura: "tratados" })
-  const tarjetas = page.getByRole("list", { name: "Temas" }).getByRole("listitem")
-  await expect(tarjetas).toHaveCount(1)
-  await expect(tarjetas.nth(0)).toContainText(TEMA_PRINCIPAL)
-  await expect(page.getByText("Más filtros · 1", { exact: true })).toBeVisible()
-
-  const filtros = page.getByRole("group", { name: "Filtrar temas" })
-  // Under this pillar nothing is untreated: the chip drops its zero.
-  await tocarHastaLlegar(
-    page,
-    filtros.getByRole("link", { name: "Sin tratar", exact: true }),
-    /\/biblioteca\/temas\?(?:.*&)?cobertura=sin-tratar(?:&|$)/,
-  )
-  expect(filtrosDe(page.url())).toEqual({ pilar: escena.pilar, cobertura: "sin-tratar" })
-  await expect(page.getByText("Ningún tema coincide con esos filtros.")).toBeVisible()
-
-  await page.getByRole("link", { name: "Quitar este filtro" }).click()
-  await expect(page).toHaveURL(/\/biblioteca\/temas\?cobertura=sin-tratar(?:[?&]v=\d+)?$/)
-  await expect(tarjetas).toHaveCount(2)
 })
 
 test("a topic's page groups its ideas by author; Ocultar takes one out with a quiet note that takes the focus", async ({

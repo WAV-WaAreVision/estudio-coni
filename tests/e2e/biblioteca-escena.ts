@@ -17,6 +17,11 @@ export const TEMA_FUSIONADO = "Pausas cortas"
 /** Carga mental's pillar in LinkedIn (short name, as the select and the page say it), and one «También toca». */
 export const PILAR = "Bienestar e impacto"
 export const PILAR_SECUNDARIO = "Diagnóstico doble"
+/** Descanso digital's pillar in Instagram, and the layer Pausas activas carries (spec 2026-11-04, part 15b). */
+export const PILAR_DE_INSTAGRAM = "Inteligencia emocional"
+export const CAPA = "Capa TDAH"
+/** The piece that went out on LinkedIn with Carga mental: vaciarBiblioteca finds it by this title. */
+const TITULO_DE_LA_PIEZA_PUBLICADA = "Repartir la carga mental, en LinkedIn"
 export const IDEA_DE_CONI = "Repartir la carga mental empieza por nombrarla."
 /** One of the two ideas of Daniela in Carga mental (sembrarBiblioteca). */
 export const IDEA_QUE_SE_OCULTA = "Las pausas acordadas protegen."
@@ -98,6 +103,10 @@ async function textoOriginal(materialId: string, texto: string): Promise<void> {
 }
 
 export async function vaciarBiblioteca(): Promise<void> {
+  // The scene's published piece points at an engine idea: it goes before vaciarMotor deletes that idea.
+  await pool.query("delete from public.piezas where titulo = $1", [TITULO_DE_LA_PIEZA_PUBLICADA])
+  // Temas opens on the stored network: every scene starts with none, as `pnpm db:reset` leaves it.
+  await pool.query("update public.ajustes set ultima_red = null")
   // Emptying every material would orphan the authors a scene's theories made (`vaciarMotor` finds them through their
   // seeded materials) and leave them for `pnpm test:db` to count: the engine's seed goes first.
   await vaciarMotor()
@@ -222,7 +231,8 @@ export interface EscenaDeAutoresYTemas extends EscenaDeBiblioteca {
  * Batch 3's scene, on top of batch 1's five materials (whose specs keep counting five): a second author to join, one
  * with nothing, an idea of Coni's own (so Carga mental reads "Ya lo traté"), a pillar on Carga mental, a topic of one
  * author and a topic merged into Pausas activas.
- *   Topics: Carga mental 3 ideas · 2 autores (tratado, pilar) · Descanso digital 2 · 1 · Pausas activas 1 · 1.
+ *   Topics: Carga mental 3 ideas · 2 autores (out on LinkedIn only, pilar) · Descanso digital 2 · 1 (pilar in
+ *   Instagram) · Pausas activas 1 · 1 (Capa TDAH).
  *   Authors: Daniela 2 materiales · 3 ideas · D. Ruiz 1 · 2 · Coni 4 · 1 · Instituto del Descanso nothing.
  */
 export async function sembrarAutoresYTemas(): Promise<EscenaDeAutoresYTemas> {
@@ -297,6 +307,36 @@ export async function sembrarAutoresYTemas(): Promise<EscenaDeAutoresYTemas> {
   const fusionado = await uno(
     "insert into public.temas (nombre, centroide, fusionado_en) values ($1, $2::extensions.vector, $3) returning id",
     [TEMA_FUSIONADO, CENTROIDE, pausas],
+  )
+  // Each network's row has a topic to list: Descanso digital's pillar in Instagram, the TDAH layer on Pausas activas.
+  await pool.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select f.tema_id, c.id, c.red, c.es_capa, case when c.es_capa then null else 'alta' end, 'coni'
+       from (values ($1::uuid, $2::text), ($3::uuid, $4::text)) as f (tema_id, nombre_corto)
+       join public.categorias c on c.nombre_corto = f.nombre_corto and c.red is not null and c.activa`,
+    [deUnAutor, PILAR_DE_INSTAGRAM, pausas, CAPA],
+  )
+  // Carga mental went out on LinkedIn only, uploaded by hand: «Ya lo traté» there, «Sin tratar» on Instagram. The only
+  // path from a piece to a topic is its idea's theory. The piece stays in `idea`, so Inicio and the calendar never
+  // list it.
+  const teoria = await uno(
+    "insert into public.teorias (titulo, tesis, origen, temas) values ($1, $2, 'motor', $3::uuid[]) returning id",
+    ["Nombrar la carga mental", "Repartirla empieza por nombrarla.", [carga]],
+  )
+  const idea = await uno(
+    `insert into public.ideas (pilar, gancho, formato, fuerza, estado, origen, teoria_id)
+     select c.slug, $1, 'Carrusel', 'alta', 'usada', 'motor', $2
+       from public.categorias c where c.nombre_corto = $3 and c.red is not null and c.activa
+     returning id`,
+    ["La carga mental se reparte", teoria, PILAR],
+  )
+  const pieza = await uno("insert into public.piezas (idea_id, titulo) values ($1, $2) returning id", [
+    idea,
+    TITULO_DE_LA_PIEZA_PUBLICADA,
+  ])
+  await pool.query(
+    "insert into public.publicaciones (pieza_id, destino, estado, marcado_en) values ($1, 'linkedin', 'subido_a_mano', now())",
+    [pieza],
   )
   return {
     ...base,

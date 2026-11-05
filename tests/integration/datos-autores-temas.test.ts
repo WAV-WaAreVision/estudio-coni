@@ -28,6 +28,9 @@ let pausas = ""
 let solo = ""
 let viejo = ""
 let pilar = ""
+let teoria = ""
+let ideaPublicada = ""
+let pieza = ""
 const materiales: string[] = []
 const temas: string[] = []
 const autores: string[] = []
@@ -76,9 +79,35 @@ beforeAll(async () => {
   const deOtra = await sembrarMaterial({ titulo: `De Otra ${SUFIJO}`, autorId: otra })
   await sembrarIdeas(deOtra, otra, solo, 2, { texto: "Sola" })
   materiales.push(deLaAutora, deConi, deOtra)
+  // Carga went out on LinkedIn by hand: the only path from a piece to a topic is its idea's theory (spec 15b).
+  const { rows: deTeoria } = await pool.query<{ id: string }>(
+    "insert into public.teorias (titulo, tesis, origen, temas) values ($1, 'Tesis', 'motor', $2::uuid[]) returning id",
+    [`Teoría ${SUFIJO}`, [carga]],
+  )
+  teoria = deTeoria[0]?.id ?? ""
+  const { rows: deIdea } = await pool.query<{ id: string }>(
+    `insert into public.ideas (pilar, gancho, formato, fuerza, estado, origen, teoria_id)
+     values ('bienestar-e-impacto', $1, 'Carrusel', 'alta', 'usada', 'motor', $2) returning id`,
+    [`Gancho ${SUFIJO}`, teoria],
+  )
+  ideaPublicada = deIdea[0]?.id ?? ""
+  const { rows: dePieza } = await pool.query<{ id: string }>(
+    "insert into public.piezas (idea_id, titulo) values ($1, $2) returning id",
+    [ideaPublicada, `Pieza ${SUFIJO}`],
+  )
+  pieza = dePieza[0]?.id ?? ""
+  if (!teoria || !ideaPublicada || !pieza) throw new Error("No se publicó la pieza de Carga")
+  await pool.query(
+    "insert into public.publicaciones (pieza_id, destino, estado, marcado_en) values ($1, 'linkedin', 'subido_a_mano', now())",
+    [pieza],
+  )
 })
 
 afterAll(async () => {
+  // The piece points at the idea and the idea at the theory: they go in that order, before the topics.
+  await pool.query("delete from public.piezas where id = $1", [pieza])
+  await pool.query("delete from public.ideas where id = $1", [ideaPublicada])
+  await pool.query("delete from public.teorias where id = $1", [teoria])
   await borrarSembrado(materiales, temas, autores)
   await pool.end()
 })
@@ -118,8 +147,8 @@ describe("leerAutor", () => {
 })
 
 describe("listarTemas", () => {
-  it("counts visible ideas and distinct authors, says who covered it, orders by most authors, leaves merged out", async () => {
-    const nuestros = (await listarTemas(coni, {})).filter((t) => temas.includes(t.id))
+  it("counts visible ideas and distinct authors, says whether it went out on the network, orders by most authors, leaves merged out", async () => {
+    const nuestros = (await listarTemas(coni, { red: "linkedin" })).filter((t) => temas.includes(t.id))
     expect(nuestros.map((t) => t.id)).toEqual([carga, solo, pausas])
     expect(nuestros[0]).toEqual({
       id: carga,
@@ -128,14 +157,22 @@ describe("listarTemas", () => {
       pilarId: pilar,
       ideas: 3,
       autores: 2,
-      cubiertoPorConi: true,
+      tratado: true,
     })
-    expect(nuestros[1]).toMatchObject({ ideas: 2, autores: 1, cubiertoPorConi: false })
+    expect(nuestros[1]).toMatchObject({ ideas: 2, autores: 1, tratado: false })
+    const enInstagram = (await listarTemas(coni, { red: "instagram" })).filter((t) => temas.includes(t.id))
+    expect(enInstagram.map((t) => [t.id, t.tratado])).toEqual([
+      [carga, false],
+      [solo, false],
+      [pausas, false],
+    ])
   })
 
-  it("narrows to the topics whose main pillar it is, not those it is only a secondary of", async () => {
-    const nuestros = (await listarTemas(coni, { pilar })).filter((t) => temas.includes(t.id))
+  it("narrows to the topics whose main pillar it is in that network, not those it is only a secondary of", async () => {
+    const nuestros = (await listarTemas(coni, { red: "linkedin", pilar })).filter((t) => temas.includes(t.id))
     expect(nuestros.map((t) => t.id)).toEqual([carga])
+    const enLaOtra = (await listarTemas(coni, { red: "instagram", pilar })).filter((t) => temas.includes(t.id))
+    expect(enLaOtra).toEqual([])
   })
 
   it("narrows by a layer to the topics with its lens, and to nothing for a pillar without topics", async () => {
@@ -143,12 +180,17 @@ describe("listarTemas", () => {
       "select slug, id from public.categorias where slug in ('capa-tdah', 'game-over-impostora')",
     )
     const idDe = (slug: string) => rows.find((r) => r.slug === slug)?.id ?? ""
-    const conCapa = (await listarTemas(coni, { pilar: idDe("capa-tdah") })).filter((t) => temas.includes(t.id))
+    const conCapa = (await listarTemas(coni, { red: "instagram", pilar: idDe("capa-tdah") })).filter((t) =>
+      temas.includes(t.id),
+    )
     expect(conCapa.map((t) => t.id)).toEqual([carga])
-    const vacio = (await listarTemas(coni, { pilar: idDe("game-over-impostora") })).filter((t) => temas.includes(t.id))
+    const vacio = (await listarTemas(coni, { red: "instagram", pilar: idDe("game-over-impostora") })).filter((t) =>
+      temas.includes(t.id),
+    )
     expect(vacio).toEqual([])
   })
-  it("lists every topic of a pillar with hundreds of main topics, never naming them in the request", async () => {
+
+  it("pages past the 1000-row limit: every topic of a pillar with more main topics than that, never naming them in the request", async () => {
     const { rows: elegido } = await pool.query<{ id: string }>(
       "select id from public.categorias where slug = 'psicologia-en-la-mesa'",
     )
@@ -156,7 +198,7 @@ describe("listarTemas", () => {
     const { rows: creados } = await pool.query<{ id: string }>(
       `insert into public.temas (nombre, centroide)
        select 'Muchos ' || $1 || ' ' || n, (select centroide from public.temas where id = $2)
-         from generate_series(1, 350) as n
+         from generate_series(1, 1050) as n
        returning id`,
       [SUFIJO, carga],
     )
@@ -167,9 +209,9 @@ describe("listarTemas", () => {
        select t, c.id, c.red, c.es_capa, 'alta', 'coni' from unnest($1::uuid[]) as t, public.categorias c where c.id = $2`,
       [muchos, muchoPilar],
     )
-    const listados = (await listarTemas(coni, { pilar: muchoPilar })).map((t) => t.id)
+    const listados = (await listarTemas(coni, { red: "linkedin", pilar: muchoPilar })).map((t) => t.id)
     expect(listados.toSorted()).toEqual(muchos.toSorted())
-  })
+  }, 60_000)
 })
 
 describe("listarPilaresDeTemas", () => {

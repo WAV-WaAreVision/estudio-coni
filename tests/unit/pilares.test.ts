@@ -8,6 +8,7 @@ import {
   mismaEleccion,
   nombreDePilar,
   pilaresDeEleccion,
+  pilaresDeLaRed,
   pilaresDeRedes,
   pilaresDeTema,
   pilaresParaElegir,
@@ -64,6 +65,29 @@ describe("catálogo de pilares", () => {
       red: "linkedin",
       esCapa: false,
     })
+  })
+
+  it("gives a network's row for Temas: its pillars in the order given, then its layers", () => {
+    const opciones = pilaresDeRedes(PILARES_DE_PRUEBA)
+    expect(pilaresDeLaRed(opciones, "instagram").map((p) => p.nombreCorto)).toEqual([
+      "Game Over Impostora",
+      "Mi nueva partida",
+      "Inteligencia emocional",
+      "Capa TDAH",
+    ])
+    // A layer ordered before the pillars still goes last: it is not a pillar.
+    expect(pilaresDeLaRed(opciones.toReversed(), "instagram").map((p) => p.nombreCorto)).toEqual([
+      "Inteligencia emocional",
+      "Mi nueva partida",
+      "Game Over Impostora",
+      "Capa TDAH",
+    ])
+    expect(pilaresDeLaRed(opciones, "linkedin").map((p) => p.nombreCorto)).toEqual([
+      "Diagnóstico doble",
+      "Bienestar e impacto",
+      "Psicología en la mesa",
+      "Mujeres líderes",
+    ])
   })
 
   it("groups by network with its label, the ones without a network as Pilares anteriores", () => {

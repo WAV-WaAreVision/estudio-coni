@@ -83,6 +83,12 @@ export function pilaresDeRedes(catalogo: CatalogoDePilares): PilarDeRed[] {
   )
 }
 
+/** A network's row in Temas: its pillars in the order given (the catalog's), then its layers, which are not pillars. */
+export function pilaresDeLaRed(pilares: readonly PilarDeRed[], red: Red): PilarDeRed[] {
+  const deLaRed = pilares.filter((pilar) => pilar.red === red)
+  return [...deLaRed.filter((pilar) => !pilar.esCapa), ...deLaRed.filter((pilar) => pilar.esCapa)]
+}
+
 export interface GrupoDePilares<T> {
   red: Red | null
   etiqueta: string
