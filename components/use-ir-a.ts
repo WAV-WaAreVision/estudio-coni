@@ -40,7 +40,7 @@ function pantalla(url: URL): string {
  *
  * It landed when the address shows the destination; when the destination is the screen she is on (Descartar in
  * Borradores), the address proves nothing, so only the note's arrival does (`EVENTO_DE_LLEGADA`). It ends without an
- * error on Back, or when she taps or types outside `origen` (what started it: the busy form keeps it going).
+ * error on Back, on a link, or when she taps or types outside `origen` (what started it: the busy form keeps it going).
  */
 export function useIrA() {
   const router = useRouter()
@@ -84,7 +84,10 @@ export function useIrA() {
         if (conError) setError(ERROR_AL_LLEGAR)
       }
       const alTocar = (evento: Event) => {
-        if (origen !== null && evento.target instanceof Node && origen.contains(evento.target)) return
+        const dentro = origen !== null && evento.target instanceof Node && origen.contains(evento.target)
+        // A link inside it (Cancelar) takes her elsewhere: a late try must not pull her back.
+        const enlace = evento.target instanceof Element && evento.target.closest("a[href]") !== null
+        if (dentro && !enlace) return
         terminar(false)
       }
       const alVolver = () => terminar(false)

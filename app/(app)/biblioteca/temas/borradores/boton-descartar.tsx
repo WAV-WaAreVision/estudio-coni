@@ -55,6 +55,7 @@ export function BotonDescartar({ tipo, id, nombre, describe }: Propiedades) {
         confirmar="Descartar"
         volver="Cancelar"
         cargando={(pendiente || yendo) && errorAlIr === null}
+        deshabilitado={errorAlIr !== null}
         error={error ?? errorAlIr}
         alConfirmar={() => {
           // Busy, or done and only the next screen failed: a second tap would discard it twice.

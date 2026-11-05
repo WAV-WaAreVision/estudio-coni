@@ -155,4 +155,24 @@ describe("useIrA", () => {
     expect(result.current.yendo).toBe(false)
     expect(result.current.error).toBeNull()
   })
+
+  it("ends the watch on a link inside what started it (Cancelar): a late try must not pull her back", () => {
+    const formulario = document.createElement("form")
+    const cancelar = document.createElement("a")
+    cancelar.href = "/biblioteca/temas"
+    const etiqueta = document.createElement("span")
+    cancelar.append(etiqueta)
+    formulario.append(cancelar)
+    document.body.append(formulario)
+    const { result } = renderHook(() => useIrA())
+    act(() => result.current.ir(DESTINO, formulario))
+    act(() => {
+      etiqueta.dispatchEvent(new Event("pointerdown", { bubbles: true }))
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(result.current.yendo).toBe(false)
+    expect(result.current.error).toBeNull()
+    formulario.remove()
+  })
 })

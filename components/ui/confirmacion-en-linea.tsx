@@ -15,6 +15,8 @@ interface PropiedadesDeConfirmacion {
   alConfirmar: () => void
   alVolver: () => void
   cargando?: boolean
+  /** The confirm reads as inactive and does nothing (it already ran and must not run twice). */
+  deshabilitado?: boolean
   /** A refused confirm, said inside the destructive block. */
   error?: string | null
 }
@@ -28,6 +30,7 @@ export function ConfirmacionEnLinea({
   alConfirmar,
   alVolver,
   cargando = false,
+  deshabilitado = false,
   error = null,
 }: PropiedadesDeConfirmacion) {
   const preguntaRef = useRef<HTMLParagraphElement>(null)
@@ -45,7 +48,13 @@ export function ConfirmacionEnLinea({
           {pregunta}
         </p>
         <div className="flex flex-wrap gap-2.5">
-          <Boton variante="destructiva" tamano="chico" cargando={cargando} onClick={alConfirmar}>
+          <Boton
+            variante="destructiva"
+            tamano="chico"
+            cargando={cargando}
+            deshabilitado={deshabilitado}
+            onClick={alConfirmar}
+          >
             {confirmar}
           </Boton>
           <Boton variante="secundario" tamano="chico" onClick={alVolver}>
@@ -61,7 +70,7 @@ export function ConfirmacionEnLinea({
       <p ref={preguntaRef} tabIndex={-1} className="text-cuerpo outline-none">
         {pregunta}
       </p>
-      <Boton cargando={cargando} onClick={alConfirmar}>
+      <Boton cargando={cargando} deshabilitado={deshabilitado} onClick={alConfirmar}>
         {confirmar}
       </Boton>
       <Boton variante="callado" onClick={alVolver}>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactElement, ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -59,6 +59,7 @@ import {
 import { FormularioDePilar } from "@/app/(app)/biblioteca/temas/formulario-de-pilar"
 import { FormularioDeRed } from "@/app/(app)/biblioteca/temas/formulario-de-red"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
+import { ERROR_AL_LLEGAR } from "@/components/use-ir-a"
 import { AVISOS, type BorradorDePilar, type BorradorDeRed } from "@/lib/dominio/biblioteca/borradores"
 
 type Elemento = ReactElement<Record<string, unknown> & { children?: ReactNode }>
@@ -167,6 +168,27 @@ describe("BotonDescartar", () => {
 })
 
 describe("BotonDescartar of a network draft", () => {
+  it("keeps Descartar inactive once the next screen failed to open: the draft is already discarded", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<BotonDescartar tipo="red" id={ID_3} nombre="TikTok" describe="titulo" />)
+      fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+      fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
+      await waitFor(() => expect(replace).toHaveBeenCalled())
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(screen.getByRole("alert")).toHaveTextContent(ERROR_AL_LLEGAR)
+      const descartar = screen.getByRole("button", { name: "Descartar" })
+      expect(descartar).not.toHaveAttribute("aria-busy")
+      expect(descartar).toHaveAttribute("aria-disabled", "true")
+      fireEvent.click(descartar)
+      expect(acciones.descartarBorradorAccion).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("does not promise what a network draft never had: it was never approvable", () => {
     render(<BotonDescartar tipo="red" id={ID_3} nombre="TikTok" describe="titulo" />)
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }))
