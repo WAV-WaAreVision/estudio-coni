@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
+import { EnlaceABorradores } from "@/app/(app)/biblioteca/temas/enlace-a-borradores"
 import { FilaDeTemas } from "@/app/(app)/biblioteca/temas/fila-de-temas"
 import type { PilarDeRed } from "@/lib/dominio/pilares"
 
@@ -25,9 +26,11 @@ describe("FilaDeTemas", () => {
       "Sin tratar · 2",
       "Instagram",
       "LinkedIn",
+      "Agregar red",
       "Todos los pilares",
       "Diagnóstico doble",
       "Bienestar e impacto",
+      "Agregar pilar",
     ])
     expect(within(fila).getByRole("link", { name: "LinkedIn" })).toHaveAttribute("aria-current", "true")
     expect(within(fila).getByRole("link", { name: "Instagram" })).not.toHaveAttribute("aria-current")
@@ -72,7 +75,12 @@ describe("FilaDeTemas", () => {
   it("on Instagram puts the TDAH layer last, and «Sin tratar» on turns off in one tap keeping the pillar", () => {
     render(<FilaDeTemas filtros={{ red: "instagram", pilar: CAPA, sinTratar: true }} pilares={PILARES} sinTratar={3} />)
     const pilares = screen.getByRole("list", { name: "Pilares de Instagram" })
-    expect(textos(within(pilares).getAllByRole("link"))).toEqual(["Todos los pilares", "Mi nueva partida", "Capa TDAH"])
+    expect(textos(within(pilares).getAllByRole("link"))).toEqual([
+      "Todos los pilares",
+      "Mi nueva partida",
+      "Agregar pilar",
+      "Capa TDAH",
+    ])
     expect(within(pilares).getByRole("link", { name: "Capa TDAH" })).toHaveAttribute("aria-current", "page")
     expect(within(pilares).getByRole("link", { name: "Todos los pilares" })).toHaveAttribute(
       "href",
@@ -104,5 +112,41 @@ describe("FilaDeTemas", () => {
     const antes = screen.getByRole("list", { name: "Pilares de LinkedIn" })
     rerender(<FilaDeTemas filtros={{ red: "linkedin", pilar: BIENESTAR }} pilares={PILARES} sinTratar={2} />)
     expect(screen.getByRole("list", { name: "Pilares de LinkedIn" })).toBe(antes)
+  })
+  it("closes the networks with «Agregar red» and puts «Agregar pilar» after the pillars, before the TDAH layer", () => {
+    render(<FilaDeTemas filtros={{ red: "instagram" }} pilares={PILARES} sinTratar={0} />)
+    const fila = screen.getByRole("group", { name: "Filtrar temas" })
+    const [redes] = within(fila).getAllByRole("list")
+    if (!redes) throw new Error("La fila no tiene lista de redes")
+    expect(textos(within(redes).getAllByRole("link"))).toEqual(["Sin tratar", "Instagram", "LinkedIn", "Agregar red"])
+    const agregarRed = within(redes).getByRole("link", { name: "Agregar red" })
+    expect(agregarRed).toHaveAttribute("href", "/biblioteca/temas/red-nueva")
+    expect(agregarRed).not.toHaveAttribute("aria-current")
+    const pilares = within(fila).getByRole("list", { name: "Pilares de Instagram" })
+    const agregarPilar = within(pilares).getByRole("link", { name: "Agregar pilar" })
+    expect(agregarPilar).toHaveAttribute("href", "/biblioteca/temas/pilar-nuevo?red=instagram")
+    expect(agregarPilar).not.toHaveAttribute("aria-current")
+    // It slides with the pillars on the phone: an item of their track that does not shrink.
+    expect(agregarPilar.closest("li")).toHaveClass("shrink-0")
+    for (const agregar of [agregarRed, agregarPilar]) {
+      expect(agregar.firstChild?.nodeName.toLowerCase()).toBe("svg")
+      expect(agregar).toHaveClass("border-dashed")
+    }
+  })
+
+  it("keeps «Agregar pilar» the same element when another pillar is chosen, so the keyboard focus is not lost", () => {
+    const { rerender } = render(<FilaDeTemas filtros={{ red: "linkedin" }} pilares={PILARES} sinTratar={2} />)
+    const antes = screen.getByRole("link", { name: "Agregar pilar" })
+    rerender(<FilaDeTemas filtros={{ red: "linkedin", pilar: BIENESTAR }} pilares={PILARES} sinTratar={2} />)
+    expect(screen.getByRole("link", { name: "Agregar pilar" })).toBe(antes)
+  })
+})
+
+describe("EnlaceABorradores", () => {
+  it("links to Borradores with the count, and is not there with none", () => {
+    const { container, rerender } = render(<EnlaceABorradores cantidad={0} />)
+    expect(container).toBeEmptyDOMElement()
+    rerender(<EnlaceABorradores cantidad={2} />)
+    expect(screen.getByRole("link", { name: "Borradores · 2" })).toHaveAttribute("href", "/biblioteca/temas/borradores")
   })
 })

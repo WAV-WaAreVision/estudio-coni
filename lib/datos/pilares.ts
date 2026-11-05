@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   type CatalogoDePilares,
+  calcularEtapasDeRed,
   calcularPesosDeRed,
   type DatosDePilar,
+  type EtapaDePesos,
   esRed,
   type FilaDePilarElegida,
   ordenarPilares,
+  type PesoDePilar,
   type PesosDeRed,
   pilaresParaElegir,
   type Red,
@@ -57,17 +60,23 @@ export async function pilaresElegibles(db: Db): Promise<DatosDePilar[]> {
   return pilaresParaElegir(await leerPilares(db))
 }
 
-/** A network's weights on a date (YYYY-MM-DD), with the flag the 15c panel warns on. */
-export async function pesosDeRed(db: Db, red: Red, fecha: string): Promise<PesosDeRed> {
+async function leerPesosYPilares(db: Db): Promise<[CatalogoDePilares, PesoDePilar[]]> {
   const [catalogo, pesos] = await Promise.all([leerPilares(db), db.from("pilar_pesos").select("pilar_id, desde, peso")])
   if (pesos.error)
     throw new Error(`No pude leer los pesos de los pilares: ${pesos.error.message}`, { cause: pesos.error })
-  return calcularPesosDeRed(
-    catalogo,
-    pesos.data.map((fila) => ({ pilarId: fila.pilar_id, desde: fila.desde, peso: fila.peso })),
-    red,
-    fecha,
-  )
+  return [catalogo, pesos.data.map((fila) => ({ pilarId: fila.pilar_id, desde: fila.desde, peso: fila.peso }))]
+}
+
+/** A network's weights on a date (YYYY-MM-DD), with the flag the 15c panel warns on. */
+export async function pesosDeRed(db: Db, red: Red, fecha: string): Promise<PesosDeRed> {
+  const [catalogo, filas] = await leerPesosYPilares(db)
+  return calcularPesosDeRed(catalogo, filas, red, fecha)
+}
+
+/** A network's weight stages from `hoy` on, for the approval of a pillar draft (spec 15c, decision 8). */
+export async function etapasDeRed(db: Db, red: Red, hoy: string): Promise<EtapaDePesos[]> {
+  const [catalogo, filas] = await leerPesosYPilares(db)
+  return calcularEtapasDeRed(catalogo, filas, red, hoy)
 }
 
 /** Rows for the pillar RPCs, as the plain JSON their `p_filas` takes. */

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { CONI, pool } from "../integration/db"
+import { limpiarBorradores } from "../integration/limpiar-borradores"
 import { vaciarMotor } from "../integration/siembra"
 import { BALDE_DE_PRUEBA, URL_DEL_ALMACEN } from "./entorno"
 
@@ -20,6 +21,13 @@ export const PILAR_SECUNDARIO = "Diagnóstico doble"
 /** Descanso digital's pillar in Instagram, and the layer Pausas activas carries (spec 2026-11-04, part 15b). */
 export const PILAR_DE_INSTAGRAM = "Inteligencia emocional"
 export const CAPA = "Capa TDAH"
+/** The pillar draft of the scene (15c): on Instagram, whose weights have no later stage (decision 20). */
+export const BORRADOR_DE_INSTAGRAM = {
+  nombre: "Cuerpo y pantalla: lo que el cuerpo dice frente a la IA",
+  nombreCorto: "Cuerpo y pantalla",
+  descripcion: "Lo que el cuerpo avisa cuando pasamos el día frente a la pantalla y la IA, y cómo escucharlo.",
+}
+export const RED_EN_BORRADOR = "TikTok"
 /** The piece that went out on LinkedIn with Carga mental: vaciarBiblioteca finds it by this title. */
 const TITULO_DE_LA_PIEZA_PUBLICADA = "Repartir la carga mental, en LinkedIn"
 export const IDEA_DE_CONI = "Repartir la carga mental empieza por nombrarla."
@@ -103,6 +111,8 @@ async function textoOriginal(materialId: string, texto: string): Promise<void> {
 }
 
 export async function vaciarBiblioteca(): Promise<void> {
+  // Approved drafts became pillars with weights: they go, and the seed's weights come back (15c, decision 19).
+  await limpiarBorradores()
   // The scene's published piece points at an engine idea: it goes before vaciarMotor deletes that idea.
   await pool.query("delete from public.piezas where titulo = $1", [TITULO_DE_LA_PIEZA_PUBLICADA])
   // Temas opens on the stored network: every scene starts with none, as `pnpm db:reset` leaves it.
@@ -365,4 +375,35 @@ export async function sembrarTemasEnBucle(): Promise<string> {
   )
   await pool.query("update public.temas set fusionado_en = $1 where id = $2", [segundo, primero])
   return primero
+}
+
+/** A pillar draft on Instagram (10 %) and a network draft, as Coni would leave them. */
+export async function sembrarBorradores(): Promise<{ pilar: string; red: string }> {
+  await limpiarBorradores()
+  const pilar = await uno(
+    `insert into public.borradores_de_pilar (red, nombre, nombre_corto, descripcion, peso)
+     values ('instagram', $1, $2, $3, 10) returning id`,
+    [BORRADOR_DE_INSTAGRAM.nombre, BORRADOR_DE_INSTAGRAM.nombreCorto, BORRADOR_DE_INSTAGRAM.descripcion],
+  )
+  const red = await uno("insert into public.borradores_de_red (nombre, manual) values ($1, $2) returning id", [
+    RED_EN_BORRADOR,
+    "Videos cortos para mujeres líderes jóvenes.",
+  ])
+  return { pilar, red }
+}
+
+/**
+ * A later weight stage of LinkedIn of the scene's own, 400 days ahead (after the seed's 2027 stages at any date), at
+ * 25 % for each active pillar; `limpiarBorradores` takes it away with every row that is not the seed's.
+ */
+export async function sembrarEtapaDeLinkedin(): Promise<string> {
+  const { rows } = await pool.query<{ desde: string }>(
+    `insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+     select id, red, es_capa, (now() at time zone 'America/Santiago')::date + 400, 25 from public.categorias
+     where es_pilar and activa and not es_capa and red = 'linkedin'
+     returning desde::text as desde`,
+  )
+  const desde = rows[0]?.desde
+  if (!desde) throw new Error("La escena no pudo crear la etapa de LinkedIn")
+  return desde
 }

@@ -139,7 +139,7 @@ export interface PesoDePilar {
 }
 
 export interface PesosDeRed {
-  pesos: { slug: string; nombreCorto: string; peso: number }[]
+  pesos: { id: string; slug: string; nombreCorto: string; peso: number }[]
   total: number
   /** False when the network's weights on that date do not add up to 100: the 15c panel warns, nothing blocks. */
   sumaCien: boolean
@@ -161,10 +161,37 @@ export function calcularPesosDeRed(
           (ultima, fila) => (ultima === null || fila.desde > ultima.desde ? fila : ultima),
           null,
         )
-      return vigente ? [{ slug: pilar.slug, nombreCorto: pilar.nombreCorto, peso: vigente.peso }] : []
+      return vigente ? [{ id: pilar.id, slug: pilar.slug, nombreCorto: pilar.nombreCorto, peso: vigente.peso }] : []
     })
   const total = Math.round(pesos.reduce((suma, pilar) => suma + pilar.peso, 0) * 100) / 100
   return { pesos, total, sumaCien: total === 100 }
+}
+
+/** One stage of a network's weights: the date it starts and the weights it gives. */
+export interface EtapaDePesos extends PesosDeRed {
+  desde: string
+}
+
+/**
+ * A network's stages from `hoy` on (spec 15c, decision 8): `hoy`, then every later `desde` its active pillars have,
+ * in order, each with the weights in force on its date. `aprobar_borrador_de_pilar` computes the same set.
+ */
+export function calcularEtapasDeRed(
+  catalogo: CatalogoDePilares,
+  filas: readonly PesoDePilar[],
+  red: Red,
+  hoy: string,
+): EtapaDePesos[] {
+  const ids = new Set(
+    pilaresParaElegir(catalogo)
+      .filter((pilar) => pilar.red === red)
+      .map((pilar) => pilar.id),
+  )
+  const despues = new Set(filas.filter((fila) => ids.has(fila.pilarId) && fila.desde > hoy).map((fila) => fila.desde))
+  return [hoy, ...[...despues].toSorted()].map((desde) => ({
+    desde,
+    ...calcularPesosDeRed(catalogo, filas, red, desde),
+  }))
 }
 
 /** One row of `tema_pilares` as the domain reads it. */

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { describe, expect, it } from "vitest"
-import { leerPilares, pesosDeRed, pilaresActivos, pilaresElegibles } from "@/lib/datos/pilares"
+import { etapasDeRed, leerPilares, pesosDeRed, pilaresActivos, pilaresElegibles } from "@/lib/datos/pilares"
 import type { CatalogoDePilares } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
@@ -39,8 +39,21 @@ describe("pesosDeRed", () => {
       ["mujeres-lideres", 15],
     ])
     expect(hoy.sumaCien).toBe(true)
+    for (const peso of hoy.pesos) expect(peso.id).toMatch(/^[0-9a-f-]{36}$/)
     const segundo = await pesosDeRed(clienteDeServicio(), "linkedin", "2027-08-01")
     expect(segundo.pesos.map((p) => p.peso)).toEqual([25, 20, 30, 25])
     expect((await pesosDeRed(clienteDeServicio(), "instagram", "2026-11-04")).total).toBe(100)
+  })
+
+  it("gives LinkedIn's stages from a date on, each adding up to 100", async () => {
+    const etapas = await etapasDeRed(clienteDeServicio(), "linkedin", "2026-12-31")
+    expect(etapas.map((etapa) => [etapa.desde, etapa.sumaCien])).toEqual([
+      ["2026-12-31", true],
+      ["2027-01-01", true],
+      ["2027-07-01", true],
+    ])
+    expect((await etapasDeRed(clienteDeServicio(), "instagram", "2026-12-31")).map((e) => e.desde)).toEqual([
+      "2026-12-31",
+    ])
   })
 })

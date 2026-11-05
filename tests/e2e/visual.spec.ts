@@ -27,7 +27,14 @@ import {
   simularMedios,
   TEXTO_LINKEDIN_VALIDO,
 } from "./ayudas"
-import { AUTORA, sembrarAutoresYTemas, sembrarBiblioteca, TEMA_PRINCIPAL, TITULO_LISTO } from "./biblioteca-escena"
+import {
+  AUTORA,
+  sembrarAutoresYTemas,
+  sembrarBiblioteca,
+  sembrarBorradores,
+  TEMA_PRINCIPAL,
+  TITULO_LISTO,
+} from "./biblioteca-escena"
 import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
 
 /**
@@ -706,4 +713,18 @@ test("biblioteca: Autores and Temas on the phone, and an author's and a topic's 
   await page.goto(`/biblioteca/temas/${escena.carga}`)
   await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
   await capturaDe(page, "biblioteca-tema")
+})
+
+test("biblioteca: a pillar draft's form, Borradores and its approval on the phone", async ({ page }) => {
+  await sembrarAutoresYTemas()
+  const borradores = await sembrarBorradores()
+  await page.goto("/biblioteca/temas/pilar-nuevo?red=instagram")
+  await expect(page.getByRole("heading", { name: "Nuevo pilar", level: 1 })).toBeVisible()
+  await capturaDe(page, "biblioteca-pilar-nuevo")
+  await page.goto("/biblioteca/temas/borradores")
+  await expect(page.getByRole("heading", { name: "Borradores", level: 1 })).toBeVisible()
+  await capturaDe(page, "biblioteca-borradores")
+  await page.goto(`/biblioteca/temas/borradores/${borradores.pilar}/aprobar`)
+  await expect(page.getByRole("status").filter({ hasText: "Total:" })).toHaveText("Total: 110 %")
+  await capturaDe(page, "biblioteca-aprobar-pilar")
 })

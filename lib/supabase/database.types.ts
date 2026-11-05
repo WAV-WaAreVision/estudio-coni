@@ -293,6 +293,92 @@ export type Database = {
           },
         ]
       }
+      borradores_de_pilar: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          decidido_en: string | null
+          descripcion: string
+          estado: string
+          id: string
+          nombre: string
+          nombre_corto: string
+          peso: number
+          pilar_id: string | null
+          red: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          decidido_en?: string | null
+          descripcion: string
+          estado?: string
+          id?: string
+          nombre: string
+          nombre_corto: string
+          peso: number
+          pilar_id?: string | null
+          red: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          decidido_en?: string | null
+          descripcion?: string
+          estado?: string
+          id?: string
+          nombre?: string
+          nombre_corto?: string
+          peso?: number
+          pilar_id?: string | null
+          red?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "borradores_de_pilar_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      borradores_de_red: {
+        Row: {
+          conexion: string
+          creado_en: string
+          creado_por: string | null
+          decidido_en: string | null
+          estado: string
+          id: string
+          manual: string
+          nombre: string
+          receta: string
+        }
+        Insert: {
+          conexion?: string
+          creado_en?: string
+          creado_por?: string | null
+          decidido_en?: string | null
+          estado?: string
+          id?: string
+          manual?: string
+          nombre: string
+          receta?: string
+        }
+        Update: {
+          conexion?: string
+          creado_en?: string
+          creado_por?: string | null
+          decidido_en?: string | null
+          estado?: string
+          id?: string
+          manual?: string
+          nombre?: string
+          receta?: string
+        }
+        Relationships: []
+      }
       carruseles: {
         Row: {
           armado_empezo_en: string | null
@@ -2077,6 +2163,10 @@ export type Database = {
       aplicar_lote_de_pilares: {
         Args: { p_filas: Json; p_lote: string }
         Returns: Json
+      }
+      aprobar_borrador_de_pilar: {
+        Args: { p_borrador: string; p_pesos: Json }
+        Returns: string
       }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }

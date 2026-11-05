@@ -1,5 +1,7 @@
 import { Panel } from "@/components/ui/panel"
 import { leerUltimaRed, listarPilaresDeTemas, listarTemas } from "@/lib/datos/biblioteca"
+import { contarBorradores } from "@/lib/datos/borradores"
+import { leerAviso } from "@/lib/dominio/biblioteca/borradores"
 import {
   contarFiltros,
   filtrarTemas,
@@ -13,6 +15,7 @@ import { AvisoDeIdeas } from "../aviso-de-ideas"
 import { FocoDelPanel } from "../foco-del-panel"
 import { NavDeBiblioteca } from "../nav-de-biblioteca"
 import { TrasElAviso } from "../tras-el-aviso"
+import { EnlaceABorradores } from "./enlace-a-borradores"
 import { FilaDeTemas } from "./fila-de-temas"
 import { MasFiltrosDeTemas } from "./mas-filtros-de-temas"
 import { PanelDeTema } from "./panel-de-tema"
@@ -26,7 +29,11 @@ export default async function Temas({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [{ db }, params] = await Promise.all([exigirConi(), searchParams])
-  const [pilares, ultimaRed] = await Promise.all([listarPilaresDeTemas(db), leerUltimaRed(db)])
+  const [pilares, ultimaRed, borradores] = await Promise.all([
+    listarPilaresDeTemas(db),
+    leerUltimaRed(db),
+    contarBorradores(db),
+  ])
   const filtros = leerFiltrosDeTemas(params, { pilares, ultimaRed })
   const seleccion = leerSeleccion(params, "t")
   // The network and the pillar narrow what is read; the switches split it, so their counts are the pillar's.
@@ -35,6 +42,8 @@ export default async function Temas({
   const conteos = contarFiltros(temas)
   const elegido = seleccion ? (temas.find((tema) => tema.id === seleccion) ?? null) : null
   const ocultaLaUltima = leerIdeaOculta(params) !== null
+  // A draft's form (15c) came back with its note; hiding a topic's last idea says its own instead.
+  const aviso = ocultaLaUltima ? null : leerAviso(params)
 
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
@@ -42,11 +51,14 @@ export default async function Temas({
       <RecordarRed red={filtros.red} recordada={ultimaRed} />
       <div className="grid min-w-0 gap-5">
         <h1 className="text-pantalla">Biblioteca</h1>
-        <AvisoDeIdeas texto={ocultaLaUltima ? AVISO_TRAS_OCULTAR_LA_ULTIMA : null} />
+        <AvisoDeIdeas texto={ocultaLaUltima ? AVISO_TRAS_OCULTAR_LA_ULTIMA : aviso} />
         {ocultaLaUltima ? <TrasElAviso parametro="oculta" /> : null}
+        {/* Any `?aviso=` leaves the address, also one hiding's note took the place of, or one it does not know. */}
+        {params.aviso === undefined ? null : <TrasElAviso parametro="aviso" />}
         <NavDeBiblioteca actual="temas" />
         <div className="grid min-w-0 gap-3">
           <FilaDeTemas filtros={filtros} pilares={pilares} sinTratar={conteos.sinTratar} />
+          <EnlaceABorradores cantidad={borradores} />
           <MasFiltrosDeTemas filtros={filtros} conteos={conteos} />
         </div>
         {visibles.length === 0 ? (
