@@ -1,6 +1,8 @@
 import { Panel } from "@/components/ui/panel"
+import { leerFaltasDeAngulo } from "@/lib/datos/angulos"
 import { leerUltimaRed, listarPilaresDeTemas, listarTemas } from "@/lib/datos/biblioteca"
 import { contarBorradores } from "@/lib/datos/borradores"
+import { faltasPorPilar } from "@/lib/dominio/angulos"
 import { leerAviso } from "@/lib/dominio/biblioteca/borradores"
 import {
   contarFiltros,
@@ -29,10 +31,11 @@ export default async function Temas({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [{ db }, params] = await Promise.all([exigirConi(), searchParams])
-  const [pilares, ultimaRed, borradores] = await Promise.all([
+  const [pilares, ultimaRed, borradores, faltas] = await Promise.all([
     listarPilaresDeTemas(db),
     leerUltimaRed(db),
     contarBorradores(db),
+    leerFaltasDeAngulo(db, Date.now()),
   ])
   const filtros = leerFiltrosDeTemas(params, { pilares, ultimaRed })
   const seleccion = leerSeleccion(params, "t")
@@ -57,7 +60,12 @@ export default async function Temas({
         {params.aviso === undefined ? null : <TrasElAviso parametro="aviso" />}
         <NavDeBiblioteca actual="temas" />
         <div className="grid min-w-0 gap-3">
-          <FilaDeTemas filtros={filtros} pilares={pilares} sinTratar={conteos.sinTratar} />
+          <FilaDeTemas
+            filtros={filtros}
+            pilares={pilares}
+            sinTratar={conteos.sinTratar}
+            faltas={faltasPorPilar(faltas)}
+          />
           <EnlaceABorradores cantidad={borradores} />
           <MasFiltrosDeTemas filtros={filtros} conteos={conteos} />
         </div>

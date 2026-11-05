@@ -3,6 +3,7 @@ import Link from "next/link"
 import { CHIP_ELEGIDO, FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
 import { ICONO } from "@/components/ui/icono"
 import { PistaDePestanas } from "@/components/ui/pista-de-pestanas"
+import { lineaDeFalta } from "@/lib/dominio/angulos"
 import { hrefDePilarNuevo, RUTA_DE_RED_NUEVA } from "@/lib/dominio/biblioteca/borradores"
 import { conCuenta } from "@/lib/dominio/biblioteca/cuentas"
 import {
@@ -35,12 +36,15 @@ interface Propiedades {
   pilares: readonly PilarDeRed[]
   /** Topics of the network and pillar with nothing out there yet. */
   sinTratar: number
+  /** The angles that fall short, by pillar id (spec 15d); none by default. */
+  faltas?: Readonly<Record<string, readonly string[]>>
 }
 
 interface OpcionDePilar {
   id: string | undefined
   nombre: string
   esCapa: boolean
+  falta: string | null
 }
 
 /**
@@ -50,19 +54,20 @@ interface OpcionDePilar {
  * wrap; on the phone the pillars slide in their own track (from md up they wrap); the page never scrolls sideways. The
  * track is keyed by network only and «+ Agregar pilar» keeps its key, so choosing a pillar keeps the focus.
  */
-export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
+export function FilaDeTemas({ filtros, pilares, sinTratar, faltas = {} }: Propiedades) {
   const deLaRed = pilaresDeLaRed(pilares, filtros.red)
   const aOpcion = (pilar: PilarDeRed): OpcionDePilar => ({
     id: pilar.id,
     nombre: pilar.nombreCorto,
     esCapa: pilar.esCapa,
+    falta: faltas[pilar.id] ? lineaDeFalta(faltas[pilar.id] ?? []) : null,
   })
   const opcionesDePilar: OpcionDePilar[] = [
-    { id: undefined, nombre: "Todos los pilares", esCapa: false },
+    { id: undefined, nombre: "Todos los pilares", esCapa: false, falta: null },
     ...deLaRed.filter((pilar) => !pilar.esCapa).map(aOpcion),
   ]
   const capas = deLaRed.filter((pilar) => pilar.esCapa).map(aOpcion)
-  const opcion = ({ id, nombre, esCapa }: OpcionDePilar) => {
+  const opcion = ({ id, nombre, esCapa, falta }: OpcionDePilar) => {
     const actual = filtros.pilar === id
     return (
       <li key={id ?? "todos"} className="shrink-0">
@@ -73,7 +78,15 @@ export function FilaDeTemas({ filtros, pilares, sinTratar }: Propiedades) {
           className={cn(CHIP, esCapa && CAPA, CHIP_ELEGIDO)}
         >
           {actual ? <Check aria-hidden="true" weight="bold" size={ICONO.chico} /> : null}
-          {nombre}
+          {falta ? (
+            // A second line inside the link: read with the pillar's name, never a separate tab stop.
+            <span className="grid text-left leading-tight">
+              <span>{nombre}</span>
+              <span className="font-normal">{falta}</span>
+            </span>
+          ) : (
+            nombre
+          )}
         </Link>
       </li>
     )
