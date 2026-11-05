@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  cambiarAngulo,
   crearIdeaPropia,
   type DepsIdeas,
   descartarIdea,
@@ -19,7 +20,7 @@ import { servidor } from "../msw"
 import { CONI, pool, sinLimiteFijado } from "./db"
 import { clienteDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { sembrarIdea } from "./siembra"
+import { sembrarIdea, sembrarPieza } from "./siembra"
 
 type Db = SupabaseClient<Database>
 
@@ -40,6 +41,7 @@ interface CuerpoMensaje {
 let coni: Db
 let mantenedor: Db
 const ideasCreadas: string[] = []
+const piezasCreadas: string[] = []
 
 function deps(db: Db = coni): DepsIdeas {
   return {
@@ -104,6 +106,8 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await pool.query("delete from public.gastos where paso = 'idea_propia'")
   await pool.query("update public.ajustes set tope_mensual_usd = 40")
+  await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  piezasCreadas.length = 0
   await pool.query("delete from public.ideas where id = any($1::uuid[]) or fuentes @> '[\"Idea de Coni\"]'::jsonb", [
     ideasCreadas,
   ])
@@ -406,5 +410,52 @@ describe("restaurarIdeas", () => {
     await pool.query("update public.ideas set descartada_en = now() - interval '9 seconds' where id = $1", [id])
 
     expect(await restaurarIdeas(deps(), [id])).toEqual({ ok: true, restauradas: [] })
+  })
+})
+
+describe("cambiarAngulo", () => {
+  async function anguloId(slug: string): Promise<string> {
+    const { rows } = await pool.query<{ id: string }>("select id from public.pilar_angulos where slug = $1", [slug])
+    return rows[0]?.id ?? ""
+  }
+
+  it("sets, changes and clears the angle of an idea of hers", async () => {
+    const id = await sembrarIdea({ pilar: "psicologia-en-la-mesa" })
+    ideasCreadas.push(id)
+    expect(await cambiarAngulo(deps(), { ideaId: id, anguloId: await anguloId("lo-que-construyo") })).toEqual({
+      ok: true,
+    })
+    expect((await fila(id)).angulo_id).toBe(await anguloId("lo-que-construyo"))
+    expect(await cambiarAngulo(deps(), { ideaId: id, anguloId: null })).toEqual({ ok: true })
+    expect((await fila(id)).angulo_id).toBeNull()
+  })
+
+  it("says in her words an angle of another pillar", async () => {
+    const id = await sembrarIdea({ pilar: "psicologia-en-la-mesa" })
+    ideasCreadas.push(id)
+    expect(await cambiarAngulo(deps(), { ideaId: id, anguloId: await anguloId("lo-vivo") })).toEqual({
+      ok: false,
+      error: "Ese ángulo no es de este pilar.",
+    })
+  })
+
+  it("says in her words an idea whose script she already signed", async () => {
+    const id = await sembrarIdea({ pilar: "psicologia-en-la-mesa", estado: "usada" })
+    ideasCreadas.push(id)
+    const pieza = await sembrarPieza("en_render", { idea_id: id })
+    piezasCreadas.push(pieza)
+    expect(await cambiarAngulo(deps(), { ideaId: id, anguloId: await anguloId("lo-que-planteo") })).toEqual({
+      ok: false,
+      error: "Ya firmaste el guion: el ángulo quedó como estaba.",
+    })
+  })
+
+  it("changes nothing for WAV", async () => {
+    const id = await sembrarIdea({ pilar: "psicologia-en-la-mesa" })
+    ideasCreadas.push(id)
+    expect(
+      (await cambiarAngulo(deps(mantenedor), { ideaId: id, anguloId: await anguloId("lo-que-construyo") })).ok,
+    ).toBe(false)
+    expect((await fila(id)).angulo_id).toBeNull()
   })
 })

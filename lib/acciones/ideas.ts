@@ -218,3 +218,31 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
     return { id: data.id }
   })
 }
+
+const CambioDeAngulo = z.object({ ideaId: z.uuid(), anguloId: z.uuid().nullable() })
+const CHECK = "23514"
+const CLAVE_FORANEA = "23503"
+
+/**
+ * Coni sets, changes or clears an idea's angle (spec 15d, section 3), through her session: row level security lets
+ * only her write, and `exigir_angulo_de_pilar` refuses an angle of another pillar or a script she already signed.
+ */
+export function cambiarAngulo(deps: DepsIdeas, entrada: unknown): Promise<Resultado> {
+  return aResultado("cambiarAngulo", async () => {
+    const cambio = CambioDeAngulo.safeParse(entrada)
+    if (!cambio.success) throw new Falla(ANGULO_DE_OTRO_PILAR)
+    const { data, error } = await deps.db
+      .from("ideas")
+      .update({ angulo_id: cambio.data.anguloId })
+      .eq("id", cambio.data.ideaId)
+      .select("id")
+      .maybeSingle()
+    if (error) {
+      if (error.code === CHECK && error.message === "angulo_firmado") throw new Falla(ANGULO_FIRMADO)
+      if (error.code === CHECK || error.code === CLAVE_FORANEA) throw new Falla(ANGULO_DE_OTRO_PILAR)
+      throw new Error(`No pude cambiar el ángulo: ${error.message}`, { cause: error })
+    }
+    if (!data) throw NoDisponible
+    return {}
+  })
+}

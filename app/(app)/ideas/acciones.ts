@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import {
+  cambiarAngulo,
   crearIdeaPropia,
   type DepsIdeas,
   descartarIdea,
@@ -107,5 +108,16 @@ const ideaConfirmada = z.object({
 export async function crearIdeaPropiaAccion(idea: z.input<typeof ideaConfirmada>) {
   return refrescar(
     await conSesionDeConi("crearIdeaPropia", ideaConfirmada, idea, (db, d) => crearIdeaPropia(depsDeIdeas(db), d)),
+  )
+}
+
+const cambioDeAngulo = z.object({ ideaId: z.uuid(), anguloId: z.uuid().nullable() })
+
+/** Saved in place: the client redraws (`useRedibujar`); no redirect (15c, decision 21). */
+export async function cambiarAnguloAccion(ideaId: string, anguloId: string | null) {
+  return refrescar(
+    await conSesionDeConi("cambiarAngulo", cambioDeAngulo, { ideaId, anguloId }, (db, d) =>
+      cambiarAngulo(depsDeIdeas(db), d),
+    ),
   )
 }
