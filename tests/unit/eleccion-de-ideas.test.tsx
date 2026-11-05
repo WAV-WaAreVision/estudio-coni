@@ -59,7 +59,8 @@ const marcar = (gancho: string) => fireEvent.click(screen.getByRole("checkbox", 
 /**
  * A tap that starts an action, settled before the test goes on. The answer lands over several commits (the rows, the
  * toast mounting empty, then its message, then the transition ending), and findBy would race its one-second wall clock
- * through all of them, which a busy machine loses. act() flushes every one of them first.
+ * through all of them, which a busy machine loses. act() flushes every one of them first, because every mock
+ * here resolves in microtasks: a mock with a real delay would make the synchronous checks below fail, never pass.
  */
 const tocar = (nombre: string) =>
   act(async () => {
