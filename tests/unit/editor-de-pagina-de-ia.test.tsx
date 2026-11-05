@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { EditorDePaginaDeIa, type VersionParaMostrar } from "@/app/(app)/ajustes/pagina-de-ia/editor-de-pagina-de-ia"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -174,12 +174,14 @@ describe("EditorDePaginaDeIa", () => {
       />,
     )
     fireEvent.change(screen.getByLabelText("¿Por qué lo cambias?"), { target: { value: "Otro cambio" } })
-    fireEvent.click(screen.getByRole("button", { name: "Publicar" }))
-    expect(await screen.findByText("No pude publicar.")).toBeInTheDocument()
+    // The error shows before the publishing transition ends, and until it ends «Volver a esta» is disabled and ignores
+    // a tap. act() settles the publication completely, so the tap reaches the action.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Publicar" })))
+    expect(screen.getByText("No pude publicar.")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Volver a esta" }))
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Volver a esta" })))
 
-    await screen.findByText("Volviste al texto de la versión 1: ahora es la versión 3.")
+    expect(screen.getByText("Volviste al texto de la versión 1: ahora es la versión 3.")).toBeInTheDocument()
     expect(screen.queryByText("No pude publicar.")).toBeNull()
   })
 
