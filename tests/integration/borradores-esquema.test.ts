@@ -74,7 +74,9 @@ describe("borradores_de_pilar", () => {
     await como(comoConi, async (c) => {
       const id = await borradorDePilar(c)
       // Row level security or the `aprobado_con_pilar` check, whichever Postgres runs first.
-      const aprobado = await fallaCon(c, "update public.borradores_de_pilar set estado = 'aprobado' where id = $1", [id])
+      const aprobado = await fallaCon(c, "update public.borradores_de_pilar set estado = 'aprobado' where id = $1", [
+        id,
+      ])
       expect(["42501", "23514"]).toContain(aprobado.code)
       const conPilar = await fallaCon(
         c,
@@ -135,9 +137,9 @@ describe("borradores_de_red", () => {
       const aprobada = await fallaCon(c, "update public.borradores_de_red set estado = 'aprobado' where id = $1", [id])
       expect(["42501", "23514"]).toContain(aprobada.code)
       await c.query("update public.borradores_de_red set estado = 'descartado' where id = $1", [id])
-      expect(
-        (await c.query("update public.borradores_de_red set nombre = 'Otra' where id = $1", [id])).rowCount,
-      ).toBe(0)
+      expect((await c.query("update public.borradores_de_red set nombre = 'Otra' where id = $1", [id])).rowCount).toBe(
+        0,
+      )
     })
   })
 
@@ -146,7 +148,9 @@ describe("borradores_de_red", () => {
       const id = await borradorDeRed(c)
       await asumir(c, comoMantenedor)
       expect((await c.query("select 1 from public.borradores_de_red where id = $1", [id])).rowCount).toBe(1)
-      expect((await c.query("update public.borradores_de_red set nombre = 'De WAV' where id = $1", [id])).rowCount).toBe(0)
+      expect(
+        (await c.query("update public.borradores_de_red set nombre = 'De WAV' where id = $1", [id])).rowCount,
+      ).toBe(0)
       expect((await fallaCon(c, "insert into public.borradores_de_red (nombre) values ('De WAV')")).code).toBe("42501")
       for (const sesion of [comoConi, comoMantenedor, comoServicio]) {
         await asumir(c, sesion)

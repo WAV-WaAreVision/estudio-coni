@@ -73,10 +73,10 @@ async function etapasDeLinkedin(c: pg.PoolClient): Promise<string[]> {
 }
 
 async function aprobar(c: pg.PoolClient, id: string, pesos: unknown): Promise<string> {
-  const { rows } = await c.query<{ pilar: string }>(
-    "select public.aprobar_borrador_de_pilar($1, $2::jsonb) as pilar",
-    [id, JSON.stringify(pesos)],
-  )
+  const { rows } = await c.query<{ pilar: string }>("select public.aprobar_borrador_de_pilar($1, $2::jsonb) as pilar", [
+    id,
+    JSON.stringify(pesos),
+  ])
   const pilar = rows[0]?.pilar
   if (!pilar) throw new Error("La aprobación no devolvió el pilar")
   return pilar
