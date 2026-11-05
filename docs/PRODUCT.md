@@ -92,4 +92,6 @@ antes de pedir, sin entusiasmo artificial.
   44 px o más. Aprobar nunca depende solo de un gesto: se firma también con dos toques o con el teclado.
 - Respeta el tamaño de texto del sistema (iOS) y la preferencia de reducir movimiento.
 - El color nunca es la única señal: cada estado lleva texto o ícono.
-- Escritorio: columna de lectura máxima de 560 px; las vistas de WAV pueden ser más densas.
+- Escritorio (regla de Federico, 05-11-2026): cada pantalla de escritorio pasa por una revisión con una skill de UX
+  y se reordena para usar el ancho: columna de lectura más una columna de decisión pegada arriba, o tabla más panel
+  lateral. El teléfono no cambia. Nunca un panel flotante que tape el contenido. Las vistas de WAV pueden ser más densas.
