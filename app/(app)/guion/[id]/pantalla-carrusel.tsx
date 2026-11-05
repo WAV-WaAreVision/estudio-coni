@@ -2,6 +2,7 @@
 
 import { type ReactNode, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { CABECERA_EN_COLUMNAS, COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { BarraDeFirma, LineaDeFalta } from "@/components/ui/barra-de-firma"
 import { Bloque } from "@/components/ui/bloque"
@@ -16,6 +17,7 @@ import { useRedibujar } from "@/components/use-redibujar"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { cn } from "@/lib/utils"
 import { DescartarPieza } from "../../descartar-pieza"
 import { firmarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
 import { faltaParaFirmarCarrusel } from "./falta-para-firmar"
@@ -81,97 +83,108 @@ export function PantallaCarrusel({ datos, angulo }: { datos: DatosDeCarrusel; an
   }
 
   return (
-    <div>
-      <header data-pilar={datos.pilar?.slug} className="grid gap-3">
-        <Volver href="/">Inicio</Volver>
-        <FilaMeta
-          className="mt-2"
-          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
-          largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
-        />
-        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
-      </header>
+    // On a tablet or a computer (critique 2026-11-05, puertas-escritorio) two columns, as gate 1 of a reel: the slides
+    // and the post on the left; the angle and the signature on the right, the signature sticking while she reads. The
+    // last row is 1fr: the reading column spans every row, so the signature's row takes the rest of its height.
+    <div data-ancho="puerta" className="@container">
+      <div className={cn(COLUMNAS_DE_PUERTA, "dos-columnas:grid-rows-[auto_auto_auto_1fr]")}>
+        <header data-pilar={datos.pilar?.slug} className={cn("grid gap-y-3", CABECERA_EN_COLUMNAS)}>
+          <Volver href="/">Inicio</Volver>
+          <FilaMeta
+            className="mt-2"
+            pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
+            largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
+          />
+          <h1 className="text-pieza text-balance">{datos.titulo}</h1>
+        </header>
 
-      {angulo ? <div className="mt-4">{angulo}</div> : null}
+        {angulo ? <div className="mt-4 dos-columnas:col-start-2 dos-columnas:mt-8">{angulo}</div> : null}
 
-      {datos.explicacion ? <Bloque tipo="aviso" titulo={datos.explicacion} className="mt-6" /> : null}
+        {datos.explicacion ? (
+          <Bloque tipo="aviso" titulo={datos.explicacion} className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8" />
+        ) : null}
 
-      <Seccion titulo={TEXTO_REVISA_LAMINAS} id="laminas" cifra={`${datos.laminas.length} láminas`}>
-        <LaminasEnLectura laminas={datos.laminas} />
-      </Seccion>
+        {/* Its mt-8 stands in for the first section's, which a first child drops. */}
+        <div data-testid="lectura-de-la-puerta" className="mt-8 dos-columnas:col-start-1 dos-columnas:[grid-row:2/-1]">
+          <Seccion titulo={TEXTO_REVISA_LAMINAS} id="laminas" cifra={`${datos.laminas.length} láminas`}>
+            <LaminasEnLectura laminas={datos.laminas} />
+          </Seccion>
 
-      <Seccion titulo={TEXTO_REVISA_POST} id="texto-del-post">
-        <Panel>
-          <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.textoPost}</p>
-        </Panel>
-        {datos.revision.length === 0 ? (
-          <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES_CARRUSEL}</p>
-        ) : (
-          datos.revision.map((hallazgo, indice) => (
-            <MarcaRevision
-              key={claveDe(hallazgo)}
-              id={`revision-${indice}`}
-              hallazgo={hallazgo}
-              confirmada={confirmadas.has(claveDe(hallazgo))}
-              alCambiar={(confirmada) => alternar(hallazgo, confirmada)}
-            />
-          ))
-        )}
-        <MasOpciones forma="boton" titulo="Pedir cambio" abiertaAlInicio={bloqueos.length > 0}>
-          {datos.cambiosQuedan === 0 ? (
-            <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_DE_TEXTO}</p>
-          ) : (
-            <div className="grid gap-2">
-              <label htmlFor={idPedido} className="text-meta font-semibold">
-                ¿Qué quieres cambiar?
-              </label>
-              <textarea
-                id={idPedido}
-                value={pedido}
-                onChange={(evento) => setPedido(evento.target.value)}
-                maxLength={MAXIMO_DEL_PEDIDO}
-                aria-describedby={idAyuda}
-                className="campo min-h-24 text-cuerpo font-normal text-tinta"
-              />
-              <p id={idAyuda} className="text-meta text-apagado">
-                {TEXTO_AYUDA_DEL_PEDIDO} {textoCambiosQuedan(datos.cambiosQuedan)}
-              </p>
-              <Boton
-                variante="secundario"
-                deshabilitado={pedido.trim() === ""}
-                cargando={cambio.pendiente}
-                onClick={() =>
-                  cambio.ejecutar(() => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido), redibujar)
-                }
-              >
-                Pedir este cambio
-              </Boton>
-            </div>
-          )}
-        </MasOpciones>
-      </Seccion>
+          <Seccion titulo={TEXTO_REVISA_POST} id="texto-del-post">
+            <Panel>
+              <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.textoPost}</p>
+            </Panel>
+            {datos.revision.length === 0 ? (
+              <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES_CARRUSEL}</p>
+            ) : (
+              datos.revision.map((hallazgo, indice) => (
+                <MarcaRevision
+                  key={claveDe(hallazgo)}
+                  id={`revision-${indice}`}
+                  hallazgo={hallazgo}
+                  confirmada={confirmadas.has(claveDe(hallazgo))}
+                  alCambiar={(confirmada) => alternar(hallazgo, confirmada)}
+                />
+              ))
+            )}
+            <MasOpciones forma="boton" titulo="Pedir cambio" abiertaAlInicio={bloqueos.length > 0}>
+              {datos.cambiosQuedan === 0 ? (
+                <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_DE_TEXTO}</p>
+              ) : (
+                <div className="grid gap-2">
+                  <label htmlFor={idPedido} className="text-meta font-semibold">
+                    ¿Qué quieres cambiar?
+                  </label>
+                  <textarea
+                    id={idPedido}
+                    value={pedido}
+                    onChange={(evento) => setPedido(evento.target.value)}
+                    maxLength={MAXIMO_DEL_PEDIDO}
+                    aria-describedby={idAyuda}
+                    className="campo min-h-24 text-cuerpo font-normal text-tinta"
+                  />
+                  <p id={idAyuda} className="text-meta text-apagado">
+                    {TEXTO_AYUDA_DEL_PEDIDO} {textoCambiosQuedan(datos.cambiosQuedan)}
+                  </p>
+                  <Boton
+                    variante="secundario"
+                    deshabilitado={pedido.trim() === ""}
+                    cargando={cambio.pendiente}
+                    onClick={() =>
+                      cambio.ejecutar(() => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido), redibujar)
+                    }
+                  >
+                    Pedir este cambio
+                  </Boton>
+                </div>
+              )}
+            </MasOpciones>
+          </Seccion>
+        </div>
 
-      <div className="mt-8">
-        <DescartarPieza piezaId={datos.id} version={datos.version} />
+        <div className="mt-8 dos-columnas:col-start-1">
+          <DescartarPieza piezaId={datos.id} version={datos.version} />
+        </div>
+
+        <BarraDeFirma
+          className={cn(FIRMA_EN_COLUMNA, "dos-columnas:[grid-row:-2/-1]")}
+          idConsecuencia={idConsecuencia}
+          consecuencia={TEXTO_CONSECUENCIA_CARRUSEL}
+          arriba={
+            <>
+              {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
+              {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
+            </>
+          }
+        >
+          <DeslizarParaAprobar
+            habilitado={falta.tipo === "nada"}
+            enviando={firma.pendiente}
+            describidoPor={falta.tipo === "nada" ? idConsecuencia : `${idFalta} ${idConsecuencia}`}
+            alFirmar={() => firma.ejecutar(() => firmarCarruselAccion(datos.id, datos.version), redibujar)}
+          />
+        </BarraDeFirma>
       </div>
-
-      <BarraDeFirma
-        idConsecuencia={idConsecuencia}
-        consecuencia={TEXTO_CONSECUENCIA_CARRUSEL}
-        arriba={
-          <>
-            {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
-          </>
-        }
-      >
-        <DeslizarParaAprobar
-          habilitado={falta.tipo === "nada"}
-          enviando={firma.pendiente}
-          describidoPor={falta.tipo === "nada" ? idConsecuencia : `${idFalta} ${idConsecuencia}`}
-          alFirmar={() => firma.ejecutar(() => firmarCarruselAccion(datos.id, datos.version), redibujar)}
-        />
-      </BarraDeFirma>
     </div>
   )
 }
