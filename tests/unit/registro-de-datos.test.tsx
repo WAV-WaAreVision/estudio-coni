@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RegistroDeDatos } from "@/app/(app)/ajustes/datos-personales/registro-de-datos"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -105,11 +105,13 @@ describe("RegistroDeDatos", () => {
         : { ok: false, error: "Algo falló de nuestro lado. Inténtalo de nuevo en unos minutos." }
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Lo revisé" }))
-    expect(await screen.findByText("Quedó anotado. Gracias.")).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Lo revisé" }))
+    // The success shows before the transition ends, and until it ends the button is busy and ignores a tap. act()
+    // settles the first try completely, so the second tap reaches the action.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Lo revisé" })))
+    expect(screen.getByText("Quedó anotado. Gracias.")).toBeInTheDocument()
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Lo revisé" })))
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Algo falló de nuestro lado.")
+    expect(screen.getByRole("alert")).toHaveTextContent("Algo falló de nuestro lado.")
     expect(screen.queryByText("Quedó anotado. Gracias.")).toBeNull()
   })
 
