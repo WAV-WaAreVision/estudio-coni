@@ -1,5 +1,6 @@
 import {
   anguloPorSlug,
+  angulosDelPilar,
   type CatalogoDePilares,
   type FilaDePilarElegida,
   NOMBRE_DE_RED,
@@ -196,7 +197,11 @@ const slugsDe = (lista: string) =>
 /** The list Federico sends Coni: her columns plus «Venía de» (spec section 3), pillars by their short names. */
 export function aMarkdownParaConi(filas: readonly FilaPorRed[], catalogo: CatalogoDePilares): string {
   const nombre = (slug: string) => catalogo.find((pilar) => pilar.slug === slug)?.nombreCorto ?? slug
-  const angulo = (fila: FilaPorRed) => anguloPorSlug(catalogo, fila.pilar_nuevo, fila.angulo)?.nombre ?? "Sin ángulo"
+  // «Sin ángulo» only where she could choose one; a pillar without angles leaves the cell empty.
+  const angulo = (fila: FilaPorRed) =>
+    angulosDelPilar(catalogo, fila.pilar_nuevo).length === 0
+      ? ""
+      : (anguloPorSlug(catalogo, fila.pilar_nuevo, fila.angulo)?.nombre ?? "Sin ángulo")
   const temas = filas.filter((fila) => fila.tipo === "tema")
   const ideas = filas.filter((fila) => fila.tipo === "idea")
   const lineas = [

@@ -129,6 +129,12 @@ describe("la propuesta de pilares por red", () => {
     expect(md).not.toContain("—")
   })
 
+  it("leaves the angle cell empty for a pillar without angles, «Sin ángulo» only where one could be chosen", () => {
+    const md = aMarkdownParaConi([idea({ pilar_nuevo: "mujeres-lideres" })], PILARES_DE_PRUEBA)
+    expect(md).toContain("| Uso un avatar. | Mujeres líderes |  | Caso Coni |")
+    expect(md).not.toContain("Sin ángulo")
+  })
+
   it("keeps em dashes out of Coni's list even when a name or a hook carries one", () => {
     const md = aMarkdownParaConi(
       [
