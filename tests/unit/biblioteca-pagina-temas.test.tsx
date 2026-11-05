@@ -17,6 +17,8 @@ const { esConi, datos } = vi.hoisted(() => ({
     ),
   },
 }))
+const borradores = vi.hoisted(() => ({ contarBorradores: vi.fn(async (): Promise<number> => 0) }))
+vi.mock("@/lib/datos/borradores", () => borradores)
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "u-1", email: "alguien@ejemplo.cl" } } }) },
@@ -46,6 +48,7 @@ import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import DetalleDeTema from "@/app/(app)/biblioteca/temas/[id]/page"
 import { PilaresDelTema } from "@/app/(app)/biblioteca/temas/[id]/pilares-del-tema"
+import { EnlaceABorradores } from "@/app/(app)/biblioteca/temas/enlace-a-borradores"
 import { FilaDeTemas } from "@/app/(app)/biblioteca/temas/fila-de-temas"
 import { MasFiltrosDeTemas } from "@/app/(app)/biblioteca/temas/mas-filtros-de-temas"
 import Temas from "@/app/(app)/biblioteca/temas/page"
@@ -54,6 +57,7 @@ import { RecordarRed } from "@/app/(app)/biblioteca/temas/recordar-red"
 import { TarjetaDeTema } from "@/app/(app)/biblioteca/temas/tarjeta-de-tema"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
+import { AVISOS } from "@/lib/dominio/biblioteca/borradores"
 import { AVISO_TRAS_OCULTAR, AVISO_TRAS_OCULTAR_LA_ULTIMA } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 
@@ -116,6 +120,7 @@ describe("the Temas page", () => {
     expect(datos.listarTemas).not.toHaveBeenCalled()
     expect(datos.listarPilaresDeTemas).not.toHaveBeenCalled()
     expect(datos.leerUltimaRed).not.toHaveBeenCalled()
+    expect(borradores.contarBorradores).not.toHaveBeenCalled()
   })
 
   it("opens on the stored network, LinkedIn when none, and hands RecordarRed the shown and the stored one", async () => {
@@ -199,6 +204,20 @@ describe("the Temas page", () => {
     esConi.valor = true
     datos.listarTemas.mockResolvedValueOnce([carga])
     expect(elementos(await Temas(conParams({}))).some((elemento) => elemento.type === TrasElAviso)).toBe(false)
+  })
+
+  it("shows «Borradores · N» after the row and says the note a draft's form left, once", async () => {
+    esConi.valor = true
+    borradores.contarBorradores.mockResolvedValueOnce(2)
+    let arbol = elementos(await Temas(conParams({ red: "linkedin", aviso: "borrador-guardado" })))
+    expect(arbol.find((elemento) => elemento.type === EnlaceABorradores)?.props).toEqual({ cantidad: 2 })
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISOS["borrador-guardado"])
+    expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "aviso" })
+
+    arbol = elementos(await Temas(conParams({ aviso: "otra-cosa" })))
+    expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBeNull()
+    expect(arbol.some((elemento) => elemento.type === TrasElAviso)).toBe(false)
+    expect(arbol.find((elemento) => elemento.type === EnlaceABorradores)?.props).toEqual({ cantidad: 0 })
   })
 })
 

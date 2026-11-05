@@ -77,4 +77,15 @@ describe("TrasElAviso", () => {
     render(<TrasElAviso parametro="mostrada" />)
     expect(`${window.location.pathname}${window.location.search}`).toBe("/biblioteca/autores/a")
   })
+  it("takes a draft form's note out of the address too, keeping the rest", () => {
+    en("/biblioteca/temas?red=linkedin&aviso=borrador-guardado")
+    render(
+      <>
+        <AvisoDeIdeas texto="Guardé el borrador." />
+        <TrasElAviso parametro="aviso" />
+      </>,
+    )
+    expect(window.location.search).toBe("?red=linkedin")
+    expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toHaveFocus()
+  })
 })
