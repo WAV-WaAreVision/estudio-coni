@@ -134,3 +134,118 @@ describe("temas_tratados", () => {
     })
   })
 })
+
+async function darPilar(c: pg.PoolClient, temaId: string, slug: string, fuerza: "alta" | "media" | null) {
+  await c.query(
+    `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+     select $1::uuid, c.id, c.red, c.es_capa, $3::text, 'coni' from public.categorias c where c.slug = $2`,
+    [temaId, slug, fuerza],
+  )
+}
+
+async function pilarDe(c: pg.PoolClient, slug: string): Promise<string> {
+  const { rows } = await c.query<{ id: string }>("select id from public.categorias where slug = $1", [slug])
+  const id = rows[0]?.id
+  if (!id) throw new Error(`Falta el pilar ${slug}`)
+  return id
+}
+
+async function deRed(c: pg.PoolClient, red: string, pilar: string | null, temas: readonly string[]) {
+  const { rows } = await c.query<{ id: string; tratado: boolean }>(
+    "select id, tratado from public.temas_de_red($1::text, $2::uuid) where id = any($3::uuid[]) order by nombre",
+    [red, pilar, temas],
+  )
+  return rows
+}
+
+/** Four live topics (by name order) and a merged one; only the first went out, on LinkedIn. */
+async function escena(c: pg.PoolClient) {
+  const principal = await tema(c, "A principal")
+  const secundario = await tema(c, "B secundario")
+  const conCapa = await tema(c, "C capa")
+  const sinPilares = await tema(c, "D sin pilares")
+  const fusionado = await tema(c, "E fusionado", principal)
+  await darPilar(c, principal, "bienestar-e-impacto", "alta")
+  await darPilar(c, secundario, "diagnostico-doble", "alta")
+  await darPilar(c, secundario, "bienestar-e-impacto", "media")
+  await darPilar(c, conCapa, "capa-tdah", null)
+  await pieza(c, [principal], [{ destino: "linkedin", estado: "subido_a_mano" }])
+  return { principal, secundario, conCapa, sinPilares, todos: [principal, secundario, conCapa, sinPilares, fusionado] }
+}
+
+describe("temas_de_red", () => {
+  it("without a pillar lists every live topic, saying whether it went out on that network", async () => {
+    await como(comoPostgres, async (c) => {
+      const { principal, secundario, conCapa, sinPilares, todos } = await escena(c)
+      await asumir(c, comoConi)
+      expect(await deRed(c, "linkedin", null, todos)).toEqual([
+        { id: principal, tratado: true },
+        { id: secundario, tratado: false },
+        { id: conCapa, tratado: false },
+        { id: sinPilares, tratado: false },
+      ])
+      expect((await deRed(c, "instagram", null, todos)).map((fila) => fila.tratado)).toEqual([
+        false,
+        false,
+        false,
+        false,
+      ])
+    })
+  })
+
+  it("with a pillar of that network lists the topics it is the main pillar of, never one it is a secondary of", async () => {
+    await como(comoPostgres, async (c) => {
+      const { principal, todos } = await escena(c)
+      const bienestar = await pilarDe(c, "bienestar-e-impacto")
+      await asumir(c, comoConi)
+      expect(await deRed(c, "linkedin", bienestar, todos)).toEqual([{ id: principal, tratado: true }])
+    })
+  })
+
+  it("with a layer lists the topics that carry it", async () => {
+    await como(comoPostgres, async (c) => {
+      const { conCapa, todos } = await escena(c)
+      const capa = await pilarDe(c, "capa-tdah")
+      await asumir(c, comoConi)
+      expect(await deRed(c, "instagram", capa, todos)).toEqual([{ id: conCapa, tratado: false }])
+    })
+  })
+
+  it("with a pillar of the other network or an unknown one lists nothing", async () => {
+    await como(comoPostgres, async (c) => {
+      const { todos } = await escena(c)
+      const bienestar = await pilarDe(c, "bienestar-e-impacto")
+      const capa = await pilarDe(c, "capa-tdah")
+      await asumir(c, comoConi)
+      expect(await deRed(c, "instagram", bienestar, todos)).toEqual([])
+      expect(await deRed(c, "linkedin", capa, todos)).toEqual([])
+      expect(await deRed(c, "linkedin", randomUUID(), todos)).toEqual([])
+    })
+  })
+
+  it("leaves temas_de_pilar as it was, for the old code until the cleanup", async () => {
+    await como(comoPostgres, async (c) => {
+      const { principal, todos } = await escena(c)
+      const bienestar = await pilarDe(c, "bienestar-e-impacto")
+      await asumir(c, comoConi)
+      const { rows } = await c.query<{ id: string }>(
+        "select id from public.temas_de_pilar($1::uuid) where id = any($2::uuid[])",
+        [bienestar, todos],
+      )
+      expect(rows).toEqual([{ id: principal }])
+    })
+  })
+
+  it("is read through row level security: WAV gets every topic, none treated", async () => {
+    await como(comoPostgres, async (c) => {
+      const { todos } = await escena(c)
+      await asumir(c, comoMantenedor)
+      expect((await deRed(c, "linkedin", null, todos)).map((fila) => fila.tratado)).toEqual([
+        false,
+        false,
+        false,
+        false,
+      ])
+    })
+  })
+})

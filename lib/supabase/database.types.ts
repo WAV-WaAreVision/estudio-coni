@@ -3000,6 +3000,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      temas_de_red: {
+        Args: { p_pilar?: string; p_red: string }
+        Returns: {
+          actualizado_en: string
+          afirmaciones: number
+          alias: string[]
+          autores: number
+          categoria_id: string
+          creado_en: string
+          cubierto_por_coni: boolean
+          descripcion: string
+          evidencia: Json
+          id: string
+          nombre: string
+          tratado: boolean
+          ultima_afirmacion: string
+        }[]
+      }
       temas_parecidos: {
         Args: { p_umbral: number }
         Returns: {
