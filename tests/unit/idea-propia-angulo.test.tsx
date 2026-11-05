@@ -27,6 +27,8 @@ async function proponer() {
   fireEvent.change(screen.getByLabelText("Tu idea"), { target: { value: "Construyo un modelo." } })
   fireEvent.click(screen.getByRole("button", { name: "Proponer pilar y alertas" }))
   await screen.findByRole("group", { name: "Ángulo" })
+  // The confirmation shows before the proposal's transition ends; a tap while it is busy is ignored by design.
+  await waitFor(() => expect(screen.getByRole("button", { name: "Guardar idea" })).not.toHaveAttribute("aria-busy"))
 }
 
 describe("IdeaPropia con ángulos", () => {
