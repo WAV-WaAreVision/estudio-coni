@@ -19,6 +19,22 @@ function texto(mensaje: string, estado: number): Response {
 }
 
 /**
+ * As Next checks its Server Actions: the `Origin` host against the host the browser asked for (`x-forwarded-host` behind
+ * a proxy, else `host`). Not `request.url`: `next start` may build it from its own address. No `Origin`, no check.
+ */
+function deOtroSitio(request: Request): boolean {
+  const origen = request.headers.get("origin")
+  if (origen === null) return false
+  const pedido = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host
+  try {
+    return new URL(origen).host !== pedido
+  } catch (error) {
+    console.warn("red-elegida: el origen no es una dirección", error)
+    return true
+  }
+}
+
+/**
  * Records the network Temas showed (spec 2026-11-04, part 15b). A route handler, not a Server Action: Temas fires it on
  * mount, and a tap that leaves Temas at once discards a pending Server Action in Next 16.2.6's router queue; when the
  * discarded one finishes, the queue drops the navigation running then, and the next Server Action's redirect (saving a
@@ -26,10 +42,7 @@ function texto(mensaje: string, estado: number): Response {
  */
 export async function POST(request: Request) {
   // Only the app's own pages write it: a browser sends `Origin` on a cross-site POST, and the session cookie would go too.
-  const origen = request.headers.get("origin")
-  if (origen !== null && origen !== new URL(request.url).origin) {
-    return texto("No acepto esta solicitud desde otro sitio.", 403)
-  }
+  if (deOtroSitio(request)) return texto("No acepto esta solicitud desde otro sitio.", 403)
   let cuerpo: unknown
   try {
     cuerpo = await request.json()

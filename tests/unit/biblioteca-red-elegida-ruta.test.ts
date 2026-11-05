@@ -54,4 +54,25 @@ describe("POST /biblioteca/temas/red-elegida", () => {
     const propia = await pedir(JSON.stringify({ red: "instagram" }), { origin: "http://app.test" })
     expect(propia.status).toBe(204)
   })
+
+  it("compares the origin with the host the browser asked for, not the server's own address", async () => {
+    // `next start` may build request.url from its own host; the browser asked for 127.0.0.1:3200.
+    const local = await pedir(JSON.stringify({ red: "instagram" }), {
+      origin: "http://127.0.0.1:3200",
+      host: "127.0.0.1:3200",
+    })
+    expect(local.status).toBe(204)
+    // Behind Vercel's proxy the asked-for host is x-forwarded-host.
+    const tras = await pedir(JSON.stringify({ red: "instagram" }), {
+      origin: "https://conidolly.vercel.app",
+      host: "interno:3000",
+      "x-forwarded-host": "conidolly.vercel.app",
+    })
+    expect(tras.status).toBe(204)
+    const ajena = await pedir(JSON.stringify({ red: "instagram" }), {
+      origin: "https://otro.test",
+      host: "127.0.0.1:3200",
+    })
+    expect(ajena.status).toBe(403)
+  })
 })
