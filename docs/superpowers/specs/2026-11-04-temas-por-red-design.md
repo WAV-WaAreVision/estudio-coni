@@ -34,7 +34,7 @@ Builds on 15a (spec `2026-11-04-pilares-por-red-design.md`, in production since 
 
 The row sits at the top of `/biblioteca/temas`, on the phone and on the computer:
 
-`[ Sin tratar · N ]  [ LinkedIn ▾ ]  [ Instagram ▾ ]`
+`[ Sin tratar · N ]  [ Instagram ▾ ]  [ LinkedIn ▾ ]` (Coni's order; the page still opens on her last network, LinkedIn by default)
 
 - **Everything is a link with its state in the address:**
   - `?red=linkedin|instagram`;
