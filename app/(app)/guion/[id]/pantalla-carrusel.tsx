@@ -14,7 +14,7 @@ import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { DescartarPieza } from "../../descartar-pieza"
 import { firmarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
@@ -85,7 +85,7 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
         <Volver href="/">Inicio</Volver>
         <FilaMeta
           className="mt-2"
-          pilar={datos.pilar?.nombreCorto}
+          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
           largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>

@@ -62,7 +62,7 @@ export default async function PaginaDeGuion({
   const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
-  const pilar = pilarVisible(pilares, idea?.pilar)
+  const pilar = pilarVisible(pilares, idea?.pilar, idea?.angulo_id)
   // A carousel has its own gate 1 (design 2026-10-26): no script, voice or avatar.
   if (fila.tipo === "carrusel") return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} />
 

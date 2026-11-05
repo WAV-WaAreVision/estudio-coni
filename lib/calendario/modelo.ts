@@ -14,6 +14,8 @@ export interface PiezaDeCalendario {
   tipo: TipoDePieza
   /** The slug of its idea's pillar. */
   pilar: string | null
+  /** Its idea's angle id; absent or null without one. */
+  angulo?: string | null
   /** The approved publishing time; null until the video is approved. */
   publicarEn: string | null
   /** Her stored proposal (`fechas_propuestas`); ignored on read once a signed piece has its time. */
@@ -495,7 +497,10 @@ export function construirCalendario(entrada: {
   pilares: CatalogoDePilares
 }): ModeloDeCalendario {
   const { horario, ahora, primeraPublicacion } = entrada
-  const piezas = entrada.piezas.map((pieza) => ({ ...pieza, visible: pilarVisible(entrada.pilares, pieza.pilar) }))
+  const piezas = entrada.piezas.map((pieza) => ({
+    ...pieza,
+    visible: pilarVisible(entrada.pilares, pieza.pilar, pieza.angulo),
+  }))
   return {
     mes: construirMes(piezas, ahora, horario.zona),
     agenda: construirAgenda(piezas, horario, ahora),

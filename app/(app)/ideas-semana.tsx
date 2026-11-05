@@ -13,7 +13,7 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useRedibujar } from "@/components/use-redibujar"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 
 export interface IdeaParaElegir {
   id: string
@@ -82,7 +82,7 @@ export function IdeasSemana({ ideas, alElegir }: PropiedadesDeIdeas) {
             <li key={idea.id} data-pilar={idea.pilar.slug} className="list-none">
               <Casilla
                 etiqueta={idea.gancho}
-                detalle={idea.pilar.nombreCorto}
+                detalle={etiquetaDePilar(idea.pilar)}
                 marcada={marcada}
                 deshabilitada={(!marcada && enElMaximo) || pendiente}
                 alCambiar={(valor) => alternar(idea.id, valor)}

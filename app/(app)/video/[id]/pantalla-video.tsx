@@ -22,7 +22,7 @@ import { useAccion } from "@/components/use-accion"
 import { TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
@@ -149,7 +149,11 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
         />
       </div>
 
-      <FilaMeta className="mt-[18px]" pilar={datos.pilar?.nombreCorto} largo={`${datos.segundos} s`} />
+      <FilaMeta
+        className="mt-[18px]"
+        pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
+        largo={`${datos.segundos} s`}
+      />
       <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
       {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
       <div className="mt-3">

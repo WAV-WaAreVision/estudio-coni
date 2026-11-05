@@ -9,6 +9,7 @@ import { ICONO } from "@/components/ui/icono"
 import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { Hueco, Ocupante, TonoDeEstado } from "@/lib/calendario/modelo"
+import { etiquetaDePilar } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 
 // Decision 14: a state is its icon and its words, in ink (The No Yellow Rule).
@@ -35,7 +36,7 @@ function IconoDeEstado({ ocupante }: { ocupante: Ocupante }) {
 function Ocupado({ ocupante }: { ocupante: Ocupante }) {
   return (
     <span className="grid gap-0.5">
-      {ocupante.pilar ? <span className="text-meta text-apagado">{ocupante.pilar.nombreCorto}</span> : null}
+      {ocupante.pilar ? <span className="text-meta text-apagado">{etiquetaDePilar(ocupante.pilar)}</span> : null}
       <span className="text-cuerpo leading-[1.3] font-semibold">{ocupante.titulo}</span>
       <span data-snapshot="varia" className={cn("flex items-center gap-2 text-meta font-medium", TINTA[ocupante.tono])}>
         <IconoDeEstado ocupante={ocupante} />

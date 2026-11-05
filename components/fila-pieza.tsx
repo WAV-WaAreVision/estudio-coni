@@ -1,6 +1,6 @@
 import { CaretRight, Warning } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import { cn } from "@/lib/utils"
 import { ICONO } from "./ui/icono"
 import { PuntoTrabajando } from "./ui/punto-trabajando"
@@ -35,7 +35,7 @@ export function FilaPieza({
   const contenido = (
     <>
       <span className="grid min-w-0 gap-0.5">
-        {pilar ? <span className="text-meta text-apagado">{pilar.nombreCorto}</span> : null}
+        {pilar ? <span className="text-meta text-apagado">{etiquetaDePilar(pilar)}</span> : null}
         <span className="text-cuerpo leading-[1.3] font-semibold">{titulo}</span>
         {causa ? (
           <span className="mt-1.5 inline-flex w-fit items-start gap-1.5 rounded-bloque bg-piedra-honda px-2.5 py-1 text-meta font-semibold">

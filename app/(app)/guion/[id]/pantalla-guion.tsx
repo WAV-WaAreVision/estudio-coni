@@ -30,7 +30,7 @@ import { separarParaConi, TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { DescartarPieza } from "../../descartar-pieza"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
@@ -206,7 +206,7 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
         {/* The short name keeps pillar, format and length on one line. */}
         <FilaMeta
           className="mt-2"
-          pilar={datos.pilar?.nombreCorto}
+          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
           largo={`${datos.formato ? `${datos.formato} · ` : ""}${datos.segundos} s`}
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>

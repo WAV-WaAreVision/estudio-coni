@@ -7,8 +7,10 @@ export interface IdeaDeBanco {
   pilar: string
   /** The pillar's name from the catalog: the search finds an idea by it. */
   nombrePilar: string
-  /** What the compact places (the card's header, the rows) show. */
+  /** What the compact places (the card's header, the rows) show: the short name, with the angle when it has one. */
   nombreCortoPilar: string
+  /** Its angle id, for the angle control; absent or null without one. */
+  angulo?: string | null
   gancho: string
   tema: string
   formato: string
