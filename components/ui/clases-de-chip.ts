@@ -4,3 +4,6 @@ export const FORMA_DE_CHIP =
 
 export const TRANSICION_DE_CHIP =
   "transition-[box-shadow,background-color,color] duration-[var(--dur-corta)] ease-salida active:shadow-hundido"
+
+/** A chip link that is the current filter: ink with light text, as Materiales' quick filters. */
+export const CHIP_ELEGIDO = "aria-[current=page]:bg-tinta aria-[current=page]:text-luz"
