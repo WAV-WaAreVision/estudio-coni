@@ -1,4 +1,5 @@
 import {
+  anguloPorSlug,
   type CatalogoDePilares,
   type FilaDePilarElegida,
   NOMBRE_DE_RED,
@@ -41,13 +42,18 @@ export const COLUMNAS_POR_RED = [
   "secundarios",
   "capa_tdah",
   "pilar_nuevo",
+  "angulo",
   "venia_de",
   "razon",
 ] as const
 
+/** The header of 15a, before the angle: a CSV reviewed with it still applies, its ideas without angle. */
+const COLUMNAS_DE_15A = COLUMNAS_POR_RED.filter((columna) => columna !== "angulo")
+
 /**
  * One row of the CSV Federico reviews with Coni's corrections. Topics fill `linkedin`, `instagram` (slugs or ""),
- * `secundarios` (slugs separated by ";") and `capa_tdah` ("si" or "no"); ideas fill `pilar_nuevo`.
+ * `secundarios` (slugs separated by ";") and `capa_tdah` ("si" or "no"); ideas fill `pilar_nuevo` and, when it has
+ * angles, `angulo`.
  */
 export interface FilaPorRed {
   tipo: "tema" | "idea"
@@ -58,6 +64,8 @@ export interface FilaPorRed {
   secundarios: string
   capa_tdah: string
   pilar_nuevo: string
+  /** An idea's angle slug, or "". */
+  angulo: string
   venia_de: string
   razon: string
 }
@@ -65,7 +73,7 @@ export interface FilaPorRed {
 /** What `aplicar_lote_de_pilares` takes, before it becomes JSON. */
 export interface FilasDelLote {
   temas: { temaId: string; pilares: FilaDePilarElegida[] }[]
-  ideas: { ideaId: string; pilar: string }[]
+  ideas: { ideaId: string; pilar: string; angulo?: string }[]
 }
 
 export function filasDePropuesta(
@@ -75,7 +83,7 @@ export function filasDePropuesta(
 ): FilaPorRed[] {
   const deTema = new Map(propuesta.temas.map((p) => [p.id, p]))
   const deIdea = new Map(propuesta.ideas.map((p) => [p.id, p]))
-  const vacia = { linkedin: "", instagram: "", secundarios: "", capa_tdah: "", pilar_nuevo: "" }
+  const vacia = { linkedin: "", instagram: "", secundarios: "", capa_tdah: "", pilar_nuevo: "", angulo: "" }
   return [
     ...temas.map((tema): FilaPorRed => {
       const p = deTema.get(tema.id)
@@ -100,6 +108,7 @@ export function filasDePropuesta(
         id: idea.id,
         nombre: idea.gancho,
         pilar_nuevo: p?.pilar ?? "",
+        angulo: p?.angulo ?? "",
         venia_de: idea.veniaDe,
         razon: p?.razon ?? "",
       }
@@ -122,7 +131,11 @@ export const filaDeHoja = (indice: number) => indice + 2
 
 export function leerCsvPorRed(texto: string): FilaPorRed[] {
   const [cabecera, ...resto] = camposDeCsv(texto.replace(/^\uFEFF/, ""))
-  if (!cabecera || cabecera.valores.join(",") !== COLUMNAS_POR_RED.join(",")) {
+  const linea = cabecera?.valores.join(",")
+  const columnas: readonly string[] | undefined = [COLUMNAS_POR_RED, COLUMNAS_DE_15A].find(
+    (candidatas) => candidatas.join(",") === linea,
+  )
+  if (!columnas) {
     throw new Error(
       `La primera línea tiene que ser: ${COLUMNAS_POR_RED.join(",")}. ¿Lo guardaste con punto y coma? Expórtalo como CSV UTF-8 separado por comas.`,
     )
@@ -130,26 +143,34 @@ export function leerCsvPorRed(texto: string): FilaPorRed[] {
   const errores: string[] = []
   const filas = resto.flatMap(({ valores }, indice): FilaPorRed[] => {
     const donde = `Fila ${filaDeHoja(indice)}`
-    const [
-      tipo = "",
-      id = "",
-      nombre = "",
-      linkedin = "",
-      instagram = "",
-      secundarios = "",
-      capa_tdah = "",
-      pilar_nuevo = "",
-      venia_de = "",
-      razon = "",
-    ] = valores.map((valor) => valor.trim())
+    const de = (columna: (typeof COLUMNAS_POR_RED)[number]) => {
+      const posicion = columnas.indexOf(columna)
+      return posicion < 0 ? "" : (valores[posicion] ?? "").trim()
+    }
+    const tipo = de("tipo")
+    const id = de("id")
     const antes = errores.length
     if (id === "") errores.push(`${donde}: falta el id.`)
     if (tipo !== "tema" && tipo !== "idea") errores.push(`${donde}: tipo desconocido «${tipo}».`)
-    if (valores.length > COLUMNAS_POR_RED.length) {
-      errores.push(`${donde}: tiene ${valores.length} valores y el CSV tiene ${COLUMNAS_POR_RED.length} columnas.`)
+    if (valores.length > columnas.length) {
+      errores.push(`${donde}: tiene ${valores.length} valores y el CSV tiene ${columnas.length} columnas.`)
     }
     if (errores.length > antes || (tipo !== "tema" && tipo !== "idea")) return []
-    return [{ tipo, id, nombre, linkedin, instagram, secundarios, capa_tdah, pilar_nuevo, venia_de, razon }]
+    return [
+      {
+        tipo,
+        id,
+        nombre: de("nombre"),
+        linkedin: de("linkedin"),
+        instagram: de("instagram"),
+        secundarios: de("secundarios"),
+        capa_tdah: de("capa_tdah"),
+        pilar_nuevo: de("pilar_nuevo"),
+        angulo: de("angulo"),
+        venia_de: de("venia_de"),
+        razon: de("razon"),
+      },
+    ]
   })
   if (errores.length > 0) throw new Error(`El CSV tiene errores:\n${errores.join("\n")}`)
   return filas
@@ -175,6 +196,7 @@ const slugsDe = (lista: string) =>
 /** The list Federico sends Coni: her columns plus «Venía de» (spec section 3), pillars by their short names. */
 export function aMarkdownParaConi(filas: readonly FilaPorRed[], catalogo: CatalogoDePilares): string {
   const nombre = (slug: string) => catalogo.find((pilar) => pilar.slug === slug)?.nombreCorto ?? slug
+  const angulo = (fila: FilaPorRed) => anguloPorSlug(catalogo, fila.pilar_nuevo, fila.angulo)?.nombre ?? "Sin ángulo"
   const temas = filas.filter((fila) => fila.tipo === "tema")
   const ideas = filas.filter((fila) => fila.tipo === "idea")
   const lineas = [
@@ -201,11 +223,11 @@ export function aMarkdownParaConi(filas: readonly FilaPorRed[], catalogo: Catalo
     "",
     "## Ideas",
     "",
-    "| Idea | Pilar nuevo | Venía de |",
-    "|---|---|---|",
+    "| Idea | Pilar nuevo | Ángulo | Venía de |",
+    "|---|---|---|---|",
     ...ideas.map(
       (fila) =>
-        `| ${celda(fila.nombre)} | ${fila.pilar_nuevo ? nombre(fila.pilar_nuevo) : "Sin proponer"} | ${fila.venia_de ? celda(fila.venia_de) : "Sin pilar"} |`,
+        `| ${celda(fila.nombre)} | ${fila.pilar_nuevo ? nombre(fila.pilar_nuevo) : "Sin proponer"} | ${angulo(fila)} | ${fila.venia_de ? celda(fila.venia_de) : "Sin pilar"} |`,
     ),
   ]
   return `${lineas.join("\n")}\n`
@@ -231,7 +253,12 @@ export function filasDelLote(filas: readonly FilaPorRed[], catalogo: CatalogoDeP
     if (fila.tipo === "idea") {
       const pilar = pilarDe(fila.pilar_nuevo)
       if (!pilar) errores.push(`${donde}: «${fila.pilar_nuevo}» no es un pilar activo de una red.`)
-      else resultado.ideas.push({ ideaId: fila.id, pilar: pilar.slug })
+      else if (fila.angulo === "") resultado.ideas.push({ ideaId: fila.id, pilar: pilar.slug })
+      else {
+        const angulo = anguloPorSlug(catalogo, pilar.slug, fila.angulo)
+        if (!angulo) errores.push(`${donde}: «${fila.angulo}» no es un ángulo de «${pilar.slug}».`)
+        else resultado.ideas.push({ ideaId: fila.id, pilar: pilar.slug, angulo: angulo.slug })
+      }
       return
     }
 

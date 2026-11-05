@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type DatosDePilar, NOMBRE_DE_RED, REDES, type Red, soloActivos } from "@/lib/dominio/pilares"
+import { anguloPorSlug, type DatosDePilar, NOMBRE_DE_RED, REDES, type Red, soloActivos } from "@/lib/dominio/pilares"
 import { sinCierre } from "@/lib/ingesta/texto-seguro"
-import { type ModeloClaude, modeloQueCobra, pedirJson, sinRaya, type UsoClaude } from "./nucleo"
+import { type ModeloClaude, modeloQueCobra, pedirJson, sinRaya, textoONulo, type UsoClaude } from "./nucleo"
 
 /** A topic as Claude reads it: name, description and a few of its ideas. */
 export interface TemaPorClasificar {
@@ -31,6 +31,8 @@ export interface PropuestaDeTema {
 export interface PropuestaDeIdeaPorRed {
   id: string
   pilar: string | null
+  /** The slug of its angle, when its pillar has them. */
+  angulo: string | null
   razon: string
 }
 
@@ -39,12 +41,14 @@ const deRed = (pilares: readonly DatosDePilar[], red: Red) =>
 const capasDe = (pilares: readonly DatosDePilar[]) =>
   soloActivos(pilares).filter((pilar) => pilar.red !== null && pilar.esCapa)
 const linea = (pilar: DatosDePilar) => `- ${pilar.slug}: ${pilar.nombre}. ${pilar.descripcion ?? ""}`.trimEnd()
+const conAngulos = (pilar: DatosDePilar) =>
+  [linea(pilar), ...pilar.angulos.map((a) => `  - ángulo ${a.slug}: ${a.nombre}. ${a.descripcion}`)].join("\n")
 
 // A one-off guide: sent uncached, as the reclassification of 2026-10-17 (`guiaDeReclasificacion`).
 export function guiaDePilaresPorRed(pilares: readonly DatosDePilar[]): string {
   const bloques = REDES.map(
     (red) =>
-      `PILARES DE ${NOMBRE_DE_RED[red].toUpperCase()} (usa exactamente el slug)\n${deRed(pilares, red).map(linea).join("\n")}`,
+      `PILARES DE ${NOMBRE_DE_RED[red].toUpperCase()} (usa exactamente el slug)\n${deRed(pilares, red).map(conAngulos).join("\n")}`,
   )
   return `Ordenas los temas y las ideas de Coni del Rosario, psicóloga clínica chilena, en sus pilares de contenido de LinkedIn e Instagram. Cada red tiene sus propios pilares: un tema puede tener pilar en las dos redes, en una sola o en ninguna.
 
@@ -62,7 +66,7 @@ Para cada tema responde una vez, con su mismo id:
 - capa: true solo si el tema tiene la mirada de una capa.
 - razon: una oración en español de Chile, sin rayas largas.
 
-Para cada idea responde una vez, con su mismo id, el slug del pilar (de cualquier red, nunca una capa) que mejor le calza y una razón de una oración en español de Chile, sin rayas largas.`
+Para cada idea responde una vez, con su mismo id, el slug del pilar (de cualquier red, nunca una capa) que mejor le calza, en angulo el slug del ángulo de ese pilar que mejor le calza si el pilar tiene ángulos (null si no tiene) y una razón de una oración en español de Chile, sin rayas largas.`
 }
 
 /** The user message; the cost estimate counts this exact text. */
@@ -84,7 +88,7 @@ const SalidaPilaresPorRed = z.object({
       razon: z.string(),
     }),
   ),
-  ideas: z.array(z.object({ id: z.string(), pilar: z.string().nullable(), razon: z.string() })),
+  ideas: z.array(z.object({ id: z.string(), pilar: z.string().nullable(), angulo: textoONulo(), razon: z.string() })),
 })
 
 /**
@@ -154,10 +158,11 @@ export async function proponerPilaresPorRed(entrada: {
   for (const idea of salida.ideas) {
     if (deIdeas.has(idea.id)) continue
     const pilar = idea.pilar !== null && redDe.has(idea.pilar) ? idea.pilar : null
-    deIdeas.set(idea.id, { id: idea.id, pilar, razon: sinRaya(idea.razon) })
+    const angulo = pilar === null ? null : (anguloPorSlug(entrada.pilares, pilar, idea.angulo)?.slug ?? null)
+    deIdeas.set(idea.id, { id: idea.id, pilar, angulo, razon: sinRaya(idea.razon) })
   }
   const ideas = entrada.ideas.map(
-    (idea) => deIdeas.get(idea.id) ?? { id: idea.id, pilar: null, razon: "Claude no propuso un pilar." },
+    (idea) => deIdeas.get(idea.id) ?? { id: idea.id, pilar: null, angulo: null, razon: "Claude no propuso un pilar." },
   )
   return { temas, ideas, uso, modelo: modeloQueCobra(modelo) }
 }

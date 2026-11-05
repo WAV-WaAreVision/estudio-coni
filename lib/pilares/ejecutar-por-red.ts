@@ -7,6 +7,7 @@ import {
   deshacerLoteDePilares,
   leerIdeasEnPilaresSinRed,
   leerTemasSinPilaresDeRed,
+  ponerAngulosDelLote,
 } from "@/lib/datos/pilares-por-red"
 import { confirmarGasto, reservarGastoGeneral } from "@/lib/datos/repositorio"
 import { cobroDeFalla, costoClaude, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
@@ -124,7 +125,8 @@ async function proponer(base: string, deps: DepsPilaresPorRed): Promise<void> {
 /** Applies the reviewed CSV in one transaction. Rewrites production data: run it only with Federico's OK. */
 async function aplicar(ruta: string, deps: DepsPilaresPorRed): Promise<void> {
   const filas = leerCsvPorRed(readFileSync(ruta, "utf-8"))
-  const lote = filasDelLote(filas, await leerPilares(deps.db))
+  const catalogo = await leerPilares(deps.db)
+  const lote = filasDelLote(filas, catalogo)
   // The RPC refuses it too (`lote_vacio`); refused here, an empty CSV never reaches the database.
   if (lote.temas.length === 0) throw new Error("El CSV no trae ningún tema: no hay nada que aplicar.")
   // The RPC only says some bank idea is left on an old pillar (`idea_en_pilar_retirado`); here they are named.
@@ -140,6 +142,9 @@ async function aplicar(ruta: string, deps: DepsPilaresPorRed): Promise<void> {
   deps.avisar(
     `Lote ${LOTE_PILARES_POR_RED} aplicado: ${resumen.filas} pilares en ${lote.temas.length} temas, ${resumen.ideas} ideas movidas, ${resumen.retirados} pilares anteriores retirados. Para volver atrás: pnpm pilares:deshacer.`,
   )
+  const angulos = await ponerAngulosDelLote(deps.db, lote.ideas, catalogo)
+  if (angulos > 0)
+    deps.avisar(`${angulos === 1 ? "1 ángulo puesto" : `${angulos} ángulos puestos`} en las ideas movidas.`)
 }
 
 async function deshacer(deps: DepsPilaresPorRed): Promise<void> {

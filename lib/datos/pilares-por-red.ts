@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
-import { soloActivos } from "@/lib/dominio/pilares"
+import { anguloPorSlug, type CatalogoDePilares, soloActivos } from "@/lib/dominio/pilares"
 import type { FilasDelLote, IdeaParaProponer, TemaParaProponer } from "@/lib/pilares/por-red"
 import type { Database, Json } from "@/lib/supabase/database.types"
 import { conIdYNombre } from "./biblioteca"
@@ -172,4 +172,30 @@ export async function deshacerLoteDePilares(db: Db, lote: string): Promise<z.inf
   const { data, error } = await db.rpc("deshacer_lote_de_pilares", { p_lote: lote })
   if (error) throw new Error(explicarRechazoDelLote(error, lote), { cause: error })
   return ResumenDeDeshacer.parse(data)
+}
+
+/**
+ * After `aplicar_lote_de_pilares` (spec 15d, plan decision 1): each moved idea's angle, when the CSV names one. The
+ * 15a function stays untouched; if this step fails, the lot stays applied and the ideas without those angles. Answers
+ * how many angles it set.
+ */
+export async function ponerAngulosDelLote(
+  db: Db,
+  ideas: FilasDelLote["ideas"],
+  catalogo: CatalogoDePilares,
+): Promise<number> {
+  let puestos = 0
+  for (const idea of ideas) {
+    const angulo = anguloPorSlug(catalogo, idea.pilar, idea.angulo)
+    if (!angulo) continue
+    const { error } = await db.from("ideas").update({ angulo_id: angulo.id }).eq("id", idea.ideaId)
+    if (error) {
+      throw new Error(
+        `Apliqué el lote, pero no pude poner el ángulo de la idea ${idea.ideaId}: ${error.message}. Ponlo desde su tarjeta en Ideas.`,
+        { cause: error },
+      )
+    }
+    puestos += 1
+  }
+  return puestos
 }

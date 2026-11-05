@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { pilaresParaElegir, soloActivos } from "@/lib/dominio/pilares"
-import { clasificarIdea, escribirTeorias } from "@/lib/proveedores/anthropic"
+import { clasificarIdea, escribirTeorias, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -130,5 +130,25 @@ describe("clasificarIdea con ángulos", () => {
     expect(
       (await clasificarIdea({ cliente: cliente(), guia: "G", gancho: "G", tema: "", pilares })).propuesta.angulo,
     ).toBeNull()
+  })
+})
+
+describe("proponerPilaresPorRed con ángulos", () => {
+  it("keeps an idea's angle of its pillar and drops the rest", async () => {
+    respondiendo({
+      temas: [],
+      ideas: [
+        { id: "i1", pilar: "psicologia-en-la-mesa", angulo: "lo-que-construyo", razon: "Sí." },
+        { id: "i2", pilar: "psicologia-en-la-mesa", angulo: "lo-vivo", razon: "No." },
+        { id: "i3", pilar: "mujeres-lideres", razon: "Sin ángulo." },
+      ],
+    })
+    const { ideas } = await proponerPilaresPorRed({
+      cliente: cliente(),
+      pilares: PILARES_DE_PRUEBA,
+      temas: [],
+      ideas: ["i1", "i2", "i3"].map((id) => ({ id, gancho: "G", tema: "" })),
+    })
+    expect(ideas.map((idea) => idea.angulo)).toEqual(["lo-que-construyo", null, null])
   })
 })

@@ -26,6 +26,7 @@ const tema = (cambios: Partial<FilaPorRed> = {}): FilaPorRed => ({
   secundarios: "diagnostico-doble",
   capa_tdah: "si",
   pilar_nuevo: "",
+  angulo: "",
   venia_de: "IA y salud mental",
   razon: "Toca el bienestar,\ny el diagnóstico.",
   ...cambios,
@@ -40,6 +41,7 @@ const idea = (cambios: Partial<FilaPorRed> = {}): FilaPorRed => ({
   secundarios: "",
   capa_tdah: "",
   pilar_nuevo: "psicologia-en-la-mesa",
+  angulo: "",
   venia_de: "Caso Coni",
   razon: "Lo construye ella.",
   ...cambios,
@@ -65,7 +67,7 @@ describe("la propuesta de pilares por red", () => {
             razon: "Calza.",
           },
         ],
-        ideas: [{ id: IDEA, pilar: null, razon: "Claude no propuso un pilar." }],
+        ideas: [{ id: IDEA, pilar: null, angulo: null, razon: "Claude no propuso un pilar." }],
       },
     )
     expect(filas).toEqual([
@@ -82,7 +84,7 @@ describe("la propuesta de pilares por red", () => {
     const filas = [tema(), idea()]
     const csv = aCsvPorRed(filas)
     expect(csv.split("\n")[0]).toBe(
-      '"tipo","id","nombre","linkedin","instagram","secundarios","capa_tdah","pilar_nuevo","venia_de","razon"',
+      '"tipo","id","nombre","linkedin","instagram","secundarios","capa_tdah","pilar_nuevo","angulo","venia_de","razon"',
     )
     expect(leerCsvPorRed(`\uFEFF${csv}`)).toEqual(filas)
   })
@@ -111,7 +113,7 @@ describe("la propuesta de pilares por red", () => {
     }
     expect(mensaje).toContain("Fila 3: falta el id.")
     expect(mensaje).toContain("Fila 4: tipo desconocido «material».")
-    expect(mensaje).toContain("Fila 4: tiene 11 valores y el CSV tiene 10 columnas.")
+    expect(mensaje).toContain("Fila 4: tiene 12 valores y el CSV tiene 11 columnas.")
     expect(mensaje).not.toContain("Fila 2")
   })
 
@@ -121,8 +123,8 @@ describe("la propuesta de pilares por red", () => {
     expect(md).toContain(
       '| Carga mental, "invisible" \\| en casa | Bienestar e impacto | Sin pilar | Diagnóstico doble | Sí | IA y salud mental |',
     )
-    expect(md).toContain("| Idea | Pilar nuevo | Venía de |")
-    expect(md).toContain("| Uso un avatar. | Psicología en la mesa | Caso Coni |")
+    expect(md).toContain("| Idea | Pilar nuevo | Ángulo | Venía de |")
+    expect(md).toContain("| Uso un avatar. | Psicología en la mesa | Sin ángulo | Caso Coni |")
     expect(md).not.toContain("bienestar-e-impacto")
     expect(md).not.toContain("—")
   })
@@ -247,5 +249,30 @@ describe("la propuesta de pilares por red", () => {
     it("stops above the maximum of one call", () => {
       expect(porQueNoProponer(temas(80), ideas(21))).toBe("Son 101 elementos; el máximo de una propuesta es 100.")
     })
+  })
+})
+
+describe("el ángulo en la propuesta de pilares (15d)", () => {
+  it("still reads a CSV saved with the 15a header, its ideas without angle", () => {
+    const de15a = [
+      '"tipo","id","nombre","linkedin","instagram","secundarios","capa_tdah","pilar_nuevo","venia_de","razon"',
+      `"idea","${IDEA}","Uso un avatar.","","","","","psicologia-en-la-mesa","Caso Coni","Lo construye ella."`,
+      "",
+    ].join("\n")
+    expect(leerCsvPorRed(de15a)).toEqual([idea()])
+  })
+
+  it("sends an idea's angle with the lot, and names an angle of another pillar", () => {
+    expect(filasDelLote([tema(), idea({ angulo: "lo-que-construyo" })], PILARES_DE_PRUEBA).ideas).toEqual([
+      { ideaId: IDEA, pilar: "psicologia-en-la-mesa", angulo: "lo-que-construyo" },
+    ])
+    expect(() => filasDelLote([tema(), idea({ angulo: "pruebalo-tu" })], PILARES_DE_PRUEBA)).toThrow(
+      `Fila 3 (idea ${IDEA}): «pruebalo-tu» no es un ángulo de «psicologia-en-la-mesa».`,
+    )
+  })
+
+  it("shows the angle's name to Coni", () => {
+    const md = aMarkdownParaConi([tema(), idea({ angulo: "lo-que-construyo" })], PILARES_DE_PRUEBA)
+    expect(md).toContain("| Uso un avatar. | Psicología en la mesa | Lo que construyo | Caso Coni |")
   })
 })

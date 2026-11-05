@@ -111,6 +111,7 @@ const filaDelTema = (cambios: Partial<FilaPorRed> = {}): FilaPorRed => ({
   secundarios: "",
   capa_tdah: "no",
   pilar_nuevo: "",
+  angulo: "",
   venia_de: "",
   razon: "",
   ...cambios,
@@ -125,6 +126,7 @@ const filaDeIdea = (id: string): FilaPorRed => ({
   secundarios: "",
   capa_tdah: "",
   pilar_nuevo: "psicologia-en-la-mesa",
+  angulo: "",
   venia_de: "",
   razon: "",
 })
@@ -316,6 +318,7 @@ describe("pilares por red, los comandos", () => {
             secundarios: "",
             capa_tdah: "",
             pilar_nuevo: "psicologia-en-la-mesa",
+            angulo: id === idea ? "lo-que-construyo" : "",
             venia_de: "",
             razon: "",
           }),
@@ -327,11 +330,17 @@ describe("pilares por red, los comandos", () => {
     try {
       await ejecutarPilaresPorRed(["aplicar", ruta], deps)
       expect(uso).toMatchObject({ llaves: 0, clientes: 0 })
-      expect(uso.lineas.at(-1)).toContain(`Lote ${LOTE_PILARES_POR_RED} aplicado`)
+      expect(uso.lineas.some((linea) => linea.includes(`Lote ${LOTE_PILARES_POR_RED} aplicado`))).toBe(true)
       const filas = await pool.query("select 1 from public.tema_pilares where tema_id = $1", [tema])
       expect(filas.rowCount).toBe(1)
       const viejos = await pool.query("select 1 from public.categorias where es_pilar and activa and red is null")
       expect(viejos.rowCount).toBe(0)
+      const conAngulo = await pool.query<{ angulo: string | null }>(
+        "select a.slug as angulo from public.ideas i left join public.pilar_angulos a on a.id = i.angulo_id where i.id = $1",
+        [idea],
+      )
+      expect(conAngulo.rows[0]?.angulo).toBe("lo-que-construyo")
+      expect(uso.lineas.at(-1)).toContain("1 ángulo puesto")
       await expect(ejecutarPilaresPorRed(["aplicar", ruta], deps)).rejects.toThrow(
         `El lote ${LOTE_PILARES_POR_RED} ya está aplicado. Para aplicarlo de nuevo, primero corre pnpm pilares:deshacer.`,
       )
@@ -343,6 +352,11 @@ describe("pilares por red, los comandos", () => {
     expect(viejos.rowCount).toBe(5)
     const delBanco = await pool.query<{ pilar: string }>("select pilar from public.ideas where id = $1", [idea])
     expect(delBanco.rows[0]?.pilar).toBe("caso-coni")
+    const sinAngulo = await pool.query<{ angulo_id: string | null }>(
+      "select angulo_id from public.ideas where id = $1",
+      [idea],
+    )
+    expect(sinAngulo.rows[0]?.angulo_id).toBeNull()
     const filas = await pool.query("select 1 from public.tema_pilares where tema_id = $1", [tema])
     expect(filas.rowCount).toBe(0)
   })
