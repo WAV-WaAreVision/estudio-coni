@@ -9,6 +9,8 @@ import { sinCierre } from "@/lib/ingesta/texto-seguro"
 export interface IdeaParaGuion {
   /** The idea's pillar as the writer reads it: its name and, for an active pillar, its description. */
   pilar: { nombre: string; descripcion: string | null }
+  /** The idea's angle (spec 15d): its name and its voice and format. Absent or null without one. */
+  angulo?: { nombre: string; descripcion: string } | null
   gancho: string
   tema: string
   formato: string
@@ -23,6 +25,11 @@ export function listaDeAlertas(alertas: readonly Alerta[]): string {
   return alertas.length > 0
     ? alertas.map((alerta) => `- ${alerta.tipo}: ${alerta.texto}`).join("\n")
     : "Esta idea no trae alertas."
+}
+
+/** The lines under «Pilar:» for an idea with an angle; "" without one, so that prompt stays byte for byte as before. */
+export function lineaDeAngulo(angulo: IdeaParaGuion["angulo"]): string {
+  return angulo ? `\nÁngulo: ${angulo.nombre} (${angulo.descripcion})\nEscribe con la voz y el formato del ángulo.` : ""
 }
 
 export function describirHallazgo(hallazgo: Hallazgo): string {

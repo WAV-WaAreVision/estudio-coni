@@ -15,6 +15,7 @@ import { pedirJson, type UsoClaude } from "./nucleo"
 import {
   describirHallazgo,
   type IdeaParaGuion,
+  lineaDeAngulo,
   listaDeAlertas,
   type RespaldoParaGuion,
   SalidaRevision,
@@ -37,7 +38,7 @@ function pedidoDeGuion(
   const partes = [
     "Escribe el guion, el texto de publicación de Instagram y el texto para LinkedIn de un reel de Coni del Rosario a partir de esta idea. Sigue la línea editorial de tus instrucciones.",
     `IDEA
-Pilar: ${idea.pilar.nombre}${idea.pilar.descripcion ? ` (${idea.pilar.descripcion})` : ""}
+Pilar: ${idea.pilar.nombre}${idea.pilar.descripcion ? ` (${idea.pilar.descripcion})` : ""}${lineaDeAngulo(idea.angulo)}
 Gancho: ${idea.gancho}
 Tema: ${idea.tema}
 Formato: ${idea.formato}`,

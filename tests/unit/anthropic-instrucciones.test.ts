@@ -130,6 +130,11 @@ const IDEA = {
 }
 
 const IDEA_SIN_NADA = { ...IDEA, pilar: { nombre: "Vínculos", descripcion: null }, alertas: [] }
+// 15d: the angle line. An idea without one keeps every hash above (the field is absent there on purpose).
+const IDEA_CON_ANGULO = {
+  ...IDEA,
+  angulo: { nombre: "Lo que construyo", descripcion: "Mi caso a la vista. Voz íntima, fotos reales, demos y video." },
+}
 
 const RESPALDO = {
   teoria: { titulo: "Teoría", tesis: "Una tesis.", porQue: "Porque sí." },
@@ -488,6 +493,48 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
           "usuario": "98b4416136fbbc9e27dc7fc75d18844002344925c54bd7ae726bda3188916db2",
         },
       ]
+    `)
+  })
+
+  it("keeps the script and carousel prompts of an idea with an angle", async () => {
+    const guion = await huellas((c) =>
+      escribirGuion({
+        cliente: c,
+        guia: GUIA,
+        idea: IDEA_CON_ANGULO,
+        respaldo: null,
+        fuentes: [],
+        requiereLineasAyuda: false,
+      }),
+    )
+    const carrusel = await huellas((c) =>
+      escribirCarrusel({
+        cliente: c,
+        guia: GUIA,
+        idea: IDEA_CON_ANGULO,
+        respaldo: null,
+        fuentes: [],
+        requiereLineasAyuda: false,
+        cambio: null,
+      }),
+    )
+    expect({ guion, carrusel }).toMatchInlineSnapshot(`
+      {
+        "carrusel": [
+          {
+            "cuerpo": "77c6440b96af8e60ae41de0c48aacf54833b603b233c1e7ee2a2a1a9ebe3f4ed",
+            "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
+            "usuario": "4cda1fb1d81b9816849e13eacdd786c032588594f11759386a872be8f5400054",
+          },
+        ],
+        "guion": [
+          {
+            "cuerpo": "ae302342ad2c6c16cbae0523b285aba234be1fa2935079abb0d86f93e7d94962",
+            "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
+            "usuario": "0e80febb4dcaea3c19a4f282d8ceab1de2a6323c67ecc02acacb2b8cd02592eb",
+          },
+        ],
+      }
     `)
   })
 })

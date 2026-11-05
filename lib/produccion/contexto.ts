@@ -24,6 +24,8 @@ export interface Contexto {
   idea: IdeaLeida
   /** The idea's pillar as the writer reads it. */
   pilar: { nombre: string; descripcion: string | null }
+  /** The idea's angle as the writer reads it (spec 15d), or null. */
+  angulo: { nombre: string; descripcion: string } | null
   guia: string
   respaldo: Respaldo | null
 }
@@ -45,10 +47,15 @@ export async function cargarContexto(deps: { db: SupabaseClient<Database> }, fil
   }
   // A retired pillar keeps its name for the idea, but its description no longer guides what gets written.
   const pilar = { nombre: datosDelPilar.nombre, descripcion: datosDelPilar.activa ? datosDelPilar.descripcion : null }
+  const delAngulo = idea.angulo_id === null ? null : datosDelPilar.angulos.find((a) => a.id === idea.angulo_id)
+  if (delAngulo === undefined) {
+    throw new FallaDeConfiguracion(`La idea ${idea.id} apunta a un ángulo que no es de su pilar: ${idea.angulo_id}.`)
+  }
+  const angulo = delAngulo === null ? null : { nombre: delAngulo.nombre, descripcion: delAngulo.descripcion }
   const respaldo = await cargarRespaldoDeIdea(db, idea.id)
   const guia = await leerGuiaVigente(db)
   if (!guia) {
     throw new FallaDeConfiguracion("No hay una guía editorial vigente.")
   }
-  return { idea, pilar, guia: guia.texto, respaldo }
+  return { idea, pilar, angulo, guia: guia.texto, respaldo }
 }

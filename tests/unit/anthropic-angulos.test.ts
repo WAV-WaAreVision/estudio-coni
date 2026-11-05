@@ -3,7 +3,14 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { pilaresParaElegir, soloActivos } from "@/lib/dominio/pilares"
-import { clasificarIdea, escribirTeorias, proponerPilaresPorRed } from "@/lib/proveedores/anthropic"
+import {
+  clasificarIdea,
+  escribirCarrusel,
+  escribirGuion,
+  escribirTeorias,
+  proponerPilaresPorRed,
+  RechazoDeClaude,
+} from "@/lib/proveedores/anthropic"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -150,5 +157,67 @@ describe("proponerPilaresPorRed con ángulos", () => {
       ideas: ["i1", "i2", "i3"].map((id) => ({ id, gancho: "G", tema: "" })),
     })
     expect(ideas.map((idea) => idea.angulo)).toEqual(["lo-que-construyo", null, null])
+  })
+})
+
+describe("el ángulo en el guion y el carrusel", () => {
+  const ANGULO = {
+    nombre: "Lo que construyo",
+    descripcion: "Mi caso a la vista. Voz íntima, fotos reales, demos y video.",
+  }
+  const IDEA = {
+    pilar: { nombre: "Psicología en la mesa", descripcion: "La psicología donde se construye la IA." },
+    gancho: "Entreno modelos.",
+    tema: "Construir con IA.",
+    formato: "Mito o realidad",
+    alertas: [],
+  }
+
+  function rechazando() {
+    const usuarios: string[] = []
+    servidor.use(
+      http.post<never, { messages: { content: string }[] }>(URL_MENSAJES, async ({ request }) => {
+        usuarios.push((await request.json()).messages[0]?.content ?? "")
+        return HttpResponse.json({
+          id: "msg",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [],
+          stop_reason: "refusal",
+          stop_sequence: null,
+          usage: USO,
+        })
+      }),
+    )
+    return usuarios
+  }
+
+  const comun = { guia: "Guía.", respaldo: null, fuentes: [], requiereLineasAyuda: false }
+  const LINEA =
+    "Pilar: Psicología en la mesa (La psicología donde se construye la IA.)\nÁngulo: Lo que construyo (Mi caso a la vista. Voz íntima, fotos reales, demos y video.)\nEscribe con la voz y el formato del ángulo.\nGancho: Entreno modelos."
+
+  it("writes the guion with the angle under the pillar", async () => {
+    const usuarios = rechazando()
+    await expect(
+      escribirGuion({ cliente: cliente(), ...comun, idea: { ...IDEA, angulo: ANGULO } }),
+    ).rejects.toBeInstanceOf(RechazoDeClaude)
+    expect(usuarios[0]).toContain(LINEA)
+  })
+
+  it("writes the carousel with the angle under the pillar", async () => {
+    const usuarios = rechazando()
+    await expect(
+      escribirCarrusel({ cliente: cliente(), ...comun, cambio: null, idea: { ...IDEA, angulo: ANGULO } }),
+    ).rejects.toBeInstanceOf(RechazoDeClaude)
+    expect(usuarios[0]).toContain(LINEA)
+  })
+
+  it("sends no angle line for an idea without one", async () => {
+    const usuarios = rechazando()
+    await expect(
+      escribirGuion({ cliente: cliente(), ...comun, idea: { ...IDEA, angulo: null } }),
+    ).rejects.toBeInstanceOf(RechazoDeClaude)
+    expect(usuarios[0]).not.toContain("Ángulo:")
   })
 })

@@ -27,6 +27,7 @@ const Alertas = z.array(z.object({ tipo: z.string(), texto: z.string() }))
 export interface IdeaLeida {
   id: string
   pilar: string
+  angulo_id: string | null
   gancho: string
   tema: string
   formato: string
@@ -36,7 +37,7 @@ export interface IdeaLeida {
 export async function leerIdea(db: Db, id: string): Promise<IdeaLeida | null> {
   const { data, error } = await db
     .from("ideas")
-    .select("id, pilar, gancho, tema, formato, alertas")
+    .select("id, pilar, angulo_id, gancho, tema, formato, alertas")
     .eq("id", id)
     .maybeSingle()
   if (error) throw fallo("No pude leer la idea", error)
