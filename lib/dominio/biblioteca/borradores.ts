@@ -1,4 +1,4 @@
-import { esRed, type Red } from "@/lib/dominio/pilares"
+import { esRed, NOMBRE_DE_RED, type Red } from "@/lib/dominio/pilares"
 import { RED_POR_DEFECTO } from "./fila-de-temas"
 import { RUTA_DE_TEMAS } from "./filtros-de-temas"
 
@@ -183,3 +183,92 @@ export function armarBorradorDeRed(campos: CamposDeRed): Armado<BorradorDeRedArm
 export function camposDeBorradorDeRed(borrador: BorradorDeRed): CamposDeRed {
   return { nombre: borrador.nombre, manual: borrador.manual, receta: borrador.receta, conexion: borrador.conexion }
 }
+
+/** The key of the new pillar's weight in a stage of `p_pesos`; every other key is a pillar id. */
+export const NUEVO = "nuevo"
+
+/** One weight of the approval screen, as she types it. */
+export interface FilaDePeso {
+  clave: string
+  nombre: string
+  peso: string
+}
+
+/** One stage of the approval screen (decision 8): «Hoy» or a later date, with every weight of that date. */
+export interface EtapaEditable {
+  desde: string
+  esHoy: boolean
+  etiqueta: string
+  filas: FilaDePeso[]
+}
+
+const fechaLarga = (desde: string) =>
+  new Intl.DateTimeFormat("es-CL", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }).format(
+    Date.parse(`${desde}T12:00:00Z`),
+  )
+
+/** «Hoy», or «Desde el 1 de enero de 2027». */
+export const etiquetaDeEtapa = (desde: string, hoy: string) => (desde === hoy ? "Hoy" : `Desde el ${fechaLarga(desde)}`)
+
+/** The network's stages (`etapasDeRed`), each with its pillars and, last, the new one at the draft's weight. */
+export function etapasDeAprobacion(
+  borrador: BorradorDePilar,
+  etapas: readonly { desde: string; pesos: readonly { id: string; nombreCorto: string; peso: number }[] }[],
+  hoy: string,
+): EtapaEditable[] {
+  return etapas.map((etapa) => ({
+    desde: etapa.desde,
+    esHoy: etapa.desde === hoy,
+    etiqueta: etiquetaDeEtapa(etapa.desde, hoy),
+    filas: [
+      ...etapa.pesos.map((pilar) => ({ clave: pilar.id, nombre: pilar.nombreCorto, peso: formatoDePeso(pilar.peso) })),
+      { clave: NUEVO, nombre: borrador.nombreCorto, peso: formatoDePeso(borrador.peso) },
+    ],
+  }))
+}
+
+/** A stage's live total; null while a weight cannot be read, so the screen says which one instead. */
+export function totalDePesos(filas: readonly FilaDePeso[]): number | null {
+  let total = 0
+  for (const fila of filas) {
+    const peso = leerPeso(fila.peso)
+    if (peso === null) return null
+    total += peso
+  }
+  return Math.round(total * 100) / 100
+}
+
+/** Spec 15c: a stage whose total is not 100 warns and never blocks. */
+export function avisoDePesos(red: Red, total: number, etapa: Pick<EtapaEditable, "desde" | "esHoy">): string | null {
+  if (total === 100) return null
+  const cuando = etapa.esHoy ? "" : ` desde el ${fechaLarga(etapa.desde)}`
+  return `Los pesos de ${NOMBRE_DE_RED[red]}${cuando} suman ${formatoDePeso(total)} %. Puedes aprobar igual y ajustarlos después.`
+}
+
+/** `p_pesos` of `aprobar_borrador_de_pilar`: `{desde: {pilar_id | "nuevo": peso}}`; the first unreadable weight is named. */
+export function armarPesos(
+  etapas: readonly EtapaEditable[],
+):
+  | { ok: true; pesos: Record<string, Record<string, number>> }
+  | { ok: false; error: string; desde: string; clave: string } {
+  const pesos: Record<string, Record<string, number>> = {}
+  for (const etapa of etapas) {
+    const deLaEtapa: Record<string, number> = {}
+    for (const fila of etapa.filas) {
+      const peso = leerPeso(fila.peso)
+      if (peso === null) {
+        return {
+          ok: false,
+          error: `Escribe el peso de ${fila.nombre} (${etapa.etiqueta}) como un número mayor que 0 y hasta 100.`,
+          desde: etapa.desde,
+          clave: fila.clave,
+        }
+      }
+      deLaEtapa[fila.clave] = peso
+    }
+    pesos[etapa.desde] = deLaEtapa
+  }
+  return { ok: true, pesos }
+}
+
+export const AVISO_DE_LA_GUIA = "La guía editorial no se actualiza sola: agrega a mano el texto de este pilar."

@@ -1,13 +1,18 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
 import {
+  AVISO_DE_LA_GUIA,
   AVISOS,
   armarBorradorDePilar,
   armarBorradorDeRed,
+  armarPesos,
+  avisoDePesos,
   camposDeBorradorDePilar,
   camposDeBorradorDeRed,
   conAviso,
   ERRORES_DE_PILAR,
+  etapasDeAprobacion,
+  etiquetaDeEtapa,
   FALTA_NOMBRE_DE_RED,
   formatoDePeso,
   hrefDeAprobarBorrador,
@@ -16,8 +21,10 @@ import {
   leerAviso,
   leerPeso,
   leerRedPedida,
+  NUEVO,
   RUTA_DE_BORRADORES,
   RUTA_DE_RED_NUEVA,
+  totalDePesos,
 } from "@/lib/dominio/biblioteca/borradores"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -149,5 +156,106 @@ describe("routes and notes", () => {
     expect(leerAviso({ aviso: "otra-cosa" })).toBeNull()
     expect(leerAviso({})).toBeNull()
     expect(Object.values(AVISOS).every((texto) => !texto.includes("\u2014"))).toBe(true)
+  })
+})
+
+describe("the weights of an approval, stage by stage", () => {
+  const BORRADOR = {
+    id: ID,
+    red: "linkedin" as const,
+    nombre: "Liderazgo sereno: decidir con IA",
+    nombreCorto: "Liderazgo sereno",
+    descripcion: "Cómo decide.",
+    peso: 10,
+  }
+  const HOY = "2026-11-05"
+  const ETAPAS = etapasDeAprobacion(
+    BORRADOR,
+    [
+      {
+        desde: HOY,
+        pesos: [
+          { id: "a", nombreCorto: "Diagnóstico doble", peso: 30 },
+          { id: "b", nombreCorto: "Bienestar e impacto", peso: 25 },
+          { id: "c", nombreCorto: "Psicología en la mesa", peso: 30 },
+          { id: "d", nombreCorto: "Mujeres líderes", peso: 15 },
+        ],
+      },
+      {
+        desde: "2027-01-01",
+        pesos: [
+          { id: "a", nombreCorto: "Diagnóstico doble", peso: 25 },
+          { id: "b", nombreCorto: "Bienestar e impacto", peso: 25 },
+          { id: "c", nombreCorto: "Psicología en la mesa", peso: 35 },
+          { id: "d", nombreCorto: "Mujeres líderes", peso: 15 },
+        ],
+      },
+    ],
+    HOY,
+  )
+  const [DE_HOY, DE_ENERO] = ETAPAS
+  if (!DE_HOY || !DE_ENERO) throw new Error("Faltan etapas")
+
+  it("names a stage «Hoy» or by its date", () => {
+    expect(etiquetaDeEtapa(HOY, HOY)).toBe("Hoy")
+    expect(etiquetaDeEtapa("2027-07-01", HOY)).toBe("Desde el 1 de julio de 2027")
+  })
+
+  it("gives one stage per date, today first, each with the network's pillars and the new one at the draft's weight", () => {
+    expect(ETAPAS.map((etapa) => [etapa.desde, etapa.esHoy, etapa.etiqueta])).toEqual([
+      [HOY, true, "Hoy"],
+      ["2027-01-01", false, "Desde el 1 de enero de 2027"],
+    ])
+    expect(DE_HOY.filas).toEqual([
+      { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
+      { clave: "b", nombre: "Bienestar e impacto", peso: "25" },
+      { clave: "c", nombre: "Psicología en la mesa", peso: "30" },
+      { clave: "d", nombre: "Mujeres líderes", peso: "15" },
+      { clave: NUEVO, nombre: "Liderazgo sereno", peso: "10" },
+    ])
+    expect(DE_ENERO.filas.map((fila) => fila.peso)).toEqual(["25", "25", "35", "15", "10"])
+  })
+
+  it("adds each stage's total and warns in her words only when it is not 100, naming a later stage's date", () => {
+    expect(totalDePesos(DE_HOY.filas)).toBe(110)
+    expect(avisoDePesos("linkedin", 110, DE_HOY)).toBe(
+      "Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después.",
+    )
+    expect(avisoDePesos("linkedin", 110, DE_ENERO)).toBe(
+      "Los pesos de LinkedIn desde el 1 de enero de 2027 suman 110 %. Puedes aprobar igual y ajustarlos después.",
+    )
+    expect(avisoDePesos("instagram", 99.5, DE_HOY)).toBe(
+      "Los pesos de Instagram suman 99,5 %. Puedes aprobar igual y ajustarlos después.",
+    )
+    expect(avisoDePesos("instagram", 100, DE_ENERO)).toBeNull()
+  })
+
+  it("has no total while a weight cannot be read", () => {
+    expect(totalDePesos(DE_HOY.filas.map((fila) => (fila.clave === "b" ? { ...fila, peso: "" } : fila)))).toBeNull()
+  })
+
+  it("sends every stage's weights as numbers, the new one under «nuevo», and names the first it cannot read with its stage", () => {
+    expect(armarPesos(ETAPAS)).toEqual({
+      ok: true,
+      pesos: {
+        [HOY]: { a: 30, b: 25, c: 30, d: 15, nuevo: 10 },
+        "2027-01-01": { a: 25, b: 25, c: 35, d: 15, nuevo: 10 },
+      },
+    })
+    const conError = [
+      DE_HOY,
+      { ...DE_ENERO, filas: DE_ENERO.filas.map((fila) => (fila.clave === "b" ? { ...fila, peso: "abc" } : fila)) },
+    ]
+    expect(armarPesos(conError)).toEqual({
+      ok: false,
+      error:
+        "Escribe el peso de Bienestar e impacto (Desde el 1 de enero de 2027) como un número mayor que 0 y hasta 100.",
+      desde: "2027-01-01",
+      clave: "b",
+    })
+  })
+
+  it("says that the guide is not updated by the app", () => {
+    expect(AVISO_DE_LA_GUIA).toBe("La guía editorial no se actualiza sola: agrega a mano el texto de este pilar.")
   })
 })

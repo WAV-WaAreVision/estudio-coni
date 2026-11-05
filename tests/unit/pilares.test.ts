@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  calcularEtapasDeRed,
   calcularPesosDeRed,
   eleccionDe,
   eleccionDisponible,
@@ -139,10 +140,15 @@ describe("pesos por red", () => {
   it("takes each pillar's row with the latest start on or before the date", () => {
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "linkedin", "2026-12-31")).toEqual({
       pesos: [
-        { slug: "diagnostico-doble", nombreCorto: "Diagnóstico doble", peso: 30 },
-        { slug: "bienestar-e-impacto", nombreCorto: "Bienestar e impacto", peso: 25 },
-        { slug: "psicologia-en-la-mesa", nombreCorto: "Psicología en la mesa", peso: 30 },
-        { slug: "mujeres-lideres", nombreCorto: "Mujeres líderes", peso: 15 },
+        { id: id("diagnostico-doble"), slug: "diagnostico-doble", nombreCorto: "Diagnóstico doble", peso: 30 },
+        { id: id("bienestar-e-impacto"), slug: "bienestar-e-impacto", nombreCorto: "Bienestar e impacto", peso: 25 },
+        {
+          id: id("psicologia-en-la-mesa"),
+          slug: "psicologia-en-la-mesa",
+          nombreCorto: "Psicología en la mesa",
+          peso: 30,
+        },
+        { id: id("mujeres-lideres"), slug: "mujeres-lideres", nombreCorto: "Mujeres líderes", peso: 15 },
       ],
       total: 100,
       sumaCien: true,
@@ -154,11 +160,23 @@ describe("pesos por red", () => {
 
   it("flags a network whose weights do not add up to 100, and leaves out a pillar with no row yet", () => {
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "instagram", "2026-11-04")).toEqual({
-      pesos: [{ slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", peso: 40 }],
+      pesos: [{ id: id("mi-nueva-partida"), slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", peso: 40 }],
       total: 40,
       sumaCien: false,
     })
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "linkedin", "2026-11-03").pesos).toEqual([])
+  })
+
+  it("gives a network's stages from a date on: that date, then every later start of its active pillars, in order", () => {
+    const conAjena = [...PESOS, { pilarId: id("pareja"), desde: "2027-03-01", peso: 10 }]
+    const etapas = calcularEtapasDeRed(PILARES_DE_PRUEBA, conAjena, "linkedin", "2026-12-31")
+    expect(etapas.map((etapa) => [etapa.desde, etapa.pesos.map((p) => p.peso), etapa.sumaCien])).toEqual([
+      ["2026-12-31", [30, 25, 30, 15], true],
+      ["2027-01-01", [25, 25, 35, 15], true],
+    ])
+    expect(calcularEtapasDeRed(PILARES_DE_PRUEBA, PESOS, "instagram", "2026-11-04").map((e) => e.desde)).toEqual([
+      "2026-11-04",
+    ])
   })
 })
 
