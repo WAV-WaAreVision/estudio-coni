@@ -58,7 +58,12 @@ describe("ElegirAngulo", () => {
 
   it("ignores a change while one is saving", async () => {
     let terminar: (valor: { ok: true }) => void = () => {}
-    const cambiar = vi.fn(() => new Promise<{ ok: true }>((resolver) => (terminar = resolver)))
+    const cambiar = vi.fn(
+      () =>
+        new Promise<{ ok: true }>((resolver) => {
+          terminar = resolver
+        }),
+    )
     render(<ElegirAngulo ideaId={IDEA} angulos={ANGULOS} elegido={null} cambiar={cambiar} />)
     const campo = screen.getByLabelText("Ángulo")
     fireEvent.change(campo, { target: { value: ANGULOS[0]?.id } })
