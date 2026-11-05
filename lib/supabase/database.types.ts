@@ -2164,6 +2164,10 @@ export type Database = {
         Args: { p_filas: Json; p_lote: string }
         Returns: Json
       }
+      aprobar_borrador_de_pilar: {
+        Args: { p_borrador: string; p_pesos: Json }
+        Returns: string
+      }
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
