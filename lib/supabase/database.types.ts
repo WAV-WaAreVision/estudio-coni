@@ -1480,6 +1480,50 @@ export type Database = {
           },
         ]
       }
+      pilar_angulos: {
+        Row: {
+          descripcion: string
+          es_capa: boolean
+          id: string
+          minimo: number | null
+          nombre: string
+          orden: number
+          pilar_id: string
+          red: string | null
+          slug: string
+        }
+        Insert: {
+          descripcion: string
+          es_capa?: boolean
+          id?: string
+          minimo?: number | null
+          nombre: string
+          orden: number
+          pilar_id: string
+          red?: string | null
+          slug: string
+        }
+        Update: {
+          descripcion?: string
+          es_capa?: boolean
+          id?: string
+          minimo?: number | null
+          nombre?: string
+          orden?: number
+          pilar_id?: string
+          red?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilar_angulos_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "red", "es_capa"]
+          },
+        ]
+      }
       pilar_pesos: {
         Row: {
           desde: string
