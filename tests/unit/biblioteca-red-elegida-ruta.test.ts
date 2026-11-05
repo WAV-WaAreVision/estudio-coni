@@ -12,8 +12,10 @@ import { POST } from "@/app/(app)/biblioteca/temas/red-elegida/route"
 import { RedElegida } from "@/lib/acciones/biblioteca"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, ERROR_SOLO_CONI } from "@/lib/acciones/resultado"
 
-const pedir = (cuerpo: string) =>
-  POST(new Request("http://app.test/biblioteca/temas/red-elegida", { method: "POST", body: cuerpo }))
+const pedir = (cuerpo: string, encabezados: Record<string, string> = {}) =>
+  POST(
+    new Request("http://app.test/biblioteca/temas/red-elegida", { method: "POST", body: cuerpo, headers: encabezados }),
+  )
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -27,7 +29,10 @@ describe("POST /biblioteca/temas/red-elegida", () => {
   })
 
   it("says a body that is not JSON, and each refusal with its status", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined)
     expect((await pedir("no es json")).status).toBe(400)
+    expect(aviso).toHaveBeenCalledWith("red-elegida: el cuerpo no es JSON", expect.any(SyntaxError))
+    aviso.mockRestore()
     expect(conSesionDeConi).not.toHaveBeenCalled()
     for (const [error, estado] of [
       [ERROR_SESION_VENCIDA, 401],
@@ -40,5 +45,13 @@ describe("POST /biblioteca/temas/red-elegida", () => {
       expect(respuesta.status, error).toBe(estado)
       expect(await respuesta.text()).toBe(error)
     }
+  })
+
+  it("refuses a request another site sends, and takes one from the app itself", async () => {
+    const ajena = await pedir(JSON.stringify({ red: "instagram" }), { origin: "https://otro.test" })
+    expect(ajena.status).toBe(403)
+    expect(conSesionDeConi).not.toHaveBeenCalled()
+    const propia = await pedir(JSON.stringify({ red: "instagram" }), { origin: "http://app.test" })
+    expect(propia.status).toBe(204)
   })
 })

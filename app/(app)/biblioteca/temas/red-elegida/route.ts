@@ -25,10 +25,16 @@ function texto(mensaje: string, estado: number): Response {
  * draft, 15c) never lands. A plain request never enters that queue. The person is checked here, as in an action.
  */
 export async function POST(request: Request) {
+  // Only the app's own pages write it: a browser sends `Origin` on a cross-site POST, and the session cookie would go too.
+  const origen = request.headers.get("origin")
+  if (origen !== null && origen !== new URL(request.url).origin) {
+    return texto("No acepto esta solicitud desde otro sitio.", 403)
+  }
   let cuerpo: unknown
   try {
     cuerpo = await request.json()
-  } catch {
+  } catch (error) {
+    console.warn("red-elegida: el cuerpo no es JSON", error)
     return texto("No entendí esa solicitud. Vuelve a abrir la pantalla.", 400)
   }
   const resultado = await conSesionDeConi("recordarRed", RedElegida, cuerpo, (db, elegida) =>
