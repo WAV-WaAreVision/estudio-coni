@@ -27,8 +27,11 @@ sections 3 and 7.
 2. **Approval is a separate list** ("Borradores"), where Coni edits, discards or approves later.
 3. **A network draft is never approved in 15c.** It stores a name and three free notes, shows "Esperando conexión",
    and WAV reads it by SQL when the network is built.
-4. **Weights are redistributed at approval.** Approving shows every weight of that network, editable, with the total.
-   A total other than 100 warns and never blocks. Changed weights are stored with today's date; history is kept.
+4. **Weights are redistributed at approval, in every stage** (Federico, 2026-11-05, option A). A network may already
+   have weight stages planned for later dates (LinkedIn: 2027-01-01 and 2027-07-01). Approving shows "Hoy" plus each
+   later `desde` of that network, each stage with every active pillar and the new one, all editable, with its own total.
+   A total other than 100 warns and never blocks. The new pillar gets a weight in every stage. Changed weights are
+   stored on the stage's date (today's on `current_date`); nothing is deleted, so history is kept.
 
 ## 1. Data
 
@@ -51,10 +54,14 @@ sections 3 and 7.
      (`nombre_en_uso`), so an old retired pillar cannot be shadowed.
   3. Inserts the pillar: `es_pilar = true`, `activa = true`, `es_capa = false`, the draft's `red`, a slug made from
      the name (unique, with a numeric suffix on collision), `orden` = the network's highest `orden` + 1.
-  4. Writes `pilar_pesos` with `desde = current_date` (America/Santiago) for the new pillar and for every pillar of
-     `p_pesos` whose weight differs from its current one. `p_pesos` is `{pilar_id: peso}` and may only name active
-     pillars of the draft's network (`pilar_de_otra_red` otherwise); the new pillar's weight is the draft's, or
-     `p_pesos` may override it under the key `"nuevo"`. A second weight change on the same day replaces that day's row.
+  4. Writes `pilar_pesos` per stage. The stages are today (`current_date`, America/Santiago) and every later `desde`
+     that the network's active pillars already have. `p_pesos` is `{"<desde YYYY-MM-DD>": {"<pilar_id>" | "nuevo":
+     peso}}`: a stage key that is not today or an existing later `desde` of that network is refused
+     (`etapa_invalida`); a pillar key may only name an active, non-layer pillar of the draft's network
+     (`pilar_de_otra_red` otherwise); a weight must be a number over 0 and up to 100 (`peso_invalido`). Stages are
+     written oldest first. In each stage the new pillar gets a row on that `desde` (its weight under `"nuevo"`, else
+     the draft's), and every pillar whose sent weight differs from its effective weight on that date gets a row on
+     that `desde`; a second change on the same day replaces that day's row. Nothing is deleted.
   5. Marks the draft `aprobado` with `pilar_id` and `decidido_en`.
   The total is not checked: the screen warns, the database accepts.
 - **Discard and edit** go through the RLS policies (no RPC needed). A discarded draft cannot be edited back.
@@ -76,13 +83,16 @@ sections 3 and 7.
 - **`/biblioteca/temas/borradores`:** pillar drafts grouped by network, then network drafts.
   - A pillar draft shows its fields and three actions: Editar (the same form, prefilled), Descartar (asks to confirm)
     and Aprobar.
-  - Aprobar opens `/biblioteca/temas/borradores/[id]/aprobar`: the network's active pillars and the new one, each with
-    its current weight editable, the total live, and the warning "Los pesos de LinkedIn suman 110 %. Puedes aprobar
-    igual y ajustarlos después." when it is not 100. "Aprobar pilar" calls the RPC and returns to Temas with the new
-    pillar chosen.
+  - Aprobar opens `/biblioteca/temas/borradores/[id]/aprobar`: one stage per weight date of that network from today
+    on, "Hoy" first, then each later `desde` ("Desde el 1 de enero de 2027"). Stages are columns on the computer and
+    blocks one under another on the phone. Each stage lists the network's active pillars and the new one (prefilled
+    with the draft's weight), each weight editable, with its own live total and its own warning when it is not 100:
+    "Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después." for today, "Los pesos de LinkedIn
+    desde el 1 de enero de 2027 suman 110 %. ..." for a later stage. A warning never blocks. "Aprobar pilar" calls the
+    RPC and returns to Temas with the new pillar chosen.
   - A network draft shows "Esperando conexión", with Editar and Descartar only.
-- **Errors** are shown in words (`PALABRAS`): name in use, draft already decided, a pillar of another network, no
-  session. Nothing is swallowed.
+- **Errors** are shown in her words: name in use, draft already decided, a pillar of another network, a stage that
+  changed since the screen opened (`etapa_invalida`: "recarga"), no session. Nothing is swallowed.
 - **Accessibility and words:** as 15b: tú, no em dashes, targets of 44 px or more, labels on every field, the form
   works on the phone and on the computer, Axe passes, large text works.
 
@@ -100,13 +110,19 @@ sections 3 and 7.
   - A draft is not returned by any pillar reader (`pilaresActivos`, `temas_de_red` called with the draft id, the Temas row data).
   - Approval creates an active pillar of that network with the next `orden`, a unique slug, and the weights of the day;
     unchanged weights get no new row; a second approval of the same draft fails with `borrador_ya_decidido`.
+  - Stages, on LinkedIn: the new pillar gets a row on today and on every later `desde` of the network; a changed
+    weight in a later stage is written on that `desde` (replacing that day's row); a weight changed today but kept in a
+    later stage gets that stage's row; a stage key that is not today or an existing later `desde` fails with
+    `etapa_invalida`. The tests seed their own later stage relative to today, so they do not depend on the date.
   - A name already used by a retired pillar fails with `nombre_en_uso`. A weight for a pillar of the other network
     fails with `pilar_de_otra_red`. WAV calling the RPC fails with `ERROR_SOLO_CONI`.
   - A total other than 100 is accepted and `pesosDeRed` flags it.
-- **Unit:** the forms' validation, the weights editor's total and warning, the Borradores count, the row's links.
+- **Unit:** the forms' validation, the weights editor's stages, each stage's total and warning, the Borradores
+  count, the row's links.
 - **E2E (phone and desktop):** Coni's acceptance line "«+ Agregar pilar» guarda un borrador que no aparece en la lista
   hasta que lo apruebo": add a pillar, see it missing from the row, approve it with a redistribution, see it in the row
-  with its topics filter. "+ Agregar red" saves a draft shown as "Esperando conexión". Axe and large text.
+  with its topics filter. On LinkedIn, with a later stage the scene seeds relative to today, she edits that stage
+  too (not visual, date independent). "+ Agregar red" saves a draft shown as "Esperando conexión". Axe and large text.
 - **Visual baselines:** the Temas list (phone and desktop) changes with the new buttons; the new pages get their own.
   Federico looks at the captures before they are taken.
 

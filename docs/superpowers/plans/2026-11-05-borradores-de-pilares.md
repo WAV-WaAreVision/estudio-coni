@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give Temas `[ + Agregar red ]` at the end of the network row and `[ + Agregar pilar ]` among the chosen network's pillars (before the Capa TDAH), both opening short forms that save drafts; list the drafts in "Borradores", where Coni edits, discards or approves a pillar draft while redistributing that network's weights; an approved pillar becomes an active `categorias` pillar that every reader already picks up, without a Trigger deploy.
+**Goal:** Give Temas `[ + Agregar red ]` at the end of the network row and `[ + Agregar pilar ]` among the chosen network's pillars (before the Capa TDAH), both opening short forms that save drafts; list the drafts in "Borradores", where Coni edits, discards or approves a pillar draft while redistributing that network's weights in every stage; an approved pillar becomes an active `categorias` pillar that every reader already picks up, without a Trigger deploy.
 
-**Architecture:** One additive migration adds `borradores_de_pilar` and `borradores_de_red` (row level security: Coni writes and edits only drafts in `borrador`, WAV reads, nobody deletes) and the security-definer RPC `aprobar_borrador_de_pilar(p_borrador, p_pesos)`, which in one transaction refuses a decided draft, a name in use, a weight of another network, inserts the pillar (slug from its name, next `orden`), writes today's weights in America/Santiago and marks the draft approved. Drafts never touch `categorias`, so nothing that reads pillars can see one. A pure module `lib/dominio/biblioteca/borradores.ts` holds the forms' validation, the weights editor, the routes and the notes; `lib/datos/borradores.ts` reads, `lib/acciones/borradores.ts` writes, and `app/(app)/biblioteca/temas/borradores/acciones.ts` holds the server actions, which redirect with a `?aviso=` note that `TrasElAviso` takes out of the address.
+**Architecture:** One additive migration adds `borradores_de_pilar` and `borradores_de_red` (row level security: Coni writes and edits only drafts in `borrador`, WAV reads, nobody deletes) and the security-definer RPC `aprobar_borrador_de_pilar(p_borrador, p_pesos)`, which in one transaction refuses a decided draft, a name in use, a weight of another network, inserts the pillar (slug from its name, next `orden`), writes the weights of every stage of that network (today in America/Santiago and each later `desde` it already has) and marks the draft approved. Drafts never touch `categorias`, so nothing that reads pillars can see one. A pure module `lib/dominio/biblioteca/borradores.ts` holds the forms' validation, the weights editor, the routes and the notes; `lib/datos/borradores.ts` reads, `lib/acciones/borradores.ts` writes, and `app/(app)/biblioteca/temas/borradores/acciones.ts` holds the server actions, which redirect with a `?aviso=` note that `TrasElAviso` takes out of the address.
 
 **Tech Stack:** Next.js 16 App Router, TypeScript strict, Supabase Postgres (RLS, column grants, a security-definer function), Zod 4, Vitest (unit, and integration against local Supabase), Playwright (projects `app` phone and `escritorio`), Biome (safe mode only), Tailwind v4 semantic tokens, Phosphor icons through `ICONO`.
 
@@ -40,10 +40,10 @@
 3. **Approvals run one at a time** (`pg_advisory_xact_lock`), so the slug, the `orden` and the name check cannot race.
 4. **Slug:** the normalized name, every run of non `[a-z0-9]` as `-`, cut at 60 characters, trimmed of `-`; `pilar` if nothing is left; `-2`, `-3`... on collision with any `categorias.slug`.
 5. **`orden`** is one more than the highest `orden` of every pillar row of that network (active, retired and the layer). On Instagram it lands after the Capa TDAH's number; the row still puts layers last by rule (`pilaresDeLaRed`).
-6. **`p_pesos` keys:** any key other than `"nuevo"` that is not an active, non-layer pillar of the draft's network (the other network's, the Capa TDAH, a retired pillar, a non-id) is `pilar_de_otra_red`. Values must be JSON numbers over 0 and up to 100 after rounding to two decimals, else `peso_invalido` (also for a `p_pesos` that is not an object). A missing draft is `borrador_inexistente`. WAV gets `sin_permiso` (42501) like every Coni-only RPC; the app refuses WAV before with `ERROR_SOLO_CONI`.
-7. **The form sends every weight of the screen**; the RPC writes only those that differ from the current one (and always the new pillar's). The screen lists the pillars `pesosDeRed` gives (those with a weight on that date: every active pillar today, and every approved one from now on).
-8. **Planned weight stages are not touched (flag for Federico).** LinkedIn has seeded stages on 2027-01-01 and 2027-07-01 (`20261104000100_pilares_por_red.sql`). Approval writes rows dated today only, so on those dates the old pillars take their planned weights while the new pillar keeps its own, and `pesosDeRed` will flag the total. The approval screen says so in one line when the network has a later stage ("LinkedIn ya tiene pesos programados desde el 1 de enero de 2027: esos no cambian aquí."). Rewriting future stages is out of scope; Federico decides whether Coni needs it.
-9. **`pesosDeRed` grows** an `id` per pillar (the editor sends ids) and `siguiente` (the earliest later stage of the network). Additive; its two tests follow.
+6. **`p_pesos` is `{"<desde YYYY-MM-DD>": {"<pilar_id>" | "nuevo": peso}}`.** Stage keys are dates written `YYYY-MM-DD`; today's key is today's date in Chile (`current_date` at America/Santiago, as the page computes it with `diaLocal`). A stage key that is not today or an existing later `desde` of the network is `etapa_invalida`; a page opened before midnight, or before someone changed the stages, gets it and says "recarga". A stage may be absent (the new pillar still gets the draft's weight there). Any pillar key other than `"nuevo"` that is not an active, non-layer pillar of the draft's network (the other network's, the Capa TDAH, a retired pillar, a non-id) is `pilar_de_otra_red`. Values must be JSON objects of JSON numbers over 0 and up to 100 after rounding to two decimals, else `peso_invalido` (also for a `p_pesos` that is not an object). A missing draft is `borrador_inexistente`. WAV gets `sin_permiso` (42501) like every Coni-only RPC; the app refuses WAV before with `ERROR_SOLO_CONI`. Checks run in this order: weights' shape, draft, stages, pillars, name.
+7. **The form sends every weight of every stage; the RPC writes stage by stage, oldest first,** only the weights that differ from the pillar's effective weight on that stage's date at that moment (and always the new pillar's). Oldest first matters: if she lowers a pillar today and keeps its old value in a later stage where it had no row, today's write would otherwise silently carry into that stage; compared after today's write, the later stage gets its own row with the value the screen showed. Each stage lists the pillars `calcularPesosDeRed` gives on its date (every active pillar has a weight; every approved one gets one in every stage).
+8. **Stages (Federico, 2026-11-05, option A).** A network's stages are today plus every later `desde` its active, non-layer pillars have (LinkedIn's seed: 2027-01-01 and 2027-07-01 while they are ahead; Instagram: none). The approval screen shows one block per stage ("Hoy", "Desde el 1 de enero de 2027"...), columns from md up and blocks one under another on the phone, each with every pillar and the new one (prefilled with the draft's weight), its own live total (an `<output>`) and its own warning when it is not 100, which never blocks. Approval writes today's changed weights and the new pillar's row of today, and for each later stage the new pillar's row on that `desde` plus the changed weights on that `desde` (replacing that day's row). Nothing is deleted.
+9. **`pesosDeRed` grows an `id` per pillar** (the editor sends ids) and **`etapasDeRed(db, red, hoy)`** (`calcularEtapasDeRed` in `lib/dominio/pilares.ts`) gives today's weights and each later stage's. Additive; `pesosDeRed`'s two tests follow.
 10. **One edit route for both kinds:** `/biblioteca/temas/borradores/[id]/editar` looks the id up among pillar drafts, then network drafts (uuids never collide). A decided or missing draft is not found, as is `/aprobar` of a network draft.
 11. **Borradores lists only drafts in `borrador`**: pillar drafts grouped by network in `REDES` order (LinkedIn, Instagram, as every list but the Temas row), then network drafts, each oldest first. Approved and discarded drafts leave the screen and stay in the tables for WAV.
 12. **Notes travel in one `?aviso=` parameter** with five fixed keys, said by `AvisoDeIdeas` and taken out of the address by `TrasElAviso` (its `parametro` grows `"aviso"`). Saving a pillar draft returns to Temas on its network; saving a network draft returns to Temas on the stored network; edits and discards return to Borradores; approval returns to Temas with the new pillar chosen and the note "Aprobé el pilar. Ya aparece en Temas." Every server action redirects with `"replace"`, so Back from the destination skips the form.
@@ -54,7 +54,7 @@
 17. **Conexión asks for no passwords** in its hint: it is a plain text column WAV reads by SQL.
 18. **The server actions live in `app/(app)/biblioteca/temas/borradores/acciones.ts`**, not in the Biblioteca's `acciones.ts` (one concern per file); `exigirConi` of `lib/acciones/biblioteca.ts` is exported so the new actions reuse it.
 19. **Test cleanup restores the seed weights.** Approvals through real clients commit (integration action tests, E2E). `limpiarBorradores()` (`tests/integration/limpiar-borradores.ts`) deletes every draft and every pillar a draft became, and puts `pilar_pesos` back to the migration's 15 seed rows; `vaciarBiblioteca` calls it, so every scene and the run's teardown start clean.
-20. **The visual scene approves on Instagram,** whose weights have no later stage, so the approval baseline never shows a date line that changes with time.
+20. **The visual scene approves on Instagram,** which has no later stage at any date, so its approval baseline shows only "Hoy". The LinkedIn stage editing is covered by integration and non-visual E2E tests that seed their own later stage at today + 400 days (always ahead of the seed's 2027 stages, so the tests name it by its own date and never count stages).
 
 ## File structure
 
@@ -96,12 +96,13 @@
 | File | Change |
 |---|---|
 | `lib/supabase/database.types.ts` | Regenerated (two tables, one function) |
-| `lib/dominio/pilares.ts` | `PesosDeRed`: `id` per pillar, `siguiente` |
+| `lib/dominio/pilares.ts` | `PesosDeRed`: `id` per pillar; `calcularEtapasDeRed` |
+| `lib/datos/pilares.ts` | `etapasDeRed` |
 | `lib/acciones/biblioteca.ts` | `exigirConi` exported |
 | `app/(app)/biblioteca/temas/fila-de-temas.tsx` | "Agregar red" closes the networks; "Agregar pilar" before the layers |
 | `app/(app)/biblioteca/temas/page.tsx` | Counts drafts, shows "Borradores · N", says a form's note |
 | `app/(app)/biblioteca/tras-el-aviso.tsx` | `parametro` also takes `"aviso"` |
-| `tests/unit/pilares.test.ts`, `tests/integration/datos-pilares.test.ts` | `pesosDeRed`'s new fields |
+| `tests/unit/pilares.test.ts`, `tests/integration/datos-pilares.test.ts` | `pesosDeRed`'s `id`, the network's stages |
 | `tests/unit/biblioteca-fila-de-temas-pantalla.test.tsx`, `tests/unit/biblioteca-pagina-temas.test.tsx`, `tests/unit/biblioteca-tras-el-aviso.test.tsx` | The row's new links, the page's count and note |
 | `tests/e2e/biblioteca-escena.ts` | `sembrarBorradores`, `BORRADOR_DE_INSTAGRAM`, `RED_EN_BORRADOR`; `vaciarBiblioteca` cleans drafts |
 | `tests/e2e/biblioteca-temas-por-red.spec.ts` | The pillar lists include "Agregar pilar" |
@@ -413,7 +414,7 @@ Create `tests/integration/aprobar-borrador.test.ts`:
 import { randomUUID } from "node:crypto"
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
-import { asumir, como, comoConi, comoMantenedor, fallaCon, pool } from "./db"
+import { asumir, como, comoConi, comoMantenedor, comoPostgres, fallaCon, pool } from "./db"
 
 afterAll(async () => {
   await pool.end()
@@ -421,6 +422,13 @@ afterAll(async () => {
 
 const SUFIJO = randomUUID().slice(0, 8)
 const HOY = "(now() at time zone 'America/Santiago')::date"
+
+async function hoy(c: pg.PoolClient, dias = 0): Promise<string> {
+  const { rows } = await c.query<{ dia: string }>(`select (${HOY} + $1::int)::text as dia`, [dias])
+  const dia = rows[0]?.dia
+  if (!dia) throw new Error("No pude leer la fecha de hoy")
+  return dia
+}
 
 async function borrador(
   c: pg.PoolClient,
@@ -446,6 +454,37 @@ async function idDe(c: pg.PoolClient, slug: string): Promise<string> {
   return id
 }
 
+/**
+ * A later stage of LinkedIn of the test's own, 400 days ahead: after the seed's 2027 stages at any date, so no test
+ * depends on today versus 2027 (decision 20). Only the pillars named get a row on it, at 25.
+ */
+async function etapaPropia(c: pg.PoolClient, slugs: readonly string[]): Promise<string> {
+  await asumir(c, comoPostgres)
+  const { rows } = await c.query<{ desde: string }>(
+    `insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+     select id, red, es_capa, ${HOY} + 400, 25 from public.categorias where slug = any($1::text[])
+     returning desde::text as desde`,
+    [slugs],
+  )
+  await asumir(c, comoConi)
+  const desde = rows[0]?.desde
+  if (!desde) throw new Error("No se creó la etapa propia")
+  return desde
+}
+
+/** Today and every later `desde` of LinkedIn's active pillars, as the RPC computes them. */
+async function etapasDeLinkedin(c: pg.PoolClient): Promise<string[]> {
+  const { rows } = await c.query<{ desde: string }>(
+    `select s.desde::text as desde from (
+       select ${HOY} as desde
+       union
+       select w.desde from public.pilar_pesos w join public.categorias c on c.id = w.pilar_id
+       where c.es_pilar and c.activa and not c.es_capa and c.red = 'linkedin' and w.desde > ${HOY}
+     ) s order by s.desde`,
+  )
+  return rows.map((fila) => fila.desde)
+}
+
 async function aprobar(c: pg.PoolClient, id: string, pesos: unknown): Promise<string> {
   const { rows } = await c.query<{ pilar: string }>(
     "select public.aprobar_borrador_de_pilar($1, $2::jsonb) as pilar",
@@ -459,12 +498,25 @@ async function aprobar(c: pg.PoolClient, id: string, pesos: unknown): Promise<st
 const rechazo = (c: pg.PoolClient, id: string, pesos: unknown) =>
   fallaCon(c, "select public.aprobar_borrador_de_pilar($1, $2::jsonb)", [id, JSON.stringify(pesos)])
 
-async function pesosDeHoy(c: pg.PoolClient, pilar: string): Promise<number[]> {
+/** The rows of a pillar written exactly on `desde`. */
+async function filasEn(c: pg.PoolClient, pilar: string, desde: string): Promise<number[]> {
   const { rows } = await c.query<{ peso: number }>(
-    `select peso::float8 as peso from public.pilar_pesos where pilar_id = $1 and desde = ${HOY}`,
-    [pilar],
+    "select peso::float8 as peso from public.pilar_pesos where pilar_id = $1 and desde = $2::date",
+    [pilar, desde],
   )
   return rows.map((fila) => fila.peso)
+}
+
+/** A pillar's effective weight on a date: its row with the latest `desde` on or before it. */
+async function pesoEn(c: pg.PoolClient, pilar: string, fecha: string): Promise<number> {
+  const { rows } = await c.query<{ peso: number }>(
+    `select peso::float8 as peso from public.pilar_pesos where pilar_id = $1 and desde <= $2::date
+     order by desde desc limit 1`,
+    [pilar, fecha],
+  )
+  const peso = rows[0]?.peso
+  if (peso === undefined) throw new Error(`El pilar ${pilar} no tiene peso el ${fecha}`)
+  return peso
 }
 
 async function filasDePeso(c: pg.PoolClient, pilar: string): Promise<number> {
@@ -473,17 +525,6 @@ async function filasDePeso(c: pg.PoolClient, pilar: string): Promise<number> {
     [pilar],
   )
   return rows[0]?.n ?? 0
-}
-
-async function pesoVigente(c: pg.PoolClient, pilar: string): Promise<number> {
-  const { rows } = await c.query<{ peso: number }>(
-    `select peso::float8 as peso from public.pilar_pesos where pilar_id = $1 and desde <= ${HOY}
-     order by desde desc limit 1`,
-    [pilar],
-  )
-  const peso = rows[0]?.peso
-  if (peso === undefined) throw new Error(`El pilar ${pilar} no tiene peso`)
-  return peso
 }
 
 describe("aprobar_borrador_de_pilar", () => {
@@ -522,29 +563,65 @@ describe("aprobar_borrador_de_pilar", () => {
 
   it("writes today's weight for the new pillar and only for the pillars whose weight changed; «nuevo» overrides the draft's", async () => {
     await como(comoConi, async (c) => {
+      const dia = await hoy(c)
       const diagnostico = await idDe(c, "diagnostico-doble")
       const bienestar = await idDe(c, "bienestar-e-impacto")
       const filasDeBienestar = await filasDePeso(c, bienestar)
       const id = await borrador(c, "linkedin", `Con pesos ${SUFIJO}`, `Pesos ${SUFIJO}`, 10)
       const pilar = await aprobar(c, id, {
-        [diagnostico]: 20,
-        [bienestar]: await pesoVigente(c, bienestar),
-        nuevo: 12,
+        [dia]: { [diagnostico]: 20, [bienestar]: await pesoEn(c, bienestar, dia), nuevo: 12 },
       })
-      expect(await pesosDeHoy(c, pilar)).toEqual([12])
-      expect(await pesosDeHoy(c, diagnostico)).toEqual([20])
+      expect(await filasEn(c, pilar, dia)).toEqual([12])
+      expect(await filasEn(c, diagnostico, dia)).toEqual([20])
       expect(await filasDePeso(c, bienestar)).toBe(filasDeBienestar)
+    })
+  })
+
+  it("gives the new pillar a row on today and on every later stage of its network, the draft's weight where none is sent", async () => {
+    await como(comoConi, async (c) => {
+      await etapaPropia(c, ["diagnostico-doble", "bienestar-e-impacto", "psicologia-en-la-mesa", "mujeres-lideres"])
+      const etapas = await etapasDeLinkedin(c)
+      expect(etapas.length).toBeGreaterThanOrEqual(2)
+      const pilar = await aprobar(c, await borrador(c, "linkedin", `Etapas ${SUFIJO}`, `Etapas ${SUFIJO}`, 10), {})
+      const { rows } = await c.query<{ desde: string; peso: number }>(
+        "select desde::text as desde, peso::float8 as peso from public.pilar_pesos where pilar_id = $1 order by desde",
+        [pilar],
+      )
+      expect(rows).toEqual(etapas.map((desde) => ({ desde, peso: 10 })))
+    })
+  })
+
+  it("writes a later stage's changes on its date, replacing that day's row, and keeps there the value the screen showed", async () => {
+    await como(comoConi, async (c) => {
+      const dia = await hoy(c)
+      // Mujeres líderes gets no row on the stage: its weight there comes from an earlier row.
+      const etapa = await etapaPropia(c, ["diagnostico-doble", "bienestar-e-impacto", "psicologia-en-la-mesa"])
+      const diagnostico = await idDe(c, "diagnostico-doble")
+      const mujeres = await idDe(c, "mujeres-lideres")
+      const mujeresEnLaEtapa = await pesoEn(c, mujeres, etapa)
+      const pilar = await aprobar(c, await borrador(c, "linkedin", `Reparto ${SUFIJO}`, `Reparto ${SUFIJO}`, 10), {
+        [dia]: { [diagnostico]: 20, [mujeres]: 5 },
+        [etapa]: { [diagnostico]: 15, [mujeres]: mujeresEnLaEtapa, nuevo: 12 },
+      })
+      expect(await filasEn(c, diagnostico, dia)).toEqual([20])
+      expect(await filasEn(c, diagnostico, etapa)).toEqual([15])
+      expect(await pesoEn(c, mujeres, dia)).toBe(5)
+      // Lowering it today must not carry into the stage, where she kept its value (decision 7).
+      expect(await pesoEn(c, mujeres, etapa)).toBe(mujeresEnLaEtapa)
+      expect(await filasEn(c, pilar, dia)).toEqual([10])
+      expect(await filasEn(c, pilar, etapa)).toEqual([12])
     })
   })
 
   it("replaces a second change of the same day, and approves a draft only once", async () => {
     await como(comoConi, async (c) => {
+      const dia = await hoy(c)
       const diagnostico = await idDe(c, "diagnostico-doble")
       const uno = await borrador(c, "linkedin", `Uno ${SUFIJO}`, `Uno ${SUFIJO}`)
       const dos = await borrador(c, "linkedin", `Dos ${SUFIJO}`, `Dos ${SUFIJO}`)
-      await aprobar(c, uno, { [diagnostico]: 20 })
-      await aprobar(c, dos, { [diagnostico]: 18 })
-      expect(await pesosDeHoy(c, diagnostico)).toEqual([18])
+      await aprobar(c, uno, { [dia]: { [diagnostico]: 20 } })
+      await aprobar(c, dos, { [dia]: { [diagnostico]: 18 } })
+      expect(await filasEn(c, diagnostico, dia)).toEqual([18])
       const otraVez = await rechazo(c, uno, {})
       expect([otraVez.code, otraVez.message]).toEqual(["22023", "borrador_ya_decidido"])
       const descartado = await borrador(c, "linkedin", `Tres ${SUFIJO}`, `Tres ${SUFIJO}`)
@@ -567,6 +644,18 @@ describe("aprobar_borrador_de_pilar", () => {
          where c.es_pilar and c.activa and not c.es_capa and c.red = 'linkedin'`,
       )
       expect(rows[0]?.total).toBe(110)
+    })
+  })
+
+  it("refuses a stage that is not today or a later date the network already has", async () => {
+    await como(comoConi, async (c) => {
+      const etapa = await etapaPropia(c, ["diagnostico-doble"])
+      const id = await borrador(c, "linkedin", `Fechas ${SUFIJO}`, `Fechas ${SUFIJO}`)
+      const { rows } = await c.query<{ siguiente: string }>("select ($1::date + 1)::text as siguiente", [etapa])
+      for (const clave of [await hoy(c, -1), "2026-11-04", rows[0]?.siguiente ?? "", "hoy", "2026-13-45"]) {
+        const error = await rechazo(c, id, { [clave]: { nuevo: 10 } })
+        expect([error.code, error.message], clave).toEqual(["22023", "etapa_invalida"])
+      }
     })
   })
 
@@ -595,13 +684,14 @@ describe("aprobar_borrador_de_pilar", () => {
 
   it("refuses a weight for a pillar of the other network, a layer, a retired pillar or no pillar at all", async () => {
     await como(comoConi, async (c) => {
+      const dia = await hoy(c)
       const deLinkedin = await borrador(c, "linkedin", `Cruce ${SUFIJO}`, `Cruce ${SUFIJO}`)
       const deInstagram = await borrador(c, "instagram", `Capa ${SUFIJO}`, `Capa ${SUFIJO}`)
-      const casos: [string, Record<string, number>][] = [
-        [deLinkedin, { [await idDe(c, "mi-nueva-partida")]: 30 }],
-        [deInstagram, { [await idDe(c, "capa-tdah")]: 10 }],
-        [deLinkedin, { [await idDe(c, "pareja")]: 10 }],
-        [deLinkedin, { "no-es-un-id": 10 }],
+      const casos: [string, Record<string, Record<string, number>>][] = [
+        [deLinkedin, { [dia]: { [await idDe(c, "mi-nueva-partida")]: 30 } }],
+        [deInstagram, { [dia]: { [await idDe(c, "capa-tdah")]: 10 } }],
+        [deLinkedin, { [dia]: { [await idDe(c, "pareja")]: 10 } }],
+        [deLinkedin, { [dia]: { "no-es-un-id": 10 } }],
       ]
       for (const [id, pesos] of casos) {
         const error = await rechazo(c, id, pesos)
@@ -610,10 +700,19 @@ describe("aprobar_borrador_de_pilar", () => {
     })
   })
 
-  it("refuses a weight that is not a number over 0 and up to 100", async () => {
+  it("refuses weights that are not numbers over 0 and up to 100, or a stage that is not an object", async () => {
     await como(comoConi, async (c) => {
+      const dia = await hoy(c)
       const id = await borrador(c, "linkedin", `Peso ${SUFIJO}`, `Peso ${SUFIJO}`)
-      for (const pesos of [{ nuevo: 0 }, { nuevo: 100.5 }, { nuevo: "10" }, { nuevo: 0.001 }, []]) {
+      const casos = [
+        { [dia]: { nuevo: 0 } },
+        { [dia]: { nuevo: 100.5 } },
+        { [dia]: { nuevo: "10" } },
+        { [dia]: { nuevo: 0.001 } },
+        { [dia]: 10 },
+        [],
+      ]
+      for (const pesos of casos) {
         const error = await rechazo(c, id, pesos)
         expect([error.code, error.message], JSON.stringify(pesos)).toEqual(["22023", "peso_invalido"])
       }
@@ -654,15 +753,19 @@ Expected: FAIL: `function public.aprobar_borrador_de_pilar(unknown, jsonb) does 
 Append to `supabase/migrations/20261105000100_borradores_de_pilares.sql`:
 
 ```sql
--- Coni approves a pillar draft (spec section 1), redistributing that network's weights. `p_pesos` is
--- {"<pilar_id>": peso, "nuevo": peso}: only active pillars of the draft's network, and the new pillar's weight under
--- "nuevo" (the draft's when absent). Every weight that changed gets a row of today in Chile; a second change on the
--- same day replaces it. The total is not checked: the screen warns, the database accepts.
+-- Coni approves a pillar draft (spec section 1), redistributing that network's weights in every stage (decision 8).
+-- The stages are today in Chile and every later `desde` the network's active pillars already have. `p_pesos` is
+-- {"<desde YYYY-MM-DD>": {"<pilar_id>": peso, "nuevo": peso}}. Stages are written oldest first: in each, the new pillar
+-- gets a row of that date (its "nuevo", else the draft's weight) and every pillar whose sent weight differs from its
+-- effective one on that date gets a row of that date; a second change on the same day replaces it. Nothing is
+-- deleted. The totals are not checked: the screen warns, the database accepts.
 create function public.aprobar_borrador_de_pilar(p_borrador uuid, p_pesos jsonb) returns uuid
 language plpgsql security definer set search_path = '' as $$
 declare
   v_borrador public.borradores_de_pilar;
   v_hoy date := (now() at time zone 'America/Santiago')::date;
+  v_etapas date[];
+  v_desde date;
   v_nombre text;
   v_corto text;
   v_base text;
@@ -674,13 +777,18 @@ begin
     raise exception using errcode = '42501', message = 'sin_permiso';
   end if;
   if p_pesos is null or jsonb_typeof(p_pesos) <> 'object'
-     or exists (
-       select 1 from jsonb_each(p_pesos) e
-       where case
-         when jsonb_typeof(e.value) = 'number' then round((e.value)::numeric, 2) <= 0 or (e.value)::numeric > 100
-         else true
-       end
-     ) then
+     or exists (select 1 from jsonb_each(p_pesos) e where jsonb_typeof(e.value) <> 'object') then
+    raise exception using errcode = '22023', message = 'peso_invalido';
+  end if;
+  -- Every stage is an object by now, so its weights can be listed.
+  if exists (
+    select 1 from jsonb_each(p_pesos) e
+    cross join lateral jsonb_each(e.value) w
+    where case
+      when jsonb_typeof(w.value) = 'number' then round((w.value)::numeric, 2) <= 0 or (w.value)::numeric > 100
+      else true
+    end
+  ) then
     raise exception using errcode = '22023', message = 'peso_invalido';
   end if;
   -- One approval at a time: the slug, the order and the names are read and written in one go.
@@ -692,9 +800,26 @@ begin
   if v_borrador.estado <> 'borrador' then
     raise exception using errcode = '22023', message = 'borrador_ya_decidido';
   end if;
-  -- A layer has no weight and a retired pillar no say: only the network's active pillars may be named.
+  select array_agg(distinct s.desde order by s.desde) into v_etapas
+  from (
+    select v_hoy as desde
+    union all
+    select w.desde
+    from public.pilar_pesos w
+    join public.categorias c on c.id = w.pilar_id
+    where c.es_pilar and c.activa and not c.es_capa and c.red = v_borrador.red and w.desde > v_hoy
+  ) s;
+  -- A stage the screen showed that is gone, or a day that changed since it opened: she reloads (decision 6).
   if exists (
     select 1 from jsonb_object_keys(p_pesos) k
+    where k not in (select to_char(e.desde, 'YYYY-MM-DD') from unnest(v_etapas) as e (desde))
+  ) then
+    raise exception using errcode = '22023', message = 'etapa_invalida';
+  end if;
+  -- A layer has no weight and a retired pillar no say: only the network's active pillars may be named.
+  if exists (
+    select 1 from jsonb_each(p_pesos) e
+    cross join lateral jsonb_object_keys(e.value) k
     where k <> 'nuevo'
       and not exists (
         select 1 from public.categorias c
@@ -728,23 +853,27 @@ begin
          (coalesce(max(c.orden), 0) + 1)::smallint, true, true, v_borrador.red, false, auth.uid()
   from public.categorias c
   where c.es_pilar and c.red = v_borrador.red;
-  insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
-  values (
-    v_pilar, v_borrador.red, false, v_hoy,
-    coalesce(round((p_pesos ->> 'nuevo')::numeric, 2), v_borrador.peso)
-  );
-  insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
-  select c.id, c.red, c.es_capa, v_hoy, round((e.value)::numeric, 2)
-  from jsonb_each(p_pesos) e
-  join public.categorias c on c.id::text = lower(e.key)
-  where e.key <> 'nuevo'
-    and round((e.value)::numeric, 2) is distinct from (
-      select w.peso from public.pilar_pesos w
-      where w.pilar_id = c.id and w.desde <= v_hoy
-      order by w.desde desc
-      limit 1
-    )
-  on conflict (pilar_id, desde) do update set peso = excluded.peso;
+  -- Oldest first (decision 7): each statement sees the stages already written, so a weight lowered today does not
+  -- silently carry into a later stage whose value she kept.
+  foreach v_desde in array v_etapas loop
+    insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+    values (
+      v_pilar, v_borrador.red, false, v_desde,
+      coalesce(round((p_pesos -> to_char(v_desde, 'YYYY-MM-DD') ->> 'nuevo')::numeric, 2), v_borrador.peso)
+    );
+    insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+    select c.id, c.red, c.es_capa, v_desde, round((w.value)::numeric, 2)
+    from jsonb_each(coalesce(p_pesos -> to_char(v_desde, 'YYYY-MM-DD'), '{}'::jsonb)) w
+    join public.categorias c on c.id::text = lower(w.key)
+    where w.key <> 'nuevo'
+      and round((w.value)::numeric, 2) is distinct from (
+        select x.peso from public.pilar_pesos x
+        where x.pilar_id = c.id and x.desde <= v_desde
+        order by x.desde desc
+        limit 1
+      )
+    on conflict (pilar_id, desde) do update set peso = excluded.peso;
+  end loop;
   update public.borradores_de_pilar set estado = 'aprobado', pilar_id = v_pilar where id = p_borrador;
   return v_pilar;
 end $$;
@@ -753,17 +882,17 @@ revoke execute on function public.aprobar_borrador_de_pilar(uuid, jsonb) from pu
 grant execute on function public.aprobar_borrador_de_pilar(uuid, jsonb) to authenticated;
 ```
 
-- [ ] **Step 4: Rebuild, regenerate, run both schema tests**
+- [ ] **Step 4: Rebuild, regenerate, run the schema tests**
 
 Run: `pnpm db:reset && pnpm db:types && pnpm test:db tests/integration/aprobar-borrador.test.ts tests/integration/borradores-esquema.test.ts tests/integration/datos-pilares.test.ts tests/integration/pilares-por-red-esquema.test.ts`
-Expected: PASS (10 + 6 tests, and the two existing pillar files unchanged: every approval here was rolled back). `lib/supabase/database.types.ts` gains `aprobar_borrador_de_pilar: { Args: { p_borrador: string; p_pesos: Json }; Returns: string }`.
+Expected: PASS (13 + 6 tests, and the two existing pillar files unchanged: every approval and every own stage here was rolled back). `lib/supabase/database.types.ts` gains `aprobar_borrador_de_pilar: { Args: { p_borrador: string; p_pesos: Json }; Returns: string }`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20261105000100_borradores_de_pilares.sql lib/supabase/database.types.ts \
   tests/integration/aprobar-borrador.test.ts
-git commit -m "Approve a pillar draft into an active pillar with today's weights in one transaction" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "Approve a pillar draft into an active pillar with the weights of every stage in one transaction" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 # Phase 2: domain, readers and actions
@@ -1141,18 +1270,18 @@ git add lib/dominio/biblioteca/borradores.ts tests/unit/biblioteca-borradores.te
 git commit -m "Check the pillar and network draft forms and name the drafts' pages and notes" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task 4: The weights editor and `pesosDeRed`'s ids and next stage
+### Task 4: The stages of a network's weights and the weights editor
 
 **Files:**
 - Modify: `tests/unit/biblioteca-borradores.test.ts`, `tests/unit/pilares.test.ts`, `tests/integration/datos-pilares.test.ts`
-- Modify: `lib/dominio/biblioteca/borradores.ts`, `lib/dominio/pilares.ts`
+- Modify: `lib/dominio/biblioteca/borradores.ts`, `lib/dominio/pilares.ts`, `lib/datos/pilares.ts`
 
 - [ ] **Step 1: Write the failing tests**
 
-1. Append to `tests/unit/biblioteca-borradores.test.ts` (and add `armarPesos, AVISO_DE_LA_GUIA, avisoDePesos, filasDeAprobacion, lineaDeEtapaSiguiente, NUEVO, totalDePesos,` to its import, keeping it alphabetical):
+1. Append to `tests/unit/biblioteca-borradores.test.ts` (and add `armarPesos, AVISO_DE_LA_GUIA, avisoDePesos, etapasDeAprobacion, etiquetaDeEtapa, NUEVO, totalDePesos,` to its import, keeping it alphabetical):
 
 ```ts
-describe("the weights of an approval", () => {
+describe("the weights of an approval, stage by stage", () => {
   const BORRADOR = {
     id: ID,
     red: "linkedin" as const,
@@ -1161,59 +1290,99 @@ describe("the weights of an approval", () => {
     descripcion: "Cómo decide.",
     peso: 10,
   }
-  const ACTUALES = [
-    { id: "a", nombreCorto: "Diagnóstico doble", peso: 30 },
-    { id: "b", nombreCorto: "Bienestar e impacto", peso: 25 },
-    { id: "c", nombreCorto: "Psicología en la mesa", peso: 30 },
-    { id: "d", nombreCorto: "Mujeres líderes", peso: 15 },
-  ]
-  const FILAS = filasDeAprobacion(BORRADOR, ACTUALES)
+  const HOY = "2026-11-05"
+  const ETAPAS = etapasDeAprobacion(
+    BORRADOR,
+    [
+      {
+        desde: HOY,
+        pesos: [
+          { id: "a", nombreCorto: "Diagnóstico doble", peso: 30 },
+          { id: "b", nombreCorto: "Bienestar e impacto", peso: 25 },
+          { id: "c", nombreCorto: "Psicología en la mesa", peso: 30 },
+          { id: "d", nombreCorto: "Mujeres líderes", peso: 15 },
+        ],
+      },
+      {
+        desde: "2027-01-01",
+        pesos: [
+          { id: "a", nombreCorto: "Diagnóstico doble", peso: 25 },
+          { id: "b", nombreCorto: "Bienestar e impacto", peso: 25 },
+          { id: "c", nombreCorto: "Psicología en la mesa", peso: 35 },
+          { id: "d", nombreCorto: "Mujeres líderes", peso: 15 },
+        ],
+      },
+    ],
+    HOY,
+  )
+  const [DE_HOY, DE_ENERO] = ETAPAS
+  if (!DE_HOY || !DE_ENERO) throw new Error("Faltan etapas")
 
-  it("lists the network's weights, then the new pillar's, as she writes them", () => {
-    expect(FILAS).toEqual([
+  it("names a stage «Hoy» or by its date", () => {
+    expect(etiquetaDeEtapa(HOY, HOY)).toBe("Hoy")
+    expect(etiquetaDeEtapa("2027-07-01", HOY)).toBe("Desde el 1 de julio de 2027")
+  })
+
+  it("gives one stage per date, today first, each with the network's pillars and the new one at the draft's weight", () => {
+    expect(ETAPAS.map((etapa) => [etapa.desde, etapa.esHoy, etapa.etiqueta])).toEqual([
+      [HOY, true, "Hoy"],
+      ["2027-01-01", false, "Desde el 1 de enero de 2027"],
+    ])
+    expect(DE_HOY.filas).toEqual([
       { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
       { clave: "b", nombre: "Bienestar e impacto", peso: "25" },
       { clave: "c", nombre: "Psicología en la mesa", peso: "30" },
       { clave: "d", nombre: "Mujeres líderes", peso: "15" },
       { clave: NUEVO, nombre: "Liderazgo sereno", peso: "10" },
     ])
+    expect(DE_ENERO.filas.map((fila) => fila.peso)).toEqual(["25", "25", "35", "15", "10"])
   })
 
-  it("adds the total and warns in her words only when it is not 100", () => {
-    expect(totalDePesos(FILAS)).toBe(110)
-    expect(avisoDePesos("linkedin", 110)).toBe(
+  it("adds each stage's total and warns in her words only when it is not 100, naming a later stage's date", () => {
+    expect(totalDePesos(DE_HOY.filas)).toBe(110)
+    expect(avisoDePesos("linkedin", 110, DE_HOY)).toBe(
       "Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después.",
     )
-    expect(avisoDePesos("instagram", 99.5)).toBe(
+    expect(avisoDePesos("linkedin", 110, DE_ENERO)).toBe(
+      "Los pesos de LinkedIn desde el 1 de enero de 2027 suman 110 %. Puedes aprobar igual y ajustarlos después.",
+    )
+    expect(avisoDePesos("instagram", 99.5, DE_HOY)).toBe(
       "Los pesos de Instagram suman 99,5 %. Puedes aprobar igual y ajustarlos después.",
     )
-    expect(avisoDePesos("instagram", 100)).toBeNull()
+    expect(avisoDePesos("instagram", 100, DE_ENERO)).toBeNull()
   })
 
   it("has no total while a weight cannot be read", () => {
-    expect(totalDePesos(FILAS.map((fila) => (fila.clave === "b" ? { ...fila, peso: "" } : fila)))).toBeNull()
+    expect(totalDePesos(DE_HOY.filas.map((fila) => (fila.clave === "b" ? { ...fila, peso: "" } : fila)))).toBeNull()
   })
 
-  it("sends every weight as a number, the new one under «nuevo», and names the first one it cannot read", () => {
-    expect(armarPesos(FILAS)).toEqual({ ok: true, pesos: { a: 30, b: 25, c: 30, d: 15, nuevo: 10 } })
-    expect(armarPesos(FILAS.map((fila) => (fila.clave === "b" ? { ...fila, peso: "abc" } : fila)))).toEqual({
+  it("sends every stage's weights as numbers, the new one under «nuevo», and names the first it cannot read with its stage", () => {
+    expect(armarPesos(ETAPAS)).toEqual({
+      ok: true,
+      pesos: {
+        [HOY]: { a: 30, b: 25, c: 30, d: 15, nuevo: 10 },
+        "2027-01-01": { a: 25, b: 25, c: 35, d: 15, nuevo: 10 },
+      },
+    })
+    const conError = [
+      DE_HOY,
+      { ...DE_ENERO, filas: DE_ENERO.filas.map((fila) => (fila.clave === "b" ? { ...fila, peso: "abc" } : fila)) },
+    ]
+    expect(armarPesos(conError)).toEqual({
       ok: false,
-      error: "Escribe el peso de Bienestar e impacto como un número mayor que 0 y hasta 100.",
+      error: "Escribe el peso de Bienestar e impacto (Desde el 1 de enero de 2027) como un número mayor que 0 y hasta 100.",
+      desde: "2027-01-01",
       clave: "b",
     })
   })
 
-  it("says the network's planned stage, and that the guide is not updated by the app", () => {
-    expect(lineaDeEtapaSiguiente("linkedin", "2027-01-01")).toBe(
-      "LinkedIn ya tiene pesos programados desde el 1 de enero de 2027: esos no cambian aquí.",
-    )
-    expect(lineaDeEtapaSiguiente("instagram", null)).toBeNull()
+  it("says that the guide is not updated by the app", () => {
     expect(AVISO_DE_LA_GUIA).toBe("La guía editorial no se actualiza sola: agrega a mano el texto de este pilar.")
   })
 })
 ```
 
-2. In `tests/unit/pilares.test.ts`, replace the body of `it("takes each pillar's row with the latest start on or before the date", ...)` with:
+2. In `tests/unit/pilares.test.ts`, add `calcularEtapasDeRed,` to the import from `@/lib/dominio/pilares`; replace the body of `it("takes each pillar's row with the latest start on or before the date", ...)` with:
 
 ```ts
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "linkedin", "2026-12-31")).toEqual({
@@ -1230,42 +1399,64 @@ describe("the weights of an approval", () => {
       ],
       total: 100,
       sumaCien: true,
-      siguiente: "2027-01-01",
     })
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "linkedin", "2027-01-01").pesos.map((p) => p.peso)).toEqual([
       25, 25, 35, 15,
     ])
-    expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "linkedin", "2027-01-01").siguiente).toBeNull()
 ```
 
-and the first `expect` of `it("flags a network whose weights do not add up to 100, ...")` with:
+replace the first `expect` of `it("flags a network whose weights do not add up to 100, ...")` with:
 
 ```ts
     expect(calcularPesosDeRed(PILARES_DE_PRUEBA, PESOS, "instagram", "2026-11-04")).toEqual({
       pesos: [{ id: id("mi-nueva-partida"), slug: "mi-nueva-partida", nombreCorto: "Mi nueva partida", peso: 40 }],
       total: 40,
       sumaCien: false,
-      siguiente: null,
     })
 ```
 
-3. In `tests/integration/datos-pilares.test.ts`, inside `it("gives each stage's weights of a network, adding up to 100", ...)`, after `expect(hoy.sumaCien).toBe(true)` add:
+and append inside `describe("pesos por red", ...)`:
 
 ```ts
-    expect(hoy.siguiente).toBe("2027-01-01")
+  it("gives a network's stages from a date on: that date, then every later start of its active pillars, in order", () => {
+    const conAjena = [...PESOS, { pilarId: id("pareja"), desde: "2027-03-01", peso: 10 }]
+    const etapas = calcularEtapasDeRed(PILARES_DE_PRUEBA, conAjena, "linkedin", "2026-12-31")
+    expect(etapas.map((etapa) => [etapa.desde, etapa.pesos.map((p) => p.peso), etapa.sumaCien])).toEqual([
+      ["2026-12-31", [30, 25, 30, 15], true],
+      ["2027-01-01", [25, 25, 35, 15], true],
+    ])
+    expect(calcularEtapasDeRed(PILARES_DE_PRUEBA, PESOS, "instagram", "2026-11-04").map((e) => e.desde)).toEqual([
+      "2026-11-04",
+    ])
+  })
+```
+
+3. In `tests/integration/datos-pilares.test.ts`, add `etapasDeRed,` to the import from `@/lib/datos/pilares`; inside `it("gives each stage's weights of a network, adding up to 100", ...)`, after `expect(hoy.sumaCien).toBe(true)` add:
+
+```ts
     for (const peso of hoy.pesos) expect(peso.id).toMatch(/^[0-9a-f-]{36}$/)
 ```
 
-and after `expect(segundo.pesos.map((p) => p.peso)).toEqual([25, 20, 30, 25])` add:
+and append inside `describe("pesosDeRed", ...)`:
 
 ```ts
-    expect(segundo.siguiente).toBeNull()
+  it("gives LinkedIn's stages from a date on, each adding up to 100", async () => {
+    const etapas = await etapasDeRed(clienteDeServicio(), "linkedin", "2026-12-31")
+    expect(etapas.map((etapa) => [etapa.desde, etapa.sumaCien])).toEqual([
+      ["2026-12-31", true],
+      ["2027-01-01", true],
+      ["2027-07-01", true],
+    ])
+    expect((await etapasDeRed(clienteDeServicio(), "instagram", "2026-12-31")).map((e) => e.desde)).toEqual([
+      "2026-12-31",
+    ])
+  })
 ```
 
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `pnpm test:run tests/unit/biblioteca-borradores.test.ts tests/unit/pilares.test.ts`
-Expected: FAIL: `filasDeAprobacion is not a function` and the `calcularPesosDeRed` expectations miss `id` and `siguiente`.
+Expected: FAIL: `etapasDeAprobacion is not a function`, `calcularEtapasDeRed is not a function`, and the `calcularPesosDeRed` expectations miss `id`.
 
 - [ ] **Step 3: Implement**
 
@@ -1277,8 +1468,6 @@ export interface PesosDeRed {
   total: number
   /** False when the network's weights on that date do not add up to 100: the 15c panel warns, nothing blocks. */
   sumaCien: boolean
-  /** The earliest `desde` after the date among the network's pillars: a stage already planned, or null. */
-  siguiente: string | null
 }
 
 /** Each pillar's weight on `fecha` (YYYY-MM-DD): its row with the latest `desde` on or before it. */
@@ -1288,29 +1477,78 @@ export function calcularPesosDeRed(
   red: Red,
   fecha: string,
 ): PesosDeRed {
-  const deLaRed = pilaresParaElegir(catalogo).filter((pilar) => pilar.red === red)
-  const pesos = deLaRed.flatMap((pilar) => {
-    const vigente = filas
-      .filter((fila) => fila.pilarId === pilar.id && fila.desde <= fecha)
-      .reduce<PesoDePilar | null>(
-        (ultima, fila) => (ultima === null || fila.desde > ultima.desde ? fila : ultima),
-        null,
-      )
-    return vigente ? [{ id: pilar.id, slug: pilar.slug, nombreCorto: pilar.nombreCorto, peso: vigente.peso }] : []
-  })
-  const ids = new Set(deLaRed.map((pilar) => pilar.id))
-  const siguiente = filas
-    .filter((fila) => ids.has(fila.pilarId) && fila.desde > fecha)
-    .reduce<string | null>((primera, fila) => (primera === null || fila.desde < primera ? fila.desde : primera), null)
+  const pesos = pilaresParaElegir(catalogo)
+    .filter((pilar) => pilar.red === red)
+    .flatMap((pilar) => {
+      const vigente = filas
+        .filter((fila) => fila.pilarId === pilar.id && fila.desde <= fecha)
+        .reduce<PesoDePilar | null>(
+          (ultima, fila) => (ultima === null || fila.desde > ultima.desde ? fila : ultima),
+          null,
+        )
+      return vigente ? [{ id: pilar.id, slug: pilar.slug, nombreCorto: pilar.nombreCorto, peso: vigente.peso }] : []
+    })
   const total = Math.round(pesos.reduce((suma, pilar) => suma + pilar.peso, 0) * 100) / 100
-  return { pesos, total, sumaCien: total === 100, siguiente }
+  return { pesos, total, sumaCien: total === 100 }
+}
+
+/** One stage of a network's weights: the date it starts and the weights it gives. */
+export interface EtapaDePesos extends PesosDeRed {
+  desde: string
+}
+
+/**
+ * A network's stages from `hoy` on (spec 15c, decision 8): `hoy`, then every later `desde` its active pillars have,
+ * in order, each with the weights in force on its date. `aprobar_borrador_de_pilar` computes the same set.
+ */
+export function calcularEtapasDeRed(
+  catalogo: CatalogoDePilares,
+  filas: readonly PesoDePilar[],
+  red: Red,
+  hoy: string,
+): EtapaDePesos[] {
+  const ids = new Set(
+    pilaresParaElegir(catalogo)
+      .filter((pilar) => pilar.red === red)
+      .map((pilar) => pilar.id),
+  )
+  const despues = new Set(filas.filter((fila) => ids.has(fila.pilarId) && fila.desde > hoy).map((fila) => fila.desde))
+  return [hoy, ...[...despues].toSorted()].map((desde) => ({
+    desde,
+    ...calcularPesosDeRed(catalogo, filas, red, desde),
+  }))
 }
 ```
 
-2. In `lib/dominio/biblioteca/borradores.ts`, change the first import to `import { esRed, NOMBRE_DE_RED, type Red } from "@/lib/dominio/pilares"` and append:
+2. In `lib/datos/pilares.ts`, add `calcularEtapasDeRed,` and `type EtapaDePesos,` to the import from `@/lib/dominio/pilares`, and replace `pesosDeRed` with:
 
 ```ts
-/** The key of the new pillar's weight in `aprobar_borrador_de_pilar`'s `p_pesos`; every other key is a pillar id. */
+async function leerPesosYPilares(db: Db): Promise<[CatalogoDePilares, PesoDePilar[]]> {
+  const [catalogo, pesos] = await Promise.all([leerPilares(db), db.from("pilar_pesos").select("pilar_id, desde, peso")])
+  if (pesos.error)
+    throw new Error(`No pude leer los pesos de los pilares: ${pesos.error.message}`, { cause: pesos.error })
+  return [catalogo, pesos.data.map((fila) => ({ pilarId: fila.pilar_id, desde: fila.desde, peso: fila.peso }))]
+}
+
+/** A network's weights on a date (YYYY-MM-DD), with the flag the 15c panel warns on. */
+export async function pesosDeRed(db: Db, red: Red, fecha: string): Promise<PesosDeRed> {
+  const [catalogo, filas] = await leerPesosYPilares(db)
+  return calcularPesosDeRed(catalogo, filas, red, fecha)
+}
+
+/** A network's weight stages from `hoy` on, for the approval of a pillar draft (spec 15c, decision 8). */
+export async function etapasDeRed(db: Db, red: Red, hoy: string): Promise<EtapaDePesos[]> {
+  const [catalogo, filas] = await leerPesosYPilares(db)
+  return calcularEtapasDeRed(catalogo, filas, red, hoy)
+}
+```
+
+   and add `type PesoDePilar,` to that import too.
+
+3. In `lib/dominio/biblioteca/borradores.ts`, change the first import to `import { esRed, NOMBRE_DE_RED, type Red } from "@/lib/dominio/pilares"` and append:
+
+```ts
+/** The key of the new pillar's weight in a stage of `p_pesos`; every other key is a pillar id. */
 export const NUEVO = "nuevo"
 
 /** One weight of the approval screen, as she types it. */
@@ -1320,18 +1558,41 @@ export interface FilaDePeso {
   peso: string
 }
 
-/** The network's current weights (`pesosDeRed`), then the new pillar's, last. */
-export function filasDeAprobacion(
-  borrador: BorradorDePilar,
-  actuales: readonly { id: string; nombreCorto: string; peso: number }[],
-): FilaDePeso[] {
-  return [
-    ...actuales.map((pilar) => ({ clave: pilar.id, nombre: pilar.nombreCorto, peso: formatoDePeso(pilar.peso) })),
-    { clave: NUEVO, nombre: borrador.nombreCorto, peso: formatoDePeso(borrador.peso) },
-  ]
+/** One stage of the approval screen (decision 8): «Hoy» or a later date, with every weight of that date. */
+export interface EtapaEditable {
+  desde: string
+  esHoy: boolean
+  etiqueta: string
+  filas: FilaDePeso[]
 }
 
-/** The live total; null while a weight cannot be read, so the screen says which one instead. */
+const fechaLarga = (desde: string) =>
+  new Intl.DateTimeFormat("es-CL", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }).format(
+    Date.parse(`${desde}T12:00:00Z`),
+  )
+
+/** «Hoy», or «Desde el 1 de enero de 2027». */
+export const etiquetaDeEtapa = (desde: string, hoy: string) =>
+  desde === hoy ? "Hoy" : `Desde el ${fechaLarga(desde)}`
+
+/** The network's stages (`etapasDeRed`), each with its pillars and, last, the new one at the draft's weight. */
+export function etapasDeAprobacion(
+  borrador: BorradorDePilar,
+  etapas: readonly { desde: string; pesos: readonly { id: string; nombreCorto: string; peso: number }[] }[],
+  hoy: string,
+): EtapaEditable[] {
+  return etapas.map((etapa) => ({
+    desde: etapa.desde,
+    esHoy: etapa.desde === hoy,
+    etiqueta: etiquetaDeEtapa(etapa.desde, hoy),
+    filas: [
+      ...etapa.pesos.map((pilar) => ({ clave: pilar.id, nombre: pilar.nombreCorto, peso: formatoDePeso(pilar.peso) })),
+      { clave: NUEVO, nombre: borrador.nombreCorto, peso: formatoDePeso(borrador.peso) },
+    ],
+  }))
+}
+
+/** A stage's live total; null while a weight cannot be read, so the screen says which one instead. */
 export function totalDePesos(filas: readonly FilaDePeso[]): number | null {
   let total = 0
   for (const fila of filas) {
@@ -1342,43 +1603,40 @@ export function totalDePesos(filas: readonly FilaDePeso[]): number | null {
   return Math.round(total * 100) / 100
 }
 
-/** Spec 15c: a total other than 100 warns and never blocks. */
-export function avisoDePesos(red: Red, total: number): string | null {
+/** Spec 15c: a stage whose total is not 100 warns and never blocks. */
+export function avisoDePesos(red: Red, total: number, etapa: Pick<EtapaEditable, "desde" | "esHoy">): string | null {
   if (total === 100) return null
-  return `Los pesos de ${NOMBRE_DE_RED[red]} suman ${formatoDePeso(total)} %. Puedes aprobar igual y ajustarlos después.`
+  const cuando = etapa.esHoy ? "" : ` desde el ${fechaLarga(etapa.desde)}`
+  return `Los pesos de ${NOMBRE_DE_RED[red]}${cuando} suman ${formatoDePeso(total)} %. Puedes aprobar igual y ajustarlos después.`
 }
 
+/** `p_pesos` of `aprobar_borrador_de_pilar`: `{desde: {pilar_id | "nuevo": peso}}`; the first unreadable weight is named. */
 export function armarPesos(
-  filas: readonly FilaDePeso[],
-): { ok: true; pesos: Record<string, number> } | { ok: false; error: string; clave: string } {
-  const pesos: Record<string, number> = {}
-  for (const fila of filas) {
-    const peso = leerPeso(fila.peso)
-    if (peso === null) {
-      return {
-        ok: false,
-        error: `Escribe el peso de ${fila.nombre} como un número mayor que 0 y hasta 100.`,
-        clave: fila.clave,
+  etapas: readonly EtapaEditable[],
+):
+  | { ok: true; pesos: Record<string, Record<string, number>> }
+  | { ok: false; error: string; desde: string; clave: string } {
+  const pesos: Record<string, Record<string, number>> = {}
+  for (const etapa of etapas) {
+    const deLaEtapa: Record<string, number> = {}
+    for (const fila of etapa.filas) {
+      const peso = leerPeso(fila.peso)
+      if (peso === null) {
+        return {
+          ok: false,
+          error: `Escribe el peso de ${fila.nombre} (${etapa.etiqueta}) como un número mayor que 0 y hasta 100.`,
+          desde: etapa.desde,
+          clave: fila.clave,
+        }
       }
+      deLaEtapa[fila.clave] = peso
     }
-    pesos[fila.clave] = peso
+    pesos[etapa.desde] = deLaEtapa
   }
   return { ok: true, pesos }
 }
 
 export const AVISO_DE_LA_GUIA = "La guía editorial no se actualiza sola: agrega a mano el texto de este pilar."
-
-/** Decision 8: approving changes today's weights; a stage already planned for the network stays as it is. */
-export function lineaDeEtapaSiguiente(red: Red, desde: string | null): string | null {
-  if (desde === null) return null
-  const fecha = new Intl.DateTimeFormat("es-CL", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(Date.parse(`${desde}T12:00:00Z`))
-  return `${NOMBRE_DE_RED[red]} ya tiene pesos programados desde el ${fecha}: esos no cambian aquí.`
-}
 ```
 
 - [ ] **Step 4: Run them**
@@ -1389,9 +1647,9 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/dominio/biblioteca/borradores.ts lib/dominio/pilares.ts tests/unit/biblioteca-borradores.test.ts \
-  tests/unit/pilares.test.ts tests/integration/datos-pilares.test.ts
-git commit -m "Edit a network's weights for an approval and know its next planned stage" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git add lib/dominio/biblioteca/borradores.ts lib/dominio/pilares.ts lib/datos/pilares.ts \
+  tests/unit/biblioteca-borradores.test.ts tests/unit/pilares.test.ts tests/integration/datos-pilares.test.ts
+git commit -m "Read a network's weight stages and edit them stage by stage for an approval" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 5: Read, save, edit and discard drafts
@@ -1849,7 +2107,7 @@ git commit -m "Read, save, edit and discard pillar and network drafts as Coni" -
 
 - [ ] **Step 1: Write the failing test**
 
-In `tests/integration/acciones-borradores.test.ts`, add to the import from `@/lib/acciones/borradores`: `aprobarBorradorDePilar,`, `NOMBRE_EN_USO,`, `PILAR_DE_OTRA_RED,`; add `import { pesosDeRed, pilaresActivos } from "@/lib/datos/pilares"` (replacing the `pilaresActivos` import), `import { ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"` and `import { diaLocal } from "@/lib/dominio/fechas"`; and append:
+In `tests/integration/acciones-borradores.test.ts`, add to the import from `@/lib/acciones/borradores`: `aprobarBorradorDePilar,`, `ETAPA_INVALIDA,`, `NOMBRE_EN_USO,`, `PILAR_DE_OTRA_RED,`; add `import { etapasDeRed, pesosDeRed, pilaresActivos } from "@/lib/datos/pilares"` (replacing the `pilaresActivos` import), `import { ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"` and `import { diaLocal } from "@/lib/dominio/fechas"`; and append:
 
 ```ts
 const hoy = () => diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA)
@@ -1878,7 +2136,18 @@ describe("approving a draft from the app", () => {
     })
   })
 
-  it("says in her words a name already in use and a weight of the other network", async () => {
+  it("gives the new pillar its weight in every stage of the network, whatever today's date is", async () => {
+    const corto = `Etapas ${SUFIJO}`
+    const id = await guardado(pilar(corto))
+    const etapas = await etapasDeRed(coni, "linkedin", hoy())
+    const pesos = Object.fromEntries(etapas.map((etapa) => [etapa.desde, { nuevo: 12 }]))
+    expect((await aprobarBorradorDePilar({ db: coni }, { id, pesos })).ok).toBe(true)
+    for (const etapa of await etapasDeRed(coni, "linkedin", hoy())) {
+      expect(etapa.pesos.find((p) => p.nombreCorto === corto)?.peso, etapa.desde).toBe(12)
+    }
+  })
+
+  it("says in her words a name already in use, a weight of the other network and a stage that is gone", async () => {
     const enUso = await guardado({ ...pilar(`Otro ${SUFIJO}`), nombre: "Pareja y conversación" })
     expect(await aprobarBorradorDePilar({ db: coni }, { id: enUso, pesos: {} })).toEqual({
       ok: false,
@@ -1887,10 +2156,12 @@ describe("approving a draft from the app", () => {
     const deLinkedin = await guardado(pilar(`Cruce ${SUFIJO}`))
     const deInstagram = (await pilaresActivos(coni)).find((p) => p.red === "instagram" && !p.esCapa)
     if (!deInstagram) throw new Error("No hay pilares de Instagram")
-    expect(await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { [deInstagram.id]: 30 } })).toEqual({
-      ok: false,
-      error: PILAR_DE_OTRA_RED,
-    })
+    expect(
+      await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { [hoy()]: { [deInstagram.id]: 30 } } }),
+    ).toEqual({ ok: false, error: PILAR_DE_OTRA_RED })
+    expect(
+      await aprobarBorradorDePilar({ db: coni }, { id: deLinkedin, pesos: { "2020-01-01": { nuevo: 10 } } }),
+    ).toEqual({ ok: false, error: ETAPA_INVALIDA })
   })
 
   it("refuses WAV before the database is asked", async () => {
@@ -1911,10 +2182,16 @@ Expected: FAIL: `aprobarBorradorDePilar is not a function`.
 In `lib/acciones/borradores.ts`, change the pillar import to `import { esRed, REDES, type Red } from "@/lib/dominio/pilares"`, the result import to `import { aResultado, ERROR_SOLO_CONI, type Resultado } from "./resultado"`, add after `SobreBorrador`:
 
 ```ts
+const PesosDeUnaEtapa = z
+  .record(z.string().max(40), peso)
+  // A network's pillars and the new one: a handful; 20 is far above any real network.
+  .refine((pesos) => Object.keys(pesos).length <= 20)
 export const AprobacionDePilar = z.object({
   id: z.uuid(),
-  // A network's pillars and the new one: a handful; 20 is far above any real network.
-  pesos: z.record(z.string().max(40), peso).refine((pesos) => Object.keys(pesos).length <= 20),
+  // `{desde: {pilar_id | "nuevo": peso}}` (decision 6); a network has today and a few planned stages.
+  pesos: z
+    .record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), PesosDeUnaEtapa)
+    .refine((etapas) => Object.keys(etapas).length <= 12),
 })
 ```
 
@@ -1925,6 +2202,7 @@ export const NOMBRE_EN_USO = "Ese nombre o nombre corto ya lo tiene otro pilar o
 export const PILAR_DE_OTRA_RED = "Uno de esos pesos es de un pilar que ya no está en esa red. Recarga la página."
 export const PESO_INVALIDO = "Uno de los pesos no es un número mayor que 0 y hasta 100."
 export const BORRADOR_INEXISTENTE = "Ese borrador ya no existe. Vuelve a Borradores."
+export const ETAPA_INVALIDA = "Las etapas de pesos de esa red cambiaron desde que abriste esta pantalla. Recarga la página."
 
 /** `aprobar_borrador_de_pilar`'s refusals, in her words. */
 const RECHAZOS_DE_APROBACION: Record<string, string> = {
@@ -1933,6 +2211,7 @@ const RECHAZOS_DE_APROBACION: Record<string, string> = {
   pilar_de_otra_red: PILAR_DE_OTRA_RED,
   peso_invalido: PESO_INVALIDO,
   borrador_inexistente: BORRADOR_INEXISTENTE,
+  etapa_invalida: ETAPA_INVALIDA,
   sin_permiso: ERROR_SOLO_CONI,
 }
 ```
@@ -1972,7 +2251,7 @@ export function aprobarBorradorDePilar(
 - [ ] **Step 4: Run it**
 
 Run: `pnpm test:db tests/integration/acciones-borradores.test.ts tests/integration/datos-pilares.test.ts tests/integration/pilares-por-red-esquema.test.ts && pnpm type && pnpm lint`
-Expected: PASS (7 tests in the new file; the two pillar files still see 13 active pillars and 15 weight rows: `afterAll` cleaned up).
+Expected: PASS (8 tests in the new file; the two pillar files still see 13 active pillars and 15 weight rows: `afterAll` cleaned up).
 
 - [ ] **Step 5: Commit**
 
@@ -2082,11 +2361,12 @@ describe("the drafts' server actions", () => {
 
   it("aprobarBorradorDePilar goes to Temas on the pillar's network with the new pillar chosen and the note", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: true, pilarId: PILAR, red: "linkedin" })
-    await expect(aprobarBorradorDePilarAccion({ id: ID, pesos: { nuevo: 10 } })).rejects.toThrow("NEXT_REDIRECT")
+    const pesos = { "2026-11-05": { nuevo: 10 } }
+    await expect(aprobarBorradorDePilarAccion({ id: ID, pesos })).rejects.toThrow("NEXT_REDIRECT")
     expect(conSesionDeConi).toHaveBeenCalledWith(
       "aprobarBorradorDePilar",
       AprobacionDePilar,
-      { id: ID, pesos: { nuevo: 10 } },
+      { id: ID, pesos },
       expect.any(Function),
     )
     expect(redirect).toHaveBeenCalledWith(`/biblioteca/temas?red=linkedin&pilar=${PILAR}&aviso=pilar-aprobado`, "replace")
@@ -2102,13 +2382,15 @@ describe("the drafts' server actions", () => {
     expect(redirect).not.toHaveBeenCalled()
   })
 
-  it("the schemas refuse another network, an empty name, a weight out of range and too many weights", () => {
+  it("the schemas refuse another network, an empty name, a weight out of range, a stage that is not a date and too many weights", () => {
     expect(BorradorDePilarNuevo.safeParse({ ...pilar, red: "youtube" }).success).toBe(false)
     expect(BorradorDePilarNuevo.safeParse({ ...pilar, red: "linkedin", nombre: "   " }).success).toBe(false)
     expect(BorradorDePilarNuevo.safeParse({ ...pilar, red: "linkedin", peso: 0 }).success).toBe(false)
-    expect(AprobacionDePilar.safeParse({ id: ID, pesos: { nuevo: 101 } }).success).toBe(false)
+    expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": { nuevo: 10 } } }).success).toBe(true)
+    expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": { nuevo: 101 } } }).success).toBe(false)
+    expect(AprobacionDePilar.safeParse({ id: ID, pesos: { hoy: { nuevo: 10 } } }).success).toBe(false)
     const muchos = Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`p${i}`, 5]))
-    expect(AprobacionDePilar.safeParse({ id: ID, pesos: muchos }).success).toBe(false)
+    expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": muchos } }).success).toBe(false)
     expect(SobreBorrador.safeParse({ tipo: "tema", id: ID }).success).toBe(false)
   })
 })
@@ -3618,7 +3900,7 @@ git add "app/(app)/biblioteca/temas/borradores/page.tsx" "app/(app)/biblioteca/t
 git commit -m "List the drafts in Borradores, edit them and discard them after asking" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task 12: The approval screen
+### Task 12: The approval screen, stage by stage
 
 **Files:**
 - Create: `tests/unit/biblioteca-aprobar-pilar.test.tsx`
@@ -3631,7 +3913,7 @@ git commit -m "List the drafts in Borradores, edit them and discard them after a
 1. Create `tests/unit/biblioteca-aprobar-pilar.test.tsx`:
 
 ```tsx
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 type Respuesta = { ok: true } | { ok: false; error: string }
@@ -3643,9 +3925,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock("@/app/(app)/biblioteca/temas/borradores/acciones", () => ({ aprobarBorradorDePilarAccion }))
 
 import { AprobarPilar } from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/aprobar-pilar"
-import { AVISO_DE_LA_GUIA, type FilaDePeso } from "@/lib/dominio/biblioteca/borradores"
+import { AVISO_DE_LA_GUIA, type EtapaEditable } from "@/lib/dominio/biblioteca/borradores"
 
 const ID = "11111111-2222-4333-8444-555555555555"
+const HOY = "2026-11-05"
 const BORRADOR = {
   id: ID,
   red: "linkedin" as const,
@@ -3654,63 +3937,100 @@ const BORRADOR = {
   descripcion: "Cómo decide.",
   peso: 10,
 }
-const FILAS: FilaDePeso[] = [
-  { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
-  { clave: "b", nombre: "Bienestar e impacto", peso: "25" },
-  { clave: "c", nombre: "Psicología en la mesa", peso: "30" },
-  { clave: "d", nombre: "Mujeres líderes", peso: "15" },
-  { clave: "nuevo", nombre: "Liderazgo sereno", peso: "10" },
+const fila = (clave: string, nombre: string, peso: string) => ({ clave, nombre, peso })
+const ETAPAS: EtapaEditable[] = [
+  {
+    desde: HOY,
+    esHoy: true,
+    etiqueta: "Hoy",
+    filas: [
+      fila("a", "Diagnóstico doble", "30"),
+      fila("b", "Bienestar e impacto", "25"),
+      fila("c", "Psicología en la mesa", "30"),
+      fila("d", "Mujeres líderes", "15"),
+      fila("nuevo", "Liderazgo sereno", "10"),
+    ],
+  },
+  {
+    desde: "2027-01-01",
+    esHoy: false,
+    etiqueta: "Desde el 1 de enero de 2027",
+    filas: [
+      fila("a", "Diagnóstico doble", "25"),
+      fila("b", "Bienestar e impacto", "25"),
+      fila("c", "Psicología en la mesa", "35"),
+      fila("d", "Mujeres líderes", "15"),
+      fila("nuevo", "Liderazgo sereno", "10"),
+    ],
+  },
 ]
-const AVISO = "Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después."
+const AVISO_DE_HOY = "Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después."
+const AVISO_DE_ENERO =
+  "Los pesos de LinkedIn desde el 1 de enero de 2027 suman 110 %. Puedes aprobar igual y ajustarlos después."
 
 beforeEach(() => vi.clearAllMocks())
 
-function abrir(siguiente: string | null = null) {
-  render(<AprobarPilar borrador={BORRADOR} filas={FILAS} siguiente={siguiente} cancelar="/biblioteca/temas/borradores" />)
+function abrir() {
+  render(<AprobarPilar borrador={BORRADOR} etapas={ETAPAS} cancelar="/biblioteca/temas/borradores" />)
 }
 
 describe("AprobarPilar", () => {
-  it("shows every weight of the network and the new one, the live total, and warns only while it is not 100", () => {
+  it("shows each stage as its own group with every weight and the new one, its live total and its warning", () => {
     abrir()
-    expect(screen.getByRole("group", { name: "Pesos de LinkedIn" })).toBeInTheDocument()
-    expect(screen.getByLabelText("Liderazgo sereno · nuevo")).toHaveValue("10")
-    // The total and the warning are both polite statuses (`<output>`): read each by its text.
-    expect(screen.getByText("Total: 110 %").tagName).toBe("OUTPUT")
-    expect(screen.getByText(AVISO)).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText("Diagnóstico doble"), { target: { value: "20" } })
-    expect(screen.getByText("Total: 100 %")).toBeInTheDocument()
-    expect(screen.queryByText(/suman/)).toBeNull()
+    const hoy = screen.getByRole("group", { name: "Hoy" })
+    const enero = screen.getByRole("group", { name: "Desde el 1 de enero de 2027" })
+    expect(within(hoy).getByLabelText("Liderazgo sereno · nuevo, Hoy")).toHaveValue("10")
+    expect(within(enero).getByLabelText("Psicología en la mesa, Desde el 1 de enero de 2027")).toHaveValue("35")
+    // Each total and each warning is a polite status (`<output>`): read by its text, inside its stage.
+    expect(within(hoy).getByText("Total: 110 %").tagName).toBe("OUTPUT")
+    expect(within(hoy).getByText(AVISO_DE_HOY)).toBeInTheDocument()
+    expect(within(enero).getByText(AVISO_DE_ENERO)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Diagnóstico doble, Hoy"), { target: { value: "20" } })
+    expect(within(hoy).getByText("Total: 100 %")).toBeInTheDocument()
+    expect(within(hoy).queryByText(/suman/)).toBeNull()
+    expect(within(enero).getByText("Total: 110 %")).toBeInTheDocument()
   })
 
-  it("approves with every weight as a number, the new one under «nuevo», even when they do not add up to 100", async () => {
+  it("approves with every stage's weights as numbers, the new one under «nuevo», even when they do not add up to 100", async () => {
     abrir()
+    fireEvent.change(screen.getByLabelText("Liderazgo sereno · nuevo, Desde el 1 de enero de 2027"), {
+      target: { value: "12,5" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Aprobar pilar" }))
     await waitFor(() =>
       expect(aprobarBorradorDePilarAccion).toHaveBeenCalledWith({
         id: ID,
-        pesos: { a: 30, b: 25, c: 30, d: 15, nuevo: 10 },
+        pesos: {
+          [HOY]: { a: 30, b: 25, c: 30, d: 15, nuevo: 10 },
+          "2027-01-01": { a: 25, b: 25, c: 35, d: 15, nuevo: 12.5 },
+        },
       }),
     )
   })
 
-  it("names the weight it cannot read, focuses it and approves nothing", () => {
+  it("names the weight it cannot read with its stage, focuses it and approves nothing", () => {
     abrir()
-    fireEvent.change(screen.getByLabelText("Bienestar e impacto"), { target: { value: "" } })
-    expect(screen.getByText("Total: falta un peso válido")).toBeInTheDocument()
+    const campo = screen.getByLabelText("Bienestar e impacto, Desde el 1 de enero de 2027")
+    fireEvent.change(campo, { target: { value: "" } })
+    expect(
+      within(screen.getByRole("group", { name: "Desde el 1 de enero de 2027" })).getByText(
+        "Total: falta un peso válido",
+      ),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Aprobar pilar" }))
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Escribe el peso de Bienestar e impacto como un número mayor que 0 y hasta 100.",
+      "Escribe el peso de Bienestar e impacto (Desde el 1 de enero de 2027) como un número mayor que 0 y hasta 100.",
     )
-    expect(screen.getByLabelText("Bienestar e impacto")).toHaveFocus()
-    expect(screen.getByLabelText("Bienestar e impacto")).toHaveAttribute("aria-invalid", "true")
+    expect(campo).toHaveFocus()
+    expect(campo).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByLabelText("Bienestar e impacto, Hoy")).not.toHaveAttribute("aria-invalid")
     expect(aprobarBorradorDePilarAccion).not.toHaveBeenCalled()
   })
 
-  it("says the guide is not updated by the app and a stage already planned, and says a refusal", async () => {
+  it("says the guide is not updated by the app, and a refusal", async () => {
     aprobarBorradorDePilarAccion.mockResolvedValueOnce({ ok: false, error: "Ese nombre ya lo tiene otro pilar." })
-    abrir("LinkedIn ya tiene pesos programados desde el 1 de enero de 2027: esos no cambian aquí.")
+    abrir()
     expect(screen.getByText(AVISO_DE_LA_GUIA)).toBeInTheDocument()
-    expect(screen.getByText(/pesos programados desde el 1 de enero de 2027/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Aprobar pilar" }))
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Ese nombre ya lo tiene otro pilar."))
     expect(screen.getByRole("link", { name: "Cancelar" })).toHaveAttribute("href", "/biblioteca/temas/borradores")
@@ -3719,31 +4039,58 @@ describe("AprobarPilar", () => {
 ```
 
 2. In `tests/unit/biblioteca-pagina-borradores.test.tsx`:
-   - add to the hoisted block a `pilares` entry: `pilares: { pesosDeRed: vi.fn(async (..._: unknown[]): Promise<unknown> => ({ pesos: [], total: 0, sumaCien: false, siguiente: null })) },` (destructure it next to `datos`) and `vi.mock("@/lib/datos/pilares", () => pilares)`;
+   - add to the hoisted block a `pilares` entry, `pilares: { etapasDeRed: vi.fn(async (..._: unknown[]): Promise<unknown> => []) },`, destructure it next to `datos`, and add `vi.mock("@/lib/datos/pilares", () => pilares)`;
    - import `import AprobarBorrador from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/page"` and `import { AprobarPilar } from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/aprobar-pilar"`;
    - append:
 
 ```tsx
 describe("the approval page", () => {
-  it("hands the editor the network's weights with the new one last, and the planned stage in words", async () => {
+  it("hands the editor today's stage and each later one of the network, with the new pillar in every stage", async () => {
     datos.leerBorrador.mockResolvedValueOnce({ tipo: "pilar", borrador: DE_LINKEDIN })
-    pilares.pesosDeRed.mockResolvedValueOnce({
-      pesos: [{ id: "a", slug: "x", nombreCorto: "Diagnóstico doble", peso: 30 }],
-      total: 30,
-      sumaCien: false,
-      siguiente: "2027-01-01",
-    })
+    // The page passes today's date in Chile: the first stage is that date, whatever day the test runs.
+    pilares.etapasDeRed.mockImplementationOnce(async (...args: unknown[]) => [
+      {
+        desde: String(args[2]),
+        pesos: [{ id: "a", slug: "x", nombreCorto: "Diagnóstico doble", peso: 30 }],
+        total: 30,
+        sumaCien: false,
+      },
+      {
+        desde: "2099-01-01",
+        pesos: [{ id: "a", slug: "x", nombreCorto: "Diagnóstico doble", peso: 25 }],
+        total: 25,
+        sumaCien: false,
+      },
+    ])
     const arbol = elementos(await AprobarBorrador(conId(ID_2)))
-    expect(pilares.pesosDeRed).toHaveBeenCalledWith(expect.anything(), "linkedin", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/))
-    expect(arbol.find((e) => e.type === AprobarPilar)?.props).toEqual({
-      borrador: DE_LINKEDIN,
-      filas: [
-        { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
-        { clave: "nuevo", nombre: "Sereno", peso: "12,5" },
-      ],
-      siguiente: "LinkedIn ya tiene pesos programados desde el 1 de enero de 2027: esos no cambian aquí.",
-      cancelar: "/biblioteca/temas/borradores",
-    })
+    expect(pilares.etapasDeRed).toHaveBeenCalledWith(
+      expect.anything(),
+      "linkedin",
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    )
+    const props = arbol.find((e) => e.type === AprobarPilar)?.props
+    expect(props?.borrador).toEqual(DE_LINKEDIN)
+    expect(props?.cancelar).toBe("/biblioteca/temas/borradores")
+    expect(props?.etapas).toEqual([
+      {
+        desde: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        esHoy: true,
+        etiqueta: "Hoy",
+        filas: [
+          { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
+          { clave: "nuevo", nombre: "Sereno", peso: "12,5" },
+        ],
+      },
+      {
+        desde: "2099-01-01",
+        esHoy: false,
+        etiqueta: "Desde el 1 de enero de 2099",
+        filas: [
+          { clave: "a", nombre: "Diagnóstico doble", peso: "25" },
+          { clave: "nuevo", nombre: "Sereno", peso: "12,5" },
+        ],
+      },
+    ])
   })
 
   it("is not found for a network draft, a decided draft or what is not an id", async () => {
@@ -3751,7 +4098,7 @@ describe("the approval page", () => {
     await expect(AprobarBorrador(conId(ID_3))).rejects.toThrow("NEXT_NOT_FOUND")
     await expect(AprobarBorrador(conId(ID_1))).rejects.toThrow("NEXT_NOT_FOUND")
     await expect(AprobarBorrador(conId("x"))).rejects.toThrow("NEXT_NOT_FOUND")
-    expect(pilares.pesosDeRed).not.toHaveBeenCalled()
+    expect(pilares.etapasDeRed).not.toHaveBeenCalled()
   })
 })
 ```
@@ -3780,7 +4127,7 @@ import {
   AVISO_DE_LA_GUIA,
   avisoDePesos,
   type BorradorDePilar,
-  type FilaDePeso,
+  type EtapaEditable,
   formatoDePeso,
   NUEVO,
   totalDePesos,
@@ -3792,37 +4139,40 @@ import { aprobarBorradorDePilarAccion } from "../../acciones"
 
 interface Propiedades {
   borrador: BorradorDePilar
-  /** The network's current weights and the new pillar's, last (`filasDeAprobacion`). */
-  filas: FilaDePeso[]
-  /** `lineaDeEtapaSiguiente`: a stage already planned for the network, which this approval does not change. */
-  siguiente: string | null
+  /** «Hoy» and each later stage of the network, the new pillar last in each (`etapasDeAprobacion`). */
+  etapas: EtapaEditable[]
   cancelar: string
 }
 
 /**
- * Spec 15c: every weight of the network, editable, with the total live. A total other than 100 warns and never
- * blocks; the database writes only the weights that changed, with today's date.
+ * Spec 15c, decision 8: every stage of the network's weights from today on, each with every pillar and the new one,
+ * editable, its own live total and its own warning when it is not 100 (it never blocks). Columns on the computer,
+ * blocks one under another on the phone. The database writes only what changed, on each stage's date.
  */
-export function AprobarPilar({ borrador, filas: iniciales, siguiente, cancelar }: Propiedades) {
+export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propiedades) {
   const id = useId()
   const idDelError = `${id}-error`
-  const [filas, setFilas] = useState(iniciales)
-  const [invalido, setInvalido] = useState<{ error: string; clave: string } | null>(null)
+  const [etapas, setEtapas] = useState(iniciales)
+  const [invalido, setInvalido] = useState<{ error: string; desde: string; clave: string } | null>(null)
   const { pendiente, error, ejecutar } = useAccion()
-  const total = totalDePesos(filas)
-  const aviso = total === null ? null : avisoDePesos(borrador.red, total)
-  const idDe = (clave: string) => `${id}-${clave}`
+  const idDe = (desde: string, clave: string) => `${id}-${desde}-${clave}`
 
-  function cambiar(clave: string, peso: string) {
-    setFilas((actuales) => actuales.map((fila) => (fila.clave === clave ? { ...fila, peso } : fila)))
+  function cambiar(desde: string, clave: string, peso: string) {
+    setEtapas((actuales) =>
+      actuales.map((etapa) =>
+        etapa.desde !== desde
+          ? etapa
+          : { ...etapa, filas: etapa.filas.map((fila) => (fila.clave === clave ? { ...fila, peso } : fila)) },
+      ),
+    )
   }
 
   function aprobar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    const armado = armarPesos(filas)
+    const armado = armarPesos(etapas)
     if (!armado.ok) {
-      setInvalido({ error: armado.error, clave: armado.clave })
-      document.getElementById(idDe(armado.clave))?.focus()
+      setInvalido({ error: armado.error, desde: armado.desde, clave: armado.clave })
+      document.getElementById(idDe(armado.desde, armado.clave))?.focus()
       return
     }
     setInvalido(null)
@@ -3831,36 +4181,48 @@ export function AprobarPilar({ borrador, filas: iniciales, siguiente, cancelar }
 
   return (
     <form onSubmit={aprobar} noValidate className="grid gap-5">
-      <fieldset className="m-0 grid gap-3 border-0 p-0">
-        <legend className="mb-3 text-pieza">{`Pesos de ${NOMBRE_DE_RED[borrador.red]}`}</legend>
-        {filas.map((fila) => {
-          const conError = invalido?.clave === fila.clave
+      <h2 className="text-pieza">{`Pesos de ${NOMBRE_DE_RED[borrador.red]}`}</h2>
+      <div className="grid gap-4 md:grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] md:items-start">
+        {etapas.map((etapa) => {
+          const total = totalDePesos(etapa.filas)
+          const aviso = total === null ? null : avisoDePesos(borrador.red, total, etapa)
           return (
-            <div key={fila.clave} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3">
-              <label htmlFor={idDe(fila.clave)} className="text-cuerpo">
-                {fila.nombre}
-                {fila.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
-              </label>
-              <input
-                id={idDe(fila.clave)}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={fila.peso}
-                onChange={(evento) => cambiar(fila.clave, evento.target.value)}
-                aria-invalid={conError || undefined}
-                aria-describedby={conError ? idDelError : undefined}
-                className={cn(CLASES_DE_CAMPO, "tabular-nums")}
-              />
+            <div key={etapa.desde} data-contorno className="rounded-panel bg-piedra-alta p-4">
+              <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
+                <legend className="mb-1 text-cuerpo font-semibold">{etapa.etiqueta}</legend>
+                {etapa.filas.map((fila) => {
+                  const conError = invalido?.desde === etapa.desde && invalido.clave === fila.clave
+                  return (
+                    <div key={fila.clave} className="grid gap-1">
+                      <label htmlFor={idDe(etapa.desde, fila.clave)} className="text-meta font-semibold">
+                        {fila.nombre}
+                        {fila.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
+                        {/* The same pillar is in every stage: the stage completes its name. */}
+                        <span className="sr-only">{`, ${etapa.etiqueta}`}</span>
+                      </label>
+                      <input
+                        id={idDe(etapa.desde, fila.clave)}
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={fila.peso}
+                        onChange={(evento) => cambiar(etapa.desde, fila.clave, evento.target.value)}
+                        aria-invalid={conError || undefined}
+                        aria-describedby={conError ? idDelError : undefined}
+                        className={cn(CLASES_DE_CAMPO, "tabular-nums")}
+                      />
+                    </div>
+                  )
+                })}
+                <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums">
+                  {total === null ? "Total: falta un peso válido" : `Total: ${formatoDePeso(total)} %`}
+                </output>
+                {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} /> : null}
+              </fieldset>
             </div>
           )
         })}
-      </fieldset>
-      <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums">
-        {total === null ? "Total: falta un peso válido" : `Total: ${formatoDePeso(total)} %`}
-      </output>
-      {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} /> : null}
-      {siguiente ? <p className="text-meta text-apagado">{siguiente}</p> : null}
+      </div>
       <p className="text-meta text-apagado">{AVISO_DE_LA_GUIA}</p>
       {invalido ? (
         <div id={idDelError}>
@@ -3881,7 +4243,7 @@ export function AprobarPilar({ borrador, filas: iniciales, siguiente, cancelar }
 }
 ```
 
-   Note: the total is an `<output>` (implicit role `status`, polite). `LineaDeEstado` `tipo="aviso"` draws a `Bloque`, which is an `<output>` too, so the warning is said politely after the total; neither interrupts (only an error does). The E2E specs read the total with `getByRole("status").filter({ hasText: "Total:" })`.
+   Note: each stage's total is an `<output>` (implicit role `status`, polite). `LineaDeEstado` `tipo="aviso"` draws a `Bloque`, which is an `<output>` too, so a stage's warning is said politely after its total; neither interrupts (only an error does). The E2E specs read a total with `getByRole("group", { name }).getByRole("status").filter({ hasText: "Total:" })`.
 
 2. Create `app/(app)/biblioteca/temas/borradores/[id]/aprobar/page.tsx`:
 
@@ -3890,15 +4252,15 @@ import { notFound } from "next/navigation"
 import { z } from "zod"
 import { Volver } from "@/components/ui/volver"
 import { leerBorrador } from "@/lib/datos/borradores"
-import { pesosDeRed } from "@/lib/datos/pilares"
-import { filasDeAprobacion, lineaDeEtapaSiguiente, RUTA_DE_BORRADORES } from "@/lib/dominio/biblioteca/borradores"
+import { etapasDeRed } from "@/lib/datos/pilares"
+import { etapasDeAprobacion, RUTA_DE_BORRADORES } from "@/lib/dominio/biblioteca/borradores"
 import { ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"
 import { diaLocal } from "@/lib/dominio/fechas"
 import { NOMBRE_DE_RED } from "@/lib/dominio/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AprobarPilar } from "./aprobar-pilar"
 
-/** Spec 15c: approving a pillar draft, with its network's weights of today in Chile (the RPC's date). */
+/** Spec 15c: approving a pillar draft, with every stage of its network's weights from today in Chile (the RPC's date). */
 export default async function AprobarBorrador({ params }: { params: Promise<{ id: string }> }) {
   const [{ db }, { id }] = await Promise.all([exigirConi(), params])
   const valido = z.uuid().safeParse(id)
@@ -3907,19 +4269,21 @@ export default async function AprobarBorrador({ params }: { params: Promise<{ id
   // A network draft is never approved in 15c; a decided one is gone from the list.
   if (!leido || leido.tipo !== "pilar") notFound()
   const { borrador } = leido
-  const pesos = await pesosDeRed(db, borrador.red, diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA))
+  const hoy = diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA)
+  const etapas = await etapasDeRed(db, borrador.red, hoy)
   return (
-    <div className="grid gap-6 md:max-w-[42rem]">
+    <div className="grid gap-6 md:max-w-[64rem]">
       <Volver href={RUTA_DE_BORRADORES}>Borradores</Volver>
-      <header className="grid gap-2">
+      <header className="grid gap-2 md:max-w-[42rem]">
         <h1 className="text-pantalla text-balance">{`Aprobar «${borrador.nombreCorto}»`}</h1>
         <p className="text-cuerpo">{`${borrador.nombre}. Entra a ${NOMBRE_DE_RED[borrador.red]}.`}</p>
-        <p className="text-meta text-apagado">Revisa los pesos de la red: puedes cambiar cualquiera.</p>
+        <p className="text-meta text-apagado">
+          Revisa los pesos de la red en cada etapa: puedes cambiar cualquiera.
+        </p>
       </header>
       <AprobarPilar
         borrador={borrador}
-        filas={filasDeAprobacion(borrador, pesos.pesos)}
-        siguiente={lineaDeEtapaSiguiente(borrador.red, pesos.siguiente)}
+        etapas={etapasDeAprobacion(borrador, etapas, hoy)}
         cancelar={RUTA_DE_BORRADORES}
       />
     </div>
@@ -3938,7 +4302,7 @@ Expected: PASS, and `"use client"`.
 git add "app/(app)/biblioteca/temas/borradores/[id]/aprobar/aprobar-pilar.tsx" \
   "app/(app)/biblioteca/temas/borradores/[id]/aprobar/page.tsx" \
   tests/unit/biblioteca-aprobar-pilar.test.tsx tests/unit/biblioteca-pagina-borradores.test.tsx
-git commit -m "Approve a pillar draft while redistributing its network's weights" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "Approve a pillar draft while redistributing its network's weights in every stage" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 **Checkpoint, phase 3:** every screen exists and is unit-tested; `pnpm build` must pass now (`pnpm build`), before the E2E phase.
@@ -3994,6 +4358,22 @@ export async function sembrarBorradores(): Promise<{ pilar: string; red: string 
   ])
   return { pilar, red }
 }
+
+/**
+ * A later weight stage of LinkedIn of the scene's own, 400 days ahead (after the seed's 2027 stages at any date), at
+ * 25 % for each active pillar; `limpiarBorradores` takes it away with every row that is not the seed's.
+ */
+export async function sembrarEtapaDeLinkedin(): Promise<string> {
+  const { rows } = await pool.query<{ desde: string }>(
+    `insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
+     select id, red, es_capa, (now() at time zone 'America/Santiago')::date + 400, 25 from public.categorias
+     where es_pilar and activa and not es_capa and red = 'linkedin'
+     returning desde::text as desde`,
+  )
+  const desde = rows[0]?.desde
+  if (!desde) throw new Error("La escena no pudo crear la etapa de LinkedIn")
+  return desde
+}
 ```
 
 (`uno(sql, params)` is the scene's existing helper that returns the first row's `id`.)
@@ -4003,7 +4383,8 @@ export async function sembrarBorradores(): Promise<{ pilar: string; red: string 
 Create `tests/e2e/biblioteca-borradores.spec.ts`:
 
 ```ts
-import { expect, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
+import { etiquetaDeEtapa } from "@/lib/dominio/biblioteca/borradores"
 import { pool } from "../integration/db"
 import { bloquearRedExterna, capturar, conLetraGrande, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import {
@@ -4011,6 +4392,7 @@ import {
   RED_EN_BORRADOR,
   sembrarAutoresYTemas,
   sembrarBorradores,
+  sembrarEtapaDeLinkedin,
 } from "./biblioteca-escena"
 
 // Coni's acceptance line (respuesta-coni-temas-pilares-2026-11-04.md, part 1, section 7) and spec 15c, section 4.
@@ -4032,6 +4414,8 @@ const pilaresDe = (page: Page, nombre: "LinkedIn" | "Instagram") =>
 const fila = (page: Page) => page.getByRole("group", { name: "Filtrar temas" })
 
 test("«+ Agregar pilar» guarda un borrador que no aparece en la lista hasta que lo apruebo", async ({ page }) => {
+  // A later stage of the scene's own, 400 days ahead: the test edits it whatever today's date is (decision 20).
+  const etapaPropia = await sembrarEtapaDeLinkedin()
   await page.goto("/biblioteca/temas?red=linkedin")
   await tocarHastaLlegar(
     page,
@@ -4057,16 +4441,23 @@ test("«+ Agregar pilar» guarda un borrador que no aparece en la lista hasta qu
     tarjeta.getByRole("link", { name: "Aprobar" }),
     new RegExp(`/biblioteca/temas/borradores/${UN_ID}/aprobar$`),
   )
-  // LinkedIn adds up to 100 at every stage: with the new 10 it is 110 until she redistributes.
-  await expect(page.getByRole("status").filter({ hasText: "Total:" })).toHaveText("Total: 110 %")
-  await expect(
-    page.getByText("Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después."),
-  ).toBeVisible()
-  const diagnostico = page.getByLabel("Diagnóstico doble", { exact: true })
+  // LinkedIn adds up to 100 in every stage: with the new 10 each is 110 until she redistributes it.
+  const hoy = page.getByRole("group", { name: "Hoy", exact: true })
+  const propia = page.getByRole("group", { name: etiquetaDeEtapa(etapaPropia, ""), exact: true })
+  const total = (etapa: Locator) => etapa.getByRole("status").filter({ hasText: "Total:" })
+  await expect(total(hoy)).toHaveText("Total: 110 %")
+  await expect(hoy.getByText("Los pesos de LinkedIn suman 110 %. Puedes aprobar igual y ajustarlos después.")).toBeVisible()
+  await expect(total(propia)).toHaveText("Total: 110 %")
+  const diagnostico = hoy.getByLabel(/^Diagnóstico doble/)
   const antes = Number((await diagnostico.inputValue()).replace(",", "."))
   await diagnostico.fill(String(antes - 10))
-  await expect(page.getByRole("status").filter({ hasText: "Total:" })).toHaveText("Total: 100 %")
-  await expect(page.getByText(/Los pesos de LinkedIn suman/)).toHaveCount(0)
+  await expect(total(hoy)).toHaveText("Total: 100 %")
+  await expect(hoy.getByText(/suman/)).toHaveCount(0)
+  // In her own later stage (25 each) the new pillar takes 15, all of it from Diagnóstico doble.
+  await propia.getByLabel(/^Liderazgo sereno · nuevo/).fill("15")
+  await propia.getByLabel(/^Diagnóstico doble/).fill("10")
+  await expect(total(propia)).toHaveText("Total: 100 %")
+  await expect(propia.getByText(/suman/)).toHaveCount(0)
   await page.getByRole("button", { name: "Aprobar pilar" }).click()
 
   // Temas on LinkedIn with the new pillar chosen: its topics filter works and shows nothing yet.
@@ -4085,17 +4476,39 @@ test("«+ Agregar pilar» guarda un borrador que no aparece en la lista hasta qu
     NUEVO.corto,
     "Agregar pilar",
   ])
-  const { rows } = await pool.query<{ nombre_corto: string; peso: number }>(
-    `select c.nombre_corto, p.peso::float8 as peso
-     from public.pilar_pesos p join public.categorias c on c.id = p.pilar_id
-     where p.desde = (now() at time zone 'America/Santiago')::date and c.nombre_corto = any($1::text[])
-     order by c.nombre_corto`,
-    [["Diagnóstico doble", NUEVO.corto]],
+  const pesosEn = async (desde: string) => {
+    const { rows } = await pool.query<{ nombre_corto: string; peso: number }>(
+      `select c.nombre_corto, p.peso::float8 as peso
+       from public.pilar_pesos p join public.categorias c on c.id = p.pilar_id
+       where p.desde = $1::date and c.nombre_corto = any($2::text[])
+       order by c.nombre_corto`,
+      [desde, ["Diagnóstico doble", NUEVO.corto]],
+    )
+    return rows
+  }
+  const { rows: dia } = await pool.query<{ hoy: string }>(
+    "select ((now() at time zone 'America/Santiago')::date)::text as hoy",
   )
-  expect(rows).toEqual([
+  expect(await pesosEn(dia[0]?.hoy ?? "")).toEqual([
     { nombre_corto: "Diagnóstico doble", peso: antes - 10 },
     { nombre_corto: NUEVO.corto, peso: 10 },
   ])
+  expect(await pesosEn(etapaPropia)).toEqual([
+    { nombre_corto: "Diagnóstico doble", peso: 10 },
+    { nombre_corto: NUEVO.corto, peso: 15 },
+  ])
+  // Every later stage of LinkedIn (the seed's ones still ahead, if any) gave the new pillar a weight.
+  const { rows: sinPeso } = await pool.query(
+    `select distinct w.desde from public.pilar_pesos w join public.categorias c on c.id = w.pilar_id
+     where c.red = 'linkedin' and c.activa and not c.es_capa
+       and w.desde > (now() at time zone 'America/Santiago')::date
+       and not exists (
+         select 1 from public.pilar_pesos n join public.categorias nc on nc.id = n.pilar_id
+         where nc.nombre_corto = $1 and n.desde = w.desde
+       )`,
+    [NUEVO.corto],
+  )
+  expect(sinPeso).toEqual([])
 })
 
 test("«+ Agregar red» saves a draft that waits for its connection and can never be approved", async ({ page }) => {
@@ -4310,7 +4723,7 @@ pnpm test:e2e --project=escritorio tests/e2e/biblioteca-borradores.escritorio.ts
   tests/e2e/biblioteca-autores-temas.escritorio.ts --grep-invert "visual"
 ```
 
-Expected: PASS. (The visual tests are left out with `--grep-invert` on the desktop and are not in the phone list; they are Task 14.) Open `test-results/capturas/aprobar-pilar-letra-grande.png` and check by eye: the weights stack readably, the total and the warning are visible, the buttons fit.
+Expected: PASS. (The visual tests are left out with `--grep-invert` on the desktop and are not in the phone list; they are Task 14.) Open `test-results/capturas/aprobar-pilar-letra-grande.png` and check by eye: Instagram's one stage «Hoy» stacks readably, its total and warning are visible, the buttons fit.
 
 - [ ] **Step 6: Confirm the drafts leave nothing behind**
 
@@ -4360,10 +4773,10 @@ Send Federico these images and wait:
 - `/tmp/borradores-de-pilares-visual/biblioteca-temas.png` and `biblioteca-temas-escritorio.png`: the row `[ Sin tratar · 2 ] [ Instagram ▾ ] [ LinkedIn ▾ ] [ + Agregar red ]`, the LinkedIn pillars ending in a dashed `+ Agregar pilar`;
 - `biblioteca-pilar-nuevo.png`: the form on Instagram, "Red: Instagram" as text, the hints of Nombre corto, Definición and Peso;
 - `biblioteca-borradores.png` and `biblioteca-borradores-escritorio.png`: "Pilares de Instagram" with Cuerpo y pantalla (Aprobar, Editar, Descartar), then "Redes" with TikTok "Esperando conexión";
-- `biblioteca-aprobar-pilar.png` and `biblioteca-aprobar-pilar-escritorio.png`: Instagram's three weights and the new one at 10, "Total: 110 %", the warning, the guide line;
+- `biblioteca-aprobar-pilar.png` and `biblioteca-aprobar-pilar-escritorio.png`: Instagram's one stage «Hoy» (Instagram has no later stage) with its three weights and the new one at 10, "Total: 110 %", the warning, the guide line. A network with later stages (LinkedIn) shows one block per stage on the phone and one column per stage on the computer; that layout is covered by the non-visual tests, and if Federico wants to see it, run the LinkedIn acceptance test of `biblioteca-borradores.spec.ts` with a `capturar(page, "aprobar-por-etapas")` added before «Aprobar pilar» (not committed);
 - `test-results/capturas/aprobar-pilar-letra-grande.png`: the approval at large text.
 
-Also tell him decision 8 (LinkedIn's planned stages are not rewritten by an approval) and ask whether that is fine for Coni. **Do not start Task 15 until Federico answers OK in the conversation.** If he asks for changes, make them with a failing test first, run Task 13 Step 5 and this task again.
+**Do not start Task 15 until Federico answers OK in the conversation.** If he asks for changes, make them with a failing test first, run Task 13 Step 5 and this task again.
 
 ### Task 15: Take the baselines (only after Federico's OK)
 
@@ -4427,7 +4840,7 @@ Run:
 ```bash
 pnpm test:run tests/unit/sin-slugs-de-pilar.test.ts tests/unit/diseno-reglas.test.ts tests/unit/biblioteca-palabras.test.ts
 grep -rn "—" "app/(app)/biblioteca/temas" lib/dominio/biblioteca/borradores.ts lib/acciones/borradores.ts lib/datos/borradores.ts
-grep -rn "borradores\|aprobar_borrador\|pesosDeRed\|siguiente" trigger lib/motor lib/ingesta lib/produccion lib/publicacion lib/metricas lib/mantenimiento lib/avisos scripts
+grep -rn "borradores\|aprobar_borrador\|pesosDeRed\|etapasDeRed" trigger lib/motor lib/ingesta lib/produccion lib/publicacion lib/metricas lib/mantenimiento lib/avisos scripts
 grep -rn "from(\"categorias\")" lib/acciones/borradores.ts
 git diff origin/main --stat -- supabase/migrations
 ```
@@ -4457,5 +4870,5 @@ select count(*) from public.categorias where slug ~ '-[0-9]+$' and es_pilar;    
 4. **Merge the PR**, only after step 3 (Vercel publishes `main`). Between the push and the merge the old code simply does not read the new tables.
 5. **Live check:** confirm the new code is served (the Temas HTML for Coni contains "Agregar pilar" and "Agregar red"; Vercel's alias lags 15 to 45 s; if Coni's screen looks old, it is her cache: hard refresh). Then read-only: `select count(*) from public.borradores_de_pilar;` and `select count(*) from public.borradores_de_red;` give 0 until Coni saves one.
 6. **No Trigger deploy:** Task 16 Step 4 showed no task imports a changed module; the engine and `pilares:proponer` read active pillars at run time and pick up an approved pillar with its definition.
-7. **Release notes record by hand:** a pillar approved in the app works in the app, but its manual text must be added to the editorial guide (v4) by hand; the approval screen says so. Also record decision 8 (LinkedIn's stages of 2027-01-01 and 2027-07-01 are not rewritten by an approval) with Federico's answer from Task 14.
+7. **Release notes record by hand:** a pillar approved in the app works in the app, but its manual text must be added to the editorial guide (v4) by hand; the approval screen says so. Also record that an approval writes the new pillar's weight into every stage of its network (LinkedIn: today and the planned stages still ahead), with any weight she changed on each stage's date (decision 8).
 8. **Board:** #18 stays En Curso (15d remains). Comment on #18 with the release date of 15c and the result of step 5.
