@@ -2,6 +2,7 @@ import { render } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
+import { EVENTO_DE_LLEGADA } from "@/components/use-ir-a"
 import { ID_DEL_AVISO_DE_IDEAS } from "@/lib/dominio/biblioteca/ideas"
 
 const IDEA = "44444444-2222-4333-8444-555555555555"
@@ -87,5 +88,14 @@ describe("TrasElAviso", () => {
     )
     expect(window.location.search).toBe("?red=linkedin")
     expect(document.getElementById(ID_DEL_AVISO_DE_IDEAS)).toHaveFocus()
+  })
+
+  it("says the note arrived once it takes it out of the address, so useIrA knows a same-screen trip landed", () => {
+    const llegadas = vi.fn()
+    window.addEventListener(EVENTO_DE_LLEGADA, llegadas)
+    en("/biblioteca/temas/borradores?aviso=borrador-descartado")
+    render(<TrasElAviso parametro="aviso" />)
+    expect(llegadas).toHaveBeenCalledTimes(1)
+    window.removeEventListener(EVENTO_DE_LLEGADA, llegadas)
   })
 })

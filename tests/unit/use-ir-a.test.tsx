@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ERROR_AL_LLEGAR, useIrA } from "@/components/use-ir-a"
+import { ERROR_AL_LLEGAR, EVENTO_DE_LLEGADA, useIrA } from "@/components/use-ir-a"
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }))
@@ -91,7 +91,7 @@ describe("useIrA", () => {
     expect(replace).toHaveBeenCalledTimes(3)
     expect(result.current.yendo).toBe(false)
     expect(result.current.error).toBe(ERROR_AL_LLEGAR)
-    expect(ERROR_AL_LLEGAR).toMatch(/recarga/i)
+    expect(ERROR_AL_LLEGAR).toBe("Listo, pero no pude abrir la pantalla siguiente. Recarga la página.")
   })
 
   it("stops watching, with no error, when she taps elsewhere", () => {
@@ -102,6 +102,56 @@ describe("useIrA", () => {
       vi.advanceTimersByTime(60_000)
     })
     expect(replace).toHaveBeenCalledTimes(1)
+    expect(result.current.yendo).toBe(false)
+    expect(result.current.error).toBeNull()
+  })
+
+  it("keeps watching when she taps inside what started it (the busy form), and tries again", () => {
+    const formulario = document.createElement("form")
+    const boton = document.createElement("button")
+    formulario.append(boton)
+    document.body.append(formulario)
+    const { result } = renderHook(() => useIrA())
+    act(() => result.current.ir(DESTINO, formulario))
+    act(() => {
+      boton.dispatchEvent(new Event("pointerdown", { bubbles: true }))
+      vi.advanceTimersByTime(10_100)
+    })
+    expect(result.current.yendo).toBe(true)
+    expect(replace).toHaveBeenCalledTimes(2)
+    formulario.remove()
+  })
+
+  it("stops for good on Back: the screen she went back to is never pulled forward again", () => {
+    const { result } = renderHook(() => useIrA())
+    act(() => result.current.ir(DESTINO))
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"))
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(result.current.yendo).toBe(false)
+    expect(result.current.error).toBeNull()
+  })
+
+  it("on the same screen does not take the address as proof: only the note's arrival says it landed", () => {
+    const AQUI = "/biblioteca/temas/borradores"
+    window.history.replaceState(null, "", AQUI)
+    const { result } = renderHook(() => useIrA())
+    act(() => result.current.ir(`${AQUI}?aviso=borrador-descartado`))
+    act(() => vi.advanceTimersByTime(200))
+    expect(result.current.yendo).toBe(true)
+    // Dropped: downloaded and nothing arrived a second later.
+    act(() => {
+      llego(`${AQUI}?aviso=borrador-descartado`)
+      vi.advanceTimersByTime(1_100)
+    })
+    expect(replace).toHaveBeenCalledTimes(2)
+    act(() => {
+      window.dispatchEvent(new Event(EVENTO_DE_LLEGADA))
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(replace).toHaveBeenCalledTimes(2)
     expect(result.current.yendo).toBe(false)
     expect(result.current.error).toBeNull()
   })
