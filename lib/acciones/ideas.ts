@@ -230,7 +230,7 @@ const CLAVE_FORANEA = "23503"
 export function cambiarAngulo(deps: DepsIdeas, entrada: unknown): Promise<Resultado> {
   return aResultado("cambiarAngulo", async () => {
     const cambio = CambioDeAngulo.safeParse(entrada)
-    if (!cambio.success) throw new Falla(ANGULO_DE_OTRO_PILAR)
+    if (!cambio.success) throw NoDisponible
     const { data, error } = await deps.db
       .from("ideas")
       .update({ angulo_id: cambio.data.anguloId })
@@ -239,7 +239,8 @@ export function cambiarAngulo(deps: DepsIdeas, entrada: unknown): Promise<Result
       .maybeSingle()
     if (error) {
       if (error.code === CHECK && error.message === "angulo_firmado") throw new Falla(ANGULO_FIRMADO)
-      if (error.code === CHECK || error.code === CLAVE_FORANEA) throw new Falla(ANGULO_DE_OTRO_PILAR)
+      if ((error.code === CHECK && error.message === "angulo_de_otro_pilar") || error.code === CLAVE_FORANEA)
+        throw new Falla(ANGULO_DE_OTRO_PILAR)
       throw new Error(`No pude cambiar el ángulo: ${error.message}`, { cause: error })
     }
     if (!data) throw NoDisponible

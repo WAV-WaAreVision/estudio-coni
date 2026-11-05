@@ -252,6 +252,14 @@ describe("enviarResumenDelDia", () => {
   })
 })
 
+/** The sending's error and the angle check's, both kept, the caught one untouched. */
+function expectAmbas(lanzado: unknown, caido: Error) {
+  expect(lanzado).toBeInstanceOf(AggregateError)
+  const errores = (lanzado as AggregateError).errors
+  expect(errores[0]).toBe(caido)
+  expect(errores[1]).toMatchObject({ message: "No pude revisar el equilibrio de los ángulos" })
+}
+
 describe("el equilibrio de los ángulos en el resumen", () => {
   const LUNES_SIGUIENTE = "2026-10-12T11:30:00.000Z"
   const antesDe = (ahora: string, dias: number) => new Date(Date.parse(ahora) - dias * DIA_MS).toISOString()
@@ -336,7 +344,7 @@ describe("el equilibrio de los ángulos en el resumen", () => {
     expect(memoria.resumenesEnviados).toHaveLength(1)
     expect((await filas()).every((fila) => fila.canal === "correo")).toBe(true)
   })
-  it("keeps the check's failure as the cause when the sending fails too", async () => {
+  it("keeps both failures, the sending's untouched, when the sending fails too", async () => {
     await aviso("guion_listo", "guion_listo:a:1", "Tu guion «Uno» está listo para revisar.")
     const caido = new Error("Resend no responde")
     const canal: Notificador = {
@@ -354,9 +362,30 @@ describe("el equilibrio de los ángulos en el resumen", () => {
     } finally {
       await pool.query("grant select on public.piezas_con_angulo to service_role")
     }
-    expect(lanzado).toBe(caido)
-    expect(caido.cause).toMatchObject({
-      message: expect.stringContaining("No pude revisar el equilibrio de los ángulos"),
-    })
+    expectAmbas(lanzado, caido)
+    expect(caido.cause).toBeUndefined()
+  })
+
+  it("keeps both failures when the sending's error already has a cause of its own", async () => {
+    await aviso("guion_listo", "guion_listo:a:1", "Tu guion «Uno» está listo para revisar.")
+    const propia = new Error("timeout")
+    const caido = new Error("Resend no responde", { cause: propia })
+    const canal: Notificador = {
+      ...notificadorEnMemoria(),
+      async resumenAConi() {
+        throw caido
+      },
+    }
+    await pool.query("revoke select on public.piezas_con_angulo from service_role")
+    let lanzado: unknown
+    try {
+      await enviarResumenDelDia(armar(MARTES_0830, canal).deps)
+    } catch (error) {
+      lanzado = error
+    } finally {
+      await pool.query("grant select on public.piezas_con_angulo to service_role")
+    }
+    expectAmbas(lanzado, caido)
+    expect(caido.cause).toBe(propia)
   })
 })

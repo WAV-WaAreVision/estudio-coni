@@ -4,7 +4,7 @@ import { useId, useRef, useState } from "react"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
-import type { Resultado } from "@/lib/acciones/resultado"
+import { ERROR_SESION_VENCIDA, type Resultado } from "@/lib/acciones/resultado"
 import type { OpcionDeAngulo } from "@/lib/dominio/pilares"
 import { Campo, CLASES_DE_CAMPO } from "../biblioteca/campo"
 
@@ -27,6 +27,13 @@ interface Propiedades {
  */
 export function ElegirAngulo({ ideaId, angulos, elegido, cambiar }: Propiedades) {
   const [valor, setValor] = useState(elegido ?? "")
+  // The server's angle, as last seen: a newer one (a redraw, another device) replaces the field's value during render,
+  // without remounting, so the note of a save survives the redraw that brings the angle it saved.
+  const [delServidor, setDelServidor] = useState(elegido)
+  if (elegido !== delServidor) {
+    setDelServidor(elegido)
+    setValor(elegido ?? "")
+  }
   const [guardado, setGuardado] = useState(false)
   const { pendiente, error, ejecutar } = useAccion()
   const redibujar = useRedibujar()
@@ -44,9 +51,15 @@ export function ElegirAngulo({ ideaId, angulos, elegido, cambiar }: Propiedades)
     setGuardado(false)
     ejecutar(
       () =>
-        cambiar(ideaId, nuevo === "" ? null : nuevo).finally(() => {
-          guardando.current = false
-        }),
+        cambiar(ideaId, nuevo === "" ? null : nuevo)
+          .then((resultado) => {
+            // `useAccion` takes her to sign in without calling back: the field must not show an angle never saved.
+            if (!resultado.ok && resultado.error === ERROR_SESION_VENCIDA) setValor(anterior)
+            return resultado
+          })
+          .finally(() => {
+            guardando.current = false
+          }),
       () => {
         setGuardado(true)
         redibujar()

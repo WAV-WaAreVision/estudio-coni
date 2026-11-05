@@ -175,11 +175,7 @@ export async function enviarResumenDelDia(deps: DepsResumen): Promise<ResultadoR
   return resultado
 }
 
-/** Both failed: the sending's error goes up, carrying the check's so neither is lost. */
-function conFallaDeEquilibrio(error: unknown, falla: Error): Error {
-  if (error instanceof Error && error.cause === undefined) {
-    error.cause = falla
-    return error
-  }
+/** Both failed: both go up, the sending's first and as it was thrown, so neither is lost. */
+function conFallaDeEquilibrio(error: unknown, falla: Error): AggregateError {
   return new AggregateError([error, falla], "No pude enviar el resumen ni revisar el equilibrio de los ángulos")
 }

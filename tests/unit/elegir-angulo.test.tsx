@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { ElegirAngulo } from "@/app/(app)/ideas/elegir-angulo"
+import { ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
 
 const reemplazar = vi.fn()
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: reemplazar }) }))
@@ -54,6 +55,25 @@ describe("ElegirAngulo", () => {
     fireEvent.change(screen.getByLabelText("Ángulo"), { target: { value: ANGULOS[1]?.id } })
     await screen.findByText("Ya firmaste el guion: el ángulo quedó como estaba.")
     expect(screen.getByLabelText("Ángulo")).toHaveDisplayValue("Lo que planteo")
+  })
+
+  it("puts the old angle back when her session ended, on her way to sign in", async () => {
+    const cambiar = vi.fn(async () => ({ ok: false as const, error: ERROR_SESION_VENCIDA }))
+    render(<ElegirAngulo ideaId={IDEA} angulos={ANGULOS} elegido={ANGULOS[0]?.id ?? null} cambiar={cambiar} />)
+    fireEvent.change(screen.getByLabelText("Ángulo"), { target: { value: ANGULOS[1]?.id } })
+    await waitFor(() => expect(cambiar).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByLabelText("Ángulo")).toHaveDisplayValue("Lo que planteo"))
+  })
+
+  it("takes a newer angle from the server, and keeps its note when the redraw brings the one it saved", async () => {
+    const cambiar = vi.fn(async () => ({ ok: true as const }))
+    const { rerender } = render(<ElegirAngulo ideaId={IDEA} angulos={ANGULOS} elegido={null} cambiar={cambiar} />)
+    fireEvent.change(screen.getByLabelText("Ángulo"), { target: { value: ANGULOS[0]?.id } })
+    await screen.findByText("Listo, guardé el ángulo.")
+    rerender(<ElegirAngulo ideaId={IDEA} angulos={ANGULOS} elegido={ANGULOS[0]?.id ?? null} cambiar={cambiar} />)
+    expect(screen.getByText("Listo, guardé el ángulo.")).toBeInTheDocument()
+    rerender(<ElegirAngulo ideaId={IDEA} angulos={ANGULOS} elegido={ANGULOS[1]?.id ?? null} cambiar={cambiar} />)
+    expect(screen.getByLabelText("Ángulo")).toHaveDisplayValue("Lo que construyo")
   })
 
   it("ignores a change while one is saving", async () => {
