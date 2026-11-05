@@ -2053,6 +2053,13 @@ export type Database = {
           },
         ]
       }
+      temas_tratados: {
+        Row: {
+          red: string | null
+          tema_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anotar_numeros_linkedin: {
