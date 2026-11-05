@@ -94,6 +94,16 @@ test("no width scrolls sideways, from a tablet to a wide screen", async ({ page 
   }
 })
 
+test("a 768 px window with a classic scrollbar still shows the two columns", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 })
+  await abrir(page)
+  // Headless Chromium hides scrollbars: the 15 px a classic one takes (Windows) are taken from the page instead, while the
+  // media queries still see a 768 px window, as with the real scrollbar.
+  await page.addStyleTag({ content: "html { padding-right: 15px }" })
+  expect(await page.evaluate(() => document.body.getBoundingClientRect().width)).toBe(753)
+  expect((await caja(firma(page))).left).toBeGreaterThanOrEqual((await cajaDelGuion(page)).right)
+})
+
 test("every control of the decision column is at least 44 px tall", async ({ page }) => {
   await abrir(page)
   const bajos = await page.evaluate(() => {

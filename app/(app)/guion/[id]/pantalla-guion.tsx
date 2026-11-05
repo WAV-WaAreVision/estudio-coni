@@ -204,13 +204,13 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
     // On a tablet or a computer (critique 2026-11-05) two columns: the script to read on the left; the angle, the voice, the avatar
     // and the signature on the right, from the row under the title, in the order of the phone so the focus follows the steps. The grid has five auto
     // rows for the right column and a last 1fr row: the script spans them all, so its height goes to that last row,
-    // where the signature sticks while she reads. Below 42rem of container (a phone, or a large text) the div stays a block
+    // where the signature sticks while she reads. Below 40rem of container (a phone, or a large text) the div stays a block
     // and none of the dos-columnas classes apply.
     <div data-ancho="puerta" className="@container">
       <div className="dos-columnas:grid dos-columnas:grid-cols-[minmax(0,1fr)_minmax(15rem,17rem)] dos-columnas:grid-rows-[auto_repeat(5,auto)_1fr] dos-columnas:justify-center dos-columnas:gap-x-8 dos-columnas:pb-[var(--final-pagina)] dos-columnas-amplias:grid-cols-[minmax(0,40rem)_minmax(16rem,22rem)] dos-columnas-amplias:gap-x-12">
         <header
           data-pilar={datos.pilar?.slug}
-          className="grid gap-3 dos-columnas:col-span-full dos-columnas:grid-cols-subgrid dos-columnas:*:col-start-1"
+          className="grid gap-y-3 dos-columnas:col-span-full dos-columnas:grid-cols-subgrid dos-columnas:*:col-start-1"
         >
           <Volver href="/">Inicio</Volver>
           {/* The short name keeps pillar, format and length on one line. */}
@@ -239,13 +239,13 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
 
         {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
         {grabacion.botones?.bloqueoVideo ? (
-          <div data-testid="bloqueo-de-firma" className="mt-6 dos-columnas:col-start-2">
+          <div data-testid="bloqueo-de-firma" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
             <Bloque tipo="aviso">{separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}</Bloque>
           </div>
         ) : null}
 
         {grabacion.voz && datos.explicacion ? (
-          <Bloque tipo="aviso" className="mt-6 dos-columnas:col-start-2">
+          <Bloque tipo="aviso" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
             <ExplicacionParaConi
               texto={datos.explicacion}
               enSusPalabras={enSusPalabras(datos.explicacion, razonDeVoz(grabacion, sinGuardar))}

@@ -5,8 +5,9 @@
 @import "./tema-cerrado.css";
 
 /* Gate 1 of a reel in two columns (critique 2026-11-05): a container query, so its rem follow the text size and a large
-   text falls back to the phone's one column instead of squeezing the script. 42rem: a 768 px tablet; 56rem: 1024 px. */
-@custom-variant dos-columnas (@container (width >= 42rem));
+   text falls back to the phone's one column instead of squeezing the script. 40rem (680 px at the 17 px root): a 768 px
+   tablet, even with a classic scrollbar taking its width; 56rem: 1024 px. */
+@custom-variant dos-columnas (@container (width >= 40rem));
 @custom-variant dos-columnas-amplias (@container (width >= 56rem));
 
 /*
