@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 type Respuesta = { ok: true } | { ok: false; error: string }
 
-const { esConi, datos, acciones } = vi.hoisted(() => ({
+const { esConi, datos, pilares, acciones } = vi.hoisted(() => ({
   esConi: { valor: true },
   datos: {
     listarBorradores: vi.fn(async (): Promise<unknown> => ({ pilares: [], redes: [] })),
     leerBorrador: vi.fn(async (..._: unknown[]): Promise<unknown> => null),
     contarBorradores: vi.fn(async (): Promise<number> => 0),
   },
+  pilares: { etapasDeRed: vi.fn(async (..._: unknown[]): Promise<unknown> => []) },
   acciones: {
     descartarBorradorAccion: vi.fn(async (..._: unknown[]): Promise<Respuesta> => ({ ok: true })),
     guardarBorradorDePilarAccion: vi.fn(),
@@ -36,9 +37,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/borradores", () => datos)
+vi.mock("@/lib/datos/pilares", () => pilares)
 vi.mock("@/app/(app)/biblioteca/temas/borradores/acciones", () => acciones)
 
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
+import { AprobarPilar } from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/aprobar-pilar"
+import AprobarBorrador from "@/app/(app)/biblioteca/temas/borradores/[id]/aprobar/page"
 import EditarBorrador from "@/app/(app)/biblioteca/temas/borradores/[id]/editar/page"
 import { BotonDescartar } from "@/app/(app)/biblioteca/temas/borradores/boton-descartar"
 import Borradores from "@/app/(app)/biblioteca/temas/borradores/page"
@@ -179,5 +183,63 @@ describe("the edit page", () => {
     await expect(EditarBorrador(conId("no-es-un-id"))).rejects.toThrow("NEXT_NOT_FOUND")
     expect(datos.leerBorrador).not.toHaveBeenCalled()
     await expect(EditarBorrador(conId(ID_1))).rejects.toThrow("NEXT_NOT_FOUND")
+  })
+})
+
+describe("the approval page", () => {
+  it("hands the editor today's stage and each later one of the network, with the new pillar in every stage", async () => {
+    datos.leerBorrador.mockResolvedValueOnce({ tipo: "pilar", borrador: DE_LINKEDIN })
+    // The page passes today's date in Chile: the first stage is that date, whatever day the test runs.
+    pilares.etapasDeRed.mockImplementationOnce(async (...args: unknown[]) => [
+      {
+        desde: String(args[2]),
+        pesos: [{ id: "a", slug: "x", nombreCorto: "Diagnóstico doble", peso: 30 }],
+        total: 30,
+        sumaCien: false,
+      },
+      {
+        desde: "2099-01-01",
+        pesos: [{ id: "a", slug: "x", nombreCorto: "Diagnóstico doble", peso: 25 }],
+        total: 25,
+        sumaCien: false,
+      },
+    ])
+    const arbol = elementos(await AprobarBorrador(conId(ID_2)))
+    expect(pilares.etapasDeRed).toHaveBeenCalledWith(
+      expect.anything(),
+      "linkedin",
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    )
+    const props = arbol.find((e) => e.type === AprobarPilar)?.props
+    expect(props?.borrador).toEqual(DE_LINKEDIN)
+    expect(props?.cancelar).toBe("/biblioteca/temas/borradores")
+    expect(props?.etapas).toEqual([
+      {
+        desde: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        esHoy: true,
+        etiqueta: "Hoy",
+        filas: [
+          { clave: "a", nombre: "Diagnóstico doble", peso: "30" },
+          { clave: "nuevo", nombre: "Sereno", peso: "12,5" },
+        ],
+      },
+      {
+        desde: "2099-01-01",
+        esHoy: false,
+        etiqueta: "Desde el 1 de enero de 2099",
+        filas: [
+          { clave: "a", nombre: "Diagnóstico doble", peso: "25" },
+          { clave: "nuevo", nombre: "Sereno", peso: "12,5" },
+        ],
+      },
+    ])
+  })
+
+  it("is not found for a network draft, a decided draft or what is not an id", async () => {
+    datos.leerBorrador.mockResolvedValueOnce({ tipo: "red", borrador: RED })
+    await expect(AprobarBorrador(conId(ID_3))).rejects.toThrow("NEXT_NOT_FOUND")
+    await expect(AprobarBorrador(conId(ID_1))).rejects.toThrow("NEXT_NOT_FOUND")
+    await expect(AprobarBorrador(conId("x"))).rejects.toThrow("NEXT_NOT_FOUND")
+    expect(pilares.etapasDeRed).not.toHaveBeenCalled()
   })
 })
