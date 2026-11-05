@@ -17,9 +17,15 @@ export function RecordarRed({ red, recordada }: { red: Red; recordada: Red | nul
       body: JSON.stringify({ red }),
       // Leaving Temas right away must not cancel it.
       keepalive: true,
+      // Without a session the proxy sends it to sign in: that page is not an answer, and following it costs a request.
+      redirect: "manual",
     }).then(
       async (respuesta) => {
-        if (!respuesta.ok) console.error(`No pude recordar la red ${red}: ${await respuesta.text()}`)
+        if (respuesta.type === "opaqueredirect") {
+          console.error(`No pude recordar la red ${red}: la sesión pidió entrar de nuevo.`)
+        } else if (!respuesta.ok) {
+          console.error(`No pude recordar la red ${red}: ${await respuesta.text()}`)
+        }
       },
       (error: unknown) => console.error(`No pude recordar la red ${red}`, error),
     )

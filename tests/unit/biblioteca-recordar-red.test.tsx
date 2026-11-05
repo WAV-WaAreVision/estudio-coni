@@ -20,6 +20,7 @@ const PEDIDO = (red: string) => [
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ red }),
     keepalive: true,
+    redirect: "manual",
   },
 ]
 
@@ -52,5 +53,15 @@ describe("RecordarRed", () => {
     enviar.mockRejectedValueOnce(new Error("sin red"))
     render(<RecordarRed red="linkedin" recordada={null} />)
     await waitFor(() => expect(consola).toHaveBeenCalledWith("No pude recordar la red linkedin", expect.any(Error)))
+  })
+
+  it("logs a session that sent it to sign in, instead of following the redirect", async () => {
+    const consola = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    // What fetch answers for a redirect with `redirect: "manual"`: no status, no body to read.
+    enviar.mockResolvedValueOnce({ ok: false, type: "opaqueredirect", status: 0 } as Response)
+    render(<RecordarRed red="instagram" recordada={null} />)
+    await waitFor(() =>
+      expect(consola).toHaveBeenCalledWith("No pude recordar la red instagram: la sesión pidió entrar de nuevo."),
+    )
   })
 })
