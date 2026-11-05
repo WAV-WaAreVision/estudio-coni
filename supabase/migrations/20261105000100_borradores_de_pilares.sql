@@ -159,7 +159,7 @@ begin
     where k <> 'nuevo'
       and not exists (
         select 1 from public.categorias c
-        where c.id::text = lower(k) and c.es_pilar and c.activa and not c.es_capa and c.red = v_borrador.red
+        where c.id::text = k and c.es_pilar and c.activa and not c.es_capa and c.red = v_borrador.red
       )
   ) then
     raise exception using errcode = '22023', message = 'pilar_de_otra_red';
@@ -200,7 +200,7 @@ begin
     insert into public.pilar_pesos (pilar_id, red, es_capa, desde, peso)
     select c.id, c.red, c.es_capa, v_desde, round((w.value)::numeric, 2)
     from jsonb_each(coalesce(p_pesos -> to_char(v_desde, 'YYYY-MM-DD'), '{}'::jsonb)) w
-    join public.categorias c on c.id::text = lower(w.key)
+    join public.categorias c on c.id::text = w.key
     where w.key <> 'nuevo'
       and round((w.value)::numeric, 2) is distinct from (
         select x.peso from public.pilar_pesos x

@@ -123,4 +123,26 @@ describe("the drafts' server actions", () => {
     expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": muchos } }).success).toBe(false)
     expect(SobreBorrador.safeParse({ tipo: "tema", id: ID }).success).toBe(false)
   })
+
+  it("the schemas refuse a weight with more than two decimals, which the database would round to another number", () => {
+    for (const peso of [0.001, 12.345]) {
+      expect(BorradorDePilarNuevo.safeParse({ ...pilar, red: "linkedin", peso }).success, String(peso)).toBe(false)
+      expect(EdicionDeBorradorDePilar.safeParse({ ...pilar, id: ID, peso }).success, String(peso)).toBe(false)
+      expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": { nuevo: peso } } }).success).toBe(false)
+    }
+    for (const peso of [0.07, 12.5, 12.34, 99.99, 100]) {
+      expect(BorradorDePilarNuevo.safeParse({ ...pilar, red: "linkedin", peso }).success, String(peso)).toBe(true)
+      expect(AprobacionDePilar.safeParse({ id: ID, pesos: { "2026-11-05": { [PILAR]: peso } } }).success).toBe(true)
+    }
+  })
+
+  it("the approval names a pillar only by «nuevo» or its id in lowercase, so one pillar cannot come twice", () => {
+    const etapa = (clave: string) => ({ id: ID, pesos: { "2026-11-05": { [clave]: 10 } } })
+    const conLetras = "abcdef01-3333-4444-8555-66666666cafe"
+    expect(AprobacionDePilar.safeParse(etapa("nuevo")).success).toBe(true)
+    expect(AprobacionDePilar.safeParse(etapa(conLetras)).success).toBe(true)
+    expect(AprobacionDePilar.safeParse(etapa(conLetras.toUpperCase())).success).toBe(false)
+    expect(AprobacionDePilar.safeParse(etapa("Nuevo")).success).toBe(false)
+    expect(AprobacionDePilar.safeParse(etapa("no-es-un-id")).success).toBe(false)
+  })
 })

@@ -16,7 +16,14 @@ export interface DepsBorradores {
 
 const texto = (largo: number) => z.string().trim().min(1).max(largo)
 const nota = z.string().trim().max(LARGOS.notaDeRed)
-const peso = z.number().gt(0).lte(100)
+// Two decimals at most, as the form reads it (`leerPeso`): `numeric(5,2)` would round 0.001 to 0 and refuse it.
+const peso = z
+  .number()
+  .gt(0)
+  .lte(100)
+  .refine((valor) => Number(valor.toFixed(2)) === valor)
+// "nuevo" or a pillar's id as Postgres writes it: the same id in two cases would reach one row twice.
+const claveDePeso = z.string().regex(/^(?:nuevo|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/)
 
 const CamposDePilar = z.object({
   nombre: texto(LARGOS.nombre),
@@ -36,7 +43,7 @@ export const EdicionDeBorradorDeRed = BorradorDeRedNuevo.extend({ id: z.uuid() }
 export const SobreBorrador = z.object({ tipo: z.enum(["pilar", "red"]), id: z.uuid() })
 
 const PesosDeUnaEtapa = z
-  .record(z.string().max(40), peso)
+  .record(claveDePeso, peso)
   // A network's pillars and the new one: a handful; 20 is far above any real network.
   .refine((pesos) => Object.keys(pesos).length <= 20)
 export const AprobacionDePilar = z.object({

@@ -279,6 +279,8 @@ describe("aprobar_borrador_de_pilar", () => {
         [deInstagram, { [dia]: { [await idDe(c, "capa-tdah")]: 10 } }],
         [deLinkedin, { [dia]: { [await idDe(c, "pareja")]: 10 } }],
         [deLinkedin, { [dia]: { "no-es-un-id": 10 } }],
+        // The same pillar in two cases would reach one row twice: only the id as Postgres writes it counts.
+        [deLinkedin, { [dia]: { [(await idDe(c, "diagnostico-doble")).toUpperCase()]: 10 } }],
       ]
       for (const [id, pesos] of casos) {
         const error = await rechazo(c, id, pesos)
