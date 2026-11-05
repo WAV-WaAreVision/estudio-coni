@@ -13,7 +13,7 @@ import {
   revisarConAxe,
   simularMedios,
 } from "./ayudas"
-import { sembrarAutoresYTemas } from "./biblioteca-escena"
+import { sembrarAutoresYTemas, vaciarBiblioteca } from "./biblioteca-escena"
 import { avatarYaVisto, conAngulo, sembrarEscena, sembrarPublicadasConAngulo } from "./escena"
 
 // Spec 15d, sections 3 and 4: Coni sees and changes the angle before she signs; Temas and Inicio warn.
@@ -37,6 +37,9 @@ test.beforeEach(async ({ page }) => {
 
 test.afterAll(async () => {
   await vaciarPiezasEIdeas()
+  // The balance notice has no piece: it would stay in Inicio for the specs after this one.
+  await pool.query("delete from public.avisos where tipo = 'equilibrio_de_angulo'")
+  await vaciarBiblioteca()
 })
 
 const campo = (page: Page) => page.getByLabel("Ángulo")
