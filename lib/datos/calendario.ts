@@ -32,7 +32,7 @@ export async function leerDatosDeCalendario(
     db
       .from("piezas")
       .select(
-        "id, titulo, estado, tipo, puerta2_publicar_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado), fechas_propuestas(publicar_en)",
+        "id, titulo, estado, tipo, puerta2_publicar_en, creada_en, destinos, ideas(pilar, angulo_id), publicaciones(destino, estado), fechas_propuestas(publicar_en)",
       )
       .not("estado", "in", "(idea,descartado)")
       .or(`puerta2_publicar_en.is.null,puerta2_publicar_en.gte.${desde}`)
@@ -68,6 +68,7 @@ export async function leerDatosDeCalendario(
       estado: fila.estado satisfies Estado,
       tipo: tipoDePieza(fila.tipo),
       pilar: fila.ideas?.pilar ?? null,
+      angulo: fila.ideas?.angulo_id ?? null,
       publicarEn: fila.puerta2_publicar_en,
       fechaPropuesta: fila.fechas_propuestas?.publicar_en ?? null,
       creadaEn: fila.creada_en,

@@ -18,6 +18,7 @@ import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
 import { type AccionesDeEleccion, EleccionDeIdeas } from "./eleccion-de-ideas"
+import { ElegirAngulo } from "./elegir-angulo"
 import { FormatoDeIdea, type FormatoDePieza } from "./formato-de-idea"
 import { type IdeaConfirmada, IdeaPropia } from "./idea-propia"
 
@@ -29,6 +30,8 @@ export interface AccionesDelBanco extends AccionesDeEleccion {
   crear: (idea: IdeaConfirmada) => Promise<Resultado<{ id: string }>>
   /** "Hacer el carrusel": the idea becomes a LinkedIn carousel at once (design 2026-10-26). */
   hacerCarrusel: (ideaId: string) => Promise<Resultado<{ piezaId: string }>>
+  /** The idea's angle (spec 15d), saved in place. */
+  cambiarAngulo: (ideaId: string, anguloId: string | null) => Promise<Resultado>
 }
 
 const URL_DE_INGESTA = "https://conidolly-ingesta.vercel.app"
@@ -96,6 +99,7 @@ export function BancoDeIdeas({
   const actual = libres.find((idea) => idea.id === frente) ?? [...seguidas, ...alFinal][0]
   const posicion = actual ? libres.indexOf(actual) + 1 : 0
   const formato: FormatoDePieza = actual ? (formatos[actual.id] ?? "reel") : "reel"
+  const angulosDe = (slug: string) => pilares.find((pilar) => pilar.slug === slug)?.angulos ?? []
 
   function despues(idea: IdeaDeBanco) {
     setError(null)
@@ -254,6 +258,13 @@ export function BancoDeIdeas({
           <div ref={carta} tabIndex={-1} className="outline-none">
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+              <ElegirAngulo
+                key={`angulo-${actual.id}`}
+                ideaId={actual.id}
+                angulos={angulosDe(actual.pilar)}
+                elegido={actual.angulo ?? null}
+                cambiar={acciones.cambiarAngulo}
+              />
               <FormatoDeIdea
                 elegido={formato}
                 alElegir={(elegido) => setFormatos((previos) => ({ ...previos, [actual.id]: elegido }))}

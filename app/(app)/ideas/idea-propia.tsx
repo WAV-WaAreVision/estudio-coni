@@ -36,6 +36,8 @@ export interface IdeaConfirmada {
   tema: string
   formato: string
   pilar: string
+  /** The slug of her angle, or null. */
+  angulo: string | null
   alertas: Alerta[]
 }
 
@@ -55,6 +57,7 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
   const [gancho, setGancho] = useState("")
   const [tema, setTema] = useState("")
   const [pilar, setPilar] = useState<string | null>(null)
+  const [angulo, setAngulo] = useState<string | null>(null)
   const [formato, setFormato] = useState(FORMATOS[0] ?? "")
   const [alertas, setAlertas] = useState<Partial<Record<(typeof TIPOS_DE_ALERTA)[number], string>>>({})
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +75,7 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
       }
       const { propuesta } = resultado
       setPilar(propuesta.pilar)
+      setAngulo(propuesta.angulo)
       setFormato(propuesta.formato)
       setAlertas(Object.fromEntries(propuesta.alertas.map((alerta) => [alerta.tipo, alerta.texto])))
       setPaso("confirmar")
@@ -85,8 +89,17 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
     })
   }
 
+  // A new pillar keeps no angle of the old one: she picks again, or keeps «Sin ángulo».
+  function elegirPilar(slug: string) {
+    if (slug === pilar) return
+    setPilar(slug)
+    setAngulo(null)
+  }
+
+  const angulosDelElegido = pilares.find((candidato) => candidato.slug === pilar)?.angulos ?? []
+
   function guardar() {
-    if (pilar === null) return
+    if (pilar === null || pendiente) return
     setError(null)
     empezar(async () => {
       const resultado = await crear({
@@ -94,6 +107,7 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
         tema: tema.trim(),
         formato,
         pilar,
+        angulo,
         alertas: TIPOS_DE_ALERTA.flatMap((tipo) => {
           const texto = alertas[tipo]
           return texto === undefined ? [] : [{ tipo, texto }]
@@ -178,12 +192,35 @@ export function IdeaPropia({ proponer, crear, pilares, alGuardar, alVolver }: Pr
                     valor={candidato.slug}
                     elegido={pilar === candidato.slug}
                     etiqueta={candidato.nombre}
-                    alElegir={() => setPilar(candidato.slug)}
+                    alElegir={() => elegirPilar(candidato.slug)}
                   />
                 ))}
               </fieldset>
             ))}
           </fieldset>
+
+          {angulosDelElegido.length > 0 ? (
+            <fieldset className="elecciones grid">
+              <legend className="mb-1 text-meta font-semibold">Ángulo</legend>
+              {angulosDelElegido.map((opcion) => (
+                <Eleccion
+                  key={opcion.slug}
+                  nombre="angulo"
+                  valor={opcion.slug}
+                  elegido={angulo === opcion.slug}
+                  etiqueta={opcion.nombre}
+                  alElegir={() => setAngulo(opcion.slug)}
+                />
+              ))}
+              <Eleccion
+                nombre="angulo"
+                valor=""
+                elegido={angulo === null}
+                etiqueta="Sin ángulo"
+                alElegir={() => setAngulo(null)}
+              />
+            </fieldset>
+          ) : null}
 
           <Grupo>
             <FilaConValor

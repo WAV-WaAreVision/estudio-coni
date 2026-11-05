@@ -312,7 +312,10 @@ los avisos del celular; nunca un proveedor.
 - **Puerta 1:** tres pasos en orden: «1. Escucha tu voz», «2. Revisa el guion», «3. Elige tu avatar»
   (requisito para firmar, nunca plegado). Si el saldo o el tope de gasto no alcanzan, el motivo va
   arriba, antes del paso 1, y otra vez junto a la firma. Si una falla solo la arregla Federico, el
-  texto lo dice primero y reintentar queda como botón secundario.
+  texto lo dice primero y reintentar queda como botón secundario. En tablet y computador (contenedor de
+  42rem o más) va en dos columnas: el guion a la izquierda (40rem como máximo, unos 70 caracteres por
+  línea) y a la derecha el ángulo, los pasos 1 y 3 y la firma, que queda pegada arriba mientras ella lee;
+  «Descartar» queda al pie de la columna del guion. Con letra grande vuelve a la columna única del teléfono.
 - **Puerta 2:** el video 9:16 al ancho de la columna (sin achicarse con letra grande), con «Míralo
   completo para poder firmar» sobre el cuadro hasta que ella lo inicia. Con LinkedIn entre los
   destinos, su texto va primero y el de Instagram se pliega debajo.

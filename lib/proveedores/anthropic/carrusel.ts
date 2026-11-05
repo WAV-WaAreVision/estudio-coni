@@ -15,6 +15,7 @@ import { pedirJson, type UsoClaude } from "./nucleo"
 import {
   describirHallazgo,
   type IdeaParaGuion,
+  lineaDeAngulo,
   listaDeAlertas,
   type RespaldoParaGuion,
   SalidaRevision,
@@ -68,7 +69,7 @@ function pedidoDeCarrusel(entrada: {
   const partes = [
     `Escribe un carrusel de LinkedIn (un documento PDF de láminas de texto) de Coni del Rosario a partir de esta idea. Sigue la línea editorial de tus instrucciones con estas diferencias: no es un reel, no lo narra ningún avatar y lo firma ${FIRMA_DEL_CARRUSEL}. Donde tus instrucciones pidan un aviso de avatar, en este carrusel no va.`,
     `IDEA
-Pilar: ${idea.pilar.nombre}${idea.pilar.descripcion ? ` (${idea.pilar.descripcion})` : ""}
+Pilar: ${idea.pilar.nombre}${idea.pilar.descripcion ? ` (${idea.pilar.descripcion})` : ""}${lineaDeAngulo(idea.angulo)}
 Gancho: ${idea.gancho}
 Tema: ${idea.tema}
 Formato: ${idea.formato}`,

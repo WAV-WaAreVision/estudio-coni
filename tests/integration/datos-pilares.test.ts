@@ -6,8 +6,12 @@ import type { Database } from "@/lib/supabase/database.types"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { clienteDeServicio } from "./servicio"
 
-// The DB's ids are random: the fixture's are fakes.
-const sinId = (catalogo: CatalogoDePilares) => catalogo.map(({ id: _id, ...resto }) => resto)
+// The DB's ids are random: the fixture's are fakes, for pillars and angles.
+const sinId = (catalogo: CatalogoDePilares) =>
+  catalogo.map(({ id: _id, angulos, ...resto }) => ({
+    ...resto,
+    angulos: angulos.map(({ id: _a, ...angulo }) => angulo),
+  }))
 
 describe("leerPilares", () => {
   it("reads every pillar row with its network and layer flag, in the order the app uses", async () => {

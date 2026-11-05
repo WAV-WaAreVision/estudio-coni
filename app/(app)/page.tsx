@@ -19,7 +19,7 @@ import { piezaTrabajando } from "@/lib/dominio/estados"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
-import { type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
 import { type AvisoDeInicio, construirInicio, type FilaDeFirma, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
 import { marcarAvisoLeidoAccion } from "./ajustes/acciones"
@@ -46,9 +46,12 @@ export default async function Inicio() {
   const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
+  const angulosDeIdea = new Map(datos.banco.map((idea) => [idea.id, idea.angulo_id]))
   const ideasParaElegir = ideas.flatMap((idea) => {
     const gancho = ganchos.get(idea.id)
-    return gancho ? [{ id: idea.id, gancho, pilar: pilarVisible(pilares, idea.pilar) }] : []
+    return gancho
+      ? [{ id: idea.id, gancho, pilar: pilarVisible(pilares, idea.pilar, angulosDeIdea.get(idea.id) ?? null) }]
+      : []
   })
   const mes = limitesDelMes(ahora, datos.zona)
   const consultas = await leerConsultas(db, new Date(mes.desde).toISOString())
@@ -118,7 +121,7 @@ export default async function Inicio() {
                 key={fila.id}
                 titulo={fila.titulo}
                 estado={fila.meta}
-                pilar={pilarVisible(pilares, fila.pilar)}
+                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
                 href={fila.href}
               />
             ))}
@@ -128,7 +131,11 @@ export default async function Inicio() {
 
       <Seccion titulo="Necesita tu firma" id="firma" cifra={inicio.firma.length > 0 ? inicio.firma.length : undefined}>
         {carta ? (
-          <CartaDeFirma fila={carta} pilar={pilarVisible(pilares, carta.pilar)} principal={principal === undefined} />
+          <CartaDeFirma
+            fila={carta}
+            pilar={pilarVisible(pilares, carta.pilar, datos.angulos.get(carta.id) ?? null)}
+            principal={principal === undefined}
+          />
         ) : (
           <SinFirmas motorSemanalActivo={datos.motorSemanalActivo} />
         )}
@@ -139,7 +146,7 @@ export default async function Inicio() {
                 key={fila.id}
                 titulo={fila.titulo}
                 estado={fila.meta}
-                pilar={pilarVisible(pilares, fila.pilar)}
+                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
                 href={fila.href}
               />
             ))}
@@ -154,7 +161,7 @@ export default async function Inicio() {
                   key={fila.id}
                   titulo={fila.titulo}
                   estado={fila.meta}
-                  pilar={pilarVisible(pilares, fila.pilar)}
+                  pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
                   trabajando
                 />
               ))}
@@ -181,7 +188,7 @@ export default async function Inicio() {
                 key={fila.id}
                 titulo={fila.titulo}
                 estado={fila.estado}
-                pilar={pilarVisible(pilares, fila.pilar)}
+                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
                 trabajando={fila.ocupada}
                 href={fila.href}
               />
@@ -224,7 +231,7 @@ function CartaDeFirma({
     <article data-pilar={pilar?.slug} className="grid gap-2 rounded-panel bg-piedra p-5 shadow-relieve-alto">
       <p className="flex flex-wrap items-baseline justify-between gap-x-4 text-meta text-apagado">
         <span>{fila.meta}</span>
-        <span>{pilar?.nombreCorto}</span>
+        <span>{pilar ? etiquetaDePilar(pilar) : null}</span>
       </p>
       <h3 className="text-pieza text-balance">{fila.titulo}</h3>
       <p className="text-meta text-apagado">{fila.instruccion}</p>

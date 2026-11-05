@@ -1,11 +1,12 @@
-import type { CatalogoDePilares } from "@/lib/dominio/pilares"
+import type { CatalogoDePilares, DatosDeAngulo, DatosDePilar } from "@/lib/dominio/pilares"
 
 /**
  * Mirrors the migrations up to 20261104000100, in `leerPilares` order: the pillars per network (LinkedIn, Instagram,
  * with the TDAH layer), then the pillars without a network (the five of 2026-10-17, still active until the apply step,
  * and the five old ones). The ids are fixed fakes: the DB's are random, so the integration test compares without them.
+ * Mirrors 20261105000200 too: the six angles, with their fake ids.
  */
-export const PILARES_DE_PRUEBA: CatalogoDePilares = [
+const SIN_ANGULOS: readonly Omit<DatosDePilar, "angulos">[] = [
   {
     id: "00000000-0000-4000-8000-000000000101",
     slug: "diagnostico-doble",
@@ -213,3 +214,81 @@ export const PILARES_DE_PRUEBA: CatalogoDePilares = [
     esCapa: false,
   },
 ]
+
+// The descriptions are the migration's, byte for byte: the integration test compares them.
+const ANGULOS: Readonly<Record<string, DatosDeAngulo[]>> = {
+  "bienestar-e-impacto": [
+    {
+      id: "00000000-0000-4000-8000-000000001021",
+      slug: "lo-que-se-ve",
+      nombre: "Lo que se ve",
+      descripcion:
+        "Lo que RRHH y yo observamos en las personas y los equipos cuando ya usan IA, incluso como apoyo emocional: estrés, desgaste, bienestar. Voz íntima, texto en primera persona.",
+      orden: 1,
+      minimo: null,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000001022",
+      slug: "como-se-mide",
+      nombre: "Cómo se mide",
+      descripcion:
+        "Medir el impacto humano y no solo la adopción: indicadores, evaluación de pilotos, instrumentos. Voz declarativa, carrusel PDF con datos.",
+      orden: 2,
+      minimo: null,
+    },
+  ],
+  "psicologia-en-la-mesa": [
+    {
+      id: "00000000-0000-4000-8000-000000001031",
+      slug: "lo-que-planteo",
+      nombre: "Lo que planteo",
+      descripcion:
+        "La IA y la salud mental como tema país y académico: IA ética, datos de salud, regulación y el rol de la psicología en diseñar y evaluar la IA. Voz declarativa, carrusel con datos y fuentes revisadas.",
+      orden: 1,
+      minimo: null,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000001032",
+      slug: "lo-que-construyo",
+      nombre: "Lo que construyo",
+      descripcion:
+        "Mi caso a la vista. Una psicóloga que construye y entrena modelos: Eureka Engine, Game Over Impostora, videojuegos, el diplomado, Conidolly, mi etapa de psicóloga cyborg. Voz íntima, fotos reales, demos y video.",
+      orden: 2,
+      minimo: 1 / 3,
+    },
+  ],
+  "mi-nueva-partida": [
+    {
+      id: "00000000-0000-4000-8000-000000002021",
+      slug: "lo-vivo",
+      nombre: "Lo vivo",
+      descripcion:
+        "Mi giro de psicóloga que aprende a entrenar modelos, construye y emprende, con dudas, números y avances. Reel detrás de escena y Stories, voz íntima. Series «Mi nueva partida» y «Lo probé».",
+      orden: 1,
+      minimo: null,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000002022",
+      slug: "pruebalo-tu",
+      nombre: "Pruébalo tú",
+      descripcion:
+        "Usar la IA con criterio en su propia reinvención. Reel de pantalla y carrusel paso a paso. Series «Prompt con inteligencia emocional» y «Pequeño experimento».",
+      orden: 2,
+      minimo: 1 / 3,
+    },
+  ],
+}
+
+export const PILARES_DE_PRUEBA: CatalogoDePilares = SIN_ANGULOS.map((pilar) => ({
+  ...pilar,
+  angulos: ANGULOS[pilar.slug] ?? [],
+}))
+
+/** The fixture's angle ids, by slug, for the tests that need one. */
+export const ANGULO_DE_PRUEBA = {
+  loQueSeVe: "00000000-0000-4000-8000-000000001021",
+  loQuePlanteo: "00000000-0000-4000-8000-000000001031",
+  loQueConstruyo: "00000000-0000-4000-8000-000000001032",
+  loVivo: "00000000-0000-4000-8000-000000002021",
+  prueba: "00000000-0000-4000-8000-000000002022",
+} as const

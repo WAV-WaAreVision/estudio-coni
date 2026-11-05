@@ -94,8 +94,8 @@ describe("proponerPilaresPorRed", () => {
       razon: "Toca la impostora, y la reinvención.",
     })
     expect(ideas).toEqual([
-      { id: "i1", pilar: null, razon: "TDAH." },
-      { id: "i2", pilar: "bienestar-e-impacto", razon: "Bienestar." },
+      { id: "i1", pilar: null, angulo: null, razon: "TDAH." },
+      { id: "i2", pilar: "bienestar-e-impacto", angulo: null, razon: "Bienestar." },
     ])
   })
 
@@ -130,8 +130,8 @@ describe("proponerPilaresPorRed", () => {
     ])
     expect(temas[1]?.razon).toBe("Claude no propuso pilares.")
     expect(ideas).toEqual([
-      { id: "i1", pilar: null, razon: "Claude no propuso un pilar." },
-      { id: "i2", pilar: null, razon: "Claude no propuso un pilar." },
+      { id: "i1", pilar: null, angulo: null, razon: "Claude no propuso un pilar." },
+      { id: "i2", pilar: null, angulo: null, razon: "Claude no propuso un pilar." },
     ])
     expect(modelo).toBe("claude-opus-5-5")
   })

@@ -11,6 +11,7 @@ import {
 } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
+import { anguloPorSlug } from "@/lib/dominio/pilares"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
@@ -34,6 +35,9 @@ const MAXIMO_TEMA = 600
 const ESTIMADO_CLASIFICAR_USD = 0.1
 
 const NoDisponible = new Falla("Esa idea ya no está disponible.")
+
+export const ANGULO_DE_OTRO_PILAR = "Ese ángulo no es de este pilar."
+export const ANGULO_FIRMADO = "Ya firmaste el guion: el ángulo quedó como estaba."
 
 async function cambiarFijada(deps: DepsIdeas, ideaId: string, fijada: boolean): Promise<void> {
   const { data, error } = await deps.db
@@ -179,6 +183,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
 const IdeaConfirmada = EntradaDeIdea.extend({
   formato: z.string().trim().max(80),
   pilar: z.string().min(1),
+  angulo: z.string().max(60).nullable().default(null),
   alertas: z.array(z.object({ tipo: z.enum(TIPOS_DE_ALERTA), texto: z.string().trim().min(1).max(400) })).max(8),
 })
 
@@ -190,10 +195,13 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
     // Active and not a layer (spec 2026-11-04, section 4): the trigger refuses the rest too, with a database error.
     const elegibles = await pilaresElegibles(deps.db)
     if (!elegibles.some((p) => p.slug === idea.data.pilar)) throw new Falla(ERROR_ENTRADA)
+    const angulo = anguloPorSlug(elegibles, idea.data.pilar, idea.data.angulo)
+    if (idea.data.angulo !== null && angulo === null) throw new Falla(ANGULO_DE_OTRO_PILAR)
     const { data, error } = await deps.db
       .from("ideas")
       .insert({
         pilar: idea.data.pilar,
+        angulo_id: angulo?.id ?? null,
         gancho: idea.data.gancho,
         tema: idea.data.tema,
         formato: idea.data.formato,
@@ -208,5 +216,34 @@ export function crearIdeaPropia(deps: DepsIdeas, entrada: unknown): Promise<Resu
       .single()
     if (error) throw new Error(`No pude guardar la idea: ${error.message}`, { cause: error })
     return { id: data.id }
+  })
+}
+
+const CambioDeAngulo = z.object({ ideaId: z.uuid(), anguloId: z.uuid().nullable() })
+const CHECK = "23514"
+const CLAVE_FORANEA = "23503"
+
+/**
+ * Coni sets, changes or clears an idea's angle (spec 15d, section 3), through her session: row level security lets
+ * only her write, and `exigir_angulo_de_pilar` refuses an angle of another pillar or a script she already signed.
+ */
+export function cambiarAngulo(deps: DepsIdeas, entrada: unknown): Promise<Resultado> {
+  return aResultado("cambiarAngulo", async () => {
+    const cambio = CambioDeAngulo.safeParse(entrada)
+    if (!cambio.success) throw NoDisponible
+    const { data, error } = await deps.db
+      .from("ideas")
+      .update({ angulo_id: cambio.data.anguloId })
+      .eq("id", cambio.data.ideaId)
+      .select("id")
+      .maybeSingle()
+    if (error) {
+      if (error.code === CHECK && error.message === "angulo_firmado") throw new Falla(ANGULO_FIRMADO)
+      if ((error.code === CHECK && error.message === "angulo_de_otro_pilar") || error.code === CLAVE_FORANEA)
+        throw new Falla(ANGULO_DE_OTRO_PILAR)
+      throw new Error(`No pude cambiar el ángulo: ${error.message}`, { cause: error })
+    }
+    if (!data) throw NoDisponible
+    return {}
   })
 }

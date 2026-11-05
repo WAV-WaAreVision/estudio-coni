@@ -1,9 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { type DatosDePilar, slugsActivos } from "@/lib/dominio/pilares"
+import { anguloPorSlug, type DatosDePilar, slugsActivos } from "@/lib/dominio/pilares"
 import { sinCierre } from "@/lib/ingesta/texto-seguro"
-import { enumTolerante, pedirJson, sinRaya, type UsoClaude } from "./nucleo"
-import { listaDePilares } from "./secciones"
+import { enumTolerante, pedirJson, sinRaya, textoONulo, type UsoClaude } from "./nucleo"
+import { listaDePilares, REGLA_DE_ANGULO } from "./secciones"
 
 const GUIA_DE_TEORIAS = `Eres la mente editorial de Coni del Rosario, psicóloga clínica y sexóloga chilena. Cada semana cruzas temas de su base de conocimiento para encontrar teorías con respaldo y ángulos de reel que ella pueda grabar.
 
@@ -39,7 +39,13 @@ function salidaTeorias(slugs: readonly [string, ...string[]]) {
         advertencias: z.array(z.string()),
         // Structured outputs cannot enforce lengths: 1 to 2 is enforced in `validarTeoria`.
         ideas: z.array(
-          z.object({ gancho: z.string(), tema: z.string(), pilar: enumTolerante(slugs), formato: z.string() }),
+          z.object({
+            gancho: z.string(),
+            tema: z.string(),
+            pilar: enumTolerante(slugs),
+            formato: z.string(),
+            angulo: textoONulo(),
+          }),
         ),
       }),
     ),
@@ -157,8 +163,8 @@ export async function escribirTeorias(entrada: {
 GUÍA EDITORIAL DE CONI
 ${contexto.guia}
 
-PILARES (cada idea va en uno de estos; usa exactamente el slug en pilar. Un tema sin pilar puede ir en cualquiera)
-${listaDePilares(contexto.pilares)}
+PILARES (cada idea va en uno de estos; usa exactamente el slug en pilar. Un tema sin pilar puede ir en cualquiera. ${REGLA_DE_ANGULO})
+${listaDePilares(contexto.pilares, { angulos: true })}
 
 <estrategia>
 ${sinCierre(JSON.stringify(contexto.estrategia))}
@@ -182,8 +188,16 @@ ${sinCierre(JSON.stringify(entrada.cruces))}
     if (!cruce || vistos.has(respuesta.cruceId)) continue
     vistos.add(respuesta.cruceId)
     const validada = validarTeoria(respuesta, cruce)
-    if ("teoria" in validada) teorias.push(validada.teoria)
-    else descartadas.push(validada.descartada)
+    // An angle that is not one of the idea's pillar is dropped, never a failure (spec 15d, decision 3).
+    if ("teoria" in validada) {
+      teorias.push({
+        ...validada.teoria,
+        ideas: validada.teoria.ideas.map((idea) => ({
+          ...idea,
+          angulo: anguloPorSlug(contexto.pilares, idea.pilar, idea.angulo)?.slug ?? null,
+        })),
+      })
+    } else descartadas.push(validada.descartada)
   }
   return { teorias, descartadas, uso }
 }

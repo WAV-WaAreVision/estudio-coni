@@ -45,7 +45,7 @@ async function redactarCarrusel(
   cambio: CambioDeCarrusel | null,
 ): Promise<Redactado> {
   const { claude: cliente } = deps
-  const { idea, pilar, guia, respaldo } = contexto
+  const { idea, pilar, angulo, guia, respaldo } = contexto
   const ajeno = ajenoDelRespaldo(respaldo)
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
   const apoyos = respaldo?.afirmaciones ?? []
@@ -53,7 +53,7 @@ async function redactarCarrusel(
   const base = {
     cliente,
     guia,
-    idea: { ...idea, pilar },
+    idea: { ...idea, pilar, angulo },
     respaldo: respaldo === null ? null : paraElGuion(respaldo),
     fuentes: fuentesCitadas(apoyos),
     requiereLineasAyuda,

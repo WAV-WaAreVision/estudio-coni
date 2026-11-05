@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { Seccion } from "@/components/seccion"
 import { BarraDeFirma, LineaDeFalta } from "@/components/ui/barra-de-firma"
@@ -14,7 +14,7 @@ import { Volver } from "@/components/ui/volver"
 import { useAccion } from "@/components/use-accion"
 import { useRedibujar } from "@/components/use-redibujar"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { DescartarPieza } from "../../descartar-pieza"
 import { firmarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
@@ -50,8 +50,9 @@ const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? "
 /**
  * Gate 1 of a carousel (design 2026-10-26, D1 step 3): the numbered slides, the post text and the review, "Pedir
  * cambio" with one sentence (no editing on the phone, C8) and "Desliza para firmar". No voice, no avatar, no cost.
+ * `angulo`: the angle control while gate 1 is not signed (spec 15d).
  */
-export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
+export function PantallaCarrusel({ datos, angulo }: { datos: DatosDeCarrusel; angulo?: ReactNode }) {
   // Not `router.refresh()`: it loses the race with this address's prefetches (see `useRedibujar`).
   const redibujar = useRedibujar()
   const firma = useAccion()
@@ -85,11 +86,13 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
         <Volver href="/">Inicio</Volver>
         <FilaMeta
           className="mt-2"
-          pilar={datos.pilar?.nombreCorto}
+          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
           largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>
       </header>
+
+      {angulo ? <div className="mt-4">{angulo}</div> : null}
 
       {datos.explicacion ? <Bloque tipo="aviso" titulo={datos.explicacion} className="mt-6" /> : null}
 

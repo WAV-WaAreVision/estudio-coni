@@ -713,7 +713,12 @@ describe("clasificarIdea", () => {
 
     const { cuerpo } = pedidos[0] as PedidoCapturado
     expect(cuerpo.output_config.effort).toBe("low")
-    expect(Object.keys(cuerpo.output_config.format.schema.properties).sort()).toEqual(["alertas", "formato", "pilar"])
+    expect(Object.keys(cuerpo.output_config.format.schema.properties).sort()).toEqual([
+      "alertas",
+      "angulo",
+      "formato",
+      "pilar",
+    ])
     expect(cuerpo.system).toEqual([{ type: "text", text: GUIA, cache_control: { type: "ephemeral" } }])
     const usuario = JSON.stringify(cuerpo.messages[0]?.content)
     expect(usuario).toContain("¿Tu pareja te escucha o solo espera su turno?")
@@ -726,7 +731,8 @@ describe("clasificarIdea", () => {
 
     const resultado = await clasificar()
 
-    expect(resultado.propuesta).toEqual(propuesta)
+    // An answer without `angulo` (a pillar without angles in this fixture) reads null.
+    expect(resultado.propuesta).toEqual({ ...propuesta, angulo: null })
     expect(resultado.uso).toEqual(USO)
   })
 

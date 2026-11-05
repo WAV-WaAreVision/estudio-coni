@@ -2,7 +2,7 @@
 
 import { Info, PencilSimple } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
-import { type Dispatch, type SetStateAction, useCallback, useId, useRef, useState } from "react"
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useId, useRef, useState } from "react"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -30,7 +30,7 @@ import { separarParaConi, TEXTO_ALGO_FALLO } from "@/lib/diseno/para-coni"
 import { resaltarFrases } from "@/lib/diseno/resaltado"
 import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
 import { DescartarPieza } from "../../descartar-pieza"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
@@ -96,9 +96,9 @@ const idDeRevision = (indice: number) => `revision-${indice}`
 /**
  * Gate 1 (design 2026-10-16, decision 9): she listens to her voice of the script, reads it with the review beside it,
  * edits it if she wants, picks the look (step 3) and signs once. The signature approves the script and the voice, and the video
- * starts after the undo window.
+ * starts after the undo window. `angulo`: the angle control while gate 1 is not signed (spec 15d).
  */
-export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
+export function PantallaGuion({ datos, angulo }: { datos: DatosDeGuion; angulo?: ReactNode }) {
   // Her choices outlive the round trips of gate 1 (her voice being made, a new take): the page keys this by piece, and
   // only the screen below starts over with each state.
   const [avatarElegido, setAvatarElegido] = useState<string | null>(() =>
@@ -109,6 +109,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
     <PuertaUno
       key={datos.grabacion.estado}
       datos={datos}
+      angulo={angulo}
       elecciones={{ avatarElegido, setAvatarElegido, confirmadas, setConfirmadas }}
     />
   )
@@ -121,7 +122,7 @@ interface Elecciones {
   setConfirmadas: Dispatch<SetStateAction<ReadonlySet<string>>>
 }
 
-function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Elecciones }) {
+function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?: ReactNode; elecciones: Elecciones }) {
   const { avatarElegido, setAvatarElegido, confirmadas, setConfirmadas } = elecciones
   const router = useRouter()
   const [version, setVersion] = useState(datos.version)
@@ -200,202 +201,217 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
   }, [avisoInicial, id, router])
 
   return (
-    <div>
-      <header data-pilar={datos.pilar?.slug} className="grid gap-3">
-        <Volver href="/">Inicio</Volver>
-        {/* The short name keeps pillar, format and length on one line. */}
-        <FilaMeta
-          className="mt-2"
-          pilar={datos.pilar?.nombreCorto}
-          largo={`${datos.formato ? `${datos.formato} · ` : ""}${datos.segundos} s`}
-        />
-        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
-        {datos.salida ? (
-          <LineaDeEstado
-            tipo="fecha"
-            titulo={
-              <>
-                Si lo firmas hoy, sale el{" "}
-                <b data-snapshot="varia" className="font-semibold text-tinta tabular-nums">
-                  {datos.salida}
-                </b>
-              </>
-            }
-          />
-        ) : null}
-      </header>
-
-      {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
-      {grabacion.botones?.bloqueoVideo ? (
-        <div data-testid="bloqueo-de-firma" className="mt-6">
-          <Bloque tipo="aviso">{separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}</Bloque>
-        </div>
-      ) : null}
-
-      {grabacion.voz && datos.explicacion ? (
-        <Bloque tipo="aviso" className="mt-6">
-          <ExplicacionParaConi
-            texto={datos.explicacion}
-            enSusPalabras={enSusPalabras(datos.explicacion, razonDeVoz(grabacion, sinGuardar))}
-          />
-        </Bloque>
-      ) : null}
-
-      <VozParaFirmar
-        piezaId={datos.id}
-        version={version}
-        datos={grabacion}
-        explicacion={grabacion.voz ? null : datos.explicacion}
-        alEscuchar={setEscuchada}
-        sinGuardar={sinGuardar}
-      />
-
-      <Seccion
-        titulo="2. Revisa el guion"
-        id="guion"
-        cifra={cifraDeRevision([...bloqueos, ...sinConfirmar], revision.length, marcadas) ?? undefined}
-      >
-        {etiquetasDe(datos.guion).length > 0 ? (
-          <p className="text-meta text-apagado">{AYUDA_DE_MARCAS_EN_LECTURA}</p>
-        ) : null}
-        <Panel>
-          <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
-          {datos.fuente ? <LineaDeFuente texto={datos.fuente} className="mt-4 border-t border-hilo pt-4" /> : null}
-        </Panel>
-        {revision.length === 0 ? (
-          <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES}</p>
-        ) : (
-          revision.map((hallazgo, indice) => (
-            <MarcaRevision
-              key={claveDe(hallazgo)}
-              id={idDeRevision(indice)}
-              hallazgo={hallazgo}
-              confirmada={confirmadas.has(claveDe(hallazgo))}
-              alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
-              fraseResaltada={resaltadas.has(indice)}
-              alEditar={preparando ? undefined : abrirEditor}
-            />
-          ))
-        )}
-        <MasOpciones
-          ref={editor}
-          forma="boton"
-          titulo="Editar el guion"
-          icono={<PencilSimple aria-hidden="true" size={ICONO.medio} />}
-          abiertaAlInicio={bloqueos.length > 0}
+    // On a tablet or a computer (critique 2026-11-05) two columns: the script to read on the left; the angle, the voice, the avatar
+    // and the signature on the right, from the row under the title, in the order of the phone so the focus follows the steps. The grid has five auto
+    // rows for the right column and a last 1fr row: the script spans them all, so its height goes to that last row,
+    // where the signature sticks while she reads. Below 40rem of container (a phone, or a large text) the div stays a block
+    // and none of the dos-columnas classes apply.
+    <div data-ancho="puerta" className="@container">
+      <div className="dos-columnas:grid dos-columnas:grid-cols-[minmax(0,1fr)_minmax(15rem,17rem)] dos-columnas:grid-rows-[auto_repeat(5,auto)_1fr] dos-columnas:justify-center dos-columnas:gap-x-8 dos-columnas:pb-[var(--final-pagina)] dos-columnas-amplias:grid-cols-[minmax(0,40rem)_minmax(16rem,22rem)] dos-columnas-amplias:gap-x-12">
+        <header
+          data-pilar={datos.pilar?.slug}
+          className="grid gap-y-3 dos-columnas:col-span-full dos-columnas:grid-cols-subgrid dos-columnas:*:col-start-1"
         >
-          {preparando ? (
-            <>
-              {/* Her voice is being made of this text: it cannot change until the voice is back. */}
-              <div className="grid gap-2">
-                <p className="mx-0.5 text-meta font-semibold">Texto de la publicación</p>
-                <Panel>
-                  <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
-                </Panel>
-              </div>
-              <div className="grid gap-1.5">
-                <Boton variante="secundario" deshabilitado aria-describedby={idSinCambios}>
-                  Pedir cambios
-                </Boton>
-                <p id={idSinCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
-                  <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
-                  {TEXTO_CAMBIOS_TRAS_LA_VOZ}
-                </p>
-              </div>
-            </>
+          <Volver href="/">Inicio</Volver>
+          {/* The short name keeps pillar, format and length on one line. */}
+          <FilaMeta
+            className="mt-2"
+            pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
+            largo={`${datos.formato ? `${datos.formato} · ` : ""}${datos.segundos} s`}
+          />
+          <h1 className="text-pieza text-balance">{datos.titulo}</h1>
+          {datos.salida ? (
+            <LineaDeEstado
+              tipo="fecha"
+              titulo={
+                <>
+                  Si lo firmas hoy, sale el{" "}
+                  <b data-snapshot="varia" className="font-semibold text-tinta tabular-nums">
+                    {datos.salida}
+                  </b>
+                </>
+              }
+            />
+          ) : null}
+        </header>
+
+        {angulo ? <div className="mt-4 dos-columnas:col-start-2 dos-columnas:mt-8">{angulo}</div> : null}
+
+        {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
+        {grabacion.botones?.bloqueoVideo ? (
+          <div data-testid="bloqueo-de-firma" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
+            <Bloque tipo="aviso">{separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}</Bloque>
+          </div>
+        ) : null}
+
+        {grabacion.voz && datos.explicacion ? (
+          <Bloque tipo="aviso" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
+            <ExplicacionParaConi
+              texto={datos.explicacion}
+              enSusPalabras={enSusPalabras(datos.explicacion, razonDeVoz(grabacion, sinGuardar))}
+            />
+          </Bloque>
+        ) : null}
+
+        <VozParaFirmar
+          piezaId={datos.id}
+          version={version}
+          datos={grabacion}
+          explicacion={grabacion.voz ? null : datos.explicacion}
+          alEscuchar={setEscuchada}
+          sinGuardar={sinGuardar}
+          className="dos-columnas:col-start-2"
+        />
+
+        <Seccion
+          titulo="2. Revisa el guion"
+          id="guion"
+          className="dos-columnas:col-start-1 dos-columnas:[grid-row:2/-1]"
+          cifra={cifraDeRevision([...bloqueos, ...sinConfirmar], revision.length, marcadas) ?? undefined}
+        >
+          {etiquetasDe(datos.guion).length > 0 ? (
+            <p className="text-meta text-apagado">{AYUDA_DE_MARCAS_EN_LECTURA}</p>
+          ) : null}
+          <Panel>
+            <GuionEnLectura guion={datos.guion} frases={frases} idDeRevision={idDeRevision} />
+            {datos.fuente ? <LineaDeFuente texto={datos.fuente} className="mt-4 border-t border-hilo pt-4" /> : null}
+          </Panel>
+          {revision.length === 0 ? (
+            <p className="text-meta text-apagado">{TEXTO_SIN_OBSERVACIONES}</p>
           ) : (
-            <>
-              <EditorDeGuion
-                piezaId={datos.id}
-                version={version}
-                guion={datos.guion}
-                texto={datos.texto}
-                tieneVersionDeClaude={datos.tieneVersionDeClaude}
-                alGuardar={alGuardar}
-                alCambiarSinGuardar={setSinGuardar}
+            revision.map((hallazgo, indice) => (
+              <MarcaRevision
+                key={claveDe(hallazgo)}
+                id={idDeRevision(indice)}
+                hallazgo={hallazgo}
+                confirmada={confirmadas.has(claveDe(hallazgo))}
+                alCambiar={(confirmada) => alternarConfirmacion(hallazgo, confirmada)}
+                fraseResaltada={resaltadas.has(indice)}
+                alEditar={preparando ? undefined : abrirEditor}
               />
-              {grabacion.voz ? (
-                <GrabarDeNuevo piezaId={datos.id} version={version} datos={grabacion} sinGuardar={sinGuardar} />
-              ) : null}
-              {pidiendoCambios ? (
-                <ConfirmacionEnLinea
-                  trato="destructivo"
-                  pregunta="Se escribe un guion nuevo y este se descarta. ¿Seguro?"
-                  confirmar="Sí, pedir cambios"
-                  volver="Volver"
-                  cargando={cambios.pendiente}
-                  alConfirmar={() =>
-                    cambios.ejecutar(
-                      () => pedirCambiosAccion(datos.id, version),
-                      (r) => setAviso(r.advertencia ?? null),
-                    )
-                  }
-                  alVolver={() => setPidiendoCambios(false)}
-                />
-              ) : (
+            ))
+          )}
+          <MasOpciones
+            ref={editor}
+            forma="boton"
+            titulo="Editar el guion"
+            icono={<PencilSimple aria-hidden="true" size={ICONO.medio} />}
+            abiertaAlInicio={bloqueos.length > 0}
+          >
+            {preparando ? (
+              <>
+                {/* Her voice is being made of this text: it cannot change until the voice is back. */}
+                <div className="grid gap-2">
+                  <p className="mx-0.5 text-meta font-semibold">Texto de la publicación</p>
+                  <Panel>
+                    <p className="whitespace-pre-wrap text-cuerpo leading-prosa">{datos.texto}</p>
+                  </Panel>
+                </div>
                 <div className="grid gap-1.5">
-                  <Boton variante="secundario" onClick={() => setPidiendoCambios(true)}>
+                  <Boton variante="secundario" deshabilitado aria-describedby={idSinCambios}>
                     Pedir cambios
                   </Boton>
-                  <p className="mx-0.5 text-meta text-apagado">{TEXTO_PEDIR_CAMBIOS}</p>
+                  <p id={idSinCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                    <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+                    {TEXTO_CAMBIOS_TRAS_LA_VOZ}
+                  </p>
                 </div>
-              )}
-            </>
+              </>
+            ) : (
+              <>
+                <EditorDeGuion
+                  piezaId={datos.id}
+                  version={version}
+                  guion={datos.guion}
+                  texto={datos.texto}
+                  tieneVersionDeClaude={datos.tieneVersionDeClaude}
+                  alGuardar={alGuardar}
+                  alCambiarSinGuardar={setSinGuardar}
+                />
+                {grabacion.voz ? (
+                  <GrabarDeNuevo piezaId={datos.id} version={version} datos={grabacion} sinGuardar={sinGuardar} />
+                ) : null}
+                {pidiendoCambios ? (
+                  <ConfirmacionEnLinea
+                    trato="destructivo"
+                    pregunta="Se escribe un guion nuevo y este se descarta. ¿Seguro?"
+                    confirmar="Sí, pedir cambios"
+                    volver="Volver"
+                    cargando={cambios.pendiente}
+                    alConfirmar={() =>
+                      cambios.ejecutar(
+                        () => pedirCambiosAccion(datos.id, version),
+                        (r) => setAviso(r.advertencia ?? null),
+                      )
+                    }
+                    alVolver={() => setPidiendoCambios(false)}
+                  />
+                ) : (
+                  <div className="grid gap-1.5">
+                    <Boton variante="secundario" onClick={() => setPidiendoCambios(true)}>
+                      Pedir cambios
+                    </Boton>
+                    <p className="mx-0.5 text-meta text-apagado">{TEXTO_PEDIR_CAMBIOS}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </MasOpciones>
+        </Seccion>
+
+        {/* Required to sign, so it is a step of its own and never folded. */}
+        <Seccion titulo="3. Elige tu avatar" id="avatar" className="dos-columnas:col-start-2">
+          {sinAvatares ? (
+            <p className="text-meta text-apagado">{TEXTO_AUN_SIN_AVATARES}</p>
+          ) : (
+            <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
           )}
-        </MasOpciones>
-      </Seccion>
+        </Seccion>
 
-      {/* Required to sign, so it is a step of its own and never folded. */}
-      <Seccion titulo="3. Elige tu avatar" id="avatar">
-        {sinAvatares ? (
-          <p className="text-meta text-apagado">{TEXTO_AUN_SIN_AVATARES}</p>
-        ) : (
-          <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
+        {/* Only what is optional: the LinkedIn text, read here and reviewed at gate 2. */}
+        {datos.textoLinkedin !== null ? (
+          <MasOpciones className="mt-8 dos-columnas:col-start-1" titulo="Más opciones">
+            <TextoLinkedinEnLectura texto={datos.textoLinkedin} />
+          </MasOpciones>
+        ) : null}
+
+        {preparando ? null : (
+          <div className="mt-8 dos-columnas:col-start-1">
+            <DescartarPieza piezaId={datos.id} version={version} />
+          </div>
         )}
-      </Seccion>
 
-      {/* Only what is optional: the LinkedIn text, read here and reviewed at gate 2. */}
-      {datos.textoLinkedin !== null ? (
-        <MasOpciones className="mt-8" titulo="Más opciones">
-          <TextoLinkedinEnLectura texto={datos.textoLinkedin} />
-        </MasOpciones>
-      ) : null}
-
-      {preparando ? null : (
-        <div className="mt-8">
-          <DescartarPieza piezaId={datos.id} version={version} />
-        </div>
-      )}
-
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
-      <BarraDeFirma
-        idConsecuencia={idConsecuencia}
-        consecuencia={grabacion.lineaDeFirma}
-        arriba={
-          <>
-            {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "bloqueo" ? (
-              <Bloque tipo="aviso">
-                <ExplicacionParaConi id={idFalta} texto={falta.texto} enSusPalabras={TEXTO_SIN_SALDO_VIDEO} />
-              </Bloque>
-            ) : null}
-            {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
-          </>
-        }
-      >
-        <DeslizarParaAprobar
-          habilitado={falta.tipo === "nada"}
-          enviando={aprobacion.pendiente}
-          describidoPor={falta.tipo === "nada" ? idConsecuencia : `${idFalta} ${idConsecuencia}`}
-          alFirmar={() =>
-            aprobacion.ejecutar(
-              () => aprobarGuionAccion(datos.id, version, avatarElegido),
-              // The undo on the video screen sends the version she signed at, never one a refresh brought later.
-              (firmada) => router.replace(`/guion/${datos.id}?firmada=${firmada.version}`),
-            )
+        {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
+        <BarraDeFirma
+          className="dos-columnas:col-start-2 dos-columnas:mx-0 dos-columnas:[grid-row:-2/-1] dos-columnas:self-start dos-columnas:top-6 dos-columnas:bottom-auto dos-columnas:rounded-barra dos-columnas:pb-[14px] dos-columnas:shadow-relieve"
+          idConsecuencia={idConsecuencia}
+          consecuencia={grabacion.lineaDeFirma}
+          arriba={
+            <>
+              {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
+              {falta.tipo === "bloqueo" ? (
+                <Bloque tipo="aviso">
+                  <ExplicacionParaConi id={idFalta} texto={falta.texto} enSusPalabras={TEXTO_SIN_SALDO_VIDEO} />
+                </Bloque>
+              ) : null}
+              {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
+            </>
           }
-        />
-      </BarraDeFirma>
+        >
+          <DeslizarParaAprobar
+            habilitado={falta.tipo === "nada"}
+            enviando={aprobacion.pendiente}
+            describidoPor={falta.tipo === "nada" ? idConsecuencia : `${idFalta} ${idConsecuencia}`}
+            alFirmar={() =>
+              aprobacion.ejecutar(
+                () => aprobarGuionAccion(datos.id, version, avatarElegido),
+                // The undo on the video screen sends the version she signed at, never one a refresh brought later.
+                (firmada) => router.replace(`/guion/${datos.id}?firmada=${firmada.version}`),
+              )
+            }
+          />
+        </BarraDeFirma>
+      </div>
     </div>
   )
 }

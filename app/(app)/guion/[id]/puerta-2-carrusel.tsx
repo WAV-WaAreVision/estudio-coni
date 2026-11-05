@@ -15,7 +15,7 @@ import { useRedibujar } from "@/components/use-redibujar"
 import { TEXTOS_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import type { DisenoDeCarrusel } from "@/lib/dominio/diseno-carrusel"
-import type { PilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import { DescartarPieza } from "../../descartar-pieza"
 import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
 import { aprobarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
@@ -91,7 +91,7 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
         <Volver href="/">Inicio</Volver>
         <FilaMeta
           className="mt-2"
-          pilar={datos.pilar?.nombreCorto}
+          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
           largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>

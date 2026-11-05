@@ -3,6 +3,7 @@ import { pilaresElegibles } from "@/lib/datos/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
 import { elegirLoteAccion, hacerCarruselAccion } from "../piezas/acciones"
 import {
+  cambiarAnguloAccion,
   crearIdeaPropiaAccion,
   descartarIdeaAccion,
   descartarIdeasAccion,
@@ -20,7 +21,13 @@ export default async function Ideas() {
   return (
     <BancoDeIdeas
       ideas={ideas}
-      pilares={activos.map(({ slug, nombre, nombreCorto, red }) => ({ slug, nombre, nombreCorto, red }))}
+      pilares={activos.map(({ slug, nombre, nombreCorto, red, angulos }) => ({
+        slug,
+        nombre,
+        nombreCorto,
+        red,
+        angulos: angulos.map((angulo) => ({ id: angulo.id, slug: angulo.slug, nombre: angulo.nombre })),
+      }))}
       acciones={{
         usar: usarIdeaAccion,
         quitar: quitarIdeaAccion,
@@ -31,6 +38,7 @@ export default async function Ideas() {
         descartarVarias: descartarIdeasAccion,
         restaurar: restaurarIdeasAccion,
         hacerCarrusel: hacerCarruselAccion,
+        cambiarAngulo: cambiarAnguloAccion,
       }}
     />
   )

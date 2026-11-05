@@ -35,7 +35,16 @@ import {
   TEMA_PRINCIPAL,
   TITULO_LISTO,
 } from "./biblioteca-escena"
-import { avatarYaVisto, IDEAS, PIEZAS, sembrarCarruselDeEscena, sembrarEscena, sembrarPiezaDeEscena } from "./escena"
+import {
+  avatarYaVisto,
+  conAngulo,
+  IDEAS,
+  PIEZAS,
+  sembrarCarruselDeEscena,
+  sembrarEscena,
+  sembrarPiezaDeEscena,
+  sembrarPublicadasConAngulo,
+} from "./escena"
 
 /**
  * 390 px captures of every screen, light only, for two jobs: the review sheet against the mockups (`pnpm comparar`,
@@ -727,4 +736,32 @@ test("biblioteca: a pillar draft's form, Borradores and its approval on the phon
   await page.goto(`/biblioteca/temas/borradores/${borradores.pilar}/aprobar`)
   await expect(page.getByRole("status").filter({ hasText: "Total:" })).toHaveText("Total: 110 %")
   await capturaDe(page, "biblioteca-aprobar-pilar")
+})
+
+// 15d: the angle next to the pillar and its control on gate 1, on the bank's card, and «Falta» in Temas.
+test("guion por aprobar con angulo", async ({ page }) => {
+  const { guion } = await sembrarEscena()
+  await conAngulo(guion, "psicologia-en-la-mesa", "lo-que-construyo")
+  await page.goto(`/guion/${guion}`)
+  await capturaDe(page, "guion-por-aprobar-angulo")
+})
+
+test("ideas con angulo", async ({ page }) => {
+  await sembrarEscena()
+  await pool.query(
+    `update public.ideas set pilar = 'psicologia-en-la-mesa',
+            angulo_id = (select id from public.pilar_angulos where slug = 'lo-que-construyo')
+      where numero = 1 or origen = 'motor'`,
+  )
+  // The engine's idea of the week comes first in the deck; both carry the angle, so whichever shows has it.
+  await page.goto("/ideas")
+  await capturaDe(page, "ideas-angulo")
+})
+
+test("biblioteca: Temas with an angle that falls short", async ({ page }) => {
+  await vaciarPiezasEIdeas()
+  await sembrarAutoresYTemas()
+  await sembrarPublicadasConAngulo("psicologia-en-la-mesa", "lo-que-planteo", 6)
+  await page.goto("/biblioteca/temas?red=linkedin")
+  await capturaDe(page, "biblioteca-temas-falta-angulo")
 })

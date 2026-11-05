@@ -3,7 +3,7 @@ import { z } from "zod"
 import { leerPilares } from "@/lib/datos/pilares"
 import { lineaDeFuente } from "@/lib/dominio/fuente"
 import { sugerirIdeas } from "@/lib/dominio/ideas"
-import { nombreDePilar, pilarVisible } from "@/lib/dominio/pilares"
+import { etiquetaDePilar, nombreDePilar, pilarVisible } from "@/lib/dominio/pilares"
 import { afirmacionesDelRespaldo } from "@/lib/dominio/respaldo"
 import type { IdeaDeBanco, NivelDeEvidencia, PorQueDeIdea } from "@/lib/ideas/mazo"
 import type { Database } from "@/lib/supabase/database.types"
@@ -79,7 +79,7 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
     db
       .from("ideas")
       .select(
-        "id, numero, pilar, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(id, evidencia, cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
+        "id, numero, pilar, angulo_id, gancho, tema, formato, fuerza, alertas, estado, fijada_en, origen, semana, teorias(titulo, tesis, nivel_evidencia, teoria_afirmaciones(afirmaciones(id, evidencia, cita, excluida, autores(nombre, tipo), materiales(titulo, anio))))",
       )
       .in("estado", ["idea", "usada"]),
     db
@@ -110,7 +110,8 @@ export async function leerBanco(db: Db, ahora: number): Promise<IdeaDeBanco[]> {
         numero: fila.numero,
         pilar: fila.pilar,
         nombrePilar: nombreDePilar(pilares, fila.pilar),
-        nombreCortoPilar: pilarVisible(pilares, fila.pilar).nombreCorto,
+        nombreCortoPilar: etiquetaDePilar(pilarVisible(pilares, fila.pilar, fila.angulo_id)),
+        angulo: fila.angulo_id,
         gancho: fila.gancho,
         tema: fila.tema,
         formato: fila.formato,

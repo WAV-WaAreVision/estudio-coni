@@ -24,13 +24,15 @@ import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { lineaDeFuente } from "@/lib/dominio/fuente"
-import { pilarVisible } from "@/lib/dominio/pilares"
+import { angulosDelPilar, pilarVisible } from "@/lib/dominio/pilares"
 import { sinLinkedin } from "@/lib/dominio/revision"
 import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { leerSaldos } from "@/lib/saldos/reales"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AccionesDeEstado } from "../../estado-de-pieza"
+import { cambiarAnguloAccion } from "../../ideas/acciones"
+import { ElegirAngulo } from "../../ideas/elegir-angulo"
 import { VistaDeCarrusel } from "./carrusel"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
@@ -62,9 +64,19 @@ export default async function PaginaDeGuion({
   const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
-  const pilar = pilarVisible(pilares, idea?.pilar)
+  const pilar = pilarVisible(pilares, idea?.pilar, idea?.angulo_id)
+  // Gate 1 not signed yet: she may still change the angle (spec 15d, section 3). After that it is only text.
+  const angulo =
+    idea && fila.puerta1_en === null ? (
+      <ElegirAngulo
+        ideaId={idea.id}
+        angulos={angulosDelPilar(pilares, idea.pilar).map(({ id, slug, nombre }) => ({ id, slug, nombre }))}
+        elegido={idea.angulo_id}
+        cambiar={cambiarAnguloAccion}
+      />
+    ) : null
   // A carousel has its own gate 1 (design 2026-10-26): no script, voice or avatar.
-  if (fila.tipo === "carrusel") return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} />
+  if (fila.tipo === "carrusel") return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} angulo={angulo} />
 
   switch (fila.estado) {
     case "guion_por_aprobar":
@@ -191,6 +203,7 @@ export default async function PaginaDeGuion({
       {/* One per piece: the screen starts over with each state on its own and keeps her choices across them. */}
       <PantallaGuion
         key={fila.id}
+        angulo={angulo}
         datos={{
           id: fila.id,
           version: fila.version,

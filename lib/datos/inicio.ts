@@ -9,6 +9,7 @@ type Db = SupabaseClient<Database>
 
 export interface IdeaLeidaParaInicio extends IdeaDelBanco {
   gancho: string
+  angulo_id: string | null
 }
 
 export interface DatosDeInicio {
@@ -16,6 +17,8 @@ export interface DatosDeInicio {
   /** Pillars of the pieces started in the last 30 days, one per piece. */
   recientes: IdeaDelBanco["pilar"][]
   banco: IdeaLeidaParaInicio[]
+  /** Each piece's angle id, when its idea has one. */
+  angulos: ReadonlyMap<string, string>
   zona: string
   /** The weekly engine's switch (Ajustes › Presupuesto): off, Inicio promises no new ideas. */
   motorSemanalActivo: boolean
@@ -40,12 +43,12 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
     db
       .from("piezas")
       .select(
-        "id, tipo, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, destinos, ideas(pilar), publicaciones(destino, estado)",
+        "id, tipo, titulo, estado, explicacion, guion, puerta2_publicar_en, permalink, actualizada_en, creada_en, destinos, ideas(pilar, angulo_id), publicaciones(destino, estado)",
       )
       .not("estado", "in", "(idea,descartado)")
       .order("actualizada_en", { ascending: false })
       .limit(PIEZAS_A_LEER),
-    db.from("ideas").select("id, gancho, pilar, fuerza, numero, fijada_en").eq("estado", "idea"),
+    db.from("ideas").select("id, gancho, pilar, angulo_id, fuerza, numero, fijada_en").eq("estado", "idea"),
     db.from("ajustes").select("zona, motor_semanal_activo").maybeSingle(),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas", piezas.error)
@@ -76,6 +79,9 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       fuerza: fuerzaDe(idea.fuerza),
       fijada: fijada_en !== null,
     })),
+    angulos: new Map(
+      piezas.data.flatMap((fila) => (fila.ideas?.angulo_id ? [[fila.id, fila.ideas.angulo_id] as const] : [])),
+    ),
     zona: ajustes.data?.zona ?? "America/Santiago",
     motorSemanalActivo: ajustes.data?.motor_semanal_activo ?? true,
   }

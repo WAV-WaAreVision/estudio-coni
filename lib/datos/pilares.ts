@@ -3,6 +3,7 @@ import {
   type CatalogoDePilares,
   calcularEtapasDeRed,
   calcularPesosDeRed,
+  type DatosDeAngulo,
   type DatosDePilar,
   type EtapaDePesos,
   esRed,
@@ -27,7 +28,9 @@ function leerRed(slug: string, red: string | null): Red | null {
 export async function leerPilares(db: Db): Promise<CatalogoDePilares> {
   const { data, error } = await db
     .from("categorias")
-    .select("id, slug, nombre, nombre_corto, descripcion, activa, orden, red, es_capa")
+    .select(
+      "id, slug, nombre, nombre_corto, descripcion, activa, orden, red, es_capa, pilar_angulos(id, slug, nombre, descripcion, orden, minimo)",
+    )
     .eq("es_pilar", true)
   if (error) throw new Error(`No pude leer los pilares: ${error.message}`, { cause: error })
   return ordenarPilares(
@@ -46,6 +49,18 @@ export async function leerPilares(db: Db): Promise<CatalogoDePilares> {
         orden: fila.orden,
         red: leerRed(fila.slug, fila.red),
         esCapa: fila.es_capa,
+        angulos: fila.pilar_angulos
+          .map(
+            (angulo): DatosDeAngulo => ({
+              id: angulo.id,
+              slug: angulo.slug,
+              nombre: angulo.nombre,
+              descripcion: angulo.descripcion,
+              orden: angulo.orden,
+              minimo: angulo.minimo,
+            }),
+          )
+          .toSorted((a, b) => a.orden - b.orden),
       }
     }),
   )

@@ -9,6 +9,8 @@ import { sinCierre } from "@/lib/ingesta/texto-seguro"
 export interface IdeaParaGuion {
   /** The idea's pillar as the writer reads it: its name and, for an active pillar, its description. */
   pilar: { nombre: string; descripcion: string | null }
+  /** The idea's angle (spec 15d): its name and its voice and format. Absent or null without one. */
+  angulo?: { nombre: string; descripcion: string } | null
   gancho: string
   tema: string
   formato: string
@@ -23,6 +25,11 @@ export function listaDeAlertas(alertas: readonly Alerta[]): string {
   return alertas.length > 0
     ? alertas.map((alerta) => `- ${alerta.tipo}: ${alerta.texto}`).join("\n")
     : "Esta idea no trae alertas."
+}
+
+/** The lines under «Pilar:» for an idea with an angle; "" without one, so that prompt stays byte for byte as before. */
+export function lineaDeAngulo(angulo: IdeaParaGuion["angulo"]): string {
+  return angulo ? `\nÁngulo: ${angulo.nombre} (${angulo.descripcion})\nEscribe con la voz y el formato del ángulo.` : ""
 }
 
 export function describirHallazgo(hallazgo: Hallazgo): string {
@@ -59,15 +66,23 @@ export const SIN_CONSULTA =
 
 /**
  * The pillars a prompt offers, grouped by network (spec 2026-11-04, section 4): slug (what goes in `pilar`), name and
- * description. A layer is a lens, never a pillar to choose, so it is left out.
+ * description; with `angulos`, each pillar's angles under it (spec 15d). A layer is a lens, never a pillar to choose,
+ * so it is left out.
  */
-export function listaDePilares(pilares: readonly DatosDePilar[]): string {
+export function listaDePilares(pilares: readonly DatosDePilar[], opciones: { angulos?: boolean } = {}): string {
   return porRed(pilaresParaElegir(pilares))
     .map((grupo) =>
       [
         `${grupo.etiqueta}:`,
-        ...grupo.pilares.map((p) => `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd()),
+        ...grupo.pilares.flatMap((p) => [
+          `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd(),
+          ...(opciones.angulos ? p.angulos.map((a) => `  - ángulo ${a.slug}: ${a.nombre}. ${a.descripcion}`) : []),
+        ]),
       ].join("\n"),
     )
     .join("\n")
 }
+
+/** What every proposer asks about the angle (spec 15d, decision 3). */
+export const REGLA_DE_ANGULO =
+  "Si el pilar que eliges tiene ángulos, pon en angulo el slug del ángulo que mejor calce con la idea; si no tiene, angulo va en null."

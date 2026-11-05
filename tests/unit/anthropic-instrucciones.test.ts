@@ -85,6 +85,7 @@ const GUIA = "# Línea editorial de prueba\n\nTrata de tú. Español de Chile."
 const PILARES: DatosDePilar[] = [
   {
     id: "p-1",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "ia-salud-mental",
@@ -96,6 +97,7 @@ const PILARES: DatosDePilar[] = [
   },
   {
     id: "p-2",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "vinculos",
@@ -107,6 +109,7 @@ const PILARES: DatosDePilar[] = [
   },
   {
     id: "p-3",
+    angulos: [],
     red: null,
     esCapa: false,
     slug: "retirado",
@@ -127,6 +130,11 @@ const IDEA = {
 }
 
 const IDEA_SIN_NADA = { ...IDEA, pilar: { nombre: "Vínculos", descripcion: null }, alertas: [] }
+// 15d: the angle line. An idea without one keeps every hash above (the field is absent there on purpose).
+const IDEA_CON_ANGULO = {
+  ...IDEA,
+  angulo: { nombre: "Lo que construyo", descripcion: "Mi caso a la vista. Voz íntima, fotos reales, demos y video." },
+}
 
 const RESPALDO = {
   teoria: { titulo: "Teoría", tesis: "Una tesis.", porQue: "Porque sí." },
@@ -323,9 +331,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
       {
         "idea": [
           {
-            "cuerpo": "2cfbf661d2754f0f3f374ef2ff0d02a724a5642686e320c42cb172a693f0a47e",
+            "cuerpo": "1edf774cc6444b27d21186bad08d8e997baa20b3e0c366545ded3e268e0e9fe0",
             "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-            "usuario": "153e80c0a80d6299d2afd998d9d7a9df2ba71009b0ee60a852c216bec914ef81",
+            "usuario": "a3539ef330430b3efd8da789a3941cd76b3682a76a4165c842557c694b7c78b8",
           },
         ],
         "pilares": [
@@ -460,9 +468,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "a69330d81e5c0396097e9d420e6304ff6a7c1687fbb032dc52cc2af6d336b313",
+          "cuerpo": "ed5c65f88ae7a89e09e9506bca735b2980eff14588fba6906e7003e08e1b6101",
           "sistema": "0fad5f26bf31dd746365923bd712c2fc7abe9ffc4f493ba463b94168f18eba33",
-          "usuario": "7c4b28b9a784a246cbcbf485566be141535600d14a23e2580421d3f883a8e838",
+          "usuario": "0c4b91e3cc0290914c6fbeba010c0fb564359d852ff097912c28b975eeecae12",
         },
       ]
     `)
@@ -480,11 +488,53 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "cf84e36c5676906ea7f501ee5f187b8c4b937860457d4c939044e6666ee1ae24",
-          "sistema": "86f365901a4c799b19416c0bba24b168427a5150ad14b2d9cad20c11e0ad9380",
+          "cuerpo": "fec1c2610c4b77a22aa95e3b1aeac889056e4b0291cafa597cc0491a2442eb7e",
+          "sistema": "3fd8e45c45f83f27696431c7e017f5241ba297f6473275da9a1c63a5e5c976ef",
           "usuario": "98b4416136fbbc9e27dc7fc75d18844002344925c54bd7ae726bda3188916db2",
         },
       ]
+    `)
+  })
+
+  it("keeps the script and carousel prompts of an idea with an angle", async () => {
+    const guion = await huellas((c) =>
+      escribirGuion({
+        cliente: c,
+        guia: GUIA,
+        idea: IDEA_CON_ANGULO,
+        respaldo: null,
+        fuentes: [],
+        requiereLineasAyuda: false,
+      }),
+    )
+    const carrusel = await huellas((c) =>
+      escribirCarrusel({
+        cliente: c,
+        guia: GUIA,
+        idea: IDEA_CON_ANGULO,
+        respaldo: null,
+        fuentes: [],
+        requiereLineasAyuda: false,
+        cambio: null,
+      }),
+    )
+    expect({ guion, carrusel }).toMatchInlineSnapshot(`
+      {
+        "carrusel": [
+          {
+            "cuerpo": "77c6440b96af8e60ae41de0c48aacf54833b603b233c1e7ee2a2a1a9ebe3f4ed",
+            "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
+            "usuario": "4cda1fb1d81b9816849e13eacdd786c032588594f11759386a872be8f5400054",
+          },
+        ],
+        "guion": [
+          {
+            "cuerpo": "ae302342ad2c6c16cbae0523b285aba234be1fa2935079abb0d86f93e7d94962",
+            "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
+            "usuario": "0e80febb4dcaea3c19a4f282d8ceab1de2a6323c67ecc02acacb2b8cd02592eb",
+          },
+        ],
+      }
     `)
   })
 })

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { diaLocal, instanteLocal } from "@/lib/dominio/fechas"
 import type { Notificador, ResumenDelDia } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
+import { avisarEquilibrioDeAngulos } from "./equilibrio"
 import { type FilaDeAviso, leerPendientes, marcarEnviados, registrarAviso } from "./registro"
 import { type CanalDeAviso, mensajePush } from "./tipos"
 
@@ -122,17 +123,17 @@ function componer(avisos: readonly FilaDeAviso[]): ResumenDelDia {
   }
 }
 
-/**
- * The 08:30 summary (design A9): at most one a day, and none when nothing is new. First it writes the notices that are
- * not born from a state change (the week's ideas on Monday, the reminders), then it sends every notice still unsent as
- * one message and marks them (Ajustes can turn the summary off, and a notice a week old is left out). If the sending fails nothing is marked, and tomorrow's summary carries them.
- */
-export async function enviarResumenDelDia(deps: DepsResumen): Promise<ResultadoResumen> {
-  const { zona, resumenActivado } = await leerAjustesDelResumen(deps.db)
-  // The notices are written either way (the app lists them); the switch of Ajustes only decides whether they are sent.
-  await anunciarIdeasDelLunes(deps, zona)
-  await recordarEsperas(deps)
-  if (!resumenActivado) return { enviado: false }
+/** The angles' balance (spec 15d): a failure is kept, so it never holds back the summary of the other notices. */
+async function revisarEquilibrio(deps: DepsResumen, zona: string): Promise<{ falla: unknown } | null> {
+  try {
+    await avisarEquilibrioDeAngulos(deps.db, deps.ahora(), zona)
+    return null
+  } catch (error) {
+    return { falla: error }
+  }
+}
+
+async function enviarPendientes(deps: DepsResumen): Promise<ResultadoResumen> {
   const desde = new Date(Date.parse(deps.ahora()) - VIGENCIA_DEL_PENDIENTE_MS).toISOString()
   const pendientes = await leerPendientes(deps.db, desde)
   if (pendientes.length === 0) return { enviado: false }
@@ -144,4 +145,37 @@ export async function enviarResumenDelDia(deps: DepsResumen): Promise<ResultadoR
     deps.ahora(),
   )
   return { enviado: true, avisos: pendientes.length, canal }
+}
+
+/**
+ * The 08:30 summary (design A9): at most one a day, and none when nothing is new. First it writes the notices that are
+ * not born from a state change (the week's ideas on Monday, the reminders, an angle that falls short), then it sends
+ * every notice still unsent as one message and marks them (Ajustes can turn the summary off, and a notice a week old
+ * is left out). If the sending fails nothing is marked, and tomorrow's summary carries them. If the angles' check
+ * failed, the summary still goes and then the run fails, so WAV hears it and the retry checks again.
+ */
+export async function enviarResumenDelDia(deps: DepsResumen): Promise<ResultadoResumen> {
+  const { zona, resumenActivado } = await leerAjustesDelResumen(deps.db)
+  // The notices are written either way (the app lists them); the switch of Ajustes only decides whether they are sent.
+  await anunciarIdeasDelLunes(deps, zona)
+  await recordarEsperas(deps)
+  const equilibrio = await revisarEquilibrio(deps, zona)
+  const fallaDeEquilibrio = equilibrio
+    ? new Error("No pude revisar el equilibrio de los ángulos", { cause: equilibrio.falla })
+    : null
+  let resultado: ResultadoResumen
+  try {
+    resultado = resumenActivado ? await enviarPendientes(deps) : { enviado: false }
+  } catch (error) {
+    throw fallaDeEquilibrio ? conFallaDeEquilibrio(error, fallaDeEquilibrio) : error
+  }
+  // Trigger retries the run: the retry checks again (spec 15d) and, the other notices being marked sent, may send a
+  // second summary that carries only the angle's notice.
+  if (fallaDeEquilibrio) throw fallaDeEquilibrio
+  return resultado
+}
+
+/** Both failed: both go up, the sending's first and as it was thrown, so neither is lost. */
+function conFallaDeEquilibrio(error: unknown, falla: Error): AggregateError {
+  return new AggregateError([error, falla], "No pude enviar el resumen ni revisar el equilibrio de los ángulos")
 }

@@ -19,6 +19,8 @@ const { esConi, datos } = vi.hoisted(() => ({
 }))
 const borradores = vi.hoisted(() => ({ contarBorradores: vi.fn(async (): Promise<number> => 0) }))
 vi.mock("@/lib/datos/borradores", () => borradores)
+const angulos = vi.hoisted(() => ({ leerFaltasDeAngulo: vi.fn(async (): Promise<unknown[]> => []) }))
+vi.mock("@/lib/datos/angulos", () => angulos)
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "u-1", email: "alguien@ejemplo.cl" } } }) },
@@ -339,5 +341,30 @@ describe("a topic's page", () => {
     const arbol = elementos(await abrir(CARGA, { oculta: IDEA }))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR)
     expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "oculta" })
+  })
+})
+
+describe("Temas y los ángulos", () => {
+  beforeEach(() => {
+    esConi.valor = true
+    datos.leerUltimaRed.mockResolvedValue(null)
+  })
+
+  it("passes the row the angles that fall short, by pillar", async () => {
+    datos.listarPilaresDeTemas.mockResolvedValueOnce(PILARES)
+    angulos.leerFaltasDeAngulo.mockResolvedValueOnce([
+      {
+        tipo: "proporcion",
+        pilarId: PILAR,
+        pilar: "Bienestar e impacto",
+        anguloId: "a",
+        angulo: "Cómo se mide",
+        delAngulo: 0,
+        minimo: 2,
+      },
+    ])
+    const pagina = await Temas({ searchParams: Promise.resolve({ red: "linkedin" }) })
+    const fila = elementos(pagina).find((elemento) => elemento.type === FilaDeTemas)
+    expect(fila?.props.faltas).toEqual({ [PILAR]: ["Cómo se mide"] })
   })
 })

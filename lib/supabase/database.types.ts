@@ -291,6 +291,13 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "avisos_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       borradores_de_pilar: {
@@ -340,6 +347,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categorias"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "borradores_de_pilar_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
           },
         ]
       }
@@ -438,6 +452,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "piezas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carruseles_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
           },
         ]
       }
@@ -608,6 +629,13 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fechas_propuestas_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: true
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       fichas: {
@@ -699,6 +727,13 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gastos_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       guias: {
@@ -758,11 +793,19 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guion_versiones_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       ideas: {
         Row: {
           alertas: Json
+          angulo_id: string | null
           creada_en: string
           descartada_en: string | null
           descartada_por: string | null
@@ -783,6 +826,7 @@ export type Database = {
         }
         Insert: {
           alertas?: Json
+          angulo_id?: string | null
           creada_en?: string
           descartada_en?: string | null
           descartada_por?: string | null
@@ -803,6 +847,7 @@ export type Database = {
         }
         Update: {
           alertas?: Json
+          angulo_id?: string | null
           creada_en?: string
           descartada_en?: string | null
           descartada_por?: string | null
@@ -822,6 +867,13 @@ export type Database = {
           teoria_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ideas_angulo_id_fkey"
+            columns: ["angulo_id"]
+            isOneToOne: false
+            referencedRelation: "pilar_angulos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ideas_pilar_fkey"
             columns: ["pilar"]
@@ -913,6 +965,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "piezas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervenciones_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
           },
         ]
       }
@@ -1012,6 +1071,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categorias"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_pilares_retirados_pilar_id_fkey"
+            columns: ["pilar_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
           },
         ]
       }
@@ -1121,6 +1187,13 @@ export type Database = {
             referencedRelation: "categorias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "materiales_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
+          },
         ]
       }
       materiales_archivos: {
@@ -1209,6 +1282,13 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       metricas_linkedin_cuenta: {
@@ -1273,6 +1353,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "piezas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
           },
         ]
       }
@@ -1480,6 +1567,50 @@ export type Database = {
           },
         ]
       }
+      pilar_angulos: {
+        Row: {
+          descripcion: string
+          es_capa: boolean
+          id: string
+          minimo: number | null
+          nombre: string
+          orden: number
+          pilar_id: string
+          red: string | null
+          slug: string
+        }
+        Insert: {
+          descripcion: string
+          es_capa?: boolean
+          id?: string
+          minimo?: number | null
+          nombre: string
+          orden: number
+          pilar_id: string
+          red?: string | null
+          slug: string
+        }
+        Update: {
+          descripcion?: string
+          es_capa?: boolean
+          id?: string
+          minimo?: number | null
+          nombre?: string
+          orden?: number
+          pilar_id?: string
+          red?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilar_angulos_pilar"
+            columns: ["pilar_id", "red", "es_capa"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "red", "es_capa"]
+          },
+        ]
+      }
       pilar_pesos: {
         Row: {
           desde: string
@@ -1568,6 +1699,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "piezas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publicaciones_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
           },
         ]
       }
@@ -1760,6 +1898,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categorias"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
           },
           {
             foreignKeyName: "temas_fusionado_en_fkey"
@@ -1965,6 +2110,13 @@ export type Database = {
             referencedRelation: "categorias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "teorias_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
+          },
         ]
       }
       transparencia_versiones: {
@@ -2095,6 +2247,13 @@ export type Database = {
             referencedRelation: "piezas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "metricas_linkedin_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
         ]
       }
       metricas_reel_ultima: {
@@ -2113,6 +2272,30 @@ export type Database = {
             columns: ["pieza_id"]
             isOneToOne: false
             referencedRelation: "piezas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metricas_reel_pieza_id_fkey"
+            columns: ["pieza_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pieza_id"]
+          },
+        ]
+      }
+      piezas_con_angulo: {
+        Row: {
+          angulo_id: string | null
+          pieza_id: string | null
+          pilar_id: string | null
+          publicada_en: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_angulo_id_fkey"
+            columns: ["angulo_id"]
+            isOneToOne: false
+            referencedRelation: "pilar_angulos"
             referencedColumns: ["id"]
           },
         ]
@@ -2139,6 +2322,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categorias"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
           },
         ]
       }

@@ -71,14 +71,14 @@ async function redactarBorrador(
   contexto: Contexto,
 ): Promise<{ borrador: Borrador; costoUsd: number }> {
   const { claude: cliente } = deps
-  const { idea, pilar, guia, respaldo } = contexto
+  const { idea, pilar, angulo, guia, respaldo } = contexto
   const ajeno = ajenoDelRespaldo(respaldo)
   const paraEscribir = respaldo === null ? null : paraElGuion(respaldo)
   const requiereLineasAyuda = pideLineasDeAyuda(idea.alertas)
   const apoyos = respaldo?.afirmaciones ?? []
   const linea = lineaDeFuente(apoyos)
   const fuentes = fuentesCitadas(apoyos)
-  const paraElEscritor = { ...idea, pilar }
+  const paraElEscritor = { ...idea, pilar, angulo }
   // The app signs the caption with its source line, so every revision pass and the stored draft see what Coni signs.
   const conFuente = <E extends { texto: string }>(escrito: E): E => ({
     ...escrito,
