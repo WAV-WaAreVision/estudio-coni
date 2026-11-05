@@ -32,8 +32,10 @@ export default async function Temas({
     pilares.map((pilar) => pilar.id),
   )
   const seleccion = leerSeleccion(params, "t")
+  // Until the row arrives (Task 10) the network is the chosen pillar's, LinkedIn without one.
+  const red = pilares.find((pilar) => pilar.id === filtros.pilar)?.red ?? "linkedin"
   // The pillar narrows what is read; the coverage splits it, so its counts are the pillar's.
-  const temas = await listarTemas(db, { pilar: filtros.pilar })
+  const temas = await listarTemas(db, { red, pilar: filtros.pilar })
   const visibles = filtrarPorCobertura(temas, filtros.cobertura)
   const elegido = seleccion ? (temas.find((tema) => tema.id === seleccion) ?? null) : null
   const ocultaLaUltima = leerIdeaOculta(params) !== null

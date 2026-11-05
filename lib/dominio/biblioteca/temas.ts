@@ -54,8 +54,8 @@ export interface TemaResumido {
   pilarId: string | null
   ideas: number
   autores: number
-  /** Some visible idea comes from a material whose role is "Lo dijo Coni" (the view's `cubierto_por_coni`). */
-  cubiertoPorConi: boolean
+  /** Some piece of it went out on the network Temas shows (`temas_de_red.tratado`, spec 2026-11-04, part 15b). */
+  tratado: boolean
 }
 
 /** Most authors first, then most ideas, then name (D3, as Ingesta). */

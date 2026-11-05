@@ -23,14 +23,14 @@ const OTRO = "99999999-2222-4333-8444-555555555555"
 const TEMA = "33333333-2222-4333-8444-555555555555"
 const IDEA = "44444444-2222-4333-8444-555555555555"
 
-const tema = (id: string, autores: number, cubiertoPorConi: boolean): TemaResumido => ({
+const tema = (id: string, autores: number, tratado: boolean): TemaResumido => ({
   id,
   nombre: id,
   descripcion: null,
   pilarId: null,
   ideas: autores,
   autores,
-  cubiertoPorConi,
+  tratado,
 })
 const TEMAS = [
   tema("tratado", 2, true),

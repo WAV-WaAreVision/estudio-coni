@@ -13,7 +13,7 @@ const tema = (id: string, nombre: string, autores: number, ideas: number): TemaR
   pilarId: null,
   ideas,
   autores,
-  cubiertoPorConi: false,
+  tratado: false,
 })
 
 describe("ordenarTemas", () => {

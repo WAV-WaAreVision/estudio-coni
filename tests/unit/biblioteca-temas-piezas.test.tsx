@@ -15,7 +15,7 @@ const carga: TemaResumido = {
   pilarId: PILAR,
   ideas: 12,
   autores: 3,
-  cubiertoPorConi: true,
+  tratado: true,
 }
 const pausas: TemaResumido = {
   id: PAUSAS,
@@ -24,7 +24,7 @@ const pausas: TemaResumido = {
   pilarId: null,
   ideas: 1,
   autores: 1,
-  cubiertoPorConi: false,
+  tratado: false,
 }
 
 const enLista = (tema: TemaResumido) =>

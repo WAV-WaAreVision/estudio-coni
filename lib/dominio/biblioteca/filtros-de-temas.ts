@@ -5,7 +5,7 @@ import type { TemaResumido } from "./temas"
 export const RUTA_DE_TEMAS = "/biblioteca/temas"
 export const hrefDeTema = (id: string) => `${RUTA_DE_TEMAS}/${id}`
 
-/** Coni's option 1: by coverage. "Sin tratar" and "Ya los traté" split on `cubierto_por_coni`. */
+/** Coni's option 1: by coverage. "Sin tratar" and "Ya los traté" split on `tratado`. */
 export const COBERTURAS = ["sin-tratar", "tratados", "un-autor"] as const
 export type Cobertura = (typeof COBERTURAS)[number]
 
@@ -39,8 +39,8 @@ export function hayFiltrosDeTemas(filtros: FiltrosDeTemas): boolean {
 }
 
 const CUMPLE: Record<Cobertura, (tema: TemaResumido) => boolean> = {
-  "sin-tratar": (tema) => !tema.cubiertoPorConi,
-  tratados: (tema) => tema.cubiertoPorConi,
+  "sin-tratar": (tema) => !tema.tratado,
+  tratados: (tema) => tema.tratado,
   "un-autor": (tema) => tema.autores === 1,
 }
 

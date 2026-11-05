@@ -75,7 +75,7 @@ const carga = {
   pilarId: PILAR,
   ideas: 3,
   autores: 2,
-  cubiertoPorConi: true,
+  tratado: true,
 }
 const pausas = {
   id: PAUSAS,
@@ -84,7 +84,7 @@ const pausas = {
   pilarId: null,
   ideas: 1,
   autores: 1,
-  cubiertoPorConi: false,
+  tratado: false,
 }
 const conParams = (params: Record<string, string>) => ({ searchParams: Promise.resolve(params) })
 const textos = (arbol: Elemento[]) =>
@@ -104,9 +104,9 @@ describe("the Temas page", () => {
     esConi.valor = true
     datos.listarPilaresDeTemas.mockResolvedValue([{ id: PILAR, nombre: "IA y salud mental" }])
     await Temas(conParams({ pilar: PILAR }))
-    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { pilar: PILAR })
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "linkedin", pilar: PILAR })
     await Temas(conParams({ pilar: OTRO }))
-    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { pilar: undefined })
+    expect(datos.listarTemas).toHaveBeenLastCalledWith(expect.anything(), { red: "linkedin", pilar: undefined })
   })
 
   it("shows the topics of the coverage chosen, counting the coverages over the pillar's topics", async () => {
