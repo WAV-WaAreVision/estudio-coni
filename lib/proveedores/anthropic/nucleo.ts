@@ -241,6 +241,14 @@ export function enumTolerante<const V extends readonly [string, ...string[]]>(
   }, z.enum(valores))
 }
 
+/**
+ * A nullable text answer that tolerates a missing key (an answer shaped before the field existed reads null). The
+ * schema sent still requires it, as structured outputs want every key.
+ */
+export function textoONulo() {
+  return z.preprocess((valor) => valor ?? null, z.string().nullable())
+}
+
 export function sumarUso(a: UsoClaude, b: UsoClaude): UsoClaude {
   return {
     input_tokens: a.input_tokens + b.input_tokens,

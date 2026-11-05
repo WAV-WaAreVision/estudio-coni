@@ -59,15 +59,23 @@ export const SIN_CONSULTA =
 
 /**
  * The pillars a prompt offers, grouped by network (spec 2026-11-04, section 4): slug (what goes in `pilar`), name and
- * description. A layer is a lens, never a pillar to choose, so it is left out.
+ * description; with `angulos`, each pillar's angles under it (spec 15d). A layer is a lens, never a pillar to choose,
+ * so it is left out.
  */
-export function listaDePilares(pilares: readonly DatosDePilar[]): string {
+export function listaDePilares(pilares: readonly DatosDePilar[], opciones: { angulos?: boolean } = {}): string {
   return porRed(pilaresParaElegir(pilares))
     .map((grupo) =>
       [
         `${grupo.etiqueta}:`,
-        ...grupo.pilares.map((p) => `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd()),
+        ...grupo.pilares.flatMap((p) => [
+          `- ${p.slug}: ${p.nombre}. ${p.descripcion ?? ""}`.trimEnd(),
+          ...(opciones.angulos ? p.angulos.map((a) => `  - ángulo ${a.slug}: ${a.nombre}. ${a.descripcion}`) : []),
+        ]),
       ].join("\n"),
     )
     .join("\n")
 }
+
+/** What every proposer asks about the angle (spec 15d, decision 3). */
+export const REGLA_DE_ANGULO =
+  "Si el pilar que eliges tiene ángulos, pon en angulo el slug del ángulo que mejor calce con la idea; si no tiene, angulo va en null."

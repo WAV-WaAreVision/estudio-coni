@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerPilares, pilaresActivos } from "@/lib/datos/pilares"
 import { leerGuiaVigente } from "@/lib/datos/repositorio"
-import { pilaresDeRedes } from "@/lib/dominio/pilares"
+import { anguloPorSlug, type CatalogoDePilares, pilaresDeRedes } from "@/lib/dominio/pilares"
 import { falloDeBase, pagarPaso, redondear } from "@/lib/ingesta/gasto-material"
 import { type DatosDelMotor, leerDatosDelMotor, type TemaDelMotor } from "@/lib/motor/datos"
 import {
@@ -207,6 +207,7 @@ async function guardarIdeas(
   semana: string,
   guardadas: readonly { teoriaId: string; teoria: TeoriaDelMotor; cruce: CruceElegido }[],
   nombreDeAutor: ReadonlyMap<string, { autor: string; cita: string; tema: string }>,
+  pilares: CatalogoDePilares,
 ): Promise<number> {
   const { data: ajustes, error: errorAjustes } = await db.from("ajustes").select("ideas_por_semana").single()
   if (errorAjustes) throw falloDeBase("No pude leer los ajustes", errorAjustes)
@@ -227,6 +228,7 @@ async function guardarIdeas(
       semana,
       estado: "idea",
       pilar: idea.pilar,
+      angulo_id: anguloPorSlug(pilares, idea.pilar, idea.angulo)?.id ?? null,
       gancho: idea.gancho,
       tema: idea.tema,
       formato: idea.formato,
@@ -388,7 +390,7 @@ async function trabajar(deps: DepsDelMotor, semana: string): Promise<Trabajo> {
 
   const elegidos = new Map(cruces.map((c) => [c.id, c]))
   const guardadas = await guardarTeorias(db, semana, elegidos, teorias, descartadas)
-  const ideas = await guardarIdeas(db, semana, guardadas, origenes)
+  const ideas = await guardarIdeas(db, semana, guardadas, origenes, contexto.pilares)
   const archivadas = await archivar(db)
   return {
     resultado: "lista",

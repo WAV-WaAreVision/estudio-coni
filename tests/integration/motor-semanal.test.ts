@@ -135,6 +135,9 @@ interface Pedido {
   messages: { content: string }[]
 }
 
+const ideaDe = (pilarYAngulo?: { pilar: string; angulo: string | null }) =>
+  pilarYAngulo ? { pilar: pilarYAngulo.pilar, angulo: pilarYAngulo.angulo } : { pilar: "ia-salud-mental" }
+
 function simularClaude(
   opciones: {
     nada?: (indice: number) => boolean
@@ -142,6 +145,8 @@ function simularClaude(
     fallaLlamada?: (llamada: number) => boolean
     /** Runs inside the call, after its spend was reserved and before it is confirmed. */
     alLlamar?: (llamada: number) => Promise<unknown>
+    /** The pillar and angle every idea answers (else `ia-salud-mental` without angle). */
+    pilarYAngulo?: { pilar: string; angulo: string | null }
   } = {},
 ) {
   const registro = { llamadas: 0, cruces: [] as CruceEnviado[], lotes: [] as CruceEnviado[][], usuario: "" }
@@ -190,8 +195,8 @@ function simularClaude(
           nivelEvidencia: "medio",
           advertencias: [],
           ideas: [
-            { gancho: `Gancho ${i} a`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
-            { gancho: `Gancho ${i} b`, tema: "t", pilar: "ia-salud-mental", formato: "reel" },
+            { gancho: `Gancho ${i} a`, tema: "t", formato: "reel", ...ideaDe(opciones.pilarYAngulo) },
+            { gancho: `Gancho ${i} b`, tema: "t", formato: "reel", ...ideaDe(opciones.pilarYAngulo) },
           ],
         }
       })
@@ -304,6 +309,19 @@ describe("correrMotor", () => {
     expect(gasto.rows).toHaveLength(1)
     expect(gasto.rows[0]?.estado).toBe("confirmado")
     expect(gasto.rows[0]?.clave).toMatch(new RegExp(`^motor:${SEMANA}:`))
+  })
+
+  it("stores the angle Claude gave when it is one of the idea's pillar, and none otherwise", async () => {
+    await tresTemas()
+    simularClaude({ pilarYAngulo: { pilar: "psicologia-en-la-mesa", angulo: "lo-que-construyo" } })
+    await correrMotor(deps(), { semana: SEMANA, manual: false })
+    const { rows } = await pool.query<{ angulo: string | null }>(
+      `select a.slug as angulo from public.ideas i left join public.pilar_angulos a on a.id = i.angulo_id
+        where i.semana = $1 and i.origen = 'motor'`,
+      [SEMANA],
+    )
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((fila) => fila.angulo === "lo-que-construyo")).toBe(true)
   })
 
   it("writes its ideas with three pillars empty and names them in what to upload", async () => {

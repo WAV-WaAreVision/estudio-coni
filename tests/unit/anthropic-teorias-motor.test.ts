@@ -93,7 +93,7 @@ function teoria(sobre: Partial<SalidaDeTeoria> = {}): SalidaDeTeoria {
     tensiones: [],
     nivelEvidencia: "alto",
     advertencias: [],
-    ideas: [{ gancho: "Tu deseo no se fue", tema: "deseo", pilar: "caso-coni", formato: "reel" }],
+    ideas: [{ gancho: "Tu deseo no se fue", tema: "deseo", pilar: "caso-coni", formato: "reel", angulo: null }],
     ...sobre,
   }
 }
@@ -210,7 +210,7 @@ describe("escribirTeorias", () => {
 
   it("rejects the whole response when an idea names a retired pillar", async () => {
     respondiendo({
-      teorias: [teoria({ ideas: [{ gancho: "g", tema: "t", pilar: "deseo", formato: "reel" }] })],
+      teorias: [teoria({ ideas: [{ gancho: "g", tema: "t", pilar: "deseo", formato: "reel", angulo: null }] })],
     })
     await expect(escribirTeorias({ cliente: cliente(), cruces: [CRUCE], contexto: CONTEXTO })).rejects.toThrow(
       "Claude devolvió una respuesta que no tiene el formato pedido.",
@@ -232,7 +232,7 @@ describe("escribirTeorias", () => {
       teorias: [
         teoria({
           titulo: "Deseo — conversación",
-          ideas: [{ gancho: "Tu deseo — no se fue", tema: "deseo", pilar: "caso-coni", formato: "reel" }],
+          ideas: [{ gancho: "Tu deseo — no se fue", tema: "deseo", pilar: "caso-coni", formato: "reel", angulo: null }],
         }),
       ],
     })
@@ -302,7 +302,7 @@ describe("validarTeoria", () => {
   })
 
   it("keeps at most two ideas", () => {
-    const idea = { gancho: "g", tema: "t", pilar: "deseo", formato: "reel" } as const
+    const idea = { gancho: "g", tema: "t", pilar: "deseo", formato: "reel", angulo: null } as const
     const resultado = validarTeoria(
       teoria({ ideas: [idea, { ...idea, gancho: "h" }, { ...idea, gancho: "i" }] }),
       CRUCE,
