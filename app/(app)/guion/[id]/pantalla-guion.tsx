@@ -2,7 +2,7 @@
 
 import { Info, PencilSimple } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
-import { type Dispatch, type SetStateAction, useCallback, useId, useRef, useState } from "react"
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useId, useRef, useState } from "react"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -96,9 +96,9 @@ const idDeRevision = (indice: number) => `revision-${indice}`
 /**
  * Gate 1 (design 2026-10-16, decision 9): she listens to her voice of the script, reads it with the review beside it,
  * edits it if she wants, picks the look (step 3) and signs once. The signature approves the script and the voice, and the video
- * starts after the undo window.
+ * starts after the undo window. `angulo`: the angle control while gate 1 is not signed (spec 15d).
  */
-export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
+export function PantallaGuion({ datos, angulo }: { datos: DatosDeGuion; angulo?: ReactNode }) {
   // Her choices outlive the round trips of gate 1 (her voice being made, a new take): the page keys this by piece, and
   // only the screen below starts over with each state.
   const [avatarElegido, setAvatarElegido] = useState<string | null>(() =>
@@ -109,6 +109,7 @@ export function PantallaGuion({ datos }: { datos: DatosDeGuion }) {
     <PuertaUno
       key={datos.grabacion.estado}
       datos={datos}
+      angulo={angulo}
       elecciones={{ avatarElegido, setAvatarElegido, confirmadas, setConfirmadas }}
     />
   )
@@ -121,7 +122,7 @@ interface Elecciones {
   setConfirmadas: Dispatch<SetStateAction<ReadonlySet<string>>>
 }
 
-function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Elecciones }) {
+function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?: ReactNode; elecciones: Elecciones }) {
   const { avatarElegido, setAvatarElegido, confirmadas, setConfirmadas } = elecciones
   const router = useRouter()
   const [version, setVersion] = useState(datos.version)
@@ -224,6 +225,8 @@ function PuertaUno({ datos, elecciones }: { datos: DatosDeGuion; elecciones: Ele
           />
         ) : null}
       </header>
+
+      {angulo ? <div className="mt-4">{angulo}</div> : null}
 
       {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
       {grabacion.botones?.bloqueoVideo ? (

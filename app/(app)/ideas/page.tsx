@@ -3,6 +3,7 @@ import { pilaresElegibles } from "@/lib/datos/pilares"
 import { exigirConi } from "@/lib/sesion/coni"
 import { elegirLoteAccion, hacerCarruselAccion } from "../piezas/acciones"
 import {
+  cambiarAnguloAccion,
   crearIdeaPropiaAccion,
   descartarIdeaAccion,
   descartarIdeasAccion,
@@ -37,6 +38,7 @@ export default async function Ideas() {
         descartarVarias: descartarIdeasAccion,
         restaurar: restaurarIdeasAccion,
         hacerCarrusel: hacerCarruselAccion,
+        cambiarAngulo: cambiarAnguloAccion,
       }}
     />
   )

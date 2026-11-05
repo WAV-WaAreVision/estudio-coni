@@ -4,7 +4,7 @@ import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-
 import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
 import { nombreDePilar, pilaresParaElegir, pilarVisible } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
-import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
+import { ANGULO_DE_PRUEBA, PILARES_DE_PRUEBA } from "../fixtures/pilares"
 
 const todasEmpezadas = (ids: string[]) => ({
   ok: true as const,
@@ -78,6 +78,7 @@ function acciones(cambios: Partial<AccionesDelBanco> = {}): AccionesDelBanco {
     descartarVarias: vi.fn(async () => ({ ok: true as const })),
     restaurar: vi.fn(async (ids: string[]) => ({ ok: true as const, restauradas: ids })),
     hacerCarrusel: vi.fn(async () => ({ ok: true as const, piezaId: "p-carrusel" })),
+    cambiarAngulo: vi.fn(async () => ({ ok: true as const })),
     ...cambios,
   }
 }
@@ -692,5 +693,25 @@ describe("the format of the idea (design 2026-10-26, D1 step 1)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hacer el carrusel" }))
     expect(await screen.findByText("Una de esas ideas ya no está disponible. Vuelve a elegir.")).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Si van a discutir, siéntense del mismo lado." })).toBeInTheDocument()
+  })
+})
+
+describe("el ángulo en la carta", () => {
+  it("lets her change the angle of an idea whose pillar has angles, and shows none for the rest", async () => {
+    const todas = acciones()
+    const pilares = pilaresParaElegir(PILARES_DE_PRUEBA).map(({ slug, nombre, nombreCorto, red, angulos }) => ({
+      slug,
+      nombre,
+      nombreCorto,
+      red,
+      angulos: angulos.map(({ id, slug: deAngulo, nombre: deNombre }) => ({ id, slug: deAngulo, nombre: deNombre })),
+    }))
+    const conAngulos = idea({ id: "p", numero: 1, pilar: "psicologia-en-la-mesa", gancho: "Entreno modelos." })
+    const { unmount } = render(<BancoDeIdeas ideas={[conAngulos]} pilares={pilares} acciones={todas} />)
+    fireEvent.change(screen.getByLabelText("Ángulo"), { target: { value: ANGULO_DE_PRUEBA.loQueConstruyo } })
+    await waitFor(() => expect(todas.cambiarAngulo).toHaveBeenCalledWith("p", ANGULO_DE_PRUEBA.loQueConstruyo))
+    unmount()
+    render(<BancoDeIdeas ideas={IDEAS} pilares={pilares} acciones={acciones()} />)
+    expect(screen.queryByLabelText("Ángulo")).toBeNull()
   })
 })

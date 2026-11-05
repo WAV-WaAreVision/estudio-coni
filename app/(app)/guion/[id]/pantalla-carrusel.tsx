@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { Seccion } from "@/components/seccion"
 import { BarraDeFirma, LineaDeFalta } from "@/components/ui/barra-de-firma"
@@ -50,8 +50,9 @@ const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? "
 /**
  * Gate 1 of a carousel (design 2026-10-26, D1 step 3): the numbered slides, the post text and the review, "Pedir
  * cambio" with one sentence (no editing on the phone, C8) and "Desliza para firmar". No voice, no avatar, no cost.
+ * `angulo`: the angle control while gate 1 is not signed (spec 15d).
  */
-export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
+export function PantallaCarrusel({ datos, angulo }: { datos: DatosDeCarrusel; angulo?: ReactNode }) {
   // Not `router.refresh()`: it loses the race with this address's prefetches (see `useRedibujar`).
   const redibujar = useRedibujar()
   const firma = useAccion()
@@ -90,6 +91,8 @@ export function PantallaCarrusel({ datos }: { datos: DatosDeCarrusel }) {
         />
         <h1 className="text-pieza text-balance">{datos.titulo}</h1>
       </header>
+
+      {angulo ? <div className="mt-4">{angulo}</div> : null}
 
       {datos.explicacion ? <Bloque tipo="aviso" titulo={datos.explicacion} className="mt-6" /> : null}
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { ReactNode } from "react"
 import { EstadoSencillo } from "@/components/estado-sencillo"
 import { MomentoDeCierre } from "@/components/momento-de-cierre"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
@@ -39,10 +40,13 @@ export async function VistaDeCarrusel({
   db,
   fila,
   pilar,
+  angulo,
 }: {
   db: SupabaseClient<Database>
   fila: FilaDePieza
   pilar: PilarVisible | null
+  /** The angle control while gate 1 is not signed (spec 15d). */
+  angulo?: ReactNode
 }) {
   switch (fila.estado) {
     case "guion_en_proceso":
@@ -81,6 +85,7 @@ export async function VistaDeCarrusel({
         <PantallaCarrusel
           // A new version or a refused signature brings a new piece version: the screen starts over with it.
           key={`${fila.id}:${fila.version}`}
+          angulo={angulo}
           datos={{
             id: fila.id,
             version: fila.version,
