@@ -4,19 +4,31 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
   borrarAutor,
   borrarMaterial,
+  confirmarCosto,
   confirmarMaterial,
   crearAutor,
+  editarFicha,
   editarMaterial,
+  ocultarIdea,
   pedirTextoOriginal,
   recuperarAutor,
   recuperarMaterial,
+  reintentarMaterial,
+  reprocesarMaterial,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
-import { borrarSembrado, sembrarAutor, sembrarMaterial } from "./siembra-biblioteca"
+import {
+  borrarSembrado,
+  type MaterialDePrueba,
+  sembrarAutor,
+  sembrarFicha,
+  sembrarIdeas,
+  sembrarMaterial,
+} from "./siembra-biblioteca"
 
 type Db = SupabaseClient<Database>
 
@@ -34,7 +46,7 @@ const almacen = almacenEnMemoria()
 const marcar = (tabla: "materiales" | "autores", id: string) =>
   pool.query(`update public.${tabla} set borrar_desde = now() where id = $1`, [id])
 
-async function material(extra: { estado?: "procesando" | "listo" } = {}): Promise<string> {
+async function material(extra: Partial<MaterialDePrueba> = {}): Promise<string> {
   const id = await sembrarMaterial({ titulo: `Acción borrable ${SUFIJO}`, autorId: autora, ...extra })
   materiales.push(id)
   return id
@@ -90,6 +102,62 @@ describe("actions on a marked material", () => {
   })
 })
 
+describe("the other actions on a marked material", () => {
+  const disparados: string[] = []
+  const conDisparos = () => ({
+    db: coni,
+    disparar: { material: async (materialId: string) => void disparados.push(materialId) },
+    nuevoId: randomUUID,
+    almacen,
+  })
+  const estado = async (id: string) =>
+    (await pool.query("select estado from public.materiales where id = $1", [id])).rows[0]?.estado
+
+  it("editarFicha answers not found and leaves the card as it was", async () => {
+    const id = await material({ rol: "estrategia" })
+    const ideas = ["Una", "Dos", "Tres", "Cuatro", "Cinco"]
+    await sembrarFicha(id, ideas)
+    await marcar("materiales", id)
+    const edicion = {
+      materialId: id,
+      resumen: "Otro resumen",
+      ideasClave: ideas,
+      citas: [],
+      fuente: { autor: null, anio: null, enlace: null },
+    }
+    expect(await editarFicha(conDisparos(), edicion)).toEqual({ ok: false, error: NO_ENCONTRE })
+    const { rows } = await pool.query("select resumen from public.fichas where material_id = $1", [id])
+    expect(rows[0]?.resumen).toBe("Un resumen")
+  })
+
+  it("reintentarMaterial, reprocesarMaterial and confirmarCosto answer not found and start nothing", async () => {
+    const fallido = await material({ estado: "fallido", motivo: "Se cayó" })
+    const listo = await material({ estado: "listo" })
+    const esperando = await material({ estado: "procesando", costo: 1.2 })
+    for (const id of [fallido, listo, esperando]) await marcar("materiales", id)
+
+    expect(await reintentarMaterial(conDisparos(), fallido)).toEqual({ ok: false, error: NO_ENCONTRE })
+    expect(await reprocesarMaterial(conDisparos(), listo)).toEqual({ ok: false, error: NO_ENCONTRE })
+    expect(await confirmarCosto(conDisparos(), esperando)).toEqual({ ok: false, error: NO_ENCONTRE })
+    expect(disparados).toEqual([])
+    expect([await estado(fallido), await estado(listo)]).toEqual(["fallido", "listo"])
+  })
+
+  it("ocultarIdea says the idea of a marked material no longer exists and leaves it as it was", async () => {
+    const id = await material()
+    await sembrarIdeas(id, autora, null, 1)
+    const { rows } = await pool.query<{ id: string }>("select id from public.afirmaciones where material_id = $1", [id])
+    const idea = rows[0]?.id ?? ""
+    await marcar("materiales", id)
+    expect(await ocultarIdea({ db: coni }, { id: idea, oculta: true })).toEqual({
+      ok: false,
+      error: "Esa idea ya no existe.",
+    })
+    const leida = await pool.query("select excluida from public.afirmaciones where id = $1", [idea])
+    expect(leida.rows[0]?.excluida).toBe(false)
+  })
+})
+
 describe("actions on a marked author", () => {
   it("unirAutores refuses a marked origin and a marked destination", async () => {
     const origen = await sembrarAutor(`Origen marcado ${SUFIJO}`)
@@ -110,6 +178,22 @@ describe("actions on a marked author", () => {
     expect(resultado).toMatchObject({ ok: true, autor: { id, nombre } })
     const { rows } = await pool.query("select borrar_desde from public.autores where id = $1", [id])
     expect(rows[0]?.borrar_desde).toBeNull()
+  })
+
+  it("crearAutor in two tabs bringing back the same author answers that author in both", async () => {
+    const nombre = `Vuelve dos veces ${SUFIJO}`
+    const id = await sembrarAutor(nombre)
+    autores.push(id)
+    await marcar("autores", id)
+    // The other tab unmarks it after this one read it marked and before this one unmarks it.
+    const otraPestana: typeof coni = Object.create(coni)
+    otraPestana.rpc = ((funcion: string, ...resto: unknown[]) => {
+      const llamada = () => Reflect.apply(coni.rpc, coni, [funcion, ...resto])
+      if (funcion !== "marcar_autor_para_borrar") return llamada()
+      return pool.query("update public.autores set borrar_desde = null where id = $1", [id]).then(llamada)
+    }) as typeof coni.rpc
+    const resultado = await crearAutor({ db: otraPestana }, { nombre, credencial: "", tipo: "persona" })
+    expect(resultado).toMatchObject({ ok: true, autor: { id, nombre } })
   })
 })
 

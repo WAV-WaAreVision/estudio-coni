@@ -62,7 +62,9 @@ const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
 const NO_EXISTE = "P0002"
+const NO_SE_PUDO_MARCAR = "no_se_pudo_marcar"
 const AUTOR_INEXISTENTE = "Ese autor ya no existe."
+const IDEA_INEXISTENTE = "Esa idea ya no existe."
 const MISMO_AUTOR = "Elige otro autor para unirlos."
 const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
 const TEMA_INEXISTENTE = "Ese tema ya no existe. Recarga la página."
@@ -95,6 +97,18 @@ async function iniciar(deps: DepsBiblioteca, materialId: string, cuando: string)
   }
 }
 
+/** A material she deleted (marked, waiting for maintenance) is gone for her: acting on it answers not found. */
+async function exigirMaterialVisible(db: Db, materialId: string): Promise<void> {
+  const { data, error } = await db
+    .from("materiales")
+    .select("id")
+    .eq("id", materialId)
+    .is("borrar_desde", null)
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
+  if (!data) throw new Falla(NO_ENCONTRE)
+}
+
 type RpcDeMaterial = "reintentar_material" | "reprocesar_material" | "confirmar_costo_material"
 
 /** The database goes first: it is what refuses a second tap. Then the run starts under its own attempt. */
@@ -102,6 +116,7 @@ function moverYProcesar(nombre: string, rpc: RpcDeMaterial, siNoCorresponde: str
   return (deps: DepsBiblioteca, materialId: string): Promise<Resultado> =>
     aResultado(nombre, async () => {
       await exigirConi(deps.db)
+      await exigirMaterialVisible(deps.db, materialId)
       const { error } = await deps.db.rpc(rpc, { p_id: materialId })
       if (error) {
         if (error.code === NO_ES_EL_ESTADO) throw new Falla(siNoCorresponde)
@@ -162,6 +177,7 @@ export function editarFicha(deps: DepsBiblioteca, entrada: unknown): Promise<Res
     const leida = leerEdicion(entrada)
     if (!leida.ok) throw new Falla(leida.error)
     const { materialId, resumen, ideasClave, citas, fuente } = leida.datos
+    await exigirMaterialVisible(deps.db, materialId)
     const { data, error } = await deps.db
       .from("fichas")
       .update({ resumen, ideas_clave: ideasClave, citas, fuente })
@@ -200,7 +216,12 @@ export function crearAutor(
     // `crear_autor` answers an author she just deleted when she types its name again: typing it is wanting it back.
     if (borrar_desde !== null) {
       const { error: errorAlRecuperar } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: id, p_borrar: false })
-      if (errorAlRecuperar) {
+      // Another tab brought it back first: refused, but it already is where she wants it (D4).
+      const yaVolvio =
+        errorAlRecuperar?.code === NO_ES_EL_ESTADO &&
+        errorAlRecuperar.message === NO_SE_PUDO_MARCAR &&
+        (await marcaDe(deps.db, "autores", id)) === "visible"
+      if (errorAlRecuperar && !yaVolvio) {
         throw new Error(`No pude recuperar el autor ${id}: ${errorAlRecuperar.message}`, { cause: errorAlRecuperar })
       }
     }
@@ -216,14 +237,7 @@ export function pedirTextoOriginal(
   return aResultado("pedirTextoOriginal", async () => {
     await exigirConi(deps.db)
     // R2 can outlive the row (a deleted material): only a material she can read through row level security is signed.
-    const { data, error } = await deps.db
-      .from("materiales")
-      .select("id")
-      .eq("id", materialId)
-      .is("borrar_desde", null)
-      .maybeSingle()
-    if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
-    if (!data) throw new Falla(NO_ENCONTRE)
+    await exigirMaterialVisible(deps.db, materialId)
     const url = await deps.almacen.urlDeTexto(materialId, SEGUNDOS_DE_DESCARGA)
     if (url === null) throw new Falla("Ese texto todavía no está disponible.")
     return { url }
@@ -496,16 +510,24 @@ export function ocultarIdea(
 ): Promise<Resultado> {
   return aResultado("ocultarIdea", async () => {
     await exigirConi(deps.db)
+    const { data: idea, error: errorDeLectura } = await deps.db
+      .from("afirmaciones")
+      .select("id, materiales!inner ( borrar_desde )")
+      .eq("id", cambio.id)
+      .is("materiales.borrar_desde", null)
+      .maybeSingle()
+    if (errorDeLectura) {
+      throw new Error(`No pude leer la idea ${cambio.id}: ${errorDeLectura.message}`, { cause: errorDeLectura })
+    }
+    if (!idea) throw new Falla(IDEA_INEXISTENTE)
     const { error } = await deps.db.rpc("excluir_afirmacion", { p_id: cambio.id, p_excluida: cambio.oculta })
     if (error) {
-      if (error.code === NO_EXISTE) throw new Falla("Esa idea ya no existe.")
+      if (error.code === NO_EXISTE) throw new Falla(IDEA_INEXISTENTE)
       throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
     }
     return {}
   })
 }
-
-const NO_SE_PUDO_MARCAR = "no_se_pudo_marcar"
 
 /** Where the row is now, read when a mark was refused: a refusal can mean it already is where she wants it (D4). */
 async function marcaDe(db: Db, tabla: "materiales" | "autores", id: string): Promise<"marcado" | "visible" | null> {

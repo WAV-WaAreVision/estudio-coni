@@ -84,6 +84,21 @@ describe("the material readers", () => {
     }
     expect((await leerMapaDelMaterial(coni, marcado)).total).toBe(2)
   })
+
+  it("leave out the panel's first ideas of a material marked while the panel reads it", async () => {
+    // The mark lands right after the material was read and before its ideas are: the race the ideas' filter covers.
+    const alLeerIdeas: typeof fetch = async (entrada, init) => {
+      if (String(entrada).includes("/rest/v1/afirmaciones")) await marcar("materiales", marcado)
+      return fetch(entrada, init)
+    }
+    const enCarrera = await clienteDeConi({ fetch: alLeerIdeas })
+    try {
+      const panel = await leerPanelDelMaterial(enCarrera, marcado)
+      expect(panel?.ideas).toEqual({ total: 0, primeras: [] })
+    } finally {
+      await desmarcar("materiales", marcado)
+    }
+  })
 })
 
 describe("the author and topic readers", () => {

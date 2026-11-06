@@ -200,9 +200,10 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
     leerMapaDelMaterial(db, id),
     db
       .from("afirmaciones")
-      .select("texto")
+      .select("texto, materiales!inner ( borrar_desde )")
       .eq("material_id", id)
       .eq("excluida", false)
+      .is("materiales.borrar_desde", null)
       .order("creada_en")
       .order("id")
       .limit(2),
