@@ -141,9 +141,10 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
 
   return (
     // On a tablet or a computer (critique 2026-11-05, puertas-escritorio) two columns: on the left the video, as tall as
-    // the window lets it be whole, and under it the texts that go out with it; on the right the title, her check, the
-    // date, Más opciones and the signature, which sticks while she reads the texts. The video spans the right column's
-    // rows down to a 1fr row, so it never stretches them; the signature's rows run on beside the texts.
+    // the window lets it be whole and on the left edge of «Inicio» (Federico, 05-11), and under it the texts that go
+    // out with it; on the right the title, her check, the date, Más opciones and the signature, which sticks while she
+    // reads the texts. The video spans the right column's rows down to a 1fr row, so it never stretches them; the
+    // signature's rows run on beside the texts.
     <div data-ancho="puerta" className="@container">
       <div className={cn(COLUMNAS_DE_PUERTA, "dos-columnas:grid-rows-[auto_auto_auto_1fr_auto]")}>
         {/* Placed by the grid in the first free cell: the top of the left column. */}
@@ -154,7 +155,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
             clave={datos.videoId}
             alVerCompleto={() => setVisto(true)}
             zonas={zonas && conInstagram}
-            className="dos-columnas:max-w-[calc((100svh-7rem)*9/16)]"
+            className="dos-columnas:mx-0 dos-columnas:max-w-[calc((100svh-7rem)*9/16)]"
           />
         </div>
 

@@ -92,6 +92,17 @@ test("no width scrolls sideways, from a tablet to a wide screen", async ({ page 
   }
 })
 
+test("the video shares the left edge of «Inicio» and of the texts under it", async ({ page }) => {
+  for (const ancho of [1024, 1280, 1440]) {
+    await page.setViewportSize({ width: ancho, height: 900 })
+    await abrir(page)
+    const borde = (await cajaDe(reproductor(page))).left
+    const inicio = (await cajaDe(page.getByRole("link", { name: "Inicio" }))).left
+    expect(Math.abs(borde - inicio), `${ancho} px`).toBeLessThanOrEqual(1)
+    expect(Math.abs(borde - (await cajaDe(lectura(page))).left), `${ancho} px`).toBeLessThanOrEqual(1)
+  }
+})
+
 test("a 768 px window with a classic scrollbar still shows the two columns", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 })
   await abrir(page)

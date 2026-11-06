@@ -134,9 +134,8 @@ Capturas «después» en `/tmp/puertas-escritorio/`. Lo que quedó y por qué:
   abarca su fila y la de los textos, así sigue a la vista mientras ella lee el texto de LinkedIn.
 - **Teléfono:** el DOM conserva su orden; los envoltorios nuevos llevan el `mt-8` de la primera sección que se pierde
   por `first:mt-0`, así que los márgenes son los mismos.
-- **Ritmo:** el video queda centrado en su columna (como en el teléfono): reparte el aire a sus dos lados en vez de
-  dejar un hueco de unos 200 px junto a la decisión. Alinearlo a la izquierda con «Inicio» y los textos es la
-  alternativa si Federico prefiere el borde común.
+- **Ritmo:** el video se alinea al borde izquierdo de «Inicio» y de los textos bajo él (decisión de Federico tras ver
+  las capturas, 05-11-2026): un solo borde para la columna de lectura. Solo en computador; en el teléfono sigue centrado.
 
 `web-design-guidelines` sobre los archivos tocados: sin hallazgos nuevos. Quedan dos previos, fuera de este cambio:
 los `textarea` de «Pedir cambio» sin `name`/`autocomplete`, y con texto ampliado en computador (sin `data-letra`, que
