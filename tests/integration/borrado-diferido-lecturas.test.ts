@@ -3,10 +3,16 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import {
   contarPorEstado,
+  leerAutor,
   leerMapaDelMaterial,
   leerMaterialConFicha,
+  leerNombreDeLoBorrado,
   leerPanelDelMaterial,
+  leerTema,
+  listarAutores,
   listarMateriales,
+  listarTemas,
+  resumirAutores,
 } from "@/lib/datos/biblioteca"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
@@ -77,5 +83,71 @@ describe("the material readers", () => {
       await desmarcar("materiales", marcado)
     }
     expect((await leerMapaDelMaterial(coni, marcado)).total).toBe(2)
+  })
+})
+
+describe("the author and topic readers", () => {
+  it("leave a marked author out of the lists and answer not found for its page", async () => {
+    await marcar("autores", marcada)
+    try {
+      expect((await listarAutores(coni)).map((autor) => autor.id)).not.toContain(marcada)
+      expect((await resumirAutores(coni)).map((autor) => autor.id)).not.toContain(marcada)
+      expect(await leerAutor(coni, marcada)).toBeNull()
+    } finally {
+      await desmarcar("autores", marcada)
+    }
+  })
+
+  it("count neither the materials nor the ideas of a marked material for its author", async () => {
+    const contar = async () => {
+      const resumen = (await resumirAutores(coni)).find((autor) => autor.id === autora)
+      const leido = await leerAutor(coni, autora)
+      return {
+        resumen: { materiales: resumen?.materiales, ideas: resumen?.ideas },
+        pagina: { materiales: leido?.materiales, ideas: leido?.ideas, ocultas: leido?.ocultas.length },
+      }
+    }
+    expect(await contar()).toEqual({
+      resumen: { materiales: 2, ideas: 3 },
+      pagina: { materiales: 2, ideas: 3, ocultas: 1 },
+    })
+    await marcar("materiales", marcado)
+    try {
+      expect(await contar()).toEqual({
+        resumen: { materiales: 1, ideas: 1 },
+        pagina: { materiales: 1, ideas: 1, ocultas: 0 },
+      })
+    } finally {
+      await desmarcar("materiales", marcado)
+    }
+  })
+
+  it("leave a marked material's ideas out of its topic's page and of Temas", async () => {
+    const enTemas = async () => (await listarTemas(coni, { red: "linkedin" })).find((t) => t.id === tema)?.ideas
+    expect((await leerTema(coni, tema))?.ideas).toBe(3)
+    expect(await enTemas()).toBe(3)
+    await marcar("materiales", marcado)
+    try {
+      expect((await leerTema(coni, tema))?.ideas).toBe(1)
+      expect(await enTemas()).toBe(1)
+    } finally {
+      await desmarcar("materiales", marcado)
+    }
+  })
+})
+
+describe("leerNombreDeLoBorrado", () => {
+  it("names a marked material or author, and is null once it is visible again or gone", async () => {
+    expect(await leerNombreDeLoBorrado(coni, "material", marcado)).toBeNull()
+    await marcar("materiales", marcado)
+    await marcar("autores", marcada)
+    try {
+      expect(await leerNombreDeLoBorrado(coni, "material", marcado)).toEqual({ nombre: `Marcado ${SUFIJO}` })
+      expect(await leerNombreDeLoBorrado(coni, "autor", marcada)).toEqual({ nombre: `Autora marcada ${SUFIJO}` })
+    } finally {
+      await desmarcar("materiales", marcado)
+      await desmarcar("autores", marcada)
+    }
+    expect(await leerNombreDeLoBorrado(coni, "autor", randomUUID())).toBeNull()
   })
 })
