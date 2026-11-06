@@ -70,15 +70,21 @@ create function public.borrar_lo_marcado(p_antes timestamptz) returns uuid[]
 language plpgsql security definer set search_path = '' as $$
 declare
   borrados uuid[];
-  autores_borrados integer;
+  autores_borrados integer := 0;
 begin
   with b as (delete from public.materiales where borrar_desde < p_antes returning id)
   select coalesce(array_agg(id), '{}') into borrados from b;
   -- afirmaciones.autor_id is on delete restrict: an author that still says something elsewhere is not deleted.
-  delete from public.autores a where a.borrar_desde < p_antes and a.tipo <> 'coni'
-    and not exists (select 1 from public.materiales m where m.autor_id = a.id)
-    and not exists (select 1 from public.afirmaciones f where f.autor_id = a.id);
-  get diagnostics autores_borrados = row_count;
+  -- A material or idea added between the check and the delete raises 23503; only the authors' part is undone,
+  -- they stay marked for the next sweep and the materials (and their R2 ids) still go.
+  begin
+    delete from public.autores a where a.borrar_desde < p_antes and a.tipo <> 'coni'
+      and not exists (select 1 from public.materiales m where m.autor_id = a.id)
+      and not exists (select 1 from public.afirmaciones f where f.autor_id = a.id);
+    get diagnostics autores_borrados = row_count;
+  exception when foreign_key_violation then
+    autores_borrados := 0;
+  end;
   if cardinality(borrados) > 0 then
     insert into public.registro_de_borrados (regla, cantidad) values ('materiales_de_biblioteca', cardinality(borrados));
   end if;

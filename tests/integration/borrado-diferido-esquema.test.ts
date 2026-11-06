@@ -294,6 +294,61 @@ describe("borrar_lo_marcado", () => {
     })
   })
 
+  it("keeps a marked author referenced only by an idea and still deletes the marked materials", async () => {
+    await como(comoServicio, async (c) => {
+      const { citado, borrable } = await comoDueno(c, comoServicio, async () => {
+        const vivo = await autor(c, "Autora con material vivo")
+        const x = await autor(c, "Autor citado en una idea")
+        await idea(c, await material(c, vivo), x, null)
+        const m = await material(c, vivo)
+        await marcar(c, "autores", x, "10 minutes")
+        await marcar(c, "materiales", m, "10 minutes")
+        return { citado: x, borrable: m }
+      })
+      const { rows } = await c.query<{ borrados: string[] }>(
+        "select public.borrar_lo_marcado(now() - interval '1 minute') as borrados",
+      )
+      expect(rows[0]?.borrados).toContain(borrable)
+      await asumir(c, comoPostgres)
+      expect((await c.query("select 1 from public.autores where id = $1", [citado])).rowCount).toBe(1)
+      expect((await c.query("select 1 from public.materiales where id = $1", [borrable])).rowCount).toBe(0)
+    })
+  })
+
+  it("survives an author gaining a material between its check and its delete, and keeps the author marked", async () => {
+    await como(comoServicio, async (c) => {
+      const { tardio, borrable } = await comoDueno(c, comoServicio, async () => {
+        const vivo = await autor(c, "Autora del barrido con carrera")
+        const t = await autor(c, "Autor que gana un material tarde")
+        const m = await material(c, vivo)
+        await marcar(c, "autores", t, "10 minutes")
+        await marcar(c, "materiales", m, "10 minutes")
+        // Stands in for a concurrent upload: the row passes the NOT EXISTS checks, then gains a material.
+        await c.query(`create function pg_temp.material_tardio() returns trigger language plpgsql as $f$
+          begin
+            insert into public.materiales (titulo, tipo, autor_id, rol, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+            values ('Tardío', 'documento', old.id, 'referente', 'hola', now(), '${CONI}');
+            return old;
+          end $f$`)
+        await c.query(
+          "create trigger material_tardio before delete on public.autores for each row execute function pg_temp.material_tardio()",
+        )
+        return { tardio: t, borrable: m }
+      })
+      const { rows } = await c.query<{ borrados: string[] }>(
+        "select public.borrar_lo_marcado(now() - interval '1 minute') as borrados",
+      )
+      expect(rows[0]?.borrados).toContain(borrable)
+      await asumir(c, comoPostgres)
+      expect(await marcaDe(c, "autores", tardio)).toBe(true)
+      expect((await c.query("select 1 from public.materiales where id = $1", [borrable])).rowCount).toBe(0)
+      const registro = await c.query<{ regla: string }>(
+        "select regla from public.registro_de_borrados where borrado_en = now() order by regla",
+      )
+      expect(registro.rows.map((fila) => fila.regla)).toEqual(["materiales_de_biblioteca"])
+    })
+  })
+
   it("writes how many materials and authors it deleted in the deletion log, and nothing when it deleted nothing", async () => {
     await como(comoServicio, async (c) => {
       await comoDueno(c, comoServicio, async () => {
