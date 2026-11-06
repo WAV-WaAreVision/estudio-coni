@@ -8,6 +8,7 @@ import {
   comoMantenedor,
   comoOtra,
   comoPostgres,
+  comoServicio,
   fallaCon,
   MANTENEDOR,
   pool,
@@ -210,6 +211,91 @@ describe("marcar_autor_para_borrar", () => {
         "00000000-0000-4000-8000-000000000000",
       ])
       expect([error.code, error.message]).toEqual(["22023", "no_se_pudo_marcar"])
+    })
+  })
+})
+
+describe("borrar_lo_marcado", () => {
+  it("deletes only what was marked before the cut, with its ideas, and returns the deleted materials", async () => {
+    await como(comoServicio, async (c) => {
+      const { viejo, reciente, vivo, ideaVieja } = await comoDueno(c, comoServicio, async () => {
+        const a = await autor(c, "Autora del barrido")
+        const m1 = await material(c, a)
+        const m2 = await material(c, a)
+        const m3 = await material(c, a)
+        const i = await idea(c, m1, a, null)
+        await marcar(c, "materiales", m1, "10 minutes")
+        await marcar(c, "materiales", m2, "10 seconds")
+        return { viejo: m1, reciente: m2, vivo: m3, ideaVieja: i }
+      })
+      const { rows } = await c.query<{ borrados: string[] }>(
+        "select public.borrar_lo_marcado(now() - interval '1 minute') as borrados",
+      )
+      expect(rows[0]?.borrados).toContain(viejo)
+      expect(rows[0]?.borrados).not.toContain(reciente)
+      await asumir(c, comoPostgres)
+      const quedan = await c.query<{ id: string }>("select id from public.materiales where id = any($1) order by id", [
+        [viejo, reciente, vivo],
+      ])
+      expect(quedan.rows.map((fila) => fila.id).sort()).toEqual([reciente, vivo].sort())
+      expect((await c.query("select 1 from public.afirmaciones where id = $1", [ideaVieja])).rowCount).toBe(0)
+    })
+  })
+
+  it("deletes a marked author nothing points at, keeps one still referenced, and never Coni's", async () => {
+    await como(comoServicio, async (c) => {
+      const { suelto, referido } = await comoDueno(c, comoServicio, async () => {
+        const s = await autor(c, "Autor suelto")
+        const r = await autor(c, "Autor todavía citado")
+        await material(c, r)
+        await marcar(c, "autores", s, "10 minutes")
+        // Only as the owner: the function refuses this mark, the sweep must still be safe if one exists.
+        await marcar(c, "autores", r, "10 minutes")
+        await c.query("update public.autores set borrar_desde = now() - interval '10 minutes' where tipo = 'coni'")
+        return { suelto: s, referido: r }
+      })
+      await c.query("select public.borrar_lo_marcado(now() - interval '1 minute')")
+      await asumir(c, comoPostgres)
+      expect((await c.query("select 1 from public.autores where id = $1", [suelto])).rowCount).toBe(0)
+      expect((await c.query("select 1 from public.autores where id = $1", [referido])).rowCount).toBe(1)
+      expect((await c.query("select 1 from public.autores where tipo = 'coni'")).rowCount).toBe(1)
+    })
+  })
+
+  it("writes how many materials and authors it deleted in the deletion log, and nothing when it deleted nothing", async () => {
+    await como(comoServicio, async (c) => {
+      await comoDueno(c, comoServicio, async () => {
+        const a = await autor(c, "Autora del registro")
+        const s = await autor(c, "Autor del registro")
+        const m = await material(c, a)
+        await marcar(c, "materiales", m, "10 minutes")
+        await marcar(c, "autores", s, "10 minutes")
+      })
+      await asumir(c, comoPostgres)
+      const antes = await c.query<{ regla: string; cantidad: number }>(
+        "select regla, cantidad from public.registro_de_borrados where borrado_en = now()",
+      )
+      expect(antes.rowCount).toBe(0)
+      await asumir(c, comoServicio)
+      await c.query("select public.borrar_lo_marcado(now() - interval '1 minute')")
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ regla: string; cantidad: number }>(
+        "select regla, cantidad from public.registro_de_borrados where borrado_en = now() order by regla",
+      )
+      expect(rows.map((fila) => fila.regla)).toEqual(["autores_de_biblioteca", "materiales_de_biblioteca"])
+      expect(rows.every((fila) => fila.cantidad >= 1)).toBe(true)
+      await asumir(c, comoServicio)
+      await c.query("select public.borrar_lo_marcado(now() - interval '1 minute')")
+      await asumir(c, comoPostgres)
+      const despues = await c.query("select 1 from public.registro_de_borrados where borrado_en = now()")
+      expect(despues.rowCount).toBe(2)
+    })
+  })
+
+  it("runs only as service_role", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.borrar_lo_marcado(now())")
+      expect(error.code).toBe("42501")
     })
   })
 })

@@ -55,3 +55,30 @@ end $$;
 
 revoke execute on function public.marcar_autor_para_borrar(uuid, boolean) from public, anon, authenticated;
 grant execute on function public.marcar_autor_para_borrar(uuid, boolean) to authenticated;
+
+-- service_role (ten-minute maintenance): deletes what was marked before p_antes and returns the deleted materials so
+-- the task deletes their R2 folders. The counts go to the deletion log, as the nightly deletions do.
+create function public.borrar_lo_marcado(p_antes timestamptz) returns uuid[]
+language plpgsql security definer set search_path = '' as $$
+declare
+  borrados uuid[];
+  autores_borrados integer;
+begin
+  with b as (delete from public.materiales where borrar_desde < p_antes returning id)
+  select coalesce(array_agg(id), '{}') into borrados from b;
+  -- afirmaciones.autor_id is on delete restrict: an author that still says something elsewhere is not deleted.
+  delete from public.autores a where a.borrar_desde < p_antes and a.tipo <> 'coni'
+    and not exists (select 1 from public.materiales m where m.autor_id = a.id)
+    and not exists (select 1 from public.afirmaciones f where f.autor_id = a.id);
+  get diagnostics autores_borrados = row_count;
+  if cardinality(borrados) > 0 then
+    insert into public.registro_de_borrados (regla, cantidad) values ('materiales_de_biblioteca', cardinality(borrados));
+  end if;
+  if autores_borrados > 0 then
+    insert into public.registro_de_borrados (regla, cantidad) values ('autores_de_biblioteca', autores_borrados);
+  end if;
+  return borrados;
+end $$;
+
+revoke execute on function public.borrar_lo_marcado(timestamptz) from public, anon, authenticated;
+grant execute on function public.borrar_lo_marcado(timestamptz) to service_role;
