@@ -115,6 +115,26 @@ describe("marcar_material_para_borrar", () => {
     })
   })
 
+  it("unmarks the material's author and the authors of its ideas when it is recovered", async () => {
+    await como(comoConi, async (c) => {
+      const { id, suAutor, autorDeIdea } = await comoDueno(c, comoConi, async () => {
+        const a = await autor(c, "Autora recuperada")
+        const b = await autor(c, "Autor de una idea recuperada")
+        const m = await material(c, a)
+        await idea(c, m, b, null)
+        return { id: m, suAutor: a, autorDeIdea: b }
+      })
+      await c.query("select public.marcar_material_para_borrar($1, true)", [id])
+      await c.query("select public.marcar_autor_para_borrar($1, true)", [suAutor])
+      await c.query("select public.marcar_autor_para_borrar($1, true)", [autorDeIdea])
+      await c.query("select public.marcar_material_para_borrar($1, false)", [id])
+      const visibles = await c.query<{ id: string }>("select id from public.autores_visibles where id = any($1)", [
+        [suAutor, autorDeIdea],
+      ])
+      expect(visibles.rows.map((fila) => fila.id).sort()).toEqual([suAutor, autorDeIdea].sort())
+    })
+  })
+
   it("lets the maintainer mark only what the maintainer uploaded", async () => {
     await como(comoMantenedor, async (c) => {
       const [suyo, deConi] = await comoDueno(c, comoMantenedor, async () => {

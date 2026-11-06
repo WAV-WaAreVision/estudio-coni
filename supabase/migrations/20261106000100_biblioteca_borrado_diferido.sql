@@ -26,6 +26,13 @@ begin
   if not found then
     raise exception using errcode = '22023', message = 'no_se_pudo_marcar';
   end if;
+  -- Deshacer: a recovered material never shows a hidden author, its own or the author of one of its ideas.
+  if not p_borrar then
+    update public.autores set borrar_desde = null
+    where borrar_desde is not null
+      and (id = (select autor_id from public.materiales where id = p_id)
+           or id in (select autor_id from public.afirmaciones where material_id = p_id));
+  end if;
 end $$;
 
 revoke execute on function public.marcar_material_para_borrar(uuid, boolean) from public, anon, authenticated;
