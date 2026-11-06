@@ -91,6 +91,42 @@ test("a 768 px window with a classic scrollbar still shows the two columns", asy
   expect((await cajaDe(firmaDe(page))).left).toBeGreaterThanOrEqual((await cajaDe(lectura(page))).right)
 })
 
+for (const { width, height } of [
+  { width: 1280, height: 780 },
+  { width: 1440, height: 790 },
+]) {
+  test(`on a ${width} x ${height} window, scrolling the rail to its end reaches the last slide and opens the signature`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height })
+    await abrir(page)
+    const riel = page.getByRole("list", { name: "Láminas" })
+    await riel.scrollIntoViewIfNeeded()
+    const caja = await cajaDe(riel)
+    // A trackpad swipe, not the arrows: the wheel moves the rail sideways until it stops.
+    await page.mouse.move(caja.left + caja.width / 2, caja.top + caja.height / 2)
+    for (let i = 0; i < 12; i++) await page.mouse.wheel(400, 0)
+    await expect(page.getByText("Lámina 6 de 6")).toBeVisible()
+    await expect(firmaDe(page).getByRole("slider", { name: "Desliza para programar" })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    )
+  })
+}
+
+test("a phone on its side keeps one column, with each slide at least 16 rem wide", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 })
+  await abrir(page)
+  expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
+  const lamina = await cajaDe(primeraLamina(page))
+  const rem = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
+  expect(lamina.width).toBeGreaterThanOrEqual(16 * rem)
+  // The signature is under what she reads, not beside it.
+  const firma = firmaDe(page)
+  await firma.scrollIntoViewIfNeeded()
+  expect((await cajaDe(firma)).left).toBeLessThan((await cajaDe(lectura(page))).right)
+})
+
 test("every control is at least 44 px tall", async ({ page }) => {
   await abrir(page)
   expect(await controlesBajos(page)).toEqual([])
@@ -116,7 +152,10 @@ test("with a large default text size the gate falls back to one column and the s
   await abrir(page)
   await conTextoDoble(page)
   expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
-  expect((await cajaDe(lectura(page))).width).toBeGreaterThan(1000)
+  // One column, the phone's: 560 px less the page's gutters, never a line as wide as the screen.
+  const ancho = (await cajaDe(lectura(page))).width
+  expect(ancho).toBeGreaterThan(400)
+  expect(ancho).toBeLessThanOrEqual(520)
   const firma = firmaDe(page).getByRole("slider", { name: "Desliza para programar" })
   await firma.scrollIntoViewIfNeeded()
   await expect(firma).toBeInViewport()
