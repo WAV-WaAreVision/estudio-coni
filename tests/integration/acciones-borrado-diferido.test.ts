@@ -199,6 +199,8 @@ describe("borrarAutor and recuperarAutor", () => {
 
   it("says it can no longer be recovered once maintenance deleted it, and that a missing author no longer exists", async () => {
     const id = await sembrarAutor(`Se va ${SUFIJO}`)
+    // Cleaned up even if an assertion fails before the delete below: a stray author breaks autores.test.ts.
+    autores.push(id)
     await borrarAutor({ db: coni }, id)
     await pool.query("delete from public.autores where id = $1", [id])
     expect(await recuperarAutor({ db: coni }, id)).toEqual({ ok: false, error: YA_NO_SE_RECUPERA })
