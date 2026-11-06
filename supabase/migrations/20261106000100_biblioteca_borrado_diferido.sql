@@ -10,6 +10,7 @@ create view public.materiales_visibles with (security_invoker = true) as
 select * from public.materiales where borrar_desde is null;
 create view public.autores_visibles with (security_invoker = true) as
 select * from public.autores where borrar_desde is null;
+revoke all on public.materiales_visibles, public.autores_visibles from anon, authenticated;
 grant select on public.materiales_visibles, public.autores_visibles to authenticated;
 
 -- Coni, or whoever uploaded the material, marks it. Same rule as today's delete policy.

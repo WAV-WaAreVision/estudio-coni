@@ -76,6 +76,18 @@ describe("the views of what is not marked", () => {
     })
   })
 
+  it("are readable by authenticated and not by anon", async () => {
+    const { rows } = await pool.query<{ vista: string; anon: boolean; autenticado: boolean }>(
+      `select v as vista, has_table_privilege('anon', v, 'select') as anon,
+              has_table_privilege('authenticated', v, 'select') as autenticado
+       from unnest(array['public.materiales_visibles', 'public.autores_visibles']) as v order by v`,
+    )
+    expect(rows).toEqual([
+      { vista: "public.autores_visibles", anon: false, autenticado: true },
+      { vista: "public.materiales_visibles", anon: false, autenticado: true },
+    ])
+  })
+
   it("index the marked rows for the maintenance sweep", async () => {
     const { rows } = await pool.query<{ indexname: string }>(
       "select indexname from pg_indexes where indexname in ('materiales_por_borrar', 'autores_por_borrar') order by 1",
