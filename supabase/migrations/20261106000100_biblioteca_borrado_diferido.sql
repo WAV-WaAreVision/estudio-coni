@@ -29,3 +29,29 @@ end $$;
 
 revoke execute on function public.marcar_material_para_borrar(uuid, boolean) from public, anon, authenticated;
 grant execute on function public.marcar_material_para_borrar(uuid, boolean) to authenticated;
+
+create function public.marcar_autor_para_borrar(p_id uuid, p_borrar boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not (public.es_coni() or public.es_mantenedor()) then
+    raise exception using errcode = '42501', message = 'sin_permiso';
+  end if;
+  if exists (select 1 from public.autores where id = p_id and tipo = 'coni') then
+    raise exception using errcode = '22023', message = 'autor_coni_protegido';
+  end if;
+  if p_borrar and (
+    exists (select 1 from public.materiales where autor_id = p_id and borrar_desde is null)
+    or exists (select 1 from public.afirmaciones f join public.materiales m on m.id = f.material_id
+               where f.autor_id = p_id and m.borrar_desde is null)
+  ) then
+    raise exception using errcode = '22023', message = 'autor_con_materiales';
+  end if;
+  update public.autores set borrar_desde = case when p_borrar then now() end
+  where id = p_id and (p_borrar = (borrar_desde is null));
+  if not found then
+    raise exception using errcode = '22023', message = 'no_se_pudo_marcar';
+  end if;
+end $$;
+
+revoke execute on function public.marcar_autor_para_borrar(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.marcar_autor_para_borrar(uuid, boolean) to authenticated;

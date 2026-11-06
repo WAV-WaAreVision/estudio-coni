@@ -146,3 +146,70 @@ describe("marcar_material_para_borrar", () => {
     expect(rows[0]).toEqual({ anon: false, autenticado: true })
   })
 })
+
+const idea = (c: Cliente, materialId: string, autorId: string, temaId: string | null, evidencia = "estudio") =>
+  uno(
+    c,
+    `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id)
+     values ($1, $2, 0, '{"pagina":1}'::jsonb, 'Una idea', 'cita', 'dato', $4, $3) returning id`,
+    [materialId, autorId, temaId, evidencia],
+  )
+
+describe("marcar_autor_para_borrar", () => {
+  it("marks and unmarks an author with nothing live", async () => {
+    await como(comoConi, async (c) => {
+      const id = await comoDueno(c, comoConi, () => autor(c, "Autor vacío"))
+      await c.query("select public.marcar_autor_para_borrar($1, true)", [id])
+      expect(await marcaDe(c, "autores", id)).toBe(true)
+      await c.query("select public.marcar_autor_para_borrar($1, false)", [id])
+      expect(await marcaDe(c, "autores", id)).toBe(false)
+    })
+  })
+
+  it("never marks Coni's own card", async () => {
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+      const error = await fallaCon(c, "select public.marcar_autor_para_borrar($1, true)", [rows[0]?.id])
+      expect([error.code, error.message]).toEqual(["22023", "autor_coni_protegido"])
+    })
+  })
+
+  it("refuses an author with a live material or a live idea, and allows it once they are marked", async () => {
+    await como(comoConi, async (c) => {
+      const [conMaterial, conIdea, materialPropio, materialAjeno] = await comoDueno(c, comoConi, async () => {
+        const a = await autor(c, "Autor con material")
+        const b = await autor(c, "Autor con idea")
+        const otro = await autor(c, "Autor del material ajeno")
+        const propio = await material(c, a)
+        const ajeno = await material(c, otro)
+        await idea(c, ajeno, b, null)
+        return [a, b, propio, ajeno]
+      })
+      for (const id of [conMaterial, conIdea]) {
+        const error = await fallaCon(c, "select public.marcar_autor_para_borrar($1, true)", [id])
+        expect([error.code, error.message]).toEqual(["22023", "autor_con_materiales"])
+      }
+      await c.query("select public.marcar_material_para_borrar($1, true)", [materialPropio])
+      await c.query("select public.marcar_material_para_borrar($1, true)", [materialAjeno])
+      await c.query("select public.marcar_autor_para_borrar($1, true)", [conMaterial])
+      await c.query("select public.marcar_autor_para_borrar($1, true)", [conIdea])
+      expect(await marcaDe(c, "autores", conMaterial)).toBe(true)
+      expect(await marcaDe(c, "autores", conIdea)).toBe(true)
+    })
+  })
+
+  it("refuses anyone who is not Coni or the maintainer, and says no_se_pudo_marcar for a missing author", async () => {
+    await como(comoOtra, async (c) => {
+      const error = await fallaCon(c, "select public.marcar_autor_para_borrar($1, true)", [
+        "00000000-0000-4000-8000-000000000000",
+      ])
+      expect([error.code, error.message]).toEqual(["42501", "sin_permiso"])
+    })
+    await como(comoMantenedor, async (c) => {
+      const error = await fallaCon(c, "select public.marcar_autor_para_borrar($1, true)", [
+        "00000000-0000-4000-8000-000000000000",
+      ])
+      expect([error.code, error.message]).toEqual(["22023", "no_se_pudo_marcar"])
+    })
+  })
+})
