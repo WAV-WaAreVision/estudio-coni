@@ -1,6 +1,7 @@
 import { Check, Info } from "@phosphor-icons/react/dist/ssr"
 import { Fragment, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { HuecoDeFirma } from "./hueco-de-firma"
 import { ICONO } from "./icono"
 
 interface PropiedadesDeBarra {
@@ -38,6 +39,7 @@ export function BarraDeFirma({
         className,
       )}
     >
+      <HuecoDeFirma />
       {arriba}
       {children}
       {consecuencia ? (

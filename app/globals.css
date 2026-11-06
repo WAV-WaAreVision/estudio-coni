@@ -660,3 +660,8 @@ body:has([data-superficie="marca"]) {
 main:has([data-barra-de-firma]) {
   padding-bottom: 0;
 }
+/* While the bar is pinned to the bottom, the control the Tab key reaches scrolls in above it, never under it (WCAG
+   2.4.11, issue #78). HuecoDeFirma measures the bar, and says 0 when it sticks to the top or sits in the flow. */
+html:has([data-barra-de-firma]) {
+  scroll-padding-bottom: var(--alto-firma-fija, 0px);
+}
