@@ -315,6 +315,47 @@ describe("borrar_lo_marcado", () => {
     })
   })
 
+  it("never deletes a row marked less than a minute ago by the database's clock, whatever cut it is given", async () => {
+    await como(comoServicio, async (c) => {
+      const { reciente, suelto } = await comoDueno(c, comoServicio, async () => {
+        const a = await autor(c, "Autora del reloj adelantado")
+        const s = await autor(c, "Autor del reloj adelantado")
+        const m = await material(c, a)
+        await marcar(c, "materiales", m, "10 seconds")
+        await marcar(c, "autores", s, "10 seconds")
+        return { reciente: m, suelto: s }
+      })
+      const { rows } = await c.query<{ borrados: string[] }>(
+        "select public.borrar_lo_marcado(now() + interval '1 hour') as borrados",
+      )
+      expect(rows[0]?.borrados).not.toContain(reciente)
+      await asumir(c, comoPostgres)
+      expect((await c.query("select 1 from public.materiales where id = $1", [reciente])).rowCount).toBe(1)
+      expect((await c.query("select 1 from public.autores where id = $1", [suelto])).rowCount).toBe(1)
+    })
+  })
+
+  it("unmarks a marked author that gained a live material or a live idea, so it does not stay hidden for good", async () => {
+    await como(comoServicio, async (c) => {
+      const { conMaterial, conIdea, suelto } = await comoDueno(c, comoServicio, async () => {
+        const m = await autor(c, "Autora que recibió un material")
+        const i = await autor(c, "Autor citado después de marcarlo")
+        const s = await autor(c, "Autor sin nada vivo")
+        await marcar(c, "autores", m, "10 minutes")
+        await marcar(c, "autores", i, "10 minutes")
+        await marcar(c, "autores", s, "10 minutes")
+        await material(c, m)
+        await idea(c, await material(c, await autor(c, "Autora viva")), i, null)
+        return { conMaterial: m, conIdea: i, suelto: s }
+      })
+      await c.query("select public.borrar_lo_marcado(now() - interval '1 minute')")
+      await asumir(c, comoPostgres)
+      expect(await marcaDe(c, "autores", conMaterial)).toBe(false)
+      expect(await marcaDe(c, "autores", conIdea)).toBe(false)
+      expect((await c.query("select 1 from public.autores where id = $1", [suelto])).rowCount).toBe(0)
+    })
+  })
+
   it("survives an author gaining a material between its check and its delete, and keeps the author marked", async () => {
     await como(comoServicio, async (c) => {
       const { tardio, borrable } = await comoDueno(c, comoServicio, async () => {

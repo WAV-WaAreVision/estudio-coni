@@ -72,8 +72,18 @@ declare
   borrados uuid[];
   autores_borrados integer := 0;
 begin
+  -- The cut comes from the worker's clock and the marks from this one: never closer than a minute to now(), so a
+  -- worker clock running ahead cannot delete inside the 8 seconds of «Deshacer».
+  p_antes := least(p_antes, now() - interval '1 minute');
   with b as (delete from public.materiales where borrar_desde < p_antes returning id)
   select coalesce(array_agg(id), '{}') into borrados from b;
+  -- An author marked while an edit or an upload gave it a material, or an idea, would stay hidden for good: nothing
+  -- else unmarks it and the delete below skips it. It comes back instead.
+  update public.autores a set borrar_desde = null
+   where a.borrar_desde is not null
+     and (exists (select 1 from public.materiales m where m.autor_id = a.id and m.borrar_desde is null)
+       or exists (select 1 from public.afirmaciones f join public.materiales m on m.id = f.material_id
+                   where f.autor_id = a.id and m.borrar_desde is null));
   -- afirmaciones.autor_id is on delete restrict: an author that still says something elsewhere is not deleted.
   -- A material or idea added between the check and the delete raises 23503; only the authors' part is undone,
   -- they stay marked for the next sweep and the materials (and their R2 ids) still go.
@@ -83,6 +93,7 @@ begin
       and not exists (select 1 from public.afirmaciones f where f.autor_id = a.id);
     get diagnostics autores_borrados = row_count;
   exception when foreign_key_violation then
+    raise warning 'borrar_lo_marcado: authors kept by a foreign key: %', sqlerrm;
     autores_borrados := 0;
   end;
   if cardinality(borrados) > 0 then
