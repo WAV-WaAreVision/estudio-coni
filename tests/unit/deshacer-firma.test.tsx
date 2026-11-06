@@ -89,7 +89,8 @@ describe("DeshacerFirma", () => {
     render(<DeshacerFirma piezaId="p1" version={6} quedanMs={8000} />)
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
     await screen.findByRole("alert")
-    expect(screen.getByText("Estoy grabando tu video.")).toHaveFocus()
+    // The focus moves in a passive effect, which can run after the alert is already in the DOM under load.
+    await waitFor(() => expect(screen.getByText("Estoy grabando tu video.")).toHaveFocus())
   })
 
   it("says the seconds really left when the screen opens mid-window", () => {
