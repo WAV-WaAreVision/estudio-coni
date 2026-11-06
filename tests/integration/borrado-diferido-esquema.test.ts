@@ -299,3 +299,39 @@ describe("borrar_lo_marcado", () => {
     })
   })
 })
+
+const tema = (c: Cliente, nombre: string) =>
+  uno(
+    c,
+    `insert into public.temas (nombre, centroide)
+     values ($1, (select array_agg(0.1)::extensions.vector from generate_series(1, 1024))) returning id`,
+    [nombre],
+  )
+
+describe("temas_resumen", () => {
+  it("counts neither the ideas, the authors nor the evidence of a marked material", async () => {
+    await como(comoConi, async (c) => {
+      const { temaId, marcado } = await comoDueno(c, comoConi, async () => {
+        const a = await autor(c, "Autora del tema")
+        const b = await autor(c, "Autor marcado del tema")
+        const t = await tema(c, "Tema del resumen")
+        const vivo = await material(c, a)
+        const otro = await material(c, b)
+        await idea(c, vivo, a, t, "estudio")
+        await idea(c, otro, b, t, "clinica")
+        await idea(c, otro, b, t, "clinica")
+        return { temaId: t, marcado: otro }
+      })
+      const leer = async () =>
+        (
+          await c.query<{ afirmaciones: number; autores: number; evidencia: Record<string, number> }>(
+            "select afirmaciones, autores, evidencia from public.temas_resumen where id = $1",
+            [temaId],
+          )
+        ).rows[0]
+      expect(await leer()).toEqual({ afirmaciones: 3, autores: 2, evidencia: { estudio: 1, clinica: 2 } })
+      await c.query("select public.marcar_material_para_borrar($1, true)", [marcado])
+      expect(await leer()).toEqual({ afirmaciones: 1, autores: 1, evidencia: { estudio: 1 } })
+    })
+  })
+})

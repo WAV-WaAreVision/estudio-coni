@@ -82,3 +82,37 @@ end $$;
 
 revoke execute on function public.borrar_lo_marcado(timestamptz) from public, anon, authenticated;
 grant execute on function public.borrar_lo_marcado(timestamptz) to service_role;
+
+-- Topic counts (Temas in Conidolly through temas_de_red, Ingesta's /temas, the motor) drop a marked material at once.
+-- Same body as 20261003000310, plus the mark in the join and in the evidence subquery.
+create or replace view public.temas_resumen with (security_invoker = true) as
+select
+  t.id, t.nombre, t.descripcion, t.categoria_id, t.alias, t.creado_en, t.actualizado_en,
+  coalesce(r.afirmaciones, 0) as afirmaciones,
+  coalesce(r.autores, 0) as autores,
+  coalesce(r.evidencia, '{}'::jsonb) as evidencia,
+  coalesce(r.cubierto_por_coni, false) as cubierto_por_coni,
+  r.ultima_afirmacion
+from public.temas t
+left join lateral (
+  select
+    count(*)::int as afirmaciones,
+    count(distinct x.autor_id)::int as autores,
+    (select jsonb_object_agg(e.evidencia, e.n)
+     from (
+       select a2.evidencia, count(*)::int as n
+       from public.afirmaciones a2
+       join public.materiales m2 on m2.id = a2.material_id
+       where a2.tema_id = t.id and not a2.excluida and m2.borrar_desde is null
+       group by a2.evidencia
+     ) e) as evidencia,
+    bool_or(x.rol = 'voz_propia') as cubierto_por_coni,
+    max(x.creada_en) as ultima_afirmacion
+  from (
+    select a.autor_id, a.creada_en, m.rol
+    from public.afirmaciones a
+    join public.materiales m on m.id = a.material_id
+    where a.tema_id = t.id and not a.excluida and m.borrar_desde is null
+  ) x
+) r on true
+where t.fusionado_en is null;

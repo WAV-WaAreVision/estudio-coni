@@ -107,10 +107,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "afirmaciones_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores_visibles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "afirmaciones_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
             referencedColumns: ["id"]
           },
           {
@@ -219,6 +233,7 @@ export type Database = {
       autores: {
         Row: {
           alias: string[]
+          borrar_desde: string | null
           creado_en: string
           creado_por: string | null
           credencial: string | null
@@ -229,6 +244,7 @@ export type Database = {
         }
         Insert: {
           alias?: string[]
+          borrar_desde?: string | null
           creado_en?: string
           creado_por?: string | null
           credencial?: string | null
@@ -239,6 +255,7 @@ export type Database = {
         }
         Update: {
           alias?: string[]
+          borrar_desde?: string | null
           creado_en?: string
           creado_por?: string | null
           credencial?: string | null
@@ -570,6 +587,13 @@ export type Database = {
             referencedRelation: "materiales"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "embeddings_ficha_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materiales_visibles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       eventos: {
@@ -672,6 +696,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: true
             referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fichas_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materiales_visibles"
             referencedColumns: ["id"]
           },
         ]
@@ -1102,6 +1133,7 @@ export type Database = {
           archivo_clave: string | null
           autor: string | null
           autor_id: string
+          borrar_desde: string | null
           categoria_id: string | null
           corrida_desde: string | null
           corrida_id: string | null
@@ -1127,6 +1159,7 @@ export type Database = {
           archivo_clave?: string | null
           autor?: string | null
           autor_id: string
+          borrar_desde?: string | null
           categoria_id?: string | null
           corrida_desde?: string | null
           corrida_id?: string | null
@@ -1152,6 +1185,7 @@ export type Database = {
           archivo_clave?: string | null
           autor?: string | null
           autor_id?: string
+          borrar_desde?: string | null
           categoria_id?: string | null
           corrida_desde?: string | null
           corrida_id?: string | null
@@ -1178,6 +1212,13 @@ export type Database = {
             columns: ["autor_id"]
             isOneToOne: false
             referencedRelation: "autores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores_visibles"
             referencedColumns: ["id"]
           },
           {
@@ -1218,6 +1259,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_archivos_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
             referencedColumns: ["id"]
           },
         ]
@@ -2024,6 +2072,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teoria_fuentes_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "teoria_fuentes_teoria_id_fkey"
             columns: ["teoria_id"]
             isOneToOne: false
@@ -2201,10 +2256,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vinculos_material_a_fkey"
+            columns: ["material_a"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vinculos_material_b_fkey"
             columns: ["material_b"]
             isOneToOne: false
             referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vinculos_material_b_fkey"
+            columns: ["material_b"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
             referencedColumns: ["id"]
           },
         ]
@@ -2229,6 +2298,152 @@ export type Database = {
       }
     }
     Views: {
+      autores_visibles: {
+        Row: {
+          alias: string[] | null
+          borrar_desde: string | null
+          creado_en: string | null
+          creado_por: string | null
+          credencial: string | null
+          id: string | null
+          nombre: string | null
+          nombre_normalizado: string | null
+          tipo: string | null
+        }
+        Insert: {
+          alias?: string[] | null
+          borrar_desde?: string | null
+          creado_en?: string | null
+          creado_por?: string | null
+          credencial?: string | null
+          id?: string | null
+          nombre?: string | null
+          nombre_normalizado?: string | null
+          tipo?: string | null
+        }
+        Update: {
+          alias?: string[] | null
+          borrar_desde?: string | null
+          creado_en?: string | null
+          creado_por?: string | null
+          credencial?: string | null
+          id?: string | null
+          nombre?: string | null
+          nombre_normalizado?: string | null
+          tipo?: string | null
+        }
+        Relationships: []
+      }
+      materiales_visibles: {
+        Row: {
+          anio: number | null
+          archivo_clave: string | null
+          autor: string | null
+          autor_id: string | null
+          borrar_desde: string | null
+          categoria_id: string | null
+          corrida_desde: string | null
+          corrida_id: string | null
+          costo_confirmado_en: string | null
+          costo_estimado_usd: number | null
+          creado_en: string | null
+          declaracion_sin_pacientes_en: string | null
+          estado: string | null
+          etiquetas: string[] | null
+          id: string | null
+          idioma_original: string | null
+          motivo_fallo: string | null
+          origen_url: string | null
+          rol: string | null
+          subido_por: string | null
+          texto_clave: string | null
+          texto_pegado: string | null
+          tipo: string | null
+          titulo: string | null
+        }
+        Insert: {
+          anio?: number | null
+          archivo_clave?: string | null
+          autor?: string | null
+          autor_id?: string | null
+          borrar_desde?: string | null
+          categoria_id?: string | null
+          corrida_desde?: string | null
+          corrida_id?: string | null
+          costo_confirmado_en?: string | null
+          costo_estimado_usd?: number | null
+          creado_en?: string | null
+          declaracion_sin_pacientes_en?: string | null
+          estado?: string | null
+          etiquetas?: string[] | null
+          id?: string | null
+          idioma_original?: string | null
+          motivo_fallo?: string | null
+          origen_url?: string | null
+          rol?: string | null
+          subido_por?: string | null
+          texto_clave?: string | null
+          texto_pegado?: string | null
+          tipo?: string | null
+          titulo?: string | null
+        }
+        Update: {
+          anio?: number | null
+          archivo_clave?: string | null
+          autor?: string | null
+          autor_id?: string | null
+          borrar_desde?: string | null
+          categoria_id?: string | null
+          corrida_desde?: string | null
+          corrida_id?: string | null
+          costo_confirmado_en?: string | null
+          costo_estimado_usd?: number | null
+          creado_en?: string | null
+          declaracion_sin_pacientes_en?: string | null
+          estado?: string | null
+          etiquetas?: string[] | null
+          id?: string | null
+          idioma_original?: string | null
+          motivo_fallo?: string | null
+          origen_url?: string | null
+          rol?: string | null
+          subido_por?: string | null
+          texto_clave?: string | null
+          texto_pegado?: string | null
+          tipo?: string | null
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "autores_visibles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "piezas_con_angulo"
+            referencedColumns: ["pilar_id"]
+          },
+        ]
+      }
       metricas_linkedin_ultima: {
         Row: {
           comentarios: number | null
@@ -2361,6 +2576,7 @@ export type Database = {
       archivar_ideas_de_pilares_retirados: { Args: never; Returns: number }
       archivar_ideas_del_motor: { Args: { p_semanas: number }; Returns: number }
       borrar_autor: { Args: { p_id: string }; Returns: undefined }
+      borrar_lo_marcado: { Args: { p_antes: string }; Returns: string[] }
       cambiar_diseno_de_carrusel: {
         Args: {
           p_diseno: Json
@@ -2941,8 +3157,16 @@ export type Database = {
       }
       limite_del_mes: { Args: { p_ahora?: string }; Returns: number }
       linkedin_conectado: { Args: never; Returns: boolean }
+      marcar_autor_para_borrar: {
+        Args: { p_borrar: boolean; p_id: string }
+        Returns: undefined
+      }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       marcar_inventario_revisado: { Args: never; Returns: string }
+      marcar_material_para_borrar: {
+        Args: { p_borrar: boolean; p_id: string }
+        Returns: undefined
+      }
       marcar_subido_como_coni: {
         Args: {
           p_destino: string
