@@ -35,8 +35,9 @@ export function falloDeBase(mensaje: string, error: { message: string }): Error 
   return new Error(`${mensaje}: ${error.message}`)
 }
 
+/** A marked material (deleted with «Deshacer») is gone for the run too: it must not cost anything more. */
 export async function existeMaterial(db: Db, id: string): Promise<boolean> {
-  const { data, error } = await db.from("materiales").select("id").eq("id", id).maybeSingle()
+  const { data, error } = await db.from("materiales").select("id").eq("id", id).is("borrar_desde", null).maybeSingle()
   if (error) throw falloDeBase("No pude leer el material", error)
   return data !== null
 }

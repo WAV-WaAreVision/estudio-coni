@@ -415,10 +415,10 @@ describe("errores", () => {
     expect((await material(id)).estado).toBe("listo")
   })
 
-  it("fails a material that does not exist as a configuration problem for WAV", async () => {
-    await expect(procesarMaterial(await deps(almacenEnMemoria()), crypto.randomUUID())).rejects.toThrow(
-      /No existe el material/,
-    )
+  it("ends a material that does not exist as deleted, without error (spec decision 5)", async () => {
+    expect(await procesarMaterial(await deps(almacenEnMemoria()), crypto.randomUUID())).toEqual({
+      resultado: "borrado",
+    })
   })
 })
 
@@ -550,6 +550,43 @@ describe("material borrado", () => {
     )
 
     expect(avisos.aWavEnviados).toEqual([])
+  })
+
+  it("stops before the paid step when the material is marked after the extraction, and leaves it retryable", async () => {
+    const base = almacenEnMemoria()
+    const claude = simularClaude()
+    const id = await crearMaterial(base, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    const almacen = {
+      ...base,
+      async subir(clave: string, datos: Uint8Array, tipo: string) {
+        await base.subir(clave, datos, tipo)
+        if (clave.endsWith("partes-original.json"))
+          await pool.query("update public.materiales set borrar_desde = now() where id = $1", [id])
+      },
+    }
+
+    const resultado = await procesarMaterial(await deps(almacen), id)
+
+    expect(resultado).toEqual({ resultado: "borrado" })
+    expect(claude.total).toBe(0)
+    expect(await gastos(id)).toEqual([])
+    // «Deshacer» brings it back with «Reintentar», not stuck in «Procesando» (plan D8).
+    const fila = await material(id)
+    expect(fila.estado).toBe("procesando")
+    expect(fila.motivo_fallo).toBe("Paré de procesarlo porque lo borraste. Toca Reintentar para seguir.")
+    expect(await corridaDe(id)).toBeNull()
+  })
+
+  it("does not start on a material already marked, spends nothing and leaves it retryable", async () => {
+    const claude = simularClaude()
+    const id = await crearMaterial(almacenEnMemoria(), { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set borrar_desde = now() where id = $1", [id])
+
+    expect(await procesarMaterial(await deps(almacenEnMemoria()), id)).toEqual({ resultado: "borrado" })
+    expect(claude.total).toBe(0)
+    expect((await material(id)).motivo_fallo).toBe(
+      "Paré de procesarlo porque lo borraste. Toca Reintentar para seguir.",
+    )
   })
 })
 
