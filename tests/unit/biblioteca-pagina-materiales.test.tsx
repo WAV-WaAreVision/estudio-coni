@@ -9,6 +9,7 @@ const { esConi, datos } = vi.hoisted(() => ({
     contarPorEstado: vi.fn(async () => ({ procesando: 0, fallido: 0, trabajando: 0 })),
     listarAutores: vi.fn(async () => []),
     leerPanelDelMaterial: vi.fn(async () => null),
+    leerNombreDeLoBorrado: vi.fn(async (..._: unknown[]): Promise<{ nombre: string | null } | null> => null),
   },
 }))
 vi.mock("@/lib/supabase/server", () => ({
@@ -27,10 +28,16 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
-vi.mock("@/app/(app)/biblioteca/acciones", () => ({ reintentarMaterialAccion: vi.fn(), confirmarCostoAccion: vi.fn() }))
+vi.mock("@/app/(app)/biblioteca/acciones", () => ({
+  reintentarMaterialAccion: vi.fn(),
+  confirmarCostoAccion: vi.fn(),
+  recuperarMaterialAccion: vi.fn(),
+}))
 
 import type { ReactElement, ReactNode } from "react"
+import { AvisoDeBorrado } from "@/app/(app)/biblioteca/aviso-de-borrado"
 import Materiales from "@/app/(app)/biblioteca/page"
+import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 
 type Elemento = ReactElement<{ children?: ReactNode; className?: string; activo?: boolean }>
@@ -110,5 +117,36 @@ describe("the Materiales page", () => {
     esConi.valor = true
     expect(conAviso(elementos(await Materiales({ searchParams: Promise.resolve({ subido: "1" }) })))).toBe(true)
     expect(conAviso(elementos(await Materiales({ searchParams: sinFiltros() })))).toBe(false)
+  })
+})
+
+describe("the note after a deletion", () => {
+  const ID = "11111111-2222-4333-8444-555555555555"
+
+  it("draws the toast with the deleted material's name and takes the note and the id out of the address", async () => {
+    esConi.valor = true
+    datos.leerNombreDeLoBorrado.mockResolvedValueOnce({ nombre: "Charla larga" })
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ aviso: "borrado", id: ID }) }))
+    expect(datos.leerNombreDeLoBorrado).toHaveBeenCalledWith(expect.anything(), "material", ID)
+    expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({
+      tipo: "material",
+      borrado: { id: ID, nombre: "Charla larga" },
+    })
+    expect(arbol.find((e) => e.type === TrasElAviso)?.props).toEqual({ parametro: "aviso", tambien: "id" })
+  })
+
+  it("keeps the toast mounted without a note, and reads nothing", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Materiales({ searchParams: sinFiltros() }))
+    expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({ tipo: "material", borrado: null })
+    expect(arbol.find((e) => e.type === TrasElAviso)).toBeUndefined()
+    expect(datos.leerNombreDeLoBorrado).not.toHaveBeenCalled()
+  })
+
+  it("shows no toast when the material is no longer marked (a stale address), but still cleans the address", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ aviso: "borrado", id: ID }) }))
+    expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({ tipo: "material", borrado: null })
+    expect(arbol.find((e) => e.type === TrasElAviso)).toBeDefined()
   })
 })
