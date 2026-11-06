@@ -43,7 +43,16 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
 /** What the topic jobs need, or null when they cannot run (no Claude key yet), which is not a failure. */
 export type ConstructorDeTemas = () => Promise<DepsMantenimientoTemas | null>
 
-export type DepsFrecuente = DepsConciliacion & DepsArranques & DepsBorrado & { temas: ConstructorDeTemas }
+export type DepsFrecuente = DepsConciliacion &
+  DepsArranques &
+  Omit<DepsBorrado, "almacen"> & {
+    /**
+     * Built only when the deletion runs: a store that cannot be built (R2's variables missing) fails that job alone,
+     * not the whole run every ten minutes.
+     */
+    almacen: () => DepsBorrado["almacen"]
+    temas: ConstructorDeTemas
+  }
 export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
   DepsTokenLinkedin &
@@ -77,7 +86,7 @@ async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ aviso
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
     // First: a deleted material's ideas leave before the topics job reads them.
-    borrado: () => borrarLoMarcado(deps),
+    borrado: () => borrarLoMarcado({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     voces: () => devolverVocesTrabadas(deps),

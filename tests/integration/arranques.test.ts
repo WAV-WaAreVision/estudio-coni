@@ -191,7 +191,7 @@ describe("mantenimientoFrecuente", () => {
 
     const resultado = await mantenimientoFrecuente({
       ...deps,
-      almacen: almacenEnMemoria(),
+      almacen: () => almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
     })
@@ -205,7 +205,7 @@ describe("mantenimientoFrecuente", () => {
 
     const resultado = await mantenimientoFrecuente({
       ...deps,
-      almacen: almacenEnMemoria(),
+      almacen: () => almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
     })

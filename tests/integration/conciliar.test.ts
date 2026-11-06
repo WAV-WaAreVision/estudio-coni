@@ -337,7 +337,7 @@ describe("mantenimientoFrecuente", () => {
     const armados: string[] = []
     const deps: DepsFrecuente = {
       ...base,
-      almacen: almacenEnMemoria(),
+      almacen: () => almacenEnMemoria(),
       dispararProduccion: async () => {},
       dispararArmado: async (piezaId) => {
         armados.push(piezaId)

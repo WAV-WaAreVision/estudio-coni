@@ -75,9 +75,10 @@ const TEMAS: DepsMantenimientoTemas = {
   claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
   llaveVoyage: () => undefined,
 }
+const ALMACEN = almacenEnMemoria()
 const FRECUENTE: DepsFrecuente = {
   db: DB,
-  almacen: almacenEnMemoria(),
+  almacen: () => ALMACEN,
   avisos: notificadorEnMemoria(),
   ahora: () => "2026-11-02T06:00:00.000Z",
   dispararGrabacion: async () => undefined,
@@ -91,7 +92,34 @@ describe("the ten-minute run", () => {
     const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
     const resultado = await mantenimientoFrecuente(FRECUENTE)
     expect(Object.keys(resultado)[0]).toBe("borrado")
-    expect(borrarLoMarcado).toHaveBeenCalledWith(FRECUENTE)
+    expect(borrarLoMarcado).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
+  })
+
+  it("fails only the deletion when the store cannot be built, and still runs every other job", async () => {
+    const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
+    const { reanudarArranques } = await import("@/lib/mantenimiento/arranques")
+    const { conciliarRenders } = await import("@/lib/mantenimiento/conciliar")
+    const { devolverVocesTrabadas } = await import("@/lib/mantenimiento/voces")
+    const { barrerGastos } = await import("@/lib/mantenimiento/gastos")
+    const { mantenerTemas } = await import("@/lib/mantenimiento/temas")
+    const sinR2: DepsFrecuente = {
+      ...FRECUENTE,
+      almacen: () => {
+        throw new Error("Falta R2_BUCKET")
+      },
+    }
+
+    const error = await mantenimientoFrecuente(sinR2).then(
+      () => new Error("se esperaba un rechazo"),
+      (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+    )
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect(error.message).toContain("borrado: Falta R2_BUCKET")
+    expect(borrarLoMarcado).not.toHaveBeenCalled()
+    for (const trabajo of [reanudarArranques, conciliarRenders, devolverVocesTrabadas, barrerGastos, mantenerTemas]) {
+      expect(trabajo).toHaveBeenCalled()
+    }
   })
 })
 

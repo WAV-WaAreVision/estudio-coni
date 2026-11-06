@@ -248,6 +248,7 @@ describe("maintenance runs", () => {
 
     const resultado = await mantenimientoFrecuente({
       ...base(),
+      almacen: () => almacenEnMemoria(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
       dispararArmado: async () => undefined,
@@ -261,6 +262,7 @@ describe("maintenance runs", () => {
   it("skips the topics job when its builder says there is nothing to work with", async () => {
     const resultado = await mantenimientoFrecuente({
       ...base(),
+      almacen: () => almacenEnMemoria(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
       dispararArmado: async () => undefined,
@@ -294,6 +296,7 @@ describe("maintenance runs", () => {
     const resultado = await conTopeChico(() =>
       mantenimientoFrecuente({
         ...base(),
+        almacen: () => almacenEnMemoria(),
         avisos,
         dispararGrabacion: async () => undefined,
         dispararProduccion: async () => undefined,
@@ -319,6 +322,7 @@ describe("maintenance runs", () => {
     const error = await conTopeChico(() =>
       mantenimientoFrecuente({
         ...base(),
+        almacen: () => almacenEnMemoria(),
         avisos,
         dispararGrabacion: async () => undefined,
         dispararProduccion: async () => undefined,
@@ -337,6 +341,7 @@ describe("maintenance runs", () => {
   it("lets a failing topics job through enSerie without stopping the rest", async () => {
     const error = await mantenimientoFrecuente({
       ...base(),
+      almacen: () => almacenEnMemoria(),
       dispararGrabacion: async () => undefined,
       dispararProduccion: async () => undefined,
       dispararArmado: async () => undefined,

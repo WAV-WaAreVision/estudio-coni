@@ -161,7 +161,7 @@ export function depsFrecuente(
 ): DepsFrecuente {
   return {
     db: clienteDeServicio(),
-    almacen: almacenReal(),
+    almacen: () => almacenReal(),
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
     dispararGrabacion,
