@@ -7,6 +7,7 @@ const { esConi, datos } = vi.hoisted(() => ({
     resumirAutores: vi.fn(async (): Promise<unknown[]> => []),
     leerAutor: vi.fn(async (): Promise<unknown> => null),
     listarAutores: vi.fn(async (): Promise<unknown[]> => []),
+    leerNombreDeLoBorrado: vi.fn(async (..._: unknown[]): Promise<{ nombre: string | null } | null> => null),
   },
 }))
 vi.mock("@/lib/supabase/server", () => ({
@@ -25,7 +26,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
-vi.mock("@/app/(app)/biblioteca/acciones", () => ({ unirAutoresAccion: vi.fn(), ocultarIdeaAccion: vi.fn() }))
+vi.mock("@/app/(app)/biblioteca/acciones", () => ({
+  unirAutoresAccion: vi.fn(),
+  ocultarIdeaAccion: vi.fn(),
+  borrarAutorAccion: vi.fn(),
+  recuperarAutorAccion: vi.fn(),
+}))
 
 import type { ReactElement, ReactNode } from "react"
 import DetalleDeAutor from "@/app/(app)/biblioteca/autores/[id]/page"
@@ -34,7 +40,9 @@ import { ListaDeAutores } from "@/app/(app)/biblioteca/autores/lista-de-autores"
 import Autores from "@/app/(app)/biblioteca/autores/page"
 import { PanelDeAutor } from "@/app/(app)/biblioteca/autores/panel-de-autor"
 import { SinMaterial } from "@/app/(app)/biblioteca/autores/sin-material"
+import { AvisoDeBorrado } from "@/app/(app)/biblioteca/aviso-de-borrado"
 import { AvisoDeIdeas } from "@/app/(app)/biblioteca/aviso-de-ideas"
+import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
 import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
@@ -202,5 +210,58 @@ describe("an author's page", () => {
     const arbol = elementos(await DetalleDeAutor(conId(ID, { mostrada: MOSTRADA })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_MOSTRAR)
     expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "mostrada" })
+  })
+})
+
+describe("deleting an author", () => {
+  const vacio = {
+    autor: { id: ID, nombre: "Instituto", credencial: null, tipo: "institucion", alias: [] },
+    materiales: 0,
+    ideas: 0,
+    grupos: [],
+    ocultas: [],
+  }
+
+  it("offers «Borrar autor» on an author with nothing, last on the page", async () => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(vacio)
+    const pagina = await DetalleDeAutor(conId(ID))
+    const arbol = elementos(pagina)
+    expect(arbol.find((e) => e.type === BotonBorrar)?.props).toEqual({ tipo: "autor", id: ID })
+    const hijos = (pagina as Elemento).props.children
+    const ultimo = (Array.isArray(hijos) ? hijos : [hijos]).filter(Boolean).at(-1)
+    expect(ultimo).toEqual(expect.objectContaining({ type: BotonBorrar }))
+  })
+
+  it.each([
+    ["Coni's own card", { ...vacio, autor: { ...vacio.autor, tipo: "coni" } }],
+    ["an author with a material", { ...vacio, materiales: 1 }],
+    ["an author with an idea", { ...vacio, ideas: 1 }],
+    ["an author with only hidden ideas", { ...vacio, ocultas: [OCULTA] }],
+  ])("never offers it on %s", async (_, leidoAhora) => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(leidoAhora)
+    const arbol = elementos(await DetalleDeAutor(conId(ID)))
+    expect(arbol.find((e) => e.type === BotonBorrar)).toBeUndefined()
+  })
+
+  it("draws the toast on Autores with the deleted author's name and cleans the address", async () => {
+    esConi.valor = true
+    datos.leerNombreDeLoBorrado.mockResolvedValueOnce({ nombre: "Instituto" })
+    const arbol = elementos(await Autores({ searchParams: Promise.resolve({ aviso: "borrado", id: ID }) }))
+    expect(datos.leerNombreDeLoBorrado).toHaveBeenCalledWith(expect.anything(), "autor", ID)
+    expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({
+      tipo: "autor",
+      borrado: { id: ID, nombre: "Instituto" },
+    })
+    expect(arbol.find((e) => e.type === TrasElAviso)?.props).toEqual({ parametro: "aviso", tambien: "id" })
+  })
+
+  it("keeps the toast mounted on Autores without a note, and reads nothing", async () => {
+    esConi.valor = true
+    const arbol = elementos(await Autores({ searchParams: Promise.resolve({}) }))
+    expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({ tipo: "autor", borrado: null })
+    expect(arbol.find((e) => e.type === TrasElAviso)).toBeUndefined()
+    expect(datos.leerNombreDeLoBorrado).not.toHaveBeenCalled()
   })
 })
