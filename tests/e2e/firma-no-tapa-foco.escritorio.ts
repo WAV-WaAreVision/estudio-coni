@@ -28,13 +28,18 @@ test.afterAll(async () => {
   await vaciarPiezasEIdeas()
 })
 
-/** Tabs from the top of main to the bar and lists every control that ends up under the pinned bar. */
+/**
+ * Tabs from the top of main to the bar and lists every control that ends up under the pinned bar. Fails when the walk
+ * never reaches the bar or checks no control, so an empty list always means the whole gate was walked.
+ */
 async function tapadosPorLaFirma(page: Page): Promise<string[]> {
   const barra = firmaDe(page)
   await expect(barra).toHaveCSS("position", "sticky")
   await expect(barra).toHaveCSS("bottom", "0px")
   await page.locator("main").focus()
   const tapados: string[] = []
+  let revisados = 0
+  let llegoALaBarra = false
   for (let i = 0; i < 60; i++) {
     await page.keyboard.press("Tab")
     const foco = await page.evaluate(() => {
@@ -50,7 +55,11 @@ async function tapadosPorLaFirma(page: Page): Promise<string[]> {
       }
     })
     if (!foco) continue
-    if (foco.enLaBarra) break
+    if (foco.enLaBarra) {
+      llegoALaBarra = true
+      break
+    }
+    revisados++
     const arribaDeLaBarra = (await cajaDe(barra)).top
     // A control taller than the room above the bar (the slide rail) cannot fit whole: its start shows above the bar.
     const cabe = foco.abajo - foco.arriba <= arribaDeLaBarra
@@ -59,6 +68,8 @@ async function tapadosPorLaFirma(page: Page): Promise<string[]> {
       : foco.arriba >= -0.5 && foco.arriba < arribaDeLaBarra
     if (!visible) tapados.push(`${foco.nombre}: ${foco.arriba}..${foco.abajo}, bar at ${arribaDeLaBarra}`)
   }
+  expect(llegoALaBarra, "Tab never reached the sign bar").toBe(true)
+  expect(revisados, "no control above the bar took the focus").toBeGreaterThan(0)
   return tapados
 }
 
