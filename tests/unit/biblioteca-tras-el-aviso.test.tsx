@@ -98,4 +98,10 @@ describe("TrasElAviso", () => {
     expect(llegadas).toHaveBeenCalledTimes(1)
     window.removeEventListener(EVENTO_DE_LLEGADA, llegadas)
   })
+
+  it("takes the deleted id out with the deletion's note, keeping the rest", () => {
+    en(`/biblioteca?estado=listo&aviso=borrado&id=${IDEA}`)
+    render(<TrasElAviso parametro="aviso" tambien="id" />)
+    expect(`${window.location.pathname}${window.location.search}`).toBe("/biblioteca?estado=listo")
+  })
 })
