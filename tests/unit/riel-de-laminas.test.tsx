@@ -47,4 +47,25 @@ describe("RielDeLaminas", () => {
     expect(screen.getByText("Lámina 3 de 3")).toBeInTheDocument()
     ancho.mockRestore()
   })
+
+  it("counts the end of the rail as the last slide when that slide is too narrow to snap to its start", () => {
+    // Six slides of 100 px in a 400 px rail: the last one starts at (100 + 12) * 5 = 560 px, but the rail stops at
+    // 712 - 400 = 312 px, where counting by slide width says slide 4.
+    const seis = Array.from({ length: 6 }, (_, i) => ({ texto: `Lámina ${i + 1}`, url: null }))
+    const ancho = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.getAttribute("aria-label") === "Láminas" ? 400 : 100
+    })
+    const largo = vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(712)
+    const alVerTodas = vi.fn()
+    render(<RielDeLaminas laminas={seis} alVerTodas={alVerTodas} />)
+    const riel = screen.getByRole("list", { name: "Láminas" })
+    riel.scrollLeft = 312
+    fireEvent.scroll(riel)
+    expect(screen.getByText("Lámina 6 de 6")).toBeInTheDocument()
+    expect(alVerTodas).toHaveBeenCalledTimes(1)
+    ancho.mockRestore()
+    largo.mockRestore()
+  })
 })

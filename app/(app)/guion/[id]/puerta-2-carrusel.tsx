@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
+import { CABECERA_EN_COLUMNAS, COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { BarraDeFirma, LineaDeFalta, ResumenListo } from "@/components/ui/barra-de-firma"
 import { Bloque } from "@/components/ui/bloque"
@@ -16,6 +17,7 @@ import { TEXTOS_DE_PROGRAMAR } from "@/lib/diseno/deslizador"
 import { type Lamina, MAXIMO_DEL_PEDIDO, TEXTO_SIN_CAMBIOS_DE_TEXTO } from "@/lib/dominio/carrusel"
 import type { DisenoDeCarrusel } from "@/lib/dominio/diseno-carrusel"
 import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
+import { cn } from "@/lib/utils"
 import { DescartarPieza } from "../../descartar-pieza"
 import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
 import { aprobarCarruselAccion, pedirCambioDeCarruselAccion } from "../../piezas/acciones"
@@ -86,135 +88,143 @@ export function PantallaPuerta2Carrusel({ datos }: { datos: DatosDePuerta2Carrus
   const errorDeAccion = firma.error ?? cambio.error
 
   return (
-    <div>
-      <header data-pilar={datos.pilar?.slug} className="grid gap-3">
-        <Volver href="/">Inicio</Volver>
-        <FilaMeta
-          className="mt-2"
-          pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
-          largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
-        />
-        <h1 className="text-pieza text-balance">{datos.titulo}</h1>
-      </header>
+    // On a tablet or a computer (critique 2026-11-05, puertas-escritorio) two columns: the slides and the post on the
+    // left; the date and the signature on the right, the signature sticking while she reads. The last row is 1fr: the
+    // reading column spans every row, so the signature's row takes the rest of its height.
+    <div data-ancho="puerta" className="@container">
+      <div className={cn(COLUMNAS_DE_PUERTA, "dos-columnas:grid-rows-[auto_auto_auto_1fr]")}>
+        <header data-pilar={datos.pilar?.slug} className={cn("grid gap-y-3", CABECERA_EN_COLUMNAS)}>
+          <Volver href="/">Inicio</Volver>
+          <FilaMeta
+            className="mt-2"
+            pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
+            largo={`${TEXTO_CARRUSEL_DE_LINKEDIN} · ${datos.laminas.length} láminas`}
+          />
+          <h1 className="text-pieza text-balance">{datos.titulo}</h1>
+        </header>
 
-      {datos.explicacion ? (
-        <div className="mt-4">
-          <Bloque tipo="aviso" titulo={datos.explicacion} />
+        {datos.explicacion ? (
+          <div className="mt-4 dos-columnas:col-start-2">
+            <Bloque tipo="aviso" titulo={datos.explicacion} />
+          </div>
+        ) : null}
+
+        <div data-testid="lectura-de-la-puerta" className="dos-columnas:col-start-1 dos-columnas:[grid-row:2/-1]">
+          <div className="mt-4">
+            <RielDeLaminas
+              laminas={datos.laminas.map((lamina, indice) => ({
+                texto: lamina.texto,
+                url: datos.imagenes[indice] ?? null,
+              }))}
+              alVerTodas={verTodas}
+            />
+          </div>
+
+          <Seccion titulo={TEXTO_ASI_SALE} id="texto-del-post">
+            <TextoDelPost texto={datos.textoPost} />
+            <MasOpciones forma="boton" titulo="Pedir cambio">
+              <fieldset className="elecciones grid border-0 p-0">
+                <legend className="mb-2 text-meta font-semibold">¿Qué quieres cambiar?</legend>
+                <Eleccion
+                  nombre="que-cambia"
+                  valor="texto"
+                  elegido={queCambia === "texto"}
+                  etiqueta="El texto"
+                  detalle={TEXTO_CAMBIO_TEXTO}
+                  alElegir={() => setQueCambia("texto")}
+                />
+                <Eleccion
+                  nombre="que-cambia"
+                  valor="diseno"
+                  elegido={queCambia === "diseno"}
+                  etiqueta="El diseño"
+                  detalle={TEXTO_CAMBIO_DISENO}
+                  alElegir={() => setQueCambia("diseno")}
+                />
+              </fieldset>
+              {queCambia === "diseno" ? (
+                <CambioDeDiseno
+                  piezaId={datos.id}
+                  version={datos.version}
+                  laminas={datos.laminas}
+                  diseno={datos.diseno}
+                  alHacerlo={redibujar}
+                />
+              ) : datos.cambiosQuedan === 0 ? (
+                <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_DE_TEXTO}</p>
+              ) : (
+                <div className="grid gap-2">
+                  <label htmlFor={idPedido} className="text-meta font-semibold">
+                    Escribe el cambio
+                  </label>
+                  <textarea
+                    id={idPedido}
+                    value={pedido}
+                    onChange={(evento) => setPedido(evento.target.value)}
+                    maxLength={MAXIMO_DEL_PEDIDO}
+                    aria-describedby={idAyuda}
+                    className="campo min-h-24 text-cuerpo font-normal text-tinta"
+                  />
+                  <p id={idAyuda} className="text-meta text-apagado">
+                    {TEXTO_AYUDA_DEL_PEDIDO} {textoCambiosQuedan(datos.cambiosQuedan)}
+                  </p>
+                  <Boton
+                    variante="secundario"
+                    deshabilitado={pedido.trim() === ""}
+                    cargando={cambio.pendiente}
+                    onClick={() =>
+                      cambio.ejecutar(() => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido), redibujar)
+                    }
+                  >
+                    Pedir este cambio
+                  </Boton>
+                </div>
+              )}
+            </MasOpciones>
+          </Seccion>
         </div>
-      ) : null}
 
-      <div className="mt-4">
-        <RielDeLaminas
-          laminas={datos.laminas.map((lamina, indice) => ({
-            texto: lamina.texto,
-            url: datos.imagenes[indice] ?? null,
-          }))}
-          alVerTodas={verTodas}
-        />
+        <Seccion titulo={TEXTO_CUANDO_SALE} id="fecha" className="dos-columnas:col-start-2 dos-columnas:mt-4">
+          <ElegirFecha
+            eleccion={eleccionDeFecha}
+            meta="LinkedIn · hora de Chile"
+            debajo={(iso) => lineaDeLinkedin(datos.linkedinExpiraEn, iso)}
+          />
+        </Seccion>
+
+        <div className="mt-8 dos-columnas:col-start-1">
+          <DescartarPieza piezaId={datos.id} version={datos.version} />
+        </div>
+
+        <BarraDeFirma
+          className={cn(FIRMA_EN_COLUMNA, "dos-columnas:[grid-row:-2/-1]")}
+          idConsecuencia={idConsecuencia}
+          consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
+          consecuenciaVaria
+          arriba={
+            <>
+              {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
+              {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
+              {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={["Láminas vistas", "Fecha"]} /> : null}
+            </>
+          }
+        >
+          <DeslizarParaAprobar
+            habilitado={falta.tipo === "nada"}
+            enviando={firma.pendiente}
+            {...TEXTOS_DE_PROGRAMAR}
+            describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
+            alFirmar={() => {
+              if (fechaElegida) {
+                firma.ejecutar(
+                  () => aprobarCarruselAccion(datos.id, datos.version, datos.carruselId, fechaElegida.iso),
+                  redibujar,
+                )
+              }
+            }}
+          />
+        </BarraDeFirma>
       </div>
-
-      <Seccion titulo={TEXTO_ASI_SALE} id="texto-del-post">
-        <TextoDelPost texto={datos.textoPost} />
-        <MasOpciones forma="boton" titulo="Pedir cambio">
-          <fieldset className="elecciones grid border-0 p-0">
-            <legend className="mb-2 text-meta font-semibold">¿Qué quieres cambiar?</legend>
-            <Eleccion
-              nombre="que-cambia"
-              valor="texto"
-              elegido={queCambia === "texto"}
-              etiqueta="El texto"
-              detalle={TEXTO_CAMBIO_TEXTO}
-              alElegir={() => setQueCambia("texto")}
-            />
-            <Eleccion
-              nombre="que-cambia"
-              valor="diseno"
-              elegido={queCambia === "diseno"}
-              etiqueta="El diseño"
-              detalle={TEXTO_CAMBIO_DISENO}
-              alElegir={() => setQueCambia("diseno")}
-            />
-          </fieldset>
-          {queCambia === "diseno" ? (
-            <CambioDeDiseno
-              piezaId={datos.id}
-              version={datos.version}
-              laminas={datos.laminas}
-              diseno={datos.diseno}
-              alHacerlo={redibujar}
-            />
-          ) : datos.cambiosQuedan === 0 ? (
-            <p className="mx-0.5 text-meta text-apagado">{TEXTO_SIN_CAMBIOS_DE_TEXTO}</p>
-          ) : (
-            <div className="grid gap-2">
-              <label htmlFor={idPedido} className="text-meta font-semibold">
-                Escribe el cambio
-              </label>
-              <textarea
-                id={idPedido}
-                value={pedido}
-                onChange={(evento) => setPedido(evento.target.value)}
-                maxLength={MAXIMO_DEL_PEDIDO}
-                aria-describedby={idAyuda}
-                className="campo min-h-24 text-cuerpo font-normal text-tinta"
-              />
-              <p id={idAyuda} className="text-meta text-apagado">
-                {TEXTO_AYUDA_DEL_PEDIDO} {textoCambiosQuedan(datos.cambiosQuedan)}
-              </p>
-              <Boton
-                variante="secundario"
-                deshabilitado={pedido.trim() === ""}
-                cargando={cambio.pendiente}
-                onClick={() =>
-                  cambio.ejecutar(() => pedirCambioDeCarruselAccion(datos.id, datos.version, pedido), redibujar)
-                }
-              >
-                Pedir este cambio
-              </Boton>
-            </div>
-          )}
-        </MasOpciones>
-      </Seccion>
-
-      <Seccion titulo={TEXTO_CUANDO_SALE} id="fecha">
-        <ElegirFecha
-          eleccion={eleccionDeFecha}
-          meta="LinkedIn · hora de Chile"
-          debajo={(iso) => lineaDeLinkedin(datos.linkedinExpiraEn, iso)}
-        />
-      </Seccion>
-
-      <div className="mt-8">
-        <DescartarPieza piezaId={datos.id} version={datos.version} />
-      </div>
-
-      <BarraDeFirma
-        idConsecuencia={idConsecuencia}
-        consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
-        consecuenciaVaria
-        arriba={
-          <>
-            {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
-            {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={["Láminas vistas", "Fecha"]} /> : null}
-          </>
-        }
-      >
-        <DeslizarParaAprobar
-          habilitado={falta.tipo === "nada"}
-          enviando={firma.pendiente}
-          {...TEXTOS_DE_PROGRAMAR}
-          describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
-          alFirmar={() => {
-            if (fechaElegida) {
-              firma.ejecutar(
-                () => aprobarCarruselAccion(datos.id, datos.version, datos.carruselId, fechaElegida.iso),
-                redibujar,
-              )
-            }
-          }}
-        />
-      </BarraDeFirma>
     </div>
   )
 }

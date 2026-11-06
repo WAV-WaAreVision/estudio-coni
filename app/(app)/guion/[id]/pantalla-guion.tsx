@@ -9,6 +9,7 @@ import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
 import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { LineaDeFuente } from "@/components/linea-de-fuente"
+import { CABECERA_EN_COLUMNAS, COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { TextoLinkedinEnLectura } from "@/components/texto-linkedin-en-lectura"
 import { Aviso } from "@/components/ui/aviso"
@@ -32,6 +33,7 @@ import { cifraDeRevision } from "@/lib/diseno/revision"
 import { etiquetasDe } from "@/lib/dominio/etiquetas"
 import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import type { Hallazgo } from "@/lib/dominio/revision"
+import { cn } from "@/lib/utils"
 import { DescartarPieza } from "../../descartar-pieza"
 import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
@@ -207,11 +209,8 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
     // where the signature sticks while she reads. Below 40rem of container (a phone, or a large text) the div stays a block
     // and none of the dos-columnas classes apply.
     <div data-ancho="puerta" className="@container">
-      <div className="dos-columnas:grid dos-columnas:grid-cols-[minmax(0,1fr)_minmax(15rem,17rem)] dos-columnas:grid-rows-[auto_repeat(5,auto)_1fr] dos-columnas:justify-center dos-columnas:gap-x-8 dos-columnas:pb-[var(--final-pagina)] dos-columnas-amplias:grid-cols-[minmax(0,40rem)_minmax(16rem,22rem)] dos-columnas-amplias:gap-x-12">
-        <header
-          data-pilar={datos.pilar?.slug}
-          className="grid gap-y-3 dos-columnas:col-span-full dos-columnas:grid-cols-subgrid dos-columnas:*:col-start-1"
-        >
+      <div className={cn(COLUMNAS_DE_PUERTA, "dos-columnas:grid-rows-[auto_repeat(5,auto)_1fr]")}>
+        <header data-pilar={datos.pilar?.slug} className={cn("grid gap-y-3", CABECERA_EN_COLUMNAS)}>
           <Volver href="/">Inicio</Volver>
           {/* The short name keeps pillar, format and length on one line. */}
           <FilaMeta
@@ -383,7 +382,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
 
         {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
         <BarraDeFirma
-          className="dos-columnas:col-start-2 dos-columnas:mx-0 dos-columnas:[grid-row:-2/-1] dos-columnas:self-start dos-columnas:top-6 dos-columnas:bottom-auto dos-columnas:rounded-barra dos-columnas:pb-[14px] dos-columnas:shadow-relieve"
+          className={cn(FIRMA_EN_COLUMNA, "dos-columnas:[grid-row:-2/-1]")}
           idConsecuencia={idConsecuencia}
           consecuencia={grabacion.lineaDeFirma}
           arriba={

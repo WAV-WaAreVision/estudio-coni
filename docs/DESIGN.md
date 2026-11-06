@@ -153,7 +153,14 @@ LinkedIn (emojis en serie, ganchos) y la app de bienestar con texto pastel sobre
 
 Movimiento responsivo, sin coreografía: el relieve se hunde en 150 ms al tocar y vuelve con
 `cubic-bezier(0.23, 1, 0.32, 1)`; los cambios de estado duran 200 ms; con reducir movimiento, todo
-es instantáneo. Columna de lectura de 560 px como máximo en tablet y computador.
+es instantáneo.
+
+Regla común (Federico, 05-11-2026): en el teléfono, una columna. En tablet y computador cada pantalla se revisa con una
+skill de UX y se reordena para usar el ancho: columna de lectura (40rem como máximo, unos 70 caracteres) más una columna
+de decisión pegada arriba, o tabla más panel lateral. Nunca un panel flotante que tape lo que ella revisa. Las dos
+columnas se activan con un contenedor de 40rem o más y una ventana de 40rem de alto o más; si no (letra grande, un
+celular de lado), la pantalla vuelve a la columna de 560 px. Las pantallas aún no revisadas siguen en la columna de
+560 px hasta su revisión.
 
 **Key Characteristics:**
 - Fondo y superficies del mismo color piedra; la profundidad sale de la doble sombra, no de bordes.
@@ -318,7 +325,15 @@ los avisos del celular; nunca un proveedor.
   «Descartar» queda al pie de la columna del guion. Con letra grande vuelve a la columna única del teléfono.
 - **Puerta 2:** el video 9:16 al ancho de la columna (sin achicarse con letra grande), con «Míralo
   completo para poder firmar» sobre el cuadro hasta que ella lo inicia. Con LinkedIn entre los
-  destinos, su texto va primero y el de Instagram se pliega debajo.
+  destinos, su texto va primero y el de Instagram se pliega debajo. En tablet y computador, dos
+  columnas: a la izquierda el video, tan alto como cabe entero en la ventana, y bajo él los textos; a
+  la derecha el título, «Lo viste completo», la casilla de revisión, «Dónde y cuándo», «Más opciones» y
+  la firma, pegada arriba mientras lee los textos.
+- **Carrusel:** las mismas dos columnas en sus dos puertas. Puerta 1: las láminas y el texto del post
+  (con su revisión y «Pedir cambio») a la izquierda; el ángulo y la firma a la derecha. Puerta 2: el
+  riel y el post a la izquierda, cada lámina del ancho con que LinkedIn la muestra pero acotada para
+  que ella, las flechas y el contador quepan en la ventana; «Cuándo sale» y la firma a la derecha.
+  «Descartar» al pie de la columna de lectura. Con letra grande, la columna única del teléfono.
 
 ## 6. Do's and Don'ts
 

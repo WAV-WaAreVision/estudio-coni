@@ -6,6 +6,7 @@ import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { faltanDelVideo, TEXTO_SIN_VER } from "@/lib/diseno/video"
 import { mmss } from "@/lib/formato"
+import { cn } from "@/lib/utils"
 import { useReproduccion } from "./use-reproduccion"
 
 interface PropiedadesDeVideo {
@@ -15,6 +16,8 @@ interface PropiedadesDeVideo {
   alVerCompleto: () => void
   /** Shows where Instagram puts its own text and buttons over the video. */
   zonas: boolean
+  /** The frame's size from the screen around it (by the window's height in a gate's column on a computer). */
+  className?: string
 }
 
 const INSIGNIA =
@@ -25,7 +28,7 @@ const INSIGNIA =
  * subtitles, narrowed only so all of it fits above the sign bar on load (16rem: the back link and the bar). Raised,
  * with "Avatar IA" and, while it plays, what is left. The controls are one row on the bottom strip: play, rail, time.
  */
-export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: PropiedadesDeVideo) {
+export function ReproductorVideo({ src, clave, alVerCompleto, zonas, className }: PropiedadesDeVideo) {
   const { elemento, eventos, visto, reproduciendo, tiempo, duracion, conError, alternar, buscar } =
     useReproduccion<HTMLVideoElement>({ clave, alTerminar: alVerCompleto })
   const falla = src === null || conError
@@ -40,7 +43,10 @@ export function ReproductorVideo({ src, clave, alVerCompleto, zonas }: Propiedad
         role="presentation"
         data-testid="reproductor-video"
         onClick={alternar}
-        className="video-puerta relative mx-auto aspect-[9/16] w-full max-w-[calc((100svh-16rem)*9/16)] overflow-hidden rounded-video bg-video text-luz shadow-relieve"
+        className={cn(
+          "video-puerta relative mx-auto aspect-[9/16] w-full max-w-[calc((100svh-16rem)*9/16)] overflow-hidden rounded-video bg-video text-luz shadow-relieve",
+          className,
+        )}
       >
         {src ? (
           <video

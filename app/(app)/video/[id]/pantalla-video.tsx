@@ -3,6 +3,7 @@
 import { useCallback, useId, useState } from "react"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { MensajeDePrimeraVez } from "@/components/mensaje-primera-vez"
+import { COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
 import { ReproductorVideo } from "@/components/reproductor-video"
 import { Seccion } from "@/components/seccion"
 import { TextoDeInstagram } from "@/components/texto-de-instagram"
@@ -24,6 +25,7 @@ import { type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import { textoDeLinkedinDesdeInstagram } from "@/lib/dominio/linkedin"
 import { etiquetaDePilar, type PilarVisible } from "@/lib/dominio/pilares"
 import { type Hallazgo, hallazgosDeLaAprobacion, sinLinkedin } from "@/lib/dominio/revision"
+import { cn } from "@/lib/utils"
 import { marcarAvatarVistoAccion } from "../../ajustes/acciones"
 import { ElegirFecha, useEleccionDeFecha } from "../../elegir-fecha"
 import { aprobarVideoAccion, editarTextoLinkedinAccion, regrabarAccion } from "../../piezas/acciones"
@@ -138,162 +140,181 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
   )
 
   return (
-    <div>
-      <Volver href="/">Inicio</Volver>
-      <div className="mt-3">
-        <ReproductorVideo
-          src={datos.videoUrl}
-          clave={datos.videoId}
-          alVerCompleto={() => setVisto(true)}
-          zonas={zonas && conInstagram}
-        />
-      </div>
-
-      <FilaMeta
-        className="mt-[18px]"
-        pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
-        largo={`${datos.segundos} s`}
-      />
-      <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
-      {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
-      <div className="mt-3">
-        <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
-      </div>
-
-      {datos.primeraVez ? (
-        <div className="mt-6">
-          <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} />
+    // On a tablet or a computer (critique 2026-11-05, puertas-escritorio) two columns: on the left the video, as tall as
+    // the window lets it be whole and on the left edge of «Inicio» (Federico, 05-11), and under it the texts that go
+    // out with it; on the right the title, her check, the date, Más opciones and the signature, which sticks while she
+    // reads the texts. The video spans the right column's rows down to a 1fr row, so it never stretches them; the
+    // signature's rows run on beside the texts.
+    <div data-ancho="puerta" className="@container">
+      <div className={cn(COLUMNAS_DE_PUERTA, "dos-columnas:grid-rows-[auto_auto_auto_1fr_auto]")}>
+        {/* Placed by the grid in the first free cell: the top of the left column. */}
+        <Volver href="/">Inicio</Volver>
+        <div className="mt-3 dos-columnas:col-start-1 dos-columnas:[grid-row:2/5]">
+          <ReproductorVideo
+            src={datos.videoUrl}
+            clave={datos.videoId}
+            alVerCompleto={() => setVisto(true)}
+            zonas={zonas && conInstagram}
+            className="dos-columnas:mx-0 dos-columnas:max-w-[max(16rem,calc((100svh-7rem)*9/16))]"
+          />
         </div>
-      ) : null}
-      {datos.explicacion ? (
-        <Bloque tipo="aviso" className="mt-6">
-          <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={TEXTO_ALGO_FALLO} />
-        </Bloque>
-      ) : null}
 
-      {/* With LinkedIn among the destinations its text leads, as it will be published; the caption folds under it. */}
-      {conLinkedin ? (
-        <Seccion titulo="Así sale en LinkedIn" id="texto-linkedin">
-          <TextoLinkedin
-            piezaId={datos.id}
-            version={datos.version}
-            texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
-            guardado={datos.textoLinkedin !== null}
-            alGuardar={editarTextoLinkedinAccion}
-            alEditar={setEditandoLinkedin}
+        <div className="dos-columnas:col-start-2 dos-columnas:row-start-2">
+          <FilaMeta
+            className="mt-[18px] dos-columnas:mt-3"
+            pilar={datos.pilar ? etiquetaDePilar(datos.pilar) : undefined}
+            largo={`${datos.segundos} s`}
           />
-          {datos.textoLinkedin !== null ? revisionDeLinkedin.map(panelDe) : null}
-        </Seccion>
-      ) : null}
-
-      {conInstagram && conLinkedin ? (
-        <MasOpciones className="mt-8" titulo="Así sale en Instagram">
-          <TextoDeInstagram
-            piezaId={datos.id}
-            version={datos.version}
-            texto={datos.texto}
-            alEditar={setEditandoElTexto}
-          />
-        </MasOpciones>
-      ) : conInstagram ? (
-        <Seccion titulo="Así sale en Instagram" id="texto">
-          <TextoDeInstagram
-            piezaId={datos.id}
-            version={datos.version}
-            texto={datos.texto}
-            alEditar={setEditandoElTexto}
-          />
-        </Seccion>
-      ) : null}
-
-      {revisionDelTexto.length > 0 ? (
-        <Seccion titulo="Revisión" id="revision">
-          {/* The caption findings count whatever the destinations: without Instagram its editor lives here. */}
-          {conInstagram ? null : (
-            <TextoDeInstagram
-              piezaId={datos.id}
-              version={datos.version}
-              texto={datos.texto}
-              alEditar={setEditandoElTexto}
-            />
-          )}
-          {revisionDelTexto.map(panelDe)}
-        </Seccion>
-      ) : null}
-
-      <Seccion titulo="Dónde y cuándo" id="fecha">
-        <ElegirFecha eleccion={eleccionDeFecha} meta={`${nombreDeDestinos(destinos)} · hora de Chile`} />
-      </Seccion>
-
-      <MasOpciones className="mt-8" titulo="Más opciones" resumen={resumenDeMasOpciones(destinos)}>
-        <ElegirDestinos
-          elegidos={destinos}
-          instagramConectado={datos.instagramConectado}
-          linkedinConectado={datos.linkedinConectado}
-          alCambiar={setDestinos}
-        />
-        {conInstagram ? (
-          <Boton variante="callado" aria-pressed={zonas} onClick={() => setZonas((actual) => !actual)}>
-            {zonas ? "Ocultar" : "Ver"} zonas de Instagram
-          </Boton>
-        ) : null}
-        {regrabando ? (
-          <ConfirmacionEnLinea
-            trato="destructivo"
-            pregunta={`Se vuelve a grabar con tu avatar y este video se descarta.${
-              datos.costoDeRegrabar ? ` Regrabar cuesta unos ${datos.costoDeRegrabar}.` : ""
-            } ¿Seguro?`}
-            confirmar="Sí, regrabar"
-            volver="Volver"
-            cargando={regrabacion.pendiente}
-            alConfirmar={() =>
-              regrabacion.ejecutar(
-                () => regrabarAccion(datos.id, datos.version),
-                (r) => setAviso(r.advertencia ?? null),
-              )
-            }
-            alVolver={() => setRegrabando(false)}
-          />
-        ) : (
-          <div className="grid gap-1.5">
-            <Boton
-              variante="secundario"
-              tamano="chico"
-              className="w-full"
-              precio={datos.costoDeRegrabar ?? undefined}
-              onClick={() => setRegrabando(true)}
-            >
-              Regrabar video
-            </Boton>
-            <p className="mx-0.5 text-meta text-apagado">Se vuelve a grabar con tu avatar y este video se descarta.</p>
+          <h1 className="mt-1.5 text-pieza text-balance">{datos.titulo}</h1>
+          {visto ? <LineaDeEstado tipo="exito" titulo="Lo viste completo" className="mt-3" /> : null}
+          <div className="mt-3">
+            <Casilla etiqueta="Revisé labios, nombre, subtítulos y cortes" marcada={revisado} alCambiar={setRevisado} />
           </div>
-        )}
-      </MasOpciones>
 
-      {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
-      <BarraDeFirma
-        idConsecuencia={idConsecuencia}
-        consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
-        consecuenciaVaria
-        arriba={
-          <>
-            {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
-            {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
-            {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={LISTO_PARA_FIRMAR} /> : null}
-          </>
-        }
-      >
-        <DeslizarParaAprobar
-          habilitado={falta.tipo === "nada"}
-          enviando={aprobacion.pendiente}
-          describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
-          alFirmar={() => {
-            if (fechaElegida) {
-              aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fechaElegida.iso, destinos))
-            }
-          }}
-        />
-      </BarraDeFirma>
+          {datos.primeraVez ? (
+            <div className="mt-6">
+              <MensajeDePrimeraVez marcar={marcarAvatarVistoAccion} />
+            </div>
+          ) : null}
+          {datos.explicacion ? (
+            <Bloque tipo="aviso" className="mt-6">
+              <ExplicacionParaConi texto={datos.explicacion} enSusPalabras={TEXTO_ALGO_FALLO} />
+            </Bloque>
+          ) : null}
+        </div>
+
+        {/* Its mt-8 stands in for the first section's, which a first child drops. */}
+        <div data-testid="lectura-de-la-puerta" className="mt-8 dos-columnas:col-start-1 dos-columnas:row-start-5">
+          {/* With LinkedIn among the destinations its text leads, as it will be published; the caption folds under it. */}
+          {conLinkedin ? (
+            <Seccion titulo="Así sale en LinkedIn" id="texto-linkedin">
+              <TextoLinkedin
+                piezaId={datos.id}
+                version={datos.version}
+                texto={datos.textoLinkedin ?? textoDeLinkedinDesdeInstagram(datos.texto)}
+                guardado={datos.textoLinkedin !== null}
+                alGuardar={editarTextoLinkedinAccion}
+                alEditar={setEditandoLinkedin}
+              />
+              {datos.textoLinkedin !== null ? revisionDeLinkedin.map(panelDe) : null}
+            </Seccion>
+          ) : null}
+
+          {conInstagram && conLinkedin ? (
+            <MasOpciones className="mt-8" titulo="Así sale en Instagram">
+              <TextoDeInstagram
+                piezaId={datos.id}
+                version={datos.version}
+                texto={datos.texto}
+                alEditar={setEditandoElTexto}
+              />
+            </MasOpciones>
+          ) : conInstagram ? (
+            <Seccion titulo="Así sale en Instagram" id="texto">
+              <TextoDeInstagram
+                piezaId={datos.id}
+                version={datos.version}
+                texto={datos.texto}
+                alEditar={setEditandoElTexto}
+              />
+            </Seccion>
+          ) : null}
+
+          {revisionDelTexto.length > 0 ? (
+            <Seccion titulo="Revisión" id="revision">
+              {/* The caption findings count whatever the destinations: without Instagram its editor lives here. */}
+              {conInstagram ? null : (
+                <TextoDeInstagram
+                  piezaId={datos.id}
+                  version={datos.version}
+                  texto={datos.texto}
+                  alEditar={setEditandoElTexto}
+                />
+              )}
+              {revisionDelTexto.map(panelDe)}
+            </Seccion>
+          ) : null}
+        </div>
+
+        <div className="mt-8 dos-columnas:col-start-2 dos-columnas:row-start-3">
+          <Seccion titulo="Dónde y cuándo" id="fecha">
+            <ElegirFecha eleccion={eleccionDeFecha} meta={`${nombreDeDestinos(destinos)} · hora de Chile`} />
+          </Seccion>
+
+          <MasOpciones className="mt-8" titulo="Más opciones" resumen={resumenDeMasOpciones(destinos)}>
+            <ElegirDestinos
+              elegidos={destinos}
+              instagramConectado={datos.instagramConectado}
+              linkedinConectado={datos.linkedinConectado}
+              alCambiar={setDestinos}
+            />
+            {conInstagram ? (
+              <Boton variante="callado" aria-pressed={zonas} onClick={() => setZonas((actual) => !actual)}>
+                {zonas ? "Ocultar" : "Ver"} zonas de Instagram
+              </Boton>
+            ) : null}
+            {regrabando ? (
+              <ConfirmacionEnLinea
+                trato="destructivo"
+                pregunta={`Se vuelve a grabar con tu avatar y este video se descarta.${
+                  datos.costoDeRegrabar ? ` Regrabar cuesta unos ${datos.costoDeRegrabar}.` : ""
+                } ¿Seguro?`}
+                confirmar="Sí, regrabar"
+                volver="Volver"
+                cargando={regrabacion.pendiente}
+                alConfirmar={() =>
+                  regrabacion.ejecutar(
+                    () => regrabarAccion(datos.id, datos.version),
+                    (r) => setAviso(r.advertencia ?? null),
+                  )
+                }
+                alVolver={() => setRegrabando(false)}
+              />
+            ) : (
+              <div className="grid gap-1.5">
+                <Boton
+                  variante="secundario"
+                  tamano="chico"
+                  className="w-full"
+                  precio={datos.costoDeRegrabar ?? undefined}
+                  onClick={() => setRegrabando(true)}
+                >
+                  Regrabar video
+                </Boton>
+                <p className="mx-0.5 text-meta text-apagado">
+                  Se vuelve a grabar con tu avatar y este video se descarta.
+                </p>
+              </div>
+            )}
+          </MasOpciones>
+        </div>
+
+        {aviso ? <Aviso mensaje={aviso} alCerrar={cerrarAviso} lugar="arriba" /> : null}
+        <BarraDeFirma
+          className={cn(FIRMA_EN_COLUMNA, "dos-columnas:[grid-row:4/-1]")}
+          idConsecuencia={idConsecuencia}
+          consecuencia={fechaElegida ? `Sale el ${fechaElegida.corta}` : undefined}
+          consecuenciaVaria
+          arriba={
+            <>
+              {errorDeAccion ? <Bloque tipo="error" titulo={errorDeAccion} /> : null}
+              {falta.tipo === "falta" ? <LineaDeFalta id={idFalta} cosas={falta.cosas} /> : null}
+              {falta.tipo === "nada" ? <ResumenListo id={idFalta} cosas={LISTO_PARA_FIRMAR} /> : null}
+            </>
+          }
+        >
+          <DeslizarParaAprobar
+            habilitado={falta.tipo === "nada"}
+            enviando={aprobacion.pendiente}
+            describidoPor={fechaElegida ? `${idFalta} ${idConsecuencia}` : idFalta}
+            alFirmar={() => {
+              if (fechaElegida) {
+                aprobacion.ejecutar(() => aprobarVideoAccion(datos.id, datos.version, fechaElegida.iso, destinos))
+              }
+            }}
+          />
+        </BarraDeFirma>
+      </div>
     </div>
   )
 }
