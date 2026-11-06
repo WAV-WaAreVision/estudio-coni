@@ -52,6 +52,22 @@ describe("FocoDelPanel", () => {
     expect(screen.getByRole("link", { name: "Burnout" })).toHaveFocus()
   })
 
+  it("moves the focus to the panel's heading when she taps the row that is already open, where the address stays", () => {
+    render(<Pantalla seleccion={ID} />)
+    const fila = screen.getByRole("link", { name: "Burnout" })
+    fila.focus()
+    fireEvent.click(fila)
+    expect(screen.getByRole("heading", { name: `Panel de ${ID}` })).toHaveFocus()
+  })
+
+  it("does not keep that tap pending: a later close still gives the focus back to the row", () => {
+    const { rerender } = render(<Pantalla seleccion={ID} />)
+    fireEvent.click(screen.getByRole("link", { name: "Burnout" }))
+    fireEvent.click(screen.getByRole("link", { name: "Cerrar el panel" }))
+    rerender(<Pantalla seleccion={null} />)
+    expect(screen.getByRole("link", { name: "Burnout" })).toHaveFocus()
+  })
+
   it("leaves the focus alone on a plain load with the panel already open", () => {
     render(<Pantalla seleccion={ID} />)
     expect(document.body).toHaveFocus()

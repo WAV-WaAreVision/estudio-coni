@@ -9,6 +9,8 @@ type Pendiente = { tipo: "abrir" | "cerrar"; materialId: string } | null
 
 // Module state, not a ref: opening or closing the panel changes the search params, and the page may remount.
 let pendiente: Pendiente = null
+// What the panel shows now: a tap on that row keeps the address, so no render comes to move the focus.
+let abierto: string | null = null
 
 function alHacerClic(evento: MouseEvent) {
   if (!(evento.target instanceof Element)) return
@@ -16,13 +18,17 @@ function alHacerClic(evento: MouseEvent) {
   if (!(enlace instanceof HTMLElement)) return
   const abre = enlace.dataset.abrePanel
   const cierra = enlace.dataset.cierraPanel
-  if (abre) pendiente = { tipo: "abrir", materialId: abre }
+  if (abre && abre === abierto) {
+    document.getElementById(ID_DEL_TITULO_DEL_PANEL)?.focus()
+    pendiente = null
+  } else if (abre) pendiente = { tipo: "abrir", materialId: abre }
   else if (cierra) pendiente = { tipo: "cerrar", materialId: cierra }
 }
 
 /**
  * The side panel opens and closes through links, so the browser leaves the focus where the click was. Opening from a
- * row moves it to the panel's heading; closing gives it back to the row of the material that was open.
+ * row moves it to the panel's heading, also from the row already open; closing gives it back to the row of the material
+ * that was open.
  */
 export function FocoDelPanel({ seleccion }: { seleccion: string | null }) {
   useEffect(() => {
@@ -31,6 +37,7 @@ export function FocoDelPanel({ seleccion }: { seleccion: string | null }) {
   }, [])
 
   useEffect(() => {
+    abierto = seleccion
     if (pendiente === null) return
     if (pendiente.tipo === "abrir" && seleccion === pendiente.materialId) {
       document.getElementById(ID_DEL_TITULO_DEL_PANEL)?.focus()
