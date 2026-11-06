@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { filasDePilaresAJson } from "@/lib/datos/pilares"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
+import { hrefTrasBorrar, NO_PUDE_BORRAR, NO_PUDE_RECUPERAR, YA_NO_SE_RECUPERA } from "@/lib/dominio/biblioteca/borrado"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
 import {
@@ -238,7 +239,7 @@ const UNA_HORA_S = 60 * 60
  * Only while it is `procesando`: a material a run already moved on is never taken back. True when the row is gone, so
  * its files may go too.
  */
-async function borrarMaterial(db: Db, materialId: string): Promise<boolean> {
+async function borrarMaterialSinSubir(db: Db, materialId: string): Promise<boolean> {
   const { data, error } = await db
     .from("materiales")
     .delete()
@@ -298,7 +299,7 @@ export function crearMaterial(
         .from("materiales_archivos")
         .insert(claves.map((clave, indice) => ({ material_id: materialId, orden: indice + 1, archivo_clave: clave })))
       if (errorDeArchivos) {
-        await borrarMaterial(deps.db, materialId)
+        await borrarMaterialSinSubir(deps.db, materialId)
         throw new Error(`No pude guardar las imágenes del material ${materialId}: ${errorDeArchivos.message}`, {
           cause: errorDeArchivos,
         })
@@ -318,7 +319,7 @@ export function crearMaterial(
         }),
       )
     } catch (error) {
-      await borrarMaterial(deps.db, materialId)
+      await borrarMaterialSinSubir(deps.db, materialId)
       throw new Error(`No pude firmar la subida del material ${materialId}`, { cause: error })
     }
     return { materialId, subidas }
@@ -390,7 +391,7 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
     if (tamanos === undefined) return dejarParaReintentar(deps.db, materialId)
     const malo = tamanos.find((bytes) => bytes === null || bytes === 0 || bytes > TAMANO_MAXIMO_BYTES)
     if (malo !== undefined) {
-      if (await borrarMaterial(deps.db, materialId)) await borrarCarpeta(deps.almacen, materialId)
+      if (await borrarMaterialSinSubir(deps.db, materialId)) await borrarCarpeta(deps.almacen, materialId)
       throw new Falla(malo !== null && malo > TAMANO_MAXIMO_BYTES ? PESA_DEMASIADO : FALTA_EL_ARCHIVO)
     }
 
@@ -493,6 +494,62 @@ export function ocultarIdea(
       throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
     }
     return {}
+  })
+}
+
+const NO_SE_PUDO_MARCAR = "no_se_pudo_marcar"
+
+/** Where the row is now, read when a mark was refused: a refusal can mean it already is where she wants it (D4). */
+async function marcaDe(db: Db, tabla: "materiales" | "autores", id: string): Promise<"marcado" | "visible" | null> {
+  const { data, error } =
+    tabla === "materiales"
+      ? await db.from("materiales").select("borrar_desde").eq("id", id).maybeSingle()
+      : await db.from("autores").select("borrar_desde").eq("id", id).maybeSingle()
+  if (error) throw new Error(`No pude leer ${tabla} ${id}: ${error.message}`, { cause: error })
+  if (!data) return null
+  return data.borrar_desde === null ? "visible" : "marcado"
+}
+
+/** An error she cannot act on is logged for WAV and answered in her words, so the button stays and she tries again. */
+function fallaDeMarca(cuando: string, error: { message: string }, paraConi: string): Falla {
+  console.error(`No pude ${cuando}`, error)
+  return new Falla(paraConi)
+}
+
+/**
+ * «Borrar material»: marks it, so every screen hides it at once and maintenance deletes it a minute later (spec).
+ * Answers the list with the note that offers «Deshacer».
+ */
+export function borrarMaterial(
+  deps: Pick<DepsBiblioteca, "db">,
+  materialId: string,
+): Promise<Resultado<{ destino: string }>> {
+  return aResultado("borrarMaterial", async () => {
+    await exigirConi(deps.db)
+    const destino = hrefTrasBorrar("material", materialId)
+    const { error } = await deps.db.rpc("marcar_material_para_borrar", { p_id: materialId, p_borrar: true })
+    if (!error) return { destino }
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "materiales", materialId)
+      if (marca === "marcado") return { destino }
+      if (marca === null) throw new Falla(NO_ENCONTRE)
+    }
+    throw fallaDeMarca(`marcar el material ${materialId}`, error, NO_PUDE_BORRAR)
+  })
+}
+
+/** «Deshacer»: the material is back where it was, unless maintenance already deleted it. */
+export function recuperarMaterial(deps: Pick<DepsBiblioteca, "db">, materialId: string): Promise<Resultado> {
+  return aResultado("recuperarMaterial", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("marcar_material_para_borrar", { p_id: materialId, p_borrar: false })
+    if (!error) return {}
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "materiales", materialId)
+      if (marca === "visible") return {}
+      if (marca === null) throw new Falla(YA_NO_SE_RECUPERA)
+    }
+    throw fallaDeMarca(`recuperar el material ${materialId}`, error, NO_PUDE_RECUPERAR)
   })
 }
 

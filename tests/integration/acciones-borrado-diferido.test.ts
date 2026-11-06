@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
+  borrarMaterial,
   confirmarMaterial,
   crearAutor,
   editarMaterial,
   pedirTextoOriginal,
+  recuperarMaterial,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
-import { clienteDeConi } from "./sesion-coni"
+import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { borrarSembrado, sembrarAutor, sembrarMaterial } from "./siembra-biblioteca"
 
 type Db = SupabaseClient<Database>
@@ -106,5 +108,62 @@ describe("actions on a marked author", () => {
     expect(resultado).toMatchObject({ ok: true, autor: { id, nombre } })
     const { rows } = await pool.query("select borrar_desde from public.autores where id = $1", [id])
     expect(rows[0]?.borrar_desde).toBeNull()
+  })
+})
+
+const YA_NO_SE_RECUPERA = "Ya no se puede recuperar: se borró del todo."
+const marcaDe = async (tabla: "materiales" | "autores", id: string) =>
+  (
+    await pool.query<{ marcado: boolean }>(
+      `select borrar_desde is not null as marcado from public.${tabla} where id = $1`,
+      [id],
+    )
+  ).rows[0]?.marcado
+
+describe("borrarMaterial and recuperarMaterial", () => {
+  it("marks the material and answers the list with the note; Deshacer unmarks it", async () => {
+    const id = await material()
+    expect(await borrarMaterial({ db: coni }, id)).toEqual({ ok: true, destino: `/biblioteca?aviso=borrado&id=${id}` })
+    expect(await marcaDe("materiales", id)).toBe(true)
+    expect(await recuperarMaterial({ db: coni }, id)).toEqual({ ok: true })
+    expect(await marcaDe("materiales", id)).toBe(false)
+  })
+
+  it("lets a second tap on either through: the row is already where she wants it (plan D4)", async () => {
+    const id = await material()
+    await borrarMaterial({ db: coni }, id)
+    expect(await borrarMaterial({ db: coni }, id)).toEqual({ ok: true, destino: `/biblioteca?aviso=borrado&id=${id}` })
+    await recuperarMaterial({ db: coni }, id)
+    expect(await recuperarMaterial({ db: coni }, id)).toEqual({ ok: true })
+  })
+
+  it("says it can no longer be recovered once maintenance deleted it, and not found for a missing one", async () => {
+    const id = await material()
+    await borrarMaterial({ db: coni }, id)
+    await pool.query("delete from public.materiales where id = $1", [id])
+    expect(await recuperarMaterial({ db: coni }, id)).toEqual({ ok: false, error: YA_NO_SE_RECUPERA })
+    expect(await borrarMaterial({ db: coni }, id)).toEqual({ ok: false, error: NO_ENCONTRE })
+  })
+
+  it("lets only Coni do it from Conidolly", async () => {
+    const wav = await clienteDelMantenedor()
+    const id = await material()
+    expect(await borrarMaterial({ db: wav }, id)).toEqual({ ok: false, error: "Esta app es solo para Coni." })
+    expect(await marcaDe("materiales", id)).toBe(false)
+  })
+
+  it("answers in her words, and logs for WAV, an error she cannot act on", async () => {
+    // The server wrapper's Zod refuses a malformed id; called directly, Postgres answers 22P02, an unexpected code.
+    const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    expect(await borrarMaterial({ db: coni }, "no-es-un-uuid")).toEqual({
+      ok: false,
+      error: "No pude borrarlo. Prueba de nuevo.",
+    })
+    expect(await recuperarMaterial({ db: coni }, "no-es-un-uuid")).toEqual({
+      ok: false,
+      error: "No pude recuperarlo. Prueba de nuevo.",
+    })
+    expect(registro).toHaveBeenCalledWith(expect.stringContaining("no-es-un-uuid"), expect.anything())
+    registro.mockRestore()
   })
 })
