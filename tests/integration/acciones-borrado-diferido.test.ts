@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
+  borrarAutor,
   borrarMaterial,
   confirmarMaterial,
   crearAutor,
   editarMaterial,
   pedirTextoOriginal,
+  recuperarAutor,
   recuperarMaterial,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
@@ -165,5 +167,41 @@ describe("borrarMaterial and recuperarMaterial", () => {
     })
     expect(registro).toHaveBeenCalledWith(expect.stringContaining("no-es-un-uuid"), expect.anything())
     registro.mockRestore()
+  })
+})
+
+describe("borrarAutor and recuperarAutor", () => {
+  it("marks an author with nothing live, answers Autores with the note, and Deshacer unmarks it", async () => {
+    const id = await sembrarAutor(`Borrable ${SUFIJO}`)
+    autores.push(id)
+    expect(await borrarAutor({ db: coni }, id)).toEqual({
+      ok: true,
+      destino: `/biblioteca/autores?aviso=borrado&id=${id}`,
+    })
+    expect(await marcaDe("autores", id)).toBe(true)
+    expect(await recuperarAutor({ db: coni }, id)).toEqual({ ok: true })
+    expect(await marcaDe("autores", id)).toBe(false)
+  })
+
+  it("refuses an author that still has materials, and Coni's own card, in her words", async () => {
+    // Its own live material, so the test does not lean on what earlier tests left behind.
+    await material()
+    expect(await borrarAutor({ db: coni }, autora)).toEqual({
+      ok: false,
+      error: "Este autor todavía tiene materiales.",
+    })
+    const { rows } = await pool.query<{ id: string }>("select id from public.autores where tipo = 'coni'")
+    expect(await borrarAutor({ db: coni }, rows[0]?.id ?? "")).toEqual({
+      ok: false,
+      error: "Tu propia ficha no se puede borrar.",
+    })
+  })
+
+  it("says it can no longer be recovered once maintenance deleted it, and that a missing author no longer exists", async () => {
+    const id = await sembrarAutor(`Se va ${SUFIJO}`)
+    await borrarAutor({ db: coni }, id)
+    await pool.query("delete from public.autores where id = $1", [id])
+    expect(await recuperarAutor({ db: coni }, id)).toEqual({ ok: false, error: YA_NO_SE_RECUPERA })
+    expect(await borrarAutor({ db: coni }, id)).toEqual({ ok: false, error: AUTOR_INEXISTENTE })
   })
 })

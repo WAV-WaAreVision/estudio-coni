@@ -2,7 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { filasDePilaresAJson } from "@/lib/datos/pilares"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
-import { hrefTrasBorrar, NO_PUDE_BORRAR, NO_PUDE_RECUPERAR, YA_NO_SE_RECUPERA } from "@/lib/dominio/biblioteca/borrado"
+import {
+  AUTOR_CON_MATERIALES,
+  CONI_NO_SE_BORRA,
+  hrefTrasBorrar,
+  NO_PUDE_BORRAR,
+  NO_PUDE_RECUPERAR,
+  YA_NO_SE_RECUPERA,
+} from "@/lib/dominio/biblioteca/borrado"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
 import {
@@ -35,6 +42,7 @@ export interface DepsBiblioteca {
 }
 
 export const SobreMaterial = z.object({ materialId: z.uuid() })
+export const SobreAutor = z.object({ autorId: z.uuid() })
 export const EdicionDeMaterial = z.object({ materialId: z.uuid(), autorId: z.uuid(), rol: z.enum(ROLES) })
 export const AutorNuevo = z.object({
   nombre: z.string().max(LARGO_DE_AUTOR_NUEVO),
@@ -550,6 +558,45 @@ export function recuperarMaterial(deps: Pick<DepsBiblioteca, "db">, materialId: 
       if (marca === null) throw new Falla(YA_NO_SE_RECUPERA)
     }
     throw fallaDeMarca(`recuperar el material ${materialId}`, error, NO_PUDE_RECUPERAR)
+  })
+}
+
+/** «Borrar autor»: only with nothing live by or from it, never Coni's card (the page offers it only then). */
+export function borrarAutor(
+  deps: Pick<DepsBiblioteca, "db">,
+  autorId: string,
+): Promise<Resultado<{ destino: string }>> {
+  return aResultado("borrarAutor", async () => {
+    await exigirConi(deps.db)
+    const destino = hrefTrasBorrar("autor", autorId)
+    const { error } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: autorId, p_borrar: true })
+    if (!error) return { destino }
+    if (error.code === NO_ES_EL_ESTADO) {
+      // Backstops for the page's own check, for a row that changed after the page was drawn.
+      if (error.message === "autor_con_materiales") throw new Falla(AUTOR_CON_MATERIALES)
+      if (error.message === "autor_coni_protegido") throw new Falla(CONI_NO_SE_BORRA)
+      if (error.message === NO_SE_PUDO_MARCAR) {
+        const marca = await marcaDe(deps.db, "autores", autorId)
+        if (marca === "marcado") return { destino }
+        if (marca === null) throw new Falla(AUTOR_INEXISTENTE)
+      }
+    }
+    throw fallaDeMarca(`marcar el autor ${autorId}`, error, NO_PUDE_BORRAR)
+  })
+}
+
+/** «Deshacer» for an author. */
+export function recuperarAutor(deps: Pick<DepsBiblioteca, "db">, autorId: string): Promise<Resultado> {
+  return aResultado("recuperarAutor", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: autorId, p_borrar: false })
+    if (!error) return {}
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "autores", autorId)
+      if (marca === "visible") return {}
+      if (marca === null) throw new Falla(YA_NO_SE_RECUPERA)
+    }
+    throw fallaDeMarca(`recuperar el autor ${autorId}`, error, NO_PUDE_RECUPERAR)
   })
 }
 
