@@ -19,9 +19,8 @@ let escena: EscenaDeAutoresYTemas
 
 function vigilarAcciones(page: Page): string[] {
   const vistas: string[] = []
-  page.on("response", async (r) => {
-    const h = await r.request().allHeaders()
-    if (h["next-action"]) vistas.push(`${r.status()}`)
+  page.on("response", (r) => {
+    if (r.request().headers()["next-action"]) vistas.push(`${r.status()}`)
   })
   return vistas
 }
