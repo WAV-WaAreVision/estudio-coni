@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { claveArmar, claveGrabar, claveProducir } from "@/lib/acciones/disparos"
 import { type DepsArranques, reanudarArranques } from "@/lib/mantenimiento/arranques"
 import { mantenimientoFrecuente } from "@/lib/mantenimiento/ejecutar"
+import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import { crearPiezaEn } from "./flujo"
@@ -190,6 +191,7 @@ describe("mantenimientoFrecuente", () => {
 
     const resultado = await mantenimientoFrecuente({
       ...deps,
+      almacen: almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
     })
@@ -203,10 +205,11 @@ describe("mantenimientoFrecuente", () => {
 
     const resultado = await mantenimientoFrecuente({
       ...deps,
+      almacen: almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
     })
 
-    expect(Object.keys(resultado)).toEqual(["arranques", "renders", "voces", "gastos", "temas"])
+    expect(Object.keys(resultado)).toEqual(["borrado", "arranques", "renders", "voces", "gastos", "temas"])
   })
 })

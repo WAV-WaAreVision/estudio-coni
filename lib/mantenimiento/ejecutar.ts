@@ -3,6 +3,7 @@ import { fusionarTemas } from "@/lib/ingesta/temas"
 import { leerInterruptores } from "@/lib/presupuesto/interruptores"
 import { avisarLimite, claveDelAvisoDeLimite, mesDelGasto } from "@/lib/presupuesto/limite"
 import { type DepsArranques, reanudarArranques } from "./arranques"
+import { borrarLoMarcado, type DepsBorrado } from "./borrado-diferido"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
@@ -42,7 +43,7 @@ export async function enSerie<T extends Trabajos>(trabajos: T): Promise<{ [K in 
 /** What the topic jobs need, or null when they cannot run (no Claude key yet), which is not a failure. */
 export type ConstructorDeTemas = () => Promise<DepsMantenimientoTemas | null>
 
-export type DepsFrecuente = DepsConciliacion & DepsArranques & { temas: ConstructorDeTemas }
+export type DepsFrecuente = DepsConciliacion & DepsArranques & DepsBorrado & { temas: ConstructorDeTemas }
 export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
   DepsTokenLinkedin &
@@ -72,9 +73,11 @@ async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ aviso
   }
 }
 
-/** Every ten minutes: runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
+    // First: a deleted material's ideas leave before the topics job reads them.
+    borrado: () => borrarLoMarcado(deps),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     voces: () => devolverVocesTrabadas(deps),

@@ -236,6 +236,7 @@ describe("mantenerTemas", () => {
 describe("maintenance runs", () => {
   const base = () => ({
     db,
+    almacen: almacenEnMemoria(),
     avisos: notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
   })
