@@ -157,9 +157,11 @@ test("with a large default text size the page does not scroll sideways and the s
   await page.addStyleTag({ content: "html { font-size: 212.5% !important }" })
   const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(sobra).toBeLessThanOrEqual(0)
-  // The script is never squeezed beside the steps: with this text it takes the whole column, as on a phone.
+  // The script is never squeezed beside the steps: with this text it takes the phone's one column (560 px less the
+  // page's gutters), never a line as wide as the screen.
   const lectura = await cajaDelGuion(page)
-  expect(lectura.right - lectura.left).toBeGreaterThan(1000)
+  expect(lectura.right - lectura.left).toBeGreaterThan(400)
+  expect(lectura.right - lectura.left).toBeLessThanOrEqual(520)
   await firma(page).getByRole("slider", { name: "Desliza para firmar" }).scrollIntoViewIfNeeded()
   await expect(firma(page).getByRole("slider", { name: "Desliza para firmar" })).toBeInViewport()
   if (process.env.CAPTURAS_PUERTA_UNO) {

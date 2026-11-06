@@ -114,7 +114,10 @@ test("with a large default text size the gate falls back to one column and the s
   await abrir(page)
   await conTextoDoble(page)
   expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
-  expect((await cajaDe(lectura(page))).width).toBeGreaterThan(1000)
+  // One column, the phone's: 560 px less the page's gutters, never a line as wide as the screen.
+  const ancho = (await cajaDe(lectura(page))).width
+  expect(ancho).toBeGreaterThan(400)
+  expect(ancho).toBeLessThanOrEqual(520)
   const firma = firmaDe(page).getByRole("slider", { name: "Desliza para firmar" })
   await firma.scrollIntoViewIfNeeded()
   await expect(firma).toBeInViewport()

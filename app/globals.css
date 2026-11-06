@@ -4,11 +4,24 @@
 /* Closes the default palette, radii, shadows and type sizes (before the tokens below define the real ones). */
 @import "./tema-cerrado.css";
 
-/* Gate 1 of a reel in two columns (critique 2026-11-05): a container query, so its rem follow the text size and a large
-   text falls back to the phone's one column instead of squeezing the script. 40rem (680 px at the 17 px root): a 768 px
-   tablet, even with a classic scrollbar taking its width; 56rem: 1024 px. */
-@custom-variant dos-columnas (@container (width >= 40rem));
-@custom-variant dos-columnas-amplias (@container (width >= 56rem));
+/* The signing gates in two columns (critiques 2026-11-05): a container query, so its rem follow the text size and a
+   large text falls back to the phone's one column instead of squeezing what she reads. 40rem (680 px at the 17 px root):
+   a 768 px tablet, even with a classic scrollbar taking its width; 56rem: 1024 px. And a window at least 40rem (640 px)
+   tall: a phone on its side keeps one column, where a slide or a video bounded by the height would shrink to nothing. */
+@custom-variant dos-columnas {
+  @media (min-height: 40rem) {
+    @container (width >= 40rem) {
+      @slot;
+    }
+  }
+}
+@custom-variant dos-columnas-amplias {
+  @media (min-height: 40rem) {
+    @container (width >= 56rem) {
+      @slot;
+    }
+  }
+}
 
 /*
  * Soft UI v6, gris neutro (docs/superpowers/specs/2026-10-16-conidolly-soft-ui-design.md, decision 2; the values come

@@ -155,7 +155,7 @@ export function PantallaVideo({ datos }: { datos: DatosDeVideo }) {
             clave={datos.videoId}
             alVerCompleto={() => setVisto(true)}
             zonas={zonas && conInstagram}
-            className="dos-columnas:mx-0 dos-columnas:max-w-[calc((100svh-7rem)*9/16)]"
+            className="dos-columnas:mx-0 dos-columnas:max-w-[max(16rem,calc((100svh-7rem)*9/16))]"
           />
         </div>
 
