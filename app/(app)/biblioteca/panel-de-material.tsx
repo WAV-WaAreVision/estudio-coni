@@ -11,6 +11,7 @@ import { subidoEnFrase, ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/f
 import { type FiltrosDeMateriales, hrefDeLista } from "@/lib/dominio/biblioteca/filtros"
 import { etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
 import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
+import { BotonBorrar } from "./boton-borrar"
 import { BotonConfirmarCosto } from "./boton-confirmar-costo"
 import { BotonReintentar } from "./boton-reintentar"
 import { EstadoDeMaterial } from "./estado-de-material"
@@ -74,6 +75,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
       ) : null}
       {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
       <DetalleParaWav lineas={lineasParaWav(material, evidencia)} proveedor={null} />
+      <BotonBorrar tipo="material" id={material.id} />
       <Link
         href={hrefDeLista(filtros)}
         scroll={false}

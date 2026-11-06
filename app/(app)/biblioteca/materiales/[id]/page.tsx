@@ -10,6 +10,7 @@ import { esperaConfirmacion, sePuedeReintentar } from "@/lib/dominio/biblioteca/
 import { adaptacionDe } from "@/lib/dominio/biblioteca/ficha"
 import { esRol, etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { BotonBorrar } from "../../boton-borrar"
 import { BotonConfirmarCosto } from "../../boton-confirmar-costo"
 import { BotonReintentar } from "../../boton-reintentar"
 import { EstadoDeMaterial } from "../../estado-de-material"
@@ -53,6 +54,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
   )
   const reprocesar = material.estado === "listo" ? <BotonReprocesar materialId={material.id} rol={rol} /> : null
   const detalle = <DetalleParaWav lineas={lineasParaWav(material, mapa?.evidencia ?? {})} proveedor={null} />
+  const borrar = <BotonBorrar tipo="material" id={material.id} />
 
   // The phone reads one column with the actions where they always were; a computer keeps the material in a readable
   // column and its actions in a side column (both live in the DOM, each shown on its own size: `contents md:hidden`
@@ -102,6 +104,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
           ) : null}
           {reprocesar}
           {detalle}
+          {borrar}
         </div>
       </div>
 
@@ -118,6 +121,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
         {reprocesar}
         <div className="w-full">{editar}</div>
         <div className="w-full">{detalle}</div>
+        {borrar}
       </aside>
     </div>
   )
