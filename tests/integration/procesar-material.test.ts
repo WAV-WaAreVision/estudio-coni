@@ -1,7 +1,7 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { alFallarMaterial } from "@/lib/ingesta/falla-material"
-import { procesarMaterial } from "@/lib/ingesta/procesar"
+import { MOTIVO_BORRADO_AL_PROCESAR, procesarMaterial } from "@/lib/ingesta/procesar"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
@@ -587,6 +587,51 @@ describe("material borrado", () => {
     expect((await material(id)).motivo_fallo).toBe(
       "Paré de procesarlo porque lo borraste. Toca Reintentar para seguir.",
     )
+  })
+
+  it("leaves the claim of another live run alone when it finds the material marked", async () => {
+    const claude = simularClaude()
+    const id = await crearMaterial(almacenEnMemoria(), { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query(
+      "update public.materiales set borrar_desde = now(), corrida_id = 'run_otra', corrida_desde = now() where id = $1",
+      [id],
+    )
+
+    expect(await procesarMaterial(await deps(almacenEnMemoria(), { corrida: "run_duplicada" }), id)).toEqual({
+      resultado: "borrado",
+    })
+    expect(claude.total).toBe(0)
+    // «Deshacer» + «Reintentar» must not let a new run in while run_otra may still be inside a paid step.
+    expect(await corridaDe(id)).toBe("run_otra")
+    expect((await material(id)).motivo_fallo).toBeNull()
+  })
+
+  it("releases its own claim when it finds the material marked", async () => {
+    const id = await crearMaterial(almacenEnMemoria(), { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query(
+      "update public.materiales set borrar_desde = now(), corrida_id = 'run_a', corrida_desde = now() where id = $1",
+      [id],
+    )
+
+    expect(await procesarMaterial(await deps(almacenEnMemoria(), { corrida: "run_a" }), id)).toEqual({
+      resultado: "borrado",
+    })
+    expect(await corridaDe(id)).toBeNull()
+    expect((await material(id)).motivo_fallo).toBe(MOTIVO_BORRADO_AL_PROCESAR)
+  })
+
+  it("releases a claim older than the task's maximum duration when it finds the material marked", async () => {
+    const id = await crearMaterial(almacenEnMemoria(), { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query(
+      `update public.materiales set borrar_desde = now(), corrida_id = 'run_muerta',
+         corrida_desde = now() - interval '40 minutes' where id = $1`,
+      [id],
+    )
+
+    await procesarMaterial(await deps(almacenEnMemoria(), { corrida: "run_nueva" }), id)
+
+    expect(await corridaDe(id)).toBeNull()
+    expect((await material(id)).motivo_fallo).toBe(MOTIVO_BORRADO_AL_PROCESAR)
   })
 })
 

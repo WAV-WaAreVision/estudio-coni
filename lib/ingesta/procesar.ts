@@ -135,16 +135,25 @@ export const MOTIVO_BORRADO_AL_PROCESAR = "Paré de procesarlo porque lo borrast
 
 /**
  * Coni deleted it while it was processing. If she brings it back with «Deshacer» it must not wait for ever as
- * «Procesando»: the claim goes and a reason offers «Reintentar». A row already gone changes nothing.
+ * «Procesando»: the claim goes and a reason offers «Reintentar». A row already gone changes nothing. Only a claim this
+ * run may take is released: a duplicate run must not free a material another live run is paying for, or «Deshacer»
+ * plus «Reintentar» would start a second paid run beside it.
  */
-async function soltarPorBorrado(db: Db, id: string): Promise<{ resultado: "borrado" }> {
-  const { error } = await db
+async function soltarPorBorrado(deps: DepsProcesar, id: string): Promise<{ resultado: "borrado" }> {
+  const { error } = await deps.db
     .from("materiales")
     .update({ motivo_fallo: MOTIVO_BORRADO_AL_PROCESAR, ...LIBRE })
     .eq("id", id)
     .eq("estado", "procesando")
+    .or(corridaQuePuedoTomar(deps))
   if (error) throw falloDeBase("No pude soltar el material borrado", error)
   return { resultado: "borrado" }
+}
+
+/** Nobody holds the material, this run already does, or the holder is gone (its claim is older than the task can last). */
+function corridaQuePuedoTomar(deps: DepsProcesar): string {
+  const vencida = new Date(Date.parse(deps.ahora()) - VIGENCIA_DE_CORRIDA_SEGUNDOS * 1000).toISOString()
+  return `corrida_id.is.null,corrida_id.eq."${deps.corrida}",corrida_desde.lt.${vencida}`
 }
 
 async function actualizarMaterial(
@@ -628,7 +637,7 @@ export async function procesarMaterial(deps: DepsProcesar, materialId: string): 
   const leido = await leerMaterial(deps.db, materialId)
   // Deleted, or marked with «Deshacer»: finished without error, nothing more spent (spec decision 5).
   if (leido === null) return { resultado: "borrado" }
-  if (leido.borrar_desde !== null) return soltarPorBorrado(deps.db, materialId)
+  if (leido.borrar_desde !== null) return soltarPorBorrado(deps, materialId)
   if (leido.estado === "listo") return { resultado: "ya_listo" }
   // A late run (a retry that outlived a failure) must not revive a material that already failed: retrying it sets
   // it back to procesando first.
@@ -639,7 +648,7 @@ export async function procesarMaterial(deps: DepsProcesar, materialId: string): 
     return await procesar({ deps, material })
   } catch (error) {
     if (error instanceof MaterialBorrado || !(await existeMaterial(deps.db, materialId))) {
-      return soltarPorBorrado(deps.db, materialId)
+      return soltarPorBorrado(deps, materialId)
     }
     const motivo = motivoDefinitivo(error)
     if (motivo === null) throw error
@@ -653,14 +662,12 @@ export async function procesarMaterial(deps: DepsProcesar, materialId: string): 
  * retry of the same run), or the holder is gone (its claim is older than the task can last). Null when another run has it.
  */
 async function tomarMaterial(deps: DepsProcesar, id: string): Promise<Material | null> {
-  const ahora = deps.ahora()
-  const vencida = new Date(new Date(ahora).getTime() - VIGENCIA_DE_CORRIDA_SEGUNDOS * 1000).toISOString()
   const { data, error } = await deps.db
     .from("materiales")
-    .update({ corrida_id: deps.corrida, corrida_desde: ahora })
+    .update({ corrida_id: deps.corrida, corrida_desde: deps.ahora() })
     .eq("id", id)
     .eq("estado", "procesando")
-    .or(`corrida_id.is.null,corrida_id.eq."${deps.corrida}",corrida_desde.lt.${vencida}`)
+    .or(corridaQuePuedoTomar(deps))
     .select("*")
     .maybeSingle()
   if (error) throw falloDeBase("No pude tomar el material", error)
