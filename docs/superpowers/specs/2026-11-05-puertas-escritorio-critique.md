@@ -141,3 +141,16 @@ Capturas «después» en `/tmp/puertas-escritorio/`. Lo que quedó y por qué:
 los `textarea` de «Pedir cambio» sin `name`/`autocomplete`, y con texto ampliado en computador (sin `data-letra`, que
 solo se activa bajo 18rem de ancho) la firma vuelve a la hoja fija abajo del teléfono, que puede tapar el foco: el
 mismo comportamiento que ya tiene el guion.
+
+## Revisión del código (después de las capturas)
+
+- **Orden de foco del video, a propósito:** sigue los pasos del teléfono y cruza columnas: «Inicio», el video
+  (izquierda), la casilla (derecha), los textos (izquierda), «Dónde y cuándo», Más opciones y la firma (derecha). El DOM
+  no cambia de orden, así el teléfono queda igual y el número de cada paso explica el salto.
+- **El riel al final:** una lámina acotada por el alto es más angosta que el riel y no alcanza su `snap-start`; bajo unos
+  866 px de alto el contador quedaba en «Lámina 5 de 6» y la puerta 2 no se abría. El final del recorrido cuenta como la
+  última lámina (prueba unitaria y E2E a 1280 x 780 y 1440 x 790 con la rueda, sin flechas).
+- **Ventanas bajas:** las dos columnas piden además 40rem (640 px) de alto; un celular de lado (844 x 390) queda en una
+  columna. La lámina y el video tienen un piso de 16rem de ancho.
+- **Sin dos columnas** (letra grande, ventana baja) la puerta conserva la columna de 560 px en vez de ocupar todo el
+  ancho.

@@ -153,10 +153,14 @@ LinkedIn (emojis en serie, ganchos) y la app de bienestar con texto pastel sobre
 
 Movimiento responsivo, sin coreografía: el relieve se hunde en 150 ms al tocar y vuelve con
 `cubic-bezier(0.23, 1, 0.32, 1)`; los cambios de estado duran 200 ms; con reducir movimiento, todo
-es instantáneo. En el teléfono, una columna. En tablet y computador cada pantalla se revisa con una skill de UX
-y se reordena para usar el ancho (Federico, 05-11-2026): columna de lectura (40rem como máximo) más una columna de
-decisión pegada arriba, o tabla más panel lateral. Nunca la columna del teléfono centrada y nunca un panel flotante
-que tape lo que ella revisa.
+es instantáneo.
+
+Regla común (Federico, 05-11-2026): en el teléfono, una columna. En tablet y computador cada pantalla se revisa con una
+skill de UX y se reordena para usar el ancho: columna de lectura (40rem como máximo, unos 70 caracteres) más una columna
+de decisión pegada arriba, o tabla más panel lateral. Nunca un panel flotante que tape lo que ella revisa. Las dos
+columnas se activan con un contenedor de 40rem o más y una ventana de 40rem de alto o más; si no (letra grande, un
+celular de lado), la pantalla vuelve a la columna de 560 px. Las pantallas aún no revisadas siguen en la columna de
+560 px hasta su revisión.
 
 **Key Characteristics:**
 - Fondo y superficies del mismo color piedra; la profundidad sale de la doble sombra, no de bordes.

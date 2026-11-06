@@ -92,6 +92,10 @@ antes de pedir, sin entusiasmo artificial.
   44 px o más. Aprobar nunca depende solo de un gesto: se firma también con dos toques o con el teclado.
 - Respeta el tamaño de texto del sistema (iOS) y la preferencia de reducir movimiento.
 - El color nunca es la única señal: cada estado lleva texto o ícono.
-- Escritorio (regla de Federico, 05-11-2026): cada pantalla de escritorio pasa por una revisión con una skill de UX
-  y se reordena para usar el ancho: columna de lectura más una columna de decisión pegada arriba, o tabla más panel
-  lateral. El teléfono no cambia. Nunca un panel flotante que tape el contenido. Las vistas de WAV pueden ser más densas.
+- Escritorio. Regla común (Federico, 05-11-2026): en el teléfono, una columna. En tablet y computador cada pantalla se revisa con una
+  skill de UX y se reordena para usar el ancho: columna de lectura (40rem como máximo, unos 70 caracteres) más una columna
+  de decisión pegada arriba, o tabla más panel lateral. Nunca un panel flotante que tape lo que ella revisa. Las dos
+  columnas se activan con un contenedor de 40rem o más y una ventana de 40rem de alto o más; si no (letra grande, un
+  celular de lado), la pantalla vuelve a la columna de 560 px. Las pantallas aún no revisadas siguen en la columna de
+  560 px hasta su revisión.
+  Las vistas de WAV pueden ser más densas.
