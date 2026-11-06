@@ -135,6 +135,7 @@ export function editarMaterial(deps: DepsBiblioteca, edicion: z.output<typeof Ed
       .from("materiales")
       .update({ autor_id: edicion.autorId, rol: edicion.rol })
       .eq("id", edicion.materialId)
+      .is("borrar_desde", null)
       .select("id")
     if (error) {
       if (error.code === CLAVE_FORANEA) throw new Falla("Ese autor ya no existe. Elígelo de nuevo.")
@@ -179,13 +180,21 @@ export function crearAutor(
       p_tipo: nuevo.tipo,
     })
     if (error) throw new Error(`No pude crear el autor: ${error.message}`, { cause: error })
-    const { data: autor, error: errorDeLectura } = await deps.db
+    const { data: leido, error: errorDeLectura } = await deps.db
       .from("autores")
-      .select("id, nombre, credencial, tipo, alias")
+      .select("id, nombre, credencial, tipo, alias, borrar_desde")
       .eq("id", id)
       .single()
     if (errorDeLectura)
       throw new Error(`No pude leer el autor ${id}: ${errorDeLectura.message}`, { cause: errorDeLectura })
+    const { borrar_desde, ...autor } = leido
+    // `crear_autor` answers an author she just deleted when she types its name again: typing it is wanting it back.
+    if (borrar_desde !== null) {
+      const { error: errorAlRecuperar } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: id, p_borrar: false })
+      if (errorAlRecuperar) {
+        throw new Error(`No pude recuperar el autor ${id}: ${errorAlRecuperar.message}`, { cause: errorAlRecuperar })
+      }
+    }
     return { autor }
   })
 }
@@ -198,7 +207,12 @@ export function pedirTextoOriginal(
   return aResultado("pedirTextoOriginal", async () => {
     await exigirConi(deps.db)
     // R2 can outlive the row (a deleted material): only a material she can read through row level security is signed.
-    const { data, error } = await deps.db.from("materiales").select("id").eq("id", materialId).maybeSingle()
+    const { data, error } = await deps.db
+      .from("materiales")
+      .select("id")
+      .eq("id", materialId)
+      .is("borrar_desde", null)
+      .maybeSingle()
     if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
     if (!data) throw new Falla(NO_ENCONTRE)
     const url = await deps.almacen.urlDeTexto(materialId, SEGUNDOS_DE_DESCARGA)
@@ -364,6 +378,7 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
       .select("id, estado, archivo_clave")
       .eq("id", materialId)
       .eq("subido_por", subidoPor)
+      .is("borrar_desde", null)
       .maybeSingle()
     if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
     if (!material) throw new Falla(NO_ENCONTRE)
@@ -422,10 +437,26 @@ export function unirAutores(
     await exigirConi(deps.db)
     // A uuid may arrive in either case; the database compares them as the same value.
     if (union.origen.toLowerCase() === union.destino.toLowerCase()) throw new Falla(MISMO_AUTOR)
-    const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
+    const { data: origen, error } = await deps.db
+      .from("autores")
+      .select("tipo")
+      .eq("id", union.origen)
+      .is("borrar_desde", null)
+      .maybeSingle()
     if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
     if (!origen) throw new Falla(AUTOR_INEXISTENTE)
     if (origen.tipo === "coni") throw new Falla(CONI_NO_SE_UNE)
+    // A deleted author waiting for maintenance must not receive materials: it would stay hidden with them.
+    const { data: destino, error: errorDeDestino } = await deps.db
+      .from("autores")
+      .select("id")
+      .eq("id", union.destino)
+      .is("borrar_desde", null)
+      .maybeSingle()
+    if (errorDeDestino) {
+      throw new Error(`No pude leer el autor ${union.destino}: ${errorDeDestino.message}`, { cause: errorDeDestino })
+    }
+    if (!destino) throw new Falla(AUTOR_INEXISTENTE)
     const { error: errorDeUnion } = await deps.db.rpc("fusionar_autores", {
       p_origen: union.origen,
       p_destino: union.destino,

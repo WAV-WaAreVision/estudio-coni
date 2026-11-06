@@ -24,7 +24,9 @@ function sesionQueLaBaseRechaza(message: string) {
     rpc: async (nombre: string) =>
       nombre === "es_coni" ? { data: true, error: null } : { data: null, error: { code: "22023", message } },
     from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { tipo: "persona" }, error: null }) }) }),
+      select: () => ({
+        eq: () => ({ is: () => ({ maybeSingle: async () => ({ data: { tipo: "persona" }, error: null }) }) }),
+      }),
     }),
   }
 }
