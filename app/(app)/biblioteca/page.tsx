@@ -12,7 +12,7 @@ import {
   listarAutores,
   listarMateriales,
 } from "@/lib/datos/biblioteca"
-import { leerBorrado } from "@/lib/dominio/biblioteca/borrado"
+import { ID_DEL_TITULO_DE_LA_LISTA, leerBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { AVISO_TRAS_SUBIR, RUTA_DE_SUBIR, vieneDeSubir } from "@/lib/dominio/biblioteca/borrador-de-subida"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
@@ -69,7 +69,9 @@ export default async function Materiales({
       />
       <div className="grid min-w-0 gap-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-pantalla">Biblioteca</h1>
+          <h1 id={ID_DEL_TITULO_DE_LA_LISTA} tabIndex={-1} className="text-pantalla outline-none">
+            Biblioteca
+          </h1>
           {subir}
         </div>
         {vieneDeSubir(params) ? <LineaDeEstado tipo="neutro" titulo={AVISO_TRAS_SUBIR} /> : null}

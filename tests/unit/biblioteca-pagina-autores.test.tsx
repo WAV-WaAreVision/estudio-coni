@@ -47,6 +47,7 @@ import { BotonOcultar } from "@/app/(app)/biblioteca/boton-ocultar"
 import { ListaDeIdeas } from "@/app/(app)/biblioteca/lista-de-ideas"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { MasOpciones } from "@/components/ui/mas-opciones"
+import { ID_DEL_TITULO_DE_LA_LISTA } from "@/lib/dominio/biblioteca/borrado"
 import { AVISO_TRAS_MOSTRAR, hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 
@@ -89,6 +90,13 @@ describe("the Autores page", () => {
     expect(lista?.props.autores).toEqual([AUTOR])
     expect(lista?.props.seleccion).toBe(ID)
     expect(arbol.find((elemento) => elemento.type === PanelDeAutor)?.props.autor).toEqual(AUTOR)
+  })
+
+  it("lets the toast give the focus back to the list's heading", async () => {
+    esConi.valor = true
+    datos.resumirAutores.mockResolvedValueOnce([AUTOR])
+    const titulo = elementos(await Autores({ searchParams: Promise.resolve({}) })).find((e) => e.type === "h1")
+    expect(titulo?.props).toMatchObject({ id: ID_DEL_TITULO_DE_LA_LISTA, tabIndex: -1 })
   })
 
   it("says it found nobody for a chosen row that is not in the list, and hints with none", async () => {

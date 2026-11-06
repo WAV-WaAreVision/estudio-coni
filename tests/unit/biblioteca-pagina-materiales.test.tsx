@@ -39,6 +39,7 @@ import { AvisoDeBorrado } from "@/app/(app)/biblioteca/aviso-de-borrado"
 import Materiales from "@/app/(app)/biblioteca/page"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { ID_DEL_TITULO_DE_LA_LISTA } from "@/lib/dominio/biblioteca/borrado"
 
 type Elemento = ReactElement<{ children?: ReactNode; className?: string; activo?: boolean }>
 
@@ -141,6 +142,12 @@ describe("the note after a deletion", () => {
     expect(arbol.find((e) => e.type === AvisoDeBorrado)?.props).toEqual({ tipo: "material", borrado: null })
     expect(arbol.find((e) => e.type === TrasElAviso)).toBeUndefined()
     expect(datos.leerNombreDeLoBorrado).not.toHaveBeenCalled()
+  })
+
+  it("lets the toast give the focus back to the list's heading", async () => {
+    esConi.valor = true
+    const titulo = elementos(await Materiales({ searchParams: sinFiltros() })).find((e) => e.type === "h1")
+    expect(titulo?.props).toMatchObject({ id: ID_DEL_TITULO_DE_LA_LISTA, tabIndex: -1 })
   })
 
   it("shows no toast when the material is no longer marked (a stale address), but still cleans the address", async () => {

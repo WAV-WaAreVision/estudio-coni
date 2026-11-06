@@ -1,10 +1,15 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useCallback, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { ERROR_SESION_VENCIDA } from "@/lib/acciones/resultado"
-import { avisoTrasBorrar, LO_RECUPERE, type LoBorrado } from "@/lib/dominio/biblioteca/borrado"
+import {
+  avisoTrasBorrar,
+  ID_DEL_TITULO_DE_LA_LISTA,
+  LO_RECUPERE,
+  type LoBorrado,
+} from "@/lib/dominio/biblioteca/borrado"
 import { recuperarAutorAccion, recuperarMaterialAccion } from "./acciones"
 
 interface LoQueSeBorro {
@@ -40,6 +45,22 @@ export function AvisoDeBorrado({ tipo, borrado }: Propiedades) {
   // Once the note left the address, the same id coming back is a second deletion (desktop: the list stays mounted).
   if (borrado === null && visto !== null) setVisto(null)
   const cerrar = useCallback(() => setFase({ tipo: "cerrado" }), [])
+
+  // «Deshacer» held her focus; when it goes (the toast closed, or «Lo recuperé.» took its place) the focus would
+  // fall to <body>. Give it to the list's heading, unless she already moved it elsewhere.
+  const conDeshacer = fase.tipo === "borrado" || fase.tipo === "deshaciendo"
+  const habiaDeshacer = useRef(false)
+  useEffect(() => {
+    if (conDeshacer) {
+      habiaDeshacer.current = true
+      return
+    }
+    if (!habiaDeshacer.current) return
+    habiaDeshacer.current = false
+    const activo = document.activeElement
+    if (activo !== null && activo !== document.body) return
+    document.getElementById(ID_DEL_TITULO_DE_LA_LISTA)?.focus()
+  }, [conDeshacer])
 
   if (fase.tipo === "cerrado") return null
   if (fase.tipo === "final") return <Aviso key="final" mensaje={fase.mensaje} alCerrar={cerrar} />

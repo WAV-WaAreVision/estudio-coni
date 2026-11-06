@@ -26,6 +26,9 @@ export function avisoTrasBorrar(nombre: string | null): string {
   return nombre ? `Borré «${nombre}».` : "Lo borré."
 }
 
+/** The list's heading: the toast gives the focus back to it when it closes or loses «Deshacer». */
+export const ID_DEL_TITULO_DE_LA_LISTA = "lista-titulo"
+
 export const LO_RECUPERE = "Lo recuperé."
 export const NO_PUDE_BORRAR = "No pude borrarlo. Prueba de nuevo."
 export const NO_PUDE_RECUPERAR = "No pude recuperarlo. Prueba de nuevo."

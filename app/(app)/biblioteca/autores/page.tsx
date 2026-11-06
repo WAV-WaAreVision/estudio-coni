@@ -1,6 +1,6 @@
 import { Panel } from "@/components/ui/panel"
 import { leerNombreDeLoBorrado, resumirAutores } from "@/lib/datos/biblioteca"
-import { leerBorrado } from "@/lib/dominio/biblioteca/borrado"
+import { ID_DEL_TITULO_DE_LA_LISTA, leerBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeBorrado } from "../aviso-de-borrado"
@@ -31,7 +31,9 @@ export default async function Autores({
       {/* Always drawn: its toast outlives the note leaving the address (plan D6). */}
       <AvisoDeBorrado tipo="autor" borrado={borrado && loBorrado ? { id: borrado, nombre: loBorrado.nombre } : null} />
       <div className="grid min-w-0 gap-5">
-        <h1 className="text-pantalla">Biblioteca</h1>
+        <h1 id={ID_DEL_TITULO_DE_LA_LISTA} tabIndex={-1} className="text-pantalla outline-none">
+          Biblioteca
+        </h1>
         <NavDeBiblioteca actual="autores" />
         <ListaDeAutores autores={autores} seleccion={seleccion} />
       </div>

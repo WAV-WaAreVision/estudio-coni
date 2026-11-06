@@ -17,6 +17,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn(), 
 vi.mock("@/app/(app)/biblioteca/acciones", () => acciones)
 
 import { AvisoDeBorrado } from "@/app/(app)/biblioteca/aviso-de-borrado"
+import { ID_DEL_TITULO_DE_LA_LISTA } from "@/lib/dominio/biblioteca/borrado"
 
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.useRealTimers())
@@ -104,6 +105,60 @@ describe("AvisoDeBorrado", () => {
       await vi.advanceTimersByTimeAsync(8_000)
     })
     expect(screen.queryByRole("status")).toBeNull()
+  })
+
+  describe("gives the focus back to the list's heading", () => {
+    type Borrado = { id: string; nombre: string | null } | null
+    const conTitulo = (borrado: Borrado) => (
+      <>
+        <h1 id={ID_DEL_TITULO_DE_LA_LISTA} tabIndex={-1}>
+          Biblioteca
+        </h1>
+        <AvisoDeBorrado tipo="material" borrado={borrado} />
+      </>
+    )
+    const titulo = () => screen.getByRole("heading", { name: "Biblioteca", level: 1 })
+
+    it("when the toast closes on its own with the focus on Deshacer", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      render(conTitulo({ id: ID, nombre: "Uno" }))
+      await waitFor(() => expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus())
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8_000)
+      })
+      expect(screen.queryByRole("status")).toBeNull()
+      expect(titulo()).toHaveFocus()
+    })
+
+    it("when «Lo recuperé.» replaces Deshacer", async () => {
+      render(conTitulo({ id: ID, nombre: "Uno" }))
+      await waitFor(() => expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus())
+      fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Lo recuperé."))
+      expect(titulo()).toHaveFocus()
+    })
+
+    it("never on a list drawn without a note", () => {
+      render(conTitulo(null))
+      expect(titulo()).not.toHaveFocus()
+    })
+
+    it("not when she already moved the focus elsewhere", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      render(
+        <>
+          {conTitulo({ id: ID, nombre: "Uno" })}
+          <button type="button">Otro</button>
+        </>,
+      )
+      await waitFor(() => expect(screen.getByRole("button", { name: "Deshacer" })).toHaveFocus())
+      const otro = screen.getByRole("button", { name: "Otro" })
+      otro.focus()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8_000)
+      })
+      expect(otro).toHaveFocus()
+    })
   })
 
   it("sends her to sign in when the session ended", async () => {
