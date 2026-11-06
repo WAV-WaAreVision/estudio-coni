@@ -37,6 +37,8 @@ export function AvisoDeBorrado({ tipo, borrado }: Propiedades) {
     setVisto(borrado.id)
     setFase({ tipo: "borrado", ...borrado })
   }
+  // Once the note left the address, the same id coming back is a second deletion (desktop: the list stays mounted).
+  if (borrado === null && visto !== null) setVisto(null)
   const cerrar = useCallback(() => setFase({ tipo: "cerrado" }), [])
 
   if (fase.tipo === "cerrado") return null

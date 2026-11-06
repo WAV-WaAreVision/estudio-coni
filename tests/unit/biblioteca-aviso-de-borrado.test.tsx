@@ -84,6 +84,18 @@ describe("AvisoDeBorrado", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Borré «Dos»."))
   })
 
+  it("shows the toast again when the same id is deleted a second time after the note left the address", async () => {
+    const { rerender } = render(<AvisoDeBorrado tipo="material" borrado={{ id: ID, nombre: "Uno" }} />)
+    await aviso()
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Lo recuperé."))
+    rerender(<AvisoDeBorrado tipo="material" borrado={{ id: ID, nombre: "Uno" }} />)
+    rerender(<AvisoDeBorrado tipo="material" borrado={null} />)
+    rerender(<AvisoDeBorrado tipo="material" borrado={{ id: ID, nombre: "Uno" }} />)
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Borré «Uno»."))
+    expect(screen.getByRole("button", { name: "Deshacer" })).toBeInTheDocument()
+  })
+
   it("closes after 8 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<AvisoDeBorrado tipo="material" borrado={{ id: ID, nombre: "Uno" }} />)
