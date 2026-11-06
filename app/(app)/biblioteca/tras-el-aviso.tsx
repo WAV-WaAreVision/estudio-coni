@@ -6,7 +6,8 @@ import { EVENTO_DE_LLEGADA } from "@/components/use-ir-a"
 import { ID_DEL_AVISO_DE_IDEAS } from "@/lib/dominio/biblioteca/ideas"
 
 /**
- * What the page does once its note (`AvisoDeIdeas`) arrived with the address after Ocultar or Mostrar. On a new page
+ * What the page does once its note (`AvisoDeIdeas`, or the deletion's toast) arrived with the address after Ocultar,
+ * Mostrar or Borrar. On a new page
  * (the Temas list after a topic's last idea) the focus `BotonOcultar` gave the old note is gone, so the note takes it.
  * Only while the address still has the note and nothing holds the focus: a page shown again by Back, or one where she
  * already moved on, keeps hers.
@@ -19,7 +20,14 @@ import { ID_DEL_AVISO_DE_IDEAS } from "@/lib/dominio/biblioteca/ideas"
  * the next screen is the one she is on. It runs again when a new note comes to a page already showing one (a second
  * Descartar in Borradores keeps this component mounted).
  */
-export function TrasElAviso({ parametro }: { parametro: "oculta" | "mostrada" | "aviso" }) {
+export function TrasElAviso({
+  parametro,
+  tambien,
+}: {
+  parametro: "oculta" | "mostrada" | "aviso"
+  /** A second key that belongs to the same note: the deletion's `id` (`?aviso=borrado&id=`). */
+  tambien?: "id"
+}) {
   // The router's own copy of the address (null outside one, as in unit tests): a new note re-runs the effect.
   const nota = useSearchParams()?.get(parametro) ?? null
   // biome-ignore lint/correctness/useExhaustiveDependencies: `nota` is not read, it is the trigger: the window's address is the truth.
@@ -29,8 +37,9 @@ export function TrasElAviso({ parametro }: { parametro: "oculta" | "mostrada" | 
     const activo = document.activeElement
     if (activo === null || activo === document.body) document.getElementById(ID_DEL_AVISO_DE_IDEAS)?.focus()
     url.searchParams.delete(parametro)
+    if (tambien) url.searchParams.delete(tambien)
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
     window.dispatchEvent(new Event(EVENTO_DE_LLEGADA))
-  }, [parametro, nota])
+  }, [parametro, tambien, nota])
   return null
 }

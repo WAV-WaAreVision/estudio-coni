@@ -13,6 +13,9 @@ import type { Database } from "@/lib/supabase/database.types"
 vi.mock("@/lib/mantenimiento/arranques", () => ({ reanudarArranques: vi.fn(async () => []) }))
 vi.mock("@/lib/mantenimiento/conciliar", () => ({ conciliarRenders: vi.fn(async () => []) }))
 vi.mock("@/lib/mantenimiento/voces", () => ({ devolverVocesTrabadas: vi.fn(async () => 0) }))
+vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
+  borrarLoMarcado: vi.fn(async () => ({ materiales: 0, carpetasPendientes: [] })),
+}))
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mantenimiento/temas")>()),
@@ -72,8 +75,10 @@ const TEMAS: DepsMantenimientoTemas = {
   claude: new Anthropic({ apiKey: "sk-ant-clave-de-prueba", maxRetries: 0 }),
   llaveVoyage: () => undefined,
 }
+const ALMACEN = almacenEnMemoria()
 const FRECUENTE: DepsFrecuente = {
   db: DB,
+  almacen: () => ALMACEN,
   avisos: notificadorEnMemoria(),
   ahora: () => "2026-11-02T06:00:00.000Z",
   dispararGrabacion: async () => undefined,
@@ -81,6 +86,42 @@ const FRECUENTE: DepsFrecuente = {
   dispararArmado: async () => undefined,
   temas: async () => TEMAS,
 }
+
+describe("the ten-minute run", () => {
+  it("deletes what Coni marked first, with the run's store and clock", async () => {
+    const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
+    const resultado = await mantenimientoFrecuente(FRECUENTE)
+    expect(Object.keys(resultado)[0]).toBe("borrado")
+    expect(borrarLoMarcado).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
+  })
+
+  it("fails only the deletion when the store cannot be built, and still runs every other job", async () => {
+    const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
+    const { reanudarArranques } = await import("@/lib/mantenimiento/arranques")
+    const { conciliarRenders } = await import("@/lib/mantenimiento/conciliar")
+    const { devolverVocesTrabadas } = await import("@/lib/mantenimiento/voces")
+    const { barrerGastos } = await import("@/lib/mantenimiento/gastos")
+    const { mantenerTemas } = await import("@/lib/mantenimiento/temas")
+    const sinR2: DepsFrecuente = {
+      ...FRECUENTE,
+      almacen: () => {
+        throw new Error("Falta R2_BUCKET")
+      },
+    }
+
+    const error = await mantenimientoFrecuente(sinR2).then(
+      () => new Error("se esperaba un rechazo"),
+      (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+    )
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect(error.message).toContain("borrado: Falta R2_BUCKET")
+    expect(borrarLoMarcado).not.toHaveBeenCalled()
+    for (const trabajo of [reanudarArranques, conciliarRenders, devolverVocesTrabadas, barrerGastos, mantenerTemas]) {
+      expect(trabajo).toHaveBeenCalled()
+    }
+  })
+})
 
 describe("the limit notice of the ten-minute topics job", () => {
   it("fails the run when the month's first notice could not be sent", async () => {

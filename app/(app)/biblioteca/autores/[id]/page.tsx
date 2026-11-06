@@ -5,6 +5,7 @@ import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
 import { leerAutor, listarAutores } from "@/lib/datos/biblioteca"
 import { descripcionDeAutor, RUTA_DE_AUTORES, sePuedeUnir } from "@/lib/dominio/biblioteca/autores"
+import { sePuedeBorrarAutor } from "@/lib/dominio/biblioteca/borrado"
 import { cuentasDeAutor } from "@/lib/dominio/biblioteca/cuentas"
 import {
   AVISO_TRAS_MOSTRAR,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeIdeas } from "../../aviso-de-ideas"
+import { BotonBorrar } from "../../boton-borrar"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
 import { TrasElAviso } from "../../tras-el-aviso"
@@ -89,6 +91,10 @@ export default async function DetalleDeAutor({
           origen={{ id: autor.id, nombre: autor.nombre }}
           otros={autores.filter((otro) => otro.id !== autor.id)}
         />
+      ) : null}
+
+      {sePuedeBorrarAutor(autor, { materiales, ideas, ocultas: ocultas.length }) ? (
+        <BotonBorrar tipo="autor" id={autor.id} />
       ) : null}
     </div>
   )

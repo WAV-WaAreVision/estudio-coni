@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
   confirmarCostoAccion: vi.fn(),
+  borrarMaterialAccion: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
@@ -86,6 +87,28 @@ describe("PanelDeMaterial", () => {
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument()
     expect(screen.getByText("Las ideas aparecen cuando termina de procesarse.")).toBeInTheDocument()
     expect(screen.queryByRole("link", { name: /^Ver / })).toBeNull()
+  })
+})
+
+describe("PanelDeMaterial's Borrar", () => {
+  it("offers «Borrar material» in the side panel, before «Cerrar el panel»", () => {
+    render(<PanelDeMaterial panel={panel} filtros={{}} ahora={AHORA} />)
+    const borrar = screen.getByRole("button", { name: "Borrar material" })
+    const cerrar = screen.getByRole("link", { name: "Cerrar el panel" })
+    expect(borrar.compareDocumentPosition(cerrar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("carries Reintentar for a material whose run stopped because she deleted it and then undid it", () => {
+    const parado = {
+      ...panel,
+      material: {
+        ...panel.material,
+        estado: "procesando",
+        motivo_fallo: "Paré de procesarlo porque lo borraste. Toca Reintentar para seguir.",
+      },
+    }
+    render(<PanelDeMaterial panel={parado} filtros={{}} ahora={AHORA} />)
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument()
   })
 })
 

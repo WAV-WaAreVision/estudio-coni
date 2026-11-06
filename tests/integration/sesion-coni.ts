@@ -19,11 +19,15 @@ function claveAnonima(): string {
  * A client signed in as a seed user through the real Auth flow: the admin API mints the emailed code, `verifyOtp`
  * exchanges it for a session, so PostgREST sees the same JWT a browser would send. Row level security applies.
  */
-export async function clienteDeUsuario(correo: string): Promise<SupabaseClient<Database>> {
+export async function clienteDeUsuario(
+  correo: string,
+  opciones: { fetch?: typeof fetch } = {},
+): Promise<SupabaseClient<Database>> {
   const { data, error } = await clienteDeServicio().auth.admin.generateLink({ type: "magiclink", email: correo })
   if (error) throw new Error(`No pude generar el código de ${correo}: ${error.message}`, { cause: error })
   const cliente = createClient<Database>(credencialesDeServicio().url, claveAnonima(), {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...(opciones.fetch ? { global: { fetch: opciones.fetch } } : {}),
   })
   const sesion = await cliente.auth.verifyOtp({ email: correo, token: data.properties.email_otp, type: "email" })
   if (sesion.error) throw new Error(`No pude entrar como ${correo}: ${sesion.error.message}`, { cause: sesion.error })
@@ -33,7 +37,8 @@ export async function clienteDeUsuario(correo: string): Promise<SupabaseClient<D
   return cliente
 }
 
-export const clienteDeConi = () => clienteDeUsuario("coni@estudio.test")
+export const clienteDeConi = (opciones: { fetch?: typeof fetch } = {}) =>
+  clienteDeUsuario("coni@estudio.test", opciones)
 export const clienteDelMantenedor = () => clienteDeUsuario("wav@estudio.test")
 
 /** A client with the anon key and no session: what a visitor of a public page has. */

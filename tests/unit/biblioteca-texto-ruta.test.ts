@@ -45,7 +45,9 @@ describe("GET /biblioteca/materiales/[id]/texto", () => {
     const db = {
       rpc: async () => ({ data: true, error: null }),
       from: () => ({
-        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: ID }, error: null }) }) }),
+        select: () => ({
+          eq: () => ({ is: () => ({ maybeSingle: async () => ({ data: { id: ID }, error: null }) }) }),
+        }),
       }),
     }
     expect(await trabajo(db, { materialId: ID })).toEqual({ ok: true, url: "https://r2.test/firmada-por-el-almacen" })

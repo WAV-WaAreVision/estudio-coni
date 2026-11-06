@@ -91,11 +91,11 @@ async function material(campos: {
 }
 
 async function ideas(materialId: string, autorId: string, temaId: string, textos: string[], evidencia: string) {
-  for (const [indice, texto] of textos.entries()) {
+  for (const texto of textos) {
     await pool.query(
       `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, creada_en)
-       values ($1, $2, 0, '{"pagina":1}'::jsonb, $3, 'cita', 'dato', $4, $5, now() + $6 * interval '1 millisecond')`,
-      [materialId, autorId, texto, evidencia, temaId, indice],
+       values ($1, $2, 0, '{"pagina":1}'::jsonb, $3, 'cita', 'dato', $4, $5, clock_timestamp())`,
+      [materialId, autorId, texto, evidencia, temaId],
     )
   }
 }

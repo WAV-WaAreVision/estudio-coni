@@ -2,6 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { filasDePilaresAJson } from "@/lib/datos/pilares"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
+import {
+  AUTOR_CON_MATERIALES,
+  CONI_NO_SE_BORRA,
+  hrefTrasBorrar,
+  NO_PUDE_BORRAR,
+  NO_PUDE_RECUPERAR,
+  YA_NO_SE_RECUPERA,
+} from "@/lib/dominio/biblioteca/borrado"
 import { leerEdicion } from "@/lib/dominio/biblioteca/ficha"
 import { ROLES, TIPOS_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/modelo"
 import {
@@ -34,6 +42,7 @@ export interface DepsBiblioteca {
 }
 
 export const SobreMaterial = z.object({ materialId: z.uuid() })
+export const SobreAutor = z.object({ autorId: z.uuid() })
 export const EdicionDeMaterial = z.object({ materialId: z.uuid(), autorId: z.uuid(), rol: z.enum(ROLES) })
 export const AutorNuevo = z.object({
   nombre: z.string().max(LARGO_DE_AUTOR_NUEVO),
@@ -53,7 +62,9 @@ const NO_PUDE_INICIAR = "No pude iniciar el procesamiento. Toca Reintentar en un
 const NO_ES_EL_ESTADO = "22023"
 const CLAVE_FORANEA = "23503"
 const NO_EXISTE = "P0002"
+const NO_SE_PUDO_MARCAR = "no_se_pudo_marcar"
 const AUTOR_INEXISTENTE = "Ese autor ya no existe."
+const IDEA_INEXISTENTE = "Esa idea ya no existe."
 const MISMO_AUTOR = "Elige otro autor para unirlos."
 const CONI_NO_SE_UNE = "Tu propia ficha no se puede unir a otro autor."
 const TEMA_INEXISTENTE = "Ese tema ya no existe. Recarga la página."
@@ -86,6 +97,18 @@ async function iniciar(deps: DepsBiblioteca, materialId: string, cuando: string)
   }
 }
 
+/** A material she deleted (marked, waiting for maintenance) is gone for her: acting on it answers not found. */
+async function exigirMaterialVisible(db: Db, materialId: string): Promise<void> {
+  const { data, error } = await db
+    .from("materiales")
+    .select("id")
+    .eq("id", materialId)
+    .is("borrar_desde", null)
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
+  if (!data) throw new Falla(NO_ENCONTRE)
+}
+
 type RpcDeMaterial = "reintentar_material" | "reprocesar_material" | "confirmar_costo_material"
 
 /** The database goes first: it is what refuses a second tap. Then the run starts under its own attempt. */
@@ -93,6 +116,7 @@ function moverYProcesar(nombre: string, rpc: RpcDeMaterial, siNoCorresponde: str
   return (deps: DepsBiblioteca, materialId: string): Promise<Resultado> =>
     aResultado(nombre, async () => {
       await exigirConi(deps.db)
+      await exigirMaterialVisible(deps.db, materialId)
       const { error } = await deps.db.rpc(rpc, { p_id: materialId })
       if (error) {
         if (error.code === NO_ES_EL_ESTADO) throw new Falla(siNoCorresponde)
@@ -135,6 +159,7 @@ export function editarMaterial(deps: DepsBiblioteca, edicion: z.output<typeof Ed
       .from("materiales")
       .update({ autor_id: edicion.autorId, rol: edicion.rol })
       .eq("id", edicion.materialId)
+      .is("borrar_desde", null)
       .select("id")
     if (error) {
       if (error.code === CLAVE_FORANEA) throw new Falla("Ese autor ya no existe. Elígelo de nuevo.")
@@ -152,6 +177,7 @@ export function editarFicha(deps: DepsBiblioteca, entrada: unknown): Promise<Res
     const leida = leerEdicion(entrada)
     if (!leida.ok) throw new Falla(leida.error)
     const { materialId, resumen, ideasClave, citas, fuente } = leida.datos
+    await exigirMaterialVisible(deps.db, materialId)
     const { data, error } = await deps.db
       .from("fichas")
       .update({ resumen, ideas_clave: ideasClave, citas, fuente })
@@ -179,13 +205,26 @@ export function crearAutor(
       p_tipo: nuevo.tipo,
     })
     if (error) throw new Error(`No pude crear el autor: ${error.message}`, { cause: error })
-    const { data: autor, error: errorDeLectura } = await deps.db
+    const { data: leido, error: errorDeLectura } = await deps.db
       .from("autores")
-      .select("id, nombre, credencial, tipo, alias")
+      .select("id, nombre, credencial, tipo, alias, borrar_desde")
       .eq("id", id)
       .single()
     if (errorDeLectura)
       throw new Error(`No pude leer el autor ${id}: ${errorDeLectura.message}`, { cause: errorDeLectura })
+    const { borrar_desde, ...autor } = leido
+    // `crear_autor` answers an author she just deleted when she types its name again: typing it is wanting it back.
+    if (borrar_desde !== null) {
+      const { error: errorAlRecuperar } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: id, p_borrar: false })
+      // Another tab brought it back first: refused, but it already is where she wants it (D4).
+      const yaVolvio =
+        errorAlRecuperar?.code === NO_ES_EL_ESTADO &&
+        errorAlRecuperar.message === NO_SE_PUDO_MARCAR &&
+        (await marcaDe(deps.db, "autores", id)) === "visible"
+      if (errorAlRecuperar && !yaVolvio) {
+        throw new Error(`No pude recuperar el autor ${id}: ${errorAlRecuperar.message}`, { cause: errorAlRecuperar })
+      }
+    }
     return { autor }
   })
 }
@@ -198,9 +237,7 @@ export function pedirTextoOriginal(
   return aResultado("pedirTextoOriginal", async () => {
     await exigirConi(deps.db)
     // R2 can outlive the row (a deleted material): only a material she can read through row level security is signed.
-    const { data, error } = await deps.db.from("materiales").select("id").eq("id", materialId).maybeSingle()
-    if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
-    if (!data) throw new Falla(NO_ENCONTRE)
+    await exigirMaterialVisible(deps.db, materialId)
     const url = await deps.almacen.urlDeTexto(materialId, SEGUNDOS_DE_DESCARGA)
     if (url === null) throw new Falla("Ese texto todavía no está disponible.")
     return { url }
@@ -224,7 +261,7 @@ const UNA_HORA_S = 60 * 60
  * Only while it is `procesando`: a material a run already moved on is never taken back. True when the row is gone, so
  * its files may go too.
  */
-async function borrarMaterial(db: Db, materialId: string): Promise<boolean> {
+async function borrarMaterialSinSubir(db: Db, materialId: string): Promise<boolean> {
   const { data, error } = await db
     .from("materiales")
     .delete()
@@ -284,7 +321,7 @@ export function crearMaterial(
         .from("materiales_archivos")
         .insert(claves.map((clave, indice) => ({ material_id: materialId, orden: indice + 1, archivo_clave: clave })))
       if (errorDeArchivos) {
-        await borrarMaterial(deps.db, materialId)
+        await borrarMaterialSinSubir(deps.db, materialId)
         throw new Error(`No pude guardar las imágenes del material ${materialId}: ${errorDeArchivos.message}`, {
           cause: errorDeArchivos,
         })
@@ -304,7 +341,7 @@ export function crearMaterial(
         }),
       )
     } catch (error) {
-      await borrarMaterial(deps.db, materialId)
+      await borrarMaterialSinSubir(deps.db, materialId)
       throw new Error(`No pude firmar la subida del material ${materialId}`, { cause: error })
     }
     return { materialId, subidas }
@@ -364,6 +401,7 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
       .select("id, estado, archivo_clave")
       .eq("id", materialId)
       .eq("subido_por", subidoPor)
+      .is("borrar_desde", null)
       .maybeSingle()
     if (error) throw new Error(`No pude leer el material ${materialId}: ${error.message}`, { cause: error })
     if (!material) throw new Falla(NO_ENCONTRE)
@@ -375,7 +413,7 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
     if (tamanos === undefined) return dejarParaReintentar(deps.db, materialId)
     const malo = tamanos.find((bytes) => bytes === null || bytes === 0 || bytes > TAMANO_MAXIMO_BYTES)
     if (malo !== undefined) {
-      if (await borrarMaterial(deps.db, materialId)) await borrarCarpeta(deps.almacen, materialId)
+      if (await borrarMaterialSinSubir(deps.db, materialId)) await borrarCarpeta(deps.almacen, materialId)
       throw new Falla(malo !== null && malo > TAMANO_MAXIMO_BYTES ? PESA_DEMASIADO : FALTA_EL_ARCHIVO)
     }
 
@@ -422,10 +460,26 @@ export function unirAutores(
     await exigirConi(deps.db)
     // A uuid may arrive in either case; the database compares them as the same value.
     if (union.origen.toLowerCase() === union.destino.toLowerCase()) throw new Falla(MISMO_AUTOR)
-    const { data: origen, error } = await deps.db.from("autores").select("tipo").eq("id", union.origen).maybeSingle()
+    const { data: origen, error } = await deps.db
+      .from("autores")
+      .select("tipo")
+      .eq("id", union.origen)
+      .is("borrar_desde", null)
+      .maybeSingle()
     if (error) throw new Error(`No pude leer el autor ${union.origen}: ${error.message}`, { cause: error })
     if (!origen) throw new Falla(AUTOR_INEXISTENTE)
     if (origen.tipo === "coni") throw new Falla(CONI_NO_SE_UNE)
+    // A deleted author waiting for maintenance must not receive materials: it would stay hidden with them.
+    const { data: destino, error: errorDeDestino } = await deps.db
+      .from("autores")
+      .select("id")
+      .eq("id", union.destino)
+      .is("borrar_desde", null)
+      .maybeSingle()
+    if (errorDeDestino) {
+      throw new Error(`No pude leer el autor ${union.destino}: ${errorDeDestino.message}`, { cause: errorDeDestino })
+    }
+    if (!destino) throw new Falla(AUTOR_INEXISTENTE)
     const { error: errorDeUnion } = await deps.db.rpc("fusionar_autores", {
       p_origen: union.origen,
       p_destino: union.destino,
@@ -456,12 +510,115 @@ export function ocultarIdea(
 ): Promise<Resultado> {
   return aResultado("ocultarIdea", async () => {
     await exigirConi(deps.db)
+    const { data: idea, error: errorDeLectura } = await deps.db
+      .from("afirmaciones")
+      .select("id, materiales!inner ( borrar_desde )")
+      .eq("id", cambio.id)
+      .is("materiales.borrar_desde", null)
+      .maybeSingle()
+    if (errorDeLectura) {
+      throw new Error(`No pude leer la idea ${cambio.id}: ${errorDeLectura.message}`, { cause: errorDeLectura })
+    }
+    if (!idea) throw new Falla(IDEA_INEXISTENTE)
     const { error } = await deps.db.rpc("excluir_afirmacion", { p_id: cambio.id, p_excluida: cambio.oculta })
     if (error) {
-      if (error.code === NO_EXISTE) throw new Falla("Esa idea ya no existe.")
+      if (error.code === NO_EXISTE) throw new Falla(IDEA_INEXISTENTE)
       throw new Error(`No pude cambiar la idea ${cambio.id}: ${error.message}`, { cause: error })
     }
     return {}
+  })
+}
+
+/** Where the row is now, read when a mark was refused: a refusal can mean it already is where she wants it (D4). */
+async function marcaDe(db: Db, tabla: "materiales" | "autores", id: string): Promise<"marcado" | "visible" | null> {
+  const { data, error } =
+    tabla === "materiales"
+      ? await db.from("materiales").select("borrar_desde").eq("id", id).maybeSingle()
+      : await db.from("autores").select("borrar_desde").eq("id", id).maybeSingle()
+  if (error) throw new Error(`No pude leer ${tabla} ${id}: ${error.message}`, { cause: error })
+  if (!data) return null
+  return data.borrar_desde === null ? "visible" : "marcado"
+}
+
+/** An error she cannot act on is logged for WAV and answered in her words, so the button stays and she tries again. */
+function fallaDeMarca(cuando: string, error: { message: string }, paraConi: string): Falla {
+  console.error(`No pude ${cuando}`, error)
+  return new Falla(paraConi)
+}
+
+/**
+ * «Borrar material»: marks it, so every screen hides it at once and maintenance deletes it a minute later (spec).
+ * Answers the list with the note that offers «Deshacer».
+ */
+export function borrarMaterial(
+  deps: Pick<DepsBiblioteca, "db">,
+  materialId: string,
+): Promise<Resultado<{ destino: string }>> {
+  return aResultado("borrarMaterial", async () => {
+    await exigirConi(deps.db)
+    const destino = hrefTrasBorrar("material", materialId)
+    const { error } = await deps.db.rpc("marcar_material_para_borrar", { p_id: materialId, p_borrar: true })
+    if (!error) return { destino }
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "materiales", materialId)
+      if (marca === "marcado") return { destino }
+      if (marca === null) throw new Falla(NO_ENCONTRE)
+    }
+    throw fallaDeMarca(`marcar el material ${materialId}`, error, NO_PUDE_BORRAR)
+  })
+}
+
+/** «Deshacer»: the material is back where it was, unless maintenance already deleted it. */
+export function recuperarMaterial(deps: Pick<DepsBiblioteca, "db">, materialId: string): Promise<Resultado> {
+  return aResultado("recuperarMaterial", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("marcar_material_para_borrar", { p_id: materialId, p_borrar: false })
+    if (!error) return {}
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "materiales", materialId)
+      if (marca === "visible") return {}
+      if (marca === null) throw new Falla(YA_NO_SE_RECUPERA)
+    }
+    throw fallaDeMarca(`recuperar el material ${materialId}`, error, NO_PUDE_RECUPERAR)
+  })
+}
+
+/** «Borrar autor»: only with nothing live by or from it, never Coni's card (the page offers it only then). */
+export function borrarAutor(
+  deps: Pick<DepsBiblioteca, "db">,
+  autorId: string,
+): Promise<Resultado<{ destino: string }>> {
+  return aResultado("borrarAutor", async () => {
+    await exigirConi(deps.db)
+    const destino = hrefTrasBorrar("autor", autorId)
+    const { error } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: autorId, p_borrar: true })
+    if (!error) return { destino }
+    if (error.code === NO_ES_EL_ESTADO) {
+      // Backstops for the page's own check, for a row that changed after the page was drawn.
+      if (error.message === "autor_con_materiales") throw new Falla(AUTOR_CON_MATERIALES)
+      if (error.message === "autor_coni_protegido") throw new Falla(CONI_NO_SE_BORRA)
+      if (error.message === NO_SE_PUDO_MARCAR) {
+        const marca = await marcaDe(deps.db, "autores", autorId)
+        if (marca === "marcado") return { destino }
+        if (marca === null) throw new Falla(AUTOR_INEXISTENTE)
+      }
+    }
+    throw fallaDeMarca(`marcar el autor ${autorId}`, error, NO_PUDE_BORRAR)
+  })
+}
+
+/** «Deshacer» for an author. */
+export function recuperarAutor(deps: Pick<DepsBiblioteca, "db">, autorId: string): Promise<Resultado> {
+  return aResultado("recuperarAutor", async () => {
+    await exigirConi(deps.db)
+    const { error } = await deps.db.rpc("marcar_autor_para_borrar", { p_id: autorId, p_borrar: false })
+    if (!error) return {}
+    if (error.code === NO_ES_EL_ESTADO && error.message === NO_SE_PUDO_MARCAR) {
+      const marca = await marcaDe(deps.db, "autores", autorId)
+      if (marca === "visible") return {}
+      if (marca === null) throw new Falla(YA_NO_SE_RECUPERA)
+    }
+    throw fallaDeMarca(`recuperar el autor ${autorId}`, error, NO_PUDE_RECUPERAR)
   })
 }
 

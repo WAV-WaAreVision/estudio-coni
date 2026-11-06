@@ -33,8 +33,11 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   editarMaterialAccion: vi.fn(),
   editarFichaAccion: vi.fn(),
   crearAutorAccion: vi.fn(),
+  borrarMaterialAccion: vi.fn(),
 }))
 
+import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
+import { BotonReintentar } from "@/app/(app)/biblioteca/boton-reintentar"
 import DetalleDeMaterial from "@/app/(app)/biblioteca/materiales/[id]/page"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -136,5 +139,41 @@ describe("the material detail page", () => {
     const arbol = elementos(await DetalleDeMaterial(conId(ID)))
     const boton = arbol.find((elemento) => "rol" in elemento.props && !("autores" in elemento.props))
     expect(boton?.props.rol).toBe("estrategia")
+  })
+
+  it("offers «Borrar material» once on the phone column and once in the desktop side column, at the end", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: null })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    const botones = arbol.filter((elemento) => elemento.type === BotonBorrar)
+    expect(botones.map((boton) => boton.props)).toEqual([
+      { tipo: "material", id: ID },
+      { tipo: "material", id: ID },
+    ])
+    const ultimoDe = (cual: { props: Record<string, unknown> } | undefined) => {
+      const hijos = cual?.props.children
+      return Array.isArray(hijos) ? hijos.at(-1) : hijos
+    }
+    const telefono = arbol.filter((e) => e.props.className === "contents md:hidden").at(-1)
+    expect(ultimoDe(telefono)).toEqual(expect.objectContaining({ type: BotonBorrar }))
+    const lateral = arbol.find((e) => e.type === "aside")
+    expect(ultimoDe(lateral)).toEqual(expect.objectContaining({ type: BotonBorrar }))
+  })
+
+  it("offers Reintentar for a material whose run stopped because she deleted it and then undid it", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({
+      material: {
+        ...MATERIAL,
+        estado: "procesando",
+        motivo_fallo: "Paré de procesarlo porque lo borraste. Toca Reintentar para seguir.",
+      },
+      ficha: null,
+    })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(arbol.filter((elemento) => elemento.type === BotonReintentar).map((b) => b.props)).toEqual([
+      { materialId: ID },
+      { materialId: ID },
+    ])
   })
 })

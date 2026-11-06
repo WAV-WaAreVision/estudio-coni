@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { conSesionDeConi, revalidatePath, redirect } = vi.hoisted(() => ({
   conSesionDeConi: vi.fn(
-    async (..._: unknown[]): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true }),
+    async (..._: unknown[]): Promise<{ ok: true; destino?: string } | { ok: false; error: string }> => ({ ok: true }),
   ),
   revalidatePath: vi.fn(),
   // Like Next's, it throws: nothing after it runs.
@@ -17,11 +17,17 @@ vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotec
 vi.mock("@/lib/acciones/biblioteca", async (original) => ({
   ...(await original<typeof import("@/lib/acciones/biblioteca")>()),
   descartarMaterial: vi.fn(async () => ({ ok: true })),
+  borrarMaterial: vi.fn(async () => ({ ok: true, destino: "/x" })),
+  recuperarMaterial: vi.fn(async () => ({ ok: true })),
+  borrarAutor: vi.fn(async () => ({ ok: true, destino: "/x" })),
+  recuperarAutor: vi.fn(async () => ({ ok: true })),
   unirAutores: vi.fn(async () => ({ ok: true })),
   ocultarIdea: vi.fn(async () => ({ ok: true })),
 }))
 
 import {
+  borrarAutorAccion,
+  borrarMaterialAccion,
   cambiarPilaresAccion,
   confirmarCostoAccion,
   confirmarMaterialAccion,
@@ -31,17 +37,24 @@ import {
   editarFichaAccion,
   editarMaterialAccion,
   ocultarIdeaAccion,
+  recuperarAutorAccion,
+  recuperarMaterialAccion,
   reintentarMaterialAccion,
   reprocesarMaterialAccion,
   unirAutoresAccion,
 } from "@/app/(app)/biblioteca/acciones"
 import {
   AutorNuevo,
+  borrarAutor,
+  borrarMaterial,
   CambioDeIdea,
   CambioDePilares,
   descartarMaterial,
   EdicionDeMaterial,
   ocultarIdea,
+  recuperarAutor,
+  recuperarMaterial,
+  SobreAutor,
   SobreMaterial,
   UnionDeAutores,
   unirAutores,
@@ -174,5 +187,31 @@ describe("the server actions of Autores and Temas", () => {
   it("the schemas refuse what is not an id or a yes/no", () => {
     expect(UnionDeAutores.safeParse({ origen: "1", destino: AUTOR }).success).toBe(false)
     expect(CambioDeIdea.safeParse({ id: ID, oculta: "si" }).success).toBe(false)
+  })
+})
+
+describe("the server actions of deleting with Deshacer", () => {
+  it.each([
+    ["borrarMaterial", () => borrarMaterialAccion(ID), SobreMaterial, { materialId: ID }, borrarMaterial, ID],
+    ["recuperarMaterial", () => recuperarMaterialAccion(ID), SobreMaterial, { materialId: ID }, recuperarMaterial, ID],
+    ["borrarAutor", () => borrarAutorAccion(AUTOR), SobreAutor, { autorId: AUTOR }, borrarAutor, AUTOR],
+    ["recuperarAutor", () => recuperarAutorAccion(AUTOR), SobreAutor, { autorId: AUTOR }, recuperarAutor, AUTOR],
+  ] as const)(
+    "%s checks Coni with its schema, runs its own action and refreshes the whole section, never redirecting",
+    async (nombre, accion, esquema, entrada, propia, id) => {
+      await accion()
+      const [recibido, conEsquema, conEntrada, alAccionar] = conSesionDeConi.mock.calls[0] ?? []
+      expect([recibido, conEsquema, conEntrada]).toEqual([nombre, esquema, entrada])
+      const db = {}
+      await (alAccionar as (db: unknown, d: unknown) => Promise<unknown>)(db, entrada)
+      expect(propia).toHaveBeenCalledWith({ db }, id)
+      expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+      expect(redirect).not.toHaveBeenCalled()
+    },
+  )
+
+  it("answers the destination the action gave, so the client goes there with useIrA", async () => {
+    conSesionDeConi.mockResolvedValueOnce({ ok: true, destino: `/biblioteca?aviso=borrado&id=${ID}` })
+    expect(await borrarMaterialAccion(ID)).toEqual({ ok: true, destino: `/biblioteca?aviso=borrado&id=${ID}` })
   })
 })

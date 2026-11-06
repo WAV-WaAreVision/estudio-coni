@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { type AutorDeLista, type AutorResumido, armarResumenDeAutores } from "@/lib/dominio/biblioteca/autores"
+import type { LoBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { type FichaLeida, leerFicha } from "@/lib/dominio/biblioteca/ficha"
 import type { FiltrosDeMateriales } from "@/lib/dominio/biblioteca/filtros"
 import {
@@ -83,6 +84,7 @@ export async function listarMateriales(db: Db, filtros: FiltrosDeMateriales): Pr
   let consulta = db
     .from("materiales")
     .select(`${COLUMNAS}, autores ( nombre )`)
+    .is("borrar_desde", null)
     .order("creado_en", { ascending: false })
     .order("id")
     .limit(MAXIMO_DE_MATERIALES)
@@ -116,7 +118,8 @@ export async function contarPorEstado(db: Db): Promise<{ procesando: number; fal
     if (error) throw new Error(`No pude contar los materiales ${nombre}: ${error.message}`, { cause: error })
     return count ?? 0
   }
-  const cuantos = () => db.from("materiales").select("id", { count: "exact", head: true })
+  // A marked material is gone for her: it neither counts nor keeps the list asking.
+  const cuantos = () => db.from("materiales").select("id", { count: "exact", head: true }).is("borrar_desde", null)
   const [procesando, fallido, trabajando] = await Promise.all([
     contar("procesando", cuantos().eq("estado", "procesando")),
     contar("fallido", cuantos().eq("estado", "fallido")),
@@ -148,6 +151,7 @@ export async function leerMaterialConFicha(
       `${COLUMNAS}, idioma_original, origen_url, autores ( nombre, credencial ), fichas ( resumen, ideas_clave, citas, fuente )`,
     )
     .eq("id", id)
+    .is("borrar_desde", null)
     .maybeSingle()
   if (error) throw new Error(`No pude leer el material ${id}: ${error.message}`, { cause: error })
   if (!data) return null
@@ -163,15 +167,18 @@ export async function leerMaterialConFicha(
 
 /** The map of a material: what its ideas are about and how they are backed. Excluded ideas are not part of it. */
 export async function leerMapaDelMaterial(db: Db, materialId: string): Promise<MapaDelMaterial> {
-  const filas: FilaDeAfirmacion[] = await leerTodas(`las ideas del material ${materialId}`, (despuesDe, limite) => {
+  const filas = await leerTodas(`las ideas del material ${materialId}`, (despuesDe, limite) => {
     const consulta = db
       .from("afirmaciones")
-      .select("id, tema_id, tipo, evidencia, temas ( nombre )")
+      .select("id, tema_id, tipo, evidencia, temas ( nombre ), materiales!inner ( borrar_desde )")
       .eq("material_id", materialId)
       .eq("excluida", false)
+      .is("materiales.borrar_desde", null)
     return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
   })
-  return armarMapa(filas)
+  return armarMapa(
+    filas.map(({ tema_id, tipo, evidencia, temas }): FilaDeAfirmacion => ({ tema_id, tipo, evidencia, temas })),
+  )
 }
 
 export interface PanelDelMaterial {
@@ -193,9 +200,10 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
     leerMapaDelMaterial(db, id),
     db
       .from("afirmaciones")
-      .select("texto")
+      .select("texto, materiales!inner ( borrar_desde )")
       .eq("material_id", id)
       .eq("excluida", false)
+      .is("materiales.borrar_desde", null)
       .order("creada_en")
       .order("id")
       .limit(2),
@@ -213,7 +221,7 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
 /** The authors in alphabetical order. Row level security shows nothing to someone who is not Coni or WAV. */
 export async function listarAutores(db: Db): Promise<AutorDeLista[]> {
   const autores = await leerTodas("los autores", (despuesDe, limite) => {
-    const consulta = db.from("autores").select("id, nombre, credencial, tipo, alias")
+    const consulta = db.from("autores").select("id, nombre, credencial, tipo, alias").is("borrar_desde", null)
     return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
   })
   return autores.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
@@ -226,11 +234,15 @@ export async function resumirAutores(db: Db): Promise<AutorResumido[]> {
   const [autores, materiales, ideas] = await Promise.all([
     listarAutores(db),
     leerTodas("los materiales de los autores", (despuesDe, limite) => {
-      const consulta = db.from("materiales").select("id, autor_id")
+      const consulta = db.from("materiales").select("id, autor_id").is("borrar_desde", null)
       return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
     }),
     leerTodas("las ideas de los autores", (despuesDe, limite) => {
-      const consulta = db.from("afirmaciones").select("id, autor_id, tema_id, temas ( nombre )").eq("excluida", false)
+      const consulta = db
+        .from("afirmaciones")
+        .select("id, autor_id, tema_id, temas ( nombre ), materiales!inner ( borrar_desde )")
+        .eq("excluida", false)
+        .is("materiales.borrar_desde", null)
       return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
     }),
   ])
@@ -252,16 +264,24 @@ export interface AutorLeido {
 
 /** One author with its ideas by topic and its hidden ones; null when it does not exist or is not hers to see. */
 export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> {
-  const { data: autor, error } = await db.from("autores").select(COLUMNAS_DE_AUTOR).eq("id", id).maybeSingle()
+  const { data: autor, error } = await db
+    .from("autores")
+    .select(COLUMNAS_DE_AUTOR)
+    .eq("id", id)
+    .is("borrar_desde", null)
+    .maybeSingle()
   if (error) throw new Error(`No pude leer el autor ${id}: ${error.message}`, { cause: error })
   if (!autor) return null
   const [conteo, filas] = await Promise.all([
-    db.from("materiales").select("id", { count: "exact", head: true }).eq("autor_id", id),
+    db.from("materiales").select("id", { count: "exact", head: true }).eq("autor_id", id).is("borrar_desde", null),
     leerTodas(`las ideas del autor ${id}`, (despuesDe, limite) => {
       const consulta = db
         .from("afirmaciones")
-        .select("id, texto, tipo, evidencia, excluida, tema_id, creada_en, temas ( nombre )")
+        .select(
+          "id, texto, tipo, evidencia, excluida, tema_id, creada_en, temas ( nombre ), materiales!inner ( borrar_desde )",
+        )
         .eq("autor_id", id)
+        .is("materiales.borrar_desde", null)
       return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
     }),
   ])
@@ -287,6 +307,35 @@ export async function leerAutor(db: Db, id: string): Promise<AutorLeido | null> 
     grupos,
     ocultas,
   }
+}
+
+/**
+ * The name of what Coni just deleted, for the list's notice; null once it is visible again or gone, so a stale or
+ * forged address shows no notice (plan D6).
+ */
+export async function leerNombreDeLoBorrado(
+  db: Db,
+  tipo: LoBorrado,
+  id: string,
+): Promise<{ nombre: string | null } | null> {
+  if (tipo === "material") {
+    const { data, error } = await db
+      .from("materiales")
+      .select("titulo")
+      .eq("id", id)
+      .not("borrar_desde", "is", null)
+      .maybeSingle()
+    if (error) throw new Error(`No pude leer el material borrado ${id}: ${error.message}`, { cause: error })
+    return data ? { nombre: data.titulo } : null
+  }
+  const { data, error } = await db
+    .from("autores")
+    .select("nombre")
+    .eq("id", id)
+    .not("borrar_desde", "is", null)
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer el autor borrado ${id}: ${error.message}`, { cause: error })
+  return data ? { nombre: data.nombre } : null
 }
 
 /**
@@ -381,9 +430,12 @@ export async function leerTema(db: Db, id: string): Promise<TemaLeido | null> {
   const filas = await leerTodas(`las ideas del tema ${id}`, (despuesDe, limite) => {
     const consulta = db
       .from("afirmaciones")
-      .select("id, texto, tipo, evidencia, creada_en, autor_id, autores ( nombre, credencial )")
+      .select(
+        "id, texto, tipo, evidencia, creada_en, autor_id, autores ( nombre, credencial ), materiales!inner ( borrar_desde )",
+      )
       .eq("tema_id", id)
       .eq("excluida", false)
+      .is("materiales.borrar_desde", null)
     return (despuesDe === null ? consulta : consulta.gt("id", despuesDe)).order("id").limit(limite)
   })
   return {

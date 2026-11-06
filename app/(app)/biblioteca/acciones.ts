@@ -6,6 +6,8 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import {
   AutorNuevo,
+  borrarAutor,
+  borrarMaterial,
   CambioDeIdea,
   CambioDePilares,
   cambiarPilaresDeTema,
@@ -20,8 +22,11 @@ import {
   editarFicha,
   editarMaterial,
   ocultarIdea,
+  recuperarAutor,
+  recuperarMaterial,
   reintentarMaterial,
   reprocesarMaterial,
+  SobreAutor,
   SobreMaterial,
   UnionDeAutores,
   unirAutores,
@@ -157,5 +162,35 @@ export async function ocultarIdeaAccion(cambio: z.input<typeof CambioDeIdea>, de
 export async function cambiarPilaresAccion(cambio: z.input<typeof CambioDePilares>) {
   return refrescar(
     await conSesionDeConi("cambiarPilaresDeTema", CambioDePilares, cambio, (db, d) => cambiarPilaresDeTema({ db }, d)),
+  )
+}
+
+// Deleting answers the list with its note and the client goes there (`useIrA`), never `redirect()` (15c, decision 21).
+
+export async function borrarMaterialAccion(materialId: string) {
+  return refrescar(
+    await conSesionDeConi("borrarMaterial", SobreMaterial, { materialId }, (db, d) =>
+      borrarMaterial({ db }, d.materialId),
+    ),
+  )
+}
+
+export async function recuperarMaterialAccion(materialId: string) {
+  return refrescar(
+    await conSesionDeConi("recuperarMaterial", SobreMaterial, { materialId }, (db, d) =>
+      recuperarMaterial({ db }, d.materialId),
+    ),
+  )
+}
+
+export async function borrarAutorAccion(autorId: string) {
+  return refrescar(
+    await conSesionDeConi("borrarAutor", SobreAutor, { autorId }, (db, d) => borrarAutor({ db }, d.autorId)),
+  )
+}
+
+export async function recuperarAutorAccion(autorId: string) {
+  return refrescar(
+    await conSesionDeConi("recuperarAutor", SobreAutor, { autorId }, (db, d) => recuperarAutor({ db }, d.autorId)),
   )
 }
