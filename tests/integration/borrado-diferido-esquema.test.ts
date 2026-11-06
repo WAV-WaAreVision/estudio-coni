@@ -1,6 +1,18 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
-import { asumir, CONI, como, comoConi, comoOtra, comoPostgres, pool, type Sesion } from "./db"
+import {
+  asumir,
+  CONI,
+  como,
+  comoConi,
+  comoMantenedor,
+  comoOtra,
+  comoPostgres,
+  fallaCon,
+  MANTENEDOR,
+  pool,
+  type Sesion,
+} from "./db"
 
 afterAll(() => pool.end())
 
@@ -68,5 +80,69 @@ describe("the views of what is not marked", () => {
       "select indexname from pg_indexes where indexname in ('materiales_por_borrar', 'autores_por_borrar') order by 1",
     )
     expect(rows.map((fila) => fila.indexname)).toEqual(["autores_por_borrar", "materiales_por_borrar"])
+  })
+})
+
+const marcaDe = async (c: Cliente, tabla: "materiales" | "autores", id: string) =>
+  (
+    await c.query<{ marcado: boolean }>(
+      `select borrar_desde is not null as marcado from public.${tabla} where id = $1`,
+      [id],
+    )
+  ).rows[0]?.marcado
+
+describe("marcar_material_para_borrar", () => {
+  it("lets Coni mark any material and unmark it again", async () => {
+    await como(comoConi, async (c) => {
+      const id = await comoDueno(c, comoConi, async () => material(c, await autor(c, "Autora de Coni"), MANTENEDOR))
+      await c.query("select public.marcar_material_para_borrar($1, true)", [id])
+      expect(await marcaDe(c, "materiales", id)).toBe(true)
+      await c.query("select public.marcar_material_para_borrar($1, false)", [id])
+      expect(await marcaDe(c, "materiales", id)).toBe(false)
+    })
+  })
+
+  it("lets the maintainer mark only what the maintainer uploaded", async () => {
+    await como(comoMantenedor, async (c) => {
+      const [suyo, deConi] = await comoDueno(c, comoMantenedor, async () => {
+        const a = await autor(c, "Autora del mantenedor")
+        return [await material(c, a, MANTENEDOR), await material(c, a, CONI)]
+      })
+      await c.query("select public.marcar_material_para_borrar($1, true)", [suyo])
+      expect(await marcaDe(c, "materiales", suyo)).toBe(true)
+      const ajeno = await fallaCon(c, "select public.marcar_material_para_borrar($1, true)", [deConi])
+      expect([ajeno.code, ajeno.message]).toEqual(["22023", "no_se_pudo_marcar"])
+    })
+  })
+
+  it("refuses anyone who is not Coni or the maintainer", async () => {
+    await como(comoOtra, async (c) => {
+      const id = await comoDueno(c, comoOtra, async () => material(c, await autor(c, "Autora ajena")))
+      const error = await fallaCon(c, "select public.marcar_material_para_borrar($1, true)", [id])
+      expect([error.code, error.message]).toEqual(["42501", "sin_permiso"])
+    })
+  })
+
+  it("says no_se_pudo_marcar for a second mark, an unmark of a visible row and a missing row", async () => {
+    await como(comoConi, async (c) => {
+      const id = await comoDueno(c, comoConi, async () => material(c, await autor(c, "Autora repetida")))
+      const visible = await fallaCon(c, "select public.marcar_material_para_borrar($1, false)", [id])
+      expect(visible.message).toBe("no_se_pudo_marcar")
+      await c.query("select public.marcar_material_para_borrar($1, true)", [id])
+      const segunda = await fallaCon(c, "select public.marcar_material_para_borrar($1, true)", [id])
+      expect(segunda.message).toBe("no_se_pudo_marcar")
+      const falta = await fallaCon(c, "select public.marcar_material_para_borrar($1, true)", [
+        "00000000-0000-4000-8000-000000000000",
+      ])
+      expect([falta.code, falta.message]).toEqual(["22023", "no_se_pudo_marcar"])
+    })
+  })
+
+  it("is not callable by anon and is callable by authenticated", async () => {
+    const { rows } = await pool.query<{ anon: boolean; autenticado: boolean }>(
+      `select has_function_privilege('anon', 'public.marcar_material_para_borrar(uuid, boolean)', 'execute') as anon,
+              has_function_privilege('authenticated', 'public.marcar_material_para_borrar(uuid, boolean)', 'execute') as autenticado`,
+    )
+    expect(rows[0]).toEqual({ anon: false, autenticado: true })
   })
 })

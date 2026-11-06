@@ -11,3 +11,21 @@ select * from public.materiales where borrar_desde is null;
 create view public.autores_visibles with (security_invoker = true) as
 select * from public.autores where borrar_desde is null;
 grant select on public.materiales_visibles, public.autores_visibles to authenticated;
+
+-- Coni, or whoever uploaded the material, marks it. Same rule as today's delete policy.
+create function public.marcar_material_para_borrar(p_id uuid, p_borrar boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not (public.es_coni() or public.es_mantenedor()) then
+    raise exception using errcode = '42501', message = 'sin_permiso';
+  end if;
+  update public.materiales set borrar_desde = case when p_borrar then now() end
+  where id = p_id and (public.es_coni() or subido_por = auth.uid())
+    and (p_borrar = (borrar_desde is null));
+  if not found then
+    raise exception using errcode = '22023', message = 'no_se_pudo_marcar';
+  end if;
+end $$;
+
+revoke execute on function public.marcar_material_para_borrar(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.marcar_material_para_borrar(uuid, boolean) to authenticated;
