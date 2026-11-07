@@ -458,7 +458,7 @@ export function PantallaDePresupuesto({
         {error("motor_semanal")}
         {error("fusiones_nocturnas")}
         <p className="text-meta text-apagado">
-          Corren sin que los pidas. Apagados no gastan. «Proponer ahora» en Ingesta sigue funcionando.
+          Corren sin que los pidas. Apagados no gastan. «Proponer ahora» sigue funcionando en la Biblioteca, en Semana.
         </p>
       </Seccion>
 
