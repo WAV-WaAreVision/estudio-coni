@@ -432,6 +432,8 @@ describe("VozParaFirmar con ElevenLabs en pausa", () => {
         version={5}
         datos={grabacion(null, { botones: { ...BOTONES, bloqueoVoz: TEXTO_PAUSA.elevenlabs } })}
         explicacion={TEXTO_PAUSA.elevenlabs}
+        // Even handed a notice, a pause shows no button: WAV already knows about it.
+        aviso={{ avisado: false }}
         alEscuchar={vi.fn()}
         sinGuardar={false}
       />,

@@ -17,7 +17,7 @@ import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { type Notificador, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
-import { clienteDeServicio } from "./servicio"
+import { clienteDeServicio, credencialesDeServicio } from "./servicio"
 import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, sembrarPieza } from "./siembra"
 import { borrarSembrado as borrarBiblioteca, sembrarAutor, sembrarFicha, sembrarMaterial } from "./siembra-biblioteca"
@@ -306,6 +306,31 @@ describe("leerAvisoAFederico with the page's session", () => {
 describe("avisarAFedericoAccion", () => {
   beforeAll(async () => {
     accionDeSesion.cliente = await clienteDelMantenedor()
+  })
+
+  it("emails WAV once from Coni's real session, end to end", async () => {
+    // The action's own service client reads the local stack (local development keys, never committed).
+    const { url, clave } = credencialesDeServicio()
+    vi.stubEnv("SUPABASE_URL", url)
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", clave)
+    accionDeSesion.cliente = await clienteDeConi()
+    const avisos = notificadorEnMemoria()
+    avisosReales.mockReturnValue(avisos)
+    try {
+      const id = await piezaEnPuerta1(LLAVE)
+
+      expect(await avisarAFedericoAccion({ tipo: "pieza", id })).toEqual({ ok: true })
+      expect(await avisarAFedericoAccion({ tipo: "pieza", id })).toEqual({ ok: true })
+
+      expect(avisos.aWavEnviados).toHaveLength(1)
+      expect(avisos.aWavEnviados[0]?.asunto).toBe(asuntoDeAviso("Sexo y ansiedad"))
+      const { rows } = await pool.query("select enviado_en from public.avisos_a_federico where entidad_id = $1", [id])
+      expect(rows).toEqual([{ enviado_en: expect.any(Date) }])
+    } finally {
+      vi.unstubAllEnvs()
+      accionDeSesion.cliente = await clienteDelMantenedor()
+      avisosReales.mockReset()
+    }
   })
 
   it("refuses a session that is not Coni's before anything is read or sent", async () => {
