@@ -10,6 +10,7 @@ import {
   disparosRegistrados,
   limpiarDisparos,
   registroDeServicios,
+  tocarHastaLlegar,
 } from "./ayudas"
 import { IDEA_DEL_MOTOR, lineaDeFuenteDe, sembrarEscena } from "./escena"
 
@@ -213,11 +214,15 @@ test.describe("ideas del motor", () => {
     expect(rows[0]).toEqual({ estado: "descartada", motivo_descarte: "repetida" })
   })
 
-  test("an empty bank says when the engine proposes and links to the ingestion app", async ({ page }) => {
+  test("an empty bank says when the engine proposes and offers to upload material", async ({ page }) => {
     await page.goto("/ideas")
 
-    await expect(page.getByText("El motor propone ideas cada domingo a las 20:00.")).toBeVisible()
-    await expect(page.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute("href", /^https?:\/\//)
+    await expect(
+      page.getByText("El motor propone ideas cada domingo a las 20:00. Mientras, sube material a tu Biblioteca."),
+    ).toBeVisible()
+    const subir = page.getByRole("link", { name: "Subir material" })
+    await expect(subir).toHaveAttribute("href", "/biblioteca/subir")
+    await tocarHastaLlegar(page, subir, /\/biblioteca\/subir$/)
   })
 })
 

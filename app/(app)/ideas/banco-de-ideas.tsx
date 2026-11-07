@@ -1,6 +1,7 @@
 "use client"
 
 import { ArrowRight, MagnifyingGlass, Plus } from "@phosphor-icons/react"
+import Link from "next/link"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
@@ -33,8 +34,6 @@ export interface AccionesDelBanco extends AccionesDeEleccion {
   /** The idea's angle (spec 15d), saved in place. */
   cambiarAngulo: (ideaId: string, anguloId: string | null) => Promise<Resultado>
 }
-
-const URL_DE_INGESTA = "https://conidolly-ingesta.vercel.app"
 
 type Vista = "mazo" | "buscar" | "propia" | "varias"
 
@@ -301,14 +300,11 @@ export function BancoDeIdeas({
       ) : bancoVacio ? (
         <div className="grid justify-items-start gap-3 py-1">
           <p className="text-cuerpo font-semibold">
-            El motor propone ideas cada domingo a las 20:00. Mientras, sube material en Conidolly Ingesta.
+            El motor propone ideas cada domingo a las 20:00. Mientras, sube material a tu Biblioteca.
           </p>
-          <a
-            href={process.env.NEXT_PUBLIC_URL_INGESTA || URL_DE_INGESTA}
-            className={clasesDeBoton({ variante: "secundario", tamano: "chico" })}
-          >
-            Abrir Conidolly Ingesta
-          </a>
+          <Link href="/biblioteca/subir" className={clasesDeBoton({ variante: "secundario", tamano: "chico" })}>
+            Subir material
+          </Link>
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>
       ) : (

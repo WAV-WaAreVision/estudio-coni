@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { type AccionesDelBanco, BancoDeIdeas } from "@/app/(app)/ideas/banco-de-ideas"
 import { CartaDeIdea } from "@/app/(app)/ideas/carta-de-idea"
 import { nombreDePilar, pilaresParaElegir, pilarVisible } from "@/lib/dominio/pilares"
@@ -12,7 +12,7 @@ const todasEmpezadas = (ids: string[]) => ({
   resultados: ids.map((ideaId) => ({ ideaId, tipo: "empezada" as const, piezaId: `p-${ideaId}` })),
 })
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
 function idea(parcial: Partial<IdeaDeBanco> & { id: string }): IdeaDeBanco {
   return {
@@ -218,7 +218,7 @@ describe("BancoDeIdeas: una idea a la vez", () => {
     mostrar({}, [idea({ id: "d", estado: "usada" })])
 
     expect(screen.getByText(/El motor propone ideas cada domingo/)).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Subir material" })).toBeInTheDocument()
     expect(screen.queryByText(/Usaste todas/)).not.toBeInTheDocument()
   })
 })
@@ -599,31 +599,14 @@ describe("BancoDeIdeas: descartar", () => {
 })
 
 describe("BancoDeIdeas: banco vacío", () => {
-  afterEach(() => vi.unstubAllEnvs())
-
-  it("tells her when the engine proposes and links to the ingestion app from the environment", () => {
-    vi.stubEnv("NEXT_PUBLIC_URL_INGESTA", "https://ingesta.ejemplo.test")
+  it("tells her when the engine proposes and offers to upload material to her Biblioteca", () => {
     mostrar({}, [])
 
     expect(
-      screen.getByText(
-        "El motor propone ideas cada domingo a las 20:00. Mientras, sube material en Conidolly Ingesta.",
-      ),
+      screen.getByText("El motor propone ideas cada domingo a las 20:00. Mientras, sube material a tu Biblioteca."),
     ).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute(
-      "href",
-      "https://ingesta.ejemplo.test",
-    )
-  })
-
-  it("falls back to the production URL when the environment has none", () => {
-    vi.stubEnv("NEXT_PUBLIC_URL_INGESTA", "")
-    mostrar({}, [])
-
-    expect(screen.getByRole("link", { name: "Abrir Conidolly Ingesta" })).toHaveAttribute(
-      "href",
-      "https://conidolly-ingesta.vercel.app",
-    )
+    expect(screen.getByRole("link", { name: "Subir material" })).toHaveAttribute("href", "/biblioteca/subir")
+    expect(screen.queryByText(/Ingesta/)).toBeNull()
   })
 })
 
