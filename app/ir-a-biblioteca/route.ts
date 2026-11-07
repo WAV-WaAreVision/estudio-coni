@@ -1,6 +1,6 @@
 import { leerSesion } from "@/lib/sesion/coni"
 import { irA } from "@/lib/sesion/redireccion"
-import { RUTA_DE_INGRESO } from "@/lib/sesion/rutas"
+import { RUTA_DE_INGRESO, RUTA_DE_LA_BIBLIOTECA } from "@/lib/sesion/rutas"
 
 export const dynamic = "force-dynamic"
 
@@ -9,5 +9,5 @@ export async function GET() {
   const sesion = await leerSesion()
   if (sesion.estado === "sin_sesion") return irA(RUTA_DE_INGRESO)
   if (sesion.estado === "otra_persona") return irA("/")
-  return irA("/biblioteca")
+  return irA(RUTA_DE_LA_BIBLIOTECA)
 }

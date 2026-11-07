@@ -1,7 +1,7 @@
 export const RUTA_DE_INGRESO = "/ingreso"
 
-/** The Biblioteca tab: a route handler that leaves the app for Ingesta (change 29a). */
-export const RUTA_DE_LA_BIBLIOTECA = "/ir-a-biblioteca"
+/** The Biblioteca tab (batch 7 of change 29b): the Biblioteca lives in the app. */
+export const RUTA_DE_LA_BIBLIOTECA = "/biblioteca"
 
 export type DecisionDeRuta = "seguir" | "a_ingreso" | "a_inicio"
 

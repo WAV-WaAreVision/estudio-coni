@@ -6,7 +6,7 @@ import { NavInferior } from "@/components/nav-inferior"
 const usePathname = vi.hoisted(() => vi.fn<() => string>())
 vi.mock("next/navigation", () => ({ usePathname }))
 vi.mock("next/link", () => ({
-  // Marks every Next <Link>: the tabs that leave the app must stay plain links (a <Link> would prefetch and mint).
+  // Marks every Next <Link>: every tab is one.
   default: ({ children, ...props }: ComponentProps<"a">) => (
     <a data-next-link="" {...props}>
       {children}
@@ -28,22 +28,47 @@ describe("NavInferior", () => {
     expect(screen.getByRole("navigation", { name: "Secciones" })).toHaveClass("grid-cols-4")
   })
 
-  it("leaves the app for the Biblioteca and never marks it current", () => {
-    usePathname.mockReturnValue("/ir-a-biblioteca")
+  it("opens the Biblioteca inside the app, as a Next link like every other tab", () => {
     render(<NavInferior />)
 
     const biblioteca = screen.getByRole("link", { name: "Biblioteca" })
-    expect(biblioteca).toHaveAttribute("href", "/ir-a-biblioteca")
+    expect(biblioteca).toHaveAttribute("href", "/biblioteca")
+    expect(biblioteca).toHaveAttribute("data-next-link")
     expect(biblioteca).not.toHaveAttribute("aria-current")
     expect(biblioteca).toHaveClass("text-apagado", "min-h-nav")
   })
 
-  it("keeps the Biblioteca a plain link while the tabs inside the app stay Next links", () => {
+  it.each([
+    "/biblioteca",
+    "/biblioteca/materiales/abc",
+    "/biblioteca/autores",
+    "/biblioteca/autores/abc",
+    "/biblioteca/temas",
+    "/biblioteca/temas/abc",
+    "/biblioteca/temas/borradores",
+    "/biblioteca/semana",
+    "/biblioteca/subir",
+  ])("keeps the Biblioteca current on %s, and only it", (ruta) => {
+    usePathname.mockReturnValue(ruta)
     render(<NavInferior />)
 
-    expect(screen.getByRole("link", { name: "Biblioteca" })).not.toHaveAttribute("data-next-link")
-    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("data-next-link")
+    const biblioteca = screen.getByRole("link", { name: "Biblioteca" })
+    expect(biblioteca).toHaveAttribute("aria-current", "page")
+    expect(biblioteca).toHaveClass("bg-piedra-honda", "shadow-hundido")
+    for (const otra of ["Inicio", "Métricas", "Ajustes"]) {
+      expect(screen.getByRole("link", { name: otra })).not.toHaveAttribute("aria-current")
+    }
   })
+
+  it.each(["/", "/ideas", "/ajustes/datos-personales", "/bibliotecas", "/ir-a-biblioteca"])(
+    "does not mark the Biblioteca current on %s",
+    (ruta) => {
+      usePathname.mockReturnValue(ruta)
+      render(<NavInferior />)
+
+      expect(screen.getByRole("link", { name: "Biblioteca" })).not.toHaveAttribute("aria-current")
+    },
+  )
 
   it("marks the current tab", () => {
     usePathname.mockReturnValue("/ajustes")
