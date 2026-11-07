@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
-import { bloquearRedExterna, tocarHastaLlegar } from "./ayudas"
+import { bloquearRedExterna, menuDeSecciones, tocarHastaLlegar } from "./ayudas"
 import {
   AUTORA,
   CREDENCIAL,
@@ -26,9 +26,7 @@ test("Autores shows each author with kind, counts without zeros and top topics, 
 }) => {
   await page.goto("/biblioteca/autores")
   await expect(page.getByRole("heading", { name: "Biblioteca", level: 1 })).toBeVisible()
-  await expect(
-    page.getByRole("navigation", { name: "Secciones de la Biblioteca" }).getByRole("link", { name: "Autores" }),
-  ).toHaveAttribute("aria-current", "page")
+  await expect(menuDeSecciones(page).boton).toHaveAccessibleName("Sección de la Biblioteca: Autores")
 
   const tarjetas = page.getByRole("list", { name: "Autores" }).getByRole("listitem")
   await expect(tarjetas).toHaveCount(4)

@@ -95,11 +95,11 @@ function disparosDeBibliotecaReales(): DisparosDeBiblioteca {
         { idempotencyKey: await claveGlobal(claveProcesarMaterial(materialId, intento)), idempotencyKeyTTL: "10m" },
       )
     },
-    async motor(semana) {
+    async motor(semana, intento) {
       await tasks.trigger<typeof motorManualTask>(
         "motor-manual",
         { manual: true },
-        { idempotencyKey: await claveGlobal(claveMotor(semana)), idempotencyKeyTTL: "10m" },
+        { idempotencyKey: await claveGlobal(claveMotor(semana, intento)), idempotencyKeyTTL: "10m" },
       )
     },
   }
@@ -110,7 +110,7 @@ function disparosDeBibliotecaDePrueba(archivo: string): DisparosDeBiblioteca {
   return {
     material: async (materialId, intento) =>
       anotar({ tarea: "procesar-material", materialId, clave: claveProcesarMaterial(materialId, intento) }),
-    motor: async (semana) => anotar({ tarea: "motor-manual", semana, clave: claveMotor(semana) }),
+    motor: async (semana, intento) => anotar({ tarea: "motor-manual", semana, clave: claveMotor(semana, intento) }),
   }
 }
 

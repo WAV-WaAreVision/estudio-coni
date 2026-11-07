@@ -179,6 +179,15 @@ describe("PantallaDePresupuesto", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Unir temas parecidos cada noche" }))
     await waitFor(() => expect(a.guardar).toHaveBeenLastCalledWith({ campo: "fusiones_nocturnas", valor: false }))
   })
+
+  it("says «Proponer ahora» still works, and where it lives now", () => {
+    mostrar()
+    expect(
+      screen.getByText(
+        "Corren sin que los pidas. Apagados no gastan. «Proponer ahora» sigue funcionando en la Biblioteca, en Semana.",
+      ),
+    ).toBeInTheDocument()
+  })
   it("still saves a stepper tap when she leaves the screen before the wait ends", () => {
     const a = mostrar()
     fireEvent.click(screen.getByRole("button", { name: "Subir el tope" }))

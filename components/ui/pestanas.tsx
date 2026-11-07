@@ -19,6 +19,7 @@ interface PropiedadesDePestanas<T extends string> {
    * large text) they slide inside the track, so it keeps one height and never pushes the page sideways (WCAG 1.4.10).
    */
   compacta?: boolean
+  className?: string
 }
 
 const PISTA = "gap-1 rounded-control bg-piedra-honda p-1 shadow-hundido"
@@ -27,7 +28,13 @@ const PISTA = "gap-1 rounded-control bg-piedra-honda p-1 shadow-hundido"
  * Decision 4, the segmented control: views as links (each has an address and works without a script) on a sunken
  * track; the current one is raised.
  */
-export function Pestanas<T extends string>({ etiqueta, actual, opciones, compacta = false }: PropiedadesDePestanas<T>) {
+export function Pestanas<T extends string>({
+  etiqueta,
+  actual,
+  opciones,
+  compacta = false,
+  className,
+}: PropiedadesDePestanas<T>) {
   const pestanas = opciones.map((opcion) => {
     const esActual = opcion.valor === actual
     return (
@@ -49,7 +56,7 @@ export function Pestanas<T extends string>({ etiqueta, actual, opciones, compact
     )
   })
   return (
-    <nav aria-label={etiqueta} className="min-w-0">
+    <nav aria-label={etiqueta} className={cn("min-w-0", className)}>
       {compacta ? (
         <PistaDePestanas
           key={actual}

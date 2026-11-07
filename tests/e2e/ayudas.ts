@@ -99,6 +99,11 @@ export function disparosDeMateriales(): z.infer<typeof DisparoDeMaterial>[] {
   return leerDisparos().flatMap((disparo) => (disparo.tarea === "procesar-material" ? [disparo] : []))
 }
 
+/** The engine runs «Proponer ahora» would have started, each with its key. */
+export function disparosDelMotor(): z.infer<typeof DisparoDelMotor>[] {
+  return leerDisparos().flatMap((disparo) => (disparo.tarea === "motor-manual" ? [disparo] : []))
+}
+
 /** An alert with that text. Next adds its own empty `role=alert` (the route announcer), so a bare role matches two. */
 export function alerta(page: Page, texto: string) {
   return page.getByRole("alert").filter({ hasText: texto })
@@ -296,6 +301,32 @@ export async function revisarConAxe(page: Page, estado: string): Promise<string[
 export async function tocarHastaLlegar(page: Page, enlace: Locator, direccion: RegExp): Promise<void> {
   await expect(async () => {
     await enlace.click()
+    await expect(page).toHaveURL(direccion, { timeout: 2000 })
+  }).toPass({ timeout: 10_000 })
+}
+
+/** The Biblioteca's sections on the phone: below md the tabs fold into a menu behind one button. */
+export function menuDeSecciones(page: Page): { nav: Locator; boton: Locator } {
+  const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
+  return { nav, boton: nav.getByRole("button", { name: /^Sección de la Biblioteca: / }) }
+}
+
+/** Opens the section menu, tapping again if the first tap landed before hydration; hands back its links. */
+export async function abrirMenuDeSecciones(page: Page): Promise<Locator> {
+  const { nav, boton } = menuDeSecciones(page)
+  await expect(async () => {
+    if ((await boton.getAttribute("aria-expanded")) !== "true") await boton.click()
+    await expect(boton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 })
+  }).toPass({ timeout: 10_000 })
+  return nav.getByRole("link")
+}
+
+/** Opens the section menu and taps a section until it arrives. */
+export async function irASeccion(page: Page, nombre: string, direccion: RegExp): Promise<void> {
+  const { nav } = menuDeSecciones(page)
+  await expect(async () => {
+    await abrirMenuDeSecciones(page)
+    await nav.getByRole("link", { name: nombre }).click({ timeout: 2000 })
     await expect(page).toHaveURL(direccion, { timeout: 2000 })
   }).toPass({ timeout: 10_000 })
 }

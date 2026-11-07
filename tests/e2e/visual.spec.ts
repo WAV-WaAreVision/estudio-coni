@@ -32,6 +32,7 @@ import {
   sembrarAutoresYTemas,
   sembrarBiblioteca,
   sembrarBorradores,
+  sembrarSemana,
   TEMA_PRINCIPAL,
   TITULO_LISTO,
 } from "./biblioteca-escena"
@@ -722,6 +723,13 @@ test("biblioteca: Autores and Temas on the phone, and an author's and a topic's 
   await page.goto(`/biblioteca/temas/${escena.carga}`)
   await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
   await capturaDe(page, "biblioteca-tema")
+})
+
+test("biblioteca: Semana on the phone", async ({ page }) => {
+  await sembrarSemana({ estado: "lista" })
+  await page.goto("/biblioteca/semana")
+  await expect(page.getByRole("region", { name: "Lo que el motor cruzó esta semana" })).toBeVisible()
+  await capturaDe(page, "biblioteca-semana")
 })
 
 test("biblioteca: a pillar draft's form, Borradores and its approval on the phone", async ({ page }) => {
