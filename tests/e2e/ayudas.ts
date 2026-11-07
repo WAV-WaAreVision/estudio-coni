@@ -99,6 +99,11 @@ export function disparosDeMateriales(): z.infer<typeof DisparoDeMaterial>[] {
   return leerDisparos().flatMap((disparo) => (disparo.tarea === "procesar-material" ? [disparo] : []))
 }
 
+/** The engine runs «Proponer ahora» would have started, each with its key. */
+export function disparosDelMotor(): z.infer<typeof DisparoDelMotor>[] {
+  return leerDisparos().flatMap((disparo) => (disparo.tarea === "motor-manual" ? [disparo] : []))
+}
+
 /** An alert with that text. Next adds its own empty `role=alert` (the route announcer), so a bare role matches two. */
 export function alerta(page: Page, texto: string) {
   return page.getByRole("alert").filter({ hasText: texto })

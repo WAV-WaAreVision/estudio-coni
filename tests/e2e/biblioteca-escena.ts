@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto"
 import { z } from "zod"
+import { domingoDeSemana } from "@/lib/motor/semana"
 import { CONI, pool } from "../integration/db"
 import { limpiarBorradores } from "../integration/limpiar-borradores"
 import { vaciarMotor } from "../integration/siembra"
@@ -406,4 +408,99 @@ export async function sembrarEtapaDeLinkedin(): Promise<string> {
   const desde = rows[0]?.desde
   if (!desde) throw new Error("La escena no pudo crear la etapa de LinkedIn")
   return desde
+}
+
+export const TEORIA_PRINCIPAL = "Repartir la carga también es descansar"
+export const TEORIA_DEBIL = "El descanso digital se aprende"
+export const RAZON_DE_CRUCE = "No hay ideas de dos autores distintos."
+export const OTRA_RAZON_DE_CRUCE = "Repite lo que el motor cruzó la semana pasada."
+/** A single-author topic the engine named and that is gone since: listed without a link. */
+export const TEMA_QUE_YA_NO_ESTA = "Sueño y pantallas"
+export const MOTIVO_DE_FALLA = "No pude armar las ideas de esta semana. Avisamos al equipo; puedes volver a intentarlo."
+
+export interface EscenaDeSemana extends EscenaDeAutoresYTemas {
+  /** This week's closing Sunday, as the engine keys it. */
+  semana: string
+}
+
+const MS_POR_SEMANA = 7 * 86_400_000
+
+/**
+ * Batch 5's scene on top of batch 3's: three earlier ready runs (US$ 0,20, 0,25 and 0,30, so the estimate reads US$ 0,25
+ * without this week and US$ 0,23 with this week's US$ 0,21), and this week's run in the state asked. A ready week has two
+ * theories, two discarded crossings and what to upload: Descanso digital (linked) and a topic that is gone, Psicología
+ * en la mesa (LinkedIn) and a retired pillar that drops out. `estado: null` leaves no run at all (the fixed US$ 0,30).
+ */
+export async function sembrarSemana(opciones: {
+  estado: "lista" | "corriendo" | "fallida" | null
+  teorias?: boolean
+}): Promise<EscenaDeSemana> {
+  const base = await sembrarAutoresYTemas()
+  const semana = domingoDeSemana(new Date())
+  if (opciones.estado === null) return { ...base, semana }
+  const domingo = Date.parse(`${semana}T12:00:00Z`)
+  for (const [semanas, costo] of [
+    [1, 0.2],
+    [2, 0.25],
+    [3, 0.3],
+  ] as const) {
+    const anterior = new Date(domingo - semanas * MS_POR_SEMANA).toISOString().slice(0, 10)
+    await pool.query(
+      "insert into public.motor_corridas (semana, estado, costo_usd, resumen, terminada_en) values ($1, 'lista', $2, '{}'::jsonb, now())",
+      [anterior, costo],
+    )
+  }
+  const lista = opciones.estado === "lista"
+  const resumen = lista
+    ? {
+        ideas: 3,
+        manual: false,
+        queSubir: {
+          unSoloAutor: [TEMA_DE_UN_AUTOR, TEMA_QUE_YA_NO_ESTA],
+          pilaresSinMaterial: ["psicologia-en-la-mesa", "pareja"],
+        },
+      }
+    : {}
+  await pool.query(
+    "insert into public.motor_corridas (semana, estado, costo_usd, resumen, motivo_fallo) values ($1, $2, $3, $4::jsonb, $5)",
+    [
+      semana,
+      opciones.estado,
+      lista ? 0.21 : 0,
+      JSON.stringify(resumen),
+      opciones.estado === "fallida" ? MOTIVO_DE_FALLA : null,
+    ],
+  )
+  if (lista && opciones.teorias !== false) {
+    const teorias: [string, string, string, number, string | null, string[], string | null][] = [
+      [
+        "guardada",
+        TEORIA_PRINCIPAL,
+        "Quien reparte la carga mental descansa mejor.",
+        0.82,
+        "alto",
+        [base.carga, base.pausas],
+        null,
+      ],
+      [
+        "guardada",
+        TEORIA_DEBIL,
+        "Apagar la pantalla es un hábito que se entrena.",
+        0.61,
+        "debil",
+        [base.deUnAutor, randomUUID()],
+        null,
+      ],
+      ["descartada_por_motor", "Cruce uno", "", 0.3, null, [base.carga, base.deUnAutor], RAZON_DE_CRUCE],
+      ["descartada_por_motor", "Cruce dos", "", 0.2, null, [base.pausas], OTRA_RAZON_DE_CRUCE],
+    ]
+    for (const [estado, titulo, tesis, puntaje, nivel, temas, motivo] of teorias) {
+      await pool.query(
+        `insert into public.teorias (titulo, tesis, origen, estado, semana, puntaje, nivel_evidencia, temas, motivo_fallo)
+         values ($1, $2, 'motor', $3, $4::date, $5, $6, $7::uuid[], $8)`,
+        [titulo, tesis, estado, semana, puntaje, nivel, temas, motivo],
+      )
+    }
+  }
+  return { ...base, semana }
 }
