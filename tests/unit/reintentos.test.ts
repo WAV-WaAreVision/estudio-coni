@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { decisionDeReintento } from "@/lib/produccion/reintentos"
 import { RechazoDeClaude, RespuestaCortada } from "@/lib/proveedores/anthropic"
 
 describe("decisionDeReintento", () => {
+  it("skips the retries of a provider pause, which only WAV can fix", () => {
+    expect(decisionDeReintento(new PausaDeProveedor("heygen", "cuota", "HeyGen respondió HTTP 402", 402))).toEqual({
+      skipRetrying: true,
+    })
+  })
+
   it("skips the retries of a configuration problem", () => {
     expect(decisionDeReintento(new FallaDeConfiguracion("Falta la llave"))).toEqual({ skipRetrying: true })
   })
