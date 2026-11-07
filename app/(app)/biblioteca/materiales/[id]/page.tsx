@@ -6,12 +6,11 @@ import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
-import { esperaConfirmacion, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
+import { avisoDeProceso, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
 import { adaptacionDe } from "@/lib/dominio/biblioteca/ficha"
 import { esRol, etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
 import { BotonBorrar } from "../../boton-borrar"
-import { BotonConfirmarCosto } from "../../boton-confirmar-costo"
 import { BotonReintentar } from "../../boton-reintentar"
 import { EstadoDeMaterial } from "../../estado-de-material"
 import { BotonReprocesar } from "./boton-reprocesar"
@@ -35,14 +34,8 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
     : ficha !== null && (mapa?.total ?? 0) === 0
 
   const descarga = `/biblioteca/materiales/${material.id}/texto`
-  const arrancar = (
-    <>
-      {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (
-        <BotonConfirmarCosto materialId={material.id} costoUsd={material.costo_estimado_usd} />
-      ) : null}
-      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
-    </>
-  )
+  const arrancar = sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null
+  const aviso = avisoDeProceso(material)
   const editar = (
     <EditarAutorYRol
       materialId={material.id}
@@ -71,6 +64,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
           <div>
             <EstadoDeMaterial material={material} />
           </div>
+          {aviso ? <LineaDeEstado tipo="neutro" titulo={aviso} /> : null}
           <div className="contents md:hidden">{arrancar}</div>
         </header>
 

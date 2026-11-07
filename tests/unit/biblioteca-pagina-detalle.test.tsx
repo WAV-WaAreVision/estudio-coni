@@ -176,4 +176,41 @@ describe("the material detail page", () => {
       { materialId: ID },
     ])
   })
+
+  describe("while it is processing (spec decision 3)", () => {
+    const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$ 0,40."
+    const avisos = (arbol: { props: Record<string, unknown> }[]) =>
+      textos(arbol).filter((texto) => String(texto).startsWith("Lo estoy procesando."))
+
+    it("says once what it will cost, and offers no button to confirm it", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+      expect(avisos(arbol)).toEqual([AVISO_CON_COSTO])
+      expect(arbol.some((elemento) => "costoUsd" in elemento.props)).toBe(false)
+    })
+
+    it("says only «Lo estoy procesando.» before the task wrote the estimate", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, estado: "procesando" }, ficha: null })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual(["Lo estoy procesando."])
+    })
+
+    it("says nothing of it when the material is ready or paused with a reason", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", motivo_fallo: "tope_mensual", costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([])
+    })
+  })
 })
