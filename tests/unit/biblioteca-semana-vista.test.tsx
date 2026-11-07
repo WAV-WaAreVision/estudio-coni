@@ -153,6 +153,14 @@ describe("LoQueCruzo", () => {
     ).toEqual(["Carga mental", "Pausas activas"])
   })
 
+  it("announces the section's heading once: the theories' list does not repeat it as its name", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA]} descartadas={[]} />)
+    const lista = screen.getByRole("heading", { name: TEORIA.titulo, level: 3 }).closest("ul")
+    expect(lista).not.toBeNull()
+    expect(lista).not.toHaveAttribute("aria-labelledby")
+    expect(screen.queryByRole("list", { name: "Lo que el motor cruzó esta semana" })).toBeNull()
+  })
+
   it("names each crossing's topic list by its position, so a screen reader tells them apart", () => {
     render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA]} descartadas={[CRUCE, OTRO_CRUCE]} />)
     const primero = screen.getByRole("list", { name: "Temas del cruce 1" })

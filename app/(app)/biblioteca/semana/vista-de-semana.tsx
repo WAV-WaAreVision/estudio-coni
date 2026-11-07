@@ -195,7 +195,7 @@ export function LoQueCruzo({
         {TITULO_DE_LO_CRUZADO}
       </h2>
       {aviso}
-      <ul aria-labelledby={ID_DE_LO_CRUZADO} className="grid gap-4">
+      <ul className="grid gap-4">
         {teorias.map((teoria) => (
           <Teoria key={teoria.id} teoria={teoria} />
         ))}
