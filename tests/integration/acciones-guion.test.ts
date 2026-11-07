@@ -7,10 +7,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { claveVoz } from "@/lib/acciones/disparos"
 import { type DepsGuion, editarGuion, tieneVersionDeClaude, volverAVersionDeClaude } from "@/lib/acciones/guion"
 import { MAXIMO_DEL_TEXTO } from "@/lib/acciones/piezas"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { MAXIMO_DEL_GUION } from "@/lib/dominio/revision"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { TEXTO_SIN_VOZ } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
@@ -60,12 +62,14 @@ interface Disparo {
   nueva: boolean
 }
 const disparos: Disparo[] = []
+let avisos = notificadorEnMemoria()
 
 function deps(db: Db = coni, fallos: { voz?: Error } = {}): DepsGuion {
   return {
     db,
     servicio: clienteDeServicio,
     crearClaude: (llave) => new Anthropic({ apiKey: llave, maxRetries: 0 }),
+    avisos,
     ahora: () => new Date().toISOString(),
     disparar: {
       producir: async () => {
@@ -147,6 +151,8 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks()
   disparos.length = 0
+  avisos = notificadorEnMemoria()
+  await pool.query("delete from public.pausas_de_proveedor")
   await pool.query("delete from vault.secrets where name = 'anthropic'")
   await pool.query("update public.ajustes set tope_mensual_usd = 40")
   await pool.query("delete from public.guion_versiones where pieza_id = any($1::uuid[])", [piezasCreadas])
@@ -297,6 +303,23 @@ describe("editarGuion", () => {
     expect(resultado).toMatchObject({ ok: false, error: expect.stringContaining("revisar") })
     expect((await gastosDe(id)).map((g) => g.estado)).toEqual(["liberado"])
     expect(await leerFila(id)).toMatchObject({ guion, version })
+  })
+
+  it("opens the Claude pause and shows its text when the review meets one", async () => {
+    const id = await pieza()
+    const { version, guion } = await leerFila(id)
+    servidor.use(
+      http.post(URL_CLAUDE, () =>
+        HttpResponse.json({ type: "error", error: { type: "billing_error", message: "billing" } }, { status: 402 }),
+      ),
+    )
+
+    const resultado = await editarGuion(deps(), { piezaId: id, version, guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+
+    expect(resultado).toMatchObject({ ok: false, error: TEXTO_PAUSA.claude })
+    expect((await gastosDe(id)).map((g) => g.estado)).toEqual(["liberado"])
+    expect(await leerFila(id)).toMatchObject({ guion, version })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: pago pendiente"])
   })
 
   it("keeps a paid review reserved and surfaces the error when confirming the spend fails", async () => {

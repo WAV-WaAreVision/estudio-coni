@@ -13,8 +13,10 @@ import {
   restaurarIdeas,
   usarIdea,
 } from "@/lib/acciones/ideas"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { costoClaude, MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import { servidor } from "../msw"
 import { CONI, pool, sinLimiteFijado } from "./db"
@@ -43,11 +45,14 @@ let mantenedor: Db
 const ideasCreadas: string[] = []
 const piezasCreadas: string[] = []
 
+let avisos = notificadorEnMemoria()
+
 function deps(db: Db = coni): DepsIdeas {
   return {
     db,
     servicio: clienteDeServicio,
     crearClaude: (llave) => new Anthropic({ apiKey: llave, maxRetries: 0 }),
+    avisos,
     ahora: () => new Date().toISOString(),
   }
 }
@@ -259,6 +264,28 @@ describe("proponerIdea", () => {
       error: "No pude proponerte el pilar ahora. Elígelo tú y confirma las alertas.",
     })
     expect(await gastosDeIdeas()).toMatchObject([{ estado: "liberado" }])
+  })
+
+  it("opens the Claude pause and shows its text when the proposal meets one", async () => {
+    servidor.use(
+      http.post(URL_CLAUDE, () =>
+        HttpResponse.json(
+          { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } },
+          { status: 401 },
+        ),
+      ),
+    )
+    avisos = notificadorEnMemoria()
+
+    try {
+      const resultado = await proponerIdea(deps(), { gancho: "Una idea propia suficientemente larga.", tema: "" })
+
+      expect(resultado).toEqual({ ok: false, error: TEXTO_PAUSA.claude })
+      expect(await gastosDeIdeas()).toMatchObject([{ estado: "liberado" }])
+      expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: llave rechazada"])
+    } finally {
+      await pool.query("delete from public.pausas_de_proveedor")
+    }
   })
 
   it("rejects an idea that is empty or absurdly long without calling anyone", async () => {
