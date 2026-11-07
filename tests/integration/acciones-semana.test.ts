@@ -60,6 +60,12 @@ describe("proponerAhora", () => {
     expect(claveMotor(...(d.motor.mock.calls[0] ?? [""]))).toBe(`motor:${SEMANA}`)
   })
 
+  it("keys Sunday 23:30 in Santiago by that same Sunday, though it is already Monday in UTC", async () => {
+    const d = { ...deps(coni), ahora: () => new Date("2026-11-09T02:30:00Z") }
+    expect(await proponerAhora(d)).toEqual({ ok: true })
+    expect(d.motor).toHaveBeenCalledWith(SEMANA, undefined)
+  })
+
   it.each([
     ["a ready week", "lista" as const, 600],
     ["a run alive for 10 minutes", "corriendo" as const, 10],
