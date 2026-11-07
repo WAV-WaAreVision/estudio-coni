@@ -139,12 +139,14 @@ describe("the side panel of a material whose card cannot be read", () => {
       ideas: { total: 0, primeras: [] },
       evidencia: {},
       fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
     })
     const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ m: ID }) }))
     expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.anything(), {
       tipo: "material",
       id: ID,
       explicacion: "No pude leer la ficha de este material.",
+      ocurrencia: "f0123456789abcdef",
     })
     const panel = arbol.find((elemento) => elemento.type === PanelDeMaterial)
     expect((panel?.props as { avisoAFederico?: unknown }).avisoAFederico).toEqual({ avisado: true })
@@ -157,6 +159,7 @@ describe("the side panel of a material whose card cannot be read", () => {
       ideas: { total: 1, primeras: ["Una"] },
       evidencia: {},
       fichaIlegible: false,
+      ocurrenciaDeFicha: null,
     })
     const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ m: ID }) }))
     expect(leerAvisoAFederico).not.toHaveBeenCalled()

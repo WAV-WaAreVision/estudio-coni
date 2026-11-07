@@ -32,6 +32,7 @@ const panel: PanelDelMaterial = {
   ideas: { total: 12, primeras: ["El aislamiento pesa más que las horas extra.", "Las pausas acordadas protegen."] },
   evidencia: { estudio: 9, opinion: 3 },
   fichaIlegible: false,
+  ocurrenciaDeFicha: null,
 }
 
 describe("PanelDeMaterial", () => {
@@ -41,6 +42,7 @@ describe("PanelDeMaterial", () => {
       material: { ...panel.material, rol: "estrategia" },
       ideas: { total: 0, primeras: [] },
       fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
     }
     render(<PanelDeMaterial panel={ilegible} filtros={{}} ahora={AHORA} avisoAFederico={{ avisado: false }} />)
     expect(screen.getByText("No pude leer la ficha de este material.")).toBeInTheDocument()
@@ -54,6 +56,7 @@ describe("PanelDeMaterial", () => {
       material: { ...panel.material, rol: "estrategia" },
       ideas: { total: 0, primeras: [] },
       fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
     }
     render(<PanelDeMaterial panel={ilegible} filtros={{}} ahora={AHORA} avisoAFederico={{ avisado: true }} />)
     expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()

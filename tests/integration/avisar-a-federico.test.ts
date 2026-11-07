@@ -8,6 +8,7 @@ import {
   asuntoDeAviso,
   claveDeAviso,
   cuerpoDeAviso,
+  ocurrenciaDePieza,
   TEXTO_FICHA_ILEGIBLE,
   TEXTO_YA_NO_FALLA,
 } from "@/lib/dominio/avisar-a-federico"
@@ -62,6 +63,12 @@ async function piezaEnPuerta1(explicacion: string | null): Promise<string> {
   return id
 }
 
+/** The piece's occurrence as the action reads it: its attempt. */
+async function ocurrencia(id: string): Promise<string> {
+  const { rows } = await pool.query<{ intento: number }>("select intento from public.piezas where id = $1", [id])
+  return ocurrenciaDePieza(rows[0]?.intento ?? Number.NaN)
+}
+
 async function materialListo(conFichaBuena: boolean): Promise<string> {
   const autorId = await sembrarAutor(`Autora de prueba ${crypto.randomUUID()}`)
   autores.push(autorId)
@@ -89,6 +96,32 @@ describe("avisarAFederico", () => {
     ])
   })
 
+  it("emails WAV again when the same failure text comes back on a new attempt of the piece", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    const avisos = notificadorEnMemoria()
+
+    expect(await avisarAFederico(deps(avisos), { tipo: "pieza", id })).toEqual({ ok: true })
+    // Federico fixed the key, she tried again and ElevenLabs refused it with the same words: a new attempt.
+    await ajustarPieza(id, { intento: 1 })
+    expect(await avisarAFederico(deps(avisos), { tipo: "pieza", id })).toEqual({ ok: true })
+    expect(await avisarAFederico(deps(avisos), { tipo: "pieza", id })).toEqual({ ok: true })
+
+    expect(avisos.aWavEnviados).toHaveLength(2)
+  })
+
+  it("emails WAV again when a material's card comes back unreadable after a new run", async () => {
+    const id = await materialListo(false)
+    const avisos = notificadorEnMemoria()
+
+    expect(await avisarAFederico(deps(avisos), { tipo: "material", id })).toEqual({ ok: true })
+    // The card was written again and it still does not read: the explanation is the same constant text.
+    await pool.query("update public.fichas set citas = '\"rota otra vez\"'::jsonb where material_id = $1", [id])
+    expect(await avisarAFederico(deps(avisos), { tipo: "material", id })).toEqual({ ok: true })
+    expect(await avisarAFederico(deps(avisos), { tipo: "material", id })).toEqual({ ok: true })
+
+    expect(avisos.aWavEnviados).toHaveLength(2)
+  })
+
   it("emails WAV once when two taps arrive together", async () => {
     const id = await piezaEnPuerta1(LLAVE)
     const avisos = notificadorEnMemoria()
@@ -114,7 +147,7 @@ describe("avisarAFederico", () => {
 
     expect(await avisarAFederico(deps(caido), { tipo: "pieza", id })).toEqual({ ok: false, error: ERROR_GENERICO })
     error.mockRestore()
-    const clave = await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE })
+    const clave = await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE, ocurrencia: await ocurrencia(id) })
     expect(await yaAvisado(db, clave)).toBe(false)
 
     const avisos = notificadorEnMemoria()
@@ -165,7 +198,7 @@ describe("avisarAFederico", () => {
 
   it("answers yaAvisado only once the email went out", async () => {
     const id = await piezaEnPuerta1(LLAVE)
-    const clave = await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE })
+    const clave = await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE, ocurrencia: await ocurrencia(id) })
     expect(await yaAvisado(db, clave)).toBe(false)
     await pool.query("select public.reclamar_aviso_a_federico($1, 'pieza', $2)", [clave, id])
     expect(await yaAvisado(db, clave)).toBe(false)
@@ -177,14 +210,21 @@ describe("avisarAFederico", () => {
 describe("leerAvisoAFederico", () => {
   it("offers nothing when there is no failure for WAV, and says whether its email went out", async () => {
     const id = await piezaEnPuerta1(LLAVE)
-    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: null })).toBeNull()
-    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE })).toEqual({ avisado: false })
+    const intento = await ocurrencia(id)
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: null, ocurrencia: "i0" })).toBeNull()
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE, ocurrencia: intento })).toEqual({
+      avisado: false,
+    })
 
     expect(await avisarAFederico(deps(), { tipo: "pieza", id })).toEqual({ ok: true })
 
-    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE })).toEqual({ avisado: true })
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE, ocurrencia: intento })).toEqual({
+      avisado: true,
+    })
     // Another failure of the same piece is another email.
-    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: `${LLAVE} otra vez` })).toEqual({
+    expect(
+      await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: `${LLAVE} otra vez`, ocurrencia: intento }),
+    ).toEqual({
       avisado: false,
     })
   })

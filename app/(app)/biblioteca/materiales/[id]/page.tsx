@@ -44,8 +44,13 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
     listarAutores(db),
     conFicha ? null : leerMapaDelMaterial(db, material.id),
     leerPausasAbiertas(db),
-    fallaDeFicha
-      ? leerAvisoAFederico(clienteDeServicio(), { tipo: "material", id: material.id, explicacion: fallaDeFicha })
+    fallaDeFicha && leido.ocurrenciaDeFicha
+      ? leerAvisoAFederico(clienteDeServicio(), {
+          tipo: "material",
+          id: material.id,
+          explicacion: fallaDeFicha,
+          ocurrencia: leido.ocurrenciaDeFicha,
+        })
       : null,
   ])
   // What was processed follows the role it had then: after "¿Quién es para ti?" changes, only reprocessing shows it the new way.

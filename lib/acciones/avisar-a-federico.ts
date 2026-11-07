@@ -4,6 +4,8 @@ import {
   claveDeAviso,
   cuerpoDeAviso,
   fallaParaFederico,
+  ocurrenciaDeFicha,
+  ocurrenciaDePieza,
   TEXTO_YA_NO_FALLA,
   type TipoDeAviso,
 } from "@/lib/dominio/avisar-a-federico"
@@ -23,14 +25,19 @@ export interface DepsAvisar {
 
 export type EntradaAvisar = { tipo: TipoDeAviso; id: string }
 
-type FallaLeida = { titulo: string; explicacion: string }
+/** `ocurrencia` tells this failure apart from the same text on another attempt or run (`claveDeAviso`). */
+type FallaLeida = { titulo: string; explicacion: string; ocurrencia: string }
 
 async function fallaDeLaPieza(db: Db, id: string): Promise<FallaLeida | null> {
-  const { data, error } = await db.from("piezas").select("titulo, estado, explicacion").eq("id", id).maybeSingle()
+  const { data, error } = await db
+    .from("piezas")
+    .select("titulo, estado, explicacion, intento")
+    .eq("id", id)
+    .maybeSingle()
   if (error) throw new Error(`No pude leer la pieza ${id}: ${error.message}`, { cause: error })
   if (!data) return null
   const explicacion = fallaParaFederico({ tipo: "pieza", estado: data.estado, explicacion: data.explicacion })
-  return explicacion === null ? null : { titulo: data.titulo, explicacion }
+  return explicacion === null ? null : { titulo: data.titulo, explicacion, ocurrencia: ocurrenciaDePieza(data.intento) }
 }
 
 async function fallaDelMaterial(db: Db, id: string): Promise<FallaLeida | null> {
@@ -44,7 +51,8 @@ async function fallaDelMaterial(db: Db, id: string): Promise<FallaLeida | null> 
   if (!data) return null
   const filaDeFicha = (Array.isArray(data.fichas) ? data.fichas[0] : data.fichas) ?? null
   const explicacion = fallaParaFederico({ tipo: "material", estado: data.estado, rol: data.rol, filaDeFicha })
-  return explicacion === null ? null : { titulo: data.titulo ?? "Sin título", explicacion }
+  if (explicacion === null || filaDeFicha === null) return null
+  return { titulo: data.titulo ?? "Sin título", explicacion, ocurrencia: await ocurrenciaDeFicha(filaDeFicha) }
 }
 
 /**
@@ -58,7 +66,12 @@ export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promi
     const falla =
       entrada.tipo === "pieza" ? await fallaDeLaPieza(deps.db, entrada.id) : await fallaDelMaterial(deps.db, entrada.id)
     if (falla === null) throw new Falla(TEXTO_YA_NO_FALLA)
-    const clave = await claveDeAviso({ tipo: entrada.tipo, id: entrada.id, explicacion: falla.explicacion })
+    const clave = await claveDeAviso({
+      tipo: entrada.tipo,
+      id: entrada.id,
+      explicacion: falla.explicacion,
+      ocurrencia: falla.ocurrencia,
+    })
 
     const { data: avisar, error } = await deps.db.rpc("reclamar_aviso_a_federico", {
       p_clave: clave,
@@ -69,7 +82,12 @@ export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promi
     if (!avisar) return {}
 
     try {
-      await deps.avisos().aWav(asuntoDeAviso(falla.titulo), cuerpoDeAviso({ ...entrada, ...falla }))
+      await deps
+        .avisos()
+        .aWav(
+          asuntoDeAviso(falla.titulo),
+          cuerpoDeAviso({ ...entrada, titulo: falla.titulo, explicacion: falla.explicacion }),
+        )
     } catch (errorAlAvisar) {
       // The send's error is the one to answer; a claim that could not be let go is handed on after five minutes.
       const { error: errorAlSoltar } = await deps.db.rpc("soltar_aviso_a_federico", { p_clave: clave })

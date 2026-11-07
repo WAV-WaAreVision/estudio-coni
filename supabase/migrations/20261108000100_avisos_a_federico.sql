@@ -3,7 +3,8 @@
 
 create table public.avisos_a_federico (
   id uuid primary key default gen_random_uuid(),
-  -- The failure: entity, its id and a hash of the stored explanation (`claveDeAviso`).
+  -- The failure: entity, its id, a hash of the stored explanation and its occurrence (the piece's attempt or a
+  -- fingerprint of the material's card row), built by `claveDeAviso`.
   clave text not null unique check (char_length(clave) between 1 and 200),
   tipo text not null check (tipo in ('pieza', 'material')),
   entidad_id uuid not null,

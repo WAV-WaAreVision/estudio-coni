@@ -53,11 +53,12 @@ export default async function Materiales({
   // A ready strategy card that does not read is WAV's to fix (spec 2026-11-07, A11): the panel offers to tell him.
   const fichaIlegible = panel?.fichaIlegible && panel.material.rol === "estrategia" && panel.material.estado === "listo"
   const avisoAFederico =
-    panel && fichaIlegible
+    panel && fichaIlegible && panel.ocurrenciaDeFicha
       ? await leerAvisoAFederico(clienteDeServicio(), {
           tipo: "material",
           id: panel.material.id,
           explicacion: TEXTO_FICHA_ILEGIBLE,
+          ocurrencia: panel.ocurrenciaDeFicha,
         })
       : null
   const ahora = Date.now()

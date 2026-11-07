@@ -9,6 +9,7 @@ import {
   listarAutores,
   listarMateriales,
 } from "@/lib/datos/biblioteca"
+import { ocurrenciaDeFicha } from "@/lib/dominio/avisar-a-federico"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
@@ -151,6 +152,7 @@ describe("leerMaterialConFicha", () => {
 
   it("tells a card that cannot be read apart from no card at all", async () => {
     expect((await leerMaterialConFicha(coni, estrategia))?.fichaIlegible).toBe(false)
+    expect((await leerMaterialConFicha(coni, estrategia))?.ocurrenciaDeFicha).toBeNull()
     expect((await leerMaterialConFicha(coni, empate))?.fichaIlegible).toBe(false)
 
     const ilegible = await sembrarMaterial({ titulo: `Ilegible ${SUFIJO}`, autorId: autor, rol: "estrategia" })
@@ -162,6 +164,12 @@ describe("leerMaterialConFicha", () => {
     error.mockRestore()
     expect(leido?.ficha).toBeNull()
     expect(leido?.fichaIlegible).toBe(true)
+    // The same fingerprint «Avisar a Federico» keys its email with, read from the stored row.
+    const { rows } = await pool.query(
+      "select resumen, ideas_clave, citas, fuente from public.fichas where material_id = $1",
+      [ilegible],
+    )
+    expect(leido?.ocurrenciaDeFicha).toBe(await ocurrenciaDeFicha(rows[0]))
   })
 })
 
@@ -197,6 +205,7 @@ describe("leerPanelDelMaterial", () => {
     const panel = await leerPanelDelMaterial(coni, ilegible)
     error.mockRestore()
     expect(panel?.fichaIlegible).toBe(true)
+    expect(panel?.ocurrenciaDeFicha).toMatch(/^f[0-9a-f]{16}$/)
     expect(panel?.ideas.total).toBe(0)
   })
 

@@ -49,12 +49,35 @@ export function fallaParaFederico(entidad: PiezaParaAviso | MaterialParaAviso): 
   return null
 }
 
-/** One email per failure: the entity, its id and the first 16 hex of the explanation's sha256. */
-export async function claveDeAviso(entrada: { tipo: TipoDeAviso; id: string; explicacion: string }): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(entrada.explicacion))
+async function huella(texto: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto))
   const primeros = Array.from(new Uint8Array(digest).subarray(0, 8))
-  const huella = primeros.map((byte) => byte.toString(16).padStart(2, "0")).join("")
-  return `${entrada.tipo}:${entrada.id}:${huella}`
+  return primeros.map((byte) => byte.toString(16).padStart(2, "0")).join("")
+}
+
+/** A piece's occurrence is its attempt: every retry, voice or video, moves `piezas.intento` on. */
+export const ocurrenciaDePieza = (intento: number) => `i${intento}`
+
+/**
+ * A material's occurrence is a fingerprint of its stored card row. `corrida_id` is cleared when a run ends, a
+ * reprocess keeps an estrategia card and `fichas` has no timestamp of its own, so the row itself is what changes when
+ * the card is written or edited again.
+ */
+export async function ocurrenciaDeFicha(fila: NonNullable<MaterialParaAviso["filaDeFicha"]>): Promise<string> {
+  return `f${await huella(JSON.stringify([fila.resumen, fila.ideas_clave, fila.citas, fila.fuente]))}`
+}
+
+/**
+ * One email per failure: the entity, its id, the first 16 hex of the explanation's sha256 and the occurrence, so the
+ * same text coming back on a new attempt or run is told again.
+ */
+export async function claveDeAviso(entrada: {
+  tipo: TipoDeAviso
+  id: string
+  explicacion: string
+  ocurrencia: string
+}): Promise<string> {
+  return `${entrada.tipo}:${entrada.id}:${await huella(entrada.explicacion)}:${entrada.ocurrencia}`
 }
 
 export function asuntoDeAviso(titulo: string): string {

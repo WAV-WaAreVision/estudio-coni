@@ -8,6 +8,8 @@ import {
   ETIQUETA_AVISAR,
   esFallaDeLlave,
   fallaParaFederico,
+  ocurrenciaDeFicha,
+  ocurrenciaDePieza,
   TEXTO_FICHA_ILEGIBLE,
   TEXTO_LE_AVISE,
   TEXTO_YA_NO_FALLA,
@@ -25,15 +27,37 @@ const FICHA_BUENA = {
 }
 
 describe("claveDeAviso", () => {
-  it("handles the key as kind, id and the first 16 hex of the explanation's sha256", async () => {
+  it("handles the key as kind, id, the first 16 hex of the explanation's sha256 and the occurrence", async () => {
     const huella = createHash("sha256").update(LLAVE).digest("hex").slice(0, 16)
-    expect(await claveDeAviso({ tipo: "pieza", id: ID, explicacion: LLAVE })).toBe(`pieza:${ID}:${huella}`)
+    expect(await claveDeAviso({ tipo: "pieza", id: ID, explicacion: LLAVE, ocurrencia: "i3" })).toBe(
+      `pieza:${ID}:${huella}:i3`,
+    )
   })
 
   it("gives the same key for the same failure and another for another explanation", async () => {
-    const una = await claveDeAviso({ tipo: "material", id: ID, explicacion: LLAVE })
-    expect(await claveDeAviso({ tipo: "material", id: ID, explicacion: LLAVE })).toBe(una)
-    expect(await claveDeAviso({ tipo: "material", id: ID, explicacion: `${LLAVE}.` })).not.toBe(una)
+    const una = await claveDeAviso({ tipo: "material", id: ID, explicacion: LLAVE, ocurrencia: "f1" })
+    expect(await claveDeAviso({ tipo: "material", id: ID, explicacion: LLAVE, ocurrencia: "f1" })).toBe(una)
+    expect(await claveDeAviso({ tipo: "material", id: ID, explicacion: `${LLAVE}.`, ocurrencia: "f1" })).not.toBe(una)
+  })
+
+  it("gives another key when the same text comes back on a new occurrence", async () => {
+    const una = await claveDeAviso({ tipo: "pieza", id: ID, explicacion: LLAVE, ocurrencia: ocurrenciaDePieza(3) })
+    const otra = await claveDeAviso({ tipo: "pieza", id: ID, explicacion: LLAVE, ocurrencia: ocurrenciaDePieza(4) })
+    expect(otra).not.toBe(una)
+  })
+})
+
+describe("the occurrence of a failure", () => {
+  it("handles a piece's occurrence as its attempt", () => {
+    expect(ocurrenciaDePieza(7)).toBe("i7")
+  })
+
+  it("handles a material's occurrence as a fingerprint of its stored card row", async () => {
+    const rota = { ...FICHA_BUENA, citas: "rota" }
+    const una = await ocurrenciaDeFicha(rota)
+    expect(una).toMatch(/^f[0-9a-f]{16}$/)
+    expect(await ocurrenciaDeFicha({ ...rota })).toBe(una)
+    expect(await ocurrenciaDeFicha({ ...rota, citas: "rota otra vez" })).not.toBe(una)
   })
 })
 

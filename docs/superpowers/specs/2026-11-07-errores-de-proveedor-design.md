@@ -99,7 +99,9 @@ These override the decisions above where they differ.
   only through security-definer functions, with the claim pattern of the pauses (claim, send, mark; a failed send lets
   go). The action reads the piece or material itself (never trusts the screen's text), refuses when it no longer fails,
   and the screen shows «Le avisé a Federico.» once a row is sent. The release becomes: migration (adds only), then the
-  app. No Trigger change.
+  app. No Trigger change. Amended after review: the `clave` also carries an occurrence marker, so the same text coming
+  back after a fix is told again: for a piece its attempt (`piezas.intento`, which every retry moves on), for a material
+  a fingerprint of its stored `fichas` row (its run id is cleared when a run ends and `fichas` has no timestamp).
 
 ## Release
 

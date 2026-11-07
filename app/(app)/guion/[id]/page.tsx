@@ -22,7 +22,7 @@ import { leerPilares } from "@/lib/datos/pilares"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { leerRevision } from "@/lib/datos/revision"
-import { fallaParaFederico } from "@/lib/dominio/avisar-a-federico"
+import { fallaParaFederico, ocurrenciaDePieza } from "@/lib/dominio/avisar-a-federico"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -266,11 +266,16 @@ export default async function PaginaDeGuion({
 }
 
 /** Whether «Avisar a Federico» is offered for the piece's failure, and whether its email went out (spec 2026-11-07, A11). */
-function avisoDeLaPieza(fila: { id: string; estado: string; explicacion: string | null }) {
+function avisoDeLaPieza(fila: { id: string; estado: string; explicacion: string | null; intento: number }) {
   const explicacion = fallaParaFederico({ tipo: "pieza", estado: fila.estado, explicacion: fila.explicacion })
   return explicacion === null
     ? Promise.resolve(null)
-    : leerAvisoAFederico(clienteDeServicio(), { tipo: "pieza", id: fila.id, explicacion })
+    : leerAvisoAFederico(clienteDeServicio(), {
+        tipo: "pieza",
+        id: fila.id,
+        explicacion,
+        ocurrencia: ocurrenciaDePieza(fila.intento),
+      })
 }
 
 /** The stored voice of the approved script, signed for listening, or null when there is none or the setup does not read. */

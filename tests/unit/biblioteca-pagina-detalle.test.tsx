@@ -133,6 +133,7 @@ describe("the material detail page", () => {
       material: { ...MATERIAL, rol: "estrategia" },
       ficha: null,
       fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
     })
     const arbol = elementos(await DetalleDeMaterial(conId(ID)))
     expect(textos(arbol)).toContain(TEXTO_FICHA_ILEGIBLE)
@@ -142,6 +143,7 @@ describe("the material detail page", () => {
       tipo: "material",
       id: ID,
       explicacion: TEXTO_FICHA_ILEGIBLE,
+      ocurrencia: "f0123456789abcdef",
     })
     const botones = arbol.filter((elemento) => elemento.type === AvisarAFederico)
     expect(botones).toHaveLength(1)
@@ -155,6 +157,7 @@ describe("the material detail page", () => {
       material: { ...MATERIAL, rol: "estrategia" },
       ficha: null,
       fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
     })
     const arbol = elementos(await DetalleDeMaterial(conId(ID)))
     const boton = arbol.find((elemento) => elemento.type === AvisarAFederico)
