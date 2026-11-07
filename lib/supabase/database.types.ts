@@ -3465,7 +3465,7 @@ export type Database = {
       }
       reclamar_aviso_a_federico: {
         Args: { p_clave: string; p_entidad_id: string; p_tipo: string }
-        Returns: boolean
+        Returns: string
       }
       reclamar_aviso_de_pausa: { Args: { p_id: string }; Returns: boolean }
       registrar_clic: {

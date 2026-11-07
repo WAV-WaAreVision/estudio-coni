@@ -9,8 +9,8 @@ afterEach(async () => {
 const PIEZA = "d0000000-0000-4000-8000-0000000000aa"
 const CLAVE = `pieza:${PIEZA}:abc`
 
-async function reclamar(clave = CLAVE, tipo = "pieza", entidadId = PIEZA): Promise<boolean> {
-  const { rows } = await pool.query<{ avisar: boolean }>(
+async function reclamar(clave = CLAVE, tipo = "pieza", entidadId = PIEZA): Promise<string> {
+  const { rows } = await pool.query<{ avisar: string }>(
     "select public.reclamar_aviso_a_federico($1, $2, $3) as avisar",
     [clave, tipo, entidadId],
   )
@@ -20,41 +20,41 @@ async function reclamar(clave = CLAVE, tipo = "pieza", entidadId = PIEZA): Promi
 }
 
 describe("avisos_a_federico", () => {
-  it("claims once, and never again once the email is marked as sent", async () => {
-    expect(await reclamar()).toBe(true)
-    expect(await reclamar()).toBe(false)
+  it("claims once, says another caller holds it, and never again once the email is marked as sent", async () => {
+    expect(await reclamar()).toBe("tuyo")
+    expect(await reclamar()).toBe("en_curso")
     await pool.query("select public.marcar_aviso_a_federico_enviado($1)", [CLAVE])
-    expect(await reclamar()).toBe(false)
+    expect(await reclamar()).toBe("enviado")
     const { rows } = await pool.query("select tipo, entidad_id from public.avisos_a_federico")
     expect(rows).toEqual([{ tipo: "pieza", entidad_id: PIEZA }])
   })
 
   it("lets the next caller claim after a failed send lets go", async () => {
-    expect(await reclamar()).toBe(true)
+    expect(await reclamar()).toBe("tuyo")
     await pool.query("select public.soltar_aviso_a_federico($1)", [CLAVE])
-    expect(await reclamar()).toBe(true)
+    expect(await reclamar()).toBe("tuyo")
   })
 
   it("does not let go of a sent row", async () => {
-    expect(await reclamar()).toBe(true)
+    expect(await reclamar()).toBe("tuyo")
     await pool.query("select public.marcar_aviso_a_federico_enviado($1)", [CLAVE])
     await pool.query("select public.soltar_aviso_a_federico($1)", [CLAVE])
-    expect(await reclamar()).toBe(false)
+    expect(await reclamar()).toBe("enviado")
   })
 
   it("hands the email on once an unsent claim is five minutes old", async () => {
-    expect(await reclamar()).toBe(true)
+    expect(await reclamar()).toBe("tuyo")
     await pool.query(
       "update public.avisos_a_federico set reclamado_en = now() - interval '6 minutes' where clave = $1",
       [CLAVE],
     )
-    expect(await reclamar()).toBe(true)
-    expect(await reclamar()).toBe(false)
+    expect(await reclamar()).toBe("tuyo")
+    expect(await reclamar()).toBe("en_curso")
   })
 
   it("keeps different failures of the same entity apart", async () => {
-    expect(await reclamar(`pieza:${PIEZA}:abc`)).toBe(true)
-    expect(await reclamar(`pieza:${PIEZA}:def`)).toBe(true)
+    expect(await reclamar(`pieza:${PIEZA}:abc`)).toBe("tuyo")
+    expect(await reclamar(`pieza:${PIEZA}:def`)).toBe("tuyo")
   })
 
   it("refuses an unknown kind", async () => {

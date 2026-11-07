@@ -24,12 +24,14 @@ create policy "coni y wav leen avisos a federico" on public.avisos_a_federico fo
 create trigger auditar after insert or update or delete on public.avisos_a_federico
   for each row execute function public.registrar_evento();
 
--- Claims the email: true for exactly one caller at a time (an atomic update, so concurrent callers cannot both send
--- it). A sent row never claims again; a claim whose caller died is handed on after five minutes, as the pauses do.
-create function public.reclamar_aviso_a_federico(p_clave text, p_tipo text, p_entidad_id uuid) returns boolean
+-- Claims the email and says where it stands: 'tuyo' for exactly one caller at a time (an atomic update, so concurrent
+-- callers cannot both send it), 'enviado' once it went out (a sent row never claims again) and 'en_curso' while another
+-- caller holds it. A claim whose caller died is handed on after five minutes, as the pauses do.
+create function public.reclamar_aviso_a_federico(p_clave text, p_tipo text, p_entidad_id uuid) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_avisar boolean;
+  v_tuyo boolean;
+  v_enviado_en timestamptz;
 begin
   insert into public.avisos_a_federico (clave, tipo, entidad_id)
   values (p_clave, p_tipo, p_entidad_id)
@@ -39,8 +41,12 @@ begin
    where clave = p_clave
      and enviado_en is null
      and (reclamado_en is null or reclamado_en < now() - interval '5 minutes')
-  returning true into v_avisar;
-  return coalesce(v_avisar, false);
+  returning true into v_tuyo;
+  if v_tuyo then
+    return 'tuyo';
+  end if;
+  select enviado_en into v_enviado_en from public.avisos_a_federico where clave = p_clave;
+  return case when v_enviado_en is null then 'en_curso' else 'enviado' end;
 end;
 $$;
 

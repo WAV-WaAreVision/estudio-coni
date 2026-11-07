@@ -9,6 +9,7 @@ import {
   claveDeAviso,
   cuerpoDeAviso,
   ocurrenciaDePieza,
+  TEXTO_AVISANDO,
   TEXTO_FICHA_ILEGIBLE,
   TEXTO_YA_NO_FALLA,
 } from "@/lib/dominio/avisar-a-federico"
@@ -131,8 +132,25 @@ describe("avisarAFederico", () => {
       avisarAFederico(deps(avisos), { tipo: "pieza", id }),
     ])
 
-    expect(respuestas).toEqual([{ ok: true }, { ok: true }])
+    // One tap sends it; the other answers ok if the email already went out, or asks her to wait a moment.
+    expect(respuestas).toContainEqual({ ok: true })
+    for (const respuesta of respuestas) {
+      expect([{ ok: true }, { ok: false, error: TEXTO_AVISANDO }]).toContainEqual(respuesta)
+    }
     expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+
+  it("asks her to try again in a moment while another tap holds the email and nothing went out yet", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    const clave = await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE, ocurrencia: await ocurrencia(id) })
+    await pool.query("select public.reclamar_aviso_a_federico($1, 'pieza', $2)", [clave, id])
+    const avisos = notificadorEnMemoria()
+
+    expect(await avisarAFederico(deps(avisos), { tipo: "pieza", id })).toEqual({
+      ok: false,
+      error: TEXTO_AVISANDO,
+    })
+    expect(avisos.aWavEnviados).toEqual([])
   })
 
   it("lets the next tap send it when the email failed", async () => {

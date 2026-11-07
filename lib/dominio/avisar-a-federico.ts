@@ -9,6 +9,7 @@ import { TEXTO_LIMITE } from "@/lib/presupuesto/texto-limite"
 export const ETIQUETA_AVISAR = "Avisar a Federico"
 export const TEXTO_LE_AVISE = "Le avisé a Federico."
 export const TEXTO_YA_NO_FALLA = "Esto ya no está fallando. Vuelve a abrir la pantalla."
+export const TEXTO_AVISANDO = "Le estoy avisando. Vuelve a intentarlo en un momento."
 export const TEXTO_FICHA_ILEGIBLE = "No pude leer la ficha de este material."
 
 export type TipoDeAviso = "pieza" | "material"
