@@ -98,7 +98,7 @@ function disparosDeBibliotecaReales(): DisparosDeBiblioteca {
     async motor(semana, intento) {
       await tasks.trigger<typeof motorManualTask>(
         "motor-manual",
-        { manual: true },
+        { manual: true, semana },
         { idempotencyKey: await claveGlobal(claveMotor(semana, intento)), idempotencyKeyTTL: "10m" },
       )
     },

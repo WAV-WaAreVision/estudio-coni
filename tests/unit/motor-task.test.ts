@@ -3,9 +3,15 @@ import { describe, expect, it } from "vitest"
 import { CRUCES_POR_SEMANA } from "@/lib/motor/puntaje"
 import { domingoDeSemana } from "@/lib/motor/semana"
 import { CRUCES_POR_LLAMADA } from "@/lib/motor/semanal"
-import { ejecutarMotorSemanal } from "@/lib/motor/tarea"
+import { ejecutarMotorSemanal, semanaDeLaCorrida } from "@/lib/motor/tarea"
 import { CLAUDE_ESPERA_MOTOR_MS, clienteDelMotor } from "@/lib/produccion/deps-reales"
-import { COLA_DEL_MOTOR, CONFIGURACION_MOTOR, motorManualTask, motorSemanalTask } from "../../trigger/motor-semanal"
+import {
+  COLA_DEL_MOTOR,
+  CONFIGURACION_MOTOR,
+  ENTRADA_MOTOR_MANUAL,
+  motorManualTask,
+  motorSemanalTask,
+} from "../../trigger/motor-semanal"
 
 describe("motorSemanalTask", () => {
   it("loads with the id the dashboard shows", () => {
@@ -58,5 +64,33 @@ describe("ejecutarMotorSemanal", () => {
     const resultado = await ejecutarMotorSemanal({ timestamp: new Date("2026-10-04T23:00:00Z") }, async () => null)
 
     expect(resultado).toEqual({ omitido: true })
+  })
+})
+
+describe("semanaDeLaCorrida", () => {
+  it("runs the week «Proponer ahora» validated, even when the queue starts it on Monday", () => {
+    // Asked on Sunday 2026-11-08 23:55 in Santiago, started Monday 2026-11-09 00:10.
+    expect(semanaDeLaCorrida({ manual: true, semana: "2026-11-08" }, new Date("2026-11-09T03:10:00Z"))).toBe(
+      "2026-11-08",
+    )
+  })
+
+  it("works out the week from the clock when no week is given, as the Sunday run does", () => {
+    expect(semanaDeLaCorrida({ manual: false }, new Date("2026-11-09T03:10:00Z"))).toBe("2026-11-15")
+    expect(semanaDeLaCorrida({ timestamp: new Date("2026-11-08T23:00:00Z") }, new Date())).toBe("2026-11-08")
+  })
+})
+
+describe("ENTRADA_MOTOR_MANUAL", () => {
+  it("takes the validated week, and still takes a run triggered before the week was sent", () => {
+    expect(ENTRADA_MOTOR_MANUAL.parse({ manual: true, semana: "2026-11-08" })).toEqual({
+      manual: true,
+      semana: "2026-11-08",
+    })
+    expect(ENTRADA_MOTOR_MANUAL.parse({ manual: true })).toEqual({ manual: true })
+  })
+
+  it("refuses a week that is not a date", () => {
+    expect(() => ENTRADA_MOTOR_MANUAL.parse({ manual: true, semana: "lunes" })).toThrow()
   })
 })
