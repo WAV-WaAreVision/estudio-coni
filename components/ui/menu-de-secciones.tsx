@@ -25,7 +25,8 @@ interface PropiedadesDeMenuDeSecciones<T extends string> {
 
 /**
  * The phone's way between sections when they no longer fit one row as tabs: a button naming the open one, which folds
- * out the sections as links. Choosing one, Escape (the focus goes back to the button) or a tap outside folds it.
+ * out the sections as links. Choosing one, Escape (the focus goes back to the button), a tap outside or Tab past the
+ * last one folds it.
  */
 export function MenuDeSecciones<T extends string>({
   etiqueta,
@@ -45,8 +46,18 @@ export function MenuDeSecciones<T extends string>({
     const alTocar = (evento: PointerEvent) => {
       if (!caja.current?.contains(evento.target as Node)) setAbierto(false)
     }
+    // On the document, not the nav: Safari does not focus a button on a tap, so after one the focus is on the body.
+    const alPulsar = (evento: KeyboardEvent) => {
+      if (evento.key !== "Escape") return
+      setAbierto(false)
+      boton.current?.focus()
+    }
     document.addEventListener("pointerdown", alTocar)
-    return () => document.removeEventListener("pointerdown", alTocar)
+    document.addEventListener("keydown", alPulsar)
+    return () => {
+      document.removeEventListener("pointerdown", alTocar)
+      document.removeEventListener("keydown", alPulsar)
+    }
   }, [abierto])
 
   return (
@@ -54,10 +65,11 @@ export function MenuDeSecciones<T extends string>({
       ref={caja}
       aria-label={etiqueta}
       className={cn("relative min-w-0", className)}
-      onKeyDown={(evento) => {
-        if (evento.key !== "Escape" || !abierto) return
-        setAbierto(false)
-        boton.current?.focus()
+      onBlur={(evento) => {
+        // Tab past the last section closes it, so the open list never covers what takes the focus (WCAG 2.4.11).
+        // A null target (a Safari tap on the button, the window losing focus) is left to the tap and click handlers.
+        const destino = evento.relatedTarget
+        if (destino && !caja.current?.contains(destino)) setAbierto(false)
       }}
     >
       <button
