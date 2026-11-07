@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { esTipoDeAviso, mensajePush, rutaDeAviso } from "@/lib/avisos/tipos"
+import { esTipoDeAviso, mensajePush, rutaDeAviso, TITULO_DE_PUSH } from "@/lib/avisos/tipos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { avisosReales, canalReal, notificadorEnMemoria, notificadorResend } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
@@ -211,6 +211,17 @@ describe("aviso del equilibrio de un ángulo", () => {
     expect(mensajePush(aviso)).toMatchObject({
       cuerpo: "Un ángulo de tus pilares necesita piezas",
       url: "/biblioteca/temas",
+    })
+  })
+})
+
+describe("aviso de pausa cerrada", () => {
+  it("words the closed pause notice for a lock screen and opens Inicio", () => {
+    expect(esTipoDeAviso("pausa_cerrada")).toBe(true)
+    expect(mensajePush({ tipo: "pausa_cerrada" })).toEqual({
+      titulo: TITULO_DE_PUSH,
+      cuerpo: "Ya puedes seguir con lo que estaba en pausa",
+      url: "/",
     })
   })
 })

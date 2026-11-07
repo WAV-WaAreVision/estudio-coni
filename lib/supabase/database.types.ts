@@ -1462,6 +1462,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pausas_de_proveedor: {
+        Row: {
+          avisada_en: string | null
+          cerrada_en: string | null
+          desde: string
+          detalle: string
+          id: string
+          motivo: string
+          proveedor: string
+        }
+        Insert: {
+          avisada_en?: string | null
+          cerrada_en?: string | null
+          desde?: string
+          detalle: string
+          id?: string
+          motivo: string
+          proveedor: string
+        }
+        Update: {
+          avisada_en?: string | null
+          cerrada_en?: string | null
+          desde?: string
+          detalle?: string
+          id?: string
+          motivo?: string
+          proveedor?: string
+        }
+        Relationships: []
+      }
       piezas: {
         Row: {
           actualizada_en: string
@@ -2556,6 +2586,14 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_pausa_de_proveedor: {
+        Args: { p_detalle: string; p_motivo: string; p_proveedor: string }
+        Returns: {
+          avisar: boolean
+          nueva: boolean
+          pausa_id: string
+        }[]
+      }
       anotar_numeros_linkedin: {
         Args: {
           p_medido_en: string
@@ -2612,6 +2650,7 @@ export type Database = {
         Args: { p_filas: Json; p_tema: string }
         Returns: undefined
       }
+      cerrar_pausa_de_proveedor: { Args: { p_id: string }; Returns: boolean }
       conectar_instagram: {
         Args: { p_cuenta: string; p_expira_en: string; p_token: string }
         Returns: undefined
@@ -3167,6 +3206,7 @@ export type Database = {
         Args: { p_borrar: boolean; p_id: string }
         Returns: undefined
       }
+      marcar_pausa_avisada: { Args: { p_id: string }; Returns: undefined }
       marcar_subido_como_coni: {
         Args: {
           p_destino: string
