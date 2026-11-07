@@ -1,5 +1,8 @@
 // Ported from Ingesta's app/(app)/estado-de-material.ts, with fix 4j: a word and an icon, never only a colour.
 
+import { dolares } from "@/lib/formato"
+import { AVISO_TRAS_SUBIR } from "./borrador-de-subida"
+
 export interface EstadoDeProceso {
   estado: string
   motivo_fallo: string | null
@@ -31,6 +34,13 @@ export function sePuedeReintentar(material: EstadoDeProceso): boolean {
 /** Really working on it: the list keeps asking while any material is. A paused or waiting one does not. */
 export function estaProcesando(material: EstadoDeProceso): boolean {
   return material.estado === "procesando" && !marcadoConMotivo(material.motivo_fallo)
+}
+
+/** What she reads while it works (spec decision 3): the estimate once the task wrote it; null when it is not working. */
+export function avisoDeProceso(material: EstadoDeProceso): string | null {
+  if (!estaProcesando(material)) return null
+  if (material.costo_estimado_usd === null) return AVISO_TRAS_SUBIR
+  return `${AVISO_TRAS_SUBIR} Costará cerca de ${dolares(material.costo_estimado_usd)}.`
 }
 
 /** The icons the pill draws itself (check, warning circle) are `null` here; these three it is given. */

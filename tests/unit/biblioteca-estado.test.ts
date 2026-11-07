@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import {
+  avisoDeProceso,
   esperaConfirmacion,
   estaProcesando,
   marcadoConMotivo,
@@ -76,5 +77,24 @@ describe("presentarEstado (4j: always a word and an icon, never only a colour)",
 
   it("says an unknown state as it comes", () => {
     expect(presentarEstado({ ...base, estado: "raro" })).toEqual({ palabra: "raro", tipo: "neutro", icono: null })
+  })
+})
+
+describe("avisoDeProceso (spec decision 3)", () => {
+  it("says what it will cost once the task wrote the estimate, two decimals in Chilean Spanish", () => {
+    expect(avisoDeProceso({ ...base, costo_estimado_usd: 0.4 })).toBe("Lo estoy procesando. Costará cerca de US$ 0,40.")
+    expect(avisoDeProceso({ ...base, costo_estimado_usd: 1.2345 })).toBe(
+      "Lo estoy procesando. Costará cerca de US$ 1,23.",
+    )
+  })
+
+  it("says only «Lo estoy procesando.» before the extraction ends", () => {
+    expect(avisoDeProceso(base)).toBe("Lo estoy procesando.")
+  })
+
+  it("says nothing when it is not working: paused with a reason, ready or failed", () => {
+    expect(avisoDeProceso({ ...base, costo_estimado_usd: 0.4, motivo_fallo: "tope_mensual" })).toBeNull()
+    expect(avisoDeProceso({ ...base, costo_estimado_usd: 0.4, estado: "listo" })).toBeNull()
+    expect(avisoDeProceso({ ...base, estado: "fallido", motivo_fallo: "sin_texto" })).toBeNull()
   })
 })
