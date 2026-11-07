@@ -138,7 +138,7 @@ describe("generarVoz", () => {
     expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
-  it.each([400, 402, 403, 404, 422])("fails as a configuration error on HTTP %i", async (estado) => {
+  it.each([400, 403, 404, 422])("fails as a configuration error on HTTP %i", async (estado) => {
     capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
@@ -211,6 +211,13 @@ describe("generarVoz pausa a ElevenLabs", () => {
     expect(rechazoSinCobro(error)).toBe(true)
   })
 
+  it("pauses for quota on any 402, which never fixes itself, refused without charge", async () => {
+    contestar({ detail: "No se puede" }, 402)
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "cuota", http: 402 })
+    expect(rechazoSinCobro(error)).toBe(true)
+  })
+
   it("pauses for the key on any other 401, and never puts the key in the detail", async () => {
     contestar({ detail: { status: "invalid_api_key", message: `Invalid API key: ${CLAVE}` } }, 401)
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
@@ -231,7 +238,7 @@ describe("generarVoz pausa a ElevenLabs", () => {
 })
 
 describe("generarVoz dice qué respondió ElevenLabs", () => {
-  it.each([400, 402, 403, 404, 409, 422])("marks HTTP %i as answered and refused without charge", async (estado) => {
+  it.each([400, 403, 404, 409, 422])("marks HTTP %i as answered and refused without charge", async (estado) => {
     capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
     expect(error).toBeInstanceOf(RechazoDeElevenlabs)

@@ -69,12 +69,13 @@ export function rechazoSinCobro(error: unknown): boolean {
 /**
  * Spec 2026-11-07, decision 1: payment, quota and key failures pause ElevenLabs. `quota_exceeded` is the older answer;
  * the error catalogue now names 402 `insufficient_credits`; 401 `payment_issue` is the unpaid invoice of 2026-10-17.
- * Null for anything else, which keeps today's path. `cuerpo` is already redacted.
+ * Any other 402 is quota too: payment required never fixes itself. Null for anything else, which keeps today's path.
+ * `cuerpo` is already redacted.
  */
 export function pausaDeElevenlabs(estado: number, cuerpo: string): PausaDeProveedor | null {
   const detalle = `ElevenLabs respondió HTTP ${estado}: ${mensajeErrorElevenlabs(cuerpo)}`
   if (/payment_issue/i.test(cuerpo)) return new PausaDeProveedor("elevenlabs", "pago", detalle, estado)
-  if (/quota_exceeded|insufficient_credits/i.test(cuerpo)) {
+  if (estado === 402 || /quota_exceeded|insufficient_credits/i.test(cuerpo)) {
     return new PausaDeProveedor("elevenlabs", "cuota", detalle, estado)
   }
   if (estado === 401) return new PausaDeProveedor("elevenlabs", "llave", detalle, estado)
