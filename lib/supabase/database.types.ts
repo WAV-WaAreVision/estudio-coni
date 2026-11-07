@@ -3520,6 +3520,7 @@ export type Database = {
       }
       restaurar_ideas: { Args: { p_ids: string[] }; Returns: string[] }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
+      soltar_aviso_de_pausa: { Args: { p_id: string }; Returns: undefined }
       tema_mas_cercano: {
         Args: { p_umbral: number; p_vector: string }
         Returns: {

@@ -70,7 +70,8 @@ export async function grabarVoz(
   } catch (error) {
     // The piece moving under the run (discarded, or handed back by maintenance) is not a failure of the voice.
     if (error instanceof TransicionInvalida || error instanceof ArtefactoCambio) throw error
-    // The notice goes first, like the limit: a failed email leaves the piece in `grabando_voz` and the retry sends it.
+    // The pause opens first, like the limit's notice: a failed email to WAV leaves the piece in `grabando_voz` and the
+    // retry sends it (abrirPausa lets go of its claim when the email fails).
     if (error instanceof PausaDeProveedor) {
       await abrirPausa(deps, error)
       await escribir(deps, fila, { tipo: "falla_voz", explicacion: error.message })

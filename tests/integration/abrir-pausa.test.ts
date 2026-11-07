@@ -35,13 +35,11 @@ describe("abrirPausa", () => {
       },
     }
     await expect(abrirPausa({ db, avisos: rota }, pago())).rejects.toThrow("Resend no responde")
-    const mientrasReclamado = notificadorEnMemoria()
-    expect(await abrirPausa({ db, avisos: mientrasReclamado }, pago())).toEqual({ nueva: false })
-    expect(mientrasReclamado.aWavEnviados).toEqual([])
 
-    // The failed caller's claim expires after five minutes; the next caller sends the email.
-    await pool.query("update public.pausas_de_proveedor set aviso_reclamado_en = now() - interval '6 minutes'")
+    // The failed caller let go of its claim: the next caller (a Trigger.dev retry, say) sends the email at once.
     const avisos = notificadorEnMemoria()
+    expect(await abrirPausa({ db, avisos }, pago())).toEqual({ nueva: false })
+    expect(avisos.aWavEnviados).toHaveLength(1)
     expect(await abrirPausa({ db, avisos }, pago())).toEqual({ nueva: false })
     expect(avisos.aWavEnviados).toHaveLength(1)
   })

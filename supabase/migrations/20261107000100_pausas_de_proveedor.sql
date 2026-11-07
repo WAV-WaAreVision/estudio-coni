@@ -64,6 +64,12 @@ language sql security definer set search_path = '' as $$
   update public.pausas_de_proveedor set avisada_en = now() where id = p_id and avisada_en is null;
 $$;
 
+-- A caller whose email to WAV failed lets go of its claim, so the next caller (a retry) sends it at once.
+create function public.soltar_aviso_de_pausa(p_id uuid) returns void
+language sql security definer set search_path = '' as $$
+  update public.pausas_de_proveedor set aviso_reclamado_en = null where id = p_id and avisada_en is null;
+$$;
+
 -- True only for the call that closed it, so a second closing run cannot notify twice.
 create function public.cerrar_pausa_de_proveedor(p_id uuid) returns boolean
 language plpgsql security definer set search_path = '' as $$
@@ -79,9 +85,11 @@ $$;
 revoke execute on function public.abrir_pausa_de_proveedor(text, text, text) from public, anon, authenticated;
 revoke execute on function public.marcar_pausa_avisada(uuid) from public, anon, authenticated;
 revoke execute on function public.cerrar_pausa_de_proveedor(uuid) from public, anon, authenticated;
+revoke execute on function public.soltar_aviso_de_pausa(uuid) from public, anon, authenticated;
 grant execute on function public.abrir_pausa_de_proveedor(text, text, text) to service_role;
 grant execute on function public.marcar_pausa_avisada(uuid) to service_role;
 grant execute on function public.cerrar_pausa_de_proveedor(uuid) to service_role;
+grant execute on function public.soltar_aviso_de_pausa(uuid) to service_role;
 
 -- `pausa_cerrada`: a provider pause closed (decision 5). The full list (20261105000200_angulos_de_pilar.sql plus this
 -- type); presupuesto-esquema.test.ts and datos-personales-esquema.test.ts check it equals TIPOS_DE_AVISO.

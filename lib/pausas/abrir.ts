@@ -59,8 +59,9 @@ export function cuerpoDePausa(pausa: PausaDeProveedor): string {
 /**
  * Spec 2026-11-07, decision 3: opens the provider's pause (an open one is kept as it is) and emails WAV once per pause.
  * Coni gets no notice: the text on the piece or the screen says it. Only the caller that claimed the email sends it,
- * so concurrent callers send one; it is marked after it is sent (plan amendment A1), so a failed email is sent again
- * by a later caller once the claim is five minutes old instead of being lost.
+ * so concurrent callers send one; it is marked after it is sent (plan amendment A1). A failed email lets go of the
+ * claim, so the next caller (a retry, or the maintenance step) sends it instead of it being lost; a claim whose
+ * caller died is handed on after five minutes.
  */
 export async function abrirPausa(deps: DepsPausa, pausa: PausaDeProveedor): Promise<{ nueva: boolean }> {
   const { data, error } = await deps.db.rpc("abrir_pausa_de_proveedor", {
@@ -72,7 +73,13 @@ export async function abrirPausa(deps: DepsPausa, pausa: PausaDeProveedor): Prom
   const fila = data[0]
   if (!fila) throw new Error(`abrir_pausa_de_proveedor no devolvió la pausa de ${pausa.proveedor}.`)
   if (fila.avisar) {
-    await deps.avisos.aWav(asuntoDePausa(pausa), cuerpoDePausa(pausa))
+    try {
+      await deps.avisos.aWav(asuntoDePausa(pausa), cuerpoDePausa(pausa))
+    } catch (errorAlAvisar) {
+      const { error: errorAlSoltar } = await deps.db.rpc("soltar_aviso_de_pausa", { p_id: fila.pausa_id })
+      if (errorAlSoltar) console.error(`No pude soltar el aviso de la pausa ${fila.pausa_id}`, errorAlSoltar)
+      throw errorAlAvisar
+    }
     const { error: errorAlMarcar } = await deps.db.rpc("marcar_pausa_avisada", { p_id: fila.pausa_id })
     if (errorAlMarcar) {
       throw new Error(`No pude marcar como avisada la pausa ${fila.pausa_id}: ${errorAlMarcar.message}`, {
