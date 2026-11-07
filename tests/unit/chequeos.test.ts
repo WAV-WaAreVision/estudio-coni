@@ -28,15 +28,19 @@ describe("chequearProveedor elevenlabs", () => {
     })
   })
 
-  it.each([{ status: "past_due" }, { status: "incomplete" }, { status: "free_disabled" }])(
-    "stays paused on %o",
-    async (cambios) => {
-      suscripcion(cambios)
-      expect(
-        await chequearProveedor({ proveedor: "elevenlabs", motivo: "pago", llave: LLAVE, bases: BASES }),
-      ).toMatchObject({ ok: false })
-    },
-  )
+  it.each([
+    { status: "past_due" },
+    { status: "incomplete" },
+    { status: "free_disabled" },
+    { status: "unpaid" },
+    { status: "canceled" },
+    { status: "incomplete_expired" },
+  ])("stays paused on %o", async (cambios) => {
+    suscripcion(cambios)
+    expect(
+      await chequearProveedor({ proveedor: "elevenlabs", motivo: "pago", llave: LLAVE, bases: BASES }),
+    ).toMatchObject({ ok: false })
+  })
 
   it("stays paused for quota while no characters are left and the plan cannot extend", async () => {
     suscripcion({ character_count: 100 })

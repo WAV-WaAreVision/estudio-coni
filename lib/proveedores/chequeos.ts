@@ -54,7 +54,14 @@ const Suscripcion = z.object({
   character_limit: z.number(),
   can_extend_character_limit: z.boolean().nullish(),
 })
-const ESTADOS_SIN_PAGO = new Set(["past_due", "incomplete", "free_disabled"])
+const ESTADOS_SIN_PAGO = new Set([
+  "past_due",
+  "incomplete",
+  "free_disabled",
+  "unpaid",
+  "canceled",
+  "incomplete_expired",
+])
 
 async function chequearElevenlabs(entrada: EntradaDeChequeo): Promise<ResultadoDeChequeo> {
   const r = await leerJson(`${entrada.bases.elevenlabs}/v1/user/subscription`, { "xi-api-key": entrada.llave })
