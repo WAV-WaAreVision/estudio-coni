@@ -55,11 +55,11 @@ describe("TarjetaDeMaterial", () => {
     expect(li).not.toHaveTextContent("sin_texto")
   })
 
-  it("keeps the price button on a card that waits for her OK", () => {
+  it("draws a processing material with an estimate with no button and no price (spec decision 3)", () => {
     const li = tarjeta({ ...material, estado: "procesando", costo_estimado_usd: 1.2, titulo: null })
-    expect(within(li).getByRole("button", { name: "Procesar por ~US$ 1,20" })).toBeInTheDocument()
+    expect(within(li).queryByRole("button")).toBeNull()
     expect(li).toHaveTextContent("Sin título")
-    expect(li).toHaveTextContent("Espera tu OK")
+    expect(li).not.toHaveTextContent("US$")
   })
 
   it("keeps the topic as text inside its one link, never a link inside a link (deviation 4)", () => {
