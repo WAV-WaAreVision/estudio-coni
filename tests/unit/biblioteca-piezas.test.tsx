@@ -7,18 +7,19 @@ import { TemaDelMaterial } from "@/app/(app)/biblioteca/tema-del-material"
 const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
 
 describe("NavDeBiblioteca (4c)", () => {
-  it("shows the three sections already in Conidolly, each with an icon and its name", () => {
-    render(<NavDeBiblioteca actual="autores" />)
+  it("shows the four sections, Semana after Temas, each with an icon and its name", () => {
+    render(<NavDeBiblioteca actual="semana" />)
     const nav = screen.getByRole("navigation", { name: "Secciones de la Biblioteca" })
     const enlaces = within(nav).getAllByRole("link")
-    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas"])
+    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas", "Semana"])
     expect(enlaces.map((enlace) => enlace.getAttribute("href"))).toEqual([
       "/biblioteca",
       "/biblioteca/autores",
       "/biblioteca/temas",
+      "/biblioteca/semana",
     ])
-    expect(enlaces[1]).toHaveAttribute("aria-current", "page")
-    expect(nav.querySelectorAll("svg")).toHaveLength(3)
+    expect(enlaces[3]).toHaveAttribute("aria-current", "page")
+    expect(nav.querySelectorAll("svg")).toHaveLength(4)
   })
 
   it("hugs its tabs and slides them on one row instead of pushing the page sideways", () => {
