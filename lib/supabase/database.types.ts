@@ -3429,6 +3429,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reclamar_aviso_de_pausa: { Args: { p_id: string }; Returns: boolean }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean

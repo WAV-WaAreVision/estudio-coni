@@ -42,15 +42,28 @@ export interface PausaParaCerrar {
   id: string
   proveedor: ProveedorConPausa
   motivo: MotivoDePausa
+  /** WAV's technical detail, for an email that has to be sent again. */
+  detalle: string
+  /** Whether WAV's email went out. */
+  avisada: boolean
 }
 
 /** For the maintenance step, with a `service_role` client. */
 export async function leerPausasParaCerrar(db: Db): Promise<PausaParaCerrar[]> {
-  const { data, error } = await db.from("pausas_de_proveedor").select("id, proveedor, motivo").is("cerrada_en", null)
+  const { data, error } = await db
+    .from("pausas_de_proveedor")
+    .select("id, proveedor, motivo, detalle, avisada_en")
+    .is("cerrada_en", null)
   if (error) throw new Error(`No pude leer las pausas abiertas: ${error.message}`, { cause: error })
   return data.map((fila) => {
     if (!esMotivoDePausa(fila.motivo))
       throw new Error(`La pausa ${fila.id} tiene un motivo desconocido: ${fila.motivo}.`)
-    return { id: fila.id, proveedor: proveedorDe(fila.proveedor), motivo: fila.motivo }
+    return {
+      id: fila.id,
+      proveedor: proveedorDe(fila.proveedor),
+      motivo: fila.motivo,
+      detalle: fila.detalle,
+      avisada: fila.avisada_en !== null,
+    }
   })
 }

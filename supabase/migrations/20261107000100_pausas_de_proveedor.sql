@@ -28,6 +28,23 @@ create policy "coni y wav leen pausas" on public.pausas_de_proveedor for select 
 create trigger auditar after insert or update or delete on public.pausas_de_proveedor
   for each row execute function public.registrar_evento();
 
+-- Takes the job of emailing WAV about a pause: true for exactly one caller at a time (an atomic update, so concurrent
+-- callers cannot both send it). A claim five minutes old without `avisada_en` (its caller died) is handed on.
+create function public.reclamar_aviso_de_pausa(p_id uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_avisar boolean;
+begin
+  update public.pausas_de_proveedor
+     set aviso_reclamado_en = now()
+   where id = p_id
+     and avisada_en is null
+     and (aviso_reclamado_en is null or aviso_reclamado_en < now() - interval '5 minutes')
+  returning true into v_avisar;
+  return coalesce(v_avisar, false);
+end;
+$$;
+
 -- Opens the provider's pause, or answers the open one as it is. `avisar` is true for exactly one caller at a time:
 -- the one that claimed WAV's email (an atomic update, so concurrent callers cannot both send it).
 create function public.abrir_pausa_de_proveedor(p_proveedor text, p_motivo text, p_detalle text)
@@ -36,7 +53,6 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid;
   v_nueva boolean := false;
-  v_avisar boolean;
 begin
   insert into public.pausas_de_proveedor (proveedor, motivo, detalle)
   values (p_proveedor, p_motivo, left(p_detalle, 400))
@@ -49,13 +65,7 @@ begin
       from public.pausas_de_proveedor p
      where p.proveedor = p_proveedor and p.cerrada_en is null;
   end if;
-  update public.pausas_de_proveedor
-     set aviso_reclamado_en = now()
-   where id = v_id
-     and avisada_en is null
-     and (aviso_reclamado_en is null or aviso_reclamado_en < now() - interval '5 minutes')
-  returning true into v_avisar;
-  return query select v_id, v_nueva, coalesce(v_avisar, false);
+  return query select v_id, v_nueva, public.reclamar_aviso_de_pausa(v_id);
 end;
 $$;
 
@@ -86,10 +96,12 @@ revoke execute on function public.abrir_pausa_de_proveedor(text, text, text) fro
 revoke execute on function public.marcar_pausa_avisada(uuid) from public, anon, authenticated;
 revoke execute on function public.cerrar_pausa_de_proveedor(uuid) from public, anon, authenticated;
 revoke execute on function public.soltar_aviso_de_pausa(uuid) from public, anon, authenticated;
+revoke execute on function public.reclamar_aviso_de_pausa(uuid) from public, anon, authenticated;
 grant execute on function public.abrir_pausa_de_proveedor(text, text, text) to service_role;
 grant execute on function public.marcar_pausa_avisada(uuid) to service_role;
 grant execute on function public.cerrar_pausa_de_proveedor(uuid) to service_role;
 grant execute on function public.soltar_aviso_de_pausa(uuid) to service_role;
+grant execute on function public.reclamar_aviso_de_pausa(uuid) to service_role;
 
 -- `pausa_cerrada`: a provider pause closed (decision 5). The full list (20261105000200_angulos_de_pilar.sql plus this
 -- type); presupuesto-esquema.test.ts and datos-personales-esquema.test.ts check it equals TIPOS_DE_AVISO.

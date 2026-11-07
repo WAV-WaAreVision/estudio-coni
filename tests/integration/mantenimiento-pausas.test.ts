@@ -79,6 +79,29 @@ describe("cerrarPausas", () => {
     expect(canal.aConiEnviados).toEqual([])
   })
 
+  it("sends WAV's email of a pause whose email never went out, once", async () => {
+    const id = await abierta("heygen")
+    await pool.query("update public.pausas_de_proveedor set aviso_reclamado_en = null where id = $1", [id])
+    const { deps: d, canal } = deps({ ok: false, motivo: "sin saldo" })
+
+    await cerrarPausas(d)
+    await cerrarPausas(d)
+
+    expect(canal.aWavEnviados.map((a) => a.asunto)).toEqual(["HeyGen en pausa: pago pendiente"])
+    expect(canal.aWavEnviados[0]?.detalle).toContain("Detalle: x")
+    const { rows } = await pool.query("select avisada_en is not null as avisada from public.pausas_de_proveedor")
+    expect(rows).toEqual([{ avisada: true }])
+  })
+
+  it("leaves WAV's email to the caller that holds a fresh claim", async () => {
+    await abierta("heygen")
+    const { deps: d, canal } = deps({ ok: false, motivo: "sin saldo" })
+
+    await cerrarPausas(d)
+
+    expect(canal.aWavEnviados).toEqual([])
+  })
+
   it("asks nothing when no pause is open", async () => {
     const { deps: d, preguntas } = deps({ ok: true })
     expect(await cerrarPausas(d)).toEqual({ cerradas: [], abiertas: [] })

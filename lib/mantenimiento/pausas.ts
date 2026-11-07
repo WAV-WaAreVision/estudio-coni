@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerPausasParaCerrar, type PausaParaCerrar } from "@/lib/datos/pausas"
 import { type ProveedorConPausa, TEXTO_PAUSA_CERRADA } from "@/lib/dominio/pausas"
+import { reenviarAvisoPendiente } from "@/lib/pausas/abrir"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { ResultadoDeChequeo } from "@/lib/proveedores/chequeos"
 import type { Database } from "@/lib/supabase/database.types"
@@ -27,6 +28,8 @@ export interface ResultadoDePausas {
 export async function cerrarPausas(deps: DepsPausas): Promise<ResultadoDePausas> {
   const resultado: ResultadoDePausas = { cerradas: [], abiertas: [] }
   for (const pausa of await leerPausasParaCerrar(deps.db)) {
+    // Every caller that met this pause failed to email WAV (or died holding the claim): send it from here.
+    if (!pausa.avisada) await reenviarAvisoPendiente(deps, pausa)
     const chequeo = await deps.chequear(pausa)
     if (!chequeo.ok) {
       resultado.abiertas.push({ proveedor: pausa.proveedor, motivo: chequeo.motivo })

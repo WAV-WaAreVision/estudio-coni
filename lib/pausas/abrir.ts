@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { MotivoDePausa, PausaDeProveedor, ProveedorConPausa } from "@/lib/dominio/pausas"
+import { type MotivoDePausa, PausaDeProveedor, type ProveedorConPausa } from "@/lib/dominio/pausas"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -72,20 +72,40 @@ export async function abrirPausa(deps: DepsPausa, pausa: PausaDeProveedor): Prom
   if (error) throw new Error(`No pude abrir la pausa de ${pausa.proveedor}: ${error.message}`, { cause: error })
   const fila = data[0]
   if (!fila) throw new Error(`abrir_pausa_de_proveedor no devolvió la pausa de ${pausa.proveedor}.`)
-  if (fila.avisar) {
-    try {
-      await deps.avisos.aWav(asuntoDePausa(pausa), cuerpoDePausa(pausa))
-    } catch (errorAlAvisar) {
-      const { error: errorAlSoltar } = await deps.db.rpc("soltar_aviso_de_pausa", { p_id: fila.pausa_id })
-      if (errorAlSoltar) console.error(`No pude soltar el aviso de la pausa ${fila.pausa_id}`, errorAlSoltar)
-      throw errorAlAvisar
-    }
-    const { error: errorAlMarcar } = await deps.db.rpc("marcar_pausa_avisada", { p_id: fila.pausa_id })
-    if (errorAlMarcar) {
-      throw new Error(`No pude marcar como avisada la pausa ${fila.pausa_id}: ${errorAlMarcar.message}`, {
-        cause: errorAlMarcar,
-      })
-    }
-  }
+  if (fila.avisar) await avisarAWav(deps, fila.pausa_id, pausa)
   return { nueva: fila.nueva }
+}
+
+/**
+ * The claimed email to WAV, then its mark. A failed email lets go of the claim so the next caller sends it.
+ */
+async function avisarAWav(deps: DepsPausa, pausaId: string, pausa: PausaDeProveedor): Promise<void> {
+  try {
+    await deps.avisos.aWav(asuntoDePausa(pausa), cuerpoDePausa(pausa))
+  } catch (errorAlAvisar) {
+    const { error: errorAlSoltar } = await deps.db.rpc("soltar_aviso_de_pausa", { p_id: pausaId })
+    if (errorAlSoltar) console.error(`No pude soltar el aviso de la pausa ${pausaId}`, errorAlSoltar)
+    throw errorAlAvisar
+  }
+  const { error: errorAlMarcar } = await deps.db.rpc("marcar_pausa_avisada", { p_id: pausaId })
+  if (errorAlMarcar) {
+    throw new Error(`No pude marcar como avisada la pausa ${pausaId}: ${errorAlMarcar.message}`, {
+      cause: errorAlMarcar,
+    })
+  }
+}
+
+/**
+ * The maintenance step's safety net: an open pause whose email to WAV never went out (every caller failed or died)
+ * is claimed and sent from the stored row. Answers whether this call sent it.
+ */
+export async function reenviarAvisoPendiente(
+  deps: DepsPausa,
+  pausa: { id: string; proveedor: ProveedorConPausa; motivo: MotivoDePausa; detalle: string },
+): Promise<boolean> {
+  const { data, error } = await deps.db.rpc("reclamar_aviso_de_pausa", { p_id: pausa.id })
+  if (error) throw new Error(`No pude reclamar el aviso de la pausa ${pausa.id}: ${error.message}`, { cause: error })
+  if (!data) return false
+  await avisarAWav(deps, pausa.id, new PausaDeProveedor(pausa.proveedor, pausa.motivo, pausa.detalle, null))
+  return true
 }
