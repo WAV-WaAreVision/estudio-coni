@@ -13,6 +13,7 @@ import {
   TEXTO_YA_NO_FALLA,
 } from "@/lib/dominio/avisar-a-federico"
 import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/texto-limite"
 
 const ID = "d0000000-0000-4000-8000-0000000000aa"
 const LLAVE = "No pude preparar tu voz. ElevenLabs respondió 401: invalid_api_key"
@@ -56,6 +57,10 @@ describe("fallaParaFederico for a piece", () => {
       expect(fallaParaFederico({ tipo: "pieza", estado: "guion_por_aprobar", explicacion: texto })).toBeNull()
       expect(fallaParaFederico({ tipo: "pieza", estado: "en_render", explicacion: texto })).toBeNull()
     }
+  })
+
+  it("returns null for a video stopped by her monthly limit, which she reactivates herself", () => {
+    expect(fallaParaFederico({ tipo: "pieza", estado: "en_render", explicacion: TEXTO_LIMITE })).toBeNull()
   })
 
   it("returns null without an explanation", () => {

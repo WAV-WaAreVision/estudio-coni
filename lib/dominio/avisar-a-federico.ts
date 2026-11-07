@@ -1,6 +1,7 @@
 import { URL_DE_LA_APP } from "@/lib/diseno/marca"
 import { leerFicha } from "@/lib/dominio/biblioteca/ficha"
 import { esTextoDePausa } from "@/lib/dominio/pausas"
+import { TEXTO_LIMITE } from "@/lib/presupuesto/texto-limite"
 
 // «Avisar a Federico» (spec 2026-11-07, decision 6 and amendment A11). Client components import the copy from here,
 // so this module stays free of Node APIs (the key is hashed with Web Crypto).
@@ -40,7 +41,8 @@ export function fallaParaFederico(entidad: PiezaParaAviso | MaterialParaAviso): 
     return entidad.estado === "listo" && entidad.rol === "estrategia" && ilegible ? TEXTO_FICHA_ILEGIBLE : null
   }
   const explicacion = entidad.explicacion?.trim() ? entidad.explicacion : null
-  if (explicacion === null || esTextoDePausa(explicacion)) return null
+  // A pause is WAV's already, and the monthly limit is hers to reactivate in Ajustes.
+  if (explicacion === null || esTextoDePausa(explicacion) || explicacion === TEXTO_LIMITE) return null
   if (VIDEO_EN_CURSO.includes(entidad.estado)) return explicacion
   // Gate 1 offers Federico only for a key ElevenLabs refused; a HeyGen failure there asks her to sign again.
   if (entidad.estado === GATE_1 && esFallaDeLlave(explicacion) && !/\bHeyGen\b/i.test(explicacion)) return explicacion

@@ -10,7 +10,7 @@ import type { Database } from "@/lib/supabase/database.types"
 export const ZONA_DEL_GASTO = "America/Santiago"
 
 /** What every path stopped by the hard limit says (spec 2026-11-02). */
-export const TEXTO_LIMITE = "Llegaste a tu límite de este mes. Reactívalo en Ajustes."
+export { TEXTO_LIMITE } from "./texto-limite"
 
 /** «2026-11»: the Santiago month of an instant, the one the database counts the spend in. */
 export function mesDelGasto(ahora: string): string {
