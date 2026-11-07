@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
 import { mensajeErrorElevenlabs } from "@/lib/proveedores/errores"
 
@@ -15,10 +16,6 @@ const SEGMENTO_MAXIMO_SEGUNDOS = 30
 // Scribe list price per hour of audio. Must be checked against the account's plan before trusting the estimate.
 const USD_POR_HORA_TRANSCRIPCION = 0.4
 
-/** Retrying does not help: Coni has to top up first, so the text says so. */
-export const TEXTO_SIN_CARACTERES =
-  "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo."
-
 /** Still a plain Error for the retry policy; the class lets `verificarVoz` tell "no connection" apart. Nothing answered. */
 class SinConexion extends Error {
   readonly respondio = false
@@ -26,18 +23,6 @@ class SinConexion extends Error {
   constructor(cause: unknown) {
     super("No pude conectar con ElevenLabs.", { cause })
     this.name = "SinConexion"
-  }
-}
-
-/**
- * ElevenLabs answered the voice request. `http` is its status (200 when the audio itself was empty or broke). Which
- * of these were billed is `rechazoSinCobro`'s question (spec 2026-10-17, decision 11, amendment A1 of its plan).
- */
-export class SinCaracteres extends Falla {
-  readonly respondio = true
-  constructor(readonly http: number) {
-    super(TEXTO_SIN_CARACTERES)
-    this.name = "SinCaracteres"
   }
 }
 
@@ -67,15 +52,33 @@ export class FallaPasajeraDeElevenlabs extends Error {
 
 /**
  * True only when ElevenLabs refused the voice request with a 4xx: the request was rejected before any audio was made,
- * and text to speech bills per generated character. A 5xx, a network failure or a 200 without a whole audio may have
- * been billed, so they are not refusals (the ElevenLabs docs do not say either way; see the plan of 2026-10-17).
+ * and text to speech bills per generated character. A pause of ElevenLabs (payment, quota or key) is such a 4xx
+ * refusal too. A 5xx, a network failure or a 200 without a whole audio may have been billed, so they are not refusals
+ * (the ElevenLabs docs do not say either way; see the plan of 2026-10-17).
  */
 export function rechazoSinCobro(error: unknown): boolean {
   const http =
-    error instanceof SinCaracteres || error instanceof RechazoDeElevenlabs || error instanceof FallaPasajeraDeElevenlabs
+    error instanceof RechazoDeElevenlabs || error instanceof FallaPasajeraDeElevenlabs
       ? error.http
-      : null
+      : error instanceof PausaDeProveedor && error.proveedor === "elevenlabs"
+        ? error.http
+        : null
   return http !== null && http >= 400 && http < 500
+}
+
+/**
+ * Spec 2026-11-07, decision 1: payment, quota and key failures pause ElevenLabs. `quota_exceeded` is the older answer;
+ * the error catalogue now names 402 `insufficient_credits`; 401 `payment_issue` is the unpaid invoice of 2026-10-17.
+ * Null for anything else, which keeps today's path. `cuerpo` is already redacted.
+ */
+export function pausaDeElevenlabs(estado: number, cuerpo: string): PausaDeProveedor | null {
+  const detalle = `ElevenLabs respondió HTTP ${estado}: ${mensajeErrorElevenlabs(cuerpo)}`
+  if (/payment_issue/i.test(cuerpo)) return new PausaDeProveedor("elevenlabs", "pago", detalle, estado)
+  if (/quota_exceeded|insufficient_credits/i.test(cuerpo)) {
+    return new PausaDeProveedor("elevenlabs", "cuota", detalle, estado)
+  }
+  if (estado === 401) return new PausaDeProveedor("elevenlabs", "llave", detalle, estado)
+  return null
 }
 
 function baseDe(base: string | undefined): string {
@@ -89,11 +92,6 @@ function sinLlave(texto: string, clave: string): string {
 /** 4xx other than "too early" and "too many requests" will not change by retrying: they are for WAV. */
 function esErrorDeConfiguracion(estado: number): boolean {
   return estado >= 400 && estado < 500 && estado !== 408 && estado !== 429
-}
-
-// `quota_exceeded` is the older answer; the error catalogue now names 402 `insufficient_credits`.
-function esFaltaDeCaracteres(cuerpo: string): boolean {
-  return /quota_exceeded|insufficient_credits/i.test(cuerpo)
 }
 
 async function motivoDelError(respuesta: Response, clave: string): Promise<string> {
@@ -145,7 +143,8 @@ export async function generarVoz(entrada: {
     async (respuesta) => {
       if (!respuesta.ok) {
         const cuerpo = sinLlave(await respuesta.text(), clave)
-        if (esFaltaDeCaracteres(cuerpo)) throw new SinCaracteres(respuesta.status)
+        const pausa = pausaDeElevenlabs(respuesta.status, cuerpo)
+        if (pausa) throw pausa
         const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${mensajeErrorElevenlabs(cuerpo)}`
         throw esErrorDeConfiguracion(respuesta.status)
           ? new RechazoDeElevenlabs(mensaje, respuesta.status)
@@ -301,7 +300,10 @@ export async function transcribir(entrada: {
     ESPERA_TRANSCRIPCION_MS,
     async (respuesta) => {
       if (!respuesta.ok) {
-        const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${await motivoDelError(respuesta, clave)}`
+        const cuerpo = sinLlave(await respuesta.text(), clave)
+        const pausa = pausaDeElevenlabs(respuesta.status, cuerpo)
+        if (pausa) throw pausa
+        const mensaje = `ElevenLabs respondió HTTP ${respuesta.status}: ${mensajeErrorElevenlabs(cuerpo)}`
         throw esErrorDeConfiguracion(respuesta.status) ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)
       }
       let datos: unknown

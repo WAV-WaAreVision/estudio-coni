@@ -1785,7 +1785,7 @@ describe("grabarPieza con la voz por texto", () => {
     expect(sim.voces).toHaveLength(1)
   })
 
-  it("releases the voice reservation when ElevenLabs has no characters, and tells Coni", async () => {
+  it("releases the voice reservation when ElevenLabs has no characters, and shows the voice pause", async () => {
     const id = await crearPiezaSinVoz()
     const sim = simular({
       voz: () => HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
@@ -1795,9 +1795,7 @@ describe("grabarPieza con la voz por texto", () => {
     expect((await grabarPieza(d.deps, id)).resultado).toBe("falla_produccion")
     expect(sim.creaciones).toHaveLength(0)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "liberado"]])
-    expect((await pieza(id)).explicacion).toBe(
-      "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
-    )
+    expect((await pieza(id)).explicacion).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
   })
 })
 

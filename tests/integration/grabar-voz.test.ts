@@ -209,7 +209,7 @@ describe("grabarVoz", () => {
     expect(llamadas).toBe(0)
   })
 
-  it("returns the piece with Coni's text when ElevenLabs has no characters", async () => {
+  it("returns the piece with the voice pause text when ElevenLabs has no characters", async () => {
     servidor.use(
       http.post("https://api.elevenlabs.io/v1/text-to-speech/:voz", () =>
         HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
@@ -221,7 +221,7 @@ describe("grabarVoz", () => {
     expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "falla" })
     const despues = await leerFila(id)
     expect(despues).toMatchObject({ estado: "guion_por_aprobar", intento: antes.intento + 1 })
-    expect(despues.explicacion).toMatch(/^ElevenLabs no tiene caracteres suficientes/)
+    expect(despues.explicacion).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
   })
 
   it("lets Trigger.dev retry a server error without changing the piece", async () => {
@@ -280,11 +280,20 @@ describe("asegurarVoz with tone marks", () => {
 })
 
 describe("asegurarVoz releases by outcome", () => {
-  it.each([401, 403, 422, 429])("releases at once, as not charged, when ElevenLabs refuses with %i", async (estado) => {
+  it.each([403, 422, 429])("releases at once, as not charged, when ElevenLabs refuses with %i", async (estado) => {
     responder(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
     const id = await grabando()
 
     await expect(intentar(deps(), await filaDe(id))).rejects.toThrow(`HTTP ${estado}`)
+
+    expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
+  })
+
+  it("releases at once, as not charged, when ElevenLabs refuses the key with 401", async () => {
+    responder(() => HttpResponse.json({ detail: "No se puede" }, { status: 401 }))
+    const id = await grabando()
+
+    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow("Tu voz está en pausa. Ya le avisamos a WAV.")
 
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
   })
@@ -295,7 +304,7 @@ describe("asegurarVoz releases by outcome", () => {
     )
     const id = await grabando()
 
-    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow(/caracteres suficientes/)
+    await expect(intentar(deps(), await filaDe(id))).rejects.toThrow("Tu voz está en pausa. Ya le avisamos a WAV.")
 
     expect(await gastosDeVoz(id)).toEqual([expect.objectContaining({ estado: "liberado", sin_cobro: true })])
   })
