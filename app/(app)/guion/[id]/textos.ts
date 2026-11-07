@@ -34,9 +34,8 @@ export const TEXTO_AVISA_Y_REINTENTA_VOZ = `${TEXTO_AVISA_A_FEDERICO} Cuando lo 
 export const TEXTO_REINTENTA = "Vuelve a intentarlo con Reintentar."
 export const TEXTO_DETENIDO_EN_SUS_PALABRAS = "No puedo seguir grabando por ahora. Avísale a Federico."
 
-// A key ElevenLabs refused, or none saved: trying again gives the same answer, so the text never offers it.
-const FALLA_DE_LLAVE = /\b(401|403)\b|\bllave\b/i
-export const esFallaDeLlave = (texto: string) => FALLA_DE_LLAVE.test(texto)
+// A key ElevenLabs refused, or none saved: «Avisar a Federico» owns the check, the screens keep importing it from here.
+export { esFallaDeLlave } from "@/lib/dominio/avisar-a-federico"
 
 /** "Grabo tu video en 8 s": the seconds really left of the undo window, computed once (decision 10). */
 export const textoGraboEn = (quedanMs: number) =>
