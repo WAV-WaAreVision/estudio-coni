@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 
 const URL_VOYAGE = "https://api.voyageai.com/v1/embeddings"
 const ESPERA_MS = 60_000
@@ -51,6 +52,11 @@ export async function embeber(entrada: {
   if (!respuesta.ok) {
     const detalle = sinLlave(await respuesta.text(), clave).slice(0, 300)
     const mensaje = `Voyage respondió HTTP ${respuesta.status}: ${detalle || "sin detalle"}`
+    // Spec 2026-11-07, decision 1 (402 kept although https://docs.voyageai.com/docs/error-codes lists none, plan A3).
+    if (respuesta.status === 402) throw new PausaDeProveedor("voyage", "pago", mensaje, 402)
+    if (respuesta.status === 401 || respuesta.status === 403) {
+      throw new PausaDeProveedor("voyage", "llave", mensaje, respuesta.status)
+    }
     throw esErrorDeConfiguracion(respuesta.status) ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)
   }
   let datos: unknown

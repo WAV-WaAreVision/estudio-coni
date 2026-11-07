@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { describe, expect, it, vi } from "vitest"
 import { cambiarAngulo, type DepsIdeas } from "@/lib/acciones/ideas"
 import { ERROR_GENERICO } from "@/lib/acciones/resultado"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 
 const IDEA = "33333333-3333-4333-8333-333333333333"
@@ -19,6 +20,7 @@ function deps(respuesta: { data: unknown; error: { code: string; message: string
     db: { from: () => cadena } as unknown as SupabaseClient<Database>,
     servicio: vi.fn(),
     crearClaude: vi.fn(),
+    avisos: () => notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
   }
 }

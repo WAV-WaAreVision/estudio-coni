@@ -26,6 +26,7 @@ import {
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { hashPuerta1, hashTexto, hashTextoDePuerta2 } from "@/lib/dominio/puertas"
 import { huellaDeRespaldo } from "@/lib/dominio/respaldo"
 import { AVISO_AVATAR_LINKEDIN, CIERRE } from "@/lib/dominio/revision"
@@ -1898,5 +1899,86 @@ describe("deshacerAprobacion", () => {
       error: "Esta pieza cambió mientras la mirabas. Vuelve a abrirla.",
     })
     expect(await fila(id)).toMatchObject({ estado: "en_render" })
+  })
+})
+
+describe("acciones con un proveedor en pausa", () => {
+  const abrir = (proveedor: string) =>
+    pool.query("select public.abrir_pausa_de_proveedor($1, 'pago', 'x')", [proveedor])
+  afterEach(async () => {
+    await pool.query("delete from public.pausas_de_proveedor")
+  })
+
+  it("refuses «Preparar mi voz» while ElevenLabs is paused, and starts nothing", async () => {
+    const id = await pieza("guion_por_aprobar")
+    await abrir("elevenlabs")
+    const { deps, disparos } = armar()
+
+    expect(await pedirVoz(deps, id, await versionDe(id), false)).toEqual({ ok: false, error: TEXTO_PAUSA.elevenlabs })
+    expect(disparos).toEqual([])
+    expect((await fila(id)).estado).toBe("guion_por_aprobar")
+  })
+
+  it("refuses the signature while HeyGen is paused, and the piece stays at gate 1", async () => {
+    const id = await paraAprobar()
+    await abrir("heygen")
+    const { deps, disparos } = armar()
+
+    expect(await aprobarGuion(deps, id, await versionDe(id), "look-a")).toEqual({
+      ok: false,
+      error: TEXTO_PAUSA.heygen,
+    })
+    expect(disparos).toEqual([])
+    expect((await fila(id)).estado).toBe("guion_por_aprobar")
+  })
+
+  it("refuses «Regrabar» while HeyGen is paused", async () => {
+    const id = await pieza("video_por_aprobar")
+    await abrir("heygen")
+    const { deps, disparos } = armar()
+
+    expect(await regrabar(deps, id, await versionDe(id))).toEqual({ ok: false, error: TEXTO_PAUSA.heygen })
+    expect(disparos).toEqual([])
+    expect((await fila(id)).estado).toBe("video_por_aprobar")
+  })
+
+  it("refuses «Reintentar» of a failed reel video while HeyGen is paused", async () => {
+    const id = await pieza("en_render")
+    await aplicarComoServicio(id, { tipo: "falla_produccion", explicacion: TEXTO_PAUSA.heygen })
+    await abrir("heygen")
+    const { deps, disparos } = armar()
+
+    expect(await reintentar(deps, id, await versionDe(id))).toEqual({ ok: false, error: TEXTO_PAUSA.heygen })
+    expect(disparos).toEqual([])
+    expect((await fila(id)).estado).toBe("error_produccion")
+  })
+
+  it("refuses «Reintentar» of a script and «Pedir cambios» while Claude is paused (A5)", async () => {
+    const enProceso = await pieza("guion_en_proceso", { explicacion: TEXTO_PAUSA.claude })
+    const enPuerta = await pieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+    await abrir("claude")
+    const { deps, disparos } = armar()
+
+    expect(await reintentarGuion(deps, enProceso, await versionDe(enProceso))).toEqual({
+      ok: false,
+      error: TEXTO_PAUSA.claude,
+    })
+    expect(await pedirCambios(deps, enPuerta, await versionDe(enPuerta))).toEqual({
+      ok: false,
+      error: TEXTO_PAUSA.claude,
+    })
+    expect(disparos).toEqual([])
+    expect((await fila(enPuerta)).estado).toBe("guion_por_aprobar")
+  })
+
+  it("still lets her choose ideas while Claude is paused (A5)", async () => {
+    const a = await idea()
+    await abrir("claude")
+    const { deps } = armar()
+
+    const resultado = await elegirIdeas(deps, [a])
+
+    expect(resultado.ok).toBe(true)
+    if (resultado.ok) piezasCreadas.push(...resultado.piezas)
   })
 })

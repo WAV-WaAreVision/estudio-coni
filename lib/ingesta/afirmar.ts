@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
+import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
 import {
   type Contexto,
@@ -14,6 +15,7 @@ import {
 import { type Parte, Ubicacion } from "@/lib/ingesta/partes"
 import { asignarATemas, recalcularTema } from "@/lib/ingesta/temas"
 import { aTramos, type Tramo } from "@/lib/ingesta/tramos"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import {
   costoClaude,
   EVIDENCIAS_DE_AFIRMACION,
@@ -160,10 +162,18 @@ async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Pr
     }
   } catch (error) {
     if (error instanceof MaterialBorrado) throw error
+    // The claims still wait for maintenance, but a payment or key failure is WAV's to fix now (spec 2026-11-07).
+    if (error instanceof PausaDeProveedor) {
+      try {
+        await abrirPausa(deps, error)
+      } catch (alAbrir) {
+        // Amendment A6: a Voyage pause must never fail the material; maintenance resends WAV's email.
+        if (!(alAbrir instanceof Error)) throw alAbrir
+        console.error(`No pude abrir la pausa de ${error.proveedor} del material ${material.id}: ${alAbrir.message}`)
+      }
+    }
     // Left for maintenance, but visible in the logs. The key is already redacted by the client.
-    console.warn(
-      `Embeddings pendientes del material ${material.id}: ${error instanceof Error ? error.message : "error"}`,
-    )
+    console.warn(`Embeddings pendientes del material ${material.id}: ${mensajeTecnico(error)}`)
   }
   return vectores
 }

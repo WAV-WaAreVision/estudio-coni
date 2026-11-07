@@ -3,7 +3,9 @@ import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import { actualizarPieza, type FilaDePieza, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
 import { ArtefactoCambio, type Evento, TransicionInvalida, transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { puedeGrabarVoz } from "@/lib/dominio/puertas"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { piezaCambio } from "@/lib/produccion/comun"
 import { asegurarVoz, type DepsVoz, leerLlaveDeVoz } from "@/lib/produccion/voz"
@@ -18,6 +20,7 @@ export type ResultadoVoz =
   | { resultado: "lista"; audioId: string }
   | { resultado: "nada_que_hacer" }
   | { resultado: "limite" }
+  | { resultado: "pausa" }
   | { resultado: "falla" }
 
 async function escribir(deps: DepsGrabarVoz, fila: FilaDePieza, evento: Evento): Promise<void> {
@@ -67,6 +70,13 @@ export async function grabarVoz(
   } catch (error) {
     // The piece moving under the run (discarded, or handed back by maintenance) is not a failure of the voice.
     if (error instanceof TransicionInvalida || error instanceof ArtefactoCambio) throw error
+    // The pause opens first, like the limit's notice: a failed email to WAV leaves the piece in `grabando_voz` and the
+    // retry sends it (abrirPausa lets go of its claim when the email fails).
+    if (error instanceof PausaDeProveedor) {
+      await abrirPausa(deps, error)
+      await escribir(deps, fila, { tipo: "falla_voz", explicacion: error.message })
+      return { resultado: "pausa" }
+    }
     if (error instanceof Falla) {
       await escribir(deps, fila, { tipo: "falla_voz", explicacion: error.message })
       return { resultado: "falla" }

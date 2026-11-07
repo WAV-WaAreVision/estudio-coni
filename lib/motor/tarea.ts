@@ -1,3 +1,4 @@
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { domingoDeSemana } from "@/lib/motor/semana"
 import { correrMotor, type DepsDelMotor, type ResultadoDelMotor } from "@/lib/motor/semanal"
 
@@ -10,14 +11,16 @@ export function semanaDeLaCorrida(entrada: EntradaDelMotor, ahora: Date): string
 
 /**
  * One run of the weekly task. Without Claude's key in the Vault there is nothing to do and nobody to alert: Coni has
- * not finished setting up, and the next Sunday asks again.
+ * not finished setting up, and the next Sunday asks again. While Claude is paused the week is skipped and nothing is
+ * written: WAV's pause email already covers it (spec 2026-11-07, decision 4).
  */
 export async function ejecutarMotorSemanal(
   entrada: EntradaDelMotor,
   depsMotor: () => Promise<DepsDelMotor | null>,
   ahora: () => Date = () => new Date(),
-): Promise<ResultadoDelMotor | { omitido: true }> {
+): Promise<ResultadoDelMotor | { omitido: true } | { omitido: true; pausa: "claude" }> {
   const deps = await depsMotor()
   if (!deps) return { omitido: true }
+  if ((await leerPausasAbiertas(deps.db)).includes("claude")) return { omitido: true, pausa: "claude" }
   return correrMotor(deps, { semana: semanaDeLaCorrida(entrada, ahora()), manual: entrada.manual === true })
 }

@@ -36,6 +36,7 @@ export {
   RechazoDeClaude,
   RespuestaCortada,
   sinRaya,
+  traducirErrorDeClaude,
   type UsoClaude,
 } from "./anthropic/nucleo"
 export {

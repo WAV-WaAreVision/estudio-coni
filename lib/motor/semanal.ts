@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerPilares, pilaresActivos } from "@/lib/datos/pilares"
 import { leerGuiaVigente } from "@/lib/datos/repositorio"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { anguloPorSlug, type CatalogoDePilares, pilaresDeRedes } from "@/lib/dominio/pilares"
 import { falloDeBase, pagarPaso, redondear } from "@/lib/ingesta/gasto-material"
 import { type DatosDelMotor, leerDatosDelMotor, type TemaDelMotor } from "@/lib/motor/datos"
@@ -320,6 +321,8 @@ async function escribirPorLotes(
       escritos += 1
     } catch (error) {
       if (!(error instanceof Error)) throw error
+      // A paused Claude refuses every batch that follows: the run fails and its onFailure opens the pause.
+      if (error instanceof PausaDeProveedor) throw error
       primerError ??= error
       lotesFallidos.push({ cruces: ids, error: detalleTecnico(error) })
       descartadas.push(...ids.map((cruceId) => ({ cruceId, razon: RAZON_DE_LOTE_FALLIDO })))

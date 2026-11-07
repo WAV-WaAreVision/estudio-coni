@@ -474,3 +474,50 @@ describe("WAV is refused on every upload action (es_coni), even where row level 
     expect(disparos).toEqual([])
   })
 })
+
+describe("subir con un proveedor en pausa", () => {
+  const PAUSA = "La Biblioteca está en pausa. Ya le avisamos a WAV."
+  const abrir = (proveedor: string) =>
+    pool.query("select public.abrir_pausa_de_proveedor($1, 'pago', 'x')", [proveedor])
+  const cerrarTodas = () => pool.query("delete from public.pausas_de_proveedor")
+
+  it("refuses a new material while Claude is paused and inserts no row", async () => {
+    await abrir("claude")
+    try {
+      const titulo = `Pausa ${SUFIJO}`
+      const resultado = await crearMaterial(deps(coni), {
+        ...base(),
+        tipo: "link",
+        url: "https://example.com/pausa",
+        titulo,
+        archivos: [],
+      })
+      expect(resultado).toEqual({ ok: false, error: PAUSA })
+      expect(await cuantosCon(titulo)).toBe(0)
+    } finally {
+      await cerrarTodas()
+    }
+  })
+
+  it("refuses to confirm a material while Claude is paused, and starts nothing", async () => {
+    const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/pausa-2", archivos: [] })
+    await abrir("claude")
+    try {
+      disparos.length = 0
+      expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: false, error: PAUSA })
+      expect(disparos).toEqual([])
+    } finally {
+      await cerrarTodas()
+    }
+  })
+
+  it("still creates and confirms with only a Voyage pause open (A6)", async () => {
+    await abrir("voyage")
+    try {
+      const creado = await crearOk(coni, { tipo: "link", url: "https://example.com/pausa-3", archivos: [] })
+      expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    } finally {
+      await cerrarTodas()
+    }
+  })
+})

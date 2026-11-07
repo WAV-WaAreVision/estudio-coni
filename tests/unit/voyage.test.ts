@@ -2,6 +2,7 @@
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { costoVoyage, DIMENSIONES, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
 import { servidor } from "../msw"
 
@@ -46,14 +47,29 @@ describe("embeber", () => {
     expect(capturas[0]?.cuerpo.input_type).toBe("document")
   })
 
-  it("never leaks the key when Voyage answers 401, and does not retry a configuration error", async () => {
-    servidor.use(http.post(URL_VOYAGE, () => HttpResponse.json({ detail: `bad key ${CLAVE}` }, { status: 401 })))
+  it.each([400, 422])(
+    "never leaks the key when Voyage answers %i, and does not retry a configuration error",
+    async (estado) => {
+      servidor.use(http.post(URL_VOYAGE, () => HttpResponse.json({ detail: `bad ${CLAVE}` }, { status: estado })))
 
-    const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document" }).catch((e: unknown) => e)
+      const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document" }).catch((e: unknown) => e)
 
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(String((error as Error).message)).not.toContain(CLAVE)
-    expect(String((error as Error).message)).toContain("401")
+      expect(error).toBeInstanceOf(FallaDeConfiguracion)
+      expect(String((error as Error).message)).not.toContain(CLAVE)
+      expect(String((error as Error).message)).toContain(String(estado))
+    },
+  )
+
+  it.each([
+    [401, "llave"],
+    [402, "pago"],
+    [403, "llave"],
+  ])("pauses Voyage on HTTP %i", async (estado, motivo) => {
+    servidor.use(http.post(URL_VOYAGE, () => new HttpResponse(`no ${CLAVE}`, { status: estado })))
+    const error = await embeber({ clave: CLAVE, textos: ["hola"], tipo: "document" }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect(error).toMatchObject({ proveedor: "voyage", motivo, http: estado })
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("raises a plain error on a 500 so it can be retried", async () => {

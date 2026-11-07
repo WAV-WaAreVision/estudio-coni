@@ -171,6 +171,7 @@ describe("leerDatosDeGrabacion", () => {
       botones: null,
       lineaDeFirma: "Graba el video · 8 s para deshacer",
       vozSinCobro: false,
+      bloqueoCambios: null,
     })
   })
 

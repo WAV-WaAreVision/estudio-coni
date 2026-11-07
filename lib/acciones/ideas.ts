@@ -11,10 +11,13 @@ import {
 } from "@/lib/datos/repositorio"
 import { Falla } from "@/lib/dominio/falla"
 import { MAXIMO_DE_IDEAS } from "@/lib/dominio/ideas"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { anguloPorSlug } from "@/lib/dominio/pilares"
 import { TIPOS_DE_ALERTA } from "@/lib/dominio/revision"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { clasificarIdea, costoClaude, MODELO_POR_TAREA, type PropuestaDeIdea } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import { aResultado, type Resultado } from "./resultado"
 
@@ -26,6 +29,11 @@ export interface DepsIdeas {
   /** A `service_role` client, for what only the server may read (her keys) and the spend of the month. */
   servicio: () => Db
   crearClaude: (llave: string) => Anthropic
+  /**
+   * Emails WAV once when Claude turns out to be paused (spec 2026-11-07). Built only then: the app's notifier needs
+   * the email variables, which no other action of this screen reads.
+   */
+  avisos: () => Notificador
   ahora: () => string
 }
 
@@ -174,6 +182,11 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
     } catch (error) {
       // Nothing was proposed, so nothing was spent that she should pay against the limit.
       await liberarGasto(servicio, clave)
+      // A paused Claude: the pause opens (WAV emailed once) and she reads its text, not "try again".
+      if (error instanceof PausaDeProveedor) {
+        await abrirPausa({ db: servicio, avisos: deps.avisos() }, error)
+        throw error
+      }
       console.error("No pude clasificar la idea con Claude", error)
       throw new Falla("No pude proponerte el pilar ahora. Elígelo tú y confirma las alertas.")
     }

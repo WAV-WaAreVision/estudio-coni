@@ -108,3 +108,19 @@ describe("proponerAhora", () => {
     registro.mockRestore()
   })
 })
+
+describe("proponerAhora con Claude en pausa", () => {
+  it("refuses with Claude's pause text and starts no engine run", async () => {
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
+    const d = deps(coni)
+    try {
+      expect(await proponerAhora(d)).toEqual({
+        ok: false,
+        error: "Las ideas y los guiones están en pausa. Ya le avisamos a WAV.",
+      })
+      expect(d.motor).not.toHaveBeenCalled()
+    } finally {
+      await pool.query("delete from public.pausas_de_proveedor")
+    }
+  })
+})

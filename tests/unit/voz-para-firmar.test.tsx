@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { GrabarDeNuevo, VozParaFirmar } from "@/app/(app)/guion/[id]/voz-para-firmar"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 const { pedirVozAccion } = vi.hoisted(() => ({ pedirVozAccion: vi.fn() }))
@@ -24,6 +25,7 @@ function grabacion(clave: string | null, sobre: Partial<DatosDeGrabacion> = {}):
     botones: null,
     lineaDeFirma: "Graba el video · 8 s para deshacer",
     vozSinCobro: false,
+    bloqueoCambios: null,
     ...sobre,
   }
 }
@@ -377,5 +379,41 @@ describe("GrabarDeNuevo", () => {
     const accion = screen.getByRole("button", { name: "Grabar la voz de nuevo" })
     expect(accion).toHaveAttribute("aria-disabled", "true")
     expect(accion).toHaveAccessibleDescription("Guarda tus cambios antes de grabar tu voz.")
+  })
+})
+
+describe("VozParaFirmar con ElevenLabs en pausa", () => {
+  it("shows the pause as the block's title, with «Preparar mi voz» disabled and no «Avísale a Federico»", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: { ...BOTONES, bloqueoVoz: TEXTO_PAUSA.elevenlabs } })}
+        explicacion={TEXTO_PAUSA.elevenlabs}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getAllByText(TEXTO_PAUSA.elevenlabs)).toHaveLength(1)
+    expect(screen.getByText(TEXTO_PAUSA.elevenlabs)).toBeVisible()
+    expect(screen.getByRole("button", { name: /Preparar mi voz/ })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.queryByText(/Avísale a Federico/)).toBeNull()
+    expect(screen.queryByText("No pude preparar tu voz.")).toBeNull()
+  })
+
+  it("forgets an old pause text once the pause closed: the voice is simply missing", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES })}
+        explicacion={TEXTO_PAUSA.elevenlabs}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByText("Falta preparar tu voz.")).toBeVisible()
+    expect(screen.queryByText(TEXTO_PAUSA.elevenlabs)).toBeNull()
+    expect(screen.getByRole("button", { name: /Preparar mi voz/ })).not.toHaveAttribute("aria-disabled", "true")
   })
 })

@@ -10,8 +10,10 @@ import {
 } from "@/lib/datos/repositorio"
 import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import type { Notificador } from "@/lib/proveedores/avisos"
-import { leerVideo } from "@/lib/proveedores/heygen-api"
+import { type EstadoVideo, leerVideo } from "@/lib/proveedores/heygen-api"
 import type { Database } from "@/lib/supabase/database.types"
 
 export interface DepsConciliacion {
@@ -87,7 +89,7 @@ export async function conciliarRenders(deps: DepsConciliacion): Promise<Resultad
       if (resultado) resultados.push(resultado)
     } catch (error) {
       if (!(error instanceof Error)) throw error
-      errores.push(new Error(`pieza ${fila.id}: ${error.message}`, { cause: error }))
+      errores.push(new Error(`pieza ${fila.id}: ${mensajeTecnico(error)}`, { cause: error }))
     }
   }
   if (errores.length > 0) {
@@ -131,7 +133,13 @@ async function conciliar(
     return { piezaId: fila.id, resultado: "reanudada" }
   }
 
-  const video = await leerVideo({ clave: await leerLlave(), videoId: fila.render_id })
+  const video = await leerVideoSalvoPausa(deps, await leerLlave(), fila.render_id)
+  if (video === null) {
+    // HeyGen is paused: the piece waits, but an hour without progress still hands it back to Coni, so «Reintentar»
+    // shows up (and is refused with the pause text while the pause stays open).
+    if (sinProgreso) return fallar(deps, fila, EXPLICACION_RENDER_LENTO, "HeyGen está en pausa y pasó una hora")
+    return { piezaId: fila.id, resultado: "esperando" }
+  }
   if (video.estado === "listo" || video.estado === "fallido") {
     await deps.dispararGrabacion(fila.id, claveDeConciliacion(fila), fila.intento)
     return { piezaId: fila.id, resultado: "reanudada" }
@@ -140,6 +148,29 @@ async function conciliar(
     return fallar(deps, fila, EXPLICACION_RENDER_LENTO, `HeyGen sigue en ${video.estado} tras una hora`)
   }
   return { piezaId: fila.id, resultado: "esperando" }
+}
+
+/**
+ * The render's status, or null while HeyGen is paused: the pause is opened (WAV emailed once) instead of failing the
+ * maintenance run every ten minutes with Coni's text.
+ */
+async function leerVideoSalvoPausa(
+  deps: DepsConciliacion,
+  clave: string,
+  videoId: string,
+): Promise<EstadoVideo | null> {
+  try {
+    return await leerVideo({ clave, videoId })
+  } catch (error) {
+    if (!(error instanceof PausaDeProveedor)) throw error
+    try {
+      await abrirPausa(deps, error)
+    } catch (alAbrir) {
+      if (!(alAbrir instanceof Error)) throw alAbrir
+      throw new Error(`${error.detalle} · ${alAbrir.message}`, { cause: alAbrir })
+    }
+    return null
+  }
 }
 
 function claveDeConciliacion(fila: FilaDePieza): string {

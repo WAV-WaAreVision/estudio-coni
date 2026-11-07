@@ -214,10 +214,13 @@ export function VistaDeSemana({
   encabezado,
   semana,
   costoUsd,
+  pausa = null,
 }: {
   encabezado: ReactNode
   semana: SemanaLeida
   costoUsd: number
+  /** Claude's pause text while it is paused: «Proponer ahora» closes with it. */
+  pausa?: string | null
 }) {
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-x-8">
@@ -227,7 +230,7 @@ export function VistaDeSemana({
         className="grid content-start gap-5 md:sticky md:top-24 md:col-start-2 md:row-span-2 md:row-start-1 md:max-h-[calc(100dvh-7rem)] md:overflow-y-auto"
       >
         {semana.corrida ? <CorridaDeLaSemana corrida={semana.corrida} /> : null}
-        <BotonProponerAhora costoUsd={costoUsd} />
+        <BotonProponerAhora costoUsd={costoUsd} pausa={pausa} />
         <div className="hidden md:block">
           <QueSubir queSubir={semana.queSubir} />
         </div>

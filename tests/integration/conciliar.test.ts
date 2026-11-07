@@ -93,6 +93,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await pool.query("delete from vault.secrets where name = 'heygen'")
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   piezasCreadas.length = 0
 })
 
@@ -258,7 +259,7 @@ describe("conciliarRenders", () => {
     servidor.use(
       http.get("https://api.heygen.com/v3/videos/:id", ({ params }) =>
         params.id === "v_malo"
-          ? HttpResponse.json({ error: { code: "unauthorized", message: "no" } }, { status: 401 })
+          ? HttpResponse.json({ error: { code: "forbidden", message: "no" } }, { status: 403 })
           : HttpResponse.json({ data: { id: "v_1", status: "completed", video_url: "https://x" } }),
       ),
     )
@@ -267,6 +268,87 @@ describe("conciliarRenders", () => {
     await expect(conciliarRenders(deps)).rejects.toThrow(new RegExp(mala))
 
     expect(disparos.map((d) => d.piezaId)).toEqual([buena])
+  })
+
+  it("opens the HeyGen pause on a 401, emails WAV once and keeps going without failing the run", async () => {
+    const mala = await pieza("en_render", "v_malo")
+    const otraMala = await pieza("en_render", "v_malo_2")
+    const buena = await pieza("en_render", "v_1")
+    servidor.use(
+      http.get("https://api.heygen.com/v3/videos/:id", ({ params }) =>
+        params.id === "v_1"
+          ? HttpResponse.json({ data: { id: "v_1", status: "completed", video_url: "https://x" } })
+          : HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+      ),
+    )
+    const { deps, disparos, avisos } = doble(dentroDe(20))
+
+    expect(await conciliarRenders(deps)).toEqual(
+      expect.arrayContaining([
+        { piezaId: mala, resultado: "esperando" },
+        { piezaId: otraMala, resultado: "esperando" },
+        { piezaId: buena, resultado: "reanudada" },
+      ]),
+    )
+
+    expect(disparos.map((d) => d.piezaId)).toEqual([buena])
+    expect(avisos.aWavEnviados.map((aviso) => aviso.asunto)).toEqual(["HeyGen en pausa: llave rechazada"])
+    expect(avisos.aWavEnviados[0]?.detalle).toContain("HTTP 401")
+    expect(avisos.aConiEnviados).toEqual([])
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "heygen", motivo: "llave" }])
+    expect((await leer(mala)).estado).toBe("en_render")
+    expect((await leer(otraMala)).estado).toBe("en_render")
+  })
+
+  it("hands a render back to Coni after an hour without progress even while HeyGen is paused", async () => {
+    const vieja = await pieza("en_render", "v_vieja")
+    servidor.use(
+      http.get("https://api.heygen.com/v3/videos/:id", () =>
+        HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+      ),
+    )
+
+    // 20 minutes: old enough to be read (15), short of the hour without progress.
+    const temprano = doble(dentroDe(20))
+    expect(await conciliarRenders(temprano.deps)).toEqual([{ piezaId: vieja, resultado: "esperando" }])
+    expect((await leer(vieja)).estado).toBe("en_render")
+
+    const { deps, avisos } = doble(dentroDe(61))
+    expect(await conciliarRenders(deps)).toEqual([{ piezaId: vieja, resultado: "falla_produccion" }])
+    expect(await leer(vieja)).toMatchObject({
+      estado: "error_produccion",
+      explicacion: "El video tardó demasiado en estar listo. Puedes volver a intentarlo.",
+      estado_antes_del_error: "en_render",
+    })
+    expect(avisos.aConiEnviados).toHaveLength(1)
+    const { rows } = await pool.query("select proveedor from public.pausas_de_proveedor where cerrada_en is null")
+    expect(rows).toEqual([{ proveedor: "heygen" }])
+  })
+
+  it("reports a failed pause opening with WAV's detail, never Coni's pause text", async () => {
+    const mala = await pieza("en_render", "v_malo")
+    servidor.use(
+      http.get("https://api.heygen.com/v3/videos/:id", () =>
+        HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+      ),
+    )
+    const rota = {
+      ...notificadorEnMemoria(),
+      aWav: async () => {
+        throw new Error("Resend no responde")
+      },
+    }
+    const { deps } = doble(dentroDe(20), { avisos: rota })
+
+    const error = await conciliarRenders(deps).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect((error as Error).message).toContain(mala)
+    expect((error as Error).message).toContain("Resend no responde")
+    expect((error as Error).message).not.toContain("Ya le avisamos a WAV")
   })
 
   it("raises a configuration error when Coni has not saved her HeyGen key", async () => {
@@ -345,6 +427,7 @@ describe("mantenimientoFrecuente", () => {
         await empezar(piezaId, ahora())
       },
       temas: async () => null,
+      chequear: async () => ({ ok: false, motivo: "prueba" }),
     }
 
     await mantenimientoFrecuente(deps)

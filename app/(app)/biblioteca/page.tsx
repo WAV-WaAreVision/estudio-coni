@@ -12,10 +12,12 @@ import {
   listarAutores,
   listarMateriales,
 } from "@/lib/datos/biblioteca"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { ID_DEL_TITULO_DE_LA_LISTA, leerBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { AVISO_TRAS_SUBIR, RUTA_DE_SUBIR, vieneDeSubir } from "@/lib/dominio/biblioteca/borrador-de-subida"
 import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
+import { textoDePausaDeBiblioteca } from "@/lib/dominio/pausas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeBorrado } from "./aviso-de-borrado"
 import { FiltrosRapidos } from "./filtros-rapidos"
@@ -36,13 +38,15 @@ export default async function Materiales({
   const filtros = leerFiltros(params)
   const seleccion = leerSeleccion(params)
   const borrado = leerBorrado(params)
-  const [materiales, conteos, autores, panel, loBorrado] = await Promise.all([
+  const [materiales, conteos, autores, panel, loBorrado, pausas] = await Promise.all([
     listarMateriales(db, filtros),
     contarPorEstado(db),
     listarAutores(db),
     seleccion ? leerPanelDelMaterial(db, seleccion) : null,
     borrado ? leerNombreDeLoBorrado(db, "material", borrado) : null,
+    leerPausasAbiertas(db),
   ])
+  const pausa = textoDePausaDeBiblioteca(pausas)
   const ahora = Date.now()
   // One element, drawn in the header and again in the empty list: Subir is not a tab (spec section 1).
   const subir = (
@@ -92,7 +96,7 @@ export default async function Materiales({
           <>
             <ul aria-label="Materiales" className="grid gap-3 md:hidden">
               {materiales.map((material) => (
-                <TarjetaDeMaterial key={material.id} material={material} ahora={ahora} />
+                <TarjetaDeMaterial key={material.id} material={material} ahora={ahora} pausa={pausa} />
               ))}
             </ul>
             <div className="hidden md:block">
@@ -106,7 +110,7 @@ export default async function Materiales({
         className="hidden md:sticky md:top-24 md:block md:max-h-[calc(100dvh-7rem)] md:overflow-y-auto"
       >
         {panel ? (
-          <PanelDeMaterial panel={panel} filtros={filtros} ahora={ahora} />
+          <PanelDeMaterial panel={panel} filtros={filtros} ahora={ahora} pausa={pausa} />
         ) : seleccion ? (
           <Panel>
             <p className="text-cuerpo text-apagado">No encontré ese material. Elige otro de la tabla.</p>

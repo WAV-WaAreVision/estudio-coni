@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerPausasDeInicio } from "@/lib/datos/pausas"
 import { destinosDe, pendientesDe } from "@/lib/dominio/destinos"
 import { tipoDePieza } from "@/lib/dominio/estados"
 import type { IdeaDelBanco } from "@/lib/dominio/ideas"
+import type { MotivoDePausa, ProveedorConPausa } from "@/lib/dominio/pausas"
 import type { PiezaDeInicio } from "@/lib/inicio/modelo"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -22,6 +24,8 @@ export interface DatosDeInicio {
   zona: string
   /** The weekly engine's switch (Ajustes › Presupuesto): off, Inicio promises no new ideas. */
   motorSemanalActivo: boolean
+  /** The open provider pauses, oldest first (A10). */
+  pausas: { proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]
 }
 
 const DIAS_RECIENTES_MS = 30 * 24 * 60 * 60 * 1000
@@ -39,7 +43,7 @@ function fuerzaDe(valor: string): IdeaDelBanco["fuerza"] {
 
 /** Everything Inicio shows, through Coni's session: row level security decides what she can read. */
 export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeInicio> {
-  const [piezas, ideas, ajustes] = await Promise.all([
+  const [piezas, ideas, ajustes, pausas] = await Promise.all([
     db
       .from("piezas")
       .select(
@@ -50,6 +54,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
       .limit(PIEZAS_A_LEER),
     db.from("ideas").select("id, gancho, pilar, angulo_id, fuerza, numero, fijada_en").eq("estado", "idea"),
     db.from("ajustes").select("zona, motor_semanal_activo").maybeSingle(),
+    leerPausasDeInicio(db),
   ])
   if (piezas.error) throw fallo("No pude leer las piezas", piezas.error)
   if (ideas.error) throw fallo("No pude leer las ideas", ideas.error)
@@ -57,6 +62,7 @@ export async function leerDatosDeInicio(db: Db, ahora: number): Promise<DatosDeI
 
   const desde = ahora - DIAS_RECIENTES_MS
   return {
+    pausas,
     piezas: piezas.data.map((fila) => ({
       tipo: tipoDePieza(fila.tipo),
       id: fila.id,

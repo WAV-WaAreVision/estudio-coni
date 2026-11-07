@@ -18,6 +18,7 @@ import {
 } from "@/lib/acciones/ideas"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, conSesionDeConi } from "@/lib/acciones/servidor"
+import { avisosReales } from "@/lib/proveedores/avisos"
 import { baseDe } from "@/lib/proveedores/bases"
 
 // The model answers in a few seconds; a hung call must not hold the screen for the SDK's ten minutes.
@@ -34,6 +35,7 @@ function depsDeIdeas(db: DepsIdeas["db"]): DepsIdeas {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
+    avisos: () => avisosReales(),
     ahora: () => new Date().toISOString(),
   }
 }

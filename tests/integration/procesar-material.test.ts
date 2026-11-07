@@ -1,5 +1,6 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { alFallarMaterial } from "@/lib/ingesta/falla-material"
 import { MOTIVO_BORRADO_AL_PROCESAR, procesarMaterial } from "@/lib/ingesta/procesar"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
@@ -22,7 +23,10 @@ import {
 } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
-afterEach(limpiar)
+afterEach(async () => {
+  await limpiar()
+  await pool.query("delete from public.pausas_de_proveedor")
+})
 afterAll(() => pool.end())
 
 const UN_PDF = { extension: "pdf", tipo: "application/pdf" }
@@ -386,6 +390,42 @@ describe("errores", () => {
     expect(fila.estado).toBe("fallido")
     expect(fila.motivo_fallo).toBe("No pude procesar el material. WAV ya está revisando.")
     expect(fila.motivo_fallo).not.toContain("ECONNRESET")
+  })
+
+  it("marks a material that met a pause with the Biblioteca text, opens the pause and emails WAV only about it", async () => {
+    const almacen = almacenEnMemoria()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    const avisos = notificadorEnMemoria()
+    const error = new PausaDeProveedor(
+      "claude",
+      "cuota",
+      "Anthropic respondió HTTP 400: credit balance is too low",
+      400,
+    )
+
+    await alFallarMaterial({ db: clienteDeServicio(), avisos }, { materialId: id, corrida: "run_m", error })
+
+    expect(await material(id)).toMatchObject({
+      estado: "fallido",
+      motivo_fallo: "La Biblioteca está en pausa. Ya le avisamos a WAV.",
+    })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: sin saldo"])
+  })
+
+  it("keeps the Biblioteca pause text over a later failure", async () => {
+    const almacen = almacenEnMemoria()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO_CHILENO })
+    await pool.query("update public.materiales set motivo_fallo = $2 where id = $1", [
+      id,
+      "La Biblioteca está en pausa. Ya le avisamos a WAV.",
+    ])
+
+    await alFallarMaterial(
+      { db: clienteDeServicio(), avisos: notificadorEnMemoria() },
+      { materialId: id, corrida: "run_p", error: new Error("push") },
+    )
+
+    expect((await material(id)).motivo_fallo).toBe("La Biblioteca está en pausa. Ya le avisamos a WAV.")
   })
 
   it("keeps the limit reason when a material the limit stopped later failed sending its notice", async () => {

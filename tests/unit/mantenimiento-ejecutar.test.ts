@@ -16,11 +16,14 @@ vi.mock("@/lib/mantenimiento/voces", () => ({ devolverVocesTrabadas: vi.fn(async
 vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
   borrarLoMarcado: vi.fn(async () => ({ materiales: 0, carpetasPendientes: [] })),
 }))
+vi.mock("@/lib/mantenimiento/pausas", () => ({ cerrarPausas: vi.fn(async () => ({ cerradas: [], abiertas: [] })) }))
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mantenimiento/temas")>()),
-  mantenerTemas: vi.fn(async () => ({ tope: true, embebidas: 0, asignadas: 0, formacion: null })),
+  mantenerTemas: vi.fn(async () => ({ tope: true, embebidas: 0, asignadas: 0, formacion: null, pausa: null })),
 }))
+// The temas step reads the open pauses first; the DB below is never reached.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: vi.fn(async () => []) }))
 vi.mock("@/lib/avisos/registro", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/avisos/registro")>()),
   existeAviso: vi.fn(async () => false),
@@ -85,13 +88,14 @@ const FRECUENTE: DepsFrecuente = {
   dispararProduccion: async () => undefined,
   dispararArmado: async () => undefined,
   temas: async () => TEMAS,
+  chequear: async () => ({ ok: false, motivo: "prueba" }),
 }
 
 describe("the ten-minute run", () => {
-  it("deletes what Coni marked first, with the run's store and clock", async () => {
+  it("closes the pauses first, then deletes what Coni marked, with the run's store and clock", async () => {
     const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
     const resultado = await mantenimientoFrecuente(FRECUENTE)
-    expect(Object.keys(resultado)[0]).toBe("borrado")
+    expect(Object.keys(resultado).slice(0, 2)).toEqual(["pausas", "borrado"])
     expect(borrarLoMarcado).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
   })
 
@@ -151,7 +155,13 @@ describe("the limit notice of the ten-minute topics job", () => {
 
   it("does not look for the notice when the limit did not stop the job", async () => {
     const { mantenerTemas } = await import("@/lib/mantenimiento/temas")
-    vi.mocked(mantenerTemas).mockResolvedValueOnce({ tope: false, embebidas: 0, asignadas: 0, formacion: null })
+    vi.mocked(mantenerTemas).mockResolvedValueOnce({
+      tope: false,
+      embebidas: 0,
+      asignadas: 0,
+      formacion: null,
+      pausa: null,
+    })
 
     await mantenimientoFrecuente(FRECUENTE)
 

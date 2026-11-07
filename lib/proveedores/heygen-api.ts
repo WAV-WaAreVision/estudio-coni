@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { codigoErrorHeygen, mensajeErrorHeygen } from "@/lib/proveedores/errores"
 import type { PedidoHeygen } from "@/lib/proveedores/heygen"
 
@@ -36,10 +37,6 @@ export type EstadoVideo =
   | { estado: "listo"; videoUrl: string; subtitleUrl?: string; duracion?: number }
   | { estado: "fallido"; fallo: { codigo: string; mensaje: string } }
 
-/** Retrying does not help here: Coni has to top up HeyGen first, so the text says so instead of "try again soon". */
-export const TEXTO_SIN_CREDITOS =
-  "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar."
-
 export function esFallaPorCreditos(codigo: string): boolean {
   return /insufficient[_-]?credit/i.test(codigo)
 }
@@ -58,9 +55,10 @@ async function errorDeRespuesta(respuesta: Response, clave: string): Promise<Err
   const { status } = respuesta
   const mensaje = `HeyGen respondió HTTP ${status}: ${mensajeErrorHeygen(cuerpo)}`
   if (codigoErrorHeygen(cuerpo) === CODIGO_POLITICA) return new PoliticaDeContenido()
-  if (status === 402) {
-    return new Falla(TEXTO_SIN_CREDITOS)
-  }
+  // Spec 2026-11-07, decision 1. Every 402 code (https://developers.heygen.com/docs/error-codes.md) needs money or a
+  // plan change from WAV; 401 is the key.
+  if (status === 402) return new PausaDeProveedor("heygen", "cuota", mensaje, status)
+  if (status === 401) return new PausaDeProveedor("heygen", "llave", mensaje, status)
   const definitivo = status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 429
   return definitivo ? new FallaDeConfiguracion(mensaje) : new Error(mensaje)
 }

@@ -483,3 +483,27 @@ describe("Inicio con carruseles", () => {
     expect(atencion.map((a) => a.causa)).toEqual(["Tu carrusel necesita atención.", "No pude escribir el carrusel."])
   })
 })
+
+describe("construirInicio con proveedores en pausa (A10)", () => {
+  it("puts one line per open pause first in her attention, and counts it in the title", () => {
+    const inicio = construirInicio({
+      piezas: [],
+      ahora: AHORA,
+      zona: ZONA,
+      pausas: [
+        { proveedor: "elevenlabs", motivo: "pago" },
+        { proveedor: "voyage", motivo: "llave" },
+      ],
+    })
+    expect(inicio.pausas).toEqual([
+      "La voz está en pausa: la cuenta de ElevenLabs tiene un pago pendiente. WAV ya lo está resolviendo.",
+    ])
+    expect(inicio.titulo).toBe("Una cosa necesita tu atención")
+  })
+
+  it("shows no pause line when none is open", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, pausas: [] })
+    expect(inicio.pausas).toEqual([])
+    expect(inicio.titulo).toBe(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA }).titulo)
+  })
+})

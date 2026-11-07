@@ -205,3 +205,17 @@ describe("FormularioDeSubida: author, who it is for her and the declaration", ()
     expect(screen.getByRole("link", { name: "Cancelar" })).toHaveAttribute("href", "/biblioteca")
   })
 })
+
+describe("FormularioDeSubida con Claude en pausa", () => {
+  it("disables «Subir» and says the pause above it", () => {
+    render(
+      <FormularioDeSubida
+        autores={AUTORES}
+        encabezado={null}
+        pausa="La Biblioteca está en pausa. Ya le avisamos a WAV."
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Subir" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText("La Biblioteca está en pausa. Ya le avisamos a WAV.")).toBeVisible()
+  })
+})

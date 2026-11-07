@@ -35,6 +35,7 @@ async function limpiarTodo() {
   await pool.query("delete from public.materiales where texto_pegado = 'mant-temas'")
   await pool.query("delete from public.autores where nombre like 'Autor mant temas%'")
   await pool.query("delete from public.gastos where clave like 'temas:%' or paso = 'embedding'")
+  await pool.query("delete from public.pausas_de_proveedor")
 }
 beforeEach(limpiarTodo)
 afterEach(limpiarTodo)
@@ -233,12 +234,35 @@ describe("mantenerTemas", () => {
   })
 })
 
+describe("mantenerTemas con un proveedor en pausa", () => {
+  it("hands a Voyage pause to the caller and keeps the claims without a vector", async () => {
+    await sinVector(3)
+    simularVoyage(402)
+    simularClaude()
+
+    const resultado = await mantenerTemas(deps())
+
+    expect(resultado.pausa).toMatchObject({ proveedor: "voyage", motivo: "pago" })
+    expect(resultado.embebidas).toBe(0)
+    expect(await conVector()).toBe(0)
+  })
+
+  it("answers no pause when the embeddings work", async () => {
+    await sinVector(3)
+    simularVoyage()
+    simularClaude()
+
+    expect((await mantenerTemas(deps())).pausa).toBeNull()
+  })
+})
+
 describe("maintenance runs", () => {
   const base = () => ({
     db,
     almacen: almacenEnMemoria(),
     avisos: notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
+    chequear: async () => ({ ok: false, motivo: "prueba" }),
   })
 
   it("runs the topics job inside the ten-minute maintenance, without any links job", async () => {
@@ -257,6 +281,134 @@ describe("maintenance runs", () => {
 
     expect(resultado.temas).toMatchObject({ tope: false, embebidas: 3 })
     expect("vinculos" in resultado).toBe(false)
+  })
+
+  it("skips the topics job without calling Claude while Claude is paused", async () => {
+    await sinVector(3)
+    simularVoyage()
+    const claude = simularClaude()
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
+
+    const resultado = await mantenimientoFrecuente({
+      ...base(),
+      almacen: () => almacenEnMemoria(),
+      dispararGrabacion: async () => undefined,
+      dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
+      temas: async () => deps(),
+    })
+
+    expect(resultado.temas).toEqual({ omitido: true, pausa: "claude" })
+    expect(claude.nombres).toBe(0)
+  })
+
+  it("opens the Claude pause met while forming topics instead of failing the run", async () => {
+    await sinVector(3)
+    simularVoyage()
+    servidor.use(
+      http.post(URL_CLAUDE, () =>
+        HttpResponse.json(
+          { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } },
+          { status: 401 },
+        ),
+      ),
+    )
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await mantenimientoFrecuente({
+      ...base(),
+      avisos,
+      almacen: () => almacenEnMemoria(),
+      dispararGrabacion: async () => undefined,
+      dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
+      temas: async () => deps(),
+    })
+
+    expect(resultado.temas).toEqual({ pausa: "claude" })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: llave rechazada"])
+  })
+
+  it("opens the Voyage pause the topics job met, and still forms topics", async () => {
+    await sinVector(3)
+    simularVoyage(401)
+    simularClaude()
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await mantenimientoFrecuente({
+      ...base(),
+      avisos,
+      almacen: () => almacenEnMemoria(),
+      dispararGrabacion: async () => undefined,
+      dispararProduccion: async () => undefined,
+      dispararArmado: async () => undefined,
+      temas: async () => deps(),
+    })
+
+    expect(resultado.temas).toMatchObject({ tope: false, embebidas: 0 })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Voyage en pausa: llave rechazada"])
+  })
+
+  it("skips the nightly merges while Claude is paused", async () => {
+    const claude = simularClaude()
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
+
+    const resultado = await mantenimientoNocturno({
+      ...base(),
+      almacen: almacenEnMemoria(),
+      volcarBase: async () => new Uint8Array([1, 2, 3]),
+      anotarBorrado: async () => {},
+      temas: async () => deps(),
+    })
+
+    expect(resultado.fusiones).toEqual({ omitido: true, pausa: "claude" })
+    expect(claude.fusiones).toBe(0)
+  })
+
+  it("opens the Claude pause met by the nightly merges instead of failing the run", async () => {
+    const vector = (segundo: number) =>
+      `[${Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : i === 1 ? segundo : 0)).join(",")}]`
+    const temas = await pool.query<{ id: string }>(
+      `insert into public.temas (nombre, descripcion, centroide)
+       values ('Deseo bajo', 'd', $1::extensions.vector), ('Poco deseo', 'd', $2::extensions.vector) returning id`,
+      [vector(0), vector(0.2)],
+    )
+    const [grande, chico] = temas.rows.map((t) => t.id)
+    const ids = await sinVector(3)
+    await pool.query("update public.afirmaciones set vector = $2::extensions.vector, tema_id = $3 where id = any($1)", [
+      ids.slice(0, 2),
+      vector(0),
+      grande,
+    ])
+    await pool.query("update public.afirmaciones set vector = $2::extensions.vector, tema_id = $3 where id = any($1)", [
+      ids.slice(2),
+      vector(0.2),
+      chico,
+    ])
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_CLAUDE, () => {
+        llamadas += 1
+        return HttpResponse.json(
+          { type: "error", error: { type: "billing_error", message: "billing" } },
+          { status: 402 },
+        )
+      }),
+    )
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await mantenimientoNocturno({
+      ...base(),
+      avisos,
+      almacen: almacenEnMemoria(),
+      volcarBase: async () => new Uint8Array([1, 2, 3]),
+      anotarBorrado: async () => {},
+      temas: async () => deps(),
+    })
+
+    expect(llamadas).toBe(1)
+    expect(resultado.fusiones).toEqual({ pausa: "claude" })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: pago pendiente"])
   })
 
   it("skips the topics job when its builder says there is nothing to work with", async () => {

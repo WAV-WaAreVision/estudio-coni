@@ -1,5 +1,8 @@
 import { existeAviso } from "@/lib/avisos/registro"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { fusionarTemas } from "@/lib/ingesta/temas"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { leerInterruptores } from "@/lib/presupuesto/interruptores"
 import { avisarLimite, claveDelAvisoDeLimite, mesDelGasto } from "@/lib/presupuesto/limite"
 import { type DepsArranques, reanudarArranques } from "./arranques"
@@ -8,6 +11,7 @@ import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { type DepsNumerosLinkedin, recordarNumerosDeLinkedin } from "./numeros-linkedin"
+import { cerrarPausas, type DepsPausas } from "./pausas"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsRevisionDeInventario, recordarRevisionDeInventario } from "./revision-de-inventario"
@@ -52,6 +56,7 @@ export type DepsFrecuente = DepsConciliacion &
      */
     almacen: () => DepsBorrado["almacen"]
     temas: ConstructorDeTemas
+    chequear: DepsPausas["chequear"]
   }
 export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
@@ -63,6 +68,11 @@ export type DepsNocturno = DepsRetencion &
 
 const OMITIDO = { omitido: true } as const
 const APAGADO = { apagado: true } as const
+const PAUSADO_CLAUDE = { omitido: true, pausa: "claude" } as const
+
+async function claudeEnPausa(db: DepsFrecuente["db"]): Promise<boolean> {
+  return (await leerPausasAbiertas(db)).includes("claude")
+}
 
 /**
  * This job meets the limit on every tick of the month, so a notice channel that keeps failing would fail every run and
@@ -82,10 +92,12 @@ async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ aviso
   }
 }
 
-/** Every ten minutes: what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: the provider pauses that can close, what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
-    // First: a deleted material's ideas leave before the topics job reads them.
+    // First: a pause that closes now lets the jobs below call its provider on this same tick.
+    pausas: () => cerrarPausas(deps),
+    // A deleted material's ideas leave before the topics job reads them.
     borrado: () => borrarLoMarcado({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
@@ -94,7 +106,17 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
     temas: async () => {
       const propias = await deps.temas()
       if (!propias) return OMITIDO
-      const resultado = await mantenerTemas(propias)
+      // Plan amendment A8: Claude's pause must not fail this run every ten minutes.
+      if (await claudeEnPausa(deps.db)) return PAUSADO_CLAUDE
+      let resultado: Awaited<ReturnType<typeof mantenerTemas>>
+      try {
+        resultado = await mantenerTemas(propias)
+      } catch (error) {
+        if (!(error instanceof PausaDeProveedor)) throw error
+        await abrirPausa(deps, error)
+        return { pausa: error.proveedor }
+      }
+      if (resultado.pausa) await abrirPausa(deps, resultado.pausa)
       if (!resultado.tope) return resultado
       // Silent before the hard limit; now Coni hears it once a month (spec 2026-11-02).
       return { ...resultado, ...(await avisarLimiteCadaDiezMinutos(deps)) }
@@ -116,9 +138,18 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
     fusiones: async () => {
       const propias = await deps.temas()
       if (!propias) return OMITIDO
+      if (await claudeEnPausa(deps.db)) return PAUSADO_CLAUDE
       // Read only when there is work: Coni can turn the nightly merges off in Ajustes › Presupuesto (D2).
       if (!(await leerInterruptores(deps.db)).fusionesNocturnas) return APAGADO
-      const resultado = await fusionarTemas(propias)
+      let resultado: Awaited<ReturnType<typeof fusionarTemas>>
+      try {
+        resultado = await fusionarTemas(propias)
+      } catch (error) {
+        // Like `temas`: a pause met here opens it (WAV emailed once) instead of failing the nightly run.
+        if (!(error instanceof PausaDeProveedor)) throw error
+        await abrirPausa(deps, error)
+        return { pausa: error.proveedor }
+      }
       if (resultado.tope) await avisarLimite(deps, deps.ahora())
       return resultado
     },

@@ -31,6 +31,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/semana", () => datos)
+// No provider paused: the pages read the open pauses through the same session.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
 vi.mock("@/app/(app)/biblioteca/semana/acciones", () => ({ proponerAhoraAccion: vi.fn() }))
 
 import type { ReactElement, ReactNode } from "react"

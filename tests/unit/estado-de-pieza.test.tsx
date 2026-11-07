@@ -93,3 +93,19 @@ describe("AccionesDeEstado", () => {
     await waitFor(() => expect(reintentarAccion).toHaveBeenCalledWith("p", 5))
   })
 })
+
+describe("AccionesDeEstado con un proveedor en pausa", () => {
+  it("disables the retry buttons and says the pause under them, leaving the others alone", () => {
+    render(
+      <AccionesDeEstado
+        piezaId="p"
+        version={3}
+        acciones={["reintentar", "descartar"]}
+        bloqueo="Tu video está en pausa. Ya le avisamos a WAV."
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Reintentar" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText("Tu video está en pausa. Ya le avisamos a WAV.")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Descartar esta pieza" })).not.toHaveAttribute("aria-disabled", "true")
+  })
+})

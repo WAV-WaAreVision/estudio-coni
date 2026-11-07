@@ -12,6 +12,7 @@ import { PuntoTrabajando } from "@/components/ui/punto-trabajando"
 import { useAccion } from "@/components/use-accion"
 import type { DatosDeGrabacion } from "@/lib/datos/grabacion"
 import { separarParaConi } from "@/lib/diseno/para-coni"
+import { proveedorDelTextoDePausa } from "@/lib/dominio/pausas"
 import { pedirVozAccion } from "../../piezas/acciones"
 import {
   esFallaDeLlave,
@@ -112,7 +113,11 @@ export function VozParaFirmar({
   const idRazon = useId()
   const { voz, botones } = datos
   const razon = razonDeVoz(datos, sinGuardar)
-  const falla = explicacion ? separarFallaDeVoz(explicacion) : null
+  // A pause text on the piece is the block's title while the pause is open; once it closed, the voice is just missing.
+  const pausaDeLaPieza = proveedorDelTextoDePausa(explicacion)
+  const enPausa = pausaDeLaPieza !== null && razon === explicacion
+  const explicacionVigente = pausaDeLaPieza !== null ? null : explicacion
+  const falla = explicacionVigente ? separarFallaDeVoz(explicacionVigente) : null
   const detalleDeFalla = falla?.detalle ? fallaEnSusPalabras(falla.detalle, razon) : null
   // A failure only Federico can fix: the paid try is not the main action next to "Avísale a Federico".
   const necesitaFederico = falla?.detalle ? esFallaDeLlave(falla.detalle) : false
@@ -137,9 +142,10 @@ export function VozParaFirmar({
         <ReproductorVoz key={voz.clave} src={voz.url} clave={voz.clave} alEscuchar={() => alEscuchar(voz.clave)} />
       ) : (
         <Bloque
-          tipo={falla ? "error" : "neutro"}
+          id={enPausa ? idRazon : undefined}
+          tipo={enPausa ? "aviso" : falla ? "error" : "neutro"}
           grande
-          titulo={falla ? falla.titulo : TEXTO_FALTA_VOZ}
+          titulo={enPausa ? explicacion : falla ? falla.titulo : TEXTO_FALTA_VOZ}
           accion={
             <div className="grid gap-2">
               <Boton
@@ -154,7 +160,12 @@ export function VozParaFirmar({
               >
                 Preparar mi voz
               </Boton>
-              <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} paraWav={detalleDeFalla?.detalle} />
+              <LineaBajoElBoton
+                id={idRazon}
+                razon={enPausa ? null : razon}
+                datos={datos}
+                paraWav={detalleDeFalla?.detalle}
+              />
             </div>
           }
         >

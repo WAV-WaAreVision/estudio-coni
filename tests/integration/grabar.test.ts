@@ -315,6 +315,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   await vaciarMotor()
   piezasCreadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
@@ -873,12 +874,13 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect((await pieza(id)).explicacion).toBe("HeyGen no pudo terminar el video. Vuelve a intentarlo en unos minutos.")
   })
 
-  it("tells Coni to top up HeyGen, not to wait, when the video fails for lack of credits", async () => {
+  it("ends the attempt with the video pause text when the video fails for lack of credits", async () => {
     const id = await crearPiezaEnRender()
     simular({
       lecturas: [{ status: "failed", failure_code: "MOVIO_PAYMENT_INSUFFICIENT_CREDIT", failure_message: "x" }],
     })
-    const d = doble()
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
     await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
@@ -886,18 +888,23 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(resultado).toEqual({ resultado: "falla_produccion" })
     expect(await pieza(id)).toMatchObject({
       estado: "error_produccion",
-      explicacion:
-        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
     })
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "heygen", motivo: "cuota" }])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["HeyGen en pausa: sin saldo"])
   })
 
-  it("tells Coni her HeyGen account has no credits, releases the spend and charges nothing", async () => {
+  it("ends the attempt with the video pause text on a 402, releases the spend and charges nothing", async () => {
     const id = await crearPiezaEnRender()
     simular({
       crear: () =>
         HttpResponse.json({ error: { code: "insufficient_credit", message: "No credits" } }, { status: 402 }),
     })
-    const d = doble()
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
     await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
@@ -905,17 +912,21 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(resultado).toEqual({ resultado: "falla_produccion" })
     expect(await pieza(id)).toMatchObject({
       estado: "error_produccion",
-      explicacion:
-        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
       render_id: null,
     })
     expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "heygen", motivo: "cuota" }])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["HeyGen en pausa: sin saldo"])
   })
 
   it("rethrows a configuration error from HeyGen and leaves the piece where it was", async () => {
     const id = await crearPiezaEnRender()
     simular({
-      crear: () => HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+      crear: () => HttpResponse.json({ error: { code: "forbidden", message: "Invalid key" } }, { status: 403 }),
     })
     const d = doble()
     await conVozEnAlmacen(d.almacen, id)
@@ -925,6 +936,22 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
     expect(error).toMatchObject({ message: expect.not.stringContaining(CLAVE_HEYGEN) })
     expect((await pieza(id)).estado).toBe("en_render")
+  })
+
+  it("ends the attempt with the video pause text when HeyGen answers 401", async () => {
+    const id = await crearPiezaEnRender()
+    simular({
+      crear: () => HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+    })
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "falla_produccion" })
+    expect(await pieza(id)).toMatchObject({
+      estado: "error_produccion",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
+    })
+    expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })
   })
 
   it("lets Trigger.dev retry a server error from HeyGen without changing the piece", async () => {
@@ -1785,7 +1812,7 @@ describe("grabarPieza con la voz por texto", () => {
     expect(sim.voces).toHaveLength(1)
   })
 
-  it("releases the voice reservation when ElevenLabs has no characters, and tells Coni", async () => {
+  it("releases the voice reservation when ElevenLabs has no characters, and shows the voice pause", async () => {
     const id = await crearPiezaSinVoz()
     const sim = simular({
       voz: () => HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
@@ -1795,9 +1822,7 @@ describe("grabarPieza con la voz por texto", () => {
     expect((await grabarPieza(d.deps, id)).resultado).toBe("falla_produccion")
     expect(sim.creaciones).toHaveLength(0)
     expect((await gastos(id)).map((g) => [g.proveedor, g.estado])).toEqual([["elevenlabs", "liberado"]])
-    expect((await pieza(id)).explicacion).toBe(
-      "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
-    )
+    expect((await pieza(id)).explicacion).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
   })
 })
 

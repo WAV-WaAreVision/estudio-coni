@@ -14,6 +14,7 @@ import { urlParaVer } from "@/lib/acciones/medios"
 import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { piezaDesdeFila } from "@/lib/datos/piezas"
 import { leerPilares } from "@/lib/datos/pilares"
 import { leerProduccion } from "@/lib/datos/repositorio"
@@ -24,6 +25,7 @@ import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { etiquetaDeFecha, proponerFechas } from "@/lib/dominio/fechas"
 import { lineaDeFuente } from "@/lib/dominio/fuente"
+import { explicacionAnteLaPausa, textoDePausa } from "@/lib/dominio/pausas"
 import { angulosDelPilar, pilarVisible } from "@/lib/dominio/pilares"
 import { sinLinkedin } from "@/lib/dominio/revision"
 import { lineaDeSaldoVideo } from "@/lib/dominio/saldos"
@@ -61,7 +63,11 @@ export default async function PaginaDeGuion({
   const [{ id }, { deshecho, firmada }] = await Promise.all([params, searchParams])
   if (!z.uuid().safeParse(id).success) notFound()
   const { db } = await exigirConi()
-  const [pantalla, pilares] = await Promise.all([leerPantallaDePieza(db, id), leerPilares(db)])
+  const [pantalla, pilares, pausas] = await Promise.all([
+    leerPantallaDePieza(db, id),
+    leerPilares(db),
+    leerPausasAbiertas(db),
+  ])
   if (!pantalla) notFound()
   const { fila, idea } = pantalla
   const pilar = pilarVisible(pilares, idea?.pilar, idea?.angulo_id)
@@ -76,26 +82,41 @@ export default async function PaginaDeGuion({
       />
     ) : null
   // A carousel has its own gate 1 (design 2026-10-26): no script, voice or avatar.
-  if (fila.tipo === "carrusel") return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} angulo={angulo} />
+  if (fila.tipo === "carrusel") {
+    return <VistaDeCarrusel db={db} fila={fila} pilar={pilar} angulo={angulo} pausas={pausas} />
+  }
+  const pausaDeClaude = textoDePausa(pausas, "claude")
+  const pausaDeHeygen = textoDePausa(pausas, "heygen")
 
   switch (fila.estado) {
     case "guion_por_aprobar":
     case "grabando_voz":
       break
-    case "guion_en_proceso":
+    case "guion_en_proceso": {
+      const porQue = explicacionAnteLaPausa(
+        fila.explicacion,
+        pausaDeClaude,
+        "Algo falló al preparar tu guion. WAV ya está revisando.",
+      )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
             <>
               <Bloque
-                tipo="error"
+                tipo={pausaDeClaude ? "aviso" : "error"}
                 grande
                 titulo={TEXTO_NO_ESCRIBI}
                 accion={
-                  <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} enUnError />
+                  <AccionesDeEstado
+                    piezaId={fila.id}
+                    version={fila.version}
+                    acciones={["reintentarGuion"]}
+                    enUnError
+                    bloqueo={pausaDeClaude}
+                  />
                 }
               >
-                <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_REINTENTA} />
+                {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
               </Bloque>
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
@@ -108,6 +129,7 @@ export default async function PaginaDeGuion({
           <RefrescoAutomatico activo={fila.explicacion === null} cadaMs={4000} />
         </EstadoSencillo>
       )
+    }
     case "en_render":
     case "subtitulando": {
       const ventana = ventanaDeDeshacer(
@@ -134,20 +156,35 @@ export default async function PaginaDeGuion({
     }
     case "error_produccion": {
       const voz = await vozParaEscuchar(db, fila)
+      const porQue = explicacionAnteLaPausa(
+        fila.explicacion,
+        pausaDeHeygen,
+        "Algo no salió como esperábamos con esta pieza.",
+      )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           <Bloque
-            tipo="error"
+            tipo={pausaDeHeygen ? "aviso" : "error"}
             grande
             titulo={TEXTO_NO_TERMINE}
-            accion={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar"]} enUnError />}
+            accion={
+              <AccionesDeEstado
+                piezaId={fila.id}
+                version={fila.version}
+                acciones={["reintentar"]}
+                enUnError
+                bloqueo={pausaDeHeygen}
+              />
+            }
           >
             {/* The HeyGen balance is WAV's: it goes with the provider's reason under "Detalle para WAV". */}
-            <ExplicacionParaConi
-              texto={fila.explicacion ?? "Algo no salió como esperábamos con esta pieza."}
-              enSusPalabras={TEXTO_REINTENTA}
-              extra={[lineaDeSaldoVideo((await leerSaldos()).heygen)]}
-            />
+            {porQue ? (
+              <ExplicacionParaConi
+                texto={porQue}
+                enSusPalabras={TEXTO_REINTENTA}
+                extra={[lineaDeSaldoVideo((await leerSaldos()).heygen)]}
+              />
+            ) : null}
           </Bloque>
           <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
           {voz ? (

@@ -194,6 +194,7 @@ describe("mantenimientoFrecuente", () => {
       almacen: () => almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
+      chequear: async () => ({ ok: false, motivo: "prueba" }),
     })
 
     expect(resultado.arranques).toEqual([{ piezaId: id, tarea: "grabar" }])
@@ -208,8 +209,9 @@ describe("mantenimientoFrecuente", () => {
       almacen: () => almacenEnMemoria(),
       avisos: notificadorEnMemoria(),
       temas: async () => null,
+      chequear: async () => ({ ok: false, motivo: "prueba" }),
     })
 
-    expect(Object.keys(resultado)).toEqual(["borrado", "arranques", "renders", "voces", "gastos", "temas"])
+    expect(Object.keys(resultado)).toEqual(["pausas", "borrado", "arranques", "renders", "voces", "gastos", "temas"])
   })
 })

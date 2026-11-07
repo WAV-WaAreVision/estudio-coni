@@ -36,6 +36,7 @@ import { MAXIMO_DEL_PEDIDO } from "@/lib/dominio/carrusel"
 import { DESTINOS } from "@/lib/dominio/destinos"
 import { type CambioDeDiseno, VARIANTES } from "@/lib/dominio/diseno-carrusel"
 import { MAXIMO_DEL_GUION, MAXIMO_TEXTO_LINKEDIN } from "@/lib/dominio/revision"
+import { avisosReales } from "@/lib/proveedores/avisos"
 import { baseDe } from "@/lib/proveedores/bases"
 
 // The model answers in a few seconds; a hung call must not hold the screen for the SDK's ten minutes.
@@ -52,6 +53,7 @@ function depsDeGuion(db: DepsGuion["db"]): DepsGuion {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
+    avisos: () => avisosReales(),
     disparar: disparosDeLaApp(),
     ahora: () => new Date().toISOString(),
   }

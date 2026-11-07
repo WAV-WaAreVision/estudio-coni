@@ -23,9 +23,11 @@ import {
 } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { claveIdempotencia, formulaDePuerta1, hashPuerta1, puedeGrabar } from "@/lib/dominio/puertas"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
 import { vozDelGuion } from "@/lib/dominio/voz"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { artefactoAprobado, formulaGuardada } from "@/lib/produccion/aprobacion"
 import { aCuatroDecimales, MINIMO_USD, piezaCambio } from "@/lib/produccion/comun"
 import { asegurarVoz, huellaDelGuion, leerLlaveDeVoz } from "@/lib/produccion/voz"
@@ -42,7 +44,6 @@ import {
   leerVideo,
   PoliticaDeContenido,
   subirAsset,
-  TEXTO_SIN_CREDITOS,
 } from "@/lib/proveedores/heygen-api"
 import type { Database } from "@/lib/supabase/database.types"
 import { type InfoVideo, revisarVideo } from "@/lib/video/chequeos"
@@ -104,7 +105,6 @@ const TEXTO_FALLA_DE_HEYGEN = "HeyGen no pudo terminar el video"
 const TEXTO_SIN_SUBTITULOS = "HeyGen no entregó los subtítulos del video. Vuelve a intentarlo en unos minutos."
 
 function explicacionDeFalla(codigo: string): string {
-  if (esFallaPorCreditos(codigo)) return TEXTO_SIN_CREDITOS
   const detalle = codigo === "desconocido" ? "" : ` (${codigo})`
   return `${TEXTO_FALLA_DE_HEYGEN}${detalle}. Vuelve a intentarlo en unos minutos.`
 }
@@ -352,6 +352,12 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string, intento?
     if (error instanceof PoliticaDeContenido && contexto.fila.estado === "en_render") {
       return await rechazarPorPolitica(contexto)
     }
+    // Spec 2026-11-07: a HeyGen pause (or an ElevenLabs one while the signed voice is made) opens once and ends this
+    // attempt with its text; the spend goes back like any other failure of the attempt.
+    if (error instanceof PausaDeProveedor) {
+      await abrirPausa(deps, error)
+      return await fallar(contexto, error.message)
+    }
     // Anything written for Coni ends this attempt with an explanation; a plain Error or a configuration error is
     // rethrown, so Trigger.dev retries it or WAV sees it, and the spend stays reserved for the retry.
     if (error instanceof Falla) return await fallar(contexto, error.message)
@@ -447,6 +453,15 @@ async function avanzar(contexto: Contexto): Promise<ResultadoGrabacion> {
       throw new Error(`HeyGen sigue procesando el video ${videoId}.`)
     case "fallido":
       if (enRender && video.fallo.codigo === CODIGO_POLITICA) return rechazarPorPolitica(contexto)
+      // Plan amendment A4: a render that failed for credits is the same pause as a 402 on create.
+      if (esFallaPorCreditos(video.fallo.codigo)) {
+        throw new PausaDeProveedor(
+          "heygen",
+          "cuota",
+          `HeyGen no terminó el video ${videoId}: ${video.fallo.codigo} · ${video.fallo.mensaje}`,
+          null,
+        )
+      }
       return fallar(contexto, explicacionDeFalla(video.fallo.codigo))
     case "listo": {
       if (enRender) await escribir(contexto, { tipo: "render_entregado" })

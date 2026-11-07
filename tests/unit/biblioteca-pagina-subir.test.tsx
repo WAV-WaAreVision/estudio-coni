@@ -22,6 +22,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => ({ listarAutores }))
+// No provider paused: the pages read the open pauses through the same session.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   crearMaterialAccion: vi.fn(),
   confirmarMaterialAccion: vi.fn(),

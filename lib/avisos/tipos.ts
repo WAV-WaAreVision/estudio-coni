@@ -15,6 +15,7 @@ export const TIPOS_DE_AVISO = [
   "revision_de_inventario",
   "limite_alcanzado",
   "equilibrio_de_angulo",
+  "pausa_cerrada",
 ] as const
 export type TipoDeAviso = (typeof TIPOS_DE_AVISO)[number]
 
@@ -61,6 +62,7 @@ const CUERPO_DE_PUSH: Record<TipoDeAviso, string> = {
   revision_de_inventario: "Te toca revisar tus datos personales",
   limite_alcanzado: "Llegaste a tu límite de gasto de este mes",
   equilibrio_de_angulo: "Un ángulo de tus pilares necesita piezas",
+  pausa_cerrada: "Ya puedes seguir con lo que estaba en pausa",
 }
 
 /**

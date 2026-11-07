@@ -15,6 +15,7 @@ import {
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { esJuicioDeClaude, leerRevision } from "@/lib/datos/revision"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { ajenoDelRespaldo } from "@/lib/dominio/respaldo"
 import {
@@ -27,9 +28,11 @@ import {
   revisarLinkedinSiHay,
   sinLinkedin,
 } from "@/lib/dominio/revision"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { huellaDelGuion } from "@/lib/produccion/voz"
 import { costoClaude, MODELO_POR_TAREA, revisarConClaude } from "@/lib/proveedores/anthropic"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { type ConfigCompleta, leerConfigProduccion } from "@/lib/proveedores/config"
 import type { Database } from "@/lib/supabase/database.types"
 import type { Disparos } from "./disparos"
@@ -44,6 +47,11 @@ export interface DepsGuion {
   /** A `service_role` client, for what only the server may read (her keys, the guide) and the spend of the month. */
   servicio: () => Db
   crearClaude: (llave: string) => Anthropic
+  /**
+   * Emails WAV once when Claude turns out to be paused (spec 2026-11-07). Built only then: the app's notifier needs
+   * the email variables, which no other action of this screen reads.
+   */
+  avisos: () => Notificador
   /** Starts her voice when an edit changes what it says (design 2026-10-15, decision 3). */
   disparar: Disparos
   ahora: () => string
@@ -258,6 +266,11 @@ async function juzgarConClaude(
   } catch (error) {
     // Nothing was judged, so nothing was spent that she should pay against the limit.
     await liberarGasto(servicio, clave)
+    // A paused Claude: the pause opens (WAV emailed once) and she reads its text, not ERROR_REVISION.
+    if (error instanceof PausaDeProveedor) {
+      await abrirPausa({ db: servicio, avisos: deps.avisos() }, error)
+      throw error
+    }
     console.error("No pude revisar el guion con Claude", error)
     throw new Falla(ERROR_REVISION)
   }

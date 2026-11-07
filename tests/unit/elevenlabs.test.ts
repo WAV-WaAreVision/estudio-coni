@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { HttpResponse, http } from "msw"
+import { HttpResponse, http, type JsonBodyType } from "msw"
 import { afterEach, describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
 import {
   estimarCostoTranscripcion,
@@ -9,7 +10,6 @@ import {
   generarVoz,
   RechazoDeElevenlabs,
   rechazoSinCobro,
-  SinCaracteres,
   transcribir,
   verificarVoz,
 } from "@/lib/proveedores/elevenlabs"
@@ -128,17 +128,17 @@ describe("generarVoz", () => {
     expect(capturas).toHaveLength(0)
   })
 
-  it("fails as a configuration error, without the key, on an invalid API key", async () => {
+  it("pauses ElevenLabs for the key, without the key, on an invalid API key", async () => {
     capturando(() =>
       HttpResponse.json({ detail: { status: "invalid_api_key", message: "Invalid API key" } }, { status: 401 }),
     )
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).toBe("ElevenLabs respondió HTTP 401: invalid_api_key · Invalid API key")
-    expect(error.message).not.toContain(CLAVE)
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect((error as PausaDeProveedor).detalle).toBe("ElevenLabs respondió HTTP 401: invalid_api_key · Invalid API key")
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
-  it.each([400, 402, 403, 404, 422])("fails as a configuration error on HTTP %i", async (estado) => {
+  it.each([400, 403, 404, 422])("fails as a configuration error on HTTP %i", async (estado) => {
     capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
@@ -156,8 +156,9 @@ describe("generarVoz", () => {
   it("never prints the key, even when ElevenLabs echoes it in the error body", async () => {
     capturando(() => new HttpResponse(`bad key ${CLAVE}`, { status: 401 }))
     const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toBeInstanceOf(PausaDeProveedor)
     expect(error.message).not.toContain(CLAVE)
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("fails with a plain retryable error when the network drops", async () => {
@@ -176,54 +177,75 @@ describe("generarVoz", () => {
   })
 })
 
-describe("generarVoz sin caracteres", () => {
-  it("tells Coni to top up when ElevenLabs answers quota_exceeded", async () => {
-    servidor.use(
-      http.post(`${BASE}/v1/text-to-speech/:voz`, () =>
-        HttpResponse.json(
-          { detail: { status: "quota_exceeded", message: "This request exceeds your quota." } },
-          { status: 401 },
-        ),
-      ),
-    )
-    const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+describe("generarVoz pausa a ElevenLabs", () => {
+  function contestar(cuerpo: JsonBodyType, estado: number) {
+    servidor.use(http.post(`${BASE}/v1/text-to-speech/:voz`, () => HttpResponse.json(cuerpo, { status: estado })))
+  }
 
-    expect(rechazado).toBeInstanceOf(Falla)
-    expect(rechazado).toBeInstanceOf(SinCaracteres)
-    expect(rechazado).toMatchObject({ respondio: true, http: 401 })
-    expect(rechazado.message).toBe(
-      "ElevenLabs no tiene caracteres suficientes para esta voz. Recarga en elevenlabs.io y vuelve a intentarlo.",
+  it("pauses for payment on the 2026-10-17 answer (401 payment_issue)", async () => {
+    contestar(
+      { detail: { status: "payment_issue", message: "You have an unpaid invoice. Please pay it to continue." } },
+      401,
     )
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "pago", http: 401 })
+    expect(error.message).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
+    expect((error as PausaDeProveedor).detalle).toContain("payment_issue")
+    expect(rechazoSinCobro(error)).toBe(true)
   })
-  it("tells Coni to top up when ElevenLabs answers 402 insufficient_credits", async () => {
-    servidor.use(
-      http.post(`${BASE}/v1/text-to-speech/:voz`, () =>
-        HttpResponse.json(
-          { detail: { type: "payment_required", code: "insufficient_credits", message: "Not enough credits." } },
-          { status: 402 },
-        ),
-      ),
-    )
-    const rechazado = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
 
-    expect(rechazado).toBeInstanceOf(SinCaracteres)
-    expect(rechazado).toMatchObject({ http: 402 })
-    expect(rechazoSinCobro(rechazado)).toBe(true)
+  it("pauses for quota on quota_exceeded", async () => {
+    contestar({ detail: { status: "quota_exceeded", message: "This request exceeds your quota." } }, 401)
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "cuota", http: 401 })
+  })
+
+  it("pauses for quota on 402 insufficient_credits, refused without charge", async () => {
+    contestar(
+      { detail: { type: "payment_required", code: "insufficient_credits", message: "Not enough credits." } },
+      402,
+    )
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "cuota", http: 402 })
+    expect(rechazoSinCobro(error)).toBe(true)
+  })
+
+  it("pauses for quota on any 402, which never fixes itself, refused without charge", async () => {
+    contestar({ detail: "No se puede" }, 402)
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "cuota", http: 402 })
+    expect(rechazoSinCobro(error)).toBe(true)
+  })
+
+  it("pauses for the key on any other 401, and never puts the key in the detail", async () => {
+    contestar({ detail: { status: "invalid_api_key", message: `Invalid API key: ${CLAVE}` } }, 401)
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
+  })
+
+  it("does not pause on a 500 or a 403", async () => {
+    contestar({ detail: "upstream" }, 500)
+    expect(await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))).not.toBeInstanceOf(
+      PausaDeProveedor,
+    )
+    contestar({ detail: "forbidden" }, 403)
+    expect(await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola.", base: BASE }))).toBeInstanceOf(
+      RechazoDeElevenlabs,
+    )
   })
 })
 
 describe("generarVoz dice qué respondió ElevenLabs", () => {
-  it.each([400, 401, 402, 403, 404, 409, 422])(
-    "marks HTTP %i as answered and refused without charge",
-    async (estado) => {
-      capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
-      const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
-      expect(error).toBeInstanceOf(RechazoDeElevenlabs)
-      expect(error).toBeInstanceOf(FallaDeConfiguracion)
-      expect(error).toMatchObject({ respondio: true, http: estado })
-      expect(rechazoSinCobro(error)).toBe(true)
-    },
-  )
+  it.each([400, 403, 404, 409, 422])("marks HTTP %i as answered and refused without charge", async (estado) => {
+    capturando(() => HttpResponse.json({ detail: "No se puede" }, { status: estado }))
+    const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+    expect(error).toBeInstanceOf(RechazoDeElevenlabs)
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toMatchObject({ respondio: true, http: estado })
+    expect(rechazoSinCobro(error)).toBe(true)
+  })
 
   it("marks a 429 as answered, refused without charge and still retryable", async () => {
     capturando(() => new HttpResponse("slow down", { status: 429 }))
@@ -474,11 +496,28 @@ describe("transcribir", () => {
     expect(resultado.segmentos).toHaveLength(1)
   })
 
-  it("fails as a configuration error, without the key, on a 401", async () => {
+  it("pauses ElevenLabs for the key, without the key in the detail, on a 401", async () => {
     capturandoFormulario(() => new HttpResponse(`bad key ${CLAVE}`, { status: 401 }))
     const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).toContain("HTTP 401")
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
+  })
+
+  it("pauses ElevenLabs when a transcription meets payment_issue", async () => {
+    capturandoFormulario(() =>
+      HttpResponse.json({ detail: { status: "payment_issue", message: "Unpaid invoice." } }, { status: 401 }),
+    )
+    const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
+    expect(error).toMatchObject({ proveedor: "elevenlabs", motivo: "pago" })
+  })
+
+  it("still fails as a configuration error, without the key, on a 403", async () => {
+    capturandoFormulario(() => new HttpResponse(`forbidden ${CLAVE}`, { status: 403 }))
+    const error = await rechazo(transcribir({ clave: CLAVE, audio: AUDIO_ENTRADA, tipo: "audio/mpeg" }))
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).toContain("HTTP 401")
+    expect(error.message).toContain("HTTP 403")
     expect(error.message).not.toContain(CLAVE)
   })
 

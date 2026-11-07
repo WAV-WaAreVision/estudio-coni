@@ -268,3 +268,32 @@ describe("WAV is refused on every action (es_coni), even where row level securit
     expect(rowCount).toBe(0)
   })
 })
+
+describe("reintentarMaterial con un proveedor en pausa", () => {
+  const PAUSA = "La Biblioteca está en pausa. Ya le avisamos a WAV."
+  const abrir = (proveedor: string) =>
+    pool.query("select public.abrir_pausa_de_proveedor($1, 'pago', 'x')", [proveedor])
+  const cerrarTodas = () => pool.query("delete from public.pausas_de_proveedor")
+
+  it("refuses while Claude is paused and starts nothing", async () => {
+    const id = await material({ estado: "fallido", motivo: "sin_texto" })
+    await abrir("claude")
+    try {
+      expect(await reintentarMaterial(deps(coni), id)).toEqual({ ok: false, error: PAUSA })
+      expect(await fila(id)).toMatchObject({ estado: "fallido" })
+      expect(disparos).toEqual([])
+    } finally {
+      await cerrarTodas()
+    }
+  })
+
+  it("still works with only a Voyage pause open (A6)", async () => {
+    const id = await material({ estado: "fallido", motivo: "sin_texto" })
+    await abrir("voyage")
+    try {
+      expect(await reintentarMaterial(deps(coni), id)).toEqual({ ok: true })
+    } finally {
+      await cerrarTodas()
+    }
+  })
+})

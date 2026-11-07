@@ -26,6 +26,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+// No provider paused: the pages read the open pauses through the same session.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
   reprocesarMaterialAccion: vi.fn(),
@@ -172,8 +174,8 @@ describe("the material detail page", () => {
     })
     const arbol = elementos(await DetalleDeMaterial(conId(ID)))
     expect(arbol.filter((elemento) => elemento.type === BotonReintentar).map((b) => b.props)).toEqual([
-      { materialId: ID },
-      { materialId: ID },
+      { materialId: ID, pausa: null },
+      { materialId: ID, pausa: null },
     ])
   })
 
