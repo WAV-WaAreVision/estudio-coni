@@ -3,6 +3,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { procesarMaterial } from "@/lib/ingesta/procesar"
 import { aTramos } from "@/lib/ingesta/tramos"
 import { MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
+import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { pool } from "./db"
 import {
   almacenEnMemoria,
@@ -23,6 +24,7 @@ const temas: string[] = []
 
 afterEach(async () => {
   await limpiar()
+  await pool.query("delete from public.pausas_de_proveedor")
   for (const id of temas.splice(0)) await pool.query("delete from public.temas where id = $1", [id])
 })
 afterAll(() => pool.end())
@@ -286,6 +288,28 @@ describe("sin Voyage", () => {
     expect((await afirmaciones(id)).map((a) => a.tiene_vector)).toEqual([false])
     expect((await material(id)).estado).toBe("listo")
     expect((await gastos(id)).filter((g) => g.proveedor === "voyage").every((g) => g.estado === "liberado")).toBe(true)
+  })
+})
+
+describe("Voyage en pausa", () => {
+  it("opens the Voyage pause and emails WAV once, but the material ends ready with no pause text (A6)", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    simularVoyage(401)
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await procesarMaterial(await deps(almacen, { ...conLlave, avisos }), id)
+
+    expect(resultado).toEqual({ resultado: "listo" })
+    expect(await material(id)).toMatchObject({ estado: "listo", motivo_fallo: null })
+    expect((await afirmaciones(id)).map((a) => a.tiene_vector)).toEqual([false])
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "voyage", motivo: "llave" }])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Voyage en pausa: llave rechazada"])
+    expect(avisos.aConiEnviados).toEqual([])
   })
 })
 

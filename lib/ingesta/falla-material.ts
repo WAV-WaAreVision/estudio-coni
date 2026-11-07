@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { Falla } from "@/lib/dominio/falla"
+import { PausaDeProveedor, TEXTO_PAUSA_DE_BIBLIOTECA } from "@/lib/dominio/pausas"
 import { DemasiadoLargo, SinTexto } from "@/lib/ingesta/extraer"
 import { MedioIlegible } from "@/lib/ingesta/medios"
 import { EnlaceDemasiadoGrande, EnlaceNoPermitido } from "@/lib/ingesta/red-segura"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { detalleTecnico } from "@/lib/produccion/fallas"
 import { RechazoDeClaude } from "@/lib/proveedores/anthropic"
@@ -23,6 +25,8 @@ const MOTIVO_DE_RECHAZO = "Claude no quiso procesar este material. Prueba con ot
 /** What Coni reads: her own message when the error was written for her, a generic notice when it was written for WAV. */
 export function motivoParaConi(error: unknown): string {
   if (error instanceof RechazoDeClaude) return MOTIVO_DE_RECHAZO
+  // Plan amendment A6: a material says the Biblioteca text whatever provider paused.
+  if (error instanceof PausaDeProveedor) return TEXTO_PAUSA_DE_BIBLIOTECA
   return error instanceof Falla ? error.message : MOTIVO_GENERICO
 }
 
@@ -61,7 +65,7 @@ export interface DepsFallaMaterial {
 
 /**
  * The `onFailure` of `procesar-material`: the retries are over, so the material says why in words Coni can read and
- * WAV gets the technical detail.
+ * WAV gets the technical detail. A provider pause emails WAV once per pause instead.
  */
 export async function alFallarMaterial(
   deps: DepsFallaMaterial,
@@ -75,9 +79,14 @@ export async function alFallarMaterial(
   if (error) throw new Error(`No pude leer el material ${entrada.materialId}: ${error.message}`)
   // Deleted meanwhile: there is nothing left to fix, so WAV is not bothered.
   if (!data) return
-  // A run the limit stopped already told Coni why; a later failure (its notice, say) must not hide that.
-  const motivo = data.motivo_fallo === TEXTO_LIMITE ? TEXTO_LIMITE : motivoParaConi(entrada.error)
+  // A run the limit or a pause stopped already told Coni why; a later failure (its notice, say) must not hide that.
+  const yaExplicado = data.motivo_fallo === TEXTO_LIMITE || data.motivo_fallo === TEXTO_PAUSA_DE_BIBLIOTECA
+  const motivo = yaExplicado && data.motivo_fallo !== null ? data.motivo_fallo : motivoParaConi(entrada.error)
   await marcarFallido(deps.db, entrada.materialId, motivo)
+  if (entrada.error instanceof PausaDeProveedor) {
+    await abrirPausa(deps, entrada.error)
+    return
+  }
   await deps.avisos.aWav(
     "Falló procesar-material",
     [`Corrida: ${entrada.corrida}`, `Material: ${entrada.materialId}`, detalleTecnico(entrada.error)].join("\n"),
