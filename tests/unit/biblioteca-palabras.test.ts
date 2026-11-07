@@ -98,3 +98,30 @@ describe("lineasParaWav (D10)", () => {
     expect(lineasParaWav({ ...material, costo_estimado_usd: 0.5 }, {})).toContain("Costo estimado: US$ 0,50")
   })
 })
+
+const RAIZ = join(__dirname, "..", "..")
+/** Where the cost gate lived: the Biblioteca's screens, its domain, the actions, the task and the shared pieces. */
+const DONDE_VIVIA_LA_PUERTA = [
+  SECCION,
+  join(RAIZ, "lib", "dominio", "biblioteca"),
+  join(RAIZ, "lib", "acciones"),
+  join(RAIZ, "lib", "ingesta"),
+  join(RAIZ, "components"),
+]
+const PALABRAS_DE_LA_PUERTA = /Espera tu OK|Procesar por|Confírmalo/
+
+describe("no cost gate any more (batch 6, spec decision 4)", () => {
+  it("finds the gate's words anywhere in a file, comments included", () => {
+    expect(PALABRAS_DE_LA_PUERTA.test("<button>Procesar por ~US$ 1,20</button>")).toBe(true)
+    expect(PALABRAS_DE_LA_PUERTA.test('return { palabra: "Espera tu OK" }')).toBe(true)
+    expect(PALABRAS_DE_LA_PUERTA.test("/** Confírmalo para seguir. */")).toBe(true)
+    expect(PALABRAS_DE_LA_PUERTA.test("Lo estoy procesando. Costará cerca de US$ 0,40.")).toBe(false)
+  })
+
+  it("keeps «Espera tu OK», «Procesar por» and «Confírmalo» out of every file where the gate lived", () => {
+    const conLaPuerta = DONDE_VIVIA_LA_PUERTA.flatMap(archivos).filter((ruta) =>
+      PALABRAS_DE_LA_PUERTA.test(readFileSync(ruta, "utf-8")),
+    )
+    expect(conLaPuerta).toEqual([])
+  })
+})
