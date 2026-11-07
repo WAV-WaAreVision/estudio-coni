@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { correrMotor, type DepsDelMotor } from "@/lib/motor/semanal"
+import { ejecutarMotorSemanal } from "@/lib/motor/tarea"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { type NotificadorEnMemoria, notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -35,6 +36,7 @@ async function limpiar() {
   await pool.query("delete from public.autores where nombre like '%semanal motor'")
   await pool.query("delete from public.gastos where paso = 'motor'")
   await pool.query("update public.ajustes set ideas_por_semana = 10")
+  await pool.query("delete from public.pausas_de_proveedor")
 }
 beforeEach(limpiar)
 afterEach(limpiar)
@@ -229,6 +231,25 @@ const contar = async (sql: string): Promise<number> => Number((await pool.query<
 
 beforeEach(sinLimiteFijado)
 afterEach(sinLimiteFijado)
+
+describe("ejecutarMotorSemanal con Claude en pausa", () => {
+  it("skips the week and writes nothing while Claude is paused", async () => {
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_CLAUDE, () => {
+        llamadas += 1
+        return HttpResponse.json({}, { status: 500 })
+      }),
+    )
+
+    const resultado = await ejecutarMotorSemanal({ manual: true, semana: SEMANA }, async () => deps())
+
+    expect(resultado).toEqual({ omitido: true, pausa: "claude" })
+    expect(llamadas).toBe(0)
+    expect(await contar(`select count(*) as n from public.motor_corridas where semana = '${SEMANA}'`)).toBe(0)
+  })
+})
 
 describe("motor_afirmaciones_de_tema", () => {
   it("puts studies and clinical practice first, then the claims closest to the centroid", async () => {

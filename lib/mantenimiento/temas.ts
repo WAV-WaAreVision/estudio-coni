@@ -1,3 +1,4 @@
+import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
 import { estimarEmbebido, TEXTOS_POR_EMBEBIDO } from "@/lib/ingesta/afirmar"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
 import { falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
@@ -24,6 +25,8 @@ export interface ResultadoMantenerTemas {
   embebidas: number
   asignadas: number
   formacion: ResultadoFormacion | null
+  /** A provider pause the embeddings met; the caller opens it (it holds the notifier). */
+  pausa: PausaDeProveedor | null
 }
 
 /** The claims that still have no vector (a run whose Voyage call failed, or had no key), oldest first. */
@@ -109,14 +112,16 @@ export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<Resul
   const llave = deps.llaveVoyage()
   const pendientes = llave ? await afirmacionesSinVector(deps) : []
   const embebidas: { tope: boolean; ids: string[] } = { tope: false, ids: [] }
+  let pausa: PausaDeProveedor | null = null
   if (llave) {
     try {
       embebidas.tope = (await embeberPendientes(deps, llave, pendientes, embebidas.ids)).tope
     } catch (error) {
       // A provider outage must not alert every ten minutes: the claims stay without a vector and the next run retries.
-      // The key is already redacted by the Voyage client.
+      // A pause is handed to the caller, which opens it. The key is already redacted by the Voyage client.
+      if (error instanceof PausaDeProveedor) pausa = error
       console.warn(
-        `Embeddings de afirmaciones pendientes (${pendientes.length - embebidas.ids.length} sin vector): ${error instanceof Error ? error.message : "error"}`,
+        `Embeddings de afirmaciones pendientes (${pendientes.length - embebidas.ids.length} sin vector): ${mensajeTecnico(error)}`,
       )
     }
   }
@@ -127,7 +132,7 @@ export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<Resul
     const r = await asignarATemas(deps, porAsignar.slice(desde, desde + IDS_POR_CONSULTA))
     asignadas += r.asignadas
   }
-  if (embebidas.tope) return { tope: true, embebidas: embebidas.ids.length, asignadas, formacion: null }
+  if (embebidas.tope) return { tope: true, embebidas: embebidas.ids.length, asignadas, formacion: null, pausa }
   const formacion = await formarTemas(deps)
-  return { tope: formacion.tope, embebidas: embebidas.ids.length, asignadas, formacion }
+  return { tope: formacion.tope, embebidas: embebidas.ids.length, asignadas, formacion, pausa }
 }

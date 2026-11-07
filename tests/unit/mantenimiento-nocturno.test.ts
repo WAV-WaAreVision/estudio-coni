@@ -26,6 +26,8 @@ vi.mock("@/lib/ingesta/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ingesta/temas")>()),
   fusionarTemas: vi.fn(async () => ({ tope: false, fusionados: 0 })),
 }))
+// The merges read the open pauses first; the client below is never reached.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: vi.fn(async () => []) }))
 vi.mock("@/lib/presupuesto/interruptores", () => ({
   leerInterruptores: vi.fn(async () => ({ motorSemanal: true, fusionesNocturnas: true })),
 }))

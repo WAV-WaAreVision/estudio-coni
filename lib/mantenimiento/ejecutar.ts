@@ -1,5 +1,8 @@
 import { existeAviso } from "@/lib/avisos/registro"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { fusionarTemas } from "@/lib/ingesta/temas"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { leerInterruptores } from "@/lib/presupuesto/interruptores"
 import { avisarLimite, claveDelAvisoDeLimite, mesDelGasto } from "@/lib/presupuesto/limite"
 import { type DepsArranques, reanudarArranques } from "./arranques"
@@ -63,6 +66,11 @@ export type DepsNocturno = DepsRetencion &
 
 const OMITIDO = { omitido: true } as const
 const APAGADO = { apagado: true } as const
+const PAUSADO_CLAUDE = { omitido: true, pausa: "claude" } as const
+
+async function claudeEnPausa(db: DepsFrecuente["db"]): Promise<boolean> {
+  return (await leerPausasAbiertas(db)).includes("claude")
+}
 
 /**
  * This job meets the limit on every tick of the month, so a notice channel that keeps failing would fail every run and
@@ -94,7 +102,17 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
     temas: async () => {
       const propias = await deps.temas()
       if (!propias) return OMITIDO
-      const resultado = await mantenerTemas(propias)
+      // Plan amendment A8: Claude's pause must not fail this run every ten minutes.
+      if (await claudeEnPausa(deps.db)) return PAUSADO_CLAUDE
+      let resultado: Awaited<ReturnType<typeof mantenerTemas>>
+      try {
+        resultado = await mantenerTemas(propias)
+      } catch (error) {
+        if (!(error instanceof PausaDeProveedor)) throw error
+        await abrirPausa(deps, error)
+        return { pausa: error.proveedor }
+      }
+      if (resultado.pausa) await abrirPausa(deps, resultado.pausa)
       if (!resultado.tope) return resultado
       // Silent before the hard limit; now Coni hears it once a month (spec 2026-11-02).
       return { ...resultado, ...(await avisarLimiteCadaDiezMinutos(deps)) }
@@ -116,6 +134,7 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
     fusiones: async () => {
       const propias = await deps.temas()
       if (!propias) return OMITIDO
+      if (await claudeEnPausa(deps.db)) return PAUSADO_CLAUDE
       // Read only when there is work: Coni can turn the nightly merges off in Ajustes › Presupuesto (D2).
       if (!(await leerInterruptores(deps.db)).fusionesNocturnas) return APAGADO
       const resultado = await fusionarTemas(propias)

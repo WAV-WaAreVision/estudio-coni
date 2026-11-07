@@ -19,8 +19,10 @@ vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mantenimiento/temas")>()),
-  mantenerTemas: vi.fn(async () => ({ tope: true, embebidas: 0, asignadas: 0, formacion: null })),
+  mantenerTemas: vi.fn(async () => ({ tope: true, embebidas: 0, asignadas: 0, formacion: null, pausa: null })),
 }))
+// The temas step reads the open pauses first; the DB below is never reached.
+vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: vi.fn(async () => []) }))
 vi.mock("@/lib/avisos/registro", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/avisos/registro")>()),
   existeAviso: vi.fn(async () => false),
@@ -151,7 +153,13 @@ describe("the limit notice of the ten-minute topics job", () => {
 
   it("does not look for the notice when the limit did not stop the job", async () => {
     const { mantenerTemas } = await import("@/lib/mantenimiento/temas")
-    vi.mocked(mantenerTemas).mockResolvedValueOnce({ tope: false, embebidas: 0, asignadas: 0, formacion: null })
+    vi.mocked(mantenerTemas).mockResolvedValueOnce({
+      tope: false,
+      embebidas: 0,
+      asignadas: 0,
+      formacion: null,
+      pausa: null,
+    })
 
     await mantenimientoFrecuente(FRECUENTE)
 
