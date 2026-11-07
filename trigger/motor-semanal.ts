@@ -27,13 +27,22 @@ export const motorSemanalTask = schedules.task({
   run: async (payload) => ejecutarMotorSemanal({ manual: false, timestamp: payload.timestamp }, depsMotor),
 })
 
+/** `semana` is optional so a run triggered by the app before it sent the week still starts. */
+export const ENTRADA_MOTOR_MANUAL = z.object({
+  manual: z.literal(true).optional(),
+  semana: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+})
+
 /** "Proponer ahora": a plain task, because the scheduled one is typed with the schedule's payload. */
 export const motorManualTask = schemaTask({
   id: "motor-manual",
-  schema: z.object({ manual: z.literal(true).optional() }),
+  schema: ENTRADA_MOTOR_MANUAL,
   queue: COLA_DEL_MOTOR,
   maxDuration: CONFIGURACION_MOTOR.maxDuration,
   catchError: ({ error }) => decisionDeReintento(error),
   onFailure: alFallarDeTarea("motor-manual", depsFalla),
-  run: async () => ejecutarMotorSemanal({ manual: true }, depsMotor),
+  run: async ({ semana }) => ejecutarMotorSemanal({ manual: true, semana }, depsMotor),
 })
