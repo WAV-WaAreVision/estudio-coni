@@ -427,6 +427,7 @@ describe("mantenimientoFrecuente", () => {
         await empezar(piezaId, ahora())
       },
       temas: async () => null,
+      chequear: async () => ({ ok: false, motivo: "prueba" }),
     }
 
     await mantenimientoFrecuente(deps)

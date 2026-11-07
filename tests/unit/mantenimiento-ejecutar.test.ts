@@ -16,6 +16,7 @@ vi.mock("@/lib/mantenimiento/voces", () => ({ devolverVocesTrabadas: vi.fn(async
 vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
   borrarLoMarcado: vi.fn(async () => ({ materiales: 0, carpetasPendientes: [] })),
 }))
+vi.mock("@/lib/mantenimiento/pausas", () => ({ cerrarPausas: vi.fn(async () => ({ cerradas: [], abiertas: [] })) }))
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mantenimiento/temas")>()),
@@ -87,13 +88,14 @@ const FRECUENTE: DepsFrecuente = {
   dispararProduccion: async () => undefined,
   dispararArmado: async () => undefined,
   temas: async () => TEMAS,
+  chequear: async () => ({ ok: false, motivo: "prueba" }),
 }
 
 describe("the ten-minute run", () => {
-  it("deletes what Coni marked first, with the run's store and clock", async () => {
+  it("closes the pauses first, then deletes what Coni marked, with the run's store and clock", async () => {
     const { borrarLoMarcado } = await import("@/lib/mantenimiento/borrado-diferido")
     const resultado = await mantenimientoFrecuente(FRECUENTE)
-    expect(Object.keys(resultado)[0]).toBe("borrado")
+    expect(Object.keys(resultado).slice(0, 2)).toEqual(["pausas", "borrado"])
     expect(borrarLoMarcado).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
   })
 

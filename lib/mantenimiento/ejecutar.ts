@@ -11,6 +11,7 @@ import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { type DepsNumerosLinkedin, recordarNumerosDeLinkedin } from "./numeros-linkedin"
+import { cerrarPausas, type DepsPausas } from "./pausas"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsRevisionDeInventario, recordarRevisionDeInventario } from "./revision-de-inventario"
@@ -55,6 +56,7 @@ export type DepsFrecuente = DepsConciliacion &
      */
     almacen: () => DepsBorrado["almacen"]
     temas: ConstructorDeTemas
+    chequear: DepsPausas["chequear"]
   }
 export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
@@ -90,10 +92,12 @@ async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ aviso
   }
 }
 
-/** Every ten minutes: what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: the provider pauses that can close, what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
-    // First: a deleted material's ideas leave before the topics job reads them.
+    // First: a pause that closes now lets the jobs below call its provider on this same tick.
+    pausas: () => cerrarPausas(deps),
+    // A deleted material's ideas leave before the topics job reads them.
     borrado: () => borrarLoMarcado({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),

@@ -12,7 +12,7 @@ import { producirPiezaTask } from "./producir-pieza"
 /** One queue for both runs: topics never form while the nightly run merges them. */
 export const COLA_DE_MANTENIMIENTO = queue({ name: "mantenimiento", concurrencyLimit: 1 })
 
-/** Every 10 minutes: runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run and the topics of the claims left behind. */
+/** Every 10 minutes: provider pauses that can close (spec 2026-11-07), runs the app could not start, renders that lost their callback (design A10) and reservations that outlived their run and the topics of the claims left behind. */
 export const CONFIGURACION_FRECUENTE = {
   id: "mantenimiento-frecuente",
   cron: "*/10 * * * *",

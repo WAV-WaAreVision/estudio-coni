@@ -1,9 +1,10 @@
 import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { DepsResumen } from "@/lib/avisos/resumen"
 import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
 import { renderizarCarrusel } from "@/lib/carrusel/render"
+import type { PausaParaCerrar } from "@/lib/datos/pausas"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { anotadorDeBorrados } from "@/lib/datos-personales/borrados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -17,6 +18,8 @@ import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
 import type { DepsDelMotor } from "@/lib/motor/semanal"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
+import { baseDe } from "@/lib/proveedores/bases"
+import { chequearProveedor, type ResultadoDeChequeo } from "@/lib/proveedores/chequeos"
 import type { DepsPublicacion } from "@/lib/publicacion/publicar"
 import type { Database } from "@/lib/supabase/database.types"
 import { buscarFfmpeg, buscarFfprobe, exigirMontserratBold, quemarSubtitulos, sondear } from "@/lib/video/ffmpeg"
@@ -159,8 +162,9 @@ export function depsFrecuente(
   dispararProduccion: DepsFrecuente["dispararProduccion"],
   dispararArmado: DepsFrecuente["dispararArmado"],
 ): DepsFrecuente {
+  const db = clienteDeServicio()
   return {
-    db: clienteDeServicio(),
+    db,
     almacen: () => almacenReal(),
     avisos: avisosReales(),
     ahora: () => new Date().toISOString(),
@@ -168,7 +172,28 @@ export function depsFrecuente(
     dispararProduccion,
     dispararArmado,
     temas: depsTemas,
+    chequear: (pausa) => chequearConLaLlave(db, pausa),
   }
+}
+
+const NOMBRE_EN_EL_VAULT = { elevenlabs: "elevenlabs", heygen: "heygen", claude: "anthropic" } as const
+
+/** The key each provider's tasks use: the Vault, except Voyage's, which is a Trigger.dev variable (plan amendment A7). */
+async function chequearConLaLlave(db: SupabaseClient<Database>, pausa: PausaParaCerrar): Promise<ResultadoDeChequeo> {
+  const llave =
+    pausa.proveedor === "voyage"
+      ? process.env.VOYAGE_API_KEY || null
+      : await leerSecreto(db, NOMBRE_EN_EL_VAULT[pausa.proveedor])
+  if (!llave) return { ok: false, motivo: "sin llave" }
+  return chequearProveedor({
+    proveedor: pausa.proveedor,
+    motivo: pausa.motivo,
+    llave,
+    bases: {
+      elevenlabs: baseDe(process.env, "ELEVENLABS_BASE_URL", "https://api.elevenlabs.io"),
+      heygen: baseDe(process.env, "HEYGEN_BASE_URL", "https://api.heygen.com"),
+    },
+  })
 }
 
 /** The dependencies of an `armar-carrusel` run. Claude is read only if a slide has to be shortened. */

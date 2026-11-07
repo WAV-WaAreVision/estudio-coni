@@ -262,6 +262,7 @@ describe("maintenance runs", () => {
     almacen: almacenEnMemoria(),
     avisos: notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
+    chequear: async () => ({ ok: false, motivo: "prueba" }),
   })
 
   it("runs the topics job inside the ten-minute maintenance, without any links job", async () => {
