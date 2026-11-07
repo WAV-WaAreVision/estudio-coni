@@ -54,7 +54,9 @@ export function AvisosSinLeer({
               className="grid min-h-fila grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-[14px] text-left transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
             >
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-cuerpo leading-[1.3] font-semibold [overflow-wrap:anywhere]">{sinEnlace(aviso.mensaje)}</span>
+                <span className="text-cuerpo leading-[1.3] font-semibold [overflow-wrap:anywhere]">
+                  {sinEnlace(aviso.mensaje)}
+                </span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
               <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" />
