@@ -25,6 +25,20 @@ export async function leerPausasAbiertas(db: Db): Promise<ProveedorConPausa[]> {
   return data.map((fila) => proveedorDe(fila.proveedor))
 }
 
+/** Each open pause with its reason, oldest first: Inicio's «Atención» lines (spec amendment A10). */
+export async function leerPausasDeInicio(db: Db): Promise<{ proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]> {
+  const { data, error } = await db
+    .from("pausas_de_proveedor")
+    .select("proveedor, motivo")
+    .is("cerrada_en", null)
+    .order("desde")
+  if (error) throw new Error(`No pude leer las pausas de los proveedores: ${error.message}`, { cause: error })
+  return data.map((fila) => {
+    if (!esMotivoDePausa(fila.motivo)) throw new Error(`Una pausa tiene un motivo desconocido: ${fila.motivo}.`)
+    return { proveedor: proveedorDe(fila.proveedor), motivo: fila.motivo }
+  })
+}
+
 /** A server action refuses while one of these providers is paused: the screen she tapped may be stale. */
 export async function exigirSinPausa(db: Db, ...proveedores: ProveedorConPausa[]): Promise<void> {
   const abiertas = await leerPausasAbiertas(db)

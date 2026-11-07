@@ -1,5 +1,12 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
-import { exigirBibliotecaSinPausa, exigirSinPausa, leerPausasAbiertas, leerPausasParaCerrar } from "@/lib/datos/pausas"
+import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import {
+  exigirBibliotecaSinPausa,
+  exigirSinPausa,
+  leerPausasAbiertas,
+  leerPausasDeInicio,
+  leerPausasParaCerrar,
+} from "@/lib/datos/pausas"
 import { Falla } from "@/lib/dominio/falla"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
@@ -36,6 +43,21 @@ describe("lecturas de pausas", () => {
     await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
     const error = await exigirBibliotecaSinPausa(db).catch((e: unknown) => e)
     expect((error as Falla).message).toBe("La Biblioteca está en pausa. Ya le avisamos a WAV.")
+  })
+
+  it("reads each open pause with its reason for Inicio, oldest first", async () => {
+    await pool.query("select public.abrir_pausa_de_proveedor('heygen', 'cuota', 'x')")
+    await pool.query("select public.abrir_pausa_de_proveedor('elevenlabs', 'llave', 'x')")
+    expect(await leerPausasDeInicio(await clienteDeConi())).toEqual([
+      { proveedor: "heygen", motivo: "cuota" },
+      { proveedor: "elevenlabs", motivo: "llave" },
+    ])
+  })
+
+  it("hands Inicio the open pauses with its other data", async () => {
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'pago', 'x')")
+    const datos = await leerDatosDeInicio(await clienteDeConi(), Date.now())
+    expect(datos.pausas).toEqual([{ proveedor: "claude", motivo: "pago" }])
   })
 
   it("lists what the maintenance step has to check", async () => {

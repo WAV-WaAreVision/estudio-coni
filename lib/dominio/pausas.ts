@@ -55,6 +55,36 @@ export class PausaDeProveedor extends Falla {
   }
 }
 
+const SUJETO_EN_INICIO: Record<Exclude<ProveedorConPausa, "voyage">, string> = {
+  elevenlabs: "La voz está en pausa",
+  heygen: "Los videos están en pausa",
+  claude: "Las ideas y los guiones están en pausa",
+}
+
+const NOMBRE_EN_INICIO: Record<Exclude<ProveedorConPausa, "voyage">, string> = {
+  elevenlabs: "ElevenLabs",
+  heygen: "HeyGen",
+  claude: "Claude",
+}
+
+function causaEnInicio(proveedor: Exclude<ProveedorConPausa, "voyage">, motivo: MotivoDePausa): string {
+  const nombre = NOMBRE_EN_INICIO[proveedor]
+  switch (motivo) {
+    case "pago":
+      return `la cuenta de ${nombre} tiene un pago pendiente`
+    case "cuota":
+      return `la cuenta de ${nombre} se quedó sin ${proveedor === "heygen" ? "créditos" : "saldo"}`
+    case "llave":
+      return `la clave de ${nombre} dejó de funcionar`
+  }
+}
+
+/** Inicio's «Atención» line of an open pause (spec amendment A10); Voyage has none (A6). */
+export function lineaDePausaDeInicio(proveedor: ProveedorConPausa, motivo: MotivoDePausa): string | null {
+  if (proveedor === "voyage") return null
+  return `${SUJETO_EN_INICIO[proveedor]}: ${causaEnInicio(proveedor, motivo)}. WAV ya lo está resolviendo.`
+}
+
 /**
  * The provider whose pause text this is, or null: a piece keeps the text after the pause closes. The Biblioteca text
  * answers null: a Claude pause or ElevenLabs while transcribing writes it, and Voyage writes no text (amendment A6), so

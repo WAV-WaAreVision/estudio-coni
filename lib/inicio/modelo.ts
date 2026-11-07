@@ -2,6 +2,7 @@ import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destino
 import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
+import { lineaDePausaDeInicio, type MotivoDePausa, type ProveedorConPausa } from "@/lib/dominio/pausas"
 
 export interface PiezaDeInicio {
   tipo: TipoDePieza
@@ -75,6 +76,8 @@ export interface Inicio {
   titulo: string
   /** One line under the title: "Después, 2 esperan tu firma." or "1 en preparación · unos 6 min". */
   linea: string | null
+  /** One line per open pause (A10), shown first in «Atención»; not pieces, so they open nothing. */
+  pausas: string[]
   /** Failures, the most urgent first: the first is the large block, the rest are rows. */
   atencion: AvisoDeInicio[]
   /** Good news: a recent publication or a manual upload. */
@@ -329,8 +332,18 @@ function reciente(piezas: readonly PiezaDeInicio[], estado: Estado, ahora: numbe
 }
 
 /** What Inicio shows, from the pieces and the clock: no database, no rendering (decision 8). */
-export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; ahora: number; zona: string }): Inicio {
-  const { piezas, ahora, zona } = entrada
+export function construirInicio(entrada: {
+  piezas: readonly PiezaDeInicio[]
+  ahora: number
+  zona: string
+  /** The open provider pauses (A10). */
+  pausas?: readonly { proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]
+}): Inicio {
+  const { piezas, ahora, zona, pausas = [] } = entrada
+  const lineasDePausa = pausas.flatMap((pausa) => {
+    const linea = lineaDePausaDeInicio(pausa.proveedor, pausa.motivo)
+    return linea ? [linea] : []
+  })
   const enPreparacion = piezas.filter((pieza) => pieza.estado === "grabando_voz").map(filaEnPreparacion)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))
@@ -362,8 +375,9 @@ export function construirInicio(entrada: { piezas: readonly PiezaDeInicio[]; aho
 
   return {
     semana: `Semana del ${semanaDe(ahora, zona)}`,
-    titulo: tituloDeInicio(atencion.length, firma.length),
-    linea: lineaDeInicio(atencion.length, firma.length, enPreparacion.length),
+    titulo: tituloDeInicio(atencion.length + lineasDePausa.length, firma.length),
+    linea: lineaDeInicio(atencion.length + lineasDePausa.length, firma.length, enPreparacion.length),
+    pausas: lineasDePausa,
     atencion,
     avisos,
     firma,

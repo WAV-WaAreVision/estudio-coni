@@ -4,6 +4,7 @@ import {
   esProveedorConPausa,
   esTextoDePausa,
   explicacionAnteLaPausa,
+  lineaDePausaDeInicio,
   mensajeTecnico,
   PausaDeProveedor,
   proveedorDelTextoDePausa,
@@ -107,5 +108,58 @@ describe("explicacionAnteLaPausa", () => {
       "HeyGen no pudo terminar el video.",
     )
     expect(explicacionAnteLaPausa(null, null, GENERICO)).toBe(GENERICO)
+  })
+})
+
+describe("lineaDePausaDeInicio", () => {
+  it.each([
+    [
+      "elevenlabs",
+      "pago",
+      "La voz está en pausa: la cuenta de ElevenLabs tiene un pago pendiente. WAV ya lo está resolviendo.",
+    ],
+    [
+      "elevenlabs",
+      "cuota",
+      "La voz está en pausa: la cuenta de ElevenLabs se quedó sin saldo. WAV ya lo está resolviendo.",
+    ],
+    [
+      "elevenlabs",
+      "llave",
+      "La voz está en pausa: la clave de ElevenLabs dejó de funcionar. WAV ya lo está resolviendo.",
+    ],
+    [
+      "heygen",
+      "pago",
+      "Los videos están en pausa: la cuenta de HeyGen tiene un pago pendiente. WAV ya lo está resolviendo.",
+    ],
+    [
+      "heygen",
+      "cuota",
+      "Los videos están en pausa: la cuenta de HeyGen se quedó sin créditos. WAV ya lo está resolviendo.",
+    ],
+    ["heygen", "llave", "Los videos están en pausa: la clave de HeyGen dejó de funcionar. WAV ya lo está resolviendo."],
+    [
+      "claude",
+      "pago",
+      "Las ideas y los guiones están en pausa: la cuenta de Claude tiene un pago pendiente. WAV ya lo está resolviendo.",
+    ],
+    [
+      "claude",
+      "cuota",
+      "Las ideas y los guiones están en pausa: la cuenta de Claude se quedó sin saldo. WAV ya lo está resolviendo.",
+    ],
+    [
+      "claude",
+      "llave",
+      "Las ideas y los guiones están en pausa: la clave de Claude dejó de funcionar. WAV ya lo está resolviendo.",
+    ],
+  ] as const)("words %s %s", (proveedor, motivo, texto) => {
+    expect(lineaDePausaDeInicio(proveedor, motivo)).toBe(texto)
+    expect(texto).not.toContain("\u2014")
+  })
+
+  it("has no line for Voyage (A6)", () => {
+    expect(lineaDePausaDeInicio("voyage", "llave")).toBeNull()
   })
 })

@@ -9,6 +9,7 @@ import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { FilaNavegacion } from "@/components/ui/filas"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
@@ -43,7 +44,7 @@ export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
   const [datos, pilares] = await Promise.all([leerDatosDeInicio(db, ahora), leerPilares(db)])
-  const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona })
+  const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona, pausas: datos.pausas })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
   const angulosDeIdea = new Map(datos.banco.map((idea) => [idea.id, idea.angulo_id]))
@@ -74,29 +75,37 @@ export default async function Inicio() {
 
       <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
-      {principal ? (
+      {inicio.pausas.length > 0 || principal ? (
         <section aria-label="Necesita atención" className="mt-6 grid gap-4">
-          <Bloque
-            tipo="error"
-            grande
-            titulo={principal.causa}
-            pieza={principal.titulo}
-            accion={principal.accion ? <AccionDeAviso accion={principal.accion} principal /> : undefined}
-          >
-            <ExplicacionParaConi texto={principal.texto} enSusPalabras={TEXTO_ENTRA_A_LA_PIEZA} />
-          </Bloque>
-          {otrasFallas.length > 0 ? (
-            <Grupo lista>
-              {otrasFallas.map((aviso) => (
-                <FilaPieza
-                  key={`${aviso.titulo}-${aviso.texto}`}
-                  titulo={aviso.titulo}
-                  causa={aviso.causa}
-                  pilar={pilarVisible(pilares, aviso.pilar)}
-                  href={aviso.accion?.href}
-                />
-              ))}
-            </Grupo>
+          {/* A pause is information (WAV is on it), not an error of hers: a plain line each, before the failures. */}
+          {inicio.pausas.map((linea) => (
+            <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+          ))}
+          {principal ? (
+            <>
+              <Bloque
+                tipo="error"
+                grande
+                titulo={principal.causa}
+                pieza={principal.titulo}
+                accion={principal.accion ? <AccionDeAviso accion={principal.accion} principal /> : undefined}
+              >
+                <ExplicacionParaConi texto={principal.texto} enSusPalabras={TEXTO_ENTRA_A_LA_PIEZA} />
+              </Bloque>
+              {otrasFallas.length > 0 ? (
+                <Grupo lista>
+                  {otrasFallas.map((aviso) => (
+                    <FilaPieza
+                      key={`${aviso.titulo}-${aviso.texto}`}
+                      titulo={aviso.titulo}
+                      causa={aviso.causa}
+                      pilar={pilarVisible(pilares, aviso.pilar)}
+                      href={aviso.accion?.href}
+                    />
+                  ))}
+                </Grupo>
+              ) : null}
+            </>
           ) : null}
         </section>
       ) : null}
