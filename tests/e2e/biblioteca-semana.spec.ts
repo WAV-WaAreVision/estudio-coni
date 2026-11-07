@@ -195,6 +195,7 @@ test("at 375 px with large text the section menu, the button and the theories fi
   }
   expect(await revisarConAxe(page, "semana con letra grande y el menú abierto")).toEqual([])
   await page.keyboard.press("Escape")
+  await expect(menuDeSecciones(page).boton).toHaveAttribute("aria-expanded", "false")
   const boton = page.getByRole("button", { name: "Proponer ahora" })
   await expect(boton).toBeVisible()
   expect((await boton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
