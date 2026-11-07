@@ -27,6 +27,7 @@ import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { claveIdempotencia, formulaDePuerta1, hashPuerta1, puedeGrabar } from "@/lib/dominio/puertas"
 import { alinearConGuion, assDe, leerSrt } from "@/lib/dominio/subtitulos"
 import { vozDelGuion } from "@/lib/dominio/voz"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { artefactoAprobado, formulaGuardada } from "@/lib/produccion/aprobacion"
 import { aCuatroDecimales, MINIMO_USD, piezaCambio } from "@/lib/produccion/comun"
 import { asegurarVoz, huellaDelGuion, leerLlaveDeVoz } from "@/lib/produccion/voz"
@@ -350,6 +351,12 @@ export async function grabarPieza(deps: DepsGrabacion, piezaId: string, intento?
     if (error instanceof TransicionInvalida || error instanceof ArtefactoCambio) throw error
     if (error instanceof PoliticaDeContenido && contexto.fila.estado === "en_render") {
       return await rechazarPorPolitica(contexto)
+    }
+    // Spec 2026-11-07: a HeyGen pause (or an ElevenLabs one while the signed voice is made) opens once and ends this
+    // attempt with its text; the spend goes back like any other failure of the attempt.
+    if (error instanceof PausaDeProveedor) {
+      await abrirPausa(deps, error)
+      return await fallar(contexto, error.message)
     }
     // Anything written for Coni ends this attempt with an explanation; a plain Error or a configuration error is
     // rethrown, so Trigger.dev retries it or WAV sees it, and the spend stays reserved for the retry.

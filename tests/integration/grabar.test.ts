@@ -315,6 +315,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   await vaciarMotor()
   piezasCreadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
@@ -878,7 +879,8 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     simular({
       lecturas: [{ status: "failed", failure_code: "MOVIO_PAYMENT_INSUFFICIENT_CREDIT", failure_message: "x" }],
     })
-    const d = doble()
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
     await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
@@ -888,6 +890,11 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
       estado: "error_produccion",
       explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
     })
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "heygen", motivo: "cuota" }])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["HeyGen en pausa: sin saldo"])
   })
 
   it("ends the attempt with the video pause text on a 402, releases the spend and charges nothing", async () => {
@@ -896,7 +903,8 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
       crear: () =>
         HttpResponse.json({ error: { code: "insufficient_credit", message: "No credits" } }, { status: 402 }),
     })
-    const d = doble()
+    const avisos = notificadorEnMemoria()
+    const d = doble({ avisos })
     await conVozEnAlmacen(d.almacen, id)
 
     const resultado = await grabarPieza(d.deps, id)
@@ -908,6 +916,11 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
       render_id: null,
     })
     expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "heygen", motivo: "cuota" }])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["HeyGen en pausa: sin saldo"])
   })
 
   it("rethrows a configuration error from HeyGen and leaves the piece where it was", async () => {
