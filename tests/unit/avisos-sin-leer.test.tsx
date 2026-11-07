@@ -19,6 +19,29 @@ describe("AvisosSinLeer", () => {
     expect(screen.getByRole("heading", { name: "Avisos" })).toBeInTheDocument()
   })
 
+  it("leaves the link out of a published notice: the row already opens the piece", () => {
+    const publicados = [
+      {
+        id: "a3",
+        mensaje:
+          "Tu carrusel «Bienestar» se publicó en LinkedIn. Míralo aquí: https://www.linkedin.com/feed/update/urn:li:ugcPost:7522689231274708993/",
+        href: "/carrusel/c1",
+        cuando: "dom 1 · 13:01",
+      },
+      {
+        id: "a4",
+        mensaje: "Tu reel «Deseo» ya está publicado en Instagram. Míralo aquí: https://www.instagram.com/reel/abc/",
+        href: "/reel/r1",
+        cuando: "lun 2 · 10:00",
+      },
+    ]
+    render(<AvisosSinLeer avisos={publicados} marcar={vi.fn(async () => ({ ok: true as const }))} />)
+
+    expect(screen.getByText("Tu carrusel «Bienestar» se publicó en LinkedIn.")).toBeInTheDocument()
+    expect(screen.getByText("Tu reel «Deseo» ya está publicado en Instagram.")).toBeInTheDocument()
+    expect(screen.queryByText(/https:|Míralo aquí/)).not.toBeInTheDocument()
+  })
+
   it("lists the notices as rows of a raised group, each opening its piece", () => {
     render(<AvisosSinLeer avisos={AVISOS} marcar={vi.fn(async () => ({ ok: true as const }))} />)
     expect(screen.getByRole("list")).toHaveClass("bg-piedra", "shadow-relieve")

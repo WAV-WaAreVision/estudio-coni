@@ -195,6 +195,26 @@ test.describe("Avisos en Inicio", () => {
     await expect(seccion.getByText(/Prueba/)).toHaveCount(0)
   })
 
+  test("shows a published notice without its link and inside the screen", async ({ page }) => {
+    await pool.query(
+      "insert into public.avisos (tipo, clave, mensaje) values ('ideas_propuestas', 'ideas_propuestas:e2e-largo', $1)",
+      [
+        "Tu carrusel «Prueba» se publicó en LinkedIn. Míralo aquí: https://www.linkedin.com/feed/update/urn:li:ugcPost:7522689231274708993/",
+      ],
+    )
+    await page.goto("/")
+
+    const seccion = page.getByRole("region", { name: "Avisos" })
+    await expect(seccion.getByText("Tu carrusel «Prueba» se publicó en LinkedIn.", { exact: true })).toBeVisible()
+    await seccion.scrollIntoViewIfNeeded()
+    await capturarPantalla(page, "avisos-enlace-largo")
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), {
+        message: "la página no se desliza hacia el lado",
+      })
+      .toBe(true)
+  })
+
   test("shows no Avisos block when there is nothing unread", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Hola, Coni", { exact: true })).toBeVisible()
