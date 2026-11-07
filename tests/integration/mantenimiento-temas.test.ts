@@ -365,6 +365,52 @@ describe("maintenance runs", () => {
     expect(claude.fusiones).toBe(0)
   })
 
+  it("opens the Claude pause met by the nightly merges instead of failing the run", async () => {
+    const vector = (segundo: number) =>
+      `[${Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : i === 1 ? segundo : 0)).join(",")}]`
+    const temas = await pool.query<{ id: string }>(
+      `insert into public.temas (nombre, descripcion, centroide)
+       values ('Deseo bajo', 'd', $1::extensions.vector), ('Poco deseo', 'd', $2::extensions.vector) returning id`,
+      [vector(0), vector(0.2)],
+    )
+    const [grande, chico] = temas.rows.map((t) => t.id)
+    const ids = await sinVector(3)
+    await pool.query("update public.afirmaciones set vector = $2::extensions.vector, tema_id = $3 where id = any($1)", [
+      ids.slice(0, 2),
+      vector(0),
+      grande,
+    ])
+    await pool.query("update public.afirmaciones set vector = $2::extensions.vector, tema_id = $3 where id = any($1)", [
+      ids.slice(2),
+      vector(0.2),
+      chico,
+    ])
+    let llamadas = 0
+    servidor.use(
+      http.post(URL_CLAUDE, () => {
+        llamadas += 1
+        return HttpResponse.json(
+          { type: "error", error: { type: "billing_error", message: "billing" } },
+          { status: 402 },
+        )
+      }),
+    )
+    const avisos = notificadorEnMemoria()
+
+    const resultado = await mantenimientoNocturno({
+      ...base(),
+      avisos,
+      almacen: almacenEnMemoria(),
+      volcarBase: async () => new Uint8Array([1, 2, 3]),
+      anotarBorrado: async () => {},
+      temas: async () => deps(),
+    })
+
+    expect(llamadas).toBe(1)
+    expect(resultado.fusiones).toEqual({ pausa: "claude" })
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: pago pendiente"])
+  })
+
   it("skips the topics job when its builder says there is nothing to work with", async () => {
     const resultado = await mantenimientoFrecuente({
       ...base(),

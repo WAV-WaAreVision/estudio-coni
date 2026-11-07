@@ -141,7 +141,15 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
       if (await claudeEnPausa(deps.db)) return PAUSADO_CLAUDE
       // Read only when there is work: Coni can turn the nightly merges off in Ajustes › Presupuesto (D2).
       if (!(await leerInterruptores(deps.db)).fusionesNocturnas) return APAGADO
-      const resultado = await fusionarTemas(propias)
+      let resultado: Awaited<ReturnType<typeof fusionarTemas>>
+      try {
+        resultado = await fusionarTemas(propias)
+      } catch (error) {
+        // Like `temas`: a pause met here opens it (WAV emailed once) instead of failing the nightly run.
+        if (!(error instanceof PausaDeProveedor)) throw error
+        await abrirPausa(deps, error)
+        return { pausa: error.proveedor }
+      }
       if (resultado.tope) await avisarLimite(deps, deps.ahora())
       return resultado
     },
