@@ -1,115 +1,48 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { exigirEnv } from "@/lib/env"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 const leerSesion = vi.hoisted(() => vi.fn())
-const generateLink = vi.hoisted(() => vi.fn())
-const clienteDeServicio = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/sesion/coni", () => ({ leerSesion }))
-vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio }))
-
-const TOKEN = "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
-const CONI = { estado: "coni", db: {}, userId: "c0000000-0000-4000-8000-000000000001", correo: "coni@estudio.test" }
 
 afterEach(() => {
-  vi.unstubAllEnvs()
-  vi.restoreAllMocks()
   leerSesion.mockReset()
-  generateLink.mockReset()
-  clienteDeServicio.mockReset()
 })
 
-beforeEach(() => {
-  clienteDeServicio.mockImplementation(() => ({ auth: { admin: { generateLink } } }))
-})
-
+// Old links, the iPhone home-screen icon and the history still open /ir-a-biblioteca (batch 7).
 describe("/ir-a-biblioteca", () => {
-  it("sends someone without a session to sign in, without minting anything", async () => {
+  it("sends someone without a session to sign in", async () => {
     leerSesion.mockResolvedValue({ estado: "sin_sesion" })
     const { GET } = await import("@/app/ir-a-biblioteca/route")
 
     const respuesta = await GET()
 
+    expect(respuesta.status).toBe(307)
     expect(respuesta.headers.get("location")).toBe("/ingreso")
-    expect(generateLink).not.toHaveBeenCalled()
   })
 
-  it("refuses anyone who is not Coni, the maintainer included: back to the app, no link", async () => {
+  it("sends anyone who is not Coni, the maintainer included, back to the app", async () => {
     leerSesion.mockResolvedValue({ estado: "otra_persona" })
     const { GET } = await import("@/app/ir-a-biblioteca/route")
 
     const respuesta = await GET()
 
+    expect(respuesta.status).toBe(307)
     expect(respuesta.headers.get("location")).toBe("/")
-    expect(generateLink).not.toHaveBeenCalled()
   })
 
-  it("answers Coni the page that posts her token to Ingesta, never cached and never referred", async () => {
-    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
-    leerSesion.mockResolvedValue(CONI)
-    generateLink.mockResolvedValue({ data: { properties: { hashed_token: TOKEN } }, error: null })
-    const { GET } = await import("@/app/ir-a-biblioteca/route")
-
-    const respuesta = await GET()
-
-    expect(respuesta.status).toBe(200)
-    expect(respuesta.headers.get("content-type")).toBe("text/html; charset=utf-8")
-    expect(respuesta.headers.get("cache-control")).toBe("no-store")
-    expect(respuesta.headers.get("referrer-policy")).toBe("strict-origin")
-    expect(respuesta.headers.get("location")).toBeNull()
-    expect(generateLink).toHaveBeenCalledWith({ type: "magiclink", email: "coni@estudio.test" })
-    const html = await respuesta.text()
-    expect(html).toContain('action="https://ingesta.example/ingreso/puente"')
-    expect(html).toContain(`value="${TOKEN}"`)
-  })
-
-  it("sends Coni to the plain failure page when INGESTA_URL is missing", async () => {
-    vi.stubEnv("INGESTA_URL", "")
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
-    leerSesion.mockResolvedValue(CONI)
-    const { GET } = await import("@/app/ir-a-biblioteca/route")
-
-    const respuesta = await GET()
-
-    expect(respuesta.headers.get("location")).toBe("/biblioteca-no-abrio")
-    expect(generateLink).not.toHaveBeenCalled()
-  })
-
-  it("sends Coni to the failure page when the link cannot be made", async () => {
-    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
-    vi.spyOn(console, "error").mockImplementation(() => undefined)
-    leerSesion.mockResolvedValue(CONI)
-    generateLink.mockResolvedValue({ data: { properties: null }, error: { message: "boom", status: 500 } })
-    const { GET } = await import("@/app/ir-a-biblioteca/route")
-
-    expect((await GET()).headers.get("location")).toBe("/biblioteca-no-abrio")
-  })
-
-  it("sends Coni to the failure page when the service key is missing, logging only the variable's name", async () => {
-    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
-    leerSesion.mockResolvedValue(CONI)
-    clienteDeServicio.mockImplementation(() => exigirEnv("SUPABASE_SERVICE_ROLE_KEY", undefined))
+  it("sends Coni to her Biblioteca inside the app, with no page of its own", async () => {
+    leerSesion.mockResolvedValue({
+      estado: "coni",
+      db: {},
+      userId: "c0000000-0000-4000-8000-000000000001",
+      correo: "coni@estudio.test",
+    })
     const { GET } = await import("@/app/ir-a-biblioteca/route")
 
     const respuesta = await GET()
 
     expect(respuesta.status).toBe(307)
-    expect(respuesta.headers.get("location")).toBe("/biblioteca-no-abrio")
-    expect(error).toHaveBeenCalledTimes(1)
-    expect(error.mock.calls[0]).toEqual([
-      "La Biblioteca no se puede abrir: falta la variable de entorno SUPABASE_SERVICE_ROLE_KEY.",
-    ])
-  })
-
-  it("lets any other failure of the service client propagate", async () => {
-    vi.stubEnv("INGESTA_URL", "https://ingesta.example")
-    leerSesion.mockResolvedValue(CONI)
-    clienteDeServicio.mockImplementation(() => {
-      throw new TypeError("otra cosa")
-    })
-    const { GET } = await import("@/app/ir-a-biblioteca/route")
-
-    await expect(GET()).rejects.toThrow("otra cosa")
+    expect(respuesta.headers.get("location")).toBe("/biblioteca")
+    expect(await respuesta.text()).toBe("")
   })
 })
