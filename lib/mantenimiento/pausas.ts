@@ -27,24 +27,37 @@ export interface ResultadoDePausas {
  */
 export async function cerrarPausas(deps: DepsPausas): Promise<ResultadoDePausas> {
   const resultado: ResultadoDePausas = { cerradas: [], abiertas: [] }
+  const errores: Error[] = []
   for (const pausa of await leerPausasParaCerrar(deps.db)) {
-    // Every caller that met this pause failed to email WAV (or died holding the claim): send it from here.
-    if (!pausa.avisada) await reenviarAvisoPendiente(deps, pausa)
-    const chequeo = await deps.chequear(pausa)
-    if (!chequeo.ok) {
-      resultado.abiertas.push({ proveedor: pausa.proveedor, motivo: chequeo.motivo })
-      continue
+    // One pause failing (its check, its notice) must not leave the others unchecked.
+    try {
+      const estado = await atenderPausa(deps, pausa)
+      if (estado.ok) resultado.cerradas.push(pausa.proveedor)
+      else resultado.abiertas.push({ proveedor: pausa.proveedor, motivo: estado.motivo })
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      errores.push(new Error(`pausa de ${pausa.proveedor} (${pausa.id}): ${error.message}`, { cause: error }))
     }
-    // Coni never saw a Voyage pause (amendment A6), so its closing tells her nothing.
-    if (pausa.proveedor !== "voyage") {
-      await deps.avisos.aConi(TEXTO_PAUSA_CERRADA[pausa.proveedor], true, {
-        tipo: "pausa_cerrada",
-        clave: `pausa:${pausa.id}`,
-      })
-    }
-    const { error } = await deps.db.rpc("cerrar_pausa_de_proveedor", { p_id: pausa.id })
-    if (error) throw new Error(`No pude cerrar la pausa ${pausa.id}: ${error.message}`, { cause: error })
-    resultado.cerradas.push(pausa.proveedor)
+  }
+  if (errores.length > 0) {
+    throw new AggregateError(errores, `No pude atender las pausas: ${errores.map((e) => e.message).join(" | ")}`)
   }
   return resultado
+}
+
+async function atenderPausa(deps: DepsPausas, pausa: PausaParaCerrar): Promise<ResultadoDeChequeo> {
+  // Every caller that met this pause failed to email WAV (or died holding the claim): send it from here.
+  if (!pausa.avisada) await reenviarAvisoPendiente(deps, pausa)
+  const chequeo = await deps.chequear(pausa)
+  if (!chequeo.ok) return chequeo
+  // Coni never saw a Voyage pause (amendment A6), so its closing tells her nothing.
+  if (pausa.proveedor !== "voyage") {
+    await deps.avisos.aConi(TEXTO_PAUSA_CERRADA[pausa.proveedor], true, {
+      tipo: "pausa_cerrada",
+      clave: `pausa:${pausa.id}`,
+    })
+  }
+  const { error } = await deps.db.rpc("cerrar_pausa_de_proveedor", { p_id: pausa.id })
+  if (error) throw new Error(`No pude cerrar la pausa ${pausa.id}: ${error.message}`, { cause: error })
+  return chequeo
 }

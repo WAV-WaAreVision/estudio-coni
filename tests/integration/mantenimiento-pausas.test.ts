@@ -102,6 +102,26 @@ describe("cerrarPausas", () => {
     expect(canal.aWavEnviados).toEqual([])
   })
 
+  it("closes the other pauses when one check fails, and raises that failure at the end", async () => {
+    await abierta("elevenlabs")
+    await abierta("heygen")
+    const { deps: d } = deps({ ok: true })
+    const conUnaRota = {
+      ...d,
+      chequear: async (pausa: { proveedor: string }) => {
+        if (pausa.proveedor === "elevenlabs") throw new Error("ElevenLabs no contesta")
+        return { ok: true } as const
+      },
+    }
+
+    const error = await cerrarPausas(conUnaRota).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(AggregateError)
+    expect((error as Error).message).toContain("ElevenLabs no contesta")
+    const { rows } = await pool.query("select proveedor from public.pausas_de_proveedor where cerrada_en is null")
+    expect(rows).toEqual([{ proveedor: "elevenlabs" }])
+  })
+
   it("asks nothing when no pause is open", async () => {
     const { deps: d, preguntas } = deps({ ok: true })
     expect(await cerrarPausas(d)).toEqual({ cerradas: [], abiertas: [] })
