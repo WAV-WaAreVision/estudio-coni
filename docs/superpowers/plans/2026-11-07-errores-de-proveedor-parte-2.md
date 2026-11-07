@@ -34,7 +34,7 @@
 
 **Files:** Create `supabase/migrations/20261108000100_avisos_a_federico.sql`; Test `tests/integration/avisos-a-federico.test.ts`; Modify `lib/supabase/database.types.ts`.
 
-- [ ] **Step 1: failing integration test.** Follow `tests/integration/pausas-de-proveedor*.test.ts` (same helpers for a service client, a Coni client and an outsider). Cases:
+- [ ] **Step 1: failing integration test.** Follow `tests/integration/pausas-esquema.test.ts` and `abrir-pausa.test.ts` (same helpers for a service client, a Coni client and an outsider). Cases:
   - `reclamar_aviso_a_federico('pieza:<uuid>:abc', 'pieza', <uuid>)` as service_role answers `true` the first time, `false` the second (claimed, not stale), and `false` after `marcar_aviso_a_federico_enviado` (sent).
   - after `soltar_aviso_a_federico` the next claim answers `true` again.
   - a claim older than 5 minutes (update `reclamado_en` by hand in the test) is handed on: `true`.
