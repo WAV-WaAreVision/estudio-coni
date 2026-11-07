@@ -1,7 +1,18 @@
 import { expect, test } from "@playwright/test"
-import { bloquearRedExterna, conLetraGrande, entrarComo, revisarConAxe, tocarHastaLlegar } from "./ayudas"
+import {
+  abrirMenuDeSecciones,
+  bloquearRedExterna,
+  conLetraGrande,
+  entrarComo,
+  irASeccion,
+  menuDeSecciones,
+  revisarConAxe,
+  tocarHastaLlegar,
+} from "./ayudas"
 import { AUTORA, type EscenaDeAutoresYTemas, sembrarAutoresYTemas, TEMA_PRINCIPAL } from "./biblioteca-escena"
 import { CORREO_DEL_MANTENEDOR } from "./entorno"
+
+const SECCIONES = ["Materiales", "Autores", "Temas", "Semana"]
 
 let escena: EscenaDeAutoresYTemas
 
@@ -21,39 +32,67 @@ test("a material's detail links each of its topics to the topic's page (D9)", as
   await expect(page.getByRole("heading", { name: TEMA_PRINCIPAL, level: 1 })).toBeVisible()
 })
 
-test("the nav moves between the three sections; at 375 and 390 px its tabs are 44 px or more and nothing scrolls sideways", async ({
+test("the section menu moves between the sections; at 375 and 390 px its button and its sections are 44 px or more and nothing scrolls sideways", async ({
   page,
 }) => {
   await page.goto("/biblioteca")
-  const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-  await tocarHastaLlegar(page, nav.getByRole("link", { name: "Autores" }), /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
-  await tocarHastaLlegar(page, nav.getByRole("link", { name: "Temas" }), /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
-  await tocarHastaLlegar(page, nav.getByRole("link", { name: "Materiales" }), /\/biblioteca(?:[?&]v=\d+)?$/)
+  await irASeccion(page, "Autores", /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
+  await irASeccion(page, "Temas", /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
+  await irASeccion(page, "Materiales", /\/biblioteca(?:[?&]v=\d+)?$/)
+  const { boton } = menuDeSecciones(page)
   for (const ancho of [375, 390]) {
     await page.setViewportSize({ width: ancho, height: 812 })
     for (const ruta of ["/biblioteca", "/biblioteca/autores", "/biblioteca/temas"]) {
       await page.goto(ruta)
-      for (const nombre of ["Materiales", "Autores", "Temas"]) {
-        const pestana = nav.getByRole("link", { name: nombre })
-        await expect(pestana).toBeVisible()
-        expect((await pestana.boundingBox())?.height ?? 0, `${ancho} px ${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
+      await expect(boton).toBeVisible()
+      expect((await boton.boundingBox())?.height ?? 0, `${ancho} px ${ruta} botón`).toBeGreaterThanOrEqual(44)
+      const secciones = await abrirMenuDeSecciones(page)
+      await expect(secciones).toHaveText(SECCIONES)
+      for (const nombre of SECCIONES) {
+        const caja = await secciones.filter({ hasText: nombre }).boundingBox()
+        expect(caja?.height ?? 0, `${ancho} px ${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
+        expect(caja && caja.x >= 0 && caja.x + caja.width <= ancho, `${ancho} px ${ruta} ${nombre} en pantalla`).toBe(
+          true,
+        )
       }
-      // One row inside the pill (it slides when it does not fit), and the open section is whole in view.
-      const arribas = await nav
-        .getByRole("link")
-        .evaluateAll((pestanas) => pestanas.map((pestana) => Math.round(pestana.getBoundingClientRect().top)))
-      expect(new Set(arribas).size, `${ancho} px ${ruta}`).toBe(1)
-      const pista = await nav.getByRole("list").boundingBox()
-      const actual = await nav.locator("[aria-current='page']").boundingBox()
-      expect(actual && pista && actual.x >= pista.x && actual.x + actual.width <= pista.x + pista.width + 0.5).toBe(
-        true,
-      )
       const sinDesborde = await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       )
       expect(sinDesborde, `${ancho} px ${ruta}`).toBe(true)
     }
   }
+})
+
+test("the section menu opens the four sections, folds on Escape back to its button and on a tap outside, and goes to Autores", async ({
+  page,
+}) => {
+  await page.goto("/biblioteca/temas")
+  const { nav, boton } = menuDeSecciones(page)
+  await expect(boton).toHaveAccessibleName("Sección de la Biblioteca: Temas")
+  await expect(boton).toHaveAttribute("aria-expanded", "false")
+  await expect(nav.getByRole("link")).toHaveCount(0)
+
+  const secciones = await abrirMenuDeSecciones(page)
+  await expect(secciones).toHaveText(SECCIONES)
+  await expect(nav.getByRole("link", { name: "Temas" })).toHaveAttribute("aria-current", "page")
+  await expect(nav.locator("[aria-current='page']")).toHaveCount(1)
+  expect(await revisarConAxe(page, "menú de secciones abierto")).toEqual([])
+
+  await nav.getByRole("link", { name: "Autores" }).focus()
+  await page.keyboard.press("Escape")
+  await expect(boton).toHaveAttribute("aria-expanded", "false")
+  await expect(boton).toBeFocused()
+  await expect(secciones).toHaveCount(0)
+
+  await page.keyboard.press("Enter")
+  await expect(boton).toHaveAttribute("aria-expanded", "true")
+  await page.getByRole("heading", { name: "Biblioteca", level: 1 }).click()
+  await expect(boton).toHaveAttribute("aria-expanded", "false")
+
+  await irASeccion(page, "Autores", /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
+  await expect(boton).toHaveAccessibleName("Sección de la Biblioteca: Autores")
+  await expect(boton).toHaveAttribute("aria-expanded", "false")
+  expect(await revisarConAxe(page, "autores tras el menú")).toEqual([])
 })
 
 test("only Coni: without a session it asks to sign in, and the maintainer is refused both sections and their pages", async ({
@@ -136,18 +175,21 @@ test("Autores, Temas and their pages pass WCAG 2.x AA (4n)", async ({ page }) =>
   expect(hallazgos).toEqual([])
 })
 
-test("at 375 px with large text the tabs, the search and the quick filters fit, 44 px or more, nothing scrolls sideways (4c)", async ({
+test("at 375 px with large text the section menu, the search and the quick filters fit, 44 px or more, nothing scrolls sideways (4c)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   for (const ruta of ["/biblioteca/autores", "/biblioteca/temas"]) {
     await page.goto(ruta)
     await conLetraGrande(page)
-    const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    for (const nombre of ["Materiales", "Autores", "Temas"]) {
-      const pestana = nav.getByRole("link", { name: nombre })
-      await expect(pestana).toBeVisible()
-      expect((await pestana.boundingBox())?.height ?? 0, `${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
+    const { boton } = menuDeSecciones(page)
+    await expect(boton).toBeVisible()
+    expect((await boton.boundingBox())?.height ?? 0, `${ruta} botón`).toBeGreaterThanOrEqual(44)
+    const secciones = await abrirMenuDeSecciones(page)
+    for (const nombre of SECCIONES) {
+      const caja = await secciones.filter({ hasText: nombre }).boundingBox()
+      expect(caja?.height ?? 0, `${ruta} ${nombre}`).toBeGreaterThanOrEqual(44)
+      expect(caja && caja.x >= 0 && caja.x + caja.width <= 375, `${ruta} ${nombre} en pantalla`).toBe(true)
     }
     const sinDesborde = await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

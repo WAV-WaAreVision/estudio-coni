@@ -84,10 +84,11 @@ export function MenuDeSecciones<T extends string>({
           )}
         />
       </button>
+      {/* Above z-10: the Temas network row lifts its chips to z-10 and sits later in the page, so a tie lost the taps. */}
       <ul
         id={idDeLaLista}
         hidden={!abierto}
-        className="absolute top-full left-0 z-10 mt-2 grid w-max min-w-full max-w-[calc(100vw-2.5rem)] gap-1 rounded-panel bg-piedra p-1 shadow-relieve-alto"
+        className="absolute top-full left-0 z-20 mt-2 grid w-max min-w-full max-w-[calc(100vw-2.5rem)] gap-1 rounded-panel bg-piedra p-1 shadow-relieve-alto"
       >
         {opciones.map((opcion) => {
           const esActual = opcion.valor === actual
