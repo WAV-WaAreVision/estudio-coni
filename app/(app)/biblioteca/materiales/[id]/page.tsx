@@ -1,12 +1,18 @@
 import { notFound } from "next/navigation"
 import { z } from "zod"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
-import { avisoDeProceso, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
+import {
+  avisoDeProceso,
+  estaProcesando,
+  REFRESCO_DE_LA_BIBLIOTECA_MS,
+  sePuedeReintentar,
+} from "@/lib/dominio/biblioteca/estado"
 import { adaptacionDe } from "@/lib/dominio/biblioteca/ficha"
 import { esRol, etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
@@ -54,6 +60,8 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
   // leaves the phone's layout as it was). The material comes first in the DOM, so a screen reader meets it first.
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(0,42rem)_20rem] md:items-start md:justify-between md:gap-10">
+      {/* A page opened before the task wrote its estimate would keep saying only «Lo estoy procesando.». */}
+      <RefrescoAutomatico activo={estaProcesando(material)} cadaMs={REFRESCO_DE_LA_BIBLIOTECA_MS} />
       <div data-detalle="principal" className="grid min-w-0 gap-6">
         <Volver href="/biblioteca">Materiales</Volver>
         <header className="grid gap-2">

@@ -38,6 +38,8 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
 import { BotonReintentar } from "@/app/(app)/biblioteca/boton-reintentar"
 import DetalleDeMaterial from "@/app/(app)/biblioteca/materiales/[id]/page"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const conId = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -209,6 +211,25 @@ describe("the material detail page", () => {
         ficha: null,
       })
       expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([])
+    })
+
+    it("asks again while it works, so the estimate shows up without a reload, and stops once it is not", async () => {
+      esConi.valor = true
+      const refresco = (arbol: { type: unknown; props: Record<string, unknown> }[]) =>
+        arbol.filter((elemento) => elemento.type === RefrescoAutomatico).map((elemento) => elemento.props)
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, estado: "procesando" }, ficha: null })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([
+        { activo: true, cadaMs: REFRESCO_DE_LA_BIBLIOTECA_MS },
+      ])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: null })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([
+        { activo: false, cadaMs: REFRESCO_DE_LA_BIBLIOTECA_MS },
+      ])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", motivo_fallo: "tope_mensual" },
+        ficha: null,
+      })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))[0]?.activo).toBe(false)
     })
   })
 })

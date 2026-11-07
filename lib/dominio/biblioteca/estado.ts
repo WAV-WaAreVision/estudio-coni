@@ -27,6 +27,9 @@ export function estaProcesando(material: EstadoDeProceso): boolean {
   return material.estado === "procesando" && !marcadoConMotivo(material.motivo_fallo)
 }
 
+/** While a material is really working, the list and its page ask the server again this often. */
+export const REFRESCO_DE_LA_BIBLIOTECA_MS = 10_000
+
 /** What she reads while it works (spec decision 3): the estimate once the task wrote it; null when it is not working. */
 export function avisoDeProceso(material: EstadoDeProceso): string | null {
   if (!estaProcesando(material)) return null

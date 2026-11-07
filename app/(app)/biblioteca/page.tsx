@@ -14,6 +14,7 @@ import {
 } from "@/lib/datos/biblioteca"
 import { ID_DEL_TITULO_DE_LA_LISTA, leerBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { AVISO_TRAS_SUBIR, RUTA_DE_SUBIR, vieneDeSubir } from "@/lib/dominio/biblioteca/borrador-de-subida"
+import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
 import { hayFiltros, leerFiltros, leerSeleccion } from "@/lib/dominio/biblioteca/filtros"
 import { exigirConi } from "@/lib/sesion/coni"
 import { AvisoDeBorrado } from "./aviso-de-borrado"
@@ -25,9 +26,6 @@ import { PanelDeMaterial, PistaDelPanel } from "./panel-de-material"
 import { TablaDeMateriales } from "./tabla-de-materiales"
 import { TarjetaDeMaterial } from "./tarjeta-de-material"
 import { TrasElAviso } from "./tras-el-aviso"
-
-/** While any material is really working (anywhere, not only in the filtered list), the list asks again every 10 s. */
-const REFRESCO_MS = 10_000
 
 export default async function Materiales({
   searchParams,
@@ -60,7 +58,8 @@ export default async function Materiales({
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-8">
       <FocoDelPanel seleccion={seleccion} />
-      <RefrescoAutomatico activo={conteos.trabajando > 0} cadaMs={REFRESCO_MS} />
+      {/* While any material is really working (anywhere, not only in the filtered list), the list asks again. */}
+      <RefrescoAutomatico activo={conteos.trabajando > 0} cadaMs={REFRESCO_DE_LA_BIBLIOTECA_MS} />
       {borrado ? <TrasElAviso parametro="aviso" tambien="id" /> : null}
       {/* Always drawn: its toast outlives the note leaving the address (plan D6). */}
       <AvisoDeBorrado
