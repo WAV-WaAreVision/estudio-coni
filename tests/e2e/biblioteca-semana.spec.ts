@@ -175,7 +175,13 @@ test("the section menu reaches Semana from Temas and marks it as the open sectio
   const { nav, boton } = menuDeSecciones(page)
   await expect(boton).toHaveAccessibleName("Sección de la Biblioteca: Semana")
   await abrirMenuDeSecciones(page)
-  await expect(nav.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "page")
+  const ultima = nav.getByRole("link", { name: "Semana" })
+  await expect(ultima).toHaveAttribute("aria-current", "page")
+  // Tab past the last section folds the list, so it never covers what takes the focus next (WCAG 2.4.11).
+  await ultima.focus()
+  await page.keyboard.press("Tab")
+  await expect(boton).toHaveAttribute("aria-expanded", "false")
+  await expect(nav.getByRole("link")).toHaveCount(0)
 })
 
 test("at 375 px with large text the section menu, the button and the theories fit, 44 px or more, nothing scrolls sideways (4n)", async ({

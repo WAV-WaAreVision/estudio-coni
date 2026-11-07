@@ -37,6 +37,17 @@ test("the run, Proponer ahora and what to upload sit in a sticky right panel; wh
   expect(await revisarConAxe(page, "semana en el computador")).toEqual([])
 })
 
+test("on a computer the sections are tabs with Semana open, and the phone's section menu is not drawn", async ({
+  page,
+}) => {
+  await sembrarSemana({ estado: "lista" })
+  await page.goto("/biblioteca/semana")
+  const secciones = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
+  await expect(secciones).toHaveCount(1)
+  await expect(secciones.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "page")
+  await expect(page.getByRole("button", { name: /^Sección de la Biblioteca: / })).toHaveCount(0)
+})
+
 test("a failed week is asked again from the panel", async ({ page }) => {
   const escena = await sembrarSemana({ estado: "fallida" })
   await page.goto("/biblioteca/semana")
