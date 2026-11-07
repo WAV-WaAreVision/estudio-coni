@@ -21,9 +21,20 @@ describe("pausas_de_proveedor", () => {
     const primera = await abrir("elevenlabs", "pago", "primera")
     const segunda = await abrir("elevenlabs", "llave", "segunda")
     expect(primera).toMatchObject({ nueva: true, avisar: true })
-    expect(segunda).toEqual({ pausa_id: primera.pausa_id, nueva: false, avisar: true })
+    // The first caller claimed WAV's email: a second caller does not send it again while the claim is fresh.
+    expect(segunda).toEqual({ pausa_id: primera.pausa_id, nueva: false, avisar: false })
     const { rows } = await pool.query("select motivo, detalle from public.pausas_de_proveedor")
     expect(rows).toEqual([{ motivo: "pago", detalle: "primera" }])
+  })
+
+  it("hands WAV's email to another caller once an unmarked claim is five minutes old", async () => {
+    const { pausa_id } = await abrir("heygen", "cuota")
+    await pool.query(
+      "update public.pausas_de_proveedor set aviso_reclamado_en = now() - interval '6 minutes' where id = $1",
+      [pausa_id],
+    )
+    expect(await abrir("heygen", "cuota")).toMatchObject({ nueva: false, avisar: true })
+    expect(await abrir("heygen", "cuota")).toMatchObject({ nueva: false, avisar: false })
   })
 
   it("stops asking to email WAV once the pause is marked as told", async () => {

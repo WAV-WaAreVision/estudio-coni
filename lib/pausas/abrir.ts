@@ -58,8 +58,9 @@ export function cuerpoDePausa(pausa: PausaDeProveedor): string {
 
 /**
  * Spec 2026-11-07, decision 3: opens the provider's pause (an open one is kept as it is) and emails WAV once per pause.
- * Coni gets no notice: the text on the piece or the screen says it. The email goes after the row and is marked after
- * it is sent (plan amendment A1), so a failed email is sent again by the next caller instead of being lost.
+ * Coni gets no notice: the text on the piece or the screen says it. Only the caller that claimed the email sends it,
+ * so concurrent callers send one; it is marked after it is sent (plan amendment A1), so a failed email is sent again
+ * by a later caller once the claim is five minutes old instead of being lost.
  */
 export async function abrirPausa(deps: DepsPausa, pausa: PausaDeProveedor): Promise<{ nueva: boolean }> {
   const { data, error } = await deps.db.rpc("abrir_pausa_de_proveedor", {

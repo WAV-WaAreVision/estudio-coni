@@ -10,6 +10,9 @@ create table public.pausas_de_proveedor (
   desde timestamptz not null default now(),
   -- When WAV's email went out; null means the next caller sends it again.
   avisada_en timestamptz,
+  -- When a caller took the job of sending WAV's email. Concurrent callers see the claim and do not send it too; a
+  -- claim five minutes old without `avisada_en` (its caller failed or died) is handed to the next caller.
+  aviso_reclamado_en timestamptz,
   cerrada_en timestamptz,
   constraint pausa_cerrada_despues check (cerrada_en is null or cerrada_en >= desde)
 );
@@ -25,25 +28,34 @@ create policy "coni y wav leen pausas" on public.pausas_de_proveedor for select 
 create trigger auditar after insert or update or delete on public.pausas_de_proveedor
   for each row execute function public.registrar_evento();
 
--- Opens the provider's pause, or answers the open one as it is. `avisar` says WAV has not been emailed yet.
+-- Opens the provider's pause, or answers the open one as it is. `avisar` is true for exactly one caller at a time:
+-- the one that claimed WAV's email (an atomic update, so concurrent callers cannot both send it).
 create function public.abrir_pausa_de_proveedor(p_proveedor text, p_motivo text, p_detalle text)
 returns table (pausa_id uuid, nueva boolean, avisar boolean)
 language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid;
+  v_nueva boolean := false;
+  v_avisar boolean;
 begin
   insert into public.pausas_de_proveedor (proveedor, motivo, detalle)
   values (p_proveedor, p_motivo, left(p_detalle, 400))
   on conflict (proveedor) where cerrada_en is null do nothing
   returning public.pausas_de_proveedor.id into v_id;
   if v_id is not null then
-    return query select v_id, true, true;
-    return;
-  end if;
-  return query
-    select p.id, false, p.avisada_en is null
+    v_nueva := true;
+  else
+    select p.id into v_id
       from public.pausas_de_proveedor p
      where p.proveedor = p_proveedor and p.cerrada_en is null;
+  end if;
+  update public.pausas_de_proveedor
+     set aviso_reclamado_en = now()
+   where id = v_id
+     and avisada_en is null
+     and (aviso_reclamado_en is null or aviso_reclamado_en < now() - interval '5 minutes')
+  returning true into v_avisar;
+  return query select v_id, v_nueva, coalesce(v_avisar, false);
 end;
 $$;
 

@@ -35,8 +35,29 @@ describe("abrirPausa", () => {
       },
     }
     await expect(abrirPausa({ db, avisos: rota }, pago())).rejects.toThrow("Resend no responde")
+    const mientrasReclamado = notificadorEnMemoria()
+    expect(await abrirPausa({ db, avisos: mientrasReclamado }, pago())).toEqual({ nueva: false })
+    expect(mientrasReclamado.aWavEnviados).toEqual([])
+
+    // The failed caller's claim expires after five minutes; the next caller sends the email.
+    await pool.query("update public.pausas_de_proveedor set aviso_reclamado_en = now() - interval '6 minutes'")
     const avisos = notificadorEnMemoria()
     expect(await abrirPausa({ db, avisos }, pago())).toEqual({ nueva: false })
     expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+
+  it("emails WAV once when three callers open the same pause at the same time", async () => {
+    const db = clienteDeServicio()
+    const enviados: string[] = []
+    const lenta = {
+      ...notificadorEnMemoria(),
+      aWav: async (asunto: string) => {
+        await new Promise((resolver) => setTimeout(resolver, 300))
+        enviados.push(asunto)
+      },
+    }
+    const resultados = await Promise.all([1, 2, 3].map(() => abrirPausa({ db, avisos: lenta }, pago())))
+    expect(enviados).toHaveLength(1)
+    expect(resultados.filter((resultado) => resultado.nueva)).toHaveLength(1)
   })
 })

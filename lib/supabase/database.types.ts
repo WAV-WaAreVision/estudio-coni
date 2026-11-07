@@ -1465,6 +1465,7 @@ export type Database = {
       pausas_de_proveedor: {
         Row: {
           avisada_en: string | null
+          aviso_reclamado_en: string | null
           cerrada_en: string | null
           desde: string
           detalle: string
@@ -1474,6 +1475,7 @@ export type Database = {
         }
         Insert: {
           avisada_en?: string | null
+          aviso_reclamado_en?: string | null
           cerrada_en?: string | null
           desde?: string
           detalle: string
@@ -1483,6 +1485,7 @@ export type Database = {
         }
         Update: {
           avisada_en?: string | null
+          aviso_reclamado_en?: string | null
           cerrada_en?: string | null
           desde?: string
           detalle?: string
