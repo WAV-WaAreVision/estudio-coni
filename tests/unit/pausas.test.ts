@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Falla } from "@/lib/dominio/falla"
 import {
   esProveedorConPausa,
+  esTextoDePausa,
   mensajeTecnico,
   PausaDeProveedor,
   proveedorDelTextoDePausa,
@@ -49,6 +50,13 @@ describe("texts", () => {
     expect(proveedorDelTextoDePausa(TEXTO_PAUSA.heygen)).toBe("heygen")
     expect(proveedorDelTextoDePausa("No pude preparar tu voz.")).toBeNull()
     expect(proveedorDelTextoDePausa(null)).toBeNull()
+  })
+
+  it("does not claim the Biblioteca text for Voyage, which writes no text (amendment A6)", () => {
+    expect(proveedorDelTextoDePausa(TEXTO_PAUSA_DE_BIBLIOTECA)).toBeNull()
+    expect(esTextoDePausa(TEXTO_PAUSA_DE_BIBLIOTECA)).toBe(true)
+    expect(esTextoDePausa(TEXTO_PAUSA.claude)).toBe(true)
+    expect(esTextoDePausa("No pude preparar tu voz.")).toBe(false)
   })
 
   it("answers the text of an open pause, or null", () => {

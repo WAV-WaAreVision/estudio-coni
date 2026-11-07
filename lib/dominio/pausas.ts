@@ -55,9 +55,13 @@ export class PausaDeProveedor extends Falla {
   }
 }
 
-/** The provider whose pause text this is, or null: a piece keeps the text after the pause closes. */
+/**
+ * The provider whose pause text this is, or null: a piece keeps the text after the pause closes. The Biblioteca text
+ * answers null: a Claude pause or ElevenLabs while transcribing writes it, and Voyage writes no text (amendment A6), so
+ * screens read it with `textoDePausaDeBiblioteca`.
+ */
 export function proveedorDelTextoDePausa(texto: string | null): ProveedorConPausa | null {
-  if (texto === null) return null
+  if (texto === null || texto === TEXTO_PAUSA_DE_BIBLIOTECA) return null
   return PROVEEDORES_CON_PAUSA.find((proveedor) => TEXTO_PAUSA[proveedor] === texto) ?? null
 }
 
