@@ -317,6 +317,31 @@ describe("Voyage en pausa", () => {
   })
 })
 
+describe("Voyage en pausa sin correo", () => {
+  it("does not fail the material when the pause cannot email WAV (A6)", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    simularVoyage(401)
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+    const avisos = {
+      ...notificadorEnMemoria(),
+      aWav: async () => {
+        throw new Error("Resend no responde")
+      },
+    }
+    const registro = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    const resultado = await procesarMaterial(await deps(almacen, { ...conLlave, avisos }), id)
+
+    expect(resultado).toEqual({ resultado: "listo" })
+    expect(await material(id)).toMatchObject({ estado: "listo", motivo_fallo: null })
+    expect(registro).toHaveBeenCalledWith(expect.stringContaining("Resend no responde"))
+    registro.mockRestore()
+    aviso.mockRestore()
+  })
+})
+
 describe("sin compuerta de costo", () => {
   it("asks for the claims of every chunk of a 490,000-character text, without a stop", async () => {
     const almacen = almacenEnMemoria()

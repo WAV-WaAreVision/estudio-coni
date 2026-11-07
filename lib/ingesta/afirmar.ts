@@ -163,7 +163,15 @@ async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Pr
   } catch (error) {
     if (error instanceof MaterialBorrado) throw error
     // The claims still wait for maintenance, but a payment or key failure is WAV's to fix now (spec 2026-11-07).
-    if (error instanceof PausaDeProveedor) await abrirPausa(deps, error)
+    if (error instanceof PausaDeProveedor) {
+      try {
+        await abrirPausa(deps, error)
+      } catch (alAbrir) {
+        // Amendment A6: a Voyage pause must never fail the material; maintenance resends WAV's email.
+        if (!(alAbrir instanceof Error)) throw alAbrir
+        console.error(`No pude abrir la pausa de ${error.proveedor} del material ${material.id}: ${alAbrir.message}`)
+      }
+    }
     // Left for maintenance, but visible in the logs. The key is already redacted by the client.
     console.warn(`Embeddings pendientes del material ${material.id}: ${mensajeTecnico(error)}`)
   }
