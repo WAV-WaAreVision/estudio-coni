@@ -191,6 +191,19 @@ describe("firmarCarrusel", () => {
     expect(disparos).toMatchObject([{ tarea: "armar", piezaId: id }])
   })
 
+  it("retries a failed carousel render while HeyGen is paused: a carousel never calls HeyGen", async () => {
+    const id = await sembrarCarrusel("error_produccion")
+    piezasCreadas.push(id)
+    await pool.query("select public.abrir_pausa_de_proveedor('heygen', 'cuota', 'x')")
+    const { deps } = armar()
+
+    try {
+      expect((await reintentar(deps, id, await versionDe(id))).ok).toBe(true)
+    } finally {
+      await pool.query("delete from public.pausas_de_proveedor")
+    }
+  })
+
   it("refuses a screen that is out of date", async () => {
     const id = await carrusel()
     expect(await firmarCarrusel(armar().deps, id, (await versionDe(id)) - 1)).toEqual({

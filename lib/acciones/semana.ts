@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { exigirSinPausa } from "@/lib/datos/pausas"
 import { NO_ARRANCO, puedePedirMotor, YA_PROPUSO } from "@/lib/dominio/biblioteca/semana"
 import { Falla } from "@/lib/dominio/falla"
 import { domingoDeSemana } from "@/lib/motor/semana"
@@ -27,6 +28,7 @@ export interface DepsSemana {
 export function proponerAhora(deps: DepsSemana): Promise<Resultado> {
   return aResultado("proponerAhora", async () => {
     await exigirConi(deps.db)
+    await exigirSinPausa(deps.db, "claude")
     const ahora = deps.ahora()
     const semana = domingoDeSemana(ahora)
     const { data, error } = await deps.db

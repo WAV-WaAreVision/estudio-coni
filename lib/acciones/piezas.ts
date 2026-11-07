@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { laminasAJson, leerCarruselVigente, leerVersion, leerVersionVigente } from "@/lib/datos/carrusel"
 import { leerInstagramConectado, leerPresupuesto } from "@/lib/datos/pantallas"
+import { exigirSinPausa } from "@/lib/datos/pausas"
 import { cambiosDesdePieza, piezaDesdeFila } from "@/lib/datos/piezas"
 import {
   actualizarPieza,
@@ -370,6 +371,7 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
     if (fila.estado !== "guion_en_proceso" || fila.explicacion === null) {
       throw new Falla("Esta pieza no está esperando que la reintentes.")
     }
+    await exigirSinPausa(deps.db, "claude")
     const guardada = await guardar(deps.db, fila, { version: fila.version + 1, explicacion: null })
     return iniciar(
       "producir-pieza",
@@ -402,6 +404,7 @@ export function aprobarGuion(deps: DepsAcciones, piezaId: string, versionVista: 
     // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
     if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "aprobar_guion")
     exigirVersion(fila, versionVista, new ArtefactoCambio())
+    await exigirSinPausa(deps.db, "heygen")
     // `versionVista` is the version of the screen she signed, and the write below only matches that version, so the
     // hash recomputed from this row is the hash of exactly what she saw.
     if (fila.estado !== "guion_por_aprobar") throw new TransicionInvalida(fila.estado, "aprobar_guion")
@@ -618,6 +621,7 @@ export function pedirVoz(deps: DepsAcciones, piezaId: string, versionVista: numb
     // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
     if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "pedir_voz")
     exigirVersion(fila, versionVista)
+    await exigirSinPausa(deps.db, "elevenlabs")
     const dejada = await pedirVozDeFila(deps, fila, nueva)
     if (dejada.estado !== "grabando_voz") throw new Falla(TEXTO_SIN_VOZ)
     return {}
@@ -630,6 +634,8 @@ export function pedirCambios(deps: DepsAcciones, piezaId: string, versionVista: 
     // A reel's gate 1 never signs, voices or rewrites a carousel (plan amendment 2).
     if (fila.tipo !== "reel") throw new TransicionInvalida(fila.estado, "pedir_cambios")
     exigirVersion(fila, versionVista)
+    // Plan amendment A5: a new script needs Claude.
+    await exigirSinPausa(deps.db, "claude")
     const guardada = await guardarEvento(deps.db, fila, { tipo: "pedir_cambios" })
     return iniciar(
       "producir-pieza",
@@ -845,6 +851,7 @@ export function regrabar(deps: DepsAcciones, piezaId: string, versionVista: numb
   return aResultado("regrabar", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    await exigirSinPausa(deps.db, "heygen")
     const guardada = await guardarEvento(deps.db, fila, { tipo: "regrabar" })
     return iniciar(
       "grabar-pieza",
@@ -885,6 +892,8 @@ export function reintentar(deps: DepsAcciones, piezaId: string, versionVista: nu
   return aResultado("reintentar", async () => {
     const fila = await leerObligatoria(deps.db, piezaId)
     exigirVersion(fila, versionVista)
+    // Only a reel's render calls HeyGen again; a carousel renders its slides itself.
+    if (fila.estado === "error_produccion" && fila.tipo === "reel") await exigirSinPausa(deps.db, "heygen")
     const guardada = await guardarEvento(deps.db, fila, { tipo: "reintentar", ahora: deps.ahora() })
     if (guardada.estado === "armando_carrusel") {
       return iniciarArmado(

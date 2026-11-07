@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { exigirBibliotecaSinPausa } from "@/lib/datos/pausas"
 import { filasDePilaresAJson } from "@/lib/datos/pilares"
 import { type AutorDeLista, LARGO_DE_AUTOR_NUEVO } from "@/lib/dominio/biblioteca/autores"
 import {
@@ -116,6 +117,7 @@ function moverYProcesar(nombre: string, rpc: RpcDeMaterial, siNoCorresponde: str
   return (deps: DepsBiblioteca, materialId: string): Promise<Resultado> =>
     aResultado(nombre, async () => {
       await exigirConi(deps.db)
+      await exigirBibliotecaSinPausa(deps.db)
       await exigirMaterialVisible(deps.db, materialId)
       const { error } = await deps.db.rpc(rpc, { p_id: materialId })
       if (error) {
@@ -284,6 +286,7 @@ export function crearMaterial(
 ): Promise<Resultado<{ materialId: string; subidas: SubidaFirmada[] }>> {
   return aResultado("crearMaterial", async () => {
     await exigirConi(deps.db)
+    await exigirBibliotecaSinPausa(deps.db)
     const leida = leerEntrada(entrada)
     if (!leida.ok) throw new Falla(leida.error)
     const { datos } = leida
@@ -387,6 +390,7 @@ async function dejarParaReintentar(db: Db, materialId: string): Promise<never> {
 export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<Resultado> {
   return aResultado("confirmarMaterial", async () => {
     await exigirConi(deps.db)
+    await exigirBibliotecaSinPausa(deps.db)
     const subidoPor = await idDeQuienEntro(deps.db)
     const { data: material, error } = await deps.db
       .from("materiales")
