@@ -82,12 +82,9 @@ export type ResultadoProcesar =
   | { resultado: "limite" }
   | { resultado: "en_curso" }
   | { resultado: "borrado" }
-  | { resultado: "esperando_confirmacion" }
 
 /** The task's `maxDuration` (1800 s) plus a margin: a claim older than this belongs to a run that is gone. */
 export const VIGENCIA_DE_CORRIDA_SEGUNDOS = 1800 + 300
-/** Above this estimate (the claims of every chunk, or the card, in USD) a person confirms the cost before the run spends it. */
-export const UMBRAL_CONFIRMACION_USD = 1
 const MOTIVO_SIN_ACCESO = "El link pide iniciar sesión o no tiene texto: sube el texto o el archivo"
 const REDES_QUE_NO_SE_ABREN = ["instagram.com", "tiktok.com"]
 const ANFITRIONES_DE_YOUTUBE = ["youtube.com", "youtu.be", "youtube-nocookie.com"]
@@ -576,23 +573,15 @@ export function estimarCostoRestante(partes: readonly Parte[], rol: string): num
 
 export { ESTIMADO_POR_TRAMO_USD } from "@/lib/ingesta/afirmar"
 
-const formatoUsd = new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
 /**
- * A long material waits for a person to confirm its cost. The extraction is already stored, so confirming and running
- * again does not pay it twice. Returns true when the run stopped here.
+ * Every material gets what the rest will cost, right after the extraction and before the paid steps, and the run goes
+ * on: the Biblioteca says it while it works (spec 2026-11-06, decisions 1 and 2). Runaway spend is held by the spend
+ * alarm and the hard limit, not by a stop here.
  */
-async function esperaConfirmacion(ctx: Contexto, original: Extraccion): Promise<boolean> {
-  const { deps, material } = ctx
-  if (material.costo_confirmado_en) return false
-  const estimado = estimarCostoRestante(original.partes, material.rol)
-  if (estimado <= UMBRAL_CONFIRMACION_USD) return false
-  await actualizarMaterial(deps.db, material.id, {
-    costo_estimado_usd: estimado,
-    motivo_fallo: `Este material es largo: procesarlo cuesta cerca de US$ ${formatoUsd.format(estimado)}. Confírmalo para seguir.`,
-    ...LIBRE,
+async function anotarEstimado(ctx: Contexto, original: Extraccion): Promise<void> {
+  await actualizarMaterial(ctx.deps.db, ctx.material.id, {
+    costo_estimado_usd: estimarCostoRestante(original.partes, ctx.material.rol),
   })
-  return true
 }
 
 /** The two-letter code the extraction reported, or the one the stopwords make clear; null when neither does. */
@@ -605,7 +594,7 @@ async function procesar(ctx: Contexto): Promise<ResultadoProcesar> {
   const { deps, material } = ctx
   const original = await extraccionDe(ctx)
   if ("limite" in original) return detenidoPorLimite(ctx)
-  if (await esperaConfirmacion(ctx, original)) return { resultado: "esperando_confirmacion" }
+  await anotarEstimado(ctx, original)
   await guardarTexto(deps.almacen, claves(material.id).textoOriginal, renderizarPartes(original.partes))
   const idioma = idiomaDeLaFuente(original)
   if (idioma) await actualizarMaterial(deps.db, material.id, { idioma_original: idioma })

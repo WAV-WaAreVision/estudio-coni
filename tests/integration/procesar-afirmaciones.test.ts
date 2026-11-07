@@ -289,20 +289,21 @@ describe("sin Voyage", () => {
   })
 })
 
-describe("compuerta de costo", () => {
-  it("makes a 490,000-character text wait for confirmation and calls no provider", async () => {
+describe("sin compuerta de costo", () => {
+  it("asks for the claims of every chunk of a 490,000-character text, without a stop", async () => {
     const almacen = almacenEnMemoria()
     const claude = simularClaude()
     const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: `${PARRAFO}\n\n`.repeat(98) })
 
     const resultado = await procesarMaterial(await deps(almacen), id)
 
-    expect(resultado).toEqual({ resultado: "esperando_confirmacion" })
-    expect(claude.total).toBe(0)
-    expect(await gastos(id)).toEqual([])
+    expect(resultado).toEqual({ resultado: "listo" })
+    const partes = JSON.parse(texto(almacen, id, "partes-original.json") ?? "null").partes
+    expect(claude.afirmaciones).toHaveLength(aTramos(partes).length)
+    expect((await material(id)).estado).toBe("listo")
   })
 
-  it("does not ask about a 20,000-character text", async () => {
+  it("runs a 20,000-character text to the end as before", async () => {
     const almacen = almacenEnMemoria()
     simularClaude()
     const id = await crearMaterial(almacen, {
