@@ -1,24 +1,56 @@
 import { HandTap, HourglassMedium } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
+import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { PildoraDeEstado } from "@/components/ui/estado"
 import { ICONO } from "@/components/ui/icono"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Panel } from "@/components/ui/panel"
 import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import {
   A_PEDIDO,
   type CorridaLeida,
+  type CruceDescartado,
+  crucesQueNoSirvieron,
   etiquetaDePilarParaSubir,
+  lineasDeTeoriaParaWav,
+  MOTOR_NO_TERMINO,
   NADA_QUE_SUBIR,
   nadaQueSubir,
   presentarCorrida,
   type QueSubirLeido,
+  respaldoDeTeoria,
   resumenDeCorrida,
+  SIN_CORRIDAS,
+  SIN_CRUCES,
+  type TemaDeTeoria,
+  type TeoriaEscrita,
+  TITULO_DE_LO_CRUZADO,
+  TRABAJANDO,
   tituloDeSemana,
 } from "@/lib/dominio/biblioteca/semana"
+import { cn } from "@/lib/utils"
 
 // Ported from Ingesta's app/(app)/semana/vista-de-semana.tsx, with fixes 4a, 4h, 4j and 4l (spec 2026-11-06).
 
 const ICONO_DE_PILDORA = { "aria-hidden": true, size: ICONO.chico, weight: "bold", className: "shrink-0" } as const
+
+/** Each topic as a chip that leads to its page (spec decision 9); nothing when none is left. */
+function EnlacesDeTemas({ temas, etiqueta }: { temas: readonly TemaDeTeoria[]; etiqueta: string }) {
+  if (temas.length === 0) return null
+  return (
+    <ul aria-label={etiqueta} className="flex flex-wrap gap-2">
+      {temas.map((tema) => (
+        <li key={tema.id}>
+          <Link href={hrefDeTema(tema.id)} className={cn(FORMA_DE_CHIP, TRANSICION_DE_CHIP)}>
+            {tema.nombre}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** The run: its week, its state as icon and word (4j), «A pedido», and a ready run's ideas and cost. */
 export function CorridaDeLaSemana({ corrida }: { corrida: CorridaLeida }) {
@@ -85,6 +117,87 @@ export function QueSubir({ queSubir }: { queSubir: QueSubirLeido | null }) {
           </ul>
         </div>
       ) : null}
+    </section>
+  )
+}
+
+const ID_DE_LO_CRUZADO = "lo-que-cruzo"
+
+function Teoria({ teoria }: { teoria: TeoriaEscrita }) {
+  const respaldo = respaldoDeTeoria(teoria.nivelEvidencia)
+  return (
+    <li data-contorno className="grid gap-3 rounded-panel bg-piedra-alta p-5">
+      <h3 className="text-cuerpo font-semibold text-balance">{teoria.titulo}</h3>
+      {teoria.tesis ? <p className="text-cuerpo">{teoria.tesis}</p> : null}
+      {respaldo ? (
+        <PildoraDeEstado tipo="neutro" className="w-fit">
+          {respaldo}
+        </PildoraDeEstado>
+      ) : null}
+      <EnlacesDeTemas temas={teoria.temas} etiqueta={`Temas de «${teoria.titulo}»`} />
+      <DetalleParaWav lineas={lineasDeTeoriaParaWav(teoria)} proveedor={null} />
+    </li>
+  )
+}
+
+/** Folded, with their count (4l): the crossings the engine tried and dropped, and why. */
+function CrucesQueNoSirvieron({ descartadas }: { descartadas: readonly CruceDescartado[] }) {
+  if (descartadas.length === 0) return null
+  return (
+    <MasOpciones titulo={crucesQueNoSirvieron(descartadas.length)}>
+      <ul aria-label="Cruces que no sirvieron" className="grid gap-4">
+        {descartadas.map((cruce) => (
+          <li key={cruce.id} className="grid gap-2">
+            <EnlacesDeTemas temas={cruce.temas} etiqueta="Temas del cruce" />
+            <p className="text-meta text-apagado">{cruce.razon}</p>
+          </li>
+        ))}
+      </ul>
+    </MasOpciones>
+  )
+}
+
+/** What the run says in the left column when it wrote no theory, or why there is none yet (plan D2). */
+function AvisoDeLaCorrida({ corrida, hayTeorias }: { corrida: CorridaLeida; hayTeorias: boolean }) {
+  if (corrida.estado === "fallida") {
+    return <LineaDeEstado tipo="error" titulo={corrida.motivoFallo ?? MOTOR_NO_TERMINO} tituloEnTinta anunciada />
+  }
+  if (corrida.estado === "corriendo") return <p className="text-cuerpo text-apagado">{TRABAJANDO}</p>
+  return hayTeorias ? null : <p className="text-cuerpo text-apagado">{SIN_CRUCES}</p>
+}
+
+/** «Lo que el motor cruzó esta semana» (4h): the theories by score, then the folded crossings. Empty in one line (4l). */
+export function LoQueCruzo({
+  corrida,
+  teorias,
+  descartadas,
+}: {
+  corrida: CorridaLeida | null
+  teorias: readonly TeoriaEscrita[]
+  descartadas: readonly CruceDescartado[]
+}) {
+  if (corrida === null) return <p className="text-cuerpo text-apagado">{SIN_CORRIDAS}</p>
+  const aviso = <AvisoDeLaCorrida corrida={corrida} hayTeorias={teorias.length > 0} />
+  if (teorias.length === 0) {
+    return (
+      <div className="grid gap-4">
+        {aviso}
+        <CrucesQueNoSirvieron descartadas={descartadas} />
+      </div>
+    )
+  }
+  return (
+    <section aria-labelledby={ID_DE_LO_CRUZADO} className="grid gap-4">
+      <h2 id={ID_DE_LO_CRUZADO} className="text-pieza text-balance">
+        {TITULO_DE_LO_CRUZADO}
+      </h2>
+      {aviso}
+      <ul aria-labelledby={ID_DE_LO_CRUZADO} className="grid gap-4">
+        {teorias.map((teoria) => (
+          <Teoria key={teoria.id} teoria={teoria} />
+        ))}
+      </ul>
+      <CrucesQueNoSirvieron descartadas={descartadas} />
     </section>
   )
 }

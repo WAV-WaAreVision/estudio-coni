@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/app/(app)/biblioteca/semana/acciones", () => ({ proponerAhoraAccion: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
-import { CorridaDeLaSemana, QueSubir } from "@/app/(app)/biblioteca/semana/vista-de-semana"
-import type { CorridaLeida, QueSubirLeido } from "@/lib/dominio/biblioteca/semana"
+import { CorridaDeLaSemana, LoQueCruzo, QueSubir } from "@/app/(app)/biblioteca/semana/vista-de-semana"
+import type { CorridaLeida, CruceDescartado, QueSubirLeido, TeoriaEscrita } from "@/lib/dominio/biblioteca/semana"
 
 const CORRIDA: CorridaLeida = {
   semana: "2026-11-08",
@@ -75,5 +75,116 @@ describe("QueSubir", () => {
   it("draws nothing when the run says nothing about it", () => {
     const { container } = render(<QueSubir queSubir={null} />)
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+const CARGA = { id: "11111111-1111-4111-8111-111111111111", nombre: "Carga mental" }
+const PAUSAS = { id: "22222222-2222-4222-8222-222222222222", nombre: "Pausas activas" }
+const TEORIA: TeoriaEscrita = {
+  id: "33333333-3333-4333-8333-333333333333",
+  titulo: "Repartir la carga también es descansar",
+  tesis: "Quien reparte la carga mental descansa mejor.",
+  puntaje: 0.82,
+  nivelEvidencia: "alto",
+  temas: [CARGA, PAUSAS],
+}
+const CRUCE: CruceDescartado = {
+  id: "44444444-4444-4444-8444-444444444444",
+  razon: "No hay ideas de dos autores distintos.",
+  temas: [CARGA],
+}
+
+describe("LoQueCruzo", () => {
+  const SIN_RESPALDO: TeoriaEscrita = {
+    ...TEORIA,
+    id: "66666666-6666-4666-8666-666666666666",
+    titulo: "Sin respaldo",
+    tesis: "Una tesis que el motor no pudo respaldar.",
+    puntaje: null,
+    nivelEvidencia: null,
+    temas: [],
+  }
+  const OTRO_CRUCE: CruceDescartado = {
+    id: "77777777-7777-4777-8777-777777777777",
+    razon: "Repite lo que el motor cruzó la semana pasada.",
+    temas: [PAUSAS],
+  }
+
+  it("lists each theory with its thesis, its backing in her words and its topics as links (4h, decision 9)", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA, SIN_RESPALDO]} descartadas={[]} />)
+    const region = screen.getByRole("region", { name: "Lo que el motor cruzó esta semana" })
+    expect(
+      within(region)
+        .getAllByRole("heading", { level: 3 })
+        .map((h) => h.textContent),
+    ).toEqual([TEORIA.titulo, "Sin respaldo"])
+    expect(within(region).getByText(TEORIA.tesis)).toBeInTheDocument()
+    expect(within(region).getByText("Respaldo: fuerte")).toBeInTheDocument()
+    const temas = within(region).getByRole("list", { name: `Temas de «${TEORIA.titulo}»` })
+    expect(
+      within(temas)
+        .getAllByRole("link")
+        .map((enlace) => [enlace.textContent, enlace.getAttribute("href")]),
+    ).toEqual([
+      ["Carga mental", `/biblioteca/temas/${CARGA.id}`],
+      ["Pausas activas", `/biblioteca/temas/${PAUSAS.id}`],
+    ])
+    expect(within(region).queryByRole("list", { name: "Temas de «Sin respaldo»" })).toBeNull()
+  })
+
+  it("folds the score and the id under Detalle para WAV", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA]} descartadas={[]} />)
+    const detalle = screen.getByText("Detalle para WAV").closest("details")
+    expect(detalle?.open).toBe(false)
+    expect(detalle).toHaveTextContent(`Puntaje: 0,82Teoría: ${TEORIA.id}`)
+  })
+
+  it("folds the crossings that did not work with their count, topics and reasons (4l)", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA]} descartadas={[CRUCE, OTRO_CRUCE]} />)
+    const cruces = screen.getByText("Cruces que no sirvieron (2)").closest("details")
+    expect(cruces?.open).toBe(false)
+    expect(cruces).toHaveTextContent(CRUCE.razon)
+    expect(cruces).toHaveTextContent(OTRO_CRUCE.razon)
+    const lista = within(cruces as HTMLElement).getByRole("list", { name: "Cruces que no sirvieron" })
+    expect(
+      within(lista)
+        .getAllByRole("link")
+        .map((enlace) => enlace.textContent),
+    ).toEqual(["Carga mental", "Pausas activas"])
+  })
+
+  it("says a ready run that crossed nothing in one line, with no heading and no empty fold (4l)", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[]} descartadas={[]} />)
+    expect(screen.getByText("Esta semana el motor no encontró cruces nuevos.")).toBeInTheDocument()
+    expect(screen.queryByRole("heading")).toBeNull()
+    expect(screen.queryByText(/Cruces que no sirvieron/)).toBeNull()
+  })
+
+  it("keeps the folded crossings under that line when there are some", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[]} descartadas={[CRUCE]} />)
+    expect(screen.getByText("Esta semana el motor no encontró cruces nuevos.")).toBeInTheDocument()
+    expect(screen.getByText("Cruces que no sirvieron (1)")).toBeInTheDocument()
+  })
+
+  it("says the engine is still working while it runs", () => {
+    render(<LoQueCruzo corrida={{ ...CORRIDA, estado: "corriendo" }} teorias={[]} descartadas={[]} />)
+    expect(screen.getByText("El motor todavía está trabajando en esta semana.")).toBeInTheDocument()
+  })
+
+  it("shows a failed run's reason, without interrupting her on load", () => {
+    const motivo = "No pude armar las ideas de esta semana. Avisamos al equipo; puedes volver a intentarlo."
+    render(
+      <LoQueCruzo corrida={{ ...CORRIDA, estado: "fallida", motivoFallo: motivo }} teorias={[]} descartadas={[]} />,
+    )
+    expect(screen.getByText(motivo)).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("Esta semana el motor no encontró cruces nuevos.")).toBeNull()
+  })
+
+  it("says when the first batch comes before any run", () => {
+    render(<LoQueCruzo corrida={null} teorias={[]} descartadas={[]} />)
+    expect(
+      screen.getByText("Todavía no corre el motor. La primera tanda llega el domingo a las 20:00."),
+    ).toBeInTheDocument()
   })
 })
