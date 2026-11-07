@@ -1,7 +1,7 @@
 // Regression for #71: every redirecting action runs from a page reached by a client navigation, where Next 16.2.6
 // dropped the redirect (6 of 24 runs; the button stayed pending). Next 16.4.5 fixed it upstream (vercel/next.js#95391).
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { bloquearRedExterna, entrarComo, leerCodigo, tocarHastaLlegar, vaciarBuzon } from "./ayudas"
+import { bloquearRedExterna, entrarComo, irASeccion, leerCodigo, tocarHastaLlegar, vaciarBuzon } from "./ayudas"
 import {
   AUTORA,
   CREDENCIAL,
@@ -48,8 +48,7 @@ test.describe("biblioteca", () => {
   test("unir autores from an author page reached by links", async ({ page }) => {
     const acciones = vigilarAcciones(page)
     await page.goto("/biblioteca")
-    const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    await tocarHastaLlegar(page, nav.getByRole("link", { name: "Autores" }), /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
+    await irASeccion(page, "Autores", /\/biblioteca\/autores(?:[?&]v=\d+)?$/)
     await tocarHastaLlegar(
       page,
       page.getByRole("list", { name: "Autores" }).getByRole("link", { name: new RegExp(OTRA_AUTORA) }),
@@ -70,8 +69,7 @@ test.describe("biblioteca", () => {
   test("ocultar, then mostrar, from pages reached by links", async ({ page }) => {
     const acciones = vigilarAcciones(page)
     await page.goto("/biblioteca")
-    const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    await tocarHastaLlegar(page, nav.getByRole("link", { name: "Temas" }), /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
+    await irASeccion(page, "Temas", /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
     await tocarHastaLlegar(
       page,
       page.getByRole("list", { name: "Temas" }).getByRole("link", { name: new RegExp(TEMA_PRINCIPAL) }),
@@ -110,8 +108,7 @@ test.describe("biblioteca", () => {
   test("ocultar the last idea of a topic reached by links lands on Temas", async ({ page }) => {
     const acciones = vigilarAcciones(page)
     await page.goto("/biblioteca")
-    const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    await tocarHastaLlegar(page, nav.getByRole("link", { name: "Temas" }), /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
+    await irASeccion(page, "Temas", /\/biblioteca\/temas(?:[?&]v=\d+)?$/)
     await tocarHastaLlegar(
       page,
       page.getByRole("list", { name: "Temas" }).getByRole("link", { name: new RegExp(OTRO_TEMA) }),

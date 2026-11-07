@@ -2,12 +2,15 @@ import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import {
   abrirDesplegable,
+  abrirMenuDeSecciones,
   alerta,
   bloquearRedExterna,
   conLetraGrande,
   disparosDelMotor,
   entrarComo,
+  irASeccion,
   limpiarDisparos,
+  menuDeSecciones,
   revisarConAxe,
   tocarHastaLlegar,
 } from "./ayudas"
@@ -165,27 +168,33 @@ test("a run that crossed nothing reads in one line, and before any run one line 
   await expect(page.getByRole("region", { name: "Qué subir después" })).toHaveCount(0)
 })
 
-test("the nav reaches Semana from Temas and marks it as the open section", async ({ page }) => {
+test("the section menu reaches Semana from Temas and marks it as the open section", async ({ page }) => {
   await sembrarSemana({ estado: "lista" })
   await page.goto("/biblioteca/temas")
-  const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
-  await tocarHastaLlegar(page, nav.getByRole("link", { name: "Semana" }), /\/biblioteca\/semana(?:[?&]v=\d+)?$/)
+  await irASeccion(page, "Semana", /\/biblioteca\/semana(?:[?&]v=\d+)?$/)
+  const { nav, boton } = menuDeSecciones(page)
+  await expect(boton).toHaveAccessibleName("Sección de la Biblioteca: Semana")
+  await abrirMenuDeSecciones(page)
   await expect(nav.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "page")
 })
 
-test("at 375 px with large text the tabs, the button and the theories fit, 44 px or more, nothing scrolls sideways (4n)", async ({
+test("at 375 px with large text the section menu, the button and the theories fit, 44 px or more, nothing scrolls sideways (4n)", async ({
   page,
 }) => {
   await sembrarSemana({ estado: "lista" })
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto("/biblioteca/semana")
   await conLetraGrande(page)
-  const nav = page.getByRole("navigation", { name: "Secciones de la Biblioteca" })
+  const menu = menuDeSecciones(page).boton
+  expect((await menu.boundingBox())?.height ?? 0, "menú").toBeGreaterThanOrEqual(44)
+  const secciones = await abrirMenuDeSecciones(page)
   for (const nombre of ["Materiales", "Autores", "Temas", "Semana"]) {
-    expect((await nav.getByRole("link", { name: nombre }).boundingBox())?.height ?? 0, nombre).toBeGreaterThanOrEqual(
-      44,
-    )
+    const caja = await secciones.filter({ hasText: nombre }).boundingBox()
+    expect(caja?.height ?? 0, nombre).toBeGreaterThanOrEqual(44)
+    expect(caja && caja.x >= 0 && caja.x + caja.width <= 375, `${nombre} en pantalla`).toBe(true)
   }
+  expect(await revisarConAxe(page, "semana con letra grande y el menú abierto")).toEqual([])
+  await page.keyboard.press("Escape")
   const boton = page.getByRole("button", { name: "Proponer ahora" })
   await expect(boton).toBeVisible()
   expect((await boton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)

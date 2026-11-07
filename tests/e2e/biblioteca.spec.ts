@@ -6,6 +6,7 @@ import {
   disparosDeMateriales,
   entrarComo,
   limpiarDisparos,
+  menuDeSecciones,
   revisarConAxe,
   tocarHastaLlegar,
 } from "./ayudas"
@@ -36,9 +37,7 @@ test("the phone list shows each material as a card with its words, topic and sta
 }) => {
   await page.goto("/biblioteca")
   await expect(page.getByRole("heading", { name: "Biblioteca", level: 1 })).toBeVisible()
-  await expect(
-    page.getByRole("navigation", { name: "Secciones de la Biblioteca" }).getByRole("link", { name: "Materiales" }),
-  ).toHaveAttribute("aria-current", "page")
+  await expect(menuDeSecciones(page).boton).toHaveAccessibleName("Sección de la Biblioteca: Materiales")
 
   const lista = page.getByRole("list", { name: "Materiales" })
   await expect(lista.getByRole("listitem")).toHaveCount(5)
@@ -266,18 +265,16 @@ test("the list, the detail and the card pass WCAG 2.x AA (4n)", async ({ page })
   expect(hallazgos).toEqual([])
 })
 
-test("at 375 px with large text the section tab and the quick filters fit, 44 px or more, nothing scrolls sideways (4c)", async ({
+test("at 375 px with large text the section menu and the quick filters fit, 44 px or more, nothing scrolls sideways (4c)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto("/biblioteca")
   await conLetraGrande(page)
 
-  const pestana = page
-    .getByRole("navigation", { name: "Secciones de la Biblioteca" })
-    .getByRole("link", { name: "Materiales" })
-  await expect(pestana).toBeVisible()
-  expect((await pestana.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+  const { boton } = menuDeSecciones(page)
+  await expect(boton).toBeVisible()
+  expect((await boton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
   const filtros = page.getByRole("group", { name: "Filtrar por estado" })
   for (const nombre of ["Todos", "Procesando · 2", "Listos", "Con error · 1"]) {
     const chip = filtros.getByRole("link", { name: nombre })
