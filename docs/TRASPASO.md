@@ -76,6 +76,7 @@ Llaves: nunca leerlas ni imprimirlas, tampoco en la terminal de Federico. Las ca
 - **`/biblioteca-no-abrio`**: la página simple de fallo. Llega ahí si falta `INGESTA_URL`, si falta `SUPABASE_SERVICE_ROLE_KEY` o si el enlace no se pudo generar; el log de Vercel dice la causa (solo el nombre de la variable, nunca el token).
 - **`pnpm test:e2e:biblioteca`**: la prueba de punta a punta con las dos apps (config propia, `playwright.biblioteca.config.ts`; `pnpm test:e2e` no la corre ni Vitest tampoco). Necesita `E2E_INGESTA_DIR` con la ruta de un checkout de conidolly-ingesta que tenga el puente y `pnpm install` hecho, `openssl` en el PATH (arma certificados https desechables) y la base local arriba (`pnpm db:start`). Ejemplo: `E2E_INGESTA_DIR=/Users/fede/Projects/conidolly-ingesta/.worktrees/biblioteca-sesion pnpm test:e2e:biblioteca`.
 - Publicación: tarea 22 del plan `2026-11-02-biblioteca-misma-sesion.md`. Ingesta sale primero y se comprueba con sus dos curls antes del merge de Conidolly. En un preview de Conidolly la pestaña termina en `/ingreso` de Ingesta (su origin no es `CONIDOLLY_URL`): es lo esperado.
+- **Retirado en el lote 7 de la etapa 2 (#17):** la pestaña abre `/biblioteca` de Conidolly y `/ir-a-biblioteca` solo redirige ahí. El puente, `/biblioteca-no-abrio` y `pnpm test:e2e:biblioteca` ya no existen, e `INGESTA_URL` ya no se lee (se puede borrar de Vercel después de publicar).
 
 ## Biblioteca en Conidolly, lote 1: cimientos y Materiales (cambio 29b, lote 1 de 7, en producción desde el 2026-11-03)
 

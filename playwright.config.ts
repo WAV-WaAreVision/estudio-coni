@@ -11,7 +11,6 @@ import {
   PUERTO_ALMACEN,
   PUERTO_SERVICIOS,
   SUPABASE_URL,
-  URL_DE_INGESTA,
   URL_DE_LA_APP,
   URL_DEL_ALMACEN,
   URL_SERVICIOS,
@@ -125,8 +124,6 @@ export default defineConfig({
         META_APP_ID: "1234567890",
         META_APP_SECRET: "secreto-de-la-app-e2e",
         META_REDIRECT_URI: `${URL_DE_LA_APP}/api/meta/callback`,
-        // The Biblioteca tab posts there; only playwright.biblioteca.config.ts starts an Ingesta to receive it.
-        INGESTA_URL: URL_DE_INGESTA,
         // The Biblioteca's store is the real R2 code against the fake S3 above (R2_ENDPOINT is refused on Vercel).
         R2_ACCOUNT_ID: "cuenta-e2e",
         R2_ACCESS_KEY_ID: "llave-e2e",
