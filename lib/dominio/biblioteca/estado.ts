@@ -31,7 +31,8 @@ export function estaProcesando(material: EstadoDeProceso): boolean {
 export function avisoDeProceso(material: EstadoDeProceso): string | null {
   if (!estaProcesando(material)) return null
   if (material.costo_estimado_usd === null) return AVISO_TRAS_SUBIR
-  return `${AVISO_TRAS_SUBIR} Costará cerca de ${dolares(material.costo_estimado_usd)}.`
+  // A non-breaking space keeps "US$ 1,20" on one line on the phone; only here, `dolares` stays as other screens use it.
+  return `${AVISO_TRAS_SUBIR} Costará cerca de ${dolares(material.costo_estimado_usd).replace(" ", "\u00a0")}.`
 }
 
 /** The icons the pill draws itself (check, warning circle) are `null` here; these two it is given. */

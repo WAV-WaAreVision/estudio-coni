@@ -176,7 +176,7 @@ describe("the material detail page", () => {
   })
 
   describe("while it is processing (spec decision 3)", () => {
-    const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$ 0,40."
+    const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$\u00a00,40."
     const avisos = (arbol: { props: Record<string, unknown> }[]) =>
       textos(arbol).filter((texto) => String(texto).startsWith("Lo estoy procesando."))
 

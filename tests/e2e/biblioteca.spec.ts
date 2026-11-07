@@ -24,7 +24,8 @@ import {
 import { BALDE_DE_PRUEBA, CORREO_DEL_MANTENEDOR, URL_DEL_ALMACEN } from "./entorno"
 
 const CLAVE_CON_INTENTO = (materialId: string) => new RegExp(`^procesar-material:${materialId}:[0-9a-f-]{36}$`)
-const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$ 1,20."
+// A non-breaking space keeps "US$ 1,20" on one line on the phone; toHaveText folds it, textContent does not.
+const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$\u00a01,20."
 
 let escena: EscenaDeBiblioteca
 
@@ -130,7 +131,9 @@ test("a material's page says it is processing and, once the task estimated it, w
   await expect(
     page.getByRole("heading", { name: "Charla larga sobre el síndrome del impostor", level: 1 }),
   ).toBeVisible()
-  await expect(page.getByRole("status").filter({ hasText: AVISO_CON_COSTO })).toHaveText(AVISO_CON_COSTO)
+  const avisoConCosto = page.getByRole("status").filter({ hasText: AVISO_CON_COSTO })
+  await expect(avisoConCosto).toHaveText(AVISO_CON_COSTO)
+  expect(await avisoConCosto.textContent()).toBe(AVISO_CON_COSTO)
   await expect(page.getByText("Procesando", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /^Procesar por/ })).toHaveCount(0)
   expect(await revisarConAxe(page, "material procesando con su costo")).toEqual([])

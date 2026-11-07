@@ -92,10 +92,13 @@ test("Reintentar in the side panel starts the run and the screen shows it workin
 
 test("the side panel of a processing material says what it will cost, with nothing to confirm", async ({ page }) => {
   const titulo = "Charla larga sobre el síndrome del impostor"
-  const aviso = "Lo estoy procesando. Costará cerca de US$ 1,20."
+  const aviso = "Lo estoy procesando. Costará cerca de US$\u00a01,20."
   await page.goto(`/biblioteca?m=${escena.conEstimado}`)
   const panel = page.getByRole("region", { name: titulo })
-  await expect(panel.getByRole("status").filter({ hasText: aviso })).toHaveText(aviso)
+  const estado = panel.getByRole("status").filter({ hasText: aviso })
+  await expect(estado).toHaveText(aviso)
+  // toHaveText folds the non-breaking space that keeps the amount on one line; textContent does not.
+  expect(await estado.textContent()).toBe(aviso)
   await expect(panel.getByText("Procesando", { exact: true })).toBeVisible()
   await expect(panel.getByRole("button", { name: /^Procesar por/ })).toHaveCount(0)
   const fila = page.getByRole("table", { name: "Materiales" }).getByRole("row").filter({ hasText: titulo })

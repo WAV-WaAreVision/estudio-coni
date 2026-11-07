@@ -79,9 +79,11 @@ describe("presentarEstado (4j: always a word and an icon, never only a colour)",
 
 describe("avisoDeProceso (spec decision 3)", () => {
   it("says what it will cost once the task wrote the estimate, two decimals in Chilean Spanish", () => {
-    expect(avisoDeProceso({ ...base, costo_estimado_usd: 0.4 })).toBe("Lo estoy procesando. Costará cerca de US$ 0,40.")
+    expect(avisoDeProceso({ ...base, costo_estimado_usd: 0.4 })).toBe(
+      "Lo estoy procesando. Costará cerca de US$\u00a00,40.",
+    )
     expect(avisoDeProceso({ ...base, costo_estimado_usd: 1.2345 })).toBe(
-      "Lo estoy procesando. Costará cerca de US$ 1,23.",
+      "Lo estoy procesando. Costará cerca de US$\u00a01,23.",
     )
   })
 
