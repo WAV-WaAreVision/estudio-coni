@@ -188,6 +188,12 @@ describe("canalReal y avisosReales", () => {
     )
   })
 
+  it("refuses RESEND_BASE_URL where Trigger.dev runs the tasks: every notice would go to another address", () => {
+    expect(() =>
+      canalReal({ ...CORREO, RESEND_BASE_URL: "http://servicios.test", TRIGGER_SECRET_KEY: "tr_dev_x" }),
+    ).toThrow(FallaDeConfiguracion)
+  })
+
   it("fails loudly when push is half set up instead of quietly dropping it", () => {
     expect(() => canalReal({ ...CORREO, VAPID_SUBJECT: "mailto:wav@estudio.test" })).toThrow(/SUPABASE_URL/)
   })
