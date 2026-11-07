@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import * as accionesDeBiblioteca from "@/lib/acciones/biblioteca"
 import {
-  confirmarCosto,
   crearAutor,
   type DepsBiblioteca,
   editarFicha,
@@ -61,10 +61,9 @@ async function material(extra: Partial<MaterialDePrueba> = {}): Promise<string> 
 }
 
 async function fila(id: string) {
-  const { rows } = await pool.query(
-    "select estado, motivo_fallo, rol, autor_id, costo_confirmado_en from public.materiales where id = $1",
-    [id],
-  )
+  const { rows } = await pool.query("select estado, motivo_fallo, rol, autor_id from public.materiales where id = $1", [
+    id,
+  ])
   return rows[0]
 }
 
@@ -129,7 +128,7 @@ describe("reintentarMaterial", () => {
   })
 })
 
-describe("reprocesarMaterial and confirmarCosto", () => {
+describe("reprocesarMaterial, and no cost confirmation (batch 6)", () => {
   it("sends a ready material through the whole process again under a new attempt", async () => {
     const id = await material({ estado: "listo" })
     expect(await reprocesarMaterial(deps(coni), id)).toEqual({ ok: true })
@@ -145,19 +144,15 @@ describe("reprocesarMaterial and confirmarCosto", () => {
     })
   })
 
-  it("confirms the cost of a long material and starts its run", async () => {
-    const id = await material({ estado: "procesando", costo: 1.2 })
-    expect(await confirmarCosto(deps(coni), id)).toEqual({ ok: true })
-    expect((await fila(id))?.costo_confirmado_en).not.toBeNull()
+  it("picks up with Reintentar a material the old cost gate left paused, never asking to confirm it (D6)", async () => {
+    const id = await material({ estado: "procesando", costo: 1.2, motivo: "Este material es largo." })
+    expect(await reintentarMaterial(deps(coni), id)).toEqual({ ok: true })
+    expect(await fila(id)).toMatchObject({ estado: "procesando", motivo_fallo: null })
     expect(disparos.map((d) => d.materialId)).toEqual([id])
   })
 
-  it("says a material that does not wait for her OK any more does not", async () => {
-    const id = await material({ estado: "listo" })
-    expect(await confirmarCosto(deps(coni), id)).toEqual({
-      ok: false,
-      error: "Ese material ya no espera confirmación.",
-    })
+  it("has no action to confirm a cost any more", () => {
+    expect(Object.keys(accionesDeBiblioteca)).not.toContain("confirmarCosto")
   })
 })
 
@@ -245,15 +240,13 @@ describe("WAV is refused on every action (es_coni), even where row level securit
   it("changes nothing, starts nothing and signs nothing", async () => {
     const fallido = await material({ estado: "fallido", motivo: "sin_texto" })
     const listo = await material({ estado: "listo", rol: "estrategia" })
-    const caro = await material({ estado: "procesando", costo: 1.2 })
     await sembrarFicha(listo, IDEAS)
     await almacen.subir(`materiales/${listo}/texto-original.txt`, new TextEncoder().encode("hola"), "text/plain")
-    const antes = await Promise.all([fila(fallido), fila(listo), fila(caro)])
+    const antes = await Promise.all([fila(fallido), fila(listo)])
 
     const resultados = [
       await reintentarMaterial(deps(wav), fallido),
       await reprocesarMaterial(deps(wav), listo),
-      await confirmarCosto(deps(wav), caro),
       await editarMaterial(deps(wav), { materialId: listo, autorId: otroAutor, rol: "evidencia" }),
       await editarFicha(deps(wav), {
         materialId: listo,
@@ -266,8 +259,8 @@ describe("WAV is refused on every action (es_coni), even where row level securit
       await pedirTextoOriginal(deps(wav), listo),
     ]
 
-    expect(resultados).toEqual(Array.from({ length: 7 }, () => ({ ok: false, error: SOLO_CONI })))
-    expect(await Promise.all([fila(fallido), fila(listo), fila(caro)])).toEqual(antes)
+    expect(resultados).toEqual(Array.from({ length: 6 }, () => ({ ok: false, error: SOLO_CONI })))
+    expect(await Promise.all([fila(fallido), fila(listo)])).toEqual(antes)
     expect(disparos).toEqual([])
     const { rows } = await pool.query("select resumen from public.fichas where material_id = $1", [listo])
     expect(rows[0]?.resumen).toBe("Un resumen")

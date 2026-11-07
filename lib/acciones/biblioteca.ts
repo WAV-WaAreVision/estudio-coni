@@ -109,7 +109,7 @@ async function exigirMaterialVisible(db: Db, materialId: string): Promise<void> 
   if (!data) throw new Falla(NO_ENCONTRE)
 }
 
-type RpcDeMaterial = "reintentar_material" | "reprocesar_material" | "confirmar_costo_material"
+type RpcDeMaterial = "reintentar_material" | "reprocesar_material"
 
 /** The database goes first: it is what refuses a second tap. Then the run starts under its own attempt. */
 function moverYProcesar(nombre: string, rpc: RpcDeMaterial, siNoCorresponde: string, cuando: string) {
@@ -141,14 +141,6 @@ export const reprocesarMaterial = moverYProcesar(
   "reprocesar_material",
   "Ese material no se puede reprocesar ahora.",
   "reprocesar",
-)
-
-/** "Procesar por ~US$ X": the task already stored the extraction, so it only spends on what is left. */
-export const confirmarCosto = moverYProcesar(
-  "confirmarCosto",
-  "confirmar_costo_material",
-  "Ese material ya no espera confirmación.",
-  "confirmar el costo de",
 )
 
 /** Changes who a material is by and who it is for her. The column grants allow only these two. */

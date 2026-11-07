@@ -61,7 +61,7 @@ export function claveArmar(piezaId: string, carruselId: string, intento: number)
  * Apart from `Disparos`, so the pieces' starters and their test doubles stay as they are.
  */
 export interface DisparosDeBiblioteca {
-  /** `intento`: Reintentar, Reprocesar and "Procesar por ~US$ X" each pass a new one, so a failed run is never reused. */
+  /** `intento`: Reintentar and Reprocesar each pass a new one, so a failed run is never reused. */
   material(materialId: string, intento?: string): Promise<void>
   /** `intento`: the `creada_en` of the failed or stale run a retry replaces; none on a week with no run yet. */
   motor(semana: string, intento?: string): Promise<void>
