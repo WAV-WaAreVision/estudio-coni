@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { leerPieza } from "@/lib/datos/repositorio"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { claveDeToma } from "@/lib/dominio/voz"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { type DepsGrabarVoz, grabarVoz } from "@/lib/produccion/grabar-voz"
@@ -102,6 +103,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name = 'elevenlabs'")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [creadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [creadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   creadas.length = 0
   await pool.query("update public.ajustes set produccion = '{}'::jsonb, tope_mensual_usd = 40")
 })
@@ -218,7 +220,7 @@ describe("grabarVoz", () => {
     const id = await grabando()
     const antes = await leerFila(id)
 
-    expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "falla" })
+    expect(await grabarVoz(deps(), { piezaId: id, nueva: false })).toEqual({ resultado: "pausa" })
     const despues = await leerFila(id)
     expect(despues).toMatchObject({ estado: "guion_por_aprobar", intento: antes.intento + 1 })
     expect(despues.explicacion).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
@@ -231,6 +233,36 @@ describe("grabarVoz", () => {
     const id = await grabando()
     await expect(grabarVoz(deps(), { piezaId: id, nueva: false })).rejects.toThrow("503")
     expect((await leerFila(id)).estado).toBe("grabando_voz")
+  })
+})
+
+describe("grabarVoz con ElevenLabs en pausa", () => {
+  it("opens the pause, emails WAV once for two pieces and writes the pause text on both", async () => {
+    responder(() =>
+      HttpResponse.json(
+        { detail: { status: "payment_issue", message: "You have an unpaid invoice." } },
+        { status: 401 },
+      ),
+    )
+    const primera = await grabando()
+    const segunda = await grabando()
+    const avisos = notificadorEnMemoria()
+    const d = { ...deps(), avisos }
+
+    expect(await grabarVoz(d, { piezaId: primera, nueva: false })).toEqual({ resultado: "pausa" })
+    expect(await grabarVoz(d, { piezaId: segunda, nueva: false })).toEqual({ resultado: "pausa" })
+
+    for (const id of [primera, segunda]) {
+      expect(await leerFila(id)).toMatchObject({ estado: "guion_por_aprobar", explicacion: TEXTO_PAUSA.elevenlabs })
+    }
+    expect(avisos.aWavEnviados).toHaveLength(1)
+    expect(avisos.aConiEnviados).toEqual([])
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "elevenlabs", motivo: "pago" }])
+    // A refusal: the reservation went back to the month's limit.
+    expect((await gastosDeVoz(primera))[0]).toMatchObject({ estado: "liberado", sin_cobro: true })
   })
 })
 

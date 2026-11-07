@@ -14,6 +14,7 @@ import { respaldoAJson } from "@/lib/datos/respaldo"
 import { transicionar } from "@/lib/dominio/estados"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { conLineaDeFuente, fuentesCitadas, lineaDeFuente } from "@/lib/dominio/fuente"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { ajenoDelRespaldo, paraElGuion } from "@/lib/dominio/respaldo"
 import {
   bloquea,
@@ -23,6 +24,7 @@ import {
   revisarGuion,
   revisarTextoLinkedin,
 } from "@/lib/dominio/revision"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import { avisarLimite, TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { producirCarrusel } from "@/lib/produccion/carrusel"
 import { aCuatroDecimales, ESTIMADO_GUION_CLAUDE_USD, explicar, piezaCambio } from "@/lib/produccion/comun"
@@ -181,6 +183,11 @@ async function vozDelBorrador(
     })
     if (voz.tipo === "lista") return { audioId: voz.audioId }
   } catch (error) {
+    // A pause opens once and the draft carries its text, so gate 1 shows it instead of «No pude preparar tu voz».
+    if (error instanceof PausaDeProveedor) {
+      await abrirPausa(deps, error)
+      return { audioId: null, explicacion: error.message }
+    }
     // A Falla is expected and needs no log: Coni reads TEXTO_SIN_VOZ, and the voice task gives its own text if it
     // happens again. Anything else is for WAV to look at.
     if (!(error instanceof Falla)) console.error(`No pude preparar la voz de la pieza ${fila.id}`, error)

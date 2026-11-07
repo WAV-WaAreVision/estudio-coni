@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { reservarGasto } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { claveIdempotencia, hashTexto } from "@/lib/dominio/puertas"
 import { type Alerta, AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import { claveDeToma } from "@/lib/dominio/voz"
@@ -240,6 +241,7 @@ afterEach(async () => {
   await pool.query("delete from vault.secrets where name = 'elevenlabs'")
   await pool.query("delete from public.gastos where pieza_id = any($1::uuid[])", [piezasCreadas])
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   await pool.query("delete from public.ideas where id = any($1::uuid[])", [ideasCreadas])
   await vaciarMotor()
   piezasCreadas.length = 0
@@ -651,25 +653,49 @@ describe("producirPieza", () => {
     }
   })
 
-  it("delivers the script voiceless when ElevenLabs has no characters, and frees the voice from the cap", async () => {
+  it("delivers the script voiceless with the voice pause when ElevenLabs has no characters, and frees the voice from the cap", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const id = await crearPiezaEnProduccion()
     const sim = simular({
       voz: () => HttpResponse.json({ detail: { status: "quota_exceeded", message: "quota" } }, { status: 401 }),
     })
+    const avisos = notificadorEnMemoria()
 
-    expect(await producirPieza(deps(), id)).toEqual({ resultado: "producida" })
+    expect(await producirPieza(deps(avisos), id)).toEqual({ resultado: "producida" })
 
     expect(await pieza(id)).toMatchObject({
       estado: "guion_por_aprobar",
       guion: GUION_BUENO,
       audio_id: null,
-      explicacion: TEXTO_SIN_VOZ,
+      explicacion: TEXTO_PAUSA.elevenlabs,
     })
     expect(sim.voces).toHaveLength(1)
     expect((await gastos(id)).filter((g) => g.proveedor === "elevenlabs").map((g) => g.estado)).toEqual(["liberado"])
-    // A Falla is a reason for Coni, not a bug for WAV.
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["ElevenLabs en pausa: sin saldo"])
+    // A pause is WAV's email, not a bug in the logs.
     expect(error).not.toHaveBeenCalled()
+  })
+
+  it("delivers the script voiceless with the voice pause when ElevenLabs answers payment_issue", async () => {
+    const id = await crearPiezaEnProduccion()
+    simular({
+      voz: () =>
+        HttpResponse.json({ detail: { status: "payment_issue", message: "Unpaid invoice." } }, { status: 401 }),
+    })
+    const avisos = notificadorEnMemoria()
+
+    expect(await producirPieza(deps(avisos), id)).toEqual({ resultado: "producida" })
+
+    expect(await pieza(id)).toMatchObject({
+      estado: "guion_por_aprobar",
+      audio_id: null,
+      explicacion: TEXTO_PAUSA.elevenlabs,
+    })
+    const { rows } = await pool.query(
+      "select proveedor, motivo from public.pausas_de_proveedor where cerrada_en is null",
+    )
+    expect(rows).toEqual([{ proveedor: "elevenlabs", motivo: "pago" }])
+    expect(avisos.aWavEnviados).toHaveLength(1)
   })
 
   it("delivers the script without a voice when the month has no room left for it", async () => {
