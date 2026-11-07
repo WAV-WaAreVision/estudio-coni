@@ -10,6 +10,8 @@ import {
 } from "@/lib/datos/repositorio"
 import { transicionar } from "@/lib/dominio/estados"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
+import { abrirPausa } from "@/lib/pausas/abrir"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { leerVideo } from "@/lib/proveedores/heygen-api"
 import type { Database } from "@/lib/supabase/database.types"
@@ -87,7 +89,15 @@ export async function conciliarRenders(deps: DepsConciliacion): Promise<Resultad
       if (resultado) resultados.push(resultado)
     } catch (error) {
       if (!(error instanceof Error)) throw error
-      errores.push(new Error(`pieza ${fila.id}: ${error.message}`, { cause: error }))
+      try {
+        // A paused HeyGen is WAV's to fix: the pause is opened (WAV emailed once) and the piece waits for the next
+        // sweep, instead of failing the maintenance run every ten minutes.
+        if (error instanceof PausaDeProveedor) await abrirPausa(deps, error)
+        else errores.push(new Error(`pieza ${fila.id}: ${mensajeTecnico(error)}`, { cause: error }))
+      } catch (alAbrir) {
+        if (!(alAbrir instanceof Error)) throw alAbrir
+        errores.push(new Error(`pieza ${fila.id}: ${mensajeTecnico(error)} · ${alAbrir.message}`, { cause: alAbrir }))
+      }
     }
   }
   if (errores.length > 0) {
