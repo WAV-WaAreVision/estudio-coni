@@ -13,10 +13,20 @@ interface Propiedades {
   pregunta: string
   confirmar: string
   alConfirmar: () => Promise<Resultado>
+  /** Closed for a reason said next to it (a provider's pause): it neither asks nor acts. */
+  deshabilitado?: boolean
+  idDeLaRazon?: string
 }
 
 /** An action that spends (D11): the question appears in line, and a refusal is said under it. */
-export function BotonQuePregunta({ etiqueta, pregunta, confirmar, alConfirmar }: Propiedades) {
+export function BotonQuePregunta({
+  etiqueta,
+  pregunta,
+  confirmar,
+  alConfirmar,
+  deshabilitado = false,
+  idDeLaRazon,
+}: Propiedades) {
   const [preguntando, setPreguntando] = useState(false)
   // Cancelar unmounts the question, which held the focus: it goes back to the button that asked.
   const [devolverFoco, setDevolverFoco] = useState(false)
@@ -32,7 +42,15 @@ export function BotonQuePregunta({ etiqueta, pregunta, confirmar, alConfirmar }:
 
   if (!preguntando) {
     return (
-      <Boton ref={boton} variante="secundario" tamano="chico" className="w-fit" onClick={() => setPreguntando(true)}>
+      <Boton
+        ref={boton}
+        variante="secundario"
+        tamano="chico"
+        className="w-fit"
+        deshabilitado={deshabilitado}
+        aria-describedby={deshabilitado ? idDeLaRazon : undefined}
+        onClick={() => setPreguntando(true)}
+      >
         {etiqueta}
       </Boton>
     )

@@ -6,6 +6,7 @@ import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import {
   avisoDeProceso,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/dominio/biblioteca/estado"
 import { adaptacionDe } from "@/lib/dominio/biblioteca/ficha"
 import { esRol, etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
+import { textoDePausaDeBiblioteca } from "@/lib/dominio/pausas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { BotonBorrar } from "../../boton-borrar"
 import { BotonReintentar } from "../../boton-reintentar"
@@ -32,7 +34,11 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
   if (!leido) notFound()
   const { material, ficha } = leido
   const conFicha = material.rol === "estrategia"
-  const [autores, mapa] = await Promise.all([listarAutores(db), conFicha ? null : leerMapaDelMaterial(db, material.id)])
+  const [autores, mapa, pausas] = await Promise.all([
+    listarAutores(db),
+    conFicha ? null : leerMapaDelMaterial(db, material.id),
+    leerPausasAbiertas(db),
+  ])
   // What was processed follows the role it had then: after "¿Quién es para ti?" changes, only reprocessing shows it the new way.
   const rol = esRol(material.rol) ? material.rol : "referente"
   const procesadoConOtroRol = conFicha
@@ -40,7 +46,9 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
     : ficha !== null && (mapa?.total ?? 0) === 0
 
   const descarga = `/biblioteca/materiales/${material.id}/texto`
-  const arrancar = sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null
+  const arrancar = sePuedeReintentar(material) ? (
+    <BotonReintentar materialId={material.id} pausa={textoDePausaDeBiblioteca(pausas)} />
+  ) : null
   const aviso = avisoDeProceso(material)
   const editar = (
     <EditarAutorYRol

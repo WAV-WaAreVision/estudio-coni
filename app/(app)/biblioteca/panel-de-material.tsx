@@ -20,10 +20,12 @@ interface Propiedades {
   panel: PanelDelMaterial
   filtros: FiltrosDeMateriales
   ahora: number
+  /** The Biblioteca's pause text while Claude is paused: «Reintentar» closes with it. */
+  pausa?: string | null
 }
 
 /** The computer's side panel (spec 3): what a material gave, who it is for her, and WAV's detail folded. */
-export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
+export function PanelDeMaterial({ panel, filtros, ahora, pausa = null }: Propiedades) {
   const { material, ideas, evidencia } = panel
   const aviso = avisoDeProceso(material)
   return (
@@ -72,7 +74,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
         </p>
         <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
       </Seccion>
-      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
+      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} pausa={pausa} /> : null}
       <DetalleParaWav lineas={lineasParaWav(material, evidencia)} proveedor={null} />
       <BotonBorrar tipo="material" id={material.id} />
       <Link

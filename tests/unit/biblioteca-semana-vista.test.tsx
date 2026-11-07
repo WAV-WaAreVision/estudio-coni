@@ -253,3 +253,19 @@ describe("VistaDeSemana (spec decision 10)", () => {
     expect(screen.queryByRole("region", { name: "Qué subir después" })).toBeNull()
   })
 })
+
+describe("VistaDeSemana con Claude en pausa", () => {
+  it("disables «Proponer ahora» and says the pause", () => {
+    const pausa = "Las ideas y los guiones están en pausa. Ya le avisamos a WAV."
+    render(
+      <VistaDeSemana
+        encabezado={<h1>Biblioteca</h1>}
+        semana={{ corrida: CORRIDA, teorias: [TEORIA], descartadas: [CRUCE], queSubir: QUE_SUBIR }}
+        costoUsd={0.23}
+        pausa={pausa}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Proponer ahora" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText(pausa)).toBeVisible()
+  })
+})

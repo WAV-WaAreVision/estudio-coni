@@ -9,6 +9,7 @@ import { Casilla } from "@/components/ui/casilla"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { Eleccion } from "@/components/ui/filas"
 import { ICONO } from "@/components/ui/icono"
+import { LineaDeBloqueo } from "@/components/ui/linea-de-bloqueo"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { CLASES_DE_VOLVER, Volver } from "@/components/ui/volver"
 import { ERROR_GENERICO, ERROR_SESION_VENCIDA, type Resultado } from "@/lib/acciones/resultado"
@@ -68,9 +69,11 @@ interface Propiedades {
   autores: AutorDeLista[]
   /** The page's heading, between the way back and the form. */
   encabezado: ReactNode
+  /** The Biblioteca's pause text while Claude is paused (A6): she can prepare the upload, not send it. */
+  pausa?: string | null
 }
 
-export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
+export function FormularioDeSubida({ autores, encabezado, pausa = null }: Propiedades) {
   const router = useRouter()
   const id = useId()
   const principal = useRef<HTMLInputElement>(null)
@@ -297,7 +300,7 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
         className="grid gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:items-start md:gap-10"
         onSubmit={(evento) => {
           evento.preventDefault()
-          if (!ocupado) void subir()
+          if (!ocupado && pausa === null) void subir()
         }}
       >
         {/* A computer shows what she uploads and who made it on the left, and how it gets filed on the right, whose
@@ -529,8 +532,15 @@ export function FormularioDeSubida({ autores, encabezado }: Propiedades) {
             {progreso}
           </output>
 
+          {pausa !== null ? <LineaDeBloqueo id={`${id}-pausa`}>{pausa}</LineaDeBloqueo> : null}
           <div className="grid gap-3 md:flex md:items-center md:gap-6">
-            <Boton type="submit" cargando={ocupado} className="md:w-auto">
+            <Boton
+              type="submit"
+              cargando={ocupado}
+              deshabilitado={pausa !== null}
+              aria-describedby={pausa !== null ? `${id}-pausa` : undefined}
+              className="md:w-auto"
+            >
               Subir
             </Boton>
             {/* Leaving mid-upload would keep a material whose files never arrive (D10). */}

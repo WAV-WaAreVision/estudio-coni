@@ -69,3 +69,19 @@ describe("after an action that worked", () => {
     expect(replace).not.toHaveBeenCalled()
   })
 })
+
+describe("BotonReintentar con Claude en pausa", () => {
+  it("is disabled with the Biblioteca pause text under it, and asks nothing", () => {
+    render(<BotonReintentar materialId={ID} pausa="La Biblioteca está en pausa. Ya le avisamos a WAV." />)
+    const boton = screen.getByRole("button", { name: "Reintentar" })
+    expect(boton).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByText("La Biblioteca está en pausa. Ya le avisamos a WAV.")).toBeVisible()
+    fireEvent.click(boton)
+    expect(screen.queryByText(PREGUNTA_REINTENTAR)).toBeNull()
+  })
+
+  it("works as before without a pause", () => {
+    render(<BotonReintentar materialId={ID} pausa={null} />)
+    expect(screen.getByRole("button", { name: "Reintentar" })).not.toHaveAttribute("aria-disabled", "true")
+  })
+})

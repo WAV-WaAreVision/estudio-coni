@@ -8,7 +8,16 @@ import { EstadoDeMaterial } from "./estado-de-material"
 import { TemaDelMaterial } from "./tema-del-material"
 
 /** A material on the phone list: the text opens the detail; Reintentar stays on the card. */
-export function TarjetaDeMaterial({ material, ahora }: { material: MaterialDeLista; ahora: number }) {
+export function TarjetaDeMaterial({
+  material,
+  ahora,
+  pausa = null,
+}: {
+  material: MaterialDeLista
+  ahora: number
+  /** The Biblioteca's pause text while Claude is paused: «Reintentar» closes with it. */
+  pausa?: string | null
+}) {
   return (
     <li className="grid gap-2 rounded-panel bg-piedra p-4 shadow-relieve">
       <Link href={`/biblioteca/materiales/${material.id}`} className="grid gap-1">
@@ -26,7 +35,7 @@ export function TarjetaDeMaterial({ material, ahora }: { material: MaterialDeLis
           {subidoHace(material.creado_en, ahora, ZONA_DE_LA_BIBLIOTECA)}
         </span>
       </div>
-      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
+      {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} pausa={pausa} /> : null}
     </li>
   )
 }
