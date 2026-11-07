@@ -7,7 +7,6 @@ interface MaterialParaWav {
   rol: string
   motivo_fallo: string | null
   costo_estimado_usd: number | null
-  costo_confirmado_en: string | null
 }
 
 const dolares = (monto: number) =>
@@ -23,10 +22,7 @@ export function lineasParaWav(material: MaterialParaWav, evidencia: Record<strin
   if (marcadoConMotivo(material.motivo_fallo)) {
     lineas.push(`Motivo: ${material.motivo_fallo.trim() === "" ? "sin detalle" : material.motivo_fallo}`)
   }
-  if (material.costo_estimado_usd !== null) {
-    const confirmado = material.costo_confirmado_en ? "confirmado" : "sin confirmar"
-    lineas.push(`Costo estimado: ${dolares(material.costo_estimado_usd)} (${confirmado})`)
-  }
+  if (material.costo_estimado_usd !== null) lineas.push(`Costo estimado: ${dolares(material.costo_estimado_usd)}`)
   lineas.push(`Material: ${material.id}`, `Autor: ${material.autor_id}`)
   return lineas
 }

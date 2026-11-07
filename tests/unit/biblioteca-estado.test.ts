@@ -47,9 +47,9 @@ describe("marcadoConMotivo: as the database decides (reintentar_material, marcar
     expect(estaProcesando(material)).toBe(false)
     expect(sePuedeReintentar(material)).toBe(true)
     expect(presentarEstado(material)).toEqual({ palabra: "En pausa", tipo: "aviso", icono: "pausa" })
-    expect(
-      lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente", costo_confirmado_en: null }, {}),
-    ).toContain("Motivo: sin detalle")
+    expect(lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente" }, {})).toContain(
+      "Motivo: sin detalle",
+    )
   })
 })
 

@@ -76,7 +76,6 @@ describe("lineasParaWav (D10)", () => {
     rol: "referente",
     motivo_fallo: null,
     costo_estimado_usd: null,
-    costo_confirmado_en: null,
   }
 
   it("folds the role code, the evidence most first, and the ids", () => {
@@ -88,21 +87,14 @@ describe("lineasParaWav (D10)", () => {
     ])
   })
 
-  it("adds the reason and the estimated cost when there are", () => {
-    expect(
-      lineasParaWav(
-        { ...material, motivo_fallo: "tope_mensual", costo_estimado_usd: 1.2, costo_confirmado_en: null },
-        {},
-      ),
-    ).toEqual([
+  it("adds the reason and the estimated cost when there are, with nothing about a confirmation (batch 6)", () => {
+    expect(lineasParaWav({ ...material, motivo_fallo: "tope_mensual", costo_estimado_usd: 1.2 }, {})).toEqual([
       "Papel: referente",
       "Motivo: tope_mensual",
-      "Costo estimado: US$ 1,20 (sin confirmar)",
+      "Costo estimado: US$ 1,20",
       "Material: m-1",
       "Autor: a-1",
     ])
-    expect(
-      lineasParaWav({ ...material, costo_estimado_usd: 0.5, costo_confirmado_en: "2026-11-02T12:00:00Z" }, {}),
-    ).toContain("Costo estimado: US$ 0,50 (confirmado)")
+    expect(lineasParaWav({ ...material, costo_estimado_usd: 0.5 }, {})).toContain("Costo estimado: US$ 0,50")
   })
 })
