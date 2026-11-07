@@ -423,6 +423,27 @@ describe("correrMotor", () => {
     )
   })
 
+  it("rethrows a Claude pause met in a later batch, so the pause opens, instead of keeping the run", async () => {
+    await ochoTemas()
+    simularClaude()
+    let llamada = 0
+    servidor.use(
+      http.post(URL_CLAUDE, () => {
+        llamada += 1
+        if (llamada !== 2) return undefined
+        return HttpResponse.json(
+          { type: "error", error: { type: "billing_error", message: "billing" } },
+          { status: 402 },
+        )
+      }),
+    )
+
+    const error = await correrMotor(deps(), { semana: SEMANA, manual: false }).catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ name: "PausaDeProveedor", proveedor: "claude", motivo: "pago" })
+    expect((await corrida())?.estado).toBe("fallida")
+  })
+
   it("fails the run and rethrows when every batch failed", async () => {
     await ochoTemas()
     simularClaude({ estado: 500 })
