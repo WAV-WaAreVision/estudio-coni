@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
   limpiarDisparos()
 })
 
-test("the phone list shows each material as a card with its words, topic and state, and the bar is unchanged", async ({
+test("the phone list shows each material as a card with its words, topic and state, and the bar's tab is current", async ({
   page,
 }) => {
   await page.goto("/biblioteca")
@@ -56,10 +56,12 @@ test("the phone list shows each material as a card with its words, topic and sta
   await expect(charla).toContainText("Procesando")
   await expect(charla.getByRole("button")).toHaveCount(0)
 
-  // The bar's tab still goes to Ingesta in this batch.
-  await expect(
-    page.getByRole("navigation", { name: "Secciones", exact: true }).getByRole("link", { name: "Biblioteca" }),
-  ).toHaveAttribute("href", "/ir-a-biblioteca")
+  // The bar's tab is the Biblioteca's own (batch 7).
+  const pestana = page
+    .getByRole("navigation", { name: "Secciones", exact: true })
+    .getByRole("link", { name: "Biblioteca" })
+  await expect(pestana).toHaveAttribute("href", "/biblioteca")
+  await expect(pestana).toHaveAttribute("aria-current", "page")
 })
 
 test("the quick filters change the list with one tap and live in the URL (4b)", async ({ page }) => {

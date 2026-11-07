@@ -42,18 +42,3 @@ export const URL_SERVICIOS = `http://127.0.0.1:${PUERTO_SERVICIOS}`
 export const PUERTO_ALMACEN = Number(process.env.E2E_PUERTO_ALMACEN ?? PUERTO + 3)
 export const URL_DEL_ALMACEN = `http://127.0.0.1:${PUERTO_ALMACEN}`
 export const BALDE_DE_PRUEBA = "conidolly-e2e"
-
-/**
- * Ingesta for the two-app run (playwright.biblioteca.config.ts). `localhost`, not 127.0.0.1: both apps name the
- * session cookie after the same local Supabase (`sb-127-auth-token`) and cookies ignore ports, so only a different host
- * gives each app its own jar, as the two vercel.app domains have in production.
- */
-export const PUERTO_DE_INGESTA = Number(process.env.E2E_PUERTO_INGESTA ?? 3300)
-export const URL_DIRECTA_DE_INGESTA = `http://localhost:${PUERTO_DE_INGESTA}`
-/**
- * `next start` is production, where both ends of the bridge only trust https: the two-app run reaches each app through
- * an https front (tests/e2e-biblioteca/frente-tls.ts), one port above Ingesta and two above this app (the fake services
- * take the one in between).
- */
-export const URL_DE_INGESTA = `https://localhost:${PUERTO_DE_INGESTA + 1}`
-export const URL_SEGURA_DE_LA_APP = `https://127.0.0.1:${PUERTO + 2}`

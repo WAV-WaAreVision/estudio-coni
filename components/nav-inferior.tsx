@@ -7,20 +7,17 @@ import { ICONO } from "@/components/ui/icono"
 import { RUTA_DE_LA_BIBLIOTECA } from "@/lib/sesion/rutas"
 import { cn } from "@/lib/utils"
 
-// `sale`: the tab leaves the app (the Biblioteca lives in Ingesta until stage 2, #17). It is a plain link: a Next
-// <Link> would prefetch the route handler and mint a sign-in link on every render of this bar.
 const PESTANAS = [
-  { href: "/", etiqueta: "Inicio", icono: House, sale: false },
-  { href: "/metricas", etiqueta: "Métricas", icono: ChartBar, sale: false },
-  { href: "/ajustes", etiqueta: "Ajustes", icono: GearSix, sale: false },
-  { href: RUTA_DE_LA_BIBLIOTECA, etiqueta: "Biblioteca", icono: Books, sale: true },
+  { href: "/", etiqueta: "Inicio", icono: House },
+  { href: "/metricas", etiqueta: "Métricas", icono: ChartBar },
+  { href: "/ajustes", etiqueta: "Ajustes", icono: GearSix },
+  { href: RUTA_DE_LA_BIBLIOTECA, etiqueta: "Biblioteca", icono: Books },
 ] as const
 
 // Ideas and Calendario hang from Inicio: they have no tab of their own, so Inicio stays current on them.
 const RUTAS_QUE_CUELGAN_DE_INICIO = ["/ideas", "/calendario"]
 
 function estaActiva(ruta: string, pestana: (typeof PESTANAS)[number]): boolean {
-  if (pestana.sale) return false
   if (pestana.href === "/") {
     return ruta === "/" || RUTAS_QUE_CUELGAN_DE_INICIO.some((raiz) => ruta === raiz || ruta.startsWith(`${raiz}/`))
   }
@@ -43,23 +40,18 @@ export function NavInferior() {
       {PESTANAS.map((pestana) => {
         const activa = estaActiva(ruta, pestana)
         const Icono = pestana.icono
-        const clases = cn(
-          "grid min-h-nav content-center justify-items-center gap-0.5 rounded-control py-2 text-meta transition-shadow duration-[var(--dur-corta)] ease-salida",
-          activa ? "bg-piedra-honda font-semibold text-tinta shadow-hundido" : "font-medium text-apagado",
-        )
-        const contenido = (
-          <>
+        return (
+          <Link
+            key={pestana.href}
+            href={pestana.href}
+            aria-current={activa ? "page" : undefined}
+            className={cn(
+              "grid min-h-nav content-center justify-items-center gap-0.5 rounded-control py-2 text-meta transition-shadow duration-[var(--dur-corta)] ease-salida",
+              activa ? "bg-piedra-honda font-semibold text-tinta shadow-hundido" : "font-medium text-apagado",
+            )}
+          >
             <Icono aria-hidden="true" size={ICONO.grande} />
             <span className="nav-etiqueta">{pestana.etiqueta}</span>
-          </>
-        )
-        return pestana.sale ? (
-          <a key={pestana.href} href={pestana.href} className={clases}>
-            {contenido}
-          </a>
-        ) : (
-          <Link key={pestana.href} href={pestana.href} aria-current={activa ? "page" : undefined} className={clases}>
-            {contenido}
           </Link>
         )
       })}

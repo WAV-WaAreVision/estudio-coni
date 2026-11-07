@@ -27,7 +27,7 @@ pnpm build            # production build
 pnpm type             # next typegen + tsc --noEmit
 pnpm test             # vitest watch
 pnpm test:run         # vitest single run (CI)
-pnpm test:e2e         # playwright (+ :biblioteca, ver TRASPASO)
+pnpm test:e2e         # playwright
 pnpm lint             # biome check
 pnpm format           # biome format --write
 pnpm db:start         # local Supabase (Docker, ports 54420-54429)
