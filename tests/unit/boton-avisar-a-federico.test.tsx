@@ -20,6 +20,16 @@ describe("AvisarAFederico", () => {
     expect(screen.queryByRole("button")).toBeNull()
   })
 
+  it("follows the page when a refresh says the email went out", () => {
+    const { rerender } = render(<AvisarAFederico tipo="pieza" id={PIEZA} avisado={false} />)
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+
+    rerender(<AvisarAFederico tipo="pieza" id={PIEZA} avisado />)
+
+    expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("button")).toBeNull()
+  })
+
   it("offers a secondary button of at least 44 px while Federico does not know", () => {
     render(<AvisarAFederico tipo="pieza" id={PIEZA} avisado={false} />)
 

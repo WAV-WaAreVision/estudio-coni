@@ -26,9 +26,10 @@ interface PropiedadesDeAvisar {
  */
 export function AvisarAFederico({ tipo, id, avisado, className }: PropiedadesDeAvisar) {
   const avisar = useAccion()
-  const [listo, setListo] = useState(avisado)
+  // The page's answer wins whenever it changes (a refresh after another tap); her own tap shows it at once.
+  const [enviadoAqui, setEnviadoAqui] = useState(false)
 
-  if (listo) return <LineaDeEstado tipo="exito" titulo={TEXTO_LE_AVISE} className={className} />
+  if (avisado || enviadoAqui) return <LineaDeEstado tipo="exito" titulo={TEXTO_LE_AVISE} className={className} />
   return (
     <div className={cn("grid gap-2", className)}>
       <Boton
@@ -40,7 +41,7 @@ export function AvisarAFederico({ tipo, id, avisado, className }: PropiedadesDeA
         onClick={() =>
           avisar.ejecutar(
             () => avisarAFedericoAccion({ tipo, id }),
-            () => setListo(true),
+            () => setEnviadoAqui(true),
           )
         }
       >
