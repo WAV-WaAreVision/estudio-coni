@@ -11,7 +11,6 @@ import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 import { ICONO } from "@/components/ui/icono"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
-import { clienteDeServicio } from "@/lib/acciones/servidor"
 import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
 import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
@@ -138,7 +137,7 @@ export default async function PaginaDeGuion({
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
-            <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(fila)} />
+            <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
           ) : (
             <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
           )}
@@ -228,7 +227,7 @@ export default async function PaginaDeGuion({
     avataresParaElegir(db),
     tieneVersionDeClaude({ db }, fila.id),
     leerDatosDeGrabacion(db, { fila, estado: fila.estado, guion: fila.guion, zona: contexto.horario.zona }),
-    avisoDeLaPieza(fila),
+    avisoDeLaPieza(db, fila),
   ])
 
   return (
@@ -266,11 +265,14 @@ export default async function PaginaDeGuion({
 }
 
 /** Whether «Avisar a Federico» is offered for the piece's failure, and whether its email went out (spec 2026-11-07, A11). */
-function avisoDeLaPieza(fila: { id: string; estado: string; explicacion: string | null; intento: number }) {
+function avisoDeLaPieza(
+  db: Parameters<typeof leerAvisoAFederico>[0],
+  fila: { id: string; estado: string; explicacion: string | null; intento: number },
+) {
   const explicacion = fallaParaFederico({ tipo: "pieza", estado: fila.estado, explicacion: fila.explicacion })
   return explicacion === null
     ? Promise.resolve(null)
-    : leerAvisoAFederico(clienteDeServicio(), {
+    : leerAvisoAFederico(db, {
         tipo: "pieza",
         id: fila.id,
         explicacion,

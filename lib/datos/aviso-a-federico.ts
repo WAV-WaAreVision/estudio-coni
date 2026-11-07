@@ -4,16 +4,23 @@ import { claveDeAviso, type TipoDeAviso } from "@/lib/dominio/avisar-a-federico"
 import type { Database } from "@/lib/supabase/database.types"
 
 /**
- * For a server page, after Coni's session, with the service client: null when there is no failure for WAV
- * (`explicacion` is what `fallaParaFederico` answered, `ocurrencia` the piece's attempt or the card's fingerprint, as
- * the action reads them), else whether its email already went out, so the screen shows
- * the button or «Le avisé a Federico.».
+ * For a server page, with the page's own session (RLS lets Coni and WAV select the rows): null when there is no failure
+ * for WAV (`explicacion` is what `fallaParaFederico` answered, `ocurrencia` the piece's attempt or the card's
+ * fingerprint, as the action reads them), else whether its email already went out, so the screen shows the button or
+ * «Le avisé a Federico.».
  */
 export async function leerAvisoAFederico(
-  servicio: SupabaseClient<Database>,
+  db: SupabaseClient<Database>,
   entrada: { tipo: TipoDeAviso; id: string; explicacion: string | null; ocurrencia: string },
 ): Promise<{ avisado: boolean } | null> {
   if (entrada.explicacion === null) return null
   const clave = await claveDeAviso({ ...entrada, explicacion: entrada.explicacion })
-  return { avisado: await yaAvisado(servicio, clave) }
+  try {
+    return { avisado: await yaAvisado(db, clave) }
+  } catch (error) {
+    // A passing read error must not take gate 1 or the Biblioteca down: she sees the button, and the action still
+    // sends one email at most.
+    console.error(`No pude leer el aviso ${clave}; muestro el botón`, error)
+    return { avisado: false }
+  }
 }

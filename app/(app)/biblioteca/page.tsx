@@ -5,7 +5,6 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Panel } from "@/components/ui/panel"
-import { clienteDeServicio } from "@/lib/acciones/servidor"
 import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import {
   contarPorEstado,
@@ -54,7 +53,7 @@ export default async function Materiales({
   const fichaIlegible = panel?.fichaIlegible && panel.material.rol === "estrategia" && panel.material.estado === "listo"
   const avisoAFederico =
     panel && fichaIlegible && panel.ocurrenciaDeFicha
-      ? await leerAvisoAFederico(clienteDeServicio(), {
+      ? await leerAvisoAFederico(db, {
           tipo: "material",
           id: panel.material.id,
           explicacion: TEXTO_FICHA_ILEGIBLE,

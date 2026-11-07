@@ -30,7 +30,6 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/lib/datos/aviso-a-federico", () => ({ leerAvisoAFederico }))
-vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio: () => ({ servicio: true }) }))
 vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 // No provider paused: the pages read the open pauses through the same session.
 vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
@@ -142,7 +141,8 @@ describe("the side panel of a material whose card cannot be read", () => {
       ocurrenciaDeFicha: "f0123456789abcdef",
     })
     const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ m: ID }) }))
-    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.anything(), {
+    // The page's own session reads it (RLS lets Coni select it): no service client for a read.
+    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.objectContaining({ auth: expect.anything() }), {
       tipo: "material",
       id: ID,
       explicacion: "No pude leer la ficha de este material.",

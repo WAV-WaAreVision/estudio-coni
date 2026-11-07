@@ -28,7 +28,6 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/lib/datos/aviso-a-federico", () => ({ leerAvisoAFederico }))
-vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio: () => ({ servicio: true }) }))
 vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 // No provider paused: the pages read the open pauses through the same session.
 vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
@@ -139,7 +138,8 @@ describe("the material detail page", () => {
     expect(textos(arbol)).toContain(TEXTO_FICHA_ILEGIBLE)
     expect(textos(arbol)).not.toContain(CAMBIASTE)
     expect(textos(arbol).some((texto) => texto.includes("Avísale a Federico"))).toBe(false)
-    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.anything(), {
+    // The page's own session reads it (RLS lets Coni select it): no service client for a read.
+    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.objectContaining({ auth: expect.anything() }), {
       tipo: "material",
       id: ID,
       explicacion: TEXTO_FICHA_ILEGIBLE,

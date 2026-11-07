@@ -6,7 +6,6 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
-import { clienteDeServicio } from "@/lib/acciones/servidor"
 import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
@@ -45,7 +44,7 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
     conFicha ? null : leerMapaDelMaterial(db, material.id),
     leerPausasAbiertas(db),
     fallaDeFicha && leido.ocurrenciaDeFicha
-      ? leerAvisoAFederico(clienteDeServicio(), {
+      ? leerAvisoAFederico(db, {
           tipo: "material",
           id: material.id,
           explicacion: fallaDeFicha,

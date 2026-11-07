@@ -18,7 +18,7 @@ import { type Notificador, notificadorEnMemoria } from "@/lib/proveedores/avisos
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeServicio } from "./servicio"
-import { clienteDelMantenedor } from "./sesion-coni"
+import { clienteDeConi, clienteDelMantenedor } from "./sesion-coni"
 import { ajustarPieza, borrarSembrado, sembrarPieza } from "./siembra"
 import { borrarSembrado as borrarBiblioteca, sembrarAutor, sembrarFicha, sembrarMaterial } from "./siembra-biblioteca"
 
@@ -269,6 +269,37 @@ describe("leerAvisoAFederico", () => {
     ).toEqual({
       avisado: false,
     })
+  })
+})
+
+describe("leerAvisoAFederico with the page's session", () => {
+  it("reads whether the email went out through Coni's own session", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    const entrada = { tipo: "pieza" as const, id, explicacion: LLAVE, ocurrencia: await ocurrencia(id) }
+    const coni = await clienteDeConi()
+    expect(await leerAvisoAFederico(coni, entrada)).toEqual({ avisado: false })
+
+    expect(await avisarAFederico(deps(), { tipo: "pieza", id })).toEqual({ ok: true })
+
+    expect(await leerAvisoAFederico(coni, entrada)).toEqual({ avisado: true })
+  })
+
+  it("logs a read that fails and offers the button instead of breaking the page", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    const coni = await clienteDeConi()
+    const rota = new Proxy(coni, {
+      get(objetivo, propiedad, receptor) {
+        if (propiedad !== "from") return Reflect.get(objetivo, propiedad, receptor)
+        return () => Reflect.apply(objetivo.from, objetivo, ["tabla_que_no_existe"])
+      },
+    })
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const leido = await leerAvisoAFederico(rota, { tipo: "pieza", id, explicacion: LLAVE, ocurrencia: "i0" })
+
+    expect(leido).toEqual({ avisado: false })
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("No pude leer el aviso"), expect.anything())
+    error.mockRestore()
   })
 })
 
