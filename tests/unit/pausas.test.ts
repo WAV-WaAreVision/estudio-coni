@@ -3,6 +3,7 @@ import { Falla } from "@/lib/dominio/falla"
 import {
   esProveedorConPausa,
   esTextoDePausa,
+  explicacionAnteLaPausa,
   mensajeTecnico,
   PausaDeProveedor,
   proveedorDelTextoDePausa,
@@ -87,5 +88,24 @@ describe("mensajeTecnico", () => {
   it("answers the message of any other error, and the value itself otherwise", () => {
     expect(mensajeTecnico(new Error("boom"))).toBe("boom")
     expect(mensajeTecnico("raro")).toBe("raro")
+  })
+})
+
+describe("explicacionAnteLaPausa", () => {
+  const GENERICO = "Algo no salió como esperábamos con esta pieza."
+
+  it("says nothing more while the piece's pause is open: the line under «Reintentar» says it", () => {
+    expect(explicacionAnteLaPausa(TEXTO_PAUSA.heygen, TEXTO_PAUSA.heygen, GENERICO)).toBeNull()
+  })
+
+  it("forgets a pause text once that pause closed", () => {
+    expect(explicacionAnteLaPausa(TEXTO_PAUSA.heygen, null, GENERICO)).toBe(GENERICO)
+  })
+
+  it("keeps any other reason, and the generic line when there is none", () => {
+    expect(explicacionAnteLaPausa("HeyGen no pudo terminar el video.", TEXTO_PAUSA.heygen, GENERICO)).toBe(
+      "HeyGen no pudo terminar el video.",
+    )
+    expect(explicacionAnteLaPausa(null, null, GENERICO)).toBe(GENERICO)
   })
 })

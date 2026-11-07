@@ -86,3 +86,17 @@ export function mensajeTecnico(error: unknown): string {
   if (error instanceof PausaDeProveedor) return error.detalle
   return error instanceof Error ? error.message : String(error)
 }
+
+/**
+ * The reason a failed piece shows next to its disabled «Reintentar»: nothing while its own pause is open (the line
+ * under the button says it, once), the generic line once that pause closed (the stored text is stale), and any other
+ * reason as it is.
+ */
+export function explicacionAnteLaPausa(
+  explicacion: string | null,
+  pausaAbierta: string | null,
+  generico: string,
+): string | null {
+  if (explicacion !== null && esTextoDePausa(explicacion)) return pausaAbierta === explicacion ? null : generico
+  return explicacion ?? generico
+}

@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react"
-import { useState } from "react"
+import { ArrowCounterClockwise, Info, WarningCircle } from "@phosphor-icons/react"
+import { useId, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { ConfirmacionEnLinea } from "@/components/ui/confirmacion-en-linea"
 import { ICONO } from "@/components/ui/icono"
@@ -40,11 +40,22 @@ interface PropiedadesDeEstado {
    * by that alert, not a second honda block with its own.
    */
   enUnError?: boolean
+  /** A paused provider: its retry buttons are disabled and this text sits under them. */
+  bloqueo?: string | null
 }
 
+const esReintento = (que: Que) => que === "reintentar" || que === "reintentarGuion" || que === "reintentarCarrusel"
+
 /** The buttons of a piece that is not waiting for a signature: retry or change the date, or let it go quietly (asking first). */
-export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false }: PropiedadesDeEstado) {
+export function AccionesDeEstado({
+  piezaId,
+  version,
+  acciones,
+  enUnError = false,
+  bloqueo = null,
+}: PropiedadesDeEstado) {
   const { pendiente, error, ejecutar, limpiarError } = useAccion()
+  const idDelBloqueo = useId()
   const [descartando, setDescartando] = useState(false)
   return (
     <div className="grid gap-2">
@@ -89,17 +100,21 @@ export function AccionesDeEstado({ piezaId, version, acciones, enUnError = false
             key={que}
             variante={indice === 0 ? "primario" : "callado"}
             cargando={pendiente}
-            icono={
-              que === "reintentar" || que === "reintentarGuion" || que === "reintentarCarrusel" ? (
-                <ArrowCounterClockwise aria-hidden="true" size={ICONO.medio} />
-              ) : undefined
-            }
+            deshabilitado={bloqueo !== null && esReintento(que)}
+            aria-describedby={bloqueo !== null && esReintento(que) ? idDelBloqueo : undefined}
+            icono={esReintento(que) ? <ArrowCounterClockwise aria-hidden="true" size={ICONO.medio} /> : undefined}
             onClick={() => ejecutar(() => ACCIONES[que](piezaId, version))}
           >
             {ETIQUETAS[que]}
           </Boton>
         )
       })}
+      {bloqueo !== null ? (
+        <p id={idDelBloqueo} className="flex items-start gap-2 text-meta font-medium text-tinta">
+          <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+          {bloqueo}
+        </p>
+      ) : null}
     </div>
   )
 }

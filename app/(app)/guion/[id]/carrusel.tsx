@@ -13,6 +13,7 @@ import { type FilaDePieza, leerPublicaciones, leerVencimientoLinkedin } from "@/
 import { leerRevision } from "@/lib/datos/revision"
 import { cambiosQuedan } from "@/lib/dominio/carrusel"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
+import { explicacionAnteLaPausa, type ProveedorConPausa, textoDePausa } from "@/lib/dominio/pausas"
 import type { PilarVisible } from "@/lib/dominio/pilares"
 import type { Database } from "@/lib/supabase/database.types"
 import { AccionesDeEstado } from "../../estado-de-pieza"
@@ -41,28 +42,43 @@ export async function VistaDeCarrusel({
   fila,
   pilar,
   angulo,
+  pausas,
 }: {
   db: SupabaseClient<Database>
   fila: FilaDePieza
   pilar: PilarVisible | null
   /** The angle control while gate 1 is not signed (spec 15d). */
   angulo?: ReactNode
+  /** The providers paused right now: a paused Claude closes «Reintentar» of the carousel's text. */
+  pausas: readonly ProveedorConPausa[]
 }) {
   switch (fila.estado) {
-    case "guion_en_proceso":
+    case "guion_en_proceso": {
+      const pausaDeClaude = textoDePausa(pausas, "claude")
+      const porQue = explicacionAnteLaPausa(
+        fila.explicacion,
+        pausaDeClaude,
+        "Algo falló al preparar tu carrusel. WAV ya está revisando.",
+      )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
           {fila.explicacion ? (
             <>
               <Bloque
-                tipo="error"
+                tipo={pausaDeClaude ? "aviso" : "error"}
                 grande
                 titulo={TEXTO_NO_ESCRIBI_CARRUSEL}
                 accion={
-                  <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentarGuion"]} enUnError />
+                  <AccionesDeEstado
+                    piezaId={fila.id}
+                    version={fila.version}
+                    acciones={["reintentarGuion"]}
+                    enUnError
+                    bloqueo={pausaDeClaude}
+                  />
                 }
               >
-                <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_REINTENTA} />
+                {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
               </Bloque>
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
@@ -75,6 +91,7 @@ export async function VistaDeCarrusel({
           <RefrescoAutomatico activo={fila.explicacion === null} cadaMs={4000} />
         </EstadoSencillo>
       )
+    }
     case "guion_por_aprobar": {
       const [carrusel, cambios] = await Promise.all([
         leerCarruselVigente(db, fila.id),
