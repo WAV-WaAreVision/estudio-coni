@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import { z } from "zod"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 
 export type ModeloClaude = "claude-opus-5-5" | "claude-sonnet-5-5"
 
@@ -95,10 +96,29 @@ function sistemaCon(guia: string) {
   return [{ type: "text" as const, text: guia, cache_control: { type: "ephemeral" as const } }]
 }
 
-/** Typed SDK errors only: a key or request the API rejects will not change on retry, anything else will. */
-function traducirError(error: unknown, modelo: ModeloClaude): unknown {
+// https://platform.claude.com/docs/en/api/errors: an empty prepaid balance comes back as 400 invalid_request_error
+// with this sentence, not as 402.
+const SIN_SALDO = /credit balance is too low/i
+
+/**
+ * Typed SDK errors only: a key or request the API rejects will not change on retry, anything else will. Payment, quota
+ * and key failures pause Claude (spec 2026-11-07, decision 1; 402 is plan amendment A2). Exported for the closing
+ * check of the maintenance task, which must classify the same way.
+ */
+export function traducirErrorDeClaude(error: unknown, modelo: ModeloClaude): unknown {
   if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
-    return new FallaDeConfiguracion(`Anthropic rechazó la llave o no le da permiso (HTTP ${error.status}).`)
+    return new PausaDeProveedor(
+      "claude",
+      "llave",
+      `Anthropic rechazó la llave o no le da permiso (HTTP ${error.status}).`,
+      error.status,
+    )
+  }
+  if (error instanceof Anthropic.APIError && error.status === 402) {
+    return new PausaDeProveedor("claude", "pago", `Anthropic respondió HTTP 402: ${error.message}`, 402)
+  }
+  if (error instanceof Anthropic.BadRequestError && SIN_SALDO.test(error.message)) {
+    return new PausaDeProveedor("claude", "cuota", `Anthropic respondió HTTP 400: ${error.message}`, 400)
   }
   if (error instanceof Anthropic.NotFoundError) {
     return new FallaDeConfiguracion(
@@ -155,7 +175,7 @@ export async function pedirJson<S extends z.ZodType>(
       ...(config.thinking ? { thinking: config.thinking } : {}),
     })
   } catch (error) {
-    throw traducirError(error, config.modelo)
+    throw traducirErrorDeClaude(error, config.modelo)
   }
   const cobro = { uso: respuesta.usage, modelo: modeloQueCobra(respuesta.model) }
   const cobrada = <E extends Error>(error: E): E => {

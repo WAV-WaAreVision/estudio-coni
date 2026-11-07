@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { soloActivos } from "@/lib/dominio/pilares"
 import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
@@ -440,7 +441,28 @@ describe("escribirGuion", () => {
     expect(esReintentable(error)).toBe(true)
   })
 
-  it.each([401, 403, 404, 400])("fails as a configuration error, without the key, on HTTP %i", async (estado) => {
+  it.each([
+    [401, "authentication_error", "invalid x-api-key", "llave"],
+    [403, "permission_error", "no permission", "llave"],
+    [402, "billing_error", "There is an issue with your billing", "pago"],
+    [
+      400,
+      "invalid_request_error",
+      "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "cuota",
+    ],
+  ])("pauses Claude on HTTP %i %s", async (estado, tipo, mensaje, motivo) => {
+    respondiendo(() =>
+      HttpResponse.json({ type: "error", error: { type: tipo, message: mensaje } }, { status: estado }),
+    )
+    const error = await rechazo(escribir())
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect(error).toMatchObject({ proveedor: "claude", motivo, http: estado })
+    expect(error.message).toBe("Las ideas y los guiones están en pausa. Ya le avisamos a WAV.")
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
+  })
+
+  it.each([404, 400])("fails as a configuration error, without the key, on any other HTTP %i", async (estado) => {
     respondiendo(() =>
       HttpResponse.json({ type: "error", error: { type: "invalid_request_error", message: "no" } }, { status: estado }),
     )
@@ -550,13 +572,13 @@ describe("revisarConClaude", () => {
     expect(error.message).toBe(RECHAZO)
   })
 
-  it("fails as a configuration error on a rejected key", async () => {
+  it("pauses Claude for the key on a rejected key", async () => {
     respondiendo(() =>
       HttpResponse.json({ type: "error", error: { type: "authentication_error", message: "no" } }, { status: 401 }),
     )
     const error = await rechazo(revisar())
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).not.toContain(CLAVE)
+    expect(error).toMatchObject({ proveedor: "claude", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("fails with a plain retryable error on a server error", async () => {
