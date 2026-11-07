@@ -11,7 +11,6 @@ import {
   CambioDeIdea,
   CambioDePilares,
   cambiarPilaresDeTema,
-  confirmarCosto,
   confirmarMaterial,
   crearAutor,
   crearMaterial,
@@ -80,14 +79,6 @@ export async function reprocesarMaterialAccion(materialId: string) {
   return refrescar(
     await conSesionDeConi("reprocesarMaterial", SobreMaterial, { materialId }, (db, d) =>
       reprocesarMaterial(depsDeBiblioteca(db), d.materialId),
-    ),
-  )
-}
-
-export async function confirmarCostoAccion(materialId: string) {
-  return refrescar(
-    await conSesionDeConi("confirmarCosto", SobreMaterial, { materialId }, (db, d) =>
-      confirmarCosto(depsDeBiblioteca(db), d.materialId),
     ),
   )
 }

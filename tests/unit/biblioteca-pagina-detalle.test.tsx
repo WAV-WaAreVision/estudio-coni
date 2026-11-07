@@ -29,7 +29,6 @@ vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
   reprocesarMaterialAccion: vi.fn(),
-  confirmarCostoAccion: vi.fn(),
   editarMaterialAccion: vi.fn(),
   editarFichaAccion: vi.fn(),
   crearAutorAccion: vi.fn(),

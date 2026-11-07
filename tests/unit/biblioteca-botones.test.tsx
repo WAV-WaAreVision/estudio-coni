@@ -2,16 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 type R = { ok: true } | { ok: false; error: string }
-const { reintentarMaterialAccion, confirmarCostoAccion, push, replace } = vi.hoisted(() => ({
+const { reintentarMaterialAccion, push, replace } = vi.hoisted(() => ({
   reintentarMaterialAccion: vi.fn(async (..._: unknown[]): Promise<R> => ({ ok: true })),
-  confirmarCostoAccion: vi.fn(async (..._: unknown[]): Promise<R> => ({ ok: true })),
   push: vi.fn(),
   replace: vi.fn(),
 }))
-vi.mock("@/app/(app)/biblioteca/acciones", () => ({ reintentarMaterialAccion, confirmarCostoAccion }))
+vi.mock("@/app/(app)/biblioteca/acciones", () => ({ reintentarMaterialAccion }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn(), replace }) }))
 
-import { BotonConfirmarCosto } from "@/app/(app)/biblioteca/boton-confirmar-costo"
 import { BotonReintentar, PREGUNTA_REINTENTAR } from "@/app/(app)/biblioteca/boton-reintentar"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -52,21 +50,6 @@ describe("BotonReintentar", () => {
   })
 })
 
-describe("BotonConfirmarCosto", () => {
-  it("shows the price on the button and confirms with one tap", async () => {
-    render(<BotonConfirmarCosto materialId={ID} costoUsd={1.2} />)
-    fireEvent.click(screen.getByRole("button", { name: "Procesar por ~US$ 1,20" }))
-    await waitFor(() => expect(confirmarCostoAccion).toHaveBeenCalledWith(ID))
-  })
-
-  it("sends her to sign in when the session ended", async () => {
-    confirmarCostoAccion.mockResolvedValueOnce({ ok: false, error: "Tu sesión venció. Entra de nuevo." })
-    render(<BotonConfirmarCosto materialId={ID} costoUsd={1.2} />)
-    fireEvent.click(screen.getByRole("button", { name: "Procesar por ~US$ 1,20" }))
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/ingreso"))
-  })
-})
-
 // A refresh of the list's own address lost the race with its prefetches and left the button pending for ever: after an
 // action that worked, the screen redraws on its own address with a fresh marker (useRedibujar).
 describe("after an action that worked", () => {
@@ -74,12 +57,6 @@ describe("after an action that worked", () => {
     render(<BotonReintentar materialId={ID} />)
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }))
     fireEvent.click(screen.getByRole("button", { name: "Sí, reintentar" }))
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(expect.stringMatching(/^\/\?v=\d+$/), { scroll: false }))
-  })
-
-  it("Procesar por redraws the screen on its own address", async () => {
-    render(<BotonConfirmarCosto materialId={ID} costoUsd={1.2} />)
-    fireEvent.click(screen.getByRole("button", { name: "Procesar por ~US$ 1,20" }))
     await waitFor(() => expect(replace).toHaveBeenCalledWith(expect.stringMatching(/^\/\?v=\d+$/), { scroll: false }))
   })
 

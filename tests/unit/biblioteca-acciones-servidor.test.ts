@@ -29,7 +29,6 @@ import {
   borrarAutorAccion,
   borrarMaterialAccion,
   cambiarPilaresAccion,
-  confirmarCostoAccion,
   confirmarMaterialAccion,
   crearAutorAccion,
   crearMaterialAccion,
@@ -70,10 +69,14 @@ const pilares = { temaId: ID, filas: [{ pilar: "mujeres-lideres", fuerza: "alta"
 beforeEach(() => vi.clearAllMocks())
 
 describe("the Biblioteca's server actions", () => {
+  it("offers no cost confirmation: the task never waits for one (batch 6)", async () => {
+    const acciones = await import("@/app/(app)/biblioteca/acciones")
+    expect(Object.keys(acciones)).not.toContain("confirmarCostoAccion")
+  })
+
   it.each([
     ["reintentarMaterial", () => reintentarMaterialAccion(ID), SobreMaterial, { materialId: ID }],
     ["reprocesarMaterial", () => reprocesarMaterialAccion(ID), SobreMaterial, { materialId: ID }],
-    ["confirmarCosto", () => confirmarCostoAccion(ID), SobreMaterial, { materialId: ID }],
     ["editarMaterial", () => editarMaterialAccion(edicion), EdicionDeMaterial, edicion],
     ["crearAutor", () => crearAutorAccion(autor), AutorNuevo, autor],
     ["cambiarPilaresDeTema", () => cambiarPilaresAccion(pilares), CambioDePilares, pilares],
