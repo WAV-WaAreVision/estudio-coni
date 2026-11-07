@@ -1,5 +1,5 @@
-// The outside world of the E2E run: one local server that answers like Anthropic, HeyGen, ElevenLabs and Instagram, so
-// the app never calls a real service. The specs steer it with POST /__estado and read what it was asked with
+// The outside world of the E2E run: one local server that answers like Anthropic, HeyGen, ElevenLabs, Instagram and
+// Resend, so the app never calls a real service. The specs steer it with POST /__estado and read what it was asked with
 // GET /__registro. It runs as its own web server (playwright.config.ts) because the app is a separate process.
 import { createServer } from "node:http"
 
@@ -72,6 +72,9 @@ const servidor = createServer((req, res) => {
         .replace(/"(client_secret|access_token|code)":"[^"]*"/g, '"$1":"[x]"')
         .replace(/\b(client_secret|access_token|code)=[^&]*/g, "$1=[x]"),
     })
+
+    // Resend: POST /emails (WAV's email of «Avisar a Federico», the pauses). The log keeps the subject and body.
+    if (ruta === "/emails" && metodo === "POST") return responder(res, 200, { id: "correo-falso" })
 
     // Anthropic: POST /v1/messages (classify an idea), GET /v1/models (check the key)
     if (ruta === "/v1/messages") {

@@ -11,6 +11,7 @@ import {
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { exigirEnv } from "@/lib/env"
 import type { Database } from "@/lib/supabase/database.types"
+import { baseDe } from "./bases"
 import { type ServicioPush, servicioPushReal } from "./push"
 
 /**
@@ -74,13 +75,15 @@ export interface OpcionesResend {
   remitente: string
   correoConi: string
   correoWav: string
+  /** Resend's address; only the local E2E points it at a fake (`RESEND_BASE_URL`). */
+  base?: string
 }
 
 // https://resend.com/docs/api-reference/emails/send-email : `POST https://api.resend.com/emails` with
 // `Authorization: Bearer <key>` and a JSON body with `from`, `to` (string or array), `subject` and `text`; it answers
 // `{ "id": "..." }`. Errors by status (https://resend.com/docs/api-reference/errors): 400, 401, 403 and 422 will not
 // change by retrying; 409, 429, 500 and 503 are temporary.
-const URL_RESEND = "https://api.resend.com/emails"
+const BASE_RESEND = "https://api.resend.com"
 const ESPERA_ENVIAR_MS = 30_000
 const LARGO_MAXIMO = 400
 
@@ -105,7 +108,7 @@ function detalleDeResend(cuerpo: string): string {
 async function enviar(opciones: OpcionesResend, mensaje: { a: string; asunto: string; texto: string }) {
   let respuesta: Response
   try {
-    respuesta = await fetch(URL_RESEND, {
+    respuesta = await fetch(`${(opciones.base ?? BASE_RESEND).replace(/\/+$/, "")}/emails`, {
       method: "POST",
       headers: { Authorization: `Bearer ${opciones.clave}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from: opciones.remitente, to: [mensaje.a], subject: mensaje.asunto, text: mensaje.texto }),
@@ -222,6 +225,7 @@ export function canalReal(entorno: Record<string, string | undefined> = process.
     remitente: exigirEnv("AVISOS_REMITENTE", entorno.AVISOS_REMITENTE),
     correoConi: exigirEnv("AVISOS_CORREO_CONI", entorno.AVISOS_CORREO_CONI),
     correoWav: exigirEnv("AVISOS_CORREO_WAV", entorno.AVISOS_CORREO_WAV),
+    base: baseDe(entorno, "RESEND_BASE_URL", BASE_RESEND),
   })
   const sinPush = !entorno.VAPID_PUBLIC_KEY && !entorno.VAPID_PRIVATE_KEY && !entorno.VAPID_SUBJECT
   if (sinPush) return correo

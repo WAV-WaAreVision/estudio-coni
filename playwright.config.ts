@@ -118,6 +118,12 @@ export default defineConfig({
         INSTAGRAM_OAUTH_BASE_URL: URL_SERVICIOS,
         INSTAGRAM_GRAPH_BASE_URL: URL_SERVICIOS,
         PUSH_BASE_URL: URL_SERVICIOS,
+        // WAV's emails go to the fake Resend above: its key is not a real one.
+        RESEND_BASE_URL: URL_SERVICIOS,
+        RESEND_API_KEY: "re_falsa_del_e2e",
+        AVISOS_REMITENTE: "Estudio Coni <avisos@estudio.test>",
+        AVISOS_CORREO_CONI: "coni@estudio.test",
+        AVISOS_CORREO_WAV: "wav@estudio.test",
         VAPID_PUBLIC_KEY: vapid.publicKey,
         VAPID_PRIVATE_KEY: vapid.privateKey,
         VAPID_SUBJECT: "mailto:wav@estudio.test",

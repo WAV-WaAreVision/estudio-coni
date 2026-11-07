@@ -170,6 +170,24 @@ describe("canalReal y avisosReales", () => {
     expect(capturas).toHaveLength(1)
   })
 
+  it("sends to a fake Resend when RESEND_BASE_URL points at one (the local E2E)", async () => {
+    const capturas: string[] = []
+    servidor.use(
+      http.post("http://servicios.test/emails", async ({ request }) => {
+        capturas.push(((await request.json()) as { subject: string }).subject)
+        return HttpResponse.json({ id: "1" })
+      }),
+    )
+    await canalReal({ ...CORREO, RESEND_BASE_URL: "http://servicios.test/" }).aWav("Coni te avisa", "detalle")
+    expect(capturas).toEqual(["Coni te avisa"])
+  })
+
+  it("refuses RESEND_BASE_URL on Vercel: Coni's mail would go to another address", () => {
+    expect(() => canalReal({ ...CORREO, RESEND_BASE_URL: "http://servicios.test", VERCEL: "1" })).toThrow(
+      FallaDeConfiguracion,
+    )
+  })
+
   it("fails loudly when push is half set up instead of quietly dropping it", () => {
     expect(() => canalReal({ ...CORREO, VAPID_SUBJECT: "mailto:wav@estudio.test" })).toThrow(/SUPABASE_URL/)
   })
