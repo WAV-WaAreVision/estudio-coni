@@ -1,5 +1,6 @@
 import { HandTap, HourglassMedium } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { FORMA_DE_CHIP, TRANSICION_DE_CHIP } from "@/components/ui/clases-de-chip"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { PildoraDeEstado } from "@/components/ui/estado"
@@ -22,6 +23,7 @@ import {
   type QueSubirLeido,
   respaldoDeTeoria,
   resumenDeCorrida,
+  type SemanaLeida,
   SIN_CORRIDAS,
   SIN_CRUCES,
   type TemaDeTeoria,
@@ -31,6 +33,7 @@ import {
   tituloDeSemana,
 } from "@/lib/dominio/biblioteca/semana"
 import { cn } from "@/lib/utils"
+import { BotonProponerAhora } from "./boton-proponer-ahora"
 
 // Ported from Ingesta's app/(app)/semana/vista-de-semana.tsx, with fixes 4a, 4h, 4j and 4l (spec 2026-11-06).
 
@@ -199,5 +202,42 @@ export function LoQueCruzo({
       </ul>
       <CrucesQueNoSirvieron descartadas={descartadas} />
     </section>
+  )
+}
+
+/**
+ * The DOM follows the phone (title, run and «Proponer ahora», what was crossed, what to upload); on a computer the grid
+ * puts the panel in a sticky right column beside everything (plan D1). «Qué subir después» is drawn twice, as Materiales
+ * draws its cards and its table: only one is ever displayed.
+ */
+export function VistaDeSemana({
+  encabezado,
+  semana,
+  costoUsd,
+}: {
+  encabezado: ReactNode
+  semana: SemanaLeida
+  costoUsd: number
+}) {
+  return (
+    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-x-8">
+      <div className="grid min-w-0 gap-5 md:col-start-1 md:row-start-1">{encabezado}</div>
+      <aside
+        aria-label="Corrida del motor"
+        className="grid content-start gap-5 md:sticky md:top-24 md:col-start-2 md:row-span-2 md:row-start-1 md:max-h-[calc(100dvh-7rem)] md:overflow-y-auto"
+      >
+        {semana.corrida ? <CorridaDeLaSemana corrida={semana.corrida} /> : null}
+        <BotonProponerAhora costoUsd={costoUsd} />
+        <div className="hidden md:block">
+          <QueSubir queSubir={semana.queSubir} />
+        </div>
+      </aside>
+      <div className="grid min-w-0 content-start gap-5 md:col-start-1 md:row-start-2">
+        <LoQueCruzo corrida={semana.corrida} teorias={semana.teorias} descartadas={semana.descartadas} />
+      </div>
+      <div className="md:hidden">
+        <QueSubir queSubir={semana.queSubir} />
+      </div>
+    </div>
   )
 }

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/app/(app)/biblioteca/semana/acciones", () => ({ proponerAhoraAccion: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
-import { CorridaDeLaSemana, LoQueCruzo, QueSubir } from "@/app/(app)/biblioteca/semana/vista-de-semana"
+import { CorridaDeLaSemana, LoQueCruzo, QueSubir, VistaDeSemana } from "@/app/(app)/biblioteca/semana/vista-de-semana"
 import type { CorridaLeida, CruceDescartado, QueSubirLeido, TeoriaEscrita } from "@/lib/dominio/biblioteca/semana"
 
 const CORRIDA: CorridaLeida = {
@@ -186,5 +186,54 @@ describe("LoQueCruzo", () => {
     expect(
       screen.getByText("Todavía no corre el motor. La primera tanda llega el domingo a las 20:00."),
     ).toBeInTheDocument()
+  })
+})
+
+describe("VistaDeSemana (spec decision 10)", () => {
+  const SEMANA = { corrida: CORRIDA, teorias: [TEORIA], descartadas: [CRUCE], queSubir: QUE_SUBIR }
+  const sigue = (antes: Node, despues: Node) =>
+    (antes.compareDocumentPosition(despues) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+
+  it("puts the run, Proponer ahora and its cost in a sticky right panel that starts beside the title", () => {
+    render(<VistaDeSemana encabezado={<h1>Biblioteca</h1>} semana={SEMANA} costoUsd={0.23} />)
+    const panel = screen.getByRole("complementary", { name: "Corrida del motor" })
+    expect(panel).toHaveClass("md:sticky", "md:top-24", "md:col-start-2", "md:row-start-1", "md:row-span-2")
+    expect(within(panel).getByRole("heading", { name: "Semana del 2 al 8 de noviembre" })).toBeInTheDocument()
+    expect(within(panel).getByRole("button", { name: "Proponer ahora" })).toHaveAccessibleDescription(
+      "Cuesta cerca de US$ 0,23",
+    )
+    const cruzado = screen.getByRole("region", { name: "Lo que el motor cruzó esta semana" })
+    expect(cruzado.parentElement).toHaveClass("md:col-start-1", "md:row-start-2", "min-w-0")
+  })
+
+  it("reads on the phone as title, run, what was crossed, then what to upload; the panel has its own copy for a computer", () => {
+    render(<VistaDeSemana encabezado={<h1>Biblioteca</h1>} semana={SEMANA} costoUsd={0.23} />)
+    const titulo = screen.getByRole("heading", { name: "Biblioteca", level: 1 })
+    const panel = screen.getByRole("complementary", { name: "Corrida del motor" })
+    const cruzado = screen.getByRole("region", { name: "Lo que el motor cruzó esta semana" })
+    const [enPanel, alFinal] = screen.getAllByRole("region", { name: "Qué subir después" })
+    expect(panel).toContainElement(enPanel ?? null)
+    expect(enPanel?.parentElement).toHaveClass("hidden", "md:block")
+    expect(alFinal?.parentElement).toHaveClass("md:hidden")
+    expect(sigue(titulo, panel)).toBe(true)
+    expect(sigue(panel, cruzado)).toBe(true)
+    expect(alFinal && sigue(cruzado, alFinal)).toBe(true)
+  })
+
+  it("before any run keeps only the button in the panel and says when the first batch comes", () => {
+    render(
+      <VistaDeSemana
+        encabezado={<h1>Biblioteca</h1>}
+        semana={{ corrida: null, teorias: [], descartadas: [], queSubir: null }}
+        costoUsd={0.3}
+      />,
+    )
+    const panel = screen.getByRole("complementary", { name: "Corrida del motor" })
+    expect(within(panel).queryByRole("heading")).toBeNull()
+    expect(within(panel).getByText("Cuesta cerca de US$ 0,30")).toBeInTheDocument()
+    expect(
+      screen.getByText("Todavía no corre el motor. La primera tanda llega el domingo a las 20:00."),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Qué subir después" })).toBeNull()
   })
 })
