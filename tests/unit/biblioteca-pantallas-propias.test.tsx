@@ -3,11 +3,19 @@ import { describe, expect, it, vi } from "vitest"
 import ErrorDeLaBiblioteca from "@/app/(app)/biblioteca/error"
 import CargandoLaBiblioteca from "@/app/(app)/biblioteca/loading"
 import NoEncontradoEnLaBiblioteca from "@/app/(app)/biblioteca/not-found"
+import CargandoLaSemana from "@/app/(app)/biblioteca/semana/loading"
 
 describe("the Biblioteca's own pages, in plain Spanish (4m)", () => {
   it("loads with a skeleton, never a spinner", () => {
     render(<CargandoLaBiblioteca />)
     expect(screen.getByRole("status", { name: "Cargando" })).toBeInTheDocument()
+  })
+
+  it("loads Semana with a skeleton of its two columns, never a spinner", () => {
+    render(<CargandoLaSemana />)
+    const cargando = screen.getByRole("status", { name: "Cargando" })
+    expect(cargando).toHaveClass("md:grid-cols-[minmax(0,1fr)_20rem]")
+    expect(cargando.querySelectorAll(".esqueleto").length).toBeGreaterThan(0)
   })
 
   it("says it could not load, logs why for WAV and lets her try again", () => {
