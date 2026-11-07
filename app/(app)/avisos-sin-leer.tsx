@@ -17,6 +17,14 @@ export interface AvisoParaMostrar {
   cuando: string
 }
 
+// The stored text keeps the link for the push and the email; in Inicio the row already opens the piece.
+function sinEnlace(mensaje: string): string {
+  return mensaje
+    .replace(/\s*Míralo aquí:\s*\S*\s*$/, "")
+    .replace(/\s*https?:\/\/\S+/g, "")
+    .trim()
+}
+
 /** "Avisos" in Inicio: what she has not opened yet. Tapping one marks it read and opens its piece. */
 export function AvisosSinLeer({
   avisos,
@@ -43,10 +51,12 @@ export function AvisosSinLeer({
             <Link
               href={aviso.href}
               onClick={(evento) => abrir(evento, aviso)}
-              className="grid min-h-fila grid-cols-[1fr_auto] items-center gap-x-3 py-[14px] text-left transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
+              className="grid min-h-fila grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-[14px] text-left transition-colors duration-[var(--dur-corta)] active:bg-piedra-honda"
             >
-              <span className="grid gap-0.5">
-                <span className="text-cuerpo leading-[1.3] font-semibold">{aviso.mensaje}</span>
+              <span className="grid min-w-0 gap-0.5">
+                <span className="text-cuerpo leading-[1.3] font-semibold [overflow-wrap:anywhere]">
+                  {sinEnlace(aviso.mensaje)}
+                </span>
                 <span className="text-meta text-apagado">{aviso.cuando}</span>
               </span>
               <CaretRight aria-hidden="true" size={ICONO.medio} className="text-apagado" />
