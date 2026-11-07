@@ -153,6 +153,14 @@ describe("LoQueCruzo", () => {
     ).toEqual(["Carga mental", "Pausas activas"])
   })
 
+  it("names each crossing's topic list by its position, so a screen reader tells them apart", () => {
+    render(<LoQueCruzo corrida={CORRIDA} teorias={[TEORIA]} descartadas={[CRUCE, OTRO_CRUCE]} />)
+    const primero = screen.getByRole("list", { name: "Temas del cruce 1" })
+    const segundo = screen.getByRole("list", { name: "Temas del cruce 2" })
+    expect(within(primero).getByRole("link", { name: "Carga mental" })).toBeInTheDocument()
+    expect(within(segundo).getByRole("link", { name: "Pausas activas" })).toBeInTheDocument()
+  })
+
   it("says a ready run that crossed nothing in one line, with no heading and no empty fold (4l)", () => {
     render(<LoQueCruzo corrida={CORRIDA} teorias={[]} descartadas={[]} />)
     expect(screen.getByText("Esta semana el motor no encontró cruces nuevos.")).toBeInTheDocument()

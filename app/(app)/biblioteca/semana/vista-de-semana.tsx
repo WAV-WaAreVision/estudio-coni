@@ -149,9 +149,9 @@ function CrucesQueNoSirvieron({ descartadas }: { descartadas: readonly CruceDesc
   return (
     <MasOpciones titulo={crucesQueNoSirvieron(descartadas.length)}>
       <ul aria-label="Cruces que no sirvieron" className="grid gap-4">
-        {descartadas.map((cruce) => (
+        {descartadas.map((cruce, indice) => (
           <li key={cruce.id} className="grid gap-2">
-            <EnlacesDeTemas temas={cruce.temas} etiqueta="Temas del cruce" />
+            <EnlacesDeTemas temas={cruce.temas} etiqueta={`Temas del cruce ${indice + 1}`} />
             <p className="text-meta text-apagado">{cruce.razon}</p>
           </li>
         ))}
