@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
+import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { type FilaDePieza, leerProduccion } from "@/lib/datos/repositorio"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { type ProveedorConPausa, textoDePausa } from "@/lib/dominio/pausas"
 import {
   type Alcance,
   alcanceDeVideo,
@@ -30,7 +32,7 @@ export interface BotonesDeGrabacion {
   montoVoz: string
   unidadVoz: string
   saldoVoz: string
-  /** What to top up when ElevenLabs or the month's cap does not reach; null lets the button work. */
+  /** A paused ElevenLabs, or what to top up when its balance or the month's cap does not reach; null lets it work. */
   bloqueoVoz: string | null
   /** Closes the signature when HeyGen or the month's cap cannot cover the video; the voice is already made. */
   bloqueoVideo: string | null
@@ -47,6 +49,8 @@ export interface DatosDeGrabacion {
   lineaDeFirma: string
   /** The piece's latest voice reservation was released because ElevenLabs refused it: that attempt cost nothing. */
   vozSinCobro: boolean
+  /** Claude's pause text while it is paused: «Pedir cambios» needs a new script (plan amendment A5). */
+  bloqueoCambios: string | null
 }
 
 const bloqueo = (alcance: Alcance) => (alcance.tipo === "no_alcanza" ? alcance.mensaje : null)
@@ -60,6 +64,8 @@ export function presentarGrabacion(entrada: {
   modeloDeVoz: string
   /** What is left of the month's limit (`limite - usado`). */
   quedanUsd: number
+  /** The providers paused right now. */
+  pausas: readonly ProveedorConPausa[]
 }): BotonesDeGrabacion {
   const { guion, motor, saldos } = entrada
   // The cost and the balance of the voice are about the text ElevenLabs receives, not the stored script.
@@ -73,11 +79,15 @@ export function presentarGrabacion(entrada: {
     unidadVoz: costoVozPartido.unidad,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
     // At gate 1 her voice is not signed yet: new spend, stopped by the month's limit (spec 2026-11-02, D1).
-    bloqueoVoz: sinLimite(usdVoz) ?? bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
-    // The signature starts the recording, which is signed work: only the HeyGen balance can close it.
-    bloqueoVideo: bloqueo(
-      alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
-    ),
+    // A paused provider closes its button with its pause text before any balance or limit (spec 2026-11-07).
+    bloqueoVoz:
+      textoDePausa(entrada.pausas, "elevenlabs") ??
+      sinLimite(usdVoz) ??
+      bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
+    // The signature starts the recording, which is signed work: only HeyGen (its pause, its balance) can close it.
+    bloqueoVideo:
+      textoDePausa(entrada.pausas, "heygen") ??
+      bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
   }
 }
 
@@ -137,13 +147,16 @@ export async function leerDatosDeGrabacion(
   entrada: { fila: FilaDePieza; estado: DatosDeGrabacion["estado"]; guion: string; zona: string },
 ): Promise<DatosDeGrabacion> {
   const { fila, estado, guion, zona } = entrada
+  // Read before the config, so the early return below also closes «Pedir cambios» while Claude is paused.
+  const pausas = await leerPausasAbiertas(db)
+  const bloqueoCambios = textoDePausa(pausas, "claude")
   let config: ReturnType<typeof leerConfigProduccion>
   try {
     config = leerConfigProduccion(await leerProduccion(db))
   } catch (error) {
     if (!(error instanceof FallaDeConfiguracion)) throw error
     console.error("No pude leer la configuración para la puerta 1", error)
-    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null), vozSinCobro: false }
+    return { estado, voz: null, botones: null, lineaDeFirma: lineaDeFirma(null), vozSinCobro: false, bloqueoCambios }
   }
   const clave = vozVigente(fila, guion, config)
   const [saldos, presupuesto, url, vozSinCobro] = await Promise.all([
@@ -156,6 +169,7 @@ export async function leerDatosDeGrabacion(
     estado,
     voz: clave === null ? null : { url, clave },
     vozSinCobro,
+    bloqueoCambios,
     botones: presentarGrabacion({
       guion,
       motor: config.heygen.motor,
@@ -163,6 +177,7 @@ export async function leerDatosDeGrabacion(
       zona,
       modeloDeVoz: config.elevenlabs.model_id,
       quedanUsd: presupuesto.limite - presupuesto.usado,
+      pausas,
     }),
     lineaDeFirma: lineaDeFirma({
       segundos: estimarSegundos(guion),

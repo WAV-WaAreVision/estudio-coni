@@ -19,6 +19,7 @@ const ENTRADA = {
   zona: "America/Santiago",
   modeloDeVoz: "eleven_multilingual_v2",
   quedanUsd: 37,
+  pausas: [],
 }
 
 describe("presentarGrabacion", () => {
@@ -105,5 +106,24 @@ describe("presentarGrabacion con marcas de tono", () => {
     const v2 = textoParaVoz(CON_MARCAS, "eleven_multilingual_v2")
     expect(presentarGrabacion(entrada("eleven_multilingual_v2", conQuedan(v2.length))).bloqueoVoz).toBeNull()
     expect(presentarGrabacion(entrada("eleven_multilingual_v2", conQuedan(v2.length - 1))).bloqueoVoz).not.toBeNull()
+  })
+})
+
+describe("presentarGrabacion con proveedores en pausa", () => {
+  it("closes the voice with its pause text first, and the signature with HeyGen's", () => {
+    const botones = presentarGrabacion({ ...ENTRADA, quedanUsd: 0, pausas: ["elevenlabs", "heygen"] })
+    expect(botones.bloqueoVoz).toBe("Tu voz está en pausa. Ya le avisamos a WAV.")
+    expect(botones.bloqueoVideo).toBe("Tu video está en pausa. Ya le avisamos a WAV.")
+  })
+
+  it("leaves both open without pauses", () => {
+    expect(presentarGrabacion({ ...ENTRADA, pausas: [] })).toMatchObject({ bloqueoVoz: null, bloqueoVideo: null })
+  })
+
+  it("is not closed by a Claude or Voyage pause", () => {
+    expect(presentarGrabacion({ ...ENTRADA, pausas: ["claude", "voyage"] })).toMatchObject({
+      bloqueoVoz: null,
+      bloqueoVideo: null,
+    })
   })
 })

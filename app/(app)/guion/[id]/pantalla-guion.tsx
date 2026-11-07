@@ -144,6 +144,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
   const cambios = useAccion()
   const editor = useRef<HTMLDetailsElement>(null)
   const idSinCambios = useId()
+  const idPausaDeCambios = useId()
   const idFalta = useId()
   const idConsecuencia = useId()
 
@@ -347,10 +348,22 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
                   />
                 ) : (
                   <div className="grid gap-1.5">
-                    <Boton variante="secundario" onClick={() => setPidiendoCambios(true)}>
+                    <Boton
+                      variante="secundario"
+                      deshabilitado={grabacion.bloqueoCambios !== null}
+                      aria-describedby={grabacion.bloqueoCambios !== null ? idPausaDeCambios : undefined}
+                      onClick={() => setPidiendoCambios(true)}
+                    >
                       Pedir cambios
                     </Boton>
-                    <p className="mx-0.5 text-meta text-apagado">{TEXTO_PEDIR_CAMBIOS}</p>
+                    {grabacion.bloqueoCambios !== null ? (
+                      <p id={idPausaDeCambios} className="flex items-start gap-2 text-meta font-medium text-tinta">
+                        <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
+                        {grabacion.bloqueoCambios}
+                      </p>
+                    ) : (
+                      <p className="mx-0.5 text-meta text-apagado">{TEXTO_PEDIR_CAMBIOS}</p>
+                    )}
                   </div>
                 )}
               </>

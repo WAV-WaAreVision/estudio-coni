@@ -80,6 +80,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
       botones: BOTONES,
       lineaDeFirma: LINEA,
       vozSinCobro: false,
+      bloqueoCambios: null,
       ...grabacion,
     },
     ...sobre,
@@ -212,6 +213,15 @@ describe("PantallaGuion: el orden de v6", () => {
     expect(editor()).not.toHaveAttribute("open")
     fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Editar el guion" }))
     expect(editor()).toHaveAttribute("open")
+  })
+
+  it("disables «Pedir cambios» with Claude's pause text while Claude is paused (A5)", () => {
+    const pausa = "Las ideas y los guiones están en pausa. Ya le avisamos a WAV."
+    render(<PantallaGuion datos={datos({}, { bloqueoCambios: pausa })} />)
+    const pedir = within(editor()).getByRole("button", { name: "Pedir cambios" })
+    expect(pedir).toHaveAttribute("aria-disabled", "true")
+    expect(within(editor()).getByText(pausa)).toBeInTheDocument()
+    expect(within(editor()).queryByText("Escribo un guion nuevo y este se descarta.")).toBeNull()
   })
 
   it("asks before asking for changes, with today's question", async () => {
