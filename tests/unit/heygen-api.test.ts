@@ -2,6 +2,7 @@
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import type { PedidoHeygen } from "@/lib/proveedores/heygen"
 import {
   bajar,
@@ -143,12 +144,12 @@ describe("subirAsset", () => {
     expect(error.message).toContain("respuesta")
   })
 
-  it("fails as a configuration error, without the key, on an invalid API key", async () => {
+  it("pauses HeyGen for the key, without the key, on an invalid API key", async () => {
     capturando(errorDeHeygen("unauthorized", "Invalid API key", 401))
     const error = await rechazo(subirAsset({ clave: CLAVE, datos: AUDIO, tipo: "audio/mpeg" }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).toBe("HeyGen respondió HTTP 401: Invalid API key")
-    expect(error.message).not.toContain(CLAVE)
+    expect(error).toMatchObject({ proveedor: "heygen", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).toBe("HeyGen respondió HTTP 401: Invalid API key")
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("fails with a plain retryable error when the network drops", async () => {
@@ -217,22 +218,36 @@ describe("crearVideo", () => {
     expect(error.message).toBe(MENSAJE_POLITICA)
   })
 
-  it.each([401, 403])("fails as a configuration error on HTTP %i", async (estado) => {
-    capturando(errorDeHeygen(estado === 401 ? "unauthorized" : "forbidden", "No autorizado", estado))
+  it("pauses HeyGen for the key on HTTP 401", async () => {
+    capturando(errorDeHeygen("unauthorized", "No autorizado", 401))
     const error = await rechazo(crearVideo({ clave: CLAVE, pedido: PEDIDO }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).toBe(`HeyGen respondió HTTP ${estado}: No autorizado`)
+    expect(error).toBeInstanceOf(PausaDeProveedor)
+    expect(error).toMatchObject({ proveedor: "heygen", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).toBe("HeyGen respondió HTTP 401: No autorizado")
   })
 
-  it("tells Coni her HeyGen account has no credits on HTTP 402", async () => {
-    capturando(errorDeHeygen("insufficient_credit", "Your account has 5 credits but this video requires 10", 402))
+  it("fails as a configuration error on HTTP 403", async () => {
+    capturando(errorDeHeygen("forbidden", "No autorizado", 403))
     const error = await rechazo(crearVideo({ clave: CLAVE, pedido: PEDIDO }))
-    expect(error).toBeInstanceOf(Falla)
-    expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
-    expect(error).not.toBeInstanceOf(PoliticaDeContenido)
-    expect(error.message).toBe(
-      "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
-    )
+    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error.message).toBe("HeyGen respondió HTTP 403: No autorizado")
+  })
+
+  it.each(["insufficient_credit", "usage_limit_reached", "subscription_required"])(
+    "pauses HeyGen for quota on HTTP 402 %s",
+    async (codigo) => {
+      capturando(errorDeHeygen(codigo, "Your account has 5 credits but this video requires 10", 402))
+      const error = await rechazo(crearVideo({ clave: CLAVE, pedido: PEDIDO }))
+      expect(error).toBeInstanceOf(PausaDeProveedor)
+      expect(error).not.toBeInstanceOf(PoliticaDeContenido)
+      expect(error).toMatchObject({ proveedor: "heygen", motivo: "cuota", http: 402 })
+      expect(error.message).toBe("Tu video está en pausa. Ya le avisamos a WAV.")
+    },
+  )
+
+  it("still answers a content policy refusal before anything else", async () => {
+    capturando(errorDeHeygen(CODIGO_POLITICA, "No", 400))
+    expect(await rechazo(crearVideo({ clave: CLAVE, pedido: PEDIDO }))).toBeInstanceOf(PoliticaDeContenido)
   })
 
   it.each([400, 404, 422])("fails as a configuration error on any other HTTP %i", async (estado) => {
@@ -252,8 +267,9 @@ describe("crearVideo", () => {
   it("never prints the key, even when HeyGen echoes it in the error body", async () => {
     capturando(() => new HttpResponse(`bad key ${CLAVE}`, { status: 401 }))
     const error = await rechazo(crearVideo({ clave: CLAVE, pedido: PEDIDO }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    expect(error).toBeInstanceOf(PausaDeProveedor)
     expect(error.message).not.toContain(CLAVE)
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("fails with a plain retryable error when the network drops", async () => {
@@ -376,11 +392,11 @@ describe("leerVideo", () => {
     expect(esReintentable(error)).toBe(true)
   })
 
-  it("fails as a configuration error on an invalid API key", async () => {
+  it("pauses HeyGen for the key on an invalid API key", async () => {
     capturando(errorDeHeygen("unauthorized", "Invalid API key", 401))
     const error = await rechazo(leerVideo({ clave: CLAVE, videoId: "v" }))
-    expect(error).toBeInstanceOf(FallaDeConfiguracion)
-    expect(error.message).not.toContain(CLAVE)
+    expect(error).toMatchObject({ proveedor: "heygen", motivo: "llave", http: 401 })
+    expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
   })
 
   it("fails with a plain retryable error on HTTP 500 and on a dropped network", async () => {

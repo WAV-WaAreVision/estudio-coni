@@ -873,7 +873,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect((await pieza(id)).explicacion).toBe("HeyGen no pudo terminar el video. Vuelve a intentarlo en unos minutos.")
   })
 
-  it("tells Coni to top up HeyGen, not to wait, when the video fails for lack of credits", async () => {
+  it("ends the attempt with the video pause text when the video fails for lack of credits", async () => {
     const id = await crearPiezaEnRender()
     simular({
       lecturas: [{ status: "failed", failure_code: "MOVIO_PAYMENT_INSUFFICIENT_CREDIT", failure_message: "x" }],
@@ -886,12 +886,11 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(resultado).toEqual({ resultado: "falla_produccion" })
     expect(await pieza(id)).toMatchObject({
       estado: "error_produccion",
-      explicacion:
-        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
     })
   })
 
-  it("tells Coni her HeyGen account has no credits, releases the spend and charges nothing", async () => {
+  it("ends the attempt with the video pause text on a 402, releases the spend and charges nothing", async () => {
     const id = await crearPiezaEnRender()
     simular({
       crear: () =>
@@ -905,8 +904,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(resultado).toEqual({ resultado: "falla_produccion" })
     expect(await pieza(id)).toMatchObject({
       estado: "error_produccion",
-      explicacion:
-        "HeyGen no tiene créditos para grabar este video. Recarga créditos en HeyGen y después toca Reintentar.",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
       render_id: null,
     })
     expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })
@@ -915,7 +913,7 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
   it("rethrows a configuration error from HeyGen and leaves the piece where it was", async () => {
     const id = await crearPiezaEnRender()
     simular({
-      crear: () => HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+      crear: () => HttpResponse.json({ error: { code: "forbidden", message: "Invalid key" } }, { status: 403 }),
     })
     const d = doble()
     await conVozEnAlmacen(d.almacen, id)
@@ -925,6 +923,22 @@ describe("grabarPieza cuando HeyGen no entrega", () => {
     expect(error).toBeInstanceOf(FallaDeConfiguracion)
     expect(error).toMatchObject({ message: expect.not.stringContaining(CLAVE_HEYGEN) })
     expect((await pieza(id)).estado).toBe("en_render")
+  })
+
+  it("ends the attempt with the video pause text when HeyGen answers 401", async () => {
+    const id = await crearPiezaEnRender()
+    simular({
+      crear: () => HttpResponse.json({ error: { code: "unauthorized", message: "Invalid key" } }, { status: 401 }),
+    })
+    const d = doble()
+    await conVozEnAlmacen(d.almacen, id)
+
+    expect(await grabarPieza(d.deps, id)).toEqual({ resultado: "falla_produccion" })
+    expect(await pieza(id)).toMatchObject({
+      estado: "error_produccion",
+      explicacion: "Tu video está en pausa. Ya le avisamos a WAV.",
+    })
+    expect((await gastos(id))[0]).toMatchObject({ estado: "liberado" })
   })
 
   it("lets Trigger.dev retry a server error from HeyGen without changing the piece", async () => {
