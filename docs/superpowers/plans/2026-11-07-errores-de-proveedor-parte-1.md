@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A payment, quota or key failure of ElevenLabs, HeyGen, Claude or Voyage stops retrying, opens one stored pause per provider, emails WAV once, shows Coni a fixed text with the buttons of that provider disabled, and closes itself (with one notice to Coni) when a cheap check every 10 minutes answers well.
+**Goal:** A payment, quota or key failure of ElevenLabs, HeyGen, Claude or Voyage stops retrying, opens one stored pause per provider, emails WAV once, shows Coni a fixed text with the buttons of that provider disabled (Voyage: WAV only) and a line in Inicio, and closes itself (with one notice to Coni) when a cheap check every 10 minutes answers well.
 
 **Architecture:** Each provider client classifies its answer into a new `PausaDeProveedor extends Falla` (its message is the Coni text of that provider). One helper, `abrirPausa`, writes the pause through a security-definer function and emails WAV once; every task path that meets a pause calls it (inline catches and the `onFailure` hooks). Screens and server actions read the open pauses with Coni's session; the `mantenimiento-frecuente` task gets a `pausas` step that runs one minimal check per open pause and closes it.
 
@@ -21,15 +21,17 @@
 - Code, comments and commits in English. Every commit message ends with `Part of #96.` and then the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - After any data, constant or copy change run the whole unit suite once per lote (`pnpm test:run`), not only the touched file.
 
-## Amendments to the spec (decided here, for Federico to confirm at the first checkpoint)
+## Amendments to the spec (approved by Federico on 2026-11-07; recorded in the spec's Amendments section)
 
 - **A1. `avisada_en` column.** The spec's table has no way to know whether WAV's email went out. If `aWav` fails after the pause row exists, every later call would see "already open" and WAV would never hear. The table adds `avisada_en timestamptz`; `abrir_pausa_de_proveedor` returns `(pausa_id, nueva, avisar)` where `avisar` is `avisada_en is null`, and `marcar_pausa_avisada(id)` sets it after the email. A failed email is retried by the next call.
 - **A2. Claude 402.** The current Claude docs list `402 billing_error` ("There's an issue with your billing or payment information", https://platform.claude.com/docs/en/api/errors). The spec lists 401, 403 and «400 credit balance is too low». This plan pauses on 402 too (`pago`).
 - **A3. Voyage 402.** Voyage's error page (https://docs.voyageai.com/docs/error-codes) lists 400, 401, 403 (blocked IP), 429 and 5xx; there is no 402. The plan keeps 402 as the spec says (harmless if it never comes) and maps 403 to `llave`.
 - **A4. HeyGen failed render with `insufficient_credit`.** Besides the 402 on `POST /v3/videos`, a render can fail later with that failure code (today `explicacionDeFalla` answers `TEXTO_SIN_CREDITOS`). That path also becomes a `heygen`/`cuota` pause.
-- **A5. Claude also closes «Reintentar» of a script.** The Claude pause text speaks of «los guiones»: `reintentarGuion` (reel and carousel) is disabled and refused while Claude is paused, besides «Proponer ahora».
-- **A6. Materials always say the Biblioteca text.** A material that meets any pause (Claude, Voyage, or ElevenLabs while transcribing) is marked with «La Biblioteca está en pausa. Ya le avisamos a WAV.»; the Biblioteca buttons («Reintentar», upload) close while Claude or Voyage is paused.
+- **A5. Claude also closes «Reintentar» of a script and «Pedir cambios».** While Claude is paused, `reintentarGuion` (reel and carousel) and `pedirCambios` (the guion's «Pedir cambios») are disabled and refused, besides «Proponer ahora». Choosing ideas stays enabled.
+- **A6. Voyage pauses are WAV-only.** A Voyage pause opens its row, emails WAV once and closes on its own through the maintenance check, but disables nothing for Coni, writes no pause text on materials and shows no Inicio line (embeddings stay deferred to maintenance as today). The Biblioteca buttons («Reintentar», upload) close only while Claude is paused. A material that meets a pause while processing (Claude, or ElevenLabs while transcribing) is marked with «La Biblioteca está en pausa. Ya le avisamos a WAV.».
 - **A7. Voyage key.** The spec says "the key in the Vault"; the Voyage key is not in the Vault, it is the Trigger.dev variable `VOYAGE_API_KEY` (`lib/produccion/deps-reales.ts:209`). The Voyage check reads it from there.
+- **A9. ElevenLabs closing check.** Close when the subscription `status` is not `past_due`, `incomplete` or `free_disabled` and, for a `cuota` pause, characters remain. `has_open_invoices` is not checked.
+- **A10. Inicio «Atención» lines.** While a pause of ElevenLabs, HeyGen or Claude is open, Inicio's attention block shows one line for it with the concrete reason (texts in the spec's A10 table and in Task 22); the line leaves when the pause closes. Voyage shows none, and its closing sends Coni no notice.
 - **A8. Maintenance with Claude paused.** The `temas` step (every 10 min) and the nightly `fusiones` call Claude. Without care a Claude pause would fail `mantenimiento-frecuente` 144 times a day and email WAV each time. Both steps are skipped while Claude is paused, and a pause met inside them opens the pause instead of failing the run.
 
 ## File map
@@ -54,13 +56,14 @@
 | `lib/datos/grabacion.ts`, `app/(app)/guion/[id]/voz-para-firmar.tsx`, `textos.ts` | gate 1 voice and video |
 | `app/(app)/estado-de-pieza.tsx`, `app/(app)/guion/[id]/page.tsx`, `carrusel.tsx` | retry buttons |
 | `app/(app)/biblioteca/**` | Biblioteca buttons |
+| `lib/inicio/modelo.ts`, `lib/datos/inicio.ts`, `app/(app)/page.tsx` | Inicio «Atención» lines of open pauses |
 | `tests/e2e/pausas.spec.ts`, `tests/e2e/pausas.escritorio.ts` (new) | phone and desktop |
 
 ## Provider checks verified against the docs (decision 5)
 
 | Provider | Call | Cost | What closes the pause | Doc |
 |---|---|---|---|---|
-| ElevenLabs | `GET https://api.elevenlabs.io/v1/user/subscription`, header `xi-api-key` (already used by `lib/proveedores/saldos.ts`) | free (no characters) | HTTP 200 and `status` not in `past_due`, `incomplete`, `free_disabled` and `has_open_invoices` false; for `cuota` also characters left (`character_limit - character_count > 0`) or `can_extend_character_limit` | https://elevenlabs.io/docs/api-reference/user/subscription/get |
+| ElevenLabs | `GET https://api.elevenlabs.io/v1/user/subscription`, header `xi-api-key` (already used by `lib/proveedores/saldos.ts`) | free (no characters) | HTTP 200 and `status` not in `past_due`, `incomplete`, `free_disabled` (open invoices are not checked, A9); for `cuota` also characters left (`character_limit - character_count > 0`) or `can_extend_character_limit` | https://elevenlabs.io/docs/api-reference/user/subscription/get |
 | HeyGen (v3 only) | `GET https://api.heygen.com/v3/users/me`, header `X-Api-Key` (already used by `saldos.ts`) | the page does not say it is free; it charges no credits by its nature (a profile read) | HTTP 200; for `cuota`: `billing_type` `wallet` with `wallet.remaining_balance > 0`, `subscription` with premium + add-on `remaining > 0`, `usage_based` with `remaining_credits > 0` | https://developers.heygen.com/reference/get-current-user.md |
 | Claude | `POST /v1/messages` (SDK `beta.messages.create`), `claude-sonnet-5-5`, `max_tokens: 1`, `thinking: between_tools`, effort `low`, one user word | about US$ 0.00003 | no error; any pause classification keeps it open | https://platform.claude.com/docs/en/api/errors (400 with «Your credit balance is too low...», 401, 402 `billing_error`, 403) |
 | Voyage | `POST https://api.voyageai.com/v1/embeddings`, `Authorization: Bearer`, `{ input: ["ok"], model: "voyage-3.5", input_type: "query" }` (the existing `embeber`) | about 1 token, US$ 0.00000006 | no error | https://docs.voyageai.com/reference/embeddings-api |
@@ -138,9 +141,10 @@ describe("texts", () => {
     expect(textoDePausa(["claude"], "heygen")).toBeNull()
   })
 
-  it("closes the Biblioteca while Claude or Voyage is paused, never for ElevenLabs alone", () => {
-    expect(textoDePausaDeBiblioteca(["voyage"])).toBe(TEXTO_PAUSA_DE_BIBLIOTECA)
+  it("closes the Biblioteca only while Claude is paused", () => {
     expect(textoDePausaDeBiblioteca(["claude"])).toBe(TEXTO_PAUSA_DE_BIBLIOTECA)
+    // Amendment A6: a Voyage pause is WAV's only; it disables nothing for Coni.
+    expect(textoDePausaDeBiblioteca(["voyage"])).toBeNull()
     expect(textoDePausaDeBiblioteca(["elevenlabs"])).toBeNull()
     expect(TEXTO_PAUSA_DE_BIBLIOTECA).toBe(TEXTO_PAUSA.voyage)
   })
@@ -194,7 +198,7 @@ export const TEXTO_PAUSA_CERRADA: Record<ProveedorConPausa, string> = {
   voyage: "La Biblioteca funciona de nuevo.",
 }
 
-/** A material meets several providers (plan amendment A6): it always says the Biblioteca text. */
+/** A material meets several providers (amendment A6): a pause met while processing it says the Biblioteca text. */
 export const TEXTO_PAUSA_DE_BIBLIOTECA = TEXTO_PAUSA.voyage
 
 const LARGO_DEL_DETALLE = 400
@@ -232,9 +236,12 @@ export function textoDePausa(abiertas: readonly ProveedorConPausa[], proveedor: 
   return abiertas.includes(proveedor) ? TEXTO_PAUSA[proveedor] : null
 }
 
-/** The Biblioteca reads with Claude and embeds with Voyage (amendment A6). */
+/**
+ * The Biblioteca's buttons close only for Claude (amendment A6): a Voyage pause leaves the embeddings to maintenance
+ * and disables nothing for Coni.
+ */
 export function textoDePausaDeBiblioteca(abiertas: readonly ProveedorConPausa[]): string | null {
-  return abiertas.includes("claude") || abiertas.includes("voyage") ? TEXTO_PAUSA_DE_BIBLIOTECA : null
+  return abiertas.includes("claude") ? TEXTO_PAUSA_DE_BIBLIOTECA : null
 }
 ```
 
@@ -716,7 +723,7 @@ Rename the call site in `pedirJson` (`throw traducirErrorDeClaude(error, config.
 
 - [ ] `pnpm test:run`, `pnpm type`, `pnpm lint` all green; `pnpm test:db tests/integration/grabar.test.ts tests/integration/grabar-voz.test.ts tests/integration/fallas.test.ts` green.
 - [ ] `grep -rn $'\xe2\x80\x94' lib/dominio/pausas.ts lib/proveedores lib/produccion/grabar.ts` prints nothing new.
-- [ ] Batch review of lote 1 (`superpowers:requesting-code-review` over the six commits). Show Federico amendments A1 to A8 and wait for his answer before lote 2 (A1 changes the migration).
+- [ ] Batch review of lote 1 (`superpowers:requesting-code-review` over the six commits). Amendments A1 to A10 are already approved (2026-11-07); no wait before lote 2.
 
 ---
 
@@ -964,9 +971,12 @@ describe("lecturas de pausas", () => {
     await expect(exigirSinPausa(db, "heygen")).resolves.toBeUndefined()
   })
 
-  it("refuses the Biblioteca while Claude or Voyage is paused", async () => {
+  it("refuses the Biblioteca while Claude is paused, never for a Voyage pause", async () => {
     await pool.query("select public.abrir_pausa_de_proveedor('voyage', 'llave', 'x')")
-    const error = await exigirBibliotecaSinPausa(await clienteDeConi()).catch((e: unknown) => e)
+    const db = await clienteDeConi()
+    await expect(exigirBibliotecaSinPausa(db)).resolves.toBeUndefined()
+    await pool.query("select public.abrir_pausa_de_proveedor('claude', 'cuota', 'x')")
+    const error = await exigirBibliotecaSinPausa(db).catch((e: unknown) => e)
     expect((error as Falla).message).toBe("La Biblioteca está en pausa. Ya le avisamos a WAV.")
   })
 
@@ -1019,7 +1029,7 @@ export async function exigirSinPausa(db: Db, ...proveedores: ProveedorConPausa[]
   if (pausado) throw new Falla(TEXTO_PAUSA[pausado])
 }
 
-/** Biblioteca «Reintentar» and upload processing (plan amendment A6). */
+/** Biblioteca «Reintentar» and upload processing: only a Claude pause closes them (amendment A6). */
 export async function exigirBibliotecaSinPausa(db: Db): Promise<void> {
   const texto = textoDePausaDeBiblioteca(await leerPausasAbiertas(db))
   if (texto !== null) throw new Falla(texto)
@@ -1430,7 +1440,7 @@ In `procesar-material.test.ts` (or the file that already tests `alFallarMaterial
 
 (`sembrarMaterialProcesando` stands for the seeding helper the file already uses; reuse it under its real name.)
 
-In `procesar-afirmaciones.test.ts`, a case where the Voyage MSW handler answers 401: the material still ends `listo`, its claims stay without a vector, and one `voyage`/`llave` pause is open with one WAV email. Copy the arrangement of the existing "a Voyage error leaves the claims without a vector" test and add the assertions.
+In `procesar-afirmaciones.test.ts`, a case where the Voyage MSW handler answers 401: the material still ends `listo` with no `motivo_fallo` (A6: no pause text on materials for Voyage), its claims stay without a vector, and one `voyage`/`llave` pause is open with one WAV email. Copy the arrangement of the existing "a Voyage error leaves the claims without a vector" test and add the assertions.
 
 Clean `pausas_de_proveedor` in both files' `afterEach`.
 
@@ -1600,7 +1610,7 @@ const LLAVE = "llave-secreta-de-prueba"
 const BASES = { elevenlabs: "https://api.elevenlabs.io", heygen: "https://api.heygen.com" }
 const SUSCRIPCION = {
   status: "active",
-  has_open_invoices: false,
+  has_open_invoices: true,
   character_count: 10,
   character_limit: 100,
   can_extend_character_limit: false,
@@ -1611,12 +1621,12 @@ function suscripcion(cambios: Record<string, unknown>) {
 }
 
 describe("chequearProveedor elevenlabs", () => {
-  it("is good when the subscription is active, paid and has characters", async () => {
+  it("is good when the subscription is active and has characters, even with open invoices (A9)", async () => {
     suscripcion({})
     expect(await chequearProveedor({ proveedor: "elevenlabs", motivo: "pago", llave: LLAVE, bases: BASES })).toEqual({ ok: true })
   })
 
-  it.each([{ status: "past_due" }, { status: "incomplete" }, { status: "free_disabled" }, { has_open_invoices: true }])(
+  it.each([{ status: "past_due" }, { status: "incomplete" }, { status: "free_disabled" }])(
     "stays paused on %o",
     async (cambios) => {
       suscripcion(cambios)
@@ -1762,7 +1772,6 @@ async function leerJson(url: string, cabeceras: Record<string, string>): Promise
 // https://elevenlabs.io/docs/api-reference/user/subscription/get
 const Suscripcion = z.object({
   status: z.string(),
-  has_open_invoices: z.boolean(),
   character_count: z.number(),
   character_limit: z.number(),
   can_extend_character_limit: z.boolean().nullish(),
@@ -1776,7 +1785,6 @@ async function chequearElevenlabs(entrada: EntradaDeChequeo): Promise<ResultadoD
   if (!leida.success) return no("formato")
   const s = leida.data
   if (ESTADOS_SIN_PAGO.has(s.status)) return no(`estado ${s.status}`)
-  if (s.has_open_invoices) return no("facturas abiertas")
   if (entrada.motivo === "cuota" && s.character_count >= s.character_limit && s.can_extend_character_limit !== true) {
     return no("sin caracteres")
   }
@@ -1950,6 +1958,13 @@ describe("cerrarPausas", () => {
     expect(avisos.rows[0]?.n).toBe(0)
   })
 
+  it("closes a Voyage pause without telling Coni (A6)", async () => {
+    await abierta("voyage")
+    const { deps: d, canal } = deps({ ok: true })
+    expect(await cerrarPausas(d)).toEqual({ cerradas: ["voyage"], abiertas: [] })
+    expect(canal.aConiEnviados).toEqual([])
+  })
+
   it("asks nothing when no pause is open", async () => {
     const { deps: d, preguntas } = deps({ ok: true })
     expect(await cerrarPausas(d)).toEqual({ cerradas: [], abiertas: [] })
@@ -1998,7 +2013,10 @@ export async function cerrarPausas(deps: DepsPausas): Promise<ResultadoDePausas>
       resultado.abiertas.push({ proveedor: pausa.proveedor, motivo: chequeo.motivo })
       continue
     }
-    await deps.avisos.aConi(TEXTO_PAUSA_CERRADA[pausa.proveedor], true, { tipo: "pausa_cerrada", clave: `pausa:${pausa.id}` })
+    // Coni never saw a Voyage pause (amendment A6), so its closing tells her nothing.
+    if (pausa.proveedor !== "voyage") {
+      await deps.avisos.aConi(TEXTO_PAUSA_CERRADA[pausa.proveedor], true, { tipo: "pausa_cerrada", clave: `pausa:${pausa.id}` })
+    }
     const { error } = await deps.db.rpc("cerrar_pausa_de_proveedor", { p_id: pausa.id })
     if (error) throw new Error(`No pude cerrar la pausa ${pausa.id}: ${error.message}`, { cause: error })
     resultado.cerradas.push(pausa.proveedor)
@@ -2059,12 +2077,12 @@ async function chequearConLaLlave(db: SupabaseClient<Database>, pausa: PausaPara
 
 ---
 
-# Lote 5: screens and server actions (5 tasks)
+# Lote 5: screens and server actions (6 tasks)
 
 ### Task 17: server actions refuse while paused
 
 **Files:**
-- Modify: `lib/acciones/piezas.ts` (`pedirVoz` :615, `aprobarGuion` :399, `regrabar` :844, `reintentar` :884, `reintentarGuion` :366)
+- Modify: `lib/acciones/piezas.ts` (`pedirVoz` :615, `aprobarGuion` :399, `regrabar` :844, `reintentar` :884, `reintentarGuion` :366, `pedirCambios` :627)
 - Modify: `lib/acciones/semana.ts` (`proponerAhora`)
 - Modify: `lib/acciones/biblioteca.ts` (`moverYProcesar` :116, `crearMaterial` :281, `confirmarMaterial` :387)
 - Test: `tests/integration/acciones-piezas.test.ts`, `acciones-semana.test.ts`, `acciones-biblioteca.test.ts`, `acciones-subir.test.ts`
@@ -2085,7 +2103,7 @@ async function chequearConLaLlave(db: SupabaseClient<Database>, pausa: PausaPara
   })
 ```
 
-The other cases, same shape with each file's own helpers: `aprobarGuion` and `regrabar` with `heygen` paused (text `TEXTO_PAUSA.heygen`, the piece stays where it was); `reintentar` on a reel in `error_produccion` with `heygen` paused (refused) and on a carousel in `error_produccion` with `heygen` paused (not refused: carousels never call HeyGen); `reintentarGuion` with `claude` paused; `proponerAhora` with `claude` paused (no `motor` trigger); `reintentarMaterial`, `crearMaterial` and `confirmarMaterial` with `voyage` paused (text `TEXTO_PAUSA_DE_BIBLIOTECA`, `crearMaterial` inserts no row).
+The other cases, same shape with each file's own helpers: `aprobarGuion` and `regrabar` with `heygen` paused (text `TEXTO_PAUSA.heygen`, the piece stays where it was); `reintentar` on a reel in `error_produccion` with `heygen` paused (refused) and on a carousel in `error_produccion` with `heygen` paused (not refused: carousels never call HeyGen); `reintentarGuion` and `pedirCambios` with `claude` paused (no `producir` trigger, the piece stays at gate 1); `elegirIdeas` with `claude` paused still starts its pieces (A5); `proponerAhora` with `claude` paused (no `motor` trigger); `reintentarMaterial`, `crearMaterial` and `confirmarMaterial` with `claude` paused (text `TEXTO_PAUSA_DE_BIBLIOTECA`, `crearMaterial` inserts no row) and, with only `voyage` paused, all three still work (A6).
 
 - [ ] **Step 2: Run red**: `pnpm test:db tests/integration/acciones-piezas.test.ts tests/integration/acciones-semana.test.ts tests/integration/acciones-biblioteca.test.ts tests/integration/acciones-subir.test.ts` → FAIL.
 
@@ -2102,6 +2120,8 @@ The other cases, same shape with each file's own helpers: `aprobarGuion` and `re
     if (fila.estado === "error_produccion" && fila.tipo === "reel") await exigirSinPausa(deps.db, "heygen")
 // reintentarGuion, after the state check
     await exigirSinPausa(deps.db, "claude")
+// pedirCambios, after exigirVersion (amendment A5)
+    await exigirSinPausa(deps.db, "claude")
 // proponerAhora, after exigirConi
     await exigirSinPausa(deps.db, "claude")
 // moverYProcesar, crearMaterial and confirmarMaterial, after exigirConi
@@ -2114,11 +2134,13 @@ Imports from `@/lib/datos/pausas`. The `Falla` thrown becomes `{ ok: false, erro
 
 - [ ] **Step 5: Commit** message `Refuse provider actions while their provider is paused` + footer.
 
-### Task 18: gate 1, voice and signature
+### Task 18: gate 1, voice, signature and «Pedir cambios»
 
 **Files:**
 - Modify: `lib/datos/grabacion.ts` (`presentarGrabacion`, `leerDatosDeGrabacion`, `DatosDeGrabacion`)
 - Modify: `app/(app)/guion/[id]/voz-para-firmar.tsx`
+- Modify: `app/(app)/guion/[id]/pantalla-guion.tsx` (the «Pedir cambios» button, :348-353)
+- Test (also): `tests/unit/pantalla-guion.test.tsx` (the existing unit test of the gate 1 screen; find it with `grep -ln PantallaGuion tests/unit`)
 - Test: `tests/unit/grabacion.test.ts` (the existing unit test of `presentarGrabacion`; find it with `grep -ln presentarGrabacion tests/unit`), `tests/unit/voz-para-firmar.test.tsx`
 
 - [ ] **Step 1: Write the failing tests**
@@ -2178,7 +2200,21 @@ Imports from `@/lib/datos/pausas`. The `Falla` thrown becomes `{ ok: false, erro
       bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
 ```
 
-and `leerDatosDeGrabacion` reads `leerPausasAbiertas(db)` in its `Promise.all` and passes `pausas`. On the path where the config does not read (`botones: null`), the buttons have no block today; leave it (a broken config is already WAV's).
+and `leerDatosDeGrabacion` reads `leerPausasAbiertas(db)` in its `Promise.all`, passes `pausas`, and sets a new field of `DatosDeGrabacion`, `bloqueoCambios: textoDePausa(pausas, "claude")` (amendment A5). Read the pauses before the config, so the early return taken when the config does not read also carries `bloqueoCambios`.
+
+«Pedir cambios» (amendment A5), test first in the screen's unit test:
+
+```tsx
+  it("disables «Pedir cambios» with Claude's pause text while Claude is paused", async () => {
+    render(<PantallaGuion {...PROPS} datos={{ ...DATOS, grabacion: { ...DATOS.grabacion, bloqueoCambios: TEXTO_PAUSA.claude } }} />)
+    await abrirMasOpciones()
+    expect(screen.getByRole("button", { name: "Pedir cambios" })).toBeDisabled()
+    expect(screen.getByText("Las ideas y los guiones están en pausa. Ya le avisamos a WAV.")).toBeVisible()
+    expect(screen.queryByText("Escribo un guion nuevo y este se descarta.")).toBeNull()
+  })
+```
+
+(`PROPS`, `DATOS` and `abrirMasOpciones` stand for the file's existing fixtures and the way it opens «Más opciones».) In `pantalla-guion.tsx` the button gets `deshabilitado={grabacion.bloqueoCambios !== null}` and `aria-describedby` pointing at the line under it, which shows `grabacion.bloqueoCambios` instead of `TEXTO_PEDIR_CAMBIOS` while it is set. Every existing `DatosDeGrabacion` fixture in tests gets `bloqueoCambios: null`. On the path where the config does not read (`botones: null`), the buttons have no block today; leave it (a broken config is already WAV's).
 
 `voz-para-firmar.tsx` (keep `"use client"` on line 1): compute, before `falla`:
 
@@ -2194,7 +2230,7 @@ In the `Bloque`: `tipo={enPausa ? "aviso" : falla ? "error" : "neutro"}`, `titul
 
 - [ ] **Step 4: Run green** (same command), then `pnpm test:db tests/integration/grabacion-datos.test.ts`.
 
-- [ ] **Step 5: Commit** message `Close gate 1 voice and signature while their provider is paused` + footer.
+- [ ] **Step 5: Commit** message `Close gate 1 voice, signature and changes while their provider is paused` + footer.
 
 ### Task 19: retry buttons of a piece
 
@@ -2245,7 +2281,7 @@ with `const idDelBloqueo = useId()` and `Info` from `@phosphor-icons/react` (sam
 
 - [ ] **Step 5: Commit** message `Disable piece retries while their provider is paused` + footer.
 
-### Task 20: Biblioteca buttons
+### Task 20: Biblioteca buttons (Claude pause only, A6)
 
 **Files:**
 - Modify: `app/(app)/biblioteca/boton-reintentar.tsx`, `boton-que-pregunta.tsx`, `tarjeta-de-material.tsx`, `panel-de-material.tsx`, `page.tsx`, `materiales/[id]/page.tsx`
@@ -2290,7 +2326,7 @@ Copy the mocking style of the sibling Biblioteca unit tests if they mock `next/n
 
 - [ ] **Step 4: Run green** (same command), then `pnpm type && pnpm lint`; `head -1` of every touched client file is `"use client"`.
 
-- [ ] **Step 5: Commit** message `Disable Biblioteca actions while Claude or Voyage is paused` + footer.
+- [ ] **Step 5: Commit** message `Disable Biblioteca actions while Claude is paused` + footer.
 
 ### Task 21: E2E, phone and desktop
 
@@ -2363,7 +2399,7 @@ test("a paused Claude disables «Proponer ahora»", async ({ page }) => {
 
 If `sembrarPieza` cannot reach `error_produccion` directly, seed `en_render` and move it with `ajustarPieza(id, { estado: "error_produccion", explicacion: ... })`, the way `guion.spec.ts` seeds its failed pieces.
 
-`tests/e2e/pausas.escritorio.ts`: the same first test at 1280 x 900 (copy its `beforeEach` from `guion.escritorio.ts`: `bloquearRedExterna`, `emulateMedia`, `avatarYaVisto`, `sembrarEscena`), plus the Biblioteca with Voyage paused: a failed material's «Reintentar» disabled with the Biblioteca text, and `/biblioteca/subir` with its submit disabled. Measure that the gate 1 layout still uses the width (the voice block and the signature column side by side, as `guion.escritorio.ts` measures with `medidas-de-escritorio.ts`), run `revisarConAxe` on both pages, and `capturar` each state. No `toHaveScreenshot` baselines in this task.
+`tests/e2e/pausas.escritorio.ts`: the same first test at 1280 x 900 (copy its `beforeEach` from `guion.escritorio.ts`: `bloquearRedExterna`, `emulateMedia`, `avatarYaVisto`, `sembrarEscena`), plus the Biblioteca with Claude paused: a failed material's «Reintentar» disabled with the Biblioteca text, and `/biblioteca/subir` with its submit disabled; then, with only a Voyage pause open, both are enabled and no pause text shows (A6). Measure that the gate 1 layout still uses the width (the voice block and the signature column side by side, as `guion.escritorio.ts` measures with `medidas-de-escritorio.ts`), run `revisarConAxe` on both pages, and `capturar` each state. No `toHaveScreenshot` baselines in this task.
 
 - [ ] **Step 2: Run** (they exercise code that exists after Task 20, so they are expected green on the first run; if one is red, fix the code, not the expectation)
 
@@ -2374,18 +2410,173 @@ Expected: PASS, captures under the suite's capture folder.
 
 - [ ] **Step 4: Commit** message `Cover provider pauses end to end on phone and desktop` + footer.
 
+### Task 22: Inicio «Atención» lines of open pauses (A10)
+
+**Files:**
+- Modify: `lib/dominio/pausas.ts` (add `lineaDePausaDeInicio`)
+- Modify: `lib/inicio/modelo.ts` (`Inicio` :72, `construirInicio` :332, `tituloDeInicio` :111)
+- Modify: `lib/datos/inicio.ts` (`leerDatosDeInicio` :41, `DatosDeInicio`)
+- Modify: `lib/datos/pausas.ts` (add `leerPausasDeInicio`)
+- Modify: `app/(app)/page.tsx` (the «Necesita atención» section)
+- Test: `tests/unit/pausas.test.ts`, `tests/unit/inicio-modelo.test.ts`, `tests/e2e/pausas.spec.ts`
+
+Today `inicio.atencion` holds one `AvisoDeInicio` per failed piece; the first is the large error block, the rest are rows that open their piece. A pause is not a piece, so it gets its own list, `inicio.pausas: string[]`, rendered at the top of the same section as plain lines (it is information, WAV is on it: not an error block), and it counts in the screen's title like any other thing that needs her attention.
+
+- [ ] **Step 1: Write the failing unit tests**
+
+In `tests/unit/pausas.test.ts`:
+
+```ts
+describe("lineaDePausaDeInicio", () => {
+  it.each([
+    ["elevenlabs", "pago", "La voz está en pausa: la cuenta de ElevenLabs tiene un pago pendiente. WAV ya lo está resolviendo."],
+    ["elevenlabs", "cuota", "La voz está en pausa: la cuenta de ElevenLabs se quedó sin saldo. WAV ya lo está resolviendo."],
+    ["elevenlabs", "llave", "La voz está en pausa: la clave de ElevenLabs dejó de funcionar. WAV ya lo está resolviendo."],
+    ["heygen", "pago", "Los videos están en pausa: la cuenta de HeyGen tiene un pago pendiente. WAV ya lo está resolviendo."],
+    ["heygen", "cuota", "Los videos están en pausa: la cuenta de HeyGen se quedó sin créditos. WAV ya lo está resolviendo."],
+    ["heygen", "llave", "Los videos están en pausa: la clave de HeyGen dejó de funcionar. WAV ya lo está resolviendo."],
+    ["claude", "pago", "Las ideas y los guiones están en pausa: la cuenta de Claude tiene un pago pendiente. WAV ya lo está resolviendo."],
+    ["claude", "cuota", "Las ideas y los guiones están en pausa: la cuenta de Claude se quedó sin saldo. WAV ya lo está resolviendo."],
+    ["claude", "llave", "Las ideas y los guiones están en pausa: la clave de Claude dejó de funcionar. WAV ya lo está resolviendo."],
+  ] as const)("words %s %s", (proveedor, motivo, texto) => {
+    expect(lineaDePausaDeInicio(proveedor, motivo)).toBe(texto)
+    expect(texto).not.toContain("\u2014")
+  })
+
+  it("has no line for Voyage (A6)", () => {
+    expect(lineaDePausaDeInicio("voyage", "llave")).toBeNull()
+  })
+})
+```
+
+In `tests/unit/inicio-modelo.test.ts` (reuse the file's builders for `piezas`):
+
+```ts
+  it("puts one line per open pause first in her attention, and counts it in the title", () => {
+    const inicio = construirInicio({
+      piezas: [],
+      ahora: AHORA,
+      zona: ZONA,
+      pausas: [
+        { proveedor: "elevenlabs", motivo: "pago" },
+        { proveedor: "voyage", motivo: "llave" },
+      ],
+    })
+    expect(inicio.pausas).toEqual([
+      "La voz está en pausa: la cuenta de ElevenLabs tiene un pago pendiente. WAV ya lo está resolviendo.",
+    ])
+    expect(inicio.titulo).toBe("Una cosa necesita tu atención")
+  })
+
+  it("shows no pause line when none is open", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, pausas: [] })
+    expect(inicio.pausas).toEqual([])
+    expect(inicio.titulo).toBe("Esta semana está al día")
+  })
+```
+
+Every existing `construirInicio` call in tests gets `pausas: []`.
+
+- [ ] **Step 2: Run red**: `pnpm exec vitest run tests/unit/pausas.test.ts tests/unit/inicio-modelo.test.ts` → FAIL.
+
+- [ ] **Step 3: Implement**
+
+`lib/dominio/pausas.ts`:
+
+```ts
+const SUJETO_EN_INICIO: Record<Exclude<ProveedorConPausa, "voyage">, string> = {
+  elevenlabs: "La voz está en pausa",
+  heygen: "Los videos están en pausa",
+  claude: "Las ideas y los guiones están en pausa",
+}
+
+const NOMBRE_EN_INICIO: Record<Exclude<ProveedorConPausa, "voyage">, string> = {
+  elevenlabs: "ElevenLabs",
+  heygen: "HeyGen",
+  claude: "Claude",
+}
+
+function causaEnInicio(proveedor: Exclude<ProveedorConPausa, "voyage">, motivo: MotivoDePausa): string {
+  const nombre = NOMBRE_EN_INICIO[proveedor]
+  switch (motivo) {
+    case "pago":
+      return `la cuenta de ${nombre} tiene un pago pendiente`
+    case "cuota":
+      return `la cuenta de ${nombre} se quedó sin ${proveedor === "heygen" ? "créditos" : "saldo"}`
+    case "llave":
+      return `la clave de ${nombre} dejó de funcionar`
+  }
+}
+
+/** Inicio's «Atención» line of an open pause (spec amendment A10); Voyage has none (A6). */
+export function lineaDePausaDeInicio(proveedor: ProveedorConPausa, motivo: MotivoDePausa): string | null {
+  if (proveedor === "voyage") return null
+  return `${SUJETO_EN_INICIO[proveedor]}: ${causaEnInicio(proveedor, motivo)}. WAV ya lo está resolviendo.`
+}
+```
+
+`lib/datos/pausas.ts`: `leerPausasDeInicio(db): Promise<{ proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]>`, the same query as `leerPausasAbiertas` selecting `proveedor, motivo`, validated with `proveedorDe` and `esMotivoDePausa` (throw on an unknown value, as `leerPausasParaCerrar` does), ordered by `desde`.
+
+`lib/datos/inicio.ts`: `DatosDeInicio` gains `pausas`, read in the existing `Promise.all` with Coni's session.
+
+`lib/inicio/modelo.ts`: `Inicio` gains `/** One line per open pause (A10), shown first in «Atención»; not pieces, so they open nothing. */ pausas: string[]`; `construirInicio` takes `pausas: readonly { proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]`, computes `const lineasDePausa = pausas.flatMap((p) => { const linea = lineaDePausaDeInicio(p.proveedor, p.motivo); return linea ? [linea] : [] })`, and passes `atencion.length + lineasDePausa.length` to `tituloDeInicio` and `lineaDeInicio`. The model stays pure (no database, no clock beyond `ahora`).
+
+`app/(app)/page.tsx`: pass `pausas: datos.pausas` to `construirInicio`; the section renders when `inicio.pausas.length > 0 || principal`:
+
+```tsx
+      {inicio.pausas.length > 0 || principal ? (
+        <section aria-label="Necesita atención" className="mt-6 grid gap-4">
+          {inicio.pausas.map((linea) => (
+            <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+          ))}
+          {principal ? (
+            /* the existing large Bloque and the rows of the other failures, unchanged */
+          ) : null}
+        </section>
+      ) : null}
+```
+
+(`LineaDeEstado` from `@/components/ui/linea-de-estado`; `aviso` is its honda block that does not interrupt, the same weight the gate 1 HeyGen block uses.)
+
+- [ ] **Step 4: Run green**: `pnpm exec vitest run tests/unit/pausas.test.ts tests/unit/inicio-modelo.test.ts && pnpm type`.
+
+- [ ] **Step 5: E2E, the line appears and leaves.** Append to `tests/e2e/pausas.spec.ts`:
+
+```ts
+test("Inicio says an open pause with its reason, and stops saying it when the pause closes", async ({ page }) => {
+  const { rows } = await pool.query<{ pausa_id: string }>("select pausa_id from public.abrir_pausa_de_proveedor('heygen', 'cuota', 'e2e')")
+  await pool.query("select public.abrir_pausa_de_proveedor('voyage', 'llave', 'e2e')")
+  await page.goto("/")
+  const atencion = page.getByRole("region", { name: "Necesita atención" })
+  await expect(
+    atencion.getByText("Los videos están en pausa: la cuenta de HeyGen se quedó sin créditos. WAV ya lo está resolviendo."),
+  ).toBeVisible()
+  await expect(page.getByText(/Voyage|La Biblioteca está en pausa/)).toHaveCount(0)
+  await capturar(page, "pausa-inicio", { completa: true })
+
+  await pool.query("select public.cerrar_pausa_de_proveedor($1)", [rows[0]?.pausa_id])
+  await page.reload()
+  await expect(page.getByText(/Los videos están en pausa/)).toHaveCount(0)
+})
+```
+
+Run: `pnpm exec playwright test --project=app tests/e2e/pausas.spec.ts && pnpm exec playwright test --project=app tests/e2e/inicio.spec.ts`
+Expected: PASS (Inicio without pauses unchanged).
+
+- [ ] **Step 6: Commit** `lib/dominio/pausas.ts`, `lib/datos/pausas.ts`, `lib/datos/inicio.ts`, `lib/inicio/modelo.ts`, `app/(app)/page.tsx` and the three test files; message `Show open provider pauses in Inicio's attention block` + footer.
+
 ### Checkpoint, lote 5
 
 - [ ] `pnpm test:run`, `pnpm test:db`, `pnpm test:e2e`, `pnpm type`, `pnpm lint`, `pnpm build` green.
 - [ ] `grep -rn $'\xe2\x80\x94' app lib tests/e2e/pausas.*` shows nothing added by this branch (`git diff main --stat` then grep the changed files).
 - [ ] Batch review of lote 5, plus a UX pass on the captures (desktop uses the width; the pause text reads as information, not as an error; no doubled text).
-- [ ] Send Federico the captures of Task 21 (phone and desktop). Visual baselines (`toHaveScreenshot`) are added only after he approves them, in a separate commit `Add visual baselines for provider pauses`.
+- [ ] Send Federico the captures of Tasks 21 and 22 (phone and desktop). Visual baselines (`toHaveScreenshot`) are added only after he approves them, in a separate commit `Add visual baselines for provider pauses`.
 
 ---
 
 # Lote 6: release (1 task)
 
-### Task 22: migration, Trigger deploy, app
+### Task 23: migration, Trigger deploy, app
 
 - [ ] **Step 1: PR and CI.** Push the branch only when Federico asks; open the PR against `main` with "Part of #96" and the plan link; CI green; reviews approved; the issue moved on the project board.
 - [ ] **Step 2: Migration dry-run.** `supabase db push --dry-run` against production lists exactly `20261107000100_pausas_de_proveedor.sql` and nothing else. It only adds (a table, an index, three functions, a wider `avisos_tipo_check`), so under the release rule Claude may push it: `supabase db push`, then verify `select count(*) from public.pausas_de_proveedor` answers 0 and the constraint includes `pausa_cerrada`.
@@ -2397,6 +2588,6 @@ Expected: PASS, captures under the suite's capture folder.
 
 ## Self-review notes
 
-- Spec coverage: decision 1 (Tasks 3 to 6, A2 to A4), decision 2 (Task 7, A1), decision 3 (Tasks 9 to 13, texts in Task 1, no push to Coni in Tasks 9 to 11), decision 4 (Tasks 14, 17 to 20, A5, A6, A8), decision 5 (Tasks 15 and 16, A7), Release (Task 22), Testing (units in Lote 1 and Tasks 15, 18 to 20; integration in Lotes 2 to 5; E2E in Task 21).
-- Names used across tasks: `PausaDeProveedor`, `TEXTO_PAUSA`, `TEXTO_PAUSA_CERRADA`, `TEXTO_PAUSA_DE_BIBLIOTECA`, `textoDePausa`, `textoDePausaDeBiblioteca`, `proveedorDelTextoDePausa`, `esTextoDePausa`, `leerPausasAbiertas`, `exigirSinPausa`, `exigirBibliotecaSinPausa`, `leerPausasParaCerrar`, `abrirPausa`, `chequearProveedor`, `cerrarPausas`, `traducirErrorDeClaude`, `pausaDeElevenlabs`.
+- Spec coverage: decision 1 (Tasks 3 to 6, A2 to A4), decision 2 (Task 7, A1), decision 3 (Tasks 9 to 13, texts in Task 1, no push to Coni in Tasks 9 to 11), decision 4 (Tasks 14, 17 to 20, A5, A6, A8), decision 5 (Tasks 15 and 16, A7, A9), Inicio lines (Task 22, A10), Release (Task 23), Testing (units in Lote 1 and Tasks 15, 18 to 20, 22; integration in Lotes 2 to 5; E2E in Tasks 21 and 22).
+- Names used across tasks: `PausaDeProveedor`, `TEXTO_PAUSA`, `TEXTO_PAUSA_CERRADA`, `TEXTO_PAUSA_DE_BIBLIOTECA`, `textoDePausa`, `textoDePausaDeBiblioteca`, `proveedorDelTextoDePausa`, `esTextoDePausa`, `leerPausasAbiertas`, `exigirSinPausa`, `exigirBibliotecaSinPausa`, `leerPausasParaCerrar`, `abrirPausa`, `chequearProveedor`, `cerrarPausas`, `traducirErrorDeClaude`, `pausaDeElevenlabs`, `lineaDePausaDeInicio`, `leerPausasDeInicio`, `bloqueoCambios`.
 - Out of scope (spec): LinkedIn and Instagram tokens, redoing work after a pause, a WAV dashboard, balance alerts before failing, and «Avisar a Federico» (part 2).

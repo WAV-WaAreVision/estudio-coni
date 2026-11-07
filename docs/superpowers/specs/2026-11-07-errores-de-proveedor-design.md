@@ -56,6 +56,41 @@ Federico» exists only as text (`app/(app)/guion/[id]/textos.ts:26-35`); there i
    the screen says «Le avisé a Federico.». The email is keyed by the entity and the explanation, so repeated taps on
    the same failure send one email. Where a pause is shown there is no button: WAV already knows.
 
+## Amendments (approved by Federico on 2026-11-07, with the part 1 plan)
+
+These override the decisions above where they differ.
+
+- **A1. WAV's email is marked.** `pausas_de_proveedor` adds `avisada_en`. `abrir_pausa_de_proveedor` returns
+  `(pausa_id, nueva, avisar)`, where `avisar` means WAV has not been emailed yet; `marcar_pausa_avisada(id)` sets it
+  after the email. A failed email is sent again by the next caller instead of being lost.
+- **A2. Claude 402.** Claude also pauses on 402 `billing_error` (`pago`), listed in the current docs.
+- **A3. Voyage codes.** Voyage keeps 401, 402, 403 (403 is `llave`; its docs list no 402, kept as harmless).
+- **A4. HeyGen failed render.** A render that fails later with `insufficient_credit` is the same `heygen`/`cuota`
+  pause as a 402 on create.
+- **A5. Claude closes script retries and «Pedir cambios».** While Claude is paused, «Reintentar» of a script (reel
+  and carousel) and «Pedir cambios» on the guion are disabled, and their server actions refuse. Choosing ideas stays
+  enabled.
+- **A6. Voyage pauses are WAV-only.** A Voyage pause opens its row, emails WAV once and closes on its own through the
+  maintenance check, but disables nothing for Coni, writes no pause text on materials, shows no Inicio line and sends Coni no closing notice:
+  embeddings stay deferred to maintenance as today. The Biblioteca text («La Biblioteca está en pausa. Ya le avisamos
+  a WAV.») and its disabled «Reintentar» and upload come only from a Claude pause; a material that meets a pause while
+  processing (Claude, or ElevenLabs while transcribing) is marked with that text.
+- **A7. Voyage key.** The Voyage key is the Trigger.dev variable `VOYAGE_API_KEY`, not a Vault secret; its check
+  reads it from there.
+- **A8. Maintenance with Claude paused.** The frequent `temas` job and the nightly `fusiones` are skipped while Claude
+  is paused, and a pause met inside them opens the pause instead of failing the run.
+- **A9. ElevenLabs closing check.** The pause closes when the subscription `status` is active (not `past_due`,
+  `incomplete` or `free_disabled`) and, for a `cuota` pause, characters remain. Open invoices are not required to be
+  zero.
+- **A10. Inicio «Atención» lines.** While a pause of ElevenLabs, HeyGen or Claude is open, Inicio's attention block
+  shows one line for it with the concrete reason, and the line leaves when the pause closes. The texts:
+
+  | | `pago` | `cuota` | `llave` |
+  |---|---|---|---|
+  | ElevenLabs | «La voz está en pausa: la cuenta de ElevenLabs tiene un pago pendiente. WAV ya lo está resolviendo.» | «La voz está en pausa: la cuenta de ElevenLabs se quedó sin saldo. WAV ya lo está resolviendo.» | «La voz está en pausa: la clave de ElevenLabs dejó de funcionar. WAV ya lo está resolviendo.» |
+  | HeyGen | «Los videos están en pausa: la cuenta de HeyGen tiene un pago pendiente. WAV ya lo está resolviendo.» | «Los videos están en pausa: la cuenta de HeyGen se quedó sin créditos. WAV ya lo está resolviendo.» | «Los videos están en pausa: la clave de HeyGen dejó de funcionar. WAV ya lo está resolviendo.» |
+  | Claude | «Las ideas y los guiones están en pausa: la cuenta de Claude tiene un pago pendiente. WAV ya lo está resolviendo.» | «Las ideas y los guiones están en pausa: la cuenta de Claude se quedó sin saldo. WAV ya lo está resolviendo.» | «Las ideas y los guiones están en pausa: la clave de Claude dejó de funcionar. WAV ya lo está resolviendo.» |
+
 ## Release
 
 - **Part 1 (decisions 1-5):** migration (adds only: the table, its index, RLS, the function), Trigger deploy (the tasks
@@ -73,6 +108,8 @@ Federico» exists only as text (`app/(app)/guion/[id]/textos.ts:26-35`); there i
   cannot write); the maintenance step closes a pause on a good check and leaves it on a bad one, with one notice;
   `avisarAFederico` sends one email per failure and refuses a non-Coni session; a voice task hitting a payment error
   opens the pause, emails WAV once for two pieces, and writes the pause text.
+- **Amendments:** the Inicio line of each pause appears while it is open and leaves when it closes (A10); a Voyage
+  pause disables nothing (A6); «Pedir cambios» refuses while Claude is paused (A5).
 - **E2E phone and desktop:** a paused voice shows the text and no active «Preparar mi voz»; after the pause closes the
   button is back; «Avisar a Federico» on a configuration failure; visual baselines after Federico sees the captures.
 
