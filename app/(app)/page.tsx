@@ -34,6 +34,10 @@ import { SinFirmas } from "./sin-firmas"
 const IDEAS_DE_LA_SEMANA = 5
 const AVISOS_A_MOSTRAR = 5
 
+/** Two columns from 40rem of container (app/globals.css): reading column and a narrower side, centred. */
+const COLUMNAS_DE_INICIO =
+  "dos-columnas:grid dos-columnas:grid-cols-[minmax(0,1fr)_minmax(15rem,17rem)] dos-columnas:items-start dos-columnas:justify-center dos-columnas:gap-x-8 dos-columnas-amplias:grid-cols-[minmax(0,40rem)_minmax(16rem,22rem)] dos-columnas-amplias:gap-x-12"
+
 /** "5 nuevas", "1 nueva", or nothing: the meta of the row that opens the week's ideas. */
 function nuevas(cantidad: number): string | undefined {
   if (cantidad === 0) return undefined
@@ -61,167 +65,190 @@ export default async function Inicio() {
   const [carta, ...otrasFirmas] = inicio.firma
 
   return (
-    <div>
-      <header className="grid gap-1.5">
-        <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-meta">
-          <span className="font-semibold">Hola, Coni</span>
-          <span data-snapshot="varia" className="text-apagado">
-            {inicio.semana}
-          </span>
-        </p>
-        <h1 className="mt-6 text-pantalla text-balance">{inicio.titulo}</h1>
-        {inicio.linea ? <p className="text-meta text-apagado">{inicio.linea}</p> : null}
-      </header>
+    // On a tablet or a computer (Federico, 07-11) two columns: what asks for her on the left at reading width (attention,
+    // what to upload, her signature), and on the right what she only looks at (notices, what is on its way, her week).
+    // Below 40rem of container (a phone, a large text) it stays the phone's one column, in the same
+    // order. The wrappers keep the phone's rhythm: the left one adds nothing, the right one the gap a section had.
+    <div data-ancho="inicio" className="@container">
+      <div className={COLUMNAS_DE_INICIO}>
+        <header className="grid gap-1.5 dos-columnas:col-span-full">
+          <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-meta">
+            <span className="font-semibold">Hola, Coni</span>
+            <span data-snapshot="varia" className="text-apagado">
+              {inicio.semana}
+            </span>
+          </p>
+          <h1 className="mt-6 text-pantalla text-balance">{inicio.titulo}</h1>
+          {inicio.linea ? <p className="text-meta text-apagado">{inicio.linea}</p> : null}
+        </header>
 
-      <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
+        <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
-      {inicio.pausas.length > 0 || principal ? (
-        <section aria-label="Necesita atención" className="mt-6 grid gap-4">
-          {/* A pause is information (WAV is on it), not an error of hers: a plain line each, before the failures. */}
-          {inicio.pausas.map((linea) => (
-            <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+        <div className="min-w-0 dos-columnas:col-start-1">
+          {inicio.pausas.length > 0 || principal ? (
+            <section aria-label="Necesita atención" className="mt-6 grid gap-4">
+              {/* A pause is information (WAV is on it), not an error of hers: a plain line each, before the failures. */}
+              {inicio.pausas.map((linea) => (
+                <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+              ))}
+              {principal ? (
+                <>
+                  <Bloque
+                    tipo="error"
+                    grande
+                    titulo={principal.causa}
+                    pieza={principal.titulo}
+                    accion={principal.accion ? <AccionDeAviso accion={principal.accion} principal /> : undefined}
+                  >
+                    <ExplicacionParaConi texto={principal.texto} enSusPalabras={TEXTO_ENTRA_A_LA_PIEZA} />
+                  </Bloque>
+                  {otrasFallas.length > 0 ? (
+                    <Grupo lista>
+                      {otrasFallas.map((aviso) => (
+                        <FilaPieza
+                          key={`${aviso.titulo}-${aviso.texto}`}
+                          titulo={aviso.titulo}
+                          causa={aviso.causa}
+                          pilar={pilarVisible(pilares, aviso.pilar)}
+                          href={aviso.accion?.href}
+                        />
+                      ))}
+                    </Grupo>
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+          ) : null}
+
+          {inicio.avisos.map((aviso) => (
+            <Bloque
+              key={aviso.titulo}
+              tipo="ok"
+              titulo={aviso.titulo}
+              className="mt-6"
+              accion={aviso.accion ? <AccionDeAviso accion={aviso.accion} /> : undefined}
+            >
+              {aviso.texto}
+            </Bloque>
           ))}
-          {principal ? (
-            <>
-              <Bloque
-                tipo="error"
-                grande
-                titulo={principal.causa}
-                pieza={principal.titulo}
-                accion={principal.accion ? <AccionDeAviso accion={principal.accion} principal /> : undefined}
-              >
-                <ExplicacionParaConi texto={principal.texto} enSusPalabras={TEXTO_ENTRA_A_LA_PIEZA} />
-              </Bloque>
-              {otrasFallas.length > 0 ? (
-                <Grupo lista>
-                  {otrasFallas.map((aviso) => (
+
+          {inicio.porSubir.length > 0 ? (
+            <Seccion
+              titulo={inicio.porSubirTitulo}
+              id="por-subir"
+              cifra={inicio.porSubir.length}
+              className="first:mt-8"
+            >
+              <Grupo lista>
+                {inicio.porSubir.map((fila) => (
+                  <FilaPieza
+                    key={fila.id}
+                    titulo={fila.titulo}
+                    estado={fila.meta}
+                    pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
+                    href={fila.href}
+                  />
+                ))}
+              </Grupo>
+            </Seccion>
+          ) : null}
+
+          <Seccion
+            titulo="Necesita tu firma"
+            id="firma"
+            cifra={inicio.firma.length > 0 ? inicio.firma.length : undefined}
+            className="first:mt-8"
+          >
+            {carta ? (
+              <CartaDeFirma
+                fila={carta}
+                pilar={pilarVisible(pilares, carta.pilar, datos.angulos.get(carta.id) ?? null)}
+                principal={principal === undefined}
+              />
+            ) : (
+              <SinFirmas motorSemanalActivo={datos.motorSemanalActivo} />
+            )}
+            {otrasFirmas.length > 0 ? (
+              <Grupo lista className="mt-2">
+                {otrasFirmas.map((fila) => (
+                  <FilaPieza
+                    key={fila.id}
+                    titulo={fila.titulo}
+                    estado={fila.meta}
+                    pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
+                    href={fila.href}
+                  />
+                ))}
+              </Grupo>
+            ) : null}
+            {inicio.enPreparacion.length > 0 ? (
+              <>
+                <p className="mx-0.5 mt-2 text-meta font-semibold">En preparación, aún no se firma</p>
+                <Grupo plano lista>
+                  {inicio.enPreparacion.map((fila) => (
                     <FilaPieza
-                      key={`${aviso.titulo}-${aviso.texto}`}
-                      titulo={aviso.titulo}
-                      causa={aviso.causa}
-                      pilar={pilarVisible(pilares, aviso.pilar)}
-                      href={aviso.accion?.href}
+                      key={fila.id}
+                      titulo={fila.titulo}
+                      estado={fila.meta}
+                      pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
+                      trabajando
                     />
                   ))}
                 </Grupo>
-              ) : null}
-            </>
-          ) : null}
-        </section>
-      ) : null}
+              </>
+            ) : null}
+          </Seccion>
+        </div>
 
-      {inicio.avisos.map((aviso) => (
-        <Bloque
-          key={aviso.titulo}
-          tipo="ok"
-          titulo={aviso.titulo}
-          className="mt-6"
-          accion={aviso.accion ? <AccionDeAviso accion={aviso.accion} /> : undefined}
+        <div
+          data-columna="lado"
+          className="mt-8 min-w-0 dos-columnas:mt-6 dos-columnas:col-start-2 dos-columnas:row-start-2"
         >
-          {aviso.texto}
-        </Bloque>
-      ))}
-
-      {inicio.porSubir.length > 0 ? (
-        <Seccion titulo={inicio.porSubirTitulo} id="por-subir" cifra={inicio.porSubir.length}>
-          <Grupo lista>
-            {inicio.porSubir.map((fila) => (
-              <FilaPieza
-                key={fila.id}
-                titulo={fila.titulo}
-                estado={fila.meta}
-                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
-                href={fila.href}
-              />
-            ))}
-          </Grupo>
-        </Seccion>
-      ) : null}
-
-      <Seccion titulo="Necesita tu firma" id="firma" cifra={inicio.firma.length > 0 ? inicio.firma.length : undefined}>
-        {carta ? (
-          <CartaDeFirma
-            fila={carta}
-            pilar={pilarVisible(pilares, carta.pilar, datos.angulos.get(carta.id) ?? null)}
-            principal={principal === undefined}
+          <AvisosSinLeer
+            avisos={sinLeer.map((aviso) => ({
+              id: aviso.id,
+              mensaje: aviso.mensaje,
+              href: rutaDeAviso({ tipo: aviso.tipo, piezaId: aviso.pieza_id }),
+              cuando: etiquetaDeFecha(aviso.creado_en, datos.zona, "corta"),
+            }))}
+            marcar={marcarAvisoLeidoAccion}
           />
-        ) : (
-          <SinFirmas motorSemanalActivo={datos.motorSemanalActivo} />
-        )}
-        {otrasFirmas.length > 0 ? (
-          <Grupo lista className="mt-2">
-            {otrasFirmas.map((fila) => (
-              <FilaPieza
-                key={fila.id}
-                titulo={fila.titulo}
-                estado={fila.meta}
-                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
-                href={fila.href}
-              />
-            ))}
-          </Grupo>
-        ) : null}
-        {inicio.enPreparacion.length > 0 ? (
-          <>
-            <p className="mx-0.5 mt-2 text-meta font-semibold">En preparación, aún no se firma</p>
-            <Grupo plano lista>
-              {inicio.enPreparacion.map((fila) => (
-                <FilaPieza
-                  key={fila.id}
-                  titulo={fila.titulo}
-                  estado={fila.meta}
-                  pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
-                  trabajando
+
+          {inicio.camino.length > 0 ? (
+            <Seccion titulo="En camino" id="camino" cifra={inicio.camino.length}>
+              <Grupo lista>
+                {inicio.camino.map((fila) => (
+                  <FilaPieza
+                    key={fila.id}
+                    titulo={fila.titulo}
+                    estado={fila.estado}
+                    pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
+                    trabajando={fila.ocupada}
+                    href={fila.href}
+                  />
+                ))}
+              </Grupo>
+            </Seccion>
+          ) : null}
+
+          <Seccion titulo="Tu semana" id="semana">
+            <Grupo>
+              <MasOpciones forma="fila" titulo="Elegir ideas de la semana" resumen={nuevas(ideasParaElegir.length)}>
+                <IdeasSemana ideas={ideasParaElegir} alElegir={elegirIdeasAccion} />
+              </MasOpciones>
+              <FilaNavegacion href="/calendario">Ver calendario</FilaNavegacion>
+              <MasOpciones forma="fila" titulo="Consultas">
+                <ConsultaNueva
+                  total={contarEnMes(consultas, mes.clave, datos.zona)}
+                  mes={mes.nombre}
+                  alAnotar={anotarConsultaAccion}
+                  alDeshacer={deshacerConsultaAccion}
                 />
-              ))}
+              </MasOpciones>
             </Grupo>
-          </>
-        ) : null}
-      </Seccion>
-
-      <AvisosSinLeer
-        avisos={sinLeer.map((aviso) => ({
-          id: aviso.id,
-          mensaje: aviso.mensaje,
-          href: rutaDeAviso({ tipo: aviso.tipo, piezaId: aviso.pieza_id }),
-          cuando: etiquetaDeFecha(aviso.creado_en, datos.zona, "corta"),
-        }))}
-        marcar={marcarAvisoLeidoAccion}
-      />
-
-      {inicio.camino.length > 0 ? (
-        <Seccion titulo="En camino" id="camino" cifra={inicio.camino.length}>
-          <Grupo lista>
-            {inicio.camino.map((fila) => (
-              <FilaPieza
-                key={fila.id}
-                titulo={fila.titulo}
-                estado={fila.estado}
-                pilar={pilarVisible(pilares, fila.pilar, datos.angulos.get(fila.id) ?? null)}
-                trabajando={fila.ocupada}
-                href={fila.href}
-              />
-            ))}
-          </Grupo>
-        </Seccion>
-      ) : null}
-
-      <Seccion titulo="Tu semana" id="semana">
-        <Grupo>
-          <MasOpciones forma="fila" titulo="Elegir ideas de la semana" resumen={nuevas(ideasParaElegir.length)}>
-            <IdeasSemana ideas={ideasParaElegir} alElegir={elegirIdeasAccion} />
-          </MasOpciones>
-          <FilaNavegacion href="/calendario">Ver calendario</FilaNavegacion>
-          <MasOpciones forma="fila" titulo="Consultas">
-            <ConsultaNueva
-              total={contarEnMes(consultas, mes.clave, datos.zona)}
-              mes={mes.nombre}
-              alAnotar={anotarConsultaAccion}
-              alDeshacer={deshacerConsultaAccion}
-            />
-          </MasOpciones>
-        </Grupo>
-      </Seccion>
+          </Seccion>
+        </div>
+      </div>
     </div>
   )
 }
