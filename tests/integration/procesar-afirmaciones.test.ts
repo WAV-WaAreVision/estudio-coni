@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
 import { procesarMaterial } from "@/lib/ingesta/procesar"
 import { aTramos } from "@/lib/ingesta/tramos"
 import { MODELO_POR_TAREA } from "@/lib/proveedores/anthropic"
@@ -298,6 +298,7 @@ describe("Voyage en pausa", () => {
     simularVoyage(401)
     const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
     const avisos = notificadorEnMemoria()
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined)
 
     const resultado = await procesarMaterial(await deps(almacen, { ...conLlave, avisos }), id)
 
@@ -310,6 +311,9 @@ describe("Voyage en pausa", () => {
     expect(rows).toEqual([{ proveedor: "voyage", motivo: "llave" }])
     expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Voyage en pausa: llave rechazada"])
     expect(avisos.aConiEnviados).toEqual([])
+    // The log carries WAV's detail, not the Biblioteca text meant for Coni.
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining("Voyage respondió HTTP 401"))
+    aviso.mockRestore()
   })
 })
 
