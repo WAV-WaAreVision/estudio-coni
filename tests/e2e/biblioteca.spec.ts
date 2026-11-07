@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "@playwright/test"
 import { pool } from "../integration/db"
 import {
@@ -22,6 +24,8 @@ import {
 import { BALDE_DE_PRUEBA, CORREO_DEL_MANTENEDOR, URL_DEL_ALMACEN } from "./entorno"
 
 const CLAVE_CON_INTENTO = (materialId: string) => new RegExp(`^procesar-material:${materialId}:[0-9a-f-]{36}$`)
+// A non-breaking space keeps "US$ 1,20" on one line on the phone; toHaveText folds it, textContent does not.
+const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$\u00a01,20."
 
 let escena: EscenaDeBiblioteca
 
@@ -48,7 +52,9 @@ test("the phone list shows each material as a card with its words, topic and sta
   await expect(burnout).toContainText("Hace 2 días")
   await expect(lista.getByRole("listitem").filter({ hasText: "Notas del taller" })).toContainText("Con error")
   await expect(lista.getByRole("listitem").filter({ hasText: "Liderar con IA" })).toContainText("Procesando")
-  await expect(lista.getByRole("listitem").filter({ hasText: "síndrome del impostor" })).toContainText("Espera tu OK")
+  const charla = lista.getByRole("listitem").filter({ hasText: "síndrome del impostor" })
+  await expect(charla).toContainText("Procesando")
+  await expect(charla.getByRole("button")).toHaveCount(0)
 
   // The bar's tab still goes to Ingesta in this batch.
   await expect(
@@ -118,13 +124,32 @@ test("a material that finishes while the list is open turns Listo on its own, wi
   expect(await page.evaluate(() => window.scrollY)).toBe(120)
 })
 
-test("Procesar por ~US$ 1,20 on a card starts the run with a key of its own", async ({ page }) => {
-  await page.goto("/biblioteca")
-  await page.getByRole("button", { name: "Procesar por ~US$ 1,20" }).click()
-  await expect(page.getByRole("button", { name: "Procesar por ~US$ 1,20" })).toHaveCount(0, { timeout: 30_000 })
-  const disparos = disparosDeMateriales()
-  expect(disparos.map((disparo) => disparo.materialId)).toEqual([escena.esperaOk])
-  expect(disparos[0]?.clave).toMatch(CLAVE_CON_INTENTO(escena.esperaOk))
+test("a material's page says it is processing and, once the task estimated it, what it will cost; nothing to confirm", async ({
+  page,
+}) => {
+  await page.goto(`/biblioteca/materiales/${escena.conEstimado}`)
+  await expect(
+    page.getByRole("heading", { name: "Charla larga sobre el síndrome del impostor", level: 1 }),
+  ).toBeVisible()
+  const avisoConCosto = page.getByRole("status").filter({ hasText: AVISO_CON_COSTO })
+  await expect(avisoConCosto).toHaveText(AVISO_CON_COSTO)
+  expect(await avisoConCosto.textContent()).toBe(AVISO_CON_COSTO)
+  await expect(page.getByText("Procesando", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Procesar por/ })).toHaveCount(0)
+  expect(await revisarConAxe(page, "material procesando con su costo")).toEqual([])
+  // For Federico (Task 14): not a baseline, only a picture of the notice.
+  const carpeta = process.env.VISUAL_FINALES
+  if (carpeta) {
+    mkdirSync(carpeta, { recursive: true })
+    await page.screenshot({ path: join(carpeta, "material-procesando-telefono.png"), fullPage: true })
+  }
+
+  await page.goto(`/biblioteca/materiales/${escena.procesando}`)
+  await expect(page.getByRole("status").filter({ hasText: "Lo estoy procesando." })).toHaveText("Lo estoy procesando.")
+
+  await page.goto(`/biblioteca/materiales/${escena.listo}`)
+  await expect(page.getByText(/^Lo estoy procesando/)).toHaveCount(0)
+  expect(disparosDeMateriales()).toEqual([])
 })
 
 test("the detail goes back honestly, edits who she is for you, and Reprocesar records a new run", async ({ page }) => {

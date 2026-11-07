@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  ESTIMADO_POR_TRAMO_USD,
-  estimarCostoRestante,
-  estimarFicha,
-  UMBRAL_CONFIRMACION_USD,
-} from "@/lib/ingesta/procesar"
+import { ESTIMADO_POR_TRAMO_USD, estimarCostoRestante, estimarFicha } from "@/lib/ingesta/procesar"
 
 const parte = (texto: string) => ({ texto, ubicacion: { pagina: 1 } })
 const parrafo = "Hablar de lo que cada persona necesita ayuda a la pareja. ".repeat(88)
@@ -26,9 +21,5 @@ describe("estimarCostoRestante", () => {
     const partes = [parte(parrafo)]
     expect(estimarCostoRestante(partes, "evidencia")).toBe(estimarCostoRestante(partes, "referente"))
     expect(estimarCostoRestante(partes, "voz_propia")).toBe(estimarCostoRestante(partes, "referente"))
-  })
-
-  it("starts asking for confirmation above one dollar", () => {
-    expect(UMBRAL_CONFIRMACION_USD).toBe(1)
   })
 })

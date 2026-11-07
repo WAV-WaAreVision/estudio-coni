@@ -29,7 +29,6 @@ vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
   reprocesarMaterialAccion: vi.fn(),
-  confirmarCostoAccion: vi.fn(),
   editarMaterialAccion: vi.fn(),
   editarFichaAccion: vi.fn(),
   crearAutorAccion: vi.fn(),
@@ -39,6 +38,8 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
 import { BotonReintentar } from "@/app/(app)/biblioteca/boton-reintentar"
 import DetalleDeMaterial from "@/app/(app)/biblioteca/materiales/[id]/page"
+import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const conId = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -54,7 +55,6 @@ const MATERIAL = {
   estado: "listo",
   motivo_fallo: null,
   costo_estimado_usd: null,
-  costo_confirmado_en: null,
   creado_en: "2026-11-01T12:00:00Z",
   idioma_original: "es",
   origen_url: null,
@@ -175,5 +175,61 @@ describe("the material detail page", () => {
       { materialId: ID },
       { materialId: ID },
     ])
+  })
+
+  describe("while it is processing (spec decision 3)", () => {
+    const AVISO_CON_COSTO = "Lo estoy procesando. Costará cerca de US$\u00a00,40."
+    const avisos = (arbol: { props: Record<string, unknown> }[]) =>
+      textos(arbol).filter((texto) => String(texto).startsWith("Lo estoy procesando."))
+
+    it("says once what it will cost, and offers no button to confirm it", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+      expect(avisos(arbol)).toEqual([AVISO_CON_COSTO])
+      expect(arbol.some((elemento) => "costoUsd" in elemento.props)).toBe(false)
+    })
+
+    it("says only «Lo estoy procesando.» before the task wrote the estimate", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, estado: "procesando" }, ficha: null })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual(["Lo estoy procesando."])
+    })
+
+    it("says nothing of it when the material is ready or paused with a reason", async () => {
+      esConi.valor = true
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", motivo_fallo: "tope_mensual", costo_estimado_usd: 0.4 },
+        ficha: null,
+      })
+      expect(avisos(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([])
+    })
+
+    it("asks again while it works, so the estimate shows up without a reload, and stops once it is not", async () => {
+      esConi.valor = true
+      const refresco = (arbol: { type: unknown; props: Record<string, unknown> }[]) =>
+        arbol.filter((elemento) => elemento.type === RefrescoAutomatico).map((elemento) => elemento.props)
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, estado: "procesando" }, ficha: null })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([
+        { activo: true, cadaMs: REFRESCO_DE_LA_BIBLIOTECA_MS },
+      ])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: null })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))).toEqual([
+        { activo: false, cadaMs: REFRESCO_DE_LA_BIBLIOTECA_MS },
+      ])
+      datos.leerMaterialConFicha.mockResolvedValueOnce({
+        material: { ...MATERIAL, estado: "procesando", motivo_fallo: "tope_mensual" },
+        ficha: null,
+      })
+      expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))[0]?.activo).toBe(false)
+    })
   })
 })

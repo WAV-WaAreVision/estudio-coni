@@ -52,7 +52,8 @@ export interface EscenaDeBiblioteca {
   listo: string
   procesando: string
   conError: string
-  esperaOk: string
+  /** Processing with the estimate the task writes after the extraction (US$ 1,20), no reason: it is working. */
+  conEstimado: string
   estrategia: string
 }
 
@@ -127,7 +128,7 @@ export async function vaciarBiblioteca(): Promise<void> {
   await pool.query("delete from public.autores where nombre = any($1::text[])", [[AUTORA, OTRA_AUTORA, SIN_MATERIAL]])
 }
 
-/** Five materials, one per state the screens draw, plus a strategy card. Titles are the mockup's. */
+/** Five materials (ready, two processing, one of them with its estimate, failed) plus a strategy card. Titles are the mockup's. */
 export async function sembrarBiblioteca(): Promise<EscenaDeBiblioteca> {
   await vaciarBiblioteca()
   const autora = await uno(
@@ -180,7 +181,7 @@ export async function sembrarBiblioteca(): Promise<EscenaDeBiblioteca> {
     motivo: "sin_texto",
     hace: "1 day",
   })
-  const esperaOk = await material({
+  const conEstimado = await material({
     titulo: "Charla larga sobre el síndrome del impostor",
     tipo: "audio",
     autorId: autora,
@@ -214,7 +215,7 @@ export async function sembrarBiblioteca(): Promise<EscenaDeBiblioteca> {
       JSON.stringify({ autor: "Equipo de contenidos", anio: 2026, enlace: "https://ejemplo.test/plan-noviembre" }),
     ],
   )
-  return { listo, procesando, conError, esperaOk, estrategia }
+  return { listo, procesando, conError, conEstimado, estrategia }
 }
 
 const Objetos = z.record(z.string(), z.object({ bytes: z.number(), tipo: z.string(), firmada: z.boolean() }))

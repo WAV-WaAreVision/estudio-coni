@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
-  confirmarCostoAccion: vi.fn(),
   borrarMaterialAccion: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
@@ -25,7 +24,6 @@ const panel: PanelDelMaterial = {
     estado: "listo",
     motivo_fallo: null,
     costo_estimado_usd: null,
-    costo_confirmado_en: null,
     creado_en: "2026-10-31T12:00:00Z",
     idioma_original: "es",
     origen_url: null,
@@ -134,5 +132,36 @@ describe("PistaDelPanel", () => {
     expect(
       screen.getByText("Elige un material de la tabla para ver aquí sus ideas y quién es para ti."),
     ).toBeInTheDocument()
+  })
+})
+
+describe("PanelDeMaterial while it is processing (spec decision 3)", () => {
+  const procesando = (extra: Partial<PanelDelMaterial["material"]>) => ({
+    ...panel,
+    material: { ...panel.material, estado: "procesando", ...extra },
+    ideas: { total: 0, primeras: [] },
+  })
+
+  it("says under its title what it will cost, and offers no button to confirm it", () => {
+    render(<PanelDeMaterial panel={procesando({ costo_estimado_usd: 0.4 })} filtros={{}} ahora={AHORA} />)
+    const region = screen.getByRole("region", { name: "Burnout y teletrabajo: revisión 2024" })
+    // The exact text, not toHaveTextContent: that one folds the non-breaking space that keeps "US$ 0,40" on one line.
+    expect(within(region).getByRole("status").textContent).toBe("Lo estoy procesando. Costará cerca de US$\u00a00,40.")
+    expect(within(region).getByText("Procesando")).toBeInTheDocument()
+    expect(within(region).queryByRole("button", { name: /^Procesar por/ })).toBeNull()
+  })
+
+  it("says only «Lo estoy procesando.» before the estimate, and nothing once it is ready", () => {
+    const { unmount } = render(<PanelDeMaterial panel={procesando({})} filtros={{}} ahora={AHORA} />)
+    expect(screen.getByRole("status")).toHaveTextContent(/^Lo estoy procesando\.$/)
+    unmount()
+    render(
+      <PanelDeMaterial
+        panel={{ ...panel, material: { ...panel.material, costo_estimado_usd: 0.4 } }}
+        filtros={{}}
+        ahora={AHORA}
+      />,
+    )
+    expect(screen.queryByText(/^Lo estoy procesando/)).toBeNull()
   })
 })

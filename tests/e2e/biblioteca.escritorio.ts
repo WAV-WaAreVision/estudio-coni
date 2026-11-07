@@ -90,6 +90,28 @@ test("Reintentar in the side panel starts the run and the screen shows it workin
   expect(disparosDeMateriales().map((disparo) => disparo.materialId)).toEqual([escena.conError])
 })
 
+test("the side panel of a processing material says what it will cost, with nothing to confirm", async ({ page }) => {
+  const titulo = "Charla larga sobre el síndrome del impostor"
+  const aviso = "Lo estoy procesando. Costará cerca de US$\u00a01,20."
+  await page.goto(`/biblioteca?m=${escena.conEstimado}`)
+  const panel = page.getByRole("region", { name: titulo })
+  const estado = panel.getByRole("status").filter({ hasText: aviso })
+  await expect(estado).toHaveText(aviso)
+  // toHaveText folds the non-breaking space that keeps the amount on one line; textContent does not.
+  expect(await estado.textContent()).toBe(aviso)
+  await expect(panel.getByText("Procesando", { exact: true })).toBeVisible()
+  await expect(panel.getByRole("button", { name: /^Procesar por/ })).toHaveCount(0)
+  const fila = page.getByRole("table", { name: "Materiales" }).getByRole("row").filter({ hasText: titulo })
+  await expect(fila).toContainText("Procesando")
+  expect(await revisarConAxe(page, "panel de un material procesando")).toEqual([])
+  // For Federico (Task 14): not a baseline, only a picture of the notice (mkdirSync and join are already imported).
+  const carpeta = process.env.VISUAL_FINALES
+  if (carpeta) {
+    mkdirSync(carpeta, { recursive: true })
+    await page.screenshot({ path: join(carpeta, "panel-procesando-escritorio.png"), fullPage: true })
+  }
+})
+
 test("with the panel open, a material that finishes turns Listo in the table and the panel on its own", async ({
   page,
 }) => {

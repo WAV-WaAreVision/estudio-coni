@@ -30,7 +30,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/datos/biblioteca", () => datos)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
-  confirmarCostoAccion: vi.fn(),
   recuperarMaterialAccion: vi.fn(),
 }))
 

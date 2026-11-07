@@ -46,13 +46,11 @@ export interface MaterialDeLista {
   estado: string
   motivo_fallo: string | null
   costo_estimado_usd: number | null
-  costo_confirmado_en: string | null
   creado_en: string
   tema: TemaPrincipal | null
 }
 
-const COLUMNAS =
-  "id, titulo, autor_id, rol, tipo, estado, motivo_fallo, costo_estimado_usd, costo_confirmado_en, creado_en"
+const COLUMNAS = "id, titulo, autor_id, rol, tipo, estado, motivo_fallo, costo_estimado_usd, creado_en"
 
 /**
  * The main topic of each listed material, from their non-excluded ideas with a topic, paged by id past the 1000-row
@@ -106,8 +104,8 @@ export async function listarMateriales(db: Db, filtros: FiltrosDeMateriales): Pr
 }
 
 /**
- * The quick filters' counts, and `trabajando`: the materials really working (processing with no reason and no cost
- * waiting for her OK). "Procesando" counts the paused and waiting ones too; only a working one keeps the list asking.
+ * The quick filters' counts, and `trabajando`: the materials really working (processing with no reason). "Procesando"
+ * counts the paused ones too; only a working one keeps the list asking.
  */
 export async function contarPorEstado(db: Db): Promise<{ procesando: number; fallido: number; trabajando: number }> {
   const contar = async (
@@ -123,13 +121,7 @@ export async function contarPorEstado(db: Db): Promise<{ procesando: number; fal
   const [procesando, fallido, trabajando] = await Promise.all([
     contar("procesando", cuantos().eq("estado", "procesando")),
     contar("fallido", cuantos().eq("estado", "fallido")),
-    contar(
-      "trabajando",
-      cuantos()
-        .eq("estado", "procesando")
-        .is("motivo_fallo", null)
-        .or("costo_estimado_usd.is.null,costo_confirmado_en.not.is.null"),
-    ),
+    contar("trabajando", cuantos().eq("estado", "procesando").is("motivo_fallo", null)),
   ])
   return { procesando, fallido, trabajando }
 }

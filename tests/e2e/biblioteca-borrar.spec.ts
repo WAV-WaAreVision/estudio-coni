@@ -56,7 +56,7 @@ test("deletes a material from its page with no question; it leaves the list and 
   await page.goto("/biblioteca")
   await expect(page.getByRole("link", { name: "Procesando · 2" })).toBeVisible()
 
-  await borrarDesdeSuPagina(page, escena.esperaOk)
+  await borrarDesdeSuPagina(page, escena.conEstimado)
   await expect(aviso(page)).toHaveText(`Borré «${CHARLA}».Deshacer`)
   // She lands with the focus on what she most likely wants next.
   await expect(aviso(page).getByRole("button", { name: "Deshacer" })).toBeFocused()
@@ -121,7 +121,7 @@ test("a deleted material leaves its author's page, its topic and Temas, and Desh
 })
 
 test("the notice does not come back on reload, and the address loses the note", async ({ page }) => {
-  await borrarDesdeSuPagina(page, escena.esperaOk)
+  await borrarDesdeSuPagina(page, escena.conEstimado)
   await expect(aviso(page)).toBeVisible()
   await expect(page).toHaveURL(/\/biblioteca$/)
   await page.reload()
@@ -144,7 +144,7 @@ test("an old address with the note shows no toast, for a material that came back
 })
 
 test("the toast closes on its own after 8 seconds and gives the focus back to the list's heading", async ({ page }) => {
-  await borrarDesdeSuPagina(page, escena.esperaOk)
+  await borrarDesdeSuPagina(page, escena.conEstimado)
   await expect(aviso(page).getByRole("button", { name: "Deshacer" })).toBeFocused()
   await expect(aviso(page)).toHaveCount(0, { timeout: 12_000 })
   await expect(titulo(page)).toBeFocused()
@@ -152,9 +152,9 @@ test("the toast closes on its own after 8 seconds and gives the focus back to th
 })
 
 test("Deshacer after maintenance deleted it says it can no longer be recovered", async ({ page }) => {
-  await borrarDesdeSuPagina(page, escena.esperaOk)
+  await borrarDesdeSuPagina(page, escena.conEstimado)
   await expect(aviso(page)).toBeVisible()
-  await pool.query("delete from public.materiales where id = $1", [escena.esperaOk])
+  await pool.query("delete from public.materiales where id = $1", [escena.conEstimado])
   await aviso(page).getByRole("button", { name: "Deshacer" }).click()
   const final = page.getByRole("status").filter({ hasText: "Ya no se puede recuperar: se borró del todo." })
   await expect(final).toBeVisible()

@@ -238,22 +238,32 @@ describe("procesar un material reprocesado", () => {
     expect(await cuenta("select count(*) as n from public.afirmaciones where material_id = $1", id)).toBe(1)
   })
 
-  it("asks for the cost confirmation again, as a long material does", async () => {
+  it("runs a reprocessed long material to the end again, its estimate cleared and written again", async () => {
     const almacen = almacenEnMemoria()
     simularClaude()
     const id = await crearMaterial(almacen, {
       tipo: "documento",
       texto_pegado: "Hablar de lo que se necesita. ".repeat(20_000),
     })
-    await pool.query("update public.materiales set costo_confirmado_en = now() where id = $1", [id])
-    await procesarMaterial(await deps(almacen), id)
-    expect((await material(id)).estado).toBe("listo")
+    expect(await procesarMaterial(await deps(almacen), id)).toEqual({ resultado: "listo" })
+    const estimado = async () =>
+      (
+        await pool.query<{ c: string | null }>(
+          "select costo_estimado_usd::text as c from public.materiales where id = $1",
+          [id],
+        )
+      ).rows[0]?.c ?? null
+    const primero = await estimado()
+    expect(Number(primero)).toBeGreaterThan(1)
 
     await reprocesarComoConi(id)
+    // reprocesar_material clears it (F2, D1): the notice says «Lo estoy procesando.» until the new run writes it.
+    expect(await estimado()).toBeNull()
     const resultado = await procesarMaterial(await deps(almacen), id)
 
-    expect(resultado).toEqual({ resultado: "esperando_confirmacion" })
-    expect((await material(id)).estado).toBe("procesando")
+    expect(resultado).toEqual({ resultado: "listo" })
+    expect(await estimado()).toBe(primero)
+    expect((await material(id)).estado).toBe("listo")
   })
 
   it("turns an estrategia material into claims and drops its card when the role changes to referente", async () => {

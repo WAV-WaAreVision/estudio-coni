@@ -108,7 +108,7 @@ describe("contarPorEstado", () => {
     expect(conteos).toMatchObject({ procesando: cuenta("procesando"), fallido: cuenta("fallido") })
   })
 
-  it("counts apart the materials really working: not paused, not waiting for her OK", async () => {
+  it("counts as working every processing material without a reason, with or without an estimate (D2)", async () => {
     const otra = await sembrarAutor(`Otra autora ${SUFIJO}`)
     autores.push(otra)
     const pausado = await sembrarMaterial({
@@ -117,31 +117,24 @@ describe("contarPorEstado", () => {
       estado: "procesando",
       motivo: "tope_mensual",
     })
-    const esperando = await sembrarMaterial({
-      titulo: `Espera ${SUFIJO}`,
+    const conEstimado = await sembrarMaterial({
+      titulo: `Con estimado ${SUFIJO}`,
       autorId: otra,
       estado: "procesando",
       costo: 1.2,
     })
-    const confirmado = await sembrarMaterial({
-      titulo: `Confirmado ${SUFIJO}`,
-      autorId: otra,
-      estado: "procesando",
-      costo: 1.2,
-    })
-    await pool.query("update public.materiales set costo_confirmado_en = now() where id = $1", [confirmado])
-    materiales.push(pausado, esperando, confirmado)
+    const sinEstimado = await sembrarMaterial({ titulo: `Sin estimado ${SUFIJO}`, autorId: otra, estado: "procesando" })
+    materiales.push(pausado, conEstimado, sinEstimado)
 
     const { rows } = await pool.query<{ n: number }>(
       `select count(*)::int as n from public.materiales
-        where estado = 'procesando' and motivo_fallo is null
-          and (costo_estimado_usd is null or costo_confirmado_en is not null)`,
+        where estado = 'procesando' and motivo_fallo is null and borrar_desde is null`,
     )
     const conteos = await contarPorEstado(coni)
     expect(conteos.trabajando).toBe(rows[0]?.n)
-    // vacio and confirmado work; pausado and esperando are counted under Procesando but do not work.
+    // conEstimado and sinEstimado work; pausado is counted under Procesando but does not work.
     expect(conteos.trabajando).toBeGreaterThanOrEqual(2)
-    expect(conteos.procesando - conteos.trabajando).toBeGreaterThanOrEqual(2)
+    expect(conteos.procesando - conteos.trabajando).toBeGreaterThanOrEqual(1)
   })
 })
 

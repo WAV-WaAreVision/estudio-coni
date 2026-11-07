@@ -4,7 +4,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
   borrarAutor,
   borrarMaterial,
-  confirmarCosto,
   confirmarMaterial,
   crearAutor,
   editarFicha,
@@ -130,15 +129,13 @@ describe("the other actions on a marked material", () => {
     expect(rows[0]?.resumen).toBe("Un resumen")
   })
 
-  it("reintentarMaterial, reprocesarMaterial and confirmarCosto answer not found and start nothing", async () => {
+  it("reintentarMaterial and reprocesarMaterial answer not found and start nothing", async () => {
     const fallido = await material({ estado: "fallido", motivo: "Se cayó" })
     const listo = await material({ estado: "listo" })
-    const esperando = await material({ estado: "procesando", costo: 1.2 })
-    for (const id of [fallido, listo, esperando]) await marcar("materiales", id)
+    for (const id of [fallido, listo]) await marcar("materiales", id)
 
     expect(await reintentarMaterial(conDisparos(), fallido)).toEqual({ ok: false, error: NO_ENCONTRE })
     expect(await reprocesarMaterial(conDisparos(), listo)).toEqual({ ok: false, error: NO_ENCONTRE })
-    expect(await confirmarCosto(conDisparos(), esperando)).toEqual({ ok: false, error: NO_ENCONTRE })
     expect(disparados).toEqual([])
     expect([await estado(fallido), await estado(listo)]).toEqual(["fallido", "listo"])
   })

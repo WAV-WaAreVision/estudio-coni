@@ -17,13 +17,13 @@ describe("PildoraDeEstado with an icon of its own (4j)", () => {
 
   it("uses it instead of the warning of an aviso pill, never both", () => {
     render(
-      <PildoraDeEstado tipo="aviso" icono={<svg data-testid="mano" />}>
-        Espera tu OK
+      <PildoraDeEstado tipo="aviso" icono={<svg data-testid="pausa" />}>
+        En pausa
       </PildoraDeEstado>,
     )
-    const pildora = screen.getByText("Espera tu OK").parentElement
+    const pildora = screen.getByText("En pausa").parentElement
     expect(pildora?.querySelectorAll("svg")).toHaveLength(1)
-    expect(pildora?.querySelector("[data-testid=mano]")).not.toBeNull()
+    expect(pildora?.querySelector("[data-testid=pausa]")).not.toBeNull()
   })
 })
 

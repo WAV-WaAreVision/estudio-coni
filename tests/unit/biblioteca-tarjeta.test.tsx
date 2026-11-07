@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   reintentarMaterialAccion: vi.fn(),
-  confirmarCostoAccion: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
@@ -21,7 +20,6 @@ const material: MaterialDeLista = {
   estado: "listo",
   motivo_fallo: null,
   costo_estimado_usd: null,
-  costo_confirmado_en: null,
   creado_en: "2026-10-31T12:00:00Z",
   tema: { id: "t1", nombre: "Carga mental", otros: 1 },
 }
@@ -55,11 +53,12 @@ describe("TarjetaDeMaterial", () => {
     expect(li).not.toHaveTextContent("sin_texto")
   })
 
-  it("keeps the price button on a card that waits for her OK", () => {
+  it("draws a processing material with an estimate as «Procesando», with no button and no price (spec decision 3)", () => {
     const li = tarjeta({ ...material, estado: "procesando", costo_estimado_usd: 1.2, titulo: null })
-    expect(within(li).getByRole("button", { name: "Procesar por ~US$ 1,20" })).toBeInTheDocument()
+    expect(within(li).queryByRole("button")).toBeNull()
     expect(li).toHaveTextContent("Sin título")
-    expect(li).toHaveTextContent("Espera tu OK")
+    expect(li).toHaveTextContent("Procesando")
+    expect(li).not.toHaveTextContent("US$")
   })
 
   it("keeps the topic as text inside its one link, never a link inside a link (deviation 4)", () => {

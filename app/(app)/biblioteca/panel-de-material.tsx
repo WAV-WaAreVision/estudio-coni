@@ -2,17 +2,17 @@ import Link from "next/link"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
+import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Panel } from "@/components/ui/panel"
 import type { PanelDelMaterial } from "@/lib/datos/biblioteca"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
-import { esperaConfirmacion, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
+import { avisoDeProceso, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
 import { subidoEnFrase, ZONA_DE_LA_BIBLIOTECA } from "@/lib/dominio/biblioteca/fechas"
 import { type FiltrosDeMateriales, hrefDeLista } from "@/lib/dominio/biblioteca/filtros"
 import { etiquetaDeRol, etiquetaDeTipo } from "@/lib/dominio/biblioteca/modelo"
 import { PALABRAS } from "@/lib/dominio/biblioteca/palabras"
 import { BotonBorrar } from "./boton-borrar"
-import { BotonConfirmarCosto } from "./boton-confirmar-costo"
 import { BotonReintentar } from "./boton-reintentar"
 import { EstadoDeMaterial } from "./estado-de-material"
 
@@ -25,6 +25,7 @@ interface Propiedades {
 /** The computer's side panel (spec 3): what a material gave, who it is for her, and WAV's detail folded. */
 export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
   const { material, ideas, evidencia } = panel
+  const aviso = avisoDeProceso(material)
   return (
     <section aria-labelledby="panel-titulo" className="grid gap-6 rounded-panel bg-piedra-alta p-5">
       <div className="flex flex-wrap items-center gap-2 text-meta text-apagado">
@@ -36,6 +37,7 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
       <h2 id="panel-titulo" tabIndex={-1} className="text-pieza text-balance">
         {material.titulo ?? "Sin título"}
       </h2>
+      {aviso ? <LineaDeEstado tipo="neutro" titulo={aviso} /> : null}
       <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno" nivel={3}>
         {ideas.primeras.length === 0 ? (
           <p className="text-cuerpo text-apagado">
@@ -70,9 +72,6 @@ export function PanelDeMaterial({ panel, filtros, ahora }: Propiedades) {
         </p>
         <p className="text-meta text-apagado">{etiquetaDeRol(material.rol)}</p>
       </Seccion>
-      {esperaConfirmacion(material) && material.costo_estimado_usd !== null ? (
-        <BotonConfirmarCosto materialId={material.id} costoUsd={material.costo_estimado_usd} />
-      ) : null}
       {sePuedeReintentar(material) ? <BotonReintentar materialId={material.id} /> : null}
       <DetalleParaWav lineas={lineasParaWav(material, evidencia)} proveedor={null} />
       <BotonBorrar tipo="material" id={material.id} />
