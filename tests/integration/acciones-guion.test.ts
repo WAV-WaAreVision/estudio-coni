@@ -69,7 +69,7 @@ function deps(db: Db = coni, fallos: { voz?: Error } = {}): DepsGuion {
     db,
     servicio: clienteDeServicio,
     crearClaude: (llave) => new Anthropic({ apiKey: llave, maxRetries: 0 }),
-    avisos,
+    avisos: () => avisos,
     ahora: () => new Date().toISOString(),
     disparar: {
       producir: async () => {

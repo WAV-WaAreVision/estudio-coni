@@ -53,7 +53,7 @@ function depsDeGuion(db: DepsGuion["db"]): DepsGuion {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
-    avisos: avisosReales(),
+    avisos: () => avisosReales(),
     disparar: disparosDeLaApp(),
     ahora: () => new Date().toISOString(),
   }

@@ -52,7 +52,7 @@ function deps(db: Db = coni): DepsIdeas {
     db,
     servicio: clienteDeServicio,
     crearClaude: (llave) => new Anthropic({ apiKey: llave, maxRetries: 0 }),
-    avisos,
+    avisos: () => avisos,
     ahora: () => new Date().toISOString(),
   }
 }

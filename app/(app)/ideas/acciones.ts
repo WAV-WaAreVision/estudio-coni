@@ -35,7 +35,7 @@ function depsDeIdeas(db: DepsIdeas["db"]): DepsIdeas {
         timeout: ESPERA_CLAUDE_MS,
         maxRetries: 1,
       }),
-    avisos: avisosReales(),
+    avisos: () => avisosReales(),
     ahora: () => new Date().toISOString(),
   }
 }

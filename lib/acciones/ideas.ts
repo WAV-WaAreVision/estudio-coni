@@ -29,8 +29,11 @@ export interface DepsIdeas {
   /** A `service_role` client, for what only the server may read (her keys) and the spend of the month. */
   servicio: () => Db
   crearClaude: (llave: string) => Anthropic
-  /** Emails WAV once when Claude turns out to be paused (spec 2026-11-07). */
-  avisos: Notificador
+  /**
+   * Emails WAV once when Claude turns out to be paused (spec 2026-11-07). Built only then: the app's notifier needs
+   * the email variables, which no other action of this screen reads.
+   */
+  avisos: () => Notificador
   ahora: () => string
 }
 
@@ -181,7 +184,7 @@ export function proponerIdea(deps: DepsIdeas, entrada: unknown): Promise<Resulta
       await liberarGasto(servicio, clave)
       // A paused Claude: the pause opens (WAV emailed once) and she reads its text, not "try again".
       if (error instanceof PausaDeProveedor) {
-        await abrirPausa({ db: servicio, avisos: deps.avisos }, error)
+        await abrirPausa({ db: servicio, avisos: deps.avisos() }, error)
         throw error
       }
       console.error("No pude clasificar la idea con Claude", error)

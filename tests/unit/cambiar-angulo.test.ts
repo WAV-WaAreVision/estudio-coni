@@ -20,7 +20,7 @@ function deps(respuesta: { data: unknown; error: { code: string; message: string
     db: { from: () => cadena } as unknown as SupabaseClient<Database>,
     servicio: vi.fn(),
     crearClaude: vi.fn(),
-    avisos: notificadorEnMemoria(),
+    avisos: () => notificadorEnMemoria(),
     ahora: () => new Date().toISOString(),
   }
 }

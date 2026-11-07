@@ -47,8 +47,11 @@ export interface DepsGuion {
   /** A `service_role` client, for what only the server may read (her keys, the guide) and the spend of the month. */
   servicio: () => Db
   crearClaude: (llave: string) => Anthropic
-  /** Emails WAV once when Claude turns out to be paused (spec 2026-11-07). */
-  avisos: Notificador
+  /**
+   * Emails WAV once when Claude turns out to be paused (spec 2026-11-07). Built only then: the app's notifier needs
+   * the email variables, which no other action of this screen reads.
+   */
+  avisos: () => Notificador
   /** Starts her voice when an edit changes what it says (design 2026-10-15, decision 3). */
   disparar: Disparos
   ahora: () => string
@@ -265,7 +268,7 @@ async function juzgarConClaude(
     await liberarGasto(servicio, clave)
     // A paused Claude: the pause opens (WAV emailed once) and she reads its text, not ERROR_REVISION.
     if (error instanceof PausaDeProveedor) {
-      await abrirPausa({ db: servicio, avisos: deps.avisos }, error)
+      await abrirPausa({ db: servicio, avisos: deps.avisos() }, error)
       throw error
     }
     console.error("No pude revisar el guion con Claude", error)
