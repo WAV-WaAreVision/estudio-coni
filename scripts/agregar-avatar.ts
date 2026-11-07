@@ -5,6 +5,7 @@
 // (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET). It prints what to add to `ajustes.produccion`
 // and NEVER writes to the database: apply the printed JSON or SQL yourself.
 import { agregarAvatar, sqlParaAgregar, sqlParaQuitar } from "@/lib/avatares/agregar"
+import { mensajeTecnico } from "@/lib/dominio/pausas"
 import { exigirEnv } from "@/lib/env"
 import { almacenReal } from "@/lib/proveedores/almacen"
 
@@ -37,6 +38,6 @@ async function principal(): Promise<void> {
 }
 
 principal().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error)
+  console.error(mensajeTecnico(error))
   process.exitCode = 1
 })

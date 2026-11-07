@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Falla } from "@/lib/dominio/falla"
 import {
   esProveedorConPausa,
+  mensajeTecnico,
   PausaDeProveedor,
   proveedorDelTextoDePausa,
   TEXTO_PAUSA,
@@ -66,5 +67,17 @@ describe("texts", () => {
   it("knows its providers", () => {
     expect(esProveedorConPausa("claude")).toBe(true)
     expect(esProveedorConPausa("anthropic")).toBe(false)
+  })
+})
+
+describe("mensajeTecnico", () => {
+  it("answers WAV's detail of a pause, not Coni's text", () => {
+    const pausa = new PausaDeProveedor("heygen", "llave", "HeyGen respondió HTTP 401: Invalid API key", 401)
+    expect(mensajeTecnico(pausa)).toBe("HeyGen respondió HTTP 401: Invalid API key")
+  })
+
+  it("answers the message of any other error, and the value itself otherwise", () => {
+    expect(mensajeTecnico(new Error("boom"))).toBe("boom")
+    expect(mensajeTecnico("raro")).toBe("raro")
   })
 })

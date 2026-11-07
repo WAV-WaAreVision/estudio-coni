@@ -76,3 +76,9 @@ export function textoDePausa(abiertas: readonly ProveedorConPausa[], proveedor: 
 export function textoDePausaDeBiblioteca(abiertas: readonly ProveedorConPausa[]): string | null {
   return abiertas.includes("claude") ? TEXTO_PAUSA_DE_BIBLIOTECA : null
 }
+
+/** What a maintainer or a log must read: a pause's technical detail, never Coni's text. */
+export function mensajeTecnico(error: unknown): string {
+  if (error instanceof PausaDeProveedor) return error.detalle
+  return error instanceof Error ? error.message : String(error)
+}
