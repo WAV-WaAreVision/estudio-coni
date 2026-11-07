@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
   contarPorEstado,
   leerMapaDelMaterial,
@@ -148,6 +148,21 @@ describe("leerMaterialConFicha", () => {
   it("answers null for a material that does not exist", async () => {
     expect(await leerMaterialConFicha(coni, randomUUID())).toBeNull()
   })
+
+  it("tells a card that cannot be read apart from no card at all", async () => {
+    expect((await leerMaterialConFicha(coni, estrategia))?.fichaIlegible).toBe(false)
+    expect((await leerMaterialConFicha(coni, empate))?.fichaIlegible).toBe(false)
+
+    const ilegible = await sembrarMaterial({ titulo: `Ilegible ${SUFIJO}`, autorId: autor, rol: "estrategia" })
+    materiales.push(ilegible)
+    await sembrarFicha(ilegible, ["Una"])
+    await pool.query("update public.fichas set citas = '\"rota\"'::jsonb where material_id = $1", [ilegible])
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    const leido = await leerMaterialConFicha(coni, ilegible)
+    error.mockRestore()
+    expect(leido?.ficha).toBeNull()
+    expect(leido?.fichaIlegible).toBe(true)
+  })
 })
 
 describe("leerMapaDelMaterial", () => {
@@ -170,6 +185,19 @@ describe("leerPanelDelMaterial", () => {
   it("uses the card's key ideas for a strategy material (D9)", async () => {
     const panel = await leerPanelDelMaterial(coni, estrategia)
     expect(panel?.ideas).toEqual({ total: 5, primeras: ["Una", "Dos"] })
+    expect(panel?.fichaIlegible).toBe(false)
+  })
+
+  it("says when a strategy material's card cannot be read", async () => {
+    const ilegible = await sembrarMaterial({ titulo: `Panel ilegible ${SUFIJO}`, autorId: autor, rol: "estrategia" })
+    materiales.push(ilegible)
+    await sembrarFicha(ilegible, ["Una"])
+    await pool.query("update public.fichas set citas = '\"rota\"'::jsonb where material_id = $1", [ilegible])
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    const panel = await leerPanelDelMaterial(coni, ilegible)
+    error.mockRestore()
+    expect(panel?.fichaIlegible).toBe(true)
+    expect(panel?.ideas.total).toBe(0)
   })
 
   it("answers null for a material that does not exist", async () => {

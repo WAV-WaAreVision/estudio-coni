@@ -2,13 +2,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // The page gates itself: a layout does not run again on client navigation and renders in parallel with its pages.
-const { esConi, datos } = vi.hoisted(() => ({
+const { esConi, datos, leerAvisoAFederico } = vi.hoisted(() => ({
+  leerAvisoAFederico: vi.fn(async (): Promise<{ avisado: boolean } | null> => null),
   esConi: { valor: false },
   datos: {
     listarMateriales: vi.fn(async () => []),
     contarPorEstado: vi.fn(async () => ({ procesando: 0, fallido: 0, trabajando: 0 })),
     listarAutores: vi.fn(async () => []),
-    leerPanelDelMaterial: vi.fn(async () => null),
+    leerPanelDelMaterial: vi.fn(async (): Promise<unknown> => null),
     leerNombreDeLoBorrado: vi.fn(async (..._: unknown[]): Promise<{ nombre: string | null } | null> => null),
   },
 }))
@@ -28,6 +29,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+vi.mock("@/lib/datos/aviso-a-federico", () => ({ leerAvisoAFederico }))
+vi.mock("@/lib/acciones/servidor", () => ({ clienteDeServicio: () => ({ servicio: true }) }))
+vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 // No provider paused: the pages read the open pauses through the same session.
 vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
@@ -38,6 +42,7 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 import type { ReactElement, ReactNode } from "react"
 import { AvisoDeBorrado } from "@/app/(app)/biblioteca/aviso-de-borrado"
 import Materiales from "@/app/(app)/biblioteca/page"
+import { PanelDeMaterial } from "@/app/(app)/biblioteca/panel-de-material"
 import { TrasElAviso } from "@/app/(app)/biblioteca/tras-el-aviso"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { ID_DEL_TITULO_DE_LA_LISTA } from "@/lib/dominio/biblioteca/borrado"
@@ -119,6 +124,44 @@ describe("the Materiales page", () => {
     esConi.valor = true
     expect(conAviso(elementos(await Materiales({ searchParams: Promise.resolve({ subido: "1" }) })))).toBe(true)
     expect(conAviso(elementos(await Materiales({ searchParams: sinFiltros() })))).toBe(false)
+  })
+})
+
+describe("the side panel of a material whose card cannot be read", () => {
+  const ID = "11111111-2222-4333-8444-555555555555"
+  const MATERIAL = { id: ID, titulo: "Plan", rol: "estrategia", estado: "listo" }
+
+  it("asks whether Federico was told and hands it to the panel", async () => {
+    esConi.valor = true
+    leerAvisoAFederico.mockResolvedValueOnce({ avisado: true })
+    datos.leerPanelDelMaterial.mockResolvedValueOnce({
+      material: MATERIAL,
+      ideas: { total: 0, primeras: [] },
+      evidencia: {},
+      fichaIlegible: true,
+    })
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ m: ID }) }))
+    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.anything(), {
+      tipo: "material",
+      id: ID,
+      explicacion: "No pude leer la ficha de este material.",
+    })
+    const panel = arbol.find((elemento) => elemento.type === PanelDeMaterial)
+    expect((panel?.props as { avisoAFederico?: unknown }).avisoAFederico).toEqual({ avisado: true })
+  })
+
+  it("asks nothing for a card that reads", async () => {
+    esConi.valor = true
+    datos.leerPanelDelMaterial.mockResolvedValueOnce({
+      material: MATERIAL,
+      ideas: { total: 1, primeras: ["Una"] },
+      evidencia: {},
+      fichaIlegible: false,
+    })
+    const arbol = elementos(await Materiales({ searchParams: Promise.resolve({ m: ID }) }))
+    expect(leerAvisoAFederico).not.toHaveBeenCalled()
+    const panel = arbol.find((elemento) => elemento.type === PanelDeMaterial)
+    expect((panel?.props as { avisoAFederico?: unknown }).avisoAFederico).toBeNull()
   })
 })
 

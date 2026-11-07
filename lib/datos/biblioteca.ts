@@ -136,7 +136,12 @@ export interface MaterialLeido extends Omit<MaterialDeLista, "tema"> {
 export async function leerMaterialConFicha(
   db: Db,
   id: string,
-): Promise<{ material: MaterialLeido; ficha: FichaLeida | null } | null> {
+): Promise<{
+  material: MaterialLeido
+  ficha: FichaLeida | null
+  /** A card row exists but does not read: only WAV can fix it (no row means another role, which she reprocesses). */
+  fichaIlegible: boolean
+} | null> {
   const { data, error } = await db
     .from("materiales")
     .select(
@@ -154,6 +159,7 @@ export async function leerMaterialConFicha(
   return {
     material: { ...material, autor: autores?.nombre ?? "", credencial: autores?.credencial ?? null },
     ficha,
+    fichaIlegible: Boolean(fila) && ficha === null,
   }
 }
 
@@ -177,16 +183,18 @@ export interface PanelDelMaterial {
   material: MaterialLeido
   ideas: { total: number; primeras: string[] }
   evidencia: Record<string, number>
+  /** A strategy card row that does not read: the panel offers «Avisar a Federico». */
+  fichaIlegible: boolean
 }
 
 /** What the desktop side panel shows (D9): the ideas taken (count and first two) and the evidence for WAV. */
 export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDelMaterial | null> {
   const leido = await leerMaterialConFicha(db, id)
   if (!leido) return null
-  const { material, ficha } = leido
+  const { material, ficha, fichaIlegible } = leido
   if (material.rol === "estrategia") {
     const ideas = ficha?.ideasClave ?? []
-    return { material, ideas: { total: ideas.length, primeras: ideas.slice(0, 2) }, evidencia: {} }
+    return { material, ideas: { total: ideas.length, primeras: ideas.slice(0, 2) }, evidencia: {}, fichaIlegible }
   }
   const [mapa, primeras] = await Promise.all([
     leerMapaDelMaterial(db, id),
@@ -207,6 +215,7 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
     material,
     ideas: { total: mapa.total, primeras: primeras.data.map((fila) => fila.texto) },
     evidencia: mapa.evidencia,
+    fichaIlegible: false,
   }
 }
 

@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { avisarAFedericoAccion } from "@/app/(app)/acciones-avisar"
 import { avisarAFederico, type DepsAvisar, yaAvisado } from "@/lib/acciones/avisar-a-federico"
 import { ERROR_GENERICO, ERROR_SOLO_CONI } from "@/lib/acciones/resultado"
+import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import {
   asuntoDeAviso,
   claveDeAviso,
@@ -170,6 +171,22 @@ describe("avisarAFederico", () => {
     expect(await yaAvisado(db, clave)).toBe(false)
     await pool.query("select public.marcar_aviso_a_federico_enviado($1)", [clave])
     expect(await yaAvisado(db, clave)).toBe(true)
+  })
+})
+
+describe("leerAvisoAFederico", () => {
+  it("offers nothing when there is no failure for WAV, and says whether its email went out", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: null })).toBeNull()
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE })).toEqual({ avisado: false })
+
+    expect(await avisarAFederico(deps(), { tipo: "pieza", id })).toEqual({ ok: true })
+
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: LLAVE })).toEqual({ avisado: true })
+    // Another failure of the same piece is another email.
+    expect(await leerAvisoAFederico(db, { tipo: "pieza", id, explicacion: `${LLAVE} otra vez` })).toEqual({
+      avisado: false,
+    })
   })
 })
 

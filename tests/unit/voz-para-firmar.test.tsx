@@ -7,6 +7,7 @@ import { TEXTO_PAUSA } from "@/lib/dominio/pausas"
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 const { pedirVozAccion } = vi.hoisted(() => ({ pedirVozAccion: vi.fn() }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({ pedirVozAccion }))
+vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 
 const SEGUNDOS = 20
 const BOTONES = {
@@ -186,6 +187,7 @@ describe("VozParaFirmar", () => {
         version={5}
         datos={grabacion(null, { botones: BOTONES })}
         explicacion="No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
+        aviso={{ avisado: false }}
         alEscuchar={vi.fn()}
         sinGuardar={false}
       />,
@@ -194,7 +196,8 @@ describe("VozParaFirmar", () => {
     expect(screen.getAllByText("Detalle para WAV")).toHaveLength(1)
     const alerta = screen.getByRole("alert")
     // A key ElevenLabs refused does not work again by trying again: she tells Federico.
-    expect(alerta).toHaveTextContent("Avísale a Federico.")
+    expect(alerta).not.toHaveTextContent(/Avísale a Federico/)
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
     expect(alerta).not.toHaveTextContent(/Vuelve a intentarlo/)
     const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
     expect(detalle).toContainElement(screen.getByText("ElevenLabs respondió 401: la llave no sirve."))
@@ -208,14 +211,16 @@ describe("VozParaFirmar", () => {
         version={5}
         datos={grabacion(null, { botones: BOTONES })}
         explicacion="No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
+        aviso={{ avisado: false }}
         alEscuchar={vi.fn()}
         sinGuardar={false}
       />,
     )
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Avísale a Federico. Cuando lo arregle, puedes intentarlo otra vez.",
-    )
+    expect(screen.getByRole("alert")).toHaveTextContent("Cuando Federico lo arregle, puedes intentarlo otra vez.")
+    // Telling him comes first: the button sits before the paid try.
+    const avisar = screen.getByRole("button", { name: "Avisar a Federico" })
     const accion = screen.getByRole("button", { name: "Preparar mi voz US$ 0,33" })
+    expect(avisar.compareDocumentPosition(accion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(accion).not.toHaveClass("bg-tinta")
     expect(accion).toHaveClass("bg-piedra")
     // The app does not know whether the failed try was charged: nothing says "again" about money.
@@ -382,6 +387,43 @@ describe("GrabarDeNuevo", () => {
   })
 })
 
+describe("VozParaFirmar con una llave que solo Federico arregla", () => {
+  const LLAVE = "No pude preparar tu voz. ElevenLabs respondió 401: la llave no sirve."
+
+  it("offers only the button while «Preparar mi voz» is closed", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: { ...BOTONES, bloqueoVoz: TOPE } })}
+        explicacion={LLAVE}
+        aviso={{ avisado: false }}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    const alerta = screen.getByRole("alert")
+    expect(alerta).not.toHaveTextContent(/Federico lo arregle|Avísale/)
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+  })
+
+  it("says Federico was told once the email went out", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: BOTONES })}
+        explicacion={LLAVE}
+        aviso={{ avisado: true }}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
+  })
+})
+
 describe("VozParaFirmar con ElevenLabs en pausa", () => {
   it("shows the pause as the block's title, with «Preparar mi voz» disabled and no «Avísale a Federico»", () => {
     render(
@@ -398,6 +440,7 @@ describe("VozParaFirmar con ElevenLabs en pausa", () => {
     expect(screen.getByText(TEXTO_PAUSA.elevenlabs)).toBeVisible()
     expect(screen.getByRole("button", { name: /Preparar mi voz/ })).toHaveAttribute("aria-disabled", "true")
     expect(screen.queryByText(/Avísale a Federico/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
     expect(screen.queryByText("No pude preparar tu voz.")).toBeNull()
   })
 

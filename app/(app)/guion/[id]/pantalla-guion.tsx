@@ -3,6 +3,7 @@
 import { Info, PencilSimple } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useId, useRef, useState } from "react"
+import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
@@ -39,7 +40,6 @@ import { aprobarGuionAccion, pedirCambiosAccion } from "../../piezas/acciones"
 import { faltaParaFirmar } from "./falta-para-firmar"
 import {
   esFallaDeLlave,
-  TEXTO_AVISA_A_FEDERICO,
   TEXTO_CAMBIOS_TRAS_LA_VOZ,
   TEXTO_NO_PUDE_GRABAR,
   TEXTO_NO_PUDE_REHACER_VOZ,
@@ -69,6 +69,8 @@ export interface DatosDeGuion {
   /** "jueves 16 de octubre · 19:00": when it would go out if she signs today. */
   salida: string | null
   explicacion: string | null
+  /** A failure only WAV can fix (a key ElevenLabs refused): whether Federico was told; null when there is none. */
+  aviso: { avisado: boolean } | null
   /** The looks WAV lets her choose; empty means there is nothing to choose and the signature stays blocked. */
   avatares: AvatarParaElegir[]
   /** Her voice of this script and what the signature spends (design 2026-10-15, decisions 3 and 4). */
@@ -86,7 +88,7 @@ export interface DatosDeGuion {
 function enSusPalabras(explicacion: string, razon: string | null): string {
   if (/\bHeyGen\b/i.test(explicacion)) return TEXTO_NO_PUDE_GRABAR
   if (!/\bElevenLabs\b/i.test(explicacion)) return TEXTO_ALGO_FALLO
-  if (esFallaDeLlave(explicacion)) return `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_AVISA_A_FEDERICO}`
+  if (esFallaDeLlave(explicacion)) return TEXTO_NO_PUDE_REHACER_VOZ
   return razon === null ? `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_REINTENTA_REHACER_VOZ}` : TEXTO_NO_PUDE_REHACER_VOZ
 }
 
@@ -245,7 +247,13 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
         ) : null}
 
         {grabacion.voz && datos.explicacion ? (
-          <Bloque tipo="aviso" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
+          <Bloque
+            tipo="aviso"
+            className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8"
+            accion={
+              datos.aviso ? <AvisarAFederico tipo="pieza" id={datos.id} avisado={datos.aviso.avisado} /> : undefined
+            }
+          >
             <ExplicacionParaConi
               texto={datos.explicacion}
               enSusPalabras={enSusPalabras(datos.explicacion, razonDeVoz(grabacion, sinGuardar))}
@@ -258,6 +266,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
           version={version}
           datos={grabacion}
           explicacion={grabacion.voz ? null : datos.explicacion}
+          aviso={grabacion.voz ? null : datos.aviso}
           alEscuchar={setEscuchada}
           sinGuardar={sinGuardar}
           className="dos-columnas:col-start-2"

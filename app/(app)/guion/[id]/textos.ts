@@ -28,11 +28,10 @@ export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video. 
 export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."
 export const TEXTO_NO_PUDE_REHACER_VOZ = "No pude grabar tu voz de nuevo."
 export const TEXTO_REINTENTA_REHACER_VOZ = "Puedes intentarlo otra vez en Editar el guion."
-export const TEXTO_AVISA_A_FEDERICO = "Avísale a Federico."
-/** A key he has to fix: telling him comes first, and the paid try becomes secondary. */
-export const TEXTO_AVISA_Y_REINTENTA_VOZ = `${TEXTO_AVISA_A_FEDERICO} Cuando lo arregle, puedes intentarlo otra vez.`
+/** A key he has to fix: «Avisar a Federico» comes first, and the paid try becomes secondary. */
+export const TEXTO_REINTENTA_TRAS_FEDERICO = "Cuando Federico lo arregle, puedes intentarlo otra vez."
 export const TEXTO_REINTENTA = "Vuelve a intentarlo con Reintentar."
-export const TEXTO_DETENIDO_EN_SUS_PALABRAS = "No puedo seguir grabando por ahora. Avísale a Federico."
+export const TEXTO_DETENIDO_EN_SUS_PALABRAS = "No puedo seguir grabando por ahora."
 
 // A key ElevenLabs refused, or none saved: «Avisar a Federico» owns the check, the screens keep importing it from here.
 export { esFallaDeLlave } from "@/lib/dominio/avisar-a-federico"

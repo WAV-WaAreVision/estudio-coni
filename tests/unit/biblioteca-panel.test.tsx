@@ -6,6 +6,7 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   borrarMaterialAccion: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
+vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 
 import { PanelDeMaterial, PistaDelPanel } from "@/app/(app)/biblioteca/panel-de-material"
 import type { PanelDelMaterial } from "@/lib/datos/biblioteca"
@@ -30,9 +31,35 @@ const panel: PanelDelMaterial = {
   },
   ideas: { total: 12, primeras: ["El aislamiento pesa más que las horas extra.", "Las pausas acordadas protegen."] },
   evidencia: { estudio: 9, opinion: 3 },
+  fichaIlegible: false,
 }
 
 describe("PanelDeMaterial", () => {
+  it("says a ready strategy card cannot be read and offers «Avisar a Federico», not «no dejó ideas»", () => {
+    const ilegible: PanelDelMaterial = {
+      ...panel,
+      material: { ...panel.material, rol: "estrategia" },
+      ideas: { total: 0, primeras: [] },
+      fichaIlegible: true,
+    }
+    render(<PanelDeMaterial panel={ilegible} filtros={{}} ahora={AHORA} avisoAFederico={{ avisado: false }} />)
+    expect(screen.getByText("No pude leer la ficha de este material.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+    expect(screen.queryByText("Este material no dejó ideas.")).toBeNull()
+  })
+
+  it("says Federico was told once the email for that card went out", () => {
+    const ilegible: PanelDelMaterial = {
+      ...panel,
+      material: { ...panel.material, rol: "estrategia" },
+      ideas: { total: 0, primeras: [] },
+      fichaIlegible: true,
+    }
+    render(<PanelDeMaterial panel={ilegible} filtros={{}} ahora={AHORA} avisoAFederico={{ avisado: true }} />)
+    expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
+  })
+
   it("is a region named by its title, with type, upload day and state on top", () => {
     render(<PanelDeMaterial panel={panel} filtros={{ estado: "listo" }} ahora={AHORA} />)
     const region = screen.getByRole("region", { name: "Burnout y teletrabajo: revisión 2024" })

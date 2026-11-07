@@ -5,6 +5,8 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { ICONO } from "@/components/ui/icono"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Panel } from "@/components/ui/panel"
+import { clienteDeServicio } from "@/lib/acciones/servidor"
+import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import {
   contarPorEstado,
   leerNombreDeLoBorrado,
@@ -13,6 +15,7 @@ import {
   listarMateriales,
 } from "@/lib/datos/biblioteca"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
+import { TEXTO_FICHA_ILEGIBLE } from "@/lib/dominio/avisar-a-federico"
 import { ID_DEL_TITULO_DE_LA_LISTA, leerBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { AVISO_TRAS_SUBIR, RUTA_DE_SUBIR, vieneDeSubir } from "@/lib/dominio/biblioteca/borrador-de-subida"
 import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
@@ -47,6 +50,16 @@ export default async function Materiales({
     leerPausasAbiertas(db),
   ])
   const pausa = textoDePausaDeBiblioteca(pausas)
+  // A ready strategy card that does not read is WAV's to fix (spec 2026-11-07, A11): the panel offers to tell him.
+  const fichaIlegible = panel?.fichaIlegible && panel.material.rol === "estrategia" && panel.material.estado === "listo"
+  const avisoAFederico =
+    panel && fichaIlegible
+      ? await leerAvisoAFederico(clienteDeServicio(), {
+          tipo: "material",
+          id: panel.material.id,
+          explicacion: TEXTO_FICHA_ILEGIBLE,
+        })
+      : null
   const ahora = Date.now()
   // One element, drawn in the header and again in the empty list: Subir is not a tab (spec section 1).
   const subir = (
@@ -110,7 +123,13 @@ export default async function Materiales({
         className="hidden md:sticky md:top-24 md:block md:max-h-[calc(100dvh-7rem)] md:overflow-y-auto"
       >
         {panel ? (
-          <PanelDeMaterial panel={panel} filtros={filtros} ahora={ahora} pausa={pausa} />
+          <PanelDeMaterial
+            panel={panel}
+            filtros={filtros}
+            ahora={ahora}
+            pausa={pausa}
+            avisoAFederico={avisoAFederico}
+          />
         ) : seleccion ? (
           <Panel>
             <p className="text-cuerpo text-apagado">No encontré ese material. Elige otro de la tabla.</p>

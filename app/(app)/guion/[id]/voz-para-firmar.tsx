@@ -2,6 +2,7 @@
 
 import { Info } from "@phosphor-icons/react"
 import { useId } from "react"
+import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { ReproductorVoz } from "@/components/reproductor-voz"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
@@ -17,12 +18,11 @@ import { pedirVozAccion } from "../../piezas/acciones"
 import {
   esFallaDeLlave,
   separarFallaDeVoz,
-  TEXTO_AVISA_A_FEDERICO,
-  TEXTO_AVISA_Y_REINTENTA_VOZ,
   TEXTO_FALTA_VOZ,
   TEXTO_GUARDA_ANTES_DE_VOZ,
   TEXTO_INTENTO_SIN_COBRO,
   TEXTO_PREPARANDO_VOZ,
+  TEXTO_REINTENTA_TRAS_FEDERICO,
   TEXTO_REINTENTA_VOZ,
   TEXTO_SIN_SALDO_VOZ,
 } from "./textos"
@@ -34,6 +34,8 @@ interface PropiedadesDeVoz {
   datos: DatosDeGrabacion
   /** Why the last voice could not be made; given only when there is no voice. */
   explicacion: string | null
+  /** A failure only WAV can fix (a refused key): whether Federico was told; null when there is none to tell. */
+  aviso?: { avisado: boolean } | null
   /** Which take she heard to the end. */
   alEscuchar: (clave: string) => void
   /** The editor holds changes she has not saved: a voice now would speak the old text and lose her draft. */
@@ -50,17 +52,13 @@ export function razonDeVoz(datos: DatosDeGrabacion, sinGuardar: boolean): string
 
 /**
  * The rest of a failed voice's reason as she reads it: "try again" only while the button is open (else the reason
- * under it says what to do), and Federico first for a key, which trying again does not fix until he does.
+ * under it says what to do), and after Federico for a key, which trying again does not fix until he does (the
+ * «Avisar a Federico» button says the rest).
  */
 function fallaEnSusPalabras(detalle: string, razon: string | null): { texto: string | null; detalle: string[] } {
-  const abierto = razon === null
-  const suyas = esFallaDeLlave(detalle)
-    ? abierto
-      ? TEXTO_AVISA_Y_REINTENTA_VOZ
-      : TEXTO_AVISA_A_FEDERICO
-    : TEXTO_REINTENTA_VOZ
+  const suyas = esFallaDeLlave(detalle) ? TEXTO_REINTENTA_TRAS_FEDERICO : TEXTO_REINTENTA_VOZ
   const para = separarParaConi(detalle, suyas)
-  return { texto: para.texto === TEXTO_REINTENTA_VOZ && !abierto ? null : para.texto, detalle: para.detalle }
+  return { texto: para.texto === suyas && razon !== null ? null : para.texto, detalle: para.detalle }
 }
 
 /**
@@ -105,6 +103,7 @@ export function VozParaFirmar({
   version,
   datos,
   explicacion,
+  aviso = null,
   alEscuchar,
   sinGuardar,
   className,
@@ -119,7 +118,7 @@ export function VozParaFirmar({
   const explicacionVigente = pausaDeLaPieza !== null ? null : explicacion
   const falla = explicacionVigente ? separarFallaDeVoz(explicacionVigente) : null
   const detalleDeFalla = falla?.detalle ? fallaEnSusPalabras(falla.detalle, razon) : null
-  // A failure only Federico can fix: the paid try is not the main action next to "Avísale a Federico".
+  // A failure only Federico can fix: the paid try is not the main action next to «Avisar a Federico».
   const necesitaFederico = falla?.detalle ? esFallaDeLlave(falla.detalle) : false
   const sinCobro = falla !== null && datos.vozSinCobro
   const cuerpoDeFalla =
@@ -148,6 +147,7 @@ export function VozParaFirmar({
           titulo={enPausa ? explicacion : falla ? falla.titulo : TEXTO_FALTA_VOZ}
           accion={
             <div className="grid gap-2">
+              {falla && aviso ? <AvisarAFederico tipo="pieza" id={piezaId} avisado={aviso.avisado} /> : null}
               <Boton
                 variante={necesitaFederico ? "secundario" : "primario"}
                 tamano={necesitaFederico ? "chico" : "grande"}
