@@ -24,3 +24,29 @@ export function estimarCostoDelMotor(costos: readonly number[]): number {
 export function textoDeCosto(usd: number): string {
   return `Cuesta cerca de ${dolares(usd)}`
 }
+
+export const YA_PROPUSO = "El motor ya propuso ideas esta semana. Puedes pedir otras desde el lunes."
+export const NO_ARRANCO = "No pude pedirle ideas al motor. Inténtalo de nuevo en unos minutos."
+export const MOTOR_PEDIDO = "El motor se puso a trabajar. Las ideas llegan a Ideas en unos minutos."
+
+/** The engine retakes a run stuck in `corriendo` once it is older than this (`MINUTOS_PARA_RETOMAR`, lib/motor/semanal.ts). */
+const MINUTOS_DE_UNA_CORRIDA_VIVA = 30
+const MS_POR_MINUTO = 60_000
+
+export interface CorridaDeEstaSemana {
+  estado: string
+  creadaEn: string
+}
+
+/**
+ * «Proponer ahora» (as Ingesta): never over a ready week or a run still alive; a failed week, or a run older than the
+ * engine's retake window, can be asked again, because the engine retakes it. The boundary is the engine's: strictly older.
+ */
+export function puedePedirMotor(corrida: CorridaDeEstaSemana | null, ahora: Date): boolean {
+  if (corrida === null) return true
+  if (corrida.estado === "lista") return false
+  if (corrida.estado === "corriendo") {
+    return (ahora.getTime() - Date.parse(corrida.creadaEn)) / MS_POR_MINUTO > MINUTOS_DE_UNA_CORRIDA_VIVA
+  }
+  return true
+}
