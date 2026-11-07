@@ -53,7 +53,6 @@ const MATERIAL = {
   estado: "listo",
   motivo_fallo: null,
   costo_estimado_usd: null,
-  costo_confirmado_en: null,
   creado_en: "2026-11-01T12:00:00Z",
   idioma_original: "es",
   origen_url: null,

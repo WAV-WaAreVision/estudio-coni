@@ -20,7 +20,6 @@ const material: MaterialDeLista = {
   estado: "listo",
   motivo_fallo: null,
   costo_estimado_usd: null,
-  costo_confirmado_en: null,
   creado_en: "2026-10-31T12:00:00Z",
   tema: { id: "t1", nombre: "Carga mental", otros: 1 },
 }

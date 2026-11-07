@@ -14,7 +14,6 @@ const fila = (id: string, titulo: string, creado_en: string): MaterialDeLista =>
   estado: "listo",
   motivo_fallo: null,
   costo_estimado_usd: null,
-  costo_confirmado_en: null,
   creado_en,
   tema: { id: "t1", nombre: "Carga mental", otros: 0 },
 })
