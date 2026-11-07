@@ -136,3 +136,32 @@ describe("PistaDelPanel", () => {
     ).toBeInTheDocument()
   })
 })
+
+describe("PanelDeMaterial while it is processing (spec decision 3)", () => {
+  const procesando = (extra: Partial<PanelDelMaterial["material"]>) => ({
+    ...panel,
+    material: { ...panel.material, estado: "procesando", ...extra },
+    ideas: { total: 0, primeras: [] },
+  })
+
+  it("says under its title what it will cost, and offers no button to confirm it", () => {
+    render(<PanelDeMaterial panel={procesando({ costo_estimado_usd: 0.4 })} filtros={{}} ahora={AHORA} />)
+    const region = screen.getByRole("region", { name: "Burnout y teletrabajo: revisión 2024" })
+    expect(within(region).getByRole("status")).toHaveTextContent("Lo estoy procesando. Costará cerca de US$ 0,40.")
+    expect(within(region).queryByRole("button", { name: /^Procesar por/ })).toBeNull()
+  })
+
+  it("says only «Lo estoy procesando.» before the estimate, and nothing once it is ready", () => {
+    const { unmount } = render(<PanelDeMaterial panel={procesando({})} filtros={{}} ahora={AHORA} />)
+    expect(screen.getByRole("status")).toHaveTextContent(/^Lo estoy procesando\.$/)
+    unmount()
+    render(
+      <PanelDeMaterial
+        panel={{ ...panel, material: { ...panel.material, costo_estimado_usd: 0.4 } }}
+        filtros={{}}
+        ahora={AHORA}
+      />,
+    )
+    expect(screen.queryByText(/^Lo estoy procesando/)).toBeNull()
+  })
+})
