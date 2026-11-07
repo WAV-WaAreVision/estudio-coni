@@ -20,7 +20,9 @@ export function estimarCostoDelMotor(costos: readonly number[]): number {
   const mitad = Math.floor(conCosto.length / 2)
   const mediana =
     conCosto.length % 2 === 1 ? (conCosto[mitad] ?? 0) : ((conCosto[mitad - 1] ?? 0) + (conCosto[mitad] ?? 0)) / 2
-  return Math.round(mediana * 100) / 100
+  // 0.565 * 100 is 56.49999999999999 in floating point: snap to 12 significant digits so a half cent rounds up.
+  // Number.EPSILON is not enough: it is lost above US$ 2.
+  return Math.round(Number((mediana * 100).toPrecision(12))) / 100
 }
 
 export function textoDeCosto(usd: number): string {

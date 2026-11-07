@@ -34,6 +34,11 @@ describe("the cost under «Proponer ahora» (4a)", () => {
     expect(estimarCostoDelMotor([0.21, 0.2, 0.25, 0.3])).toBe(0.23)
   })
 
+  it("rounds a half-cent median up even when floating point lands just below it", () => {
+    expect(estimarCostoDelMotor([0.56, 0.57])).toBe(0.57)
+    expect(estimarCostoDelMotor([1.0, 1.01])).toBe(1.01)
+  })
+
   it("looks only at the latest four, newest first", () => {
     expect(estimarCostoDelMotor([0.1, 0.2, 0.3, 0.4, 9])).toBe(0.25)
   })
