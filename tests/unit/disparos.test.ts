@@ -82,6 +82,12 @@ describe("claveMotor", () => {
     expect(claveMotor("2026-11-02")).toBe("motor:2026-11-02")
     expect(claveMotor("2026-11-09")).not.toBe(claveMotor("2026-11-02"))
   })
+
+  it("adds the attempt when there is one, so retrying a failed week is never swallowed by the last key", () => {
+    const intento = "2026-11-04T14:55:00+00:00"
+    expect(claveMotor("2026-11-02", intento)).toBe(`motor:2026-11-02:${intento}`)
+    expect(claveMotor("2026-11-02", intento)).not.toBe(claveMotor("2026-11-02"))
+  })
 })
 
 describe("disparosDeBibliotecaDeEntorno", () => {
@@ -94,12 +100,14 @@ describe("disparosDeBibliotecaDeEntorno", () => {
     await disparos.material(ID, "intento-1")
     await disparos.material(ID, "intento-2")
     await disparos.motor("2026-11-02")
+    await disparos.motor("2026-11-02", "intento-3")
 
     const lineas = readFileSync(archivo, "utf-8").trim().split("\n")
     expect(lineas.map((linea) => JSON.parse(linea))).toEqual([
       { tarea: "procesar-material", materialId: ID, clave: `procesar-material:${ID}:intento-1` },
       { tarea: "procesar-material", materialId: ID, clave: `procesar-material:${ID}:intento-2` },
       { tarea: "motor-manual", semana: "2026-11-02", clave: "motor:2026-11-02" },
+      { tarea: "motor-manual", semana: "2026-11-02", clave: "motor:2026-11-02:intento-3" },
     ])
   })
 

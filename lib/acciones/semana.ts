@@ -12,7 +12,10 @@ type Db = SupabaseClient<Database>
 export interface DepsSemana {
   /** Coni's client: row level security applies, and `es_coni` is checked again here. */
   db: Db
-  /** `motor-manual`, keyed `motor:<semana>` (claveMotor), so a double tap starts one run. */
+  /**
+   * `motor-manual`, keyed `motor:<semana>` (claveMotor) so a double tap starts one run; a retry adds the replaced run's
+   * `creada_en`, so the ten-minute key of the run that failed does not swallow it.
+   */
   disparar: Pick<DisparosDeBiblioteca, "motor">
   ahora: () => Date
 }
@@ -38,7 +41,7 @@ export function proponerAhora(deps: DepsSemana): Promise<Resultado> {
       throw new Falla(YA_PROPUSO)
     }
     try {
-      await deps.disparar.motor(semana)
+      await deps.disparar.motor(semana, data?.creada_en)
     } catch (falla) {
       console.error(`No pude iniciar el motor para la semana ${semana}`, falla)
       throw new Falla(NO_ARRANCO)

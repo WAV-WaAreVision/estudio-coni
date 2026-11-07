@@ -63,7 +63,8 @@ export function claveArmar(piezaId: string, carruselId: string, intento: number)
 export interface DisparosDeBiblioteca {
   /** `intento`: Reintentar, Reprocesar and "Procesar por ~US$ X" each pass a new one, so a failed run is never reused. */
   material(materialId: string, intento?: string): Promise<void>
-  motor(semana: string): Promise<void>
+  /** `intento`: the `creada_en` of the failed or stale run a retry replaces; none on a week with no run yet. */
+  motor(semana: string, intento?: string): Promise<void>
 }
 
 /** Ingesta's key (`lib/ingesta/disparo.ts`): ten minutes per material, plus the attempt when there is one. */
@@ -71,7 +72,10 @@ export function claveProcesarMaterial(materialId: string, intento?: string): str
   return `procesar-material:${materialId}${intento ? `:${intento}` : ""}`
 }
 
-/** "Proponer ahora": one run per week for ten minutes; the engine itself answers a finished week with nothing to do. */
-export function claveMotor(semana: string): string {
-  return `motor:${semana}`
+/**
+ * "Proponer ahora": one run per week for ten minutes, plus the attempt when it retries a failed or stale run, so Trigger
+ * never answers the retry with the run that failed. The engine itself answers a finished week with nothing to do.
+ */
+export function claveMotor(semana: string, intento?: string): string {
+  return `motor:${semana}${intento ? `:${intento}` : ""}`
 }

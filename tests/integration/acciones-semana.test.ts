@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { claveMotor } from "@/lib/acciones/disparos"
 import { proponerAhora } from "@/lib/acciones/semana"
 import { NO_ARRANCO, YA_PROPUSO } from "@/lib/dominio/biblioteca/semana"
 import type { Database } from "@/lib/supabase/database.types"
@@ -27,7 +28,7 @@ async function corrida(semana: string, estado: "corriendo" | "lista" | "fallida"
   ])
 }
 
-function deps(db: Db, motor = vi.fn(async (_semana: string): Promise<void> => {})) {
+function deps(db: Db, motor = vi.fn(async (_semana: string, _intento?: string): Promise<void> => {})) {
   return { db, disparar: { motor }, ahora: () => AHORA, motor }
 }
 
@@ -55,7 +56,8 @@ describe("proponerAhora", () => {
     const d = deps(coni)
     expect(await proponerAhora(d)).toEqual({ ok: true })
     expect(d.motor).toHaveBeenCalledTimes(1)
-    expect(d.motor).toHaveBeenCalledWith(SEMANA)
+    expect(d.motor).toHaveBeenCalledWith(SEMANA, undefined)
+    expect(claveMotor(...(d.motor.mock.calls[0] ?? [""]))).toBe(`motor:${SEMANA}`)
   })
 
   it.each([
@@ -75,7 +77,16 @@ describe("proponerAhora", () => {
     await corrida(SEMANA, estado, hace(minutos))
     const d = deps(coni)
     expect(await proponerAhora(d)).toEqual({ ok: true })
-    expect(d.motor).toHaveBeenCalledWith(SEMANA)
+    expect(d.motor).toHaveBeenCalledWith(SEMANA, expect.any(String))
+  })
+
+  it("retries a failed week with a key of its own, so Trigger never answers it with the run that failed", async () => {
+    await corrida(SEMANA, "fallida", hace(5))
+    const d = deps(coni)
+    expect(await proponerAhora(d)).toEqual({ ok: true })
+    const [semana, intento] = d.motor.mock.calls[0] ?? [""]
+    expect(Date.parse(intento ?? "")).toBe(Date.parse(hace(5)))
+    expect(claveMotor(semana, intento)).not.toBe(claveMotor(SEMANA))
   })
 
   it("says it could not ask when the run does not start, and logs why for WAV", async () => {

@@ -67,7 +67,7 @@ export function disparosDeLaApp(): Disparos {
 export function disparosDeBibliotecaDeLaApp(): DisparosDeBiblioteca {
   return {
     material: (materialId, intento) => disparosDeBibliotecaDeEntorno().material(materialId, intento),
-    motor: (semana) => disparosDeBibliotecaDeEntorno().motor(semana),
+    motor: (semana, intento) => disparosDeBibliotecaDeEntorno().motor(semana, intento),
   }
 }
 
