@@ -4,7 +4,7 @@ import { EstadoDeMaterial } from "@/app/(app)/biblioteca/estado-de-material"
 import { NavDeBiblioteca } from "@/app/(app)/biblioteca/nav-de-biblioteca"
 import { TemaDelMaterial } from "@/app/(app)/biblioteca/tema-del-material"
 
-const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
+const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null }
 
 const NOMBRE_DE_LA_NAV = "Secciones de la Biblioteca"
 
@@ -122,7 +122,7 @@ describe("EstadoDeMaterial (4j)", () => {
   it.each([
     [{ ...base }, "Procesando"],
     [{ ...base, motivo_fallo: "tope_mensual" }, "En pausa"],
-    [{ ...base, costo_estimado_usd: 1.2 }, "Espera tu OK"],
+    [{ ...base, costo_estimado_usd: 1.2 }, "Procesando"],
     [{ ...base, estado: "listo" }, "Listo"],
     [{ ...base, estado: "fallido" }, "Con error"],
   ])("draws %j as an icon and «%s»", (material, palabra) => {

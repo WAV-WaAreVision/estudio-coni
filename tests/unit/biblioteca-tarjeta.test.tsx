@@ -54,10 +54,11 @@ describe("TarjetaDeMaterial", () => {
     expect(li).not.toHaveTextContent("sin_texto")
   })
 
-  it("draws a processing material with an estimate with no button and no price (spec decision 3)", () => {
+  it("draws a processing material with an estimate as «Procesando», with no button and no price (spec decision 3)", () => {
     const li = tarjeta({ ...material, estado: "procesando", costo_estimado_usd: 1.2, titulo: null })
     expect(within(li).queryByRole("button")).toBeNull()
     expect(li).toHaveTextContent("Sin título")
+    expect(li).toHaveTextContent("Procesando")
     expect(li).not.toHaveTextContent("US$")
   })
 

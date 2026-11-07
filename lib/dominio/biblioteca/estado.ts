@@ -7,7 +7,6 @@ export interface EstadoDeProceso {
   estado: string
   motivo_fallo: string | null
   costo_estimado_usd: number | null
-  costo_confirmado_en: string | null
 }
 
 /**
@@ -18,20 +17,12 @@ export function marcadoConMotivo(motivo: string | null): motivo is string {
   return motivo !== null
 }
 
-/** A long material the task stopped before spending: it waits for her to confirm what it will cost. */
-export function esperaConfirmacion(material: EstadoDeProceso): boolean {
-  return (
-    material.estado === "procesando" && material.costo_estimado_usd !== null && material.costo_confirmado_en === null
-  )
-}
-
-/** A material that failed, or one stopped with a reason (the monthly cap, a run that could not start): retryable. */
+/** A material that failed, or one stopped with a reason (the monthly limit, a run that could not start): retryable. */
 export function sePuedeReintentar(material: EstadoDeProceso): boolean {
-  if (esperaConfirmacion(material)) return false
   return material.estado === "fallido" || (material.estado === "procesando" && marcadoConMotivo(material.motivo_fallo))
 }
 
-/** Really working on it: the list keeps asking while any material is. A paused or waiting one does not. */
+/** Really working on it: the list keeps asking while any material is. A paused one does not. */
 export function estaProcesando(material: EstadoDeProceso): boolean {
   return material.estado === "procesando" && !marcadoConMotivo(material.motivo_fallo)
 }
@@ -43,8 +34,8 @@ export function avisoDeProceso(material: EstadoDeProceso): string | null {
   return `${AVISO_TRAS_SUBIR} Costará cerca de ${dolares(material.costo_estimado_usd)}.`
 }
 
-/** The icons the pill draws itself (check, warning circle) are `null` here; these three it is given. */
-export type IconoDeEstado = "reloj" | "pausa" | "mano" | null
+/** The icons the pill draws itself (check, warning circle) are `null` here; these two it is given. */
+export type IconoDeEstado = "reloj" | "pausa" | null
 
 export interface EstadoVisible {
   palabra: string
@@ -53,7 +44,6 @@ export interface EstadoVisible {
 }
 
 export function presentarEstado(material: EstadoDeProceso): EstadoVisible {
-  if (esperaConfirmacion(material)) return { palabra: "Espera tu OK", tipo: "aviso", icono: "mano" }
   if (material.estado === "listo") return { palabra: "Listo", tipo: "ok", icono: null }
   if (material.estado === "fallido") return { palabra: "Con error", tipo: "error", icono: null }
   if (material.estado === "procesando" && marcadoConMotivo(material.motivo_fallo)) {

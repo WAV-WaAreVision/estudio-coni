@@ -2,28 +2,29 @@ import { describe, expect, it } from "vitest"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import {
   avisoDeProceso,
-  esperaConfirmacion,
   estaProcesando,
   marcadoConMotivo,
   presentarEstado,
   sePuedeReintentar,
 } from "@/lib/dominio/biblioteca/estado"
 
-const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null, costo_confirmado_en: null }
+const base = { estado: "procesando", motivo_fallo: null, costo_estimado_usd: null }
 
 describe("the state of a material", () => {
-  it("waits for her OK while a long material has an estimate and no confirmation", () => {
-    expect(esperaConfirmacion({ ...base, costo_estimado_usd: 1.2 })).toBe(true)
-    expect(esperaConfirmacion({ ...base, costo_estimado_usd: 1.2, costo_confirmado_en: "2026-11-02T12:00:00Z" })).toBe(
-      false,
-    )
+  it("treats a processing material with an estimate as working, never as waiting (batch 6)", () => {
+    const conEstimado = { ...base, costo_estimado_usd: 1.2 }
+    expect(estaProcesando(conEstimado)).toBe(true)
+    expect(sePuedeReintentar(conEstimado)).toBe(false)
+    expect(presentarEstado(conEstimado)).toEqual({ palabra: "Procesando", tipo: "neutro", icono: "reloj" })
   })
 
-  it("can be retried when it failed or was paused with a reason, never while it waits for her OK", () => {
+  it("can be retried when it failed or was paused with a reason, an old waiting one too (D6)", () => {
     expect(sePuedeReintentar({ ...base, estado: "fallido", motivo_fallo: "sin_texto" })).toBe(true)
     expect(sePuedeReintentar({ ...base, motivo_fallo: "tope_mensual" })).toBe(true)
     expect(sePuedeReintentar(base)).toBe(false)
-    expect(sePuedeReintentar({ ...base, costo_estimado_usd: 1.2, motivo_fallo: "x" })).toBe(false)
+    const viejo = { ...base, costo_estimado_usd: 1.2, motivo_fallo: "Este material es largo." }
+    expect(sePuedeReintentar(viejo)).toBe(true)
+    expect(presentarEstado(viejo)).toEqual({ palabra: "En pausa", tipo: "aviso", icono: "pausa" })
   })
 
   it("is really working only while it processes without a reason", () => {
@@ -46,9 +47,9 @@ describe("marcadoConMotivo: as the database decides (reintentar_material, marcar
     expect(estaProcesando(material)).toBe(false)
     expect(sePuedeReintentar(material)).toBe(true)
     expect(presentarEstado(material)).toEqual({ palabra: "En pausa", tipo: "aviso", icono: "pausa" })
-    expect(lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente" }, {})).toContain(
-      "Motivo: sin detalle",
-    )
+    expect(
+      lineasParaWav({ ...material, id: "m", autor_id: "a", rol: "referente", costo_confirmado_en: null }, {}),
+    ).toContain("Motivo: sin detalle")
   })
 })
 
@@ -66,10 +67,6 @@ describe("presentarEstado (4j: always a word and an icon, never only a colour)",
     [
       { ...base, motivo_fallo: "tope_mensual" },
       { palabra: "En pausa", tipo: "aviso", icono: "pausa" },
-    ],
-    [
-      { ...base, costo_estimado_usd: 1.2 },
-      { palabra: "Espera tu OK", tipo: "aviso", icono: "mano" },
     ],
   ])("says %j as %j", (material, visible) => {
     expect(presentarEstado(material)).toEqual(visible)

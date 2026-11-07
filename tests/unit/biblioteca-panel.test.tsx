@@ -147,6 +147,7 @@ describe("PanelDeMaterial while it is processing (spec decision 3)", () => {
     render(<PanelDeMaterial panel={procesando({ costo_estimado_usd: 0.4 })} filtros={{}} ahora={AHORA} />)
     const region = screen.getByRole("region", { name: "Burnout y teletrabajo: revisión 2024" })
     expect(within(region).getByRole("status")).toHaveTextContent("Lo estoy procesando. Costará cerca de US$ 0,40.")
+    expect(within(region).getByText("Procesando")).toBeInTheDocument()
     expect(within(region).queryByRole("button", { name: /^Procesar por/ })).toBeNull()
   })
 
