@@ -92,6 +92,7 @@ export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promi
         .aWav(
           asuntoDeAviso(falla.titulo),
           cuerpoDeAviso({ ...entrada, titulo: falla.titulo, explicacion: falla.explicacion }),
+          clave,
         )
     } catch (errorAlAvisar) {
       // The send's error is the one to answer; a claim that could not be let go is handed on after five minutes.
@@ -100,11 +101,9 @@ export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promi
       throw errorAlAvisar
     }
     const { error: errorAlMarcar } = await deps.db.rpc("marcar_aviso_a_federico_enviado", { p_clave: clave })
-    if (errorAlMarcar) {
-      throw new Error(`No pude marcar como enviado el aviso ${clave}: ${errorAlMarcar.message}`, {
-        cause: errorAlMarcar,
-      })
-    }
+    // The email went out: she hears ok. A retry once the claim is handed on resends under the same Idempotency-Key, which
+    // Resend answers without a second email.
+    if (errorAlMarcar) console.error(`No pude marcar como enviado el aviso ${clave}`, errorAlMarcar)
     return {}
   })
 }

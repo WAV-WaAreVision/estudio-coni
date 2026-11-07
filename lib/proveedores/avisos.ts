@@ -27,7 +27,11 @@ export interface Notificador {
   aConi(mensaje: string, urgente: boolean, aviso: DatosDeAviso): Promise<CanalDeAviso | null>
   /** The one summary of the day: `cuerpoPush` is its short line, `texto` the whole thing for an email. */
   resumenAConi(resumen: ResumenDelDia): Promise<CanalDeAviso>
-  aWav(asunto: string, detalle: string): Promise<void>
+  /**
+   * `idempotencia` is sent as Resend's `Idempotency-Key` when given: a retry of an email that already went out (a
+   * timeout after Resend took it) answers the first one instead of sending it twice.
+   */
+  aWav(asunto: string, detalle: string, idempotencia?: string): Promise<void>
 }
 
 export interface ResumenDelDia {
@@ -40,7 +44,7 @@ export interface NotificadorEnMemoria extends Notificador {
   /** The identity (kind, key, piece) of each notice in `aConiEnviados`, in the same order. */
   readonly avisosEnviados: DatosDeAviso[]
   readonly resumenesEnviados: ResumenDelDia[]
-  readonly aWavEnviados: { asunto: string; detalle: string }[]
+  readonly aWavEnviados: { asunto: string; detalle: string; idempotencia?: string }[]
 }
 
 /** A test double that remembers what it was asked to send. */
@@ -63,8 +67,8 @@ export function notificadorEnMemoria(): NotificadorEnMemoria {
       resumenesEnviados.push(resumen)
       return "correo"
     },
-    async aWav(asunto, detalle) {
-      aWavEnviados.push({ asunto, detalle })
+    async aWav(asunto, detalle, idempotencia) {
+      aWavEnviados.push({ asunto, detalle, ...(idempotencia ? { idempotencia } : {}) })
     },
   }
 }
@@ -105,12 +109,19 @@ function detalleDeResend(cuerpo: string): string {
   return texto.slice(0, LARGO_MAXIMO) || "sin detalle"
 }
 
-async function enviar(opciones: OpcionesResend, mensaje: { a: string; asunto: string; texto: string }) {
+async function enviar(
+  opciones: OpcionesResend,
+  mensaje: { a: string; asunto: string; texto: string; idempotencia?: string },
+) {
   let respuesta: Response
   try {
     respuesta = await fetch(`${(opciones.base ?? BASE_RESEND).replace(/\/+$/, "")}/emails`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${opciones.clave}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${opciones.clave}`,
+        "Content-Type": "application/json",
+        ...(mensaje.idempotencia ? { "Idempotency-Key": mensaje.idempotencia } : {}),
+      },
       body: JSON.stringify({ from: opciones.remitente, to: [mensaje.a], subject: mensaje.asunto, text: mensaje.texto }),
       signal: AbortSignal.timeout(ESPERA_ENVIAR_MS),
     })
@@ -144,7 +155,8 @@ export function notificadorResend(opciones: OpcionesResend): Notificador {
       await enviar(opciones, { a: opciones.correoConi, asunto: "Resumen de tu estudio", texto: resumen.texto })
       return "correo"
     },
-    aWav: (asunto, detalle) => enviar(opciones, { a: opciones.correoWav, asunto, texto: detalle }),
+    aWav: (asunto, detalle, idempotencia) =>
+      enviar(opciones, { a: opciones.correoWav, asunto, texto: detalle, idempotencia }),
   }
 }
 
@@ -202,7 +214,7 @@ export function notificadorPush(opciones: OpcionesPush): Notificador {
       if (await porPush({ titulo: TITULO_DE_PUSH, cuerpo: resumen.cuerpoPush, url: "/" }, false)) return "push"
       return correo.resumenAConi(resumen)
     },
-    aWav: (asunto, detalle) => correo.aWav(asunto, detalle),
+    aWav: (asunto, detalle, idempotencia) => correo.aWav(asunto, detalle, idempotencia),
   }
 }
 

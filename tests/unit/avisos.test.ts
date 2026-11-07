@@ -115,6 +115,17 @@ describe("notificadorResend", () => {
     })
   })
 
+  // https://resend.com/docs/dashboard/emails/idempotency-keys : `Idempotency-Key` header, the same key within 24 hours
+  // answers the first email instead of sending another.
+  it("passes WAV's idempotency key to Resend as the Idempotency-Key header, and none when there is no key", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
+    const avisos = notificadorResend(OPCIONES)
+    await avisos.aWav("Coni te avisa", "detalle", "pieza:p1:abc:i2")
+    await avisos.aWav("Falló grabar-pieza", "detalle")
+    expect(capturas[0]?.cabeceras.get("idempotency-key")).toBe("pieza:p1:abc:i2")
+    expect(capturas[1]?.cabeceras.get("idempotency-key")).toBeNull()
+  })
+
   it.each([400, 401, 403, 422])("treats HTTP %i as a configuration problem for WAV", async (estado) => {
     capturando(() =>
       HttpResponse.json({ name: "validation_error", message: "domain not verified" }, { status: estado }),
@@ -154,6 +165,12 @@ describe("notificadorEnMemoria", () => {
     expect(avisos.resumenesEnviados).toEqual([{ cuerpoPush: "corto", texto: "largo" }])
     expect(avisos.aWavEnviados).toEqual([{ asunto: "asunto", detalle: "detalle" }])
   })
+
+  it("remembers WAV's idempotency key when there is one", async () => {
+    const avisos = notificadorEnMemoria()
+    await avisos.aWav("asunto", "detalle", "clave")
+    expect(avisos.aWavEnviados).toEqual([{ asunto: "asunto", detalle: "detalle", idempotencia: "clave" }])
+  })
 })
 
 describe("canalReal y avisosReales", () => {
@@ -180,6 +197,13 @@ describe("canalReal y avisosReales", () => {
     )
     await canalReal({ ...CORREO, RESEND_BASE_URL: "http://servicios.test/" }).aWav("Coni te avisa", "detalle")
     expect(capturas).toEqual(["Coni te avisa"])
+  })
+
+  it("keeps WAV's idempotency key through the registered notifier the tasks and the action use", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
+    const avisos = avisosReales({ ...CORREO, SUPABASE_URL: "http://supabase.test", SUPABASE_SERVICE_ROLE_KEY: "x" })
+    await avisos.aWav("Coni te avisa", "detalle", "material:m1:abc:f1")
+    expect(capturas[0]?.cabeceras.get("idempotency-key")).toBe("material:m1:abc:f1")
   })
 
   it("refuses RESEND_BASE_URL on Vercel: Coni's mail would go to another address", () => {

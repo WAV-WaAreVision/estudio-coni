@@ -35,6 +35,6 @@ export function notificadorConRegistro(opciones: OpcionesConRegistro): Notificad
       return enviado
     },
     resumenAConi: (resumen) => canal.resumenAConi(resumen),
-    aWav: (asunto, detalle) => canal.aWav(asunto, detalle),
+    aWav: (asunto, detalle, idempotencia) => canal.aWav(asunto, detalle, idempotencia),
   }
 }

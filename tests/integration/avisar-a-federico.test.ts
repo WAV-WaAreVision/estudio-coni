@@ -93,6 +93,8 @@ describe("avisarAFederico", () => {
       {
         asunto: asuntoDeAviso("Sexo y ansiedad"),
         detalle: cuerpoDeAviso({ tipo: "pieza", id, titulo: "Sexo y ansiedad", explicacion: LLAVE }),
+        // The email's key travels as Resend's Idempotency-Key, so a retry after a send that went out sends nothing.
+        idempotencia: await claveDeAviso({ tipo: "pieza", id, explicacion: LLAVE, ocurrencia: await ocurrencia(id) }),
       },
     ])
   })
@@ -173,6 +175,27 @@ describe("avisarAFederico", () => {
     expect(avisos.aWavEnviados).toHaveLength(1)
   })
 
+  it("answers ok and logs it when the email went out but could not be marked as sent", async () => {
+    const id = await piezaEnPuerta1(LLAVE)
+    const avisos = notificadorEnMemoria()
+    const sinMarcar = new Proxy(db, {
+      get(objetivo, propiedad, receptor) {
+        if (propiedad !== "rpc") return Reflect.get(objetivo, propiedad, receptor)
+        return (funcion: string, argumentos: Record<string, unknown>) =>
+          funcion === "marcar_aviso_a_federico_enviado"
+            ? Promise.resolve({ data: null, error: { message: "se cortó la conexión" } })
+            : Reflect.apply(objetivo.rpc, objetivo, [funcion, argumentos])
+      },
+    })
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    expect(await avisarAFederico({ db: sinMarcar, avisos: () => avisos }, { tipo: "pieza", id })).toEqual({ ok: true })
+
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("No pude marcar como enviado"), expect.anything())
+    error.mockRestore()
+    expect(avisos.aWavEnviados).toHaveLength(1)
+  })
+
   it("refuses a piece that no longer fails in a way only WAV can fix", async () => {
     const avisos = notificadorEnMemoria()
     for (const explicacion of [TEXTO_PAUSA.elevenlabs, null, "No pude preparar tu voz. ElevenLabs respondió 500."]) {
@@ -210,6 +233,7 @@ describe("avisarAFederico", () => {
           titulo: "Un libro",
           explicacion: TEXTO_FICHA_ILEGIBLE,
         }),
+        idempotencia: expect.stringMatching(new RegExp(`^material:${ilegible}:[0-9a-f]{16}:f[0-9a-f]{16}$`)),
       },
     ])
   })
