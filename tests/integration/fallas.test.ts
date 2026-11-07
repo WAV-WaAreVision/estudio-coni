@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
+import { PausaDeProveedor, TEXTO_PAUSA } from "@/lib/dominio/pausas"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { alFallarDeTarea, avisarFalla, type DepsFalla } from "@/lib/produccion/fallas"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -14,6 +15,7 @@ const piezasCreadas: string[] = []
 
 afterEach(async () => {
   await pool.query("delete from public.piezas where id = any($1::uuid[])", [piezasCreadas])
+  await pool.query("delete from public.pausas_de_proveedor")
   piezasCreadas.length = 0
 })
 
@@ -62,6 +64,48 @@ const GENERICO_VIDEO = "Algo falló al preparar tu video. WAV ya está revisando
 const GENERICO_GUION = "Algo falló al preparar tu guion. WAV ya está revisando."
 
 describe("avisarFalla", () => {
+  it("opens the pause, writes the provider's text, emails WAV once and does not push Coni", async () => {
+    const guion = await piezaEn("guion_en_proceso")
+    const otro = await piezaEn("guion_en_proceso")
+    const { deps, avisos } = doble()
+    const error = new PausaDeProveedor(
+      "claude",
+      "cuota",
+      "Anthropic respondió HTTP 400: credit balance is too low",
+      400,
+    )
+
+    await avisarFalla(deps, { tarea: "producir-pieza", corrida: "run_1", piezaId: guion, error })
+    await avisarFalla(deps, { tarea: "producir-pieza", corrida: "run_2", piezaId: otro, error })
+
+    expect((await pieza(guion)).explicacion).toBe(TEXTO_PAUSA.claude)
+    expect((await pieza(otro)).explicacion).toBe(TEXTO_PAUSA.claude)
+    expect(avisos.aConiEnviados).toEqual([])
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: sin saldo"])
+  })
+
+  it("keeps a pause text over a later failure, as it keeps the limit text", async () => {
+    const id = await piezaEn("guion_en_proceso")
+    await pool.query("update public.piezas set explicacion = $2, version = version + 1 where id = $1", [
+      id,
+      TEXTO_PAUSA.claude,
+    ])
+    const { deps } = doble()
+
+    await avisarFalla(deps, { tarea: "producir-pieza", corrida: "run_3", piezaId: id, error: new Error("boom") })
+
+    expect((await pieza(id)).explicacion).toBe(TEXTO_PAUSA.claude)
+  })
+
+  it("opens the pause of a run without a piece (the engine) and sends only the pause email", async () => {
+    const { deps, avisos } = doble()
+    const error = new PausaDeProveedor("claude", "llave", "Anthropic rechazó la llave (HTTP 401).", 401)
+
+    await avisarFalla(deps, { tarea: "motor-semanal", corrida: "run_4", error })
+
+    expect(avisos.aWavEnviados.map((a) => a.asunto)).toEqual(["Claude (Anthropic) en pausa: llave rechazada"])
+  })
+
   it("hands a piece stuck in grabando_voz back to guion_por_aprobar with a generic text on a failure", async () => {
     const id = await piezaEn("grabando_voz")
     const { deps } = doble()
