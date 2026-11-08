@@ -59,19 +59,24 @@ describe("materiales.en_cola_desde", () => {
     })
   })
 
-  it("is stamped by poner_material_en_cola for her own upload still processing, which answers true", async () => {
-    await como(comoPostgres, async (c) => {
-      const id = await material(c, "procesando", null)
-      await asumir(c, comoConi)
-      const { rows } = await c.query<{ puesto: boolean }>("select public.poner_material_en_cola($1) as puesto", [id])
-      expect(rows[0]?.puesto).toBe(true)
-      expect(await reciente(c, id)).toBe(true)
-    })
-  })
+  it.each([
+    ["without a reason", null],
+    ["with the reason of a failed start", "No pude iniciar el procesamiento. Reintenta."],
+  ])(
+    "is stamped by poner_material_en_cola for her own upload still processing %s, which answers true",
+    async (_n, motivo) => {
+      await como(comoPostgres, async (c) => {
+        const id = await material(c, "procesando", motivo)
+        await asumir(c, comoConi)
+        const { rows } = await c.query<{ puesto: boolean }>("select public.poner_material_en_cola($1) as puesto", [id])
+        expect(rows[0]?.puesto).toBe(true)
+        expect(await reciente(c, id)).toBe(true)
+      })
+    },
+  )
 
   it.each([
     ["a ready material", "listo", null, CONI],
-    ["a material with a reason", "procesando", "tope_mensual", CONI],
     ["someone else's upload", "procesando", null, OTRA],
   ])("is not stamped by poner_material_en_cola for %s, which answers false", async (_n, estado, motivo, dueno) => {
     await como(comoPostgres, async (c) => {

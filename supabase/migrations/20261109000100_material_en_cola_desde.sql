@@ -4,8 +4,8 @@
 alter table public.materiales
   add column en_cola_desde timestamptz not null default now();
 
--- The confirmation of an upload, before its run is started: only the uploader's own material, only while it still
--- waits (processing, no reason). False when nothing matched, so the app does not start a run for a row the sweep or
+-- The confirmation of an upload, before its run is started: only the uploader's own material, only while it is
+-- processing (a reason left by a failed start does not block a second confirmation; the sweep skips those). False when nothing matched, so the app does not start a run for a row the sweep or
 -- another action already took.
 create function public.poner_material_en_cola(p_id uuid) returns boolean
 language plpgsql security definer set search_path = '' as $$
@@ -20,7 +20,6 @@ begin
    where id = p_id
      and subido_por = auth.uid()
      and estado = 'procesando'
-     and motivo_fallo is null
      and borrar_desde is null;
   get diagnostics actualizado = row_count;
   return actualizado > 0;
