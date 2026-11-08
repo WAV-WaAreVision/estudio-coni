@@ -65,10 +65,14 @@ export default async function Metricas() {
 
   return (
     <div data-ancho="pagina">
-      {/* On a computer (issue 103) the month's figures and the theme comparison share the top row. On a phone the
-          comparison's 32 px come from its box, since its section is now a first child. */}
-      <div data-testid="metricas-cifras" className="md:grid md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-12">
-        <div>
+      {/* On a computer (issue 103) the month's figures and the theme comparison share the top row; without a
+          comparison the figures keep the row alone. On a phone the comparison's 32 px come from its box, since its
+          section is now a first child. */}
+      <div
+        data-testid="metricas-cifras"
+        className={cn(modelo.comparacion && "md:grid md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-12")}
+      >
+        <div data-testid="metricas-cabecera">
           <header className="grid gap-1">
             <p className="text-meta font-semibold">Métricas</p>
             <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
@@ -86,7 +90,7 @@ export default async function Metricas() {
         </div>
 
         {modelo.comparacion ? (
-          <div className="mt-8 md:mt-0">
+          <div data-testid="metricas-comparacion" className="mt-8 md:mt-0">
             <PanelDeComparacion panel={modelo.comparacion} />
           </div>
         ) : null}

@@ -137,8 +137,11 @@ test("Métricas puts the month's figures on top and Instagram beside LinkedIn", 
     await cajaDe(page.getByTestId("metricas-linkedin")),
     "métricas redes",
   )
+  // The published reel gives the page a theme comparison: the month's figures sit beside it, both above the networks.
+  const comparacion = page.getByTestId("metricas-comparacion")
+  await expect(comparacion).toBeVisible()
+  ladoALado(await cajaDe(page.getByTestId("metricas-cabecera")), await cajaDe(comparacion), "métricas cifras")
   const cifras = await cajaDe(page.getByTestId("metricas-cifras"))
-  expect(cifras.right - cifras.left).toBeGreaterThan(900)
   expect(cifras.bottom).toBeLessThanOrEqual((await cajaDe(page.getByTestId("metricas-instagram"))).top)
   await revisarPagina(page, "métricas")
 })
