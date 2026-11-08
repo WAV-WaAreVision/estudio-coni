@@ -13,6 +13,14 @@ const LLAVE = "No pude preparar tu voz. ElevenLabs respondió HTTP 401: Invalid 
 const DETENIDO = "HeyGen respondió HTTP 400: avatar_not_found"
 const TITULO = "El deseo no se apaga, se esconde"
 const AVISAR = "Avisar a Federico"
+
+/** The balances are read with these keys, against the fake services (issue 101's balance blocks). */
+async function conLlavesDeSaldo(): Promise<void> {
+  for (const nombre of ["heygen", "elevenlabs"]) {
+    await pool.query("delete from vault.secrets where name = $1", [nombre])
+    await pool.query("select vault.create_secret($1, $2)", [`llave-de-${nombre}-e2e`, nombre])
+  }
+}
 const LE_AVISE = "Le avisé a Federico."
 
 async function correosAWav(): Promise<{ subject: string; to: string[] }[]> {
@@ -44,6 +52,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.afterAll(async () => {
+  await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.avisos_a_federico")
   await pool.query("update public.ajustes set produccion = '{}'::jsonb")
   await vaciarBiblioteca()
@@ -102,4 +111,55 @@ test("a ready strategy material whose card cannot be read offers the button, not
   await expect(page.getByText(LE_AVISE)).toBeVisible()
   expect(await correosAWav()).toHaveLength(1)
   await capturar(page, "avisar-material-telefono", { completa: true })
+})
+
+test("a voice the ElevenLabs balance does not cover: the button beside it, one email, and it stays told", async ({
+  page,
+}) => {
+  await configurarServicios({ elevenlabsUsados: 100_000 })
+  await conLlavesDeSaldo()
+  const id = await sembrarPieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+  await ajustarPieza(id, { audio_id: null, titulo: TITULO })
+  await page.goto(`/guion/${id}`)
+
+  await expect(voz(page).getByText("No alcanza el saldo para preparar tu voz.", { exact: true })).toBeVisible()
+  await expect(page.getByText(/Avísale a Federico/)).toHaveCount(0)
+  await capturar(page, "avisar-saldo-voz-telefono", { completa: true })
+  await voz(page).getByRole("button", { name: AVISAR }).click()
+  await expect(voz(page).getByText(LE_AVISE)).toBeVisible()
+
+  const correos = await correosAWav()
+  expect(correos).toHaveLength(1)
+  expect(correos[0]).toMatchObject({ subject: `Coni te avisa: «${TITULO}»`, to: ["wav@estudio.test"] })
+  await page.reload()
+  await expect(voz(page).getByText(LE_AVISE)).toBeVisible()
+  await expect(voz(page).getByRole("button", { name: AVISAR })).toHaveCount(0)
+})
+
+test("a signature HeyGen's balance does not cover offers the button in the block at the top", async ({ page }) => {
+  await configurarServicios({ heygenSaldo: 0 })
+  await conLlavesDeSaldo()
+  const id = await sembrarPieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+  await ajustarPieza(id, { audio_id: null, titulo: TITULO })
+  await page.goto(`/guion/${id}`)
+
+  const arriba = page.getByTestId("bloqueo-de-firma")
+  await expect(arriba.getByText("No alcanza el saldo para grabar el video.")).toBeVisible()
+  await arriba.getByRole("button", { name: AVISAR }).click()
+  await expect(arriba.getByText(LE_AVISE)).toBeVisible()
+  expect(await correosAWav()).toHaveLength(1)
+})
+
+test("a stopped video keeps the phone's single column: the piece above what happened", async ({ page }) => {
+  const id = await sembrarPieza("en_render", { explicacion: DETENIDO })
+  await ajustarPieza(id, { titulo: TITULO })
+  await page.goto(`/guion/${id}`)
+
+  const pieza = await page.getByTestId("detenido-pieza").boundingBox()
+  const principal = await page.getByTestId("detenido-principal").boundingBox()
+  expect(pieza && principal).toBeTruthy()
+  if (!pieza || !principal) return
+  expect(principal.y).toBeGreaterThanOrEqual(pieza.y + pieza.height)
+  expect(Math.abs(principal.x - pieza.x)).toBeLessThanOrEqual(1)
+  await expect(page.getByRole("link", { name: "Volver a Inicio" })).toBeVisible()
 })
