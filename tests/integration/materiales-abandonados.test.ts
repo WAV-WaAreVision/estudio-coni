@@ -17,7 +17,9 @@ afterAll(async () => {
 
 const HACE_UN_DIA = new Date(Date.now() - 86_400_000).toISOString()
 
-async function enProcesando(extra: { creadoEn?: string; motivo?: string; costo?: number } = {}): Promise<string> {
+async function enProcesando(
+  extra: { creadoEn?: string; enColaDesde?: string; motivo?: string; costo?: number } = {},
+): Promise<string> {
   const autor = await sembrarAutor(`Autora abandonada ${SUFIJO} ${randomUUID().slice(0, 4)}`)
   autores.push(autor)
   const id = await sembrarMaterial({
@@ -29,6 +31,10 @@ async function enProcesando(extra: { creadoEn?: string; motivo?: string; costo?:
     costo: extra.costo,
   })
   materiales.push(id)
+  await pool.query("update public.materiales set en_cola_desde = $2 where id = $1", [
+    id,
+    extra.enColaDesde ?? extra.creadoEn ?? HACE_UN_DIA,
+  ])
   return id
 }
 
@@ -42,11 +48,13 @@ describe("barrerMaterialesAbandonados", () => {
     expect(EDAD_DE_ABANDONO_MS).toBe(6 * 60 * 60 * 1000)
   })
 
-  it("deletes only an upload never confirmed past six hours, row and R2 folder", async () => {
+  it("deletes only an upload left in the queue for six hours, row and R2 folder", async () => {
     const abandonado = await enProcesando()
     const reciente = await enProcesando({ creadoEn: new Date(Date.now() - 60 * 60 * 1000).toISOString() })
     const tomado = await enProcesando()
     await pool.query("update public.materiales set corrida_id = 'run_x', corrida_desde = now() where id = $1", [tomado])
+    // Created long ago but sent back to the queue minutes ago: Reprocesar, Reintentar or a late confirmation.
+    const reencolado = await enProcesando({ enColaDesde: new Date(Date.now() - 5 * 60 * 1000).toISOString() })
     const conMotivo = await enProcesando({ motivo: "No pude iniciar el procesamiento." })
     const conCosto = await enProcesando({ costo: 0.5 })
     const marcado = await enProcesando()
@@ -64,7 +72,7 @@ describe("barrerMaterialesAbandonados", () => {
     expect(resultado.carpetasPendientes).toEqual([])
     expect(await existe(abandonado)).toBe(false)
     expect(await almacen.listar(`materiales/${abandonado}/`)).toEqual([])
-    for (const id of [reciente, tomado, conMotivo, conCosto, marcado, listo]) {
+    for (const id of [reciente, reencolado, tomado, conMotivo, conCosto, marcado, listo]) {
       expect(resultado.materiales).not.toContain(id)
       expect(await existe(id)).toBe(true)
     }

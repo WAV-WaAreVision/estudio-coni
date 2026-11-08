@@ -3,9 +3,9 @@ import type { Almacen } from "@/lib/proveedores/almacen"
 import type { Database } from "@/lib/supabase/database.types"
 
 /**
- * When an upload nobody confirmed counts as abandoned (issue 63). The database does not record the confirmation, so a
- * confirmed material waiting in `procesar-material`'s queue (two at a time) looks the same as an abandoned one: six
- * hours is far past any realistic queue, and past the hour the upload link lives.
+ * How long a material may sit in the queue untouched before it counts as abandoned (issue 63), measured from
+ * `en_cola_desde`, which the insert, the confirmation, Reintentar and Reprocesar stamp. A run waiting its turn in
+ * `procesar-material` (two at a time) looks the same from here, so six hours stays far past any realistic queue.
  */
 export const EDAD_DE_ABANDONO_MS = 6 * 60 * 60 * 1000
 
@@ -18,7 +18,7 @@ export interface DepsMaterialesAbandonados {
 
 /**
  * Deletes the materials left in `procesando` by an upload that was never confirmed or thrown away (an expired session,
- * a closed tab), then their R2 folders. Untouched: anything a run took (`corrida_id`), estimated (`costo_estimado_usd`)
+ * a closed tab), then their R2 folders. Ingesta's own uploads are measured from their insert. Untouched: anything a run took (`corrida_id`), estimated (`costo_estimado_usd`)
  * or explained (`motivo_fallo`), and what Coni marked to delete (the deferred deletion owns it). A folder that fails
  * stays as an orphan, named in the log, as the deferred deletion already accepts.
  */
@@ -34,7 +34,7 @@ export async function barrerMaterialesAbandonados(
     .is("corrida_id", null)
     .is("costo_estimado_usd", null)
     .is("borrar_desde", null)
-    .lt("creado_en", corte)
+    .lt("en_cola_desde", corte)
     .select("id")
   if (error) throw new Error(`No pude barrer los materiales abandonados: ${error.message}`, { cause: error })
   const materiales = data.map((fila) => fila.id)

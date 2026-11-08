@@ -331,6 +331,40 @@ describe("confirmarMaterial", () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining(creado.materialId), expect.any(Error))
   })
 
+  it("stamps when the material entered the queue before starting its run (issue 63)", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    await pool.query("update public.materiales set en_cola_desde = now() - interval '2 days' where id = $1", [
+      creado.materialId,
+    ])
+    almacen.simularSubida(creado.subidas[0]?.url ?? "", new Uint8Array([1, 2, 3, 4]))
+
+    expect(await confirmarMaterial(deps(coni), creado.materialId)).toEqual({ ok: true })
+    const { rows } = await pool.query<{ reciente: boolean }>(
+      "select en_cola_desde > now() - interval '1 minute' as reciente from public.materiales where id = $1",
+      [creado.materialId],
+    )
+    expect(rows[0]?.reciente).toBe(true)
+  })
+
+  it("starts nothing when the sweep took the material while its file was being checked (issue 63)", async () => {
+    const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
+    const barrido = deps(coni, {
+      almacen: {
+        ...almacen,
+        tamano: async () => {
+          await pool.query("delete from public.materiales where id = $1", [creado.materialId])
+          return 4
+        },
+      },
+    })
+
+    expect(await confirmarMaterial(barrido, creado.materialId)).toEqual({
+      ok: false,
+      error: "No encontré ese material.",
+    })
+    expect(disparos).toEqual([])
+  })
+
   it("never deletes a material that moved on while its file was being checked", async () => {
     const creado = await crearOk(coni, { tipo: "documento", archivos: [{ nombre: "a.pdf", tamano: 4 }] })
     const otraCorrida = deps(coni, {
