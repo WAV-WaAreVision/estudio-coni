@@ -18,8 +18,8 @@ const ACCIONES = "flex flex-wrap items-start gap-3"
 export function TarjetaDeBorradorDePilar({ borrador }: { borrador: BorradorDePilar }) {
   const titulo = `borrador-${borrador.id}`
   return (
-    <article aria-labelledby={titulo}>
-      <Panel className="grid gap-3">
+    <article aria-labelledby={titulo} className="h-full">
+      <Panel className="grid h-full content-start gap-3">
         <h3 id={titulo} className="text-cuerpo font-semibold text-balance">
           {borrador.nombre}
         </h3>
@@ -59,8 +59,8 @@ const NOTAS = [
 export function TarjetaDeBorradorDeRed({ borrador }: { borrador: BorradorDeRed }) {
   const titulo = `borrador-${borrador.id}`
   return (
-    <article aria-labelledby={titulo}>
-      <Panel className="grid gap-3">
+    <article aria-labelledby={titulo} className="h-full">
+      <Panel className="grid h-full content-start gap-3">
         <h3 id={titulo} className="text-cuerpo font-semibold text-balance">
           {borrador.nombre}
         </h3>
