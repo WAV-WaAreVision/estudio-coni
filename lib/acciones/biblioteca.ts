@@ -413,6 +413,13 @@ export function confirmarMaterial(deps: DepsSubir, materialId: string): Promise<
       throw new Falla(malo !== null && malo > TAMANO_MAXIMO_BYTES ? PESA_DEMASIADO : FALTA_EL_ARCHIVO)
     }
 
+    // Stamped before the run starts, so the sweep of abandoned uploads (issue 63) leaves it alone; false when the sweep
+    // or another action took the row while its files were being checked.
+    const { data: enCola, error: errorDeCola } = await deps.db.rpc("poner_material_en_cola", { p_id: materialId })
+    if (errorDeCola)
+      throw new Error(`No pude poner en cola el material ${materialId}: ${errorDeCola.message}`, { cause: errorDeCola })
+    if (!enCola) throw new Falla(NO_ENCONTRE)
+
     try {
       await deps.disparar.material(materialId)
     } catch (errorDeDisparo) {

@@ -10,6 +10,7 @@ import { borrarLoMarcado, type DepsBorrado } from "./borrado-diferido"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
+import { barrerMaterialesAbandonados } from "./materiales-abandonados"
 import { type DepsNumerosLinkedin, recordarNumerosDeLinkedin } from "./numeros-linkedin"
 import { cerrarPausas, type DepsPausas } from "./pausas"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
@@ -99,6 +100,8 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
     pausas: () => cerrarPausas(deps),
     // A deleted material's ideas leave before the topics job reads them.
     borrado: () => borrarLoMarcado({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
+    // Uploads never confirmed (issue 63): a closed tab or an expired session left them in `procesando` for ever.
+    abandonados: () => barrerMaterialesAbandonados({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     voces: () => devolverVocesTrabadas(deps),

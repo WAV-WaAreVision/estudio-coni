@@ -1171,6 +1171,7 @@ export type Database = {
           costo_estimado_usd: number | null
           creado_en: string
           declaracion_sin_pacientes_en: string
+          en_cola_desde: string
           estado: string
           etiquetas: string[]
           id: string
@@ -1197,6 +1198,7 @@ export type Database = {
           costo_estimado_usd?: number | null
           creado_en?: string
           declaracion_sin_pacientes_en: string
+          en_cola_desde?: string
           estado?: string
           etiquetas?: string[]
           id?: string
@@ -1223,6 +1225,7 @@ export type Database = {
           costo_estimado_usd?: number | null
           creado_en?: string
           declaracion_sin_pacientes_en?: string
+          en_cola_desde?: string
           estado?: string
           etiquetas?: string[]
           id?: string
@@ -3400,6 +3403,7 @@ export type Database = {
         Args: { p_filas: Json; p_tema: string }
         Returns: number
       }
+      poner_material_en_cola: { Args: { p_id: string }; Returns: boolean }
       proponer_fechas: {
         Args: { p_fechas: string[]; p_piezas: string[] }
         Returns: undefined

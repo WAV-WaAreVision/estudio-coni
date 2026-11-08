@@ -16,6 +16,9 @@ vi.mock("@/lib/mantenimiento/voces", () => ({ devolverVocesTrabadas: vi.fn(async
 vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
   borrarLoMarcado: vi.fn(async () => ({ materiales: 0, carpetasPendientes: [] })),
 }))
+vi.mock("@/lib/mantenimiento/materiales-abandonados", () => ({
+  barrerMaterialesAbandonados: vi.fn(async () => ({ materiales: [], carpetasPendientes: [] })),
+}))
 vi.mock("@/lib/mantenimiento/pausas", () => ({ cerrarPausas: vi.fn(async () => ({ cerradas: [], abiertas: [] })) }))
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
@@ -97,6 +100,13 @@ describe("the ten-minute run", () => {
     const resultado = await mantenimientoFrecuente(FRECUENTE)
     expect(Object.keys(resultado).slice(0, 2)).toEqual(["pausas", "borrado"])
     expect(borrarLoMarcado).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
+  })
+
+  it("sweeps the uploads never confirmed right after the deletion, with the run's store and clock (issue 63)", async () => {
+    const { barrerMaterialesAbandonados } = await import("@/lib/mantenimiento/materiales-abandonados")
+    const resultado = await mantenimientoFrecuente(FRECUENTE)
+    expect(Object.keys(resultado).slice(0, 3)).toEqual(["pausas", "borrado", "abandonados"])
+    expect(barrerMaterialesAbandonados).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
   })
 
   it("fails only the deletion when the store cannot be built, and still runs every other job", async () => {
