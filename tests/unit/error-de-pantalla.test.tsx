@@ -48,4 +48,16 @@ describe("ErrorDePantalla", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Puede ser la conexión.")
     expect(screen.getByRole("alert")).not.toHaveTextContent("Federico")
   })
+
+  it("drops «Le avisé a Federico.» when the retry fails again and that new email does not go out", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    avisar.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, error: "Algo falló" })
+    const { rerender } = render(<ErrorDePantalla error={new Error("uno")} reset={vi.fn()} unstable_retry={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Le avisé a Federico."))
+
+    rerender(<ErrorDePantalla error={new Error("dos")} reset={vi.fn()} unstable_retry={vi.fn()} />)
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Federico")
+    await waitFor(() => expect(avisar).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Federico")
+  })
 })

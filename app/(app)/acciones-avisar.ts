@@ -29,7 +29,7 @@ export async function avisarAFedericoAccion(entrada: {
 
 // The registro is one of the fixed lines the error screens pass; the digest is Next's, hex.
 const SobreErrorDePantalla = z.object({
-  registro: z.string().min(1).max(120),
+  registro: z.string().regex(/^[\p{L} ]{1,120}$/u),
   digest: z
     .string()
     .regex(/^[\w-]{1,64}$/)
