@@ -40,7 +40,7 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     }
     const alCambiarVisibilidad = () => {
       if (document.visibilityState === "visible") {
-        dejar = redibujar()
+        if (!hayRedibujoEnVuelo()) dejar = redibujar()
         arrancar()
       } else {
         parar()

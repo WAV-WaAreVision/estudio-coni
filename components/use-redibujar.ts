@@ -25,13 +25,27 @@ let vigente = 0
 let cadena: { origen: string; anteriores: Set<string | null> } | null = null
 
 /**
- * The marker of a redraw whose screen has not shown yet (issue 115): the polling skips its round meanwhile, since a new
- * redraw on a slow network would only ask for another tree on top of the one still downloading.
+ * The last redraw issued (issue 115): the polling skips its round while it has not reached the screen, since a new
+ * redraw on a slow network would only ask for another tree on top of the one still downloading. Read from the address
+ * itself, not from the watch: a tap ends the watch but not the download.
  */
-let marcaEnVuelo: string | null = null
+let enVuelo: { origen: string; marca: string; hasta: number } | null = null
 
-/** Whether a redraw is still on its way to the screen. */
-export const hayRedibujoEnVuelo = () => marcaEnVuelo !== null
+/**
+ * Whether the last redraw is still on its way: its marker is not on the address yet, she is still on that screen, and
+ * it has not waited longer than a redraw is given to show (after that it counts as lost and polling goes on).
+ */
+export function hayRedibujoEnVuelo(): boolean {
+  if (enVuelo === null) return false
+  const ahora = new URL(window.location.href)
+  if (
+    ahora.searchParams.get("v") === enVuelo.marca ||
+    sinMarcador(ahora) !== enVuelo.origen ||
+    Date.now() >= enVuelo.hasta
+  )
+    enVuelo = null
+  return enVuelo !== null
+}
 
 /** The address without the marker: two addresses that only differ in `v` are the same screen. */
 function sinMarcador(url: URL): string {
@@ -89,7 +103,7 @@ export function useRedibujar(): () => () => void {
       llegoEn = null
       plazo = Date.now() + ESPERAR_MARCA_MS
       marca = redibujar()
-      marcaEnVuelo = marca
+      enVuelo = { origen, marca, hasta: plazo }
     }
     // The router's fetch of the fresh screen, seen as a finished resource. Without the API a dropped redraw just waits
     // for the next one.
@@ -107,7 +121,6 @@ export function useRedibujar(): () => () => void {
             }
           })
     const terminar = () => {
-      if (marcaEnVuelo === marca) marcaEnVuelo = null
       clearInterval(mirador)
       descargas?.disconnect()
       globalThis.document?.removeEventListener("pointerdown", terminar, true)
@@ -123,7 +136,6 @@ export function useRedibujar(): () => () => void {
       if (v === marca) {
         if (!vista) plazo = Date.now() + VIGILAR_TRAS_VER_MS
         vista = true
-        if (marcaEnVuelo === marca) marcaEnVuelo = null
       } else if (!anteriores.has(v)) {
         // Another redraw took over.
         return terminar()
@@ -152,6 +164,10 @@ export function useRedibujar(): () => () => void {
     const mirador = setInterval(mirar, MIRAR_CADA_MS)
     document.addEventListener("pointerdown", terminar, true)
     document.addEventListener("keydown", terminar, true)
-    return terminar
+    // Calling it off (the polling unmounts or stops) also lets go of the in-flight mark: nothing is left to skip for.
+    return () => {
+      terminar()
+      if (enVuelo?.marca === marca) enVuelo = null
+    }
   }, [router])
 }

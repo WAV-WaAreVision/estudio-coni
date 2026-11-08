@@ -108,6 +108,39 @@ describe("RefrescoAutomatico", () => {
     expect(replace).toHaveBeenCalledTimes(2)
   })
 
+  it("keeps skipping when she taps during a slow redraw, since the tap ends the watch but not the download", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => {
+      document.dispatchEvent(new Event("pointerdown"))
+    })
+    act(() => vi.advanceTimersByTime(8000))
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  it("gives up on a redraw that never reaches the screen after 15 s and polls again", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => {
+      document.dispatchEvent(new Event("pointerdown"))
+    })
+    act(() => vi.advanceTimersByTime(12_000))
+    expect(replace).toHaveBeenCalledTimes(1)
+    act(() => vi.advanceTimersByTime(4000))
+    expect(replace).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not redraw on coming back to the tab while the last redraw is still on its way", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => visibilidad("hidden"))
+    act(() => visibilidad("visible"))
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
   it("leaves no timer or listener behind when it unmounts", () => {
     const anadir = vi.spyOn(document, "addEventListener")
     const quitar = vi.spyOn(document, "removeEventListener")
