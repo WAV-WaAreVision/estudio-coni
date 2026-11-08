@@ -254,7 +254,7 @@ export function BancoDeIdeas({
           className={cn(
             "grid gap-4",
             PRINCIPAL_Y_PANEL,
-            "md:grid-cols-[minmax(0,40rem)_20rem] md:grid-rows-[auto_1fr] md:gap-y-4",
+            "md:grid-cols-[minmax(0,40rem)_20rem] md:grid-rows-[auto_1fr] md:justify-between md:gap-y-4",
           )}
         >
           <div
@@ -327,7 +327,8 @@ export function BancoDeIdeas({
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>
       ) : (
-        <div className="grid gap-3 py-1">
+        // On a computer the quiet button keeps its label's width instead of a 1080px target (issue 103).
+        <div className="grid gap-3 py-1 md:justify-items-start">
           <p className="text-cuerpo font-semibold">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>

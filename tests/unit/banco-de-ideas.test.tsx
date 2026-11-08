@@ -720,4 +720,16 @@ describe("BancoDeIdeas: on a computer (issue 103)", () => {
     siguen(cuenta, actual)
     siguen(actual, lateral)
   })
+
+  it("pushes the card and its side column to the page's edges, as the form pages do", () => {
+    mostrar()
+    expect(screen.getByTestId("idea-cuenta").parentElement).toHaveClass("md:justify-between")
+  })
+
+  it("keeps Escribir una idea mía as wide as its label once the bank is used up", async () => {
+    mostrar({}, [idea({ id: "a" })])
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta" }))
+    const vacio = await screen.findByText("Usaste todas las ideas del banco. Escribe una idea nueva.")
+    expect(vacio.parentElement).toHaveClass("md:justify-items-start")
+  })
 })
