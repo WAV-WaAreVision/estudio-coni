@@ -2,6 +2,7 @@
 
 import { z } from "zod"
 import { avisarAFederico } from "@/lib/acciones/avisar-a-federico"
+import { avisarErrorDePantalla } from "@/lib/acciones/error-de-pantalla"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { clienteDeServicio, conSesionDeConi } from "@/lib/acciones/servidor"
 import { avisosReales } from "@/lib/proveedores/avisos"
@@ -23,5 +24,24 @@ export async function avisarAFedericoAccion(entrada: {
 }): Promise<Resultado> {
   return conSesionDeConi("avisarAFederico", SobreAviso, entrada, (_db, datos) =>
     avisarAFederico({ db: clienteDeServicio(), avisos: () => avisosReales() }, datos),
+  )
+}
+
+// The registro is one of the fixed lines the error screens pass; the digest is Next's, hex.
+const SobreErrorDePantalla = z.object({
+  registro: z.string().min(1).max(120),
+  digest: z
+    .string()
+    .regex(/^[\w-]{1,64}$/)
+    .optional(),
+})
+
+/** Issue 111: a screen that could not load tells WAV by itself. Only Coni's session can send it. */
+export async function avisarErrorDePantallaAccion(entrada: { registro: string; digest?: string }): Promise<Resultado> {
+  return conSesionDeConi("avisarErrorDePantalla", SobreErrorDePantalla, entrada, (_db, datos) =>
+    avisarErrorDePantalla(
+      { avisos: () => avisosReales(), ahora: () => new Date().toISOString() },
+      datos.digest ? { registro: datos.registro, digest: datos.digest } : { registro: datos.registro },
+    ),
   )
 }

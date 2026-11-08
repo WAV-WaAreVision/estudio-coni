@@ -20,7 +20,6 @@ function archivos(carpeta: string): string[] {
 // Out of issue 101's scope (its spec names four texts): the error screen and the Instagram, LinkedIn and metrics
 // notices still ask her to tell Federico by hand. A new one anywhere else fails here.
 const FUERA_DEL_ALCANCE = new Set([
-  "components/error-de-pantalla.tsx",
   "lib/metricas/modelo.ts",
 ])
 
