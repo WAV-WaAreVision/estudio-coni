@@ -21,6 +21,7 @@ const { aprobarGuionAccion, editarGuionAccion, pedirCambiosAccion, pedirVozAccio
 // Next hands back the same router on every render, as here.
 const ROUTER = { push: vi.fn(), refresh: vi.fn(), replace }
 vi.mock("next/navigation", () => ({ useRouter: () => ROUTER }))
+vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 vi.mock("@/app/(app)/piezas/acciones", () => ({
   aprobarGuionAccion,
   pedirVozAccion,
@@ -71,6 +72,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     tieneVersionDeClaude: false,
     salida: null,
     explicacion: null,
+    aviso: null,
     avatares: [{ id: "look-a", nombre: "Estudio", imagenUrl: null }],
     avisoInicial: null,
     avatarGuardado: null,
@@ -293,8 +295,24 @@ describe("PantallaGuion: el orden de v6", () => {
   })
 
   it("sends a key ElevenLabs refused to Federico instead of offering a new take", () => {
-    render(<PantallaGuion datos={datos({ explicacion: "ElevenLabs respondió HTTP 401: la llave no sirve." })} />)
-    expect(screen.getByText("No pude grabar tu voz de nuevo. Avísale a Federico.")).toBeInTheDocument()
+    render(
+      <PantallaGuion
+        datos={datos({ explicacion: "ElevenLabs respondió HTTP 401: la llave no sirve.", aviso: { avisado: false } })}
+      />,
+    )
+    expect(screen.getByText("No pude grabar tu voz de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText(/Avísale a Federico|Puedes intentarlo otra vez/)).toBeNull()
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+  })
+
+  it("says Federico was told about the refused key once the email went out", () => {
+    render(
+      <PantallaGuion
+        datos={datos({ explicacion: "ElevenLabs respondió HTTP 401: la llave no sirve.", aviso: { avisado: true } })}
+      />,
+    )
+    expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
   })
 
   it("says a phrase HeyGen refused in her words in a warning block, with HeyGen's text for WAV", () => {

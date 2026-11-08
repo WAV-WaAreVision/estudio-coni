@@ -317,6 +317,36 @@ export type Database = {
           },
         ]
       }
+      avisos_a_federico: {
+        Row: {
+          clave: string
+          creado_en: string
+          entidad_id: string
+          enviado_en: string | null
+          id: string
+          reclamado_en: string | null
+          tipo: string
+        }
+        Insert: {
+          clave: string
+          creado_en?: string
+          entidad_id: string
+          enviado_en?: string | null
+          id?: string
+          reclamado_en?: string | null
+          tipo: string
+        }
+        Update: {
+          clave?: string
+          creado_en?: string
+          entidad_id?: string
+          enviado_en?: string | null
+          id?: string
+          reclamado_en?: string | null
+          tipo?: string
+        }
+        Relationships: []
+      }
       borradores_de_pilar: {
         Row: {
           creado_en: string
@@ -3203,6 +3233,10 @@ export type Database = {
         Args: { p_borrar: boolean; p_id: string }
         Returns: undefined
       }
+      marcar_aviso_a_federico_enviado: {
+        Args: { p_clave: string }
+        Returns: undefined
+      }
       marcar_disparo_fallido: { Args: { p_id: string }; Returns: undefined }
       marcar_inventario_revisado: { Args: never; Returns: string }
       marcar_material_para_borrar: {
@@ -3429,6 +3463,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reclamar_aviso_a_federico: {
+        Args: { p_clave: string; p_entidad_id: string; p_tipo: string }
+        Returns: string
+      }
       reclamar_aviso_de_pausa: { Args: { p_id: string }; Returns: boolean }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
@@ -3521,6 +3559,7 @@ export type Database = {
       }
       restaurar_ideas: { Args: { p_ids: string[] }; Returns: string[] }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
+      soltar_aviso_a_federico: { Args: { p_clave: string }; Returns: undefined }
       soltar_aviso_de_pausa: { Args: { p_id: string }; Returns: undefined }
       tema_mas_cercano: {
         Args: { p_umbral: number; p_vector: string }

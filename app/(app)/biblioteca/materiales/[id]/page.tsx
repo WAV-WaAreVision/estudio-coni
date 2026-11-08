@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation"
 import { z } from "zod"
+import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
+import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
+import { TEXTO_FICHA_ILEGIBLE } from "@/lib/dominio/avisar-a-federico"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import {
   avisoDeProceso,
@@ -32,17 +35,27 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
   if (!valido.success) notFound()
   const leido = await leerMaterialConFicha(db, valido.data)
   if (!leido) notFound()
-  const { material, ficha } = leido
+  const { material, ficha, fichaIlegible } = leido
   const conFicha = material.rol === "estrategia"
-  const [autores, mapa, pausas] = await Promise.all([
+  // A card row that does not read is WAV's to fix (spec 2026-11-07, A11); no row at all is her change of role.
+  const fallaDeFicha = conFicha && material.estado === "listo" && fichaIlegible ? TEXTO_FICHA_ILEGIBLE : null
+  const [autores, mapa, pausas, avisoDeFicha] = await Promise.all([
     listarAutores(db),
     conFicha ? null : leerMapaDelMaterial(db, material.id),
     leerPausasAbiertas(db),
+    fallaDeFicha && leido.ocurrenciaDeFicha
+      ? leerAvisoAFederico(db, {
+          tipo: "material",
+          id: material.id,
+          explicacion: fallaDeFicha,
+          ocurrencia: leido.ocurrenciaDeFicha,
+        })
+      : null,
   ])
   // What was processed follows the role it had then: after "¿Quién es para ti?" changes, only reprocessing shows it the new way.
   const rol = esRol(material.rol) ? material.rol : "referente"
   const procesadoConOtroRol = conFicha
-    ? ficha === null && material.estado === "listo"
+    ? ficha === null && !fichaIlegible && material.estado === "listo"
     : ficha !== null && (mapa?.total ?? 0) === 0
 
   const descarga = `/biblioteca/materiales/${material.id}/texto`
@@ -97,12 +110,18 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
             </p>
             <FichaEditable materialId={material.id} ficha={ficha} />
           </>
+        ) : fallaDeFicha ? (
+          <div className="grid gap-3">
+            <p className="text-cuerpo text-apagado">{fallaDeFicha}</p>
+            <AvisarAFederico
+              tipo="material"
+              id={material.id}
+              avisado={avisoDeFicha?.avisado ?? false}
+              className="md:justify-self-start"
+            />
+          </div>
         ) : (
-          <p className="text-cuerpo text-apagado">
-            {material.estado === "listo"
-              ? "No pude leer la ficha de este material. Avísale a Federico."
-              : "La ficha aparece cuando termina de procesarse."}
-          </p>
+          <p className="text-cuerpo text-apagado">La ficha aparece cuando termina de procesarse.</p>
         )}
 
         <div className="contents md:hidden">

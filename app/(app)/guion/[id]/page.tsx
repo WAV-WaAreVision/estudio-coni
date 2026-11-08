@@ -12,6 +12,7 @@ import { ICONO } from "@/components/ui/icono"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
+import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
@@ -20,6 +21,7 @@ import { leerPilares } from "@/lib/datos/pilares"
 import { leerProduccion } from "@/lib/datos/repositorio"
 import { leerRespaldo } from "@/lib/datos/respaldo"
 import { leerRevision } from "@/lib/datos/revision"
+import { fallaParaFederico, ocurrenciaDePieza } from "@/lib/dominio/avisar-a-federico"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -38,15 +40,10 @@ import { ElegirAngulo } from "../../ideas/elegir-angulo"
 import { VistaDeCarrusel } from "./carrusel"
 import { DeshacerFirma } from "./deshacer-firma"
 import { PantallaGuion } from "./pantalla-guion"
-import {
-  TEXTO_DETENIDO_EN_SUS_PALABRAS,
-  TEXTO_NO_ESCRIBI,
-  TEXTO_NO_TERMINE,
-  TEXTO_REINTENTA,
-  TEXTO_VIDEO_DETENIDO,
-} from "./textos"
+import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_REINTENTA } from "./textos"
 import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
+import { VideoDetenido } from "./video-detenido"
 import { VozSuelta } from "./voz-suelta"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -140,9 +137,7 @@ export default async function PaginaDeGuion({
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
           {fila.explicacion ? (
-            <Bloque tipo="error" grande titulo={TEXTO_VIDEO_DETENIDO}>
-              <ExplicacionParaConi texto={fila.explicacion} enSusPalabras={TEXTO_DETENIDO_EN_SUS_PALABRAS} />
-            </Bloque>
+            <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
           ) : (
             <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
           )}
@@ -228,10 +223,11 @@ export default async function PaginaDeGuion({
   const tomadas = new Set(ocupadas.map((iso) => Date.parse(iso)))
   const propuesta = propuestaVigente(contexto.propuesta, { ahora, tomadas, antelacionMs: DOCE_HORAS_MS })
   const salida = propuesta ?? propuestas[contexto.enCola]
-  const [avatares, conVersionDeClaude, grabacion] = await Promise.all([
+  const [avatares, conVersionDeClaude, grabacion, aviso] = await Promise.all([
     avataresParaElegir(db),
     tieneVersionDeClaude({ db }, fila.id),
     leerDatosDeGrabacion(db, { fila, estado: fila.estado, guion: fila.guion, zona: contexto.horario.zona }),
+    avisoDeLaPieza(db, fila),
   ])
 
   return (
@@ -257,6 +253,7 @@ export default async function PaginaDeGuion({
           tieneVersionDeClaude: conVersionDeClaude,
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
           explicacion: fila.explicacion,
+          aviso,
           avatares,
           grabacion,
           avisoInicial: avisoAlVolver(deshecho, fila.estado),
@@ -265,6 +262,22 @@ export default async function PaginaDeGuion({
       />
     </>
   )
+}
+
+/** Whether «Avisar a Federico» is offered for the piece's failure, and whether its email went out (spec 2026-11-07, A11). */
+function avisoDeLaPieza(
+  db: Parameters<typeof leerAvisoAFederico>[0],
+  fila: { id: string; estado: string; explicacion: string | null; intento: number },
+) {
+  const explicacion = fallaParaFederico({ tipo: "pieza", estado: fila.estado, explicacion: fila.explicacion })
+  return explicacion === null
+    ? Promise.resolve(null)
+    : leerAvisoAFederico(db, {
+        tipo: "pieza",
+        id: fila.id,
+        explicacion,
+        ocurrencia: ocurrenciaDePieza(fila.intento),
+      })
 }
 
 /** The stored voice of the approved script, signed for listening, or null when there is none or the setup does not read. */

@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // The page gates itself: a layout does not run again on client navigation and renders in parallel with its pages.
-const { esConi, datos } = vi.hoisted(() => ({
+const { esConi, datos, leerAvisoAFederico } = vi.hoisted(() => ({
+  leerAvisoAFederico: vi.fn(async (): Promise<{ avisado: boolean } | null> => null),
   esConi: { valor: false },
   datos: {
     leerMaterialConFicha: vi.fn(async (): Promise<unknown> => null),
@@ -26,6 +27,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+vi.mock("@/lib/datos/aviso-a-federico", () => ({ leerAvisoAFederico }))
+vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 // No provider paused: the pages read the open pauses through the same session.
 vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: async () => [] }))
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
@@ -40,7 +43,9 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
 import { BotonReintentar } from "@/app/(app)/biblioteca/boton-reintentar"
 import DetalleDeMaterial from "@/app/(app)/biblioteca/materiales/[id]/page"
+import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
+import { TEXTO_FICHA_ILEGIBLE } from "@/lib/dominio/avisar-a-federico"
 import { REFRESCO_DE_LA_BIBLIOTECA_MS } from "@/lib/dominio/biblioteca/estado"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -115,7 +120,48 @@ describe("the material detail page", () => {
     datos.leerMaterialConFicha.mockResolvedValueOnce({ material: { ...MATERIAL, rol: "estrategia" }, ficha: null })
     const arbol = elementos(await DetalleDeMaterial(conId(ID)))
     expect(textos(arbol)).toContain(CAMBIASTE)
-    expect(textos(arbol)).not.toContain("No pude leer la ficha de este material. Avísale a Federico.")
+    expect(textos(arbol)).not.toContain(TEXTO_FICHA_ILEGIBLE)
+    expect(arbol.some((elemento) => elemento.type === AvisarAFederico)).toBe(false)
+  })
+
+  // Regression: «procesado con otro rol» used to catch a card that exists but does not read, so this never showed.
+  it("says the card cannot be read and offers «Avisar a Federico» for a ready strategy material", async () => {
+    esConi.valor = true
+    leerAvisoAFederico.mockResolvedValueOnce({ avisado: false })
+    datos.leerMaterialConFicha.mockResolvedValueOnce({
+      material: { ...MATERIAL, rol: "estrategia" },
+      ficha: null,
+      fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
+    })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(textos(arbol)).toContain(TEXTO_FICHA_ILEGIBLE)
+    expect(textos(arbol)).not.toContain(CAMBIASTE)
+    expect(textos(arbol).some((texto) => texto.includes("Avísale a Federico"))).toBe(false)
+    // The page's own session reads it (RLS lets Coni select it): no service client for a read.
+    expect(leerAvisoAFederico).toHaveBeenCalledWith(expect.objectContaining({ auth: expect.anything() }), {
+      tipo: "material",
+      id: ID,
+      explicacion: TEXTO_FICHA_ILEGIBLE,
+      ocurrencia: "f0123456789abcdef",
+    })
+    const botones = arbol.filter((elemento) => elemento.type === AvisarAFederico)
+    expect(botones).toHaveLength(1)
+    expect(botones[0]?.props).toMatchObject({ tipo: "material", id: ID, avisado: false })
+  })
+
+  it("says Federico was told once the email for this card went out", async () => {
+    esConi.valor = true
+    leerAvisoAFederico.mockResolvedValueOnce({ avisado: true })
+    datos.leerMaterialConFicha.mockResolvedValueOnce({
+      material: { ...MATERIAL, rol: "estrategia" },
+      ficha: null,
+      fichaIlegible: true,
+      ocurrenciaDeFicha: "f0123456789abcdef",
+    })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    const boton = arbol.find((elemento) => elemento.type === AvisarAFederico)
+    expect(boton?.props.avisado).toBe(true)
   })
 
   it("asks to reprocess, not an empty map, for a material that has a card from when it was a strategy", async () => {

@@ -132,6 +132,14 @@ describe("notificadorPush", () => {
     expect(correo.aWavEnviados).toEqual([{ asunto: "Falló grabar-pieza", detalle: "detalle técnico" }])
   })
 
+  it("hands WAV's idempotency key on to the email", async () => {
+    const { notificador, correo } = armar()
+    await notificador.aWav("Coni te avisa", "detalle", "pieza:p1:abc:i2")
+    expect(correo.aWavEnviados).toEqual([
+      { asunto: "Coni te avisa", detalle: "detalle", idempotencia: "pieza:p1:abc:i2" },
+    ])
+  })
+
   it("sends the daily summary as a push with its own short words, and the full text by email as a fallback", async () => {
     await suscribir("https://push.test/a")
     const { notificador, correo, envios } = armar()

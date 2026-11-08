@@ -13,7 +13,10 @@ export function baseDe(entorno: Entorno, variable: string, porDefecto: string): 
   // and wherever Trigger.dev runs the tasks: a stray variable there must never redirect them.
   const enProduccion =
     variable.startsWith("LINKEDIN_") && (entorno.NODE_ENV === "production" || !!entorno.TRIGGER_SECRET_KEY)
-  if (entorno.VERCEL || enProduccion) {
+  // The Resend key and every notice go out from the tasks too, so that override is refused where Trigger.dev runs them.
+  // No NODE_ENV check: the E2E runs `next start` (a production build) against the fake Resend.
+  const enTareas = variable === "RESEND_BASE_URL" && !!entorno.TRIGGER_SECRET_KEY
+  if (entorno.VERCEL || enProduccion || enTareas) {
     throw new FallaDeConfiguracion(
       `${variable} no puede estar definida en Vercel: las llaves de Coni irían a otra dirección.`,
     )

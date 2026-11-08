@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { ocurrenciaDeFicha } from "@/lib/dominio/avisar-a-federico"
 import { type AutorDeLista, type AutorResumido, armarResumenDeAutores } from "@/lib/dominio/biblioteca/autores"
 import type { LoBorrado } from "@/lib/dominio/biblioteca/borrado"
 import { type FichaLeida, leerFicha } from "@/lib/dominio/biblioteca/ficha"
@@ -136,7 +137,14 @@ export interface MaterialLeido extends Omit<MaterialDeLista, "tema"> {
 export async function leerMaterialConFicha(
   db: Db,
   id: string,
-): Promise<{ material: MaterialLeido; ficha: FichaLeida | null } | null> {
+): Promise<{
+  material: MaterialLeido
+  ficha: FichaLeida | null
+  /** A card row exists but does not read: only WAV can fix it (no row means another role, which she reprocesses). */
+  fichaIlegible: boolean
+  /** The unreadable row's fingerprint (`ocurrenciaDeFicha`), the occurrence «Avisar a Federico» keys on; else null. */
+  ocurrenciaDeFicha: string | null
+} | null> {
   const { data, error } = await db
     .from("materiales")
     .select(
@@ -154,6 +162,8 @@ export async function leerMaterialConFicha(
   return {
     material: { ...material, autor: autores?.nombre ?? "", credencial: autores?.credencial ?? null },
     ficha,
+    fichaIlegible: Boolean(fila) && ficha === null,
+    ocurrenciaDeFicha: fila && ficha === null ? await ocurrenciaDeFicha(fila) : null,
   }
 }
 
@@ -177,16 +187,26 @@ export interface PanelDelMaterial {
   material: MaterialLeido
   ideas: { total: number; primeras: string[] }
   evidencia: Record<string, number>
+  /** A strategy card row that does not read: the panel offers «Avisar a Federico». */
+  fichaIlegible: boolean
+  /** The unreadable card's fingerprint, the occurrence its email is keyed on; null when the card reads. */
+  ocurrenciaDeFicha: string | null
 }
 
 /** What the desktop side panel shows (D9): the ideas taken (count and first two) and the evidence for WAV. */
 export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDelMaterial | null> {
   const leido = await leerMaterialConFicha(db, id)
   if (!leido) return null
-  const { material, ficha } = leido
+  const { material, ficha, fichaIlegible } = leido
   if (material.rol === "estrategia") {
     const ideas = ficha?.ideasClave ?? []
-    return { material, ideas: { total: ideas.length, primeras: ideas.slice(0, 2) }, evidencia: {} }
+    return {
+      material,
+      ideas: { total: ideas.length, primeras: ideas.slice(0, 2) },
+      evidencia: {},
+      fichaIlegible,
+      ocurrenciaDeFicha: leido.ocurrenciaDeFicha,
+    }
   }
   const [mapa, primeras] = await Promise.all([
     leerMapaDelMaterial(db, id),
@@ -207,6 +227,8 @@ export async function leerPanelDelMaterial(db: Db, id: string): Promise<PanelDel
     material,
     ideas: { total: mapa.total, primeras: primeras.data.map((fila) => fila.texto) },
     evidencia: mapa.evidencia,
+    fichaIlegible: false,
+    ocurrenciaDeFicha: null,
   }
 }
 

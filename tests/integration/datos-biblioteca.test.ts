@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import {
   contarPorEstado,
   leerMapaDelMaterial,
@@ -9,6 +9,7 @@ import {
   listarAutores,
   listarMateriales,
 } from "@/lib/datos/biblioteca"
+import { ocurrenciaDeFicha } from "@/lib/dominio/avisar-a-federico"
 import type { Database } from "@/lib/supabase/database.types"
 import { pool } from "./db"
 import { clienteDeConi } from "./sesion-coni"
@@ -148,6 +149,28 @@ describe("leerMaterialConFicha", () => {
   it("answers null for a material that does not exist", async () => {
     expect(await leerMaterialConFicha(coni, randomUUID())).toBeNull()
   })
+
+  it("tells a card that cannot be read apart from no card at all", async () => {
+    expect((await leerMaterialConFicha(coni, estrategia))?.fichaIlegible).toBe(false)
+    expect((await leerMaterialConFicha(coni, estrategia))?.ocurrenciaDeFicha).toBeNull()
+    expect((await leerMaterialConFicha(coni, empate))?.fichaIlegible).toBe(false)
+
+    const ilegible = await sembrarMaterial({ titulo: `Ilegible ${SUFIJO}`, autorId: autor, rol: "estrategia" })
+    materiales.push(ilegible)
+    await sembrarFicha(ilegible, ["Una"])
+    await pool.query("update public.fichas set citas = '\"rota\"'::jsonb where material_id = $1", [ilegible])
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    const leido = await leerMaterialConFicha(coni, ilegible)
+    error.mockRestore()
+    expect(leido?.ficha).toBeNull()
+    expect(leido?.fichaIlegible).toBe(true)
+    // The same fingerprint «Avisar a Federico» keys its email with, read from the stored row.
+    const { rows } = await pool.query(
+      "select resumen, ideas_clave, citas, fuente from public.fichas where material_id = $1",
+      [ilegible],
+    )
+    expect(leido?.ocurrenciaDeFicha).toBe(await ocurrenciaDeFicha(rows[0]))
+  })
 })
 
 describe("leerMapaDelMaterial", () => {
@@ -170,6 +193,20 @@ describe("leerPanelDelMaterial", () => {
   it("uses the card's key ideas for a strategy material (D9)", async () => {
     const panel = await leerPanelDelMaterial(coni, estrategia)
     expect(panel?.ideas).toEqual({ total: 5, primeras: ["Una", "Dos"] })
+    expect(panel?.fichaIlegible).toBe(false)
+  })
+
+  it("says when a strategy material's card cannot be read", async () => {
+    const ilegible = await sembrarMaterial({ titulo: `Panel ilegible ${SUFIJO}`, autorId: autor, rol: "estrategia" })
+    materiales.push(ilegible)
+    await sembrarFicha(ilegible, ["Una"])
+    await pool.query("update public.fichas set citas = '\"rota\"'::jsonb where material_id = $1", [ilegible])
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    const panel = await leerPanelDelMaterial(coni, ilegible)
+    error.mockRestore()
+    expect(panel?.fichaIlegible).toBe(true)
+    expect(panel?.ocurrenciaDeFicha).toMatch(/^f[0-9a-f]{16}$/)
+    expect(panel?.ideas.total).toBe(0)
   })
 
   it("answers null for a material that does not exist", async () => {

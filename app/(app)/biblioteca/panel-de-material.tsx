@@ -1,10 +1,12 @@
 import Link from "next/link"
+import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { Seccion } from "@/components/seccion"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Panel } from "@/components/ui/panel"
 import type { PanelDelMaterial } from "@/lib/datos/biblioteca"
+import { TEXTO_FICHA_ILEGIBLE } from "@/lib/dominio/avisar-a-federico"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { lineasParaWav } from "@/lib/dominio/biblioteca/detalle"
 import { avisoDeProceso, sePuedeReintentar } from "@/lib/dominio/biblioteca/estado"
@@ -22,10 +24,12 @@ interface Propiedades {
   ahora: number
   /** The Biblioteca's pause text while Claude is paused: «Reintentar» closes with it. */
   pausa?: string | null
+  /** A ready strategy card that does not read (spec 2026-11-07, A11): whether Federico was told; null otherwise. */
+  avisoAFederico?: { avisado: boolean } | null
 }
 
 /** The computer's side panel (spec 3): what a material gave, who it is for her, and WAV's detail folded. */
-export function PanelDeMaterial({ panel, filtros, ahora, pausa = null }: Propiedades) {
+export function PanelDeMaterial({ panel, filtros, ahora, pausa = null, avisoAFederico = null }: Propiedades) {
   const { material, ideas, evidencia } = panel
   const aviso = avisoDeProceso(material)
   return (
@@ -41,7 +45,12 @@ export function PanelDeMaterial({ panel, filtros, ahora, pausa = null }: Propied
       </h2>
       {aviso ? <LineaDeEstado tipo="neutro" titulo={aviso} /> : null}
       <Seccion titulo={PALABRAS.afirmaciones} id="panel-ideas" cifra={ideas.total} espacio="ninguno" nivel={3}>
-        {ideas.primeras.length === 0 ? (
+        {avisoAFederico ? (
+          <div className="grid gap-3">
+            <p className="text-cuerpo text-apagado">{TEXTO_FICHA_ILEGIBLE}</p>
+            <AvisarAFederico tipo="material" id={material.id} avisado={avisoAFederico.avisado} />
+          </div>
+        ) : ideas.primeras.length === 0 ? (
           <p className="text-cuerpo text-apagado">
             {material.estado === "listo"
               ? "Este material no dejó ideas."

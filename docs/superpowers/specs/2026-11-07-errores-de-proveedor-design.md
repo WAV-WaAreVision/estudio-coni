@@ -91,6 +91,18 @@ These override the decisions above where they differ.
   | HeyGen | «Los videos están en pausa: la cuenta de HeyGen tiene un pago pendiente. WAV ya lo está resolviendo.» | «Los videos están en pausa: la cuenta de HeyGen se quedó sin créditos. WAV ya lo está resolviendo.» | «Los videos están en pausa: la clave de HeyGen dejó de funcionar. WAV ya lo está resolviendo.» |
   | Claude | «Las ideas y los guiones están en pausa: la cuenta de Claude tiene un pago pendiente. WAV ya lo está resolviendo.» | «Las ideas y los guiones están en pausa: la cuenta de Claude se quedó sin saldo. WAV ya lo está resolviendo.» | «Las ideas y los guiones están en pausa: la clave de Claude dejó de funcionar. WAV ya lo está resolviendo.» |
 
+- **A11. Part 2: where the button goes and how one email is kept** (approved by Federico on 2026-11-07). The button
+  replaces «Avísale a Federico» in four places: a voice that failed on a refused ElevenLabs key (gate 1), «Grabar la
+  voz de nuevo» that failed on the same, a signed video stopped with an explanation («El video está detenido»), and a
+  ready Biblioteca material whose ficha cannot be read. One email per failure needs a record: a new table
+  `avisos_a_federico` (`clave` unique: entity, its id and a hash of the explanation; `enviado_en`, `reclamado_en`) written
+  only through security-definer functions, with the claim pattern of the pauses (claim, send, mark; a failed send lets
+  go). The action reads the piece or material itself (never trusts the screen's text), refuses when it no longer fails,
+  and the screen shows «Le avisé a Federico.» once a row is sent. The release becomes: migration (adds only), then the
+  app. No Trigger change. Amended after review: the `clave` also carries an occurrence marker, so the same text coming
+  back after a fix is told again: for a piece its attempt (`piezas.intento`, which every retry moves on), for a material
+  a fingerprint of its stored `fichas` row (its run id is cleared when a run ends and `fichas` has no timestamp).
+
 ## Release
 
 - **Part 1 (decisions 1-5):** migration (adds only: the table, its index, RLS, the function), Trigger deploy (the tasks
