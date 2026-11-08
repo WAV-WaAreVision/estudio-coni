@@ -212,6 +212,6 @@ describe("mantenimientoFrecuente", () => {
       chequear: async () => ({ ok: false, motivo: "prueba" }),
     })
 
-    expect(Object.keys(resultado)).toEqual(["pausas", "borrado", "arranques", "renders", "voces", "gastos", "temas"])
+    expect(Object.keys(resultado)).toEqual(["pausas", "borrado", "abandonados", "arranques", "renders", "voces", "gastos", "temas"])
   })
 })
