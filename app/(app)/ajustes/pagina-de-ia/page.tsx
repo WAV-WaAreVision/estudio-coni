@@ -1,9 +1,11 @@
+import { INTRO_DE_PAGINA } from "@/components/pagina-en-columnas"
 import { Volver } from "@/components/ui/volver"
 import { leerZona } from "@/lib/datos/metricas"
 import { instanteEnPalabras } from "@/lib/datos-personales/fechas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { LINEA_PARA_LA_BIO, TITULO_DE_TRANSPARENCIA } from "@/lib/transparencia/texto"
 import { leerVersionesDeTransparencia, type VersionDeTransparencia } from "@/lib/transparencia/versiones"
+import { cn } from "@/lib/utils"
 import { publicarTransparenciaAccion, volverATransparenciaAccion } from "../acciones"
 import { EditorDePaginaDeIa } from "./editor-de-pagina-de-ia"
 
@@ -17,7 +19,7 @@ export default async function AjustesPaginaDeIa() {
     <div>
       <Volver href="/ajustes">Ajustes</Volver>
       <h1 className="mt-5 text-pantalla text-balance">Página de IA</h1>
-      <p className="mt-1.5 text-meta text-apagado">
+      <p className={cn("mt-1.5 text-meta text-apagado", INTRO_DE_PAGINA)}>
         «{TITULO_DE_TRANSPARENCIA}»: lo que cuentas en público sobre cómo usas IA. Cada vez que publicas queda una
         versión.
       </p>

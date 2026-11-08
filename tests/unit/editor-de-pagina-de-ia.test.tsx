@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { EditorDePaginaDeIa, type VersionParaMostrar } from "@/app/(app)/ajustes/pagina-de-ia/editor-de-pagina-de-ia"
 import type { Resultado } from "@/lib/acciones/resultado"
@@ -214,5 +214,17 @@ describe("EditorDePaginaDeIa", () => {
 
     expect(await screen.findByText("Línea copiada")).toBeInTheDocument()
     expect(copiar).toHaveBeenCalledWith(LINEA)
+  })
+})
+
+describe("EditorDePaginaDeIa on a computer (issue 103)", () => {
+  it("keeps what is seen and the editor in the main slot, the versions and the bio line in the panel", () => {
+    conVersiones()
+    const principal = screen.getByTestId("pagina-principal")
+    const panel = screen.getByTestId("pagina-panel")
+    expect(within(principal).getByLabelText("Texto de la página")).toBeInTheDocument()
+    expect(within(panel).getByRole("heading", { name: "Versiones" })).toBeInTheDocument()
+    expect(within(panel).getByRole("heading", { name: "Para tu bio" })).toBeInTheDocument()
+    expect(principal.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
