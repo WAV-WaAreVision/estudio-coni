@@ -77,7 +77,7 @@ describe("RefrescoAutomatico", () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 
-  // A slow render (a phone on mobile data) must not be superseded by its own round: the next round is the next try.
+  // A slow render (a phone on mobile data) is never superseded: not by its own check, nor by the next round (issue 115).
   it("never re-issues a round's redraw that is still in flight", () => {
     replace.mockReset()
     render(<RefrescoAutomatico activo cadaMs={4000} />)
@@ -85,7 +85,60 @@ describe("RefrescoAutomatico", () => {
     act(() => vi.advanceTimersByTime(3900))
     expect(replace).toHaveBeenCalledTimes(1)
     act(() => vi.advanceTimersByTime(100))
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  // Issue 115: on a slow network a round must not ask for another tree on top of the one still downloading.
+  it("skips its rounds while the last redraw has not reached the screen, and resumes once it has", () => {
+    const pendientes: string[] = []
+    replace.mockImplementation((url: string) => {
+      pendientes.push(url)
+    })
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    expect(replace).toHaveBeenCalledTimes(1)
+    act(() => vi.advanceTimersByTime(8000))
+    expect(replace).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      window.history.replaceState(null, "", pendientes[0])
+      vi.advanceTimersByTime(50)
+    })
+    act(() => vi.advanceTimersByTime(4000))
     expect(replace).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps skipping when she taps during a slow redraw, since the tap ends the watch but not the download", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => {
+      document.dispatchEvent(new Event("pointerdown"))
+    })
+    act(() => vi.advanceTimersByTime(8000))
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  it("gives up on a redraw that never reaches the screen after 15 s and polls again", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => {
+      document.dispatchEvent(new Event("pointerdown"))
+    })
+    act(() => vi.advanceTimersByTime(12_000))
+    expect(replace).toHaveBeenCalledTimes(1)
+    act(() => vi.advanceTimersByTime(4000))
+    expect(replace).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not redraw on coming back to the tab while the last redraw is still on its way", () => {
+    replace.mockImplementation(() => undefined)
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    act(() => visibilidad("hidden"))
+    act(() => visibilidad("visible"))
+    expect(replace).toHaveBeenCalledTimes(1)
   })
 
   it("leaves no timer or listener behind when it unmounts", () => {

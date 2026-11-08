@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRedibujar } from "@/components/use-redibujar"
+import { hayRedibujoEnVuelo, useRedibujar } from "@/components/use-redibujar"
 
 // A round that would start this soon after a tap or a key waits for the next one: the redraw goes to the address on
 // screen, and if she just followed a link that address is the one she is leaving.
@@ -27,6 +27,8 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     }
     const ronda = () => {
       if (Date.now() - ultimoToque < RESPIRO_TRAS_TOCAR_MS) return
+      // Issue 115: the last redraw has not reached the screen; this round would only stack another download on it.
+      if (hayRedibujoEnVuelo()) return
       dejar = redibujar()
     }
     const arrancar = () => {
@@ -38,7 +40,7 @@ export function RefrescoAutomatico({ activo, cadaMs }: { activo: boolean; cadaMs
     }
     const alCambiarVisibilidad = () => {
       if (document.visibilityState === "visible") {
-        dejar = redibujar()
+        if (!hayRedibujoEnVuelo()) dejar = redibujar()
         arrancar()
       } else {
         parar()
