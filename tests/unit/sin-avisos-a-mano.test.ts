@@ -21,8 +21,6 @@ function archivos(carpeta: string): string[] {
 // notices still ask her to tell Federico by hand. A new one anywhere else fails here.
 const FUERA_DEL_ALCANCE = new Set([
   "components/error-de-pantalla.tsx",
-  "lib/ajustes/instagram-aviso.ts",
-  "lib/ajustes/linkedin-aviso.ts",
   "lib/metricas/modelo.ts",
 ])
 

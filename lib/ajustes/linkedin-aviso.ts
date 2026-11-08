@@ -1,4 +1,4 @@
-import type { AvisoDeInstagram } from "./instagram-aviso"
+import { type AvisoDeInstagram, leerAviso } from "./instagram-aviso"
 
 const AVISOS: Record<string, AvisoDeInstagram> = {
   conectada: { tipo: "ok", titulo: "LinkedIn quedó conectado." },
@@ -25,16 +25,16 @@ const AVISOS: Record<string, AvisoDeInstagram> = {
   sin_app: {
     tipo: "error",
     titulo: "Todavía no está lista la conexión con LinkedIn.",
-    texto: "Falta configurar la app: avísale a Federico.",
+    texto: "Falta configurar la app de LinkedIn.",
   },
   fallo: {
     tipo: "error",
     titulo: "No pude terminar la conexión con LinkedIn.",
-    texto: "Inténtalo de nuevo en unos minutos. Si sigue igual, avísale a Federico.",
+    texto: "Inténtalo de nuevo en unos minutos.",
   },
 }
 
 /** The outcome that `/api/linkedin/callback` leaves in the address. Only the fixed words above are read. */
-export function avisoDeLinkedin(valor: string | undefined): AvisoDeInstagram | null {
-  return valor !== undefined && Object.hasOwn(AVISOS, valor) ? (AVISOS[valor] ?? null) : null
+export function avisoDeLinkedin(valor: string | undefined, avisado = false): AvisoDeInstagram | null {
+  return leerAviso(AVISOS, valor, avisado)
 }

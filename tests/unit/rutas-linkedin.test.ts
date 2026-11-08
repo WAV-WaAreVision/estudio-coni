@@ -9,9 +9,15 @@ vi.mock("@/lib/acciones/linkedin", async (original) => ({
   terminarConexionLinkedin: (...args: unknown[]) => terminar(...args),
 }))
 
+const avisar = vi.fn()
+vi.mock("@/lib/acciones/conexion-fallida", () => ({
+  avisarConexionFallida: (...args: unknown[]) => avisar(...args),
+}))
+
 afterEach(() => {
   vi.unstubAllEnvs()
   terminar.mockReset()
+  avisar.mockReset()
 })
 
 describe("/api/linkedin/conectar", () => {
@@ -50,5 +56,25 @@ describe("/api/linkedin/callback", () => {
     })
     expect(respuesta.headers.get("location")).toContain("/ajustes/cuentas?linkedin=conectada")
     expect(respuesta.cookies.get("estudio_linkedin_estado")?.value).toBe("")
+  })
+
+  it("tells WAV about a failure only WAV can fix and says so in the address only when it went out (issue 111)", async () => {
+    const { GET } = await import("@/app/api/linkedin/callback/route")
+    terminar.mockResolvedValue({ ok: false, motivo: "sin_app" })
+    avisar.mockResolvedValue(true)
+    const avisado = await GET(new NextRequest("https://estudio.example/api/linkedin/callback?code=c1&state=s1"))
+    expect(avisar.mock.calls[0]?.slice(1)).toEqual(["linkedin", "sin_app"])
+    expect(avisado.headers.get("location")).toContain("/ajustes/cuentas?linkedin=sin_app&federico=avisado")
+
+    avisar.mockResolvedValue(false)
+    const sinAviso = await GET(new NextRequest("https://estudio.example/api/linkedin/callback?code=c1&state=s1"))
+    expect(sinAviso.headers.get("location")).toMatch(/\/ajustes\/cuentas\?linkedin=sin_app$/)
+  })
+
+  it("does not tell WAV when the connection worked", async () => {
+    terminar.mockResolvedValue({ ok: true, nombre: "Coni" })
+    const { GET } = await import("@/app/api/linkedin/callback/route")
+    await GET(new NextRequest("https://estudio.example/api/linkedin/callback?code=c1&state=s1"))
+    expect(avisar).not.toHaveBeenCalled()
   })
 })
