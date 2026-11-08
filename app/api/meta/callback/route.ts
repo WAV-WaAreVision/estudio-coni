@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
+import { avisarConexionFallida } from "@/lib/acciones/conexion-fallida"
 import { leerAppDeMeta, terminarConexion } from "@/lib/acciones/instagram"
 import { COOKIE_DE_ESTADO, RUTA_DE_LA_COOKIE } from "@/lib/acciones/instagram-cookie"
-import { avisarConexionFallida } from "@/lib/acciones/conexion-fallida"
 import { RUTA_DE_CUENTAS } from "@/lib/ajustes/estado"
 import { avisosReales } from "@/lib/proveedores/avisos"
 import { leerSesion } from "@/lib/sesion/coni"
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
   const ahora = () => new Date().toISOString()
   // Issue 111: a failure only WAV can fix is told to him here; the notice says so only when the email went out.
   const avisado =
-    !resultado.ok && (await avisarConexionFallida({ avisos: () => avisosReales(), ahora }, "instagram", resultado.motivo))
+    !resultado.ok &&
+    (await avisarConexionFallida({ avisos: () => avisosReales(), ahora }, "instagram", resultado.motivo))
   const destino = `${RUTA_DE_CUENTAS}?instagram=${resultado.ok ? "conectada" : resultado.motivo}`
   const respuesta = irA(avisado ? `${destino}&federico=avisado` : destino)
   // The state is good for one try.

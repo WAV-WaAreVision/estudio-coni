@@ -12,7 +12,8 @@ const CORREOS: Record<RedDeConexion, Record<"sin_app" | "fallo", { asunto: strin
     },
     fallo: {
       asunto: "No pude conectar Instagram",
-      detalle: "Coni intentó conectar Instagram y falló. El error está en los registros de Vercel: «No pude conectar Instagram».",
+      detalle:
+        "Coni intentó conectar Instagram y falló. El error está en los registros de Vercel: «No pude conectar Instagram».",
     },
   },
   linkedin: {
@@ -23,7 +24,8 @@ const CORREOS: Record<RedDeConexion, Record<"sin_app" | "fallo", { asunto: strin
     },
     fallo: {
       asunto: "No pude conectar LinkedIn",
-      detalle: "Coni intentó conectar LinkedIn y falló. El error está en los registros de Vercel: «No pude conectar LinkedIn».",
+      detalle:
+        "Coni intentó conectar LinkedIn y falló. El error está en los registros de Vercel: «No pude conectar LinkedIn».",
     },
   },
 }

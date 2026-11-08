@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
+import { avisarConexionFallida } from "@/lib/acciones/conexion-fallida"
 import { leerAppDeLinkedin, terminarConexionLinkedin } from "@/lib/acciones/linkedin"
 import { COOKIE_DE_ESTADO_LINKEDIN, RUTA_DE_LA_COOKIE_LINKEDIN } from "@/lib/acciones/linkedin-cookie"
-import { avisarConexionFallida } from "@/lib/acciones/conexion-fallida"
 import { RUTA_DE_CUENTAS } from "@/lib/ajustes/estado"
 import { avisosReales } from "@/lib/proveedores/avisos"
 import { leerSesion } from "@/lib/sesion/coni"
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
   const ahora = () => new Date().toISOString()
   // Issue 111: a failure only WAV can fix is told to him here; the notice says so only when the email went out.
   const avisado =
-    !resultado.ok && (await avisarConexionFallida({ avisos: () => avisosReales(), ahora }, "linkedin", resultado.motivo))
+    !resultado.ok &&
+    (await avisarConexionFallida({ avisos: () => avisosReales(), ahora }, "linkedin", resultado.motivo))
   const destino = `${RUTA_DE_CUENTAS}?linkedin=${resultado.ok ? "conectada" : resultado.motivo}`
   const respuesta = irA(avisado ? `${destino}&federico=avisado` : destino)
   respuesta.cookies.set(COOKIE_DE_ESTADO_LINKEDIN, "", { path: RUTA_DE_LA_COOKIE_LINKEDIN, maxAge: 0 })

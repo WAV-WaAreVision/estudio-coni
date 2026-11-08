@@ -37,6 +37,9 @@ describe("avisarConexionFallida (issue 111)", () => {
       },
     }
     expect(await avisarConexionFallida({ avisos: () => fallido, ahora: AHORA }, "linkedin", "fallo")).toBe(false)
-    expect(registro).toHaveBeenCalledWith("No pude avisarle a WAV que falló la conexión con linkedin", expect.any(Error))
+    expect(registro).toHaveBeenCalledWith(
+      "No pude avisarle a WAV que falló la conexión con linkedin",
+      expect.any(Error),
+    )
   })
 })

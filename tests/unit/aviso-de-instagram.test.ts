@@ -20,7 +20,9 @@ describe("avisoDeInstagram", () => {
     expect(avisoDeInstagram("sin_app")?.texto).toBe("Falta configurar la app de Meta. Vuelve a intentarlo más tarde.")
     expect(avisoDeInstagram("fallo", true)?.texto).toBe("Inténtalo de nuevo en unos minutos. Le avisé a Federico.")
     expect(avisoDeInstagram("fallo")?.texto).toBe("Inténtalo de nuevo en unos minutos.")
-    expect(avisoDeInstagram("cancelada", true)?.texto).toBe("Cuando quieras, vuelve a intentarlo desde Cuentas conectadas.")
+    expect(avisoDeInstagram("cancelada", true)?.texto).toBe(
+      "Cuando quieras, vuelve a intentarlo desde Cuentas conectadas.",
+    )
   })
 
   it("says nothing for a value it does not know, and never repeats it", () => {
