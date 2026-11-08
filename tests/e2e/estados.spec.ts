@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
 import { sembrarPieza, vaciarPiezasEIdeas } from "../integration/siembra"
-import { bloquearRedExterna, configurarServicios, simularMedios } from "./ayudas"
+import { bloquearRedExterna, configurarServicios, revisarConAxe, simularMedios } from "./ayudas"
 import { avatarYaVisto, sembrarCarruselDeEscena } from "./escena"
 
 // The piece states with nothing to sign keep the phone's single column (issue 103, group A).
@@ -33,6 +33,7 @@ async function revisarUnaColumna(page: Page, nombre: string, { conLateral }: { c
     expect(Math.round(lateral.y - (principal.y + principal.height)), nombre).toBe(24)
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
+  expect(await revisarConAxe(page, nombre)).toEqual([])
 }
 
 test("a failed video keeps one column with Descartar after the error", async ({ page }) => {

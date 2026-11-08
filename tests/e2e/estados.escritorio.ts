@@ -110,3 +110,19 @@ test("a published carousel uses two columns", async ({ page }) => {
   await expect(page.getByText("Publicado en LinkedIn")).toBeVisible()
   await revisarDosColumnas(page, "carrusel publicado", { conLateral: false })
 })
+
+test("a failed publication keeps its error on the left and Reintentar with Descartar under the card", async ({
+  page,
+}) => {
+  const id = await sembrarPieza("programado", {
+    estado: "error_publicacion",
+    estado_antes_del_error: "programado",
+    explicacion: "Instagram no aceptó la publicación",
+  })
+  await page.goto(`/video/${id}`)
+  await expect(page.getByText("No se pudo publicar")).toBeVisible()
+  const lateral = page.getByTestId("estado-lateral")
+  await expect(lateral.getByRole("button", { name: "Reintentar" })).toBeVisible()
+  await expect(lateral.getByRole("button", { name: "Descartar esta pieza" })).toBeVisible()
+  await revisarDosColumnas(page, "video error de publicación", { conLateral: true })
+})
