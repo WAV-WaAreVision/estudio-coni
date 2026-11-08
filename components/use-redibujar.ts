@@ -12,6 +12,19 @@ const GRACIA_TRAS_LLEGAR_MS = 1000
 const VIGILAR_TRAS_VER_MS = 2000
 const INTENTOS = 3
 
+/**
+ * The redraw whose check is current. A later redraw supersedes an earlier one in the router, so the earlier check must
+ * end: it would take its superseded download for a dropped one and issue its replace again (issue 60).
+ */
+let vigente = 0
+
+/** The browser can tell when a resource finished downloading (Safari before 14.1 cannot). */
+function puedeVerDescargas(): boolean {
+  return (
+    typeof PerformanceObserver !== "undefined" && (PerformanceObserver.supportedEntryTypes ?? []).includes("resource")
+  )
+}
+
 /** The address without the marker: two addresses that only differ in `v` are the same screen. */
 function sinMarcador(url: URL): string {
   const copia = new URL(url)
@@ -37,6 +50,8 @@ function sinMarcador(url: URL): string {
 export function useRedibujar(): () => () => void {
   const router = useRouter()
   return useCallback(() => {
+    vigente += 1
+    const turno = vigente
     const inicio = new URL(window.location.href)
     const origen = sinMarcador(inicio)
     // Markers that mean "the screen fell back": the one before the redraw and those of earlier tries.
@@ -65,21 +80,16 @@ export function useRedibujar(): () => () => void {
       plazo = Date.now() + ESPERAR_MARCA_MS
       marca = redibujar()
     }
-    // The router's fetch of the fresh screen, seen as a finished resource. Without the API a dropped redraw just waits
-    // for the next one.
-    const descargas =
-      typeof PerformanceObserver === "undefined"
-        ? null
-        : new PerformanceObserver((lista) => {
-            for (const entrada of lista.getEntries()) {
-              if (
-                llegoEn === null &&
-                URL.canParse(entrada.name) &&
-                new URL(entrada.name).searchParams.get("v") === marca
-              )
-                llegoEn = Date.now()
-            }
-          })
+    // The router's fetch of the fresh screen, seen as a finished resource. Without the API (or without resource entries)
+    // a dropped redraw just waits for the next one.
+    const descargas = !puedeVerDescargas()
+      ? null
+      : new PerformanceObserver((lista) => {
+          for (const entrada of lista.getEntries()) {
+            if (llegoEn === null && URL.canParse(entrada.name) && new URL(entrada.name).searchParams.get("v") === marca)
+              llegoEn = Date.now()
+          }
+        })
     const terminar = () => {
       clearInterval(mirador)
       descargas?.disconnect()
@@ -89,6 +99,7 @@ export function useRedibujar(): () => () => void {
     const mirar = () => {
       // The check outlives its button on purpose; when the whole page is gone (a test environment torn down), it ends.
       if (globalThis.window === undefined) return terminar()
+      if (turno !== vigente) return terminar()
       const ahora = new URL(window.location.href)
       const v = ahora.searchParams.get("v")
       if (sinMarcador(ahora) !== origen) return terminar()

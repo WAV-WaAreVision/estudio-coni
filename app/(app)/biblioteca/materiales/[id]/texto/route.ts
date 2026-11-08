@@ -6,7 +6,12 @@ import { almacenReal } from "@/lib/proveedores/almacen"
 
 const SIN_CACHE = { "cache-control": "no-store" }
 
-/** 404 only when the text is not there (or the id is not one); a session, a person or our side failing say so. */
+/**
+ * 404 only when the text is not there (or the id is not one); a session, a person or our side failing say so. Without a
+ * session the proxy answers first with a 307 to sign-in, so the 401 is only for a session the proxy's optimistic check
+ * let through that is no longer valid when this route reads it. The route stays in the proxy's matcher on purpose: the
+ * proxy is what refreshes the session cookies (issue 60).
+ */
 const ESTADO_POR_ERROR: Record<string, number> = {
   [ERROR_SESION_VENCIDA]: 401,
   [ERROR_SOLO_CONI]: 403,
