@@ -2,6 +2,7 @@
 
 import { Minus, Plus, Warning } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { FORMULARIO_Y_PANEL, SUPERFICIE_DE_PANEL } from "@/components/pagina-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { Aviso } from "@/components/ui/aviso"
 import { Bloque } from "@/components/ui/bloque"
@@ -352,8 +353,10 @@ export function PantallaDePresupuesto({
     ) : null
 
   return (
-    <div>
-      <Seccion titulo="Este mes" id="presupuesto-mes">
+    // On a computer «Por proveedor» goes to the side panel; on a phone it keeps its place between the cap and what
+    // spends on its own, so the panel is placed by the grid instead of moved in the markup (issue 103).
+    <div className={cn(FORMULARIO_Y_PANEL, "md:grid-rows-[auto_auto_1fr]")}>
+      <Seccion titulo="Este mes" id="presupuesto-mes" className="md:col-start-1">
         <BarraDelMes vista={vista} />
         {vista.reactivado ? <p className="text-meta text-apagado">{vista.reactivado}</p> : null}
         {vista.enElLimite ? (
@@ -399,7 +402,7 @@ export function PantallaDePresupuesto({
         ) : null}
       </Seccion>
 
-      <Seccion titulo="Tope y límite" id="presupuesto-tope">
+      <Seccion titulo="Tope y límite" id="presupuesto-tope" className="md:col-start-1">
         <Paso
           etiqueta="Tope"
           nombre="el tope"
@@ -427,18 +430,24 @@ export function PantallaDePresupuesto({
         </p>
       </Seccion>
 
-      <Seccion titulo="Por proveedor" id="presupuesto-proveedores">
-        <ul aria-label="Gasto por proveedor" className="grid gap-2">
-          {vista.porProveedor.map((fila) => (
-            <li key={fila.nombre} className="flex justify-between gap-3 text-cuerpo tabular-nums">
-              <span>{fila.nombre}</span>
-              <span>{fila.monto}</span>
-            </li>
-          ))}
-        </ul>
-      </Seccion>
+      {/* The panel's section has no top margin of its own: the panel brings the phone's 32 px. */}
+      <div
+        data-testid="pagina-panel"
+        className={cn("mt-8 md:col-start-2 md:row-span-3 md:row-start-1 md:mt-0", SUPERFICIE_DE_PANEL)}
+      >
+        <Seccion titulo="Por proveedor" id="presupuesto-proveedores">
+          <ul aria-label="Gasto por proveedor" className="grid gap-2">
+            {vista.porProveedor.map((fila) => (
+              <li key={fila.nombre} className="flex justify-between gap-3 text-cuerpo tabular-nums">
+                <span>{fila.nombre}</span>
+                <span>{fila.monto}</span>
+              </li>
+            ))}
+          </ul>
+        </Seccion>
+      </div>
 
-      <Seccion titulo="Lo que gasta solo" id="presupuesto-solo">
+      <Seccion titulo="Lo que gasta solo" id="presupuesto-solo" className="md:col-start-1">
         <Grupo>
           <FilaConInterruptor
             etiqueta="Ideas nuevas cada domingo"

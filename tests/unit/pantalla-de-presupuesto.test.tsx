@@ -570,3 +570,15 @@ describe("PantallaDePresupuesto", () => {
     expect(a.guardar).toHaveBeenLastCalledWith({ campo: "limite", valor: 95 })
   })
 })
+
+describe("PantallaDePresupuesto on a computer (issue 103)", () => {
+  it("puts Por proveedor in the side panel while keeping its place in the phone's order", () => {
+    mostrar()
+    const panel = screen.getByTestId("pagina-panel")
+    expect(within(panel).getByRole("heading", { name: "Por proveedor" })).toBeInTheDocument()
+    const tope = screen.getByRole("heading", { name: "Tope y límite" })
+    const solo = screen.getByRole("heading", { name: "Lo que gasta solo" })
+    expect(tope.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(panel.compareDocumentPosition(solo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
