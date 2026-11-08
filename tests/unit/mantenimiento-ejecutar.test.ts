@@ -19,6 +19,9 @@ vi.mock("@/lib/mantenimiento/borrado-diferido", () => ({
 vi.mock("@/lib/mantenimiento/materiales-abandonados", () => ({
   barrerMaterialesAbandonados: vi.fn(async () => ({ materiales: [], carpetasPendientes: [] })),
 }))
+vi.mock("@/lib/mantenimiento/corridas-muertas", () => ({
+  rescatarCorridasMuertas: vi.fn(async () => ({ materiales: [] })),
+}))
 vi.mock("@/lib/mantenimiento/pausas", () => ({ cerrarPausas: vi.fn(async () => ({ cerradas: [], abiertas: [] })) }))
 vi.mock("@/lib/mantenimiento/gastos", () => ({ barrerGastos: vi.fn(async () => ({ confirmados: 0, liberados: 0 })) }))
 vi.mock("@/lib/mantenimiento/temas", async (importOriginal) => ({
@@ -107,6 +110,13 @@ describe("the ten-minute run", () => {
     const resultado = await mantenimientoFrecuente(FRECUENTE)
     expect(Object.keys(resultado).slice(0, 3)).toEqual(["pausas", "borrado", "abandonados"])
     expect(barrerMaterialesAbandonados).toHaveBeenCalledWith({ db: DB, almacen: ALMACEN, ahora: FRECUENTE.ahora })
+  })
+
+  it("releases the materials of dead runs right after the abandoned uploads, with the run's clock (issue 114)", async () => {
+    const { rescatarCorridasMuertas } = await import("@/lib/mantenimiento/corridas-muertas")
+    const resultado = await mantenimientoFrecuente(FRECUENTE)
+    expect(Object.keys(resultado).slice(0, 4)).toEqual(["pausas", "borrado", "abandonados", "corridas_muertas"])
+    expect(rescatarCorridasMuertas).toHaveBeenCalledWith({ db: DB, ahora: FRECUENTE.ahora })
   })
 
   it("fails only the deletion when the store cannot be built, and still runs every other job", async () => {

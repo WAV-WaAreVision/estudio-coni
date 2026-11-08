@@ -216,6 +216,7 @@ describe("mantenimientoFrecuente", () => {
       "pausas",
       "borrado",
       "abandonados",
+      "corridas_muertas",
       "arranques",
       "renders",
       "voces",

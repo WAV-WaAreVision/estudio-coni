@@ -8,6 +8,7 @@ import { avisarLimite, claveDelAvisoDeLimite, mesDelGasto } from "@/lib/presupue
 import { type DepsArranques, reanudarArranques } from "./arranques"
 import { borrarLoMarcado, type DepsBorrado } from "./borrado-diferido"
 import { conciliarRenders, type DepsConciliacion } from "./conciliar"
+import { rescatarCorridasMuertas } from "./corridas-muertas"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { barrerMaterialesAbandonados } from "./materiales-abandonados"
@@ -93,7 +94,7 @@ async function avisarLimiteCadaDiezMinutos(deps: DepsFrecuente): Promise<{ aviso
   }
 }
 
-/** Every ten minutes: the provider pauses that can close, what Coni deleted (a minute after «Borrar»), runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
+/** Every ten minutes: the provider pauses that can close, what Coni deleted (a minute after «Borrar»), materials of dead runs, runs that never started, renders that lost their callback, voices that never finished, reservations that outlived their run and the topics (embeddings, assignment, formation). */
 export function mantenimientoFrecuente(deps: DepsFrecuente) {
   return enSerie({
     // First: a pause that closes now lets the jobs below call its provider on this same tick.
@@ -102,6 +103,8 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
     borrado: () => borrarLoMarcado({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
     // Uploads never confirmed (issue 63): a closed tab or an expired session left them in `procesando` for ever.
     abandonados: () => barrerMaterialesAbandonados({ db: deps.db, almacen: deps.almacen(), ahora: deps.ahora }),
+    // Runs Trigger.dev killed without onFailure (issue 114): their material would read «Procesando» for ever.
+    corridas_muertas: () => rescatarCorridasMuertas({ db: deps.db, ahora: deps.ahora }),
     arranques: () => reanudarArranques(deps),
     renders: () => conciliarRenders(deps),
     voces: () => devolverVocesTrabadas(deps),
