@@ -74,4 +74,10 @@ describe("baseDe", () => {
       baseDe({ HEYGEN_BASE_URL: "http://127.0.0.1:1", TRIGGER_SECRET_KEY: "tr_prod_x" }, "HEYGEN_BASE_URL", "x"),
     ).toThrow("HEYGEN_BASE_URL no puede estar definida en Vercel ni en Trigger.dev")
   })
+
+  it("uses the provider's own address where Trigger runs when nothing overrides it", () => {
+    expect(baseDe({ TRIGGER_SECRET_KEY: "tr_prod_x" }, "HEYGEN_BASE_URL", "https://api.heygen.com")).toBe(
+      "https://api.heygen.com",
+    )
+  })
 })

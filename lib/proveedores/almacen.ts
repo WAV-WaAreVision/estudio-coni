@@ -496,11 +496,13 @@ function endpointLocal(endpoint: string): string {
 
 /**
  * The store of the tasks and the app, from the R2 variables. `R2_ENDPOINT` (a fake S3 for the local E2E run) is
- * refused on Vercel, where nothing would then reach the real bucket, and anywhere for a host that is not loopback.
+ * refused on Vercel and where Trigger.dev runs the tasks, where nothing would then reach the real bucket, and anywhere for a host that is not loopback.
  */
 export function almacenReal(entorno: Record<string, string | undefined> = process.env): Almacen {
-  if (entorno.R2_ENDPOINT && entorno.VERCEL) {
-    throw new FallaDeConfiguracion("R2_ENDPOINT no puede estar activo en Vercel: nada llegaría al bucket real.")
+  if (entorno.R2_ENDPOINT && (entorno.VERCEL || entorno.TRIGGER_SECRET_KEY)) {
+    throw new FallaDeConfiguracion(
+      "R2_ENDPOINT no puede estar activo en Vercel ni en Trigger.dev: nada llegaría al bucket real.",
+    )
   }
   return almacenR2({
     cuenta: exigirEnv("R2_ACCOUNT_ID", entorno.R2_ACCOUNT_ID),

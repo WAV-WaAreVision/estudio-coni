@@ -111,6 +111,8 @@ export default defineConfig({
         // `next start` runs in production mode, where the click counter of /l needs its secret.
         SAL_DE_CLICS: "secreto-de-prueba-que-solo-vive-en-el-e2e",
         DISPARO_DE_PRUEBA: "1",
+        // A Trigger key from `.env.local` would make every fake-service address below refused (lib/proveedores/bases.ts).
+        TRIGGER_SECRET_KEY: "",
         DISPARO_DE_PRUEBA_ARCHIVO: ARCHIVO_DE_DISPAROS,
         ANTHROPIC_BASE_URL: URL_SERVICIOS,
         HEYGEN_BASE_URL: URL_SERVICIOS,
