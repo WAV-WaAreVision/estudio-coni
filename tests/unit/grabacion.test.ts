@@ -158,9 +158,9 @@ describe("presentarGrabacion: un saldo que no alcanza (#101, decisión 1)", () =
     })
   })
 
-  it("gives the HeyGen balance line WAV already sees, for his email", () => {
-    expect(presentarGrabacion({ ...ENTRADA, saldos: sinNada }).saldoVideo).toBe(
-      "Saldo de API de HeyGen: US$ 0,00. Es aparte de tu plan de HeyGen.",
-    )
+  it("gives the HeyGen balance line WAV already sees and the video's estimate, for his email", () => {
+    const botones = presentarGrabacion({ ...ENTRADA, saldos: sinNada })
+    expect(botones.saldoVideo).toBe("Saldo de API de HeyGen: US$ 0,00. Es aparte de tu plan de HeyGen.")
+    expect(botones.montoVideo).toMatch(/^US\$ \d+,\d\d$/)
   })
 })

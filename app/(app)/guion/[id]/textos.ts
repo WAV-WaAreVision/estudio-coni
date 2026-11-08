@@ -23,7 +23,7 @@ export const TEXTO_VIDEO_DETENIDO = "El video está detenido"
 export const TEXTO_REINTENTA_VOZ = "Vuelve a intentarlo con Preparar mi voz."
 /** Spec 2026-10-17, decision 14: only when ElevenLabs refused the attempt, so the data proves nothing was charged. */
 export const TEXTO_INTENTO_SIN_COBRO = "Este intento no se cobró."
-/** A balance that does not cover the estimate: «Avisar a Federico» sits beside it (#101, decision 1). */
+/** A balance that does not cover the estimate: «Avisar a Federico» sits beside it (issue 101, decision 1). */
 export const TEXTO_SIN_SALDO_VOZ = "No alcanza el saldo para preparar tu voz."
 export const TEXTO_SIN_SALDO_VIDEO = "No alcanza el saldo para grabar el video."
 export const TEXTO_NO_PUDE_GRABAR = "No pude grabar el video. Revisa el guion y vuelve a firmarlo."

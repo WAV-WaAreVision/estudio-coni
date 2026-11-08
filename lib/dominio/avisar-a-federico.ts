@@ -97,7 +97,7 @@ export function cuerpoDeAviso(aviso: { tipo: TipoDeAviso; id: string; titulo: st
   ].join("\n")
 }
 
-/** A balance block at gate 1 that WAV hears about from her tap: no pause opens for it (#101, decision 1). */
+/** A balance block at gate 1 that WAV hears about from her tap: no pause opens for it (issue 101, decision 1). */
 export type MotivoDeSaldo = "saldo_voz" | "saldo_video"
 
 const PROVEEDOR_DEL_SALDO: Record<MotivoDeSaldo, string> = { saldo_voz: "ElevenLabs", saldo_video: "HeyGen" }

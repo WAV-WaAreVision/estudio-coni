@@ -343,6 +343,11 @@ describe("avisarAFedericoAccion", () => {
   it("refuses an entry that is not a piece or material id", async () => {
     expect(await avisarAFedericoAccion({ tipo: "carrusel", id: "x" })).toMatchObject({ ok: false })
     expect(await avisarAFedericoAccion({ tipo: "pieza", id: "no-es-uuid" })).toMatchObject({ ok: false })
+    const id = crypto.randomUUID()
+    expect(await avisarAFedericoAccion({ tipo: "pieza", id, motivo: "otro" })).toEqual({
+      ok: false,
+      error: "No entendí esa solicitud. Vuelve a abrir la pantalla.",
+    })
     expect(avisosReales).not.toHaveBeenCalled()
   })
 })

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
-import { type FilaDePieza, leerProduccion } from "@/lib/datos/repositorio"
+import { type FilaDePieza, leerPieza, leerProduccion } from "@/lib/datos/repositorio"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { textoParaVoz } from "@/lib/dominio/etiquetas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
@@ -18,6 +18,7 @@ import {
   type Saldos,
 } from "@/lib/dominio/saldos"
 import { vozDelGuion } from "@/lib/dominio/voz"
+import { dolares } from "@/lib/formato"
 import { TEXTO_LIMITE } from "@/lib/presupuesto/limite"
 import { formulaGuardada } from "@/lib/produccion/aprobacion"
 import { estimarCostoVoz } from "@/lib/produccion/comun"
@@ -37,11 +38,12 @@ export interface BotonesDeGrabacion {
   bloqueoVoz: string | null
   /** Closes the signature when HeyGen or the month's cap cannot cover the video; the voice is already made. */
   bloqueoVideo: string | null
-  /** The HeyGen balance line WAV reads (WAV's email names it beside the estimate). */
+  /** The HeyGen balance line WAV reads, and the video's estimate (WAV's email names both). */
   saldoVideo: string
+  montoVideo: string
   /**
    * `bloqueoVoz` / `bloqueoVideo` is a balance that does not cover the estimate: no pause opens for it, so «Avisar a
-   * Federico» sits beside the block (#101, decision 1). A pause or the month's limit is never one.
+   * Federico» sits beside the block (issue 101, decision 1). A pause or the month's limit is never one.
    */
   vozSinSaldo: boolean
   videoSinSaldo: boolean
@@ -97,6 +99,7 @@ export function presentarGrabacion(entrada: {
     unidadVoz: costoVozPartido.unidad,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
     saldoVideo: lineaDeSaldoVideo(saldos.heygen),
+    montoVideo: dolares(usdVideo),
     bloqueoVoz: antesDelSaldoVoz ?? saldoVoz,
     bloqueoVideo: pausaVideo ?? saldoVideo,
     vozSinSaldo: antesDelSaldoVoz === null && saldoVoz !== null,
@@ -197,4 +200,25 @@ export async function leerDatosDeGrabacion(
       usd: estimarCostoVideo(guion, config.heygen.motor),
     }),
   }
+}
+
+const enPuerta1 = (estado: string): estado is DatosDeGrabacion["estado"] =>
+  estado === "guion_por_aprobar" || estado === "grabando_voz"
+
+/**
+ * Gate 1's buttons of a piece recomputed the way its page does, for «Avisar a Federico» on a balance block (issue 101,
+ * decision 1): null when the piece is not a reel at gate 1 with its script.
+ */
+export async function leerBotonesDeLaPieza(
+  db: SupabaseClient<Database>,
+  id: string,
+): Promise<{ titulo: string; intento: number; botones: BotonesDeGrabacion | null } | null> {
+  const fila = await leerPieza(db, id)
+  if (fila === null || fila.tipo === "carrusel" || fila.guion === null) return null
+  const { estado, guion } = fila
+  if (!enPuerta1(estado)) return null
+  const { data, error } = await db.from("ajustes").select("zona").maybeSingle()
+  if (error) throw new Error(`No pude leer la zona de los ajustes: ${error.message}`, { cause: error })
+  const datos = await leerDatosDeGrabacion(db, { fila, estado, guion, zona: data?.zona ?? "America/Santiago" })
+  return { titulo: fila.titulo, intento: fila.intento, botones: datos.botones }
 }

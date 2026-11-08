@@ -15,6 +15,7 @@ const BOTONES = {
   unidadVoz: "~1.100 caracteres",
   saldoVoz: "ElevenLabs: te quedan 23.400 de 100.000 caracteres.",
   saldoVideo: "Saldo de API de HeyGen: US$ 12,00. Es aparte de tu plan de HeyGen.",
+  montoVideo: "US$ 3,48",
   bloqueoVoz: null,
   bloqueoVideo: null,
   vozSinSaldo: false,
