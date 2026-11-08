@@ -43,7 +43,7 @@ import { PantallaGuion } from "./pantalla-guion"
 import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_REINTENTA } from "./textos"
 import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
-import { VideoDetenido } from "./video-detenido"
+import { PantallaDeVideoDetenido } from "./video-detenido"
 import { VozSuelta } from "./voz-suelta"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -129,6 +129,21 @@ export default async function PaginaDeGuion({
     }
     case "en_render":
     case "subtitulando": {
+      if (fila.explicacion) {
+        return (
+          <>
+            <PantallaDeVideoDetenido
+              titulo={fila.titulo}
+              pilar={pilar}
+              segundos={segundosDe(fila.guion)}
+              piezaId={fila.id}
+              explicacion={fila.explicacion}
+              aviso={await avisoDeLaPieza(db, fila)}
+            />
+            <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
+          </>
+        )
+      }
       const ventana = ventanaDeDeshacer(
         { ...fila, firmaEn: piezaDesdeFila(fila).puerta1?.en ?? null },
         firmada,
@@ -136,11 +151,7 @@ export default async function PaginaDeGuion({
       )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
-          {fila.explicacion ? (
-            <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
-          ) : (
-            <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
-          )}
+          <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
           <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
             Volver a Inicio
             <House aria-hidden="true" size={ICONO.medio} />
