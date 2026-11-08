@@ -78,6 +78,46 @@ describe("AprobarPilar", () => {
     expect(within(enero).getByText("Total: 110 %")).toBeInTheDocument()
   })
 
+  it("repeats each stage's total and warning in the computer's side panel, live, by the stage's name", () => {
+    abrir()
+    const panel = screen.getByTestId("pagina-panel")
+    // Drawn only on a computer; there the stages' own totals step aside (issue 103).
+    expect(panel).toHaveClass("hidden", "md:grid")
+    // A list of terms: each stage's name, then its total and its warning.
+    const etapa = (nombre: string) => {
+      const fila = within(panel)
+        .getAllByRole("term")
+        .find((nodo) => nodo.textContent === nombre)
+        ?.closest("div")
+      if (!fila) throw new Error(`Sin la etapa ${nombre} en el panel`)
+      return fila
+    }
+    const hoy = etapa("Hoy")
+    const enero = etapa("Desde el 1 de enero de 2027")
+    expect(within(hoy).getByText("Total: 110 %").tagName).toBe("OUTPUT")
+    expect(within(hoy).getByText(AVISO_DE_HOY)).toBeInTheDocument()
+    expect(within(enero).getByText(AVISO_DE_ENERO)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Diagnóstico doble, Hoy"), { target: { value: "20" } })
+    expect(within(hoy).getByText("Total: 100 %")).toBeInTheDocument()
+    expect(within(hoy).queryByText(/suman/)).toBeNull()
+    expect(within(enero).getByText("Total: 110 %")).toBeInTheDocument()
+  })
+
+  it("heads each row of the computer's table with its pillar, hidden from screen readers (each field has its label)", () => {
+    abrir()
+    const pesos = screen.getByTestId("pesos")
+    const encabezados = within(pesos)
+      .getAllByText((_, nodo) => nodo?.getAttribute("data-encabezado-de-fila") !== null && nodo?.tagName === "SPAN")
+      .map((nodo) => [nodo.textContent, nodo.getAttribute("aria-hidden")])
+    expect(encabezados).toEqual([
+      ["Diagnóstico doble", "true"],
+      ["Bienestar e impacto", "true"],
+      ["Psicología en la mesa", "true"],
+      ["Mujeres líderes", "true"],
+      ["Liderazgo sereno · nuevo", "true"],
+    ])
+  })
+
   it("approves with every stage's weights as numbers, the new one under «nuevo», even when they do not add up to 100", async () => {
     abrir()
     fireEvent.change(screen.getByLabelText("Liderazgo sereno · nuevo, Desde el 1 de enero de 2027"), {

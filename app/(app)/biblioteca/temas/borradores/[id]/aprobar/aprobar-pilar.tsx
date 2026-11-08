@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { type FormEvent, useId, useState } from "react"
+import { type CSSProperties, type FormEvent, useId, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
@@ -32,8 +32,10 @@ interface Propiedades {
 
 /**
  * Spec 15c, decision 8: every stage of the network's weights from today on, each with every pillar and the new one,
- * editable, its own live total and its own warning when it is not 100 (it never blocks). Columns on the computer,
- * blocks one under another on the phone. The database writes only what changed, on each stage's date.
+ * editable, its own live total and its own warning when it is not 100 (it never blocks). On the phone, blocks one under
+ * another. On a computer the same fields make a table (issue 103): a row per pillar, a column per stage, the grid
+ * placing each field by `--fila` and `--columna` while the blocks and their groups step aside (`contents`); each
+ * stage's total and warning move to a side panel. The database writes only what changed, on each stage's date.
  */
 export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propiedades) {
   const id = useId()
@@ -73,71 +75,143 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
     )
   }
 
+  const pilares = pilaresDeLaTabla(etapas)
+  // Each stage with its total and warning: drawn in its block on a phone and in the side panel on a computer.
+  const conSumas = etapas.map((etapa) => {
+    const total = totalDePesos(etapa.filas)
+    return {
+      etapa,
+      texto: total === null ? "Total: falta un peso válido" : `Total: ${formatoDePeso(total)} %`,
+      aviso: total === null ? null : avisoDePesos(borrador.red, total, etapa),
+    }
+  })
+
   return (
-    <form onSubmit={aprobar} noValidate className="grid gap-5">
-      <h2 className="text-pieza">{`Pesos de ${NOMBRE_DE_RED[borrador.red]}`}</h2>
-      <div className="grid gap-4 md:grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] md:items-start">
-        {etapas.map((etapa) => {
-          const total = totalDePesos(etapa.filas)
-          const aviso = total === null ? null : avisoDePesos(borrador.red, total, etapa)
+    <form
+      onSubmit={aprobar}
+      noValidate
+      className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-x-8 lg:gap-x-12"
+    >
+      <div data-testid="pagina-principal" className="contents md:grid md:min-w-0 md:gap-5">
+        <h2 className="text-pieza">{`Pesos de ${NOMBRE_DE_RED[borrador.red]}`}</h2>
+        <div
+          data-testid="pesos"
+          style={{ "--etapas": etapas.length } as CSSProperties}
+          className="grid gap-4 md:grid-cols-[minmax(8rem,max-content)_repeat(var(--etapas),minmax(6.5rem,9rem))] md:items-center md:gap-x-4 md:gap-y-2"
+        >
+          {conSumas.map(({ etapa, texto, aviso }, posicion) => {
+            return (
+              <div
+                key={etapa.desde}
+                data-contorno
+                style={{ "--columna": posicion + 2 } as CSSProperties}
+                className="rounded-panel bg-piedra-alta p-4 md:contents"
+              >
+                <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0 md:contents">
+                  <legend className="mb-1 text-cuerpo font-semibold md:col-[var(--columna)] md:row-start-1 md:mb-0 md:self-end md:text-meta">
+                    {etapa.etiqueta}
+                  </legend>
+                  {etapa.filas.map((fila) => {
+                    const conError = invalido?.desde === etapa.desde && invalido.clave === fila.clave
+                    const enLaTabla = pilares.findIndex((pilar) => pilar.clave === fila.clave) + 2
+                    return (
+                      <div
+                        key={fila.clave}
+                        style={{ "--fila": enLaTabla } as CSSProperties}
+                        className="grid gap-1 md:col-[var(--columna)] md:row-[var(--fila)]"
+                      >
+                        <label htmlFor={idDe(etapa.desde, fila.clave)} className="text-meta font-semibold md:sr-only">
+                          {fila.nombre}
+                          {fila.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
+                          {/* The same pillar is in every stage: the stage completes its name. */}
+                          <span className="sr-only">{`, ${etapa.etiqueta}`}</span>
+                        </label>
+                        <input
+                          id={idDe(etapa.desde, fila.clave)}
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={fila.peso}
+                          onChange={(evento) => cambiar(etapa.desde, fila.clave, evento.target.value)}
+                          aria-invalid={conError || undefined}
+                          aria-describedby={conError ? idDelError : undefined}
+                          className={cn(CLASES_DE_CAMPO, "tabular-nums")}
+                        />
+                      </div>
+                    )
+                  })}
+                  <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums md:hidden">
+                    {texto}
+                  </output>
+                  {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} className="md:hidden" /> : null}
+                </fieldset>
+              </div>
+            )
+          })}
+          {/* The table's row headings: each field keeps its own label (hidden here), so they are for the eye only. */}
+          {pilares.map((pilar, posicion) => (
+            <span
+              key={pilar.clave}
+              aria-hidden="true"
+              data-encabezado-de-fila
+              style={{ "--fila": posicion + 2 } as CSSProperties}
+              className="hidden text-meta font-semibold md:col-start-1 md:row-[var(--fila)] md:block"
+            >
+              {pilar.nombre}
+              {pilar.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
+            </span>
+          ))}
+        </div>
+        <p className="text-meta text-apagado">{AVISO_DE_LA_GUIA}</p>
+        {invalido ? (
+          <div id={idDelError}>
+            <LineaDeError>{invalido.error}</LineaDeError>
+          </div>
+        ) : null}
+        {error ? <LineaDeError>{error}</LineaDeError> : null}
+        {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
+        <div className="flex flex-wrap gap-3">
+          <Boton
+            type="submit"
+            cargando={(pendiente || yendo) && errorAlIr === null}
+            deshabilitado={errorAlIr !== null}
+            className="md:w-auto"
+          >
+            Aprobar pilar
+          </Boton>
+          <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>
+            Cancelar
+          </Link>
+        </div>
+      </div>
+
+      {/* Each stage's total and warning beside the table, on a computer only; the phone has them in each block. */}
+      <dl
+        data-testid="pagina-panel"
+        className="hidden md:sticky md:top-24 md:grid md:content-start md:gap-4 md:rounded-panel md:bg-piedra-alta md:p-5"
+      >
+        {conSumas.map(({ etapa, texto, aviso }) => {
           return (
-            <div key={etapa.desde} data-contorno className="rounded-panel bg-piedra-alta p-4">
-              <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
-                <legend className="mb-1 text-cuerpo font-semibold">{etapa.etiqueta}</legend>
-                {etapa.filas.map((fila) => {
-                  const conError = invalido?.desde === etapa.desde && invalido.clave === fila.clave
-                  return (
-                    <div key={fila.clave} className="grid gap-1">
-                      <label htmlFor={idDe(etapa.desde, fila.clave)} className="text-meta font-semibold">
-                        {fila.nombre}
-                        {fila.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
-                        {/* The same pillar is in every stage: the stage completes its name. */}
-                        <span className="sr-only">{`, ${etapa.etiqueta}`}</span>
-                      </label>
-                      <input
-                        id={idDe(etapa.desde, fila.clave)}
-                        type="text"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        value={fila.peso}
-                        onChange={(evento) => cambiar(etapa.desde, fila.clave, evento.target.value)}
-                        aria-invalid={conError || undefined}
-                        aria-describedby={conError ? idDelError : undefined}
-                        className={cn(CLASES_DE_CAMPO, "tabular-nums")}
-                      />
-                    </div>
-                  )
-                })}
+            <div key={etapa.desde} className="grid gap-1.5">
+              <dt className="text-meta text-apagado">{etapa.etiqueta}</dt>
+              <dd className="m-0 grid gap-2">
                 <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums">
-                  {total === null ? "Total: falta un peso válido" : `Total: ${formatoDePeso(total)} %`}
+                  {texto}
                 </output>
                 {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} /> : null}
-              </fieldset>
+              </dd>
             </div>
           )
         })}
-      </div>
-      <p className="text-meta text-apagado">{AVISO_DE_LA_GUIA}</p>
-      {invalido ? (
-        <div id={idDelError}>
-          <LineaDeError>{invalido.error}</LineaDeError>
-        </div>
-      ) : null}
-      {error ? <LineaDeError>{error}</LineaDeError> : null}
-      {errorAlIr ? <LineaDeError>{errorAlIr}</LineaDeError> : null}
-      <div className="flex flex-wrap gap-3">
-        <Boton
-          type="submit"
-          cargando={(pendiente || yendo) && errorAlIr === null}
-          deshabilitado={errorAlIr !== null}
-          className="md:w-auto"
-        >
-          Aprobar pilar
-        </Boton>
-        <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>
-          Cancelar
-        </Link>
-      </div>
+      </dl>
     </form>
   )
+}
+
+/** Every pillar of every stage once, in the order they first appear: the rows of the computer's table. */
+function pilaresDeLaTabla(etapas: readonly EtapaEditable[]): { clave: string; nombre: string }[] {
+  const vistos = new Map<string, string>()
+  for (const etapa of etapas)
+    for (const fila of etapa.filas) if (!vistos.has(fila.clave)) vistos.set(fila.clave, fila.nombre)
+  return [...vistos].map(([clave, nombre]) => ({ clave, nombre }))
 }
