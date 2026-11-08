@@ -3,6 +3,7 @@
 import { Check, Warning } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Chip } from "@/components/chip"
+import { CARTA_DE_GRILLA, CARTAS_EN_GRILLA } from "@/components/pagina-en-columnas"
 import { Boton } from "@/components/ui/boton"
 import { Grupo } from "@/components/ui/grupo"
 import { ICONO } from "@/components/ui/icono"
@@ -92,9 +93,9 @@ export function BusquedaDeIdeas({ ideas, pilares, sumadas, alAbrir, alEscribirPr
           </Boton>
         </div>
       ) : (
-        <Grupo lista>
+        <Grupo lista className={CARTAS_EN_GRILLA}>
           {visibles.map((idea) => (
-            <li key={idea.id}>
+            <li key={idea.id} className={CARTA_DE_GRILLA}>
               <FilaDeResultado idea={idea} sumada={sumadas.includes(idea.id)} alAbrir={alAbrir} />
             </li>
           ))}
