@@ -194,12 +194,17 @@ test("Ajustes lays its sections out in two columns", async ({ page }) => {
     "ajustes",
   )
   await expect(page.getByTestId("ajustes-derecha").getByRole("heading", { name: "Gasto" })).toBeVisible()
+  // BloqueDeEstado streams in (or renders nothing): measure once its skeleton is gone.
+  await expect(page.getByRole("status", { name: "Revisando las cuentas" })).toHaveCount(0)
   await revisarPagina(page, "ajustes")
 })
 
 test("Cuentas keeps the accounts at reading width and the balances in the panel", async ({ page }) => {
   await page.goto("/ajustes/cuentas")
   await expect(page.getByTestId("pagina-panel").getByRole("heading", { name: "Saldos" })).toBeVisible()
+  // The accounts and the balances stream in: measure once a row is there and no skeleton is left.
+  await expect(page.getByRole("region", { name: "Cuentas", exact: true }).getByRole("listitem").first()).toBeVisible()
+  await expect(page.getByRole("status", { name: "Revisando las cuentas" })).toHaveCount(0)
   await revisarFormularioYPanel(page, "cuentas")
 })
 
