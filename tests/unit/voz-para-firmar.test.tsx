@@ -466,3 +466,87 @@ describe("VozParaFirmar con ElevenLabs en pausa", () => {
     expect(screen.getByRole("button", { name: /Preparar mi voz/ })).not.toHaveAttribute("aria-disabled", "true")
   })
 })
+
+describe("«Avisar a Federico» beside a balance block (issue 101, decision 1)", () => {
+  const SIN_CARACTERES =
+    "No te alcanzan los caracteres de ElevenLabs (te quedan 100 y esta voz usa 1.100). Recarga o mejora tu plan en elevenlabs.io, en Suscripción."
+  const sinSaldo = { ...BOTONES, bloqueoVoz: SIN_CARACTERES, vozSinSaldo: true }
+
+  it("offers the button under «Preparar mi voz» when the balance does not reach", async () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: sinSaldo })}
+        explicacion={null}
+        avisoDeSaldo={{ avisado: false }}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByText("No alcanza el saldo para preparar tu voz.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+  })
+
+  it("says Federico knows once the email went out", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: sinSaldo })}
+        explicacion={null}
+        avisoDeSaldo={{ avisado: true }}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
+  })
+
+  it.each([
+    ["a pause", { ...BOTONES, bloqueoVoz: "Tu voz está en pausa. Ya le avisamos a WAV.", vozSinSaldo: false }],
+    ["the monthly limit", { ...BOTONES, bloqueoVoz: TOPE, vozSinSaldo: false }],
+  ])("offers no button beside %s", (_, botones) => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones })}
+        explicacion={null}
+        avisoDeSaldo={null}
+        alEscuchar={vi.fn()}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
+  })
+
+  it("offers no button while unsaved changes are what closes the voice", () => {
+    render(
+      <VozParaFirmar
+        piezaId="p1"
+        version={5}
+        datos={grabacion(null, { botones: sinSaldo })}
+        explicacion={null}
+        avisoDeSaldo={{ avisado: false }}
+        alEscuchar={vi.fn()}
+        sinGuardar
+      />,
+    )
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
+  })
+
+  it("offers it under «Grabar la voz de nuevo» too", () => {
+    render(
+      <GrabarDeNuevo
+        piezaId="p1"
+        version={5}
+        datos={grabacion("voces/p1/t-x-0.mp3", { botones: sinSaldo })}
+        avisoDeSaldo={{ avisado: false }}
+        sinGuardar={false}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+  })
+})

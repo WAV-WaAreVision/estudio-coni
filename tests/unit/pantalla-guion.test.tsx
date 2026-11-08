@@ -77,6 +77,7 @@ function datos(sobre: Partial<DatosDeGuion> = {}, grabacion: Partial<DatosDeGrab
     salida: null,
     explicacion: null,
     aviso: null,
+    avisoDeSaldo: { voz: null, video: null },
     avatares: [{ id: "look-a", nombre: "Estudio", imagenUrl: null }],
     avisoInicial: null,
     avatarGuardado: null,
@@ -502,5 +503,41 @@ describe("PantallaGuion: la firma", () => {
       vi.advanceTimersByTime(3000)
     })
     expect(screen.queryByText("Listo, no grabé nada. Puedes seguir revisando.")).toBeNull()
+  })
+})
+
+describe("PantallaGuion: «Avisar a Federico» beside HeyGen's balance (issue 101, decision 1)", () => {
+  const SIN_HEYGEN = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
+
+  it("offers the button in the block at the top when HeyGen's balance closes the signature", () => {
+    render(
+      <PantallaGuion
+        datos={datos(
+          { avisoDeSaldo: { voz: null, video: { avisado: false } } },
+          { botones: { ...BOTONES, bloqueoVideo: SIN_HEYGEN, videoSinSaldo: true } },
+        )}
+      />,
+    )
+    const arriba = screen.getByTestId("bloqueo-de-firma")
+    expect(within(arriba).getByRole("button", { name: "Avisar a Federico" })).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "Avisar a Federico" })).toHaveLength(1)
+  })
+
+  it("offers none when HeyGen is paused", () => {
+    render(
+      <PantallaGuion
+        datos={datos(
+          {},
+          {
+            botones: {
+              ...BOTONES,
+              bloqueoVideo: "El video está en pausa. Ya le avisamos a WAV.",
+              videoSinSaldo: false,
+            },
+          },
+        )}
+      />,
+    )
+    expect(screen.queryByRole("button", { name: "Avisar a Federico" })).toBeNull()
   })
 })
