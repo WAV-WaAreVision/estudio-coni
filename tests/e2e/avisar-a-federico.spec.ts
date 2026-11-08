@@ -155,8 +155,8 @@ test("a stopped video keeps the phone's single column: the piece above what happ
   await ajustarPieza(id, { titulo: TITULO })
   await page.goto(`/guion/${id}`)
 
-  const pieza = await page.getByTestId("detenido-pieza").boundingBox()
-  const principal = await page.getByTestId("detenido-principal").boundingBox()
+  const pieza = await page.getByTestId("estado-pieza").boundingBox()
+  const principal = await page.getByTestId("estado-principal").boundingBox()
   expect(pieza && principal).toBeTruthy()
   if (!pieza || !principal) return
   expect(principal.y).toBeGreaterThanOrEqual(pieza.y + pieza.height)

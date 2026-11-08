@@ -78,8 +78,8 @@ test("a stopped video uses two columns: what happened on the left, the piece's c
 
   const bloque = page.getByRole("alert").filter({ hasText: "El video está detenido" })
   await expect(bloque.getByRole("button", { name: AVISAR })).toBeVisible()
-  const principal = await cajaDe(page.getByTestId("detenido-principal"))
-  const pieza = await cajaDe(page.getByTestId("detenido-pieza"))
+  const principal = await cajaDe(page.getByTestId("estado-principal"))
+  const pieza = await cajaDe(page.getByTestId("estado-pieza"))
   expect(pieza.left).toBeGreaterThanOrEqual(principal.right)
   expect(Math.abs(pieza.top - principal.top)).toBeLessThanOrEqual(1)
   expect(principal.width).toBeGreaterThan(pieza.width)

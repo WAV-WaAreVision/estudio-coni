@@ -43,7 +43,7 @@ import { PantallaGuion } from "./pantalla-guion"
 import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_REINTENTA } from "./textos"
 import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
-import { PantallaDeVideoDetenido } from "./video-detenido"
+import { VideoDetenido } from "./video-detenido"
 import { VozSuelta } from "./voz-suelta"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -132,14 +132,14 @@ export default async function PaginaDeGuion({
       if (fila.explicacion) {
         return (
           <>
-            <PantallaDeVideoDetenido
-              titulo={fila.titulo}
-              pilar={pilar}
-              segundos={segundosDe(fila.guion)}
-              piezaId={fila.id}
-              explicacion={fila.explicacion}
-              aviso={await avisoDeLaPieza(db, fila)}
-            />
+            {/* Issue 101, decision 4: what happened and «Volver a Inicio» in the reading column, the piece beside. */}
+            <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+              <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
+              <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
+                Volver a Inicio
+                <House aria-hidden="true" size={ICONO.medio} />
+              </Link>
+            </EstadoSencillo>
             <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
           </>
         )
