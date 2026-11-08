@@ -28,4 +28,4 @@ jobs:
             echo "::error::Missing STAGING_DB_URL secret (staging branch pooler URL)."
             exit 1
           fi
-          supabase db push --db-url "$STAGING_DB_URL" --include-all
+          supabase db push --db-url "$STAGING_DB_URL"
