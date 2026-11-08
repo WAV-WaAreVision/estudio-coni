@@ -1,0 +1,31 @@
+name: Staging migrations
+
+# Issue 7: every migration merged to main reaches the staging branch first. Production stays a manual `db push`.
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrar:
+    name: Push migrations to staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: db push
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: |
+          if [ -z "$STAGING_DB_URL" ]; then
+            echo "::error::Missing STAGING_DB_URL secret (staging branch pooler URL)."
+            exit 1
+          fi
+          supabase db push --db-url "$STAGING_DB_URL" --include-all
