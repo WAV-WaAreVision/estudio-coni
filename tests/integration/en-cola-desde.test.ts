@@ -75,6 +75,20 @@ describe("materiales.en_cola_desde", () => {
     },
   )
 
+  it("clears the reason of a failed start, so a confirmed material shows as processing again (issue 117)", async () => {
+    await como(comoPostgres, async (c) => {
+      const id = await material(c, "procesando", "No pude iniciar el procesamiento. Reintenta.")
+      await asumir(c, comoConi)
+      await c.query("select public.poner_material_en_cola($1)", [id])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ motivo_fallo: string | null }>(
+        "select motivo_fallo from public.materiales where id = $1",
+        [id],
+      )
+      expect(rows[0]?.motivo_fallo).toBeNull()
+    })
+  })
+
   it.each([
     ["a ready material", "listo", null, CONI],
     ["someone else's upload", "procesando", null, OTRA],
