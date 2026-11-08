@@ -52,6 +52,11 @@ Preview environment variables switch to staging:
 
 The four Supabase variables change in one go (a staging URL with a production service role would fail every call).
 
+**Staging emails (code, TDD).** With `CONIDOLLY_AMBIENTE=staging` (Vercel Preview and Trigger staging) every email
+subject starts with `[staging]` and every Resend Idempotency-Key with `staging:`. Staging shares Resend's key with
+production, and a shared key would make Resend answer a production email with the staging one. `AVISOS_CORREO_CONI` in
+staging is Federico's address, so test notices never reach Coni.
+
 **Guard (code, TDD).** On a Vercel preview (`VERCEL_ENV=preview`) the server refuses a `SUPABASE_URL` or
 `NEXT_PUBLIC_SUPABASE_URL` that contains the production ref `mvfytttfxmzzjajecsch`, with a clear error. A forgotten
 variable then fails loudly instead of writing to production.
@@ -61,8 +66,11 @@ variable then fails loudly instead of writing to production.
 - Environment `staging` of the same project, deployed with `--env staging`. Claude deploys staging without asking
   (decided by Federico on 2026-11-08: no real accounts there); production deploys keep needing his OK.
 - Its env vars (Federico, dashboard): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (staging), `R2_*` (staging bucket),
-  `RESEND_API_KEY`, `AVISOS_*`, `VAPID_*`. No `RESPALDO_DB_URL` (no nightly dump of staging) and no LinkedIn or Meta
-  variables. The nightly backup step must skip cleanly without it.
+  `RESEND_API_KEY`, `AVISOS_*`, `VAPID_*`, `CONIDOLLY_AMBIENTE=staging`, and `RESPALDO_DB_URL` pointing at the staging
+  database (the nightly dump then backs staging up into the staging bucket instead of failing every night). No LinkedIn
+  or Meta variables.
+- Scheduled tasks run in staging too (maintenance, engine, metrics). Without provider keys they open pauses and alert WAV:
+  that is expected.
 - Precondition: the Trigger plan includes a `staging` environment. Checked before task 1.
 
 ### 4. R2

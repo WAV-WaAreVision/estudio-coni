@@ -187,6 +187,27 @@ describe("canalReal y avisosReales", () => {
     expect(capturas).toHaveLength(1)
   })
 
+  // Issue 7: staging shares Resend's key with production, so its emails must say where they come from and must never
+  // reuse a production Idempotency-Key (Resend would answer the staging email instead of sending production's).
+  it("marks staging's emails and keeps their idempotency keys apart from production's", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
+    const staging = canalReal({ ...CORREO, CONIDOLLY_AMBIENTE: "staging" })
+    await staging.aWav("Coni no tiene números de sus reels", "detalle", "metricas-sin-numeros:2026-11-09")
+    await staging.aConi("hola", false, AVISO)
+    expect(capturas.map((c) => c.cuerpo.subject)).toEqual([
+      "[staging] Coni no tiene números de sus reels",
+      "[staging] Aviso de tu estudio",
+    ])
+    expect(capturas[0]?.cabeceras.get("idempotency-key")).toBe("staging:metricas-sin-numeros:2026-11-09")
+  })
+
+  it("leaves production's subjects and keys as they are", async () => {
+    const { capturas } = capturando(() => HttpResponse.json({ id: "1" }))
+    await canalReal(CORREO).aWav("Asunto", "detalle", "clave:1")
+    expect(capturas[0]?.cuerpo.subject).toBe("Asunto")
+    expect(capturas[0]?.cabeceras.get("idempotency-key")).toBe("clave:1")
+  })
+
   it("sends to a fake Resend when RESEND_BASE_URL points at one (the local E2E)", async () => {
     const capturas: string[] = []
     servidor.use(
