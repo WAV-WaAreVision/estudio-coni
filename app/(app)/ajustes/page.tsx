@@ -30,48 +30,56 @@ export default async function Ajustes() {
     <div>
       <h1 className="text-pantalla">Ajustes</h1>
 
-      <div className="mt-6">
-        <Suspense fallback={<EsqueletoDelBloque />}>
-          <BloqueDeEstado zona={ajustes.zona} avisosActivos={(dispositivos ?? 0) > 0} mostrar="pendiente" />
-        </Suspense>
-      </div>
+      {/* Two columns of sections on a computer (issue 103). On a phone each column's first margin folds through its
+          box, so the spacing is the single column's. */}
+      <div className="md:mt-6 md:grid md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-12">
+        <div data-testid="ajustes-izquierda" className="md:[&>:first-child]:mt-0">
+          <div className="mt-6">
+            <Suspense fallback={<EsqueletoDelBloque />}>
+              <BloqueDeEstado zona={ajustes.zona} avisosActivos={(dispositivos ?? 0) > 0} mostrar="pendiente" />
+            </Suspense>
+          </div>
 
-      <div className="mt-10">
-        <EditorDeAjustes
-          inicial={{
-            meta: ajustes.meta === "talleres" || ajustes.meta === "marca" ? ajustes.meta : "consultas",
-            dias: ajustes.dias_publicacion,
-            hora: ajustes.hora_publicacion.slice(0, 5),
-            avisosResumen: ajustes.avisos_resumen,
-            avisosUrgentes: ajustes.avisos_urgentes,
-            destinos: destinosPorDefecto(ajustes.destinos_por_defecto),
-          }}
-          acciones={{ guardar: guardarAjusteAccion }}
-          linkedinConectado={linkedinConectadoEn(ajustes, Date.now())}
-          paraWav={<FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>}
-          avisosDelCelular={
-            <AvisosDelCelular
-              claveVapid={claveVapid}
-              acciones={{
-                guardar: guardarSuscripcionAccion,
-                quitar: quitarSuscripcionAccion,
-                probar: enviarPruebaAccion,
+          <div className="mt-10">
+            <EditorDeAjustes
+              inicial={{
+                meta: ajustes.meta === "talleres" || ajustes.meta === "marca" ? ajustes.meta : "consultas",
+                dias: ajustes.dias_publicacion,
+                hora: ajustes.hora_publicacion.slice(0, 5),
+                avisosResumen: ajustes.avisos_resumen,
+                avisosUrgentes: ajustes.avisos_urgentes,
+                destinos: destinosPorDefecto(ajustes.destinos_por_defecto),
               }}
+              acciones={{ guardar: guardarAjusteAccion }}
+              linkedinConectado={linkedinConectadoEn(ajustes, Date.now())}
+              paraWav={<FilaNavegacion href="/ajustes/cuentas">Cuentas conectadas</FilaNavegacion>}
+              avisosDelCelular={
+                <AvisosDelCelular
+                  claveVapid={claveVapid}
+                  acciones={{
+                    guardar: guardarSuscripcionAccion,
+                    quitar: quitarSuscripcionAccion,
+                    probar: enviarPruebaAccion,
+                  }}
+                />
+              }
             />
-          }
-        />
-      </div>
+          </div>
+        </div>
 
-      <div className="mt-10">
-        <TuPresupuesto usado={presupuesto.usado} tope={presupuesto.tope} />
-      </div>
+        <div data-testid="ajustes-derecha" className="md:[&>:first-child]:mt-0">
+          <div className="mt-10">
+            <TuPresupuesto usado={presupuesto.usado} tope={presupuesto.tope} />
+          </div>
 
-      <div className="mt-10">
-        <TusDatos />
-      </div>
+          <div className="mt-10">
+            <TusDatos />
+          </div>
 
-      <div className="mt-6">
-        <CerrarSesion cerrar={cerrarSesionAccion} />
+          <div className="mt-6">
+            <CerrarSesion cerrar={cerrarSesionAccion} />
+          </div>
+        </div>
       </div>
     </div>
   )

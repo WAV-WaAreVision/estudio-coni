@@ -3,6 +3,7 @@
 import { ArrowRight, MagnifyingGlass, Plus } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { clasesDeBoton } from "@/components/ui/clases-de-boton"
@@ -15,6 +16,7 @@ import type { Resultado } from "@/lib/acciones/resultado"
 import type { PilarDeEleccion } from "@/lib/dominio/pilares"
 import type { IdeaDeBanco } from "@/lib/ideas/mazo"
 import type { PropuestaDeIdea } from "@/lib/proveedores/anthropic"
+import { cn } from "@/lib/utils"
 import { BusquedaDeIdeas } from "./busqueda-de-ideas"
 import { CartaDeIdea } from "./carta-de-idea"
 import { DescartarIdea } from "./descartar-idea"
@@ -189,7 +191,7 @@ export function BancoDeIdeas({
   // The server gave her nothing free: the engine will. If she used the free ones up here, "Usaste todas" is the truth.
   const bancoVacio = ideas.every((idea) => idea.estado !== "idea")
   return (
-    <div className="grid gap-4">
+    <div data-ancho="pagina" className="grid gap-4">
       <header className="grid gap-1">
         <Volver href="/">Inicio</Volver>
         <div className="flex items-center justify-between gap-3">
@@ -247,14 +249,29 @@ export function BancoDeIdeas({
           alEscribirPropia={abrirPropia}
         />
       ) : actual ? (
-        <div className="grid gap-4">
-          <div className="flex items-baseline justify-between gap-4 text-meta">
+        // On a computer the card keeps reading width on the left; its count and Más go to a 20rem column (issue 103).
+        <div
+          className={cn(
+            "grid gap-4",
+            PRINCIPAL_Y_PANEL,
+            "md:grid-cols-[minmax(0,40rem)_20rem] md:grid-rows-[auto_1fr] md:justify-between md:gap-y-4",
+          )}
+        >
+          <div
+            data-testid="idea-cuenta"
+            className="flex items-baseline justify-between gap-4 text-meta md:col-start-2 md:row-start-1"
+          >
             <span className="font-semibold">{actual.nueva ? "Nuevas de la semana" : null}</span>
             <span className="text-apagado" aria-live="polite">
               Idea {posicion} de {libres.length}
             </span>
           </div>
-          <div ref={carta} tabIndex={-1} className="outline-none">
+          <div
+            ref={carta}
+            tabIndex={-1}
+            data-testid="idea-actual"
+            className="outline-none md:col-start-1 md:row-span-2 md:row-start-1"
+          >
             <CartaDeIdea key={actual.id} idea={actual}>
               {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
               <ElegirAngulo
@@ -292,10 +309,12 @@ export function BancoDeIdeas({
             </CartaDeIdea>
           </div>
           {/* Two actions with the card; the rest folds under «Más». */}
-          <MasOpciones forma="linea" titulo="Más">
-            <DescartarIdea key={actual.id} ocupada={pendiente} alElegir={(motivo) => descartar(actual, motivo)} />
-            <BotonIdeaPropia alTocar={abrirPropia} />
-          </MasOpciones>
+          <div data-testid="idea-lateral" className="md:col-start-2 md:row-start-2 md:self-start">
+            <MasOpciones forma="linea" titulo="Más">
+              <DescartarIdea key={actual.id} ocupada={pendiente} alElegir={(motivo) => descartar(actual, motivo)} />
+              <BotonIdeaPropia alTocar={abrirPropia} />
+            </MasOpciones>
+          </div>
         </div>
       ) : bancoVacio ? (
         <div className="grid justify-items-start gap-3 py-1">
@@ -308,7 +327,8 @@ export function BancoDeIdeas({
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>
       ) : (
-        <div className="grid gap-3 py-1">
+        // On a computer the quiet button keeps its label's width instead of a 1080px target (issue 103).
+        <div className="grid gap-3 py-1 md:justify-items-start">
           <p className="text-cuerpo font-semibold">Usaste todas las ideas del banco. Escribe una idea nueva.</p>
           <BotonIdeaPropia alTocar={abrirPropia} />
         </div>

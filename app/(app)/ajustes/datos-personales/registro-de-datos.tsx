@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { FORMULARIO_Y_PANEL, SUPERFICIE_DE_PANEL } from "@/components/pagina-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
@@ -9,6 +10,7 @@ import { Panel } from "@/components/ui/panel"
 import { useAccion } from "@/components/use-accion"
 import type { Resultado } from "@/lib/acciones/resultado"
 import type { VistaDelRegistro } from "@/lib/datos-personales/presentar"
+import { cn } from "@/lib/utils"
 
 interface PropiedadesDelRegistro extends VistaDelRegistro {
   marcar: () => Promise<Resultado<{ revisadoEn: string }>>
@@ -30,51 +32,56 @@ export function RegistroDeDatos({ tarjetas, borrados, revision, marcar }: Propie
   }
 
   return (
-    <div>
-      <Seccion
-        titulo="Lo que la app guarda"
-        id="datos-lista"
-        cifra={tarjetas.length === 1 ? "1 tipo de dato" : `${tarjetas.length} tipos de datos`}
-      >
-        <ul className="grid gap-3">
-          {tarjetas.map((tarjeta) => (
-            <li key={tarjeta.clave}>
-              <Panel>
-                <h3 className="text-cuerpo font-semibold text-balance">{tarjeta.dato}</h3>
-                <dl className="mt-3 grid gap-2 text-meta">
-                  <Linea titulo="Para qué">{tarjeta.paraQue}</Linea>
-                  <Linea titulo="Dónde queda">{tarjeta.donde}</Linea>
-                  <Linea titulo="Cuándo se borra">{tarjeta.plazo}</Linea>
-                </dl>
-                {tarjeta.discrepancia ? (
-                  <LineaDeEstado className="mt-3" tipo="aviso" titulo={tarjeta.discrepancia} />
-                ) : null}
-              </Panel>
-            </li>
-          ))}
-        </ul>
-      </Seccion>
-
-      <Seccion titulo="Lo que la app borró sola" id="datos-borrados">
-        {borrados.length === 0 ? (
-          <p className="text-meta text-apagado">Todavía no hay borrados anotados.</p>
-        ) : (
-          <ul className="grid gap-1.5 text-meta">
-            {borrados.map((borrado) => (
-              <li key={borrado.id}>{borrado.frase}</li>
+    <div className={FORMULARIO_Y_PANEL}>
+      <div data-testid="pagina-principal">
+        <Seccion
+          titulo="Lo que la app guarda"
+          id="datos-lista"
+          cifra={tarjetas.length === 1 ? "1 tipo de dato" : `${tarjetas.length} tipos de datos`}
+        >
+          <ul className="grid gap-3">
+            {tarjetas.map((tarjeta) => (
+              <li key={tarjeta.clave}>
+                <Panel>
+                  <h3 className="text-cuerpo font-semibold text-balance">{tarjeta.dato}</h3>
+                  <dl className="mt-3 grid gap-2 text-meta">
+                    <Linea titulo="Para qué">{tarjeta.paraQue}</Linea>
+                    <Linea titulo="Dónde queda">{tarjeta.donde}</Linea>
+                    <Linea titulo="Cuándo se borra">{tarjeta.plazo}</Linea>
+                  </dl>
+                  {tarjeta.discrepancia ? (
+                    <LineaDeEstado className="mt-3" tipo="aviso" titulo={tarjeta.discrepancia} />
+                  ) : null}
+                </Panel>
+              </li>
             ))}
           </ul>
-        )}
-      </Seccion>
+        </Seccion>
+      </div>
 
-      <Seccion titulo="Revisión anual" id="datos-revision">
-        <p className="text-cuerpo">{`${ultima} Tu próxima revisión vence el ${revision.vence}.`}</p>
-        {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
-        {revisado ? <LineaDeEstado tipo="exito" titulo="Quedó anotado. Gracias." /> : null}
-        <Boton variante="secundario" cargando={pendiente} onClick={marcarRevisado}>
-          Lo revisé
-        </Boton>
-      </Seccion>
+      {/* The panel's first section has no top margin of its own: the panel brings the phone's 32 px. */}
+      <div data-testid="pagina-panel" className={cn("mt-8 md:mt-0", SUPERFICIE_DE_PANEL)}>
+        <Seccion titulo="Lo que la app borró sola" id="datos-borrados">
+          {borrados.length === 0 ? (
+            <p className="text-meta text-apagado">Todavía no hay borrados anotados.</p>
+          ) : (
+            <ul className="grid gap-1.5 text-meta">
+              {borrados.map((borrado) => (
+                <li key={borrado.id}>{borrado.frase}</li>
+              ))}
+            </ul>
+          )}
+        </Seccion>
+
+        <Seccion titulo="Revisión anual" id="datos-revision">
+          <p className="text-cuerpo">{`${ultima} Tu próxima revisión vence el ${revision.vence}.`}</p>
+          {error ? <LineaDeEstado tipo="error" titulo={error} /> : null}
+          {revisado ? <LineaDeEstado tipo="exito" titulo="Quedó anotado. Gracias." /> : null}
+          <Boton variante="secundario" cargando={pendiente} onClick={marcarRevisado}>
+            Lo revisé
+          </Boton>
+        </Seccion>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,8 @@
+import { INTRO_DE_PAGINA } from "@/components/pagina-en-columnas"
 import { Volver } from "@/components/ui/volver"
 import { leerPresupuestoDelMes } from "@/lib/presupuesto/leer"
 import { exigirConi } from "@/lib/sesion/coni"
+import { cn } from "@/lib/utils"
 import { guardarAjusteAccion, reactivarLimiteAccion } from "../acciones"
 import { PantallaDePresupuesto } from "./pantalla-de-presupuesto"
 
@@ -13,7 +15,7 @@ export default async function Presupuesto() {
     <div>
       <Volver href="/ajustes">Ajustes</Volver>
       <h1 className="mt-5 text-pantalla text-balance">Presupuesto</h1>
-      <p className="mt-1.5 text-meta text-apagado">
+      <p className={cn("mt-1.5 text-meta text-apagado", INTRO_DE_PAGINA)}>
         Tu tope es una referencia: al pasarlo, la app sigue. Tu límite es el freno: ahí lo nuevo queda en pausa y lo que
         ya firmaste termina.
       </p>

@@ -136,3 +136,15 @@ describe("RegistroDeDatos", () => {
     expect(screen.queryByText("Quedó anotado. Gracias.")).toBeNull()
   })
 })
+
+describe("RegistroDeDatos on a computer (issue 103)", () => {
+  it("keeps the register in the main slot and what was deleted and the yearly review in the panel", () => {
+    mostrar()
+    const principal = screen.getByTestId("pagina-principal")
+    const panel = screen.getByTestId("pagina-panel")
+    expect(within(principal).getByRole("heading", { name: "Lo que la app guarda" })).toBeInTheDocument()
+    expect(within(panel).getByRole("heading", { name: "Lo que la app borró sola" })).toBeInTheDocument()
+    expect(within(panel).getByRole("button", { name: "Lo revisé" })).toBeInTheDocument()
+    expect(principal.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

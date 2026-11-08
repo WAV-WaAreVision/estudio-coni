@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { FORMULARIO_Y_PANEL, INTRO_DE_PAGINA } from "@/components/pagina-en-columnas"
 import { Seccion } from "@/components/seccion"
 import { Bloque } from "@/components/ui/bloque"
 import { Volver } from "@/components/ui/volver"
@@ -6,6 +7,7 @@ import { avisoDeInstagram } from "@/lib/ajustes/instagram-aviso"
 import { avisoDeLinkedin } from "@/lib/ajustes/linkedin-aviso"
 import { filaDeCuenta } from "@/lib/ajustes/presentar"
 import { exigirConi } from "@/lib/sesion/coni"
+import { cn } from "@/lib/utils"
 import { desconectarLinkedinAccion, guardarLlaveAccion } from "../acciones"
 import { BloqueDeEstado } from "../bloque-de-estado"
 import { CuentasConectadas } from "../cuentas-conectadas"
@@ -33,33 +35,41 @@ export default async function Cuentas({
     <div>
       <Volver href="/ajustes">Ajustes</Volver>
       <h1 className="mt-5 text-pantalla text-balance">Cuentas</h1>
-      <p className="mt-1.5 text-meta text-apagado">
+      <p className={cn("mt-1.5 text-meta text-apagado", INTRO_DE_PAGINA)}>
         Conectadas a Conidolly: lo que la app necesita para escribir, grabar y publicar.
       </p>
 
-      {aviso ? (
-        <Bloque tipo={aviso.tipo} titulo={aviso.titulo} className="mt-6">
-          {aviso.texto}
-        </Bloque>
-      ) : null}
+      {/* On a phone the first block's 24 px fold through the grid's box; on a computer the grid takes them. */}
+      <div className={cn(FORMULARIO_Y_PANEL, "md:mt-6")}>
+        <div data-testid="pagina-principal" className="md:[&>:first-child]:mt-0">
+          {aviso ? (
+            <Bloque tipo={aviso.tipo} titulo={aviso.titulo} className="mt-6">
+              {aviso.texto}
+            </Bloque>
+          ) : null}
 
-      <div className="mt-6">
-        <Suspense fallback={null}>
-          <BloqueDeEstado zona={ajustes.zona} avisosActivos={(dispositivos ?? 0) > 0} mostrar="bueno" />
-        </Suspense>
+          <div className="mt-6">
+            <Suspense fallback={null}>
+              <BloqueDeEstado zona={ajustes.zona} avisosActivos={(dispositivos ?? 0) > 0} mostrar="bueno" />
+            </Suspense>
+          </div>
+
+          <section aria-label="Cuentas" className="mt-8">
+            <Suspense fallback={<EsqueletoDeCuentas />}>
+              <CuentasDeLaPagina />
+            </Suspense>
+          </section>
+        </div>
+
+        {/* Its section has no top margin of its own: the panel brings the phone's 32 px. */}
+        <div data-testid="pagina-panel" className="mt-8 md:mt-0">
+          <Seccion titulo="Saldos" id="saldos">
+            <Suspense fallback={<EsqueletoDeCuentas />}>
+              <SaldosDeLaPagina zona={ajustes.zona} />
+            </Suspense>
+          </Seccion>
+        </div>
       </div>
-
-      <section aria-label="Cuentas" className="mt-8">
-        <Suspense fallback={<EsqueletoDeCuentas />}>
-          <CuentasDeLaPagina />
-        </Suspense>
-      </section>
-
-      <Seccion titulo="Saldos" id="saldos">
-        <Suspense fallback={<EsqueletoDeCuentas />}>
-          <SaldosDeLaPagina zona={ajustes.zona} />
-        </Suspense>
-      </Seccion>
     </div>
   )
 }

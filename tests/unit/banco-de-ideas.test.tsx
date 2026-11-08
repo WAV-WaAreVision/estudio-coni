@@ -698,3 +698,38 @@ describe("el ángulo en la carta", () => {
     expect(screen.queryByLabelText("Ángulo")).toBeNull()
   })
 })
+
+describe("BancoDeIdeas: on a computer (issue 103)", () => {
+  const siguen = (antes: Element, despues: Element) =>
+    expect(antes.compareDocumentPosition(despues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+  it("marks itself as a page of its own so the column widens on a computer", () => {
+    mostrar()
+    expect(document.querySelector("[data-ancho=pagina]")).not.toBeNull()
+  })
+
+  it("puts the card in the main slot and its count and Más beside it, in the phone's order", () => {
+    mostrar()
+    const cuenta = screen.getByTestId("idea-cuenta")
+    const actual = screen.getByTestId("idea-actual")
+    const lateral = screen.getByTestId("idea-lateral")
+    expect(within(actual).getByRole("button", { name: "Usar esta" })).toBeInTheDocument()
+    expect(cuenta).toHaveTextContent("Idea 1 de 3")
+    expect(within(lateral).getByText("Más")).toBeInTheDocument()
+    // On a phone the count stays above the card and Más under it.
+    siguen(cuenta, actual)
+    siguen(actual, lateral)
+  })
+
+  it("pushes the card and its side column to the page's edges, as the form pages do", () => {
+    mostrar()
+    expect(screen.getByTestId("idea-cuenta").parentElement).toHaveClass("md:justify-between")
+  })
+
+  it("keeps Escribir una idea mía as wide as its label once the bank is used up", async () => {
+    mostrar({}, [idea({ id: "a" })])
+    fireEvent.click(screen.getByRole("button", { name: "Usar esta" }))
+    const vacio = await screen.findByText("Usaste todas las ideas del banco. Escribe una idea nueva.")
+    expect(vacio.parentElement).toHaveClass("md:justify-items-start")
+  })
+})

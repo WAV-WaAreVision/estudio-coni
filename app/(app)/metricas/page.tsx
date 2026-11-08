@@ -1,6 +1,7 @@
 import { CaretDown } from "@phosphor-icons/react/dist/ssr"
 import { BarraDeMetrica } from "@/components/barra-de-metrica"
 import { FilaPieza } from "@/components/fila-pieza"
+import { PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { PanelDeComparacion } from "@/components/panel-de-comparacion"
 import { Seccion } from "@/components/seccion"
 import { Grupo } from "@/components/ui/grupo"
@@ -13,6 +14,7 @@ import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { type Barra, construirMetricas } from "@/lib/metricas/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
+import { cn } from "@/lib/utils"
 import { anotarNumerosDeLinkedinAccion } from "./acciones"
 import { NumerosDeLinkedin } from "./numeros-de-linkedin"
 
@@ -62,23 +64,37 @@ export default async function Metricas() {
   )
 
   return (
-    <div>
-      <header className="grid gap-1">
-        <p className="text-meta font-semibold">Métricas</p>
-        <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
-          {modelo.mes}
-        </h1>
-        <p className="text-cuerpo">{modelo.resumen}</p>
-        <p className="text-cuerpo text-apagado">{modelo.contacto}</p>
-      </header>
+    <div data-ancho="pagina">
+      {/* On a computer (issue 103) the month's figures and the theme comparison share the top row; without a
+          comparison the figures keep the row alone. On a phone the comparison's 32 px come from its box, since its
+          section is now a first child. */}
+      <div
+        data-testid="metricas-cifras"
+        className={cn(modelo.comparacion && "md:grid md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-12")}
+      >
+        <div data-testid="metricas-cabecera">
+          <header className="grid gap-1">
+            <p className="text-meta font-semibold">Métricas</p>
+            <h1 data-snapshot="varia" className="mt-4 text-pantalla capitalize">
+              {modelo.mes}
+            </h1>
+            <p className="text-cuerpo">{modelo.resumen}</p>
+            <p className="text-cuerpo text-apagado">{modelo.contacto}</p>
+          </header>
 
-      {modelo.aviso ? (
-        <div className="mt-6">
-          <LineaDeEstado tipo="aviso" titulo={modelo.aviso} tituloEnTinta />
+          {modelo.aviso ? (
+            <div className="mt-6">
+              <LineaDeEstado tipo="aviso" titulo={modelo.aviso} tituloEnTinta />
+            </div>
+          ) : null}
         </div>
-      ) : null}
 
-      {modelo.comparacion ? <PanelDeComparacion panel={modelo.comparacion} /> : null}
+        {modelo.comparacion ? (
+          <div data-testid="metricas-comparacion" className="mt-8 md:mt-0">
+            <PanelDeComparacion panel={modelo.comparacion} />
+          </div>
+        ) : null}
+      </div>
 
       <Seccion titulo="Lo que sirvió" id="sirvio">
         {modelo.vacio ? (
@@ -94,69 +110,76 @@ export default async function Metricas() {
             {modelo.grupos.length === 0 ? (
               <p className="text-cuerpo text-apagado">Nada publicado en estas semanas.</p>
             ) : (
-              modelo.grupos.map((grupo) => (
-                <div key={grupo.red} className="grid gap-2">
-                  <div className="mx-0.5 flex flex-wrap items-baseline justify-between gap-x-3">
-                    <h3 className="text-meta font-semibold text-tinta">{grupo.titulo}</h3>
-                    <span className="text-meta font-medium text-apagado tabular-nums">{grupo.cifra}</span>
+              // Instagram beside LinkedIn on a computer.
+              <div className="grid gap-3 md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-12">
+                {modelo.grupos.map((grupo) => (
+                  <div key={grupo.red} data-testid={`metricas-${grupo.red}`} className="grid gap-2">
+                    <div className="mx-0.5 flex flex-wrap items-baseline justify-between gap-x-3">
+                      <h3 className="text-meta font-semibold text-tinta">{grupo.titulo}</h3>
+                      <span className="text-meta font-medium text-apagado tabular-nums">{grupo.cifra}</span>
+                    </div>
+                    <p className="text-meta text-apagado">{grupo.medida}</p>
+                    <ListaDeBarras barras={grupo.barras} />
                   </div>
-                  <p className="text-meta text-apagado">{grupo.medida}</p>
-                  <ListaDeBarras barras={grupo.barras} />
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </>
         )}
       </Seccion>
 
-      <Seccion
-        titulo="Semana a semana"
-        id="semanas"
-        cifra={modelo.semanas.length > 0 ? modelo.semanas.length : undefined}
-      >
-        <p className="text-meta text-apagado">
-          {`${modelo.periodo}. Los toques en tu link cuentan una vez por persona, por link y por día.`}
-        </p>
-        {modelo.semanas.length === 0 ? (
-          <p className="text-cuerpo text-apagado">
-            Cuando haya publicaciones, consultas o clics, los verás aquí por semana.
+      {/* Week by week wide, WAV's numbers in the side column on a computer. On a phone the 32 px come from this box,
+          since the section is now a first child. */}
+      <div className={cn("mt-8", PRINCIPAL_Y_PANEL)}>
+        <Seccion
+          titulo="Semana a semana"
+          id="semanas"
+          cifra={modelo.semanas.length > 0 ? modelo.semanas.length : undefined}
+        >
+          <p className="text-meta text-apagado">
+            {`${modelo.periodo}. Los toques en tu link cuentan una vez por persona, por link y por día.`}
           </p>
-        ) : (
-          <div>
-            {modelo.semanas.map((semana, i) => (
-              <details key={semana.titulo} open={i === semanaAbierta} aria-label={semana.titulo}>
-                <summary className={RESUMEN_PLEGABLE}>
-                  <span data-snapshot="varia">{semana.titulo}</span>
-                  <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
-                </summary>
-                {semana.publicaciones.length > 0 ? (
-                  <Grupo plano lista>
-                    {semana.publicaciones.map((fila) => (
-                      <FilaPieza key={fila.clave} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} />
-                    ))}
-                  </Grupo>
-                ) : null}
-                <p className="py-3 text-meta text-apagado">{semana.resumen}</p>
-              </details>
-            ))}
-          </div>
-        )}
-      </Seccion>
+          {modelo.semanas.length === 0 ? (
+            <p className="text-cuerpo text-apagado">
+              Cuando haya publicaciones, consultas o clics, los verás aquí por semana.
+            </p>
+          ) : (
+            <div>
+              {modelo.semanas.map((semana, i) => (
+                <details key={semana.titulo} open={i === semanaAbierta} aria-label={semana.titulo}>
+                  <summary className={RESUMEN_PLEGABLE}>
+                    <span data-snapshot="varia">{semana.titulo}</span>
+                    <CaretDown aria-hidden="true" size={ICONO.medio} className="text-apagado" />
+                  </summary>
+                  {semana.publicaciones.length > 0 ? (
+                    <Grupo plano lista>
+                      {semana.publicaciones.map((fila) => (
+                        <FilaPieza key={fila.clave} titulo={fila.titulo} estado={fila.meta} pilar={fila.pilar} />
+                      ))}
+                    </Grupo>
+                  ) : null}
+                  <p className="py-3 text-meta text-apagado">{semana.resumen}</p>
+                </details>
+              ))}
+            </div>
+          )}
+        </Seccion>
 
-      {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
-      <MasOpciones className="mt-8" titulo="Para WAV" resumen="Números de LinkedIn">
-        <NumerosDeLinkedin
-          posts={paraAnotar.posts.map((post) => ({
-            piezaId: post.piezaId,
-            titulo: post.titulo,
-            fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
-            estaSemana: post.estaSemana,
-          }))}
-          seguidores={paraAnotar.seguidores}
-          seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
-          alGuardar={anotarNumerosDeLinkedinAccion}
-        />
-      </MasOpciones>
+        {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
+        <MasOpciones className="mt-8 md:mt-0" titulo="Para WAV" resumen="Números de LinkedIn">
+          <NumerosDeLinkedin
+            posts={paraAnotar.posts.map((post) => ({
+              piezaId: post.piezaId,
+              titulo: post.titulo,
+              fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
+              estaSemana: post.estaSemana,
+            }))}
+            seguidores={paraAnotar.seguidores}
+            seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
+            alGuardar={anotarNumerosDeLinkedinAccion}
+          />
+        </MasOpciones>
+      </div>
     </div>
   )
 }

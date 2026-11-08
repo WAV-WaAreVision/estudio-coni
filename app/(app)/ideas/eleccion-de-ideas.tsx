@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react"
 import { BarraDeLote } from "@/components/barra-de-lote"
+import { CARTA_DE_GRILLA, CARTAS_EN_GRILLA } from "@/components/pagina-en-columnas"
 import { Aviso } from "@/components/ui/aviso"
 import { Boton } from "@/components/ui/boton"
 import { Casilla } from "@/components/ui/casilla"
@@ -141,11 +142,11 @@ export function EleccionDeIdeas({
       {ideas.length === 0 ? (
         <p className="text-cuerpo font-semibold">No quedan ideas libres en el banco.</p>
       ) : (
-        <Grupo lista>
+        <Grupo lista className={CARTAS_EN_GRILLA}>
           {ideas.map((idea) => {
             const marcada = elegidas.includes(idea.id)
             return (
-              <li key={idea.id}>
+              <li key={idea.id} className={CARTA_DE_GRILLA}>
                 <Casilla
                   etiqueta={idea.gancho}
                   detalle={idea.nombreCortoPilar}
