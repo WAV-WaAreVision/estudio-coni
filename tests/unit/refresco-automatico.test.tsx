@@ -77,7 +77,7 @@ describe("RefrescoAutomatico", () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 
-  // A slow render (a phone on mobile data) must not be superseded by its own round: the next round is the next try.
+  // A slow render (a phone on mobile data) is never superseded: not by its own check, nor by the next round (issue 115).
   it("never re-issues a round's redraw that is still in flight", () => {
     replace.mockReset()
     render(<RefrescoAutomatico activo cadaMs={4000} />)
@@ -85,6 +85,26 @@ describe("RefrescoAutomatico", () => {
     act(() => vi.advanceTimersByTime(3900))
     expect(replace).toHaveBeenCalledTimes(1)
     act(() => vi.advanceTimersByTime(100))
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  // Issue 115: on a slow network a round must not ask for another tree on top of the one still downloading.
+  it("skips its rounds while the last redraw has not reached the screen, and resumes once it has", () => {
+    const pendientes: string[] = []
+    replace.mockImplementation((url: string) => {
+      pendientes.push(url)
+    })
+    render(<RefrescoAutomatico activo cadaMs={4000} />)
+    act(() => vi.advanceTimersByTime(4000))
+    expect(replace).toHaveBeenCalledTimes(1)
+    act(() => vi.advanceTimersByTime(8000))
+    expect(replace).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      window.history.replaceState(null, "", pendientes[0])
+      vi.advanceTimersByTime(50)
+    })
+    act(() => vi.advanceTimersByTime(4000))
     expect(replace).toHaveBeenCalledTimes(2)
   })
 

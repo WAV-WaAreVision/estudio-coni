@@ -24,6 +24,15 @@ let vigente = 0
  */
 let cadena: { origen: string; anteriores: Set<string | null> } | null = null
 
+/**
+ * The marker of a redraw whose screen has not shown yet (issue 115): the polling skips its round meanwhile, since a new
+ * redraw on a slow network would only ask for another tree on top of the one still downloading.
+ */
+let marcaEnVuelo: string | null = null
+
+/** Whether a redraw is still on its way to the screen. */
+export const hayRedibujoEnVuelo = () => marcaEnVuelo !== null
+
 /** The address without the marker: two addresses that only differ in `v` are the same screen. */
 function sinMarcador(url: URL): string {
   const copia = new URL(url)
@@ -80,6 +89,7 @@ export function useRedibujar(): () => () => void {
       llegoEn = null
       plazo = Date.now() + ESPERAR_MARCA_MS
       marca = redibujar()
+      marcaEnVuelo = marca
     }
     // The router's fetch of the fresh screen, seen as a finished resource. Without the API a dropped redraw just waits
     // for the next one.
@@ -97,6 +107,7 @@ export function useRedibujar(): () => () => void {
             }
           })
     const terminar = () => {
+      if (marcaEnVuelo === marca) marcaEnVuelo = null
       clearInterval(mirador)
       descargas?.disconnect()
       globalThis.document?.removeEventListener("pointerdown", terminar, true)
@@ -112,6 +123,7 @@ export function useRedibujar(): () => () => void {
       if (v === marca) {
         if (!vista) plazo = Date.now() + VIGILAR_TRAS_VER_MS
         vista = true
+        if (marcaEnVuelo === marca) marcaEnVuelo = null
       } else if (!anteriores.has(v)) {
         // Another redraw took over.
         return terminar()
