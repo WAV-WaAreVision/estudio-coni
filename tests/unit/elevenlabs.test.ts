@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { HttpResponse, http, type JsonBodyType } from "msw"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
@@ -118,6 +118,25 @@ describe("generarVoz", () => {
     servidor.use(http.post("http://espejo.test/v1/text-to-speech/:voz", audioOk))
     const audio = await generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." })
     expect(audio).toHaveLength(AUDIO.length)
+  })
+
+  it("refuses ELEVENLABS_BASE_URL where Trigger runs, without calling the mirror", async () => {
+    process.env.ELEVENLABS_BASE_URL = "http://espejo.test"
+    let llamadas = 0
+    servidor.use(
+      http.post("http://espejo.test/v1/text-to-speech/:voz", () => {
+        llamadas += 1
+        return audioOk()
+      }),
+    )
+    vi.stubEnv("TRIGGER_SECRET_KEY", "tr_prod_x")
+    try {
+      const error = await rechazo(generarVoz({ clave: CLAVE, config: CONFIG, texto: "Hola." }))
+      expect(error).toBeInstanceOf(FallaDeConfiguracion)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    expect(llamadas).toBe(0)
   })
 
   it("fails as a configuration error, without calling ElevenLabs, when the voice is not set", async () => {

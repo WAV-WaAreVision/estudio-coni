@@ -4,21 +4,19 @@ type Entorno = Record<string, string | undefined>
 
 /**
  * The address of a provider's API. Local runs (the E2E) point it at a fake service with an environment variable so
- * nothing real is called; a deployed app refuses the override, because Coni's keys would travel to that address.
+ * nothing real is called; a deployed app or task refuses the override, because Coni's keys would travel to that address.
  */
 export function baseDe(entorno: Entorno, variable: string, porDefecto: string): string {
   const valor = entorno[variable]
   if (!valor) return porDefecto
-  // LinkedIn's token and Coni's profile go to this address, so its override is also refused in any production build
-  // and wherever Trigger.dev runs the tasks: a stray variable there must never redirect them.
-  const enProduccion =
-    variable.startsWith("LINKEDIN_") && (entorno.NODE_ENV === "production" || !!entorno.TRIGGER_SECRET_KEY)
-  // The Resend key and every notice go out from the tasks too, so that override is refused where Trigger.dev runs them.
-  // No NODE_ENV check: the E2E runs `next start` (a production build) against the fake Resend.
-  const enTareas = variable === "RESEND_BASE_URL" && !!entorno.TRIGGER_SECRET_KEY
-  if (entorno.VERCEL || enProduccion || enTareas) {
+  // Every task runs with Coni's keys where Trigger.dev runs them, so no override is honoured there.
+  const enTareas = !!entorno.TRIGGER_SECRET_KEY
+  // LinkedIn's token and Coni's profile go to this address, so its override is also refused in any production build.
+  // No NODE_ENV check for the others: the E2E runs `next start` (a production build) against the fake services.
+  const enProduccion = variable.startsWith("LINKEDIN_") && entorno.NODE_ENV === "production"
+  if (entorno.VERCEL || enTareas || enProduccion) {
     throw new FallaDeConfiguracion(
-      `${variable} no puede estar definida en Vercel: las llaves de Coni irían a otra dirección.`,
+      `${variable} no puede estar definida en Vercel ni en Trigger.dev: las llaves de Coni irían a otra dirección.`,
     )
   }
   return valor.replace(/\/+$/, "")

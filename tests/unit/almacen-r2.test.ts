@@ -523,6 +523,13 @@ describe("almacenReal", () => {
     expect(intento).toThrow("R2_ENDPOINT")
   })
 
+  it("refuses R2_ENDPOINT where Trigger runs the tasks, even on loopback", () => {
+    const intento = () =>
+      almacenReal({ ...VARIABLES, R2_ENDPOINT: "http://127.0.0.1:9999", TRIGGER_SECRET_KEY: "tr_prod_x" })
+    expect(intento).toThrow(FallaDeConfiguracion)
+    expect(intento).toThrow("R2_ENDPOINT")
+  })
+
   it("refuses R2_ENDPOINT on Vercel: nothing would reach the real bucket", () => {
     expect(() => almacenReal({ ...VARIABLES, R2_ENDPOINT: "http://127.0.0.1:9999", VERCEL: "1" })).toThrow(
       FallaDeConfiguracion,
