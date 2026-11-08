@@ -54,4 +54,24 @@ describe("baseDe", () => {
       ),
     ).toBe("http://127.0.0.1:3201")
   })
+
+  it.each([
+    "HEYGEN_BASE_URL",
+    "ANTHROPIC_BASE_URL",
+    "ELEVENLABS_BASE_URL",
+    "PUSH_BASE_URL",
+    "INSTAGRAM_OAUTH_BASE_URL",
+    "INSTAGRAM_GRAPH_BASE_URL",
+    "RESEND_BASE_URL",
+  ])("refuses a %s override where Trigger runs the tasks: Coni's keys would travel there", (variable) => {
+    expect(() =>
+      baseDe({ [variable]: "http://127.0.0.1:1", TRIGGER_SECRET_KEY: "tr_prod_x" }, variable, "https://real.test"),
+    ).toThrow(FallaDeConfiguracion)
+  })
+
+  it("names the place where the override was refused", () => {
+    expect(() =>
+      baseDe({ HEYGEN_BASE_URL: "http://127.0.0.1:1", TRIGGER_SECRET_KEY: "tr_prod_x" }, "HEYGEN_BASE_URL", "x"),
+    ).toThrow("HEYGEN_BASE_URL no puede estar definida en Vercel ni en Trigger.dev")
+  })
 })

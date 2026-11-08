@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
+import { baseDe as baseDeEntorno } from "@/lib/proveedores/bases"
 import type { ConfigElevenlabs } from "@/lib/proveedores/config"
 import { mensajeErrorElevenlabs } from "@/lib/proveedores/errores"
 
@@ -83,7 +84,7 @@ export function pausaDeElevenlabs(estado: number, cuerpo: string): PausaDeProvee
 }
 
 function baseDe(base: string | undefined): string {
-  return (base ?? (process.env.ELEVENLABS_BASE_URL || BASE_POR_DEFECTO)).replace(/\/+$/, "")
+  return (base ?? baseDeEntorno(process.env, "ELEVENLABS_BASE_URL", BASE_POR_DEFECTO)).replace(/\/+$/, "")
 }
 
 function sinLlave(texto: string, clave: string): string {
