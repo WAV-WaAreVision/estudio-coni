@@ -12,6 +12,18 @@ const GRACIA_TRAS_LLEGAR_MS = 1000
 const VIGILAR_TRAS_VER_MS = 2000
 const INTENTOS = 3
 
+/**
+ * The redraw whose check is current. A later redraw supersedes an earlier one in the router, so the earlier check must
+ * end: it would take its superseded download for a dropped one and issue its replace again (issue 60).
+ */
+let vigente = 0
+
+/**
+ * The markers of the redraws chained on one screen: the later check inherits them, so the address from before the
+ * first redraw (an action's late tree can put it back) still counts as a fallback, not as another redraw taking over.
+ */
+let cadena: { origen: string; anteriores: Set<string | null> } | null = null
+
 /** The address without the marker: two addresses that only differ in `v` are the same screen. */
 function sinMarcador(url: URL): string {
   const copia = new URL(url)
@@ -37,10 +49,14 @@ function sinMarcador(url: URL): string {
 export function useRedibujar(): () => () => void {
   const router = useRouter()
   return useCallback(() => {
+    vigente += 1
+    const turno = vigente
     const inicio = new URL(window.location.href)
     const origen = sinMarcador(inicio)
     // Markers that mean "the screen fell back": the one before the redraw and those of earlier tries.
-    const anteriores = new Set<string | null>([inicio.searchParams.get("v")])
+    const anteriores = cadena?.origen === origen ? cadena.anteriores : new Set<string | null>()
+    anteriores.add(inicio.searchParams.get("v"))
+    cadena = { origen, anteriores }
 
     const redibujar = (): string => {
       const url = new URL(window.location.href)
@@ -67,7 +83,7 @@ export function useRedibujar(): () => () => void {
     }
     // The router's fetch of the fresh screen, seen as a finished resource. Without the API a dropped redraw just waits
     // for the next one.
-    const descargas =
+    let descargas =
       typeof PerformanceObserver === "undefined"
         ? null
         : new PerformanceObserver((lista) => {
@@ -89,6 +105,7 @@ export function useRedibujar(): () => () => void {
     const mirar = () => {
       // The check outlives its button on purpose; when the whole page is gone (a test environment torn down), it ends.
       if (globalThis.window === undefined) return terminar()
+      if (turno !== vigente) return terminar()
       const ahora = new URL(window.location.href)
       const v = ahora.searchParams.get("v")
       if (sinMarcador(ahora) !== origen) return terminar()
@@ -103,9 +120,22 @@ export function useRedibujar(): () => () => void {
         const seDescarto = !vista && llegoEn !== null && Date.now() - llegoEn >= GRACIA_TRAS_LLEGAR_MS
         if (volvioAtras || seDescarto) return quedan > 0 ? intentar() : terminar()
       }
-      if (Date.now() >= plazo) terminar()
+      if (Date.now() >= plazo) {
+        // Its marker held: the chain is done, and the next redraw of this screen starts its own (a 4 s poll would
+        // otherwise grow the shared markers for as long as the tab stays open).
+        if (vista && turno === vigente) cadena = null
+        terminar()
+      }
     }
-    descargas?.observe({ type: "resource" })
+    try {
+      descargas?.observe({ type: "resource" })
+    } catch (error) {
+      // A browser without resource entries (older Safari) throws a TypeError here: redraw anyway, without watching the
+      // download. Anything else is a real failure.
+      if (!(error instanceof TypeError)) throw error
+      descargas?.disconnect()
+      descargas = null
+    }
     intentar()
     const mirador = setInterval(mirar, MIRAR_CADA_MS)
     document.addEventListener("pointerdown", terminar, true)

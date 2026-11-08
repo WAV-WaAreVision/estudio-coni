@@ -178,6 +178,75 @@ describe("useRedibujar", () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 
+  // Issue 60: a button and a poll round can start two redraws within one render; the later one supersedes the first,
+  // whose download then looks dropped. Re-issuing it would supersede the later one in turn.
+  it("ends its check when a later redraw starts, so the two never re-issue each other's replace", () => {
+    // The first replace is superseded and never commits, though its download finished; the second downloads and
+    // commits after a slow render (1.5 s), past the grace the first's download gets before it counts as dropped.
+    replace.mockImplementationOnce(() => undefined)
+    replace.mockImplementation((url: unknown) =>
+      setTimeout(() => {
+        llego(`${String(url)}&_rsc=x`)
+        comprometer(url)
+      }, 1500),
+    )
+    const { result } = renderHook(() => useRedibujar())
+
+    result.current()
+    vi.advanceTimersByTime(5)
+    result.current()
+    llego(`${String(replace.mock.calls[0]?.[0])}&_rsc=x`)
+    vi.advanceTimersByTime(20_000)
+
+    expect(replace).toHaveBeenCalledTimes(2)
+  })
+
+  // A poll round starts a second redraw after the first one's marker showed; then the action's late tree puts back the
+  // address from before both. The second check must know that address as a fallback and redraw again.
+  it("takes the address from before an earlier redraw of the same screen for a fallback too", () => {
+    replace.mockImplementation(comprometer)
+    const { result } = renderHook(() => useRedibujar())
+
+    result.current()
+    vi.advanceTimersByTime(100)
+    result.current()
+    vi.advanceTimersByTime(100)
+    window.history.replaceState(null, "", ORIGEN)
+    vi.advanceTimersByTime(20_000)
+
+    expect(replace).toHaveBeenCalledTimes(3)
+  })
+
+  // Issue 60: Safari before 14.1 has PerformanceObserver but cannot observe resources; observe() threw before the
+  // redraw was issued, so nothing happened at all.
+  it("still redraws where resources cannot be observed, only without watching the download", () => {
+    class SinRecursos {
+      observe() {
+        throw new TypeError("type resource is not supported")
+      }
+      disconnect() {}
+    }
+    vi.stubGlobal("PerformanceObserver", SinRecursos)
+    const { result } = renderHook(() => useRedibujar())
+
+    result.current()
+
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  it("lets any other failure of the download watch surface instead of hiding it", () => {
+    class Roto {
+      observe() {
+        throw new Error("falla inesperada")
+      }
+      disconnect() {}
+    }
+    vi.stubGlobal("PerformanceObserver", Roto)
+    const { result } = renderHook(() => useRedibujar())
+
+    expect(() => result.current()).toThrow("falla inesperada")
+  })
+
   it("stops checking when its caller calls it off", () => {
     replace.mockImplementation(comprometerYVolverAtras(300))
     const { result } = renderHook(() => useRedibujar())
