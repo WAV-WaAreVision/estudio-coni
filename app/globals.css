@@ -4,7 +4,7 @@
 /* Closes the default palette, radii, shadows and type sizes (before the tokens below define the real ones). */
 @import "./tema-cerrado.css";
 
-/* The signing gates in two columns (critiques 2026-11-05): a container query, so its rem follow the text size and a
+/* The signing gates and the piece states in two columns (critiques 2026-11-05): a container query, so its rem follow the text size and a
    large text falls back to the phone's one column instead of squeezing what she reads. 40rem (680 px at the 17 px root):
    a 768 px tablet, even with a classic scrollbar taking its width; 56rem: 1024 px. And a window at least 40rem (640 px)
    tall: a phone on its side keeps one column, where a slide or a video bounded by the height would shrink to nothing. */

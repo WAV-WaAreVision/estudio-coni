@@ -1,5 +1,5 @@
 /*
- * The signing gates on a tablet or a computer (critiques 2026-11-05): what she reviews on the left at reading width,
+ * The signing gates and the piece states (EstadoSencillo) on a tablet or a computer (critiques 2026-11-05): what she reviews on the left at reading width,
  * the decision on the right, the signature sticking at the top of its column while she reads. The screen wraps its
  * grid in `<div data-ancho="puerta" className="@container">`; below 40rem of container (a phone, or a large text)
  * none of these classes apply and the gate stays the phone's single column. Each screen adds its own grid rows.
