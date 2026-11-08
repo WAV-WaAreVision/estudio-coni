@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { ExplicacionParaConi } from "@/components/ui/detalle-para-wav"
 
 const TECNICO = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta US$ 3,48)."
-const EN_SUS_PALABRAS = "No alcanza el saldo para grabar el video. Avísale a Federico."
+const EN_SUS_PALABRAS = "No alcanza el saldo para grabar el video."
 
 describe("ExplicacionParaConi", () => {
   it("says it in her words and folds the provider's text and its link under 'Detalle para WAV'", () => {

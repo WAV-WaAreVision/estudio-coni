@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { esDeOperacion, separarParaConi } from "@/lib/diseno/para-coni"
 
-const EN_SUS_PALABRAS = "No alcanza el saldo para grabar el video. Avísale a Federico."
+const EN_SUS_PALABRAS = "No alcanza el saldo para grabar el video."
 
 describe("esDeOperacion", () => {
   it("spots provider names, API balances and keys", () => {

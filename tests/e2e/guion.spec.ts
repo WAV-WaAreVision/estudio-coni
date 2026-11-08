@@ -399,7 +399,7 @@ test("an empty HeyGen API wallet keeps the signature closed, says it in her word
   await elegirAvatar(page, "Estudio")
   await escucharLaVoz(page)
   const barra = page.getByRole("region", { name: "Firma" })
-  await expect(barra.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toBeVisible()
+  await expect(barra.getByText("No alcanza el saldo para grabar el video.")).toBeVisible()
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeHidden()
   await abrirDesplegable(barra, "Detalle para WAV")
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()

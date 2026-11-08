@@ -355,7 +355,7 @@ describe("PantallaGuion: la firma", () => {
 
   it("says a short HeyGen balance in her words in the bar, with no list, and folds the numbers for WAV", () => {
     const bloqueo = "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48)."
-    const suyo = "No alcanza el saldo para grabar el video. Avísale a Federico."
+    const suyo = "No alcanza el saldo para grabar el video."
     render(<PantallaGuion datos={datos({}, { voz: null, botones: { ...BOTONES, bloqueoVideo: bloqueo } })} />)
     expect(within(barra()).getByRole("status")).toHaveTextContent(suyo)
     expect(within(barra()).queryByText("Falta:")).toBeNull()
@@ -378,7 +378,7 @@ describe("PantallaGuion: la firma", () => {
     [
       "a short HeyGen balance",
       "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48).",
-      "No alcanza el saldo para grabar el video. Avísale a Federico.",
+      "No alcanza el saldo para grabar el video.",
     ],
     [
       "the monthly cap",

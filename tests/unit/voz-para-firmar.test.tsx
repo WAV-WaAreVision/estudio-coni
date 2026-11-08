@@ -308,7 +308,7 @@ describe("VozParaFirmar", () => {
       />,
     )
     const accion = screen.getByRole("button", { name: /^Preparar mi voz/ })
-    expect(accion).toHaveAccessibleDescription("No alcanza el saldo para preparar tu voz. Avísale a Federico.")
+    expect(accion).toHaveAccessibleDescription("No alcanza el saldo para preparar tu voz.")
     const detalle = screen.getByText("Detalle para WAV").closest("details") as HTMLElement
     expect(detalle).toContainElement(screen.getByText(sinCaracteres))
   })

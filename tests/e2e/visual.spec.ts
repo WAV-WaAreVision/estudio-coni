@@ -462,7 +462,7 @@ test("guion sin saldo", async ({ page }) => {
   await vozEscuchada(page, id)
   await page.goto(`/guion/${id}`)
   // Said twice: at the top, before the steps, and at the sign control.
-  await expect(page.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toHaveCount(2)
+  await expect(page.getByText("No alcanza el saldo para grabar el video.")).toHaveCount(2)
   await capturaDe(page, "guion-sin-saldo")
 })
 
