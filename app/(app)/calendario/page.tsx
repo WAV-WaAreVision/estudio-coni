@@ -15,6 +15,10 @@ import { exigirConi } from "@/lib/sesion/coni"
 import { cn } from "@/lib/utils"
 import { cambiarPropuestaAccion, repartirFechasAccion } from "./acciones"
 
+// The page stays wide in every view so the header and the tabs never move when she switches (issue 103); only the month
+// uses the width. The tabs, Agenda and Ritmo keep the reading width.
+const LECTURA = "md:max-w-[42rem]"
+
 export default async function Calendario({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
   const [{ db }, { vista: pedida }] = await Promise.all([exigirConi(), searchParams])
   const vista = esVista(pedida) ? pedida : "mes"
@@ -33,14 +37,15 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
         </h1>
       </header>
 
-      <div className="mt-4">
+      <div className={cn("mt-4", LECTURA)}>
         <VistasDelCalendario activa={vista} />
       </div>
 
       {vista === "mes" ? (
-        // On a computer (issue 103) the month is wide on the left, Para subir and Próximos a 20rem panel. On a phone each
-        // column's first margin folds through its box, so the spacing is the single column's.
-        <div className={cn("md:mt-6", PRINCIPAL_Y_PANEL)}>
+        // On a computer (issue 103) the month is wide on the left, Para subir and Próximos a 20rem panel; with neither,
+        // the month takes the whole width. On a phone each column's first margin folds through its box, so the spacing
+        // is the single column's.
+        <div className={cn("md:mt-6", conPanel && PRINCIPAL_Y_PANEL)}>
           <div data-testid="pagina-principal" className="md:[&>:first-child]:mt-0">
             <div className="mt-6">
               <MesDelCalendario celdas={calendario.mes.celdas} />
@@ -93,7 +98,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
         </div>
       ) : null}
       {vista === "agenda" ? (
-        <div className="mt-6">
+        <div className={cn("mt-6", LECTURA)}>
           <AgendaDelCalendario
             semanas={calendario.agenda.semanas}
             porRepartir={calendario.agenda.porRepartir}
@@ -103,7 +108,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
         </div>
       ) : null}
       {vista === "ritmo" ? (
-        <div className="mt-6">
+        <div className={cn("mt-6", LECTURA)}>
           <RitmoDelCalendario ritmo={calendario.ritmo} />
         </div>
       ) : null}

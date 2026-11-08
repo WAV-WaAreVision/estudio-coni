@@ -157,6 +157,31 @@ test("Calendario puts the month on the left and Para subir in a side panel", asy
   await revisarPagina(page, "calendario")
 })
 
+test("Calendario keeps Agenda and its tabs at reading width, the tabs as wide as over the month", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Lo que firma un modelo" })
+  await sembrarPieza("video_por_aprobar", { titulo: "Lo que firma un modelo", idea_id: idea })
+  const pestanas = page.getByRole("navigation", { name: "Vista del calendario" })
+
+  await page.goto("/calendario")
+  await expect(pestanas).toBeVisible()
+  const sobreElMes = await cajaDe(pestanas)
+
+  await page.goto("/calendario?vista=agenda")
+  const fila = page.getByRole("link", { name: /Lo que firma un modelo/ })
+  await expect(fila).toBeVisible()
+  const enLaAgenda = await cajaDe(pestanas)
+  expect(Math.round(enLaAgenda.left)).toBe(Math.round(sobreElMes.left))
+  expect(Math.round(enLaAgenda.width)).toBe(Math.round(sobreElMes.width))
+  const lectura = await anchoDeLectura(page.getByRole("main"))
+  expect(enLaAgenda.width).toBeLessThanOrEqual(lectura + 1)
+  // The row's date and its arrow stay within reading distance of each other.
+  const renglon = await cajaDe(fila)
+  expect(renglon.width).toBeLessThanOrEqual(lectura + 1)
+  expect(renglon.left).toBeGreaterThanOrEqual(enLaAgenda.left - 1)
+  expect(renglon.right).toBeLessThanOrEqual(enLaAgenda.right + 1)
+  await revisarPagina(page, "calendario agenda")
+})
+
 test("Ajustes lays its sections out in two columns", async ({ page }) => {
   await page.goto("/ajustes")
   await expect(page.getByRole("heading", { name: "Publicación", exact: true })).toBeVisible()
