@@ -403,7 +403,9 @@ describe("PantallaGuion: la firma", () => {
 
   it("blocks in the bar with today's text when there are no looks to choose", () => {
     render(<PantallaGuion datos={datos({ avatares: [] })} />)
-    expect(within(barra()).getByText("Todavía no hay avatares para elegir: avísale a Federico.")).toBeInTheDocument()
+    expect(
+      within(barra()).getByText("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."),
+    ).toBeInTheDocument()
     expect(screen.queryByRole("radio")).toBeNull()
   })
 

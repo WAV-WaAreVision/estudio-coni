@@ -7,7 +7,7 @@ import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
-import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
+import { type AvatarParaElegir, ElegirAvatar, TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { LineaDeFuente } from "@/components/linea-de-fuente"
 import { CABECERA_EN_COLUMNAS, COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
@@ -91,8 +91,6 @@ function enSusPalabras(explicacion: string, razon: string | null): string {
   if (esFallaDeLlave(explicacion)) return TEXTO_NO_PUDE_REHACER_VOZ
   return razon === null ? `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_REINTENTA_REHACER_VOZ}` : TEXTO_NO_PUDE_REHACER_VOZ
 }
-
-const TEXTO_AUN_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 const idDeRevision = (indice: number) => `revision-${indice}`
@@ -383,7 +381,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
         {/* Required to sign, so it is a step of its own and never folded. */}
         <Seccion titulo="3. Elige tu avatar" id="avatar" className="dos-columnas:col-start-2">
           {sinAvatares ? (
-            <p className="text-meta text-apagado">{TEXTO_AUN_SIN_AVATARES}</p>
+            <p className="text-meta text-apagado">{TEXTO_SIN_AVATARES}</p>
           ) : (
             <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
           )}

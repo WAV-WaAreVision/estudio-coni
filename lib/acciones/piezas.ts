@@ -383,7 +383,7 @@ export function reintentarGuion(deps: DepsAcciones, piezaId: string, versionVist
 
 /** The avatar she signs with the script: it has to be one of the looks WAV lets her choose right now. */
 function exigirAvatarElegible(elegibles: readonly AvatarElegible[], avatarId: string | null): string {
-  if (elegibles.length === 0) throw new Falla("Todavía no hay avatares para elegir: avísale a Federico.")
+  if (elegibles.length === 0) throw new Falla("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí.")
   const elegido = avatarId?.trim()
   if (!elegido) throw new Falla("Elige con qué avatar se graba antes de aprobar.")
   if (!elegibles.some((avatar) => avatar.avatar_id === elegido)) {

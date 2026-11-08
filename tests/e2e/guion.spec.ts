@@ -569,7 +569,9 @@ test("with an empty list it says so and approval stays blocked", async ({ page }
   await page.goto(`/guion/${id}`)
 
   await expect(
-    page.getByRole("region", { name: "Firma" }).getByText("Todavía no hay avatares para elegir: avísale a Federico."),
+    page
+      .getByRole("region", { name: "Firma" })
+      .getByText("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."),
   ).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(0)
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")
