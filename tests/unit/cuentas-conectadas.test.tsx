@@ -121,6 +121,17 @@ describe("CuentasConectadas", () => {
     expect(await screen.findByText("Guardada. No pude comprobarla ahora, la reviso más tarde.")).toBeInTheDocument()
   })
 
+  it("says WAV will connect her voice when the ElevenLabs key is saved without one", async () => {
+    mostrar(vi.fn(async () => ({ ok: true as const, estado: "sin_voz" as const })))
+
+    fireEvent.click(screen.getByRole("button", { name: "Agregar la llave de ElevenLabs" }))
+    fireEvent.change(screen.getByLabelText("Llave de ElevenLabs"), { target: { value: "otra-llave-larga" } })
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y comprobar" }))
+
+    expect(await screen.findByText("Guardada. WAV va a conectar tu voz.")).toBeInTheDocument()
+    expect(screen.queryByText(/avísale/i)).toBeNull()
+  })
+
   it("keeps the field open and shows why when the key is refused", async () => {
     mostrar(
       vi.fn(async () => ({

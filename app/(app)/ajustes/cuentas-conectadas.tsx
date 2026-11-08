@@ -18,7 +18,8 @@ import type { FilaDeCuenta } from "@/lib/ajustes/presentar"
 const MENSAJE_DE_LLAVE: Record<EstadoDeLlave, string> = {
   comprobada: "Guardada y comprobada.",
   sin_comprobar: "Guardada. No pude comprobarla ahora, la reviso más tarde.",
-  sin_voz: "Guardada. Falta tu voz de ElevenLabs: avísale a Federico.",
+  // WAV is emailed on its own (issue 101, decision 3).
+  sin_voz: "Guardada. WAV va a conectar tu voz.",
 }
 const TEXTO_DESCONECTAR = "Tus videos dejarán de salir solos ahí y te quedarán para subir a mano."
 const MENSAJE_DESCONECTADO =

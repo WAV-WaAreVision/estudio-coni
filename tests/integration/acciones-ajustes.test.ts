@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { type DepsAjustes, guardarAjuste, guardarLlave } from "@/lib/acciones/ajustes"
+import { type Notificador, notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import coniConfig from "../fixtures/coni.config.json"
 import { servidor } from "../msw"
@@ -13,8 +15,8 @@ type Db = SupabaseClient<Database>
 let coni: Db
 let mantenedor: Db
 
-function deps(db: Db = coni): DepsAjustes {
-  return { db, ahora: () => new Date().toISOString() }
+function deps(db: Db = coni, avisos: Notificador = notificadorEnMemoria()): DepsAjustes {
+  return { db, ahora: () => new Date().toISOString(), avisos: () => avisos }
 }
 
 beforeAll(async () => {
@@ -393,6 +395,56 @@ describe("guardarLlave", () => {
 
     expect(resultado).toEqual({ ok: true, estado: "sin_voz" })
     expect(await secreto("elevenlabs")).toBe("el-nueva")
+  })
+
+  it("emails WAV on its own that her voice is missing, keyed by the saved key (issue 101, decision 3)", async () => {
+    const avisos = notificadorEnMemoria()
+
+    expect(await guardarLlave(deps(coni, avisos), { cuenta: "elevenlabs", llave: "el-nueva" })).toEqual({
+      ok: true,
+      estado: "sin_voz",
+    })
+
+    const huella = createHash("sha256").update("el-nueva").digest("hex").slice(0, 16)
+    expect(avisos.aWavEnviados).toEqual([
+      {
+        asunto: "Coni guardó su llave de ElevenLabs y falta conectar su voz",
+        detalle: expect.stringContaining("/ajustes/cuentas"),
+        idempotencia: `sin-voz:${huella}`,
+      },
+    ])
+    expect(avisos.aWavEnviados[0]?.detalle).not.toContain("el-nueva")
+  })
+
+  it("still saves the key when WAV's email fails, and logs it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const fallido: Notificador = {
+      ...notificadorEnMemoria(),
+      aWav: async () => {
+        throw new Error("Resend no responde")
+      },
+    }
+
+    expect(await guardarLlave(deps(coni, fallido), { cuenta: "elevenlabs", llave: "el-nueva" })).toEqual({
+      ok: true,
+      estado: "sin_voz",
+    })
+    expect(await secreto("elevenlabs")).toBe("el-nueva")
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("No pude avisarle a WAV"), expect.any(Error))
+  })
+
+  it("emails nobody when the key was checked against her voice", async () => {
+    await pool.query("update public.ajustes set produccion = $1::jsonb", [JSON.stringify(coniConfig)])
+    servidor.use(
+      http.get(`https://api.elevenlabs.io/v1/voices/${coniConfig.elevenlabs.voice_id}`, () =>
+        HttpResponse.json({ name: "Coni" }),
+      ),
+    )
+    const avisos = notificadorEnMemoria()
+
+    await guardarLlave(deps(coni, avisos), { cuenta: "elevenlabs", llave: "el-nueva" })
+
+    expect(avisos.aWavEnviados).toEqual([])
   })
 
   it("refuses an empty key, one with spaces inside, and an account that is not one of the three", async () => {
