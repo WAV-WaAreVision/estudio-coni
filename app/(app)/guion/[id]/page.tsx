@@ -96,7 +96,16 @@ export default async function PaginaDeGuion({
         "Algo falló al preparar tu guion. WAV ya está revisando.",
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={
+            fila.explicacion ? (
+              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
+            ) : undefined
+          }
+        >
           {fila.explicacion ? (
             <>
               <Bloque
@@ -115,7 +124,6 @@ export default async function PaginaDeGuion({
               >
                 {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
               </Bloque>
-              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
             </>
           ) : (
             <Trabajando
@@ -168,7 +176,22 @@ export default async function PaginaDeGuion({
         "Algo no salió como esperábamos con esta pieza.",
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={
+            <>
+              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
+              {voz ? (
+                <Seccion titulo="Voz" id="voz">
+                  <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+                  <VozSuelta src={voz.url} clave={voz.clave} />
+                </Seccion>
+              ) : null}
+            </>
+          }
+        >
           <Bloque
             tipo={pausaDeHeygen ? "aviso" : "error"}
             grande
@@ -192,13 +215,6 @@ export default async function PaginaDeGuion({
               />
             ) : null}
           </Bloque>
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
-          {voz ? (
-            <Seccion titulo="Voz" id="voz">
-              <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
-              <VozSuelta src={voz.url} clave={voz.clave} />
-            </Seccion>
-          ) : null}
         </EstadoSencillo>
       )
     }
