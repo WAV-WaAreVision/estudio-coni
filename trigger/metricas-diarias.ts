@@ -1,8 +1,10 @@
 import { schedules } from "@trigger.dev/sdk"
 import { depsMetricas } from "@/lib/metricas/deps-reales"
 import { registrarMetricasDiarias } from "@/lib/metricas/diarias"
+import { avisarSiFaltanNumeros, avisoDeMetricas } from "@/lib/metricas/sin-numeros"
 import { depsFalla } from "@/lib/produccion/deps-reales"
 import { alFallarDeTarea } from "@/lib/produccion/fallas"
+import { avisosReales } from "@/lib/proveedores/avisos"
 
 /**
  * 07:00 in Chile whatever the daylight saving time (design T15). The default retries stay: reading and saving a day's
@@ -19,5 +21,15 @@ export const CONFIGURACION_METRICAS = {
 export const metricasDiariasTask = schedules.task({
   ...CONFIGURACION_METRICAS,
   onFailure: alFallarDeTarea("metricas-diarias", depsFalla),
-  run: async () => registrarMetricasDiarias(depsMetricas()),
+  run: async () => {
+    const deps = depsMetricas()
+    const resultado = await registrarMetricasDiarias(deps)
+    // Issue 111: Métricas promises Coni that WAV hears every morning while no reel has numbers.
+    const sinNumeros = await avisarSiFaltanNumeros({
+      avisos: () => avisosReales(),
+      ahora: deps.ahora,
+      leerAviso: () => avisoDeMetricas(deps),
+    })
+    return { ...resultado, sinNumeros }
+  },
 })

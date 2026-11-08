@@ -17,17 +17,10 @@ function archivos(carpeta: string): string[] {
   return salida
 }
 
-// Out of issue 101's scope (its spec names four texts): the error screen and the Instagram, LinkedIn and metrics
-// notices still ask her to tell Federico by hand. A new one anywhere else fails here.
-const FUERA_DEL_ALCANCE = new Set([
-  "lib/metricas/modelo.ts",
-])
-
-describe("no screen asks Coni to tell Federico by hand (issue 101)", () => {
-  it("has no «avísale a Federico» in app/, components/ or lib/ beyond the files left for later", () => {
+describe("no screen asks Coni to tell Federico by hand (issues 101 and 111)", () => {
+  it("has no «avísale a Federico» in app/, components/ or lib/", () => {
     const culpables = ["app", "components", "lib"]
       .flatMap(archivos)
-      .filter((ruta) => !FUERA_DEL_ALCANCE.has(ruta))
       .filter((ruta) => /av[ií]sale a federico/i.test(readFileSync(join(RAIZ, ruta), "utf-8")))
     expect(culpables).toEqual([])
   })
