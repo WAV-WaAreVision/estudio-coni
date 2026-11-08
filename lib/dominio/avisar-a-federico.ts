@@ -96,3 +96,34 @@ export function cuerpoDeAviso(aviso: { tipo: TipoDeAviso; id: string; titulo: st
     "Coni tocó «Avisar a Federico» en esa pantalla.",
   ].join("\n")
 }
+
+/** A balance block at gate 1 that WAV hears about from her tap: no pause opens for it (#101, decision 1). */
+export type MotivoDeSaldo = "saldo_voz" | "saldo_video"
+
+const PROVEEDOR_DEL_SALDO: Record<MotivoDeSaldo, string> = { saldo_voz: "ElevenLabs", saldo_video: "HeyGen" }
+
+/** One email per piece attempt and motivo: a new attempt that hits the balance again is told again. */
+export function claveDeAvisoDeSaldo(entrada: { id: string; motivo: MotivoDeSaldo; intento: number }): string {
+  return `pieza:${entrada.id}:${entrada.motivo}:${ocurrenciaDePieza(entrada.intento)}`
+}
+
+export function cuerpoDeAvisoDeSaldo(aviso: {
+  id: string
+  titulo: string
+  motivo: MotivoDeSaldo
+  /** The block's own text, with what is left and what this costs. */
+  bloqueo: string
+  estimado: string
+  /** The balance line WAV already sees on the screen. */
+  saldo: string
+}): string {
+  return [
+    `Pieza: «${aviso.titulo}»`,
+    `Proveedor: ${PROVEEDOR_DEL_SALDO[aviso.motivo]}`,
+    `Qué pasó: ${aviso.bloqueo}`,
+    `Estimado: ${aviso.estimado}`,
+    `Saldo: ${aviso.saldo}`,
+    `Ábrelo en ${URL_DE_LA_APP}${RUTA.pieza}${aviso.id}`,
+    "Coni tocó «Avisar a Federico» en esa pantalla.",
+  ].join("\n")
+}

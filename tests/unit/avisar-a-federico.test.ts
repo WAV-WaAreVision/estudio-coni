@@ -4,7 +4,9 @@ import { esFallaDeLlave as esFallaDeLlaveDeLaPantalla } from "@/app/(app)/guion/
 import {
   asuntoDeAviso,
   claveDeAviso,
+  claveDeAvisoDeSaldo,
   cuerpoDeAviso,
+  cuerpoDeAvisoDeSaldo,
   ETIQUETA_AVISAR,
   esFallaDeLlave,
   fallaParaFederico,
@@ -161,5 +163,45 @@ describe("the copy", () => {
     expect(esFallaDeLlave("ElevenLabs respondió 401")).toBe(true)
     expect(esFallaDeLlave("No hay llave guardada")).toBe(true)
     expect(esFallaDeLlave("ElevenLabs respondió 500")).toBe(false)
+  })
+})
+
+describe("a balance that does not reach (#101, decision 1)", () => {
+  it("keys the email by piece, motivo and attempt, so a new attempt tells WAV again", () => {
+    expect(claveDeAvisoDeSaldo({ id: ID, motivo: "saldo_voz", intento: 2 })).toBe(`pieza:${ID}:saldo_voz:i2`)
+    expect(claveDeAvisoDeSaldo({ id: ID, motivo: "saldo_video", intento: 0 })).toBe(`pieza:${ID}:saldo_video:i0`)
+  })
+
+  it("names the provider, the piece, the estimate, the balance WAV sees and a link to the piece", () => {
+    const cuerpo = cuerpoDeAvisoDeSaldo({
+      id: ID,
+      titulo: "Sexo y ansiedad",
+      motivo: "saldo_video",
+      bloqueo: "Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48).",
+      estimado: "US$ 3,48",
+      saldo: "Saldo de API de HeyGen: US$ 0,00. Es aparte de tu plan de HeyGen.",
+    })
+
+    expect(cuerpo.split("\n")).toEqual([
+      "Pieza: «Sexo y ansiedad»",
+      "Proveedor: HeyGen",
+      "Qué pasó: Tu saldo de API de HeyGen no alcanza (te quedan US$ 0,00 y este video cuesta unos US$ 3,48).",
+      "Estimado: US$ 3,48",
+      "Saldo: Saldo de API de HeyGen: US$ 0,00. Es aparte de tu plan de HeyGen.",
+      `Ábrelo en https://conidolly.vercel.app/guion/${ID}`,
+      "Coni tocó «Avisar a Federico» en esa pantalla.",
+    ])
+  })
+
+  it("says ElevenLabs for her voice", () => {
+    const cuerpo = cuerpoDeAvisoDeSaldo({
+      id: ID,
+      titulo: "T",
+      motivo: "saldo_voz",
+      bloqueo: "b",
+      estimado: "e",
+      saldo: "s",
+    })
+    expect(cuerpo).toContain("Proveedor: ElevenLabs")
   })
 })
