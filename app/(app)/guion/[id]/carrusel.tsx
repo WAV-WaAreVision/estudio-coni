@@ -61,27 +61,32 @@ export async function VistaDeCarrusel({
         "Algo falló al preparar tu carrusel. WAV ya está revisando.",
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
-          {fila.explicacion ? (
-            <>
-              <Bloque
-                tipo={pausaDeClaude ? "aviso" : "error"}
-                grande
-                titulo={TEXTO_NO_ESCRIBI_CARRUSEL}
-                accion={
-                  <AccionesDeEstado
-                    piezaId={fila.id}
-                    version={fila.version}
-                    acciones={["reintentarGuion"]}
-                    enUnError
-                    bloqueo={pausaDeClaude}
-                  />
-                }
-              >
-                {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
-              </Bloque>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          lateral={
+            fila.explicacion ? (
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
-            </>
+            ) : undefined
+          }
+        >
+          {fila.explicacion ? (
+            <Bloque
+              tipo={pausaDeClaude ? "aviso" : "error"}
+              grande
+              titulo={TEXTO_NO_ESCRIBI_CARRUSEL}
+              accion={
+                <AccionesDeEstado
+                  piezaId={fila.id}
+                  version={fila.version}
+                  acciones={["reintentarGuion"]}
+                  enUnError
+                  bloqueo={pausaDeClaude}
+                />
+              }
+            >
+              {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
+            </Bloque>
           ) : (
             <Trabajando
               titulo={TEXTO_ESCRIBIENDO_CARRUSEL}
@@ -175,9 +180,14 @@ export async function VistaDeCarrusel({
         ? detalleDeProgramado(linkedinExpiraEn, fila.puerta2_publicar_en)
         : TEXTO_PROGRAMADO_CARRUSEL
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          lateral={
+            <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
+          }
+        >
           <LineaDeEstado tipo="exito" titulo={`Programado para el ${cuando}`} detalle={detalle} />
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
         </EstadoSencillo>
       )
     }
@@ -189,7 +199,11 @@ export async function VistaDeCarrusel({
       if (!version) throw new Error(`La pieza ${fila.id} espera subirse sin el carrusel aprobado.`)
       const razon = publicaciones.find((p) => p.destino === "linkedin" && p.estado === "para_subir")?.explicacion
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          lateral={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />}
+        >
           <LineaDeEstado tipo="aviso" titulo="Listo para que lo subas a LinkedIn" detalle={razon ?? undefined} />
           <SubirCarruselAMano
             piezaId={fila.id}
@@ -198,7 +212,6 @@ export async function VistaDeCarrusel({
             alDescargar={descargarCarruselAccion}
             alMarcar={marcarSubidoAManoAccion}
           />
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
         </EstadoSencillo>
       )
     }
@@ -228,7 +241,11 @@ export async function VistaDeCarrusel({
     }
     case "error_produccion":
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          lateral={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />}
+        >
           <Bloque
             tipo="error"
             grande
@@ -242,12 +259,15 @@ export async function VistaDeCarrusel({
               enSusPalabras={TEXTO_REINTENTA}
             />
           </Bloque>
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
         </EstadoSencillo>
       )
     case "error_publicacion":
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          lateral={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />}
+        >
           <LineaDeEstado
             tipo="error"
             titulo="No te lo pude dejar para subir"
@@ -258,7 +278,6 @@ export async function VistaDeCarrusel({
               />
             }
           />
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
     default:

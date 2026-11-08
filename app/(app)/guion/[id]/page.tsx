@@ -43,7 +43,7 @@ import { PantallaGuion } from "./pantalla-guion"
 import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_REINTENTA } from "./textos"
 import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
-import { PantallaDeVideoDetenido } from "./video-detenido"
+import { VideoDetenido } from "./video-detenido"
 import { VozSuelta } from "./voz-suelta"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -96,27 +96,33 @@ export default async function PaginaDeGuion({
         "Algo falló al preparar tu guion. WAV ya está revisando.",
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
-          {fila.explicacion ? (
-            <>
-              <Bloque
-                tipo={pausaDeClaude ? "aviso" : "error"}
-                grande
-                titulo={TEXTO_NO_ESCRIBI}
-                accion={
-                  <AccionesDeEstado
-                    piezaId={fila.id}
-                    version={fila.version}
-                    acciones={["reintentarGuion"]}
-                    enUnError
-                    bloqueo={pausaDeClaude}
-                  />
-                }
-              >
-                {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
-              </Bloque>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={
+            fila.explicacion ? (
               <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
-            </>
+            ) : undefined
+          }
+        >
+          {fila.explicacion ? (
+            <Bloque
+              tipo={pausaDeClaude ? "aviso" : "error"}
+              grande
+              titulo={TEXTO_NO_ESCRIBI}
+              accion={
+                <AccionesDeEstado
+                  piezaId={fila.id}
+                  version={fila.version}
+                  acciones={["reintentarGuion"]}
+                  enUnError
+                  bloqueo={pausaDeClaude}
+                />
+              }
+            >
+              {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
+            </Bloque>
           ) : (
             <Trabajando
               titulo="Estoy escribiendo el guion"
@@ -132,14 +138,14 @@ export default async function PaginaDeGuion({
       if (fila.explicacion) {
         return (
           <>
-            <PantallaDeVideoDetenido
-              titulo={fila.titulo}
-              pilar={pilar}
-              segundos={segundosDe(fila.guion)}
-              piezaId={fila.id}
-              explicacion={fila.explicacion}
-              aviso={await avisoDeLaPieza(db, fila)}
-            />
+            {/* Issue 101, decision 4: what happened and «Volver a Inicio» in the reading column, the piece beside. */}
+            <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+              <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
+              <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
+                Volver a Inicio
+                <House aria-hidden="true" size={ICONO.medio} />
+              </Link>
+            </EstadoSencillo>
             <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
           </>
         )
@@ -168,7 +174,22 @@ export default async function PaginaDeGuion({
         "Algo no salió como esperábamos con esta pieza.",
       )
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={
+            <>
+              <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
+              {voz ? (
+                <Seccion titulo="Voz" id="voz">
+                  <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
+                  <VozSuelta src={voz.url} clave={voz.clave} />
+                </Seccion>
+              ) : null}
+            </>
+          }
+        >
           <Bloque
             tipo={pausaDeHeygen ? "aviso" : "error"}
             grande
@@ -192,13 +213,6 @@ export default async function PaginaDeGuion({
               />
             ) : null}
           </Bloque>
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
-          {voz ? (
-            <Seccion titulo="Voz" id="voz">
-              <p className="text-meta text-apagado">Mientras tanto, puedes escuchar la voz.</p>
-              <VozSuelta src={voz.url} clave={voz.clave} />
-            </Seccion>
-          ) : null}
         </EstadoSencillo>
       )
     }

@@ -8,7 +8,9 @@ import { SoloParaConi } from "./solo-para-coni"
 // One centred column on every screen size; on a tablet or a computer the bar goes to the top (brandkit 5). The
 // Biblioteca marks itself (data-ancho) so the column widens there on a computer, for its table and side panel; the four
 // signing gates do too (gate 1 of a reel and of a carousel, gate 2 of a video and of a carousel), for what she reviews
-// beside the signature; Inicio too, for its side column, and a stopped video, for the piece's card beside what happened. A gate that falls back to one column keeps 560 px itself (components/puerta-en-columnas.ts).
+// beside the signature; Inicio too, for its side column; and every piece state with nothing to sign
+// (EstadoSencillo), for the piece's card beside what is happening. A gate that falls back to one column keeps 560 px
+// itself (components/puerta-en-columnas.ts).
 // If cacheComponents is ever enabled, hidden routes keep their DOM and this marker would widen every other screen.
 export default async function DisenoDeLaApp({ children }: Readonly<{ children: React.ReactNode }>) {
   const sesion = await leerSesion()

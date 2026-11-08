@@ -58,7 +58,14 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
         )
         .map((p) => p.destino)
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={
+            <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
+          }
+        >
           <LineaDeEstado
             tipo="exito"
             titulo={`Programado para el ${fila.puerta2_publicar_en ? etiquetaDeFecha(fila.puerta2_publicar_en, zona, "larga") : "día aprobado"}`}
@@ -76,7 +83,6 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
               alMarcar={marcarSubidoAManoAccion}
             />
           ) : null}
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["cambiarFecha", "descartar"]} />
         </EstadoSencillo>
       )
     }
@@ -85,7 +91,12 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
       const publicaciones = await leerPublicaciones(db, fila.id)
       const pendientes = publicaciones.filter((p) => p.estado === "para_subir").map((p) => p.destino)
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />}
+        >
           <LineaDeEstado
             tipo="aviso"
             titulo={`Listo para que lo subas a ${nombreDeDestinos(pendientes)}`}
@@ -105,7 +116,6 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
             alDescargar={descargarVideoAccion}
             alMarcar={marcarSubidoAManoAccion}
           />
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["descartar"]} />
         </EstadoSencillo>
       )
     }
@@ -145,7 +155,12 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
     }
     case "error_publicacion":
       return (
-        <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
+        <EstadoSencillo
+          titulo={fila.titulo}
+          pilar={pilar}
+          segundos={segundosDe(fila.guion)}
+          lateral={<AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />}
+        >
           <LineaDeEstado
             tipo="error"
             titulo="No se pudo publicar"
@@ -161,7 +176,6 @@ export default async function PaginaDeVideo({ params }: { params: Promise<{ id: 
               </>
             }
           />
-          <AccionesDeEstado piezaId={fila.id} version={fila.version} acciones={["reintentar", "descartar"]} />
         </EstadoSencillo>
       )
     case "guion_por_aprobar":
