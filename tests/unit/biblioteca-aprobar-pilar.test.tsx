@@ -82,7 +82,7 @@ describe("AprobarPilar", () => {
     abrir()
     const panel = screen.getByTestId("pagina-panel")
     // Drawn only on a computer; there the stages' own totals step aside (issue 103).
-    expect(panel).toHaveClass("hidden", "md:grid")
+    expect(panel).toHaveClass("hidden", "xl:grid")
     // A list of terms: each stage's name, then its total and its warning.
     const etapa = (nombre: string) => {
       const fila = within(panel)

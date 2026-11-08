@@ -33,7 +33,7 @@ interface Propiedades {
 /**
  * Spec 15c, decision 8: every stage of the network's weights from today on, each with every pillar and the new one,
  * editable, its own live total and its own warning when it is not 100 (it never blocks). On the phone, blocks one under
- * another. On a computer the same fields make a table (issue 103): a row per pillar, a column per stage, the grid
+ * another. On a wide computer (xl, where the table fits beside its panel) the same fields make a table (issue 103): a row per pillar, a column per stage, the grid
  * placing each field by `--fila` and `--columna` while the blocks and their groups step aside (`contents`); each
  * stage's total and warning move to a side panel. The database writes only what changed, on each stage's date.
  */
@@ -90,14 +90,14 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
     <form
       onSubmit={aprobar}
       noValidate
-      className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-x-8 lg:gap-x-12"
+      className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-x-12"
     >
-      <div data-testid="pagina-principal" className="contents md:grid md:min-w-0 md:gap-5">
+      <div data-testid="pagina-principal" className="contents xl:grid xl:min-w-0 xl:gap-5">
         <h2 className="text-pieza">{`Pesos de ${NOMBRE_DE_RED[borrador.red]}`}</h2>
         <div
           data-testid="pesos"
           style={{ "--etapas": etapas.length } as CSSProperties}
-          className="grid gap-4 md:grid-cols-[minmax(8rem,max-content)_repeat(var(--etapas),minmax(6.5rem,9rem))] md:items-center md:gap-x-4 md:gap-y-2"
+          className="grid gap-4 xl:grid-cols-[minmax(8rem,max-content)_repeat(var(--etapas),minmax(6.5rem,9rem))] xl:items-center xl:gap-x-4 xl:gap-y-2"
         >
           {conSumas.map(({ etapa, texto, aviso }, posicion) => {
             return (
@@ -105,10 +105,10 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
                 key={etapa.desde}
                 data-contorno
                 style={{ "--columna": posicion + 2 } as CSSProperties}
-                className="rounded-panel bg-piedra-alta p-4 md:contents"
+                className="rounded-panel bg-piedra-alta p-4 xl:contents"
               >
-                <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0 md:contents">
-                  <legend className="mb-1 text-cuerpo font-semibold md:col-[var(--columna)] md:row-start-1 md:mb-0 md:self-end md:text-meta">
+                <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0 xl:contents">
+                  <legend className="mb-1 text-cuerpo font-semibold xl:col-[var(--columna)] xl:row-start-1 xl:mb-0 xl:self-end xl:text-meta">
                     {etapa.etiqueta}
                   </legend>
                   {etapa.filas.map((fila) => {
@@ -118,9 +118,9 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
                       <div
                         key={fila.clave}
                         style={{ "--fila": enLaTabla } as CSSProperties}
-                        className="grid gap-1 md:col-[var(--columna)] md:row-[var(--fila)]"
+                        className="grid gap-1 xl:col-[var(--columna)] xl:row-[var(--fila)]"
                       >
-                        <label htmlFor={idDe(etapa.desde, fila.clave)} className="text-meta font-semibold md:sr-only">
+                        <label htmlFor={idDe(etapa.desde, fila.clave)} className="text-meta font-semibold xl:sr-only">
                           {fila.nombre}
                           {fila.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
                           {/* The same pillar is in every stage: the stage completes its name. */}
@@ -140,10 +140,10 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
                       </div>
                     )
                   })}
-                  <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums md:hidden">
+                  <output aria-live="polite" className="text-cuerpo font-semibold tabular-nums xl:hidden">
                     {texto}
                   </output>
-                  {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} className="md:hidden" /> : null}
+                  {aviso ? <LineaDeEstado tipo="aviso" titulo={aviso} className="xl:hidden" /> : null}
                 </fieldset>
               </div>
             )
@@ -155,7 +155,7 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
               aria-hidden="true"
               data-encabezado-de-fila
               style={{ "--fila": posicion + 2 } as CSSProperties}
-              className="hidden text-meta font-semibold md:col-start-1 md:row-[var(--fila)] md:block"
+              className="hidden text-meta font-semibold xl:col-start-1 xl:row-[var(--fila)] xl:block"
             >
               {pilar.nombre}
               {pilar.clave === NUEVO ? <span className="text-apagado"> · nuevo</span> : null}
@@ -175,11 +175,11 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
             type="submit"
             cargando={(pendiente || yendo) && errorAlIr === null}
             deshabilitado={errorAlIr !== null}
-            className="md:w-auto"
+            className="xl:w-auto"
           >
             Aprobar pilar
           </Boton>
-          <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "md:w-auto")}>
+          <Link href={cancelar} className={cn(clasesDeBoton({ variante: "secundario" }), "xl:w-auto")}>
             Cancelar
           </Link>
         </div>
@@ -188,7 +188,7 @@ export function AprobarPilar({ borrador, etapas: iniciales, cancelar }: Propieda
       {/* Each stage's total and warning beside the table, on a computer only; the phone has them in each block. */}
       <dl
         data-testid="pagina-panel"
-        className="hidden md:sticky md:top-24 md:grid md:content-start md:gap-4 md:rounded-panel md:bg-piedra-alta md:p-5"
+        className="hidden xl:sticky xl:top-24 xl:grid xl:content-start xl:gap-4 xl:rounded-panel xl:bg-piedra-alta xl:p-5"
       >
         {conSumas.map(({ etapa, texto, aviso }) => {
           return (

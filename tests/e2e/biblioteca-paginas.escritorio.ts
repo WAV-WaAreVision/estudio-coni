@@ -193,3 +193,63 @@ test("approving a pillar lays the weights out as a table, pillar by stage, with 
   await expect(panel(page).getByText(/^Los pesos de LinkedIn suman/)).toHaveCount(0)
   await revisarPagina(page, "aprobar")
 })
+
+test.describe("at the narrowest computer width", () => {
+  test.use({ viewport: { width: 768, height: 1024 } })
+
+  test("no Biblioteca page of group C scrolls sideways, and the weights keep their stage groups", async ({ page }) => {
+    await pool.query(
+      `insert into public.borradores_de_pilar (red, nombre, nombre_corto, descripcion, peso)
+       values ('instagram', 'Sueño y pantallas: lo que cambia de noche', 'Sueño y pantallas', 'Lo que la luz y el scroll hacen con el sueño.', 5)`,
+    )
+    await sembrarEtapaDeLinkedin()
+    const linkedin = (
+      await pool.query<{ id: string }>(
+        `insert into public.borradores_de_pilar (red, nombre, nombre_corto, descripcion, peso)
+         values ('linkedin', 'Liderazgo sereno: decidir con IA', 'Liderazgo sereno', 'Cómo decide una líder.', 10)
+         returning id`,
+      )
+    ).rows[0]?.id
+    if (!linkedin) throw new Error("No se creó el borrador de LinkedIn")
+    const rutas = [
+      `/biblioteca/autores/${escena.autora}`,
+      `/biblioteca/temas/${escena.carga}`,
+      "/biblioteca/temas/borradores",
+      "/biblioteca/temas/pilar-nuevo?red=instagram",
+      "/biblioteca/temas/red-nueva",
+      `/biblioteca/temas/borradores/${borradores.pilar}/editar`,
+      `/biblioteca/temas/borradores/${linkedin}/aprobar`,
+    ]
+    for (const ruta of rutas) {
+      await page.goto(ruta)
+      await expect(page.locator("main h1")).toBeVisible()
+      expect(await sobraDeAncho(page), ruta).toBeLessThanOrEqual(0)
+    }
+    await expect(page.getByRole("group", { name: "Hoy" })).toBeVisible()
+  })
+})
+
+for (const width of [768, 1024, 1280]) {
+  test.describe(`weights at ${width}`, () => {
+    test.use({ viewport: { width, height: 1024 } })
+
+    test(`the weights table stays inside its column at ${width} px`, async ({ page }) => {
+      await sembrarEtapaDeLinkedin()
+      const id = (
+        await pool.query<{ id: string }>(
+          `insert into public.borradores_de_pilar (red, nombre, nombre_corto, descripcion, peso)
+           values ('linkedin', 'Liderazgo sereno: decidir con IA', 'Liderazgo sereno', 'Cómo decide una líder.', 10)
+           returning id`,
+        )
+      ).rows[0]?.id
+      if (!id) throw new Error("No se creó el borrador de LinkedIn")
+      await page.goto(`/biblioteca/temas/borradores/${id}/aprobar`)
+      const pesos = page.getByTestId("pesos")
+      const tabla = await caja(pesos)
+      expect(tabla.right).toBeLessThanOrEqual((await caja(page.locator("main"))).right + 1)
+      expect(await pesos.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0)
+      // Below xl the stages are cards with their own totals, as on a phone; from xl, a table beside the panel.
+      if (width >= 1280) expect(tabla.right).toBeLessThanOrEqual((await caja(panel(page))).left + 1)
+    })
+  })
+}

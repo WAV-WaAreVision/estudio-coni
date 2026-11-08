@@ -10,8 +10,8 @@ import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { TrasElAviso } from "../../tras-el-aviso"
 import { TarjetaDeBorradorDePilar, TarjetaDeBorradorDeRed } from "./tarjetas-de-borrador"
 
-/** The drafts side by side wherever there is room (at least 20rem each) on a computer; one column on a phone. */
-const TARJETAS = "grid gap-3 md:grid-cols-[repeat(auto-fill,minmax(20rem,1fr))]"
+/** The drafts side by side wherever there is room (at least 20rem each, or the whole column if narrower) on a computer; one column on a phone. */
+const TARJETAS = "grid gap-3 md:grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))]"
 
 /** Spec 15c: the drafts that wait, pillars by network and then networks; approving is a second, separate step. */
 export default async function Borradores({
@@ -23,7 +23,7 @@ export default async function Borradores({
   const { pilares, redes } = await listarBorradores(db)
   const aviso = leerAviso(params)
   const ambos = pilares.length > 0 && redes.length > 0
-  // On a computer the pillars (by network) and the networks sit side by side, two thirds and one third, each a grid
+  // On a computer the pillars (by network) and the networks sit side by side from lg, two thirds and one third, each a grid
   // of cards; on a phone both wrappers are `contents` and the page keeps its one column (issue 103).
   return (
     <div className="grid gap-6">
@@ -39,7 +39,7 @@ export default async function Borradores({
       <div
         className={cn(
           "contents md:grid md:items-start md:gap-x-8 md:gap-y-6 lg:gap-x-12",
-          ambos && "md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+          ambos && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
         )}
       >
         <div className="contents md:grid md:min-w-0 md:gap-6 md:empty:hidden">
