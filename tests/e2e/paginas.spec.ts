@@ -22,6 +22,8 @@ test.afterAll(async () => {
 })
 
 async function caja(elemento: Locator, nombre: string) {
+  // The page streams in: measure once the element is on screen, not while its section is still loading.
+  await expect(elemento).toBeVisible()
   const r = await elemento.boundingBox()
   if (!r) throw new Error(`${nombre}: sin caja`)
   return r
