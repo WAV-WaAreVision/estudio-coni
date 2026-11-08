@@ -17,8 +17,11 @@ interface PropiedadesDeElegirAvatar {
   alElegir: (avatarId: string) => void
 }
 
-/** Gate 1 says it as a block in the sign bar, and then does not render this list at all. */
-export const TEXTO_SIN_AVATARES = "Todavía no hay avatares para elegir: avísale a Federico."
+/**
+ * Gate 1 says it as a block in the sign bar, and then does not render this list at all. Only while WAV sets up the
+ * account, so it is text and never «Avisar a Federico» (spec 2026-11-07, leftovers of #96, decision 2).
+ */
+export const TEXTO_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
 
 /**
  * Decision 9, step 6: WAV's looks as choice rows with their round photo. A native radio group: arrows come free. The

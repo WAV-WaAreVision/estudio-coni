@@ -75,4 +75,13 @@ describe("AvisarAFederico", () => {
     expect(boton).not.toHaveAttribute("aria-disabled")
     expect(screen.queryByText("Le avisé a Federico.")).toBeNull()
   })
+
+  it("sends the balance motivo with the piece when the button sits beside a balance block", async () => {
+    render(<AvisarAFederico tipo="pieza" id={PIEZA} motivo="saldo_video" avisado={false} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Avisar a Federico" }))
+
+    expect(await screen.findByText("Le avisé a Federico.")).toBeInTheDocument()
+    expect(avisarAFedericoAccion).toHaveBeenCalledWith({ tipo: "pieza", id: PIEZA, motivo: "saldo_video" })
+  })
 })

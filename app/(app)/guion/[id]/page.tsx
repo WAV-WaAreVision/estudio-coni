@@ -12,8 +12,8 @@ import { ICONO } from "@/components/ui/icono"
 import { tieneVersionDeClaude } from "@/lib/acciones/guion"
 import { urlParaVer } from "@/lib/acciones/medios"
 import { ocupadasEnLaPuerta, propuestaVigente } from "@/lib/calendario/propuestas"
-import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
-import { leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
+import { leerAvisoAFederico, leerAvisoDeSaldo } from "@/lib/datos/aviso-a-federico"
+import { type BotonesDeGrabacion, leerDatosDeGrabacion, vozVigente } from "@/lib/datos/grabacion"
 import { leerAvataresElegibles, leerContextoDeFechas, leerPantallaDePieza } from "@/lib/datos/pantallas"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { piezaDesdeFila } from "@/lib/datos/piezas"
@@ -43,7 +43,7 @@ import { PantallaGuion } from "./pantalla-guion"
 import { TEXTO_NO_ESCRIBI, TEXTO_NO_TERMINE, TEXTO_REINTENTA } from "./textos"
 import { Trabajando } from "./trabajando"
 import { avisoAlVolver, ventanaDeDeshacer } from "./ventana-de-firma"
-import { VideoDetenido } from "./video-detenido"
+import { PantallaDeVideoDetenido } from "./video-detenido"
 import { VozSuelta } from "./voz-suelta"
 
 const segundosDe = (guion: string | null) => (guion ? Math.round(estimarSegundos(guion)) : undefined)
@@ -129,6 +129,21 @@ export default async function PaginaDeGuion({
     }
     case "en_render":
     case "subtitulando": {
+      if (fila.explicacion) {
+        return (
+          <>
+            <PantallaDeVideoDetenido
+              titulo={fila.titulo}
+              pilar={pilar}
+              segundos={segundosDe(fila.guion)}
+              piezaId={fila.id}
+              explicacion={fila.explicacion}
+              aviso={await avisoDeLaPieza(db, fila)}
+            />
+            <RefrescoAutomatico activo={piezaTrabajando(fila)} cadaMs={4000} />
+          </>
+        )
+      }
       const ventana = ventanaDeDeshacer(
         { ...fila, firmaEn: piezaDesdeFila(fila).puerta1?.en ?? null },
         firmada,
@@ -136,11 +151,7 @@ export default async function PaginaDeGuion({
       )
       return (
         <EstadoSencillo titulo={fila.titulo} pilar={pilar} segundos={segundosDe(fila.guion)}>
-          {fila.explicacion ? (
-            <VideoDetenido piezaId={fila.id} explicacion={fila.explicacion} aviso={await avisoDeLaPieza(db, fila)} />
-          ) : (
-            <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
-          )}
+          <DeshacerFirma piezaId={fila.id} version={ventana.version} quedanMs={ventana.quedanMs} />
           <Link href="/" className={clasesDeBoton({ variante: "secundario", className: "mt-2" })}>
             Volver a Inicio
             <House aria-hidden="true" size={ICONO.medio} />
@@ -229,6 +240,7 @@ export default async function PaginaDeGuion({
     leerDatosDeGrabacion(db, { fila, estado: fila.estado, guion: fila.guion, zona: contexto.horario.zona }),
     avisoDeLaPieza(db, fila),
   ])
+  const avisoDeSaldo = await avisosDeSaldo(db, fila, grabacion.botones)
 
   return (
     <>
@@ -254,6 +266,7 @@ export default async function PaginaDeGuion({
           salida: salida ? etiquetaDeFecha(salida, contexto.horario.zona, "larga") : null,
           explicacion: fila.explicacion,
           aviso,
+          avisoDeSaldo,
           avatares,
           grabacion,
           avisoInicial: avisoAlVolver(deshecho, fila.estado),
@@ -278,6 +291,21 @@ function avisoDeLaPieza(
         explicacion,
         ocurrencia: ocurrenciaDePieza(fila.intento),
       })
+}
+
+/** Whether WAV's email for each balance block at gate 1 went out (issue 101, decision 1); null where none closes. */
+async function avisosDeSaldo(
+  db: Parameters<typeof leerAvisoDeSaldo>[0],
+  fila: { id: string; intento: number },
+  botones: BotonesDeGrabacion | null,
+) {
+  const leer = (motivo: "saldo_voz" | "saldo_video", sinSaldo: boolean | undefined) =>
+    sinSaldo ? leerAvisoDeSaldo(db, { id: fila.id, motivo, intento: fila.intento }) : Promise.resolve(null)
+  const [voz, video] = await Promise.all([
+    leer("saldo_voz", botones?.vozSinSaldo),
+    leer("saldo_video", botones?.videoSinSaldo),
+  ])
+  return { voz, video }
 }
 
 /** The stored voice of the approved script, signed for listening, or null when there is none or the setup does not read. */

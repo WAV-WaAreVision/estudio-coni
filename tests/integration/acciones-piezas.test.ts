@@ -625,7 +625,7 @@ describe("aprobarGuion", () => {
 
     expect(resultado).toEqual({
       ok: false,
-      error: "Todavía no hay avatares para elegir: avísale a Federico.",
+      error: "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí.",
     })
     expect(await fila(id)).toMatchObject({ estado: "guion_por_aprobar", avatar_id: null })
   })

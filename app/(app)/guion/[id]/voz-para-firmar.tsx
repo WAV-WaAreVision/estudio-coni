@@ -36,6 +36,8 @@ interface PropiedadesDeVoz {
   explicacion: string | null
   /** A failure only WAV can fix (a refused key): whether Federico was told; null when there is none to tell. */
   aviso?: { avisado: boolean } | null
+  /** ElevenLabs' balance does not cover the voice (issue 101): whether Federico was told; null when it does. */
+  avisoDeSaldo?: { avisado: boolean } | null
   /** Which take she heard to the end. */
   alEscuchar: (clave: string) => void
   /** The editor holds changes she has not saved: a voice now would speak the old text and lose her draft. */
@@ -67,16 +69,22 @@ function fallaEnSusPalabras(detalle: string, razon: string | null): { texto: str
  */
 function LineaBajoElBoton({
   id,
+  piezaId,
   razon,
   datos,
+  avisoDeSaldo,
   paraWav = [],
 }: {
   id: string
+  piezaId: string
   razon: string | null
   datos: DatosDeGrabacion
+  avisoDeSaldo: { avisado: boolean } | null
   /** WAV's lines of the block above (a provider's reason for the failed voice): one fold per block, not two. */
   paraWav?: readonly string[]
 }) {
+  // Only a balance block, never unsaved changes, a pause or the month's limit: no pause tells WAV about it.
+  const porSaldo = avisoDeSaldo !== null && datos.botones?.vozSinSaldo === true && razon === datos.botones.bloqueoVoz
   const para = separarParaConi(razon ?? "", TEXTO_SIN_SALDO_VOZ, [
     ...paraWav,
     ...(datos.botones ? [datos.botones.saldoVoz] : []),
@@ -88,6 +96,9 @@ function LineaBajoElBoton({
           <Info aria-hidden="true" size={ICONO.chico} className="mt-0.5 shrink-0" />
           {para.texto}
         </p>
+      ) : null}
+      {porSaldo ? (
+        <AvisarAFederico tipo="pieza" id={piezaId} motivo="saldo_voz" avisado={avisoDeSaldo.avisado} />
       ) : null}
       {para.detalle.length > 0 ? <DetalleParaWav lineas={para.detalle} proveedor={para.proveedor} /> : null}
     </>
@@ -104,6 +115,7 @@ export function VozParaFirmar({
   datos,
   explicacion,
   aviso = null,
+  avisoDeSaldo = null,
   alEscuchar,
   sinGuardar,
   className,
@@ -162,8 +174,10 @@ export function VozParaFirmar({
               </Boton>
               <LineaBajoElBoton
                 id={idRazon}
+                piezaId={piezaId}
                 razon={enPausa ? null : razon}
                 datos={datos}
+                avisoDeSaldo={avisoDeSaldo}
                 paraWav={detalleDeFalla?.detalle}
               />
             </div>
@@ -182,8 +196,9 @@ export function GrabarDeNuevo({
   piezaId,
   version,
   datos,
+  avisoDeSaldo = null,
   sinGuardar,
-}: Pick<PropiedadesDeVoz, "piezaId" | "version" | "datos" | "sinGuardar">) {
+}: Pick<PropiedadesDeVoz, "piezaId" | "version" | "datos" | "avisoDeSaldo" | "sinGuardar">) {
   const pedir = useAccion()
   const idRazon = useId()
   const razon = razonDeVoz(datos, sinGuardar)
@@ -201,7 +216,7 @@ export function GrabarDeNuevo({
       >
         Grabar la voz de nuevo
       </Boton>
-      <LineaBajoElBoton id={idRazon} razon={razon} datos={datos} />
+      <LineaBajoElBoton id={idRazon} piezaId={piezaId} razon={razon} datos={datos} avisoDeSaldo={avisoDeSaldo} />
       {pedir.error ? <Bloque tipo="error" titulo={pedir.error} /> : null}
     </div>
   )

@@ -15,9 +15,14 @@ import { desconectarLinkedin } from "@/lib/acciones/linkedin"
 import { reactivarLimite } from "@/lib/acciones/presupuesto"
 import { aResultado, type Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi } from "@/lib/acciones/servidor"
+import { avisosReales } from "@/lib/proveedores/avisos"
 import { servicioPushReal } from "@/lib/proveedores/push"
 
-const deps = (db: Parameters<typeof guardarAjuste>[0]["db"]) => ({ db, ahora: () => new Date().toISOString() })
+const deps = (db: Parameters<typeof guardarAjuste>[0]["db"]) => ({
+  db,
+  ahora: () => new Date().toISOString(),
+  avisos: () => avisosReales(),
+})
 
 /** What the settings change is read by Inicio (the next dates) and the screens that propose one. */
 async function refrescar<T extends object>(resultado: Resultado<T>): Promise<Resultado<T>> {

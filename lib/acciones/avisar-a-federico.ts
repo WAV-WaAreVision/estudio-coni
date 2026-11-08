@@ -1,14 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerBotonesDeLaPieza } from "@/lib/datos/grabacion"
 import {
   asuntoDeAviso,
   claveDeAviso,
+  claveDeAvisoDeSaldo,
   cuerpoDeAviso,
+  cuerpoDeAvisoDeSaldo,
   fallaParaFederico,
+  type MotivoDeSaldo,
   ocurrenciaDeFicha,
   ocurrenciaDePieza,
   TEXTO_AVISANDO,
   TEXTO_YA_NO_FALLA,
-  type TipoDeAviso,
 } from "@/lib/dominio/avisar-a-federico"
 import { Falla } from "@/lib/dominio/falla"
 import type { Notificador } from "@/lib/proveedores/avisos"
@@ -24,7 +27,11 @@ export interface DepsAvisar {
   avisos: () => Notificador
 }
 
-export type EntradaAvisar = { tipo: TipoDeAviso; id: string }
+/** `motivo`: a balance block at gate 1 (issue 101, decision 1), read from the piece's buttons instead of its explanation. */
+export type EntradaAvisar = { tipo: "pieza"; id: string; motivo?: MotivoDeSaldo } | { tipo: "material"; id: string }
+
+/** What one email to WAV is: its key (also Resend's Idempotency-Key), subject and body. */
+type Correo = { clave: string; asunto: string; cuerpo: string }
 
 /** `ocurrencia` tells this failure apart from the same text on another attempt or run (`claveDeAviso`). */
 type FallaLeida = { titulo: string; explicacion: string; ocurrencia: string }
@@ -57,6 +64,46 @@ async function fallaDelMaterial(db: Db, id: string): Promise<FallaLeida | null> 
 }
 
 /**
+ * The piece's gate 1 recomputed as its page does: only a block that is still a balance that does not cover the estimate
+ * is told (a paused provider, the month's limit or enough balance are refused like a failure that is gone).
+ */
+async function correoDeSaldo(db: Db, id: string, motivo: MotivoDeSaldo): Promise<Correo | null> {
+  const pieza = await leerBotonesDeLaPieza(db, id)
+  const botones = pieza?.botones
+  if (!pieza || !botones) return null
+  const deVoz = motivo === "saldo_voz"
+  const bloqueo = deVoz ? botones.bloqueoVoz : botones.bloqueoVideo
+  if (bloqueo === null || !(deVoz ? botones.vozSinSaldo : botones.videoSinSaldo)) return null
+  return {
+    clave: claveDeAvisoDeSaldo({ id, motivo, intento: pieza.intento }),
+    asunto: asuntoDeAviso(pieza.titulo),
+    cuerpo: cuerpoDeAvisoDeSaldo({
+      id,
+      titulo: pieza.titulo,
+      motivo,
+      bloqueo,
+      estimado: deVoz ? `${botones.montoVoz} · ${botones.unidadVoz}` : botones.montoVideo,
+      saldo: deVoz ? botones.saldoVoz : botones.saldoVideo,
+    }),
+  }
+}
+
+async function correoDeFalla(db: Db, entrada: EntradaAvisar): Promise<Correo | null> {
+  const falla = entrada.tipo === "pieza" ? await fallaDeLaPieza(db, entrada.id) : await fallaDelMaterial(db, entrada.id)
+  if (falla === null) return null
+  return {
+    clave: await claveDeAviso({
+      tipo: entrada.tipo,
+      id: entrada.id,
+      explicacion: falla.explicacion,
+      ocurrencia: falla.ocurrencia,
+    }),
+    asunto: asuntoDeAviso(falla.titulo),
+    cuerpo: cuerpoDeAviso({ tipo: entrada.tipo, id: entrada.id, titulo: falla.titulo, explicacion: falla.explicacion }),
+  }
+}
+
+/**
  * Spec 2026-11-07, decision 6 and amendment A11: Coni tells WAV about a failure only WAV can fix. The entity is read
  * here (never the screen's text) and a failure that is gone is refused. One email per failure: only the caller that
  * claims its row sends it, the row is marked once sent, and a failed send lets go so her next tap sends it. A tap on a
@@ -65,15 +112,12 @@ async function fallaDelMaterial(db: Db, id: string): Promise<FallaLeida | null> 
  */
 export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promise<Resultado> {
   return aResultado("avisarAFederico", async () => {
-    const falla =
-      entrada.tipo === "pieza" ? await fallaDeLaPieza(deps.db, entrada.id) : await fallaDelMaterial(deps.db, entrada.id)
-    if (falla === null) throw new Falla(TEXTO_YA_NO_FALLA)
-    const clave = await claveDeAviso({
-      tipo: entrada.tipo,
-      id: entrada.id,
-      explicacion: falla.explicacion,
-      ocurrencia: falla.ocurrencia,
-    })
+    const correo =
+      entrada.tipo === "pieza" && entrada.motivo
+        ? await correoDeSaldo(deps.db, entrada.id, entrada.motivo)
+        : await correoDeFalla(deps.db, entrada)
+    if (correo === null) throw new Falla(TEXTO_YA_NO_FALLA)
+    const { clave } = correo
 
     const { data: estado, error } = await deps.db.rpc("reclamar_aviso_a_federico", {
       p_clave: clave,
@@ -87,13 +131,7 @@ export function avisarAFederico(deps: DepsAvisar, entrada: EntradaAvisar): Promi
     if (estado !== "tuyo") throw new Error(`reclamar_aviso_a_federico respondió «${estado}» para ${clave}`)
 
     try {
-      await deps
-        .avisos()
-        .aWav(
-          asuntoDeAviso(falla.titulo),
-          cuerpoDeAviso({ ...entrada, titulo: falla.titulo, explicacion: falla.explicacion }),
-          clave,
-        )
+      await deps.avisos().aWav(correo.asunto, correo.cuerpo, clave)
     } catch (errorAlAvisar) {
       // The send's error is the one to answer; a claim that could not be let go is handed on after five minutes.
       const { error: errorAlSoltar } = await deps.db.rpc("soltar_aviso_a_federico", { p_clave: clave })

@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
+import { URL_DE_LA_APP } from "@/lib/diseno/marca"
 import { canonicos, type Destino, destinosDe, destinosValidos } from "@/lib/dominio/destinos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { dolares } from "@/lib/formato"
@@ -10,6 +12,7 @@ import {
   MAXIMO_DEL_TOPE_USD,
   PASO_DEL_PRESUPUESTO_USD,
 } from "@/lib/presupuesto/presentar"
+import type { Notificador } from "@/lib/proveedores/avisos"
 import { baseDe } from "@/lib/proveedores/bases"
 import { leerConfigProduccion } from "@/lib/proveedores/config"
 import { verificarVoz } from "@/lib/proveedores/elevenlabs"
@@ -23,6 +26,8 @@ export interface DepsAjustes {
   /** Coni's session: row level security and `guardar_secreto` only answer to her. */
   db: Db
   ahora: () => string
+  /** Resolved on use: only a key saved without her voice emails WAV (a missing Resend key must not break Ajustes). */
+  avisos: () => Notificador
 }
 
 const dias = z
@@ -224,6 +229,27 @@ async function comprobar(deps: DepsAjustes, cuenta: CuentaConLlave, llave: strin
   }
 }
 
+export const ASUNTO_SIN_VOZ = "Coni guardó su llave de ElevenLabs y falta conectar su voz"
+
+/**
+ * Issue 101, decision 3: a key saved while her voice is not set up reaches WAV on its own, once per key for Resend's
+ * 24 h (the Idempotency-Key is a fingerprint of the key, never the key). No table row: `avisos_a_federico` takes only
+ * pieces and materials. A failed email is logged and the key stays saved.
+ */
+async function avisarSinVoz(deps: DepsAjustes, llave: string): Promise<void> {
+  const huella = createHash("sha256").update(`sin-voz:${llave}`).digest("hex").slice(0, 16)
+  const detalle = [
+    "Coni guardó una llave de ElevenLabs en Ajustes, pero su voz todavía no está configurada en la producción.",
+    "Conecta su voz para que pueda preparar la voz de sus guiones.",
+    `Ábrelo en ${URL_DE_LA_APP}/ajustes/cuentas`,
+  ].join("\n")
+  try {
+    await deps.avisos().aWav(ASUNTO_SIN_VOZ, detalle, `sin-voz:${huella}`)
+  } catch (error) {
+    console.error("No pude avisarle a WAV que falta conectar la voz de Coni", error)
+  }
+}
+
 /**
  * Coni pastes a key in Ajustes: it is checked with its provider first and only then saved (encrypted, in Vault), so a
  * bad paste never replaces a key that works. If the provider cannot be reached the key is saved and she is told it
@@ -243,7 +269,10 @@ export function guardarLlave(deps: DepsAjustes, entrada: unknown): Promise<Resul
     const { error } = await deps.db.rpc("guardar_secreto", { p_nombre: cuenta, p_valor: llave })
     if (error) throw new Error(`No pude guardar la llave de ${cuenta}: ${error.message}`, { cause: error })
 
-    if (verificacion === "sin_voz") return { estado: "sin_voz" as const }
+    if (verificacion === "sin_voz") {
+      await avisarSinVoz(deps, llave)
+      return { estado: "sin_voz" as const }
+    }
     return { estado: verificacion.ok ? ("comprobada" as const) : ("sin_comprobar" as const) }
   })
 }

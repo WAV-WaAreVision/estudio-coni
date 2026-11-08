@@ -71,10 +71,10 @@ describe("faltaParaFirmar", () => {
     })
   })
 
-  it("blocks with today's text when there are no looks to choose", () => {
+  it("blocks with the text that waits for WAV when there are no looks to choose", () => {
     expect(faltaParaFirmar({ ...LISTA, sinAvatares: true, avatarElegido: false })).toEqual({
       tipo: "bloqueo",
-      texto: "Todavía no hay avatares para elegir: avísale a Federico.",
+      texto: "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí.",
     })
   })
 })

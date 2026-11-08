@@ -24,6 +24,14 @@ const CONFIG = { ...BASE, heygen: { ...BASE.heygen, avatares: LOOKS } }
 const LLAVE = "No pude preparar tu voz. ElevenLabs respondió HTTP 401: Invalid API key"
 const AVISAR = "Avisar a Federico"
 
+/** The balances are read with these keys, against the fake services (issue 101's balance blocks). */
+async function conLlavesDeSaldo(): Promise<void> {
+  for (const nombre of ["heygen", "elevenlabs"]) {
+    await pool.query("delete from vault.secrets where name = $1", [nombre])
+    await pool.query("select vault.create_secret($1, $2)", [`llave-de-${nombre}-e2e`, nombre])
+  }
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
   await bloquearRedExterna(page)
@@ -36,6 +44,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.afterAll(async () => {
+  await pool.query("delete from vault.secrets where name in ('heygen', 'elevenlabs')")
   await pool.query("delete from public.avisos_a_federico")
   await pool.query("update public.ajustes set produccion = '{}'::jsonb")
   await vaciarBiblioteca()
@@ -63,12 +72,21 @@ test("gate 1 keeps its two columns with the button inside «1. Escucha tu voz»"
   await capturar(page, "avisar-voz-avisado-escritorio", { completa: true })
 })
 
-test("a stopped video says it with the button in its block", async ({ page }) => {
+test("a stopped video uses two columns: what happened on the left, the piece's card on the right", async ({ page }) => {
   const id = await sembrarPieza("en_render", { explicacion: "HeyGen respondió HTTP 400: avatar_not_found" })
   await page.goto(`/guion/${id}`)
 
   const bloque = page.getByRole("alert").filter({ hasText: "El video está detenido" })
   await expect(bloque.getByRole("button", { name: AVISAR })).toBeVisible()
+  const principal = await cajaDe(page.getByTestId("detenido-principal"))
+  const pieza = await cajaDe(page.getByTestId("detenido-pieza"))
+  expect(pieza.left).toBeGreaterThanOrEqual(principal.right)
+  expect(Math.abs(pieza.top - principal.top)).toBeLessThanOrEqual(1)
+  expect(principal.width).toBeGreaterThan(pieza.width)
+  // Wider than the phone's 520 px column: the screen uses the computer's width.
+  expect(principal.width + pieza.width).toBeGreaterThan(560)
+  const volver = await cajaDe(page.getByRole("link", { name: "Volver a Inicio" }))
+  expect(volver.right).toBeLessThanOrEqual(principal.right)
   expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
   expect(await revisarConAxe(page, "avisar video en computador")).toEqual([])
   await capturar(page, "avisar-video-escritorio", { completa: true })
@@ -97,4 +115,25 @@ test("a material whose card cannot be read has the button in its reading column 
   await expect(panel.getByText("Le avisé a Federico.")).toBeVisible()
   expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
   await capturar(page, "avisar-material-panel-escritorio", { completa: true })
+})
+
+test("a HeyGen balance that does not cover the signature has the button in the block at the top", async ({ page }) => {
+  await configurarServicios({ heygenSaldo: 0 })
+  await conLlavesDeSaldo()
+  const id = await sembrarPieza("guion_por_aprobar", { guion: GUION_VALIDO, texto: TEXTO_VALIDO })
+  await ajustarPieza(id, { audio_id: null })
+  await page.goto(`/guion/${id}`)
+
+  const arriba = page.getByTestId("bloqueo-de-firma")
+  const boton = arriba.getByRole("button", { name: AVISAR })
+  await expect(boton).toBeVisible()
+  const lectura = await cajaDe(page.locator("section[aria-labelledby=guion]"))
+  expect((await cajaDe(boton)).left).toBeGreaterThanOrEqual(lectura.right)
+  expect((await cajaDe(boton)).height).toBeGreaterThanOrEqual(44)
+  expect(await sobraDeAncho(page)).toBeLessThanOrEqual(0)
+  expect(await revisarConAxe(page, "avisar saldo en computador")).toEqual([])
+  await capturar(page, "avisar-saldo-video-escritorio", { completa: true })
+
+  await boton.click()
+  await expect(arriba.getByText("Le avisé a Federico.")).toBeVisible()
 })

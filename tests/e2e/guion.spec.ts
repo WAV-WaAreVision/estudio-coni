@@ -399,7 +399,7 @@ test("an empty HeyGen API wallet keeps the signature closed, says it in her word
   await elegirAvatar(page, "Estudio")
   await escucharLaVoz(page)
   const barra = page.getByRole("region", { name: "Firma" })
-  await expect(barra.getByText("No alcanza el saldo para grabar el video. Avísale a Federico.")).toBeVisible()
+  await expect(barra.getByText("No alcanza el saldo para grabar el video.")).toBeVisible()
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeHidden()
   await abrirDesplegable(barra, "Detalle para WAV")
   await expect(page.getByText(/^Tu saldo de API de HeyGen no alcanza/)).toBeVisible()
@@ -569,7 +569,9 @@ test("with an empty list it says so and approval stays blocked", async ({ page }
   await page.goto(`/guion/${id}`)
 
   await expect(
-    page.getByRole("region", { name: "Firma" }).getByText("Todavía no hay avatares para elegir: avísale a Federico."),
+    page
+      .getByRole("region", { name: "Firma" })
+      .getByText("Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."),
   ).toBeVisible()
   await expect(page.getByRole("radio")).toHaveCount(0)
   await expect(page.getByRole("slider", { name: ETIQUETA })).toHaveAttribute("aria-disabled", "true")

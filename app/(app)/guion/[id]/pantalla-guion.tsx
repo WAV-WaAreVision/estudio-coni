@@ -7,7 +7,7 @@ import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { AYUDA_DE_MARCAS_EN_LECTURA } from "@/components/ayuda-de-marcas"
 import { DeslizarParaAprobar } from "@/components/deslizar-para-aprobar"
 import { EditorDeGuion, type GuionGuardado } from "@/components/editor-de-guion"
-import { type AvatarParaElegir, ElegirAvatar } from "@/components/elegir-avatar"
+import { type AvatarParaElegir, ElegirAvatar, TEXTO_SIN_AVATARES } from "@/components/elegir-avatar"
 import { GuionEnLectura } from "@/components/guion-en-lectura"
 import { LineaDeFuente } from "@/components/linea-de-fuente"
 import { CABECERA_EN_COLUMNAS, COLUMNAS_DE_PUERTA, FIRMA_EN_COLUMNA } from "@/components/puerta-en-columnas"
@@ -71,6 +71,8 @@ export interface DatosDeGuion {
   explicacion: string | null
   /** A failure only WAV can fix (a key ElevenLabs refused): whether Federico was told; null when there is none. */
   aviso: { avisado: boolean } | null
+  /** A balance that does not cover the voice or the video (issue 101): whether Federico was told; null when it does. */
+  avisoDeSaldo: { voz: { avisado: boolean } | null; video: { avisado: boolean } | null }
   /** The looks WAV lets her choose; empty means there is nothing to choose and the signature stays blocked. */
   avatares: AvatarParaElegir[]
   /** Her voice of this script and what the signature spends (design 2026-10-15, decisions 3 and 4). */
@@ -91,8 +93,6 @@ function enSusPalabras(explicacion: string, razon: string | null): string {
   if (esFallaDeLlave(explicacion)) return TEXTO_NO_PUDE_REHACER_VOZ
   return razon === null ? `${TEXTO_NO_PUDE_REHACER_VOZ} ${TEXTO_REINTENTA_REHACER_VOZ}` : TEXTO_NO_PUDE_REHACER_VOZ
 }
-
-const TEXTO_AUN_SIN_AVATARES = "Aún no hay avatares. Cuando WAV los agregue, los eliges aquí."
 
 const claveDe = (hallazgo: Hallazgo) => `${hallazgo.regla}|${hallazgo.frase ?? ""}|${hallazgo.mensaje}`
 const idDeRevision = (indice: number) => `revision-${indice}`
@@ -242,7 +242,21 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
         {/* A balance or the cap closes the signature whatever she does: said first, in her words, before the steps. */}
         {grabacion.botones?.bloqueoVideo ? (
           <div data-testid="bloqueo-de-firma" className="mt-6 dos-columnas:col-start-2 dos-columnas:mt-8">
-            <Bloque tipo="aviso">{separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}</Bloque>
+            <Bloque
+              tipo="aviso"
+              accion={
+                grabacion.botones.videoSinSaldo && datos.avisoDeSaldo.video ? (
+                  <AvisarAFederico
+                    tipo="pieza"
+                    id={datos.id}
+                    motivo="saldo_video"
+                    avisado={datos.avisoDeSaldo.video.avisado}
+                  />
+                ) : undefined
+              }
+            >
+              {separarParaConi(grabacion.botones.bloqueoVideo, TEXTO_SIN_SALDO_VIDEO).texto}
+            </Bloque>
           </div>
         ) : null}
 
@@ -267,6 +281,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
           datos={grabacion}
           explicacion={grabacion.voz ? null : datos.explicacion}
           aviso={grabacion.voz ? null : datos.aviso}
+          avisoDeSaldo={datos.avisoDeSaldo.voz}
           alEscuchar={setEscuchada}
           sinGuardar={sinGuardar}
           className="dos-columnas:col-start-2"
@@ -338,7 +353,13 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
                   alCambiarSinGuardar={setSinGuardar}
                 />
                 {grabacion.voz ? (
-                  <GrabarDeNuevo piezaId={datos.id} version={version} datos={grabacion} sinGuardar={sinGuardar} />
+                  <GrabarDeNuevo
+                    piezaId={datos.id}
+                    version={version}
+                    datos={grabacion}
+                    avisoDeSaldo={datos.avisoDeSaldo.voz}
+                    sinGuardar={sinGuardar}
+                  />
                 ) : null}
                 {pidiendoCambios ? (
                   <ConfirmacionEnLinea
@@ -383,7 +404,7 @@ function PuertaUno({ datos, angulo, elecciones }: { datos: DatosDeGuion; angulo?
         {/* Required to sign, so it is a step of its own and never folded. */}
         <Seccion titulo="3. Elige tu avatar" id="avatar" className="dos-columnas:col-start-2">
           {sinAvatares ? (
-            <p className="text-meta text-apagado">{TEXTO_AUN_SIN_AVATARES}</p>
+            <p className="text-meta text-apagado">{TEXTO_SIN_AVATARES}</p>
           ) : (
             <ElegirAvatar avatares={datos.avatares} elegido={avatarElegido} alElegir={setAvatarElegido} />
           )}
