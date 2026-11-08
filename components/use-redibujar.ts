@@ -120,12 +120,19 @@ export function useRedibujar(): () => () => void {
         const seDescarto = !vista && llegoEn !== null && Date.now() - llegoEn >= GRACIA_TRAS_LLEGAR_MS
         if (volvioAtras || seDescarto) return quedan > 0 ? intentar() : terminar()
       }
-      if (Date.now() >= plazo) terminar()
+      if (Date.now() >= plazo) {
+        // Its marker held: the chain is done, and the next redraw of this screen starts its own (a 4 s poll would
+        // otherwise grow the shared markers for as long as the tab stays open).
+        if (vista && turno === vigente) cadena = null
+        terminar()
+      }
     }
     try {
       descargas?.observe({ type: "resource" })
-    } catch {
-      // A browser without resource entries (older Safari) throws here: redraw anyway, without watching the download.
+    } catch (error) {
+      // A browser without resource entries (older Safari) throws a TypeError here: redraw anyway, without watching the
+      // download. Anything else is a real failure.
+      if (!(error instanceof TypeError)) throw error
       descargas?.disconnect()
       descargas = null
     }

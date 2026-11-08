@@ -234,6 +234,19 @@ describe("useRedibujar", () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 
+  it("lets any other failure of the download watch surface instead of hiding it", () => {
+    class Roto {
+      observe() {
+        throw new Error("falla inesperada")
+      }
+      disconnect() {}
+    }
+    vi.stubGlobal("PerformanceObserver", Roto)
+    const { result } = renderHook(() => useRedibujar())
+
+    expect(() => result.current()).toThrow("falla inesperada")
+  })
+
   it("stops checking when its caller calls it off", () => {
     replace.mockImplementation(comprometerYVolverAtras(300))
     const { result } = renderHook(() => useRedibujar())
