@@ -22,6 +22,31 @@ export function cajaDe(elemento: Locator): Promise<Caja> {
 
 export const firmaDe = (page: Page) => page.getByRole("region", { name: "Firma" })
 
+/** 75ch of the body text, measured inside `dentro`. */
+export function anchoDeLectura(dentro: Locator): Promise<number> {
+  return dentro.evaluate((nodo) => {
+    const regla = document.createElement("p")
+    regla.className = "text-cuerpo"
+    regla.style.width = "75ch"
+    nodo.append(regla)
+    const ancho = regla.getBoundingClientRect().width
+    regla.remove()
+    return ancho
+  })
+}
+
+/** One rem in pixels: the app's root size is not 16 px. */
+export function rem(page: Page): Promise<number> {
+  return page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
+}
+
+/** Two boxes side by side from the same top, the pair wider than 900 px. */
+export function ladoALado(izquierda: Caja, derecha: Caja, nombre: string): void {
+  expect(derecha.left, nombre).toBeGreaterThanOrEqual(izquierda.right)
+  expect(Math.abs(derecha.top - izquierda.top), nombre).toBeLessThanOrEqual(1)
+  expect(derecha.right - izquierda.left, nombre).toBeGreaterThan(900)
+}
+
 /** How many pixels the page scrolls sideways; 0 or less when it does not. */
 export function sobraDeAncho(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
