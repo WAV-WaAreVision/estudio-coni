@@ -405,7 +405,7 @@ describe("guardarLlave", () => {
       estado: "sin_voz",
     })
 
-    const huella = createHash("sha256").update("el-nueva").digest("hex").slice(0, 16)
+    const huella = createHash("sha256").update("sin-voz:el-nueva").digest("hex").slice(0, 16)
     expect(avisos.aWavEnviados).toEqual([
       {
         asunto: "Coni guardó su llave de ElevenLabs y falta conectar su voz",

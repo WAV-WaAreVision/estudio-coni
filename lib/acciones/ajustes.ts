@@ -237,7 +237,7 @@ export const ASUNTO_SIN_VOZ = "Coni guardó su llave de ElevenLabs y falta conec
  * pieces and materials. A failed email is logged and the key stays saved.
  */
 async function avisarSinVoz(deps: DepsAjustes, llave: string): Promise<void> {
-  const huella = createHash("sha256").update(llave).digest("hex").slice(0, 16)
+  const huella = createHash("sha256").update(`sin-voz:${llave}`).digest("hex").slice(0, 16)
   const detalle = [
     "Coni guardó una llave de ElevenLabs en Ajustes, pero su voz todavía no está configurada en la producción.",
     "Conecta su voz para que pueda preparar la voz de sus guiones.",
