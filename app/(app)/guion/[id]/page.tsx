@@ -107,24 +107,22 @@ export default async function PaginaDeGuion({
           }
         >
           {fila.explicacion ? (
-            <>
-              <Bloque
-                tipo={pausaDeClaude ? "aviso" : "error"}
-                grande
-                titulo={TEXTO_NO_ESCRIBI}
-                accion={
-                  <AccionesDeEstado
-                    piezaId={fila.id}
-                    version={fila.version}
-                    acciones={["reintentarGuion"]}
-                    enUnError
-                    bloqueo={pausaDeClaude}
-                  />
-                }
-              >
-                {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
-              </Bloque>
-            </>
+            <Bloque
+              tipo={pausaDeClaude ? "aviso" : "error"}
+              grande
+              titulo={TEXTO_NO_ESCRIBI}
+              accion={
+                <AccionesDeEstado
+                  piezaId={fila.id}
+                  version={fila.version}
+                  acciones={["reintentarGuion"]}
+                  enUnError
+                  bloqueo={pausaDeClaude}
+                />
+              }
+            >
+              {porQue ? <ExplicacionParaConi texto={porQue} enSusPalabras={TEXTO_REINTENTA} /> : null}
+            </Bloque>
           ) : (
             <Trabajando
               titulo="Estoy escribiendo el guion"
