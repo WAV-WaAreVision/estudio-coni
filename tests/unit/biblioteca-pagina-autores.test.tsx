@@ -236,9 +236,16 @@ describe("deleting an author", () => {
     const pagina = await DetalleDeAutor(conId(ID))
     const arbol = elementos(pagina)
     expect(arbol.find((e) => e.type === BotonBorrar)?.props).toEqual({ tipo: "autor", id: ID })
-    const hijos = (pagina as Elemento).props.children
-    const ultimo = (Array.isArray(hijos) ? hijos : [hijos]).filter(Boolean).at(-1)
-    expect(ultimo).toEqual(expect.objectContaining({ type: BotonBorrar }))
+    // Last of the page's last part, the side panel on a computer (issue 103).
+    const ultimoDe = (nodo: unknown) => {
+      const hijos = (nodo as Elemento).props.children
+      return (Array.isArray(hijos) ? hijos : [hijos]).filter(Boolean).at(-1)
+    }
+    const panel = ultimoDe(pagina)
+    expect(panel).toEqual(
+      expect.objectContaining({ props: expect.objectContaining({ "data-testid": "pagina-panel" }) }),
+    )
+    expect(ultimoDe(panel)).toEqual(expect.objectContaining({ type: BotonBorrar }))
   })
 
   it.each([

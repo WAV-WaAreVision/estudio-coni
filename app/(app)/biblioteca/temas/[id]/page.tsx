@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
+import { INTRO_DE_PAGINA, PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { Volver } from "@/components/ui/volver"
 import { destinoDeTema, leerPilaresDeTema, leerTema, listarPilaresDeTemas } from "@/lib/datos/biblioteca"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
@@ -13,6 +14,7 @@ import {
   RUTA_DE_TEMAS,
 } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { exigirConi } from "@/lib/sesion/coni"
+import { cn } from "@/lib/utils"
 import { AvisoDeIdeas } from "../../aviso-de-ideas"
 import { BotonOcultar } from "../../boton-ocultar"
 import { ListaDeIdeas } from "../../lista-de-ideas"
@@ -47,43 +49,53 @@ export default async function DetalleDeTema({
   const cuentas = cuentasDeTema({ ideas, autores: autores.length })
 
   const oculta = ideaOculta !== null
+  // On a computer the pillars go to a 20rem panel beside the title and the ideas, which fill the main area in two
+  // columns. On a phone the pillars keep their place between the title and the ideas: the grid places the panel, and
+  // the two halves of the main area are `contents` there (issue 103).
   return (
-    <div className="grid gap-6 md:max-w-[42rem]">
-      <Volver href={RUTA_DE_TEMAS}>Temas</Volver>
-      <header className="grid gap-2">
-        <h1 className="text-pantalla text-balance">{tema.nombre}</h1>
-        {tema.descripcion ? <p className="text-cuerpo">{tema.descripcion}</p> : null}
-        {cuentas ? <p className="text-meta text-apagado">{cuentas}</p> : null}
-      </header>
-      <PilaresDelTema temaId={tema.id} pilares={pilares} opciones={opciones} />
-      <AvisoDeIdeas texto={oculta ? AVISO_TRAS_OCULTAR : null} />
-      {oculta ? <TrasElAviso parametro="oculta" /> : null}
+    <div className={cn("grid gap-6", PRINCIPAL_Y_PANEL, "md:grid-rows-[auto_1fr]")}>
+      <div data-testid="pagina-principal" className="contents md:col-start-1 md:grid md:min-w-0 md:gap-6">
+        <Volver href={RUTA_DE_TEMAS}>Temas</Volver>
+        <header className={cn("grid gap-2", INTRO_DE_PAGINA)}>
+          <h1 className="text-pantalla text-balance">{tema.nombre}</h1>
+          {tema.descripcion ? <p className="text-cuerpo">{tema.descripcion}</p> : null}
+          {cuentas ? <p className="text-meta text-apagado">{cuentas}</p> : null}
+        </header>
+      </div>
+      <div data-testid="pagina-panel" className="md:col-start-2 md:row-span-2 md:row-start-1">
+        <PilaresDelTema temaId={tema.id} pilares={pilares} opciones={opciones} />
+      </div>
+      <div className="contents md:col-start-1 md:grid md:min-w-0 md:content-start md:gap-6">
+        <AvisoDeIdeas texto={oculta ? AVISO_TRAS_OCULTAR : null} />
+        {oculta ? <TrasElAviso parametro="oculta" /> : null}
 
-      {autores.map((grupo) => {
-        const idDelTitulo = `autor-${grupo.autor.id}`
-        return (
-          <section key={grupo.autor.id} aria-labelledby={idDelTitulo} className="grid gap-3">
-            <div className="grid gap-0.5">
-              <h2 id={idDelTitulo} className="text-pieza text-balance">
-                <Link
-                  href={hrefDeAutor(grupo.autor.id)}
-                  className="inline-flex min-h-objetivo items-center underline decoration-1 underline-offset-4"
-                >
-                  {grupo.autor.nombre}
-                </Link>
-              </h2>
-              {grupo.autor.credencial ? <p className="text-meta text-apagado">{grupo.autor.credencial}</p> : null}
-            </div>
-            <ListaDeIdeas
-              etiqueta={`Ideas de ${grupo.autor.nombre}`}
-              ideas={grupo.ideas}
-              accion={(idea) => (
-                <BotonOcultar ideaId={idea.id} oculta={false} despues={hrefTrasOcultar(tema.id, idea.id, ideas)} />
-              )}
-            />
-          </section>
-        )
-      })}
+        {autores.map((grupo) => {
+          const idDelTitulo = `autor-${grupo.autor.id}`
+          return (
+            <section key={grupo.autor.id} aria-labelledby={idDelTitulo} className="grid gap-3">
+              <div className="grid gap-0.5">
+                <h2 id={idDelTitulo} className="text-pieza text-balance">
+                  <Link
+                    href={hrefDeAutor(grupo.autor.id)}
+                    className="inline-flex min-h-objetivo items-center underline decoration-1 underline-offset-4"
+                  >
+                    {grupo.autor.nombre}
+                  </Link>
+                </h2>
+                {grupo.autor.credencial ? <p className="text-meta text-apagado">{grupo.autor.credencial}</p> : null}
+              </div>
+              <ListaDeIdeas
+                etiqueta={`Ideas de ${grupo.autor.nombre}`}
+                ideas={grupo.ideas}
+                className="md:grid-cols-2"
+                accion={(idea) => (
+                  <BotonOcultar ideaId={idea.id} oculta={false} despues={hrefTrasOcultar(tema.id, idea.id, ideas)} />
+                )}
+              />
+            </section>
+          )
+        })}
+      </div>
     </div>
   )
 }

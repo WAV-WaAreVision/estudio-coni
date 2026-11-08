@@ -9,7 +9,7 @@ import {
   vaciarPiezasEIdeas,
 } from "../integration/siembra"
 import { bloquearRedExterna, configurarServicios, limpiarPresupuesto, revisarConAxe } from "./ayudas"
-import { type Caja, cajaDe, sobraDeAncho } from "./medidas-de-escritorio"
+import { anchoDeLectura, cajaDe, ladoALado, rem, sobraDeAncho } from "./medidas-de-escritorio"
 
 // Ideas, Métricas, Calendario and Ajustes on a computer, 1440 x 900 (issue 103, group B). Measured, no baselines.
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -25,31 +25,6 @@ test.afterAll(async () => {
   await vaciarPiezasEIdeas()
   await limpiarPresupuesto()
 })
-
-/** 75ch of the body text, measured inside `dentro`. */
-function anchoDeLectura(dentro: Locator): Promise<number> {
-  return dentro.evaluate((nodo) => {
-    const regla = document.createElement("p")
-    regla.className = "text-cuerpo"
-    regla.style.width = "75ch"
-    nodo.append(regla)
-    const ancho = regla.getBoundingClientRect().width
-    regla.remove()
-    return ancho
-  })
-}
-
-/** One rem in pixels: the app's root size is not 16 px. */
-function rem(page: Page): Promise<number> {
-  return page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
-}
-
-/** Two boxes side by side from the same top, the pair wider than 900 px. */
-function ladoALado(izquierda: Caja, derecha: Caja, nombre: string): void {
-  expect(derecha.left, nombre).toBeGreaterThanOrEqual(izquierda.right)
-  expect(Math.abs(derecha.top - izquierda.top), nombre).toBeLessThanOrEqual(1)
-  expect(derecha.right - izquierda.left, nombre).toBeGreaterThan(900)
-}
 
 /** The page widens, never scrolls sideways and has no axe violations. */
 async function revisarPagina(page: Page, nombre: string): Promise<void> {

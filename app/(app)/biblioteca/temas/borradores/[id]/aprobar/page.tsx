@@ -22,7 +22,7 @@ export default async function AprobarBorrador({ params }: { params: Promise<{ id
   const hoy = diaLocal(Date.now(), ZONA_DE_LA_BIBLIOTECA)
   const etapas = await etapasDeRed(db, borrador.red, hoy)
   return (
-    <div className="grid gap-6 md:max-w-[64rem]">
+    <div className="grid gap-6">
       <Volver href={RUTA_DE_BORRADORES}>Borradores</Volver>
       <header className="grid gap-2 md:max-w-[42rem]">
         <h1 className="text-pantalla text-balance">{`Aprobar «${borrador.nombreCorto}»`}</h1>
