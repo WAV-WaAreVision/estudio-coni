@@ -29,7 +29,7 @@ freely on a preview without touching production data, money or her real accounts
   few materials with cards, pillars, ideas and pieces in every state Coni can open (gate 1, gate 2, rendering, failed,
   scheduled, published, carousel). No production copy (personal data, change 26). `supabase/seed.sql` stays as it is
   for local tests.
-- **Users.** One `coni` (the index allows only one) with the email in Vercel Preview `CORREO_CONI`, and the `mantenedor`.
+- **Users.** One `coni` (the index allows only one): Coni's real email, decided by Federico on 2026-11-08, so she reviews previews with her own sign-in; Vercel Preview `CORREO_CONI` is set to that email. Plus the `mantenedor`.
   Created by `scripts/staging-usuarios.ts` with the staging service role (Federico runs it from the macOS Terminal);
   no real email in a versioned file.
 - **Auth.** `[remotes.staging]` in `supabase/config.toml` (project_id `omvvgywjyuoqjjfpbpsy`): `site_url` and
@@ -58,8 +58,8 @@ variable then fails loudly instead of writing to production.
 
 ### 3. Trigger.dev
 
-- Environment `staging` of the same project, deployed with `--env staging`. Proposal: Claude deploys staging without
-  asking (no real accounts there); production deploys keep needing Federico's OK.
+- Environment `staging` of the same project, deployed with `--env staging`. Claude deploys staging without asking
+  (decided by Federico on 2026-11-08: no real accounts there); production deploys keep needing his OK.
 - Its env vars (Federico, dashboard): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (staging), `R2_*` (staging bucket),
   `RESEND_API_KEY`, `AVISOS_*`, `VAPID_*`. No `RESPALDO_DB_URL` (no nightly dump of staging) and no LinkedIn or Meta
   variables. The nightly backup step must skip cleanly without it.
