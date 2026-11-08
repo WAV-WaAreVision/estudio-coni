@@ -13,6 +13,7 @@ import {
   alcanceDeVoz,
   costoDeVoz,
   lineaDeFirma,
+  lineaDeSaldoVideo,
   lineaDeSaldoVoz,
   type Saldos,
 } from "@/lib/dominio/saldos"
@@ -36,6 +37,14 @@ export interface BotonesDeGrabacion {
   bloqueoVoz: string | null
   /** Closes the signature when HeyGen or the month's cap cannot cover the video; the voice is already made. */
   bloqueoVideo: string | null
+  /** The HeyGen balance line WAV reads (WAV's email names it beside the estimate). */
+  saldoVideo: string
+  /**
+   * `bloqueoVoz` / `bloqueoVideo` is a balance that does not cover the estimate: no pause opens for it, so «Avisar a
+   * Federico» sits beside the block (#101, decision 1). A pause or the month's limit is never one.
+   */
+  vozSinSaldo: boolean
+  videoSinSaldo: boolean
 }
 
 export interface DatosDeGrabacion {
@@ -74,20 +83,24 @@ export function presentarGrabacion(entrada: {
   const usdVideo = estimarCostoVideo(guion, motor)
   const sinLimite = (costo: number) => (entrada.quedanUsd < costo ? TEXTO_LIMITE : null)
   const costoVozPartido = costoDeVoz(textoDeVoz.length, usdVoz)
+  // At gate 1 her voice is not signed yet: new spend, stopped by the month's limit (spec 2026-11-02, D1).
+  // A paused provider closes its button with its pause text before any balance or limit (spec 2026-11-07).
+  const antesDelSaldoVoz = textoDePausa(entrada.pausas, "elevenlabs") ?? sinLimite(usdVoz)
+  const saldoVoz = bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length))
+  // The signature starts the recording, which is signed work: only HeyGen (its pause, its balance) can close it.
+  const pausaVideo = textoDePausa(entrada.pausas, "heygen")
+  const saldoVideo = bloqueo(
+    alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) }),
+  )
   return {
     montoVoz: costoVozPartido.monto,
     unidadVoz: costoVozPartido.unidad,
     saldoVoz: lineaDeSaldoVoz(saldos.elevenlabs, entrada.zona),
-    // At gate 1 her voice is not signed yet: new spend, stopped by the month's limit (spec 2026-11-02, D1).
-    // A paused provider closes its button with its pause text before any balance or limit (spec 2026-11-07).
-    bloqueoVoz:
-      textoDePausa(entrada.pausas, "elevenlabs") ??
-      sinLimite(usdVoz) ??
-      bloqueo(alcanceDeVoz(saldos.elevenlabs, textoDeVoz.length)),
-    // The signature starts the recording, which is signed work: only HeyGen (its pause, its balance) can close it.
-    bloqueoVideo:
-      textoDePausa(entrada.pausas, "heygen") ??
-      bloqueo(alcanceDeVideo(saldos.heygen, { usd: usdVideo, creditos: estimarCreditosVideo(guion, motor) })),
+    saldoVideo: lineaDeSaldoVideo(saldos.heygen),
+    bloqueoVoz: antesDelSaldoVoz ?? saldoVoz,
+    bloqueoVideo: pausaVideo ?? saldoVideo,
+    vozSinSaldo: antesDelSaldoVoz === null && saldoVoz !== null,
+    videoSinSaldo: pausaVideo === null && saldoVideo !== null,
   }
 }
 

@@ -127,3 +127,40 @@ describe("presentarGrabacion con proveedores en pausa", () => {
     })
   })
 })
+
+describe("presentarGrabacion: un saldo que no alcanza (#101, decisión 1)", () => {
+  const sinNada: Saldos = {
+    elevenlabs: { ok: true, usados: 100_000, limite: 100_000, renuevaEn: null, puedeExceder: false },
+    heygen: { ok: true, tipo: "billetera", moneda: "usd", saldo: 0 },
+  }
+
+  it("marks both blocks as a balance that does not reach, so «Avisar a Federico» sits beside them", () => {
+    expect(presentarGrabacion({ ...ENTRADA, saldos: sinNada })).toMatchObject({
+      vozSinSaldo: true,
+      videoSinSaldo: true,
+    })
+  })
+
+  it("never marks a pause or the month's limit as a balance block", () => {
+    expect(presentarGrabacion({ ...ENTRADA, saldos: sinNada, pausas: ["elevenlabs", "heygen"] })).toMatchObject({
+      vozSinSaldo: false,
+      videoSinSaldo: false,
+    })
+    expect(presentarGrabacion({ ...ENTRADA, saldos: sinNada, quedanUsd: 0 }).vozSinSaldo).toBe(false)
+  })
+
+  it("marks nothing when the balances reach or could not be read", () => {
+    expect(presentarGrabacion(ENTRADA)).toMatchObject({ vozSinSaldo: false, videoSinSaldo: false })
+    const fallidos: Saldos = { elevenlabs: { ok: false, motivo: "x" }, heygen: { ok: false, motivo: "x" } }
+    expect(presentarGrabacion({ ...ENTRADA, saldos: fallidos })).toMatchObject({
+      vozSinSaldo: false,
+      videoSinSaldo: false,
+    })
+  })
+
+  it("gives the HeyGen balance line WAV already sees, for his email", () => {
+    expect(presentarGrabacion({ ...ENTRADA, saldos: sinNada }).saldoVideo).toBe(
+      "Saldo de API de HeyGen: US$ 0,00. Es aparte de tu plan de HeyGen.",
+    )
+  })
+})

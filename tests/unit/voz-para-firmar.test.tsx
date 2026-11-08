@@ -14,8 +14,11 @@ const BOTONES = {
   montoVoz: "US$ 0,33",
   unidadVoz: "~1.100 caracteres",
   saldoVoz: "ElevenLabs: te quedan 23.400 de 100.000 caracteres.",
+  saldoVideo: "Saldo de API de HeyGen: US$ 12,00. Es aparte de tu plan de HeyGen.",
   bloqueoVoz: null,
   bloqueoVideo: null,
+  vozSinSaldo: false,
+  videoSinSaldo: false,
 }
 const TOPE = "Llegaste al tope de gasto de este mes. Súbelo en Ajustes o espera al próximo mes."
 
