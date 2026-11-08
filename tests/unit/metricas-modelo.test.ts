@@ -423,7 +423,9 @@ describe("construirMetricas", () => {
       entrada({ publicaciones: [publicada("a", "ia-salud-mental", "2026-10-06T22:00:00.000Z")] }),
     )
 
-    expect(modelo.aviso).toBe("Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico.")
+    expect(modelo.aviso).toBe(
+      "Todavía no tengo números de tus reels. Cada mañana le aviso a Federico hasta que lleguen.",
+    )
   })
 
   it("does not warn about a reel that went out today and has no reading yet", () => {

@@ -15,6 +15,15 @@ describe("avisoDeLinkedin", () => {
     expect(avisoDeLinkedin(valor)).toMatchObject({ tipo, titulo })
   })
 
+  it("says Federico knows only when the callback told him itself (issue 111)", () => {
+    expect(avisoDeLinkedin("sin_app", true)?.texto).toBe("Falta configurar la app de LinkedIn. Le avisé a Federico.")
+    expect(avisoDeLinkedin("sin_app")?.texto).toBe(
+      "Falta configurar la app de LinkedIn. Vuelve a intentarlo más tarde.",
+    )
+    expect(avisoDeLinkedin("fallo", true)?.texto).toBe("Inténtalo de nuevo en unos minutos. Le avisé a Federico.")
+    expect(avisoDeLinkedin("fallo")?.texto).toBe("Inténtalo de nuevo en unos minutos.")
+  })
+
   it("reads nothing else from the address", () => {
     expect(avisoDeLinkedin("<script>")).toBeNull()
     expect(avisoDeLinkedin("toString")).toBeNull()

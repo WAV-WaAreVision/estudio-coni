@@ -18,10 +18,10 @@ import { SaldosDeLaPagina } from "../saldos"
 export default async function Cuentas({
   searchParams,
 }: {
-  searchParams: Promise<{ instagram?: string; linkedin?: string }>
+  searchParams: Promise<{ instagram?: string; linkedin?: string; federico?: string }>
 }) {
   const { db } = await exigirConi()
-  const { instagram, linkedin } = await searchParams
+  const { instagram, linkedin, federico } = await searchParams
   const { data: ajustes, error } = await db.from("ajustes").select("zona").maybeSingle()
   if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
   if (!ajustes) throw new Error("Falta la fila de ajustes.")
@@ -29,7 +29,9 @@ export default async function Cuentas({
     .from("suscripciones_push")
     .select("id", { count: "exact", head: true })
   if (errorDeDispositivos) throw new Error(`No pude leer tus aparatos: ${errorDeDispositivos.message}`)
-  const aviso = avisoDeInstagram(instagram) ?? avisoDeLinkedin(linkedin)
+  // Only the fixed word: anything else in the address leaves «Le avisé a Federico.» out.
+  const avisado = federico === "avisado"
+  const aviso = avisoDeInstagram(instagram, avisado) ?? avisoDeLinkedin(linkedin, avisado)
 
   return (
     <div>

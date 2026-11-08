@@ -150,6 +150,10 @@ export interface ModeloDeMetricas {
 
 const SEMANAS_A_MOSTRAR = 12
 /** Decision 16: every number says its period. */
+/** Not one reel reading has arrived for days: `metricas-diarias` tells WAV every morning while it holds (issue 111). */
+export const TEXTO_SIN_NUMEROS =
+  "Todavía no tengo números de tus reels. Cada mañana le aviso a Federico hasta que lleguen."
+
 export const PERIODO = `Últimas ${SEMANAS_A_MOSTRAR} semanas`
 
 const REGLA_DE_LA_SEMANA = "Cuento los reels desde que cumplen una semana."
@@ -449,7 +453,7 @@ export function construirMetricas(entrada: EntradaDeMetricas): ModeloDeMetricas 
     periodo: PERIODO,
     vacio: entrada.publicaciones.length === 0,
     aviso: sinNingunaLectura
-      ? "Todavía no tengo números de tus reels. Si mañana sigue igual, avísale a Federico."
+      ? TEXTO_SIN_NUMEROS
       : alDia || ultimoDia === null
         ? null
         : `No pude traer las métricas de hoy; muestro las del ${etiquetaDelDia(ultimoDia)}.`,
