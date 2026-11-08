@@ -10,7 +10,6 @@ const ORIGEN = "/biblioteca?m=abc"
 // jsdom has no PerformanceObserver: this one hands the hook the resource entries a test says arrived.
 const observadores = new Set<(lista: { getEntries: () => { name: string }[] }) => void>()
 class ObservadorFalso {
-  static readonly supportedEntryTypes = ["resource"]
   constructor(private readonly alLlegar: (lista: { getEntries: () => { name: string }[] }) => void) {}
   observe() {
     observadores.add(this.alLlegar)
@@ -202,11 +201,26 @@ describe("useRedibujar", () => {
     expect(replace).toHaveBeenCalledTimes(2)
   })
 
+  // A poll round starts a second redraw after the first one's marker showed; then the action's late tree puts back the
+  // address from before both. The second check must know that address as a fallback and redraw again.
+  it("takes the address from before an earlier redraw of the same screen for a fallback too", () => {
+    replace.mockImplementation(comprometer)
+    const { result } = renderHook(() => useRedibujar())
+
+    result.current()
+    vi.advanceTimersByTime(100)
+    result.current()
+    vi.advanceTimersByTime(100)
+    window.history.replaceState(null, "", ORIGEN)
+    vi.advanceTimersByTime(20_000)
+
+    expect(replace).toHaveBeenCalledTimes(3)
+  })
+
   // Issue 60: Safari before 14.1 has PerformanceObserver but cannot observe resources; observe() threw before the
   // redraw was issued, so nothing happened at all.
   it("still redraws where resources cannot be observed, only without watching the download", () => {
     class SinRecursos {
-      static readonly supportedEntryTypes = ["mark", "measure"]
       observe() {
         throw new TypeError("type resource is not supported")
       }
