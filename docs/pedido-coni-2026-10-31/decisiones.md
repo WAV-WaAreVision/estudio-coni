@@ -26,7 +26,7 @@ providers or tests; each spec confirms the ones it needs before writing code. Ma
 
 | # | What | Changes | How |
 |---|---|---|---|
-| B1 | voyage-4: dimension, price, `output_dimension` | 17, 12 | Voyage docs + a test call |
+| B1 | voyage-4: dimension, price, `output_dimension` | 17, 12 | Closed 2026-11-09: 1024 dims confirmed by the live call, US$ 0.06 per million tokens (200M free), `output_dimension` 1024 sent with every model. voyage-4 is live in production (#19, PR #128). |
 | B2 | Voyage reranker: model name (rerank-2.5 / 2.5-lite; "rerank-3" in the request) and price | 1, 4, 7 | Voyage docs |
 | B3 | ElevenLabs diarization: included in US$ 0.22/h? `end` and `speaker_id` per word? | 5 | Test with a real symposium (prerequisite of 5) |
 | B4 | Gemini: model, price, daily cap, private-video errors | 5 | Google docs + test |
