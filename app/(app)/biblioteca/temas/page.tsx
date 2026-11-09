@@ -2,6 +2,7 @@ import { Panel } from "@/components/ui/panel"
 import { leerFaltasDeAngulo } from "@/lib/datos/angulos"
 import { leerUltimaRed, listarPilaresDeTemas, listarTemas } from "@/lib/datos/biblioteca"
 import { contarBorradores } from "@/lib/datos/borradores"
+import { contarPropuestasDeFusion } from "@/lib/datos/fusiones"
 import { faltasPorPilar } from "@/lib/dominio/angulos"
 import { leerAviso } from "@/lib/dominio/biblioteca/borradores"
 import {
@@ -18,6 +19,7 @@ import { FocoDelPanel } from "../foco-del-panel"
 import { NavDeBiblioteca } from "../nav-de-biblioteca"
 import { TrasElAviso } from "../tras-el-aviso"
 import { EnlaceABorradores } from "./enlace-a-borradores"
+import { EnlaceAFusiones } from "./enlace-a-fusiones"
 import { FilaDeTemas } from "./fila-de-temas"
 import { MasFiltrosDeTemas } from "./mas-filtros-de-temas"
 import { PanelDeTema } from "./panel-de-tema"
@@ -31,10 +33,11 @@ export default async function Temas({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [{ db }, params] = await Promise.all([exigirConi(), searchParams])
-  const [pilares, ultimaRed, borradores, faltas] = await Promise.all([
+  const [pilares, ultimaRed, borradores, fusiones, faltas] = await Promise.all([
     listarPilaresDeTemas(db),
     leerUltimaRed(db),
     contarBorradores(db),
+    contarPropuestasDeFusion(db),
     leerFaltasDeAngulo(db, Date.now()),
   ])
   const filtros = leerFiltrosDeTemas(params, { pilares, ultimaRed })
@@ -67,6 +70,7 @@ export default async function Temas({
             faltas={faltasPorPilar(faltas)}
           />
           <EnlaceABorradores cantidad={borradores} />
+          <EnlaceAFusiones cantidad={fusiones} />
           <MasFiltrosDeTemas filtros={filtros} conteos={conteos} />
         </div>
         {visibles.length === 0 ? (
