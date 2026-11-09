@@ -244,6 +244,8 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
             descripcion: nombrado.descripcion,
             categoria_id: (nombrado.pilar && categoriaDe.get(nombrado.pilar)) || null,
             centroide: textoDeVector(centroide),
+            // Bridge until the thresholds and the model come from the calibration (plan Task 8).
+            modelo_centroide: "voyage-3.5",
           })
           .select("id")
           .single()

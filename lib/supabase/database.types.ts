@@ -47,6 +47,7 @@ export type Database = {
           id: string
           idioma: string | null
           material_id: string
+          modelo_vector: string | null
           postura: string | null
           publico: string | null
           tema_id: string | null
@@ -68,6 +69,7 @@ export type Database = {
           id?: string
           idioma?: string | null
           material_id: string
+          modelo_vector?: string | null
           postura?: string | null
           publico?: string | null
           tema_id?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           id?: string
           idioma?: string | null
           material_id?: string
+          modelo_vector?: string | null
           postura?: string | null
           publico?: string | null
           tema_id?: string | null
@@ -440,6 +443,56 @@ export type Database = {
         }
         Relationships: []
       }
+      calibraciones_de_parecido: {
+        Row: {
+          creada_en: string
+          fusion: number
+          grupo: number
+          modelo: string
+          motivo: string
+          prueba_id: string | null
+          puente_max: number
+          puente_min: number
+          tema: number
+          version: number
+          vigente: boolean
+        }
+        Insert: {
+          creada_en?: string
+          fusion: number
+          grupo: number
+          modelo: string
+          motivo: string
+          prueba_id?: string | null
+          puente_max: number
+          puente_min: number
+          tema: number
+          version: number
+          vigente?: boolean
+        }
+        Update: {
+          creada_en?: string
+          fusion?: number
+          grupo?: number
+          modelo?: string
+          motivo?: string
+          prueba_id?: string | null
+          puente_max?: number
+          puente_min?: number
+          tema?: number
+          version?: number
+          vigente?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibraciones_de_parecido_prueba_id_fkey"
+            columns: ["prueba_id"]
+            isOneToOne: false
+            referencedRelation: "pruebas_de_modelo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carruseles: {
         Row: {
           armado_empezo_en: string | null
@@ -589,6 +642,72 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      decisiones_de_tema: {
+        Row: {
+          afirmacion_id: string | null
+          decidida_en: string
+          decidida_por: string
+          id: string
+          otro_tema_id: string | null
+          tema_id: string
+          tipo: string
+        }
+        Insert: {
+          afirmacion_id?: string | null
+          decidida_en?: string
+          decidida_por?: string
+          id?: string
+          otro_tema_id?: string | null
+          tema_id: string
+          tipo: string
+        }
+        Update: {
+          afirmacion_id?: string | null
+          decidida_en?: string
+          decidida_por?: string
+          id?: string
+          otro_tema_id?: string | null
+          tema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisiones_de_tema_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisiones_de_tema_otro_tema_id_fkey"
+            columns: ["otro_tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisiones_de_tema_otro_tema_id_fkey"
+            columns: ["otro_tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisiones_de_tema_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisiones_de_tema_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       embeddings_ficha: {
         Row: {
@@ -860,6 +979,114 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "piezas_con_angulo"
             referencedColumns: ["pieza_id"]
+          },
+        ]
+      }
+      huellas_anteriores: {
+        Row: {
+          afirmacion_id: string | null
+          guardadas_en: string
+          id: number
+          modelo: string
+          prueba_id: string
+          tema_id: string | null
+          vector: string
+          version_calibracion: number
+        }
+        Insert: {
+          afirmacion_id?: string | null
+          guardadas_en?: string
+          id?: never
+          modelo: string
+          prueba_id: string
+          tema_id?: string | null
+          vector: string
+          version_calibracion: number
+        }
+        Update: {
+          afirmacion_id?: string | null
+          guardadas_en?: string
+          id?: never
+          modelo?: string
+          prueba_id?: string
+          tema_id?: string | null
+          vector?: string
+          version_calibracion?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "huellas_anteriores_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_anteriores_prueba_id_fkey"
+            columns: ["prueba_id"]
+            isOneToOne: false
+            referencedRelation: "pruebas_de_modelo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_anteriores_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_anteriores_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_anteriores_version_calibracion_fkey"
+            columns: ["version_calibracion"]
+            isOneToOne: false
+            referencedRelation: "calibraciones_de_parecido"
+            referencedColumns: ["version"]
+          },
+        ]
+      }
+      huellas_candidatas: {
+        Row: {
+          afirmacion_id: string
+          id: number
+          modelo: string
+          prueba_id: string
+          vector: string
+        }
+        Insert: {
+          afirmacion_id: string
+          id?: never
+          modelo: string
+          prueba_id: string
+          vector: string
+        }
+        Update: {
+          afirmacion_id?: string
+          id?: never
+          modelo?: string
+          prueba_id?: string
+          vector?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "huellas_candidatas_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_candidatas_prueba_id_fkey"
+            columns: ["prueba_id"]
+            isOneToOne: false
+            referencedRelation: "pruebas_de_modelo"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1760,6 +1987,42 @@ export type Database = {
           },
         ]
       }
+      pruebas_de_modelo: {
+        Row: {
+          aplicada_en: string | null
+          creada_en: string
+          estado: string
+          id: string
+          informe: Json
+          modelo: string
+          revertida_en: string | null
+          umbrales: Json
+          version_anterior: number | null
+        }
+        Insert: {
+          aplicada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: string
+          informe: Json
+          modelo: string
+          revertida_en?: string | null
+          umbrales: Json
+          version_anterior?: number | null
+        }
+        Update: {
+          aplicada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: string
+          informe?: Json
+          modelo?: string
+          revertida_en?: string | null
+          umbrales?: Json
+          version_anterior?: number | null
+        }
+        Relationships: []
+      }
       publicaciones: {
         Row: {
           destino: string
@@ -1966,6 +2229,7 @@ export type Database = {
           descripcion: string | null
           fusionado_en: string | null
           id: string
+          modelo_centroide: string
           nombre: string
           nombre_normalizado: string | null
         }
@@ -1978,6 +2242,7 @@ export type Database = {
           descripcion?: string | null
           fusionado_en?: string | null
           id?: string
+          modelo_centroide: string
           nombre: string
           nombre_normalizado?: string | null
         }
@@ -1990,6 +2255,7 @@ export type Database = {
           descripcion?: string | null
           fusionado_en?: string | null
           id?: string
+          modelo_centroide?: string
           nombre?: string
           nombre_normalizado?: string | null
         }
@@ -2619,6 +2885,13 @@ export type Database = {
           pausa_id: string
         }[]
       }
+      afirmaciones_sin_huella: {
+        Args: { p_destino: string; p_prueba: string }
+        Returns: {
+          id: string
+          texto: string
+        }[]
+      }
       anotar_numeros_linkedin: {
         Args: {
           p_medido_en: string
@@ -2632,6 +2905,7 @@ export type Database = {
         Args: { p_filas: Json; p_lote: string }
         Returns: Json
       }
+      aplicar_prueba_de_modelo: { Args: { p_prueba: string }; Returns: Json }
       aprobar_borrador_de_pilar: {
         Args: { p_borrador: string; p_pesos: Json }
         Returns: string
@@ -3195,6 +3469,7 @@ export type Database = {
         Args: { p_expira_en: string; p_token: string }
         Returns: undefined
       }
+      huella_de_asignaciones: { Args: never; Returns: string }
       importar_excel_linkedin: {
         Args: {
           p_medido_en: string
@@ -3229,6 +3504,7 @@ export type Database = {
         }
       }
       limite_del_mes: { Args: { p_ahora?: string }; Returns: number }
+      limpiar_huellas_de_prueba: { Args: { p_ahora: string }; Returns: Json }
       linkedin_conectado: { Args: never; Returns: boolean }
       marcar_autor_para_borrar: {
         Args: { p_borrar: boolean; p_id: string }
@@ -3304,6 +3580,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      modelo_de_huellas_vigente: { Args: never; Returns: string }
       motor_afirmaciones_de_tema: {
         Args: { p_limite: number; p_tema: string }
         Returns: {
@@ -3560,6 +3837,7 @@ export type Database = {
         Returns: Json
       }
       restaurar_ideas: { Args: { p_ids: string[] }; Returns: string[] }
+      revertir_prueba_de_modelo: { Args: { p_prueba: string }; Returns: Json }
       siguiente_version_de_guion: { Args: { p_pieza: string }; Returns: number }
       soltar_aviso_a_federico: { Args: { p_clave: string }; Returns: undefined }
       soltar_aviso_de_pausa: { Args: { p_id: string }; Returns: undefined }
