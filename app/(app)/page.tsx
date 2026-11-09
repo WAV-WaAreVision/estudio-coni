@@ -15,6 +15,7 @@ import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
 import { leerPilares } from "@/lib/datos/pilares"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
@@ -22,6 +23,7 @@ import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
 import { etiquetaDePilar, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
 import { type AvisoDeInicio, construirInicio, type FilaDeFirma, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
+import { sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 import { exigirConi } from "@/lib/sesion/coni"
 import { marcarAvisoLeidoAccion } from "./ajustes/acciones"
 import { AvisosSinLeer } from "./avisos-sin-leer"
@@ -47,8 +49,18 @@ function nuevas(cantidad: number): string | undefined {
 export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
-  const [datos, pilares] = await Promise.all([leerDatosDeInicio(db, ahora), leerPilares(db)])
-  const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona, pausas: datos.pausas })
+  const [datos, pilares, linkedin] = await Promise.all([
+    leerDatosDeInicio(db, ahora),
+    leerPilares(db),
+    leerLinkedinParaAnotar(db, ahora),
+  ])
+  const inicio = construirInicio({
+    piezas: datos.piezas,
+    ahora,
+    zona: datos.zona,
+    pausas: datos.pausas,
+    linkedinSinNumeros: sinNumerosEstaSemana(linkedin.posts).length,
+  })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
   const angulosDeIdea = new Map(datos.banco.map((idea) => [idea.id, idea.angulo_id]))
@@ -85,11 +97,20 @@ export default async function Inicio() {
         <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
         <div className="min-w-0 dos-columnas:col-start-1">
-          {inicio.pausas.length > 0 || principal ? (
+          {inicio.pausas.length > 0 || inicio.recordatorios.length > 0 || principal ? (
             <section aria-label="Necesita atención" className="mt-6 grid gap-4">
               {/* A pause is information (WAV is on it), not an error of hers: a plain line each, before the failures. */}
               {inicio.pausas.map((linea) => (
                 <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+              ))}
+              {inicio.recordatorios.map((recordatorio) => (
+                <LineaDeEstado
+                  key={recordatorio.titulo}
+                  tipo="aviso"
+                  titulo={recordatorio.titulo}
+                  detalle={recordatorio.detalle}
+                  accion={<AccionDeAviso accion={recordatorio.accion} />}
+                />
               ))}
               {principal ? (
                 <>

@@ -3,6 +3,7 @@ import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
 import { lineaDePausaDeInicio, type MotivoDePausa, type ProveedorConPausa } from "@/lib/dominio/pausas"
+import { SEMANAS_POR_ANOTAR } from "@/lib/metricas/linkedin"
 
 export interface PiezaDeInicio {
   tipo: TipoDePieza
@@ -70,6 +71,12 @@ export interface AvisoDeInicio {
   accion?: { etiqueta: string; href: string; externo?: boolean }
 }
 
+export interface RecordatorioDeInicio {
+  titulo: string
+  detalle: string
+  accion: { etiqueta: string; href: string }
+}
+
 export interface Inicio {
   semana: string
   /** The answer of the screen: what needs her attention, or what waits for her signature. */
@@ -78,6 +85,8 @@ export interface Inicio {
   linea: string | null
   /** One line per open pause (A10), shown first in «Atención»; not pieces, so they open nothing. */
   pausas: string[]
+  /** Weekly chores of hers that are not pieces (the LinkedIn Excel): plain lines in «Atención» with a way there. */
+  recordatorios: RecordatorioDeInicio[]
   /** Failures, the most urgent first: the first is the large block, the rest are rows. */
   atencion: AvisoDeInicio[]
   /** Good news: a recent publication or a manual upload. */
@@ -338,12 +347,28 @@ export function construirInicio(entrada: {
   zona: string
   /** The open provider pauses (A10). */
   pausas?: readonly { proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]
+  /** LinkedIn posts of the last 4 weeks without a reading this week (`sinNumerosEstaSemana`). */
+  linkedinSinNumeros?: number
 }): Inicio {
-  const { piezas, ahora, zona, pausas = [] } = entrada
+  const { piezas, ahora, zona, pausas = [], linkedinSinNumeros = 0 } = entrada
   const lineasDePausa = pausas.flatMap((pausa) => {
     const linea = lineaDePausaDeInicio(pausa.proveedor, pausa.motivo)
     return linea ? [linea] : []
   })
+  // Spec 2026-11-09, decision 3: from Monday, while a recent post has no reading this week. Gone once the Excel is in.
+  const recordatorios: RecordatorioDeInicio[] =
+    linkedinSinNumeros > 0
+      ? [
+          {
+            titulo: "Sube el Excel de LinkedIn",
+            detalle:
+              linkedinSinNumeros === 1
+                ? `1 publicación de las últimas ${SEMANAS_POR_ANOTAR} semanas todavía no tiene números de esta semana.`
+                : `${linkedinSinNumeros} publicaciones de las últimas ${SEMANAS_POR_ANOTAR} semanas todavía no tienen números de esta semana.`,
+            accion: { etiqueta: "Ir a Métricas", href: "/metricas#excel-linkedin" },
+          },
+        ]
+      : []
   const enPreparacion = piezas.filter((pieza) => pieza.estado === "grabando_voz").map(filaEnPreparacion)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))
@@ -375,9 +400,14 @@ export function construirInicio(entrada: {
 
   return {
     semana: `Semana del ${semanaDe(ahora, zona)}`,
-    titulo: tituloDeInicio(atencion.length + lineasDePausa.length, firma.length),
-    linea: lineaDeInicio(atencion.length + lineasDePausa.length, firma.length, enPreparacion.length),
+    titulo: tituloDeInicio(atencion.length + lineasDePausa.length + recordatorios.length, firma.length),
+    linea: lineaDeInicio(
+      atencion.length + lineasDePausa.length + recordatorios.length,
+      firma.length,
+      enPreparacion.length,
+    ),
     pausas: lineasDePausa,
+    recordatorios,
     atencion,
     avisos,
     firma,

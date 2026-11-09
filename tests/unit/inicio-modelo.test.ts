@@ -507,3 +507,31 @@ describe("construirInicio con proveedores en pausa (A10)", () => {
     expect(inicio.titulo).toBe(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA }).titulo)
   })
 })
+
+describe("the LinkedIn Excel reminder", () => {
+  it("asks for the Excel while a recent LinkedIn post has no reading this week, and counts it as attention", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, linkedinSinNumeros: 2 })
+
+    expect(inicio.recordatorios).toEqual([
+      {
+        titulo: "Sube el Excel de LinkedIn",
+        detalle: "2 publicaciones de las últimas 4 semanas todavía no tienen números de esta semana.",
+        accion: { etiqueta: "Ir a Métricas", href: "/metricas#excel-linkedin" },
+      },
+    ])
+    expect(inicio.titulo).toBe("Una cosa necesita tu atención")
+  })
+
+  it("words one post in the singular", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, linkedinSinNumeros: 1 })
+    expect(inicio.recordatorios[0]?.detalle).toBe(
+      "1 publicación de las últimas 4 semanas todavía no tiene números de esta semana.",
+    )
+  })
+
+  it("says nothing once every recent post has this week's reading", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, linkedinSinNumeros: 0 })
+    expect(inicio.recordatorios).toEqual([])
+    expect(inicio.titulo).toBe("Esta semana está al día")
+  })
+})
