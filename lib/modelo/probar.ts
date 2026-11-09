@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerCalibracion } from "@/lib/datos/huellas"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
-import { armarInforme, type InformeDePrueba, textoDelInforme } from "@/lib/dominio/informe-de-modelo"
+import {
+  armarInforme,
+  type EntradaDelInforme,
+  type InformeDePrueba,
+  textoDelInforme,
+} from "@/lib/dominio/informe-de-modelo"
 import {
   type AfirmacionParaPrueba,
   calcularUmbrales,
@@ -144,10 +149,22 @@ async function leerTemas(db: Db): Promise<TemaParaPrueba[]> {
   }
 }
 
-async function leerRechazadas(db: Db): Promise<{ a: string; b: string }[]> {
-  const { data, error } = await db.from("temas_fusion_rechazada").select("tema_a, tema_b")
+async function leerRechazadas(db: Db): Promise<EntradaDelInforme["rechazadas"]> {
+  const { data, error } = await db.from("temas_fusion_rechazada").select("tema_a, tema_b, origen")
   if (error) throw falloDeBase("No pude leer las fusiones rechazadas", error)
-  return data.map((r) => ({ a: r.tema_a, b: r.tema_b }))
+  return data.map((r) => ({ a: r.tema_a, b: r.tema_b, origen: r.origen === "coni" ? "coni" : "claude" }))
+}
+
+async function leerSubtemas(db: Db): Promise<EntradaDelInforme["subtemas"]> {
+  const { data, error } = await db.from("temas_subtemas").select("tema_id, padre_id")
+  if (error) throw falloDeBase("No pude leer los subtemas", error)
+  return data.map((s) => ({ a: s.tema_id, b: s.padre_id }))
+}
+
+async function leerTemasEnPropuesta(db: Db): Promise<string[]> {
+  const { data, error } = await db.from("fusiones").select("ganador_id, perdedor_id").eq("estado", "propuesta")
+  if (error) throw falloDeBase("No pude leer las propuestas de fusión", error)
+  return data.flatMap((f) => [f.ganador_id, f.perdedor_id])
 }
 
 /** Saves candidates in small requests; a claim that already has one for this dry run gets it replaced. */
@@ -237,6 +254,8 @@ export async function probarModeloDeHuellas(
     temas,
     nuevos,
     rechazadas: await leerRechazadas(deps.db),
+    subtemas: await leerSubtemas(deps.db),
+    enPropuesta: await leerTemasEnPropuesta(deps.db),
     costoUsd: redondear(costoUsd),
   })
   const prueba = await guardarPrueba(deps.db, { modelo: entrada.modelo, informe, afirmaciones })

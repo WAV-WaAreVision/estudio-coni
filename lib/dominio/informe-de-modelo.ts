@@ -33,8 +33,15 @@ export type EntradaDelInforme = {
   afirmaciones: readonly AfirmacionParaPrueba[]
   temas: readonly TemaParaPrueba[]
   nuevos: ReadonlyMap<string, readonly number[]>
-  /** Pairs Claude already said are different (`temas_fusion_rechazada`): never offered again. */
-  rechazadas: readonly { a: string; b: string }[]
+  /**
+   * `temas_fusion_rechazada`. Only Coni's «no» keeps a pair out: Claude's is asked again once the model changes
+   * (`temas_parecidos`), and the report is about the new model.
+   */
+  rechazadas: readonly { a: string; b: string; origen: "claude" | "coni" }[]
+  /** Stored «uno es parte del otro» pairs: not offered as a merge. */
+  subtemas: readonly { a: string; b: string }[]
+  /** Topics waiting in a merge proposal: no pair that touches one is offered. */
+  enPropuesta: readonly string[]
   costoUsd: number
 }
 
@@ -56,13 +63,17 @@ export function armarInforme(e: EntradaDelInforme): InformeDePrueba {
     }),
   )
   const umbrales: Umbrales = umbralesDe(e.traslado)
-  const rechazada = new Set(e.rechazadas.map((r) => parDe(r.a, r.b)))
+  const sinOfrecer = new Set([
+    ...e.rechazadas.filter((r) => r.origen === "coni").map((r) => parDe(r.a, r.b)),
+    ...e.subtemas.map((s) => parDe(s.a, s.b)),
+  ])
+  const esperando = new Set(e.enPropuesta)
   const conCentroide = [...nuevos].sort(([x], [y]) => (x < y ? -1 : 1))
   const fusiones = conCentroide
     .flatMap(([a, ca], i) =>
       conCentroide.slice(i + 1).flatMap(([b, cb]) => {
         const parecido = punto(ca, cb)
-        return parecido >= umbrales.fusion && !rechazada.has(parDe(a, b))
+        return parecido >= umbrales.fusion && !sinOfrecer.has(parDe(a, b)) && !esperando.has(a) && !esperando.has(b)
           ? [{ a: nombre.get(a) ?? a, b: nombre.get(b) ?? b, parecido }]
           : []
       }),
