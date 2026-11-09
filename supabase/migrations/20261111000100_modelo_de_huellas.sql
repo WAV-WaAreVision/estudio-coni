@@ -53,9 +53,9 @@ alter table public.temas add column modelo_centroide text check (modelo_centroid
 update public.temas set modelo_centroide = 'voyage-3.5';
 alter table public.temas alter column modelo_centroide set not null;
 
--- A vector written without a model (the Trigger code deployed before this migration, SQL) takes the vigente one. A
--- vector stamped with another model was embedded before a switch committed: it is dropped, and maintenance embeds the
--- claim again with the vigente model.
+-- A vector written without a model is the old Trigger code deployed before this migration, which only ever embedded
+-- with voyage-3.5, so it counts as voyage-3.5. A vector whose model is not the vigente one was embedded before a
+-- switch committed: it is dropped, and maintenance embeds the claim again with the vigente model.
 create function public.sellar_modelo_de_vector() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -63,11 +63,11 @@ declare
 begin
   if new.vector is null then
     new.modelo_vector := null;
-  elsif new.modelo_vector is null then
-    new.modelo_vector := actual;
-  elsif new.modelo_vector <> actual then
+  elsif coalesce(new.modelo_vector, 'voyage-3.5') <> actual then
     new.vector := null;
     new.modelo_vector := null;
+  else
+    new.modelo_vector := actual;
   end if;
   return new;
 end $$;

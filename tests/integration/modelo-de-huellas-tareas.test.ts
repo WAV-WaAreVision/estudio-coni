@@ -196,7 +196,7 @@ describe("revertirModeloDeHuellas", () => {
     const prueba = await probar()
     const antes = await vectoresGuardados()
     await aplicarModeloDeHuellas(deps(), { prueba })
-    await afirmacion(nuevoDe("B8"), { texto: "B8" })
+    await afirmacion(nuevoDe("B8"), { texto: "B8", modelo: "voyage-4" })
     const vuelta = await revertirModeloDeHuellas(deps(), { prueba })
     expect(vuelta).toMatchObject({ prueba, modelo: "voyage-3.5", version: 1, embebidas: 1, asignacionesIntactas: true })
     expect(pedidos.at(-1)).toMatchObject({ model: "voyage-3.5", input: ["B8"] })

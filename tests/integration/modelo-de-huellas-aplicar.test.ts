@@ -183,8 +183,8 @@ describe("revertir_prueba_de_modelo", () => {
       ).rows[0]?.id
       const tarde = (
         await c.query(
-          `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, vector)
-         select material_id, autor_id, 0, '{"pagina": 1}', 'Tarde', 'cita', 'consejo', 'opinion', $1, $2::extensions.vector
+          `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, tema_id, vector, modelo_vector)
+         select material_id, autor_id, 0, '{"pagina": 1}', 'Tarde', 'cita', 'consejo', 'opinion', $1, $2::extensions.vector, 'voyage-4'
          from public.afirmaciones limit 1 returning id`,
           [nuevo, texto(vec({ 8: 1 }))],
         )

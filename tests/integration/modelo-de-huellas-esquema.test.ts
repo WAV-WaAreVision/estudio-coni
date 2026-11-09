@@ -103,6 +103,36 @@ describe("the model stamp of a claim's vector", () => {
   })
 })
 
+describe("a vector that arrives without a model stamp", () => {
+  it("is treated as voyage-3.5 (old Trigger code): dropped once voyage-4 is vigente, on insert and on update", async () => {
+    const id = await afirmacion(null)
+    await como(comoPostgres, async (c) => {
+      await vigenteVoyage4(c)
+      await c.query("update public.afirmaciones set vector = $2::extensions.vector where id = $1", [
+        id,
+        texto(vec({ 0: 1 })),
+      ])
+      expect(await modeloDe(c, id)).toEqual({ sin: true, modelo: null })
+      const insertada = await c.query<{ id: string }>(
+        `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, vector)
+         select material_id, autor_id, 1, ubicacion, 'Otra idea.', cita, tipo, evidencia, $1::extensions.vector
+         from public.afirmaciones where id = $2 returning id`,
+        [texto(vec({ 1: 1 })), id],
+      )
+      expect(await modeloDe(c, insertada.rows[0]?.id ?? "")).toEqual({ sin: true, modelo: null })
+    })
+  })
+
+  it("is kept and stamped voyage-3.5 while voyage-3.5 is vigente", async () => {
+    const id = await afirmacion(null)
+    await pool.query("update public.afirmaciones set vector = $2::extensions.vector where id = $1", [
+      id,
+      texto(vec({ 0: 1 })),
+    ])
+    expect(await modeloDe(pool, id)).toEqual({ sin: false, modelo: "voyage-3.5" })
+  })
+})
+
 describe("a vector replaced on a claim stamped with the model of before a switch", () => {
   it("is dropped too: the stamp stays voyage-3.5, which is no longer vigente, so maintenance embeds the claim again", async () => {
     const id = await afirmacion(vec({ 0: 1 }))
