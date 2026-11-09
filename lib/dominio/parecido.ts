@@ -40,7 +40,7 @@ const ascendente = (valores: readonly number[]): number[] => [...valores].sort((
 /**
  * The new-model value that sits at the same empirical quantile `umbral` has among the old-model values. Inside the
  * old range the rank is interpolated linearly between neighbours; outside it the threshold keeps its distance to the
- * nearest extreme. Identical samples return `umbral`; a sample shifted by d returns `umbral + d`.
+ * nearest extreme. A threshold equal to a run of tied old values takes the rank of the last of them. Identical samples return `umbral`; a sample shifted by d returns `umbral + d`.
  */
 export function trasladarPorPercentil(viejos: readonly number[], nuevos: readonly number[], umbral: number): number {
   if (viejos.length < 2 || nuevos.length < 2) throw new Error("Hacen falta al menos dos muestras de cada modelo.")
@@ -50,7 +50,7 @@ export function trasladarPorPercentil(viejos: readonly number[], nuevos: readonl
   const ultimoV = v[v.length - 1] ?? 0
   const primeroW = w[0] ?? 0
   const ultimoW = w[w.length - 1] ?? 0
-  if (umbral <= primeroV) return primeroW - (primeroV - umbral)
+  if (umbral < primeroV) return primeroW - (primeroV - umbral)
   if (umbral >= ultimoV) return ultimoW + (umbral - ultimoV)
   let i = 0
   while ((v[i + 1] ?? Number.POSITIVE_INFINITY) <= umbral) i++

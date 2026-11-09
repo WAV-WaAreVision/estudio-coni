@@ -39,6 +39,11 @@ describe("trasladarPorPercentil", () => {
     expect(trasladarPorPercentil([0.1, 0.2, 0.3], [0.5, 0.6, 0.7], 0.2)).toBeCloseTo(0.6, 10)
   })
 
+  it("maps a threshold equal to a plateau at the minimum to the last tied value, like any interior plateau", () => {
+    expect(trasladarPorPercentil([0.5, 0.5, 0.7, 0.9], [0.1, 0.2, 0.3, 0.4], 0.5)).toBeCloseTo(0.2, 10)
+    expect(trasladarPorPercentil([0.3, 0.5, 0.5, 0.9], [0.1, 0.2, 0.3, 0.4], 0.5)).toBeCloseTo(0.3, 10)
+  })
+
   it("keeps its distance to the extreme when the threshold is outside the old range", () => {
     expect(trasladarPorPercentil([0.1, 0.2, 0.3], [0.5, 0.6, 0.7], 0.35)).toBeCloseTo(0.75, 10)
     expect(trasladarPorPercentil([0.1, 0.2, 0.3], [0.5, 0.6, 0.7], 0.05)).toBeCloseTo(0.45, 10)
@@ -50,7 +55,7 @@ describe("trasladarPorPercentil", () => {
   })
 
   it("works with a sample of one distinct value: the threshold keeps its distance to it", () => {
-    expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.5)).toBeCloseTo(0.2, 10)
+    expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.5)).toBeCloseTo(0.4, 10)
     expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.6)).toBeCloseTo(0.5, 10)
     expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.3)).toBeCloseTo(0, 10)
   })
