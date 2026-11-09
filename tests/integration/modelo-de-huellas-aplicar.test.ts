@@ -272,6 +272,18 @@ describe("afirmaciones_sin_huella", () => {
       expect(anteriores.rows[0]?.n).toBe(4)
     })
   })
+
+  it("reports a candidate stamped with another model than the dry run's as missing", async () => {
+    const { p, a1 } = await escena()
+    await pool.query(
+      "update public.huellas_candidatas set modelo = 'voyage-3.5' where prueba_id = $1 and afirmacion_id = $2",
+      [p, a1],
+    )
+    await como(comoServicio, async (c) => {
+      const { rows } = await c.query("select id from public.afirmaciones_sin_huella($1, 'candidata')", [p])
+      expect(rows).toEqual([{ id: a1 }])
+    })
+  })
 })
 
 describe("limpiar_huellas_de_prueba", () => {

@@ -7,8 +7,8 @@ language sql stable set search_path = '' as $$
   from public.afirmaciones a
 $$;
 
--- Claims with a vector that still lack their row for a dry run: candidates (before the switch) or saved vectors
--- (before the way back). The tasks embed them and insert the rows, then call the switch.
+-- Claims with a vector that still lack their row for a dry run: candidates of the dry run's model (before the switch)
+-- or saved vectors (before the way back). The tasks embed them and insert the rows, then call the switch.
 create function public.afirmaciones_sin_huella(p_prueba uuid, p_destino text)
 returns table (id uuid, texto text)
 language sql stable security definer set search_path = '' as $$
@@ -17,7 +17,9 @@ language sql stable security definer set search_path = '' as $$
   where a.vector is not null
     and case p_destino
       when 'candidata' then not exists (
-        select 1 from public.huellas_candidatas h where h.prueba_id = p_prueba and h.afirmacion_id = a.id)
+        select 1 from public.huellas_candidatas h
+        join public.pruebas_de_modelo p on p.id = h.prueba_id
+        where h.prueba_id = p_prueba and h.afirmacion_id = a.id and h.modelo = p.modelo)
       when 'anterior' then not exists (
         select 1 from public.huellas_anteriores h where h.prueba_id = p_prueba and h.afirmacion_id = a.id)
     end

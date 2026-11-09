@@ -158,6 +158,21 @@ describe("aplicarModeloDeHuellas", () => {
     expect(vigente.rows).toEqual([{ version: 2, modelo: "voyage-4" }])
   })
 
+  it("re-embeds a candidate stamped with another model than the dry run's before the switch", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    const pedidos = simularVoyage(nuevoDe)
+    const prueba = await probar()
+    await pool.query(
+      `update public.huellas_candidatas set modelo = 'voyage-3.5'
+       where prueba_id = $1 and afirmacion_id = (select id from public.afirmaciones where texto = 'B1')`,
+      [prueba],
+    )
+    const hecho = await aplicarModeloDeHuellas(deps(), { prueba })
+    expect(hecho).toMatchObject({ embebidas: 1, version: 2 })
+    expect(pedidos.at(-1)).toMatchObject({ model: "voyage-4", input: ["B1"] })
+  })
+
   it("refuses a dry run that is not ready, and does nothing while Voyage is paused", async () => {
     await sinLimiteFijado()
     await sembrar()

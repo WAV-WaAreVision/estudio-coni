@@ -140,7 +140,7 @@ async function leerRechazadas(db: Db): Promise<{ a: string; b: string }[]> {
   return data.map((r) => ({ a: r.tema_a, b: r.tema_b }))
 }
 
-/** Inserts candidates in small requests; a claim that already has one for this dry run is left as it is. */
+/** Saves candidates in small requests; a claim that already has one for this dry run gets it replaced. */
 export async function insertarCandidatas(
   db: Db,
   prueba: string,
@@ -151,7 +151,7 @@ export async function insertarCandidatas(
     const lote = filas.slice(desde, desde + FILAS_POR_INSERCION)
     const { error } = await db.from("huellas_candidatas").upsert(
       lote.map((f) => ({ prueba_id: prueba, afirmacion_id: f.id, modelo, vector: textoDeVector(f.vector) })),
-      { onConflict: "prueba_id,afirmacion_id", ignoreDuplicates: true },
+      { onConflict: "prueba_id,afirmacion_id" },
     )
     if (error) throw falloDeBase("No pude guardar las huellas candidatas", error)
   }
