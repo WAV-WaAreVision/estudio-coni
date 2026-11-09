@@ -5,6 +5,8 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import {
   ERROR_MISMO_POST,
+  ERROR_PUBLICACION_AJENA,
+  ERROR_PUBLICACION_VIEJA,
   ESQUEMA_DE_DUDOSOS,
   guardarDudososDeLinkedin,
   importarExcelDeLinkedin,
@@ -70,6 +72,64 @@ describe("guardarDudososDeLinkedin", () => {
 
     expect(resultado).toEqual({ ok: false, error: ERROR_MISMO_POST })
     expect(avisos.aWavEnviados).toEqual([])
+  })
+
+  describe("against the LinkedIn pieces she has", () => {
+    const SUYA = "33333333-3333-4333-8333-333333333333"
+    const AJENA = "44444444-4444-4444-8444-444444444444"
+
+    function conPublicaciones() {
+      const guardados: unknown[] = []
+      servidor.use(
+        http.get(`${BASE}/rest/v1/ajustes`, () => HttpResponse.json([])),
+        http.get(`${BASE}/rest/v1/publicaciones`, () =>
+          HttpResponse.json([
+            {
+              pieza_id: SUYA,
+              post_urn: null,
+              marcado_en: "2026-10-07T15:00:00Z",
+              piezas: { titulo: "Suya", puerta2_publicar_en: null },
+            },
+          ]),
+        ),
+        http.post(`${BASE}/rest/v1/rpc/importar_excel_linkedin`, async ({ request }) => {
+          guardados.push(await request.json())
+          return HttpResponse.json(1)
+        }),
+      )
+      return guardados
+    }
+    const elegir = (piezaId: string) => [{ piezaId, clave: "share:1", impresiones: 10, interacciones: 1 }]
+
+    it("refuses a piece that is not one of her LinkedIn pieces and saves nothing", async () => {
+      const guardados = conPublicaciones()
+      const { deps: d } = deps()
+
+      const resultado = await guardarDudososDeLinkedin(d, { medidoEn: "2026-10-30", elegidos: elegir(AJENA) })
+
+      expect(resultado).toEqual({ ok: false, error: ERROR_PUBLICACION_AJENA })
+      expect(guardados).toEqual([])
+    })
+
+    it("refuses a day older than the last four weeks and saves nothing", async () => {
+      const guardados = conPublicaciones()
+      const { deps: d } = deps()
+
+      const resultado = await guardarDudososDeLinkedin(d, { medidoEn: "2026-10-11", elegidos: elegir(SUYA) })
+
+      expect(resultado).toEqual({ ok: false, error: ERROR_PUBLICACION_VIEJA })
+      expect(guardados).toEqual([])
+    })
+
+    it("saves her own piece on a day inside the last four weeks", async () => {
+      const guardados = conPublicaciones()
+      const { deps: d } = deps()
+
+      const resultado = await guardarDudososDeLinkedin(d, { medidoEn: "2026-10-12", elegidos: elegir(SUYA) })
+
+      expect(resultado.ok).toBe(true)
+      expect(guardados).toHaveLength(1)
+    })
   })
 })
 

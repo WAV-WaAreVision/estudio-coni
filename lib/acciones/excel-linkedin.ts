@@ -2,7 +2,8 @@ import { z } from "zod"
 import { guardarExcelDeLinkedin, leerPublicacionesDeLinkedin } from "@/lib/datos/excel-linkedin"
 import { leerZona } from "@/lib/datos/metricas"
 import { Falla } from "@/lib/dominio/falla"
-import { lunesDeLaSemana } from "@/lib/dominio/metricas"
+import { diaLocal } from "@/lib/dominio/fechas"
+import { lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 import { leerHojas } from "@/lib/metricas/excel-linkedin/archivo"
 import { cruzarConPiezas, type Dudoso } from "@/lib/metricas/excel-linkedin/cruzar"
 import { leerExcelDeLinkedin } from "@/lib/metricas/excel-linkedin/leer"
@@ -13,6 +14,7 @@ import {
   resumenDeImportacion,
   TAMANO_MAXIMO,
 } from "@/lib/metricas/excel-linkedin/resumen"
+import { SEMANAS_POR_ANOTAR } from "@/lib/metricas/linkedin"
 import type { Notificador } from "@/lib/proveedores/avisos"
 import { avisarErrorDePantalla } from "./error-de-pantalla"
 import type { DepsAcciones } from "./piezas"
@@ -119,6 +121,11 @@ export const ESQUEMA_DE_DUDOSOS = z.object({
 export const ERROR_MISMO_POST =
   "Elegiste el mismo post del Excel para dos publicaciones. Elige uno distinto para cada una."
 
+export const ERROR_PUBLICACION_AJENA =
+  "Una de las publicaciones no está entre tus publicaciones de LinkedIn. Sube el Excel de nuevo para elegirlas otra vez."
+export const ERROR_PUBLICACION_VIEJA =
+  "Esta importación es de hace más de cuatro semanas. Sube el Excel de nuevo para elegirlas otra vez."
+
 /** Saves what she picked through the same RPC as the import; the followers were already saved then. */
 export async function guardarDudososDeLinkedin(
   deps: DepsExcelDeLinkedin,
@@ -127,6 +134,15 @@ export async function guardarDudososDeLinkedin(
   const resultado = await aResultado("guardarDudososDeLinkedin", async () => {
     if (new Set(entrada.elegidos.map((e) => e.clave)).size !== entrada.elegidos.length) {
       throw new Falla(ERROR_MISMO_POST)
+    }
+    // The browser is not trusted: the pieces must be LinkedIn ones of hers and the day one of a recent import.
+    const [zona, publicaciones] = await Promise.all([leerZona(deps.db), leerPublicacionesDeLinkedin(deps.db)])
+    const suyas = new Set(publicaciones.map((p) => p.piezaId))
+    if (!entrada.elegidos.every((e) => suyas.has(e.piezaId))) throw new Falla(ERROR_PUBLICACION_AJENA)
+    const hoy = diaLocal(Date.parse(deps.ahora()), zona)
+    // One day of slack ahead: the Excel's period may end "tomorrow" in LinkedIn's clock.
+    if (entrada.medidoEn < sumarDias(hoy, -SEMANAS_POR_ANOTAR * 7) || entrada.medidoEn > sumarDias(hoy, 1)) {
+      throw new Falla(ERROR_PUBLICACION_VIEJA)
     }
     const guardadas = await guardarExcelDeLinkedin(deps.db, {
       medidoEn: entrada.medidoEn,
