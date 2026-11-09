@@ -114,12 +114,18 @@ export const ESQUEMA_DE_DUDOSOS = z.object({
     ),
 })
 
+export const ERROR_MISMO_POST =
+  "Elegiste el mismo post del Excel para dos publicaciones. Elige uno distinto para cada una."
+
 /** Saves what she picked through the same RPC as the import; the followers were already saved then. */
 export async function guardarDudososDeLinkedin(
   deps: DepsExcelDeLinkedin,
   entrada: z.output<typeof ESQUEMA_DE_DUDOSOS>,
 ): Promise<Resultado<{ resumen: string[] }>> {
   const resultado = await aResultado("guardarDudososDeLinkedin", async () => {
+    if (new Set(entrada.elegidos.map((e) => e.clave)).size !== entrada.elegidos.length) {
+      throw new Falla(ERROR_MISMO_POST)
+    }
     const guardadas = await guardarExcelDeLinkedin(deps.db, {
       medidoEn: entrada.medidoEn,
       semana: lunesDe(entrada.medidoEn),

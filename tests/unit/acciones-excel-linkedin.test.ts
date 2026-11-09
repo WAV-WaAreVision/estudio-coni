@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs"
 import { createClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { ESQUEMA_DE_DUDOSOS, importarExcelDeLinkedin } from "@/lib/acciones/excel-linkedin"
+import {
+  ERROR_MISMO_POST,
+  ESQUEMA_DE_DUDOSOS,
+  guardarDudososDeLinkedin,
+  importarExcelDeLinkedin,
+} from "@/lib/acciones/excel-linkedin"
 import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 import { ERROR_MUY_GRANDE, ERROR_NO_ES_EL_EXCEL } from "@/lib/metricas/excel-linkedin/resumen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -52,6 +57,19 @@ describe("importarExcelDeLinkedin", () => {
         idempotencia: "pantalla:Importar Excel de LinkedIn:2026-11-09",
       },
     ])
+  })
+})
+
+describe("guardarDudososDeLinkedin", () => {
+  it("refuses the same Excel post for two pieces before saving anything", async () => {
+    const { deps: d, avisos } = deps()
+    const dos = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"]
+    const elegidos = dos.map((piezaId) => ({ piezaId, clave: "share:1", impresiones: 10, interacciones: 1 }))
+
+    const resultado = await guardarDudososDeLinkedin(d, { medidoEn: "2026-10-30", elegidos })
+
+    expect(resultado).toEqual({ ok: false, error: ERROR_MISMO_POST })
+    expect(avisos.aWavEnviados).toEqual([])
   })
 })
 
