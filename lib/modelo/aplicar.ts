@@ -18,9 +18,14 @@ const INTENTOS = 3
 const FILAS_POR_INSERCION = 50
 
 const Cambio = z.object({ asignaciones_antes: z.string(), asignaciones_despues: z.string(), version: z.number() })
+/** The same limit as `aplicar_prueba_de_modelo`, checked first so an expired dry run does not pay for a top-up. */
+const DIAS_DE_VIGENCIA = 30
+const MS_POR_DIA = 24 * 60 * 60 * 1000
+
 const Prueba = z.object({
   modelo: z.enum(MODELOS_DE_HUELLAS),
   estado: z.string(),
+  creada_en: z.string(),
   version_anterior: z.number().nullable(),
 })
 
@@ -42,7 +47,7 @@ type Destino = "candidata" | "anterior"
 async function leerPrueba(deps: DepsModelo, prueba: string): Promise<z.infer<typeof Prueba>> {
   const { data, error } = await deps.db
     .from("pruebas_de_modelo")
-    .select("modelo, estado, version_anterior")
+    .select("modelo, estado, version_anterior, creada_en")
     .eq("id", prueba)
     .single()
   if (error) throw falloDeBase(`No pude leer la prueba ${prueba}`, error)
@@ -137,6 +142,11 @@ export async function aplicarModeloDeHuellas(
   if (prueba.estado !== "lista") {
     throw new FallaDeConfiguracion(
       `La prueba ${entrada.prueba} está ${prueba.estado}: solo se aplica una prueba lista.`,
+    )
+  }
+  if (Date.parse(deps.ahora()) - Date.parse(prueba.creada_en) > DIAS_DE_VIGENCIA * MS_POR_DIA) {
+    throw new FallaDeConfiguracion(
+      `La prueba ${entrada.prueba} tiene más de ${DIAS_DE_VIGENCIA} días: haz una prueba nueva.`,
     )
   }
   return cambiar(deps, { prueba: entrada.prueba, destino: "candidata", modelo: prueba.modelo, version: 0, llave })

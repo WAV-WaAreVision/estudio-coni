@@ -192,6 +192,23 @@ describe("aplicarModeloDeHuellas", () => {
     expect(pedidos.at(-1)).toMatchObject({ model: "voyage-4", input: ["B1"] })
   })
 
+  it("refuses a dry run older than 30 days before paying for any top-up", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    const pedidos = simularVoyage(nuevoDe)
+    const prueba = await probar()
+    await afirmacion(viejo("B9"), { texto: "B9" })
+    await pool.query("update public.pruebas_de_modelo set creada_en = now() - interval '31 days' where id = $1", [
+      prueba,
+    ])
+    const antes = pedidos.length
+    await expect(aplicarModeloDeHuellas(deps(), { prueba })).rejects.toThrow(/más de 30 días/)
+    expect(pedidos).toHaveLength(antes)
+    expect((await pool.query("select estado from public.pruebas_de_modelo where id = $1", [prueba])).rows).toEqual([
+      { estado: "lista" },
+    ])
+  })
+
   it("refuses a dry run that is not ready, and does nothing while Voyage is paused", async () => {
     await sinLimiteFijado()
     await sembrar()
