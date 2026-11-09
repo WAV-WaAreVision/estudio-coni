@@ -54,6 +54,32 @@ describe("leerFusiones", () => {
   })
 })
 
+describe("pairs not joined", () => {
+  it("lists Coni's rejections always and Claude's only from the last 30 days", async () => {
+    const [a, b, c, d] = [
+      await tema("Antiguo de Claude", vec({ 0: 1 })),
+      await tema("Reciente de Claude", vec({ 1: 1 })),
+      await tema("Antiguo de Coni", vec({ 2: 1 })),
+      await tema("Otro", vec({ 3: 1 })),
+    ]
+    for (const t of [a, b, c, d]) await afirmacion(vec({ 0: 1 }), { tema: t })
+    const insertar = (x: string, y: string, origen: string, dias: number) =>
+      pool.query(
+        `insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, rechazada_en)
+         values (least($1::uuid, $2::uuid), greatest($1::uuid, $2::uuid), $3, now() - make_interval(days => $4))`,
+        [x, y, origen, dias],
+      )
+    await insertar(a, d, "claude", 31)
+    await insertar(b, d, "claude", 29)
+    await insertar(c, d, "coni", 90)
+    const leidas = await leerFusiones(coni, Date.now())
+    expect(leidas.rechazadas.map((p) => [p.nombreA, p.nombreB].sort()).sort()).toEqual([
+      ["Antiguo de Coni", "Otro"],
+      ["Otro", "Reciente de Claude"],
+    ])
+  })
+})
+
 describe("counts and the topic's origin", () => {
   it("counts open proposals only", async () => {
     const e = await escenaDeFusion()

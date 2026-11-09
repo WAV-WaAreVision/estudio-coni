@@ -26,6 +26,8 @@ export async function leerFusiones(db: Db, ahora: number): Promise<FusionesLeida
       .select(
         "tema_a, tema_b, origen, razon, a:temas!temas_fusion_rechazada_tema_a_fkey ( nombre, fusionado_en ), b:temas!temas_fusion_rechazada_tema_b_fkey ( nombre, fusionado_en )",
       )
+      // Coni's decisions stay; Claude's only until the pair may be asked again.
+      .or(`origen.eq.coni,rechazada_en.gte.${desde}`)
       .order("rechazada_en", { ascending: false }),
   ])
   if (propuestas.error) throw fallo("No pude leer las fusiones por decidir", propuestas.error)
