@@ -22,7 +22,9 @@ create or replace view public.metricas_linkedin_ultima with (security_invoker = 
 -- Coni's import (decisions 1 and 4): the matched posts and the week's followers in one transaction. Definer rights so
 -- the `excel` rows need no new policy; the check below keeps it hers alone (A6: the maintainer does not import).
 -- A row from the API or Metricool is never changed; a manual or excel row is replaced, and a figure the Excel does not
--- bring (null) keeps the stored one. Returns the post rows written.
+-- bring (null) keeps the stored one.
+-- Taking over a manual row keeps its hand-typed reacciones, comentarios and compartidos (real data) under origin
+-- excel: only impresiones and interacciones come from the file. Returns the post rows written.
 create function public.importar_excel_linkedin(
   p_medido_en date,
   p_posts jsonb,
@@ -37,9 +39,14 @@ begin
     raise exception using errcode = '42501', message = 'sin_permiso';
   end if;
   insert into public.metricas_linkedin as m (pieza_id, medido_en, impresiones, interacciones, origen)
-  select (post ->> 'pieza_id')::uuid, p_medido_en, (post ->> 'impresiones')::integer,
-         (post ->> 'interacciones')::integer, 'excel'
-    from jsonb_array_elements(coalesce(p_posts, '[]'::jsonb)) as post
+  select (t.post ->> 'pieza_id')::uuid, p_medido_en, (t.post ->> 'impresiones')::integer,
+         (t.post ->> 'interacciones')::integer, 'excel'
+    from (
+      -- The same piece twice in one call would make the upsert touch a row a second time: keep the last entry.
+      select distinct on ((post ->> 'pieza_id')::uuid) post
+        from jsonb_array_elements(coalesce(p_posts, '[]'::jsonb)) with ordinality as e(post, n)
+       order by (post ->> 'pieza_id')::uuid, n desc
+    ) as t
   on conflict (pieza_id, medido_en) do update
     set impresiones = coalesce(excluded.impresiones, m.impresiones),
         interacciones = coalesce(excluded.interacciones, m.interacciones),

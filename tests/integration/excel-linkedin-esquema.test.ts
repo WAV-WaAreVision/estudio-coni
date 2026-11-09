@@ -117,6 +117,26 @@ describe("importar_excel_linkedin", () => {
     })
   })
 
+  it("keeps the last entry when the same piece comes twice in one import", async () => {
+    await como(comoPostgres, async (c) => {
+      const pieza = await nuevaPieza(c)
+      await asumir(c, comoConi)
+      const { rows } = await c.query(IMPORTAR, [
+        "2026-10-30",
+        posts(
+          { pieza_id: pieza, impresiones: 100, interacciones: 1 },
+          { pieza_id: pieza, impresiones: 200, interacciones: 2 },
+        ),
+        "2026-10-26",
+        null,
+      ])
+      expect(rows).toEqual([{ escritas: 1 }])
+      await asumir(c, comoPostgres)
+      const filas = await c.query("select impresiones, interacciones from public.metricas_linkedin")
+      expect(filas.rows).toEqual([{ impresiones: 200, interacciones: 2 }])
+    })
+  })
+
   it("upserts the week's followers with origin excel, but never over the API's", async () => {
     await como(comoPostgres, async (c) => {
       await asumir(c, comoConi)
