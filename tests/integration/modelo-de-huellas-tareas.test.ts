@@ -1,5 +1,7 @@
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { parsearVector } from "@/lib/ingesta/agrupar"
+import { aplicarModeloDeHuellas, revertirModeloDeHuellas } from "@/lib/modelo/aplicar"
 import { type DepsModelo, OMITIDA_POR_PAUSA, probarModeloDeHuellas } from "@/lib/modelo/probar"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -118,5 +120,82 @@ describe("probarModeloDeHuellas", () => {
     for (const n of [1, 2, 3]) await afirmacion(viejo(`B${n}`), { texto: `B${n}` })
     simularVoyage(nuevoDe)
     await expect(probarModeloDeHuellas(deps(), { modelo: "voyage-4" })).rejects.toThrow(/hacen falta 20/)
+  })
+})
+
+async function probar(): Promise<string> {
+  const r = await probarModeloDeHuellas(deps(), { modelo: "voyage-4" })
+  if ("omitida" in r) throw new Error("No debía omitirse.")
+  return r.prueba
+}
+
+async function vectoresGuardados() {
+  const { rows } = await pool.query<{ id: string; v: string }>(
+    "select id, vector::text as v from public.afirmaciones where vector is not null order by id",
+  )
+  return rows
+}
+
+describe("aplicarModeloDeHuellas", () => {
+  it("embeds the claims that arrived after the dry run, swaps every vector and keeps every assignment", async () => {
+    await sinLimiteFijado()
+    const temaA = await sembrar()
+    const pedidos = simularVoyage(nuevoDe)
+    const prueba = await probar()
+    await afirmacion(viejo("B9"), { texto: "B9" })
+    const hecho = await aplicarModeloDeHuellas(deps(), { prueba })
+    expect(hecho).toMatchObject({ prueba, modelo: "voyage-4", version: 2, embebidas: 1, asignacionesIntactas: true })
+    expect(pedidos.at(-1)).toMatchObject({ model: "voyage-4", input: ["B9"] })
+    const modelos = await pool.query("select modelo_vector, count(*)::int as n from public.afirmaciones group by 1")
+    expect(modelos.rows).toEqual([{ modelo_vector: "voyage-4", n: 9 }])
+    const centroide = await pool.query(
+      "select centroide::text as c, modelo_centroide as m from public.temas where id = $1",
+      [temaA],
+    )
+    expect(centroide.rows[0]?.m).toBe("voyage-4")
+    expect(parsearVector(centroide.rows[0]?.c ?? "")[2]).toBeCloseTo(nuevoDe("A1")[2] ?? 0, 4)
+    const vigente = await pool.query("select version, modelo from public.calibraciones_de_parecido where vigente")
+    expect(vigente.rows).toEqual([{ version: 2, modelo: "voyage-4" }])
+  })
+
+  it("refuses a dry run that is not ready, and does nothing while Voyage is paused", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    simularVoyage(nuevoDe)
+    const prueba = await probar()
+    await pool.query(
+      "insert into public.pausas_de_proveedor (proveedor, motivo, detalle) values ('voyage', 'llave', 'x')",
+    )
+    expect(await aplicarModeloDeHuellas(deps(), { prueba })).toEqual(OMITIDA_POR_PAUSA)
+    await pool.query("delete from public.pausas_de_proveedor")
+    await pool.query("update public.pruebas_de_modelo set estado = 'descartada' where id = $1", [prueba])
+    await expect(aplicarModeloDeHuellas(deps(), { prueba })).rejects.toThrow(/descartada/)
+  })
+})
+
+describe("revertirModeloDeHuellas", () => {
+  it("embeds with the old model what arrived after the switch and restores the rest exactly", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    const pedidos = simularVoyage(nuevoDe)
+    const prueba = await probar()
+    const antes = await vectoresGuardados()
+    await aplicarModeloDeHuellas(deps(), { prueba })
+    await afirmacion(nuevoDe("B8"), { texto: "B8" })
+    const vuelta = await revertirModeloDeHuellas(deps(), { prueba })
+    expect(vuelta).toMatchObject({ prueba, modelo: "voyage-3.5", version: 1, embebidas: 1, asignacionesIntactas: true })
+    expect(pedidos.at(-1)).toMatchObject({ model: "voyage-3.5", input: ["B8"] })
+    const despues = await vectoresGuardados()
+    expect(despues.filter((f) => antes.some((a) => a.id === f.id))).toEqual(antes)
+    const vigente = await pool.query("select version from public.calibraciones_de_parecido where vigente")
+    expect(vigente.rows).toEqual([{ version: 1 }])
+  })
+
+  it("refuses a dry run that was never applied", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    simularVoyage(nuevoDe)
+    const prueba = await probar()
+    await expect(revertirModeloDeHuellas(deps(), { prueba })).rejects.toThrow(/lista/)
   })
 })
