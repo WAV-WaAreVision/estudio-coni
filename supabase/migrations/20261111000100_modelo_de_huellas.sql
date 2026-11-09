@@ -95,23 +95,44 @@ end $$;
 create trigger sellar_modelo before insert or update of centroide, modelo_centroide on public.temas
   for each row execute function public.sellar_modelo_de_centroide();
 
--- Coni's decisions on topics (change 9, #22, writes them); the x3 recalibration will read them. Empty for now.
+-- Coni's decisions on topics (change 9, #22, writes them); the x3 recalibration will read them. Empty for now. They
+-- must outlive the topics and the claim they were about (a merge or a deletion), so the foreign keys null out and the
+-- names are copied when the decision is recorded.
 create table public.decisiones_de_tema (
   id uuid primary key default gen_random_uuid(),
   tipo text not null check (tipo in ('fusion_aceptada', 'fusion_rechazada', 'afirmacion_confirmada', 'afirmacion_quitada')),
-  tema_id uuid not null references public.temas (id) on delete cascade,
-  otro_tema_id uuid references public.temas (id) on delete cascade,
-  afirmacion_id uuid references public.afirmaciones (id) on delete cascade,
+  tema_id uuid references public.temas (id) on delete set null,
+  otro_tema_id uuid references public.temas (id) on delete set null,
+  afirmacion_id uuid references public.afirmaciones (id) on delete set null,
+  tema_nombre text not null,
+  otro_tema_nombre text,
   decidida_en timestamptz not null default now(),
   decidida_por uuid not null default auth.uid(),
+  -- Loose on purpose: a deletion nulls an id after the fact. The strict shape is checked when the row is inserted.
   constraint forma_de_la_decision check (
     case
-      when tipo in ('fusion_aceptada', 'fusion_rechazada') then otro_tema_id is not null and afirmacion_id is null
-      else afirmacion_id is not null and otro_tema_id is null
+      when tipo in ('fusion_aceptada', 'fusion_rechazada') then afirmacion_id is null
+      else otro_tema_id is null and otro_tema_nombre is null
     end
   )
 );
 create index decisiones_de_tema_tema on public.decisiones_de_tema (tema_id);
+
+create function public.completar_decision_de_tema() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.tema_id is null
+     or (new.tipo in ('fusion_aceptada', 'fusion_rechazada')) <> (new.otro_tema_id is not null)
+     or (new.tipo in ('fusion_aceptada', 'fusion_rechazada')) = (new.afirmacion_id is not null) then
+    raise exception using errcode = '23514', message = 'forma_de_la_decision';
+  end if;
+  new.tema_nombre := (select nombre from public.temas where id = new.tema_id);
+  new.otro_tema_nombre := (select nombre from public.temas where id = new.otro_tema_id);
+  return new;
+end $$;
+
+create trigger completar_decision before insert on public.decisiones_de_tema
+  for each row execute function public.completar_decision_de_tema();
 
 -- The vectors a dry run computed for each claim with a vector (centroids are recomputed by the switch).
 create table public.huellas_candidatas (
@@ -159,5 +180,5 @@ create policy "coni decide sobre temas" on public.decisiones_de_tema for insert 
   with check (public.es_coni() and decidida_por = auth.uid());
 
 revoke execute on function public.modelo_de_huellas_vigente(), public.sellar_modelo_de_vector(),
-  public.sellar_modelo_de_centroide() from public, anon, authenticated;
+  public.sellar_modelo_de_centroide(), public.completar_decision_de_tema() from public, anon, authenticated;
 grant execute on function public.modelo_de_huellas_vigente() to service_role;

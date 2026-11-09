@@ -650,7 +650,9 @@ export type Database = {
           decidida_por: string
           id: string
           otro_tema_id: string | null
-          tema_id: string
+          otro_tema_nombre: string | null
+          tema_id: string | null
+          tema_nombre: string
           tipo: string
         }
         Insert: {
@@ -659,7 +661,9 @@ export type Database = {
           decidida_por?: string
           id?: string
           otro_tema_id?: string | null
-          tema_id: string
+          otro_tema_nombre?: string | null
+          tema_id?: string | null
+          tema_nombre: string
           tipo: string
         }
         Update: {
@@ -668,7 +672,9 @@ export type Database = {
           decidida_por?: string
           id?: string
           otro_tema_id?: string | null
-          tema_id?: string
+          otro_tema_nombre?: string | null
+          tema_id?: string | null
+          tema_nombre?: string
           tipo?: string
         }
         Relationships: [

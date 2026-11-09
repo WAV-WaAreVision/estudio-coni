@@ -174,4 +174,33 @@ describe("decisiones_de_tema", () => {
       expect(sinAfirmacion.code).toBe("23514")
     })
   })
+
+  it("keeps the names of both topics, so a decision outlives the topics it was about", async () => {
+    const t = await tema("Deseo", vec({ 0: 1 }))
+    const otro = await tema("Ganas", vec({ 1: 1 }))
+    await pool.query(
+      "insert into public.decisiones_de_tema (tipo, tema_id, otro_tema_id, decidida_por) values ('fusion_rechazada', $1, $2, $3)",
+      [t, otro, CONI],
+    )
+    expect((await pool.query("select tema_nombre, otro_tema_nombre from public.decisiones_de_tema")).rows).toEqual([
+      { tema_nombre: "Deseo", otro_tema_nombre: "Ganas" },
+    ])
+    await pool.query("delete from public.temas where id = any($1)", [[t, otro]])
+    expect(
+      (await pool.query("select tema_id, otro_tema_id, tema_nombre, otro_tema_nombre from public.decisiones_de_tema"))
+        .rows,
+    ).toEqual([{ tema_id: null, otro_tema_id: null, tema_nombre: "Deseo", otro_tema_nombre: "Ganas" }])
+  })
+
+  it("survives the deletion of the claim it was about", async () => {
+    const t = await tema("Deseo", vec({ 0: 1 }))
+    const a = await afirmacion(vec({ 0: 1 }), { tema: t })
+    await pool.query(
+      "insert into public.decisiones_de_tema (tipo, tema_id, afirmacion_id, decidida_por) values ('afirmacion_quitada', $1, $2, $3)",
+      [t, a, CONI],
+    )
+    await pool.query("delete from public.afirmaciones where id = $1", [a])
+    const { rows } = await pool.query("select tipo, afirmacion_id, tema_nombre from public.decisiones_de_tema")
+    expect(rows).toEqual([{ tipo: "afirmacion_quitada", afirmacion_id: null, tema_nombre: "Deseo" }])
+  })
 })
