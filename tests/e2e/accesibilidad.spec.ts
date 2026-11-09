@@ -111,8 +111,8 @@ async function abrirPliegues(page: Page, ruta: string): Promise<void> {
     return
   }
   if (ruta === "/metricas") {
-    // WAV's LinkedIn numbers fold under "Para WAV".
-    await abrirDesplegable(page, "Para WAV")
+    // LinkedIn's manual form folds under "Más opciones".
+    await abrirDesplegable(page, "Más opciones")
     return
   }
   if (!ruta.startsWith("/guion/")) return
@@ -416,8 +416,10 @@ test("Presupuesto with Reactivar open and a refused limit passes WCAG 2.x AA", a
   }
 })
 
-// Part 3: Métricas with a LinkedIn post pending in Para WAV, a manual upload, and Ritmo before the first publication.
-test("Métricas with LinkedIn and Para WAV open, and the empty Ritmo, pass WCAG 2.x AA", async ({ page }) => {
+// Part 3: Métricas with a LinkedIn post pending, the importer and the manual form open, a manual upload, and Ritmo before the first publication.
+test("Métricas with LinkedIn, the importer and the manual form open, and the empty Ritmo, pass WCAG 2.x AA", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 2600 })
   await vaciarPiezasEIdeas()
   const post = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo" })
@@ -428,7 +430,7 @@ test("Métricas with LinkedIn and Para WAV open, and the empty Ritmo, pass WCAG 
   await sembrarPieza("publicado_a_mano", { titulo: "Subido a mano" })
 
   await page.goto("/metricas")
-  await abrirDesplegable(page, "Para WAV")
+  await abrirDesplegable(page, "Más opciones")
   await expect(page.getByLabel("Impresiones de Lo que firma un modelo")).toBeVisible()
   const metricas = await hallazgosDeAxe(page, "metricas con linkedin")
 
