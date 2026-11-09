@@ -98,6 +98,21 @@ describe("leerExcelDeLinkedin", () => {
     expect(lectura.ok && lectura.excel.publicaciones.map((post) => post.numero)).toEqual(["55"])
   })
 
+  it("takes the last share or ugcPost id when the slug itself contains one", () => {
+    const lectura = leerExcelDeLinkedin(
+      hojas({
+        interacciones: [
+          [
+            "https://www.linkedin.com/posts/x_como-share-3-tips-share-7395845008874020865-luFZ?utm_source=share-1-a",
+            "3/10/2026",
+            "4",
+          ],
+        ],
+      }),
+    )
+    expect(lectura.ok && lectura.excel.publicaciones.map((post) => post.numero)).toEqual(["7395845008874020865"])
+  })
+
   it("counts a URL that names no share or ugcPost apart, without failing", () => {
     const lectura = leerExcelDeLinkedin(
       hojas({ interacciones: [["https://www.linkedin.com/posts/alguien_algo-activity-99-XyZ", "3/10/2026", "4"]] }),

@@ -49,7 +49,13 @@ const FILAS_ANTES_DEL_ENCABEZADO = 5
 const FECHA = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
 const PERIODO = /^(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})$/
 const TOTAL_DE_SEGUIDORES = /^Total de seguidores el \d{1,2}\/\d{1,2}\/\d{4}$/
-const POST_EN_URL = /-(share|ugcPost)-(\d+)-/
+const POST_EN_URL = /-(share|ugcPost)-(\d+)-/g
+
+/** The id is the last `-share-N-` of the path: a slug can contain one itself, and the query or hash is not the post. */
+function identificarPost(url: string): RegExpExecArray | undefined {
+  const ruta = url.split(/[?#]/, 1)[0] ?? ""
+  return [...ruta.matchAll(POST_EN_URL)].at(-1)
+}
 
 /** "9/11/2026" (no leading zeros) is "2026-11-09"; anything that is not a real day is null. */
 export function leerFecha(texto: string): string | null {
@@ -131,7 +137,7 @@ export function leerExcelDeLinkedin(hojas: HojasDelExcel): LecturaDelExcel {
       const url = celda(deLasPublicaciones, fila, columnas.url)
       if (url === "") continue
       largo += 1
-      const identificado = POST_EN_URL.exec(url)
+      const identificado = identificarPost(url)
       if (!identificado) {
         sinIdentificar.add(url)
         continue
