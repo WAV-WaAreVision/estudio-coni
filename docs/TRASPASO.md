@@ -157,7 +157,7 @@ semana (el período del Excel puede terminar el día antes de la descarga), y si
 abre, sin recordatorio, y el error queda en el registro. Las elecciones de los posts dudosos se revisan en el servidor:
 la pieza debe ser una de LinkedIn de Coni y el día de importación de las últimas 4 semanas. El formulario a mano sigue,
 plegado en «Más opciones» › «Anotar a mano». El correo semanal a WAV (`numerosLinkedin`) ya no existe;
-`recordatorios_linkedin` quedó sin uso y se borra en un cambio aparte con OK de Federico. Para revisar un Excel real sin
+`recordatorios_linkedin` se borró con OK de Federico (migración `20261110000200`, #125). Para revisar un Excel real sin
 guardar nada: `pnpm revisar:excel-linkedin <ruta>`. El fixture sintético se regenera con `pnpm fixture:excel-linkedin`.
 Migración `20261110000100`.
 

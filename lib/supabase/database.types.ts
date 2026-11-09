@@ -1826,21 +1826,6 @@ export type Database = {
           },
         ]
       }
-      recordatorios_linkedin: {
-        Row: {
-          avisado_en: string
-          semana: string
-        }
-        Insert: {
-          avisado_en?: string
-          semana: string
-        }
-        Update: {
-          avisado_en?: string
-          semana?: string
-        }
-        Relationships: []
-      }
       registro_de_borrados: {
         Row: {
           borrado_en: string
