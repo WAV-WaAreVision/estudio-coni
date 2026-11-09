@@ -3224,6 +3224,7 @@ export type Database = {
         Returns: undefined
       }
       desconectar_linkedin: { Args: never; Returns: undefined }
+      deshacer_fusion: { Args: { p_fusion: string }; Returns: undefined }
       deshacer_lote_de_pilares: { Args: { p_lote: string }; Returns: Json }
       editar_guion_como_coni: {
         Args: {
@@ -3970,6 +3971,10 @@ export type Database = {
         Returns: string
       }
       reclamar_aviso_de_pausa: { Args: { p_id: string }; Returns: boolean }
+      recordar_rechazo_de_coni: {
+        Args: { p_a: string; p_b: string }
+        Returns: undefined
+      }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean

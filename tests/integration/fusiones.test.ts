@@ -1,6 +1,27 @@
+import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, comoServicio, fallaCon, pool } from "./db"
-import { afirmacion, escenaDeFusion, foto, limpiarFusiones, propuesta, tema, vec } from "./fusiones-comun"
+import {
+  asumir,
+  CONI,
+  como,
+  comoConi,
+  comoMantenedor,
+  comoOtra,
+  comoPostgres,
+  comoServicio,
+  fallaCon,
+  pool,
+} from "./db"
+import {
+  afirmacion,
+  desvioDelCentroide,
+  escenaDeFusion,
+  foto,
+  limpiarFusiones,
+  propuesta,
+  tema,
+  vec,
+} from "./fusiones-comun"
 import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
@@ -254,5 +275,156 @@ describe("temas_parecidos with Coni's and Claude's decisions", () => {
     const { a, b } = await tres()
     await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [a, b].sort())
     expect(await parecidos()).toContain(par(a, b))
+  })
+})
+
+describe("deshacer_fusion", () => {
+  /** Merges as the service role, then runs `fn` as Coni, in one rolled-back transaction. */
+  const fusionarYLuego = <T>(ganador: string, perdedor: string, fn: (c: pg.PoolClient, fusion: string) => Promise<T>) =>
+    como(comoServicio, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2) as id", [
+        ganador,
+        perdedor,
+      ])
+      await asumir(c, comoConi)
+      return fn(c, rows[0]?.id ?? "")
+    })
+
+  it("gives back every claim, both topics' pillar rows, the aliases and the chain, and fresh mean centroids", async () => {
+    const e = await escenaDeFusion()
+    await como(comoPostgres, async (c) => {
+      const antes = await foto(c, [e.ganador, e.perdedor, e.encadenado])
+      await asumir(c, comoServicio)
+      const { rows } = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2) as id", [
+        e.ganador,
+        e.perdedor,
+      ])
+      await asumir(c, comoConi)
+      await c.query("select public.deshacer_fusion($1)", [rows[0]?.id])
+      await asumir(c, comoPostgres)
+      expect(await foto(c, [e.ganador, e.perdedor, e.encadenado])).toEqual(antes)
+      expect(await desvioDelCentroide(c, e.ganador)).toBeLessThan(1e-6)
+      expect(await desvioDelCentroide(c, e.perdedor)).toBeLessThan(1e-6)
+      const fusion = await c.query("select estado, deshecha_en is not null as con_fecha from public.fusiones")
+      expect(fusion.rows).toEqual([{ estado: "deshecha", con_fecha: true }])
+      const rechazo = await c.query("select origen, afirmaciones_a, afirmaciones_b from public.temas_fusion_rechazada")
+      expect(rechazo.rows).toEqual([{ origen: "coni", afirmaciones_a: 2, afirmaciones_b: 2 }])
+      const decision = await c.query(
+        "select tipo, tema_nombre, otro_tema_nombre, decidida_por from public.decisiones_de_tema",
+      )
+      expect(decision.rows).toEqual([
+        { tipo: "fusion_rechazada", tema_nombre: "Ganador", otro_tema_nombre: "Perdedor", decidida_por: CONI },
+      ])
+    })
+  })
+
+  it("refuses with pilares_cambiados, changing nothing, when Coni changed the winner's pillars after the merge", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      await c.query(
+        `update public.tema_pilares set fuerza = 'baja'
+          where tema_id = $1 and pilar_id = (select id from public.categorias where slug = 'mi-nueva-partida')`,
+        [e.ganador],
+      )
+      const cambiado = await foto(c, [e.ganador, e.perdedor, e.encadenado])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("pilares_cambiados")
+      await asumir(c, comoPostgres)
+      expect(await foto(c, [e.ganador, e.perdedor, e.encadenado])).toEqual(cambiado)
+      const { rows } = await c.query("select estado from public.fusiones where id = $1", [fusion])
+      expect(rows).toEqual([{ estado: "aplicada" }])
+    })
+  })
+
+  it("refuses with pilares_cambiados when Coni added or removed a pillar of the winner after the merge", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      await c.query("delete from public.tema_pilares where tema_id = $1 and es_capa", [e.ganador])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("pilares_cambiados")
+    })
+  })
+
+  it("restores the pillars exactly when Coni did not touch them since the merge", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      const { rows: antes } = await c.query("select count(*)::int as n from public.tema_pilares where tema_id = $1", [
+        e.ganador,
+      ])
+      expect(antes[0]?.n).toBeGreaterThan(0)
+      await asumir(c, comoConi)
+      await c.query("select public.deshacer_fusion($1)", [fusion])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query(
+        "select tema_id, count(*)::int as n from public.tema_pilares where tema_id = any($1::uuid[]) group by 1 order by 1",
+        [[e.ganador, e.perdedor]],
+      )
+      expect(Object.fromEntries(rows.map((r) => [r.tema_id, r.n]))).toEqual({ [e.ganador]: 2, [e.perdedor]: 3 })
+    })
+  })
+
+  it("leaves a claim excluded since where it is", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      await c.query("update public.afirmaciones set excluida = true, tema_id = null where id = $1", [e.dePerdedor[0]])
+      await asumir(c, comoConi)
+      await c.query("select public.deshacer_fusion($1)", [fusion])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query(
+        "select id, tema_id from public.afirmaciones where id = any($1::uuid[]) order by id",
+        [e.dePerdedor],
+      )
+      expect(rows).toEqual(
+        [...e.dePerdedor].sort().map((id) => ({ id, tema_id: id === e.dePerdedor[0] ? null : e.perdedor })),
+      )
+    })
+  })
+
+  it("refuses when the winner was merged away or a later merge went into it", async () => {
+    const e = await escenaDeFusion()
+    const otro = await tema("Otro", vec({ 0: 1, 4: 0.2 }))
+    await afirmacion(vec({ 0: 1 }), { tema: otro })
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoServicio)
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [e.ganador, otro])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("fusion_superada")
+    })
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoServicio)
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [otro, e.ganador])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("fusion_superada")
+    })
+  })
+
+  it("refuses when either topic would be left with no claim", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      await c.query("update public.afirmaciones set excluida = true, tema_id = null where id = any($1::uuid[])", [
+        e.dePerdedor,
+      ])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("fusion_sin_ideas")
+    })
+  })
+
+  it("refuses a fusion that is not applied, and anyone but Coni", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [id])).message).toBe("fusion_no_aplicada")
+    })
+    for (const sesion of [comoMantenedor, comoOtra]) {
+      await como(sesion, async (c) => {
+        const error = await fallaCon(c, "select public.deshacer_fusion($1)", [id])
+        expect([error.code, error.message]).toEqual(["42501", "sin_permiso"])
+      })
+    }
   })
 })
