@@ -16,6 +16,7 @@ import { resolverDns } from "@/lib/ingesta/red-segura"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
+import type { DepsModelo } from "@/lib/modelo/probar"
 import type { DepsDelMotor } from "@/lib/motor/semanal"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
@@ -155,6 +156,17 @@ function clienteDeServicio() {
   const url = exigirEnv("SUPABASE_URL", process.env.SUPABASE_URL)
   const claveDeServicio = exigirEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
   return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+/** The dependencies of the three model tasks. Voyage's key is a Trigger.dev variable (plan amendment A7). */
+export function depsModelo(): DepsModelo {
+  return {
+    db: clienteDeServicio(),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
+  }
 }
 
 /** The dependencies of the ten-minute maintenance run. The starters come from the task: they need the task objects. */
