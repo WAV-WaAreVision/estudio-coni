@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
+import { CALIBRACION_INICIAL, type ModeloDeHuellas } from "@/lib/dominio/parecido"
 import type { MotivoDePausa, ProveedorConPausa } from "@/lib/dominio/pausas"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { traducirErrorDeClaude } from "@/lib/proveedores/anthropic"
@@ -17,6 +18,8 @@ export interface EntradaDeChequeo {
   motivo: MotivoDePausa
   llave: string
   bases: { elevenlabs: string; heygen: string }
+  /** The vigente model, for Voyage's check; the check only tests the key, so voyage-3.5 is fine when absent. */
+  modeloVoyage?: ModeloDeHuellas
 }
 
 const no = (motivo: string): ResultadoDeChequeo => ({ ok: false, motivo })
@@ -136,7 +139,12 @@ async function chequearClaude(entrada: EntradaDeChequeo): Promise<ResultadoDeChe
 
 async function chequearVoyage(entrada: EntradaDeChequeo): Promise<ResultadoDeChequeo> {
   try {
-    await embeber({ clave: entrada.llave, textos: ["ok"], tipo: "query" })
+    await embeber({
+      clave: entrada.llave,
+      textos: ["ok"],
+      tipo: "query",
+      modelo: entrada.modeloVoyage ?? CALIBRACION_INICIAL.modelo,
+    })
     return { ok: true }
   } catch (error) {
     // Any answer that is not a good embedding keeps the pause; the next tick asks again.

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
+import { leerCalibracion } from "@/lib/datos/huellas"
+import type { ModeloDeHuellas } from "@/lib/dominio/parecido"
 import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
 import {
@@ -25,7 +27,7 @@ import {
   TIPOS_DE_AFIRMACION,
   VERSION_DE_EXTRACCION,
 } from "@/lib/proveedores/anthropic"
-import { costoVoyage, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
+import { costoVoyage, costoVoyagePeorCaso, embeber } from "@/lib/proveedores/voyage"
 
 /** Voyage takes up to 128 texts per request. */
 export const TEXTOS_POR_EMBEBIDO = 128
@@ -40,7 +42,7 @@ const IDS_POR_CONSULTA = 100
 /** What the claims of the material will cost: one request per chunk and the embeddings of what they return. */
 export function estimarAfirmaciones(partes: readonly Parte[]): number {
   const tramos = aTramos(partes).length
-  const embeddings = costoVoyage(tramos * MAXIMO_AFIRMACIONES_POR_TRAMO * TOKENS_POR_AFIRMACION)
+  const embeddings = costoVoyagePeorCaso(tramos * MAXIMO_AFIRMACIONES_POR_TRAMO * TOKENS_POR_AFIRMACION)
   return redondear(tramos * ESTIMADO_POR_TRAMO_USD + embeddings)
 }
 
@@ -123,13 +125,17 @@ async function extraerPorTramo(
 }
 
 export const estimarEmbebido = (textos: readonly string[]) =>
-  redondear(costoVoyage(Math.ceil(textos.join("").length / 2)) + 0.0001)
+  redondear(costoVoyagePeorCaso(Math.ceil(textos.join("").length / 2)) + 0.0001)
 
 /**
  * The vectors of the claims' texts, in batches of 128, each batch kept in the store. Never fails the material: with no
  * key, a provider error or the limit reached, the claims it could not reach stay without a vector (maintenance embeds them).
  */
-async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Promise<(number[] | null)[]> {
+async function embeberAfirmaciones(
+  ctx: Contexto,
+  textos: readonly string[],
+  modelo: ModeloDeHuellas,
+): Promise<(number[] | null)[]> {
   const { deps, material } = ctx
   const vectores: (number[] | null)[] = textos.map(() => null)
   const llave = deps.llaveVoyage?.()
@@ -137,7 +143,7 @@ async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Pr
   try {
     for (let desde = 0, n = 1; desde < textos.length; desde += TEXTOS_POR_EMBEBIDO, n++) {
       const lote = textos.slice(desde, desde + TEXTOS_POR_EMBEBIDO)
-      const huella = huellaDe(MODELO_VOYAGE, ...lote)
+      const huella = huellaDe(modelo, ...lote)
       const archivo = `materiales/${material.id}/afirmaciones/embedding-${String(n).padStart(3, "0")}.json`
       const previo = await pagadoAntes(ctx, archivo, Embebidos)
       let lista = previo?.huella === huella ? previo.vectores : null
@@ -148,9 +154,9 @@ async function embeberAfirmaciones(ctx: Contexto, textos: readonly string[]): Pr
           paso: "embedding",
           estimadoUsd: estimarEmbebido(lote),
           llamar: async () => {
-            const r = await embeber({ clave: llave, textos: lote, tipo: "document" })
+            const r = await embeber({ clave: llave, textos: lote, tipo: "document", modelo })
             if (r.vectores.length !== lote.length) throw new Error("Voyage no devolvió un vector por afirmación.")
-            return { datos: { huella, vectores: r.vectores }, realUsd: costoVoyage(r.tokens) }
+            return { datos: { huella, vectores: r.vectores }, realUsd: costoVoyage(r.tokens, modelo) }
           },
         })
         if (pagado.limite) return vectores
@@ -194,6 +200,7 @@ async function reemplazarAfirmaciones(
   tramos: readonly Tramo[],
   extraidas: readonly Extraidas[],
   vectores: readonly (number[] | null)[],
+  modelo: ModeloDeHuellas,
 ): Promise<string[]> {
   const { db } = ctx.deps
   const { id, autor_id } = ctx.material
@@ -226,6 +233,7 @@ async function reemplazarAfirmaciones(
             emocion: f.emocion,
             gancho: f.gancho,
             vector: vector ? textoDeVector(vector) : null,
+            modelo_vector: vector ? modelo : null,
           }
         }),
       )
@@ -257,12 +265,13 @@ export async function afirmarMaterial(
   const extraccion = await extraerPorTramo(ctx, tramos)
   if (extraccion.limite) return LIMITE
   const { extraidas } = extraccion
+  const calibracion = await leerCalibracion(db)
   const textos = extraidas.flatMap((e) => e.afirmaciones.map((a) => a.texto))
-  const vectores = await embeberAfirmaciones(ctx, textos)
+  const vectores = await embeberAfirmaciones(ctx, textos, calibracion.modelo)
   const temasAnteriores = await temasDeLasAfirmaciones(db, ctx.material.id)
-  const ids = await reemplazarAfirmaciones(ctx, tramos, extraidas, vectores)
+  const ids = await reemplazarAfirmaciones(ctx, tramos, extraidas, vectores, calibracion.modelo)
   for (let desde = 0; desde < ids.length; desde += IDS_POR_CONSULTA) {
-    await asignarATemas({ db }, ids.slice(desde, desde + IDS_POR_CONSULTA))
+    await asignarATemas({ db }, ids.slice(desde, desde + IDS_POR_CONSULTA), calibracion)
   }
   for (const temaId of temasAnteriores) await recalcularTema(db, temaId)
   return { limite: false, idioma: idiomaDominante(extraidas) }

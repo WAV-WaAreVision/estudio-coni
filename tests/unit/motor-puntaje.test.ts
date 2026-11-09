@@ -33,9 +33,19 @@ const par = (a: string, b: string, extra: Partial<ParDelMotor> = {}): ParDelMoto
 const vacio = (): ContextoDelPuntaje => ({
   recientes: { temas: new Set(), pares: new Set() },
   descartes: new Map(),
+  puente: { min: 0.6, max: 0.8 },
 })
 
 describe("puntuarPar", () => {
+  it("uses the bridge band of the calibration it is given", () => {
+    const contexto = { ...vacio(), puente: { min: 0.3, max: 0.5 } }
+    const p = (puente: number) =>
+      puntuarPar(par("a", "b", { puente }), tema("a"), tema("b"), contexto).componentes.puente
+    expect(p(0.4)).toBe(1)
+    expect(p(0.6)).toBeCloseTo(1 / 3)
+    expect(p(0.8)).toBe(0)
+  })
+
   it("computes soporte from authors and claims, each capped at 1", () => {
     const { componentes } = puntuarPar(
       par("a", "b"),

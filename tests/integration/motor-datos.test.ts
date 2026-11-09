@@ -319,6 +319,7 @@ describe("leerDatosDelMotor", () => {
     expect(datos.descartes.get(t1)).toBe(2)
     expect(datos.descartes.get(t2)).toBe(3)
     expect(datos.descartes.get(t3)).toBe(1)
+    expect(datos.puente).toEqual({ min: 0.6, max: 0.8 })
   })
 
   it("does not count an idea archived because its pillar retired as a discard of its topics", async () => {

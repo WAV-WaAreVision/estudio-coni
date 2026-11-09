@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { DepsResumen } from "@/lib/avisos/resumen"
 import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
 import { renderizarCarrusel } from "@/lib/carrusel/render"
+import { leerCalibracion } from "@/lib/datos/huellas"
 import type { PausaParaCerrar } from "@/lib/datos/pausas"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { anotadorDeBorrados } from "@/lib/datos-personales/borrados"
@@ -15,6 +16,7 @@ import { resolverDns } from "@/lib/ingesta/red-segura"
 import type { DepsFrecuente, DepsNocturno } from "@/lib/mantenimiento/ejecutar"
 import { volcarConPgDump } from "@/lib/mantenimiento/pg-dump"
 import type { DepsMantenimientoTemas } from "@/lib/mantenimiento/temas"
+import type { DepsModelo } from "@/lib/modelo/probar"
 import type { DepsDelMotor } from "@/lib/motor/semanal"
 import { almacenReal } from "@/lib/proveedores/almacen"
 import { avisosReales, canalReal } from "@/lib/proveedores/avisos"
@@ -156,6 +158,17 @@ function clienteDeServicio() {
   return createClient<Database>(url, claveDeServicio, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
+/** The dependencies of the three model tasks. Voyage's key is a Trigger.dev variable (plan amendment A7). */
+export function depsModelo(): DepsModelo {
+  return {
+    db: clienteDeServicio(),
+    almacen: almacenReal(),
+    avisos: avisosReales(),
+    ahora: () => new Date().toISOString(),
+    llaveVoyage: () => process.env.VOYAGE_API_KEY || undefined,
+  }
+}
+
 /** The dependencies of the ten-minute maintenance run. The starters come from the task: they need the task objects. */
 export function depsFrecuente(
   dispararGrabacion: DepsFrecuente["dispararGrabacion"],
@@ -189,6 +202,7 @@ async function chequearConLaLlave(db: SupabaseClient<Database>, pausa: PausaPara
     proveedor: pausa.proveedor,
     motivo: pausa.motivo,
     llave,
+    ...(pausa.proveedor === "voyage" ? { modeloVoyage: (await leerCalibracion(db)).modelo } : {}),
     bases: {
       elevenlabs: baseDe(process.env, "ELEVENLABS_BASE_URL", "https://api.elevenlabs.io"),
       heygen: baseDe(process.env, "HEYGEN_BASE_URL", "https://api.heygen.com"),

@@ -1,14 +1,15 @@
 import { z } from "zod"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
+import type { ModeloDeHuellas } from "@/lib/dominio/parecido"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
 
 const URL_VOYAGE = "https://api.voyageai.com/v1/embeddings"
 const ESPERA_MS = 60_000
 
-export const MODELO_VOYAGE = "voyage-3.5"
 export const DIMENSIONES = 1024
-// voyage-3.5 list price in USD per million tokens. Must be checked against the account's plan before trusting the estimate.
-const USD_POR_MILLON_DE_TOKENS = 0.06
+// List prices in USD per million tokens (docs.voyageai.com/docs/pricing, read 2026-11-09; voyage-4 includes 200M free
+// tokens). Check them against the account's plan before trusting an estimate.
+const USD_POR_MILLON_DE_TOKENS: Record<ModeloDeHuellas, number> = { "voyage-3.5": 0.06, "voyage-4": 0.06 }
 
 const Respuesta = z.object({
   data: z.array(z.object({ embedding: z.array(z.number()), index: z.number() })),
@@ -24,9 +25,14 @@ function esErrorDeConfiguracion(estado: number): boolean {
   return estado >= 400 && estado < 500 && estado !== 408 && estado !== 429
 }
 
-/** Cost in USD of embedding `tokens` tokens. */
-export function costoVoyage(tokens: number): number {
-  return (tokens / 1_000_000) * USD_POR_MILLON_DE_TOKENS
+/** Cost in USD of embedding `tokens` tokens with `modelo`. */
+export function costoVoyage(tokens: number, modelo: ModeloDeHuellas): number {
+  return (tokens / 1_000_000) * USD_POR_MILLON_DE_TOKENS[modelo]
+}
+
+/** For estimates made before the model is read: the dearest model, so a reservation never falls short. */
+export function costoVoyagePeorCaso(tokens: number): number {
+  return (tokens / 1_000_000) * Math.max(...Object.values(USD_POR_MILLON_DE_TOKENS))
 }
 
 /** Embeds `textos` with Voyage. Cards are `document`; a search text is a `query`. */
@@ -34,14 +40,16 @@ export async function embeber(entrada: {
   clave: string
   textos: string[]
   tipo: "document" | "query"
+  modelo: ModeloDeHuellas
 }): Promise<{ vectores: number[][]; tokens: number }> {
-  const { clave, textos, tipo } = entrada
+  const { clave, textos, tipo, modelo } = entrada
   let respuesta: Response
   try {
     respuesta = await fetch(URL_VOYAGE, {
       method: "POST",
       headers: { Authorization: `Bearer ${clave}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: textos, model: MODELO_VOYAGE, input_type: tipo }),
+      // Both models default to 1024; asking for it keeps a future default from breaking the vector(1024) columns.
+      body: JSON.stringify({ input: textos, model: modelo, input_type: tipo, output_dimension: DIMENSIONES }),
       signal: AbortSignal.timeout(ESPERA_MS),
     })
   } catch (error) {

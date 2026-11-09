@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { CALIBRACION_INICIAL } from "@/lib/dominio/parecido"
 import { media, parsearVector } from "@/lib/ingesta/agrupar"
 import {
   asignarATemas,
@@ -8,13 +9,11 @@ import {
   fusionarTemas,
   MAXIMO_PENDIENTES_POR_CORRIDA,
   recalcularTema,
-  UMBRAL_FUSION,
-  UMBRAL_GRUPO,
-  UMBRAL_TEMA,
 } from "@/lib/ingesta/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { servidor } from "../msw"
 import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool, sinLimiteFijado } from "./db"
+import { reiniciarCalibracion } from "./huellas-comun"
 import { URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -46,6 +45,7 @@ let materialId = ""
 async function limpiarTodo() {
   autorId = ""
   materialId = ""
+  await reiniciarCalibracion()
   await pool.query("delete from public.afirmaciones")
   await pool.query("delete from public.temas")
   await pool.query("delete from public.materiales where texto_pegado = 'temas-vivos'")
@@ -199,7 +199,7 @@ describe("asignarATemas", () => {
     await afirmacion(vec({ 0: 1 }), { tema: t })
     const nueva = vec({ 0: 0.9, 1: 0.4359 })
     const id = await afirmacion(nueva)
-    const resultado = await asignarATemas(deps(), [id])
+    const resultado = await asignarATemas(deps(), [id], CALIBRACION_INICIAL)
     expect(await temaDe(id)).toBe(t)
     expect(resultado).toEqual({ asignadas: 1, pendientes: 0 })
     const esperado = media([vec({ 0: 1 }), nueva])
@@ -218,21 +218,39 @@ describe("asignarATemas", () => {
       texto(vec({ 0: 1 }).map((x, i) => (i === 0 ? 0.5 : i === 1 ? 0.5 : x))),
     ])
     const id = await afirmacion(vec({ 0: 1 }))
-    await asignarATemas(deps(), [id])
+    await asignarATemas(deps(), [id], CALIBRACION_INICIAL)
     expect(await temaDe(id)).toBeNull()
   })
 
   it("leaves a claim below the threshold pending", async () => {
     const t = await tema("Deseo", vec({ 0: 1 }))
     const id = await afirmacion(vec({ 5: 1 }))
-    const resultado = await asignarATemas(deps(), [id])
+    const resultado = await asignarATemas(deps(), [id], CALIBRACION_INICIAL)
     expect(await temaDe(id)).toBeNull()
     expect(resultado).toEqual({ asignadas: 0, pendientes: 1 })
     expect((await centroideDe(t))[0]).toBeCloseTo(1)
   })
 
-  it("uses the calibrated thresholds (average linkage, 0.80)", () => {
-    expect([UMBRAL_TEMA, UMBRAL_GRUPO, UMBRAL_FUSION]).toEqual([0.8, 0.8, 0.8])
+  it("measures against the calibration it is given and stamps the centroid with its model", async () => {
+    const t = await tema("Deseo", vec({ 0: 1 }))
+    await afirmacion(vec({ 0: 1 }), { tema: t })
+    const id = await afirmacion(vec({ 0: 0.9, 1: 0.4359 }))
+    expect(await asignarATemas(deps(), [id], { ...CALIBRACION_INICIAL, tema: 0.95 })).toEqual({
+      asignadas: 0,
+      pendientes: 1,
+    })
+    expect(await asignarATemas(deps(), [id], CALIBRACION_INICIAL)).toEqual({ asignadas: 1, pendientes: 0 })
+    const { rows } = await pool.query("select modelo_centroide from public.temas where id = $1", [t])
+    expect(rows).toEqual([{ modelo_centroide: "voyage-3.5" }])
+  })
+
+  it("is refused when its calibration is no longer the vigente one (a switch happened mid-run)", async () => {
+    const t = await tema("Deseo", vec({ 0: 1 }))
+    await afirmacion(vec({ 0: 1 }), { tema: t })
+    const id = await afirmacion(vec({ 0: 1 }))
+    await expect(asignarATemas(deps(), [id], { ...CALIBRACION_INICIAL, modelo: "voyage-4" })).rejects.toThrow(
+      /modelo_de_huellas_cambio/,
+    )
   })
 
   it("skips claims without a vector, already in a topic, or excluded", async () => {
@@ -241,7 +259,7 @@ describe("asignarATemas", () => {
     const sinVector = await afirmacion(null)
     const yaTiene = await afirmacion(vec({ 0: 1 }), { tema: otro })
     const excluida = await afirmacion(vec({ 0: 1 }), { excluida: true })
-    await asignarATemas(deps(), [sinVector, yaTiene, excluida])
+    await asignarATemas(deps(), [sinVector, yaTiene, excluida], CALIBRACION_INICIAL)
     expect(await temaDe(sinVector)).toBeNull()
     expect(await temaDe(yaTiene)).toBe(otro)
     expect(await temaDe(excluida)).toBeNull()
@@ -252,12 +270,18 @@ describe("asignarATemas", () => {
     const vivo = await tema("Vivo", vec({ 3: 1 }))
     await tema("Absorbido", vec({ 0: 1 }), { fusionado: vivo })
     const id = await afirmacion(vec({ 0: 1 }))
-    await asignarATemas(deps(), [id])
+    await asignarATemas(deps(), [id], CALIBRACION_INICIAL)
     expect(await temaDe(id)).toBeNull()
   })
 })
 
 describe("formarTemas", () => {
+  it("groups with the calibration's grupo threshold", async () => {
+    for (const v of [vec({ 0: 1 }), vec({ 0: 1, 1: 0.3 }), vec({ 0: 1, 1: -0.3 })]) await afirmacion(v)
+    const estricta = await formarTemas(deps(), { ...CALIBRACION_INICIAL, grupo: 0.99 })
+    expect(estricta.creados).toBe(0)
+  })
+
   async function dosGrupos() {
     const a = [
       await afirmacion(vec({ 0: 1 })),
@@ -277,7 +301,7 @@ describe("formarTemas", () => {
   it("creates a named topic per group of 3 or more, assigns its claims and leaves smaller groups pending", async () => {
     const { a, b, chico } = await dosGrupos()
     const llamadas = simularClaude({ nombre: (i) => `Tema nuevo ${i}` })
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.nombres).toBe(1)
     expect(resultado).toMatchObject({ tope: false, creados: 2, pendientes: 2 })
     const { rows } = await pool.query<{ id: string; categoria: string | null }>(
@@ -296,7 +320,7 @@ describe("formarTemas", () => {
   it("offers only the active categories and never stores a retired pillar Claude answers with", async () => {
     await dosGrupos()
     const llamadas = simularClaude({ pilar: "deseo" })
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.pilaresOfrecidos).toContain("ia-salud-mental")
     expect(llamadas.pilaresOfrecidos).toContain("general")
     expect(llamadas.pilaresOfrecidos).not.toContain("deseo")
@@ -308,7 +332,7 @@ describe("formarTemas", () => {
   it("gives the topic the plain mean of its group, not normalized", async () => {
     const { b } = await dosGrupos()
     simularClaude()
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     const c = await centroideDe((await temaDe(b[0] ?? "")) ?? "")
     const esperado = media([vec({ 10: 1 }), vec({ 10: 1, 11: 0.1 }), vec({ 10: 1, 12: 0.1 })])
     expect(c[10]).toBeCloseTo(esperado[10] ?? 0, 4)
@@ -319,7 +343,7 @@ describe("formarTemas", () => {
   it("pays through the cap: provider anthropic, paso temas, key temas:formar:<uuid>, confirmed", async () => {
     await dosGrupos()
     simularClaude()
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ proveedor: string; paso: string; clave: string; estado: string }>(
       "select proveedor, paso, clave, estado from public.gastos where clave like 'temas:%'",
     )
@@ -332,7 +356,7 @@ describe("formarTemas", () => {
     await afirmacion(vec({ 0: 1 }))
     await afirmacion(vec({ 0: 1, 1: 0.1 }))
     const llamadas = simularClaude()
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.nombres).toBe(0)
     expect(resultado).toMatchObject({ tope: false, creados: 0, pendientes: 2 })
   })
@@ -345,7 +369,7 @@ describe("formarTemas", () => {
     await afirmacion(null)
     await afirmacion(vec({ 0: 1 }), { tema: t })
     const llamadas = simularClaude()
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.nombres).toBe(0)
     expect(resultado.creados).toBe(0)
   })
@@ -354,7 +378,7 @@ describe("formarTemas", () => {
     const existente = await tema("Deseo Espontáneo", vec({ 40: 1 }))
     const { a } = await dosGrupos()
     simularClaude({ nombre: (i) => (i === 0 ? "  deseo espontaneo " : "Otro tema") })
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query("select id from public.temas")
     expect(rows).toHaveLength(2)
     expect(resultado).toMatchObject({ creados: 1, unidos: 1 })
@@ -374,7 +398,7 @@ describe("formarTemas", () => {
     await tema("Nombre viejo", vec({ 41: 1 }), { fusionado: vivo, alias: [] })
     await dosGrupos()
     simularClaude({ nombre: (i) => (i === 0 ? "Nombre viejo" : "Otro tema") })
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ n: number }>(
       "select count(*)::int as n from public.afirmaciones where tema_id = $1",
       [vivo],
@@ -396,7 +420,7 @@ describe("formarTemas", () => {
     await afirmacion(vec({ 0: 1, 1: 0.1 }))
     await afirmacion(vec({ 0: 1, 2: 0.1 }))
     simularClaude({ nombre: () => "Grupo nuevo" })
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(resultado.creados).toBe(1)
   })
 
@@ -407,7 +431,7 @@ describe("formarTemas", () => {
   it("stops without throwing when the monthly cap is reached, and leaves the claims pending", async () => {
     await dosGrupos()
     simularClaude()
-    const resultado = await conTopeChico(() => formarTemas(deps()))
+    const resultado = await conTopeChico(() => formarTemas(deps(), CALIBRACION_INICIAL))
     expect(resultado.tope).toBe(true)
     const { rows } = await pool.query("select id from public.temas")
     expect(rows).toHaveLength(0)
@@ -418,7 +442,7 @@ describe("formarTemas", () => {
   it("gives each new topic the main pillar per network and the layer Claude named, as automatico, and keeps categoria_id", async () => {
     await dosGrupos()
     simularClaude({ linkedin: "bienestar-e-impacto", instagram: "game-over-impostora", capas: ["capa-tdah"] })
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ tema: string; slug: string; fuerza: string | null; origen: string }>(
       `select t.nombre as tema, c.slug, p.fuerza, p.origen
          from public.tema_pilares p join public.temas t on t.id = p.tema_id join public.categorias c on c.id = p.pilar_id
@@ -438,7 +462,7 @@ describe("formarTemas", () => {
   it("writes no pillar row when Claude names none", async () => {
     await dosGrupos()
     simularClaude()
-    await formarTemas(deps())
+    await formarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query("select 1 from public.tema_pilares")
     expect(rows).toEqual([])
   })
@@ -454,7 +478,7 @@ describe("formarTemas", () => {
       "create trigger prueba_falla_pilares before insert on public.tema_pilares for each row execute function public.prueba_falla_pilares()",
     )
     try {
-      await expect(formarTemas(deps())).rejects.toThrow(/No pude guardar los pilares del tema/)
+      await expect(formarTemas(deps(), CALIBRACION_INICIAL)).rejects.toThrow(/No pude guardar los pilares del tema/)
     } finally {
       await pool.query("drop trigger prueba_falla_pilares on public.tema_pilares")
       await pool.query("drop function public.prueba_falla_pilares()")
@@ -473,7 +497,7 @@ describe("formarTemas", () => {
       instagram: "no-existe",
       capas: ["diagnostico-doble", "capa-tdah"],
     })
-    const resultado = await formarTemas(deps())
+    const resultado = await formarTemas(deps(), CALIBRACION_INICIAL)
     expect(resultado).toMatchObject({ tope: false, creados: 2 })
     const { rows } = await pool.query<{ slug: string; fuerza: string | null }>(
       `select c.slug, p.fuerza from public.tema_pilares p join public.categorias c on c.id = p.pilar_id order by c.slug`,
@@ -486,6 +510,15 @@ describe("formarTemas", () => {
 })
 
 describe("fusionarTemas", () => {
+  it("looks for pairs with the calibration's fusion threshold", async () => {
+    await tema("Deseo", vec({ 0: 1 }))
+    await tema("Ganas", vec({ 0: 1, 1: 0.2 }))
+    expect(await fusionarTemas(deps(), { ...CALIBRACION_INICIAL, fusion: 0.999 })).toEqual({
+      tope: false,
+      fusionados: 0,
+    })
+  })
+
   async function dosParecidos() {
     const grande = await tema("Deseo bajo", vec({ 0: 1 }))
     const chico = await tema("Poco deseo", vec({ 0: 1, 1: 0.2 }))
@@ -497,7 +530,7 @@ describe("fusionarTemas", () => {
   it("merges a confirmed pair into the topic with more claims, as alias, with the centroid recomputed", async () => {
     const { grande, chico, g, c } = await dosParecidos()
     const llamadas = simularClaude({ mismo: true })
-    const resultado = await fusionarTemas(deps())
+    const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
     expect(resultado).toMatchObject({ tope: false, fusionados: 1 })
     expect(await Promise.all([...g, ...c].map(temaDe))).toEqual([grande, grande, grande])
@@ -521,7 +554,7 @@ describe("fusionarTemas", () => {
     await afirmacion(vec({ 0: 1 }), { tema: viejo })
     await afirmacion(vec({ 0: 1 }), { tema: nuevo })
     simularClaude({ mismo: true })
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ id: string; fusionado_en: string | null }>(
       "select id, fusionado_en from public.temas",
     )
@@ -531,7 +564,7 @@ describe("fusionarTemas", () => {
   it("does nothing when Claude says they are not the same topic", async () => {
     const { grande, chico } = await dosParecidos()
     simularClaude({ mismo: false })
-    const resultado = await fusionarTemas(deps())
+    const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(resultado.fusionados).toBe(0)
     const { rows } = await pool.query("select id from public.temas where fusionado_en is null")
     expect(rows.map((r) => r.id).sort()).toEqual([grande, chico].sort())
@@ -540,18 +573,18 @@ describe("fusionarTemas", () => {
   it("remembers a rejected pair and does not ask about it again, while a new pair is still asked", async () => {
     const { grande, chico } = await dosParecidos()
     const llamadas = simularClaude({ mismo: false })
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
     const { rows } = await pool.query<{ tema_a: string; tema_b: string }>(
       "select tema_a, tema_b from public.temas_fusion_rechazada",
     )
     expect(rows).toEqual([{ tema_a: [grande, chico].sort()[0], tema_b: [grande, chico].sort()[1] }])
 
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
 
     const tercero = await tema("Otro deseo", vec({ 0: 1, 2: 0.2 }))
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(2)
     const { rows: guardados } = await pool.query("select 1 from public.temas_fusion_rechazada")
     expect(guardados).toHaveLength(3)
@@ -561,7 +594,7 @@ describe("fusionarTemas", () => {
   it("does not store the pairs Claude confirmed", async () => {
     await dosParecidos()
     simularClaude({ mismo: true })
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query("select 1 from public.temas_fusion_rechazada")
     expect(rows).toHaveLength(0)
   })
@@ -570,7 +603,7 @@ describe("fusionarTemas", () => {
     await dosParecidos()
     simularClaude({ mismo: false })
     const almacen = almacenEnMemoria()
-    await fusionarTemas(deps(almacen))
+    await fusionarTemas(deps(almacen), CALIBRACION_INICIAL)
     expect(almacen.claves()).toEqual([])
     const { rows } = await pool.query(
       "select 1 from public.gastos where clave like 'temas:fusionar:%' and estado = 'confirmado'",
@@ -582,7 +615,7 @@ describe("fusionarTemas", () => {
     await tema("Uno", vec({ 0: 1 }))
     await tema("Dos", vec({ 9: 1 }))
     const llamadas = simularClaude()
-    const resultado = await fusionarTemas(deps())
+    const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(0)
     expect(resultado).toMatchObject({ tope: false, fusionados: 0 })
   })
@@ -597,7 +630,7 @@ describe("fusionarTemas", () => {
     await afirmacion(vec({ 0: 1 }), { tema: b })
     await afirmacion(vec({ 0: 1 }), { tema: c })
     simularClaude({ mismo: true })
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ id: string; fusionado_en: string | null }>(
       "select id, fusionado_en from public.temas",
     )
@@ -614,12 +647,12 @@ describe("fusionarTemas", () => {
   it("pays through the cap with paso temas and stops without throwing at the cap", async () => {
     await dosParecidos()
     simularClaude({ mismo: true })
-    const resultado = await conTopeChico(() => fusionarTemas(deps()))
+    const resultado = await conTopeChico(() => fusionarTemas(deps(), CALIBRACION_INICIAL))
     expect(resultado.tope).toBe(true)
     const { rows } = await pool.query("select id from public.temas where fusionado_en is not null")
     expect(rows).toHaveLength(0)
     simularClaude({ mismo: true })
-    await fusionarTemas(deps())
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows: gastos } = await pool.query<{ paso: string; clave: string }>(
       "select paso, clave from public.gastos where clave like 'temas:%' and estado = 'confirmado'",
     )

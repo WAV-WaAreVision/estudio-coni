@@ -8,8 +8,6 @@ export const PESO_PUENTE = 0.2
 export const PESO_NOVEDAD = 0.2
 export const PENALIZACION_DESCARTE = 0.1
 export const MINIMO_AUTORES_CRUCE = 2
-export const PUENTE_MIN = 0.6
-export const PUENTE_MAX = 0.8
 export const CRUCES_POR_SEMANA = 8
 export const MAXIMO_CRUCES_POR_TEMA = 2
 export const MINIMO_CRUCES_PARA_NO_ARRANQUE_EN_FRIO = 3
@@ -22,7 +20,7 @@ const PENALIZACION_TEMA_RECIENTE = 0.25
 const MAXIMO_UN_SOLO_AUTOR = 10
 const AFIRMACIONES_MINIMAS_UN_SOLO_AUTOR = 3
 
-export type ContextoDelPuntaje = Pick<DatosDelMotor, "recientes" | "descartes">
+export type ContextoDelPuntaje = Pick<DatosDelMotor, "recientes" | "descartes" | "puente">
 
 export interface ComponentesDelPuntaje {
   soporte: number
@@ -51,8 +49,8 @@ function evidenciaDe(fuertes: number, afirmaciones: number): number {
   return afirmaciones > 0 ? acotar(fuertes / afirmaciones) : 0
 }
 
-function puenteDe(puente: number, autoresComunes: number): number {
-  const fuera = puente < PUENTE_MIN ? PUENTE_MIN - puente : puente > PUENTE_MAX ? puente - PUENTE_MAX : 0
+function puenteDe(puente: number, autoresComunes: number, banda: DatosDelMotor["puente"]): number {
+  const fuera = puente < banda.min ? banda.min - puente : puente > banda.max ? puente - banda.max : 0
   const base = Math.max(0, 1 - fuera / HOLGURA_DEL_PUENTE)
   return Math.min(1, base + (autoresComunes > 0 ? BONO_AUTORES_COMUNES : 0))
 }
@@ -68,7 +66,7 @@ export function puntuarPar(
     temaA.evidencia_fuerte + temaB.evidencia_fuerte,
     temaA.afirmaciones + temaB.afirmaciones,
   )
-  const puente = puenteDe(par.puente, par.autores_comunes)
+  const puente = puenteDe(par.puente, par.autores_comunes, contexto.puente)
 
   const recientes = contexto.recientes
   const novedad = recientes.pares.has(claveDePar(par.a, par.b))
