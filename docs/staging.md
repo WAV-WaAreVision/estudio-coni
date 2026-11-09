@@ -35,7 +35,8 @@ Las llaves nunca se pegan en la terminal de la app de Claude.
    staging (Supabase → rama `staging` → Connect → Session pooler).
 3. **Trigger.dev, ambiente Staging** (Project → Environment variables → Staging): `SUPABASE_URL`
    (`https://omvvgywjyuoqjjfpbpsy.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY` (staging), `R2_ACCOUNT_ID`,
-   `R2_BUCKET=estudio-coni-staging`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (token de staging), `RESEND_API_KEY`,
+   `R2_BUCKET=estudio-coni-staging`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (token de staging), `RESEND_API_KEY`, `VOYAGE_API_KEY`
+   (la de producción: solo embeber, casi sin costo),
    `AVISOS_REMITENTE`, `AVISOS_CORREO_WAV`, `AVISOS_CORREO_CONI` (tu correo), `CONIDOLLY_AMBIENTE=staging` y
    `RESPALDO_DB_URL` (la misma cadena de staging). Sin variables de LinkedIn, Meta ni `VAPID_*`.
 4. **Correo de la rama** (desde `~/Projects/estudio-coni`):
