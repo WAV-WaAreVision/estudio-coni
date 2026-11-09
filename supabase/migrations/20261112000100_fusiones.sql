@@ -90,8 +90,12 @@ alter table public.fusiones_afirmaciones enable row level security;
 alter table public.temas_subtemas enable row level security;
 revoke all on public.fusiones, public.fusiones_afirmaciones, public.temas_subtemas from anon, authenticated, service_role;
 -- The nightly run inserts proposals and subtopics and completes the verdict of a merge it applied; every other write
--- goes through the definer functions of 20261112000200 to 20261112000500.
-grant select, insert on public.fusiones, public.temas_subtemas to service_role;
+-- goes through the definer functions of 20261112000200 to 20261112000500. It can insert only the columns of a proposal:
+-- never a state, a decision date or a snapshot, so it cannot log a merge that never happened.
+grant select on public.fusiones, public.temas_subtemas to service_role;
+grant insert on public.temas_subtemas to service_role;
+grant insert (ganador_id, perdedor_id, origen, veredicto, seguro, razon, parecido, modelo, version_prompt, delicada, motivo_delicada)
+  on public.fusiones to service_role;
 grant update (seguro, razon, parecido, version_prompt) on public.fusiones to service_role;
 grant select on public.fusiones_afirmaciones to service_role;
 grant select on public.fusiones, public.temas_subtemas to authenticated;

@@ -69,6 +69,29 @@ describe("fusiones schema", () => {
     })
   })
 
+  it("lets the service role insert proposals only, never a merge already applied, decided or snapshotted", async () => {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 1: 1 }))
+    await como(comoServicio, async (c) => {
+      const base = "insert into public.fusiones (ganador_id, perdedor_id, origen, delicada, motivo_delicada"
+      for (const [columna, valor] of [
+        ["estado", "'aplicada'"],
+        ["decidida_en", "now()"],
+        ["pilares_ganador", "'[]'::jsonb"],
+        ["alias_agregados", "'{}'::text[]"],
+      ] as const) {
+        const error = await fallaCon(c, `${base}, ${columna}) values ($1, $2, 'claude', true, 'x', ${valor})`, [a, b])
+        expect(error.code, columna).toBe("42501")
+      }
+      const { rows } = await c.query(
+        `${base}, seguro, razon, parecido, version_prompt, modelo, veredicto)
+         values ($1, $2, 'claude', true, 'x', false, 'r', 0.9, 'v', 'voyage-4', 'mismo') returning estado`,
+        [a, b],
+      )
+      expect(rows).toEqual([{ estado: "propuesta" }])
+    })
+  })
+
   it("keeps a subtopic pair once in either direction and never a topic under itself", async () => {
     const a = await tema("A", vec({ 0: 1 }))
     const b = await tema("B", vec({ 1: 1 }))
