@@ -103,6 +103,20 @@ describe("the model stamp of a claim's vector", () => {
   })
 })
 
+describe("a vector replaced on a claim stamped with the model of before a switch", () => {
+  it("is dropped too: the stamp stays voyage-3.5, which is no longer vigente, so maintenance embeds the claim again", async () => {
+    const id = await afirmacion(vec({ 0: 1 }))
+    await como(comoPostgres, async (c) => {
+      await vigenteVoyage4(c)
+      await c.query("update public.afirmaciones set vector = $2::extensions.vector where id = $1", [
+        id,
+        texto(vec({ 1: 1 })),
+      ])
+      expect(await modeloDe(c, id)).toEqual({ sin: true, modelo: null })
+    })
+  })
+})
+
 describe("the model stamp of a topic's centroid", () => {
   it("stamps an insert and a SQL recomputation with the vigente model", async () => {
     const t = await tema("Deseo", vec({ 0: 1 }))
@@ -123,6 +137,62 @@ describe("the model stamp of a topic's centroid", () => {
         [t, texto(vec({ 1: 1 }))],
       )
       expect(error.message).toBe("modelo_de_huellas_cambio")
+    })
+  })
+})
+
+describe("who can reach the model tables and functions", () => {
+  const tablas = [
+    "pruebas_de_modelo",
+    "calibraciones_de_parecido",
+    "huellas_candidatas",
+    "huellas_anteriores",
+    "decisiones_de_tema",
+  ]
+  const funciones = [
+    "modelo_de_huellas_vigente()",
+    "sellar_modelo_de_vector()",
+    "sellar_modelo_de_centroide()",
+    "completar_decision_de_tema()",
+    "huella_de_asignaciones()",
+    "afirmaciones_sin_huella(uuid, text)",
+    "aplicar_prueba_de_modelo(uuid)",
+    "revertir_prueba_de_modelo(uuid)",
+    "limpiar_huellas_de_prueba(timestamptz)",
+  ]
+
+  it("gives anon no privilege on any of the tables nor on any of the functions", async () => {
+    for (const tabla of tablas) {
+      const { rows } = await pool.query<{ sin: boolean }>(
+        `select not (has_table_privilege('anon', $1, 'select') or has_table_privilege('anon', $1, 'insert')
+                  or has_table_privilege('anon', $1, 'update') or has_table_privilege('anon', $1, 'delete')) as sin`,
+        [`public.${tabla}`],
+      )
+      expect({ tabla, sin: rows[0]?.sin }).toEqual({ tabla, sin: true })
+    }
+    for (const funcion of funciones) {
+      const { rows } = await pool.query<{ puede: boolean }>(
+        "select has_function_privilege('anon', $1, 'execute') as puede",
+        [`public.${funcion}`],
+      )
+      expect({ funcion, puede: rows[0]?.puede }).toEqual({ funcion, puede: false })
+    }
+  })
+
+  it("lets Coni neither insert nor update the calibrations and the dry runs, nor change a decision", async () => {
+    await como(comoConi, async (c) => {
+      for (const sql of [
+        `insert into public.calibraciones_de_parecido (version, modelo, tema, grupo, fusion, puente_min, puente_max, motivo)
+         values (9, 'voyage-4', 0.6, 0.6, 0.6, 0.4, 0.6, 'x')`,
+        "update public.calibraciones_de_parecido set tema = 0.1",
+        `insert into public.pruebas_de_modelo (modelo, umbrales, informe)
+         values ('voyage-4', '{"tema":1,"grupo":1,"fusion":1,"puente_min":1,"puente_max":1}', '{}')`,
+        "update public.pruebas_de_modelo set estado = 'aplicada'",
+        "update public.decisiones_de_tema set tipo = 'fusion_aceptada'",
+        "delete from public.decisiones_de_tema",
+      ]) {
+        expect((await fallaCon(c, sql)).code).toBe("42501")
+      }
     })
   })
 })

@@ -45,6 +45,16 @@ describe("trasladarPorPercentil", () => {
     expect(trasladarPorPercentil([0.1, 0.2, 0.3], [0.5, 0.6, 0.7], 0.3)).toBeCloseTo(0.7, 10)
   })
 
+  it("reads the last tied index of a plateau of equal old values", () => {
+    expect(trasladarPorPercentil([0.1, 0.5, 0.5, 0.5, 0.9], [0, 1, 2, 3, 4], 0.5)).toBeCloseTo(3, 10)
+  })
+
+  it("works with a sample of one distinct value: the threshold keeps its distance to it", () => {
+    expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.5)).toBeCloseTo(0.2, 10)
+    expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.6)).toBeCloseTo(0.5, 10)
+    expect(trasladarPorPercentil([0.5, 0.5, 0.5], [0.2, 0.3, 0.4], 0.3)).toBeCloseTo(0, 10)
+  })
+
   it("needs at least two values on each side", () => {
     expect(() => trasladarPorPercentil([0.5], [0.4, 0.6], 0.5)).toThrow(/dos muestras/)
     expect(() => trasladarPorPercentil([0.4, 0.6], [], 0.5)).toThrow(/dos muestras/)
