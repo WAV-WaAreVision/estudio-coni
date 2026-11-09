@@ -18,6 +18,7 @@ import {
   escenaDeFusion,
   foto,
   limpiarFusiones,
+  pilarDeTema,
   propuesta,
   tema,
   vec,
@@ -338,6 +339,52 @@ describe("deshacer_fusion", () => {
       expect(decision.rows).toEqual([
         { tipo: "fusion_rechazada", tema_nombre: "Ganador", otro_tema_nombre: "Perdedor", decidida_por: CONI },
       ])
+    })
+  })
+
+  it("stamps both topics' centroids with the vigente model once they are back", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await c.query("select public.deshacer_fusion($1)", [fusion])
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ modelo_centroide: string; vigente: string }>(
+        `select modelo_centroide, public.modelo_de_huellas_vigente() as vigente
+           from public.temas where id = any($1::uuid[])`,
+        [[e.ganador, e.perdedor]],
+      )
+      expect(rows).toHaveLength(2)
+      for (const fila of rows) expect(fila.modelo_centroide).toBe(fila.vigente)
+    })
+  })
+
+  it("undoes two chained merges one after the other, last first, and leaves everything as it was", async () => {
+    const e = await escenaDeFusion()
+    const tercero = await tema("Tercero", vec({ 0: 1, 3: 0.1 }))
+    await afirmacion(vec({ 0: 1, 3: 0.1 }), { tema: tercero })
+    await afirmacion(vec({ 0: 1, 4: 0.1 }), { tema: tercero })
+    await pilarDeTema(tercero, "diagnostico-doble", "media")
+    const temas = [e.ganador, e.perdedor, e.encadenado, tercero]
+    await como(comoPostgres, async (c) => {
+      const antes = await foto(c, temas)
+      await asumir(c, comoServicio)
+      const primera = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2) as id", [
+        e.ganador,
+        e.perdedor,
+      ])
+      const segunda = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2) as id", [
+        tercero,
+        e.ganador,
+      ])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [primera.rows[0]?.id])).message).toBe(
+        "fusion_superada",
+      )
+      await c.query("select public.deshacer_fusion($1)", [segunda.rows[0]?.id])
+      await c.query("select public.deshacer_fusion($1)", [primera.rows[0]?.id])
+      await asumir(c, comoPostgres)
+      expect(await foto(c, temas)).toEqual(antes)
+      const estados = await c.query("select estado from public.fusiones order by aplicada_en")
+      expect(estados.rows).toEqual([{ estado: "deshecha" }, { estado: "deshecha" }])
     })
   })
 
