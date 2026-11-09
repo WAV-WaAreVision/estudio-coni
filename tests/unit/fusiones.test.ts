@@ -43,6 +43,14 @@ describe("esDelicada", () => {
     ).toBe("Tienen distinto pilar principal en LinkedIn y Instagram.")
   })
 
+  it("picks the main pillar of a network by smallest id, whatever the order of two 'alta' rows", () => {
+    const uno = [de("linkedin", "p3"), de("linkedin", "p1")]
+    const otro = [de("linkedin", "p1"), de("linkedin", "p3")]
+    const rival = [de("linkedin", "p1")]
+    expect(esDelicada(uno, rival, true)).toEqual(esDelicada(otro, rival, true))
+    expect(esDelicada(uno, rival, true).delicada).toBe(false)
+  })
+
   it("is delicate when Claude is not sure, and says both reasons when both hold", () => {
     expect(esDelicada([], [], false)).toEqual({
       delicada: true,

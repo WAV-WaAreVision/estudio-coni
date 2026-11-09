@@ -17,14 +17,21 @@ export type Delicadeza = { delicada: false; motivo: null } | { delicada: true; m
 const enumerar = (partes: readonly string[]) =>
   partes.length <= 1 ? (partes[0] ?? "") : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`
 
+/** Two 'alta' rows in one network are possible: the smallest pillar id stands, so the answer never depends on order. */
+const principalEn = (principales: readonly PrincipalDeRed[], red: string): string | undefined =>
+  principales
+    .filter((p) => p.red === red)
+    .map((p) => p.pilarId)
+    .sort()[0]
+
 /**
  * Decision 1 of the spec: a merge waits for Coni when the two topics have a different main pillar in some network,
  * or when Claude is not sure. The reason is said to her on the page.
  */
 export function esDelicada(a: readonly PrincipalDeRed[], b: readonly PrincipalDeRed[], seguro: boolean): Delicadeza {
   const distintas = REDES.filter((red) => {
-    const deA = a.find((p) => p.red === red)?.pilarId
-    const deB = b.find((p) => p.red === red)?.pilarId
+    const deA = principalEn(a, red)
+    const deB = principalEn(b, red)
     return deA !== undefined && deB !== undefined && deA !== deB
   })
   const motivos: string[] = []
