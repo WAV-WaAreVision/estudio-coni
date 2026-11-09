@@ -49,6 +49,8 @@ export interface LecturaDeLinkedin {
   reacciones: number | null
   comentarios: number | null
   compartidos: number | null
+  /** The Excel's total (reactions, comments, shares and clicks in one figure); null when it came another way. */
+  interacciones: number | null
 }
 
 export interface EntradaDeMetricas {
@@ -105,6 +107,10 @@ function muestraDeLinkedin(lectura: LecturaDeLinkedin): string | null {
   if (lectura.reacciones !== null) partes.push(plural(lectura.reacciones, "reacción", "reacciones"))
   if (lectura.comentarios !== null) partes.push(plural(lectura.comentarios, "comentario", "comentarios"))
   if (lectura.compartidos !== null) partes.push(plural(lectura.compartidos, "vez compartido", "veces compartido"))
+  // The Excel brings only a total: shown when there is no breakdown (spec 2026-11-09, Screens).
+  if (partes.length === 0 && lectura.interacciones !== null) {
+    partes.push(plural(lectura.interacciones, "interacción", "interacciones"))
+  }
   return partes.length > 0 ? partes.join(" · ") : null
 }
 

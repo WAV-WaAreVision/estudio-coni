@@ -66,7 +66,15 @@ describe("leerDatosDeMetricas", () => {
     const datos = await leerDatosDeMetricas(coni, AHORA)
 
     expect(datos.lecturasLinkedin).toEqual([
-      { piezaId: post, medidoEn: "2026-10-12", impresiones: 1200, reacciones: 14, comentarios: 3, compartidos: 1 },
+      {
+        piezaId: post,
+        medidoEn: "2026-10-12",
+        impresiones: 1200,
+        reacciones: 14,
+        comentarios: 3,
+        compartidos: 1,
+        interacciones: null,
+      },
     ])
   })
 
