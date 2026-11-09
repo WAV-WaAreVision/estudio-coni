@@ -8,15 +8,16 @@ los avisos para Coni van a Federico.
 |---|---|
 | Base | Rama persistente `staging` de `estudio-coni`, ref `omvvgywjyuoqjjfpbpsy` (sa-east-1, ~US$ 10/mes) |
 | Migraciones | `.github/workflows/staging.yml` hace `db push` a staging en cada merge a `main` que toque `supabase/migrations/`. Producción sigue a mano. |
-| Datos | `supabase/staging/semilla.sql` (escenas de las E2E; se regenera con `scripts/staging/generar-semilla.ts` + `pg_dump`) |
+| Datos | `supabase/staging/semilla.sql` (escenas de las E2E; se regenera con `pnpm exec tsx scripts/staging/generar-semilla.ts`, que siembra la base local, la vuelca y traduce los ids de las filas que crean las migraciones) |
 | Cuentas | `coni` = correo real de Coni; `mantenedor` = `hola@wearevision.cl` |
 | Vistas previas | Variables Preview de Vercel apuntan a staging; un build de vista previa con la base de producción se corta (`lib/entorno/preview.ts`) |
 | Tareas | Ambiente `staging` de Trigger (`--env staging`); Claude lo despliega sin pedir OK |
 | Archivos | Bucket R2 `estudio-coni-staging` |
 | Correos | `CONIDOLLY_AMBIENTE=staging` (ya puesta en Preview): asunto con `[staging]` y claves de Resend con `staging:`. `AVISOS_CORREO_CONI` de Preview = Federico. Sin `VAPID_*` en staging, así que no hay push. |
 
-Ojo: en una vista previa el código para entrar le llega solo al correo de Coni (`CORREO_CONI`). Para probar tú una
-vista previa, cambia `CORREO_CONI` de Preview a tu correo y el usuario `coni` de staging a ese mismo correo.
+Desde el 09-11-2026 la Coni de staging usa el correo de Federico: `CORREO_CONI` de Preview y el usuario `coni` de
+staging (`c0000000-0000-4000-8000-000000000001`) son `federico@wearevision.cl`, así que el código para entrar a una
+vista previa le llega a él. Para que Coni pruebe una vista previa, cambia los dos a su correo.
 
 ## Pasos de Federico (una vez, desde la Terminal de macOS)
 

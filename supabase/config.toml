@@ -454,7 +454,9 @@ site_url = "https://conidolly.vercel.app"
 additional_redirect_urls = ["https://*-federico-1787s-projects.vercel.app/**"]
 
 [remotes.staging.auth.email]
-enable_signup = false
+# This switch is the email provider itself: false turns off every email login. New accounts stay blocked by
+# [remotes.staging.auth] enable_signup = false.
+enable_signup = true
 max_frequency = "60s"
 
 [remotes.staging.auth.email.smtp]
@@ -463,5 +465,5 @@ host = "smtp.resend.com"
 port = 465
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "avisos@wearevision.cl"
+admin_email = "hola@wearevision.cl"
 sender_name = "Conidolly (staging)"
