@@ -15,7 +15,7 @@ import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
-import { leerLinkedinParaAnotar } from "@/lib/datos/metricas-linkedin"
+import { contarLinkedinSinNumeros } from "@/lib/datos/metricas-linkedin"
 import { leerPilares } from "@/lib/datos/pilares"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
@@ -23,7 +23,6 @@ import { sugerirIdeas } from "@/lib/dominio/ideas"
 import { contarEnMes, limitesDelMes } from "@/lib/dominio/metricas"
 import { etiquetaDePilar, type PilarVisible, pilarVisible } from "@/lib/dominio/pilares"
 import { type AvisoDeInicio, construirInicio, type FilaDeFirma, TEXTO_ENTRA_A_LA_PIEZA } from "@/lib/inicio/modelo"
-import { sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 import { exigirConi } from "@/lib/sesion/coni"
 import { marcarAvisoLeidoAccion } from "./ajustes/acciones"
 import { AvisosSinLeer } from "./avisos-sin-leer"
@@ -49,17 +48,17 @@ function nuevas(cantidad: number): string | undefined {
 export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
-  const [datos, pilares, linkedin] = await Promise.all([
+  const [datos, pilares, linkedinSinNumeros] = await Promise.all([
     leerDatosDeInicio(db, ahora),
     leerPilares(db),
-    leerLinkedinParaAnotar(db, ahora),
+    contarLinkedinSinNumeros(db, ahora),
   ])
   const inicio = construirInicio({
     piezas: datos.piezas,
     ahora,
     zona: datos.zona,
     pausas: datos.pausas,
-    linkedinSinNumeros: sinNumerosEstaSemana(linkedin.posts).length,
+    linkedinSinNumeros,
   })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
