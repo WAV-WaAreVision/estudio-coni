@@ -1,4 +1,8 @@
 import type { NextConfig } from "next"
+import { exigirPreviewSinProduccion } from "./lib/entorno/preview"
+
+// Issue 7: a preview build on production's database stops here.
+exigirPreviewSinProduccion(process.env)
 
 // The app icons read the Geist file at request time; the tracer cannot see that on Vercel, so it is listed here.
 const FUENTES_DE_LOS_ICONOS = ["node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.ttf"]
