@@ -46,10 +46,20 @@ begin
      ) then
     raise exception using errcode = '22023', message = 'fusion_superada';
   end if;
-  -- Federico's decision (2026-11-09): never overwrite what Coni changed after the merge. The winner's rows must be
-  -- the ones the merge left, and the loser (merged away) must have none.
-  if (select coalesce(jsonb_agg(to_jsonb(p) order by p.pilar_id), '[]'::jsonb)
-        from public.tema_pilares p where p.tema_id = f.ganador_id) is distinct from f.pilares_ganador_despues
+  -- Federico's decision (2026-11-09): never overwrite what Coni changed after the merge. The winner's pillars must be
+  -- the ones the merge left, and the loser (merged away) must have none. Only what a pillar means is compared, as a
+  -- set: saving the same pillars again rewrites every row with new dates (cambiar_pilares_de_tema) and must not block.
+  if exists (
+       (select p.pilar_id, p.red, p.es_capa, p.fuerza from public.tema_pilares p where p.tema_id = f.ganador_id
+        except
+        select x.pilar_id, x.red, x.es_capa, x.fuerza
+          from jsonb_to_recordset(f.pilares_ganador_despues) as x(pilar_id uuid, red text, es_capa boolean, fuerza text))
+       union all
+       (select x.pilar_id, x.red, x.es_capa, x.fuerza
+          from jsonb_to_recordset(f.pilares_ganador_despues) as x(pilar_id uuid, red text, es_capa boolean, fuerza text)
+        except
+        select p.pilar_id, p.red, p.es_capa, p.fuerza from public.tema_pilares p where p.tema_id = f.ganador_id)
+     )
      or exists (select 1 from public.tema_pilares where tema_id = f.perdedor_id) then
     raise exception using errcode = '22023', message = 'pilares_cambiados';
   end if;

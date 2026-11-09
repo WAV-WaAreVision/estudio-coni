@@ -347,6 +347,24 @@ describe("deshacer_fusion", () => {
     })
   })
 
+  it("still undoes after Coni saved the same pillars again, which rewrites every row with new dates", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      const { rows } = await c.query<{ pilar: string; fuerza: string | null }>(
+        `select cat.slug as pilar, p.fuerza from public.tema_pilares p
+           join public.categorias cat on cat.id = p.pilar_id where p.tema_id = $1`,
+        [e.ganador],
+      )
+      await asumir(c, comoConi)
+      await c.query("select public.cambiar_pilares_de_tema($1, $2::jsonb)", [e.ganador, JSON.stringify(rows)])
+      await c.query("select public.deshacer_fusion($1)", [fusion])
+      await asumir(c, comoPostgres)
+      const estado = await c.query("select estado from public.fusiones where id = $1", [fusion])
+      expect(estado.rows).toEqual([{ estado: "deshecha" }])
+    })
+  })
+
   it("restores the pillars exactly when Coni did not touch them since the merge", async () => {
     const e = await escenaDeFusion()
     await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
