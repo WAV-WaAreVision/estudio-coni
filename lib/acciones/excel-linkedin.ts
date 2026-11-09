@@ -65,6 +65,8 @@ export async function importarExcelDeLinkedin(
     const [zona, publicaciones] = await Promise.all([leerZona(deps.db), leerPublicacionesDeLinkedin(deps.db)])
     const cruce = cruzarConPiezas(excel, publicaciones, zona)
     const medidoEn = excel.periodo.hasta
+    // `semana` is the Monday of the period's end, not of the download: followers are one reading per week, and a period
+    // ending on a Sunday belongs to the week that just closed. Inicio's reminder tolerates that Sunday (`postsPorAnotar`).
     const guardadas = await guardarExcelDeLinkedin(deps.db, {
       medidoEn,
       semana: lunesDe(medidoEn),

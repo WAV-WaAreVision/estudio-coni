@@ -43,6 +43,39 @@ describe("postsPorAnotar", () => {
     ])
     expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b", "a"])
   })
+
+  it("imported Monday with a period ending Sunday hides the reminder", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-18", "excel")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts)).toEqual([])
+  })
+
+  it("keeps the reminder when the Excel's period ended before last Sunday", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-17", "excel")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b"])
+  })
+
+  it("keeps asking for a post she noted by hand on last Sunday", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-18")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b"])
+  })
 })
 
 describe("leerCifra", () => {
