@@ -60,7 +60,12 @@ begin
         except
         select p.pilar_id, p.red, p.es_capa, p.fuerza from public.tema_pilares p where p.tema_id = f.ganador_id)
      )
-     or exists (select 1 from public.tema_pilares where tema_id = f.perdedor_id) then
+     or exists (select 1 from public.tema_pilares where tema_id = f.perdedor_id)
+     -- Putting the snapshot back needs each of its pillars to still exist: refuse here, not with a foreign key error.
+     or exists (
+       select 1 from jsonb_to_recordset(f.pilares_ganador || f.pilares_perdedor) as x(pilar_id uuid, red text, es_capa boolean)
+       where not exists (select 1 from public.categorias c where c.id = x.pilar_id and c.red = x.red and c.es_capa = x.es_capa)
+     ) then
     raise exception using errcode = '22023', message = 'pilares_cambiados';
   end if;
   -- Neither topic may come back empty: the winner keeps a claim of its own, the loser gets one back.

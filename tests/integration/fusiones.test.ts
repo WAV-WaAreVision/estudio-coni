@@ -365,6 +365,22 @@ describe("deshacer_fusion", () => {
     })
   })
 
+  it("refuses with pilares_cambiados, before writing, when a pillar of the snapshot no longer exists", async () => {
+    const e = await escenaDeFusion()
+    await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
+      await asumir(c, comoPostgres)
+      // Only possible by bypassing the foreign key; the undo must not trust the snapshot's pillars to exist.
+      await c.query("set local session_replication_role = replica")
+      await c.query("delete from public.categorias where slug = 'capa-tdah'")
+      await c.query("set local session_replication_role = origin")
+      const antes = await foto(c, [e.ganador, e.perdedor, e.encadenado])
+      await asumir(c, comoConi)
+      expect((await fallaCon(c, "select public.deshacer_fusion($1)", [fusion])).message).toBe("pilares_cambiados")
+      await asumir(c, comoPostgres)
+      expect(await foto(c, [e.ganador, e.perdedor, e.encadenado])).toEqual(antes)
+    })
+  })
+
   it("restores the pillars exactly when Coni did not touch them since the merge", async () => {
     const e = await escenaDeFusion()
     await fusionarYLuego(e.ganador, e.perdedor, async (c, fusion) => {
