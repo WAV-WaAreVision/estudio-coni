@@ -77,7 +77,7 @@ create trigger sellar_modelo before insert or update of vector, modelo_vector on
 
 -- A centroid recomputed in SQL (recalcular_tema, fusionar_par_de_temas) averages the vigente vectors and takes the
 -- vigente model. A writer that names another model (TypeScript that read the calibration before a switch) is refused;
--- its run fails and the next one starts over with the new calibration. 40001 says "retry".
+-- its run fails and the next one starts over with the new calibration. Not 40001: PostgREST hangs on that code.
 create function public.sellar_modelo_de_centroide() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -87,7 +87,7 @@ begin
      or (tg_op = 'UPDATE' and new.modelo_centroide is not distinct from old.modelo_centroide) then
     new.modelo_centroide := actual;
   elsif new.modelo_centroide <> actual then
-    raise exception using errcode = '40001', message = 'modelo_de_huellas_cambio';
+    raise exception 'modelo_de_huellas_cambio';
   end if;
   return new;
 end $$;

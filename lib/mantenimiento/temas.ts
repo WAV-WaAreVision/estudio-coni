@@ -133,10 +133,10 @@ export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<Resul
   const porAsignar = [...new Set([...embebidas.ids, ...(await pendientesConVector(deps))])]
   let asignadas = 0
   for (let desde = 0; desde < porAsignar.length; desde += IDS_POR_CONSULTA) {
-    const r = await asignarATemas(deps, porAsignar.slice(desde, desde + IDS_POR_CONSULTA))
+    const r = await asignarATemas(deps, porAsignar.slice(desde, desde + IDS_POR_CONSULTA), calibracion)
     asignadas += r.asignadas
   }
   if (embebidas.tope) return { tope: true, embebidas: embebidas.ids.length, asignadas, formacion: null, pausa }
-  const formacion = await formarTemas(deps)
+  const formacion = await formarTemas(deps, calibracion)
   return { tope: formacion.tope, embebidas: embebidas.ids.length, asignadas, formacion, pausa }
 }

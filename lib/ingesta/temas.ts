@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { filasDePilaresAJson, leerPilares } from "@/lib/datos/pilares"
+import type { Calibracion } from "@/lib/dominio/parecido"
 import { soloActivos } from "@/lib/dominio/pilares"
 import { agruparPorSimilitud, centroideIncremental, media, parsearVector, textoDeVector } from "@/lib/ingesta/agrupar"
 import { type ContextoDePago, falloDeBase, pagarPaso } from "@/lib/ingesta/gasto-material"
@@ -19,12 +20,10 @@ type Db = SupabaseClient<Database>
 
 /**
  * Thresholds on the AVERAGE cosine (average linkage) between a claim and a topic's members, or between two topics'
- * members. Measured and decided in docs/superpowers/notas/calibracion-c1.md.
+ * members, live in the vigente row of `calibraciones_de_parecido` (`leerCalibracion`): each run reads it once and passes
+ * it here. Measured for voyage-3.5 in docs/superpowers/notas/calibracion-c1.md.
  */
-export const UMBRAL_TEMA = 0.8
-export const UMBRAL_GRUPO = 0.8
 export const MINIMO_AFIRMACIONES_TEMA = 3
-export const UMBRAL_FUSION = 0.8
 export const MAXIMO_PENDIENTES_POR_CORRIDA = 500
 
 const TEXTOS_POR_GRUPO = 6
@@ -100,6 +99,7 @@ export interface ResultadoAsignacion {
 export async function asignarATemas(
   deps: Pick<DepsTemas, "db">,
   afirmacionIds: readonly string[],
+  calibracion: Calibracion,
 ): Promise<ResultadoAsignacion> {
   const { db } = deps
   const afirmaciones: { id: string; vector: string }[] = []
@@ -120,7 +120,7 @@ export async function asignarATemas(
   for (const afirmacion of afirmaciones) {
     const { data: cercano, error } = await db.rpc("tema_mas_cercano", {
       p_vector: afirmacion.vector,
-      p_umbral: UMBRAL_TEMA,
+      p_umbral: calibracion.tema,
     })
     if (error) throw falloDeBase("No pude buscar el tema más cercano", error)
     const mejor = cercano[0]
@@ -131,7 +131,11 @@ export async function asignarATemas(
     const nuevo = centroideIncremental(parsearVector(tema.centroide), n, parsearVector(afirmacion.vector))
     const { error: errorCentroide } = await db
       .from("temas")
-      .update({ centroide: textoDeVector(nuevo), actualizado_en: new Date().toISOString() })
+      .update({
+        centroide: textoDeVector(nuevo),
+        modelo_centroide: calibracion.modelo,
+        actualizado_en: new Date().toISOString(),
+      })
       .eq("id", mejor.tema_id)
     if (errorCentroide) throw falloDeBase("No pude mover el centroide", errorCentroide)
     await asignarAfirmaciones(db, mejor.tema_id, [afirmacion.id])
@@ -175,7 +179,7 @@ function estimarNombres(grupos: readonly { textos: string[] }[]): number {
  * New topics from pending claims: group them, name each group of enough claims and create (or join) its topic.
  * Smaller groups stay pending for a later run, when more claims may have arrived.
  */
-export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> {
+export async function formarTemas(deps: DepsTemas, calibracion: Calibracion): Promise<ResultadoFormacion> {
   const { db } = deps
   const { data: filas, error } = await db
     .from("afirmaciones")
@@ -194,7 +198,7 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
 
   const grupos = agruparPorSimilitud(
     [...pendientes].map(([id, { vector }]) => ({ id, vector })),
-    UMBRAL_GRUPO,
+    calibracion.grupo,
   ).filter((ids) => ids.length >= MINIMO_AFIRMACIONES_TEMA)
   const resultado: ResultadoFormacion = { tope: false, creados: 0, unidos: 0, pendientes: pendientes.size }
   if (grupos.length === 0) return resultado
@@ -244,8 +248,7 @@ export async function formarTemas(deps: DepsTemas): Promise<ResultadoFormacion> 
             descripcion: nombrado.descripcion,
             categoria_id: (nombrado.pilar && categoriaDe.get(nombrado.pilar)) || null,
             centroide: textoDeVector(centroide),
-            // Bridge until the thresholds and the model come from the calibration (plan Task 8).
-            modelo_centroide: "voyage-3.5",
+            modelo_centroide: calibracion.modelo,
           })
           .select("id")
           .single()
@@ -316,9 +319,9 @@ async function paraFusionar(db: Db, id: string): Promise<ParParaFusionar["a"]> {
  * with more claims survives and keeps the other's name as an alias. A pair Claude rejects is remembered and not asked
  * again (`temas_fusion_rechazada`); merging such a pair would need a manual path.
  */
-export async function fusionarTemas(deps: DepsTemas): Promise<ResultadoFusion> {
+export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): Promise<ResultadoFusion> {
   const { db } = deps
-  const { data: parecidos, error } = await db.rpc("temas_parecidos", { p_umbral: UMBRAL_FUSION })
+  const { data: parecidos, error } = await db.rpc("temas_parecidos", { p_umbral: calibracion.fusion })
   if (error) throw falloDeBase("No pude buscar temas parecidos", error)
   const candidatos = parecidos.slice(0, MAXIMO_PARES_POR_FUSION)
   if (candidatos.length === 0) return { tope: false, fusionados: 0 }

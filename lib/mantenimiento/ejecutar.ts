@@ -1,4 +1,5 @@
 import { existeAviso } from "@/lib/avisos/registro"
+import { leerCalibracion } from "@/lib/datos/huellas"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { fusionarTemas } from "@/lib/ingesta/temas"
@@ -146,7 +147,7 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
       if (!(await leerInterruptores(deps.db)).fusionesNocturnas) return APAGADO
       let resultado: Awaited<ReturnType<typeof fusionarTemas>>
       try {
-        resultado = await fusionarTemas(propias)
+        resultado = await fusionarTemas(propias, await leerCalibracion(propias.db))
       } catch (error) {
         // Like `temas`: a pause met here opens it (WAV emailed once) instead of failing the nightly run.
         if (!(error instanceof PausaDeProveedor)) throw error

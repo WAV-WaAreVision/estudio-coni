@@ -271,7 +271,7 @@ export async function afirmarMaterial(
   const temasAnteriores = await temasDeLasAfirmaciones(db, ctx.material.id)
   const ids = await reemplazarAfirmaciones(ctx, tramos, extraidas, vectores, calibracion.modelo)
   for (let desde = 0; desde < ids.length; desde += IDS_POR_CONSULTA) {
-    await asignarATemas({ db }, ids.slice(desde, desde + IDS_POR_CONSULTA))
+    await asignarATemas({ db }, ids.slice(desde, desde + IDS_POR_CONSULTA), calibracion)
   }
   for (const temaId of temasAnteriores) await recalcularTema(db, temaId)
   return { limite: false, idioma: idiomaDominante(extraidas) }

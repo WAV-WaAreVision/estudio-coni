@@ -2,6 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { CALIBRACION_INICIAL } from "@/lib/dominio/parecido"
 import { fusionarTemas } from "@/lib/ingesta/temas"
 import { type DepsNocturno, mantenimientoNocturno } from "@/lib/mantenimiento/ejecutar"
 import { borrarHuellaDeVisitas } from "@/lib/mantenimiento/huella"
@@ -26,6 +27,9 @@ vi.mock("@/lib/ingesta/temas", async (importOriginal) => ({
   fusionarTemas: vi.fn(async () => ({ tope: false, fusionados: 0 })),
 }))
 // The merges read the open pauses first; the client below is never reached.
+vi.mock("@/lib/datos/huellas", () => ({
+  leerCalibracion: vi.fn(async () => (await import("@/lib/dominio/parecido")).CALIBRACION_INICIAL),
+}))
 vi.mock("@/lib/datos/pausas", () => ({ leerPausasAbiertas: vi.fn(async () => []) }))
 vi.mock("@/lib/presupuesto/interruptores", () => ({
   leerInterruptores: vi.fn(async () => ({ motorSemanal: true, fusionesNocturnas: true })),
@@ -92,6 +96,7 @@ describe("las fusiones nocturnas", () => {
     const resultado = await mantenimientoNocturno({ ...DEPS, temas: async () => TEMAS })
 
     expect(resultado.fusiones).toEqual({ tope: true, fusionados: 0 })
+    expect(fusionarTemas).toHaveBeenCalledWith(TEMAS, CALIBRACION_INICIAL)
     expect(avisarLimite).toHaveBeenCalledWith(expect.objectContaining({ avisos: DEPS.avisos }), DEPS.ahora())
   })
 })
