@@ -130,6 +130,7 @@ function simularClaude(
   opciones: {
     nombre?: (i: number) => string
     veredicto?: "mismo" | "parte_de" | "distintos"
+    veredictoDe?: (a: string, b: string) => "mismo" | "parte_de" | "distintos"
     seguro?: boolean
     general?: "a" | "b" | null
     pilar?: string
@@ -167,7 +168,7 @@ function simularClaude(
           pares: pares.map((p) => ({
             a: p.a.id,
             b: p.b.id,
-            veredicto: opciones.veredicto ?? "mismo",
+            veredicto: opciones.veredictoDe?.(p.a.id, p.b.id) ?? opciones.veredicto ?? "mismo",
             general: opciones.general === "a" ? p.a.id : opciones.general === "b" ? p.b.id : null,
             seguro: opciones.seguro ?? true,
             razon: "Razón de prueba.",
@@ -766,6 +767,25 @@ describe("fusionarTemas", () => {
       [a],
     )
     expect(n[0]?.n).toBe(5)
+  })
+
+  it("skips a pair whose topic was absorbed earlier the same night, and never overwrites Coni's rejection of the resolved pair", async () => {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 0: 1, 1: 0.05 }))
+    const c = await tema("C", vec({ 0: 1, 1: 0.3 }))
+    for (const t of [a, a, a]) await afirmacion(vec({ 0: 1 }), { tema: t })
+    await afirmacion(vec({ 0: 1 }), { tema: b })
+    await afirmacion(vec({ 0: 1 }), { tema: c })
+    const [x, y] = [a, c].sort()
+    await pool.query(
+      "insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, razon) values ($1, $2, 'coni', 'Decisión de Coni.')",
+      [x, y],
+    )
+    simularClaude({ veredictoDe: (p, q) => ([p, q].includes(a) && [p, q].includes(b) ? "mismo" : "distintos") })
+    const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    expect(resultado).toMatchObject({ fusionados: 1, propuestas: 0, subtemas: 0, rechazados: 0 })
+    const { rows } = await pool.query("select tema_a, tema_b, origen, razon from public.temas_fusion_rechazada")
+    expect(rows).toEqual([{ tema_a: x, tema_b: y, origen: "coni", razon: "Decisión de Coni." }])
   })
 
   it("pays through the cap with paso temas and stops without throwing at the cap", async () => {

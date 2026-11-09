@@ -429,7 +429,9 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
   for (const v of pagado.datos) {
     const a = resolver(v.a)
     const b = resolver(v.b)
-    if (a === b || enPropuesta.has(a) || enPropuesta.has(b)) continue
+    // A topic absorbed earlier tonight: Claude judged the old texts, so the pair is asked again tomorrow.
+    if (a !== v.a || b !== v.b) continue
+    if (enPropuesta.has(a) || enPropuesta.has(b)) continue
     if (v.veredicto === "distintos") {
       rechazos.set(claveDePar(a, b), await rechazoDe(deps, a, b, v.razon, calibracion))
       resultado.rechazados += 1
@@ -471,6 +473,19 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
     if (errorVeredicto) throw falloDeBase("No pude anotar el veredicto de la fusión", errorVeredicto)
     absorbidos.set(perdedor, ganador)
     resultado.fusionados += 1
+  }
+  if (rechazos.size > 0) {
+    const { data: deConi, error: errorConi } = await db
+      .from("temas_fusion_rechazada")
+      .select("tema_a, tema_b")
+      .eq("origen", "coni")
+      .in(
+        "tema_a",
+        [...rechazos.values()].map((r) => r.tema_a),
+      )
+    if (errorConi) throw falloDeBase("No pude leer los rechazos de Coni", errorConi)
+    // Coni's rejection is never overwritten by Claude's.
+    for (const par of deConi) rechazos.delete(claveDePar(par.tema_a, par.tema_b))
   }
   if (rechazos.size > 0) {
     const { error: errorRechazo } = await db
