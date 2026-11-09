@@ -6,7 +6,15 @@ import {
   resumenDeImportacion,
 } from "@/lib/metricas/excel-linkedin/resumen"
 
-const BASE = { guardadas: 3, seguidores: 830, ajenas: 0, faltanEnElPeriodo: 0, llegoAlTope: false, dudosos: 0 }
+const BASE = {
+  guardadas: 3,
+  coincidentes: 3,
+  seguidores: 830,
+  ajenas: 0,
+  faltanEnElPeriodo: 0,
+  llegoAlTope: false,
+  dudosos: 0,
+}
 
 describe("resumenDeImportacion", () => {
   it("says how many pieces got numbers and the followers saved", () => {
@@ -29,12 +37,21 @@ describe("resumenDeImportacion", () => {
   })
 
   it("says when the period has no Conidolly posts and only the followers were saved", () => {
-    expect(resumenDeImportacion({ ...BASE, guardadas: 0, ajenas: 2 })).toEqual([
+    expect(resumenDeImportacion({ ...BASE, guardadas: 0, coincidentes: 0, ajenas: 2 })).toEqual([
       "En ese período no hay publicaciones de Conidolly: guardé solo tus seguidores (830).",
       "Ignoré 2 publicaciones del Excel que no salieron de Conidolly.",
     ])
-    expect(resumenDeImportacion({ ...BASE, guardadas: 0, seguidores: null })).toEqual([
+    expect(resumenDeImportacion({ ...BASE, guardadas: 0, coincidentes: 0, seguidores: null })).toEqual([
       "En ese período no hay publicaciones de Conidolly. No guardé nada.",
+    ])
+  })
+
+  it("does not say there are no Conidolly posts when the matches already had numbers straight from LinkedIn", () => {
+    expect(resumenDeImportacion({ ...BASE, guardadas: 0, coincidentes: 2, seguidores: null })).toEqual([
+      "Encontré 2 publicaciones de Conidolly en el Excel. Esas publicaciones ya tenían números que llegaron directo de LinkedIn, así que no cambié nada.",
+    ])
+    expect(resumenDeImportacion({ ...BASE, guardadas: 0, coincidentes: 1 })).toEqual([
+      "Encontré 1 publicación de Conidolly en el Excel. Esa publicación ya tenía números que llegaron directo de LinkedIn, así que guardé solo tus seguidores (830).",
     ])
   })
 

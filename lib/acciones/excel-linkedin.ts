@@ -76,6 +76,7 @@ export async function importarExcelDeLinkedin(
       dudosos: cruce.dudosos,
       resumen: resumenDeImportacion({
         guardadas,
+        coincidentes: cruce.seguros.length,
         seguidores: excel.seguidores,
         ajenas: cruce.ajenas,
         faltanEnElPeriodo: cruce.faltanEnElPeriodo,

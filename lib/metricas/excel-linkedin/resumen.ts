@@ -21,6 +21,8 @@ const publicaciones = (cantidad: number) => `${numero(cantidad)} ${cantidad === 
 export interface DatosDelResumen {
   /** Post rows the database wrote. */
   guardadas: number
+  /** Conidolly pieces the Excel matched safely, saved or not: the API's rows are left alone. */
+  coincidentes: number
   seguidores: number | null
   ajenas: number
   faltanEnElPeriodo: number
@@ -29,17 +31,29 @@ export interface DatosDelResumen {
   dudosos: number
 }
 
+function sinPublicacionesDeConidolly(seguidores: number | null): string {
+  return seguidores === null
+    ? "En ese período no hay publicaciones de Conidolly. No guardé nada."
+    : `En ese período no hay publicaciones de Conidolly: guardé solo tus seguidores (${numero(seguidores)}).`
+}
+
+function sinCambiosPorLaApi({ coincidentes, seguidores }: DatosDelResumen): string {
+  const una = coincidentes === 1
+  const hallazgo = `Encontré ${publicaciones(coincidentes)} de Conidolly en el Excel.`
+  const motivo = una
+    ? "Esa publicación ya tenía números que llegaron directo de LinkedIn"
+    : "Esas publicaciones ya tenían números que llegaron directo de LinkedIn"
+  const resultado = seguidores === null ? "no cambié nada" : `guardé solo tus seguidores (${numero(seguidores)})`
+  return `${hallazgo} ${motivo}, así que ${resultado}.`
+}
+
 export function resumenDeImportacion(datos: DatosDelResumen): string[] {
   const lineas: string[] = []
   if (datos.guardadas > 0) {
     lineas.push(`Listo: ${publicaciones(datos.guardadas)} con números.`)
     if (datos.seguidores !== null) lineas.push(`También guardé tus seguidores: ${numero(datos.seguidores)}.`)
   } else if (datos.dudosos === 0) {
-    lineas.push(
-      datos.seguidores === null
-        ? "En ese período no hay publicaciones de Conidolly. No guardé nada."
-        : `En ese período no hay publicaciones de Conidolly: guardé solo tus seguidores (${numero(datos.seguidores)}).`,
-    )
+    lineas.push(datos.coincidentes > 0 ? sinCambiosPorLaApi(datos) : sinPublicacionesDeConidolly(datos.seguidores))
   }
   if (datos.ajenas > 0) {
     lineas.push(
