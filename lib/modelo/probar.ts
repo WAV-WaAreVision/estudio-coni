@@ -81,6 +81,7 @@ export async function embeberPagando(
           estimadoUsd: estimarEmbebido(lote),
           llamar: async () => {
             const r = await embeber({ clave: entrada.llave, textos: lote, tipo: "document", modelo: entrada.modelo })
+            if (r.vectores.length !== lote.length) throw new Error("Voyage no devolvió un vector por afirmación.")
             const usd = costoVoyage(r.tokens, entrada.modelo)
             return { datos: { vectores: r.vectores, usd }, realUsd: usd }
           },
