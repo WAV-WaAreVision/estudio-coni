@@ -7,6 +7,7 @@ import { almacenEnMemoria } from "@/lib/proveedores/almacen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import { servidor } from "../msw"
 import { CONI, pool, sinLimiteFijado } from "./db"
+import { reiniciarCalibracion } from "./huellas-comun"
 import { simularVoyage, URL_CLAUDE, USO } from "./procesar-comun"
 import { clienteDeServicio } from "./servicio"
 
@@ -30,6 +31,7 @@ let materialId = ""
 async function limpiarTodo() {
   autorId = ""
   materialId = ""
+  await reiniciarCalibracion()
   await pool.query("delete from public.afirmaciones")
   await pool.query("delete from public.temas")
   await pool.query("delete from public.materiales where texto_pegado = 'mant-temas'")
@@ -123,6 +125,36 @@ async function conTopeChico<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 beforeEach(sinLimiteFijado)
+
+describe("the model of the embeddings", () => {
+  it("embeds with the vigente calibration's model and stamps each vector with it", async () => {
+    await pool.query("update public.calibraciones_de_parecido set vigente = false where vigente")
+    await pool.query(
+      `insert into public.calibraciones_de_parecido (version, modelo, tema, grupo, fusion, puente_min, puente_max, vigente, motivo)
+       values (2, 'voyage-4', 0.8, 0.8, 0.8, 0.6, 0.8, true, 'prueba')`,
+    )
+    const modelos: string[] = []
+    servidor.use(
+      http.post("https://api.voyageai.com/v1/embeddings", async ({ request }) => {
+        const cuerpo = (await request.json()) as { input: string[]; model: string }
+        modelos.push(cuerpo.model)
+        return HttpResponse.json({
+          data: cuerpo.input.map((_, index) => ({
+            embedding: Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : 0)),
+            index,
+          })),
+          usage: { total_tokens: 10 },
+        })
+      }),
+    )
+    simularClaude()
+    await sinVector(2)
+    await mantenerTemas(deps())
+    expect(modelos).toEqual(["voyage-4"])
+    const { rows } = await pool.query("select distinct modelo_vector from public.afirmaciones")
+    expect(rows).toEqual([{ modelo_vector: "voyage-4" }])
+  })
+})
 
 describe("mantenerTemas", () => {
   it("embeds the claims without a vector, assigns them and forms topics from the pending ones", async () => {

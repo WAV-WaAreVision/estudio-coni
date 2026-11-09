@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import { FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
-import { costoVoyage, DIMENSIONES, embeber, MODELO_VOYAGE } from "@/lib/proveedores/voyage"
+import { costoVoyage, costoVoyagePeorCaso, DIMENSIONES, embeber } from "@/lib/proveedores/voyage"
 import { servidor } from "../msw"
 
 const URL_VOYAGE = "https://api.voyageai.com/v1/embeddings"
@@ -19,7 +19,7 @@ function responder(vectores: number[][], tokens = 12) {
       return HttpResponse.json({
         object: "list",
         data: vectores.map((embedding, index) => ({ object: "embedding", embedding, index })),
-        model: MODELO_VOYAGE,
+        model: "voyage-3.5",
         usage: { total_tokens: tokens },
       })
     }),
@@ -31,19 +31,30 @@ describe("embeber", () => {
   it("posts the texts with the key, the model and the input type, and returns the vectors with the tokens", async () => {
     const capturas = responder([vector(), vector()], 20)
 
-    const r = await embeber({ clave: CLAVE, textos: ["uno", "dos"], tipo: "query" })
+    const r = await embeber({ clave: CLAVE, textos: ["uno", "dos"], tipo: "query", modelo: "voyage-3.5" })
 
     expect(capturas).toHaveLength(1)
     expect(capturas[0]?.cabeceras.get("authorization")).toBe(`Bearer ${CLAVE}`)
-    expect(capturas[0]?.cuerpo).toEqual({ input: ["uno", "dos"], model: "voyage-3.5", input_type: "query" })
+    expect(capturas[0]?.cuerpo).toEqual({
+      input: ["uno", "dos"],
+      model: "voyage-3.5",
+      input_type: "query",
+      output_dimension: 1024,
+    })
     expect(r.vectores).toHaveLength(2)
     expect(r.vectores[0]).toHaveLength(1024)
     expect(r.tokens).toBe(20)
   })
 
+  it("sends the model it is given, always asking for 1024 dimensions", async () => {
+    const capturas = responder([vector()])
+    await embeber({ clave: CLAVE, textos: ["x"], tipo: "document", modelo: "voyage-4" })
+    expect(capturas[0]?.cuerpo).toMatchObject({ model: "voyage-4", output_dimension: 1024 })
+  })
+
   it("sends document as the input type for cards", async () => {
     const capturas = responder([vector()])
-    await embeber({ clave: CLAVE, textos: ["ficha"], tipo: "document" })
+    await embeber({ clave: CLAVE, textos: ["ficha"], tipo: "document", modelo: "voyage-3.5" })
     expect(capturas[0]?.cuerpo.input_type).toBe("document")
   })
 
@@ -52,7 +63,9 @@ describe("embeber", () => {
     async (estado) => {
       servidor.use(http.post(URL_VOYAGE, () => HttpResponse.json({ detail: `bad ${CLAVE}` }, { status: estado })))
 
-      const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document" }).catch((e: unknown) => e)
+      const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document", modelo: "voyage-3.5" }).catch(
+        (e: unknown) => e,
+      )
 
       expect(error).toBeInstanceOf(FallaDeConfiguracion)
       expect(String((error as Error).message)).not.toContain(CLAVE)
@@ -66,7 +79,9 @@ describe("embeber", () => {
     [403, "llave"],
   ])("pauses Voyage on HTTP %i", async (estado, motivo) => {
     servidor.use(http.post(URL_VOYAGE, () => new HttpResponse(`no ${CLAVE}`, { status: estado })))
-    const error = await embeber({ clave: CLAVE, textos: ["hola"], tipo: "document" }).catch((e: unknown) => e)
+    const error = await embeber({ clave: CLAVE, textos: ["hola"], tipo: "document", modelo: "voyage-3.5" }).catch(
+      (e: unknown) => e,
+    )
     expect(error).toBeInstanceOf(PausaDeProveedor)
     expect(error).toMatchObject({ proveedor: "voyage", motivo, http: estado })
     expect((error as PausaDeProveedor).detalle).not.toContain(CLAVE)
@@ -74,30 +89,40 @@ describe("embeber", () => {
 
   it("raises a plain error on a 500 so it can be retried", async () => {
     servidor.use(http.post(URL_VOYAGE, () => HttpResponse.text("boom", { status: 500 })))
-    const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document" }).catch((e: unknown) => e)
+    const error = await embeber({ clave: CLAVE, textos: ["x"], tipo: "document", modelo: "voyage-3.5" }).catch(
+      (e: unknown) => e,
+    )
     expect(error).toBeInstanceOf(Error)
     expect(error).not.toBeInstanceOf(FallaDeConfiguracion)
   })
 
   it("fails when a vector does not have 1024 dimensions", async () => {
     responder([vector(512)])
-    await expect(embeber({ clave: CLAVE, textos: ["x"], tipo: "document" })).rejects.toThrow(/1024/)
+    await expect(embeber({ clave: CLAVE, textos: ["x"], tipo: "document", modelo: "voyage-3.5" })).rejects.toThrow(
+      /1024/,
+    )
   })
 
   it("fails when the answer has an unexpected shape", async () => {
     servidor.use(http.post(URL_VOYAGE, () => HttpResponse.json({ data: "nada" })))
-    await expect(embeber({ clave: CLAVE, textos: ["x"], tipo: "document" })).rejects.toThrow(/formato inesperado/)
+    await expect(embeber({ clave: CLAVE, textos: ["x"], tipo: "document", modelo: "voyage-3.5" })).rejects.toThrow(
+      /formato inesperado/,
+    )
   })
 
   it("fails when the number of vectors differs from the number of texts", async () => {
     responder([vector()])
-    await expect(embeber({ clave: CLAVE, textos: ["a", "b"], tipo: "document" })).rejects.toThrow(/vectores/)
+    await expect(embeber({ clave: CLAVE, textos: ["a", "b"], tipo: "document", modelo: "voyage-3.5" })).rejects.toThrow(
+      /vectores/,
+    )
   })
 })
 
 describe("costoVoyage", () => {
-  it("prices a million tokens at the list rate of voyage-3.5", () => {
-    expect(costoVoyage(1_000_000)).toBeCloseTo(0.06, 10)
-    expect(costoVoyage(0)).toBe(0)
+  it("prices each model per million tokens, and estimates with the dearest one", () => {
+    expect(costoVoyage(1_000_000, "voyage-3.5")).toBeCloseTo(0.06, 10)
+    expect(costoVoyage(1_000_000, "voyage-4")).toBeCloseTo(0.06, 10)
+    expect(costoVoyage(0, "voyage-4")).toBe(0)
+    expect(costoVoyagePeorCaso(2_000_000)).toBeCloseTo(0.12, 10)
   })
 })

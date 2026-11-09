@@ -6,6 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { leerCalibracion } from "@/lib/datos/huellas"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { exigirEnv } from "@/lib/env"
 import { agruparPorSimilitud } from "@/lib/ingesta/agrupar"
@@ -27,7 +28,7 @@ import {
   MAXIMO_AFIRMACIONES_POR_TRAMO,
   MODELO_POR_TAREA,
 } from "@/lib/proveedores/anthropic"
-import { costoVoyage, embeber } from "@/lib/proveedores/voyage"
+import { costoVoyage, costoVoyagePeorCaso, embeber } from "@/lib/proveedores/voyage"
 import type { Database } from "@/lib/supabase/database.types"
 
 const UMBRALES = [0.75, 0.8, 0.85]
@@ -66,6 +67,7 @@ async function principal(): Promise<void> {
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
   const almacen = almacenReal()
+  const { modelo } = await leerCalibracion(db)
 
   const materiales = []
   for (const id of ids) {
@@ -83,7 +85,7 @@ async function principal(): Promise<void> {
   }
 
   const totalDeTramos = materiales.reduce((n, m) => n + m.tramos.length, 0)
-  const usdEmbeddings = costoVoyage(totalDeTramos * MAXIMO_AFIRMACIONES_POR_TRAMO * TOKENS_POR_AFIRMACION)
+  const usdEmbeddings = costoVoyagePeorCaso(totalDeTramos * MAXIMO_AFIRMACIONES_POR_TRAMO * TOKENS_POR_AFIRMACION)
   const estimado = estimarGastoDeCalibracion({ tramos: totalDeTramos, usdPorTramo: USD_POR_TRAMO, usdEmbeddings })
   console.log(`${materiales.length} materiales, ${totalDeTramos} tramos.`)
   console.log(`Gasto estimado (techo): US$ ${estimado.toFixed(2)}.`)
@@ -113,7 +115,7 @@ async function principal(): Promise<void> {
   let tokensVoyage = 0
   for (let desde = 0; desde < afirmaciones.length; desde += TEXTOS_POR_EMBEBIDO) {
     const lote = afirmaciones.slice(desde, desde + TEXTOS_POR_EMBEBIDO).map((a) => a.texto)
-    const r = await embeber({ clave: claveVoyage, textos: lote, tipo: "document" })
+    const r = await embeber({ clave: claveVoyage, textos: lote, tipo: "document", modelo })
     vectores.push(...r.vectores)
     tokensVoyage += r.tokens
   }
@@ -131,7 +133,9 @@ async function principal(): Promise<void> {
     "Por evidencia:",
     contarPor(afirmaciones, (a) => a.evidencia),
   )
-  console.log(`Gasto real: Claude US$ ${usdClaude.toFixed(3)}, Voyage US$ ${costoVoyage(tokensVoyage).toFixed(4)}`)
+  console.log(
+    `Gasto real: Claude US$ ${usdClaude.toFixed(3)}, Voyage US$ ${costoVoyage(tokensVoyage, modelo).toFixed(4)}`,
+  )
 
   console.log(`\n== ${MUESTRA} afirmaciones al azar ==`)
   for (const a of muestraAleatoria(afirmaciones, MUESTRA, Math.random)) {

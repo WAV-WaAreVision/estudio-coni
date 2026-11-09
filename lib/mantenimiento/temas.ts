@@ -1,3 +1,5 @@
+import { leerCalibracion } from "@/lib/datos/huellas"
+import type { ModeloDeHuellas } from "@/lib/dominio/parecido"
 import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
 import { estimarEmbebido, TEXTOS_POR_EMBEBIDO } from "@/lib/ingesta/afirmar"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
@@ -64,6 +66,7 @@ async function embeberPendientes(
   llave: string,
   pendientes: readonly { id: string; texto: string }[],
   ids: string[],
+  modelo: ModeloDeHuellas,
 ): Promise<{ tope: boolean }> {
   for (let desde = 0; desde < pendientes.length; desde += TEXTOS_POR_EMBEBIDO) {
     const lote = pendientes.slice(desde, desde + TEXTOS_POR_EMBEBIDO)
@@ -81,9 +84,9 @@ async function embeberPendientes(
         paso: "embedding",
         estimadoUsd: estimarEmbebido(textos),
         llamar: async () => {
-          const r = await embeber({ clave: llave, textos, tipo: "document" })
+          const r = await embeber({ clave: llave, textos, tipo: "document", modelo })
           if (r.vectores.length !== lote.length) throw new Error("Voyage no devolvió un vector por afirmación.")
-          return { datos: r.vectores, realUsd: costoVoyage(r.tokens) }
+          return { datos: r.vectores, realUsd: costoVoyage(r.tokens, modelo) }
         },
       },
     )
@@ -93,7 +96,7 @@ async function embeberPendientes(
       if (!vector) continue
       const { error } = await deps.db
         .from("afirmaciones")
-        .update({ vector: textoDeVector(vector) })
+        .update({ vector: textoDeVector(vector), modelo_vector: modelo })
         .eq("id", a.id)
         .is("vector", null)
       if (error) throw falloDeBase("No pude guardar el vector de la afirmación", error)
@@ -109,13 +112,14 @@ async function embeberPendientes(
  * limit returns `tope: true`; the maintenance run tells Coni (lib/mantenimiento/ejecutar.ts).
  */
 export async function mantenerTemas(deps: DepsMantenimientoTemas): Promise<ResultadoMantenerTemas> {
+  const calibracion = await leerCalibracion(deps.db)
   const llave = deps.llaveVoyage()
   const pendientes = llave ? await afirmacionesSinVector(deps) : []
   const embebidas: { tope: boolean; ids: string[] } = { tope: false, ids: [] }
   let pausa: PausaDeProveedor | null = null
   if (llave) {
     try {
-      embebidas.tope = (await embeberPendientes(deps, llave, pendientes, embebidas.ids)).tope
+      embebidas.tope = (await embeberPendientes(deps, llave, pendientes, embebidas.ids, calibracion.modelo)).tope
     } catch (error) {
       // A provider outage must not alert every ten minutes: the claims stay without a vector and the next run retries.
       // A pause is handed to the caller, which opens it. The key is already redacted by the Voyage client.

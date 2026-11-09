@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { DepsResumen } from "@/lib/avisos/resumen"
 import { fuenteDelCarrusel } from "@/lib/carrusel/fuente"
 import { renderizarCarrusel } from "@/lib/carrusel/render"
+import { leerCalibracion } from "@/lib/datos/huellas"
 import type { PausaParaCerrar } from "@/lib/datos/pausas"
 import { leerSecreto } from "@/lib/datos/repositorio"
 import { anotadorDeBorrados } from "@/lib/datos-personales/borrados"
@@ -189,6 +190,7 @@ async function chequearConLaLlave(db: SupabaseClient<Database>, pausa: PausaPara
     proveedor: pausa.proveedor,
     motivo: pausa.motivo,
     llave,
+    ...(pausa.proveedor === "voyage" ? { modeloVoyage: (await leerCalibracion(db)).modelo } : {}),
     bases: {
       elevenlabs: baseDe(process.env, "ELEVENLABS_BASE_URL", "https://api.elevenlabs.io"),
       heygen: baseDe(process.env, "HEYGEN_BASE_URL", "https://api.heygen.com"),
