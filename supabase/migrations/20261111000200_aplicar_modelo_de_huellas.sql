@@ -144,8 +144,9 @@ begin
   from public.huellas_anteriores h
   where h.prueba_id = p_prueba and h.afirmacion_id = a.id and a.vector is not null;
 
-  -- Centroids: exactly the saved one where the topic existed; a topic born after the switch takes the mean of its
-  -- restored claims; a merged one, the centroid of the topic it points at.
+  -- Centroids: exactly the saved one where the topic existed and still has the same members; a topic born after the
+  -- switch, or one whose members changed since (a claim assigned or moved), takes the plain mean of its restored
+  -- claims, so the centroid stays the mean of its members. A merged one takes the centroid of the topic it points at.
   update public.temas t set centroide = h.vector, modelo_centroide = h.modelo
   from public.huellas_anteriores h
   where h.prueba_id = p_prueba and h.tema_id = t.id;
@@ -156,7 +157,8 @@ begin
     where a.tema_id is not null and not a.excluida and a.vector is not null
     group by a.tema_id
   ) m
-  where t.id = m.tema_id and t.modelo_centroide <> anterior.modelo;
+  where t.id = m.tema_id
+    and (t.modelo_centroide <> anterior.modelo or t.centroide operator(extensions.<->) m.media > 0.000001);
   update public.temas t set centroide = d.centroide, modelo_centroide = anterior.modelo
   from public.temas d
   where t.fusionado_en = d.id and t.modelo_centroide <> anterior.modelo and d.modelo_centroide = anterior.modelo;

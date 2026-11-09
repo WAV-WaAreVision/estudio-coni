@@ -35,9 +35,15 @@ async function vigente(c: pg.PoolClient) {
 
 /** A topic with two claims, a pending claim and a claim without a vector; every claim with a vector has a candidate. */
 async function escena() {
-  const t = await tema("Deseo", vec({ 0: 1 }))
-  const a1 = await afirmacion(vec({ 0: 1 }), { tema: t })
-  const a2 = await afirmacion(vec({ 0: 0.9, 1: 0.1 }), { tema: t })
+  // The centroid is the plain mean of the topic's claims, as the application keeps it.
+  const v1 = vec({ 0: 1 })
+  const v2 = vec({ 0: 0.9, 1: 0.1 })
+  const t = await tema(
+    "Deseo",
+    v1.map((x, i) => (x + (v2[i] ?? 0)) / 2),
+  )
+  const a1 = await afirmacion(v1, { tema: t })
+  const a2 = await afirmacion(v2, { tema: t })
   const suelta = await afirmacion(vec({ 5: 1 }))
   await afirmacion(null)
   const p = await prueba()
@@ -195,6 +201,25 @@ describe("revertir_prueba_de_modelo", () => {
       const filas = await centroides(c)
       expect(parsearVector(filas.find((f) => f.id === nuevo)?.v ?? "")[9]).toBeCloseTo(1)
       expect(filas.every((f) => f.modelo === "voyage-3.5")).toBe(true)
+    })
+  })
+
+  it("recomputes the centroid of a topic that took a claim after the switch, as the plain mean of the restored vectors", async () => {
+    const { t, a1, a2, suelta, p } = await escena()
+    await como(comoServicio, async (c) => {
+      await aplicar(c, p)
+      await asumir(c, comoPostgres)
+      await c.query("update public.afirmaciones set tema_id = $1 where id = $2", [t, suelta])
+      await asumir(c, comoServicio)
+      await revertir(c, p)
+      await asumir(c, comoPostgres)
+      const restaurados = (await vectores(c)).filter((v) => [a1, a2, suelta].includes(v.id))
+      const media = Array.from(
+        { length: 1024 },
+        (_, i) => restaurados.reduce((suma, v) => suma + (parsearVector(v.v ?? "")[i] ?? 0), 0) / restaurados.length,
+      )
+      const centroide = parsearVector((await centroides(c)).find((f) => f.id === t)?.v ?? "")
+      for (const i of [0, 1, 5]) expect(centroide[i]).toBeCloseTo(media[i] ?? Number.NaN, 5)
     })
   })
 
