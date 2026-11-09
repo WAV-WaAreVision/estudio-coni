@@ -18,6 +18,9 @@ vi.mock("@/lib/mantenimiento/retencion", () => ({ aplicarRetencion: vi.fn(async 
 vi.mock("@/lib/mantenimiento/token-meta", () => ({ mantenerTokenMeta: vi.fn(async () => "sin_token") }))
 vi.mock("@/lib/mantenimiento/token-linkedin", () => ({ mantenerTokenLinkedin: vi.fn(async () => "sin_conexion") }))
 vi.mock("@/lib/mantenimiento/respaldo", () => ({ respaldarBase: vi.fn(async () => ({ estado: "vacio" })) }))
+vi.mock("@/lib/mantenimiento/pruebas-de-modelo", () => ({
+  limpiarPruebasDeModelo: vi.fn(async () => ({ anteriores: 0, candidatas: 0 })),
+}))
 vi.mock("@/lib/mantenimiento/huella", () => ({ borrarHuellaDeVisitas: vi.fn(async () => ({ huellas: 2 })) }))
 vi.mock("@/lib/mantenimiento/revision-de-inventario", () => ({
   recordarRevisionDeInventario: vi.fn(async () => "al_dia"),
@@ -64,7 +67,9 @@ describe("mantenimientoNocturno", () => {
       "respaldo",
       "revisionDeInventario",
       "fusiones",
+      "pruebasDeModelo",
     ])
+    expect(resultado.pruebasDeModelo).toEqual({ anteriores: 0, candidatas: 0 })
     expect(resultado.huella).toEqual({ huellas: 2 })
     expect(resultado.revisionDeInventario).toBe("al_dia")
     expect(borrarHuellaDeVisitas).toHaveBeenCalledWith(DEPS)

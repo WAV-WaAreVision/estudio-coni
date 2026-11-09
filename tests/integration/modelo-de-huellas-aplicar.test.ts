@@ -1,8 +1,10 @@
 import type pg from "pg"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
 import { parsearVector } from "@/lib/ingesta/agrupar"
+import { limpiarPruebasDeModelo } from "@/lib/mantenimiento/pruebas-de-modelo"
 import { asumir, como, comoConi, comoPostgres, comoServicio, fallaCon, pool } from "./db"
 import { afirmacion, candidata, prueba, reiniciarHuellas, tema, texto, vec } from "./huellas-comun"
+import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
 beforeEach(reiniciarHuellas)
@@ -303,5 +305,14 @@ describe("who can call them", () => {
       }
       expect((await fallaCon(c, "select public.limpiar_huellas_de_prueba(now())")).code).toBe("42501")
     })
+  })
+})
+
+describe("limpiarPruebasDeModelo", () => {
+  it("calls the cleanup with the run's clock", async () => {
+    const { p } = await escena()
+    await pool.query("update public.pruebas_de_modelo set estado = 'descartada' where id = $1", [p])
+    const r = await limpiarPruebasDeModelo({ db: clienteDeServicio(), ahora: () => new Date().toISOString() })
+    expect(r).toEqual({ anteriores: 0, candidatas: 3 })
   })
 })

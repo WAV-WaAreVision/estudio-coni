@@ -14,6 +14,7 @@ import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { barrerMaterialesAbandonados } from "./materiales-abandonados"
 import { cerrarPausas, type DepsPausas } from "./pausas"
+import { limpiarPruebasDeModelo } from "./pruebas-de-modelo"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
 import { type DepsRevisionDeInventario, recordarRevisionDeInventario } from "./revision-de-inventario"
@@ -129,7 +130,7 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
   })
 }
 
-/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the visitor hashes of /l, the backup of the database, the yearly review of the data register and the merges of topics. */
+/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the visitor hashes of /l, the backup of the database, the yearly review of the data register, the merges of topics and the vectors kept for a model revert. */
 export function mantenimientoNocturno(deps: DepsNocturno) {
   return enSerie({
     retencion: () => aplicarRetencion(deps),
@@ -157,5 +158,6 @@ export function mantenimientoNocturno(deps: DepsNocturno) {
       if (resultado.tope) await avisarLimite(deps, deps.ahora())
       return resultado
     },
+    pruebasDeModelo: () => limpiarPruebasDeModelo(deps),
   })
 }
