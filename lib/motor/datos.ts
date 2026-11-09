@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { leerCalibracion } from "@/lib/datos/huellas"
 import { falloDeBase } from "@/lib/ingesta/gasto-material"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -39,6 +40,8 @@ export interface DatosDelMotor {
   }
   /** Engine ideas discarded inside the window, per topic of the theory that produced them. */
   descartes: Map<string, number>
+  /** The bridge band of the vigente calibration: a crossing is best when its topics are this alike. */
+  puente: { min: number; max: number }
 }
 
 export const claveDePar = (x: string, y: string): string => (x < y ? `${x}|${y}` : `${y}|${x}`)
@@ -69,6 +72,7 @@ export async function leerDatosDelMotor(
   opciones: { hoy: string; minimoAutores?: number },
 ): Promise<DatosDelMotor> {
   const desde = haceDias(opciones.hoy, VENTANA_DIAS)
+  const calibracion = await leerCalibracion(db)
 
   const temas = await leerTodo("No pude leer los temas del motor", (a, b) =>
     db.rpc("motor_temas").order("tema_id").range(a, b),
@@ -119,5 +123,6 @@ export async function leerDatosDelMotor(
     pares,
     recientes: { temas: temasRecientes, pares: paresRecientes },
     descartes,
+    puente: { min: calibracion.puenteMin, max: calibracion.puenteMax },
   }
 }
