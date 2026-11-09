@@ -788,6 +788,29 @@ describe("fusionarTemas", () => {
     expect(rows).toEqual([{ tema_a: x, tema_b: y, origen: "coni", razon: "Decisión de Coni." }])
   })
 
+  it("stores each rejection as soon as Claude gives it, so a failure later in the run does not lose it", async () => {
+    const p = await tema("P", vec({ 0: 1 }))
+    const q = await tema("Q", vec({ 0: 1, 1: 0.05 }))
+    const a = await tema("A", vec({ 5: 1 }))
+    const b = await tema("B", vec({ 5: 1, 6: 0.3 }))
+    for (const t of [p, q, a, b]) await afirmacion(vec({ 0: 1 }), { tema: t })
+    simularClaude({ veredictoDe: (m, n) => ([m, n].includes(p) ? "distintos" : "mismo") })
+    const sinFusionar = new Proxy(db, {
+      get: (objetivo, propiedad) =>
+        propiedad === "rpc"
+          ? (nombre: string, ...resto: unknown[]) =>
+              nombre === "fusionar_par_de_temas"
+                ? Promise.resolve({ data: null, error: { message: "falla de prueba" } })
+                : Reflect.apply(objetivo.rpc, objetivo, [nombre, ...resto])
+          : Reflect.get(objetivo, propiedad),
+    })
+    await expect(fusionarTemas({ ...deps(), db: sinFusionar }, CALIBRACION_INICIAL)).rejects.toThrow(
+      "No pude fusionar los temas",
+    )
+    const { rows } = await pool.query("select tema_a, tema_b from public.temas_fusion_rechazada")
+    expect(rows).toEqual([{ tema_a: [p, q].sort()[0], tema_b: [p, q].sort()[1] }])
+  })
+
   it("pays through the cap with paso temas and stops without throwing at the cap", async () => {
     await dosParecidos()
     simularClaude()

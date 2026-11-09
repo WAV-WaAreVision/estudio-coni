@@ -361,6 +361,20 @@ async function rechazoDe(
   }
 }
 
+/** Claude's rejection never replaces one Coni made. */
+async function guardarRechazoDeClaude(db: Db, fila: TablesInsert<"temas_fusion_rechazada">): Promise<void> {
+  const { data: deConi, error: errorConi } = await db
+    .from("temas_fusion_rechazada")
+    .select("origen")
+    .eq("tema_a", fila.tema_a)
+    .eq("tema_b", fila.tema_b)
+    .eq("origen", "coni")
+  if (errorConi) throw falloDeBase("No pude leer los rechazos de Coni", errorConi)
+  if (deConi.length > 0) return
+  const { error } = await db.from("temas_fusion_rechazada").upsert(fila, { onConflict: "tema_a,tema_b" })
+  if (error) throw falloDeBase("No pude recordar la fusión rechazada", error)
+}
+
 /** Stores «child under parent» once per pair: a pair already stored in either direction counts as stored. */
 export async function guardarSubtema(db: Db, v: Veredicto, a: string, b: string): Promise<void> {
   // `general` names the broader topic by the ids Claude was sent; a and b are those ids after tonight's merges.
@@ -425,7 +439,6 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
     return actual
   }
   const enPropuesta = new Set<string>()
-  const rechazos = new Map<string, TablesInsert<"temas_fusion_rechazada">>()
   for (const v of pagado.datos) {
     const a = resolver(v.a)
     const b = resolver(v.b)
@@ -433,7 +446,8 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
     if (a !== v.a || b !== v.b) continue
     if (enPropuesta.has(a) || enPropuesta.has(b)) continue
     if (v.veredicto === "distintos") {
-      rechazos.set(claveDePar(a, b), await rechazoDe(deps, a, b, v.razon, calibracion))
+      // Stored at once: a failure later in the run must not make us pay Claude again for this pair.
+      await guardarRechazoDeClaude(db, await rechazoDe(deps, a, b, v.razon, calibracion))
       resultado.rechazados += 1
       continue
     }
@@ -473,25 +487,6 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
     if (errorVeredicto) throw falloDeBase("No pude anotar el veredicto de la fusión", errorVeredicto)
     absorbidos.set(perdedor, ganador)
     resultado.fusionados += 1
-  }
-  if (rechazos.size > 0) {
-    const { data: deConi, error: errorConi } = await db
-      .from("temas_fusion_rechazada")
-      .select("tema_a, tema_b")
-      .eq("origen", "coni")
-      .in(
-        "tema_a",
-        [...rechazos.values()].map((r) => r.tema_a),
-      )
-    if (errorConi) throw falloDeBase("No pude leer los rechazos de Coni", errorConi)
-    // Coni's rejection is never overwritten by Claude's.
-    for (const par of deConi) rechazos.delete(claveDePar(par.tema_a, par.tema_b))
-  }
-  if (rechazos.size > 0) {
-    const { error: errorRechazo } = await db
-      .from("temas_fusion_rechazada")
-      .upsert([...rechazos.values()], { onConflict: "tema_a,tema_b" })
-    if (errorRechazo) throw falloDeBase("No pude recordar las fusiones rechazadas", errorRechazo)
   }
   return resultado
 }
