@@ -7,6 +7,7 @@ import {
   asignarATemas,
   formarTemas,
   fusionarTemas,
+  guardarSubtema,
   MAXIMO_PENDIENTES_POR_CORRIDA,
   recalcularTema,
 } from "@/lib/ingesta/temas"
@@ -677,6 +678,25 @@ describe("fusionarTemas", () => {
     expect(rows).toHaveLength(1)
     expect([rows[0]?.tema_id, rows[0]?.padre_id].sort()).toEqual([grande, chico].sort())
     expect(rows[0]?.origen).toBe("claude")
+  })
+
+  it("treats a subtopic stored the other way round as already stored, without failing or storing it twice", async () => {
+    const { grande, chico } = await dosParecidos()
+    await pool.query("insert into public.temas_subtemas (tema_id, padre_id, origen) values ($1, $2, 'coni')", [
+      grande,
+      chico,
+    ])
+    const veredicto = {
+      a: grande,
+      b: chico,
+      veredicto: "parte_de",
+      general: grande,
+      seguro: true,
+      razon: "Razón.",
+    } as const
+    await guardarSubtema(clienteDeServicio(), veredicto, grande, chico)
+    const { rows } = await pool.query("select tema_id, padre_id, origen from public.temas_subtemas")
+    expect(rows).toEqual([{ tema_id: grande, padre_id: chico, origen: "coni" }])
   })
 
   it("remembers a rejection with its reason, counts and model, and asks again after 30 % growth", async () => {

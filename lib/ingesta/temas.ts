@@ -361,16 +361,21 @@ async function rechazoDe(
   }
 }
 
-async function guardarSubtema(db: Db, v: Veredicto, a: string, b: string): Promise<void> {
+/** Stores «child under parent» once per pair: a pair already stored in either direction counts as stored. */
+export async function guardarSubtema(db: Db, v: Veredicto, a: string, b: string): Promise<void> {
   // `general` names the broader topic by the ids Claude was sent; a and b are those ids after tonight's merges.
   const padre = v.general === v.a ? a : v.general === v.b ? b : (await elegirGanador(db, a, b)).ganador
   const hijo = padre === a ? b : a
-  const { error } = await db
+  // The table keeps one row per pair whatever its direction (temas_subtemas_un_par): the upsert below only knows the
+  // primary key, so the reverse pair is looked up first instead of being caught as a unique violation.
+  const { data: guardado, error: errorLectura } = await db
     .from("temas_subtemas")
-    .upsert(
-      { tema_id: hijo, padre_id: padre, origen: "claude" },
-      { onConflict: "tema_id,padre_id", ignoreDuplicates: true },
-    )
+    .select("tema_id")
+    .or(`and(tema_id.eq.${hijo},padre_id.eq.${padre}),and(tema_id.eq.${padre},padre_id.eq.${hijo})`)
+    .limit(1)
+  if (errorLectura) throw falloDeBase("No pude leer los subtemas", errorLectura)
+  if (guardado.length > 0) return
+  const { error } = await db.from("temas_subtemas").insert({ tema_id: hijo, padre_id: padre, origen: "claude" })
   if (error) throw falloDeBase("No pude guardar el subtema", error)
 }
 
