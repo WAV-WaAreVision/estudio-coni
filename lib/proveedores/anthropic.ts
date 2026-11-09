@@ -57,6 +57,8 @@ export {
   type ParParaFusionar,
   type TemaNombrado,
   type TemaParaFusionar,
+  VERSION_DE_FUSIONES,
+  type Veredicto,
 } from "./anthropic/temas"
 export {
   type ContextoDeTeorias,
