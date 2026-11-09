@@ -482,7 +482,8 @@ export async function fusionarTemas(deps: DepsTemas, calibracion: Calibracion): 
       continue
     }
     const fusion = await fusionar(db, ganador, perdedor)
-    // The merge and its log are one transaction; Claude's words are completed after it.
+    // The merge and its log are one transaction; Claude's words are completed after it. If this update fails the
+    // merge stays applied without reason or version: accepted, and a rerun does not ask again (the pair is gone).
     const { error: errorVeredicto } = await db.from("fusiones").update(veredicto).eq("id", fusion)
     if (errorVeredicto) throw falloDeBase("No pude anotar el veredicto de la fusión", errorVeredicto)
     absorbidos.set(perdedor, ganador)
