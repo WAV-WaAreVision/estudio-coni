@@ -580,6 +580,13 @@ describe("fusionarTemas", () => {
     )
     expect(rows).toEqual([{ tema_a: [grande, chico].sort()[0], tema_b: [grande, chico].sort()[1] }])
 
+    // The code does not store the counts and the model yet (Task 9 of the merges plan makes it do so and removes this
+    // update): a rejection without them is asked again once, so the test gives it what the new code will store.
+    await pool.query(
+      `update public.temas_fusion_rechazada
+          set afirmaciones_a = public.afirmaciones_vivas(tema_a), afirmaciones_b = public.afirmaciones_vivas(tema_b),
+              modelo = public.modelo_de_huellas_vigente()`,
+    )
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
 
@@ -764,7 +771,10 @@ describe("temas_parecidos, average cross similarity", () => {
     const b = await tema("B", centroide({ 0: 0.9, 1: 0.1 }))
     const fusionado = await tema("C", centroide({ 0: 1 }), { fusionado: a })
     const [x, y] = [a, b].sort()
-    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [x, y])
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b, origen) values ($1, $2, 'coni')", [
+      x,
+      y,
+    ])
     await como(comoServicio, async (c) => {
       const { rows } = await c.query("select * from public.temas_parecidos(0.6)")
       expect(rows).toEqual([])

@@ -188,3 +188,71 @@ describe("fusionar_par_de_temas with its log", () => {
     })
   })
 })
+
+describe("temas_parecidos with Coni's and Claude's decisions", () => {
+  const parecidos = () =>
+    como(comoServicio, async (c) => {
+      const { rows } = await c.query<{ a: string; b: string }>("select a, b from public.temas_parecidos(0.6)")
+      return rows.map((r) => [r.a, r.b].sort().join("|"))
+    })
+  const par = (x: string, y: string) => [x, y].sort().join("|")
+
+  async function tres() {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 0: 1, 1: 0.1 }))
+    const c = await tema("C", vec({ 0: 1, 2: 0.1 }))
+    for (const t of [a, b, c]) for (let i = 0; i < 3; i++) await afirmacion(vec({ 0: 1 }), { tema: t })
+    return { a, b, c }
+  }
+
+  it("leaves out every pair that touches a topic waiting in a proposal", async () => {
+    const { a, b, c } = await tres()
+    await propuesta(a, b)
+    expect(await parecidos()).toEqual([])
+    await pool.query("update public.fusiones set estado = 'rechazada'")
+    expect((await parecidos()).sort()).toEqual([par(a, b), par(a, c), par(b, c)].sort())
+  })
+
+  it("leaves out a stored subtopic pair in either direction", async () => {
+    const { a, b, c } = await tres()
+    await pool.query("insert into public.temas_subtemas (tema_id, padre_id, origen) values ($1, $2, 'claude')", [b, a])
+    expect(await parecidos()).not.toContain(par(a, b))
+    expect(await parecidos()).toContain(par(a, c))
+  })
+
+  it("never offers again a pair Coni rejected, even after growth or a model change", async () => {
+    const { a, b } = await tres()
+    await pool.query(
+      `insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, afirmaciones_a, afirmaciones_b, modelo)
+       values ($1, $2, 'coni', 3, 3, 'voyage-4')`,
+      [a, b].sort(),
+    )
+    for (let i = 0; i < 5; i++) await afirmacion(vec({ 0: 1 }), { tema: a })
+    expect(await parecidos()).not.toContain(par(a, b))
+  })
+
+  it("offers Claude's rejected pair again once either topic grew 30 % or the model changed, not before", async () => {
+    const { a, b } = await tres()
+    await pool.query(
+      `insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, afirmaciones_a, afirmaciones_b, modelo)
+       values ($1, $2, 'claude', 3, 3, 'voyage-3.5')`,
+      [a, b].sort(),
+    )
+    expect(await parecidos()).not.toContain(par(a, b))
+    await afirmacion(vec({ 0: 1 }), { tema: b })
+    expect(await parecidos()).toContain(par(a, b))
+    await pool.query(
+      "delete from public.afirmaciones where id = (select id from public.afirmaciones where tema_id = $1 limit 1)",
+      [b],
+    )
+    expect(await parecidos()).not.toContain(par(a, b))
+    await pool.query("update public.temas_fusion_rechazada set modelo = 'voyage-4'")
+    expect(await parecidos()).toContain(par(a, b))
+  })
+
+  it("asks again once about a rejection the old code left without counts or model", async () => {
+    const { a, b } = await tres()
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [a, b].sort())
+    expect(await parecidos()).toContain(par(a, b))
+  })
+})
