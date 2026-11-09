@@ -685,9 +685,14 @@ describe("recalcularTema", () => {
 })
 
 describe("temas_fusion_rechazada", () => {
-  it("is for the service role only", async () => {
+  it("is read by Coni and written only by the service role", async () => {
     await como(comoConi, async (c) => {
-      expect((await fallaCon(c, "select * from public.temas_fusion_rechazada")).code).toBe("42501")
+      await c.query("select * from public.temas_fusion_rechazada")
+      const error = await fallaCon(
+        c,
+        "insert into public.temas_fusion_rechazada (tema_a, tema_b) values (gen_random_uuid(), gen_random_uuid())",
+      )
+      expect(error.code).toBe("42501")
     })
   })
 
