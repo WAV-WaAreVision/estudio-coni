@@ -138,16 +138,16 @@ describe("ESQUEMA_DE_DUDOSOS", () => {
   const A = "11111111-1111-4111-8111-111111111111"
   const B = "22222222-2222-4222-8222-222222222222"
 
-  it("accepts one pick per piece and per Excel post", () => {
+  it("accepts one pick per piece", () => {
     expect(ESQUEMA_DE_DUDOSOS.safeParse({ medidoEn: "2026-10-30", elegidos: [elegido(A, "ugcPost:1")] }).success).toBe(
       true,
     )
   })
 
-  it("refuses one Excel post for two pieces, a piece twice, or nothing picked", () => {
+  it("refuses a piece twice or nothing picked, and leaves the repeated Excel post to the action", () => {
     const mismoPost = { medidoEn: "2026-10-30", elegidos: [elegido(A, "share:1"), elegido(B, "share:1")] }
     const mismaPieza = { medidoEn: "2026-10-30", elegidos: [elegido(A, "share:1"), elegido(A, "share:2")] }
-    expect(ESQUEMA_DE_DUDOSOS.safeParse(mismoPost).success).toBe(false)
+    expect(ESQUEMA_DE_DUDOSOS.safeParse(mismoPost).success).toBe(true)
     expect(ESQUEMA_DE_DUDOSOS.safeParse(mismaPieza).success).toBe(false)
     expect(ESQUEMA_DE_DUDOSOS.safeParse({ medidoEn: "2026-10-30", elegidos: [] }).success).toBe(false)
   })

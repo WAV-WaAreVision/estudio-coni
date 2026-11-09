@@ -94,7 +94,7 @@ export async function importarExcelDeLinkedin(
 
 const CIFRA = z.number().int().min(0).max(999_999_999).nullable()
 
-/** Her picks for the doubtful hand uploads: each piece once, each Excel post for one piece. */
+/** Her picks for the doubtful hand uploads: each piece once. */
 export const ESQUEMA_DE_DUDOSOS = z.object({
   medidoEn: z.iso.date(),
   elegidos: z
@@ -107,14 +107,11 @@ export const ESQUEMA_DE_DUDOSOS = z.object({
       }),
     )
     .min(1)
+    // The same Excel post for two pieces is refused in the action, with words for Coni: a schema error only says "no entendí".
     .max(100)
     .refine(
       (elegidos) => new Set(elegidos.map((e) => e.piezaId)).size === elegidos.length,
       "Una publicación va una vez.",
-    )
-    .refine(
-      (elegidos) => new Set(elegidos.map((e) => e.clave)).size === elegidos.length,
-      "Un post va con una publicación.",
     ),
 })
 
