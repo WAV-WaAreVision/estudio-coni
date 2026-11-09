@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
-import { como, comoConi, comoMantenedor, comoOtra, comoServicio, fallaCon, pool } from "./db"
-import { afirmacion, limpiarFusiones, propuesta, tema, vec } from "./fusiones-comun"
+import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, comoServicio, fallaCon, pool } from "./db"
+import { afirmacion, escenaDeFusion, foto, limpiarFusiones, propuesta, tema, vec } from "./fusiones-comun"
+import { clienteDeServicio } from "./servicio"
 
 afterAll(() => pool.end())
 beforeEach(limpiarFusiones)
@@ -82,6 +83,108 @@ describe("fusiones schema", () => {
     })
     await como(comoConi, async (c) => {
       expect((await fallaCon(c, "select public.afirmaciones_vivas($1)", [a])).code).toBe("42501")
+    })
+  })
+})
+
+describe("fusionar_par_de_temas with its log", () => {
+  it("logs a two-argument merge as Claude's, with the snapshot taken before anything changed", async () => {
+    const e = await escenaDeFusion()
+    await como(comoServicio, async (c) => {
+      await asumir(c, comoPostgres)
+      const antes = await foto(c, [e.ganador, e.perdedor, e.encadenado])
+      await asumir(c, comoServicio)
+      const { rows } = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2) as id", [
+        e.ganador,
+        e.perdedor,
+      ])
+      await asumir(c, comoPostgres)
+      const fusion = await c.query("select * from public.fusiones where id = $1", [rows[0]?.id])
+      const f = fusion.rows[0]
+      expect(f).toMatchObject({
+        estado: "aplicada",
+        origen: "claude",
+        veredicto: "mismo",
+        modelo: "voyage-3.5",
+        alias_agregados: ["Perdedor", "Otro nombre"],
+        encadenados: [e.encadenado],
+      })
+      expect(f.aplicada_en).not.toBeNull()
+      const sinFecha = (filas: Record<string, unknown>[]) => filas.map(({ creado_en, ...resto }) => resto)
+      const desdeJson = (filas: Record<string, unknown>[]) =>
+        filas.map(({ tema_id, pilar_id, red, es_capa, fuerza, origen, lote }) => ({
+          tema_id,
+          pilar_id,
+          red,
+          es_capa,
+          fuerza,
+          origen,
+          lote,
+        }))
+      expect(desdeJson(f.pilares_ganador)).toEqual(sinFecha(antes.pilares.filter((p) => p.tema_id === e.ganador)))
+      expect(desdeJson(f.pilares_perdedor)).toEqual(sinFecha(antes.pilares.filter((p) => p.tema_id === e.perdedor)))
+      const movidas = await c.query(
+        "select afirmacion_id, tema_origen from public.fusiones_afirmaciones where fusion_id = $1 order by afirmacion_id",
+        [f.id],
+      )
+      expect(movidas.rows).toEqual(
+        [...e.dePerdedor].sort().map((id) => ({ afirmacion_id: id, tema_origen: e.perdedor })),
+      )
+      const despues = await foto(c, [e.ganador])
+      expect(desdeJson(f.pilares_ganador_despues)).toEqual(sinFecha(despues.pilares))
+    })
+  })
+
+  it("is still called by name with two arguments through PostgREST, as the Trigger code before this deploy does", async () => {
+    const e = await escenaDeFusion()
+    const { data, error } = await clienteDeServicio().rpc("fusionar_par_de_temas", {
+      p_ganador: e.ganador,
+      p_perdedor: e.perdedor,
+    })
+    expect(error).toBeNull()
+    const { rows } = await pool.query("select estado from public.fusiones where id = $1", [data])
+    expect(rows).toEqual([{ estado: "aplicada" }])
+  })
+
+  it("applies the proposal it is given and refuses a decided one or one of another pair", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoServicio, async (c) => {
+      expect(
+        (await fallaCon(c, "select public.fusionar_par_de_temas($2, $1, $3)", [e.ganador, e.perdedor, id])).message,
+      ).toBe("fusion_de_otro_par")
+      const { rows } = await c.query<{ id: string }>("select public.fusionar_par_de_temas($1, $2, $3) as id", [
+        e.ganador,
+        e.perdedor,
+        id,
+      ])
+      expect(rows[0]?.id).toBe(id)
+      const estado = await c.query("select estado from public.fusiones where id = $1", [id])
+      expect(estado.rows).toEqual([{ estado: "aplicada" }])
+    })
+    await pool.query("update public.fusiones set estado = 'rechazada' where id = $1", [id])
+    await como(comoServicio, async (c) => {
+      expect(
+        (await fallaCon(c, "select public.fusionar_par_de_temas($1, $2, $3)", [e.ganador, e.perdedor, id])).message,
+      ).toBe("fusion_ya_decidida")
+    })
+  })
+
+  it("closes as vencida the other proposals about the topic that went away", async () => {
+    const e = await escenaDeFusion()
+    const tercero = await tema("Tercero", vec({ 0: 1, 3: 0.2 }))
+    const otra = await propuesta(tercero, e.perdedor)
+    await como(comoServicio, async (c) => {
+      await c.query("select public.fusionar_par_de_temas($1, $2)", [e.ganador, e.perdedor])
+      const { rows } = await c.query("select estado from public.fusiones where id = $1", [otra])
+      expect(rows).toEqual([{ estado: "vencida" }])
+    })
+  })
+
+  it("is for the service role only", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, "select public.fusionar_par_de_temas(gen_random_uuid(), gen_random_uuid())")
+      expect(error.code).toBe("42501")
     })
   })
 })

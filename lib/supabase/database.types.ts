@@ -3431,8 +3431,8 @@ export type Database = {
         Returns: undefined
       }
       fusionar_par_de_temas: {
-        Args: { p_ganador: string; p_perdedor: string }
-        Returns: undefined
+        Args: { p_fusion?: string; p_ganador: string; p_perdedor: string }
+        Returns: string
       }
       guardar_acortado: {
         Args: {
