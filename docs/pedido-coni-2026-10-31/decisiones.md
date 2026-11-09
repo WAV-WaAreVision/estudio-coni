@@ -32,7 +32,7 @@ providers or tests; each spec confirms the ones it needs before writing code. Ma
 | B4 | Gemini: model, price, daily cap, private-video errors | 5 | Google docs + test |
 | B5 | Meta: current metric names per media type, JPEG vs PNG for carousels, `is_ai_generated` on carousels, comments permission | 13, 27 | Meta docs + test account |
 | B6 | LinkedIn: Member Analytics route, version and `r_member_postAnalytics`; image and text post endpoints; comments on personal profiles | 13, 11, 27 | LinkedIn docs; **apply now, review takes weeks** |
-| B7 | LinkedIn Excel export: sheet and column names, date format, activity vs share id | 13 | One real export from Coni |
+| B7 | LinkedIn Excel export: sheet and column names, date format, activity vs share id | 13 | Read from issue 15's sample and built in `docs/superpowers/specs/2026-11-09-excel-linkedin-design.md`; confirm the period end on one real export |
 | B8 | Canva Connect autofill: plan, latency, export | 14 | Canva docs |
 | B9 | Napkin API | 14 | Napkin docs |
 | B10 | Anthropic web search: tool version and price; Message Batches + cache discount stacking and batch limits | 24, 7, 8 | Claude API docs |
