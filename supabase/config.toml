@@ -449,10 +449,12 @@ sender_name = "Conidolly"
 project_id = "omvvgywjyuoqjjfpbpsy"
 
 [remotes.staging.auth]
+enable_signup = false
 site_url = "https://conidolly.vercel.app"
 additional_redirect_urls = ["https://*-federico-1787s-projects.vercel.app/**"]
 
 [remotes.staging.auth.email]
+enable_signup = false
 max_frequency = "60s"
 
 [remotes.staging.auth.email.smtp]

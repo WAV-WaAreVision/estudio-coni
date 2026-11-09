@@ -48,7 +48,8 @@ Preview environment variables switch to staging:
 | `TRIGGER_SECRET_KEY` | Trigger `staging` secret key | Federico |
 | `R2_BUCKET` | `estudio-coni-staging` | Claude |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | token scoped to the staging bucket | Federico |
-| `RESEND_API_KEY` | same key; `AVISOS_CORREO_*` and `CORREO_CONI` Preview stay as they are | Federico |
+| `RESEND_API_KEY` | same key | Federico |
+| `CONIDOLLY_AMBIENTE`, `AVISOS_CORREO_CONI` | `staging`, Federico's address (no `VAPID_*`: no push in staging) | Claude |
 
 The four Supabase variables change in one go (a staging URL with a production service role would fail every call).
 

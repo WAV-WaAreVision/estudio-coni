@@ -14,6 +14,8 @@ concurrency:
 jobs:
   migrar:
     name: Push migrations to staging
+    # A manual run from another branch would push its unmerged migrations.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,4 +30,4 @@ jobs:
             echo "::error::Missing STAGING_DB_URL secret (staging branch pooler URL)."
             exit 1
           fi
-          supabase db push --db-url "$STAGING_DB_URL"
+          supabase db push --db-url "$STAGING_DB_URL" --yes

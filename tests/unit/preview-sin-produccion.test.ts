@@ -21,9 +21,27 @@ describe("exigirPreviewSinProduccion (issue 7)", () => {
     },
   )
 
+  it("refuses a preview with production's Trigger key, which would run production tasks", () => {
+    expect(() =>
+      exigirPreviewSinProduccion({
+        VERCEL_ENV: "preview",
+        SUPABASE_URL: STAGING,
+        NEXT_PUBLIC_SUPABASE_URL: STAGING,
+        TRIGGER_SECRET_KEY: "tr_prod_abc",
+      }),
+    ).toThrow(
+      "TRIGGER_SECRET_KEY es la llave de producción de Trigger en una vista previa de Vercel: usa la de staging.",
+    )
+  })
+
   it("lets a preview on staging through", () => {
     expect(() =>
-      exigirPreviewSinProduccion({ VERCEL_ENV: "preview", SUPABASE_URL: STAGING, NEXT_PUBLIC_SUPABASE_URL: STAGING }),
+      exigirPreviewSinProduccion({
+        VERCEL_ENV: "preview",
+        SUPABASE_URL: STAGING,
+        NEXT_PUBLIC_SUPABASE_URL: STAGING,
+        TRIGGER_SECRET_KEY: "tr_stg_abc",
+      }),
     ).not.toThrow()
   })
 

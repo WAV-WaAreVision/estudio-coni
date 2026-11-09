@@ -1,6 +1,8 @@
 -- Issue 7: test content for the staging branch, generated from the E2E scenes by scripts/staging/generar-semilla.ts
 -- and pg_dump (data only, inserts that skip existing rows). No personal data. Users are created apart.
 
+insert into public.ajustes select where not exists (select 1 from public.ajustes);
+
 
 
 
