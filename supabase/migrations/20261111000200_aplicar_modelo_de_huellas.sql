@@ -52,7 +52,7 @@ begin
   if exists (
     select 1 from public.afirmaciones a
     where a.vector is not null
-      and not exists (select 1 from public.huellas_candidatas h where h.prueba_id = p_prueba and h.afirmacion_id = a.id)
+      and not exists (select 1 from public.huellas_candidatas h where h.prueba_id = p_prueba and h.afirmacion_id = a.id and h.modelo = prueba.modelo)
   ) then
     raise exception using errcode = '22023', message = 'faltan_candidatas';
   end if;
@@ -131,7 +131,7 @@ begin
   if exists (
     select 1 from public.afirmaciones a
     where a.vector is not null
-      and not exists (select 1 from public.huellas_anteriores h where h.prueba_id = p_prueba and h.afirmacion_id = a.id)
+      and not exists (select 1 from public.huellas_anteriores h where h.prueba_id = p_prueba and h.afirmacion_id = a.id and h.modelo = anterior.modelo)
   ) then
     raise exception using errcode = '22023', message = 'faltan_anteriores';
   end if;

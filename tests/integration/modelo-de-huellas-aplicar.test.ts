@@ -98,6 +98,20 @@ describe("aplicar_prueba_de_modelo", () => {
     })
   })
 
+  it("refuses, and changes nothing, when a candidate is stamped with another model than the dry run's", async () => {
+    const { p, a1 } = await escena()
+    await pool.query(
+      "update public.huellas_candidatas set modelo = 'voyage-3.5' where prueba_id = $1 and afirmacion_id = $2",
+      [p, a1],
+    )
+    await como(comoServicio, async (c) => {
+      const antes = await vectores(c)
+      const error = await fallaCon(c, "select public.aplicar_prueba_de_modelo($1)", [p])
+      expect(error.message).toBe("faltan_candidatas")
+      expect(await vectores(c)).toEqual(antes)
+    })
+  })
+
   it("refuses an active topic whose claims have no vector", async () => {
     const { p } = await escena()
     const vacio = await tema("Celos", vec({ 7: 1 }))
@@ -181,6 +195,23 @@ describe("revertir_prueba_de_modelo", () => {
       const filas = await centroides(c)
       expect(parsearVector(filas.find((f) => f.id === nuevo)?.v ?? "")[9]).toBeCloseTo(1)
       expect(filas.every((f) => f.modelo === "voyage-3.5")).toBe(true)
+    })
+  })
+
+  it("refuses when a saved vector is stamped with another model than the calibration it goes back to", async () => {
+    const { p, a1 } = await escena()
+    await como(comoServicio, async (c) => {
+      await aplicar(c, p)
+      await asumir(c, comoPostgres)
+      await c.query(
+        "update public.huellas_anteriores set modelo = 'voyage-4' where prueba_id = $1 and afirmacion_id = $2",
+        [p, a1],
+      )
+      const antes = await vectores(c)
+      await asumir(c, comoServicio)
+      expect((await fallaCon(c, "select public.revertir_prueba_de_modelo($1)", [p])).message).toBe("faltan_anteriores")
+      await asumir(c, comoPostgres)
+      expect(await vectores(c)).toEqual(antes)
     })
   })
 
