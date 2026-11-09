@@ -89,7 +89,7 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
       .select("pieza_id, dia, alcance, guardados, compartidos, comentarios, tiempo_promedio"),
     db
       .from("metricas_linkedin_ultima")
-      .select("pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos"),
+      .select("pieza_id, medido_en, impresiones, reacciones, comentarios, compartidos, interacciones"),
     db
       .from("consultas")
       .select("anotada_en")
@@ -154,6 +154,7 @@ export async function leerDatosDeMetricas(db: Db, ahora: number): Promise<Entrad
               reacciones: fila.reacciones,
               comentarios: fila.comentarios,
               compartidos: fila.compartidos,
+              interacciones: fila.interacciones,
             },
           ]
         : [],

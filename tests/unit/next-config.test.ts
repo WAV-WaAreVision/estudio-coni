@@ -11,4 +11,9 @@ describe("next.config", () => {
     expect(cabeceras["content-type"]).toBe("application/javascript; charset=utf-8")
     expect(cabeceras["service-worker-allowed"]).toBe("/")
   })
+
+  it("takes LinkedIn's Excel through a Server Action (2 MB) and leaves its reader to Node", () => {
+    expect(nextConfig.experimental?.serverActions?.bodySizeLimit).toBe("2mb")
+    expect(nextConfig.serverExternalPackages).toContain("read-excel-file")
+  })
 })

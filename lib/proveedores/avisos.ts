@@ -81,6 +81,11 @@ export interface OpcionesResend {
   correoWav: string
   /** Resend's address; only the local E2E points it at a fake (`RESEND_BASE_URL`). */
   base?: string
+  /**
+   * Set in staging (issue 7): goes before every subject and idempotency key. Staging shares Resend's key with
+   * production, and a shared Idempotency-Key would make Resend answer one environment's email with the other's.
+   */
+  ambiente?: string
 }
 
 // https://resend.com/docs/api-reference/emails/send-email : `POST https://api.resend.com/emails` with
@@ -120,9 +125,20 @@ async function enviar(
       headers: {
         Authorization: `Bearer ${opciones.clave}`,
         "Content-Type": "application/json",
-        ...(mensaje.idempotencia ? { "Idempotency-Key": mensaje.idempotencia } : {}),
+        ...(mensaje.idempotencia
+          ? {
+              "Idempotency-Key": opciones.ambiente
+                ? `${opciones.ambiente}:${mensaje.idempotencia}`
+                : mensaje.idempotencia,
+            }
+          : {}),
       },
-      body: JSON.stringify({ from: opciones.remitente, to: [mensaje.a], subject: mensaje.asunto, text: mensaje.texto }),
+      body: JSON.stringify({
+        from: opciones.remitente,
+        to: [mensaje.a],
+        subject: opciones.ambiente ? `[${opciones.ambiente}] ${mensaje.asunto}` : mensaje.asunto,
+        text: mensaje.texto,
+      }),
       signal: AbortSignal.timeout(ESPERA_ENVIAR_MS),
     })
   } catch (error) {
@@ -238,6 +254,7 @@ export function canalReal(entorno: Record<string, string | undefined> = process.
     correoConi: exigirEnv("AVISOS_CORREO_CONI", entorno.AVISOS_CORREO_CONI),
     correoWav: exigirEnv("AVISOS_CORREO_WAV", entorno.AVISOS_CORREO_WAV),
     base: baseDe(entorno, "RESEND_BASE_URL", BASE_RESEND),
+    ...(entorno.CONIDOLLY_AMBIENTE === "staging" ? { ambiente: "staging" } : {}),
   })
   const sinPush = !entorno.VAPID_PUBLIC_KEY && !entorno.VAPID_PRIVATE_KEY && !entorno.VAPID_SUBJECT
   if (sinPush) return correo

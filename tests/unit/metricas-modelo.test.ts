@@ -35,6 +35,7 @@ function lecturaLinkedin(piezaId: string, extra: Partial<EntradaDeMetricas["lect
     reacciones: 14,
     comentarios: 3,
     compartidos: 1,
+    interacciones: null,
     ...extra,
   }
 }
@@ -125,6 +126,21 @@ describe("construirMetricas", () => {
     const barra = modelo.grupos[0]?.barras[0]
     expect([barra?.cifra, barra?.unidad, barra?.texto]).toEqual(["1", "impresión", "1 impresión"])
     expect(modelo.semanas[0]?.publicaciones[0]?.meta).toBe("LinkedIn · 1 impresión")
+  })
+
+  it("shows the Excel's total of interactions when a post has no reactions, comments or shares", () => {
+    const modelo = construirMetricas(
+      entrada({
+        publicaciones: [enLinkedin("a", "2026-10-13T22:00:00.000Z", "Del Excel")],
+        lecturasLinkedin: [
+          lecturaLinkedin("a", { reacciones: null, comentarios: null, compartidos: null, interacciones: 12 }),
+        ],
+      }),
+    )
+
+    expect(modelo.semanas[0]?.publicaciones[0]?.meta).toBe("LinkedIn · 1.200 impresiones · 12 interacciones")
+    const barra = modelo.grupos.find((grupo) => grupo.red === "linkedin")?.barras[0]
+    expect(barra?.muestra).toBe("12 interacciones")
   })
 
   it("lists a manual upload and a post without numbers as «sin números», without a bar", () => {

@@ -1,6 +1,6 @@
-import { lunesDeLaSemana } from "@/lib/dominio/metricas"
+import { lunesDeLaSemana, sumarDias } from "@/lib/dominio/metricas"
 
-// What WAV has to note on LinkedIn each week, and how its fields are read (spec 2026-10-17, decisions 19 and 20).
+// LinkedIn's numbers noted by hand (the fallback since Coni imports the Excel) and how its fields are read (spec 2026-10-17, decision 19).
 
 /** Posts published in the last four weeks are asked for (amendment A10). */
 export const SEMANAS_POR_ANOTAR = 4
@@ -37,7 +37,13 @@ export function postsPorAnotar(entrada: {
 }): PostPorAnotar[] {
   const semana = lunesDeLaSemana(entrada.ahora, entrada.zona)
   const desde = entrada.ahora - SEMANAS_POR_ANOTAR * 7 * 86_400_000
-  const deEstaSemana = new Map(entrada.medidos.filter((m) => m.medidoEn >= semana).map((m) => [m.piezaId, m]))
+  // An Excel import carries the last day of LinkedIn's period (truthful, kept as is). If that period ends the day before
+  // the download, a Monday import is dated Sunday and must still count for this week. A hand-noted row is dated the day
+  // she noted it, so a Sunday one belongs to last week.
+  const domingo = sumarDias(semana, -1)
+  const deEstaSemana = new Map(
+    entrada.medidos.filter((m) => m.medidoEn >= (m.origen === "excel" ? domingo : semana)).map((m) => [m.piezaId, m]),
+  )
   return entrada.posts
     .flatMap((post): PostPorAnotar[] => {
       const instante = Date.parse(post.publicadoEn)
@@ -51,13 +57,9 @@ export function postsPorAnotar(entrada: {
     .sort((a, b) => Date.parse(b.publicadoEn) - Date.parse(a.publicadoEn))
 }
 
-/** The posts still waiting for this week's numbers: what the Monday reminder counts. */
+/** The posts still waiting for this week's numbers: what Inicio's reminder counts. */
 export function sinNumerosEstaSemana(posts: readonly PostPorAnotar[]): PostPorAnotar[] {
   return posts.filter((post) => post.estaSemana === null)
-}
-
-export function asuntoDelRecordatorio(cuantos: number): string {
-  return `Anota los números de LinkedIn (${cuantos} ${cuantos === 1 ? "post" : "posts"})`
 }
 
 export interface CamposDePost {

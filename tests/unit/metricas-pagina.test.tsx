@@ -22,7 +22,11 @@ vi.mock("@/lib/datos/metricas-linkedin", () => ({
   leerLinkedinParaAnotar: async () => ({ posts: [], seguidores: null, seguidoresAutomaticos: false }),
 }))
 vi.mock("@/lib/metricas/modelo", () => ({ construirMetricas: () => modelo.valor }))
-vi.mock("@/app/(app)/metricas/acciones", () => ({ anotarNumerosDeLinkedinAccion: vi.fn() }))
+vi.mock("@/app/(app)/metricas/acciones", () => ({
+  anotarNumerosDeLinkedinAccion: vi.fn(),
+  importarExcelDeLinkedinAccion: vi.fn(),
+  guardarDudososDeLinkedinAccion: vi.fn(),
+}))
 
 import type { ReactElement, ReactNode } from "react"
 import Metricas from "@/app/(app)/metricas/page"
@@ -57,5 +61,16 @@ describe("the Métricas page on a computer (issue 103)", () => {
   it("leaves the month's figures alone in their row, not in half of an empty one, without a comparison", async () => {
     expect(clases(await porTestId("metricas-cifras"))).not.toContain("md:grid-cols-2")
     expect(await porTestId("metricas-comparacion")).toBeUndefined()
+  })
+})
+
+describe("the LinkedIn numbers on Métricas (change 13a)", () => {
+  it("puts the LinkedIn importer in its own section and the manual form under «Más opciones»", async () => {
+    const todos = elementos(await Metricas())
+    const seccion = todos.find((elemento) => elemento.props.id === "excel-linkedin")
+    expect(seccion?.props.titulo).toBe("Números de LinkedIn")
+    const pliegue = todos.find((elemento) => elemento.props.titulo === "Más opciones")
+    expect(pliegue?.props.resumen).toBe("Anotar a mano")
+    expect(todos.some((elemento) => elemento.props.titulo === "Para WAV")).toBe(false)
   })
 })

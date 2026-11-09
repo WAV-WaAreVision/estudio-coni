@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { leerZona } from "@/lib/datos/metricas"
 import { diaLocal } from "@/lib/dominio/fechas"
 import { lunesDeLaSemana } from "@/lib/dominio/metricas"
-import { type NumerosDePost, type PostPorAnotar, postsPorAnotar } from "@/lib/metricas/linkedin"
+import { type NumerosDePost, type PostPorAnotar, postsPorAnotar, sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Db = SupabaseClient<Database>
@@ -71,6 +71,19 @@ export async function leerLinkedinParaAnotar(db: Db, ahora: number): Promise<Lin
     }),
     seguidores: cuenta.data?.seguidores ?? null,
     seguidoresAutomaticos: cuenta.data ? cuenta.data.origen !== "manual" : false,
+  }
+}
+
+/**
+ * The posts Inicio's reminder counts. A failure here must not take Inicio down with it: it is logged for WAV and the
+ * reminder simply does not show.
+ */
+export async function contarLinkedinSinNumeros(db: Db, ahora: number): Promise<number> {
+  try {
+    return sinNumerosEstaSemana((await leerLinkedinParaAnotar(db, ahora)).posts).length
+  } catch (error) {
+    console.error("No pude leer los recordatorios de LinkedIn para Inicio", error)
+    return 0
   }
 }
 

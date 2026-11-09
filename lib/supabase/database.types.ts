@@ -1328,6 +1328,7 @@ export type Database = {
           comentarios: number | null
           compartidos: number | null
           impresiones: number | null
+          interacciones: number | null
           medido_en: string
           origen: string
           pieza_id: string
@@ -1339,6 +1340,7 @@ export type Database = {
           comentarios?: number | null
           compartidos?: number | null
           impresiones?: number | null
+          interacciones?: number | null
           medido_en: string
           origen: string
           pieza_id: string
@@ -1350,6 +1352,7 @@ export type Database = {
           comentarios?: number | null
           compartidos?: number | null
           impresiones?: number | null
+          interacciones?: number | null
           medido_en?: string
           origen?: string
           pieza_id?: string
@@ -1822,21 +1825,6 @@ export type Database = {
             referencedColumns: ["pieza_id"]
           },
         ]
-      }
-      recordatorios_linkedin: {
-        Row: {
-          avisado_en: string
-          semana: string
-        }
-        Insert: {
-          avisado_en?: string
-          semana: string
-        }
-        Update: {
-          avisado_en?: string
-          semana?: string
-        }
-        Relationships: []
       }
       registro_de_borrados: {
         Row: {
@@ -2515,6 +2503,7 @@ export type Database = {
           comentarios: number | null
           compartidos: number | null
           impresiones: number | null
+          interacciones: number | null
           medido_en: string | null
           origen: string | null
           pieza_id: string | null
@@ -3205,6 +3194,15 @@ export type Database = {
       guardar_token_meta: {
         Args: { p_expira_en: string; p_token: string }
         Returns: undefined
+      }
+      importar_excel_linkedin: {
+        Args: {
+          p_medido_en: string
+          p_posts: Json
+          p_seguidores?: number
+          p_semana: string
+        }
+        Returns: number
       }
       leer_secreto: { Args: { p_nombre: string }; Returns: string }
       liberar_gasto: {
