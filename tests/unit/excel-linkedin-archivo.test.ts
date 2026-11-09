@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
+import writeExcelFile from "write-excel-file/node"
 import { leerHojas } from "@/lib/metricas/excel-linkedin/archivo"
 import { leerExcelDeLinkedin } from "@/lib/metricas/excel-linkedin/leer"
 import { EXCEL_DE_PRUEBA, POST_AJENO, POST_COMPARTIDO, POST_UGC } from "../fixtures/excel-linkedin"
@@ -28,5 +29,14 @@ describe("leerHojas", () => {
 
   it("answers no_es_el_excel for a file that is not an xlsx", async () => {
     expect(await leerHojas(new Blob(["hola"]))).toEqual({ ok: false, error: "no_es_el_excel" })
+  })
+
+  it("writes a date cell as D/M/AAAA so the reader can take it", async () => {
+    const libro = await writeExcelFile([
+      { sheet: "FECHAS", data: [[{ value: new Date(Date.UTC(2026, 9, 7)), type: Date, format: "d/m/yyyy" }]] },
+    ]).toBuffer()
+    const leidas = await leerHojas(new Blob([new Uint8Array(libro)]))
+    if (!leidas.ok) throw new Error(leidas.error)
+    expect(leidas.hojas.get("FECHAS")?.[0]?.[0]).toBe("7/10/2026")
   })
 })

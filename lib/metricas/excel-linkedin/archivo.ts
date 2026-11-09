@@ -6,7 +6,7 @@ export type HojasLeidas = { ok: true; hojas: HojasDelExcel } | { ok: false; erro
 /** LinkedIn writes every value as text; a cell some other tool typed is read the same way. Blank is "". */
 function comoTexto(celda: unknown): string {
   if (celda === null || celda === undefined) return ""
-  if (celda instanceof Date) return celda.toISOString().slice(0, 10)
+  if (celda instanceof Date) return `${celda.getUTCDate()}/${celda.getUTCMonth() + 1}/${celda.getUTCFullYear()}`
   return String(celda).trim()
 }
 
