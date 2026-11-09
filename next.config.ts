@@ -9,7 +9,10 @@ const FUENTES_DE_LOS_ICONOS = ["node_modules/geist/dist/fonts/geist-sans/Geist-S
 
 const nextConfig: NextConfig = {
   // Only the Trigger.dev render uses Chromium; if an import ever reached it, it stays out of the server bundle.
-  serverExternalPackages: ["playwright"],
+  // `read-excel-file` reads LinkedIn's Excel with Node streams and zip libraries: loaded by Node, not bundled.
+  serverExternalPackages: ["playwright", "read-excel-file"],
+  // LinkedIn's Excel arrives through a Server Action; the app refuses a file over 2,000,000 bytes before sending it.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   outputFileTracingIncludes: { "/icon": FUENTES_DE_LOS_ICONOS, "/apple-icon": FUENTES_DE_LOS_ICONOS },
   async redirects() {
     return [
