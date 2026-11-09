@@ -8,7 +8,7 @@ los avisos para Coni van a Federico.
 |---|---|
 | Base | Rama persistente `staging` de `estudio-coni`, ref `omvvgywjyuoqjjfpbpsy` (sa-east-1, ~US$ 10/mes) |
 | Migraciones | `.github/workflows/staging.yml` hace `db push` a staging en cada merge a `main` que toque `supabase/migrations/`. Producción sigue a mano. |
-| Datos | `supabase/staging/semilla.sql` (escenas de las E2E; se regenera con `scripts/staging/generar-semilla.ts` + `pg_dump`) |
+| Datos | `supabase/staging/semilla.sql` (escenas de las E2E; se regenera con `pnpm exec tsx scripts/staging/generar-semilla.ts`, que siembra la base local, la vuelca y traduce los ids de las filas que crean las migraciones) |
 | Cuentas | `coni` = correo real de Coni; `mantenedor` = `hola@wearevision.cl` |
 | Vistas previas | Variables Preview de Vercel apuntan a staging; un build de vista previa con la base de producción se corta (`lib/entorno/preview.ts`) |
 | Tareas | Ambiente `staging` de Trigger (`--env staging`); Claude lo despliega sin pedir OK |
