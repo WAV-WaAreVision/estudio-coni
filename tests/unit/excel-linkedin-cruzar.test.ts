@@ -65,6 +65,14 @@ describe("cruzarConPiezas", () => {
     expect(cruce.dudosos).toEqual([])
   })
 
+  it("dates a hand upload by the day in Santiago, not in UTC", () => {
+    // 02:00 UTC on the 8th is 23:00 of the 7th in Santiago.
+    const tarde = { ...pieza("m", "2026-10-08"), publicadoEn: "2026-10-08T02:00:00Z" }
+    const cruce = cruzarConPiezas(excel([post("share", "85", "2026-10-07", 400, 4)]), [tarde], ZONA)
+    expect(cruce.seguros).toEqual([{ piezaId: "m", impresiones: 400, interacciones: 4 }])
+    expect(cruce.dudosos).toEqual([])
+  })
+
   it("leaves two hand uploads of the same day doubtful, each offered that day's posts", () => {
     const cruce = cruzarConPiezas(
       excel([post("share", "81", "2026-10-07", 500, 5), post("share", "82", "2026-10-07", 700, 7)]),
