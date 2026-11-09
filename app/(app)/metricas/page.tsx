@@ -15,7 +15,12 @@ import { etiquetaDeFecha } from "@/lib/dominio/fechas"
 import { type Barra, construirMetricas } from "@/lib/metricas/modelo"
 import { exigirConi } from "@/lib/sesion/coni"
 import { cn } from "@/lib/utils"
-import { anotarNumerosDeLinkedinAccion } from "./acciones"
+import {
+  anotarNumerosDeLinkedinAccion,
+  guardarDudososDeLinkedinAccion,
+  importarExcelDeLinkedinAccion,
+} from "./acciones"
+import { ImportarExcelDeLinkedin } from "./importar-excel-de-linkedin"
 import { NumerosDeLinkedin } from "./numeros-de-linkedin"
 
 const BARRAS_A_LA_VISTA = 5
@@ -128,7 +133,7 @@ export default async function Metricas() {
         )}
       </Seccion>
 
-      {/* Week by week wide, WAV's numbers in the side column on a computer. On a phone the 32 px come from this box,
+      {/* Week by week wide, LinkedIn's numbers in the side column on a computer. On a phone the 32 px come from this box,
           since the section is now a first child. */}
       <div className={cn("mt-8", PRINCIPAL_Y_PANEL)}>
         <Seccion
@@ -165,20 +170,28 @@ export default async function Metricas() {
           )}
         </Seccion>
 
-        {/* Decision 19: WAV's weekly LinkedIn numbers, folded out of her way as in Ajustes. */}
-        <MasOpciones className="mt-8 md:mt-0" titulo="Para WAV" resumen="Números de LinkedIn">
-          <NumerosDeLinkedin
-            posts={paraAnotar.posts.map((post) => ({
-              piezaId: post.piezaId,
-              titulo: post.titulo,
-              fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
-              estaSemana: post.estaSemana,
-            }))}
-            seguidores={paraAnotar.seguidores}
-            seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
-            alGuardar={anotarNumerosDeLinkedinAccion}
-          />
-        </MasOpciones>
+        {/* Change 13a: Coni imports LinkedIn's Excel; typing the numbers stays as a fallback, folded. */}
+        <div className="mt-8 md:mt-0">
+          <Seccion titulo="Números de LinkedIn" id="excel-linkedin" espacio="ninguno">
+            <ImportarExcelDeLinkedin
+              alImportar={importarExcelDeLinkedinAccion}
+              alGuardarDudosos={guardarDudososDeLinkedinAccion}
+            />
+          </Seccion>
+          <MasOpciones className="mt-6" titulo="Más opciones" resumen="Anotar a mano">
+            <NumerosDeLinkedin
+              posts={paraAnotar.posts.map((post) => ({
+                piezaId: post.piezaId,
+                titulo: post.titulo,
+                fecha: etiquetaDeFecha(post.publicadoEn, datos.zona, "corta"),
+                estaSemana: post.estaSemana,
+              }))}
+              seguidores={paraAnotar.seguidores}
+              seguidoresAutomaticos={paraAnotar.seguidoresAutomaticos}
+              alGuardar={anotarNumerosDeLinkedinAccion}
+            />
+          </MasOpciones>
+        </div>
       </div>
     </div>
   )
