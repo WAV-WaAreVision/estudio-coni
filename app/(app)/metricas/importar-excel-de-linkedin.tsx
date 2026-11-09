@@ -156,6 +156,7 @@ export function ImportarExcelDeLinkedin({ alImportar, alGuardarDudosos }: Propie
                   <select
                     id={campo}
                     className="campo w-full text-cuerpo"
+                    disabled={pendiente}
                     value={elegidas[dudoso.piezaId] ?? ""}
                     onChange={(evento) => setElegidas((antes) => ({ ...antes, [dudoso.piezaId]: evento.target.value }))}
                   >

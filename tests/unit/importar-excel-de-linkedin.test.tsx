@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { ImportarExcelDeLinkedin } from "@/app/(app)/metricas/importar-excel-de-linkedin"
 import { ERROR_MUY_GRANDE } from "@/lib/metricas/excel-linkedin/resumen"
@@ -77,6 +77,27 @@ describe("ImportarExcelDeLinkedin", () => {
     expect(await screen.findByText("Listo: 1 publicación más con números.")).toBeInTheDocument()
     expect(screen.queryByLabelText("Qué pasa cuando te dicen")).not.toBeInTheDocument()
     expect(screen.getByLabelText("Otra del mismo día")).toBeInTheDocument()
+  })
+
+  it("locks the doubtful picks while they are being saved", async () => {
+    const alImportar = vi.fn(async () => ({
+      ok: true as const,
+      medidoEn: "2026-10-30",
+      resumen: ["Falta que elijas."],
+      dudosos: [{ piezaId: A, titulo: "Qué pasa cuando te dicen", fecha: "2026-10-07", opciones: [OPCION] }],
+    }))
+    const guardado = Promise.withResolvers<{ ok: true; resumen: string[] }>()
+    const alGuardarDudosos = vi.fn(() => guardado.promise)
+    render(<ImportarExcelDeLinkedin alImportar={alImportar} alGuardarDudosos={alGuardarDudosos} />)
+    elegirArchivo(xlsx())
+    const lista = await screen.findByLabelText("Qué pasa cuando te dicen")
+    fireEvent.change(lista, { target: { value: OPCION.clave } })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+
+    await waitFor(() => expect(lista).toBeDisabled())
+    guardado.resolve({ ok: true, resumen: ["Listo."] })
+    expect(await screen.findByText("Listo.")).toBeInTheDocument()
   })
 
   it("shows the error the action returns", async () => {
