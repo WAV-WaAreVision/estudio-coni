@@ -1,6 +1,6 @@
 import { lunesDeLaSemana } from "@/lib/dominio/metricas"
 
-// What WAV has to note on LinkedIn each week, and how its fields are read (spec 2026-10-17, decisions 19 and 20).
+// LinkedIn's numbers noted by hand (the fallback since Coni imports the Excel) and how its fields are read (spec 2026-10-17, decision 19).
 
 /** Posts published in the last four weeks are asked for (amendment A10). */
 export const SEMANAS_POR_ANOTAR = 4
@@ -51,13 +51,9 @@ export function postsPorAnotar(entrada: {
     .sort((a, b) => Date.parse(b.publicadoEn) - Date.parse(a.publicadoEn))
 }
 
-/** The posts still waiting for this week's numbers: what the Monday reminder counts. */
+/** The posts still waiting for this week's numbers: what Inicio's reminder counts. */
 export function sinNumerosEstaSemana(posts: readonly PostPorAnotar[]): PostPorAnotar[] {
   return posts.filter((post) => post.estaSemana === null)
-}
-
-export function asuntoDelRecordatorio(cuantos: number): string {
-  return `Anota los números de LinkedIn (${cuantos} ${cuantos === 1 ? "post" : "posts"})`
 }
 
 export interface CamposDePost {

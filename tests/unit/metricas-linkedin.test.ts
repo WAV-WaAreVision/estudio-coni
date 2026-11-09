@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  armarAnotacion,
-  asuntoDelRecordatorio,
-  leerCifra,
-  postsPorAnotar,
-  sinNumerosEstaSemana,
-} from "@/lib/metricas/linkedin"
+import { armarAnotacion, leerCifra, postsPorAnotar, sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 
 // Monday 19 Oct 2026, 03:00 in Santiago.
 const LUNES = Date.parse("2026-10-19T06:00:00.000Z")
@@ -48,13 +42,6 @@ describe("postsPorAnotar", () => {
       ["a", null],
     ])
     expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b", "a"])
-  })
-})
-
-describe("asuntoDelRecordatorio", () => {
-  it("names how many posts, singular included", () => {
-    expect(asuntoDelRecordatorio(1)).toBe("Anota los números de LinkedIn (1 post)")
-    expect(asuntoDelRecordatorio(3)).toBe("Anota los números de LinkedIn (3 posts)")
   })
 })
 
