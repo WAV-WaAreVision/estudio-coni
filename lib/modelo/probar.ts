@@ -96,7 +96,16 @@ export async function embeberPagando(
       costoUsd += pagado.datos.usd
     }
   } catch (error) {
-    if (error instanceof PausaDeProveedor) await abrirPausa(deps, error)
+    if (error instanceof PausaDeProveedor) {
+      try {
+        await abrirPausa(deps, error)
+      } catch (alAbrir) {
+        // The pause is the real failure and the task's onFailure (alFallarDeTarea) opens it again when it sees it, so it
+        // is rethrown with what went wrong here as its cause. The email is claimed per pause (abrirPausa), so retrying
+        // it there cannot send it twice; a failure that left no email behind is retried, and the claim is released.
+        error.cause = alAbrir
+      }
+    }
     throw error
   }
   return { vectores, costoUsd }

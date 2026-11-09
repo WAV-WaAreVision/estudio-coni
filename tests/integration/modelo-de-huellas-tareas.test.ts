@@ -1,5 +1,6 @@
 import { HttpResponse, http } from "msw"
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { parsearVector } from "@/lib/ingesta/agrupar"
 import { aplicarModeloDeHuellas, revertirModeloDeHuellas } from "@/lib/modelo/aplicar"
 import { type DepsModelo, OMITIDA_POR_PAUSA, probarModeloDeHuellas } from "@/lib/modelo/probar"
@@ -107,6 +108,24 @@ describe("probarModeloDeHuellas", () => {
     simularVoyage(nuevoDe, 500)
     await expect(probarModeloDeHuellas(deps(), { modelo: "voyage-4" })).rejects.toThrow()
     expect((await pool.query("select count(*)::int as n from public.pruebas_de_modelo")).rows[0]?.n).toBe(0)
+  })
+
+  it("rethrows the provider pause, with the failure as cause, when WAV's email cannot go out", async () => {
+    await sinLimiteFijado()
+    await sembrar()
+    simularVoyage(nuevoDe, 401)
+    const sinCorreo = new Error("Resend caído")
+    const d = deps()
+    const aWav = vi.fn().mockRejectedValue(sinCorreo)
+    const error = await probarModeloDeHuellas({ ...d, avisos: { ...d.avisos, aWav } }, { modelo: "voyage-4" }).catch(
+      (e: unknown) => e,
+    )
+    if (!(error instanceof PausaDeProveedor)) throw error
+    expect(error.cause).toBe(sinCorreo)
+    expect(aWav).toHaveBeenCalledTimes(1)
+    expect((await pool.query("select proveedor from public.pausas_de_proveedor")).rows).toEqual([
+      { proveedor: "voyage" },
+    ])
   })
 
   it("refuses to try the vigente model, and needs the Voyage key", async () => {
