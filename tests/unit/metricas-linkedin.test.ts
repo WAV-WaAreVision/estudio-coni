@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  armarAnotacion,
-  asuntoDelRecordatorio,
-  leerCifra,
-  postsPorAnotar,
-  sinNumerosEstaSemana,
-} from "@/lib/metricas/linkedin"
+import { armarAnotacion, leerCifra, postsPorAnotar, sinNumerosEstaSemana } from "@/lib/metricas/linkedin"
 
 // Monday 19 Oct 2026, 03:00 in Santiago.
 const LUNES = Date.parse("2026-10-19T06:00:00.000Z")
@@ -49,12 +43,38 @@ describe("postsPorAnotar", () => {
     ])
     expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b", "a"])
   })
-})
 
-describe("asuntoDelRecordatorio", () => {
-  it("names how many posts, singular included", () => {
-    expect(asuntoDelRecordatorio(1)).toBe("Anota los números de LinkedIn (1 post)")
-    expect(asuntoDelRecordatorio(3)).toBe("Anota los números de LinkedIn (3 posts)")
+  it("imported Monday with a period ending Sunday hides the reminder", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-18", "excel")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts)).toEqual([])
+  })
+
+  it("keeps the reminder when the Excel's period ended before last Sunday", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-17", "excel")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b"])
+  })
+
+  it("keeps asking for a post she noted by hand on last Sunday", () => {
+    const posts = postsPorAnotar({
+      posts: [post("b", "2026-10-14T22:00:00.000Z")],
+      medidos: [fila("b", "2026-10-18")],
+      ahora: LUNES,
+      zona: ZONA,
+    })
+
+    expect(sinNumerosEstaSemana(posts).map((p) => p.piezaId)).toEqual(["b"])
   })
 })
 

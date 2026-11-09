@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { EXCEL_DE_PRUEBA, POST_COMPARTIDO } from "../fixtures/excel-linkedin"
 import { pool } from "../integration/db"
 import {
   marcarPublicacion,
@@ -183,7 +184,7 @@ test("warns when the morning reading did not arrive and shows the last one it ha
   await expect(page.getByText("10 guardados de 1.000 personas")).toBeVisible()
 })
 
-test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what worked", async ({ page }) => {
+test("numbers typed by hand under Más opciones show in what worked", async ({ page }) => {
   const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Lo que firma un modelo" })
   const id = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo", idea_id: idea })
   await quitarPublicacion(id, "instagram")
@@ -191,10 +192,10 @@ test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what
   await moverLaHoraAprobada(id, 2)
 
   await page.goto("/metricas")
-  await expect(page.getByRole("heading", { name: "LinkedIn" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "LinkedIn", exact: true })).toBeVisible()
   await expect(page.getByText("sin números").first()).toBeVisible()
 
-  await abrirDesplegable(page, "Para WAV")
+  await abrirDesplegable(page, "Más opciones")
   await page.getByLabel("Impresiones de Lo que firma un modelo").fill("1.200")
   await page.getByLabel("Reacciones de Lo que firma un modelo").fill("14")
   await page.getByLabel("Comentarios de Lo que firma un modelo").fill("3")
@@ -214,4 +215,33 @@ test("WAV notes a LinkedIn post's numbers in Para WAV and Coni sees them in what
   )
   expect(rows).toEqual([{ origen: "manual", sellado: true }])
   await capturar(page, "metricas-linkedin-anotado")
+})
+
+test("Coni imports LinkedIn's Excel and sees each post's impressions and interactions", async ({ page }) => {
+  const idea = await sembrarIdea({ pilar: "etica-regulacion", gancho: "Lo que firma un modelo" })
+  const id = await sembrarPieza("publicado", { titulo: "Lo que firma un modelo", idea_id: idea })
+  await quitarPublicacion(id, "instagram")
+  await marcarPublicacion(id, "linkedin")
+  await pool.query("update public.publicaciones set post_urn = $2 where pieza_id = $1 and destino = 'linkedin'", [
+    id,
+    `urn:li:share:${POST_COMPARTIDO}`,
+  ])
+  await moverLaHoraAprobada(id, 2)
+
+  await page.goto("/metricas")
+  await expect(page.getByRole("button", { name: "Importar Excel de LinkedIn" })).toBeVisible()
+  await page.locator('input[type="file"][aria-label="Excel de LinkedIn"]').setInputFiles(EXCEL_DE_PRUEBA)
+
+  await expect(page.getByText("Listo: 1 publicación con números.")).toBeVisible()
+  await expect(page.getByText("También guardé tus seguidores: 830.")).toBeVisible()
+  await expect(page.getByText("Ignoré 2 publicaciones del Excel que no salieron de Conidolly.")).toBeVisible()
+  await page.reload()
+  await expect(page.getByText("1.200", { exact: true })).toBeVisible()
+  await expect(page.getByText("12 interacciones").first()).toBeVisible()
+  const { rows } = await pool.query(
+    "select origen, interacciones, anotado_por is not null as sellado from public.metricas_linkedin where pieza_id = $1",
+    [id],
+  )
+  expect(rows).toEqual([{ origen: "excel", interacciones: 12, sellado: true }])
+  await capturar(page, "metricas-linkedin-excel")
 })

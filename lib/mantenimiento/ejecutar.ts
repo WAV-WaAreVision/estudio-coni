@@ -12,7 +12,6 @@ import { rescatarCorridasMuertas } from "./corridas-muertas"
 import { barrerGastos } from "./gastos"
 import { borrarHuellaDeVisitas, type DepsHuella } from "./huella"
 import { barrerMaterialesAbandonados } from "./materiales-abandonados"
-import { type DepsNumerosLinkedin, recordarNumerosDeLinkedin } from "./numeros-linkedin"
 import { cerrarPausas, type DepsPausas } from "./pausas"
 import { type DepsRespaldo, respaldarBase } from "./respaldo"
 import { aplicarRetencion, type DepsRetencion } from "./retencion"
@@ -63,7 +62,6 @@ export type DepsFrecuente = DepsConciliacion &
 export type DepsNocturno = DepsRetencion &
   DepsTokenMeta &
   DepsTokenLinkedin &
-  DepsNumerosLinkedin &
   DepsRespaldo &
   DepsHuella &
   DepsRevisionDeInventario & { temas: ConstructorDeTemas }
@@ -130,13 +128,12 @@ export function mantenimientoFrecuente(deps: DepsFrecuente) {
   })
 }
 
-/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the Monday reminder of LinkedIn's numbers, the visitor hashes of /l, the backup of the database, the yearly review of the data register and the merges of topics. */
+/** At 03:00 America/Santiago: file retention, Instagram's token, LinkedIn's expiry, the visitor hashes of /l, the backup of the database, the yearly review of the data register and the merges of topics. */
 export function mantenimientoNocturno(deps: DepsNocturno) {
   return enSerie({
     retencion: () => aplicarRetencion(deps),
     token: () => mantenerTokenMeta(deps),
     linkedin: () => mantenerTokenLinkedin(deps),
-    numerosLinkedin: () => recordarNumerosDeLinkedin(deps),
     // Hashes first, so tonight's backup never keeps hashes older than the rule allows (yesterday's and today's).
     huella: () => borrarHuellaDeVisitas(deps),
     respaldo: () => respaldarBase(deps),

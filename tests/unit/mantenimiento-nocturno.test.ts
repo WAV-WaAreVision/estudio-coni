@@ -16,7 +16,6 @@ import type { Database } from "@/lib/supabase/database.types"
 vi.mock("@/lib/mantenimiento/retencion", () => ({ aplicarRetencion: vi.fn(async () => ({ piezas: 0, archivos: 0 })) }))
 vi.mock("@/lib/mantenimiento/token-meta", () => ({ mantenerTokenMeta: vi.fn(async () => "sin_token") }))
 vi.mock("@/lib/mantenimiento/token-linkedin", () => ({ mantenerTokenLinkedin: vi.fn(async () => "sin_conexion") }))
-vi.mock("@/lib/mantenimiento/numeros-linkedin", () => ({ recordarNumerosDeLinkedin: vi.fn(async () => "al_dia") }))
 vi.mock("@/lib/mantenimiento/respaldo", () => ({ respaldarBase: vi.fn(async () => ({ estado: "vacio" })) }))
 vi.mock("@/lib/mantenimiento/huella", () => ({ borrarHuellaDeVisitas: vi.fn(async () => ({ huellas: 2 })) }))
 vi.mock("@/lib/mantenimiento/revision-de-inventario", () => ({
@@ -50,14 +49,13 @@ const DEPS: DepsNocturno = {
 }
 
 describe("mantenimientoNocturno", () => {
-  it("deletes the visitor hashes before the backup (so it keeps only yesterday's) and checks the yearly review every night", async () => {
+  it("runs no LinkedIn email (Coni imports the Excel), deletes the visitor hashes before the backup and checks the yearly review every night", async () => {
     const resultado = await mantenimientoNocturno(DEPS)
 
     expect(Object.keys(resultado)).toEqual([
       "retencion",
       "token",
       "linkedin",
-      "numerosLinkedin",
       "huella",
       "respaldo",
       "revisionDeInventario",

@@ -15,6 +15,7 @@ import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { contarLinkedinSinNumeros } from "@/lib/datos/metricas-linkedin"
 import { leerPilares } from "@/lib/datos/pilares"
 import { piezaTrabajando } from "@/lib/dominio/estados"
 import { etiquetaDeFecha } from "@/lib/dominio/fechas"
@@ -47,8 +48,18 @@ function nuevas(cantidad: number): string | undefined {
 export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
-  const [datos, pilares] = await Promise.all([leerDatosDeInicio(db, ahora), leerPilares(db)])
-  const inicio = construirInicio({ piezas: datos.piezas, ahora, zona: datos.zona, pausas: datos.pausas })
+  const [datos, pilares, linkedinSinNumeros] = await Promise.all([
+    leerDatosDeInicio(db, ahora),
+    leerPilares(db),
+    contarLinkedinSinNumeros(db, ahora),
+  ])
+  const inicio = construirInicio({
+    piezas: datos.piezas,
+    ahora,
+    zona: datos.zona,
+    pausas: datos.pausas,
+    linkedinSinNumeros,
+  })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
   const angulosDeIdea = new Map(datos.banco.map((idea) => [idea.id, idea.angulo_id]))
@@ -85,11 +96,20 @@ export default async function Inicio() {
         <RefrescoAutomatico activo={datos.piezas.some(piezaTrabajando)} cadaMs={8000} />
 
         <div className="min-w-0 dos-columnas:col-start-1">
-          {inicio.pausas.length > 0 || principal ? (
+          {inicio.pausas.length > 0 || inicio.recordatorios.length > 0 || principal ? (
             <section aria-label="Necesita atención" className="mt-6 grid gap-4">
               {/* A pause is information (WAV is on it), not an error of hers: a plain line each, before the failures. */}
               {inicio.pausas.map((linea) => (
                 <LineaDeEstado key={linea} tipo="aviso" titulo={linea} />
+              ))}
+              {inicio.recordatorios.map((recordatorio) => (
+                <LineaDeEstado
+                  key={recordatorio.titulo}
+                  tipo="aviso"
+                  titulo={recordatorio.titulo}
+                  detalle={recordatorio.detalle}
+                  accion={<AccionDeAviso accion={recordatorio.accion} />}
+                />
               ))}
               {principal ? (
                 <>

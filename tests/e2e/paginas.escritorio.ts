@@ -106,7 +106,7 @@ test("Métricas puts the month's figures on top and Instagram beside LinkedIn", 
   await moverHoraAprobada(id, new Date(Date.now() - 2 * 86_400_000).toISOString())
 
   await page.goto("/metricas")
-  await expect(page.getByRole("heading", { name: "LinkedIn" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "LinkedIn", exact: true })).toBeVisible()
   ladoALado(
     await cajaDe(page.getByTestId("metricas-instagram")),
     await cajaDe(page.getByTestId("metricas-linkedin")),
