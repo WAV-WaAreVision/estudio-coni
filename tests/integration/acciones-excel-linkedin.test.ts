@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { importarExcelDeLinkedin } from "@/lib/acciones/excel-linkedin"
+import { guardarDudososDeLinkedin, importarExcelDeLinkedin } from "@/lib/acciones/excel-linkedin"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
 import type { Database } from "@/lib/supabase/database.types"
 import { EXCEL_DE_PRUEBA, POST_COMPARTIDO, POST_UGC } from "../fixtures/excel-linkedin"
@@ -78,5 +78,23 @@ describe("importarExcelDeLinkedin", () => {
     const cuenta = await pool.query("select semana::text, seguidores from public.metricas_linkedin_cuenta")
     expect(cuenta.rows).toEqual([{ semana: "2026-10-26", seguidores: 830 }])
     expect(avisos.aWavEnviados).toEqual([])
+  })
+})
+
+describe("guardarDudososDeLinkedin", () => {
+  it("saves the Excel post she picked for a hand upload on the import's day", async () => {
+    const aMano = await enLinkedin("Qué pasa cuando te dicen", "2026-10-07T15:00:00.000Z", null)
+
+    const resultado = await guardarDudososDeLinkedin(deps(), {
+      medidoEn: "2026-10-30",
+      elegidos: [{ piezaId: aMano, clave: `ugcPost:${POST_UGC}`, impresiones: 2300, interacciones: 40 }],
+    })
+
+    expect(resultado).toEqual({ ok: true, resumen: ["Listo: 1 publicación más con números."] })
+    const { rows } = await pool.query(
+      "select medido_en::text, impresiones, interacciones, origen from public.metricas_linkedin where pieza_id = $1",
+      [aMano],
+    )
+    expect(rows).toEqual([{ medido_en: "2026-10-30", impresiones: 2300, interacciones: 40, origen: "excel" }])
   })
 })

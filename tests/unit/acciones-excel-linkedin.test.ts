@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { createClient } from "@supabase/supabase-js"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { importarExcelDeLinkedin } from "@/lib/acciones/excel-linkedin"
+import { ESQUEMA_DE_DUDOSOS, importarExcelDeLinkedin } from "@/lib/acciones/excel-linkedin"
 import { ERROR_GENERICO } from "@/lib/acciones/resultado"
 import { ERROR_MUY_GRANDE, ERROR_NO_ES_EL_EXCEL } from "@/lib/metricas/excel-linkedin/resumen"
 import { notificadorEnMemoria } from "@/lib/proveedores/avisos"
@@ -52,5 +52,25 @@ describe("importarExcelDeLinkedin", () => {
         idempotencia: "pantalla:Importar Excel de LinkedIn:2026-11-09",
       },
     ])
+  })
+})
+
+describe("ESQUEMA_DE_DUDOSOS", () => {
+  const elegido = (piezaId: string, clave: string) => ({ piezaId, clave, impresiones: 2300, interacciones: 40 })
+  const A = "11111111-1111-4111-8111-111111111111"
+  const B = "22222222-2222-4222-8222-222222222222"
+
+  it("accepts one pick per piece and per Excel post", () => {
+    expect(ESQUEMA_DE_DUDOSOS.safeParse({ medidoEn: "2026-10-30", elegidos: [elegido(A, "ugcPost:1")] }).success).toBe(
+      true,
+    )
+  })
+
+  it("refuses one Excel post for two pieces, a piece twice, or nothing picked", () => {
+    const mismoPost = { medidoEn: "2026-10-30", elegidos: [elegido(A, "share:1"), elegido(B, "share:1")] }
+    const mismaPieza = { medidoEn: "2026-10-30", elegidos: [elegido(A, "share:1"), elegido(A, "share:2")] }
+    expect(ESQUEMA_DE_DUDOSOS.safeParse(mismoPost).success).toBe(false)
+    expect(ESQUEMA_DE_DUDOSOS.safeParse(mismaPieza).success).toBe(false)
+    expect(ESQUEMA_DE_DUDOSOS.safeParse({ medidoEn: "2026-10-30", elegidos: [] }).success).toBe(false)
   })
 })

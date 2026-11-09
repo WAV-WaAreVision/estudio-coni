@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { guardarExcelDeLinkedin, leerPublicacionesDeLinkedin } from "@/lib/datos/excel-linkedin"
 import { leerZona } from "@/lib/datos/metricas"
 import { Falla } from "@/lib/dominio/falla"
@@ -8,6 +9,7 @@ import { leerExcelDeLinkedin } from "@/lib/metricas/excel-linkedin/leer"
 import {
   ERROR_MUY_GRANDE,
   ERROR_NO_ES_EL_EXCEL,
+  resumenDeDudosos,
   resumenDeImportacion,
   TAMANO_MAXIMO,
 } from "@/lib/metricas/excel-linkedin/resumen"
@@ -81,6 +83,53 @@ export async function importarExcelDeLinkedin(
         dudosos: cruce.dudosos.length,
       }),
     }
+  })
+  return avisandoAWav(deps, resultado)
+}
+
+const CIFRA = z.number().int().min(0).max(999_999_999).nullable()
+
+/** Her picks for the doubtful hand uploads: each piece once, each Excel post for one piece. */
+export const ESQUEMA_DE_DUDOSOS = z.object({
+  medidoEn: z.iso.date(),
+  elegidos: z
+    .array(
+      z.object({
+        piezaId: z.uuid(),
+        clave: z.string().regex(/^(share|ugcPost):\d{1,20}$/),
+        impresiones: CIFRA,
+        interacciones: CIFRA,
+      }),
+    )
+    .min(1)
+    .max(100)
+    .refine(
+      (elegidos) => new Set(elegidos.map((e) => e.piezaId)).size === elegidos.length,
+      "Una publicación va una vez.",
+    )
+    .refine(
+      (elegidos) => new Set(elegidos.map((e) => e.clave)).size === elegidos.length,
+      "Un post va con una publicación.",
+    ),
+})
+
+/** Saves what she picked through the same RPC as the import; the followers were already saved then. */
+export async function guardarDudososDeLinkedin(
+  deps: DepsExcelDeLinkedin,
+  entrada: z.output<typeof ESQUEMA_DE_DUDOSOS>,
+): Promise<Resultado<{ resumen: string[] }>> {
+  const resultado = await aResultado("guardarDudososDeLinkedin", async () => {
+    const guardadas = await guardarExcelDeLinkedin(deps.db, {
+      medidoEn: entrada.medidoEn,
+      semana: lunesDe(entrada.medidoEn),
+      posts: entrada.elegidos.map(({ piezaId, impresiones, interacciones }) => ({
+        piezaId,
+        impresiones,
+        interacciones,
+      })),
+      seguidores: null,
+    })
+    return { resumen: resumenDeDudosos(guardadas) }
   })
   return avisandoAWav(deps, resultado)
 }
