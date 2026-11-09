@@ -11,6 +11,8 @@ create table public.fusiones (
     check (estado in ('propuesta', 'aplicada', 'deshecha', 'rechazada', 'vencida')),
   origen text not null check (origen in ('claude', 'coni')),
   veredicto text check (veredicto in ('mismo', 'parte_de', 'distintos')),
+  -- What Coni answered (decidir_fusion, unir_temas_a_mano); `veredicto` stays what Claude said.
+  veredicto_coni text check (veredicto_coni in ('mismo', 'parte_de', 'distintos')),
   seguro boolean,
   razon text,
   parecido numeric,

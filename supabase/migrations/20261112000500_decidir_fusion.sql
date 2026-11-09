@@ -19,7 +19,7 @@ begin
   if f.estado <> 'propuesta' then
     raise exception using errcode = '22023', message = 'fusion_ya_decidida';
   end if;
-  update public.fusiones set decidida_en = now() where id = f.id;
+  update public.fusiones set decidida_en = now(), veredicto_coni = p_veredicto where id = f.id;
 
   if p_veredicto = 'mismo' then
     perform public.fusionar_par_de_temas(f.ganador_id, f.perdedor_id, f.id);
@@ -48,6 +48,7 @@ declare
   v_ganador uuid;
   v_perdedor uuid;
   v_id uuid;
+  f public.fusiones;
 begin
   if not public.es_coni() then
     raise exception using errcode = '42501', message = 'sin_permiso';
@@ -57,17 +58,29 @@ begin
   ) then
     raise exception using errcode = '22023', message = 'par_no_rechazado';
   end if;
-  -- The nightly run's rule (elegirGanador): more claims, then the older topic, then the smaller id.
-  select t.id into v_ganador from public.temas t where t.id in (p_a, p_b)
-   order by public.afirmaciones_vivas(t.id) desc, t.creado_en, t.id
-   limit 1;
-  if v_ganador is null then
-    raise exception using errcode = 'P0002', message = 'tema_inexistente';
+  -- A proposal about this pair may be open (Claude asked again after growth): join it instead of opening a second one.
+  select * into f from public.fusiones
+   where estado = 'propuesta' and least(ganador_id, perdedor_id) = least(p_a, p_b)
+     and greatest(ganador_id, perdedor_id) = greatest(p_a, p_b)
+   for update;
+  if f.id is not null then
+    v_id := f.id;
+    v_ganador := f.ganador_id;
+    v_perdedor := f.perdedor_id;
+    update public.fusiones set decidida_en = now(), veredicto_coni = 'mismo' where id = f.id;
+  else
+    -- The nightly run's rule (elegirGanador): more claims, then the older topic, then the smaller id.
+    select t.id into v_ganador from public.temas t where t.id in (p_a, p_b)
+     order by public.afirmaciones_vivas(t.id) desc, t.creado_en, t.id
+     limit 1;
+    if v_ganador is null then
+      raise exception using errcode = 'P0002', message = 'tema_inexistente';
+    end if;
+    v_perdedor := case when v_ganador = p_a then p_b else p_a end;
+    insert into public.fusiones (ganador_id, perdedor_id, origen, veredicto, veredicto_coni, modelo, decidida_en)
+    values (v_ganador, v_perdedor, 'coni', 'mismo', 'mismo', public.modelo_de_huellas_vigente(), now())
+    returning id into v_id;
   end if;
-  v_perdedor := case when v_ganador = p_a then p_b else p_a end;
-  insert into public.fusiones (ganador_id, perdedor_id, origen, veredicto, modelo, decidida_en)
-  values (v_ganador, v_perdedor, 'coni', 'mismo', public.modelo_de_huellas_vigente(), now())
-  returning id into v_id;
   perform public.fusionar_par_de_temas(v_ganador, v_perdedor, v_id);
   delete from public.temas_fusion_rechazada where tema_a = least(p_a, p_b) and tema_b = greatest(p_a, p_b);
   insert into public.decisiones_de_tema (tipo, tema_id, otro_tema_id)

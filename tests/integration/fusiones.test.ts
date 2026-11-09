@@ -514,6 +514,20 @@ describe("decidir_fusion and unir_temas_a_mano", () => {
     })
   })
 
+  it("keeps Coni's verdict on the row next to Claude's, whichever way she decided", async () => {
+    for (const veredicto of ["mismo", "parte_de", "distintos"]) {
+      const e = await escenaDeFusion()
+      const id = await propuesta(e.ganador, e.perdedor)
+      await como(comoConi, async (c) => {
+        await c.query("select public.decidir_fusion($1, $2)", [id, veredicto])
+        await asumir(c, comoPostgres)
+        const { rows } = await c.query("select veredicto, veredicto_coni from public.fusiones where id = $1", [id])
+        expect(rows).toEqual([{ veredicto: "mismo", veredicto_coni: veredicto }])
+      })
+      await limpiarFusiones()
+    }
+  })
+
   it("refuses a decided proposal and an unknown verdict", async () => {
     const e = await escenaDeFusion()
     const id = await propuesta(e.ganador, e.perdedor)
@@ -546,6 +560,28 @@ describe("decidir_fusion and unir_temas_a_mano", () => {
       expect((await c.query("select 1 from public.temas_fusion_rechazada")).rows).toEqual([])
       expect(await decisiones(c)).toEqual([
         { tipo: "fusion_aceptada", tema_nombre: "Perdedor", otro_tema_nombre: "Ganador" },
+      ])
+    })
+  })
+
+  it("applies the open proposal of a rejected pair instead of failing on the one-proposal-per-pair index", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [
+      ...[e.ganador, e.perdedor].sort(),
+    ])
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select public.unir_temas_a_mano($1, $2) as id", [
+        e.perdedor,
+        e.ganador,
+      ])
+      expect(rows[0]?.id).toBe(id)
+      await asumir(c, comoPostgres)
+      const fusiones = await c.query("select id, estado, veredicto_coni from public.fusiones")
+      expect(fusiones.rows).toEqual([{ id, estado: "aplicada", veredicto_coni: "mismo" }])
+      expect((await c.query("select 1 from public.temas_fusion_rechazada")).rows).toEqual([])
+      expect(await decisiones(c)).toEqual([
+        { tipo: "fusion_aceptada", tema_nombre: "Ganador", otro_tema_nombre: "Perdedor" },
       ])
     })
   })
