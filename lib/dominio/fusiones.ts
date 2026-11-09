@@ -160,4 +160,4 @@ export const RECHAZOS_DE_FUSION: Record<string, string> = {
  * Federico's decision 2026-11-09: undo never overwrites pillar changes Coni made after the merge.
  */
 export const pilaresCambiadosDe = (nombre: string) =>
-  `Cambiaste los pilares de "${nombre}" después de unirlos. Para separarlos, ajusta primero los pilares.`
+  `Los pilares de «${nombre}» cambiaron después de unirlos. Para separarlos, deja primero los pilares como estaban.`

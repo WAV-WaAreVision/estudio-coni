@@ -133,9 +133,9 @@ describe("the texts of Fusiones", () => {
     }
   })
 
-  it("tells her to adjust the pillars first when she changed them after the merge", () => {
+  it("tells her to leave the pillars as they were first, without saying who changed them", () => {
     expect(pilaresCambiadosDe("Deseo bajo")).toBe(
-      'Cambiaste los pilares de "Deseo bajo" después de unirlos. Para separarlos, ajusta primero los pilares.',
+      "Los pilares de «Deseo bajo» cambiaron después de unirlos. Para separarlos, deja primero los pilares como estaban.",
     )
   })
 })
