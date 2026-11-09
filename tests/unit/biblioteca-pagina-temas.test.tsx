@@ -264,6 +264,31 @@ const abrir = (id: string, params: Record<string, string> = {}) =>
   DetalleDeTema({ params: Promise.resolve({ id }), searchParams: Promise.resolve(params) })
 
 describe("a topic's page", () => {
+  it("says the topic's other names and the topic it is part of, linking to it", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    fusiones.leerOrigenDeTema.mockResolvedValueOnce({
+      alias: ["Peso invisible", "Carga"],
+      subtemaDe: { id: PAUSAS, nombre: "Descanso" },
+    })
+    const arbol = elementos(await abrir(CARGA))
+    expect(textos(arbol)).toContain("También se llamó: Peso invisible, Carga.")
+    const enlace = arbol.find((e) => e.props.href === `/biblioteca/temas/${PAUSAS}`)
+    expect(enlace?.props.children).toBe("Subtema de «Descanso»")
+  })
+
+  it("says neither line when the topic has no other name and no parent", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA]))
+    const arbol = elementos(await abrir(CARGA))
+    expect(textos(arbol).some((t) => t.startsWith("También se llamó"))).toBe(false)
+    expect(arbol.some((e) => typeof e.props.children === "string" && e.props.children.startsWith("Subtema de"))).toBe(
+      false,
+    )
+  })
+
   it("refuses what is not an id before reading", async () => {
     esConi.valor = true
     await expect(abrir("no-es-un-id")).rejects.toThrow("NEXT_NOT_FOUND")
