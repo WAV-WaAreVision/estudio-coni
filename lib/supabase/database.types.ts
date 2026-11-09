@@ -3215,6 +3215,10 @@ export type Database = {
         Returns: string
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
+      decidir_fusion: {
+        Args: { p_fusion: string; p_veredicto: string }
+        Returns: undefined
+      }
       descartar_idea: {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
@@ -4187,6 +4191,7 @@ export type Database = {
         }[]
       }
       unaccent_inmutable: { Args: { texto: string }; Returns: string }
+      unir_temas_a_mano: { Args: { p_a: string; p_b: string }; Returns: string }
       volver_a_transparencia: { Args: { p_version: number }; Returns: number }
     }
     Enums: {

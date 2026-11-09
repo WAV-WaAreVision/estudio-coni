@@ -428,3 +428,109 @@ describe("deshacer_fusion", () => {
     }
   })
 })
+
+describe("decidir_fusion and unir_temas_a_mano", () => {
+  const decisiones = (c: pg.PoolClient) =>
+    c.query("select tipo, tema_nombre, otro_tema_nombre from public.decisiones_de_tema").then((r) => r.rows)
+
+  it("mismo applies the proposal and records fusion_aceptada with both names", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      await c.query("select public.decidir_fusion($1, 'mismo')", [id])
+      await asumir(c, comoPostgres)
+      expect((await c.query("select estado from public.fusiones where id = $1", [id])).rows).toEqual([
+        { estado: "aplicada" },
+      ])
+      expect((await c.query("select fusionado_en from public.temas where id = $1", [e.perdedor])).rows).toEqual([
+        { fusionado_en: e.ganador },
+      ])
+      expect(await decisiones(c)).toEqual([
+        { tipo: "fusion_aceptada", tema_nombre: "Ganador", otro_tema_nombre: "Perdedor" },
+      ])
+    })
+  })
+
+  it("parte_de stores the loser under the winner, closes the proposal and records fusion_rechazada", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      await c.query("select public.decidir_fusion($1, 'parte_de')", [id])
+      await asumir(c, comoPostgres)
+      expect((await c.query("select tema_id, padre_id, origen from public.temas_subtemas")).rows).toEqual([
+        { tema_id: e.perdedor, padre_id: e.ganador, origen: "coni" },
+      ])
+      expect((await c.query("select estado from public.fusiones")).rows).toEqual([{ estado: "rechazada" }])
+      expect(await decisiones(c)).toEqual([
+        { tipo: "fusion_rechazada", tema_nombre: "Ganador", otro_tema_nombre: "Perdedor" },
+      ])
+    })
+  })
+
+  it("distintos remembers the pair as Coni's, so it is never offered again, and records fusion_rechazada", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      await c.query("select public.decidir_fusion($1, 'distintos')", [id])
+      await asumir(c, comoServicio)
+      expect((await c.query("select * from public.temas_parecidos(0.6)")).rows).toEqual([])
+      await asumir(c, comoPostgres)
+      expect((await c.query("select origen from public.temas_fusion_rechazada")).rows).toEqual([{ origen: "coni" }])
+      expect(await decisiones(c)).toHaveLength(1)
+    })
+  })
+
+  it("refuses a decided proposal and an unknown verdict", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select public.decidir_fusion($1, 'quizas')", [id])).message).toBe("veredicto_invalido")
+      await c.query("select public.decidir_fusion($1, 'distintos')", [id])
+      expect((await fallaCon(c, "select public.decidir_fusion($1, 'mismo')", [id])).message).toBe("fusion_ya_decidida")
+    })
+  })
+
+  it("joins a rejected pair into the topic with more claims, forgets the rejection and records fusion_aceptada", async () => {
+    const e = await escenaDeFusion()
+    await afirmacion(vec({ 0: 1 }), { tema: e.perdedor })
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [
+      ...[e.ganador, e.perdedor].sort(),
+    ])
+    await como(comoConi, async (c) => {
+      const { rows } = await c.query<{ id: string }>("select public.unir_temas_a_mano($1, $2) as id", [
+        e.ganador,
+        e.perdedor,
+      ])
+      await asumir(c, comoPostgres)
+      const fusion = await c.query(
+        "select ganador_id, perdedor_id, origen, estado from public.fusiones where id = $1",
+        [rows[0]?.id],
+      )
+      expect(fusion.rows).toEqual([
+        { ganador_id: e.perdedor, perdedor_id: e.ganador, origen: "coni", estado: "aplicada" },
+      ])
+      expect((await c.query("select 1 from public.temas_fusion_rechazada")).rows).toEqual([])
+      expect(await decisiones(c)).toEqual([
+        { tipo: "fusion_aceptada", tema_nombre: "Perdedor", otro_tema_nombre: "Ganador" },
+      ])
+    })
+  })
+
+  it("refuses to join a pair that was not rejected, and lets only Coni decide or join", async () => {
+    const e = await escenaDeFusion()
+    const id = await propuesta(e.ganador, e.perdedor)
+    await como(comoConi, async (c) => {
+      expect((await fallaCon(c, "select public.unir_temas_a_mano($1, $2)", [e.ganador, e.perdedor])).message).toBe(
+        "par_no_rechazado",
+      )
+    })
+    for (const sesion of [comoMantenedor, comoOtra]) {
+      await como(sesion, async (c) => {
+        expect((await fallaCon(c, "select public.decidir_fusion($1, 'mismo')", [id])).message).toBe("sin_permiso")
+        expect((await fallaCon(c, "select public.unir_temas_a_mano($1, $2)", [e.ganador, e.perdedor])).message).toBe(
+          "sin_permiso",
+        )
+      })
+    }
+  })
+})
