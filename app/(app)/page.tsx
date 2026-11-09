@@ -14,6 +14,7 @@ import { MasOpciones } from "@/components/ui/mas-opciones"
 import { rutaDeAviso } from "@/lib/avisos/tipos"
 import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
+import { contarPropuestasParaInicio } from "@/lib/datos/fusiones"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
 import { contarLinkedinSinNumeros } from "@/lib/datos/metricas-linkedin"
 import { leerPilares } from "@/lib/datos/pilares"
@@ -48,10 +49,11 @@ function nuevas(cantidad: number): string | undefined {
 export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
-  const [datos, pilares, linkedinSinNumeros] = await Promise.all([
+  const [datos, pilares, linkedinSinNumeros, fusionesPorDecidir] = await Promise.all([
     leerDatosDeInicio(db, ahora),
     leerPilares(db),
     contarLinkedinSinNumeros(db, ahora),
+    contarPropuestasParaInicio(db),
   ])
   const inicio = construirInicio({
     piezas: datos.piezas,
@@ -59,6 +61,7 @@ export default async function Inicio() {
     zona: datos.zona,
     pausas: datos.pausas,
     linkedinSinNumeros,
+    fusionesPorDecidir,
   })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))

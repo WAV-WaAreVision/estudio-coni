@@ -535,3 +535,36 @@ describe("the LinkedIn Excel reminder", () => {
     expect(inicio.titulo).toBe("Esta semana está al día")
   })
 })
+
+describe("the merges waiting for Coni", () => {
+  it("asks her to review one, links to Fusiones and counts it as attention", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, fusionesPorDecidir: 1 })
+    expect(inicio.recordatorios).toEqual([
+      {
+        titulo: "Revisa una fusión de temas",
+        detalle: "Dos temas se parecen y prefiero que decidas tú si son el mismo.",
+        accion: { etiqueta: "Ir a Fusiones", href: "/biblioteca/temas/fusiones" },
+      },
+    ])
+    expect(inicio.titulo).toBe("Una cosa necesita tu atención")
+  })
+
+  it("counts several, after the LinkedIn reminder", () => {
+    const inicio = construirInicio({
+      piezas: [],
+      ahora: AHORA,
+      zona: ZONA,
+      linkedinSinNumeros: 1,
+      fusionesPorDecidir: 3,
+    })
+    expect(inicio.recordatorios.map((r) => r.titulo)).toEqual([
+      "Sube el Excel de LinkedIn",
+      "Revisa 3 fusiones de temas",
+    ])
+    expect(inicio.recordatorios[1]?.detalle).toBe("Hay temas que se parecen y prefiero que decidas tú si son el mismo.")
+  })
+
+  it("says nothing when none waits", () => {
+    expect(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, fusionesPorDecidir: 0 }).recordatorios).toEqual([])
+  })
+})
