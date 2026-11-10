@@ -173,7 +173,9 @@ export interface Alerta {
   texto: string
 }
 
-export const CIERRE = "Soy Coni del Rosario."
+export const CIERRE = "Soy Constanza del Rosario."
+/** The closing before A8. Scripts written with it (drafts pending at the change) still pass the check; none is written with it anymore. */
+export const CIERRE_ANTERIOR = "Soy Coni del Rosario."
 export const AVISO_AVATAR = "Video hecho con mi avatar digital."
 /** The notice of the LinkedIn text: fixed, and it says the content was reviewed and approved by her (not "written"). */
 export const AVISO_AVATAR_LINKEDIN =
@@ -214,7 +216,8 @@ export function revisarGuion(entrada: {
   const hablado = sinEtiquetas(guion)
   const hallazgos: Hallazgo[] = []
 
-  if (!hablado.trim().endsWith(CIERRE)) {
+  const cerrado = hablado.trim()
+  if (!cerrado.endsWith(CIERRE) && !cerrado.endsWith(CIERRE_ANTERIOR)) {
     hallazgos.push({
       regla: "cierre",
       tipo: "bloquea",

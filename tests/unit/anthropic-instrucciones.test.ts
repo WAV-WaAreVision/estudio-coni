@@ -157,13 +157,13 @@ const LAMINAS = [
 describe("instrucciones de Claude (caracterización byte a byte)", () => {
   it("keeps the extraction version, which marks every stored extraction as current or stale", () => {
     expect(VERSION_DE_EXTRACCION).toMatchInlineSnapshot(
-      `"557d2ac6d6934a68e349636e4d191d14ea03493e9e0f8c63191341f3fd7e6f53"`,
+      `"96f15b3ea669df81f6c564694020c5b713e3182d6574c688d623984a2ccee486"`,
     )
   })
 
   it("keeps the re-classification guide and batch text", () => {
     expect(sha(guiaDeReclasificacion(PILARES))).toMatchInlineSnapshot(
-      `"251d8cb8aa5d6e11fa2a1710fad53c47a2946c49770b3ac80a6807bf1e0cabd4"`,
+      `"14a791df4614404bceb513bebd630eaea5ef836a35fb65fd3c016bb4f1ee3fd7"`,
     )
     expect(sha(pedidoDeReclasificacion([{ id: "m1", tipo: "material", texto: "Un material." }]))).toMatchInlineSnapshot(
       `"90aac3e0d8326b26aa31a1bdd5624a9227d70e2ebf8cf687a5e60ebb9610d7cd"`,
@@ -185,9 +185,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "c0a341e95d04efecf888eb51ef38b3716b281d9cd48aa7b3d907f4b047db7006",
+          "cuerpo": "91a413cf3d70b5997a3cea3d1795e7afd48af940b2c2cadd2ae8a8235b009ca3",
           "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-          "usuario": "a6dd04a814f97941ccf6e4f5d755f0b443df25e8635fcb43f97810b8b7044718",
+          "usuario": "11abc45108f7bf79353a37d413957552b34e2e1f484ecaed5a874a8b202d13be",
         },
       ]
     `)
@@ -207,9 +207,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "06501fb7640e4043253886735614b114d89b193bc35c9644be181a5b5a9a387f",
+          "cuerpo": "8db0d431f7c14dc3c2ce9ad52b2408798a5f35b49737040993b72b6b442561a6",
           "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-          "usuario": "2ba3f85a10911d9bee9180f8ab0eec98d8b9af5741d733b5bf7f1a8a176c036a",
+          "usuario": "1bc9ccdac12b0e6f9689964758067203aa1874abf28d84d876f6cbf85897ea5d",
         },
       ]
     `)
@@ -338,8 +338,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
         ],
         "pilares": [
           {
-            "cuerpo": "28bdb38a62d99011d092be5b0d59a6896c0f0642224289e50e17bcb09a8622a0",
-            "sistema": "251d8cb8aa5d6e11fa2a1710fad53c47a2946c49770b3ac80a6807bf1e0cabd4",
+            "cuerpo": "c33cfc90d30e6eb4b609aad559cd333217d6bdc7ab8bd68305b8307779d73098",
+            "sistema": "14a791df4614404bceb513bebd630eaea5ef836a35fb65fd3c016bb4f1ee3fd7",
             "usuario": "ac4da2af3c698c9e41c2679c8d576dcac56217e03d0fd871a2ca262c4d2e9bb2",
           },
         ],
@@ -371,15 +371,15 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
       {
         "fusiones": [
           {
-            "cuerpo": "ee35a892d7544386899b65fc1102292b725b7395a29cd2caeef6f09743e1eb2b",
-            "sistema": "d63790d67c0a4d283962482c8eeb5ef153e5f3749419f2a5c5a92552e520199d",
+            "cuerpo": "530400f8e7f7b4169e572ecbc4b7386fb70c9e2daa0e741a140038404aa0cb3a",
+            "sistema": "8e8eaba95a0faed1282af2c3eeeec17eb4bdb08d3a747a9c09393cb022a7b444",
             "usuario": "94d7549ee5ba87a0c095d6ed5683ea219280a94c919634516429d8d969acb900",
           },
         ],
         "nombres": [
           {
-            "cuerpo": "2e36f25bdd49ed2f8fb24cead2681db84446f0bfcec63022141b5f7695194ee5",
-            "sistema": "07b152369de1631495bc6dd87072345da36bd500b2939842168eaff4abf70a10",
+            "cuerpo": "da12657d0412ed9d2ecf8138d0550dca3c17c832817cb0c5c67bb68e5229909c",
+            "sistema": "c046f993dbf03a7d8c8af80a10c4aa28ac0b3c2ba73109b1f442528724ae77de",
             "usuario": "6b586895e0be9f1c79f44b4e0a8047b39749d8bc5895702e69da52d62b35a526",
           },
         ],
@@ -398,15 +398,15 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
       {
         "cortada": [
           {
-            "cuerpo": "4c0a08acca8fc8a22009113ba9605517a9207c0d5e95d766e0cb279badc4f402",
-            "sistema": "6d25ebe29b5124124b0b501786467cbdddd52491f785765182aba62ba1f7b6d6",
+            "cuerpo": "5ff538aed57699d7afb44f0a929ad6c040f461b730433164869c61758d3c59c0",
+            "sistema": "0b0fb96cdb88d8deffbf40a1399c2dcb172e9e9d5aa618341c79eb0a03404f35",
             "usuario": "d980c479766d9bce75c9ffcaebb32da0d632713e820ac91ad36e61fcef7ecd83",
           },
         ],
         "entera": [
           {
-            "cuerpo": "02882fa5b2a182178a545cbaf10aea61fd14921447c481239f882856772a812a",
-            "sistema": "6d25ebe29b5124124b0b501786467cbdddd52491f785765182aba62ba1f7b6d6",
+            "cuerpo": "1f63c5e4ec612b00cd6a5a75ae15cbb7ec8411cde77b5c8625c2668bcf13f81a",
+            "sistema": "0b0fb96cdb88d8deffbf40a1399c2dcb172e9e9d5aa618341c79eb0a03404f35",
             "usuario": "265418ca7cbd73f4e8992bd6d8a85d3efd4e9e699104886e2cbd220b5e8ccdc2",
           },
         ],
@@ -431,8 +431,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "04a8f848763e3905ce0de79906fc3c53648f2da9b22e722420782ec6d7caa653",
-          "sistema": "557d2ac6d6934a68e349636e4d191d14ea03493e9e0f8c63191341f3fd7e6f53",
+          "cuerpo": "ee6d0db9521a21aa2b6665c02c32a09c5af555387801cf0f13c99476a2f53085",
+          "sistema": "96f15b3ea669df81f6c564694020c5b713e3182d6574c688d623984a2ccee486",
           "usuario": "8678eb90a3d77a90371ef5b620f7787b1fb876fca059b73b74b66885d4d5cfc0",
         },
       ]
@@ -468,8 +468,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "ed5c65f88ae7a89e09e9506bca735b2980eff14588fba6906e7003e08e1b6101",
-          "sistema": "0fad5f26bf31dd746365923bd712c2fc7abe9ffc4f493ba463b94168f18eba33",
+          "cuerpo": "1083d8c80eae3223daa33d52fd5e176896070a15ed40977ff9b740a9bc68f4b7",
+          "sistema": "bd8dd1c92c56e58ca098e6ce906fd51c317e12b16756a44d2b7364d4ab8ad146",
           "usuario": "0c4b91e3cc0290914c6fbeba010c0fb564359d852ff097912c28b975eeecae12",
         },
       ]
@@ -488,8 +488,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "fec1c2610c4b77a22aa95e3b1aeac889056e4b0291cafa597cc0491a2442eb7e",
-          "sistema": "3fd8e45c45f83f27696431c7e017f5241ba297f6473275da9a1c63a5e5c976ef",
+          "cuerpo": "355c29bfe2146739b058ad3f581e75c4680982dd0993e6c46d667479e88a1088",
+          "sistema": "7fb433441794fcbfdac41b5f9459b51cb852f2fb058fd960e8f8b424002f9866",
           "usuario": "98b4416136fbbc9e27dc7fc75d18844002344925c54bd7ae726bda3188916db2",
         },
       ]
@@ -529,9 +529,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
         ],
         "guion": [
           {
-            "cuerpo": "ae302342ad2c6c16cbae0523b285aba234be1fa2935079abb0d86f93e7d94962",
+            "cuerpo": "40a3553cca26add5e55291e1495d389d2da81537079c0928296567e8edad48c1",
             "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-            "usuario": "0e80febb4dcaea3c19a4f282d8ceab1de2a6323c67ecc02acacb2b8cd02592eb",
+            "usuario": "ede238bde1bd90ea501c23ed0ac363023f8c17316e6ab0500dd47f0bb4b20dd1",
           },
         ],
       }

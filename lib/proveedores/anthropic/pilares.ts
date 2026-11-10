@@ -50,7 +50,7 @@ export function guiaDePilaresPorRed(pilares: readonly DatosDePilar[]): string {
     (red) =>
       `PILARES DE ${NOMBRE_DE_RED[red].toUpperCase()} (usa exactamente el slug)\n${deRed(pilares, red).map(conAngulos).join("\n")}`,
   )
-  return `Ordenas los temas y las ideas de Coni del Rosario, psicóloga clínica chilena, en sus pilares de contenido de LinkedIn e Instagram. Cada red tiene sus propios pilares: un tema puede tener pilar en las dos redes, en una sola o en ninguna.
+  return `Ordenas los temas y las ideas de Coni del Rosario, Psicóloga-Coach PUC de Chile, en sus pilares de contenido de LinkedIn e Instagram. Cada red tiene sus propios pilares: un tema puede tener pilar en las dos redes, en una sola o en ninguna.
 
 ${bloques.join("\n\n")}
 

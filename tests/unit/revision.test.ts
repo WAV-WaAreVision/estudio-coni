@@ -10,6 +10,7 @@ import {
   autoresNombrados,
   bloquea,
   CIERRE,
+  CIERRE_ANTERIOR,
   etiquetarJuiciosDeClaude,
   type Hallazgo,
   hallazgosDeLaAprobacion,
@@ -54,8 +55,21 @@ describe("revisarGuion", () => {
   it("blocks a script that does not end with the fixed closing", () => {
     const hallazgos = revisar({ guion: `${CUERPO}. Gracias por ver este video.` })
     expect(hallazgos).toEqual([
-      { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Coni del Rosario.»" },
+      { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Constanza del Rosario.»" },
     ])
+  })
+
+  it("writes the fixed closing with her full first name (A8)", () => {
+    expect(CIERRE).toBe("Soy Constanza del Rosario.")
+  })
+
+  it("still accepts the old closing in a script written before A8, so pending drafts are not blocked", () => {
+    expect(revisar({ guion: `${CUERPO}.\n\n${CIERRE_ANTERIOR}` })).toEqual([])
+    expect(CIERRE_ANTERIOR).toBe("Soy Coni del Rosario.")
+  })
+
+  it("blocks a script that closes with the first name alone", () => {
+    expect(reglas(revisar({ guion: `${CUERPO}.\n\nSoy Coni.` }))).toEqual(["cierre"])
   })
 
   it("accepts trailing blank lines after the closing", () => {
