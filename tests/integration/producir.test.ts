@@ -391,7 +391,7 @@ describe("producirPieza", () => {
     expect(sim.escrituras).toHaveLength(2)
     const fila = await pieza(id)
     expect(fila.revision).toEqual([
-      { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Coni del Rosario.»" },
+      { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Constanza del Rosario.»" },
     ])
   })
 

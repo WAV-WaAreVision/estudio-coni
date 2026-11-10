@@ -6,7 +6,7 @@ import { ETIQUETAS_DE_TONO } from "@/lib/dominio/etiquetas"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { PausaDeProveedor } from "@/lib/dominio/pausas"
 import { soloActivos } from "@/lib/dominio/pilares"
-import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, LINEAS_AYUDA } from "@/lib/dominio/revision"
+import { AVISO_AVATAR, AVISO_AVATAR_LINKEDIN, CIERRE, CIERRE_ANTERIOR, LINEAS_AYUDA } from "@/lib/dominio/revision"
 import {
   clasificarEnPilares,
   clasificarIdea,
@@ -194,6 +194,7 @@ describe("escribirGuion", () => {
 
     const usuario = JSON.stringify((pedidos[0] as PedidoCapturado).cuerpo.messages[0]?.content)
     expect(usuario).toContain(CIERRE)
+    expect(usuario).not.toContain(CIERRE_ANTERIOR)
     expect(usuario).toContain(AVISO_AVATAR)
     expect(usuario).toContain("75")
     expect(usuario).toContain("150")
@@ -346,7 +347,7 @@ describe("escribirGuion", () => {
     await escribir({
       correcciones: [
         { regla: "numeros", tipo: "advierte", mensaje: "Escribe los números con palabras.", frase: "3" },
-        { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Coni del Rosario.»" },
+        { regla: "cierre", tipo: "bloquea", mensaje: "El guion tiene que terminar con «Soy Constanza del Rosario.»" },
       ],
     })
 

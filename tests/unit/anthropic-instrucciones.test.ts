@@ -185,9 +185,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "c0a341e95d04efecf888eb51ef38b3716b281d9cd48aa7b3d907f4b047db7006",
+          "cuerpo": "91a413cf3d70b5997a3cea3d1795e7afd48af940b2c2cadd2ae8a8235b009ca3",
           "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-          "usuario": "a6dd04a814f97941ccf6e4f5d755f0b443df25e8635fcb43f97810b8b7044718",
+          "usuario": "11abc45108f7bf79353a37d413957552b34e2e1f484ecaed5a874a8b202d13be",
         },
       ]
     `)
@@ -207,9 +207,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "06501fb7640e4043253886735614b114d89b193bc35c9644be181a5b5a9a387f",
+          "cuerpo": "8db0d431f7c14dc3c2ce9ad52b2408798a5f35b49737040993b72b6b442561a6",
           "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-          "usuario": "2ba3f85a10911d9bee9180f8ab0eec98d8b9af5741d733b5bf7f1a8a176c036a",
+          "usuario": "1bc9ccdac12b0e6f9689964758067203aa1874abf28d84d876f6cbf85897ea5d",
         },
       ]
     `)
@@ -529,9 +529,9 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
         ],
         "guion": [
           {
-            "cuerpo": "ae302342ad2c6c16cbae0523b285aba234be1fa2935079abb0d86f93e7d94962",
+            "cuerpo": "40a3553cca26add5e55291e1495d389d2da81537079c0928296567e8edad48c1",
             "sistema": "298f1b58ddcfc01539f86d568bf1ee6da23eaefe893f701d25559db076eaa6ad",
-            "usuario": "0e80febb4dcaea3c19a4f282d8ceab1de2a6323c67ecc02acacb2b8cd02592eb",
+            "usuario": "ede238bde1bd90ea501c23ed0ac363023f8c17316e6ab0500dd47f0bb4b20dd1",
           },
         ],
       }
