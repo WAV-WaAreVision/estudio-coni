@@ -44,6 +44,78 @@ const TEMAS_DE_AUTORES_Y_TEMAS = [TEMA_DE_UN_AUTOR, TEMA_FUSIONADO, BUCLE_UNO, B
 
 const CENTROIDE = `[${Array.from({ length: 1024 }, () => "0.1").join(",")}]`
 
+export const FUSION_PROPUESTA = {
+  ganador: "Deseo bajo",
+  perdedor: "Poco deseo",
+  razon: "Los dos hablan de la falta de ganas.",
+  motivo: "Claude no está seguro de que sean el mismo tema.",
+}
+export const FUSION_APLICADA = {
+  ganador: "Sueño liviano",
+  perdedor: "Dormir mal",
+  razon: "Hablan del mismo problema de sueño.",
+}
+export const PAR_RECHAZADO = {
+  a: "Celos en pareja",
+  b: "Celos en la amistad",
+  razon: "Uno habla de la pareja y el otro de la amistad.",
+}
+const TEMAS_DE_FUSIONES = [
+  FUSION_PROPUESTA.ganador,
+  FUSION_PROPUESTA.perdedor,
+  FUSION_APLICADA.ganador,
+  FUSION_APLICADA.perdedor,
+  PAR_RECHAZADO.a,
+  PAR_RECHAZADO.b,
+]
+
+/** One proposal waiting for Coni and one merge applied the night before (logged by fusionar_par_de_temas). */
+export async function sembrarFusiones(
+  escena: EscenaDeAutoresYTemas,
+): Promise<{ propuesta: string; aplicada: string; perdedorAplicado: string }> {
+  const nuevo = (nombre: string) =>
+    uno("insert into public.temas (nombre, centroide) values ($1, $2::extensions.vector) returning id", [
+      nombre,
+      CENTROIDE,
+    ])
+  const g1 = await nuevo(FUSION_PROPUESTA.ganador)
+  const p1 = await nuevo(FUSION_PROPUESTA.perdedor)
+  const g2 = await nuevo(FUSION_APLICADA.ganador)
+  const p2 = await nuevo(FUSION_APLICADA.perdedor)
+  await ideas(escena.listo, escena.autora, g1, ["El estrés baja el deseo.", "El cansancio apaga las ganas."], "opinion")
+  await ideas(escena.listo, escena.autora, p1, ["Hay días sin ganas de nada."], "opinion")
+  await ideas(
+    escena.listo,
+    escena.autora,
+    g2,
+    ["Despertar de madrugada cansa.", "El sueño liviano no repara."],
+    "opinion",
+  )
+  await ideas(escena.listo, escena.autora, p2, ["Dormir mal sube la ansiedad."], "opinion")
+  const propuesta = await uno(
+    `insert into public.fusiones (ganador_id, perdedor_id, origen, veredicto, seguro, razon, delicada, motivo_delicada)
+     values ($1, $2, 'claude', 'mismo', false, $3, true, $4) returning id`,
+    [g1, p1, FUSION_PROPUESTA.razon, FUSION_PROPUESTA.motivo],
+  )
+  const aplicada = await uno("select public.fusionar_par_de_temas($1, $2) as id", [g2, p2])
+  await pool.query("update public.fusiones set razon = $2 where id = $1", [aplicada, FUSION_APLICADA.razon])
+  return { propuesta, aplicada, perdedorAplicado: p2 }
+}
+
+/** A pair Coni said is not the same topic, so «Pares que no uní» has a card too (call after sembrarFusiones). */
+export async function sembrarParRechazado(): Promise<void> {
+  const nuevo = (nombre: string) =>
+    uno("insert into public.temas (nombre, centroide) values ($1, $2::extensions.vector) returning id", [
+      nombre,
+      CENTROIDE,
+    ])
+  const [a, b] = [await nuevo(PAR_RECHAZADO.a), await nuevo(PAR_RECHAZADO.b)].sort()
+  await pool.query(
+    "insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, razon) values ($1, $2, 'coni', $3)",
+    [a, b, PAR_RECHAZADO.razon],
+  )
+}
+
 export const TITULO_LISTO = "Burnout y teletrabajo: revisión 2024"
 export const TITULO_ESTRATEGIA = "Plan de contenidos de noviembre"
 export const RESUMEN_ESTRATEGIA = "Qué publicar en noviembre y por qué."
@@ -124,7 +196,10 @@ export async function vaciarBiblioteca(): Promise<void> {
   // seeded materials) and leave them for `pnpm test:db` to count: the engine's seed goes first.
   await vaciarMotor()
   await pool.query("delete from public.materiales")
-  await pool.query("delete from public.temas where nombre = any($1::text[])", [[...TEMAS, ...TEMAS_DE_AUTORES_Y_TEMAS]])
+  await pool.query("delete from public.decisiones_de_tema where tema_nombre = any($1::text[])", [TEMAS_DE_FUSIONES])
+  await pool.query("delete from public.temas where nombre = any($1::text[])", [
+    [...TEMAS, ...TEMAS_DE_AUTORES_Y_TEMAS, ...TEMAS_DE_FUSIONES],
+  ])
   await pool.query("delete from public.autores where nombre = any($1::text[])", [[AUTORA, OTRA_AUTORA, SIN_MATERIAL]])
 }
 

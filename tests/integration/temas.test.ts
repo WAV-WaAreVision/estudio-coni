@@ -7,10 +7,12 @@ import {
   asignarATemas,
   formarTemas,
   fusionarTemas,
+  guardarSubtema,
   MAXIMO_PENDIENTES_POR_CORRIDA,
   recalcularTema,
 } from "@/lib/ingesta/temas"
 import { almacenEnMemoria } from "@/lib/proveedores/almacen"
+import { VERSION_DE_FUSIONES } from "@/lib/proveedores/anthropic"
 import { servidor } from "../msw"
 import { asumir, CONI, como, comoConi, comoPostgres, comoServicio, fallaCon, pool, sinLimiteFijado } from "./db"
 import { reiniciarCalibracion } from "./huellas-comun"
@@ -127,14 +129,17 @@ interface Pedido {
 function simularClaude(
   opciones: {
     nombre?: (i: number) => string
-    mismo?: boolean
+    veredicto?: "mismo" | "parte_de" | "distintos"
+    veredictoDe?: (a: string, b: string) => "mismo" | "parte_de" | "distintos"
+    seguro?: boolean
+    general?: "a" | "b" | null
     pilar?: string
     linkedin?: string | null
     instagram?: string | null
     capas?: string[]
   } = {},
 ) {
-  const llamadas = { nombres: 0, fusiones: 0, pilaresOfrecidos: [] as string[] }
+  const llamadas = { nombres: 0, fusiones: 0, pilaresOfrecidos: [] as string[], textos: [] as string[][] }
   servidor.use(
     http.post<never, Pedido>(URL_CLAUDE, async ({ request }) => {
       const cuerpo = await request.json()
@@ -157,11 +162,16 @@ function simularClaude(
         }
       } else {
         llamadas.fusiones += 1
+        const pares = datos.pares as { a: { id: string; textos: string[] }; b: { id: string; textos: string[] } }[]
+        for (const p of pares) llamadas.textos.push(p.a.textos, p.b.textos)
         salida = {
-          pares: (datos.pares as { a: { id: string }; b: { id: string } }[]).map((p) => ({
+          pares: pares.map((p) => ({
             a: p.a.id,
             b: p.b.id,
-            mismo: opciones.mismo ?? true,
+            veredicto: opciones.veredictoDe?.(p.a.id, p.b.id) ?? opciones.veredicto ?? "mismo",
+            general: opciones.general === "a" ? p.a.id : opciones.general === "b" ? p.b.id : null,
+            seguro: opciones.seguro ?? true,
+            razon: "Razón de prueba.",
           })),
         }
       }
@@ -516,6 +526,9 @@ describe("fusionarTemas", () => {
     expect(await fusionarTemas(deps(), { ...CALIBRACION_INICIAL, fusion: 0.999 })).toEqual({
       tope: false,
       fusionados: 0,
+      propuestas: 0,
+      subtemas: 0,
+      rechazados: 0,
     })
   })
 
@@ -529,7 +542,7 @@ describe("fusionarTemas", () => {
 
   it("merges a confirmed pair into the topic with more claims, as alias, with the centroid recomputed", async () => {
     const { grande, chico, g, c } = await dosParecidos()
-    const llamadas = simularClaude({ mismo: true })
+    const llamadas = simularClaude()
     const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
     expect(resultado).toMatchObject({ tope: false, fusionados: 1 })
@@ -553,7 +566,7 @@ describe("fusionarTemas", () => {
     const nuevo = await tema("Nuevo", vec({ 0: 1, 1: 0.1 }))
     await afirmacion(vec({ 0: 1 }), { tema: viejo })
     await afirmacion(vec({ 0: 1 }), { tema: nuevo })
-    simularClaude({ mismo: true })
+    simularClaude()
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ id: string; fusionado_en: string | null }>(
       "select id, fusionado_en from public.temas",
@@ -563,7 +576,7 @@ describe("fusionarTemas", () => {
 
   it("does nothing when Claude says they are not the same topic", async () => {
     const { grande, chico } = await dosParecidos()
-    simularClaude({ mismo: false })
+    simularClaude({ veredicto: "distintos" })
     const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(resultado.fusionados).toBe(0)
     const { rows } = await pool.query("select id from public.temas where fusionado_en is null")
@@ -572,7 +585,7 @@ describe("fusionarTemas", () => {
 
   it("remembers a rejected pair and does not ask about it again, while a new pair is still asked", async () => {
     const { grande, chico } = await dosParecidos()
-    const llamadas = simularClaude({ mismo: false })
+    const llamadas = simularClaude({ veredicto: "distintos" })
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     expect(llamadas.fusiones).toBe(1)
     const { rows } = await pool.query<{ tema_a: string; tema_b: string }>(
@@ -593,15 +606,127 @@ describe("fusionarTemas", () => {
 
   it("does not store the pairs Claude confirmed", async () => {
     await dosParecidos()
-    simularClaude({ mismo: true })
+    simularClaude()
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query("select 1 from public.temas_fusion_rechazada")
     expect(rows).toHaveLength(0)
   })
 
+  it("applies a clear merge on its own and logs Claude's verdict, reason, similarity, model and prompt", async () => {
+    const { grande, chico } = await dosParecidos()
+    simularClaude()
+    expect(await fusionarTemas(deps(), CALIBRACION_INICIAL)).toEqual({
+      tope: false,
+      fusionados: 1,
+      propuestas: 0,
+      subtemas: 0,
+      rechazados: 0,
+    })
+    const { rows } = await pool.query(
+      "select ganador_id, perdedor_id, estado, seguro, razon, parecido::float as parecido, modelo, version_prompt from public.fusiones",
+    )
+    expect(rows).toEqual([
+      expect.objectContaining({
+        ganador_id: grande,
+        perdedor_id: chico,
+        estado: "aplicada",
+        seguro: true,
+        razon: "Razón de prueba.",
+        modelo: "voyage-3.5",
+        version_prompt: VERSION_DE_FUSIONES,
+      }),
+    ])
+    expect(rows[0]?.parecido).toBeGreaterThan(0.8)
+  })
+
+  it("leaves a merge Claude is not sure of as a proposal, merges nothing and keeps its topics out of the run", async () => {
+    const { grande, chico } = await dosParecidos()
+    simularClaude({ seguro: false })
+    expect(await fusionarTemas(deps(), CALIBRACION_INICIAL)).toMatchObject({ fusionados: 0, propuestas: 1 })
+    const { rows } = await pool.query("select estado, delicada, motivo_delicada from public.fusiones")
+    expect(rows).toEqual([
+      { estado: "propuesta", delicada: true, motivo_delicada: "Claude no está seguro de que sean el mismo tema." },
+    ])
+    const activos = await pool.query("select id from public.temas where fusionado_en is null order by id")
+    expect(activos.rows.map((r) => r.id).sort()).toEqual([grande, chico].sort())
+  })
+
+  it("leaves a merge of topics with different main pillars in a network as a proposal that names the network", async () => {
+    const { grande, chico } = await dosParecidos()
+    await pilarDeTema(grande, "diagnostico-doble", "alta")
+    await pilarDeTema(chico, "bienestar-e-impacto", "alta")
+    simularClaude()
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    const { rows } = await pool.query("select estado, motivo_delicada from public.fusiones")
+    expect(rows).toEqual([{ estado: "propuesta", motivo_delicada: "Tienen distinto pilar principal en LinkedIn." }])
+  })
+
+  it("merges topics that share their main pillar", async () => {
+    const { grande, chico } = await dosParecidos()
+    await pilarDeTema(grande, "diagnostico-doble", "alta")
+    await pilarDeTema(chico, "diagnostico-doble", "alta")
+    simularClaude()
+    expect((await fusionarTemas(deps(), CALIBRACION_INICIAL)).fusionados).toBe(1)
+  })
+
+  it("stores parte_de as a subtopic under the topic Claude calls broader, without merging", async () => {
+    const { grande, chico } = await dosParecidos()
+    simularClaude({ veredicto: "parte_de", general: "b" })
+    expect(await fusionarTemas(deps(), CALIBRACION_INICIAL)).toMatchObject({ fusionados: 0, subtemas: 1 })
+    const { rows } = await pool.query<{ tema_id: string; padre_id: string; origen: string }>(
+      "select tema_id, padre_id, origen from public.temas_subtemas",
+    )
+    expect(rows).toHaveLength(1)
+    expect([rows[0]?.tema_id, rows[0]?.padre_id].sort()).toEqual([grande, chico].sort())
+    expect(rows[0]?.origen).toBe("claude")
+  })
+
+  it("treats a subtopic stored the other way round as already stored, without failing or storing it twice", async () => {
+    const { grande, chico } = await dosParecidos()
+    await pool.query("insert into public.temas_subtemas (tema_id, padre_id, origen) values ($1, $2, 'coni')", [
+      grande,
+      chico,
+    ])
+    const veredicto = {
+      a: grande,
+      b: chico,
+      veredicto: "parte_de",
+      general: grande,
+      seguro: true,
+      razon: "Razón.",
+    } as const
+    await guardarSubtema(clienteDeServicio(), veredicto, grande, chico)
+    const { rows } = await pool.query("select tema_id, padre_id, origen from public.temas_subtemas")
+    expect(rows).toEqual([{ tema_id: grande, padre_id: chico, origen: "coni" }])
+  })
+
+  it("remembers a rejection with its reason, counts and model, and asks again after 30 % growth", async () => {
+    const { grande, chico } = await dosParecidos()
+    const llamadas = simularClaude({ veredicto: "distintos" })
+    expect((await fusionarTemas(deps(), CALIBRACION_INICIAL)).rechazados).toBe(1)
+    const { rows } = await pool.query(
+      "select origen, razon, afirmaciones_a + afirmaciones_b as total, modelo from public.temas_fusion_rechazada",
+    )
+    expect(rows).toEqual([{ origen: "claude", razon: "Razón de prueba.", total: 3, modelo: "voyage-3.5" }])
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    expect(llamadas.fusiones).toBe(1)
+    await afirmacion(vec({ 0: 1 }), { tema: grande })
+    await afirmacion(vec({ 0: 1, 1: 0.2 }), { tema: chico })
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    expect(llamadas.fusiones).toBe(2)
+  })
+
+  it("asks with at most five claims per topic", async () => {
+    const { grande } = await dosParecidos()
+    for (let i = 0; i < 5; i++) await afirmacion(vec({ 0: 1 }), { tema: grande })
+    const llamadas = simularClaude({ veredicto: "distintos" })
+    await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    expect(Math.max(...llamadas.textos.map((t) => t.length))).toBe(5)
+  })
+
   it("pays for the verdicts without leaving a result file in the store", async () => {
     await dosParecidos()
-    simularClaude({ mismo: false })
+    simularClaude({ veredicto: "distintos" })
     const almacen = almacenEnMemoria()
     await fusionarTemas(deps(almacen), CALIBRACION_INICIAL)
     expect(almacen.claves()).toEqual([])
@@ -629,7 +754,7 @@ describe("fusionarTemas", () => {
     await afirmacion(vec({ 0: 1 }), { tema: a })
     await afirmacion(vec({ 0: 1 }), { tema: b })
     await afirmacion(vec({ 0: 1 }), { tema: c })
-    simularClaude({ mismo: true })
+    simularClaude()
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows } = await pool.query<{ id: string; fusionado_en: string | null }>(
       "select id, fusionado_en from public.temas",
@@ -644,14 +769,56 @@ describe("fusionarTemas", () => {
     expect(n[0]?.n).toBe(5)
   })
 
+  it("skips a pair whose topic was absorbed earlier the same night, and never overwrites Coni's rejection of the resolved pair", async () => {
+    const a = await tema("A", vec({ 0: 1 }))
+    const b = await tema("B", vec({ 0: 1, 1: 0.05 }))
+    const c = await tema("C", vec({ 0: 1, 1: 0.3 }))
+    for (const t of [a, a, a]) await afirmacion(vec({ 0: 1 }), { tema: t })
+    await afirmacion(vec({ 0: 1 }), { tema: b })
+    await afirmacion(vec({ 0: 1 }), { tema: c })
+    const [x, y] = [a, c].sort()
+    await pool.query(
+      "insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, razon) values ($1, $2, 'coni', 'Decisión de Coni.')",
+      [x, y],
+    )
+    simularClaude({ veredictoDe: (p, q) => ([p, q].includes(a) && [p, q].includes(b) ? "mismo" : "distintos") })
+    const resultado = await fusionarTemas(deps(), CALIBRACION_INICIAL)
+    expect(resultado).toMatchObject({ fusionados: 1, propuestas: 0, subtemas: 0, rechazados: 0 })
+    const { rows } = await pool.query("select tema_a, tema_b, origen, razon from public.temas_fusion_rechazada")
+    expect(rows).toEqual([{ tema_a: x, tema_b: y, origen: "coni", razon: "Decisión de Coni." }])
+  })
+
+  it("stores each rejection as soon as Claude gives it, so a failure later in the run does not lose it", async () => {
+    const p = await tema("P", vec({ 0: 1 }))
+    const q = await tema("Q", vec({ 0: 1, 1: 0.05 }))
+    const a = await tema("A", vec({ 5: 1 }))
+    const b = await tema("B", vec({ 5: 1, 6: 0.3 }))
+    for (const t of [p, q, a, b]) await afirmacion(vec({ 0: 1 }), { tema: t })
+    simularClaude({ veredictoDe: (m, n) => ([m, n].includes(p) ? "distintos" : "mismo") })
+    const sinFusionar = new Proxy(db, {
+      get: (objetivo, propiedad) =>
+        propiedad === "rpc"
+          ? (nombre: string, ...resto: unknown[]) =>
+              nombre === "fusionar_par_de_temas"
+                ? Promise.resolve({ data: null, error: { message: "falla de prueba" } })
+                : Reflect.apply(objetivo.rpc, objetivo, [nombre, ...resto])
+          : Reflect.get(objetivo, propiedad),
+    })
+    await expect(fusionarTemas({ ...deps(), db: sinFusionar }, CALIBRACION_INICIAL)).rejects.toThrow(
+      "No pude fusionar los temas",
+    )
+    const { rows } = await pool.query("select tema_a, tema_b from public.temas_fusion_rechazada")
+    expect(rows).toEqual([{ tema_a: [p, q].sort()[0], tema_b: [p, q].sort()[1] }])
+  })
+
   it("pays through the cap with paso temas and stops without throwing at the cap", async () => {
     await dosParecidos()
-    simularClaude({ mismo: true })
+    simularClaude()
     const resultado = await conTopeChico(() => fusionarTemas(deps(), CALIBRACION_INICIAL))
     expect(resultado.tope).toBe(true)
     const { rows } = await pool.query("select id from public.temas where fusionado_en is not null")
     expect(rows).toHaveLength(0)
-    simularClaude({ mismo: true })
+    simularClaude()
     await fusionarTemas(deps(), CALIBRACION_INICIAL)
     const { rows: gastos } = await pool.query<{ paso: string; clave: string }>(
       "select paso, clave from public.gastos where clave like 'temas:%' and estado = 'confirmado'",
@@ -685,9 +852,14 @@ describe("recalcularTema", () => {
 })
 
 describe("temas_fusion_rechazada", () => {
-  it("is for the service role only", async () => {
+  it("is read by Coni and written only by the service role", async () => {
     await como(comoConi, async (c) => {
-      expect((await fallaCon(c, "select * from public.temas_fusion_rechazada")).code).toBe("42501")
+      await c.query("select * from public.temas_fusion_rechazada")
+      const error = await fallaCon(
+        c,
+        "insert into public.temas_fusion_rechazada (tema_a, tema_b) values (gen_random_uuid(), gen_random_uuid())",
+      )
+      expect(error.code).toBe("42501")
     })
   })
 
@@ -759,7 +931,10 @@ describe("temas_parecidos, average cross similarity", () => {
     const b = await tema("B", centroide({ 0: 0.9, 1: 0.1 }))
     const fusionado = await tema("C", centroide({ 0: 1 }), { fusionado: a })
     const [x, y] = [a, b].sort()
-    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b) values ($1, $2)", [x, y])
+    await pool.query("insert into public.temas_fusion_rechazada (tema_a, tema_b, origen) values ($1, $2, 'coni')", [
+      x,
+      y,
+    ])
     await como(comoServicio, async (c) => {
       const { rows } = await c.query("select * from public.temas_parecidos(0.6)")
       expect(rows).toEqual([])

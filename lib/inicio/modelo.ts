@@ -2,6 +2,7 @@ import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destino
 import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
 import { diaLocal, etiquetaDeFecha, semanaDe } from "@/lib/dominio/fechas"
+import { RUTA_DE_FUSIONES } from "@/lib/dominio/fusiones"
 import { lineaDePausaDeInicio, type MotivoDePausa, type ProveedorConPausa } from "@/lib/dominio/pausas"
 import { SEMANAS_POR_ANOTAR } from "@/lib/metricas/linkedin"
 
@@ -349,15 +350,17 @@ export function construirInicio(entrada: {
   pausas?: readonly { proveedor: ProveedorConPausa; motivo: MotivoDePausa }[]
   /** LinkedIn posts of the last 4 weeks without a reading this week (`sinNumerosEstaSemana`). */
   linkedinSinNumeros?: number
+  /** Merge proposals waiting for her (spec 2026-11-09, issue 22). */
+  fusionesPorDecidir?: number
 }): Inicio {
-  const { piezas, ahora, zona, pausas = [], linkedinSinNumeros = 0 } = entrada
+  const { piezas, ahora, zona, pausas = [], linkedinSinNumeros = 0, fusionesPorDecidir = 0 } = entrada
   const lineasDePausa = pausas.flatMap((pausa) => {
     const linea = lineaDePausaDeInicio(pausa.proveedor, pausa.motivo)
     return linea ? [linea] : []
   })
   // Spec 2026-11-09, decision 3: from Monday, while a recent post has no reading this week. Gone once the Excel is in.
-  const recordatorios: RecordatorioDeInicio[] =
-    linkedinSinNumeros > 0
+  const recordatorios: RecordatorioDeInicio[] = [
+    ...(linkedinSinNumeros > 0
       ? [
           {
             titulo: "Sube el Excel de LinkedIn",
@@ -368,7 +371,23 @@ export function construirInicio(entrada: {
             accion: { etiqueta: "Ir a Métricas", href: "/metricas#excel-linkedin" },
           },
         ]
-      : []
+      : []),
+    ...(fusionesPorDecidir > 0
+      ? [
+          {
+            titulo:
+              fusionesPorDecidir === 1
+                ? "Revisa una fusión de temas"
+                : `Revisa ${fusionesPorDecidir} fusiones de temas`,
+            detalle:
+              fusionesPorDecidir === 1
+                ? "Dos temas se parecen y prefiero que decidas tú si son el mismo."
+                : "Hay temas que se parecen y prefiero que decidas tú si son el mismo.",
+            accion: { etiqueta: "Ir a Fusiones", href: RUTA_DE_FUSIONES },
+          },
+        ]
+      : []),
+  ]
   const enPreparacion = piezas.filter((pieza) => pieza.estado === "grabando_voz").map(filaEnPreparacion)
   const camino = piezas
     .map((pieza) => ({ pieza, fila: filaEnCamino(pieza, zona) }))

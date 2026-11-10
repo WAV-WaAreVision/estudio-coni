@@ -862,6 +862,157 @@ export type Database = {
           },
         ]
       }
+      fusiones: {
+        Row: {
+          alias_agregados: string[] | null
+          aplicada_en: string | null
+          creada_en: string
+          decidida_en: string | null
+          delicada: boolean
+          deshecha_en: string | null
+          encadenados: string[] | null
+          estado: string
+          ganador_id: string
+          id: string
+          modelo: string | null
+          motivo_delicada: string | null
+          origen: string
+          parecido: number | null
+          perdedor_id: string
+          pilares_ganador: Json | null
+          pilares_ganador_despues: Json | null
+          pilares_perdedor: Json | null
+          razon: string | null
+          seguro: boolean | null
+          veredicto: string | null
+          version_prompt: string | null
+        }
+        Insert: {
+          alias_agregados?: string[] | null
+          aplicada_en?: string | null
+          creada_en?: string
+          decidida_en?: string | null
+          delicada?: boolean
+          deshecha_en?: string | null
+          encadenados?: string[] | null
+          estado?: string
+          ganador_id: string
+          id?: string
+          modelo?: string | null
+          motivo_delicada?: string | null
+          origen: string
+          parecido?: number | null
+          perdedor_id: string
+          pilares_ganador?: Json | null
+          pilares_ganador_despues?: Json | null
+          pilares_perdedor?: Json | null
+          razon?: string | null
+          seguro?: boolean | null
+          veredicto?: string | null
+          version_prompt?: string | null
+        }
+        Update: {
+          alias_agregados?: string[] | null
+          aplicada_en?: string | null
+          creada_en?: string
+          decidida_en?: string | null
+          delicada?: boolean
+          deshecha_en?: string | null
+          encadenados?: string[] | null
+          estado?: string
+          ganador_id?: string
+          id?: string
+          modelo?: string | null
+          motivo_delicada?: string | null
+          origen?: string
+          parecido?: number | null
+          perdedor_id?: string
+          pilares_ganador?: Json | null
+          pilares_ganador_despues?: Json | null
+          pilares_perdedor?: Json | null
+          razon?: string | null
+          seguro?: boolean | null
+          veredicto?: string | null
+          version_prompt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fusiones_ganador_id_fkey"
+            columns: ["ganador_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_ganador_id_fkey"
+            columns: ["ganador_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_perdedor_id_fkey"
+            columns: ["perdedor_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_perdedor_id_fkey"
+            columns: ["perdedor_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fusiones_afirmaciones: {
+        Row: {
+          afirmacion_id: string
+          fusion_id: string
+          tema_origen: string
+        }
+        Insert: {
+          afirmacion_id: string
+          fusion_id: string
+          tema_origen: string
+        }
+        Update: {
+          afirmacion_id?: string
+          fusion_id?: string
+          tema_origen?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fusiones_afirmaciones_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_afirmaciones_fusion_id_fkey"
+            columns: ["fusion_id"]
+            isOneToOne: false
+            referencedRelation: "fusiones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_afirmaciones_tema_origen_fkey"
+            columns: ["tema_origen"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fusiones_afirmaciones_tema_origen_fkey"
+            columns: ["tema_origen"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gastos: {
         Row: {
           clave: string
@@ -2298,16 +2449,31 @@ export type Database = {
       }
       temas_fusion_rechazada: {
         Row: {
+          afirmaciones_a: number | null
+          afirmaciones_b: number | null
+          modelo: string | null
+          origen: string
+          razon: string | null
           rechazada_en: string
           tema_a: string
           tema_b: string
         }
         Insert: {
+          afirmaciones_a?: number | null
+          afirmaciones_b?: number | null
+          modelo?: string | null
+          origen?: string
+          razon?: string | null
           rechazada_en?: string
           tema_a: string
           tema_b: string
         }
         Update: {
+          afirmaciones_a?: number | null
+          afirmaciones_b?: number | null
+          modelo?: string | null
+          origen?: string
+          razon?: string | null
           rechazada_en?: string
           tema_a?: string
           tema_b?: string
@@ -2337,6 +2503,56 @@ export type Database = {
           {
             foreignKeyName: "temas_fusion_rechazada_tema_b_fkey"
             columns: ["tema_b"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temas_subtemas: {
+        Row: {
+          creada_en: string
+          origen: string
+          padre_id: string
+          tema_id: string
+        }
+        Insert: {
+          creada_en?: string
+          origen: string
+          padre_id: string
+          tema_id: string
+        }
+        Update: {
+          creada_en?: string
+          origen?: string
+          padre_id?: string
+          tema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temas_subtemas_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_subtemas_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_subtemas_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temas_subtemas_tema_id_fkey"
+            columns: ["tema_id"]
             isOneToOne: false
             referencedRelation: "temas_resumen"
             referencedColumns: ["id"]
@@ -2898,6 +3114,7 @@ export type Database = {
           texto: string
         }[]
       }
+      afirmaciones_vivas: { Args: { p_tema: string }; Returns: number }
       anotar_numeros_linkedin: {
         Args: {
           p_medido_en: string
@@ -2998,6 +3215,10 @@ export type Database = {
         Returns: string
       }
       crear_categoria: { Args: { p_nombre: string }; Returns: string }
+      decidir_fusion: {
+        Args: { p_fusion: string; p_veredicto: string }
+        Returns: undefined
+      }
       descartar_idea: {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
@@ -3007,6 +3228,7 @@ export type Database = {
         Returns: undefined
       }
       desconectar_linkedin: { Args: never; Returns: undefined }
+      deshacer_fusion: { Args: { p_fusion: string }; Returns: undefined }
       deshacer_lote_de_pilares: { Args: { p_lote: string }; Returns: Json }
       editar_guion_como_coni: {
         Args: {
@@ -3214,8 +3436,8 @@ export type Database = {
         Returns: undefined
       }
       fusionar_par_de_temas: {
-        Args: { p_ganador: string; p_perdedor: string }
-        Returns: undefined
+        Args: { p_fusion?: string; p_ganador: string; p_perdedor: string }
+        Returns: string
       }
       guardar_acortado: {
         Args: {
@@ -3753,6 +3975,10 @@ export type Database = {
         Returns: string
       }
       reclamar_aviso_de_pausa: { Args: { p_id: string }; Returns: boolean }
+      recordar_rechazo_de_coni: {
+        Args: { p_a: string; p_b: string }
+        Returns: undefined
+      }
       registrar_clic: {
         Args: { p_dia: string; p_enlace: string; p_visitante: string }
         Returns: boolean
@@ -3965,6 +4191,7 @@ export type Database = {
         }[]
       }
       unaccent_inmutable: { Args: { texto: string }; Returns: string }
+      unir_temas_a_mano: { Args: { p_a: string; p_b: string }; Returns: string }
       volver_a_transparencia: { Args: { p_version: number }; Returns: number }
     }
     Enums: {

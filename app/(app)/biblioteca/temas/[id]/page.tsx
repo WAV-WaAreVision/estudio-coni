@@ -4,6 +4,7 @@ import { z } from "zod"
 import { INTRO_DE_PAGINA, PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { Volver } from "@/components/ui/volver"
 import { destinoDeTema, leerPilaresDeTema, leerTema, listarPilaresDeTemas } from "@/lib/datos/biblioteca"
+import { leerOrigenDeTema } from "@/lib/datos/fusiones"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { cuentasDeTema } from "@/lib/dominio/biblioteca/cuentas"
 import {
@@ -13,6 +14,7 @@ import {
   leerIdeaOculta,
   RUTA_DE_TEMAS,
 } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import { subtemaDe, tambienSeLlamo } from "@/lib/dominio/fusiones"
 import { exigirConi } from "@/lib/sesion/coni"
 import { cn } from "@/lib/utils"
 import { AvisoDeIdeas } from "../../aviso-de-ideas"
@@ -39,10 +41,11 @@ export default async function DetalleDeTema({
   if (destino === null && ideaOculta !== null) redirect(`${RUTA_DE_TEMAS}?oculta=${ideaOculta}`)
   if (destino === null) notFound()
   if (destino !== valido.data) redirect(hrefDeTema(destino))
-  const [leido, pilares, opciones] = await Promise.all([
+  const [leido, pilares, opciones, origen] = await Promise.all([
     leerTema(db, destino),
     leerPilaresDeTema(db, destino),
     listarPilaresDeTemas(db),
+    leerOrigenDeTema(db, destino),
   ])
   if (!leido) notFound()
   const { tema, ideas, autores } = leido
@@ -60,6 +63,17 @@ export default async function DetalleDeTema({
           <h1 className="text-pantalla text-balance">{tema.nombre}</h1>
           {tema.descripcion ? <p className="text-cuerpo">{tema.descripcion}</p> : null}
           {cuentas ? <p className="text-meta text-apagado">{cuentas}</p> : null}
+          {origen.alias.length > 0 ? <p className="text-meta text-apagado">{tambienSeLlamo(origen.alias)}</p> : null}
+          {origen.subtemaDe ? (
+            <p className="text-meta">
+              <Link
+                href={hrefDeTema(origen.subtemaDe.id)}
+                className="inline-flex min-h-objetivo items-center underline decoration-1 underline-offset-4"
+              >
+                {subtemaDe(origen.subtemaDe.nombre)}
+              </Link>
+            </p>
+          ) : null}
         </header>
       </div>
       <div data-testid="pagina-panel" className="md:col-start-2 md:row-span-2 md:row-start-1">

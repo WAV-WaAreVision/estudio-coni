@@ -371,8 +371,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
       {
         "fusiones": [
           {
-            "cuerpo": "537d88c5207df4b6c66ed490945f9411ac2575088d234b0f011ec4a3f252a7d7",
-            "sistema": "19e7b95178f6a4c322aa3d4a2f8825f0d68b1499b500611270503aa12e5c4157",
+            "cuerpo": "ee35a892d7544386899b65fc1102292b725b7395a29cd2caeef6f09743e1eb2b",
+            "sistema": "d63790d67c0a4d283962482c8eeb5ef153e5f3749419f2a5c5a92552e520199d",
             "usuario": "94d7549ee5ba87a0c095d6ed5683ea219280a94c919634516429d8d969acb900",
           },
         ],

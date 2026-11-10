@@ -59,6 +59,8 @@ describe("armarInforme", () => {
       temas,
       nuevos,
       rechazadas: [],
+      subtemas: [],
+      enPropuesta: [],
       costoUsd: 0.0011,
     })
     expect(informe.fusiones).toEqual([{ a: "Deseo", b: "Ganas", parecido: expect.closeTo(0.995, 3) }])
@@ -82,11 +84,45 @@ describe("armarInforme", () => {
       afirmaciones: [],
       temas,
       nuevos: new Map([["t1", u({ 2: 1 })]]),
-      rechazadas: [{ a: "t1", b: "t2" }],
+      rechazadas: [{ a: "t1", b: "t2", origen: "coni" }],
+      subtemas: [],
+      enPropuesta: [],
       costoUsd: 0,
     })
     expect(informe.fusiones).toEqual([])
     expect(informe.temasSinCentroide).toEqual(["Ganas"])
+  })
+
+  it("counts Claude's rejections as candidates, since a model change makes the nightly run ask again, and leaves out Coni's, subtopics and proposals", () => {
+    const pareja = (n: number, id1: string, id2: string, nombre1: string, nombre2: string) => ({
+      temas: [tm(id1, nombre1, u({ [n]: 1 })), tm(id2, nombre2, u({ [n]: 1 }))],
+      nuevos: [
+        [id1, u({ [n]: 1 })],
+        [id2, u({ [n]: 1, 7: 0.01 })],
+      ] as const,
+    })
+    const parejas = [
+      pareja(0, "t1", "t2", "Claude dijo no", "A"),
+      pareja(1, "t3", "t4", "Coni dijo no", "B"),
+      pareja(2, "t5", "t6", "Subtema", "C"),
+      pareja(3, "t7", "t8", "En propuesta", "D"),
+    ]
+    const informe = armarInforme({
+      vigente: CALIBRACION_INICIAL,
+      modelo: "voyage-4",
+      traslado,
+      afirmaciones: [],
+      temas: parejas.flatMap((p) => p.temas),
+      nuevos: new Map(parejas.flatMap((p) => p.nuevos)),
+      rechazadas: [
+        { a: "t1", b: "t2", origen: "claude" },
+        { a: "t3", b: "t4", origen: "coni" },
+      ],
+      subtemas: [{ a: "t6", b: "t5" }],
+      enPropuesta: ["t8"],
+      costoUsd: 0,
+    })
+    expect(informe.fusiones.map((f) => f.a)).toEqual(["Claude dijo no"])
   })
 })
 

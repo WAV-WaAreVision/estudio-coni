@@ -2,7 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
-import { confirmarFusiones, MODELO_POR_TAREA, nombrarTemas } from "@/lib/proveedores/anthropic"
+import { confirmarFusiones, MODELO_POR_TAREA, nombrarTemas, VERSION_DE_FUSIONES } from "@/lib/proveedores/anthropic"
 import { PILARES_DE_PRUEBA } from "../fixtures/pilares"
 import { servidor } from "../msw"
 
@@ -179,30 +179,55 @@ const PARES = [
 ]
 
 describe("confirmarFusiones", () => {
-  it("sends the pairs as escaped data and returns the verdict of each", async () => {
+  const veredicto = (a: string, b: string, extra: Record<string, unknown> = {}) => ({
+    a,
+    b,
+    veredicto: "mismo",
+    general: null,
+    seguro: true,
+    razon: "Hablan de lo mismo.",
+    ...extra,
+  })
+
+  it("sends the pairs as escaped data and returns verdict, certainty and reason of each", async () => {
     const cuerpos = respondiendo({
-      pares: [
-        { a: "t1", b: "t2", mismo: true },
-        { a: "t3", b: "t4", mismo: false },
-      ],
+      pares: [veredicto("t1", "t2"), veredicto("t3", "t4", { veredicto: "distintos", seguro: false, razon: "No." })],
     })
     const { pares } = await confirmarFusiones({ cliente: cliente(), pares: PARES })
     expect(pares).toEqual([
-      { a: "t1", b: "t2", mismo: true },
-      { a: "t3", b: "t4", mismo: false },
+      { a: "t1", b: "t2", veredicto: "mismo", general: null, seguro: true, razon: "Hablan de lo mismo." },
+      { a: "t3", b: "t4", veredicto: "distintos", general: null, seguro: false, razon: "No." },
     ])
     expect(cuerpos[0]?.messages[0]?.content).toContain("<fuente>")
   })
 
-  it("keeps only verdicts about pairs it sent, in the order it sent them", async () => {
+  it("keeps only verdicts about pairs it sent, in the order and with the sides it sent them", async () => {
+    respondiendo({ pares: [veredicto("t2", "t1"), veredicto("t1", "t4"), veredicto("t9", "t8")] })
+    const { pares } = await confirmarFusiones({ cliente: cliente(), pares: PARES })
+    expect(pares.map((p) => [p.a, p.b])).toEqual([["t1", "t2"]])
+  })
+
+  it("keeps «general» only for parte_de and only when it names one of the two topics", async () => {
     respondiendo({
       pares: [
-        { a: "t2", b: "t1", mismo: true },
-        { a: "t1", b: "t4", mismo: true },
-        { a: "t9", b: "t8", mismo: true },
+        veredicto("t1", "t2", { veredicto: "parte_de", general: "t2" }),
+        veredicto("t3", "t4", { veredicto: "parte_de", general: "t9" }),
       ],
     })
     const { pares } = await confirmarFusiones({ cliente: cliente(), pares: PARES })
-    expect(pares).toEqual([{ a: "t1", b: "t2", mismo: true }])
+    expect(pares.map((p) => p.general)).toEqual(["t2", null])
+    respondiendo({ pares: [veredicto("t1", "t2", { general: "t1" })] })
+    const otra = await confirmarFusiones({ cliente: cliente(), pares: PARES })
+    expect(otra.pares[0]?.general).toBeNull()
+  })
+
+  it("takes long dashes out of the reason", async () => {
+    respondiendo({ pares: [veredicto("t1", "t2", { razon: "Uno \u2014 el otro." })] })
+    const { pares } = await confirmarFusiones({ cliente: cliente(), pares: PARES })
+    expect(pares[0]?.razon).not.toContain("\u2014")
+  })
+
+  it("names the prompt's version as the sha256 of its guide", () => {
+    expect(VERSION_DE_FUSIONES).toMatch(/^[0-9a-f]{64}$/)
   })
 })

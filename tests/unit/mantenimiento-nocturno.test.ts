@@ -27,7 +27,7 @@ vi.mock("@/lib/mantenimiento/revision-de-inventario", () => ({
 }))
 vi.mock("@/lib/ingesta/temas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ingesta/temas")>()),
-  fusionarTemas: vi.fn(async () => ({ tope: false, fusionados: 0 })),
+  fusionarTemas: vi.fn(async () => ({ tope: false, fusionados: 0, propuestas: 0, subtemas: 0, rechazados: 0 })),
 }))
 // The merges read the open pauses first; the client below is never reached.
 vi.mock("@/lib/datos/huellas", () => ({
@@ -96,11 +96,17 @@ describe("las fusiones nocturnas", () => {
   })
 
   it("tell Coni when the month's limit stops them", async () => {
-    vi.mocked(fusionarTemas).mockResolvedValueOnce({ tope: true, fusionados: 0 })
+    vi.mocked(fusionarTemas).mockResolvedValueOnce({
+      tope: true,
+      fusionados: 0,
+      propuestas: 0,
+      subtemas: 0,
+      rechazados: 0,
+    })
 
     const resultado = await mantenimientoNocturno({ ...DEPS, temas: async () => TEMAS })
 
-    expect(resultado.fusiones).toEqual({ tope: true, fusionados: 0 })
+    expect(resultado.fusiones).toEqual({ tope: true, fusionados: 0, propuestas: 0, subtemas: 0, rechazados: 0 })
     expect(fusionarTemas).toHaveBeenCalledWith(TEMAS, CALIBRACION_INICIAL)
     expect(avisarLimite).toHaveBeenCalledWith(expect.objectContaining({ avisos: DEPS.avisos }), DEPS.ahora())
   })
