@@ -16,7 +16,7 @@ function Tarjeta({ titulo, idDelTitulo, children }: { titulo: string; idDelTitul
   return (
     <article aria-labelledby={idDelTitulo} className="h-full">
       <Panel className="grid h-full content-start gap-3">
-        <h3 id={idDelTitulo} className="text-cuerpo font-semibold text-balance">
+        <h3 id={idDelTitulo} className="text-cuerpo font-semibold text-balance break-words">
           {titulo}
         </h3>
         {children}

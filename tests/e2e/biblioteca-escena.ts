@@ -55,11 +55,18 @@ export const FUSION_APLICADA = {
   perdedor: "Dormir mal",
   razon: "Hablan del mismo problema de sueño.",
 }
+export const PAR_RECHAZADO = {
+  a: "Celos en pareja",
+  b: "Celos en la amistad",
+  razon: "Uno habla de la pareja y el otro de la amistad.",
+}
 const TEMAS_DE_FUSIONES = [
   FUSION_PROPUESTA.ganador,
   FUSION_PROPUESTA.perdedor,
   FUSION_APLICADA.ganador,
   FUSION_APLICADA.perdedor,
+  PAR_RECHAZADO.a,
+  PAR_RECHAZADO.b,
 ]
 
 /** One proposal waiting for Coni and one merge applied the night before (logged by fusionar_par_de_temas). */
@@ -93,6 +100,20 @@ export async function sembrarFusiones(
   const aplicada = await uno("select public.fusionar_par_de_temas($1, $2) as id", [g2, p2])
   await pool.query("update public.fusiones set razon = $2 where id = $1", [aplicada, FUSION_APLICADA.razon])
   return { propuesta, aplicada, perdedorAplicado: p2 }
+}
+
+/** A pair Coni said is not the same topic, so «Pares que no uní» has a card too (call after sembrarFusiones). */
+export async function sembrarParRechazado(): Promise<void> {
+  const nuevo = (nombre: string) =>
+    uno("insert into public.temas (nombre, centroide) values ($1, $2::extensions.vector) returning id", [
+      nombre,
+      CENTROIDE,
+    ])
+  const [a, b] = [await nuevo(PAR_RECHAZADO.a), await nuevo(PAR_RECHAZADO.b)].sort()
+  await pool.query(
+    "insert into public.temas_fusion_rechazada (tema_a, tema_b, origen, razon) values ($1, $2, 'coni', $3)",
+    [a, b, PAR_RECHAZADO.razon],
+  )
 }
 
 export const TITULO_LISTO = "Burnout y teletrabajo: revisión 2024"
