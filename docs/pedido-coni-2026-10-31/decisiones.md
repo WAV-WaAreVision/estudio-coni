@@ -28,8 +28,8 @@ providers or tests; each spec confirms the ones it needs before writing code. Ma
 |---|---|---|---|
 | B1 | voyage-4: dimension, price, `output_dimension` | 17, 12 | Closed 2026-11-09: 1024 dims confirmed by the live call, US$ 0.06 per million tokens (200M free), `output_dimension` 1024 sent with every model. voyage-4 is live in production (#19, PR #128). |
 | B2 | Voyage reranker: model name (rerank-2.5 / 2.5-lite; "rerank-3" in the request) and price | 1, 4, 7 | Voyage docs |
-| B3 | ElevenLabs diarization: included in US$ 0.22/h? `end` and `speaker_id` per word? | 5 | Test with a real symposium (prerequisite of 5) |
-| B4 | Gemini: model, price, daily cap, private-video errors | 5 | Google docs + test |
+| B3 | ElevenLabs diarization: included in US$ 0.22/h? `end` and `speaker_id` per word? | 5 | Closed 2026-11-09 on a 90-min public panel (HMS Center for Bioethics): `scribe_v1` with `diarize=true` returns `start`, `end` and `speaker_id` per word; 3 of 3 speakers without hints, 97-100 % per chapter, 67 s, ~US$ 0.35. Still to repeat with Coni's own symposium. See `docs/superpowers/notas/prueba-diarizacion-2026-11-09.md`. |
+| B4 | Gemini: model, price, daily cap, private-video errors | 5 | Closed 2026-11-09: `gemini-2.5-flash` is gone for new accounts; `gemini-3.8-flash` (US$ 0.75 / 3.75 per M tokens until 2026-12-31, double after) reads public YouTube URLs (preview), names speakers well but skipped 3.5 min silently in one 45-min chunk. Use only for public YouTube links, 20-min overlapping chunks, coverage check. Same note. |
 | B5 | Meta: current metric names per media type, JPEG vs PNG for carousels, `is_ai_generated` on carousels, comments permission | 13, 27 | Meta docs + test account |
 | B6 | LinkedIn: Member Analytics route, version and `r_member_postAnalytics`; image and text post endpoints; comments on personal profiles | 13, 11, 27 | LinkedIn docs; **apply now, review takes weeks** |
 | B7 | LinkedIn Excel export: sheet and column names, date format, activity vs share id | 13 | Read from issue 15's sample and built in `docs/superpowers/specs/2026-11-09-excel-linkedin-design.md`; confirm the period end on one real export |
