@@ -52,7 +52,7 @@ Una cifra va en un gancho solo si Coni la entregó o la verificó.
 1. **Gancho** (primeros 3 s, máximo 12 palabras): una pregunta, una contradicción o una frase que la gente se reconozca.
 2. **Desarrollo:** una sola idea, explicada con un ejemplo cotidiano.
 3. **Acción:** algo que se pueda hacer hoy.
-4. **Cierre fijo:** "Soy Coni del Rosario."
+4. **Cierre fijo:** "Soy Constanza del Rosario."
 
 ## Reglas que no se negocian
 
