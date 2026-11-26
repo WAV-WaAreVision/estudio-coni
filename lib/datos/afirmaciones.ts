@@ -150,6 +150,7 @@ const FilaDeEmocion = z.object({
   valor: z.string(),
   certeza: z.enum(CERTEZAS),
   origen: ORIGEN,
+  creada_en: z.string(),
 })
 
 // A hundred ideas per request keeps the `in (...)` address short; each has at most a few emotions.
@@ -163,7 +164,7 @@ async function leerEmociones(db: Db, ids: readonly string[]): Promise<EmocionDeI
     lotes.map((lote) =>
       db
         .from("afirmacion_marcas")
-        .select("afirmacion_id, red, valor, certeza, origen")
+        .select("afirmacion_id, red, valor, certeza, origen, creada_en")
         .eq("marca", "emocion")
         .in("afirmacion_id", lote)
         .order("creada_en")
@@ -181,6 +182,7 @@ async function leerEmociones(db: Db, ids: readonly string[]): Promise<EmocionDeI
         valor: fila.valor,
         certeza: fila.certeza,
         origen: fila.origen,
+        creadaEn: fila.creada_en,
       }))
   })
 }

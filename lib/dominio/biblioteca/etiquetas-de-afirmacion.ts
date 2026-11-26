@@ -279,6 +279,7 @@ export interface EmocionDeIdea {
   valor: string
   certeza: Certeza
   origen: Origen
+  creadaEn: string
 }
 
 /** The short badges of an idea in a list (spec 6c-1): tipo, evidencia and one emotion per network. */
@@ -305,7 +306,8 @@ export function insigniasDeIdea(
         .toSorted(
           (a, b) =>
             Number(b.origen === "coni") - Number(a.origen === "coni") ||
-            RANGO_DE_CERTEZA[a.certeza] - RANGO_DE_CERTEZA[b.certeza],
+            RANGO_DE_CERTEZA[a.certeza] - RANGO_DE_CERTEZA[b.certeza] ||
+            Date.parse(a.creadaEn) - Date.parse(b.creadaEn),
         )[0]
       return elegida ? [{ red, etiqueta: etiquetaDe(catalogo, "emocion", red, elegida.valor) }] : []
     }),

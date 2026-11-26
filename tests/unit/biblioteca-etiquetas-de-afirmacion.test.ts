@@ -214,7 +214,8 @@ describe("insigniasDeIdea", () => {
     valor: string,
     certeza: "alta" | "media" | "baja",
     origen: "extraccion" | "coni" = "extraccion",
-  ) => ({ afirmacionId: ID_DE_AFIRMACION, red, valor, certeza, origen })
+    creadaEn = "2026-11-26T10:00:00+00:00",
+  ) => ({ afirmacionId: ID_DE_AFIRMACION, red, valor, certeza, origen, creadaEn })
 
   it("gives tipo, evidencia and one emotion per network: Coni's first, then the most certain", () => {
     expect(
@@ -236,6 +237,23 @@ describe("insigniasDeIdea", () => {
         { red: "instagram", etiqueta: "Curiosidad" },
       ],
     })
+  })
+
+  it("breaks a tie of origin and certainty with the oldest emotion, whatever order they come in", () => {
+    const insignias = insigniasDeIdea(
+      { tipo: "consejo", evidencia: "clinica" },
+      [
+        emocion("linkedin", "agobio", "alta", "extraccion", "2026-11-26T10:05:00+00:00"),
+        emocion("linkedin", "calma", "alta", "extraccion", "2026-11-26T09:59:00Z"),
+        emocion("instagram", "alivio", "media", "coni", "2026-11-26T11:00:00+00:00"),
+        emocion("instagram", "curiosidad", "media", "coni", "2026-11-26T10:30:00+00:00"),
+      ],
+      C,
+    )
+    expect(insignias.emociones).toEqual([
+      { red: "linkedin", etiqueta: "Calma" },
+      { red: "instagram", etiqueta: "Curiosidad" },
+    ])
   })
 
   it("gives an old claim only tipo and evidencia, and builds one entry per idea", () => {
