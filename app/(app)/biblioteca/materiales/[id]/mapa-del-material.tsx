@@ -2,10 +2,14 @@ import { CaretRight } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Seccion } from "@/components/seccion"
 import { ICONO } from "@/components/ui/icono"
+import { MasOpciones } from "@/components/ui/mas-opciones"
 import { TIPO_DE_AFIRMACION } from "@/lib/dominio/biblioteca/etiquetas"
+import type { Insignias } from "@/lib/dominio/biblioteca/etiquetas-de-afirmacion"
 import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
+import type { IdeaLeida } from "@/lib/dominio/biblioteca/ideas"
 import { type MapaDelMaterial as Mapa, masFrecuentesPrimero } from "@/lib/dominio/biblioteca/mapa"
 import { ideasSacadas, PALABRAS } from "@/lib/dominio/biblioteca/palabras"
+import { ListaDeIdeas } from "../../lista-de-ideas"
 
 interface FilaDeRecuento {
   clave: string
@@ -51,7 +55,16 @@ function Recuento({ titulo, id, filas }: { titulo: string; id: string; filas: Fi
 }
 
 /** What a material gave, in her words (4h): its topics and what kind of ideas. The evidence goes to WAV's detail. */
-export function MapaDelMaterial({ mapa, estado }: { mapa: Mapa; estado: string }) {
+export function MapaDelMaterial({
+  mapa,
+  estado,
+  cadaIdea,
+}: {
+  mapa: Mapa
+  estado: string
+  /** Change 6c-1: each idea with its badges, folded, so she can open one and correct its tags. */
+  cadaIdea?: { materialId: string; ideas: readonly IdeaLeida[]; insignias: ReadonlyMap<string, Insignias> }
+}) {
   return (
     <section aria-labelledby="mapa-titulo" className="grid gap-4">
       <h2 id="mapa-titulo" className="text-pieza">
@@ -82,6 +95,16 @@ export function MapaDelMaterial({ mapa, estado }: { mapa: Mapa; estado: string }
             id="mapa-tipos"
             filas={masFrecuentesPrimero(mapa.tipos, TIPO_DE_AFIRMACION)}
           />
+          {cadaIdea && cadaIdea.ideas.length > 0 ? (
+            <MasOpciones titulo={`Cada idea (${cadaIdea.ideas.length})`}>
+              <ListaDeIdeas
+                etiqueta="Cada idea"
+                ideas={cadaIdea.ideas}
+                insignias={cadaIdea.insignias}
+                desde={`/biblioteca/materiales/${cadaIdea.materialId}`}
+              />
+            </MasOpciones>
+          ) : null}
         </>
       )}
     </section>
