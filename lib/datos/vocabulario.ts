@@ -14,13 +14,16 @@ const Fila = z.object({
     z.object({
       valor: z.string(),
       etiqueta: z.string(),
-      descripcion: z.string().optional(),
-      grupo: z.enum(["problema", "puente", "solucion", "respaldo"]).optional(),
-      activacion: z.enum(["alta", "media", "baja"]).optional(),
-      retirado: z.boolean().optional(),
+      descripcion: z.string().nullish(),
+      grupo: z.enum(["problema", "puente", "solucion", "respaldo"]).nullish(),
+      activacion: z.enum(["alta", "media", "baja"]).nullish(),
+      retirado: z.boolean().nullish(),
     }),
   ),
 })
+
+/** The jsonb of a stored value may carry nulls for what it leaves out; they are read as absent. */
+export const vocabularioDeRespuesta = (data: unknown): Vocabulario => vocabularioDeFilas(z.array(Fila).parse(data))
 
 /** The vigente version of every closed list. A missing list is a setup fault: it throws, the material pauses. */
 export async function leerVocabulario(db: Db): Promise<Vocabulario> {
@@ -29,5 +32,5 @@ export async function leerVocabulario(db: Db): Promise<Vocabulario> {
     .select("id, lista, red, valores")
     .eq("estado", "vigente")
   if (error) throw falloDeBase("No pude leer las listas de etiquetas", error)
-  return vocabularioDeFilas(z.array(Fila).parse(data))
+  return vocabularioDeRespuesta(data)
 }

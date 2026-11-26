@@ -32,12 +32,30 @@ export interface Vocabulario {
   gancho: { todas: ListaVigente }
 }
 
+/** A stored value: what it leaves out may be absent or null. */
+export interface ValorGuardado {
+  valor: string
+  etiqueta: string
+  descripcion?: string | null
+  grupo?: ValorDeLista["grupo"] | null
+  activacion?: ValorDeLista["activacion"] | null
+  retirado?: boolean | null
+}
+
 export interface FilaDeVocabulario {
   id: number
   lista: string
   red: string
-  valores: (ValorDeLista & { retirado?: boolean })[]
+  valores: ValorGuardado[]
 }
+
+const sinNulos = ({ valor, etiqueta, descripcion, grupo, activacion }: ValorGuardado): ValorDeLista => ({
+  valor,
+  etiqueta,
+  ...(descripcion != null && { descripcion }),
+  ...(grupo != null && { grupo }),
+  ...(activacion != null && { activacion }),
+})
 
 export function vocabularioDeFilas(filas: readonly FilaDeVocabulario[]): Vocabulario {
   const buscar = (lista: Lista, red: RedDeLista): ListaVigente => {
@@ -45,7 +63,7 @@ export function vocabularioDeFilas(filas: readonly FilaDeVocabulario[]): Vocabul
     if (!f) throw new Error(`No hay una lista vigente de ${lista} para ${red}`)
     return {
       versionId: f.id,
-      valores: f.valores.filter((v) => !v.retirado).map(({ retirado, ...valor }) => valor),
+      valores: f.valores.filter((v) => !v.retirado).map(sinNulos),
     }
   }
   return {
