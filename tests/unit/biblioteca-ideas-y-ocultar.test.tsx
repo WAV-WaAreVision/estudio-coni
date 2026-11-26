@@ -123,3 +123,34 @@ describe("AvisoDeIdeas", () => {
     expect(vivas[0]).toHaveAttribute("aria-atomic", "true")
   })
 })
+
+describe("the badges of an idea (6c-1)", () => {
+  const INSIGNIAS = new Map([
+    [
+      ID,
+      {
+        tipo: "Consejo",
+        evidencia: "Estudio",
+        emociones: [
+          { red: "linkedin" as const, etiqueta: "Escepticismo" },
+          { red: "instagram" as const, etiqueta: "Curiosidad" },
+        ],
+      },
+    ],
+  ])
+
+  it("are one link to the claim's page that keeps where she came from, with tipo, respaldo and an emotion per network", () => {
+    render(<ListaDeIdeas etiqueta="Ideas" ideas={IDEAS} insignias={INSIGNIAS} desde="/biblioteca/autores/a-1" />)
+    const enlace = screen.getByRole("link", { name: /Ver y corregir las etiquetas/ })
+    expect(enlace).toHaveAccessibleName(
+      "Ver y corregir las etiquetas: Consejo Estudio LinkedIn: Escepticismo Instagram: Curiosidad",
+    )
+    expect(enlace).toHaveAttribute("href", `/biblioteca/afirmaciones/${ID}?desde=%2Fbiblioteca%2Fautores%2Fa-1`)
+    expect(within(enlace).queryByText(/Afirmaci|Evidencia/)).toBeNull()
+  })
+
+  it("draw nothing for an idea the list has no badges for", () => {
+    render(<ListaDeIdeas etiqueta="Ideas" ideas={IDEAS} />)
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+})
