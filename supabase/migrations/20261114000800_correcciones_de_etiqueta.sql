@@ -1,4 +1,5 @@
--- Change 6c-1: Coni sees and corrects a claim's tags. Adds a log and the functions that write it; changes no row.
+-- Change 6c-1: Coni sees and corrects a claim's tags. Adds a log, the functions that write it, and the old-claim flag
+-- (its one-time backfill is the only row change).
 
 -- Every confirmation, correction, addition and removal, append only. 6c-3 reads it for the monthly error report
 -- (index below) and relates errors to the extraction's certainty (`certeza_antes`).
