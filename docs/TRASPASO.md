@@ -238,6 +238,12 @@ el registro se borra en cascada con su afirmación. Cuando llena las marcas de u
 de una afirmación toma el mismo candado de fila que las funciones de Coni (`select ... from public.afirmaciones where id
 = ... for no key update`), para no cruzarse con una corrección en curso.
 
+**Límites conocidos para 6c-2.** Cuando una red tiene dos marcas del mismo campo (dos emociones en Instagram, por
+ejemplo), «Corregida por ti» o «Confirmada por ti» de una puede mostrar la última acción de la otra:
+`correcciones_de_etiqueta` no guarda `marca_id`, así que la revisión se busca por campo y red (`revisionDe`).
+Considerar agregar `marca_id` al registro en 6c-2. Y desde la pantalla solo se agrega una marca por campo y red:
+«Agregar» aparece solo cuando no hay ninguna.
+
 ## Siguiente
 
 - **Cambio 7 (reprocesar la Biblioteca):** debe conservar los ids de las afirmaciones, o se pierden los favoritos de
