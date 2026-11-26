@@ -192,6 +192,8 @@ export async function vaciarBiblioteca(): Promise<void> {
   await pool.query("delete from public.piezas where titulo = $1", [TITULO_DE_LA_PIEZA_PUBLICADA])
   // Temas opens on the stored network: every scene starts with none, as `pnpm db:reset` leaves it.
   await pool.query("update public.ajustes set ultima_red = null")
+  // «Mis tipos» of the hooks library: every scene starts with none chosen.
+  await pool.query("update public.ajustes set tipos_de_gancho_preferidos = '{}'")
   // Emptying every material would orphan the authors a scene's theories made (`vaciarMotor` finds them through their
   // seeded materials) and leave them for `pnpm test:db` to count: the engine's seed goes first.
   await vaciarMotor()
@@ -439,6 +441,54 @@ export async function sembrarAutoresYTemas(): Promise<EscenaDeAutoresYTemas> {
     fusionado,
     pilar,
   }
+}
+
+export const GANCHO_LINKEDIN = {
+  frase: "El aislamiento pesa más que las horas extra.",
+  sinGancho: "El aislamiento cansa más que el trabajo.",
+  tipo: "Verdad incómoda",
+}
+export const GANCHO_INSTAGRAM = {
+  frase: "Apagar las notificaciones de noche ayuda a dormir.",
+  sinGancho: "Las notificaciones le roban horas al sueño.",
+  tipo: "Escena",
+}
+export const GANCHO_ANTIGUO = "¿Y si la pausa fuera parte del trabajo?"
+
+export interface EscenaDeGanchos {
+  linkedin: string
+  instagram: string
+  antiguo: string
+}
+
+/**
+ * On top of sembrarAutoresYTemas: a classified hook on Carga mental (LinkedIn: Bienestar e impacto and Diagnóstico
+ * doble), one on Descanso digital (Instagram), and an old free-text hook on Pausas activas, whose only row is the TDAH
+ * layer, so it is «Sin red». The old one is the newest (its claim was just seeded), then Instagram, then LinkedIn.
+ */
+export async function sembrarGanchos(): Promise<EscenaDeGanchos> {
+  const idea = (texto: string) => uno("select id from public.afirmaciones where texto = $1", [texto])
+  const linkedin = await idea(GANCHO_LINKEDIN.frase)
+  const instagram = await idea(GANCHO_INSTAGRAM.frase)
+  const antiguo = await idea(IDEA_UNICA_DE_PAUSAS)
+  await pool.query(
+    `insert into public.ganchos (afirmacion_id, frase_exacta, frase_sin_gancho, tipo, certeza, version_id, origen, creada_en)
+     select f.id, f.frase, f.sin_gancho, f.tipo, 'alta', v.id, 'extraccion', now() - f.hace::interval
+       from (values ($1::uuid, $2::text, $3::text, 'verdad_incomoda', '2 hours'),
+                    ($4::uuid, $5::text, $6::text, 'escena', '1 hour')) as f (id, frase, sin_gancho, tipo, hace)
+       cross join public.versiones_de_vocabulario v
+      where v.lista = 'gancho' and v.estado = 'vigente'`,
+    [
+      linkedin,
+      GANCHO_LINKEDIN.frase,
+      GANCHO_LINKEDIN.sinGancho,
+      instagram,
+      GANCHO_INSTAGRAM.frase,
+      GANCHO_INSTAGRAM.sinGancho,
+    ],
+  )
+  await pool.query("update public.afirmaciones set gancho = $1 where id = $2", [GANCHO_ANTIGUO, antiguo])
+  return { linkedin, instagram, antiguo }
 }
 
 /** Two topics merged into each other: an address that never ends, for the not-found check. */

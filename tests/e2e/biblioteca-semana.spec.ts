@@ -175,9 +175,11 @@ test("the section menu reaches Semana from Temas and marks it as the open sectio
   const { nav, boton } = menuDeSecciones(page)
   await expect(boton).toHaveAccessibleName("Sección de la Biblioteca: Semana")
   await abrirMenuDeSecciones(page)
-  const ultima = nav.getByRole("link", { name: "Semana" })
-  await expect(ultima).toHaveAttribute("aria-current", "page")
-  // Tab past the last section folds the list, so it never covers what takes the focus next (WCAG 2.4.11).
+  await expect(nav.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "page")
+  // Tab past the last section (Ganchos since 6b) folds the list, so it never covers what takes the focus next
+  // (WCAG 2.4.11).
+  const ultima = nav.getByRole("link").last()
+  await expect(ultima).toHaveText("Ganchos")
   await ultima.focus()
   await page.keyboard.press("Tab")
   await expect(boton).toHaveAttribute("aria-expanded", "false")
