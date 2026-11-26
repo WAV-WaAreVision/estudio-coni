@@ -19,7 +19,7 @@ export function ListaDeGanchos({
     <>
       <ul aria-label="Ganchos" className="grid gap-3 md:hidden">
         {ganchos.map((gancho) => (
-          <TarjetaDeGancho key={gancho.afirmacionId} gancho={gancho} tipos={tipos} />
+          <TarjetaDeGancho key={gancho.afirmacionId} gancho={gancho} tipos={tipos} filtros={filtros} />
         ))}
       </ul>
       <div className="hidden md:block">

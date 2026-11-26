@@ -1,15 +1,23 @@
 import { Star } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { ICONO } from "@/components/ui/icono"
-import { hrefDeGancho } from "@/lib/dominio/biblioteca/filtros-de-ganchos"
+import { type FiltrosDeGanchos, hrefDeGancho } from "@/lib/dominio/biblioteca/filtros-de-ganchos"
 import { etiquetaDeTipo, type GanchoDeLista, type TipoDeGancho } from "@/lib/dominio/biblioteca/ganchos"
 
-/** A hook on the phone: the phrase, its type and author; the whole card opens its page. */
-export function TarjetaDeGancho({ gancho, tipos }: { gancho: GanchoDeLista; tipos: readonly TipoDeGancho[] }) {
+/** A hook on the phone: the phrase, its type and author; the whole card opens its page, keeping her filters. */
+export function TarjetaDeGancho({
+  gancho,
+  tipos,
+  filtros,
+}: {
+  gancho: GanchoDeLista
+  tipos: readonly TipoDeGancho[]
+  filtros: FiltrosDeGanchos
+}) {
   const linea = [etiquetaDeTipo(tipos, gancho.tipo), gancho.autor?.nombre].filter(Boolean).join(" · ")
   return (
     <li className="grid rounded-panel bg-piedra p-4 shadow-relieve">
-      <Link href={hrefDeGancho(gancho.afirmacionId)} className="grid gap-1">
+      <Link href={hrefDeGancho(gancho.afirmacionId, filtros)} className="grid gap-1">
         <span className="text-cuerpo font-semibold text-balance text-tinta">{`«${gancho.fraseExacta}»`}</span>
         <span className="text-meta text-apagado">{linea}</span>
         {gancho.favorito ? (

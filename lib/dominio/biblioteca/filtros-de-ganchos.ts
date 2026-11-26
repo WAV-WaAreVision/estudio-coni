@@ -3,7 +3,6 @@ import { esRed, type PilarDeRed, type Red } from "@/lib/dominio/pilares"
 import { type GanchoDeLista, SIN_CLASIFICAR, type TipoDeGancho } from "./ganchos"
 
 export const RUTA_DE_GANCHOS = "/biblioteca/ganchos"
-export const hrefDeGancho = (id: string) => `${RUTA_DE_GANCHOS}/${id}`
 
 export const SIN_RED = "sin_red"
 export type RedDeFiltro = Red | typeof SIN_RED
@@ -75,8 +74,7 @@ export function leerFiltrosDeGanchos(params: Params, contexto: ContextoDeGanchos
 
 const ORDEN = ["tipo", "red", "pilar", "tema", "autor"] as const
 
-/** The list's address with these filters (and the side panel open on `seleccion`): linkable, Back undoes it. */
-export function hrefDeGanchos(filtros: FiltrosDeGanchos, seleccion: string | null = null): string {
+function parametrosDe(filtros: FiltrosDeGanchos): URLSearchParams {
   const params = new URLSearchParams()
   for (const clave of ORDEN) {
     const valor = filtros[clave]
@@ -84,9 +82,24 @@ export function hrefDeGanchos(filtros: FiltrosDeGanchos, seleccion: string | nul
   }
   if (filtros.favoritos) params.set("favoritos", ENCENDIDO)
   if (filtros.misTipos) params.set("mis-tipos", ENCENDIDO)
-  if (seleccion) params.set("g", seleccion)
+  return params
+}
+
+const conConsulta = (ruta: string, params: URLSearchParams) => {
   const consulta = params.toString()
-  return consulta ? `${RUTA_DE_GANCHOS}?${consulta}` : RUTA_DE_GANCHOS
+  return consulta ? `${ruta}?${consulta}` : ruta
+}
+
+/** The list's address with these filters (and the side panel open on `seleccion`): linkable, Back undoes it. */
+export function hrefDeGanchos(filtros: FiltrosDeGanchos, seleccion: string | null = null): string {
+  const params = parametrosDe(filtros)
+  if (seleccion) params.set("g", seleccion)
+  return conConsulta(RUTA_DE_GANCHOS, params)
+}
+
+/** A hook's own page (the phone's detail), carrying the filters so its way back returns to the same list. */
+export function hrefDeGancho(id: string, filtros: FiltrosDeGanchos = {}): string {
+  return conConsulta(`${RUTA_DE_GANCHOS}/${id}`, parametrosDe(filtros))
 }
 
 /** The cascade: a pillar belongs to one network, so changing or clearing the network clears it. */

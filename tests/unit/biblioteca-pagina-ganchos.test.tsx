@@ -108,15 +108,38 @@ describe("the Ganchos page", () => {
 
 describe("a hook's page", () => {
   it("is not found for an id that is not a uuid or a claim without a hook", async () => {
-    await expect(PaginaDeGancho({ params: Promise.resolve({ id: "x" }) })).rejects.toThrow("NEXT_NOT_FOUND")
-    await expect(PaginaDeGancho({ params: Promise.resolve({ id: ID_DE_GANCHO }) })).rejects.toThrow("NEXT_NOT_FOUND")
+    const sinFiltros = Promise.resolve({})
+    await expect(PaginaDeGancho({ params: Promise.resolve({ id: "x" }), searchParams: sinFiltros })).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    )
+    await expect(
+      PaginaDeGancho({ params: Promise.resolve({ id: ID_DE_GANCHO }), searchParams: sinFiltros }),
+    ).rejects.toThrow("NEXT_NOT_FOUND")
   })
 
   it("shows the exact phrase as its title and the hook's detail", async () => {
     datos.leerGancho.mockResolvedValueOnce(nuevo)
-    const arbol = elementos(await PaginaDeGancho({ params: Promise.resolve({ id: ID_DE_GANCHO }) }))
-    expect(arbol.find((e) => e.type === "h1")?.props.children).toBe("«El 70 % no descansa.»")
+    const arbol = elementos(
+      await PaginaDeGancho({ params: Promise.resolve({ id: ID_DE_GANCHO }), searchParams: Promise.resolve({}) }),
+    )
+    const titulo = elementos(arbol.find((e) => e.type === "h1")?.props.children)
+    expect(titulo.find((e) => e.props.className === "sr-only")?.props.children).toBe("Frase exacta:")
+    expect(arbol.find((e) => e.type === "h1")?.props.children).toContain("«El 70 % no descansa.»")
     expect(arbol.find((e) => e.type === DetalleDeGancho)?.props.gancho).toEqual(nuevo)
     expect(datos.leerGancho).toHaveBeenCalledWith(expect.anything(), ID_DE_GANCHO)
+    expect(arbol.find((e) => e.props.children === "Ganchos")?.props.href).toBe("/biblioteca/ganchos")
+  })
+
+  it("goes back to the list with the filters it came with", async () => {
+    datos.leerGancho.mockResolvedValueOnce(nuevo)
+    const arbol = elementos(
+      await PaginaDeGancho({
+        params: Promise.resolve({ id: ID_DE_GANCHO }),
+        searchParams: Promise.resolve({ red: "linkedin", favoritos: "1" }),
+      }),
+    )
+    expect(arbol.find((e) => e.props.children === "Ganchos")?.props.href).toBe(
+      "/biblioteca/ganchos?red=linkedin&favoritos=1",
+    )
   })
 })

@@ -103,13 +103,24 @@ describe("BotonFavorito", () => {
 describe("PanelDeGancho", () => {
   it("is a region named by the exact phrase, with the star and its own close link that keeps the filters", () => {
     render(<PanelDeGancho gancho={ganchoDePrueba()} tipos={TIPOS_DE_PRUEBA} filtros={{ red: "linkedin" }} />)
-    const region = screen.getByRole("region", { name: "«El 70 % no descansa.»" })
+    const region = screen.getByRole("region", { name: "Frase exacta: «El 70 % no descansa.»" })
     expect(within(region).getByRole("heading", { level: 2 })).toHaveAttribute("id", "panel-titulo")
     expect(within(region).getByRole("heading", { level: 2 })).toHaveAttribute("tabindex", "-1")
     expect(within(region).getByRole("button", { name: "Favorito" })).toBeVisible()
     const cerrar = within(region).getByRole("link", { name: "Cerrar el panel" })
     expect(cerrar).toHaveAttribute("href", "/biblioteca/ganchos?red=linkedin")
     expect(cerrar).toHaveAttribute("data-cierra-panel", ID_DE_GANCHO)
+  })
+
+  it("starts the star afresh when another hook is chosen, so a refusal does not carry over", async () => {
+    acciones.marcarFavoritoAccion.mockResolvedValueOnce({ ok: false, error: "Ese gancho ya no está en la Biblioteca." })
+    const { rerender } = render(<PanelDeGancho gancho={ganchoDePrueba()} tipos={TIPOS_DE_PRUEBA} filtros={{}} />)
+    fireEvent.click(screen.getByRole("button", { name: "Favorito" }))
+    expect(await screen.findByRole("alert")).toBeVisible()
+    const otro = ganchoDePrueba({ afirmacionId: "a1b2c3d4-0000-4000-8000-000000000009", fraseExacta: "Otro gancho." })
+    rerender(<PanelDeGancho gancho={otro} tipos={TIPOS_DE_PRUEBA} filtros={{}} />)
+    expect(screen.getByRole("heading", { level: 2, name: "Frase exacta: «Otro gancho.»" })).toBeVisible()
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })
 
@@ -124,13 +135,20 @@ describe("ListaDeGanchos", () => {
   })
 
   it("draws cards on the phone that open each hook's page, with type, author and the star", () => {
-    render(<ListaDeGanchos ganchos={[favorito, viejo]} tipos={TIPOS_DE_PRUEBA} filtros={{}} seleccion={null} />)
+    render(
+      <ListaDeGanchos
+        ganchos={[favorito, viejo]}
+        tipos={TIPOS_DE_PRUEBA}
+        filtros={{ red: "linkedin" }}
+        seleccion={null}
+      />,
+    )
     const lista = screen.getByRole("list", { name: "Ganchos" })
     expect(lista).toHaveClass("md:hidden")
     const tarjetas = within(lista).getAllByRole("listitem")
     expect(within(tarjetas[0] as HTMLElement).getByRole("link")).toHaveAttribute(
       "href",
-      `/biblioteca/ganchos/${favorito.afirmacionId}`,
+      `/biblioteca/ganchos/${favorito.afirmacionId}?red=linkedin`,
     )
     expect(tarjetas[0]).toHaveTextContent("«El 70 % no descansa.»")
     expect(tarjetas[0]).toHaveTextContent("Número específico · Daniela Ruiz")

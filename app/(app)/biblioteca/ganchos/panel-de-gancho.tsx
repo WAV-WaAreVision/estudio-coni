@@ -18,10 +18,11 @@ export function PanelDeGancho({
   return (
     <section aria-labelledby="panel-titulo" className="grid gap-6 rounded-panel bg-piedra-alta p-5">
       <h2 id="panel-titulo" tabIndex={-1} className="text-pieza text-balance">
-        {`«${gancho.fraseExacta}»`}
+        <span className="sr-only">Frase exacta:</span> {`«${gancho.fraseExacta}»`}
       </h2>
       <DetalleDeGancho gancho={gancho} tipos={tipos} />
-      <BotonFavorito afirmacionId={gancho.afirmacionId} favorito={gancho.favorito} />
+      {/* Keyed by hook: a refusal shown for one hook must not stay when the panel moves to another. */}
+      <BotonFavorito key={gancho.afirmacionId} afirmacionId={gancho.afirmacionId} favorito={gancho.favorito} />
       <Link
         href={hrefDeGanchos(filtros)}
         scroll={false}

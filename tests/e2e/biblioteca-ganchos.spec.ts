@@ -90,6 +90,19 @@ test("filters by type in «Más filtros», and by network, then a pillar of that
   await expect(tarjetas(page).nth(0)).toContainText(GANCHO_INSTAGRAM.frase)
 })
 
+test("a card keeps the filters, and «Volver» brings them back", async ({ page }) => {
+  await page.goto("/biblioteca/ganchos?red=linkedin")
+  await expect(tarjetas(page)).toHaveCount(1)
+  await tocarHastaLlegar(
+    page,
+    tarjetas(page).nth(0).getByRole("link"),
+    new RegExp(`/biblioteca/ganchos/${ganchos.linkedin}\\?red=linkedin(?:&v=\\d+)?$`),
+  )
+  await tocarHastaLlegar(page, page.getByRole("link", { name: "Ganchos", exact: true }), direccion("red=linkedin"))
+  await expect(tarjetas(page)).toHaveCount(1)
+  await expect(tarjetas(page).nth(0)).toContainText(GANCHO_LINKEDIN.frase)
+})
+
 test("marks and unmarks a favorite; a favorite goes first and «Solo favoritos» keeps it", async ({ page }) => {
   const esFavorito = async () =>
     (await pool.query("select 1 from public.ganchos_favoritos where afirmacion_id = $1", [ganchos.linkedin]))

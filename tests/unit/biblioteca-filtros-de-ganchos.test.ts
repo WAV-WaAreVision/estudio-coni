@@ -130,6 +130,12 @@ describe("hrefDeGanchos", () => {
     expect(hrefDeGancho(GANCHO)).toBe(`/biblioteca/ganchos/${GANCHO}`)
   })
 
+  it("carries the filters into a hook's page, so its way back keeps them", () => {
+    expect(hrefDeGancho(GANCHO, { red: "linkedin", favoritos: true })).toBe(
+      `/biblioteca/ganchos/${GANCHO}?red=linkedin&favoritos=1`,
+    )
+  })
+
   it("round-trips through the address", () => {
     const filtros: FiltrosDeGanchos = { tipo: "escena", red: "linkedin", pilar: PILAR_DE_LINKEDIN, misTipos: true }
     const url = new URL(hrefDeGanchos(filtros), "http://localhost")
