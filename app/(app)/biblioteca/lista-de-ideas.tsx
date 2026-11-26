@@ -26,7 +26,7 @@ export function ListaDeIdeas({ etiqueta, ideas, accion, className, insignias, de
       {ideas.map((idea) => {
         const deLaIdea = insignias?.get(idea.id)
         return (
-          <li key={idea.id} className="grid gap-2 rounded-panel bg-piedra-alta p-4">
+          <li key={idea.id} className="grid content-start gap-2 rounded-panel bg-piedra-alta p-4">
             <p id={idDeIdea(idea.id)} className="text-cuerpo">{`«${idea.texto}»`}</p>
             {deLaIdea ? <InsigniasDeIdea afirmacionId={idea.id} insignias={deLaIdea} desde={desde} /> : null}
             {accion ? accion(idea) : null}
