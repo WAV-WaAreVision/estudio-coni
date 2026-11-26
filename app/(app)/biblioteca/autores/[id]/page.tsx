@@ -4,8 +4,9 @@ import { z } from "zod"
 import { INTRO_DE_PAGINA, PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { MasOpciones } from "@/components/ui/mas-opciones"
 import { Volver } from "@/components/ui/volver"
+import { leerInsigniasDeIdeas } from "@/lib/datos/afirmaciones"
 import { leerAutor, listarAutores } from "@/lib/datos/biblioteca"
-import { descripcionDeAutor, RUTA_DE_AUTORES, sePuedeUnir } from "@/lib/dominio/biblioteca/autores"
+import { descripcionDeAutor, hrefDeAutor, RUTA_DE_AUTORES, sePuedeUnir } from "@/lib/dominio/biblioteca/autores"
 import { sePuedeBorrarAutor } from "@/lib/dominio/biblioteca/borrado"
 import { cuentasDeAutor } from "@/lib/dominio/biblioteca/cuentas"
 import {
@@ -39,6 +40,11 @@ export default async function DetalleDeAutor({
   if (!leido) notFound()
   const { autor, materiales, ideas, grupos, ocultas } = leido
   const cuentas = cuentasDeAutor({ materiales, ideas })
+  // Only the visible ideas: a hidden claim has no page (spec 6c-1), so its list carries no badges.
+  const insignias = await leerInsigniasDeIdeas(
+    db,
+    grupos.flatMap((grupo) => grupo.ideas),
+  )
 
   const mostrada = leerIdeaMostrada(consulta) !== null
   // On a computer the ideas fill the main area in two columns and what she does with the author (its hidden ideas,
@@ -76,6 +82,8 @@ export default async function DetalleDeAutor({
                 etiqueta={grupo.tema ? `Ideas sobre ${grupo.tema.nombre}` : "Ideas sin tema todavía"}
                 ideas={grupo.ideas}
                 className="md:grid-cols-2"
+                insignias={insignias}
+                desde={hrefDeAutor(autor.id)}
               />
             </section>
           )

@@ -27,6 +27,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+const afirmaciones = vi.hoisted(() => ({
+  leerInsigniasDeIdeas: vi.fn(async (..._: unknown[]): Promise<Map<string, unknown>> => new Map()),
+  leerIdeasDelMaterial: vi.fn(async (..._: unknown[]): Promise<unknown[]> => []),
+}))
+vi.mock("@/lib/datos/afirmaciones", () => afirmaciones)
 vi.mock("@/lib/datos/aviso-a-federico", () => ({ leerAvisoAFederico }))
 vi.mock("@/app/(app)/acciones-avisar", () => ({ avisarAFedericoAccion: vi.fn() }))
 // No provider paused: the pages read the open pauses through the same session.
@@ -42,6 +47,7 @@ vi.mock("@/app/(app)/biblioteca/acciones", () => ({
 
 import { BotonBorrar } from "@/app/(app)/biblioteca/boton-borrar"
 import { BotonReintentar } from "@/app/(app)/biblioteca/boton-reintentar"
+import { MapaDelMaterial } from "@/app/(app)/biblioteca/materiales/[id]/mapa-del-material"
 import DetalleDeMaterial from "@/app/(app)/biblioteca/materiales/[id]/page"
 import { AvisarAFederico } from "@/components/avisar-a-federico"
 import { RefrescoAutomatico } from "@/components/refresco-automatico"
@@ -279,5 +285,36 @@ describe("the material detail page", () => {
       })
       expect(refresco(elementos(await DetalleDeMaterial(conId(ID))))[0]?.activo).toBe(false)
     })
+  })
+
+  it("hands the map each idea with its badges (6c-1)", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: null })
+    datos.leerMapaDelMaterial.mockResolvedValueOnce({
+      total: 1,
+      temas: [],
+      sinTema: 1,
+      tipos: { dato: 1 },
+      evidencia: { estudio: 1 },
+    })
+    const ideas = [{ id: "i-1", texto: "Una", tipo: "dato", evidencia: "estudio" }]
+    const insignias = new Map([["i-1", { tipo: "Dato", evidencia: "Estudio", emociones: [] }]])
+    afirmaciones.leerIdeasDelMaterial.mockResolvedValueOnce(ideas)
+    afirmaciones.leerInsigniasDeIdeas.mockResolvedValueOnce(insignias)
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(afirmaciones.leerIdeasDelMaterial).toHaveBeenCalledWith(expect.anything(), ID)
+    expect(arbol.find((elemento) => elemento.type === MapaDelMaterial)?.props.cadaIdea).toEqual({
+      materialId: ID,
+      ideas,
+      insignias,
+    })
+  })
+
+  it("reads no ideas for a map with none", async () => {
+    esConi.valor = true
+    datos.leerMaterialConFicha.mockResolvedValueOnce({ material: MATERIAL, ficha: null })
+    const arbol = elementos(await DetalleDeMaterial(conId(ID)))
+    expect(afirmaciones.leerIdeasDelMaterial).not.toHaveBeenCalled()
+    expect(arbol.find((elemento) => elemento.type === MapaDelMaterial)?.props.cadaIdea).toBeUndefined()
   })
 })

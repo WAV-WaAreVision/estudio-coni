@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { type CatalogoDeEtiquetas, catalogoDeFilas } from "@/lib/dominio/biblioteca/etiquetas-de-afirmacion"
 import { type TipoDeGancho, tiposDeGancho } from "@/lib/dominio/biblioteca/ganchos"
 import { type Vocabulario, vocabularioDeFilas } from "@/lib/dominio/vocabulario"
 import { falloDeBase } from "@/lib/ingesta/gasto-material"
@@ -51,4 +52,17 @@ export async function leerTiposDeGancho(db: Db): Promise<TipoDeGancho[]> {
   if (error) throw new Error(`No pude leer los tipos de gancho: ${error.message}`, { cause: error })
   if (!data) throw new Error("No hay una lista vigente de tipos de gancho.")
   return tiposDeGancho(Fila.parse(data).valores)
+}
+
+/**
+ * Every vigente list with its retired values (spec 6c-1): a tag may still carry a retired value and keeps its label;
+ * `opcionesDe` leaves it out of what she can choose.
+ */
+export async function leerCatalogoDeEtiquetas(db: Db): Promise<CatalogoDeEtiquetas> {
+  const { data, error } = await db
+    .from("versiones_de_vocabulario")
+    .select("id, lista, red, valores")
+    .eq("estado", "vigente")
+  if (error) throw new Error(`No pude leer las listas de etiquetas: ${error.message}`, { cause: error })
+  return catalogoDeFilas(z.array(Fila).parse(data))
 }

@@ -208,10 +208,47 @@ de Trigger. Falta: aplicarla en staging (MCP) y después en producción con OK d
 etiquetas, no vuelve a extraer). Si borra y crea afirmaciones, los favoritos se pierden: `ganchos_favoritos` se borra en
 cascada con su afirmación. Ese mismo reprocesamiento es el que llena tipo y frase sin gancho de los ganchos antiguos.
 
+## Ver y corregir etiquetas (issue 21, cambio 6, entrega 6c-1)
+
+Spec `docs/superpowers/specs/2026-11-26-etiquetas-6c1-design.md`, plan `docs/superpowers/plans/2026-11-26-etiquetas-6c1.md`.
+Página por afirmación, `/biblioteca/afirmaciones/[id]`: a la izquierda el texto, la cita, el autor, el material con
+su ubicación y el tema; a la derecha tipo («Qué tipo de idea es»), evidencia («Qué la respalda»: «Evidencia» es
+palabra solo para WAV, `palabras.ts`), las marcas por red (problema, solución, emoción, público), dato y caso, y el
+tipo de gancho con sus tres partes. Cada etiqueta abre su lista (emociones por grupo, con activación) con «Está bien»
+y «Cambiar»; «Otro»/«Otra» piden una línea de por qué; las marcas se agregan («Agregar») y se quitan («Quitar», con
+confirmación). Todo pasa por tres funciones `security definer`, solo Coni: `corregir_etiqueta`, `confirmar_etiqueta`
+y `quitar_marca` (más un `p_marca_id` opcional para elegir la fila cuando una red tiene dos marcas iguales). Validan
+contra la lista vigente y escriben `correcciones_de_etiqueta` en la misma transacción (Coni y WAV la leen, nadie la
+escribe directo; índice por campo, acción y fecha para el informe de 6c-3). En una afirmación antigua (189 en
+producción al escribir el plan) solo se corrigen tipo y evidencia, y las marcas dicen «Llegan al reprocesar la
+Biblioteca» con el texto libre viejo. Antigua es la columna `afirmaciones.etiquetas_antiguas`, que la migración marcó
+una vez (sin marcas y sin fila en `ganchos` en ese momento); todo lo extraído después es nueva aunque salga sin
+marcas. Insignias (tipo, evidencia y una emoción por red) en las ideas de Autor, de Tema y en «Cada idea (n)» del
+material; el panel y la página de un gancho enlazan «Ver la afirmación». «Volver» usa `?desde=`. Las piezas firmadas
+no cambian; ideas y teorías sin firmar toman lo nuevo en la próxima corrida del motor; la Biblioteca de ganchos lo ve
+al tiro (es una vista). Migración `20261114000800`, sin despliegue de Trigger. Falta: aplicarla en staging (MCP) y
+después en producción con OK de Federico.
+
+**Acoplamiento con el cambio 7.** Su reprocesamiento llena las marcas de las afirmaciones antiguas y no puede pisar lo
+que Coni corrigió: antes de escribir `afirmaciones.tipo` o `afirmaciones.evidencia`, mirar `correcciones_de_etiqueta`
+(campo `tipo` o `evidencia`, acción `corrige` o `confirma`) y, si hay una fila, dejar el valor actual, que es el de
+Coni. Lo mismo con las marcas y los ganchos con `origen = 'coni'`. Y tiene que conservar los ids de las afirmaciones:
+el registro se borra en cascada con su afirmación. Cuando llena las marcas de una afirmación antigua, pone
+`etiquetas_antiguas = false` en la misma transacción (si no, Coni sigue sin poder tocarlas). Y antes de tocar las marcas
+de una afirmación toma el mismo candado de fila que las funciones de Coni (`select ... from public.afirmaciones where id
+= ... for no key update`), para no cruzarse con una corrección en curso.
+
+**Límites conocidos para 6c-2.** Cuando una red tiene dos marcas del mismo campo (dos emociones en Instagram, por
+ejemplo), «Corregida por ti» o «Confirmada por ti» de una puede mostrar la última acción de la otra:
+`correcciones_de_etiqueta` no guarda `marca_id`, así que la revisión se busca por campo y red (`revisionDe`).
+Considerar agregar `marca_id` al registro en 6c-2. Y desde la pantalla solo se agrega una marca por campo y red:
+«Agregar» aparece solo cuando no hay ninguna.
+
 ## Siguiente
 
 - **Cambio 7 (reprocesar la Biblioteca):** debe conservar los ids de las afirmaciones, o se pierden los favoritos de
-  ganchos (ver «Biblioteca de ganchos»).
+  ganchos y el registro de correcciones; y debe conservar el tipo y la evidencia que Coni corrigió, y sus marcas y
+  ganchos con `origen = 'coni'` (ver «Biblioteca de ganchos» y «Ver y corregir etiquetas»).
 - **Fusiones de temas (#22)** desde el 10-11-2026: registro de cada fusión con deshacer exacto (se rechaza si cambiaron los pilares del ganador), página `/biblioteca/temas/fusiones`, enlace «Fusiones · n» en Temas y aviso en Inicio. Las decisiones de Coni quedan en `decisiones_de_tema` para la recalibración ×3.
 - **Identidad A8** desde el 10-11-2026: guía v5, «Psicóloga-Coach PUC» en `/l` y en las instrucciones; los guiones viejos con «Soy Coni del Rosario.» siguen pasando la revisión.
 - **Transcripción con hablantes (B3/B4):** prueba del 09-11-2026 en `docs/superpowers/notas/prueba-diarizacion-2026-11-09.md`; para el cambio 5 se recomienda ElevenLabs más nombres por Claude, y Gemini solo para enlaces públicos de YouTube.

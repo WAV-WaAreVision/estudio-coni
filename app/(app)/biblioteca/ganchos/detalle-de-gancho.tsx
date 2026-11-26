@@ -1,7 +1,9 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
+import { hrefDeAfirmacion } from "@/lib/dominio/biblioteca/etiquetas-de-afirmacion"
 import { textoDeUbicacion } from "@/lib/dominio/biblioteca/ficha"
+import { hrefDeGancho } from "@/lib/dominio/biblioteca/filtros-de-ganchos"
 import { hrefDeTema } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import {
   AVISO_SIN_CLASIFICAR,
@@ -65,6 +67,12 @@ export function DetalleDeGancho({ gancho, tipos }: { gancho: GanchoDeLista; tipo
           ))
         )}
       </dl>
+      <Link
+        href={hrefDeAfirmacion(gancho.afirmacionId, hrefDeGancho(gancho.afirmacionId))}
+        className={`${ENLACE} inline-flex min-h-objetivo w-fit items-center`}
+      >
+        Ver la afirmación
+      </Link>
     </div>
   )
 }

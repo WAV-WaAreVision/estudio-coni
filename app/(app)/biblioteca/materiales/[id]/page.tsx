@@ -6,6 +6,7 @@ import { clasesDeBoton } from "@/components/ui/clases-de-boton"
 import { DetalleParaWav } from "@/components/ui/detalle-para-wav"
 import { LineaDeEstado } from "@/components/ui/linea-de-estado"
 import { Volver } from "@/components/ui/volver"
+import { leerIdeasDelMaterial, leerInsigniasDeIdeas } from "@/lib/datos/afirmaciones"
 import { leerAvisoAFederico } from "@/lib/datos/aviso-a-federico"
 import { leerMapaDelMaterial, leerMaterialConFicha, listarAutores } from "@/lib/datos/biblioteca"
 import { leerPausasAbiertas } from "@/lib/datos/pausas"
@@ -52,6 +53,9 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
         })
       : null,
   ])
+  // «Cada idea» of the map (spec 6c-1): only when the map has ideas, so a strategy material reads nothing more.
+  const ideas = mapa && mapa.total > 0 ? await leerIdeasDelMaterial(db, material.id) : []
+  const insignias = await leerInsigniasDeIdeas(db, ideas)
   // What was processed follows the role it had then: after "¿Quién es para ti?" changes, only reprocessing shows it the new way.
   const rol = esRol(material.rol) ? material.rol : "referente"
   const procesadoConOtroRol = conFicha
@@ -102,7 +106,11 @@ export default async function DetalleDeMaterial({ params }: { params: Promise<{ 
         {procesadoConOtroRol ? (
           <LineaDeEstado tipo="aviso" titulo="Cambiaste quién es para ti: reprocesa el material para verlo así." />
         ) : mapa ? (
-          <MapaDelMaterial mapa={mapa} estado={material.estado} />
+          <MapaDelMaterial
+            mapa={mapa}
+            estado={material.estado}
+            cadaIdea={ideas.length > 0 ? { materialId: material.id, ideas, insignias } : undefined}
+          />
         ) : ficha ? (
           <>
             <p className="rounded-bloque bg-piedra-honda p-3.5 text-meta text-tinta">

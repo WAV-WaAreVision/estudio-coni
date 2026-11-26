@@ -105,6 +105,7 @@ export type Database = {
           creada_en: string
           dolor: string | null
           emocion: string | null
+          etiquetas_antiguas: boolean
           evidencia: string
           excluida: boolean
           gancho: string | null
@@ -127,6 +128,7 @@ export type Database = {
           creada_en?: string
           dolor?: string | null
           emocion?: string | null
+          etiquetas_antiguas?: boolean
           evidencia: string
           excluida?: boolean
           gancho?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           creada_en?: string
           dolor?: string | null
           emocion?: string | null
+          etiquetas_antiguas?: boolean
           evidencia?: string
           excluida?: boolean
           gancho?: string | null
@@ -716,6 +719,76 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      correcciones_de_etiqueta: {
+        Row: {
+          accion: string
+          afirmacion_id: string
+          antes: string | null
+          campo: string
+          certeza_antes: string | null
+          creada_en: string
+          despues: string | null
+          frase_antes: string | null
+          frase_despues: string | null
+          id: string
+          por_que: string | null
+          red: string
+          version_id: number | null
+        }
+        Insert: {
+          accion: string
+          afirmacion_id: string
+          antes?: string | null
+          campo: string
+          certeza_antes?: string | null
+          creada_en?: string
+          despues?: string | null
+          frase_antes?: string | null
+          frase_despues?: string | null
+          id?: string
+          por_que?: string | null
+          red: string
+          version_id?: number | null
+        }
+        Update: {
+          accion?: string
+          afirmacion_id?: string
+          antes?: string | null
+          campo?: string
+          certeza_antes?: string | null
+          creada_en?: string
+          despues?: string | null
+          frase_antes?: string | null
+          frase_despues?: string | null
+          id?: string
+          por_que?: string | null
+          red?: string
+          version_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correcciones_de_etiqueta_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correcciones_de_etiqueta_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
+            foreignKeyName: "correcciones_de_etiqueta_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "versiones_de_vocabulario"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       decisiones_de_tema: {
         Row: {
@@ -3487,6 +3560,15 @@ export type Database = {
         Returns: undefined
       }
       confirmar_costo_material: { Args: { p_id: string }; Returns: undefined }
+      confirmar_etiqueta: {
+        Args: {
+          p_afirmacion: string
+          p_campo: string
+          p_marca_id?: string
+          p_red: string
+        }
+        Returns: undefined
+      }
       confirmar_gasto: {
         Args: { p_clave: string; p_real: number }
         Returns: {
@@ -3509,6 +3591,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      corregir_etiqueta: {
+        Args: {
+          p_afirmacion: string
+          p_campo: string
+          p_frase?: string
+          p_marca_id?: string
+          p_por_que?: string
+          p_red: string
+          p_valor: string
+        }
+        Returns: undefined
       }
       crear_autor: {
         Args: { p_credencial: string; p_nombre: string; p_tipo: string }
@@ -3712,6 +3806,79 @@ export type Database = {
       es_mantenedor: { Args: never; Returns: boolean }
       es_uuid_de_texto: { Args: { p_valor: Json }; Returns: boolean }
       espacios_simples: { Args: { p_texto: string }; Returns: string }
+      etiqueta_afirmacion: {
+        Args: { p_afirmacion: string }
+        Returns: {
+          autor_id: string
+          cita: string
+          creada_en: string
+          dolor: string | null
+          emocion: string | null
+          etiquetas_antiguas: boolean
+          evidencia: string
+          excluida: boolean
+          gancho: string | null
+          id: string
+          idioma: string | null
+          material_id: string
+          modelo_vector: string | null
+          postura: string | null
+          publico: string | null
+          tema_id: string | null
+          texto: string
+          tipo: string
+          tramo: number
+          ubicacion: Json
+          vector: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "afirmaciones"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      etiqueta_en_lista: {
+        Args: { p_valor: string; p_version: number }
+        Returns: boolean
+      }
+      etiqueta_exigir: {
+        Args: { p_campo: string; p_red: string }
+        Returns: undefined
+      }
+      etiqueta_lista_de_campo: { Args: { p_campo: string }; Returns: string }
+      etiqueta_marca: {
+        Args: {
+          p_afirmacion: string
+          p_marca: string
+          p_marca_id: string
+          p_puede_faltar: boolean
+          p_red: string
+        }
+        Returns: {
+          afirmacion_id: string
+          certeza: string
+          creada_en: string
+          frase: string | null
+          id: string
+          marca: string
+          origen: string
+          por_que: string | null
+          red: string
+          valor: string
+          version_id: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "afirmacion_marcas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      etiqueta_version_vigente: {
+        Args: { p_lista: string; p_red: string }
+        Returns: number
+      }
       excluir_afirmacion: {
         Args: { p_excluida: boolean; p_id: string }
         Returns: undefined
@@ -4214,6 +4381,15 @@ export type Database = {
       publicar_transparencia: {
         Args: { p_motivo: string; p_texto: string }
         Returns: number
+      }
+      quitar_marca: {
+        Args: {
+          p_afirmacion: string
+          p_marca: string
+          p_marca_id?: string
+          p_red: string
+        }
+        Returns: undefined
       }
       recalcular_tema: { Args: { p_tema: string }; Returns: undefined }
       rechazar_diseno_que_no_cabe: {

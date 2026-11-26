@@ -42,6 +42,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+const afirmaciones = vi.hoisted(() => ({
+  leerInsigniasDeIdeas: vi.fn(async (..._: unknown[]): Promise<Map<string, unknown>> => new Map()),
+  leerIdeasDelMaterial: vi.fn(async (..._: unknown[]): Promise<unknown[]> => []),
+}))
+vi.mock("@/lib/datos/afirmaciones", () => afirmaciones)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   unirAutoresAccion: vi.fn(),
   ocultarIdeaAccion: vi.fn(),
@@ -384,6 +389,20 @@ describe("a topic's page", () => {
     const arbol = elementos(await abrir(CARGA, { oculta: IDEA }))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_OCULTAR)
     expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "oculta" })
+  })
+
+  it("gives its ideas their badges and itself as the way back (6c-1)", async () => {
+    esConi.valor = true
+    datos.destinoDeTema.mockResolvedValue(CARGA)
+    datos.leerTema.mockResolvedValueOnce(leido([UNA, DOS]))
+    const insignias = new Map([["i-1", { tipo: "Dato", evidencia: "Estudio", emociones: [] }]])
+    afirmaciones.leerInsigniasDeIdeas.mockResolvedValueOnce(insignias)
+    const arbol = elementos(await abrir(CARGA))
+    expect(afirmaciones.leerInsigniasDeIdeas).toHaveBeenCalledWith(expect.anything(), [UNA, DOS])
+    expect(arbol.find((elemento) => elemento.type === ListaDeIdeas)?.props).toMatchObject({
+      insignias,
+      desde: `/biblioteca/temas/${CARGA}`,
+    })
   })
 })
 

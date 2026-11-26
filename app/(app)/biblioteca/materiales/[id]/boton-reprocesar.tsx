@@ -5,7 +5,7 @@ import { reprocesarMaterialAccion } from "../../acciones"
 import { BotonQuePregunta } from "../../boton-que-pregunta"
 
 export const PREGUNTA_REPROCESAR =
-  "Reprocesar cuesta más o menos lo mismo que la primera vez. Se borran las ideas sacadas de este material y se vuelven a sacar."
+  "Reprocesar cuesta más o menos lo mismo que la primera vez. Se borran las ideas sacadas de este material y se vuelven a sacar, y se pierde lo que corregiste en sus etiquetas."
 
 export const PREGUNTA_REPROCESAR_ESTRATEGIA =
   "Reprocesar cuesta más o menos lo mismo que la primera vez. La ficha de este material se reemplaza por una nueva, también lo que editaste."

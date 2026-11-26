@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { z } from "zod"
 import { INTRO_DE_PAGINA, PRINCIPAL_Y_PANEL } from "@/components/pagina-en-columnas"
 import { Volver } from "@/components/ui/volver"
+import { leerInsigniasDeIdeas } from "@/lib/datos/afirmaciones"
 import { destinoDeTema, leerPilaresDeTema, leerTema, listarPilaresDeTemas } from "@/lib/datos/biblioteca"
 import { leerOrigenDeTema } from "@/lib/datos/fusiones"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
@@ -50,6 +51,10 @@ export default async function DetalleDeTema({
   if (!leido) notFound()
   const { tema, ideas, autores } = leido
   const cuentas = cuentasDeTema({ ideas, autores: autores.length })
+  const insignias = await leerInsigniasDeIdeas(
+    db,
+    autores.flatMap((grupo) => grupo.ideas),
+  )
 
   const oculta = ideaOculta !== null
   // On a computer the pillars go to a 20rem panel beside the title and the ideas, which fill the main area in two
@@ -102,6 +107,8 @@ export default async function DetalleDeTema({
                 etiqueta={`Ideas de ${grupo.autor.nombre}`}
                 ideas={grupo.ideas}
                 className="md:grid-cols-2"
+                insignias={insignias}
+                desde={hrefDeTema(tema.id)}
                 accion={(idea) => (
                   <BotonOcultar ideaId={idea.id} oculta={false} despues={hrefTrasOcultar(tema.id, idea.id, ideas)} />
                 )}

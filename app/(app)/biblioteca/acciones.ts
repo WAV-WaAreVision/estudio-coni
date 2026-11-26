@@ -31,6 +31,14 @@ import {
   UnionDeAutores,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
+import {
+  ConfirmacionDeEtiqueta,
+  CorreccionDeEtiqueta,
+  confirmarEtiqueta,
+  corregirEtiqueta,
+  quitarMarca,
+  RetiroDeMarca,
+} from "@/lib/acciones/etiquetas"
 import { CambioDeFavorito, marcarFavorito } from "@/lib/acciones/ganchos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
@@ -208,4 +216,24 @@ export async function guardarMisTiposAccion(valores: string[]) {
       ),
     ),
   )
+}
+
+// A tag shows on the claim's page and as a badge in the author, topic and material lists: the section is refreshed.
+
+export async function corregirEtiquetaAccion(correccion: z.input<typeof CorreccionDeEtiqueta>) {
+  return refrescar(
+    await conSesionDeConi("corregirEtiqueta", CorreccionDeEtiqueta, correccion, (db, d) => corregirEtiqueta({ db }, d)),
+  )
+}
+
+export async function confirmarEtiquetaAccion(confirmacion: z.input<typeof ConfirmacionDeEtiqueta>) {
+  return refrescar(
+    await conSesionDeConi("confirmarEtiqueta", ConfirmacionDeEtiqueta, confirmacion, (db, d) =>
+      confirmarEtiqueta({ db }, d),
+    ),
+  )
+}
+
+export async function quitarMarcaAccion(retiro: z.input<typeof RetiroDeMarca>) {
+  return refrescar(await conSesionDeConi("quitarMarca", RetiroDeMarca, retiro, (db, d) => quitarMarca({ db }, d)))
 }

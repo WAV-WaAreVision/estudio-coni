@@ -491,6 +491,49 @@ export async function sembrarGanchos(): Promise<EscenaDeGanchos> {
   return { linkedin, instagram, antiguo }
 }
 
+export const TEXTO_ANTIGUO = {
+  publico: "Parejas que trabajan",
+  dolor: "La carga invisible",
+  emocion: "Alivio",
+}
+
+export interface EscenaDeEtiquetas extends EscenaDeGanchos {
+  /** GANCHO_LINKEDIN's claim, with 6a marks: two emotions, a problem, an audience and a dato. */
+  nueva: string
+  /** IDEA_DE_CONI's claim: marked old as the 6c-1 backfill would, no marks, only the old free text. */
+  antigua: string
+}
+
+/**
+ * On top of sembrarAutoresYTemas: the hooks of sembrarGanchos, marks on the LinkedIn hook's claim as 6a's extraction
+ * leaves them (the LinkedIn emotion with low certainty), and Coni's own idea as an old claim with free text. A claim
+ * is old only through `etiquetas_antiguas` (every seeded claim starts new), so the old one sets it as the migration's
+ * one-time backfill did.
+ */
+export async function sembrarEtiquetas(): Promise<EscenaDeEtiquetas> {
+  const ganchos = await sembrarGanchos()
+  const antigua = await uno("select id from public.afirmaciones where texto = $1", [IDEA_DE_CONI])
+  await pool.query(
+    `insert into public.afirmacion_marcas (afirmacion_id, marca, red, valor, frase, certeza, version_id, origen)
+     select $1, f.marca, f.red, f.valor, f.frase, f.certeza, v.id, 'extraccion'
+       from (values ('emocion', 'linkedin', 'escepticismo', 'No me lo creo', 'baja', 'emocion'),
+                    ('emocion', 'instagram', 'curiosidad', 'Abre la pregunta', 'media', 'emocion'),
+                    ('problema', 'linkedin', 'resistencia_miedo', 'Miedo a quedar fuera', 'media', 'dolor'),
+                    ('publico', 'linkedin', 'lideres_equipos', null, 'alta', 'publico'),
+                    ('dato', 'todas', '70 %', 'El 70 % trabaja solo', 'alta', null))
+            as f (marca, red, valor, frase, certeza, lista)
+       left join public.versiones_de_vocabulario v
+         on v.lista = f.lista and v.estado = 'vigente'
+        and v.red = case when f.lista in ('publico', 'dolor') then f.red else 'todas' end`,
+    [ganchos.linkedin],
+  )
+  await pool.query(
+    "update public.afirmaciones set publico = $1, dolor = $2, emocion = $3, etiquetas_antiguas = true where id = $4",
+    [TEXTO_ANTIGUO.publico, TEXTO_ANTIGUO.dolor, TEXTO_ANTIGUO.emocion, antigua],
+  )
+  return { ...ganchos, nueva: ganchos.linkedin, antigua }
+}
+
 /** Two topics merged into each other: an address that never ends, for the not-found check. */
 export async function sembrarTemasEnBucle(): Promise<string> {
   const primero = await uno(

@@ -60,6 +60,32 @@ describe("MapaDelMaterial (4h)", () => {
     expect(sinEnlace?.querySelector("svg")).toBeNull()
     expect(screen.getByRole("list", { name: "Qué tipo de idea es" }).querySelector("svg")).toBeNull()
   })
+
+  it("folds each idea with its badges under «Cada idea (n)», coming back to the material (6c-1)", () => {
+    const idea = { id: "i-1", texto: "Una idea", tipo: "dato", evidencia: "estudio" }
+    render(
+      <MapaDelMaterial
+        mapa={MAPA}
+        estado="listo"
+        cadaIdea={{
+          materialId: "m-1",
+          ideas: [idea],
+          insignias: new Map([["i-1", { tipo: "Dato", evidencia: "Estudio", emociones: [] }]]),
+        }}
+      />,
+    )
+    expect(screen.getByText("Cada idea (1)")).toBeVisible()
+    const lista = screen.getByRole("list", { name: "Cada idea", hidden: true })
+    expect(within(lista).getByRole("link", { name: /Ver y corregir las etiquetas/, hidden: true })).toHaveAttribute(
+      "href",
+      "/biblioteca/afirmaciones/i-1?desde=%2Fbiblioteca%2Fmateriales%2Fm-1",
+    )
+  })
+
+  it("offers no «Cada idea» without ideas", () => {
+    render(<MapaDelMaterial mapa={MAPA} estado="listo" />)
+    expect(screen.queryByText(/Cada idea/)).toBeNull()
+  })
 })
 
 describe("BotonReprocesar", () => {
@@ -67,6 +93,7 @@ describe("BotonReprocesar", () => {
     render(<BotonReprocesar materialId="m-1" rol="referente" />)
     fireEvent.click(screen.getByRole("button", { name: "Reprocesar" }))
     expect(screen.getByText(PREGUNTA_REPROCESAR)).toBeInTheDocument()
+    expect(PREGUNTA_REPROCESAR).toMatch(/lo que corregiste en sus etiquetas/)
     fireEvent.click(screen.getByRole("button", { name: "Sí, reprocesar" }))
     await waitFor(() => expect(reprocesarMaterialAccion).toHaveBeenCalledWith("m-1"))
   })
