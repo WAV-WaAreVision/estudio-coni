@@ -117,7 +117,7 @@ function columnaCon(cambio: CambioDeAjuste): Database["public"]["Tables"]["ajust
   return { [COLUMNAS[cambio.campo]]: cambio.valor }
 }
 
-/** What the list does not have is dropped, never stored: a type retired later stays and the screen ignores it. */
+/** What the list does not have is dropped, never stored: a type retired later stays until this next save drops it. */
 async function soloLoVigente(db: Db, cambio: CambioDeAjuste): Promise<CambioDeAjuste> {
   if (cambio.campo !== "tipos_de_gancho") return cambio
   return { campo: cambio.campo, valor: tiposDeGanchoValidos(await leerVocabulario(db), cambio.valor) }

@@ -196,7 +196,7 @@ export async function marcarFavoritoAccion(cambio: z.input<typeof CambioDeFavori
   )
 }
 
-const MisTipos = z.object({ valores: z.array(z.string().max(60)).max(40) })
+const MisTipos = z.object({ valores: z.array(z.string().min(1).max(60)).max(40) })
 
 /** «Elegir mis tipos»: the settings path validates against the vigente list; the hooks screen is what changes. */
 export async function guardarMisTiposAccion(valores: string[]) {

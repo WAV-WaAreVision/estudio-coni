@@ -53,8 +53,8 @@ lost. Written into the change 7 notes of `docs/TRASPASO.md`.
 
 `text[] not null default '{}'`. Written through the existing ajustes update path (`lib/acciones/ajustes.ts`, a new
 `CambioDeAjuste`), only by Coni. The action keeps only values of the vigente `gancho` list version (read with
-`leerVocabulario`); unknown values are dropped, not stored. A type later retired from the list stays stored but is shown as
-inactive and ignored by the filter.
+`leerVocabulario`); unknown values are dropped, not stored. A type later retired from the list stays stored, shown as
+inactive and ignored by the filter, until Coni's next save of «Mis tipos», which drops it (the chooser warns first).
 
 ## Screen `/biblioteca/ganchos`
 
