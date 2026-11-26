@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 
 import { BotonFavorito } from "@/app/(app)/biblioteca/ganchos/boton-favorito"
 import { DetalleDeGancho } from "@/app/(app)/biblioteca/ganchos/detalle-de-gancho"
+import { ElegirMisTipos } from "@/app/(app)/biblioteca/ganchos/elegir-mis-tipos"
 import { FiltrosDeGanchos } from "@/app/(app)/biblioteca/ganchos/filtros-de-ganchos"
 import { ListaDeGanchos } from "@/app/(app)/biblioteca/ganchos/lista-de-ganchos"
 import { MasFiltrosDeGanchos } from "@/app/(app)/biblioteca/ganchos/mas-filtros-de-ganchos"
@@ -277,5 +278,33 @@ describe("MasFiltrosDeGanchos", () => {
     render(<MasFiltrosDeGanchos filtros={{}} tipos={TIPOS_DE_PRUEBA} opciones={opciones} />)
     expect(screen.getByText("Más filtros")).toBeVisible()
     expect(screen.queryByRole("link", { name: "Quitar estos filtros" })).toBeNull()
+  })
+})
+
+describe("ElegirMisTipos", () => {
+  it("offers the active types as boxes, her choice checked, and saves what she checks", async () => {
+    render(<ElegirMisTipos tipos={TIPOS_DE_PRUEBA} elegidos={["escena"]} />)
+    expect(screen.getByText("Elegir mis tipos")).toBeVisible()
+    const casillas = screen.getAllByRole("checkbox")
+    expect(casillas).toHaveLength(12)
+    expect(screen.getByRole("checkbox", { name: "Escena" })).toBeChecked()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mito" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar mis tipos" }))
+    await vi.waitFor(() => expect(acciones.guardarMisTiposAccion).toHaveBeenCalledWith(["escena", "mito"]))
+    // Inside a folded <details>, which jest-dom's toBeVisible counts as hidden: check presence instead.
+    expect(await screen.findByText("Guardé tus tipos.")).toBeInTheDocument()
+  })
+
+  it("says which chosen types left the list and that saving drops them", () => {
+    render(<ElegirMisTipos tipos={TIPOS_DE_PRUEBA} elegidos={["rima", "escena"]} />)
+    expect(screen.getByText("Ya no están en la lista y se quitan al guardar: Rima.")).toBeInTheDocument()
+    expect(screen.queryByRole("checkbox", { name: "Rima" })).toBeNull()
+  })
+
+  it("says a refusal", async () => {
+    acciones.guardarMisTiposAccion.mockResolvedValueOnce({ ok: false, error: "No pude guardar el cambio." })
+    render(<ElegirMisTipos tipos={TIPOS_DE_PRUEBA} elegidos={[]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Guardar mis tipos" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pude guardar el cambio.")
   })
 })
