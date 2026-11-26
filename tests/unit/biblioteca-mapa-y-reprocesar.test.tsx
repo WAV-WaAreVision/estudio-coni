@@ -93,6 +93,7 @@ describe("BotonReprocesar", () => {
     render(<BotonReprocesar materialId="m-1" rol="referente" />)
     fireEvent.click(screen.getByRole("button", { name: "Reprocesar" }))
     expect(screen.getByText(PREGUNTA_REPROCESAR)).toBeInTheDocument()
+    expect(PREGUNTA_REPROCESAR).toMatch(/lo que corregiste en sus etiquetas/)
     fireEvent.click(screen.getByRole("button", { name: "Sí, reprocesar" }))
     await waitFor(() => expect(reprocesarMaterialAccion).toHaveBeenCalledWith("m-1"))
   })
