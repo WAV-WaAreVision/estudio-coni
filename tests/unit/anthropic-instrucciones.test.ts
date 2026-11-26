@@ -180,7 +180,7 @@ const LAMINAS = [
 describe("instrucciones de Claude (caracterización byte a byte)", () => {
   it("keeps the extraction version, which marks every stored extraction as current or stale", () => {
     expect(versionDeExtraccion(VOCABULARIO)).toMatchInlineSnapshot(
-      `"499548b052f0cbb53387034a5dc603c5400483fe8fd320e9c897baade0a3f9ea"`,
+      `"5e43eb2183ad87145b47a29bedf391544e718295dd929f6db9d8e7eae3855276"`,
     )
   })
 
@@ -455,8 +455,8 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "23c3a0831c93ec0fc52e3b86c2b8230b04135f78e337595ae667c60244cf3603",
-          "sistema": "d99e2b370c17c9241cea3664634aedc5db2c89f0abcf6a444163fe9c96f8d7a8",
+          "cuerpo": "e7e35250b406eebee5a5e3478d53f76a0a26c91d45b74e1e884acfe7314318a7",
+          "sistema": "8c2185baf9c38f8db3d7106206e9ab4767e514a389b44207a67534dffc553c51",
           "usuario": "8678eb90a3d77a90371ef5b620f7787b1fb876fca059b73b74b66885d4d5cfc0",
         },
       ]

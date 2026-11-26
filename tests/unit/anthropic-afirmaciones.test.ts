@@ -290,7 +290,7 @@ describe("guiaDeAfirmaciones", () => {
     expect(guia).toContain("problema")
     expect(guia).toContain("agobio: Agobio. Demasiado, ahora: sobrecarga, no doy abasto. (activación alta)")
     expect(guia).toContain("Classify what the claim provokes in the reader, not what it mentions")
-    expect(guia).toContain("guilt is about what I did; shame is about who I am")
+    expect(guia).toContain("culpa is about what I did, verguenza is about who I am")
     expect(guia).not.toMatch(/[—–]/)
   })
 
