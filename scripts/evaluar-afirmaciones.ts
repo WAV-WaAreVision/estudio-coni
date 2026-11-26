@@ -38,7 +38,7 @@ const TEXTOS_POR_EMBEBIDO = 128
 const TOKENS_POR_AFIRMACION = 100
 // Same reservation as lib/ingesta/afirmar.ts (ESTIMADO_POR_TRAMO_USD): over-estimates on purpose.
 const USD_POR_TRAMO = costoClaude(
-  { input_tokens: 5_000, output_tokens: 1_500 },
+  { input_tokens: 7_000, output_tokens: 10_000 },
   MODELO_POR_TAREA.extraerAfirmaciones.modelo,
 )
 

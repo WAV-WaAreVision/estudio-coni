@@ -33,9 +33,9 @@ import { costoVoyage, costoVoyagePeorCaso, embeber } from "@/lib/proveedores/voy
 
 /** Voyage takes up to 128 texts per request. */
 export const TEXTOS_POR_EMBEBIDO = 128
-/** The reservation for one chunk: Sonnet over about 3.5k tokens of text plus the cached guide, and 1.5k tokens out. Over-estimates on purpose. */
+/** The reservation for one chunk: Sonnet over about 3.5k tokens of text plus the cached guide built from the closed lists, and 10k tokens out for claims with marks and hooks (change 6a, measured on staging). Over-estimates on purpose. */
 export const ESTIMADO_POR_TRAMO_USD = redondear(
-  costoClaude({ input_tokens: 5_000, output_tokens: 1_500 }, MODELO_POR_TAREA.extraerAfirmaciones.modelo),
+  costoClaude({ input_tokens: 7_000, output_tokens: 10_000 }, MODELO_POR_TAREA.extraerAfirmaciones.modelo),
 )
 const TOKENS_POR_AFIRMACION = 100
 const FILAS_POR_INSERCION = 200
