@@ -35,9 +35,10 @@ export const RetiroDeMarca = z.object({
 })
 
 /** A database refusal in her words, or the error as it came for WAV's log. */
-function rechazo(que: string, error: { message: string }): Error {
+export function rechazo(que: string, error: { message: string }): Error {
   if (error.message === "solo_coni_corrige") return new Falla(ERROR_SOLO_CONI)
-  const texto = RECHAZOS_DE_ETIQUETA[error.message]
+  // Own keys only: a message such as `toString` must not read the prototype.
+  const texto = Object.hasOwn(RECHAZOS_DE_ETIQUETA, error.message) ? RECHAZOS_DE_ETIQUETA[error.message] : undefined
   return texto ? new Falla(texto) : new Error(`${que}: ${error.message}`, { cause: error })
 }
 

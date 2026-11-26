@@ -12,7 +12,10 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
 
 import { confirmarEtiquetaAccion, corregirEtiquetaAccion, quitarMarcaAccion } from "@/app/(app)/biblioteca/acciones"
-import { ConfirmacionDeEtiqueta, CorreccionDeEtiqueta, RetiroDeMarca } from "@/lib/acciones/etiquetas"
+import { ConfirmacionDeEtiqueta, CorreccionDeEtiqueta, RetiroDeMarca, rechazo } from "@/lib/acciones/etiquetas"
+import { ERROR_SOLO_CONI } from "@/lib/acciones/resultado"
+import { RECHAZOS_DE_ETIQUETA } from "@/lib/dominio/biblioteca/etiquetas-de-afirmacion"
+import { Falla } from "@/lib/dominio/falla"
 
 const ID = "11111111-2222-4333-8444-555555555555"
 const MARCA = "aaaaaaaa-0000-4000-8000-000000000002"
@@ -59,5 +62,24 @@ describe("the tag actions (6c-1)", () => {
       error: "No.",
     })
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe("rechazo", () => {
+  it("says the session's refusal as ERROR_SOLO_CONI and a known refusal in her words", () => {
+    const soloConi = rechazo("No pude corregir", { message: "solo_coni_corrige" })
+    expect(soloConi).toBeInstanceOf(Falla)
+    expect(soloConi.message).toBe(ERROR_SOLO_CONI)
+    const antigua = rechazo("No pude corregir", { message: "afirmacion_antigua" })
+    expect(antigua).toBeInstanceOf(Falla)
+    expect(antigua.message).toBe(RECHAZOS_DE_ETIQUETA.afirmacion_antigua)
+  })
+
+  it("keeps any other error for WAV's log, a name the prototype carries included", () => {
+    for (const message of ["toString", "constructor", "__proto__", "red_invalida"]) {
+      const error = rechazo("No pude corregir", { message })
+      expect(error).not.toBeInstanceOf(Falla)
+      expect(error.message).toBe(`No pude corregir: ${message}`)
+    }
   })
 })
