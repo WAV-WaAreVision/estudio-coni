@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { type TipoDeGancho, tiposDeGancho } from "@/lib/dominio/biblioteca/ganchos"
 import { type Vocabulario, vocabularioDeFilas } from "@/lib/dominio/vocabulario"
 import { falloDeBase } from "@/lib/ingesta/gasto-material"
 import type { Database } from "@/lib/supabase/database.types"
@@ -33,4 +34,21 @@ export async function leerVocabulario(db: Db): Promise<Vocabulario> {
     .eq("estado", "vigente")
   if (error) throw falloDeBase("No pude leer las listas de etiquetas", error)
   return vocabularioDeRespuesta(data)
+}
+
+/**
+ * The vigente hook types with the retired ones (spec 6b): a hook or a choice may still carry a retired type, and it
+ * keeps its label. `leerVocabulario` leaves them out because the extraction must not use them.
+ */
+export async function leerTiposDeGancho(db: Db): Promise<TipoDeGancho[]> {
+  const { data, error } = await db
+    .from("versiones_de_vocabulario")
+    .select("id, lista, red, valores")
+    .eq("estado", "vigente")
+    .eq("lista", "gancho")
+    .eq("red", "todas")
+    .maybeSingle()
+  if (error) throw new Error(`No pude leer los tipos de gancho: ${error.message}`, { cause: error })
+  if (!data) throw new Error("No hay una lista vigente de tipos de gancho.")
+  return tiposDeGancho(Fila.parse(data).valores)
 }
