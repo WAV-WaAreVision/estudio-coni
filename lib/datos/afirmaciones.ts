@@ -21,7 +21,7 @@ const RED = z.enum(["linkedin", "instagram", "todas"])
 const ORIGEN = z.enum(["extraccion", "traduccion", "coni"])
 
 const COLUMNAS =
-  "id, texto, cita, tipo, evidencia, ubicacion, publico, dolor, emocion, gancho, material_id, autor_id, tema_id, materiales!inner ( titulo, borrar_desde ), autores ( nombre, borrar_desde ), temas ( nombre ), afirmacion_marcas ( id, marca, red, valor, frase, certeza, por_que, origen, creada_en ), ganchos ( frase_exacta, frase_sin_gancho, tipo, certeza, origen ), correcciones_de_etiqueta ( campo, red, accion, creada_en )"
+  "id, texto, cita, tipo, evidencia, ubicacion, etiquetas_antiguas, publico, dolor, emocion, gancho, material_id, autor_id, tema_id, materiales!inner ( titulo, borrar_desde ), autores ( nombre, borrar_desde ), temas ( nombre ), afirmacion_marcas ( id, marca, red, valor, frase, certeza, por_que, origen, creada_en ), ganchos ( frase_exacta, frase_sin_gancho, tipo, certeza, origen ), correcciones_de_etiqueta ( campo, red, accion, creada_en )"
 
 const FilaDeGancho = z.object({
   frase_exacta: z.string(),
@@ -39,6 +39,7 @@ const FilaDeAfirmacion = z.object({
   tipo: z.string(),
   evidencia: z.string(),
   ubicacion: z.unknown(),
+  etiquetas_antiguas: z.boolean(),
   publico: z.string().nullable(),
   dolor: z.string().nullable(),
   emocion: z.string().nullable(),
@@ -95,6 +96,7 @@ export async function leerAfirmacion(db: Db, id: string): Promise<AfirmacionLeid
     autor:
       fila.autores && fila.autores.borrar_desde === null ? { id: fila.autor_id, nombre: fila.autores.nombre } : null,
     tema: fila.tema_id && fila.temas ? { id: fila.tema_id, nombre: fila.temas.nombre } : null,
+    etiquetasAntiguas: fila.etiquetas_antiguas,
     textoAntiguo: { publico: fila.publico, dolor: fila.dolor, emocion: fila.emocion, gancho: fila.gancho },
     marcas: fila.afirmacion_marcas
       .toSorted((a, b) => a.creada_en.localeCompare(b.creada_en) || a.id.localeCompare(b.id))

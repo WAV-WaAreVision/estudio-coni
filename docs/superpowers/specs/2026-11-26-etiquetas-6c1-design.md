@@ -17,7 +17,10 @@ Decisions taken with Federico on 2026-11-26:
 - **One place to correct:** the page `/biblioteca/afirmaciones/[id]` (a side panel on desktop lists that already have one).
   Author, topic and material lists show short badges that link there; the 6b hook panel links to «Ver la afirmación».
 
-A claim is **old** when it has no row in `afirmacion_marcas`; otherwise it is **new**.
+A claim is **old** only if it already existed before this change with no row in `afirmacion_marcas` and no row in
+`ganchos` (the migration marks those once in `afirmaciones.etiquetas_antiguas`); every other claim is **new**, including
+one extracted from now on with zero marks (Federico, 2026-11-26). Change 7 sets the column back to false when it fills a
+claim's marks.
 
 ## Data (one migration, no Trigger deploy)
 

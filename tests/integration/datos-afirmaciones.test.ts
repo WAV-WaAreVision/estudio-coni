@@ -47,6 +47,7 @@ beforeAll(async () => {
   borrado = await sembrarMaterial({ titulo: `Material borrado ${SUFIJO}`, autorId: autora })
   tema = await sembrarTema(`Tema lecturas ${SUFIJO}`)
   antigua = await idea(material, "Antigua", { minutos: 0, tipo: "mito" })
+  await pool.query("update public.afirmaciones set etiquetas_antiguas = true where id = $1", [antigua])
   nueva = await idea(material, "Nueva", { minutos: 1 })
   oculta = await idea(material, "Oculta", { excluida: true, minutos: 2 })
   deBorrado = await idea(borrado, "De un material borrado")
@@ -93,6 +94,7 @@ describe("leerAfirmacion", () => {
       material: { id: material, titulo: `Material lecturas ${SUFIJO}` },
       autor: { id: autora, nombre: `Autora lecturas ${SUFIJO}` },
       tema: { id: tema, nombre: `Tema lecturas ${SUFIJO}` },
+      etiquetasAntiguas: false,
       textoAntiguo: { publico: "líderes", dolor: "sobrecarga", emocion: "alivio", gancho: null },
       gancho: {
         fraseExacta: "Nadie te lo dijo.",
@@ -112,7 +114,12 @@ describe("leerAfirmacion", () => {
   })
 
   it("reads an old claim with no marks and no hook", async () => {
-    expect(await leerAfirmacion(coni, antigua)).toMatchObject({ marcas: [], gancho: null, correcciones: [] })
+    expect(await leerAfirmacion(coni, antigua)).toMatchObject({
+      etiquetasAntiguas: true,
+      marcas: [],
+      gancho: null,
+      correcciones: [],
+    })
   })
 
   it("is null for a hidden claim, one whose material was deleted, and one that does not exist", async () => {

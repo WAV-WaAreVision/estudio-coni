@@ -35,6 +35,16 @@ grant all on public.correcciones_de_etiqueta to service_role;
 create policy "coni y wav leen correcciones" on public.correcciones_de_etiqueta for select to authenticated
   using (public.es_coni() or public.es_mantenedor());
 
+-- Old or new (spec 6c-1, Federico 2026-11-26): a claim is old only if it already existed before this change with no
+-- marks and no hook row; only those wait for change 7's reprocess to get their marks. Every claim extracted from now on
+-- is new, even one that came out with zero marks, so Coni can add marks to it. Inferring it from the marks would turn a
+-- post-6a claim with zero marks old for good. Default false makes every future claim new; the update marks the old ones
+-- once. Change 7's reprocess sets it back to false when it fills a claim's marks.
+alter table public.afirmaciones add column etiquetas_antiguas boolean not null default false;
+update public.afirmaciones a set etiquetas_antiguas = true
+where not exists (select 1 from public.afirmacion_marcas m where m.afirmacion_id = a.id)
+  and not exists (select 1 from public.ganchos g where g.afirmacion_id = a.id);
+
 -- FUNCTIONS. All `create or replace`: a fix during development re-runs this part alone (see the plan), never a reset.
 
 -- The closed list a field takes its values from (6a's `listaDeMarca`); null for dato and caso.
@@ -66,14 +76,6 @@ language sql stable set search_path = '' as $$
     select 1 from public.versiones_de_vocabulario v, jsonb_array_elements(v.valores) e
     where v.id = p_version and e->>'valor' = p_valor and not coalesce((e->>'retirado')::boolean, false)
   )
-$$;
-
--- New (spec 6c-1): it has marks, or Coni removed one; removing the last mark must not turn it old.
-create or replace function public.afirmacion_con_marcas(p_afirmacion uuid) returns boolean
-language sql stable set search_path = '' as $$
-  select exists (select 1 from public.afirmacion_marcas m where m.afirmacion_id = p_afirmacion)
-      or exists (select 1 from public.correcciones_de_etiqueta c
-                 where c.afirmacion_id = p_afirmacion and c.accion = 'quita')
 $$;
 
 -- Coni only; a known field; the network the field takes (per network for four marks, `todas` for the rest).
@@ -171,7 +173,7 @@ begin
   a := public.etiqueta_afirmacion(p_afirmacion);
 
   if p_campo in ('problema', 'solucion', 'emocion', 'publico', 'dato', 'caso') then
-    if not public.afirmacion_con_marcas(a.id) then
+    if a.etiquetas_antiguas then
       raise exception using errcode = '22023', message = 'afirmacion_antigua';
     end if;
     m := public.etiqueta_marca(a.id, p_campo, p_red, p_marca_id, true);
@@ -271,7 +273,7 @@ begin
   a := public.etiqueta_afirmacion(p_afirmacion);
 
   if p_campo in ('problema', 'solucion', 'emocion', 'publico', 'dato', 'caso') then
-    if not public.afirmacion_con_marcas(a.id) then
+    if a.etiquetas_antiguas then
       raise exception using errcode = '22023', message = 'afirmacion_antigua';
     end if;
     m := public.etiqueta_marca(a.id, p_campo, p_red, p_marca_id, false);
@@ -316,7 +318,7 @@ begin
     raise exception using errcode = '22023', message = 'campo_desconocido';
   end if;
   a := public.etiqueta_afirmacion(p_afirmacion);
-  if not public.afirmacion_con_marcas(a.id) then
+  if a.etiquetas_antiguas then
     raise exception using errcode = '22023', message = 'afirmacion_antigua';
   end if;
   m := public.etiqueta_marca(a.id, p_marca, p_red, p_marca_id, false);
@@ -332,7 +334,6 @@ revoke execute on function
   public.etiqueta_lista_de_campo(text),
   public.etiqueta_version_vigente(text, text),
   public.etiqueta_en_lista(integer, text),
-  public.afirmacion_con_marcas(uuid),
   public.etiqueta_exigir(text, text),
   public.etiqueta_afirmacion(uuid),
   public.etiqueta_marca(uuid, text, text, uuid, boolean)

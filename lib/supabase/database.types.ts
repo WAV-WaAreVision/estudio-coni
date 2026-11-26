@@ -105,6 +105,7 @@ export type Database = {
           creada_en: string
           dolor: string | null
           emocion: string | null
+          etiquetas_antiguas: boolean
           evidencia: string
           excluida: boolean
           gancho: string | null
@@ -127,6 +128,7 @@ export type Database = {
           creada_en?: string
           dolor?: string | null
           emocion?: string | null
+          etiquetas_antiguas?: boolean
           evidencia: string
           excluida?: boolean
           gancho?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           creada_en?: string
           dolor?: string | null
           emocion?: string | null
+          etiquetas_antiguas?: boolean
           evidencia?: string
           excluida?: boolean
           gancho?: string | null
@@ -3477,10 +3480,6 @@ export type Database = {
           pausa_id: string
         }[]
       }
-      afirmacion_con_marcas: {
-        Args: { p_afirmacion: string }
-        Returns: boolean
-      }
       afirmaciones_sin_huella: {
         Args: { p_destino: string; p_prueba: string }
         Returns: {
@@ -3815,6 +3814,7 @@ export type Database = {
           creada_en: string
           dolor: string | null
           emocion: string | null
+          etiquetas_antiguas: boolean
           evidencia: string
           excluida: boolean
           gancho: string | null

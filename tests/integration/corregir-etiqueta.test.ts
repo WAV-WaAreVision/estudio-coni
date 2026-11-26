@@ -8,6 +8,7 @@ afterAll(() => pool.end())
 interface Escena {
   nueva: string
   antigua: string
+  vacia: string
   emocionLinkedin: string
   emocionInstagram: string
   problema: string
@@ -44,8 +45,9 @@ async function uno(c: pg.PoolClient, sql: string, params: unknown[] = []): Promi
 }
 
 /**
- * As postgres, inside the test's transaction: a new claim (marks and a hook, as 6a's extraction leaves them) and an
- * old one (no marks, only the free text from before 6a).
+ * As postgres, inside the test's transaction: a new claim (marks and a hook, as 6a's extraction leaves them), an old one
+ * (no marks, only the free text from before 6a, marked as the migration's backfill marks it) and one extracted after
+ * the migration with zero marks.
  */
 async function sembrar(c: pg.PoolClient): Promise<Escena> {
   const sufijo = randomUUID().slice(0, 8)
@@ -69,6 +71,8 @@ async function sembrar(c: pg.PoolClient): Promise<Escena> {
     )
   const nueva = await afirmacion("Nueva")
   const antigua = await afirmacion("Antigua")
+  const vacia = await afirmacion("Sin marcas, extraída después")
+  await c.query("update public.afirmaciones set etiquetas_antiguas = true where id = $1", [antigua])
   const marca = (
     marca: string,
     red: string,
@@ -98,7 +102,7 @@ async function sembrar(c: pg.PoolClient): Promise<Escena> {
        from public.versiones_de_vocabulario where lista = 'gancho' and estado = 'vigente'`,
     [nueva],
   )
-  return { nueva, antigua, emocionLinkedin, emocionInstagram, problema, dato }
+  return { nueva, antigua, vacia, emocionLinkedin, emocionInstagram, problema, dato }
 }
 
 const version = async (c: pg.PoolClient, lista: string, red = "todas") =>
@@ -365,6 +369,21 @@ describe("corregir_etiqueta", () => {
       expect(await registro(c, e.nueva, "caso")).toMatchObject([
         { accion: "agrega", despues: "Una gerenta que dejó de ir a la oficina" },
       ])
+    })
+  })
+
+  it("lets Coni add a mark to a claim extracted after this change with zero marks: it is new", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      const fila = await c.query("select etiquetas_antiguas from public.afirmaciones where id = $1", [e.vacia])
+      expect(fila.rows).toEqual([{ etiquetas_antiguas: false }])
+      await asumir(c, comoConi)
+      await corregir(c, e.vacia, "emocion", "linkedin", "calma", { frase: "Respira" })
+      expect(await registro(c, e.vacia, "emocion")).toMatchObject([{ accion: "agrega", despues: "calma" }])
+      const marcas = await c.query("select valor, origen from public.afirmacion_marcas where afirmacion_id = $1", [
+        e.vacia,
+      ])
+      expect(marcas.rows).toEqual([{ valor: "calma", origen: "coni" }])
     })
   })
 

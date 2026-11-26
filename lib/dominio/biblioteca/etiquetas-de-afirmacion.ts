@@ -220,6 +220,8 @@ export interface AfirmacionLeida {
   material: { id: string; titulo: string | null }
   autor: { id: string; nombre: string } | null
   tema: { id: string; nombre: string } | null
+  /** Marked once by 20261114000800: it existed before 6c-1 with no marks and no hook row (change 7 turns it off). */
+  etiquetasAntiguas: boolean
   /** The free text from before 6a: an old claim's only reference until change 7 fills its marks. */
   textoAntiguo: { publico: string | null; dolor: string | null; emocion: string | null; gancho: string | null }
   marcas: MarcaLeida[]
@@ -227,9 +229,9 @@ export interface AfirmacionLeida {
   correcciones: CorreccionLeida[]
 }
 
-/** New once it has marks, or once Coni removed one: removing the last mark must not turn it old (plan decision 3). */
-export const esAfirmacionNueva = (afirmacion: Pick<AfirmacionLeida, "marcas" | "correcciones">): boolean =>
-  afirmacion.marcas.length > 0 || afirmacion.correcciones.some((correccion) => correccion.accion === "quita")
+/** Old only when the migration marked it so; every claim extracted after 6c-1 is new, even with zero marks (decision 3). */
+export const esAfirmacionNueva = (afirmacion: Pick<AfirmacionLeida, "etiquetasAntiguas">): boolean =>
+  !afirmacion.etiquetasAntiguas
 
 export type MarcasDeRed = Record<MarcaPorRed, MarcaLeida[]>
 

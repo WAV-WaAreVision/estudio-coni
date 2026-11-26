@@ -39,6 +39,7 @@ export function afirmacionDePrueba(extra: Partial<AfirmacionLeida> = {}): Afirma
     material: { id: ID_DE_MATERIAL, titulo: "Burnout y teletrabajo" },
     autor: { id: ID_DE_AUTORA, nombre: "Daniela Ruiz" },
     tema: { id: ID_DE_TEMA, nombre: "Carga mental" },
+    etiquetasAntiguas: false,
     textoAntiguo: { publico: null, dolor: null, emocion: null, gancho: null },
     marcas: [
       marcaDePrueba(),
@@ -70,9 +71,10 @@ export function afirmacionDePrueba(extra: Partial<AfirmacionLeida> = {}): Afirma
   }
 }
 
-/** A claim from before 6a: no marks and no hook row, only the old free text. */
+/** A claim from before 6c-1 with no marks and no hook row (the migration marked it old): only the old free text. */
 export const afirmacionAntiguaDePrueba = (): AfirmacionLeida =>
   afirmacionDePrueba({
+    etiquetasAntiguas: true,
     marcas: [],
     gancho: null,
     textoAntiguo: {

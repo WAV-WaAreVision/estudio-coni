@@ -166,15 +166,11 @@ describe("names and rules", () => {
 })
 
 describe("esAfirmacionNueva", () => {
-  it("is new with marks, old without, and still new once Coni removed its last mark", () => {
+  it("reads the column the migration set: old only when marked old, new with zero marks otherwise", () => {
     expect(esAfirmacionNueva(afirmacionDePrueba())).toBe(true)
     expect(esAfirmacionNueva(afirmacionAntiguaDePrueba())).toBe(false)
-    expect(
-      esAfirmacionNueva({
-        marcas: [],
-        correcciones: [{ campo: "dato", red: "todas", accion: "quita", creadaEn: "2026-11-26T10:00:00+00:00" }],
-      }),
-    ).toBe(true)
+    expect(esAfirmacionNueva(afirmacionDePrueba({ marcas: [], gancho: null }))).toBe(true)
+    expect(esAfirmacionNueva(afirmacionDePrueba({ etiquetasAntiguas: true }))).toBe(false)
   })
 })
 

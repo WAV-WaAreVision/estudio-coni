@@ -342,13 +342,10 @@ describe("EtiquetasDeAfirmacion", () => {
     expect(screen.queryByRole("region", { name: "Gancho" })).toBeNull()
   })
 
-  it("keeps a claim new after she removed its last mark, so marks can be added again", () => {
+  it("lets her add marks to a new claim with zero marks (extracted after 6c-1, or after removing the last one)", () => {
     render(
       <EtiquetasDeAfirmacion
-        afirmacion={afirmacionDePrueba({
-          marcas: [],
-          correcciones: [{ campo: "dato", red: "todas", accion: "quita", creadaEn: "2026-11-26T10:00:00+00:00" }],
-        })}
+        afirmacion={afirmacionDePrueba({ marcas: [], gancho: null })}
         catalogo={CATALOGO_DE_PRUEBA}
       />,
     )
