@@ -14,9 +14,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 
 import { BotonFavorito } from "@/app/(app)/biblioteca/ganchos/boton-favorito"
 import { DetalleDeGancho } from "@/app/(app)/biblioteca/ganchos/detalle-de-gancho"
+import { FiltrosDeGanchos } from "@/app/(app)/biblioteca/ganchos/filtros-de-ganchos"
 import { ListaDeGanchos } from "@/app/(app)/biblioteca/ganchos/lista-de-ganchos"
+import { MasFiltrosDeGanchos } from "@/app/(app)/biblioteca/ganchos/mas-filtros-de-ganchos"
 import { PanelDeGancho } from "@/app/(app)/biblioteca/ganchos/panel-de-gancho"
 import { TablaDeGanchos } from "@/app/(app)/biblioteca/ganchos/tabla-de-ganchos"
+import type { PilarDeRed } from "@/lib/dominio/pilares"
 import { ganchoDePrueba, ID_DE_GANCHO, PILAR_DE_INSTAGRAM, TIPOS_DE_PRUEBA } from "../fixtures/ganchos"
 
 beforeEach(() => vi.clearAllMocks())
@@ -169,5 +172,110 @@ describe("TablaDeGanchos", () => {
     const [, , autor, tema] = screen.getAllByRole("columnheader")
     expect(autor).toHaveClass("hidden", "lg:table-cell")
     expect(tema).toHaveClass("hidden", "lg:table-cell")
+  })
+})
+
+const PILARES: PilarDeRed[] = [
+  { id: "p-li-1", slug: "bienestar-e-impacto", nombreCorto: "Bienestar e impacto", red: "linkedin", esCapa: false },
+  { id: "p-li-capa", slug: "capa-tdah", nombreCorto: "Capa TDAH", red: "linkedin", esCapa: true },
+  {
+    id: PILAR_DE_INSTAGRAM,
+    slug: "mi-nueva-partida",
+    nombreCorto: "Mi nueva partida",
+    red: "instagram",
+    esCapa: false,
+  },
+]
+
+describe("FiltrosDeGanchos", () => {
+  it("offers favorites, and «Mis tipos» only when she chose some", () => {
+    const { rerender } = render(<FiltrosDeGanchos filtros={{}} pilares={PILARES} conMisTipos={false} />)
+    const mostrar = screen.getByRole("group", { name: "Mostrar" })
+    expect(within(mostrar).getByRole("link", { name: "Solo favoritos" })).toHaveAttribute(
+      "href",
+      "/biblioteca/ganchos?favoritos=1",
+    )
+    expect(within(mostrar).queryByRole("link", { name: "Mis tipos" })).toBeNull()
+    rerender(<FiltrosDeGanchos filtros={{ misTipos: true }} pilares={PILARES} conMisTipos />)
+    const misTipos = screen.getByRole("link", { name: "Mis tipos" })
+    expect(misTipos).toHaveAttribute("aria-current", "page")
+    expect(misTipos).toHaveAttribute("href", "/biblioteca/ganchos")
+  })
+
+  it("offers the networks and «Sin red»; a network change drops the pillar", () => {
+    render(
+      <FiltrosDeGanchos
+        filtros={{ red: "linkedin", pilar: "p-li-1", tipo: "escena" }}
+        pilares={PILARES}
+        conMisTipos={false}
+      />,
+    )
+    const redes = within(screen.getByRole("group", { name: "Red" })).getAllByRole("link")
+    expect(redes.map((enlace) => [enlace.textContent, enlace.getAttribute("href")])).toEqual([
+      ["Todas las redes", "/biblioteca/ganchos?tipo=escena"],
+      ["LinkedIn", "/biblioteca/ganchos?tipo=escena&red=linkedin"],
+      ["Instagram", "/biblioteca/ganchos?tipo=escena&red=instagram"],
+      ["Sin red", "/biblioteca/ganchos?tipo=escena&red=sin_red"],
+    ])
+    expect(redes[1]).toHaveAttribute("aria-current", "page")
+  })
+
+  it("offers the pillars of the chosen network only, never a layer", () => {
+    const { rerender } = render(<FiltrosDeGanchos filtros={{}} pilares={PILARES} conMisTipos={false} />)
+    expect(screen.queryByRole("group", { name: /^Pilar de/ })).toBeNull()
+    rerender(<FiltrosDeGanchos filtros={{ red: "linkedin" }} pilares={PILARES} conMisTipos={false} />)
+    const pilares = within(screen.getByRole("group", { name: "Pilar de LinkedIn" })).getAllByRole("link")
+    expect(pilares.map((enlace) => [enlace.textContent, enlace.getAttribute("href")])).toEqual([
+      ["Todos los pilares", "/biblioteca/ganchos?red=linkedin"],
+      ["Bienestar e impacto", "/biblioteca/ganchos?red=linkedin&pilar=p-li-1"],
+    ])
+    rerender(<FiltrosDeGanchos filtros={{ red: "sin_red" }} pilares={PILARES} conMisTipos={false} />)
+    expect(screen.queryByRole("group", { name: /^Pilar de/ })).toBeNull()
+  })
+})
+
+describe("MasFiltrosDeGanchos", () => {
+  const opciones = { autores: [{ id: "a1", nombre: "Daniela Ruiz" }], temas: [{ id: "t1", nombre: "Carga mental" }] }
+
+  it("folds type, topic and author in a GET form that keeps the other filters", () => {
+    render(
+      <MasFiltrosDeGanchos
+        filtros={{ red: "linkedin", pilar: "p-li-1", favoritos: true, tipo: "escena" }}
+        tipos={TIPOS_DE_PRUEBA}
+        opciones={opciones}
+      />,
+    )
+    expect(screen.getByText("Más filtros · 1")).toBeVisible()
+    const tipo = screen.getByLabelText("Tipo") as HTMLSelectElement
+    expect(tipo.value).toBe("escena")
+    const etiquetas = [...tipo.options].map((opcion) => opcion.textContent)
+    expect(etiquetas[0]).toBe("Todos")
+    expect(etiquetas).toContain("Antes/ahora")
+    expect(etiquetas).not.toContain("Rima")
+    expect(etiquetas.at(-1)).toBe("Sin clasificar")
+    expect([...(screen.getByLabelText("Tema") as HTMLSelectElement).options].map((o) => o.textContent)).toEqual([
+      "Todos",
+      "Carga mental",
+    ])
+    expect([...(screen.getByLabelText("Autor") as HTMLSelectElement).options].map((o) => o.textContent)).toEqual([
+      "Todos",
+      "Daniela Ruiz",
+    ])
+    const ocultos = [...document.querySelectorAll<HTMLInputElement>("input[type=hidden]")].map((c) => [c.name, c.value])
+    expect(ocultos).toEqual([
+      ["red", "linkedin"],
+      ["pilar", "p-li-1"],
+      ["favoritos", "1"],
+    ])
+    expect(screen.getByRole("link", { name: "Quitar estos filtros" })).toHaveAttribute(
+      "href",
+      "/biblioteca/ganchos?red=linkedin&pilar=p-li-1&favoritos=1",
+    )
+  })
+
+  it("has no count and nothing to clear without a folded filter", () => {
+    render(<MasFiltrosDeGanchos filtros={{}} tipos={TIPOS_DE_PRUEBA} opciones={opciones} />)
+    expect(screen.getByText("Más filtros")).toBeVisible()
+    expect(screen.queryByRole("link", { name: "Quitar estos filtros" })).toBeNull()
   })
 })
