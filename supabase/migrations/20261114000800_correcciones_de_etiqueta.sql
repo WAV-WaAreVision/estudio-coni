@@ -69,12 +69,13 @@ language sql stable set search_path = '' as $$
     and v.red = case when p_lista in ('publico', 'dolor') then p_red else 'todas' end
 $$;
 
--- A value of that version that has not been retired.
+-- A value of that version that has not been retired. Only a JSON `true` retires: compared as jsonb, so a stray
+-- `retirado` string never makes the function throw.
 create or replace function public.etiqueta_en_lista(p_version integer, p_valor text) returns boolean
 language sql stable set search_path = '' as $$
   select exists (
     select 1 from public.versiones_de_vocabulario v, jsonb_array_elements(v.valores) e
-    where v.id = p_version and e->>'valor' = p_valor and not coalesce((e->>'retirado')::boolean, false)
+    where v.id = p_version and e->>'valor' = p_valor and e->'retirado' is distinct from 'true'::jsonb
   )
 $$;
 
@@ -97,7 +98,8 @@ begin
 end
 $$;
 
--- The claim as the Biblioteca shows it (not hidden, its material not deleted with «Deshacer»), locked.
+-- The claim as the Biblioteca shows it (not hidden, its material not deleted with «Deshacer»), locked. `no key update`:
+-- it serializes Coni's corrections on the claim without blocking the foreign key checks of rows that point at it.
 create or replace function public.etiqueta_afirmacion(p_afirmacion uuid) returns public.afirmaciones
 language plpgsql set search_path = '' as $$
 declare
@@ -107,7 +109,7 @@ begin
   from public.afirmaciones f
   join public.materiales_visibles m on m.id = f.material_id
   where f.id = p_afirmacion and not f.excluida
-  for update of f;
+  for no key update of f;
   if a.id is null then
     raise exception using errcode = 'P0002', message = 'afirmacion_inexistente';
   end if;
@@ -268,6 +270,7 @@ declare
   m public.afirmacion_marcas;
   g public.ganchos;
   v_antes text;
+  v_version integer;
 begin
   perform public.etiqueta_exigir(p_campo, p_red);
   a := public.etiqueta_afirmacion(p_afirmacion);
@@ -293,13 +296,14 @@ begin
     values (a.id, p_campo, p_red, 'confirma', g.tipo, g.tipo, g.certeza, g.version_id);
 
   else
+    -- Only a value of the vigente list is confirmed: not sin_clasificar, not one the list retired or dropped.
     v_antes := case when p_campo = 'tipo' then a.tipo else a.evidencia end;
-    if v_antes = 'sin_clasificar' then
+    v_version := public.etiqueta_version_vigente(p_campo, 'todas');
+    if not public.etiqueta_en_lista(v_version, v_antes) then
       raise exception using errcode = '22023', message = 'valor_fuera_de_lista';
     end if;
     insert into public.correcciones_de_etiqueta (afirmacion_id, campo, red, accion, antes, despues, version_id)
-    values (a.id, p_campo, p_red, 'confirma', v_antes, v_antes,
-            public.etiqueta_version_vigente(p_campo, 'todas'));
+    values (a.id, p_campo, p_red, 'confirma', v_antes, v_antes, v_version);
   end if;
 end
 $$;

@@ -114,6 +114,17 @@ const version = async (c: pg.PoolClient, lista: string, red = "todas") =>
     ),
   )
 
+/** Rewrites one value of a vigente list inside the test's transaction: `null` drops it, an object merges into it. */
+const cambiarValor = (c: pg.PoolClient, lista: string, valor: string, cambio: Record<string, unknown> | null) =>
+  c.query(
+    `update public.versiones_de_vocabulario v
+        set valores = (select jsonb_agg(case when e->>'valor' = $2 then e || $3::jsonb else e end)
+                         from jsonb_array_elements(v.valores) e
+                        where $3::jsonb is not null or e->>'valor' <> $2)
+      where v.lista = $1 and v.estado = 'vigente' and v.red = 'todas'`,
+    [lista, valor, cambio === null ? null : JSON.stringify(cambio)],
+  )
+
 const CORREGIR = "select public.corregir_etiqueta($1::uuid, $2, $3, $4, $5, $6, $7::uuid)"
 const CONFIRMAR = "select public.confirmar_etiqueta($1::uuid, $2, $3, $4::uuid)"
 const QUITAR = "select public.quitar_marca($1::uuid, $2, $3, $4::uuid)"
@@ -294,6 +305,18 @@ describe("corregir_etiqueta", () => {
         await corregirFalla(c, e.nueva, "tipo", "todas", null),
       ])
         expect({ code: error.code, message: error.message }).toEqual({ code: "22023", message: "valor_fuera_de_lista" })
+    })
+  })
+
+  it("takes only a JSON true as retired: any other retirado leaves the value in the list", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      await cambiarValor(c, "tipo", "consejo", { retirado: "x" })
+      await cambiarValor(c, "tipo", "mito", { retirado: true })
+      await asumir(c, comoConi)
+      await corregir(c, e.nueva, "tipo", "todas", "consejo")
+      expect(await registro(c, e.nueva, "tipo")).toMatchObject([{ accion: "corrige", despues: "consejo" }])
+      expect((await corregirFalla(c, e.nueva, "tipo", "todas", "mito")).message).toBe("valor_fuera_de_lista")
     })
   })
 
@@ -554,6 +577,20 @@ describe("confirmar_etiqueta", () => {
       expect((await fallaCon(c, CONFIRMAR, [e.antigua, "tipo_de_gancho", "todas", null])).message).toBe("sin_gancho")
     })
   })
+  it("refuses to confirm a tipo or evidencia the vigente list retired or no longer has", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      await cambiarValor(c, "tipo", "dato", { retirado: true })
+      await cambiarValor(c, "evidencia", "estudio", null)
+      await asumir(c, comoConi)
+      for (const error of [
+        await fallaCon(c, CONFIRMAR, [e.nueva, "tipo", "todas", null]),
+        await fallaCon(c, CONFIRMAR, [e.nueva, "evidencia", "todas", null]),
+      ])
+        expect({ code: error.code, message: error.message }).toEqual({ code: "22023", message: "valor_fuera_de_lista" })
+      expect(await registro(c, e.nueva, "tipo")).toEqual([])
+    })
+  })
 })
 
 describe("quitar_marca", () => {
@@ -596,5 +633,45 @@ describe("quitar_marca", () => {
       expect({ code: ausente.code, message: ausente.message }).toEqual({ code: "P0002", message: "sin_marca" })
       expect((await fallaCon(c, QUITAR, [e.nueva, "tipo", "todas", null])).message).toBe("campo_desconocido")
     })
+  })
+})
+
+describe("the claim's lock", () => {
+  it("does not block a mark another transaction adds to the same claim while Coni confirms one", async () => {
+    const siembra = await pool.connect()
+    const coni = await pool.connect()
+    const otra = await pool.connect()
+    let e: Escena | undefined
+    try {
+      await siembra.query("begin")
+      e = await sembrar(siembra)
+      await siembra.query("commit")
+      await coni.query("begin")
+      await asumir(coni, comoConi)
+      await coni.query(CONFIRMAR, [e.nueva, "emocion", "linkedin", e.emocionLinkedin])
+      await otra.query("begin")
+      await otra.query("set local lock_timeout = '500ms'")
+      // The foreign key check takes a key share lock on the claim: only `for no key update` lets it through.
+      await otra.query(
+        `insert into public.afirmacion_marcas (afirmacion_id, marca, red, valor, frase, certeza, origen)
+         values ($1, 'caso', 'todas', 'Una gerenta', 'Una gerenta sola', 'media', 'extraccion')`,
+        [e.nueva],
+      )
+    } finally {
+      await otra.query("rollback")
+      await coni.query("rollback")
+      if (e) {
+        const { rows } = await siembra.query<{ material_id: string; autor_id: string }>(
+          "select material_id, autor_id from public.afirmaciones where id = $1",
+          [e.nueva],
+        )
+        const fila = rows[0]
+        if (fila) {
+          await siembra.query("delete from public.materiales where id = $1", [fila.material_id])
+          await siembra.query("delete from public.autores where id = $1", [fila.autor_id])
+        }
+      }
+      for (const cliente of [siembra, coni, otra]) cliente.release()
+    }
   })
 })
