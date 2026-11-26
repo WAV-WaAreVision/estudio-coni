@@ -20,21 +20,29 @@ function navs() {
 const boton = () => screen.getByRole("button", { name: /^Sección de la Biblioteca: / })
 
 describe("NavDeBiblioteca (4c)", () => {
-  it("shows the four sections as tabs from md up, Semana after Temas, each with an icon and its name", () => {
+  it("marks Ganchos as the open section on its own screen", () => {
+    render(<NavDeBiblioteca actual="ganchos" />)
+    const enlaces = within(navs().pestanas).getAllByRole("link")
+    expect(enlaces[4]).toHaveTextContent("Ganchos")
+    expect(enlaces[4]).toHaveAttribute("aria-current", "page")
+  })
+
+  it("shows the five sections as tabs from md up, Semana after Temas and Ganchos last, each with an icon and its name", () => {
     render(<NavDeBiblioteca actual="semana" />)
     const { todas, pestanas } = navs()
     expect(todas).toHaveLength(2)
     expect(pestanas).toHaveClass("hidden", "md:block")
     const enlaces = within(pestanas).getAllByRole("link")
-    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas", "Semana"])
+    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas", "Semana", "Ganchos"])
     expect(enlaces.map((enlace) => enlace.getAttribute("href"))).toEqual([
       "/biblioteca",
       "/biblioteca/autores",
       "/biblioteca/temas",
       "/biblioteca/semana",
+      "/biblioteca/ganchos",
     ])
     expect(enlaces[3]).toHaveAttribute("aria-current", "page")
-    expect(pestanas.querySelectorAll("svg")).toHaveLength(4)
+    expect(pestanas.querySelectorAll("svg")).toHaveLength(5)
   })
 
   it("hugs its tabs and slides them on one row instead of pushing the page sideways", () => {
@@ -69,12 +77,13 @@ describe("NavDeBiblioteca on the phone: the section menu", () => {
     fireEvent.click(boton())
     expect(boton()).toHaveAttribute("aria-expanded", "true")
     const enlaces = within(navs().menu).getAllByRole("link")
-    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas", "Semana"])
+    expect(enlaces.map((enlace) => enlace.textContent)).toEqual(["Materiales", "Autores", "Temas", "Semana", "Ganchos"])
     expect(enlaces.map((enlace) => enlace.getAttribute("href"))).toEqual([
       "/biblioteca",
       "/biblioteca/autores",
       "/biblioteca/temas",
       "/biblioteca/semana",
+      "/biblioteca/ganchos",
     ])
     for (const enlace of enlaces) expect(enlace).toHaveClass("min-h-objetivo")
     expect(enlaces[3]).toHaveAttribute("aria-current", "page")

@@ -12,7 +12,7 @@ import {
 import { AUTORA, type EscenaDeAutoresYTemas, sembrarAutoresYTemas, TEMA_PRINCIPAL } from "./biblioteca-escena"
 import { CORREO_DEL_MANTENEDOR } from "./entorno"
 
-const SECCIONES = ["Materiales", "Autores", "Temas", "Semana"]
+const SECCIONES = ["Materiales", "Autores", "Temas", "Semana", "Ganchos"]
 
 let escena: EscenaDeAutoresYTemas
 

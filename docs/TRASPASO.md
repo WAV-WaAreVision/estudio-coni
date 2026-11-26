@@ -189,8 +189,29 @@ clasificar» como débil en teorías, `deEvidencia`, `respaldo_de_idea`, `motor_
 (US$ 0,062 un tramo de 13 afirmaciones; la reserva cubre 15 con 50% de margen). Migraciones `20261114000100` a
 `20261114000600`.
 
+## Biblioteca de ganchos (issue 21, cambio 6, entrega 6b)
+
+Spec `docs/superpowers/specs/2026-11-26-ganchos-6b-design.md`, plan `docs/superpowers/plans/2026-11-26-ganchos-6b.md`.
+Quinta sección de la Biblioteca, `/biblioteca/ganchos`: tabla con panel lateral en el computador (`?g=<afirmacion_id>`;
+Autor y Tema aparecen desde 1024 px) y tarjetas con página propia `/biblioteca/ganchos/[id]` en el celular. Lee la vista
+`biblioteca_de_ganchos` (`security_invoker`), que junta los ganchos de `ganchos` con los antiguos de texto libre de
+`afirmaciones.gancho` (estos como «Sin clasificar», solo la frase), sin ideas ocultas ni lo borrado con Deshacer. La red
+de un gancho sale de los pilares de su tema (`tema_pilares`, sin capas); sin tema o sin pilar es «Sin red». Filtros en
+la dirección: tipo, red, pilar (solo después de elegir red), tema, autor, «Solo favoritos» y «Mis tipos»; corren en
+memoria sobre la vista entera (`filtros-de-ganchos.ts`), y si los ganchos pasan de unos miles hay que llevarlos a la
+consulta. Favoritos en `ganchos_favoritos`, por afirmación (leen Coni y WAV, marca solo Coni). «Mis tipos» en
+`ajustes.tipos_de_gancho_preferidos`, guardado por `guardarAjuste` (campo `tipos_de_gancho`), que descarta lo que no
+está en la lista vigente; un tipo retirado después queda guardado y no filtra. Migración `20261114000700`, sin despliegue
+de Trigger. Falta: aplicarla en staging (MCP) y después en producción con OK de Federico.
+
+**Acoplamiento con el cambio 7.** Su reprocesamiento único tiene que conservar los ids de las afirmaciones (traduce
+etiquetas, no vuelve a extraer). Si borra y crea afirmaciones, los favoritos se pierden: `ganchos_favoritos` se borra en
+cascada con su afirmación. Ese mismo reprocesamiento es el que llena tipo y frase sin gancho de los ganchos antiguos.
+
 ## Siguiente
 
+- **Cambio 7 (reprocesar la Biblioteca):** debe conservar los ids de las afirmaciones, o se pierden los favoritos de
+  ganchos (ver «Biblioteca de ganchos»).
 - **Fusiones de temas (#22)** desde el 10-11-2026: registro de cada fusión con deshacer exacto (se rechaza si cambiaron los pilares del ganador), página `/biblioteca/temas/fusiones`, enlace «Fusiones · n» en Temas y aviso en Inicio. Las decisiones de Coni quedan en `decisiones_de_tema` para la recalibración ×3.
 - **Identidad A8** desde el 10-11-2026: guía v5, «Psicóloga-Coach PUC» en `/l` y en las instrucciones; los guiones viejos con «Soy Coni del Rosario.» siguen pasando la revisión.
 - **Transcripción con hablantes (B3/B4):** prueba del 09-11-2026 en `docs/superpowers/notas/prueba-diarizacion-2026-11-09.md`; para el cambio 5 se recomienda ElevenLabs más nombres por Claude, y Gemini solo para enlaces públicos de YouTube.

@@ -2,7 +2,9 @@ import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { leerPresupuesto } from "@/lib/datos/pantallas"
+import { leerVocabulario } from "@/lib/datos/vocabulario"
 import { URL_DE_LA_APP } from "@/lib/diseno/marca"
+import { tiposDeGanchoValidos } from "@/lib/dominio/biblioteca/ganchos"
 import { canonicos, type Destino, destinosDe, destinosValidos } from "@/lib/dominio/destinos"
 import { Falla, FallaDeConfiguracion } from "@/lib/dominio/falla"
 import { dolares } from "@/lib/formato"
@@ -56,6 +58,8 @@ const CambioDeAjuste = z.discriminatedUnion("campo", [
   z.object({ campo: z.literal("avisos_resumen"), valor: z.boolean() }),
   z.object({ campo: z.literal("avisos_urgentes"), valor: z.boolean() }),
   z.object({ campo: z.literal("destinos"), valor: destinos }),
+  // «Mis tipos» of the hooks library (spec 6b); `soloLoVigente` keeps only values of the vigente list.
+  z.object({ campo: z.literal("tipos_de_gancho"), valor: z.array(z.string().min(1).max(60)).max(40) }),
 ])
 
 export type CambioDeAjuste = z.infer<typeof CambioDeAjuste>
@@ -71,6 +75,7 @@ const COLUMNAS = {
   avisos_resumen: "avisos_resumen",
   avisos_urgentes: "avisos_urgentes",
   destinos: "destinos_por_defecto",
+  tipos_de_gancho: "tipos_de_gancho_preferidos",
 } as const
 
 function limiteBajoElTope(tope: number): string {
@@ -103,11 +108,19 @@ function valorActual(fila: FilaDeAjustes, campo: CambioDeAjuste["campo"]): Cambi
       return { campo, valor: fila.avisos_urgentes }
     case "destinos":
       return { campo, valor: destinosDe(fila.destinos_por_defecto) }
+    case "tipos_de_gancho":
+      return { campo, valor: fila.tipos_de_gancho_preferidos }
   }
 }
 
 function columnaCon(cambio: CambioDeAjuste): Database["public"]["Tables"]["ajustes"]["Update"] {
   return { [COLUMNAS[cambio.campo]]: cambio.valor }
+}
+
+/** What the list does not have is dropped, never stored: a type retired later stays until this next save drops it. */
+async function soloLoVigente(db: Db, cambio: CambioDeAjuste): Promise<CambioDeAjuste> {
+  if (cambio.campo !== "tipos_de_gancho") return cambio
+  return { campo: cambio.campo, valor: tiposDeGanchoValidos(await leerVocabulario(db), cambio.valor) }
 }
 
 /**
@@ -120,23 +133,22 @@ export function guardarAjuste(
   entrada: unknown,
 ): Promise<Resultado<{ anterior: CambioDeAjuste; aviso?: string }>> {
   return aResultado("guardarAjuste", async () => {
-    const cambio = CambioDeAjuste.safeParse(entrada)
-    if (!cambio.success) throw new Falla(ERROR_DE_CAMBIO)
+    const leido = CambioDeAjuste.safeParse(entrada)
+    if (!leido.success) throw new Falla(ERROR_DE_CAMBIO)
+    const cambio = await soloLoVigente(deps.db, leido.data)
 
     const { data: antes, error } = await deps.db.from("ajustes").select("*").maybeSingle()
     if (error) throw new Error(`No pude leer los ajustes: ${error.message}`, { cause: error })
     if (!antes) throw new Error("Falta la fila de ajustes.")
 
-    if (cambio.data.campo === "limite" && cambio.data.valor !== null && cambio.data.valor < antes.tope_mensual_usd) {
+    if (cambio.campo === "limite" && cambio.valor !== null && cambio.valor < antes.tope_mensual_usd) {
       throw new Falla(limiteBajoElTope(antes.tope_mensual_usd))
     }
     // D5: a cap above the limit she set brings the limit back to twice the cap, in the same write, so the database
     // check (limite_no_bajo_el_tope) never refuses it.
     const vuelveAlDoble =
-      cambio.data.campo === "tope" &&
-      antes.limite_duro_usd !== null &&
-      cambio.data.valor > Number(antes.limite_duro_usd)
-    const columnas = vuelveAlDoble ? { ...columnaCon(cambio.data), limite_duro_usd: null } : columnaCon(cambio.data)
+      cambio.campo === "tope" && antes.limite_duro_usd !== null && cambio.valor > Number(antes.limite_duro_usd)
+    const columnas = vuelveAlDoble ? { ...columnaCon(cambio), limite_duro_usd: null } : columnaCon(cambio)
 
     const { data: despues, error: errorAlGuardar } = await deps.db
       .from("ajustes")
@@ -158,15 +170,15 @@ export function guardarAjuste(
     // Row level security answers "no rows" to anybody who is not Coni.
     if (!despues) throw new Error("La base no guardó el cambio de ajustes.")
 
-    const resultado: { anterior: CambioDeAjuste; aviso?: string } = { anterior: valorActual(antes, cambio.data.campo) }
-    if (cambio.data.campo === "tope" || cambio.data.campo === "limite") {
+    const resultado: { anterior: CambioDeAjuste; aviso?: string } = { anterior: valorActual(antes, cambio.campo) }
+    if (cambio.campo === "tope" || cambio.campo === "limite") {
       const presupuesto = await leerPresupuesto(deps.db, Date.parse(deps.ahora()))
       const frases: string[] = []
       // A month she reactivated keeps its own limit (P10): a change of cap or limit only reaches the months after it,
       // so it never paused this month.
       const fijoElLimiteDelMes = !presupuesto.reactivado
-      if (cambio.data.campo === "tope" && vuelveAlDoble) {
-        const doble = limitePorDefecto(cambio.data.valor)
+      if (cambio.campo === "tope" && vuelveAlDoble) {
+        const doble = limitePorDefecto(cambio.valor)
         frases.push(
           fijoElLimiteDelMes
             ? `Tu límite volvió al doble del tope: ${dolares(doble)}.`

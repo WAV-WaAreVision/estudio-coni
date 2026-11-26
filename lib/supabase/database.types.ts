@@ -83,6 +83,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "afirmacion_marcas_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "afirmacion_marcas_version_id_fkey"
             columns: ["version_id"]
             isOneToOne: false
@@ -174,6 +181,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "afirmaciones_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["autor_id"]
+          },
+          {
             foreignKeyName: "afirmaciones_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
@@ -228,6 +242,7 @@ export type Database = {
           motor_semanal_activo: boolean
           produccion: Json
           revision_de_inventario_avisada: string | null
+          tipos_de_gancho_preferidos: string[]
           tope_mensual_usd: number
           ultima_red: string | null
           zona: string
@@ -256,6 +271,7 @@ export type Database = {
           motor_semanal_activo?: boolean
           produccion?: Json
           revision_de_inventario_avisada?: string | null
+          tipos_de_gancho_preferidos?: string[]
           tope_mensual_usd?: number
           ultima_red?: string | null
           zona?: string
@@ -284,6 +300,7 @@ export type Database = {
           motor_semanal_activo?: boolean
           produccion?: Json
           revision_de_inventario_avisada?: string | null
+          tipos_de_gancho_preferidos?: string[]
           tope_mensual_usd?: number
           ultima_red?: string | null
           zona?: string
@@ -743,6 +760,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "decisiones_de_tema_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "decisiones_de_tema_otro_tema_id_fkey"
             columns: ["otro_tema_id"]
             isOneToOne: false
@@ -1051,6 +1075,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fusiones_afirmaciones_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "fusiones_afirmaciones_fusion_id_fkey"
             columns: ["fusion_id"]
             isOneToOne: false
@@ -1116,11 +1147,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ganchos_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: true
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "ganchos_version_id_fkey"
             columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "versiones_de_vocabulario"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ganchos_favoritos: {
+        Row: {
+          afirmacion_id: string
+          creado_en: string
+        }
+        Insert: {
+          afirmacion_id: string
+          creado_en?: string
+        }
+        Update: {
+          afirmacion_id?: string
+          creado_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ganchos_favoritos_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: true
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ganchos_favoritos_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: true
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
           },
         ]
       }
@@ -1290,6 +1358,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "huellas_anteriores_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "huellas_anteriores_prueba_id_fkey"
             columns: ["prueba_id"]
             isOneToOne: false
@@ -1348,6 +1423,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "afirmaciones"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "huellas_candidatas_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
           },
           {
             foreignKeyName: "huellas_candidatas_prueba_id_fkey"
@@ -1748,6 +1830,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "autores_visibles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["autor_id"]
           },
           {
             foreignKeyName: "materiales_categoria_id_fkey"
@@ -2695,6 +2784,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teoria_afirmaciones_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
             foreignKeyName: "teoria_afirmaciones_teoria_id_fkey"
             columns: ["teoria_id"]
             isOneToOne: false
@@ -3023,6 +3119,56 @@ export type Database = {
         }
         Relationships: []
       }
+      biblioteca_de_ganchos: {
+        Row: {
+          afirmacion_id: string | null
+          autor_id: string | null
+          autor_nombre: string | null
+          certeza: string | null
+          clasificado: boolean | null
+          creado_en: string | null
+          favorito: boolean | null
+          frase_exacta: string | null
+          frase_sin_gancho: string | null
+          material_id: string | null
+          material_titulo: string | null
+          pilares: Json | null
+          tema_id: string | null
+          tema_nombre: string | null
+          tipo: string | null
+          ubicacion: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afirmaciones_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiales_visibles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmaciones_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materiales_visibles: {
         Row: {
           anio: number | null
@@ -3116,6 +3262,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "autores_visibles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiales_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["autor_id"]
           },
           {
             foreignKeyName: "materiales_categoria_id_fkey"

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { z } from "zod"
+import { guardarAjuste } from "@/lib/acciones/ajustes"
 import {
   AutorNuevo,
   borrarAutor,
@@ -30,11 +31,13 @@ import {
   UnionDeAutores,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
+import { CambioDeFavorito, marcarFavorito } from "@/lib/acciones/ganchos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
 import { destinoTrasOcultar } from "@/lib/dominio/biblioteca/filtros-de-temas"
 import { almacenReal } from "@/lib/proveedores/almacen"
+import { avisosReales } from "@/lib/proveedores/avisos"
 
 function depsDeBiblioteca(db: DepsBiblioteca["db"]): DepsBiblioteca {
   return {
@@ -183,5 +186,26 @@ export async function borrarAutorAccion(autorId: string) {
 export async function recuperarAutorAccion(autorId: string) {
   return refrescar(
     await conSesionDeConi("recuperarAutor", SobreAutor, { autorId }, (db, d) => recuperarAutor({ db }, d.autorId)),
+  )
+}
+
+/** The star shows in the list order, the side panel and the hook's page: the whole section is refreshed. */
+export async function marcarFavoritoAccion(cambio: z.input<typeof CambioDeFavorito>) {
+  return refrescar(
+    await conSesionDeConi("marcarFavorito", CambioDeFavorito, cambio, (db, d) => marcarFavorito({ db }, d)),
+  )
+}
+
+const MisTipos = z.object({ valores: z.array(z.string().min(1).max(60)).max(40) })
+
+/** «Elegir mis tipos»: the settings path validates against the vigente list; the hooks screen is what changes. */
+export async function guardarMisTiposAccion(valores: string[]) {
+  return refrescar(
+    await conSesionDeConi("guardarMisTipos", MisTipos, { valores }, (db, d) =>
+      guardarAjuste(
+        { db, ahora: () => new Date().toISOString(), avisos: () => avisosReales() },
+        { campo: "tipos_de_gancho", valor: d.valores },
+      ),
+    ),
   )
 }
