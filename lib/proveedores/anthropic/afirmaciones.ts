@@ -14,8 +14,17 @@ export const TIPOS_DE_AFIRMACION = [
   "consejo",
   "dato",
   "experiencia",
+  "limite",
+  "sin_clasificar",
 ] as const
-export const EVIDENCIAS_DE_AFIRMACION = ["estudio", "clinica", "opinion", "testimonio"] as const
+export const EVIDENCIAS_DE_AFIRMACION = [
+  "estudio",
+  "guia_consenso",
+  "clinica",
+  "opinion",
+  "testimonio",
+  "sin_clasificar",
+] as const
 
 export const MAXIMO_AFIRMACIONES_POR_TRAMO = 15
 export const MAXIMO_CARACTERES_DE_AFIRMACION = 280

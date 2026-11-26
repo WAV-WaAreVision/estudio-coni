@@ -14,6 +14,7 @@ import {
   leerFicha,
   textoDeUbicacion,
 } from "@/lib/dominio/biblioteca/ficha"
+import { EVIDENCIAS_DE_AFIRMACION, TIPOS_DE_AFIRMACION } from "@/lib/proveedores/anthropic"
 
 const MATERIAL = "11111111-2222-4333-8444-555555555555"
 const IDEAS = ["Una", "Dos", "Tres", "Cuatro", "Cinco"]
@@ -28,8 +29,22 @@ describe("the words of ideas", () => {
       "consejo",
       "dato",
       "experiencia",
+      "limite",
+      "sin_clasificar",
     ])
-    expect(EVIDENCIA).toEqual({ estudio: "Estudio", clinica: "Clínica", opinion: "Opinión", testimonio: "Testimonio" })
+    expect(EVIDENCIA).toEqual({
+      estudio: "Estudio",
+      guia_consenso: "Guía o consenso",
+      clinica: "Clínica",
+      opinion: "Opinión",
+      testimonio: "Testimonio",
+      sin_clasificar: "Sin clasificar",
+    })
+  })
+
+  it("labels every tipo and evidencia value the extraction can store", () => {
+    for (const tipo of TIPOS_DE_AFIRMACION) expect(TIPO_DE_AFIRMACION[tipo]).toBeTruthy()
+    for (const evidencia of EVIDENCIAS_DE_AFIRMACION) expect(EVIDENCIA[evidencia]).toBeTruthy()
   })
 })
 

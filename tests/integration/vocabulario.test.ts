@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest"
+import { EVIDENCIAS_DE_AFIRMACION, TIPOS_DE_AFIRMACION } from "@/lib/proveedores/anthropic"
 import { como, comoConi, comoServicio, fallaCon, pool } from "./db"
 
 afterAll(() => pool.end())
@@ -85,5 +86,21 @@ describe("versiones_de_vocabulario", () => {
       )
       expect(error.code).toBe("42501")
     })
+  })
+})
+
+const valoresDelCheck = (nombre: string) =>
+  como(comoServicio, async (c) => {
+    const { rows } = await c.query<{ def: string }>(
+      "select pg_get_constraintdef(oid) as def from pg_constraint where conname = $1",
+      [nombre],
+    )
+    return [...(rows[0]?.def ?? "").matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort()
+  })
+
+describe("tipo and evidencia lists", () => {
+  it("keeps the code lists equal to the database checks", async () => {
+    expect(await valoresDelCheck("afirmaciones_tipo_check")).toEqual([...TIPOS_DE_AFIRMACION].sort())
+    expect(await valoresDelCheck("afirmaciones_evidencia_check")).toEqual([...EVIDENCIAS_DE_AFIRMACION].sort())
   })
 })
