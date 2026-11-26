@@ -26,6 +26,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 vi.mock("@/lib/datos/biblioteca", () => datos)
+const afirmaciones = vi.hoisted(() => ({
+  leerInsigniasDeIdeas: vi.fn(async (..._: unknown[]): Promise<Map<string, unknown>> => new Map()),
+  leerIdeasDelMaterial: vi.fn(async (..._: unknown[]): Promise<unknown[]> => []),
+}))
+vi.mock("@/lib/datos/afirmaciones", () => afirmaciones)
 vi.mock("@/app/(app)/biblioteca/acciones", () => ({
   unirAutoresAccion: vi.fn(),
   ocultarIdeaAccion: vi.fn(),
@@ -218,6 +223,25 @@ describe("an author's page", () => {
     const arbol = elementos(await DetalleDeAutor(conId(ID, { mostrada: MOSTRADA })))
     expect(arbol.find((elemento) => elemento.type === AvisoDeIdeas)?.props.texto).toBe(AVISO_TRAS_MOSTRAR)
     expect(arbol.find((elemento) => elemento.type === TrasElAviso)?.props).toEqual({ parametro: "mostrada" })
+  })
+
+  it("gives each visible idea list its badges and itself as the way back, and none to the hidden ones (6c-1)", async () => {
+    esConi.valor = true
+    datos.leerAutor.mockResolvedValueOnce(leido("persona"))
+    const insignias = new Map([["i-1", { tipo: "Dato", evidencia: "Estudio", emociones: [] }]])
+    afirmaciones.leerInsigniasDeIdeas.mockResolvedValueOnce(insignias)
+    const arbol = elementos(await DetalleDeAutor(conId(ID)))
+    expect(afirmaciones.leerInsigniasDeIdeas).toHaveBeenCalledWith(expect.anything(), [IDEA, SUELTA])
+    const listas = arbol.filter((elemento) => elemento.type === ListaDeIdeas)
+    expect(
+      listas
+        .filter((lista) => lista.props.etiqueta !== "Ideas ocultas")
+        .map((lista) => [lista.props.insignias, lista.props.desde]),
+    ).toEqual([
+      [insignias, `/biblioteca/autores/${ID}`],
+      [insignias, `/biblioteca/autores/${ID}`],
+    ])
+    expect(listas.find((lista) => lista.props.etiqueta === "Ideas ocultas")?.props.insignias).toBeUndefined()
   })
 })
 
