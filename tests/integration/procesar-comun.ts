@@ -210,6 +210,11 @@ export interface OpcionesClaude {
   adaptacionRota?: boolean
   /** What the vision call reads in the image with this id. */
   lectura?: (id: string) => string
+  /**
+   * Extra fields of the one claim the extraction returns per chunk (change 6a: marcas, gancho_detalle). A function
+   * gets the chunk's source text, to answer differently per chunk.
+   */
+  extraDeAfirmacion?: Record<string, unknown> | ((fuente: string) => Record<string, unknown>)
 }
 
 export interface LlamadasClaude {
@@ -276,6 +281,9 @@ export function simularClaude(opciones: OpcionesClaude = {}): LlamadasClaude {
                 dolor: null,
                 emocion: null,
                 gancho: null,
+                ...(typeof opciones.extraDeAfirmacion === "function"
+                  ? opciones.extraDeAfirmacion(fuente)
+                  : opciones.extraDeAfirmacion),
               },
             ],
             idioma: opciones.idioma ?? "es",

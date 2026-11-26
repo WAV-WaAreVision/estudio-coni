@@ -53,4 +53,33 @@ describe("respaldo_de_idea con fuente", () => {
     })
     expect(porAutor.get("Siembra Sin Título")).toEqual({ autor: "Siembra Sin Título", titulo: null, anio: null })
   })
+
+  it("keeps guia o consenso ahead of sin clasificar when the limit cuts the backing", async () => {
+    const idea = await sembrarIdeaDelMotor({
+      gancho: "Hablar baja la presión.",
+      semana: "2026-10-12",
+      pilar: "ia-salud-mental",
+      teoria: {
+        titulo: "T",
+        tesis: "Te",
+        nivel: "alto",
+        respaldo: [
+          ...["Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete"].map((n) => ({
+            autor: `Siembra Sin Clasificar ${n}`,
+            cita: n,
+            evidencia: "sin_clasificar" as const,
+          })),
+          { autor: "Siembra Guía", cita: "c2", evidencia: "guia_consenso" },
+        ],
+      },
+    })
+    const autores = await como(comoServicio, async (c) => {
+      const { rows } = await c.query<{ r: { afirmaciones: { autor: string }[] } }>(
+        "select public.respaldo_de_idea($1, 1) as r",
+        [idea],
+      )
+      return rows[0]?.r.afirmaciones.map((a) => a.autor)
+    })
+    expect(autores).toEqual(["Siembra Guía"])
+  })
 })

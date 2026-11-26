@@ -14,6 +14,7 @@ import {
   proponerPilaresPorRed,
   RechazoDeClaude,
 } from "@/lib/proveedores/anthropic"
+import { VOCABULARIO_DE_PRUEBA } from "../fixtures/vocabulario"
 import { servidor } from "../msw"
 
 // Decision A8: Coni's identity is «Constanza del Rosario, Psicóloga-Coach PUC». No prompt calls her «sexóloga».
@@ -95,6 +96,7 @@ describe("identidad de Coni en los prompts de Claude", () => {
             piezas: [{ desde: 0, hasta: 13, ubicacion: { pagina: 1 } }],
           },
           autor: { nombre: "Alguien", credencial: null },
+          vocabulario: VOCABULARIO_DE_PRUEBA,
         }),
     ],
     [

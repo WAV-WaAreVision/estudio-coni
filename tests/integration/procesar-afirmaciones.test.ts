@@ -242,6 +242,142 @@ describe("por tramo", () => {
   })
 })
 
+describe("marcas y ganchos (6a)", () => {
+  const GANCHO = "El deseo sexual cambia a lo largo de la vida"
+  const extraDeAfirmacion = {
+    marcas: [
+      { marca: "emocion", red: "instagram", valor: "vergüenza", frase: null, certeza: "alta", porQue: null },
+      { marca: "emocion", red: "linkedin", valor: "Escepticismo", frase: null, certeza: "media", porQue: null },
+      {
+        marca: "problema",
+        red: "instagram",
+        valor: "no merecer los logros",
+        frase: null,
+        certeza: "media",
+        porQue: null,
+      },
+      { marca: "dato", red: "todas", valor: "cifra", frase: "30%", certeza: "baja", porQue: null },
+    ],
+    gancho_detalle: {
+      fraseExacta: GANCHO,
+      fraseSinGancho: "El deseo cambia con los años.",
+      tipo: "Afirmación contraria",
+      certeza: "media",
+    },
+  }
+
+  async function marcas(materialId: string) {
+    const { rows } = await pool.query(
+      `select m.marca, m.red, m.valor, m.version_id is not null as con_version
+       from public.afirmacion_marcas m join public.afirmaciones a on a.id = m.afirmacion_id
+       where a.material_id = $1 order by m.marca, m.red`,
+      [materialId],
+    )
+    return rows
+  }
+
+  async function ganchos(materialId: string) {
+    const { rows } = await pool.query(
+      `select g.tipo, g.frase_exacta, g.frase_sin_gancho, g.version_id is not null as con_version
+       from public.ganchos g join public.afirmaciones a on a.id = g.afirmacion_id where a.material_id = $1`,
+      [materialId],
+    )
+    return rows
+  }
+
+  it("stores each claim's marks per network and its hook, pointing to the vigente list versions", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ extraDeAfirmacion })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+
+    const resultado = await procesarMaterial(await deps(almacen), id)
+
+    expect(resultado).toEqual({ resultado: "listo" })
+    expect(await marcas(id)).toEqual([
+      { marca: "dato", red: "todas", valor: "cifra", con_version: false },
+      { marca: "emocion", red: "instagram", valor: "verguenza", con_version: true },
+      { marca: "emocion", red: "linkedin", valor: "escepticismo", con_version: true },
+      { marca: "problema", red: "instagram", valor: "no_merecer_logros", con_version: true },
+    ])
+    expect(await ganchos(id)).toEqual([
+      {
+        tipo: "afirmacion_contraria",
+        frase_exacta: GANCHO,
+        frase_sin_gancho: "El deseo cambia con los años.",
+        con_version: true,
+      },
+    ])
+  })
+
+  it("keeps each claim's own marks and hook when a material has several claims", async () => {
+    const almacen = almacenEnMemoria()
+    const parrafo = (palabra: string) => `Hablar de ${palabra} ayuda a la pareja. `.repeat(150)
+    const dePalabra = (fuente: string) => (fuente.includes("alfa") ? "alfa" : "gamma")
+    simularClaude({
+      extraDeAfirmacion: (fuente) => ({
+        marcas: [
+          { marca: "dato", red: "todas", valor: dePalabra(fuente), frase: "30%", certeza: "alta", porQue: null },
+        ],
+        gancho_detalle: {
+          fraseExacta: `Hablar de ${dePalabra(fuente)} ayuda a la pareja.`,
+          fraseSinGancho: "Sin gancho.",
+          tipo: "Afirmación contraria",
+          certeza: "media",
+        },
+      }),
+    })
+    const id = await crearMaterial(almacen, {
+      tipo: "documento",
+      texto_pegado: [parrafo("alfa"), parrafo("beta"), parrafo("gamma")].join("\n\n"),
+    })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    const { rows } = await pool.query<{ cita: string; valor: string; gancho: string }>(
+      `select a.cita, m.valor, g.frase_exacta as gancho
+       from public.afirmaciones a
+       join public.afirmacion_marcas m on m.afirmacion_id = a.id
+       join public.ganchos g on g.afirmacion_id = a.id
+       where a.material_id = $1 order by a.tramo`,
+      [id],
+    )
+    expect(rows).toHaveLength(2)
+    for (const fila of rows) {
+      const palabra = fila.cita.includes("alfa") ? "alfa" : "gamma"
+      expect(fila.valor).toBe(palabra)
+      expect(fila.gancho).toBe(`Hablar de ${palabra} ayuda a la pareja.`)
+    }
+    expect(new Set(rows.map((r) => r.valor)).size).toBe(2)
+  })
+
+  it("leaves the same marks and hooks when the material is processed again", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude({ extraDeAfirmacion })
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+    await procesarMaterial(await deps(almacen), id)
+    const antes = { marcas: await marcas(id), ganchos: await ganchos(id) }
+    await pool.query("update public.materiales set estado = 'procesando' where id = $1", [id])
+
+    await procesarMaterial(await deps(almacen), id)
+
+    expect(await afirmaciones(id)).toHaveLength(1)
+    expect({ marcas: await marcas(id), ganchos: await ganchos(id) }).toEqual(antes)
+    expect(antes.marcas).toHaveLength(4)
+  })
+
+  it("stores no marks and no hook for an answer without them", async () => {
+    const almacen = almacenEnMemoria()
+    simularClaude()
+    const id = await crearMaterial(almacen, { tipo: "documento", texto_pegado: TEXTO })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    expect(await afirmaciones(id)).toHaveLength(1)
+    expect(await marcas(id)).toEqual([])
+    expect(await ganchos(id)).toEqual([])
+  })
+})
+
 describe("temas", () => {
   it("assigns the new claims to the nearest topic", async () => {
     const almacen = almacenEnMemoria()

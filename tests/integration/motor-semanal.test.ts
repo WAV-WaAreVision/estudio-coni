@@ -264,6 +264,18 @@ describe("motor_afirmaciones_de_tema", () => {
 
     expect(rows.map((r) => r.id)).toEqual([estudio, cercana])
   })
+
+  it("ranks guia o consenso with the strong evidence and sin clasificar with the weak", async () => {
+    const ana = await autor("Ana")
+    const m = await material(ana, "referente")
+    const t = await tema("Orden", "deseo", 0)
+    await afirmacion(m, ana, t, "sin clasificar", { evidencia: "sin_clasificar", vector: eje(0) })
+    const guia = await afirmacion(m, ana, t, "guia", { evidencia: "guia_consenso", vector: eje(1) })
+
+    const { rows } = await pool.query<{ id: string }>("select id from public.motor_afirmaciones_de_tema($1, 1)", [t])
+
+    expect(rows.map((r) => r.id)).toEqual([guia])
+  })
 })
 
 describe("correrMotor", () => {

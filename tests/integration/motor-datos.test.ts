@@ -105,6 +105,20 @@ describe("motor_temas", () => {
     })
   })
 
+  it("counts guia_consenso claims as strong evidence and leaves sin_clasificar out", async () => {
+    await como(comoServicio, async (c) => {
+      const ana = await crearAutor(c, "Ana guia")
+      const m = await crearMaterial(c, ana)
+      const t = await crearTema(c, "Con guias", "deseo", 0)
+      await crearAfirmacion(c, m, ana, t, { evidencia: "guia_consenso" })
+      await crearAfirmacion(c, m, ana, t, { evidencia: "guia_consenso" })
+      await crearAfirmacion(c, m, ana, t, { evidencia: "estudio" })
+      await crearAfirmacion(c, m, ana, t, { evidencia: "sin_clasificar" })
+      const { rows } = await c.query<FilaTema>("select * from public.motor_temas()")
+      expect(rows.find((r) => r.tema_id === t)).toMatchObject({ afirmaciones: 4, evidencia_fuerte: 3 })
+    })
+  })
+
   it("leaves merged topics out", async () => {
     await como(comoServicio, async (c) => {
       const ganador = await crearTema(c, "Ganador", "deseo", 0)

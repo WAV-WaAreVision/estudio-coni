@@ -27,10 +27,11 @@ export interface Respaldo {
 export const MAXIMO_AFIRMACIONES_DE_RESPALDO = 12
 
 const porId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
-const deEvidencia = (a: { evidencia: string }) => (a.evidencia === "estudio" || a.evidencia === "clinica" ? 0 : 1)
+const EVIDENCIA_FUERTE = new Set(["estudio", "guia_consenso", "clinica"])
+const deEvidencia = (a: { evidencia: string }) => (EVIDENCIA_FUERTE.has(a.evidencia) ? 0 : 1)
 
 /**
- * The claims a backing keeps, as `respaldo_de_idea` picks them (20261017000110): studies and clinical practice first,
+ * The claims a backing keeps, as `respaldo_de_idea` picks them (20261114000400): studies, guidelines or consensus and clinical practice first,
  * then by id, up to the cap; returned by id. Whoever shows a source without that function (the idea card) uses this,
  * so the card and the script name the same sources.
  */

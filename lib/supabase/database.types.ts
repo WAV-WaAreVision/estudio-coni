@@ -34,6 +34,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      afirmacion_marcas: {
+        Row: {
+          afirmacion_id: string
+          certeza: string
+          creada_en: string
+          frase: string | null
+          id: string
+          marca: string
+          origen: string
+          por_que: string | null
+          red: string
+          valor: string
+          version_id: number | null
+        }
+        Insert: {
+          afirmacion_id: string
+          certeza: string
+          creada_en?: string
+          frase?: string | null
+          id?: string
+          marca: string
+          origen: string
+          por_que?: string | null
+          red: string
+          valor: string
+          version_id?: number | null
+        }
+        Update: {
+          afirmacion_id?: string
+          certeza?: string
+          creada_en?: string
+          frase?: string | null
+          id?: string
+          marca?: string
+          origen?: string
+          por_que?: string | null
+          red?: string
+          valor?: string
+          version_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afirmacion_marcas_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmacion_marcas_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "versiones_de_vocabulario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       afirmaciones: {
         Row: {
           autor_id: string
@@ -885,6 +942,7 @@ export type Database = {
           razon: string | null
           seguro: boolean | null
           veredicto: string | null
+          veredicto_coni: string | null
           version_prompt: string | null
         }
         Insert: {
@@ -909,6 +967,7 @@ export type Database = {
           razon?: string | null
           seguro?: boolean | null
           veredicto?: string | null
+          veredicto_coni?: string | null
           version_prompt?: string | null
         }
         Update: {
@@ -933,6 +992,7 @@ export type Database = {
           razon?: string | null
           seguro?: boolean | null
           veredicto?: string | null
+          veredicto_coni?: string | null
           version_prompt?: string | null
         }
         Relationships: [
@@ -1009,6 +1069,57 @@ export type Database = {
             columns: ["tema_origen"]
             isOneToOne: false
             referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ganchos: {
+        Row: {
+          afirmacion_id: string
+          certeza: string
+          creada_en: string
+          frase_exacta: string
+          frase_sin_gancho: string
+          id: string
+          origen: string
+          tipo: string
+          version_id: number
+        }
+        Insert: {
+          afirmacion_id: string
+          certeza: string
+          creada_en?: string
+          frase_exacta: string
+          frase_sin_gancho: string
+          id?: string
+          origen: string
+          tipo: string
+          version_id: number
+        }
+        Update: {
+          afirmacion_id?: string
+          certeza?: string
+          creada_en?: string
+          frase_exacta?: string
+          frase_sin_gancho?: string
+          id?: string
+          origen?: string
+          tipo?: string
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ganchos_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: true
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ganchos_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "versiones_de_vocabulario"
             referencedColumns: ["id"]
           },
         ]
@@ -2749,6 +2860,42 @@ export type Database = {
         }
         Relationships: []
       }
+      versiones_de_vocabulario: {
+        Row: {
+          aprobada_en: string | null
+          creada_en: string
+          estado: string
+          id: number
+          lista: string
+          motivo: string
+          nombre: string
+          red: string
+          valores: Json
+        }
+        Insert: {
+          aprobada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: never
+          lista: string
+          motivo: string
+          nombre: string
+          red: string
+          valores: Json
+        }
+        Update: {
+          aprobada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: never
+          lista?: string
+          motivo?: string
+          nombre?: string
+          red?: string
+          valores?: Json
+        }
+        Relationships: []
+      }
       vinculos: {
         Row: {
           cita_a: string | null
@@ -4192,6 +4339,10 @@ export type Database = {
       }
       unaccent_inmutable: { Args: { texto: string }; Returns: string }
       unir_temas_a_mano: { Args: { p_a: string; p_b: string }; Returns: string }
+      valores_de_vocabulario_validos: {
+        Args: { lista: string; valores: Json }
+        Returns: boolean
+      }
       volver_a_transparencia: { Args: { p_version: number }; Returns: number }
     }
     Enums: {

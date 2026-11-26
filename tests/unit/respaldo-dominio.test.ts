@@ -173,6 +173,14 @@ describe("afirmacionesDelRespaldo", () => {
     expect(elegidas.map((a) => a.id)).toEqual(["a", "b", "y", "z"])
   })
 
+  it("counts guia_consenso as strong, like studies and clinical practice", () => {
+    const elegidas = afirmacionesDelRespaldo(
+      [de("a", "opinion"), de("b", "sin_clasificar"), de("y", "guia_consenso"), de("z", "estudio")],
+      2,
+    )
+    expect(elegidas.map((a) => a.id)).toEqual(["y", "z"])
+  })
+
   it("caps at MAXIMO_AFIRMACIONES_DE_RESPALDO by default", () => {
     const muchas = Array.from({ length: 15 }, (_, i) => de(String(i).padStart(2, "0"), "opinion"))
     expect(afirmacionesDelRespaldo(muchas)).toHaveLength(MAXIMO_AFIRMACIONES_DE_RESPALDO)

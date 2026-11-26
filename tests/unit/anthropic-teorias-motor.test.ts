@@ -296,6 +296,24 @@ describe("validarTeoria", () => {
     expect("teoria" in resultado && resultado.teoria.nivelEvidencia).toBe("debil")
   })
 
+  it("forces weak evidence when every backing claim is sin clasificar", () => {
+    const cruce: CruceParaTeoria = {
+      ...CRUCE,
+      afirmaciones: [afirmacion("a1", "Ana", "sin_clasificar"), afirmacion("a2", "Beto", "sin_clasificar")],
+    }
+    const resultado = validarTeoria(teoria({ nivelEvidencia: "alto" }), cruce)
+    expect("teoria" in resultado && resultado.teoria.nivelEvidencia).toBe("debil")
+  })
+
+  it("keeps the level when one backing claim is guia consenso", () => {
+    const cruce: CruceParaTeoria = {
+      ...CRUCE,
+      afirmaciones: [afirmacion("a1", "Ana", "sin_clasificar"), afirmacion("a2", "Beto", "guia_consenso")],
+    }
+    const resultado = validarTeoria(teoria({ nivelEvidencia: "alto" }), cruce)
+    expect("teoria" in resultado && resultado.teoria.nivelEvidencia).toBe("alto")
+  })
+
   it("keeps the level when at least one backing claim is stronger", () => {
     const resultado = validarTeoria(teoria({ nivelEvidencia: "medio" }), CRUCE)
     expect("teoria" in resultado && resultado.teoria.nivelEvidencia).toBe("medio")

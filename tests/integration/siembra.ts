@@ -121,7 +121,7 @@ export interface TeoriaSembrada {
     /** The kind of author row; `persona` when absent. */
     tipo?: "persona" | "institucion"
     /** `opinion` when absent. */
-    evidencia?: "estudio" | "clinica" | "opinion"
+    evidencia?: "estudio" | "guia_consenso" | "clinica" | "opinion" | "sin_clasificar"
   }[]
 }
 
