@@ -76,6 +76,14 @@ describe("DetalleDeGancho", () => {
     expect(screen.queryByText("Frase sin gancho")).toBeNull()
     expect(screen.getByText("Red", { selector: "dt" }).nextElementSibling).toHaveTextContent("Sin red")
   })
+
+  it("links to the claim's page, which comes back to the hook (6c-1)", () => {
+    render(<DetalleDeGancho gancho={ganchoDePrueba()} tipos={TIPOS_DE_PRUEBA} />)
+    expect(screen.getByRole("link", { name: "Ver la afirmación" })).toHaveAttribute(
+      "href",
+      `/biblioteca/afirmaciones/${ID_DE_GANCHO}?desde=${encodeURIComponent(`/biblioteca/ganchos/${ID_DE_GANCHO}`)}`,
+    )
+  })
 })
 
 describe("BotonFavorito", () => {
