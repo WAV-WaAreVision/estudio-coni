@@ -30,6 +30,7 @@ import {
   UnionDeAutores,
   unirAutores,
 } from "@/lib/acciones/biblioteca"
+import { CambioDeFavorito, marcarFavorito } from "@/lib/acciones/ganchos"
 import type { Resultado } from "@/lib/acciones/resultado"
 import { conSesionDeConi, disparosDeBibliotecaDeLaApp } from "@/lib/acciones/servidor"
 import { hrefDeAutor } from "@/lib/dominio/biblioteca/autores"
@@ -183,5 +184,12 @@ export async function borrarAutorAccion(autorId: string) {
 export async function recuperarAutorAccion(autorId: string) {
   return refrescar(
     await conSesionDeConi("recuperarAutor", SobreAutor, { autorId }, (db, d) => recuperarAutor({ db }, d.autorId)),
+  )
+}
+
+/** The star shows in the list order, the side panel and the hook's page: the whole section is refreshed. */
+export async function marcarFavoritoAccion(cambio: z.input<typeof CambioDeFavorito>) {
+  return refrescar(
+    await conSesionDeConi("marcarFavorito", CambioDeFavorito, cambio, (db, d) => marcarFavorito({ db }, d)),
   )
 }
