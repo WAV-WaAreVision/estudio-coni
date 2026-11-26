@@ -158,6 +158,24 @@ describe("biblioteca_de_ganchos", () => {
     })
   })
 
+  it("leaves an inactive pillar out of the network", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      await c.query(
+        `insert into public.tema_pilares (tema_id, pilar_id, red, es_capa, fuerza, origen)
+         select $1, c.id, c.red, c.es_capa, 'alta', 'coni'
+           from public.categorias c where c.slug in ('diagnostico-doble', 'mi-nueva-partida')`,
+        [e.tema],
+      )
+      await c.query("update public.categorias set activa = false where slug = 'mi-nueva-partida'")
+      await asumir(c, comoConi)
+      const filas = await filasDe(c, e.material)
+      expect(filas.find((f) => f.afirmacion_id === e.nuevo)?.pilares.map((p) => [p.red, p.nombre])).toEqual([
+        ["linkedin", "Diagnóstico doble"],
+      ])
+    })
+  })
+
   it("shows nothing to someone who is not Coni or WAV", async () => {
     await como(comoPostgres, async (c) => {
       const e = await sembrar(c)
@@ -180,6 +198,19 @@ describe("ganchos_favoritos", () => {
       expect(repetido.code).toBe("23505")
       await c.query("delete from public.ganchos_favoritos where afirmacion_id = $1", [e.viejo])
       expect((await filasDe(c, e.material)).find((f) => f.afirmacion_id === e.viejo)?.favorito).toBe(false)
+    })
+  })
+
+  it("lets Coni choose only the claim, never the date", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      await asumir(c, comoConi)
+      const fechada = await fallaCon(
+        c,
+        "insert into public.ganchos_favoritos (afirmacion_id, creado_en) values ($1, '2020-01-01')",
+        [e.viejo],
+      )
+      expect(fechada.code).toBe("42501")
     })
   })
 

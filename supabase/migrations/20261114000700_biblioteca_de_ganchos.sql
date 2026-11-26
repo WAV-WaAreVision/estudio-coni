@@ -8,7 +8,9 @@ create table public.ganchos_favoritos (
 );
 alter table public.ganchos_favoritos enable row level security;
 revoke all on public.ganchos_favoritos from anon, authenticated;
-grant select, insert, delete on public.ganchos_favoritos to authenticated;
+grant select, delete on public.ganchos_favoritos to authenticated;
+-- Only the claim: the date is the database's.
+grant insert (afirmacion_id) on public.ganchos_favoritos to authenticated;
 grant all on public.ganchos_favoritos to service_role;
 create policy "coni y wav leen favoritos de ganchos" on public.ganchos_favoritos for select to authenticated
   using (public.es_coni() or public.es_mantenedor());
@@ -18,13 +20,14 @@ create policy "coni quita favoritos de ganchos" on public.ganchos_favoritos for 
   using (public.es_coni());
 
 -- «Mis tipos»: values of the vigente `gancho` list, written through the policy "coni edita ajustes" (guardarAjuste
--- drops anything the list does not have). A value later retired stays stored and the screen ignores it.
+-- drops anything the list does not have). A value later retired stays stored, ignored by the screen, until Coni's next
+-- save of «Mis tipos» drops it (the chooser warns first).
 alter table public.ajustes add column tipos_de_gancho_preferidos text[] not null default '{}';
 
 -- One row per hook. A claim has at most one row in `ganchos` (unique), and its free text counts only without one,
 -- so no claim appears twice. Hidden claims and anything deleted with «Deshacer» stay out: the material through
 -- materiales_visibles (inner), the author through autores_visibles (left, its id and name go null). The network comes
--- from the topic's pillars, layers excluded; no topic or no pillar is an empty array («Sin red»).
+-- from the topic's active pillars, layers excluded; no topic or no pillar is an empty array («Sin red»).
 create view public.biblioteca_de_ganchos with (security_invoker = true) as
 select
   a.id as afirmacion_id,
@@ -47,7 +50,7 @@ select
               order by tp.red, (tp.fuerza = 'alta') desc, c.orden)
        from public.tema_pilares tp
        join public.categorias c on c.id = tp.pilar_id
-      where tp.tema_id = a.tema_id and not tp.es_capa),
+      where tp.tema_id = a.tema_id and not tp.es_capa and c.activa),
     '[]'::jsonb
   ) as pilares,
   exists (select 1 from public.ganchos_favoritos f where f.afirmacion_id = a.id) as favorito
