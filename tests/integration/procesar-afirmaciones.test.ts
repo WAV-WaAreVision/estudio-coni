@@ -309,6 +309,47 @@ describe("marcas y ganchos (6a)", () => {
     ])
   })
 
+  it("keeps each claim's own marks and hook when a material has several claims", async () => {
+    const almacen = almacenEnMemoria()
+    const parrafo = (palabra: string) => `Hablar de ${palabra} ayuda a la pareja. `.repeat(150)
+    const dePalabra = (fuente: string) => (fuente.includes("alfa") ? "alfa" : "gamma")
+    simularClaude({
+      extraDeAfirmacion: (fuente) => ({
+        marcas: [
+          { marca: "dato", red: "todas", valor: dePalabra(fuente), frase: "30%", certeza: "alta", porQue: null },
+        ],
+        gancho_detalle: {
+          fraseExacta: `Hablar de ${dePalabra(fuente)} ayuda a la pareja.`,
+          fraseSinGancho: "Sin gancho.",
+          tipo: "Afirmación contraria",
+          certeza: "media",
+        },
+      }),
+    })
+    const id = await crearMaterial(almacen, {
+      tipo: "documento",
+      texto_pegado: [parrafo("alfa"), parrafo("beta"), parrafo("gamma")].join("\n\n"),
+    })
+
+    await procesarMaterial(await deps(almacen), id)
+
+    const { rows } = await pool.query<{ cita: string; valor: string; gancho: string }>(
+      `select a.cita, m.valor, g.frase_exacta as gancho
+       from public.afirmaciones a
+       join public.afirmacion_marcas m on m.afirmacion_id = a.id
+       join public.ganchos g on g.afirmacion_id = a.id
+       where a.material_id = $1 order by a.tramo`,
+      [id],
+    )
+    expect(rows).toHaveLength(2)
+    for (const fila of rows) {
+      const palabra = fila.cita.includes("alfa") ? "alfa" : "gamma"
+      expect(fila.valor).toBe(palabra)
+      expect(fila.gancho).toBe(`Hablar de ${palabra} ayuda a la pareja.`)
+    }
+    expect(new Set(rows.map((r) => r.valor)).size).toBe(2)
+  })
+
   it("leaves the same marks and hooks when the material is processed again", async () => {
     const almacen = almacenEnMemoria()
     simularClaude({ extraDeAfirmacion })

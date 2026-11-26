@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { z } from "zod"
 import { leerCalibracion } from "@/lib/datos/huellas"
 import { leerVocabulario } from "@/lib/datos/vocabulario"
@@ -252,65 +252,48 @@ async function reemplazarAfirmaciones(
   if (borradas.error) throw falloDeBase("No pude reemplazar las afirmaciones", borradas.error)
   const conVector: string[] = []
   for (let desde = 0; desde < filas.length; desde += FILAS_POR_INSERCION) {
-    const lote = filas.slice(desde, desde + FILAS_POR_INSERCION)
-    const { data, error } = await db
-      .from("afirmaciones")
-      .insert(
-        lote.map((f, i) => {
-          const vector = vectores[desde + i]
-          return {
-            material_id: id,
-            autor_id,
-            tramo: f.tramo,
-            ubicacion: f.ubicacion,
-            idioma: f.idioma,
-            texto: f.texto,
-            cita: f.cita,
-            tipo: f.tipo,
-            evidencia: f.evidencia,
-            postura: f.postura,
-            publico: f.publico,
-            dolor: f.dolor,
-            emocion: f.emocion,
-            gancho: f.gancho,
-            vector: vector ? textoDeVector(vector) : null,
-            modelo_vector: vector ? modelo : null,
-          }
-        }),
-      )
-      .select("id")
-    if (error) throw falloDeBase("No pude guardar las afirmaciones", error)
-    if (data.length !== lote.length) {
-      throw falloDeBase("No pude guardar las afirmaciones", {
-        message: `La base devolvió ${data.length} ids para ${lote.length} afirmaciones.`,
-      })
-    }
-    await guardarMarcasYGanchos(
-      db,
-      lote,
-      data.map((fila) => fila.id),
+    // Ids born here, so marks and hooks point at their claim whatever order the database answers in.
+    const lote = filas.slice(desde, desde + FILAS_POR_INSERCION).map((f, i) => ({
+      ...f,
+      id: randomUUID(),
+      vector: vectores[desde + i] ?? null,
+    }))
+    const { error } = await db.from("afirmaciones").insert(
+      lote.map((f) => ({
+        id: f.id,
+        material_id: id,
+        autor_id,
+        tramo: f.tramo,
+        ubicacion: f.ubicacion,
+        idioma: f.idioma,
+        texto: f.texto,
+        cita: f.cita,
+        tipo: f.tipo,
+        evidencia: f.evidencia,
+        postura: f.postura,
+        publico: f.publico,
+        dolor: f.dolor,
+        emocion: f.emocion,
+        gancho: f.gancho,
+        vector: f.vector ? textoDeVector(f.vector) : null,
+        modelo_vector: f.vector ? modelo : null,
+      })),
     )
-    data.forEach((fila, i) => {
-      if (vectores[desde + i]) conVector.push(fila.id)
-    })
+    if (error) throw falloDeBase("No pude guardar las afirmaciones", error)
+    await guardarMarcasYGanchos(db, lote)
+    for (const f of lote) if (f.vector) conVector.push(f.id)
   }
   return conVector
 }
 
-/** The marks and hook of each claim of a batch, `ids` in the batch's order. A failed insert fails the step. */
+/** The marks and hook of each claim of a batch, already inserted under `id`. A failed insert fails the step. */
 async function guardarMarcasYGanchos(
   db: Db,
-  lote: readonly Extraidas["afirmaciones"][number][],
-  ids: readonly string[],
+  lote: readonly (Extraidas["afirmaciones"][number] & { id: string })[],
 ): Promise<void> {
-  const idDe = (i: number): string => {
-    const id = ids[i]
-    if (id === undefined) throw new Error(`Falta el id de la afirmación ${i} del lote.`)
-    return id
-  }
-  const marcas = lote.flatMap((f, i) =>
+  const marcas = lote.flatMap((f) =>
     f.marcas.map((m) => ({
-      afirmacion_id: idDe(i),
+      afirmacion_id: f.id,
       marca: m.marca,
       red: m.red,
       valor: m.valor,
@@ -321,15 +304,15 @@ async function guardarMarcasYGanchos(
       origen: "extraccion" as const,
     })),
   )
-  if (marcas.length > 0) {
-    const r = await db.from("afirmacion_marcas").insert(marcas)
+  for (let desde = 0; desde < marcas.length; desde += FILAS_POR_INSERCION) {
+    const r = await db.from("afirmacion_marcas").insert(marcas.slice(desde, desde + FILAS_POR_INSERCION))
     if (r.error) throw falloDeBase("No pude guardar las marcas de las afirmaciones", r.error)
   }
-  const ganchos = lote.flatMap((f, i) =>
+  const ganchos = lote.flatMap((f) =>
     f.ganchoDetalle
       ? [
           {
-            afirmacion_id: idDe(i),
+            afirmacion_id: f.id,
             frase_exacta: f.ganchoDetalle.fraseExacta,
             frase_sin_gancho: f.ganchoDetalle.fraseSinGancho,
             tipo: f.ganchoDetalle.tipo,
