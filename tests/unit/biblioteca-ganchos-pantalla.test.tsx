@@ -14,7 +14,9 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 
 import { BotonFavorito } from "@/app/(app)/biblioteca/ganchos/boton-favorito"
 import { DetalleDeGancho } from "@/app/(app)/biblioteca/ganchos/detalle-de-gancho"
+import { ListaDeGanchos } from "@/app/(app)/biblioteca/ganchos/lista-de-ganchos"
 import { PanelDeGancho } from "@/app/(app)/biblioteca/ganchos/panel-de-gancho"
+import { TablaDeGanchos } from "@/app/(app)/biblioteca/ganchos/tabla-de-ganchos"
 import { ganchoDePrueba, ID_DE_GANCHO, PILAR_DE_INSTAGRAM, TIPOS_DE_PRUEBA } from "../fixtures/ganchos"
 
 beforeEach(() => vi.clearAllMocks())
@@ -104,5 +106,68 @@ describe("PanelDeGancho", () => {
     const cerrar = within(region).getByRole("link", { name: "Cerrar el panel" })
     expect(cerrar).toHaveAttribute("href", "/biblioteca/ganchos?red=linkedin")
     expect(cerrar).toHaveAttribute("data-cierra-panel", ID_DE_GANCHO)
+  })
+})
+
+describe("ListaDeGanchos", () => {
+  const favorito = ganchoDePrueba({ afirmacionId: "a1b2c3d4-0000-4000-8000-000000000001", favorito: true })
+  const viejo = ganchoDePrueba({
+    afirmacionId: "a1b2c3d4-0000-4000-8000-000000000002",
+    fraseExacta: "¿Y si descansar fuera trabajo?",
+    tipo: "sin_clasificar",
+    clasificado: false,
+    autor: null,
+  })
+
+  it("draws cards on the phone that open each hook's page, with type, author and the star", () => {
+    render(<ListaDeGanchos ganchos={[favorito, viejo]} tipos={TIPOS_DE_PRUEBA} filtros={{}} seleccion={null} />)
+    const lista = screen.getByRole("list", { name: "Ganchos" })
+    expect(lista).toHaveClass("md:hidden")
+    const tarjetas = within(lista).getAllByRole("listitem")
+    expect(within(tarjetas[0] as HTMLElement).getByRole("link")).toHaveAttribute(
+      "href",
+      `/biblioteca/ganchos/${favorito.afirmacionId}`,
+    )
+    expect(tarjetas[0]).toHaveTextContent("«El 70 % no descansa.»")
+    expect(tarjetas[0]).toHaveTextContent("Número específico · Daniela Ruiz")
+    expect(tarjetas[0]).toHaveTextContent("Favorito")
+    expect(tarjetas[1]).toHaveTextContent("Sin clasificar")
+    expect(tarjetas[1]).not.toHaveTextContent("Favorito")
+  })
+})
+
+describe("TablaDeGanchos", () => {
+  it("has the five columns, rows that open the side panel keeping the filters, and marks the chosen row", () => {
+    const gancho = ganchoDePrueba({ favorito: true })
+    render(
+      <TablaDeGanchos
+        ganchos={[gancho]}
+        tipos={TIPOS_DE_PRUEBA}
+        filtros={{ tipo: "numero_especifico" }}
+        seleccion={ID_DE_GANCHO}
+      />,
+    )
+    const tabla = screen.getByRole("table", { name: "Ganchos" })
+    expect(
+      within(tabla)
+        .getAllByRole("columnheader")
+        .map((celda) => celda.textContent),
+    ).toEqual(["Frase exacta", "Tipo", "Autor", "Tema", "Favorito"])
+    const enlace = within(tabla).getByRole("link", { name: "«El 70 % no descansa.»" })
+    expect(enlace).toHaveAttribute("href", `/biblioteca/ganchos?tipo=numero_especifico&g=${ID_DE_GANCHO}`)
+    expect(enlace).toHaveAttribute("data-abre-panel", ID_DE_GANCHO)
+    expect(enlace).toHaveAttribute("aria-current", "true")
+    const fila = within(tabla).getAllByRole("row")[1] as HTMLElement
+    expect(fila).toHaveTextContent("Número específico")
+    expect(fila).toHaveTextContent("Daniela Ruiz")
+    expect(fila).toHaveTextContent("Carga mental")
+    expect(within(fila).getByText("Favorito")).toHaveClass("sr-only")
+  })
+
+  it("leaves the author and topic columns for wide screens, so the table fits beside the panel", () => {
+    render(<TablaDeGanchos ganchos={[ganchoDePrueba()]} tipos={TIPOS_DE_PRUEBA} filtros={{}} seleccion={null} />)
+    const [, , autor, tema] = screen.getAllByRole("columnheader")
+    expect(autor).toHaveClass("hidden", "lg:table-cell")
+    expect(tema).toHaveClass("hidden", "lg:table-cell")
   })
 })
