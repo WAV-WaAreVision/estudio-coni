@@ -72,8 +72,9 @@ export async function listarGanchos(db: Db): Promise<GanchoDeLista[]> {
   return filas.map(ganchoDeFila)
 }
 
-/** One hook by its claim; null when the claim has no visible hook. */
+/** One hook by its claim; null when the id is not a claim id or the claim has no visible hook. */
 export async function leerGancho(db: Db, afirmacionId: string): Promise<GanchoDeLista | null> {
+  if (!z.uuid().safeParse(afirmacionId).success) return null
   const { data, error } = await db
     .from("biblioteca_de_ganchos")
     .select(COLUMNAS)

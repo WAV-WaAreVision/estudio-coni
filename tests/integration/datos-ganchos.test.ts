@@ -92,6 +92,10 @@ describe("leerGancho", () => {
     expect(await leerGancho(coni, viejo)).toMatchObject({ afirmacionId: viejo, tema: { id: tema } })
     expect(await leerGancho(coni, AUSENTE)).toBeNull()
   })
+
+  it("gives null for an id that is not a claim id", async () => {
+    expect(await leerGancho(coni, "no-es-un-id")).toBeNull()
+  })
 })
 
 describe("leerTiposPreferidos", () => {

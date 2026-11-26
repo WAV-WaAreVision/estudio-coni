@@ -75,6 +75,23 @@ describe("marcarFavorito", () => {
     expect(await esFavorito(idea)).toBe(false)
   })
 
+  it("says the hook is gone when its claim is hidden or has no hook", async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia, gancho, excluida)
+       values ($1, $2, 0, '{"pagina":1}'::jsonb, 'Oculta', 'cita', 'dato', 'estudio', 'Un gancho oculto', true),
+              ($1, $2, 0, '{"pagina":1}'::jsonb, 'Sin gancho', 'cita', 'dato', 'estudio', null, false)
+       returning id`,
+      [material, autora],
+    )
+    for (const { id } of rows) {
+      expect(await marcarFavorito({ db: coni }, { afirmacionId: id, favorito: true })).toEqual({
+        ok: false,
+        error: GANCHO_INEXISTENTE,
+      })
+      expect(await esFavorito(id)).toBe(false)
+    }
+  })
+
   it("says the hook is gone when its claim no longer exists", async () => {
     expect(await marcarFavorito({ db: coni }, { afirmacionId: AUSENTE, favorito: true })).toEqual({
       ok: false,
@@ -94,6 +111,14 @@ describe("guardarAjuste with Coni's hook types", () => {
       anterior: { campo: "tipos_de_gancho", valor: ["escena", "mito"] },
     })
     expect(await preferidos()).toEqual([])
+  })
+
+  it("drops a retired type on the next save", async () => {
+    await pool.query("update public.ajustes set tipos_de_gancho_preferidos = '{escena,tipo_retirado}'")
+    expect(
+      await guardarAjuste(deps(coni), { campo: "tipos_de_gancho", valor: ["escena", "tipo_retirado", "mito"] }),
+    ).toMatchObject({ ok: true, anterior: { campo: "tipos_de_gancho", valor: ["escena", "tipo_retirado"] } })
+    expect(await preferidos()).toEqual(["escena", "mito"])
   })
 
   it("refuses a value that is not text, and WAV's session", async () => {
