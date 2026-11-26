@@ -61,6 +61,8 @@ beforeAll(async () => {
   material = await sembrarMaterial({ titulo: `Material acciones etiquetas ${SUFIJO}`, autorId: autora })
   nueva = await idea("Nueva")
   antigua = await idea("Antigua")
+  // As the migration's backfill marks a claim that existed before 6c-1 with no marks and no hook.
+  await pool.query("update public.afirmaciones set etiquetas_antiguas = true where id = $1", [antigua])
   emocion = await marca("emocion", "instagram", "curiosidad", "emocion")
   problema = await marca("problema", "linkedin", "rrhh_tarde", "dolor")
   await pool.query(
