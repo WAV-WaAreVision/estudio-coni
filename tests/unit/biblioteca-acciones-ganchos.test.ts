@@ -11,7 +11,7 @@ vi.mock("next/cache", () => ({ revalidatePath }))
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }))
 vi.mock("@/lib/acciones/servidor", () => ({ conSesionDeConi, disparosDeBibliotecaDeLaApp: vi.fn() }))
 
-import { marcarFavoritoAccion } from "@/app/(app)/biblioteca/acciones"
+import { guardarMisTiposAccion, marcarFavoritoAccion } from "@/app/(app)/biblioteca/acciones"
 import { CambioDeFavorito } from "@/lib/acciones/ganchos"
 
 const ID = "11111111-2222-4333-8444-555555555555"
@@ -33,6 +33,25 @@ describe("marcarFavoritoAccion", () => {
   it("does not refresh on a refusal", async () => {
     conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "No." })
     expect(await marcarFavoritoAccion({ afirmacionId: ID, favorito: false })).toEqual({ ok: false, error: "No." })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe("guardarMisTiposAccion", () => {
+  it("saves her types as Coni and refreshes the Biblioteca", async () => {
+    expect(await guardarMisTiposAccion(["escena"])).toEqual({ ok: true })
+    expect(conSesionDeConi).toHaveBeenCalledWith(
+      "guardarMisTipos",
+      expect.anything(),
+      { valores: ["escena"] },
+      expect.any(Function),
+    )
+    expect(revalidatePath).toHaveBeenCalledWith("/biblioteca", "layout")
+  })
+
+  it("does not refresh on a refusal", async () => {
+    conSesionDeConi.mockResolvedValueOnce({ ok: false, error: "No." })
+    expect(await guardarMisTiposAccion([])).toEqual({ ok: false, error: "No." })
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 })

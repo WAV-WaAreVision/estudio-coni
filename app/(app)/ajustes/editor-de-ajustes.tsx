@@ -42,8 +42,11 @@ const DIAS = [
   { numero: 7, etiqueta: "Dom" },
 ] as const
 
-// The cap, the limit and the switches live in Ajustes › Presupuesto; this editor never sends them.
-type CambioDelEditor = Exclude<CambioDeAjuste, { campo: "tope" | "limite" | "motor_semanal" | "fusiones_nocturnas" }>
+// The cap, the limit and the switches live in Ajustes › Presupuesto, and «Mis tipos» in the Biblioteca; this editor never sends them.
+type CambioDelEditor = Exclude<
+  CambioDeAjuste,
+  { campo: "tope" | "limite" | "motor_semanal" | "fusiones_nocturnas" | "tipos_de_gancho" }
+>
 
 function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEditables {
   switch (cambio.campo) {
@@ -63,6 +66,7 @@ function aplicar(valores: AjustesEditables, cambio: CambioDeAjuste): AjustesEdit
     case "limite":
     case "motor_semanal":
     case "fusiones_nocturnas":
+    case "tipos_de_gancho":
       return valores
   }
 }
