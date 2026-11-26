@@ -431,7 +431,7 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "ee6d0db9521a21aa2b6665c02c32a09c5af555387801cf0f13c99476a2f53085",
+          "cuerpo": "37cc9098f2b8c5d8d39bb2bd7743980a1ace7073edf09cb701cea9edf8f8bc56",
           "sistema": "96f15b3ea669df81f6c564694020c5b713e3182d6574c688d623984a2ccee486",
           "usuario": "8678eb90a3d77a90371ef5b620f7787b1fb876fca059b73b74b66885d4d5cfc0",
         },

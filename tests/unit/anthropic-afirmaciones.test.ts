@@ -221,7 +221,9 @@ describe("extraerAfirmaciones", () => {
     await pedir()
 
     const evidencia = cuerpos[0]?.output_config?.format?.schema?.properties?.afirmaciones?.items?.properties?.evidencia
-    expect(evidencia?.description).toContain('"estudio","clinica","opinion","testimonio"')
+    expect(evidencia?.description).toContain(
+      '"estudio","guia_consenso","clinica","opinion","testimonio","sin_clasificar"',
+    )
   })
 
   it("accepts an empty list for a chunk with nothing substantive", async () => {
