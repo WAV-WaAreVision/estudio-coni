@@ -4,10 +4,12 @@ export {
   type AfirmacionExtraida,
   EVIDENCIAS_DE_AFIRMACION,
   extraerAfirmaciones,
+  type GanchoExtraido,
+  guiaDeAfirmaciones,
   MAXIMO_AFIRMACIONES_POR_TRAMO,
   MAXIMO_CARACTERES_DE_AFIRMACION,
   TIPOS_DE_AFIRMACION,
-  VERSION_DE_EXTRACCION,
+  versionDeExtraccion,
 } from "./anthropic/afirmaciones"
 export {
   acortarLaminas,

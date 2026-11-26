@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { HttpResponse, http } from "msw"
 import { describe, expect, it } from "vitest"
 import type { DatosDePilar } from "@/lib/dominio/pilares"
+import { vocabularioDeFilas } from "@/lib/dominio/vocabulario"
 import {
   acortarLaminas,
   clasificarEnPilares,
@@ -14,6 +15,7 @@ import {
   escribirGuion,
   escribirTeorias,
   extraerAfirmaciones,
+  guiaDeAfirmaciones,
   guiaDeReclasificacion,
   leerTextoEnImagenes,
   nombrarTemas,
@@ -22,7 +24,7 @@ import {
   RechazoDeClaude,
   revisarCarruselConClaude,
   revisarConClaude,
-  VERSION_DE_EXTRACCION,
+  versionDeExtraccion,
 } from "@/lib/proveedores/anthropic"
 import { servidor } from "../msw"
 
@@ -148,6 +150,27 @@ const CORRECCIONES = [
   { regla: "largo" as const, tipo: "bloquea" as const, mensaje: "Muy largo." },
 ]
 
+// A small fixed vocabulary: the shared fixture mirrors the seed and would move these hashes whenever a list changes.
+const VOCABULARIO = vocabularioDeFilas(
+  (
+    [
+      ["tipo", "todas", ["dato"]],
+      ["evidencia", "todas", ["estudio"]],
+      ["publico", "linkedin", ["gerencia"]],
+      ["publico", "instagram", ["se_reinventa"]],
+      ["dolor", "linkedin", ["rrhh_tarde"]],
+      ["dolor", "instagram", ["techo_profesional"]],
+      ["emocion", "todas", ["alivio"]],
+      ["gancho", "todas", ["escena"]],
+    ] as const
+  ).map(([lista, red, valores], i) => ({
+    id: i + 1,
+    lista,
+    red,
+    valores: valores.map((valor) => ({ valor, etiqueta: valor, grupo: "solucion" as const })),
+  })),
+)
+
 const LAMINAS = [
   { tipo: "portada" as const, texto: "Lo que un chatbot no ve de ti" },
   { tipo: "idea" as const, texto: "No nota el silencio largo antes de una respuesta difícil.", destacado: "silencio" },
@@ -156,8 +179,8 @@ const LAMINAS = [
 
 describe("instrucciones de Claude (caracterización byte a byte)", () => {
   it("keeps the extraction version, which marks every stored extraction as current or stale", () => {
-    expect(VERSION_DE_EXTRACCION).toMatchInlineSnapshot(
-      `"96f15b3ea669df81f6c564694020c5b713e3182d6574c688d623984a2ccee486"`,
+    expect(versionDeExtraccion(VOCABULARIO)).toMatchInlineSnapshot(
+      `"499548b052f0cbb53387034a5dc603c5400483fe8fd320e9c897baade0a3f9ea"`,
     )
   })
 
@@ -414,7 +437,7 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
     `)
   })
 
-  it("keeps the claim extraction prompt, whose guide is the extraction version", async () => {
+  it("keeps the claim extraction prompt, built from the closed lists", async () => {
     const pedidos = await huellas((c) =>
       extraerAfirmaciones({
         cliente: c,
@@ -425,14 +448,15 @@ describe("instrucciones de Claude (caracterización byte a byte)", () => {
           piezas: [{ desde: 0, hasta: 26, ubicacion: { pagina: 2 } }],
         },
         autor: { nombre: "Alguien", credencial: null },
+        vocabulario: VOCABULARIO,
       }),
     )
-    expect(pedidos[0]?.sistema).toBe(VERSION_DE_EXTRACCION)
+    expect(pedidos[0]?.sistema).toBe(sha(guiaDeAfirmaciones(VOCABULARIO)))
     expect(pedidos).toMatchInlineSnapshot(`
       [
         {
-          "cuerpo": "37cc9098f2b8c5d8d39bb2bd7743980a1ace7073edf09cb701cea9edf8f8bc56",
-          "sistema": "96f15b3ea669df81f6c564694020c5b713e3182d6574c688d623984a2ccee486",
+          "cuerpo": "23c3a0831c93ec0fc52e3b86c2b8230b04135f78e337595ae667c60244cf3603",
+          "sistema": "d99e2b370c17c9241cea3664634aedc5db2c89f0abcf6a444163fe9c96f8d7a8",
           "usuario": "8678eb90a3d77a90371ef5b620f7787b1fb876fca059b73b74b66885d4d5cfc0",
         },
       ]
