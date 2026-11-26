@@ -153,8 +153,42 @@ const marcaDe = async (c: pg.PoolClient, id: string) =>
     )
   ).rows[0]
 
+const AUSENTE = "00000000-0000-4000-8000-000000000000"
+
+const HELPERS = [
+  "public.etiqueta_lista_de_campo(text)",
+  "public.etiqueta_version_vigente(text, text)",
+  "public.etiqueta_en_lista(integer, text)",
+  "public.etiqueta_exigir(text, text)",
+  "public.etiqueta_afirmacion(uuid)",
+  "public.etiqueta_marca(uuid, text, text, uuid, boolean)",
+]
+const FUNCIONES = [
+  "public.corregir_etiqueta(uuid, text, text, text, text, text, uuid)",
+  "public.confirmar_etiqueta(uuid, text, text, uuid)",
+  "public.quitar_marca(uuid, text, text, uuid)",
+]
+
 describe("who can correct", () => {
-  it("lets only Coni correct, confirm or remove: WAV and anyone else get solo_coni_corrige", async () => {
+  it("lets sessions run only the three functions, and an anonymous visitor none", async () => {
+    const puede = async (rol: string, funcion: string) =>
+      (
+        await pool.query<{ puede: boolean }>("select has_function_privilege($1, $2, 'execute') as puede", [
+          rol,
+          funcion,
+        ])
+      ).rows[0]?.puede
+    for (const funcion of HELPERS) {
+      expect(await puede("authenticated", funcion), funcion).toBe(false)
+      expect(await puede("anon", funcion), funcion).toBe(false)
+    }
+    for (const funcion of FUNCIONES) {
+      expect(await puede("authenticated", funcion), funcion).toBe(true)
+      expect(await puede("anon", funcion), funcion).toBe(false)
+    }
+  })
+
+  it("lets only Coni correct, confirm or remove: WAV and anyone else get solo_coni_corrige, and nothing changes", async () => {
     await como(comoPostgres, async (c) => {
       const e = await sembrar(c)
       for (const sesion of [comoMantenedor, comoOtra]) {
@@ -163,6 +197,10 @@ describe("who can correct", () => {
           await corregirFalla(c, e.nueva, "tipo", "todas", "consejo"),
           await fallaCon(c, CONFIRMAR, [e.nueva, "tipo", "todas", null]),
           await fallaCon(c, QUITAR, [e.nueva, "problema", "linkedin", null]),
+          // The role is checked before any read: a claim that does not exist says the same.
+          await corregirFalla(c, AUSENTE, "tipo", "todas", "consejo"),
+          await fallaCon(c, CONFIRMAR, [AUSENTE, "tipo", "todas", null]),
+          await fallaCon(c, QUITAR, [AUSENTE, "problema", "linkedin", null]),
         ]
         for (const error of llamadas)
           expect({ code: error.code, message: error.message }).toEqual({
@@ -174,6 +212,25 @@ describe("who can correct", () => {
       expect((await c.query("select tipo from public.afirmaciones where id = $1", [e.nueva])).rows[0]).toEqual({
         tipo: "dato",
       })
+      expect(await marcaDe(c, e.problema)).toMatchObject({ valor: "rrhh_tarde" })
+      const registros = await c.query("select id from public.correcciones_de_etiqueta where afirmacion_id = $1", [
+        e.nueva,
+      ])
+      expect(registros.rowCount).toBe(0)
+    })
+  })
+
+  it("refuses an anonymous visitor before the function runs", async () => {
+    await como(comoPostgres, async (c) => {
+      const e = await sembrar(c)
+      await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ role: "anon" })])
+      await c.query("set local role anon")
+      for (const error of [
+        await corregirFalla(c, e.nueva, "tipo", "todas", "consejo"),
+        await fallaCon(c, CONFIRMAR, [e.nueva, "tipo", "todas", null]),
+        await fallaCon(c, QUITAR, [e.nueva, "problema", "linkedin", null]),
+      ])
+        expect(error.code).toBe("42501")
     })
   })
 
