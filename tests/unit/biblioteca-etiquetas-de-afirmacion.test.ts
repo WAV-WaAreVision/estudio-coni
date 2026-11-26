@@ -1,15 +1,32 @@
 import { describe, expect, it } from "vitest"
 import {
+  agruparMarcas,
+  CONFIRMADA_POR_TI,
+  CORREGIDA_POR_TI,
   catalogoDeFilas,
+  esAfirmacionNueva,
   esMarca,
   etiquetaDe,
+  hrefDeAfirmacion,
+  insigniasDeIdea,
+  insigniasPorIdea,
   opcionesDe,
   pidePorQue,
+  RECHAZOS_DE_ETIQUETA,
+  revisionDe,
   tituloDeEtiqueta,
+  volverDesde,
   YA_NO_ESTA,
 } from "@/lib/dominio/biblioteca/etiquetas-de-afirmacion"
 import type { FilaDeVocabulario } from "@/lib/dominio/vocabulario"
-import { CATALOGO_DE_PRUEBA } from "../fixtures/afirmaciones"
+import {
+  afirmacionAntiguaDePrueba,
+  afirmacionDePrueba,
+  CATALOGO_DE_PRUEBA,
+  ID_DE_AFIRMACION,
+  ID_DE_MATERIAL,
+  marcaDePrueba,
+} from "../fixtures/afirmaciones"
 import { FILAS_DE_VOCABULARIO } from "../fixtures/vocabulario"
 
 const C = CATALOGO_DE_PRUEBA
@@ -145,5 +162,134 @@ describe("names and rules", () => {
       false,
       false,
     ])
+  })
+})
+
+describe("esAfirmacionNueva", () => {
+  it("is new with marks, old without, and still new once Coni removed its last mark", () => {
+    expect(esAfirmacionNueva(afirmacionDePrueba())).toBe(true)
+    expect(esAfirmacionNueva(afirmacionAntiguaDePrueba())).toBe(false)
+    expect(
+      esAfirmacionNueva({
+        marcas: [],
+        correcciones: [{ campo: "dato", red: "todas", accion: "quita", creadaEn: "2026-11-26T10:00:00+00:00" }],
+      }),
+    ).toBe(true)
+  })
+})
+
+describe("agruparMarcas", () => {
+  it("puts each mark under its network and field, and dato and caso apart, in the order read", () => {
+    const problema = marcaDePrueba({ id: "p1", marca: "problema", valor: "rrhh_tarde" })
+    const otroProblema = marcaDePrueba({ id: "p2", marca: "problema", valor: "otro", porQue: "Soledad" })
+    const caso = marcaDePrueba({ id: "c1", marca: "caso", red: "todas", valor: "Una gerenta" })
+    const perdida = marcaDePrueba({ id: "x1", marca: "publico", red: "todas", valor: "gerencia" })
+    const grupos = agruparMarcas([...afirmacionDePrueba().marcas, problema, otroProblema, caso, perdida])
+    expect(grupos.linkedin.emocion.map((m) => m.valor)).toEqual(["escepticismo"])
+    expect(grupos.instagram.emocion.map((m) => m.valor)).toEqual(["curiosidad"])
+    expect(grupos.linkedin.problema.map((m) => m.id)).toEqual(["p1", "p2"])
+    expect(grupos.instagram.problema).toEqual([])
+    expect(grupos.dato.map((m) => m.valor)).toEqual(["70 %"])
+    expect(grupos.caso.map((m) => m.id)).toEqual(["c1"])
+    expect([...grupos.linkedin.publico, ...grupos.instagram.publico]).toEqual([])
+  })
+})
+
+describe("revisionDe", () => {
+  const en = (minuto: number) => `2026-11-26T10:0${minuto}:00+00:00`
+  it("says the latest of Coni's actions on that field and network, and nothing without one", () => {
+    const correcciones = [
+      { campo: "emocion" as const, red: "instagram" as const, accion: "confirma" as const, creadaEn: en(1) },
+      { campo: "emocion" as const, red: "instagram" as const, accion: "corrige" as const, creadaEn: en(2) },
+      { campo: "tipo" as const, red: "todas" as const, accion: "confirma" as const, creadaEn: en(3) },
+      { campo: "problema" as const, red: "linkedin" as const, accion: "quita" as const, creadaEn: en(4) },
+    ]
+    expect(revisionDe(correcciones, "emocion", "instagram")).toBe(CORREGIDA_POR_TI)
+    expect(revisionDe(correcciones, "tipo", "todas")).toBe(CONFIRMADA_POR_TI)
+    expect(revisionDe(correcciones, "emocion", "linkedin")).toBeNull()
+    expect(revisionDe(correcciones, "problema", "linkedin")).toBeNull()
+    expect([CORREGIDA_POR_TI, CONFIRMADA_POR_TI]).toEqual(["Corregida por ti", "Confirmada por ti"])
+  })
+})
+
+describe("insigniasDeIdea", () => {
+  const emocion = (
+    red: "linkedin" | "instagram",
+    valor: string,
+    certeza: "alta" | "media" | "baja",
+    origen: "extraccion" | "coni" = "extraccion",
+  ) => ({ afirmacionId: ID_DE_AFIRMACION, red, valor, certeza, origen })
+
+  it("gives tipo, evidencia and one emotion per network: Coni's first, then the most certain", () => {
+    expect(
+      insigniasDeIdea(
+        { tipo: "consejo", evidencia: "clinica" },
+        [
+          emocion("linkedin", "agobio", "media"),
+          emocion("linkedin", "calma", "alta"),
+          emocion("instagram", "alivio", "alta"),
+          emocion("instagram", "curiosidad", "baja", "coni"),
+        ],
+        C,
+      ),
+    ).toEqual({
+      tipo: "Consejo",
+      evidencia: "Práctica profesional",
+      emociones: [
+        { red: "linkedin", etiqueta: "Calma" },
+        { red: "instagram", etiqueta: "Curiosidad" },
+      ],
+    })
+  })
+
+  it("gives an old claim only tipo and evidencia, and builds one entry per idea", () => {
+    const mapa = insigniasPorIdea(
+      [
+        { id: "a", tipo: "sin_clasificar", evidencia: "opinion" },
+        { id: "b", tipo: "mito", evidencia: "estudio" },
+      ],
+      [{ ...emocion("linkedin", "sorpresa", "alta"), afirmacionId: "b" }],
+      C,
+    )
+    expect(mapa.get("a")).toEqual({ tipo: "Sin clasificar", evidencia: "Opinión", emociones: [] })
+    expect(mapa.get("b")?.emociones).toEqual([{ red: "linkedin", etiqueta: "Sorpresa" }])
+  })
+})
+
+describe("the claim's address and the way back", () => {
+  const AUTOR = "/biblioteca/autores/99999999-2222-4333-8444-555555555555"
+
+  it("keeps where she came from in the address", () => {
+    expect(hrefDeAfirmacion(ID_DE_AFIRMACION)).toBe(`/biblioteca/afirmaciones/${ID_DE_AFIRMACION}`)
+    expect(hrefDeAfirmacion(ID_DE_AFIRMACION, AUTOR)).toBe(
+      `/biblioteca/afirmaciones/${ID_DE_AFIRMACION}?desde=${encodeURIComponent(AUTOR)}`,
+    )
+  })
+
+  it("goes back to an author, topic, material or hook page it came from, else to the claim's material", () => {
+    expect(volverDesde({ desde: AUTOR }, ID_DE_MATERIAL)).toEqual({ href: AUTOR, texto: "Autor" })
+    expect(volverDesde({ desde: AUTOR.replace("autores", "temas") }, ID_DE_MATERIAL).texto).toBe("Tema")
+    expect(volverDesde({ desde: AUTOR.replace("autores", "ganchos") }, ID_DE_MATERIAL).texto).toBe("Gancho")
+    const alMaterial = { href: `/biblioteca/materiales/${ID_DE_MATERIAL}`, texto: "Material" }
+    expect(volverDesde({}, ID_DE_MATERIAL)).toEqual(alMaterial)
+    expect(volverDesde({ desde: "https://otro.sitio/biblioteca/autores/x" }, ID_DE_MATERIAL)).toEqual(alMaterial)
+    expect(volverDesde({ desde: "/ajustes" }, ID_DE_MATERIAL)).toEqual(alMaterial)
+    expect(volverDesde({ desde: [AUTOR, "/x"] }, ID_DE_MATERIAL)).toEqual({ href: AUTOR, texto: "Autor" })
+  })
+})
+
+describe("RECHAZOS_DE_ETIQUETA", () => {
+  it("says every refusal Coni can cause in her words; the ones only a bug causes stay out", () => {
+    expect(Object.keys(RECHAZOS_DE_ETIQUETA).sort()).toEqual([
+      "afirmacion_antigua",
+      "afirmacion_inexistente",
+      "falta_frase",
+      "falta_por_que",
+      "marca_ambigua",
+      "sin_gancho",
+      "sin_marca",
+      "valor_fuera_de_lista",
+    ])
+    expect(RECHAZOS_DE_ETIQUETA.falta_por_que).toBe("Escribe en una línea por qué.")
   })
 })

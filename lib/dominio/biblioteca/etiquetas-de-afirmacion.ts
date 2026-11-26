@@ -1,5 +1,13 @@
-import { NOMBRE_DE_RED, type Red } from "@/lib/dominio/pilares"
-import { type FilaDeVocabulario, type Lista, MARCAS, type Marca, type ValorDeLista } from "@/lib/dominio/vocabulario"
+import { NOMBRE_DE_RED, REDES, type Red } from "@/lib/dominio/pilares"
+import {
+  type Certeza,
+  type FilaDeVocabulario,
+  type Lista,
+  MARCAS,
+  type Marca,
+  type ValorDeLista,
+} from "@/lib/dominio/vocabulario"
+import type { Ubicacion } from "./ficha"
 import { ETIQUETA_SIN_CLASIFICAR } from "./ganchos"
 import { PALABRAS } from "./palabras"
 
@@ -170,3 +178,197 @@ export function opcionesDe(
 }
 
 export const pidePorQue = (valor: string): boolean => valor === "otro" || valor === "otra"
+
+export type Origen = "extraccion" | "traduccion" | "coni"
+export const ACCIONES = ["confirma", "corrige", "agrega", "quita"] as const
+export type Accion = (typeof ACCIONES)[number]
+
+export interface MarcaLeida {
+  id: string
+  marca: Marca
+  red: RedDeEtiqueta
+  valor: string
+  frase: string | null
+  certeza: Certeza
+  porQue: string | null
+  origen: Origen
+}
+
+export interface GanchoLeido {
+  fraseExacta: string
+  fraseSinGancho: string
+  tipo: string
+  certeza: Certeza
+  origen: Origen
+}
+
+export interface CorreccionLeida {
+  campo: CampoDeEtiqueta
+  red: RedDeEtiqueta
+  accion: Accion
+  creadaEn: string
+}
+
+/** A claim as its page shows it (spec 6c-1). */
+export interface AfirmacionLeida {
+  id: string
+  texto: string
+  cita: string
+  tipo: string
+  evidencia: string
+  ubicacion: Ubicacion | null
+  material: { id: string; titulo: string | null }
+  autor: { id: string; nombre: string } | null
+  tema: { id: string; nombre: string } | null
+  /** The free text from before 6a: an old claim's only reference until change 7 fills its marks. */
+  textoAntiguo: { publico: string | null; dolor: string | null; emocion: string | null; gancho: string | null }
+  marcas: MarcaLeida[]
+  gancho: GanchoLeido | null
+  correcciones: CorreccionLeida[]
+}
+
+/** New once it has marks, or once Coni removed one: removing the last mark must not turn it old (plan decision 3). */
+export const esAfirmacionNueva = (afirmacion: Pick<AfirmacionLeida, "marcas" | "correcciones">): boolean =>
+  afirmacion.marcas.length > 0 || afirmacion.correcciones.some((correccion) => correccion.accion === "quita")
+
+export type MarcasDeRed = Record<MarcaPorRed, MarcaLeida[]>
+
+export interface MarcasAgrupadas {
+  linkedin: MarcasDeRed
+  instagram: MarcasDeRed
+  dato: MarcaLeida[]
+  caso: MarcaLeida[]
+}
+
+const sinMarcas = (): MarcasDeRed => ({ problema: [], solucion: [], emocion: [], publico: [] })
+
+export function agruparMarcas(marcas: readonly MarcaLeida[]): MarcasAgrupadas {
+  const grupos: MarcasAgrupadas = { linkedin: sinMarcas(), instagram: sinMarcas(), dato: [], caso: [] }
+  for (const marca of marcas) {
+    if (marca.marca === "dato" || marca.marca === "caso") grupos[marca.marca].push(marca)
+    // The extraction splits a per-network mark in one per network (marcasNormalizadas): a `todas` row has no place.
+    else if (marca.red !== "todas") grupos[marca.red][marca.marca].push(marca)
+  }
+  return grupos
+}
+
+export const CORREGIDA_POR_TI = "Corregida por ti"
+export const CONFIRMADA_POR_TI = "Confirmada por ti"
+
+/** What the latest of her actions on that field and network says; a removal says nothing (the row is gone). */
+export function revisionDe(
+  correcciones: readonly CorreccionLeida[],
+  campo: CampoDeEtiqueta,
+  red: RedDeEtiqueta,
+): string | null {
+  const ultima = correcciones
+    .filter((c) => c.campo === campo && c.red === red && c.accion !== "quita")
+    .reduce<CorreccionLeida | null>(
+      (masNueva, c) => (masNueva === null || Date.parse(c.creadaEn) > Date.parse(masNueva.creadaEn) ? c : masNueva),
+      null,
+    )
+  if (ultima === null) return null
+  return ultima.accion === "confirma" ? CONFIRMADA_POR_TI : CORREGIDA_POR_TI
+}
+
+export interface EmocionDeIdea {
+  afirmacionId: string
+  red: RedDeEtiqueta
+  valor: string
+  certeza: Certeza
+  origen: Origen
+}
+
+/** The short badges of an idea in a list (spec 6c-1): tipo, evidencia and one emotion per network. */
+export interface Insignias {
+  tipo: string
+  evidencia: string
+  emociones: { red: Red; etiqueta: string }[]
+}
+
+const RANGO_DE_CERTEZA: Record<Certeza, number> = { alta: 0, media: 1, baja: 2 }
+
+/** Per network, Coni's own emotion first, then the most certain, then the oldest (plan decision 10). */
+export function insigniasDeIdea(
+  idea: { tipo: string; evidencia: string },
+  emociones: readonly EmocionDeIdea[],
+  catalogo: CatalogoDeEtiquetas,
+): Insignias {
+  return {
+    tipo: etiquetaDe(catalogo, "tipo", "todas", idea.tipo),
+    evidencia: etiquetaDe(catalogo, "evidencia", "todas", idea.evidencia),
+    emociones: REDES.flatMap((red) => {
+      const elegida = emociones
+        .filter((emocion) => emocion.red === red)
+        .toSorted(
+          (a, b) =>
+            Number(b.origen === "coni") - Number(a.origen === "coni") ||
+            RANGO_DE_CERTEZA[a.certeza] - RANGO_DE_CERTEZA[b.certeza],
+        )[0]
+      return elegida ? [{ red, etiqueta: etiquetaDe(catalogo, "emocion", red, elegida.valor) }] : []
+    }),
+  }
+}
+
+export function insigniasPorIdea(
+  ideas: readonly { id: string; tipo: string; evidencia: string }[],
+  emociones: readonly EmocionDeIdea[],
+  catalogo: CatalogoDeEtiquetas,
+): Map<string, Insignias> {
+  return new Map(
+    ideas.map((idea) => [
+      idea.id,
+      insigniasDeIdea(
+        idea,
+        emociones.filter((emocion) => emocion.afirmacionId === idea.id),
+        catalogo,
+      ),
+    ]),
+  )
+}
+
+export const RUTA_DE_AFIRMACIONES = "/biblioteca/afirmaciones"
+
+export const hrefDeAfirmacion = (id: string, desde?: string): string =>
+  desde ? `${RUTA_DE_AFIRMACIONES}/${id}?desde=${encodeURIComponent(desde)}` : `${RUTA_DE_AFIRMACIONES}/${id}`
+
+// Only a Biblioteca page of one author, topic, material or hook: anything else in the address is ignored.
+const DESDE = /^\/biblioteca\/(autores|temas|materiales|ganchos)\/[0-9a-f-]{36}$/
+const VOLVER_A: Readonly<Record<string, string>> = {
+  autores: "Autor",
+  temas: "Tema",
+  materiales: "Material",
+  ganchos: "Gancho",
+}
+
+/** «Volver» to the page that opened the claim, else to its material (plan decision 11). */
+export function volverDesde(
+  consulta: Record<string, string | string[] | undefined>,
+  materialId: string,
+): { href: string; texto: string } {
+  const pedido = Array.isArray(consulta.desde) ? consulta.desde[0] : consulta.desde
+  const seccion = pedido ? DESDE.exec(pedido)?.[1] : undefined
+  const texto = seccion ? VOLVER_A[seccion] : undefined
+  return pedido && texto ? { href: pedido, texto } : { href: `/biblioteca/materiales/${materialId}`, texto: "Material" }
+}
+
+export const ELIGE_UN_VALOR = "Elige un valor de la lista."
+export const FALTA_FRASE = "Escribe la frase."
+export const FALTA_POR_QUE = "Escribe en una línea por qué."
+export const CERTEZA_BAJA = "Certeza baja"
+export const AVISO_DE_REPROCESO = "Llegan al reprocesar la Biblioteca"
+
+/**
+ * The refusals of corregir_etiqueta, confirmar_etiqueta and quitar_marca she can cause, in her words.
+ * `solo_coni_corrige` is the session's (ERROR_SOLO_CONI); `campo_desconocido` and `red_invalida` only a bug causes.
+ */
+export const RECHAZOS_DE_ETIQUETA: Readonly<Record<string, string>> = {
+  afirmacion_antigua: "Las marcas de esta idea llegan al reprocesar la Biblioteca.",
+  afirmacion_inexistente: "Esa idea ya no está en la Biblioteca.",
+  valor_fuera_de_lista: "Ese valor ya no está en la lista. Recarga la página.",
+  falta_por_que: FALTA_POR_QUE,
+  falta_frase: FALTA_FRASE,
+  sin_gancho: "Esta idea no tiene gancho.",
+  sin_marca: "Esa marca ya no está. Recarga la página.",
+  marca_ambigua: "Hay más de una marca así. Recarga la página.",
+}
