@@ -1,7 +1,8 @@
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
+import { leerVocabulario } from "@/lib/datos/vocabulario"
 import { EVIDENCIAS_DE_AFIRMACION, TIPOS_DE_AFIRMACION } from "@/lib/proveedores/anthropic"
-import { CONI, como, comoConi, comoServicio, fallaCon, pool } from "./db"
+import { CONI, clienteSupabaseDeServicio, como, comoConi, comoServicio, fallaCon, pool } from "./db"
 
 afterAll(() => pool.end())
 
@@ -194,5 +195,18 @@ describe("afirmacion_marcas and ganchos", () => {
       )
       expect(error.code).toBe("42501")
     })
+  })
+})
+
+describe("leerVocabulario", () => {
+  it("reads every vigente list with its version", async () => {
+    const v = await leerVocabulario(clienteSupabaseDeServicio())
+    expect(v.emocion.todas.valores).toHaveLength(22)
+    expect(v.publico.instagram.valores.map((x) => x.valor)).toEqual([
+      "profesional_con_techo",
+      "se_reinventa",
+      "se_descubre_tarde",
+    ])
+    expect(v.gancho.todas.versionId).toBeGreaterThan(0)
   })
 })

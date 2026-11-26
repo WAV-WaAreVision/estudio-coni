@@ -1,9 +1,24 @@
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import pg from "pg"
+import type { Database } from "@/lib/supabase/database.types"
 import { exigirBaseLocal } from "./base-local"
 
 export const URL_DB = exigirBaseLocal(
   process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres",
 )
+
+// The well-known demo keys of the local Supabase stack, not a secret.
+const URL_API = exigirBaseLocal(process.env.SUPABASE_URL ?? "http://127.0.0.1:54421")
+const LLAVE_DE_SERVICIO_LOCAL =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+
+/** A supabase-js client as `service_role` against the local stack, for code that takes a `Db`. */
+export function clienteSupabaseDeServicio(): SupabaseClient<Database> {
+  return createClient<Database>(URL_API, LLAVE_DE_SERVICIO_LOCAL, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
 export const CONI = "c0000000-0000-4000-8000-000000000001"
 export const MANTENEDOR = "a0000000-0000-4000-8000-000000000002"
