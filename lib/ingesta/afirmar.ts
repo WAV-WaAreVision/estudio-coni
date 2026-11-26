@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
 import { leerCalibracion } from "@/lib/datos/huellas"
+import { leerVocabulario } from "@/lib/datos/vocabulario"
 import type { ModeloDeHuellas } from "@/lib/dominio/parecido"
 import { mensajeTecnico, PausaDeProveedor } from "@/lib/dominio/pausas"
+import { CERTEZAS, MARCAS, type Vocabulario } from "@/lib/dominio/vocabulario"
 import { textoDeVector } from "@/lib/ingesta/agrupar"
 import {
   type Contexto,
@@ -25,7 +27,7 @@ import {
   MAXIMO_AFIRMACIONES_POR_TRAMO,
   MODELO_POR_TAREA,
   TIPOS_DE_AFIRMACION,
-  VERSION_DE_EXTRACCION,
+  versionDeExtraccion,
 } from "@/lib/proveedores/anthropic"
 import { costoVoyage, costoVoyagePeorCaso, embeber } from "@/lib/proveedores/voyage"
 
@@ -63,6 +65,30 @@ const Extraidas = z.object({
       emocion: z.string().nullable(),
       gancho: z.string().nullable(),
       ubicacion: Ubicacion,
+      // `default` keeps a checkpoint from before change 6a readable; its fingerprint is stale, so it is paid again.
+      marcas: z
+        .array(
+          z.object({
+            marca: z.enum(MARCAS),
+            red: z.enum(["linkedin", "instagram", "todas"]),
+            valor: z.string(),
+            frase: z.string().nullable(),
+            certeza: z.enum(CERTEZAS),
+            porQue: z.string().nullable(),
+            versionId: z.number().nullable(),
+          }),
+        )
+        .default([]),
+      ganchoDetalle: z
+        .object({
+          fraseExacta: z.string(),
+          fraseSinGancho: z.string(),
+          tipo: z.string(),
+          certeza: z.enum(CERTEZAS),
+          versionId: z.number(),
+        })
+        .nullable()
+        .default(null),
     }),
   ),
 })
@@ -83,17 +109,22 @@ export async function autorDelMaterial(
   return data
 }
 
-/** One paid request per chunk, each kept in the store with a fingerprint of the chunk, the model and the prompt version, so a retry pays only what is missing. */
+/**
+ * One paid request per chunk, each kept in the store with a fingerprint of the chunk, the model and the extraction
+ * version (prompt and list versions), so a retry pays only what is missing.
+ */
 async function extraerPorTramo(
   ctx: Contexto,
   tramos: readonly Tramo[],
+  vocabulario: Vocabulario,
 ): Promise<Limite | { limite: false; extraidas: Extraidas[] }> {
   const { deps, material } = ctx
   const autor = await autorDelMaterial(deps.db, material.autor_id)
   const modelo = MODELO_POR_TAREA.extraerAfirmaciones.modelo
+  const version = versionDeExtraccion(vocabulario)
   const extraidas: Extraidas[] = []
   for (const tramo of tramos) {
-    const huella = huellaDe(tramo.texto, modelo, VERSION_DE_EXTRACCION)
+    const huella = huellaDe(tramo.texto, modelo, version)
     const archivo = `materiales/${material.id}/afirmaciones/${nombreDeTramo(tramo.numero)}.json`
     const previo = await pagadoAntes(ctx, archivo, Extraidas)
     if (previo && previo.huella === huella) {
@@ -106,10 +137,20 @@ async function extraerPorTramo(
       paso: "afirmaciones",
       estimadoUsd: ESTIMADO_POR_TRAMO_USD,
       llamar: async () => {
-        const r = await extraerAfirmaciones({ cliente: deps.claude, tramo, autor })
+        const r = await extraerAfirmaciones({ cliente: deps.claude, tramo, autor, vocabulario })
+        if (r.tiposCorregidos.length > 0) {
+          console.warn(
+            `Tipo desconocido tratado como sin clasificar en el tramo ${tramo.numero}: ${JSON.stringify(r.tiposCorregidos)}`,
+          )
+        }
         if (r.evidenciasCorregidas.length > 0) {
           console.warn(
-            `Evidencia desconocida tratada como opinión en el tramo ${tramo.numero}: ${JSON.stringify(r.evidenciasCorregidas)}`,
+            `Evidencia desconocida tratada como sin clasificar en el tramo ${tramo.numero}: ${JSON.stringify(r.evidenciasCorregidas)}`,
+          )
+        }
+        if (r.valoresFueraDeLista.length > 0) {
+          console.warn(
+            `Marcas fuera de la lista guardadas como otro u otra en el tramo ${tramo.numero}: ${JSON.stringify(r.valoresFueraDeLista)}`,
           )
         }
         return {
@@ -239,11 +280,70 @@ async function reemplazarAfirmaciones(
       )
       .select("id")
     if (error) throw falloDeBase("No pude guardar las afirmaciones", error)
+    if (data.length !== lote.length) {
+      throw falloDeBase("No pude guardar las afirmaciones", {
+        message: `La base devolvió ${data.length} ids para ${lote.length} afirmaciones.`,
+      })
+    }
+    await guardarMarcasYGanchos(
+      db,
+      lote,
+      data.map((fila) => fila.id),
+    )
     data.forEach((fila, i) => {
       if (vectores[desde + i]) conVector.push(fila.id)
     })
   }
   return conVector
+}
+
+/** The marks and hook of each claim of a batch, `ids` in the batch's order. A failed insert fails the step. */
+async function guardarMarcasYGanchos(
+  db: Db,
+  lote: readonly Extraidas["afirmaciones"][number][],
+  ids: readonly string[],
+): Promise<void> {
+  const idDe = (i: number): string => {
+    const id = ids[i]
+    if (id === undefined) throw new Error(`Falta el id de la afirmación ${i} del lote.`)
+    return id
+  }
+  const marcas = lote.flatMap((f, i) =>
+    f.marcas.map((m) => ({
+      afirmacion_id: idDe(i),
+      marca: m.marca,
+      red: m.red,
+      valor: m.valor,
+      frase: m.frase,
+      certeza: m.certeza,
+      por_que: m.porQue,
+      version_id: m.versionId,
+      origen: "extraccion" as const,
+    })),
+  )
+  if (marcas.length > 0) {
+    const r = await db.from("afirmacion_marcas").insert(marcas)
+    if (r.error) throw falloDeBase("No pude guardar las marcas de las afirmaciones", r.error)
+  }
+  const ganchos = lote.flatMap((f, i) =>
+    f.ganchoDetalle
+      ? [
+          {
+            afirmacion_id: idDe(i),
+            frase_exacta: f.ganchoDetalle.fraseExacta,
+            frase_sin_gancho: f.ganchoDetalle.fraseSinGancho,
+            tipo: f.ganchoDetalle.tipo,
+            certeza: f.ganchoDetalle.certeza,
+            version_id: f.ganchoDetalle.versionId,
+            origen: "extraccion" as const,
+          },
+        ]
+      : [],
+  )
+  if (ganchos.length > 0) {
+    const r = await db.from("ganchos").insert(ganchos)
+    if (r.error) throw falloDeBase("No pude guardar los ganchos de las afirmaciones", r.error)
+  }
 }
 
 function idiomaDominante(extraidas: readonly Extraidas[]): string | null {
@@ -262,7 +362,8 @@ export async function afirmarMaterial(
 ): Promise<Limite | { limite: false; idioma: string | null }> {
   const { db } = ctx.deps
   const tramos = aTramos(partes)
-  const extraccion = await extraerPorTramo(ctx, tramos)
+  const vocabulario = await leerVocabulario(db)
+  const extraccion = await extraerPorTramo(ctx, tramos, vocabulario)
   if (extraccion.limite) return LIMITE
   const { extraidas } = extraccion
   const calibracion = await leerCalibracion(db)

@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { leerCalibracion } from "@/lib/datos/huellas"
 import { leerSecreto } from "@/lib/datos/repositorio"
+import { leerVocabulario } from "@/lib/datos/vocabulario"
 import { exigirEnv } from "@/lib/env"
 import { agruparPorSimilitud } from "@/lib/ingesta/agrupar"
 import {
@@ -68,6 +69,7 @@ async function principal(): Promise<void> {
   )
   const almacen = almacenReal()
   const { modelo } = await leerCalibracion(db)
+  const vocabulario = await leerVocabulario(db)
 
   const materiales = []
   for (const id of ids) {
@@ -104,7 +106,7 @@ async function principal(): Promise<void> {
   let usdClaude = 0
   for (const material of materiales) {
     for (const tramo of material.tramos) {
-      const r = await extraerAfirmaciones({ cliente: claude, tramo, autor: material.autor })
+      const r = await extraerAfirmaciones({ cliente: claude, tramo, autor: material.autor, vocabulario })
       propuestas += r.propuestas
       usdClaude += costoClaude(r.uso, MODELO_POR_TAREA.extraerAfirmaciones.modelo)
       for (const a of r.afirmaciones) afirmaciones.push({ ...a, id: String(afirmaciones.length).padStart(5, "0") })
