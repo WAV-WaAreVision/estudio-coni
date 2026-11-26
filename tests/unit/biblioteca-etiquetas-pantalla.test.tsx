@@ -206,10 +206,69 @@ describe("EditorDeEtiqueta", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: /^Dato/ }))
     expect(screen.queryAllByRole("radio")).toEqual([])
+    expect(screen.getByLabelText("Frase")).toHaveFocus()
+    expect(screen.getByRole("button", { name: "Está bien" })).toBeVisible()
     fireEvent.change(screen.getByLabelText("Frase"), { target: { value: " " } })
     fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Escribe la frase.")
     expect(acciones.corregirEtiquetaAccion).not.toHaveBeenCalled()
+  })
+
+  it("offers no «Está bien» for a value that is not in the list, like a tipo still sin_clasificar", () => {
+    render(
+      <EditorDeEtiqueta
+        afirmacionId={ID_DE_AFIRMACION}
+        campo="tipo"
+        red="todas"
+        marcaId={null}
+        titulo="Qué tipo de idea es"
+        actual={{
+          valor: "sin_clasificar",
+          etiqueta: "Sin clasificar",
+          frase: null,
+          porQue: null,
+          certezaBaja: false,
+          revision: null,
+        }}
+        opciones={opcionesDe(CATALOGO_DE_PRUEBA, "tipo", "todas")}
+        conFrase={false}
+        quitable={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /^Qué tipo de idea es/ }))
+    expect(screen.queryByRole("button", { name: "Está bien" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Cambiar" })).toBeVisible()
+  })
+
+  it("offers no «Está bien» for a retired value, which the list no longer has", () => {
+    render(<EditorDeEtiqueta {...emocion} actual={{ ...curiosidad, valor: "retirada", etiqueta: "Retirada" }} />)
+    abrir()
+    expect(screen.queryByRole("button", { name: "Está bien" })).toBeNull()
+  })
+
+  it("on opening moves the focus to the chosen option", () => {
+    render(<EditorDeEtiqueta {...emocion} actual={curiosidad} />)
+    abrir()
+    expect(screen.getByRole("radio", { name: "Curiosidad" })).toHaveFocus()
+  })
+
+  it("«Cerrar» returns the focus to the tag and drops what she chose without saving", async () => {
+    render(<EditorDeEtiqueta {...emocion} actual={curiosidad} />)
+    const etiqueta = abrir()
+    fireEvent.click(screen.getByRole("radio", { name: "Sorpresa" }))
+    fireEvent.change(screen.getByLabelText("Frase"), { target: { value: "Otra frase" } })
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }))
+    await waitFor(() => expect(etiqueta).toHaveFocus())
+    fireEvent.click(etiqueta)
+    expect(screen.getByRole("radio", { name: "Curiosidad" })).toBeChecked()
+    expect(screen.getByLabelText("Frase")).toHaveValue("Abre la pregunta")
+  })
+
+  it("looks tappable with a caret that adds nothing to the tag's name", () => {
+    render(<EditorDeEtiqueta {...emocion} actual={curiosidad} />)
+    const etiqueta = screen.getByRole("button", { name: /^Emoción en Instagram/ })
+    expect(etiqueta.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+    expect(etiqueta).toHaveAccessibleName(/^Emoción en Instagram\s*Curiosidad\s*«Abre la pregunta»$/)
   })
 
   it("says a refusal from the server, and «Corregida por ti» with the reason of an «Otra»", async () => {
@@ -340,6 +399,61 @@ describe("EtiquetasDeAfirmacion", () => {
     expect(screen.queryByRole("button", { name: /Emoción en/ })).toBeNull()
     expect(screen.queryByRole("region", { name: "LinkedIn" })).toBeNull()
     expect(screen.queryByRole("region", { name: "Gancho" })).toBeNull()
+  })
+
+  it("after «Cambiar» gives the focus back to the tag, also when the refreshed page remounts it", async () => {
+    const { rerender } = render(
+      <EtiquetasDeAfirmacion afirmacion={afirmacionDePrueba()} catalogo={CATALOGO_DE_PRUEBA} />,
+    )
+    fireEvent.click(etiqueta(/^Emoción en Instagram/))
+    fireEvent.click(screen.getByRole("radio", { name: "Sorpresa" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    await waitFor(() => expect(etiqueta(/^Emoción en Instagram/)).toHaveAttribute("aria-expanded", "false"))
+    const corregida = afirmacionDePrueba({
+      marcas: [
+        marcaDePrueba(),
+        marcaDePrueba({ id: MARCA_EMOCION_INSTAGRAM, red: "instagram", valor: "sorpresa", frase: "Abre la pregunta" }),
+      ],
+    })
+    rerender(<EtiquetasDeAfirmacion afirmacion={corregida} catalogo={CATALOGO_DE_PRUEBA} />)
+    await waitFor(() => expect(etiqueta(/^Emoción en Instagram/)).toHaveTextContent("Sorpresa"))
+    await waitFor(() => expect(etiqueta(/^Emoción en Instagram/)).toHaveFocus())
+  })
+
+  it("after «Quitar» moves the focus to that row's «Agregar»", async () => {
+    const { rerender } = render(
+      <EtiquetasDeAfirmacion afirmacion={afirmacionDePrueba()} catalogo={CATALOGO_DE_PRUEBA} />,
+    )
+    fireEvent.click(etiqueta(/^Emoción en Instagram/))
+    fireEvent.click(screen.getByRole("button", { name: "Quitar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Quitar" }))
+    await waitFor(() => expect(acciones.quitarMarcaAccion).toHaveBeenCalled())
+    rerender(
+      <EtiquetasDeAfirmacion
+        afirmacion={afirmacionDePrueba({ marcas: [marcaDePrueba()] })}
+        catalogo={CATALOGO_DE_PRUEBA}
+      />,
+    )
+    await waitFor(() => expect(screen.getByRole("button", { name: "Agregar Emoción en Instagram" })).toHaveFocus())
+  })
+
+  it("after adding a mark moves the focus to the new tag", async () => {
+    const { rerender } = render(
+      <EtiquetasDeAfirmacion afirmacion={afirmacionDePrueba({ marcas: [] })} catalogo={CATALOGO_DE_PRUEBA} />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Agregar Emoción en Instagram" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Sorpresa" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    await waitFor(() => expect(acciones.corregirEtiquetaAccion).toHaveBeenCalled())
+    rerender(
+      <EtiquetasDeAfirmacion
+        afirmacion={afirmacionDePrueba({
+          marcas: [marcaDePrueba({ id: MARCA_EMOCION_INSTAGRAM, red: "instagram", valor: "sorpresa", origen: "coni" })],
+        })}
+        catalogo={CATALOGO_DE_PRUEBA}
+      />,
+    )
+    await waitFor(() => expect(etiqueta(/^Emoción en Instagram/)).toHaveFocus())
   })
 
   it("lets her add marks to a new claim with zero marks (extracted after 6c-1, or after removing the last one)", () => {
