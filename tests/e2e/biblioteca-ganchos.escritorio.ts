@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
-import { bloquearRedExterna, revisarConAxe, tocarHastaLlegar } from "./ayudas"
+import { bloquearRedExterna, capturar, revisarConAxe, tocarHastaLlegar } from "./ayudas"
 import { type EscenaDeGanchos, GANCHO_LINKEDIN, sembrarAutoresYTemas, sembrarGanchos } from "./biblioteca-escena"
+import { cajaDe, sobraDeAncho } from "./medidas-de-escritorio"
 
 // Runs only in the `escritorio` project (1280 x 900).
 let ganchos: EscenaDeGanchos
@@ -43,3 +44,32 @@ test("Ganchos is a table; a row opens the hook in the sticky side panel with ?g,
   await expect(page).toHaveURL(/\/biblioteca\/ganchos(?:\?v=\d+)?$/)
   await expect(page.getByText(PISTA)).toBeVisible()
 })
+
+for (const ancho of [375, 768, 1024, 1280]) {
+  test.describe(`at ${ancho} px`, () => {
+    test.use({ viewport: { width: ancho, height: 900 } })
+
+    test(`the hooks list and a hook's page fit ${ancho} px, pass axe and are captured for review`, async ({ page }) => {
+      const conPanel = ancho >= 768
+      await page.goto(conPanel ? `/biblioteca/ganchos?g=${ganchos.linkedin}` : "/biblioteca/ganchos")
+      await expect(page.locator("main h1")).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      expect(await sobraDeAncho(page), `lista a ${ancho}`).toBeLessThanOrEqual(0)
+      if (conPanel) {
+        const tabla = await cajaDe(page.getByRole("table", { name: "Ganchos" }))
+        const panel = await cajaDe(page.getByRole("complementary", { name: "Gancho elegido" }))
+        expect(tabla.right, "la tabla no se mete bajo el panel").toBeLessThanOrEqual(panel.left + 1)
+        await expect(page.getByRole("region", { name: `«${GANCHO_LINKEDIN.frase}»` })).toBeVisible()
+      } else {
+        await expect(page.getByRole("list", { name: "Ganchos" })).toBeVisible()
+      }
+      expect(await revisarConAxe(page, `ganchos a ${ancho}`)).toEqual([])
+      await capturar(page, `biblioteca-ganchos-${ancho}`, { completa: true })
+
+      await page.goto(`/biblioteca/ganchos/${ganchos.antiguo}`)
+      await expect(page.locator("main h1")).toBeVisible()
+      expect(await sobraDeAncho(page), `página del gancho a ${ancho}`).toBeLessThanOrEqual(0)
+      await capturar(page, `biblioteca-gancho-${ancho}`, { completa: true })
+    })
+  })
+}
