@@ -885,6 +885,7 @@ export type Database = {
           razon: string | null
           seguro: boolean | null
           veredicto: string | null
+          veredicto_coni: string | null
           version_prompt: string | null
         }
         Insert: {
@@ -909,6 +910,7 @@ export type Database = {
           razon?: string | null
           seguro?: boolean | null
           veredicto?: string | null
+          veredicto_coni?: string | null
           version_prompt?: string | null
         }
         Update: {
@@ -933,6 +935,7 @@ export type Database = {
           razon?: string | null
           seguro?: boolean | null
           veredicto?: string | null
+          veredicto_coni?: string | null
           version_prompt?: string | null
         }
         Relationships: [
@@ -2749,6 +2752,42 @@ export type Database = {
         }
         Relationships: []
       }
+      versiones_de_vocabulario: {
+        Row: {
+          aprobada_en: string | null
+          creada_en: string
+          estado: string
+          id: number
+          lista: string
+          motivo: string
+          nombre: string
+          red: string
+          valores: Json
+        }
+        Insert: {
+          aprobada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: never
+          lista: string
+          motivo: string
+          nombre: string
+          red: string
+          valores: Json
+        }
+        Update: {
+          aprobada_en?: string | null
+          creada_en?: string
+          estado?: string
+          id?: never
+          lista?: string
+          motivo?: string
+          nombre?: string
+          red?: string
+          valores?: Json
+        }
+        Relationships: []
+      }
       vinculos: {
         Row: {
           cita_a: string | null
@@ -4192,6 +4231,10 @@ export type Database = {
       }
       unaccent_inmutable: { Args: { texto: string }; Returns: string }
       unir_temas_a_mano: { Args: { p_a: string; p_b: string }; Returns: string }
+      valores_de_vocabulario_validos: {
+        Args: { lista: string; valores: Json }
+        Returns: boolean
+      }
       volver_a_transparencia: { Args: { p_version: number }; Returns: number }
     }
     Enums: {
