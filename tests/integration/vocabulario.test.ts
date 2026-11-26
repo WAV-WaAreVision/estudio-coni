@@ -199,6 +199,23 @@ describe("afirmacion_marcas and ganchos", () => {
   })
 })
 
+describe("valores_de_vocabulario_validos", () => {
+  it("is not callable by Coni, while the check constraint still validates service-role writes", async () => {
+    await como(comoConi, async (c) => {
+      const error = await fallaCon(c, `select public.valores_de_vocabulario_validos('gancho', '[]'::jsonb)`)
+      expect(error.code).toBe("42501")
+    })
+    await como(comoServicio, async (c) => {
+      const error = await fallaCon(
+        c,
+        `insert into public.versiones_de_vocabulario (lista, red, nombre, motivo, valores)
+         values ('gancho', 'todas', 'vacia', 'prueba', '[]')`,
+      )
+      expect(error.constraint).toBe("versiones_de_vocabulario_valores_check")
+    })
+  })
+})
+
 describe("leerVocabulario", () => {
   it("reads every vigente list with its version", async () => {
     const v = await leerVocabulario(clienteDeServicio())
