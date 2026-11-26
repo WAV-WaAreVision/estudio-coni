@@ -169,6 +169,26 @@ plegado en «Más opciones» › «Anotar a mano». El correo semanal a WAV (`nu
 guardar nada: `pnpm revisar:excel-linkedin <ruta>`. El fixture sintético se regenera con `pnpm fixture:excel-linkedin`.
 Migración `20261110000100`.
 
+## Listas cerradas y marcas (issue 21, cambio 6, entrega 6a)
+
+Spec `docs/superpowers/specs/2026-11-25-etiquetas-6a-design.md`, plan `docs/superpowers/plans/2026-11-25-etiquetas-6a.md`.
+Coni no ve nada nuevo todavía: 6b (Biblioteca de ganchos), 6c (ver y corregir, confirmaciones, informe mensual, pilar
+provisorio) y 6d (editar las listas en Ajustes) vienen después; traducir las etiquetas antiguas va en el reprocesamiento
+del cambio 7. Las listas viven como datos en `versiones_de_vocabulario` (una vigente por lista y red; tipo, evidencia,
+emoción y gancho son una sola lista para ambas redes, público y dolor una por red), sembradas con las de Coni: 22
+emociones de `emociones.md` con grupo y activación, 12 ganchos, público y dolor del texto del pedido (no de los
+manuales v27 y v2, que aún no llegan). La extracción arma su instrucción desde las listas vigentes
+(`guiaDeAfirmaciones`) y guarda por afirmación sus marcas por red en `afirmacion_marcas` (valor de la lista, frase
+libre, certeza, por qué, versión de la lista) y su gancho en `ganchos` (frase exacta comprobada literal contra el
+tramo, frase sin gancho, tipo). Un valor fuera de lista queda «otro» («otra» en emociones) con su por qué; un tipo o
+evidencia dudosa queda `sin_clasificar` (ya no «opinión» ni tramo fallido). Las columnas de texto libre siguen
+llenándose. `versionDeExtraccion` = hash de la instrucción más las versiones de las listas: editar una lista cambia la
+huella, y reprocesar un material vuelve a pagar su extracción. «Guía o consenso» cuenta como evidencia fuerte y «sin
+clasificar» como débil en teorías, `deEvidencia`, `respaldo_de_idea`, `motor_afirmaciones_de_tema` y `motor_temas`
+(las firmas no cambian: la huella es sobre la copia congelada en la pieza). Reserva por tramo medida en staging
+(US$ 0,062 un tramo de 13 afirmaciones; la reserva cubre 15 con 50% de margen). Migraciones `20261114000100` a
+`20261114000600`.
+
 ## Siguiente
 
 - **Fusiones de temas (#22)** desde el 10-11-2026: registro de cada fusión con deshacer exacto (se rechaza si cambiaron los pilares del ganador), página `/biblioteca/temas/fusiones`, enlace «Fusiones · n» en Temas y aviso en Inicio. Las decisiones de Coni quedan en `decisiones_de_tema` para la recalibración ×3.
