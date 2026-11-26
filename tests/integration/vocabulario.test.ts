@@ -1,6 +1,7 @@
+import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
 import { EVIDENCIAS_DE_AFIRMACION, TIPOS_DE_AFIRMACION } from "@/lib/proveedores/anthropic"
-import { como, comoConi, comoServicio, fallaCon, pool } from "./db"
+import { CONI, como, comoConi, comoServicio, fallaCon, pool } from "./db"
 
 afterAll(() => pool.end())
 
@@ -102,5 +103,96 @@ describe("tipo and evidencia lists", () => {
   it("keeps the code lists equal to the database checks", async () => {
     expect(await valoresDelCheck("afirmaciones_tipo_check")).toEqual([...TIPOS_DE_AFIRMACION].sort())
     expect(await valoresDelCheck("afirmaciones_evidencia_check")).toEqual([...EVIDENCIAS_DE_AFIRMACION].sort())
+  })
+})
+
+type Cliente = pg.PoolClient
+
+async function id(c: Cliente, sql: string, params: unknown[] = []): Promise<string> {
+  const { rows } = await c.query<{ id: string }>(sql, params)
+  const valor = rows[0]?.id
+  if (!valor) throw new Error(`Sin id para: ${sql}`)
+  return valor
+}
+
+const crearAutor = (c: Cliente, nombre: string) =>
+  id(c, "insert into public.autores (nombre, tipo) values ($1, 'persona') returning id", [nombre])
+
+const crearMaterial = (c: Cliente, autor: string) =>
+  id(
+    c,
+    `insert into public.materiales (tipo, autor_id, rol, texto_pegado, declaracion_sin_pacientes_en, subido_por)
+     values ('documento', $1, 'referente', 'hola', now(), $2) returning id`,
+    [autor, CONI],
+  )
+
+const crearAfirmacion = (c: Cliente, material: string, autor: string) =>
+  id(
+    c,
+    `insert into public.afirmaciones (material_id, autor_id, tramo, ubicacion, texto, cita, tipo, evidencia)
+     values ($1, $2, 0, '{"pagina": 1}', 't', 'c', 'dato', 'estudio') returning id`,
+    [material, autor],
+  )
+
+const versionDe = async (c: Cliente, lista: string, red = "todas") => {
+  const { rows } = await c.query<{ id: number }>(
+    "select id from public.versiones_de_vocabulario where lista = $1 and red = $2 and estado = 'vigente'",
+    [lista, red],
+  )
+  return rows[0]?.id
+}
+
+describe("afirmacion_marcas and ganchos", () => {
+  it("stores marks and one hook per claim, and drops them with the claim", async () => {
+    await como(comoServicio, async (c) => {
+      const autor = await crearAutor(c, "Autora marcas")
+      const afirmacion = await crearAfirmacion(c, await crearMaterial(c, autor), autor)
+      await c.query(
+        `insert into public.afirmacion_marcas (afirmacion_id, marca, red, valor, frase, certeza, version_id, origen)
+         values ($1, 'emocion', 'linkedin', 'escepticismo', 'duda', 'alta', $2, 'extraccion')`,
+        [afirmacion, await versionDe(c, "emocion")],
+      )
+      const gancho = `insert into public.ganchos (afirmacion_id, frase_exacta, frase_sin_gancho, tipo, certeza, version_id, origen)
+         values ($1, $2, 'Muchas no aprendieron a reconocer sus logros.', $3, 'media', $4, 'extraccion')`
+      const version = await versionDe(c, "gancho")
+      await c.query(gancho, [afirmacion, "¿Y si no eres impostora?", "pregunta_espejo", version])
+      const repetido = await fallaCon(c, gancho, [afirmacion, "otra frase", "escena", version])
+      expect(repetido.code).toBe("23505")
+      expect(repetido.constraint).toBe("ganchos_afirmacion_id_key")
+      await c.query("delete from public.afirmaciones where id = $1", [afirmacion])
+      const quedan = await c.query<{ n: string }>(
+        `select (select count(*) from public.afirmacion_marcas where afirmacion_id = $1)
+              + (select count(*) from public.ganchos where afirmacion_id = $1) as n`,
+        [afirmacion],
+      )
+      expect(Number(quedan.rows[0]?.n)).toBe(0)
+    })
+  })
+
+  it("requires a reason for otro and otra", async () => {
+    await como(comoServicio, async (c) => {
+      const autor = await crearAutor(c, "Autora otro")
+      const afirmacion = await crearAfirmacion(c, await crearMaterial(c, autor), autor)
+      const error = await fallaCon(
+        c,
+        `insert into public.afirmacion_marcas (afirmacion_id, marca, red, valor, certeza, origen)
+         values ($1, 'emocion', 'instagram', 'otra', 'baja', 'extraccion')`,
+        [afirmacion],
+      )
+      expect(error.constraint).toBe("afirmacion_marcas_por_que_check")
+    })
+  })
+
+  it("lets Coni read marks and hooks and not write them", async () => {
+    await como(comoConi, async (c) => {
+      await c.query("select id from public.afirmacion_marcas limit 1")
+      await c.query("select id from public.ganchos limit 1")
+      const error = await fallaCon(
+        c,
+        `insert into public.ganchos (afirmacion_id, frase_exacta, frase_sin_gancho, tipo, certeza, version_id, origen)
+         values (gen_random_uuid(), 'a', 'b', 'escena', 'baja', 1, 'extraccion')`,
+      )
+      expect(error.code).toBe("42501")
+    })
   })
 })

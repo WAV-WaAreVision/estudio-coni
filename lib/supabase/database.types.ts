@@ -34,6 +34,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      afirmacion_marcas: {
+        Row: {
+          afirmacion_id: string
+          certeza: string
+          creada_en: string
+          frase: string | null
+          id: string
+          marca: string
+          origen: string
+          por_que: string | null
+          red: string
+          valor: string
+          version_id: number | null
+        }
+        Insert: {
+          afirmacion_id: string
+          certeza: string
+          creada_en?: string
+          frase?: string | null
+          id?: string
+          marca: string
+          origen: string
+          por_que?: string | null
+          red: string
+          valor: string
+          version_id?: number | null
+        }
+        Update: {
+          afirmacion_id?: string
+          certeza?: string
+          creada_en?: string
+          frase?: string | null
+          id?: string
+          marca?: string
+          origen?: string
+          por_que?: string | null
+          red?: string
+          valor?: string
+          version_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afirmacion_marcas_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "afirmacion_marcas_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "versiones_de_vocabulario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       afirmaciones: {
         Row: {
           autor_id: string
@@ -1012,6 +1069,57 @@ export type Database = {
             columns: ["tema_origen"]
             isOneToOne: false
             referencedRelation: "temas_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ganchos: {
+        Row: {
+          afirmacion_id: string
+          certeza: string
+          creada_en: string
+          frase_exacta: string
+          frase_sin_gancho: string
+          id: string
+          origen: string
+          tipo: string
+          version_id: number
+        }
+        Insert: {
+          afirmacion_id: string
+          certeza: string
+          creada_en?: string
+          frase_exacta: string
+          frase_sin_gancho: string
+          id?: string
+          origen: string
+          tipo: string
+          version_id: number
+        }
+        Update: {
+          afirmacion_id?: string
+          certeza?: string
+          creada_en?: string
+          frase_exacta?: string
+          frase_sin_gancho?: string
+          id?: string
+          origen?: string
+          tipo?: string
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ganchos_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: true
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ganchos_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "versiones_de_vocabulario"
             referencedColumns: ["id"]
           },
         ]
