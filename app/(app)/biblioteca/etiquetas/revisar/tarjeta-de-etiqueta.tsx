@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Boton } from "@/components/ui/boton"
 import { LineaDeError } from "@/components/ui/linea-de-error"
 import { useAccion } from "@/components/use-accion"
@@ -11,6 +11,11 @@ import { EditorDeEtiqueta } from "../../afirmaciones/[id]/editor-de-etiqueta"
 
 const ENLACE = "font-semibold text-tinta underline decoration-1 underline-offset-4"
 
+// A card she finished here comes back done once the page refreshes, remounted under a new key: it takes the focus on its
+// review line. Module state, because the card that acted is gone by then; it expires so a later visit never takes it.
+let revisionPendiente: { posicion: number; afirmacionId: string; hasta: number } | null = null
+const VIDA_DEL_FOCO_MS = 5000
+
 /**
  * One doubtful tag of the week (spec 6c-2): the claim, the tag and why it is here, with «Está bien» and «Cambiar»
  * (the 6c-1 editor, already open). Bordered, not a panel: the editor inside is drawn on piedra-alta.
@@ -19,6 +24,33 @@ export function TarjetaDeEtiquetaDudosa({ tarjeta }: { tarjeta: TarjetaDeEtiquet
   const [cambiando, setCambiando] = useState(false)
   const { pendiente, error, ejecutar } = useAccion()
   const idDelTitulo = `etiqueta-dudosa-${tarjeta.posicion}`
+  const cambiarRef = useRef<HTMLButtonElement>(null)
+  const revisionRef = useRef<HTMLParagraphElement>(null)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only on mount, when a card that just became done appears.
+  useEffect(() => {
+    const pendiente = revisionPendiente
+    if (tarjeta.estado !== "hecha" || !pendiente || pendiente.hasta < Date.now()) return
+    if (pendiente.posicion !== tarjeta.posicion || pendiente.afirmacionId !== tarjeta.afirmacionId) return
+    revisionPendiente = null
+    revisionRef.current?.focus()
+  }, [])
+
+  function recordarRevision() {
+    revisionPendiente = {
+      posicion: tarjeta.posicion,
+      afirmacionId: tarjeta.afirmacionId,
+      hasta: Date.now() + VIDA_DEL_FOCO_MS,
+    }
+  }
+
+  function alCerrarElEditor(guardado: boolean) {
+    if (guardado) recordarRevision()
+    setCambiando(false)
+    // The editor's own tag button goes away with it: the focus returns to the «Cambiar» that opened it.
+    requestAnimationFrame(() => cambiarRef.current?.focus())
+  }
+
   return (
     <article
       aria-labelledby={idDelTitulo}
@@ -29,14 +61,19 @@ export function TarjetaDeEtiquetaDudosa({ tarjeta }: { tarjeta: TarjetaDeEtiquet
         {tarjeta.autor ? <p className="text-meta text-apagado">{tarjeta.autor}</p> : null}
       </div>
       <div className="grid gap-0.5">
-        <h2 id={idDelTitulo} className="text-meta text-apagado">
+        {/* While the editor is open it shows the tag right below: the heading stays only to name the card. */}
+        <h2 id={idDelTitulo} className={cambiando ? "sr-only" : "text-meta text-apagado"}>
           {tarjeta.titulo}
         </h2>
-        {tarjeta.etiqueta ? <p className="text-cuerpo font-semibold text-tinta">{tarjeta.etiqueta}</p> : null}
-        {tarjeta.frase ? <p className="text-meta text-tinta">{`«${tarjeta.frase}»`}</p> : null}
+        {!cambiando && tarjeta.etiqueta ? (
+          <p className="text-cuerpo font-semibold text-tinta">{tarjeta.etiqueta}</p>
+        ) : null}
+        {!cambiando && tarjeta.frase ? <p className="text-meta text-tinta">{`«${tarjeta.frase}»`}</p> : null}
       </div>
       {tarjeta.estado === "hecha" ? (
-        <p className="text-meta font-semibold text-tinta">{tarjeta.revision}</p>
+        <p ref={revisionRef} tabIndex={-1} className="text-meta font-semibold text-tinta">
+          {tarjeta.revision}
+        </p>
       ) : cambiando ? (
         <EditorDeEtiqueta
           afirmacionId={tarjeta.afirmacionId}
@@ -56,7 +93,7 @@ export function TarjetaDeEtiquetaDudosa({ tarjeta }: { tarjeta: TarjetaDeEtiquet
           conFrase={tarjeta.conFrase}
           quitable={false}
           abrirAlMontar
-          alCerrar={() => setCambiando(false)}
+          alCerrar={alCerrarElEditor}
         />
       ) : (
         <>
@@ -68,20 +105,22 @@ export function TarjetaDeEtiquetaDudosa({ tarjeta }: { tarjeta: TarjetaDeEtiquet
                 tamano="chico"
                 cargando={pendiente}
                 onClick={() =>
-                  ejecutar(() =>
-                    confirmarEtiquetaAccion({
-                      afirmacionId: tarjeta.afirmacionId,
-                      campo: tarjeta.campo,
-                      red: tarjeta.red,
-                      marcaId: tarjeta.marcaId,
-                    }),
+                  ejecutar(
+                    () =>
+                      confirmarEtiquetaAccion({
+                        afirmacionId: tarjeta.afirmacionId,
+                        campo: tarjeta.campo,
+                        red: tarjeta.red,
+                        marcaId: tarjeta.marcaId,
+                      }),
+                    recordarRevision,
                   )
                 }
               >
                 Está bien
               </Boton>
             ) : null}
-            <Boton tamano="chico" onClick={() => setCambiando(true)}>
+            <Boton ref={cambiarRef} tamano="chico" onClick={() => setCambiando(true)}>
               Cambiar
             </Boton>
           </div>

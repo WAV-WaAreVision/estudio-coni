@@ -54,7 +54,9 @@ export function porQueEstaAqui(motivo: MotivoDeDuda, porQue: string | null): str
   }
 }
 
-export const pendientesDeLote = (items: readonly ItemDeLote[]): number => items.filter((i) => !i.hecha).length
+/** Inicio's count, on cards like the page: a pending item without a card (its claim hidden) is not counted. */
+export const pendientesDeLote = (tarjetas: readonly TarjetaDeEtiqueta[]): number =>
+  tarjetas.filter((t) => t.estado === "pendiente").length
 
 /**
  * «2 de 5»: the done cards over the cards drawn. Counted on cards, not items: a done item without a card (its claim

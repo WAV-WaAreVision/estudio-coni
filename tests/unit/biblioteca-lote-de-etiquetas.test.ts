@@ -39,9 +39,14 @@ describe("porQueEstaAqui", () => {
 })
 
 describe("progresoDeLote and pendientesDeLote", () => {
-  it("count the pending items of the batch for Inicio", () => {
-    const items = [item(), item({ posicion: 2, hecha: true }), item({ posicion: 3 })]
-    expect(pendientesDeLote(items)).toBe(2)
+  it("count the pending cards for Inicio, so a pending item without a card is not counted", () => {
+    const visible = afirmacionDePrueba()
+    const tarjetas = [
+      tarjetaDeItem(item(), visible, CATALOGO_DE_PRUEBA),
+      tarjetaDeItem(item({ posicion: 2, hecha: true }), visible, CATALOGO_DE_PRUEBA),
+      tarjetaDeItem(item({ posicion: 3 }), null, CATALOGO_DE_PRUEBA),
+    ].flatMap((t) => (t ? [t] : []))
+    expect(pendientesDeLote(tarjetas)).toBe(1)
     expect(pendientesDeLote([])).toBe(0)
   })
 

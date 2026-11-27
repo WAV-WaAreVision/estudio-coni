@@ -13,6 +13,7 @@ const { acciones } = vi.hoisted(() => ({
 vi.mock("@/app/(app)/biblioteca/acciones", () => acciones)
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }))
 
+import { EditorDeEtiqueta } from "@/app/(app)/biblioteca/afirmaciones/[id]/editor-de-etiqueta"
 import { TarjetaDeEtiquetaDudosa } from "@/app/(app)/biblioteca/etiquetas/revisar/tarjeta-de-etiqueta"
 import { type ItemDeLote, type TarjetaDeEtiqueta, tarjetaDeItem } from "@/lib/dominio/biblioteca/lote-de-etiquetas"
 import {
@@ -38,6 +39,24 @@ function tarjeta(extra: Partial<ItemDeLote> = {}, afirmacion = afirmacionDePrueb
   const resultado = tarjetaDeItem(item(extra), afirmacion, CATALOGO_DE_PRUEBA)
   if (!resultado) throw new Error("La prueba esperaba una tarjeta")
   return resultado
+}
+
+function hecha(accion: "confirma" | "corrige"): TarjetaDeEtiqueta {
+  return tarjeta(
+    { hecha: true },
+    afirmacionDePrueba({
+      marcas: [marcaDePrueba({ origen: "coni", certeza: "alta" })],
+      correcciones: [
+        {
+          campo: "emocion",
+          red: "linkedin",
+          accion,
+          marcaId: MARCA_EMOCION_LINKEDIN,
+          creadaEn: "2026-11-26T10:00:00+00:00",
+        },
+      ],
+    }),
+  )
 }
 
 beforeEach(() => vi.clearAllMocks())
@@ -95,6 +114,75 @@ describe("TarjetaDeEtiquetaDudosa", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }))
     expect(screen.getByRole("button", { name: "Está bien" })).toBeVisible()
     expect(screen.getByText("Claude no estaba segura")).toBeVisible()
+  })
+
+  it("«Cerrar» in the list gives the focus back to the card's «Cambiar»", async () => {
+    render(<TarjetaDeEtiquetaDudosa tarjeta={tarjeta()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cambiar" })).toHaveFocus())
+  })
+
+  it("names the tag once while the list is open: the heading only for the reader, the editor shows the rest", () => {
+    render(<TarjetaDeEtiquetaDudosa tarjeta={tarjeta()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    expect(screen.getByRole("article", { name: "Emoción en LinkedIn" })).toBeVisible()
+    expect(screen.getByRole("heading", { name: "Emoción en LinkedIn" })).toHaveClass("sr-only")
+    // Only in the editor: its tag button and its list's choice.
+    for (const texto of screen.getAllByText("Escepticismo")) expect(texto.closest("button, label")).not.toBeNull()
+    expect(screen.getAllByText("«No me lo creo»")).toHaveLength(1)
+  })
+
+  it("after «Está bien», the card that comes back done takes the focus on its review line", async () => {
+    const { rerender } = render(<TarjetaDeEtiquetaDudosa key="pendiente" tarjeta={tarjeta()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Está bien" }))
+    await waitFor(() => expect(acciones.confirmarEtiquetaAccion).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByRole("button", { name: "Está bien" })).not.toBeDisabled())
+    rerender(<TarjetaDeEtiquetaDudosa key="hecha" tarjeta={hecha("confirma")} />)
+    await waitFor(() => expect(screen.getByText("Confirmada por ti")).toHaveFocus())
+  })
+
+  it("after a correction, the card that comes back done takes the focus on its review line", async () => {
+    const { rerender } = render(<TarjetaDeEtiquetaDudosa key="pendiente" tarjeta={tarjeta()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("radio", { name: /Curiosidad/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Está bien" })).toBeVisible())
+    rerender(<TarjetaDeEtiquetaDudosa key="hecha" tarjeta={hecha("corrige")} />)
+    await waitFor(() => expect(screen.getByText("Corregida por ti")).toHaveFocus())
+  })
+
+  it("closing the card's list leaves no focus for a later editor of the same tag to take on mount", () => {
+    const { unmount } = render(<TarjetaDeEtiquetaDudosa tarjeta={tarjeta()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }))
+    unmount()
+    render(
+      <EditorDeEtiqueta
+        afirmacionId={ID_DE_AFIRMACION}
+        campo="emocion"
+        red="linkedin"
+        marcaId={MARCA_EMOCION_LINKEDIN}
+        titulo="Emoción en LinkedIn"
+        actual={{
+          valor: "escepticismo",
+          etiqueta: "Escepticismo",
+          frase: null,
+          porQue: null,
+          certezaBaja: false,
+          revision: null,
+        }}
+        opciones={[]}
+        conFrase
+        quitable={false}
+      />,
+    )
+    expect(screen.getByRole("button", { name: /Escepticismo/ })).not.toHaveFocus()
+  })
+
+  it("a card already done when the page opens does not take the focus", () => {
+    render(<TarjetaDeEtiquetaDudosa tarjeta={hecha("confirma")} />)
+    expect(screen.getByText("Confirmada por ti")).not.toHaveFocus()
   })
 
   it("offers only «Cambiar» for a tipo still sin_clasificar", () => {

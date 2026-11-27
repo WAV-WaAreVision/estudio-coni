@@ -46,7 +46,7 @@ export async function leerLoteDeLaSemana(db: Db): Promise<ItemDeLote[]> {
 /** Inicio opens even when this read fails (as the merges line): the failure is logged and counts 0. */
 export async function contarEtiquetasParaInicio(db: Db): Promise<number> {
   try {
-    return pendientesDeLote(await leerLoteDeLaSemana(db))
+    return pendientesDeLote((await leerTarjetas(db)).tarjetas)
   } catch (error) {
     console.error("No pude contar las etiquetas para revisar para Inicio", error)
     return 0
@@ -60,23 +60,27 @@ export type RevisionDeEtiquetas =
 /** The batch with one card per item; a failure is logged and the page says it in her words. */
 export async function leerRevisionDeEtiquetas(db: Db): Promise<RevisionDeEtiquetas> {
   try {
-    const items = await leerLoteDeLaSemana(db)
-    if (items.length === 0) return { estado: "lista", items, tarjetas: [] }
-    const ids = [...new Set(items.map((item) => item.afirmacionId))]
-    const [afirmaciones, catalogo] = await Promise.all([
-      Promise.all(ids.map((id) => leerAfirmacion(db, id))),
-      leerCatalogoDeEtiquetas(db),
-    ])
-    const porId = new Map<string, AfirmacionLeida>(
-      afirmaciones.flatMap((afirmacion) => (afirmacion ? [[afirmacion.id, afirmacion] as const] : [])),
-    )
-    const tarjetas = items.flatMap((item) => {
-      const tarjeta = tarjetaDeItem(item, porId.get(item.afirmacionId) ?? null, catalogo)
-      return tarjeta ? [tarjeta] : []
-    })
-    return { estado: "lista", items, tarjetas }
+    return { estado: "lista", ...(await leerTarjetas(db)) }
   } catch (error) {
     console.error("No pude cargar las etiquetas para revisar", error)
     return { estado: "error" }
   }
+}
+
+async function leerTarjetas(db: Db): Promise<{ items: ItemDeLote[]; tarjetas: TarjetaDeEtiqueta[] }> {
+  const items = await leerLoteDeLaSemana(db)
+  if (items.length === 0) return { items, tarjetas: [] }
+  const ids = [...new Set(items.map((item) => item.afirmacionId))]
+  const [afirmaciones, catalogo] = await Promise.all([
+    Promise.all(ids.map((id) => leerAfirmacion(db, id))),
+    leerCatalogoDeEtiquetas(db),
+  ])
+  const porId = new Map<string, AfirmacionLeida>(
+    afirmaciones.flatMap((afirmacion) => (afirmacion ? [[afirmacion.id, afirmacion] as const] : [])),
+  )
+  const tarjetas = items.flatMap((item) => {
+    const tarjeta = tarjetaDeItem(item, porId.get(item.afirmacionId) ?? null, catalogo)
+    return tarjeta ? [tarjeta] : []
+  })
+  return { items, tarjetas }
 }

@@ -49,8 +49,11 @@ interface Propiedades {
   quitable: boolean
   /** The batch of 6c-2: «Cambiar» on its card shows this editor already open. */
   abrirAlMontar?: boolean
-  /** Called whenever the editor closes (Cerrar, a save, a removal), so the card can go back to its buttons. */
-  alCerrar?: () => void
+  /**
+   * Called whenever the editor closes, so the card can go back to its buttons; `guardado` after a save or a removal,
+   * not after «Cerrar». The card then puts the focus back itself.
+   */
+  alCerrar?: (guardado: boolean) => void
 }
 
 /** Where the focus goes once a tag closes: back to the tag, or to its row's «Agregar» after «Quitar». */
@@ -127,11 +130,15 @@ export function EditorDeEtiqueta({
     setAbierto(true)
   }
 
-  function cerrar(a: Foco["a"] = "etiqueta") {
+  function cerrar(a: Foco["a"] = "etiqueta", guardado = false) {
     setAbierto(false)
     setQuitando(false)
     setAviso(null)
     limpiarError()
+    if (alCerrar) {
+      alCerrar(guardado)
+      return
+    }
     focoPendiente = {
       afirmacionId,
       campo,
@@ -144,7 +151,6 @@ export function EditorDeEtiqueta({
       const destino = a === "agregar" ? null : (etiquetaRef.current ?? agregarRef.current)
       destino?.focus()
     })
-    alCerrar?.()
   }
 
   function guardar() {
@@ -172,7 +178,7 @@ export function EditorDeEtiqueta({
           frase,
           porQue: pidePorQue(elegido) ? porQue : "",
         }),
-      () => cerrar(),
+      () => cerrar("etiqueta", true),
     )
   }
 
@@ -294,7 +300,7 @@ export function EditorDeEtiqueta({
                 onClick={() =>
                   ejecutar(
                     () => confirmarEtiquetaAccion({ afirmacionId, campo, red, marcaId }),
-                    () => cerrar(),
+                    () => cerrar("etiqueta", true),
                   )
                 }
               >
@@ -320,7 +326,7 @@ export function EditorDeEtiqueta({
                 alConfirmar={() =>
                   ejecutar(
                     () => quitarMarcaAccion({ afirmacionId, marca, red, marcaId }),
-                    () => cerrar("agregar"),
+                    () => cerrar("agregar", true),
                   )
                 }
                 alVolver={() => setQuitando(false)}
