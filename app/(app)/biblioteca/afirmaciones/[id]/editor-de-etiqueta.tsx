@@ -47,6 +47,10 @@ interface Propiedades {
   opciones: readonly GrupoDeOpciones[]
   conFrase: boolean
   quitable: boolean
+  /** The batch of 6c-2: «Cambiar» on its card shows this editor already open. */
+  abrirAlMontar?: boolean
+  /** Called whenever the editor closes (Cerrar, a save, a removal), so the card can go back to its buttons. */
+  alCerrar?: () => void
 }
 
 /** Where the focus goes once a tag closes: back to the tag, or to its row's «Agregar» after «Quitar». */
@@ -79,9 +83,11 @@ export function EditorDeEtiqueta({
   opciones,
   conFrase,
   quitable,
+  abrirAlMontar = false,
+  alCerrar,
 }: Propiedades) {
   const id = useId()
-  const [abierto, setAbierto] = useState(false)
+  const [abierto, setAbierto] = useState(abrirAlMontar)
   const [elegido, setElegido] = useState(actual?.valor ?? "")
   const [frase, setFrase] = useState(actual?.frase ?? "")
   const [porQue, setPorQue] = useState(actual?.porQue ?? "")
@@ -138,6 +144,7 @@ export function EditorDeEtiqueta({
       const destino = a === "agregar" ? null : (etiquetaRef.current ?? agregarRef.current)
       destino?.focus()
     })
+    alCerrar?.()
   }
 
   function guardar() {

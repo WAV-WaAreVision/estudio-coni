@@ -297,6 +297,28 @@ describe("EditorDeEtiqueta", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cambiar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Ese valor ya no está en la lista. Recarga la página.")
   })
+
+  it("opens already when asked to, and tells when it closes with «Cerrar»", () => {
+    const alCerrar = vi.fn()
+    render(<EditorDeEtiqueta {...emocion} actual={curiosidad} abrirAlMontar alCerrar={alCerrar} />)
+    expect(screen.getByRole("button", { name: /^Emoción en Instagram/ })).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("radio", { name: /Curiosidad/ })).toBeChecked()
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }))
+    expect(alCerrar).toHaveBeenCalledTimes(1)
+  })
+
+  it("tells it closed after a save too", async () => {
+    const alCerrar = vi.fn()
+    render(<EditorDeEtiqueta {...emocion} actual={curiosidad} abrirAlMontar alCerrar={alCerrar} />)
+    fireEvent.click(screen.getByRole("button", { name: "Está bien" }))
+    await waitFor(() => expect(alCerrar).toHaveBeenCalledTimes(1))
+    expect(acciones.confirmarEtiquetaAccion).toHaveBeenCalledWith({
+      afirmacionId: ID_DE_AFIRMACION,
+      campo: "emocion",
+      red: "instagram",
+      marcaId: MARCA_EMOCION_INSTAGRAM,
+    })
+  })
 })
 
 describe("CabeceraDeAfirmacion", () => {
