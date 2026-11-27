@@ -732,6 +732,7 @@ export type Database = {
           frase_antes: string | null
           frase_despues: string | null
           id: string
+          marca_id: string | null
           por_que: string | null
           red: string
           version_id: number | null
@@ -747,6 +748,7 @@ export type Database = {
           frase_antes?: string | null
           frase_despues?: string | null
           id?: string
+          marca_id?: string | null
           por_que?: string | null
           red: string
           version_id?: number | null
@@ -762,6 +764,7 @@ export type Database = {
           frase_antes?: string | null
           frase_despues?: string | null
           id?: string
+          marca_id?: string | null
           por_que?: string | null
           red?: string
           version_id?: number | null
@@ -1755,6 +1758,65 @@ export type Database = {
         }
         Relationships: []
       }
+      lote_de_etiquetas_items: {
+        Row: {
+          afirmacion_id: string
+          campo: string
+          lote_id: string
+          marca_id: string | null
+          motivo: string
+          posicion: number
+          red: string
+        }
+        Insert: {
+          afirmacion_id: string
+          campo: string
+          lote_id: string
+          marca_id?: string | null
+          motivo: string
+          posicion: number
+          red: string
+        }
+        Update: {
+          afirmacion_id?: string
+          campo?: string
+          lote_id?: string
+          marca_id?: string | null
+          motivo?: string
+          posicion?: number
+          red?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_de_etiquetas_items_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "afirmaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_de_etiquetas_items_afirmacion_id_fkey"
+            columns: ["afirmacion_id"]
+            isOneToOne: false
+            referencedRelation: "biblioteca_de_ganchos"
+            referencedColumns: ["afirmacion_id"]
+          },
+          {
+            foreignKeyName: "lote_de_etiquetas_items_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_de_etiquetas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_de_etiquetas_items_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "afirmacion_marcas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lote_pilares_retirados: {
         Row: {
           lote: string
@@ -1791,6 +1853,24 @@ export type Database = {
             referencedColumns: ["pilar_id"]
           },
         ]
+      }
+      lotes_de_etiquetas: {
+        Row: {
+          creado_en: string
+          id: string
+          semana: string
+        }
+        Insert: {
+          creado_en?: string
+          id?: string
+          semana: string
+        }
+        Update: {
+          creado_en?: string
+          id?: string
+          semana?: string
+        }
+        Relationships: []
       }
       lotes_de_pilares: {
         Row: {
@@ -3879,6 +3959,17 @@ export type Database = {
         Args: { p_lista: string; p_red: string }
         Returns: number
       }
+      etiquetas_dudosas: {
+        Args: never
+        Returns: {
+          afirmacion_id: string
+          campo: string
+          creada_en: string
+          marca_id: string
+          motivo: string
+          red: string
+        }[]
+      }
       excluir_afirmacion: {
         Args: { p_excluida: boolean; p_id: string }
         Returns: undefined
@@ -4201,6 +4292,22 @@ export type Database = {
       limite_del_mes: { Args: { p_ahora?: string }; Returns: number }
       limpiar_huellas_de_prueba: { Args: { p_ahora: string }; Returns: Json }
       linkedin_conectado: { Args: never; Returns: boolean }
+      llenar_lote_de_etiquetas: {
+        Args: { p_lote: string; p_semana: string }
+        Returns: undefined
+      }
+      lote_de_la_semana: {
+        Args: never
+        Returns: {
+          afirmacion_id: string
+          campo: string
+          hecha: boolean
+          marca_id: string
+          motivo: string
+          posicion: number
+          red: string
+        }[]
+      }
       marcar_autor_para_borrar: {
         Args: { p_borrar: boolean; p_id: string }
         Returns: undefined
