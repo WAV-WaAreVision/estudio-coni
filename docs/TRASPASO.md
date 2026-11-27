@@ -238,11 +238,45 @@ el registro se borra en cascada con su afirmación. Cuando llena las marcas de u
 de una afirmación toma el mismo candado de fila que las funciones de Coni (`select ... from public.afirmaciones where id
 = ... for no key update`), para no cruzarse con una corrección en curso.
 
-**Límites conocidos para 6c-2.** Cuando una red tiene dos marcas del mismo campo (dos emociones en Instagram, por
-ejemplo), «Corregida por ti» o «Confirmada por ti» de una puede mostrar la última acción de la otra:
-`correcciones_de_etiqueta` no guarda `marca_id`, así que la revisión se busca por campo y red (`revisionDe`).
-Considerar agregar `marca_id` al registro en 6c-2. Y desde la pantalla solo se agrega una marca por campo y red:
-«Agregar» aparece solo cuando no hay ninguna.
+**Límites conocidos.** Desde 6c-2 el registro guarda `marca_id`, y «Corregida por ti» o «Confirmada por ti» se busca
+por la fila de la marca (las filas sin `marca_id`, anteriores a 6c-2, siguen por campo y red). Desde la pantalla solo
+se agrega una marca por campo y red: «Agregar» aparece solo cuando no hay ninguna.
+
+## Lote semanal de etiquetas dudosas (issue 21, cambio 6, entrega 6c-2)
+
+Spec `docs/superpowers/specs/2026-11-26-etiquetas-6c2-design.md`, plan `docs/superpowers/plans/2026-11-26-etiquetas-6c2.md`.
+Una vez por semana (el lunes, hora de Chile) Coni recibe hasta 5 etiquetas dudosas: en Inicio aparece «Tienes n
+etiquetas para revisar» con «Revisar etiquetas», que lleva a `/biblioteca/etiquetas/revisar`. Cada tarjeta muestra la
+idea, su autor, la etiqueta con su frase y por qué está ahí («Claude no estaba segura», «Quedó en Otro: ...», «Tipo de
+gancho sugerido», «Quedó sin clasificar»), con «Está bien» y «Cambiar» (el editor de 6c-1, ya abierto) y «Ver la
+afirmación», que vuelve al lote. Un tipo o una evidencia en `sin_clasificar` solo ofrece «Cambiar». Una tarjeta hecha
+dice «Confirmada por ti», «Corregida por ti», «Ya no está» (marca quitada) o «Ya no está pendiente». Todo hecho: «Listo
+por esta semana. El próximo lote llega el lunes.» El contador «n de 5» cuenta solo las tarjetas que se dibujan: un ítem
+hecho porque su afirmación se ocultó no tiene tarjeta y queda fuera del contador.
+
+Dudosa: marca de certeza baja, valor `otro`, `otra` o `sin_clasificar` (solo afirmaciones nuevas), tipo o evidencia
+en `sin_clasificar` (cualquier afirmación) y tipo de gancho sin certeza alta; nunca lo que tiene `origen = 'coni'`, ni
+afirmaciones ocultas o de materiales borrados. Orden: lo que quedó pendiente del último lote, después por motivo
+(sin clasificar, otro, gancho, certeza baja) y la afirmación más antigua primero; una tarjeta por afirmación. El lote se
+arma la primera vez que Coni lo lee esa semana (al abrir Inicio), sin tarea de Trigger; un lote vacío queda vacío toda
+la semana. Nada marca un ítem como hecho: deja de ser dudoso, así que corregirlo desde la página de la afirmación
+también lo saca. WAV no ve la página (`exigirConi`), aunque la base le deja leer el lote.
+
+Migración `20261114000900`: `correcciones_de_etiqueta.marca_id` (sin llave foránea: una fila `quita` guarda el id de la
+marca que quitó; las tres funciones de 6c-1 lo escriben), `lotes_de_etiquetas` (una fila por lunes) y
+`lote_de_etiquetas_items` (hasta 5, una por afirmación; `marca_id` con `on delete set null`), solo lectura para Coni y
+WAV; funciones `etiquetas_dudosas()` y `llenar_lote_de_etiquetas()` (privadas) y `lote_de_la_semana()`. Sin despliegue
+de Trigger. Falta: aplicarla en staging (MCP) y después en producción con OK de Federico. En producción al 26-11-2026 no
+hay nada dudoso (189 afirmaciones antiguas sin `sin_clasificar`): el lote sigue vacío hasta que lleguen materiales nuevos
+o el reproceso del cambio 7.
+
+**Para 6c-3.** Para saber si una corrección vino del lote, cruzar el registro con `lote_de_etiquetas_items` por
+(afirmacion_id, campo, red, marca_id); `certeza_antes` más `motivo` relacionan los errores con la certeza de la
+extracción.
+
+**Acoplamiento con el cambio 7.** Si el reproceso cambia una marca dudosa por otra fila, el ítem del lote queda con
+`marca_id` nulo y cuenta como hecho («Ya no está»). Cualquier e2e que siembre etiquetas dudosas las limpia en
+`afterEach` con `sinEtiquetasDudosas()`: Inicio arma el lote en cada visita.
 
 ## Siguiente
 

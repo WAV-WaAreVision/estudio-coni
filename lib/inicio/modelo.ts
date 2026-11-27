@@ -1,3 +1,4 @@
+import { lineaDeEtiquetasPorRevisar, RUTA_DE_REVISION_DE_ETIQUETAS } from "@/lib/dominio/biblioteca/lote-de-etiquetas"
 import { canonicos, type Destino, nombreDeDestinos } from "@/lib/dominio/destinos"
 import type { Estado, TipoDePieza } from "@/lib/dominio/estados"
 import { estimarSegundos } from "@/lib/dominio/estimaciones"
@@ -352,8 +353,18 @@ export function construirInicio(entrada: {
   linkedinSinNumeros?: number
   /** Merge proposals waiting for her (spec 2026-11-09, issue 22). */
   fusionesPorDecidir?: number
+  /** Pending items of the week's batch of doubtful tags (spec 6c-2). */
+  etiquetasPorRevisar?: number
 }): Inicio {
-  const { piezas, ahora, zona, pausas = [], linkedinSinNumeros = 0, fusionesPorDecidir = 0 } = entrada
+  const {
+    piezas,
+    ahora,
+    zona,
+    pausas = [],
+    linkedinSinNumeros = 0,
+    fusionesPorDecidir = 0,
+    etiquetasPorRevisar = 0,
+  } = entrada
   const lineasDePausa = pausas.flatMap((pausa) => {
     const linea = lineaDePausaDeInicio(pausa.proveedor, pausa.motivo)
     return linea ? [linea] : []
@@ -384,6 +395,18 @@ export function construirInicio(entrada: {
                 ? "Dos temas se parecen y prefiero que decidas tú si son el mismo."
                 : "Hay temas que se parecen y prefiero que decidas tú si son el mismo.",
             accion: { etiqueta: "Ir a Fusiones", href: RUTA_DE_FUSIONES },
+          },
+        ]
+      : []),
+    ...(etiquetasPorRevisar > 0
+      ? [
+          {
+            titulo: lineaDeEtiquetasPorRevisar(etiquetasPorRevisar),
+            detalle:
+              etiquetasPorRevisar === 1
+                ? "Claude no estaba segura de esta. Confírmala o cámbiala."
+                : "Claude no estaba segura de estas. Confírmalas o cámbialas.",
+            accion: { etiqueta: "Revisar etiquetas", href: RUTA_DE_REVISION_DE_ETIQUETAS },
           },
         ]
       : []),

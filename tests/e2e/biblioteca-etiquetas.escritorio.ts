@@ -5,6 +5,7 @@ import {
   type EscenaDeEtiquetas,
   sembrarAutoresYTemas,
   sembrarEtiquetas,
+  sinEtiquetasDudosas,
 } from "./biblioteca-escena"
 import { cajaDe, sobraDeAncho } from "./medidas-de-escritorio"
 
@@ -18,6 +19,8 @@ test.beforeEach(async ({ page }) => {
   base = await sembrarAutoresYTemas()
   escena = await sembrarEtiquetas()
 })
+
+test.afterEach(() => sinEtiquetasDudosas())
 
 test("the claim's text sits left of its wider tags column, with the two networks side by side", async ({ page }) => {
   await page.goto(`/biblioteca/afirmaciones/${escena.nueva}`)

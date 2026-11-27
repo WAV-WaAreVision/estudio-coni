@@ -48,7 +48,7 @@ function actualDeMarca(
     frase: marca.frase,
     porQue: marca.porQue,
     certezaBaja: marca.certeza === "baja",
-    revision: marca.origen === "coni" ? revisionDe(correcciones, marca.marca, marca.red) : null,
+    revision: marca.origen === "coni" ? revisionDe(correcciones, marca.marca, marca.red, marca.id) : null,
   }
 }
 

@@ -8,6 +8,7 @@ import {
   IDEA_DE_CONI,
   sembrarAutoresYTemas,
   sembrarEtiquetas,
+  sinEtiquetasDudosas,
   TEXTO_ANTIGUO,
 } from "./biblioteca-escena"
 
@@ -28,6 +29,8 @@ test.beforeEach(async ({ page }) => {
   base = await sembrarAutoresYTemas()
   escena = await sembrarEtiquetas()
 })
+
+test.afterEach(() => sinEtiquetasDudosas())
 
 test("corrects the Instagram emotion of a claim to another value, and the log keeps what it was", async ({ page }) => {
   await page.goto(`/biblioteca/afirmaciones/${escena.nueva}`)

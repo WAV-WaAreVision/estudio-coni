@@ -103,7 +103,9 @@ describe("leerAfirmacion", () => {
         certeza: "media",
         origen: "extraccion",
       },
-      correcciones: [{ campo: "emocion", red: "instagram", accion: "corrige", creadaEn: expect.any(String) }],
+      correcciones: [
+        { campo: "emocion", red: "instagram", accion: "corrige", marcaId: null, creadaEn: expect.any(String) },
+      ],
     })
     expect(leida?.marcas.map((m) => [m.marca, m.red, m.valor, m.frase, m.certeza, m.origen])).toEqual([
       ["emocion", "linkedin", "escepticismo", "No me lo creo", "baja", "extraccion"],

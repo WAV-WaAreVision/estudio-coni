@@ -195,16 +195,58 @@ describe("revisionDe", () => {
   const en = (minuto: number) => `2026-11-26T10:0${minuto}:00+00:00`
   it("says the latest of Coni's actions on that field and network, and nothing without one", () => {
     const correcciones = [
-      { campo: "emocion" as const, red: "instagram" as const, accion: "confirma" as const, creadaEn: en(1) },
-      { campo: "emocion" as const, red: "instagram" as const, accion: "corrige" as const, creadaEn: en(2) },
-      { campo: "tipo" as const, red: "todas" as const, accion: "confirma" as const, creadaEn: en(3) },
-      { campo: "problema" as const, red: "linkedin" as const, accion: "quita" as const, creadaEn: en(4) },
+      {
+        campo: "emocion" as const,
+        red: "instagram" as const,
+        accion: "confirma" as const,
+        marcaId: null,
+        creadaEn: en(1),
+      },
+      {
+        campo: "emocion" as const,
+        red: "instagram" as const,
+        accion: "corrige" as const,
+        marcaId: null,
+        creadaEn: en(2),
+      },
+      { campo: "tipo" as const, red: "todas" as const, accion: "confirma" as const, marcaId: null, creadaEn: en(3) },
+      {
+        campo: "problema" as const,
+        red: "linkedin" as const,
+        accion: "quita" as const,
+        marcaId: null,
+        creadaEn: en(4),
+      },
     ]
     expect(revisionDe(correcciones, "emocion", "instagram")).toBe(CORREGIDA_POR_TI)
     expect(revisionDe(correcciones, "tipo", "todas")).toBe(CONFIRMADA_POR_TI)
     expect(revisionDe(correcciones, "emocion", "linkedin")).toBeNull()
     expect(revisionDe(correcciones, "problema", "linkedin")).toBeNull()
     expect([CORREGIDA_POR_TI, CONFIRMADA_POR_TI]).toEqual(["Corregida por ti", "Confirmada por ti"])
+  })
+
+  it("tells apart two marks of the same field and network by their row, and reads a row without one by field and network", () => {
+    const correcciones = [
+      {
+        campo: "emocion" as const,
+        red: "instagram" as const,
+        accion: "confirma" as const,
+        marcaId: "m-1",
+        creadaEn: en(1),
+      },
+      {
+        campo: "emocion" as const,
+        red: "instagram" as const,
+        accion: "corrige" as const,
+        marcaId: "m-2",
+        creadaEn: en(2),
+      },
+      { campo: "dato" as const, red: "todas" as const, accion: "corrige" as const, marcaId: null, creadaEn: en(3) },
+    ]
+    expect(revisionDe(correcciones, "emocion", "instagram", "m-1")).toBe(CONFIRMADA_POR_TI)
+    expect(revisionDe(correcciones, "emocion", "instagram", "m-2")).toBe(CORREGIDA_POR_TI)
+    expect(revisionDe(correcciones, "emocion", "instagram", "m-3")).toBeNull()
+    expect(revisionDe(correcciones, "dato", "todas", "m-9")).toBe(CORREGIDA_POR_TI)
   })
 })
 
@@ -289,6 +331,17 @@ describe("the claim's address and the way back", () => {
     expect(volverDesde({ desde: "https://otro.sitio/biblioteca/autores/x" }, ID_DE_MATERIAL)).toEqual(alMaterial)
     expect(volverDesde({ desde: "/ajustes" }, ID_DE_MATERIAL)).toEqual(alMaterial)
     expect(volverDesde({ desde: [AUTOR, "/x"] }, ID_DE_MATERIAL)).toEqual({ href: AUTOR, texto: "Autor" })
+  })
+
+  it("goes back to the week's batch of tags", () => {
+    expect(volverDesde({ desde: "/biblioteca/etiquetas/revisar" }, ID_DE_MATERIAL)).toEqual({
+      href: "/biblioteca/etiquetas/revisar",
+      texto: "Etiquetas para revisar",
+    })
+    expect(volverDesde({ desde: "/biblioteca/etiquetas/otra" }, ID_DE_MATERIAL)).toEqual({
+      href: `/biblioteca/materiales/${ID_DE_MATERIAL}`,
+      texto: "Material",
+    })
   })
 })
 

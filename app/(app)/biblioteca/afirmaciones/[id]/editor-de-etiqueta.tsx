@@ -47,6 +47,13 @@ interface Propiedades {
   opciones: readonly GrupoDeOpciones[]
   conFrase: boolean
   quitable: boolean
+  /** The batch of 6c-2: «Cambiar» on its card shows this editor already open. */
+  abrirAlMontar?: boolean
+  /**
+   * Called whenever the editor closes, so the card can go back to its buttons; `guardado` after a save or a removal,
+   * not after «Cerrar». The card then puts the focus back itself.
+   */
+  alCerrar?: (guardado: boolean) => void
 }
 
 /** Where the focus goes once a tag closes: back to the tag, or to its row's «Agregar» after «Quitar». */
@@ -79,9 +86,11 @@ export function EditorDeEtiqueta({
   opciones,
   conFrase,
   quitable,
+  abrirAlMontar = false,
+  alCerrar,
 }: Propiedades) {
   const id = useId()
-  const [abierto, setAbierto] = useState(false)
+  const [abierto, setAbierto] = useState(abrirAlMontar)
   const [elegido, setElegido] = useState(actual?.valor ?? "")
   const [frase, setFrase] = useState(actual?.frase ?? "")
   const [porQue, setPorQue] = useState(actual?.porQue ?? "")
@@ -121,11 +130,15 @@ export function EditorDeEtiqueta({
     setAbierto(true)
   }
 
-  function cerrar(a: Foco["a"] = "etiqueta") {
+  function cerrar(a: Foco["a"] = "etiqueta", guardado = false) {
     setAbierto(false)
     setQuitando(false)
     setAviso(null)
     limpiarError()
+    if (alCerrar) {
+      alCerrar(guardado)
+      return
+    }
     focoPendiente = {
       afirmacionId,
       campo,
@@ -165,7 +178,7 @@ export function EditorDeEtiqueta({
           frase,
           porQue: pidePorQue(elegido) ? porQue : "",
         }),
-      () => cerrar(),
+      () => cerrar("etiqueta", true),
     )
   }
 
@@ -287,7 +300,7 @@ export function EditorDeEtiqueta({
                 onClick={() =>
                   ejecutar(
                     () => confirmarEtiquetaAccion({ afirmacionId, campo, red, marcaId }),
-                    () => cerrar(),
+                    () => cerrar("etiqueta", true),
                   )
                 }
               >
@@ -313,7 +326,7 @@ export function EditorDeEtiqueta({
                 alConfirmar={() =>
                   ejecutar(
                     () => quitarMarcaAccion({ afirmacionId, marca, red, marcaId }),
-                    () => cerrar("agregar"),
+                    () => cerrar("agregar", true),
                   )
                 }
                 alVolver={() => setQuitando(false)}
