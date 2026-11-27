@@ -673,3 +673,33 @@ export async function sembrarSemana(opciones: {
   }
   return { ...base, semana }
 }
+
+/**
+ * No doubtful tag and no batch (spec 6c-2): Inicio builds the week's batch on every visit, so a spec that leaves one
+ * would add a line to a later spec's Inicio. `salvo` keeps one claim's marks.
+ */
+export async function sinEtiquetasDudosas(opciones: { salvo?: string } = {}): Promise<void> {
+  await pool.query("delete from public.lotes_de_etiquetas")
+  await pool.query("update public.afirmaciones set tipo = 'consejo' where tipo = 'sin_clasificar'")
+  await pool.query("update public.afirmaciones set evidencia = 'estudio' where evidencia = 'sin_clasificar'")
+  await pool.query("update public.ganchos set certeza = 'alta' where certeza <> 'alta'")
+  await pool.query(
+    `delete from public.afirmacion_marcas
+      where afirmacion_id is distinct from $1::uuid and origen <> 'coni'
+        and (certeza = 'baja' or valor in ('otro', 'otra', 'sin_clasificar'))`,
+    [opciones.salvo ?? null],
+  )
+}
+
+/**
+ * The week's batch of three, built on the first visit: (1) IDEA_DE_CONI's tipo in sin_clasificar (an old claim: only
+ * «Cambiar»), (2) GANCHO_INSTAGRAM's hook type of medium certainty, (3) GANCHO_LINKEDIN's LinkedIn emotion of low
+ * certainty (Escepticismo).
+ */
+export async function sembrarLoteDeEtiquetas(): Promise<EscenaDeEtiquetas> {
+  const escena = await sembrarEtiquetas()
+  await sinEtiquetasDudosas({ salvo: escena.nueva })
+  await pool.query("update public.ganchos set certeza = 'media' where afirmacion_id = $1", [escena.instagram])
+  await pool.query("update public.afirmaciones set tipo = 'sin_clasificar' where id = $1", [escena.antigua])
+  return escena
+}
