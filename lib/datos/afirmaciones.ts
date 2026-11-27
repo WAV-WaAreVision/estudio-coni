@@ -21,7 +21,7 @@ const RED = z.enum(["linkedin", "instagram", "todas"])
 const ORIGEN = z.enum(["extraccion", "traduccion", "coni"])
 
 const COLUMNAS =
-  "id, texto, cita, tipo, evidencia, ubicacion, etiquetas_antiguas, publico, dolor, emocion, gancho, material_id, autor_id, tema_id, materiales!inner ( titulo, borrar_desde ), autores ( nombre, borrar_desde ), temas ( nombre ), afirmacion_marcas ( id, marca, red, valor, frase, certeza, por_que, origen, creada_en ), ganchos ( frase_exacta, frase_sin_gancho, tipo, certeza, origen ), correcciones_de_etiqueta ( campo, red, accion, creada_en )"
+  "id, texto, cita, tipo, evidencia, ubicacion, etiquetas_antiguas, publico, dolor, emocion, gancho, material_id, autor_id, tema_id, materiales!inner ( titulo, borrar_desde ), autores ( nombre, borrar_desde ), temas ( nombre ), afirmacion_marcas ( id, marca, red, valor, frase, certeza, por_que, origen, creada_en ), ganchos ( frase_exacta, frase_sin_gancho, tipo, certeza, origen ), correcciones_de_etiqueta ( campo, red, accion, marca_id, creada_en )"
 
 const FilaDeGancho = z.object({
   frase_exacta: z.string(),
@@ -66,7 +66,13 @@ const FilaDeAfirmacion = z.object({
   // `ganchos.afirmacion_id` is unique, so PostgREST embeds one object; an array is accepted in case it does not.
   ganchos: z.union([FilaDeGancho, z.array(FilaDeGancho)]).nullable(),
   correcciones_de_etiqueta: z.array(
-    z.object({ campo: z.enum(CAMPOS), red: RED, accion: z.enum(ACCIONES), creada_en: z.string() }),
+    z.object({
+      campo: z.enum(CAMPOS),
+      red: RED,
+      accion: z.enum(ACCIONES),
+      marca_id: z.string().nullable(),
+      creada_en: z.string(),
+    }),
   ),
 })
 
@@ -123,6 +129,7 @@ export async function leerAfirmacion(db: Db, id: string): Promise<AfirmacionLeid
       campo: correccion.campo,
       red: correccion.red,
       accion: correccion.accion,
+      marcaId: correccion.marca_id,
       creadaEn: correccion.creada_en,
     })),
   }

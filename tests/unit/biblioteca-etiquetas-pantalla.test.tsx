@@ -374,8 +374,8 @@ describe("EtiquetasDeAfirmacion", () => {
             }),
           ],
           correcciones: [
-            { campo: "emocion", red: "instagram", accion: "corrige", creadaEn },
-            { campo: "tipo", red: "todas", accion: "confirma", creadaEn },
+            { campo: "emocion", red: "instagram", accion: "corrige", marcaId: null, creadaEn },
+            { campo: "tipo", red: "todas", accion: "confirma", marcaId: null, creadaEn },
           ],
         })}
         catalogo={CATALOGO_DE_PRUEBA}

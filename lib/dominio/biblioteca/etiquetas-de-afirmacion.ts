@@ -206,6 +206,8 @@ export interface CorreccionLeida {
   campo: CampoDeEtiqueta
   red: RedDeEtiqueta
   accion: Accion
+  /** The mark's row (20261114000900); null for tipo, evidencia, the hook and rows written before 6c-2. */
+  marcaId: string | null
   creadaEn: string
 }
 
@@ -257,14 +259,21 @@ export function agruparMarcas(marcas: readonly MarcaLeida[]): MarcasAgrupadas {
 export const CORREGIDA_POR_TI = "Corregida por ti"
 export const CONFIRMADA_POR_TI = "Confirmada por ti"
 
-/** What the latest of her actions on that field and network says; a removal says nothing (the row is gone). */
+/**
+ * What the latest of her actions on that tag says; a removal says nothing (the row is gone). A log row with a mark's
+ * row counts only for that mark; one without (tipo, evidencia, the hook, rows from before 6c-2) by field and network.
+ */
 export function revisionDe(
   correcciones: readonly CorreccionLeida[],
   campo: CampoDeEtiqueta,
   red: RedDeEtiqueta,
+  marcaId: string | null = null,
 ): string | null {
   const ultima = correcciones
-    .filter((c) => c.campo === campo && c.red === red && c.accion !== "quita")
+    .filter(
+      (c) =>
+        c.campo === campo && c.red === red && c.accion !== "quita" && (c.marcaId === null || c.marcaId === marcaId),
+    )
     .reduce<CorreccionLeida | null>(
       (masNueva, c) => (masNueva === null || Date.parse(c.creadaEn) > Date.parse(masNueva.creadaEn) ? c : masNueva),
       null,
@@ -336,22 +345,25 @@ export const RUTA_DE_AFIRMACIONES = "/biblioteca/afirmaciones"
 export const hrefDeAfirmacion = (id: string, desde?: string): string =>
   desde ? `${RUTA_DE_AFIRMACIONES}/${id}?desde=${encodeURIComponent(desde)}` : `${RUTA_DE_AFIRMACIONES}/${id}`
 
-// Only a Biblioteca page of one author, topic, material or hook: anything else in the address is ignored.
-const DESDE = /^\/biblioteca\/(autores|temas|materiales|ganchos)\/[0-9a-f-]{36}$/
+// A Biblioteca page of one author, topic, material or hook, or the week's batch of tags (6c-2): anything else in the
+// address is ignored.
+const DESDE = /^\/biblioteca\/(?:(autores|temas|materiales|ganchos)\/[0-9a-f-]{36}|(etiquetas)\/revisar)$/
 const VOLVER_A: Readonly<Record<string, string>> = {
   autores: "Autor",
   temas: "Tema",
   materiales: "Material",
   ganchos: "Gancho",
+  etiquetas: "Etiquetas para revisar",
 }
 
-/** «Volver» to the page that opened the claim, else to its material (plan decision 11). */
+/** «Volver» to the page that opened the claim, else to its material (plan 6c-1, decision 11). */
 export function volverDesde(
   consulta: Record<string, string | string[] | undefined>,
   materialId: string,
 ): { href: string; texto: string } {
   const pedido = Array.isArray(consulta.desde) ? consulta.desde[0] : consulta.desde
-  const seccion = pedido ? DESDE.exec(pedido)?.[1] : undefined
+  const partes = pedido ? DESDE.exec(pedido) : null
+  const seccion = partes ? (partes[1] ?? partes[2]) : undefined
   const texto = seccion ? VOLVER_A[seccion] : undefined
   return pedido && texto ? { href: pedido, texto } : { href: `/biblioteca/materiales/${materialId}`, texto: "Material" }
 }
