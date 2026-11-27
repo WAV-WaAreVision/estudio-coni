@@ -568,3 +568,36 @@ describe("the merges waiting for Coni", () => {
     expect(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, fusionesPorDecidir: 0 }).recordatorios).toEqual([])
   })
 })
+
+describe("the doubtful tags of the week (change 6c-2)", () => {
+  it("asks her to review one, links to the batch and counts it as attention", () => {
+    const inicio = construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, etiquetasPorRevisar: 1 })
+    expect(inicio.recordatorios).toEqual([
+      {
+        titulo: "Tienes 1 etiqueta para revisar",
+        detalle: "Claude no estaba segura de esta. Confírmala o cámbiala.",
+        accion: { etiqueta: "Revisar etiquetas", href: "/biblioteca/etiquetas/revisar" },
+      },
+    ])
+    expect(inicio.titulo).toBe("Una cosa necesita tu atención")
+  })
+
+  it("counts several, after the merges line", () => {
+    const inicio = construirInicio({
+      piezas: [],
+      ahora: AHORA,
+      zona: ZONA,
+      fusionesPorDecidir: 2,
+      etiquetasPorRevisar: 3,
+    })
+    expect(inicio.recordatorios.map((r) => r.titulo)).toEqual([
+      "Revisa 2 fusiones de temas",
+      "Tienes 3 etiquetas para revisar",
+    ])
+    expect(inicio.recordatorios[1]?.detalle).toBe("Claude no estaba segura de estas. Confírmalas o cámbialas.")
+  })
+
+  it("says nothing when none is pending", () => {
+    expect(construirInicio({ piezas: [], ahora: AHORA, zona: ZONA, etiquetasPorRevisar: 0 }).recordatorios).toEqual([])
+  })
+})

@@ -16,6 +16,7 @@ import { leerAvisosSinLeer } from "@/lib/datos/avisos"
 import { leerConsultas } from "@/lib/datos/consultas"
 import { contarPropuestasParaInicio } from "@/lib/datos/fusiones"
 import { leerDatosDeInicio } from "@/lib/datos/inicio"
+import { contarEtiquetasParaInicio } from "@/lib/datos/lote-de-etiquetas"
 import { contarLinkedinSinNumeros } from "@/lib/datos/metricas-linkedin"
 import { leerPilares } from "@/lib/datos/pilares"
 import { piezaTrabajando } from "@/lib/dominio/estados"
@@ -49,11 +50,13 @@ function nuevas(cantidad: number): string | undefined {
 export default async function Inicio() {
   const { db } = await exigirConi()
   const ahora = Date.now()
-  const [datos, pilares, linkedinSinNumeros, fusionesPorDecidir] = await Promise.all([
+  // Reading the batch is what builds it on Coni's first visit of the week (spec 6c-2).
+  const [datos, pilares, linkedinSinNumeros, fusionesPorDecidir, etiquetasPorRevisar] = await Promise.all([
     leerDatosDeInicio(db, ahora),
     leerPilares(db),
     contarLinkedinSinNumeros(db, ahora),
     contarPropuestasParaInicio(db),
+    contarEtiquetasParaInicio(db),
   ])
   const inicio = construirInicio({
     piezas: datos.piezas,
@@ -62,6 +65,7 @@ export default async function Inicio() {
     pausas: datos.pausas,
     linkedinSinNumeros,
     fusionesPorDecidir,
+    etiquetasPorRevisar,
   })
   const ideas = sugerirIdeas({ banco: datos.banco, recientes: datos.recientes, cuantas: IDEAS_DE_LA_SEMANA })
   const ganchos = new Map(datos.banco.map((idea) => [idea.id, idea.gancho]))
