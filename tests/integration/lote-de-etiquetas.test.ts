@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import type pg from "pg"
 import { afterAll, describe, expect, it } from "vitest"
 import { asumir, como, comoConi, comoMantenedor, comoOtra, comoPostgres, fallaCon, pool } from "./db"
@@ -247,5 +248,19 @@ describe("lote_de_la_semana", () => {
       b.release()
       await semanaLibre()
     }
+  })
+
+  it("starts the week on Monday in America/Santiago, not in UTC", async () => {
+    // The week expression of lote_de_la_semana() (supabase/migrations/20261114000900_lote_de_etiquetas.sql, v_semana),
+    // kept here once: the test checks the migration still uses it, then evaluates it at fixed instants.
+    const semanaDe = (instante: string) => `date_trunc('week', ${instante} at time zone 'America/Santiago')::date`
+    const migracion = readFileSync("supabase/migrations/20261114000900_lote_de_etiquetas.sql", "utf-8")
+    expect(migracion).toContain(`v_semana date := ${semanaDe("now()")};`)
+    const { rows } = await pool.query<{ domingo: string; lunes: string }>(
+      `select ${semanaDe("$1::timestamptz")}::text as domingo, ${semanaDe("$2::timestamptz")}::text as lunes`,
+      // Sunday 29-11-2026 23:30 in Santiago (UTC-3 in summer) is already Monday 02:30 in UTC; Monday 00:30 in Santiago.
+      ["2026-11-30T02:30:00Z", "2026-11-30T03:30:00Z"],
+    )
+    expect(rows[0]).toEqual({ domingo: "2026-11-23", lunes: "2026-11-30" })
   })
 })

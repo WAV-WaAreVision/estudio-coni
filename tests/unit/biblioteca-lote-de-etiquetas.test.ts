@@ -39,11 +39,20 @@ describe("porQueEstaAqui", () => {
 })
 
 describe("progresoDeLote and pendientesDeLote", () => {
-  it("count the done items over the whole batch", () => {
+  it("count the pending items of the batch for Inicio", () => {
     const items = [item(), item({ posicion: 2, hecha: true }), item({ posicion: 3 })]
-    expect(progresoDeLote(items)).toBe("1 de 3")
     expect(pendientesDeLote(items)).toBe(2)
     expect(pendientesDeLote([])).toBe(0)
+  })
+
+  it("counts the done cards over the cards drawn, so it matches the page", () => {
+    const tarjetas = [item(), item({ posicion: 2, hecha: true })].flatMap((i) => {
+      const t = tarjetaDeItem(i, afirmacionDePrueba(), CATALOGO_DE_PRUEBA)
+      return t ? [t] : []
+    })
+    expect(tarjetas.map((t) => t.estado)).toEqual(["pendiente", "hecha"])
+    expect(progresoDeLote(tarjetas)).toBe("1 de 2")
+    expect(progresoDeLote([])).toBe("0 de 0")
   })
 })
 

@@ -113,11 +113,36 @@ describe("the review page", () => {
     expect(arbol.filter((e) => e.type === TarjetaDeEtiquetaDudosa).map((e) => e.props.tarjeta)).toEqual(tarjetas)
   })
 
-  it("says the week is done when every item is", async () => {
+  it("says the week is done when every card is", async () => {
     const items = [item({ hecha: true })]
-    datos.leerRevisionDeEtiquetas.mockResolvedValueOnce({ estado: "lista", items, tarjetas: [] })
+    datos.leerRevisionDeEtiquetas.mockResolvedValueOnce({ estado: "lista", items, tarjetas: items.map(tarjeta) })
     const arbol = elementos(await RevisarEtiquetas())
     expect(textos(arbol)).toContain("1 de 1")
     expect(textos(arbol)).toContain("Listo por esta semana. El próximo lote llega el lunes.")
+  })
+
+  it("leaves a done item without a card out of the progress, so the counter matches the cards", async () => {
+    // Item 2's claim was hidden after the batch was built: done, and no card for it.
+    const items = [item(), item({ posicion: 2, afirmacionId: "otra", hecha: true })]
+    datos.leerRevisionDeEtiquetas.mockResolvedValueOnce({
+      estado: "lista",
+      items,
+      tarjetas: [tarjeta(items[0] ?? item())],
+    })
+    const arbol = elementos(await RevisarEtiquetas())
+    expect(textos(arbol)).toContain("0 de 1")
+    expect(textos(arbol)).not.toContain("1 de 2")
+    expect(textos(arbol)).not.toContain("Listo por esta semana. El próximo lote llega el lunes.")
+  })
+
+  it("says the week is done, with no counter, when every item is done and none has a card", async () => {
+    datos.leerRevisionDeEtiquetas.mockResolvedValueOnce({
+      estado: "lista",
+      items: [item({ hecha: true })],
+      tarjetas: [],
+    })
+    const arbol = elementos(await RevisarEtiquetas())
+    expect(textos(arbol)).toContain("Listo por esta semana. El próximo lote llega el lunes.")
+    expect(textos(arbol).some((t) => / de \d/.test(t))).toBe(false)
   })
 })

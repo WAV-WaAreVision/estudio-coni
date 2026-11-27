@@ -1,6 +1,6 @@
 import { Volver } from "@/components/ui/volver"
 import { leerRevisionDeEtiquetas } from "@/lib/datos/lote-de-etiquetas"
-import { pendientesDeLote, progresoDeLote, TEXTOS_DE_REVISION } from "@/lib/dominio/biblioteca/lote-de-etiquetas"
+import { progresoDeLote, TEXTOS_DE_REVISION } from "@/lib/dominio/biblioteca/lote-de-etiquetas"
 import { exigirConi } from "@/lib/sesion/coni"
 import { TarjetaDeEtiquetaDudosa } from "./tarjeta-de-etiqueta"
 
@@ -18,7 +18,7 @@ export default async function RevisarEtiquetas() {
       ? TEXTOS_DE_REVISION.error
       : items.length === 0
         ? TEXTOS_DE_REVISION.vacio
-        : pendientesDeLote(items) === 0
+        : tarjetas.every((tarjeta) => tarjeta.estado === "hecha")
           ? TEXTOS_DE_REVISION.listo
           : null
   return (
@@ -26,7 +26,7 @@ export default async function RevisarEtiquetas() {
       <Volver href="/">Inicio</Volver>
       <header className="grid gap-1.5">
         <h1 className="text-pantalla">{TEXTOS_DE_REVISION.titulo}</h1>
-        {items.length > 0 ? <p className="text-meta text-apagado">{progresoDeLote(items)}</p> : null}
+        {tarjetas.length > 0 ? <p className="text-meta text-apagado">{progresoDeLote(tarjetas)}</p> : null}
       </header>
       {aviso ? <p className="text-cuerpo text-apagado">{aviso}</p> : null}
       {tarjetas.length > 0 ? (

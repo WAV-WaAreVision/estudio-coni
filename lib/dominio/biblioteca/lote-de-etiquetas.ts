@@ -56,9 +56,12 @@ export function porQueEstaAqui(motivo: MotivoDeDuda, porQue: string | null): str
 
 export const pendientesDeLote = (items: readonly ItemDeLote[]): number => items.filter((i) => !i.hecha).length
 
-/** «2 de 5»: the done items over the batch. */
-export function progresoDeLote(items: readonly ItemDeLote[]): string {
-  return `${items.length - pendientesDeLote(items)} de ${items.length}`
+/**
+ * «2 de 5»: the done cards over the cards drawn. Counted on cards, not items: a done item without a card (its claim
+ * hidden after the batch was built) would make the counter disagree with the page.
+ */
+export function progresoDeLote(tarjetas: readonly TarjetaDeEtiqueta[]): string {
+  return `${tarjetas.filter((t) => t.estado === "hecha").length} de ${tarjetas.length}`
 }
 
 export function lineaDeEtiquetasPorRevisar(pendientes: number): string {
